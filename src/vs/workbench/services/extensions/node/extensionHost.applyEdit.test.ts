@@ -71,7 +71,7 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
         }
     });
 
-    it("a CLOSED file is edited on disk and an open one in its buffer; one undo reverts both", async () => {
+    it("[api:workspace.applyEdit] a CLOSED file gets a dirty model, the disk stays; one undo reverts both", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "alpha" },
             extensions: [FIXTURE],
@@ -87,14 +87,16 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
 
             expect(applied).toBe(true);
             expect(active?.getText()).toBe("Xalpha");
-            expect(fs.readFileSync(closed, "utf8")).toBe("Xbeta");
+            const model = harness.group.textFileModels.get(Uri.file(closed));
+            expect(model?.getText()).toBe("Xbeta");
+            expect(model?.isModified).toBe(true);
+            expect(fs.readFileSync(closed, "utf8")).toBe("beta");
             expect(active?.isModified).toBe(true);
 
-            // A step on a closed file first checks the disk asynchronously, so wait for the rollback.
             active?.undo();
             await vi.waitFor(() => {
                 expect(active?.getText()).toBe("alpha");
-                expect(fs.readFileSync(closed, "utf8")).toBe("beta");
+                expect(model?.getText()).toBe("beta");
             });
         } finally {
             await harness.dispose();
@@ -158,7 +160,7 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
             await settle();
 
             expect(applied).toBe(true);
-            expect(fs.readFileSync(created, "utf8")).toBe("moved\ntail\n");
+            expect(harness.group.textFileModels.get(Uri.file(created))?.getText()).toBe("moved\ntail\n");
             expect(fs.existsSync(removed)).toBe(false);
         } finally {
             await harness.dispose();

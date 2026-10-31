@@ -8,6 +8,8 @@ export function syncSourceOf(snapshot: IWireDocumentSyncSnapshot): IDocumentSync
         languageId: snapshot.languageId,
         version: snapshot.version,
         isDirty: snapshot.isDirty ?? false,
+        eol: 1,
+        encoding: "utf8",
         isTooLargeForTokenization: false,
         length: snapshot.text.length,
         getText: () => snapshot.text,

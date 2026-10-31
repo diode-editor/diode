@@ -1,6 +1,7 @@
 import * as path from "node:path";
 
 import { Uri } from "../../../../base/common/uri.ts";
+import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import { clampPositionToDocument } from "../../../../editor/common/core/iPosition.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -42,45 +43,47 @@ interface ReversibleOp {
 }
 
 /**
- * Edits of ONE resource in its original coordinates (`vscode.WorkspaceEdit` semantics: they don't shift
- * each other and don't overlap), so they are collected and applied as one batch.
+ * Edits of ONE resource in the coordinates of its text at this point of the edit (`vscode.WorkspaceEdit` semantics:
+ * they don't shift each other and don't overlap), so they are collected and applied as one batch. A file operation
+ * ends the batch: the edits after it are another slot, as in upstream's grouping by edit type.
  */
-type ITextSlot =
-    | {
-          /** `uri.toString()`. */
-          readonly resource: string;
-          /** `null` — untitled buffer. */
-          readonly filePath: string | null;
-          readonly buffer: IBulkEditBuffer;
-          /** Before the edits — coordinates are clamped against it. */
-          readonly base: string;
-          readonly edits: ITextEdit[];
-      }
-    | {
-          readonly resource: string;
-          readonly filePath: string;
-          readonly buffer: null;
-          readonly base: string;
-          readonly encoding: string;
-          /**
-           * The file appeared in this same edit: before the step is redone it doesn't exist yet — the step's
-           * file operation that precedes the edit brings it back.
-           */
-          readonly bornInEdit: boolean;
-          readonly edits: ITextEdit[];
-      };
+interface ITextSlot {
+    /** `uri.toString()`. */
+    readonly resource: string;
+    /** `null` — untitled buffer. */
+    readonly filePath: string | null;
+    /** Before the edits — coordinates are clamped against it. */
+    readonly base: string;
+    /** Used only when the edit goes to disk past any model. */
+    readonly encoding: string;
+    /**
+     * The file appeared in this same edit: before the step is redone it doesn't exist yet — the step's
+     * file operation that precedes the edit brings it back.
+     */
+    readonly bornInEdit: boolean;
+    readonly edits: ITextEdit[];
+    setEndOfLine?: EndOfLine;
+}
 
 /** In the order the extension sent the operations. */
 type PlanEntry =
     | { readonly kind: "file"; readonly edit: WorkspaceFileEdit }
     | { readonly kind: "text"; readonly slot: ITextSlot };
 
-/** "What will be on disk by the time of the operation": without it "create a file and write to it right away" can't be validated. */
+/**
+ * "What the resource will hold by the time of the operation": without it "create a file and write to it right away"
+ * can't be validated. The key is a path for a file, `uri.toString()` for anything else.
+ */
 class ResourceProjection {
-    public constructor(private readonly files: IFileService) {}
+    public constructor(
+        private readonly files: IFileService,
+        /** The text of an open model: it wins over the disk, unsaved edits included. */
+        private readonly liveText: (key: string) => string | null,
+    ) {}
 
-    /** `null` — "the resource won't exist"; paths not here were not touched by the edit — the disk answers for them. */
+    /** `null` — "the resource won't exist"; keys not here were not touched by the edit. */
     private readonly state = new Map<string, string | null>();
+    private readonly born = new Set<string>();
 
     public exists(filePath: string): Promise<boolean> {
         const known = this.state.get(filePath);
@@ -91,17 +94,30 @@ class ResourceProjection {
     /** `null` — no file. */
     public read(filePath: string): Promise<{ text: string; encoding: string } | null> {
         const known = this.state.get(filePath);
-        if (known === undefined) return readTextFile(this.files, filePath);
         if (known === null) return Promise.resolve(null);
-        return Promise.resolve({ text: known, encoding: DEFAULT_PROJECTION_ENCODING });
+        if (known !== undefined) return Promise.resolve({ text: known, encoding: DEFAULT_PROJECTION_ENCODING });
+        const live = this.liveText(filePath);
+        if (live !== null) return Promise.resolve({ text: live, encoding: DEFAULT_PROJECTION_ENCODING });
+        // Not a path: nothing on disk answers for a foreign scheme.
+        return path.isAbsolute(filePath) ? readTextFile(this.files, filePath) : Promise.resolve(null);
     }
 
     public knows(filePath: string): boolean {
         return this.state.has(filePath);
     }
 
+    public isBorn(filePath: string): boolean {
+        return this.born.has(filePath);
+    }
+
     public createFile(filePath: string, contents: string): void {
         this.state.set(filePath, contents);
+        this.born.add(filePath);
+    }
+
+    /** The text after an earlier batch of edits of this same workspace edit. */
+    public setText(key: string, text: string): void {
+        this.state.set(key, text);
     }
 
     public remove(filePath: string): void {
@@ -114,6 +130,7 @@ class ResourceProjection {
         // A directory is projected as empty: an edit on the new path hits the FS anyway, not the projection.
         // Stryker disable next-line StringLiteral: the contents of such a projection source are unknown — any value is equally unobservable
         this.state.set(to, kept === null ? "" : kept.text);
+        this.born.add(to);
     }
 }
 
@@ -179,8 +196,8 @@ export class WorkspaceEditService {
 
     /**
      * `false` — NOTHING was applied: the whole edit is validated before applying, since the extension's `applyEdit()`
-     * resolves with this value. An open resource is edited through the buffer and stays dirty (as in VS Code),
-     * a closed one is written to disk.
+     * resolves with this value. A resource is edited through its model and stays dirty, as in VS Code, whether or not
+     * it has a tab: a closed one gets a live model, and the file changes only on save.
      */
     public async applyWorkspaceEdit(
         edits: BulkEdit,
@@ -195,9 +212,10 @@ export class WorkspaceEditService {
 
         const ops: ReversibleOp[] = [];
         const resources: string[] = [];
+        const edited = new Map<string, IBulkEditBuffer>();
         for (const entry of plan) {
             try {
-                await this.applyPlanEntry(entry, label, ops, resources);
+                await this.applyPlanEntry(entry, label, ops, resources, edited);
             } catch {
                 // Write failure after validation (race, permissions): roll back what was applied — a half-applied edit is not allowed.
                 for (let i = ops.length - 1; i >= 0; i--) await ops[i].undo();
@@ -206,16 +224,12 @@ export class WorkspaceEditService {
         }
 
         if (ops.length > 0) {
-            const touched = plan
-                .flatMap((entry) => (entry.kind === "text" ? [entry.slot] : []))
-                .filter((slot) => slot.buffer !== null)
-                .map((slot) => slot.resource);
             this.undoRedo.pushWorkspaceElement(
                 buildUndoElement(label, resources, ops),
-                this.buffers.undoParticipants(touched),
+                this.buffers.undoParticipants([...edited.keys()]),
             );
         }
-        if (options?.respectAutoSaveConfig === true) await this.saveRefactoring(plan);
+        if (options?.respectAutoSaveConfig === true) await this.saveRefactoring(plan, edited);
         return true;
     }
 
@@ -223,26 +237,27 @@ export class WorkspaceEditService {
      * Upstream: `BulkEditService._saveAll`. Without saving the buffers, "Move to a new file" would leave the new
      * file on disk and the source only in the buffer.
      */
-    private async saveRefactoring(plan: readonly PlanEntry[]): Promise<void> {
+    private async saveRefactoring(
+        plan: readonly PlanEntry[],
+        edited: ReadonlyMap<string, IBulkEditBuffer>,
+    ): Promise<void> {
         if (!this.config.get("files.refactoring.autoSave")) return;
         if (touchedResources(plan).size <= 1) return;
-        const buffers = plan.flatMap((entry) =>
-            entry.kind === "text" && entry.slot.buffer !== null ? [entry.slot.buffer] : [],
-        );
-        await Promise.allSettled(buffers.map((buffer) => buffer.save()));
+        await Promise.allSettled([...edited.values()].map((buffer) => buffer.save()));
     }
 
     /** `null` — the whole edit is rejected. */
     private async planWorkspaceEdit(edits: BulkEdit): Promise<PlanEntry[] | null> {
         const plan: PlanEntry[] = [];
-        const projection = new ResourceProjection(this.files);
-        const slots = new Map<string, ITextSlot>();
+        const projection = new ResourceProjection(this.files, (key) => this.liveTextOf(key));
+        let slots = new Map<string, ITextSlot>();
 
         for (const edit of edits) {
             if (isResourceFileEdit(edit)) {
-                // The base of the resource's text edits is already taken, there is no way to move it to the new path. Extensions
-                // send the reverse order (operation, then edits), so the edit is rejected.
-                if (touchesTextSlot(edit, slots)) return null;
+                for (const slot of slots.values()) {
+                    projection.setText(slotKey(slot), applyEditsToText(slot.base, slot.edits, slot.setEndOfLine));
+                }
+                slots = new Map();
                 if (!(await validateFileEdit(edit, projection))) return null;
                 if (await skipsFileEdit(edit, projection)) continue;
                 await projectFileEdit(edit, projection);
@@ -250,7 +265,7 @@ export class WorkspaceEditService {
                 continue;
             }
 
-            if (edit.edits.length === 0) continue;
+            if (edit.edits.length === 0 && edit.setEndOfLine === undefined) continue;
             const known = slots.get(edit.resource);
             let slot: ITextSlot;
             if (known === undefined) {
@@ -262,6 +277,7 @@ export class WorkspaceEditService {
             } else {
                 slot = known;
             }
+            if (edit.setEndOfLine !== undefined) slot.setEndOfLine = edit.setEndOfLine;
             const doc = new TextDocument(slot.base);
             for (const item of edit.edits) {
                 const start = clampPositionToDocument(doc, item.range.start);
@@ -278,27 +294,26 @@ export class WorkspaceEditService {
         return plan;
     }
 
+    private liveTextOf(key: string): string | null {
+        const target = this.buffers.get(path.isAbsolute(key) ? Uri.file(key).toString() : key);
+        return target === null || target === "read-only" ? null : target.text();
+    }
+
     private async openTextSlot(resource: string, projection: ResourceProjection): Promise<ITextSlot | null> {
         const uri = Uri.parse(resource);
-        const target = this.buffers.get(resource);
-        if (target === "read-only") return null;
-        if (target !== null) {
-            const filePath = uri.scheme === "file" ? uri.fsPath : null;
-            return { resource, filePath, buffer: target, base: target.text(), edits: [] };
-        }
         // Gate on the SCHEME, not the derived path: a foreign uri can have a valid path (`probe:/etc/x`),
         // and the edit would go to an unrelated file.
-        if (uri.scheme !== "file") return null;
-        const filePath = uri.fsPath;
-        const source = await projection.read(filePath);
+        const filePath = uri.scheme === "file" ? uri.fsPath : null;
+        const key = filePath ?? resource;
+        if (!projection.knows(key) && this.buffers.get(resource) === "read-only") return null;
+        const source = await projection.read(key);
         if (source === null) return null;
         return {
             resource,
             filePath,
-            buffer: null,
             base: source.text,
             encoding: source.encoding,
-            bornInEdit: projection.knows(filePath),
+            bornInEdit: projection.isBorn(key),
             edits: [],
         };
     }
@@ -308,23 +323,32 @@ export class WorkspaceEditService {
         label: string,
         ops: ReversibleOp[],
         resources: string[],
+        edited: Map<string, IBulkEditBuffer>,
     ): Promise<void> {
         if (entry.kind === "file") {
             await this.applyOne(entry.edit, ops, resources);
             return;
         }
         const slot = entry.slot;
-        if (slot.buffer !== null) {
+        // Looked up now, not in the plan: an earlier operation of this edit may have moved or replaced the model.
+        const target = this.buffers.get(slot.resource);
+        if (target === "read-only") throw new Error(`Read-only resource: ${slot.resource}`);
+        const buffer = target ?? this.buffers.open(slot.resource);
+        if (buffer !== null) {
             if (slot.filePath !== null) resources.push(slot.filePath);
-            const step = slot.buffer.applyEdits(slot.edits, label);
+            edited.set(slot.resource, buffer);
+            const step = slot.edits.length === 0 ? null : buffer.applyEdits(slot.edits, label);
             // `null` — the edits changed nothing; this is not a refusal.
             if (step !== null) ops.push(step);
+            const eolStep = slot.setEndOfLine === undefined ? null : buffer.setEol(slot.setEndOfLine);
+            if (eolStep !== null) ops.push(eolStep);
             return;
         }
         const filePath = slot.filePath;
+        if (filePath === null) throw new Error(`No buffer for ${slot.resource}`);
         resources.push(filePath);
         const before = slot.base;
-        const after = applyEditsToText(before, slot.edits);
+        const after = applyEditsToText(before, slot.edits, slot.setEndOfLine);
         const encoding = slot.encoding;
         const bornInEdit = slot.bornInEdit;
         const files = this.files;
@@ -370,7 +394,9 @@ export class WorkspaceEditService {
             const to = edit.to;
             // Always snapshot the target: if it was taken in a race, undo restores its contents.
             const replaced = await keepAside(files, to);
+            await files.createFolder(Uri.file(path.dirname(to)));
             await moveToPath(files, from, to);
+            if (replaced !== null) this.buffers.didReplaceOnDisk(Uri.file(to).toString());
             let current = to;
             resources.push(from, to);
             ops.push({
@@ -430,12 +456,14 @@ export class WorkspaceEditService {
             // create added (and doesn't touch directories that already existed).
             const createdRoot = await shallowestMissingAncestor(files, to);
             const contents = edit.contents ?? "";
+            const bytes = typeof contents === "string" ? new TextEncoder().encode(contents) : contents;
             const doCreate = async (): Promise<void> => {
                 await files.createFolder(Uri.file(path.dirname(to)));
                 if (edit.directory) await files.createFolder(Uri.file(to));
-                else await files.writeFile(Uri.file(to), new TextEncoder().encode(contents));
+                else await files.writeFile(Uri.file(to), bytes);
             };
             await doCreate();
+            if (replaced !== null) this.buffers.didReplaceOnDisk(Uri.file(to).toString());
             resources.push(to);
             ops.push({
                 undo: async () => {
@@ -481,10 +509,15 @@ function buildUndoElement(label: string, resources: readonly string[], ops: read
     };
 }
 
+function slotKey(slot: ITextSlot): string {
+    return slot.filePath ?? slot.resource;
+}
+
 /** Original coordinates, no overlaps. */
-function applyEditsToText(text: string, edits: readonly ITextEdit[]): string {
+function applyEditsToText(text: string, edits: readonly ITextEdit[], setEndOfLine?: EndOfLine): string {
     const doc = new TextDocument(text);
     doc.applyEdits(edits);
+    if (setEndOfLine !== undefined) doc.setEol(setEndOfLine);
     return doc.serialize();
 }
 
@@ -517,10 +550,16 @@ async function validateFileEdit(edit: WorkspaceFileEdit, projection: ResourcePro
         return (await projection.exists(edit.from)) || edit.ignoreIfNotExists === true;
     }
     if (edit.kind === "rename" && !(await projection.exists(edit.from))) return false;
+    // A rename onto itself is a no-op ({@link skipsFileEdit}), not a collision.
+    if (edit.kind === "rename" && edit.from === edit.to) return true;
     if (!(await projection.exists(edit.to))) return true;
     // An occupied target without explicit permission — the edit is not applied.
-    if (edit.ignoreIfExists === true) return true;
-    return edit.overwrite === true;
+    return edit.overwrite === true || skipsOccupiedTarget(edit);
+}
+
+/** Upstream `bulkFileEdits`: only with `overwrite` not given at all; an explicit `false` is a collision. */
+function skipsOccupiedTarget(edit: { readonly overwrite?: boolean; readonly ignoreIfExists?: boolean }): boolean {
+    return edit.overwrite === undefined && edit.ignoreIfExists === true;
 }
 
 /**
@@ -529,12 +568,14 @@ async function validateFileEdit(edit: WorkspaceFileEdit, projection: ResourcePro
  */
 async function skipsFileEdit(edit: WorkspaceFileEdit, projection: ResourceProjection): Promise<boolean> {
     if (edit.kind === "delete") return !(await projection.exists(edit.from));
-    return edit.overwrite !== true && (await projection.exists(edit.to));
+    if (edit.kind === "rename" && edit.from === edit.to) return true;
+    return skipsOccupiedTarget(edit) && (await projection.exists(edit.to));
 }
 
 async function projectFileEdit(edit: WorkspaceFileEdit, projection: ResourceProjection): Promise<void> {
     if (edit.kind === "create") {
-        projection.createFile(edit.to, edit.contents ?? "");
+        const contents = edit.contents ?? "";
+        projection.createFile(edit.to, typeof contents === "string" ? contents : new TextDecoder().decode(contents));
         return;
     }
     // Stryker disable next-line ConditionalExpression: `true` sends delete into this branch too, and `rename` starts with `remove(from)` — nobody reads the write to a nonexistent path, no observable difference
@@ -559,10 +600,6 @@ function touchedResources(plan: readonly PlanEntry[]): Set<string> {
 
 function fileEditPaths(edit: WorkspaceFileEdit): string[] {
     return edit.kind === "rename" ? [edit.from, edit.to] : [edit.kind === "delete" ? edit.from : edit.to];
-}
-
-function touchesTextSlot(edit: WorkspaceFileEdit, slots: ReadonlyMap<string, ITextSlot>): boolean {
-    return fileEditPaths(edit).some((filePath) => slots.has(Uri.file(filePath).toString()));
 }
 
 /** The file itself is left alone — writing and renaming replace the target on their own. `null` — no target or it's not a file. */

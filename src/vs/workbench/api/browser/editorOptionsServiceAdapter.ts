@@ -137,17 +137,25 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         editor.focusEditor();
     }
 
-    public applyActiveEditorEdits(uri: string, edits: readonly IWireEditorEdit[]): boolean {
+    public applyActiveEditorEdits(
+        uri: string,
+        edits: readonly IWireEditorEdit[],
+        options: { version?: number; setEndOfLine?: EndOfLine } = {},
+    ): boolean {
         // The edit targets the document (the model is shared): any tab of the resource in any group will do.
         const editor = this.anyEditorFor(uri);
         // `EditorViewState` rejects a read-only edit: the extension's `TextEditor.edit()` resolves
         // with this reply, so it must not report false success (same as VS Code).
-        if (editor === null || editor.readOnly || edits.length === 0) return false;
+        if (editor === null || editor.readOnly) return false;
+        if (edits.length === 0 && options.setEndOfLine === undefined) return false;
+        // Upstream `$tryApplyEdits`: the edit was built against a text that is no longer there.
+        if (options.version !== undefined && options.version !== editor.model.document.versionId) return false;
         const textEdits = this.toTextEdits(editor, edits);
         // Overlapping edits would apply to already consumed text: reject the whole batch,
         // like `Overlapping ranges are not allowed` in vscode.
         if (textEdits === null) return false;
-        editor.applyExternalEdits(textEdits, "extension edit");
+        if (textEdits.length > 0) editor.applyExternalEdits(textEdits, "extension edit");
+        if (options.setEndOfLine !== undefined) editor.setEol(options.setEndOfLine);
         return true;
     }
 
@@ -214,7 +222,11 @@ function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null 
     const result: BulkEditOperation[] = [];
     for (const op of ops) {
         if (op.kind === "text") {
-            result.push({ resource: op.resource, edits: op.edits });
+            result.push({
+                resource: op.resource,
+                edits: op.edits,
+                ...(op.setEndOfLine === undefined ? {} : { setEndOfLine: op.setEndOfLine }),
+            });
             continue;
         }
         if (op.kind === "rename") {
@@ -225,7 +237,7 @@ function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null 
                 kind: "rename",
                 from,
                 to,
-                ...(op.overwrite === true ? { overwrite: true } : {}),
+                ...(op.overwrite === undefined ? {} : { overwrite: op.overwrite }),
                 ...(op.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
             });
             continue;
@@ -237,7 +249,8 @@ function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null 
                 kind: "create",
                 to: filePath,
                 ...(op.contents === undefined ? {} : { contents: op.contents }),
-                ...(op.overwrite === true ? { overwrite: true } : {}),
+                ...(op.contentsBase64 === undefined ? {} : { contents: Buffer.from(op.contentsBase64, "base64") }),
+                ...(op.overwrite === undefined ? {} : { overwrite: op.overwrite }),
                 ...(op.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
             });
             continue;

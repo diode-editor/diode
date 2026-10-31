@@ -1250,14 +1250,21 @@ export interface IFileOperationOptions {
     readonly ignoreIfExists?: boolean;
     readonly ignoreIfNotExists?: boolean;
     readonly contents?: string;
+    /** Bytes that are not valid UTF-8. */
+    readonly contentsBase64?: string;
 }
 
-/** A text operation accumulates all edits of one resource: their coordinates are original and do not shift each other. */
+/**
+ * A text operation accumulates the edits of one resource up to the next file operation: their coordinates are
+ * original and do not shift each other. After a file operation the coordinates are of the text at that point.
+ */
 export type WorkspaceEditOperation =
     | { readonly kind: "text"; readonly uri: Uri; readonly edits: (TextEdit | SnippetTextEdit)[] }
     | { readonly kind: "create"; readonly uri: Uri; readonly options: IFileOperationOptions }
     | { readonly kind: "delete"; readonly uri: Uri; readonly options: IFileOperationOptions }
     | { readonly kind: "rename"; readonly from: Uri; readonly to: Uri; readonly options: IFileOperationOptions };
+
+type ITextOperation = Extract<WorkspaceEditOperation, { kind: "text" }>;
 
 /**
  * Operation order matters: "Move to a new file" creates the file and writes to it right away.
@@ -1280,7 +1287,7 @@ export class WorkspaceEdit implements vscode.WorkspaceEdit {
     }
 
     public has(uri: Uri): boolean {
-        return this.textOpFor(uri) !== undefined;
+        return this.textOpsFor(uri).length > 0;
     }
 
     public set(
@@ -1291,34 +1298,32 @@ export class WorkspaceEdit implements vscode.WorkspaceEdit {
             | null
             | undefined,
     ): void {
-        const existing = this.textOpFor(uri);
-        if (edits === null || edits === undefined || edits.length === 0) {
-            // An empty set removes the resource's edits entirely, operation included;
-            // otherwise `has`/`size` would still count it.
-            if (existing !== undefined) this.ops.splice(this.ops.indexOf(existing), 1);
-            return;
-        }
+        // As upstream: the new edits replace the resource's old ones and take the position of a new operation.
+        for (const existing of this.textOpsFor(uri)) this.ops.splice(this.ops.indexOf(existing), 1);
+        if (edits === null || edits === undefined || edits.length === 0) return;
         const list: (TextEdit | SnippetTextEdit)[] = [];
         for (const entry of edits) {
             const edit = Array.isArray(entry) ? entry[0] : entry;
             if (edit instanceof TextEdit || edit instanceof SnippetTextEdit) list.push(edit);
         }
-        if (existing !== undefined) {
-            existing.edits.length = 0;
-            existing.edits.push(...list);
-            return;
-        }
         this.ops.push({ kind: "text", uri, edits: list });
     }
 
     public get(uri: Uri): TextEdit[] {
-        const op = this.textOpFor(uri);
-        if (op === undefined) return [];
-        return op.edits.filter((edit): edit is TextEdit => edit instanceof TextEdit);
+        return this.textOpsFor(uri)
+            .flatMap((op) => op.edits)
+            .filter((edit): edit is TextEdit => edit instanceof TextEdit);
     }
 
     public entries(): [Uri, TextEdit[]][] {
-        return this.resourceEdits().map((entry) => [entry.uri, this.get(entry.uri)]);
+        const seen = new Set<string>();
+        const result: [Uri, TextEdit[]][] = [];
+        for (const { uri } of this.resourceEdits()) {
+            if (seen.has(uri.toString())) continue;
+            seen.add(uri.toString());
+            result.push([uri, this.get(uri)]);
+        }
+        return result;
     }
 
     /** Not part of the vscode API: used to serialize applyEdit. */
@@ -1359,19 +1364,21 @@ export class WorkspaceEdit implements vscode.WorkspaceEdit {
         return this.ops.length;
     }
 
-    private textOpFor(uri: Uri): { kind: "text"; uri: Uri; edits: (TextEdit | SnippetTextEdit)[] } | undefined {
+    private textOpsFor(uri: Uri): ITextOperation[] {
         const key = uri.toString();
-        return this.ops.find(
-            (op): op is { kind: "text"; uri: Uri; edits: (TextEdit | SnippetTextEdit)[] } =>
-                op.kind === "text" && op.uri.toString() === key,
-        );
+        return this.ops.filter((op): op is ITextOperation => op.kind === "text" && op.uri.toString() === key);
     }
 
+    /** Only into the run of text operations after the last file operation: an earlier one has other coordinates. */
     private push(uri: Uri, edit: TextEdit): void {
-        const existing = this.textOpFor(uri);
-        if (existing !== undefined) {
-            existing.edits.push(edit);
-            return;
+        const key = uri.toString();
+        for (let i = this.ops.length - 1; i >= 0; i--) {
+            const op = this.ops[i];
+            if (op.kind !== "text") break;
+            if (op.uri.toString() === key) {
+                op.edits.push(edit);
+                return;
+            }
         }
         this.ops.push({ kind: "text", uri, edits: [edit] });
     }
@@ -1388,15 +1395,24 @@ function createFileOptionsOf(options: ICreateFileOptions | undefined): IFileOper
     const contents = options?.contents;
     return {
         ...overwriteOptionsOf(options),
-        ...(contents instanceof Uint8Array ? { contents: new TextDecoder().decode(contents) } : {}),
+        ...(contents instanceof Uint8Array ? wireContentsOf(contents) : {}),
     };
+}
+
+function wireContentsOf(contents: Uint8Array): Pick<IFileOperationOptions, "contents" | "contentsBase64"> {
+    try {
+        return { contents: new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(contents) };
+    } catch {
+        return { contentsBase64: Buffer.from(contents).toString("base64") };
+    }
 }
 
 function overwriteOptionsOf(
     options: { readonly overwrite?: boolean; readonly ignoreIfExists?: boolean } | undefined,
 ): IFileOperationOptions {
     return {
-        ...(options?.overwrite === true ? { overwrite: true } : {}),
+        // `false` is not the same as absent: upstream skips an occupied target only when `overwrite` is not given.
+        ...(typeof options?.overwrite === "boolean" ? { overwrite: options.overwrite } : {}),
         ...(options?.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
     };
 }

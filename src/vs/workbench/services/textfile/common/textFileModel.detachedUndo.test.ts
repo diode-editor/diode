@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { UndoRedoService, WORKSPACE_UNDO_CONTEXT } from "../../../../platform/undoRedo/common/undoRedoService.ts";
@@ -190,12 +191,21 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(pane.getText()).toBe("body");
     });
 
-    it("a model step WITHOUT an attached view is not made up: null (nothing to apply the edit with)", () => {
+    it("a model WITHOUT an attached view still edits and hands over its step; the eol step too", async () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
         const model = pane.model;
         pane.component.dispose();
-        expect(model.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit")).toBeNull();
+
+        const step = model.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit");
+        expect(model.getText()).toBe("head\nbody");
+        expect(model.setEolDetached(EndOfLine.LF)).toBeNull();
+        const eolStep = model.setEolDetached(EndOfLine.CRLF);
+        expect(model.eol).toBe(EndOfLine.CRLF);
+
+        await eolStep?.undo();
+        expect(model.eol).toBe(EndOfLine.LF);
+        await step?.undo();
         expect(model.getText()).toBe("body");
     });
 

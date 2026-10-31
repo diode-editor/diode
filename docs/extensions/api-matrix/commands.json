@@ -11,8 +11,7 @@
       "class": "ok"
     },
     "commands.registerTextEditorCommand": {
-      "class": "A",
-      "note": "#914: the builder passed to the callback drops edits"
+      "class": "ok"
     }
   }
 }

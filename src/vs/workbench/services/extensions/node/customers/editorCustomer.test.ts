@@ -48,6 +48,7 @@ function setup() {
         getLayoutSnapshot: () => LAYOUT,
         onDidChangeLayout: (cb) => layout.event(cb),
         flushPendingLayout: () => log.push("flush"),
+        openTextDocument: () => Promise.resolve(null),
         showTextDocument: (params) => {
             log.push(["show", params]);
             return Promise.resolve({ viewColumn: 1 } as never);
@@ -199,9 +200,16 @@ describe("EditorCustomer — subprocess requests", () => {
         await expect(
             h.peer.request("editor.applyEdit", { uri: "file:///a.ts", edits: [{ range: RANGE, text: "x" }, 1] }),
         ).resolves.toBe(true);
-        expect(h.editorOptions.applyActiveEditorEdits).toHaveBeenCalledWith("file:///a.ts", [
-            { range: RANGE, text: "x" },
-        ]);
+        expect(h.editorOptions.applyActiveEditorEdits).toHaveBeenCalledWith(
+            "file:///a.ts",
+            [{ range: RANGE, text: "x" }],
+            {},
+        );
+        await h.peer.request("editor.applyEdit", { uri: "file:///a.ts", edits: [], version: 4, setEndOfLine: 2 });
+        expect(h.editorOptions.applyActiveEditorEdits).toHaveBeenLastCalledWith("file:///a.ts", [], {
+            version: 4,
+            setEndOfLine: 2,
+        });
     });
 
     it("workspace.applyEdit: junk — false without the port; a valid set — the port verdict", async () => {

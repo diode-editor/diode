@@ -278,6 +278,16 @@ export function createWorkspaceNamespace(
         if (snap !== null) documentSync.open(snap);
     });
 
+    rpc.handleNotification("editor.didChangeDocumentState", (params) => {
+        const p: { uri?: unknown; isDirty?: unknown; eol?: unknown } = params;
+        if (typeof p.uri !== "string" || typeof p.isDirty !== "boolean") return;
+        registry.get(Uri.parse(p.uri))?.applyMeta({
+            uri: p.uri,
+            isDirty: p.isDirty,
+            ...(p.eol === 1 || p.eol === 2 ? { eol: p.eol } : {}),
+        });
+    });
+
     rpc.handleNotification("editor.didClose", (params) => {
         const p: { uri?: unknown } = params;
         if (typeof p.uri !== "string" || p.uri === "") return;
@@ -450,7 +460,8 @@ export function createWorkspaceNamespace(
         // A string is a disk path (the `openTextDocument(path)` overload), not a uri.
         const uri = typeof uriOrPath === "string" ? Uri.file(uriOrPath) : uriOrPath;
         const open = registry.get(uri);
-        if (open !== undefined) return open;
+        // A closed document stays in the registry for the references extensions keep; it is not open.
+        if (open !== undefined && !open.isClosed) return open;
 
         if (contentProviders.has(uri.scheme)) {
             const content = await contentProviders.provide(uri);
@@ -469,6 +480,14 @@ export function createWorkspaceNamespace(
 
         // For non-file schemes `fsPath` is not a path; do not pass it to node:fs.
         if (uri.scheme !== "file") throw FileSystemError.Unavailable(uri);
+
+        // The live model: edits reach this very object, a save writes the file. An explicit encoding decodes
+        // this read only, as before: the model has one encoding, and opening with another is a separate feature.
+        if (options?.encoding === undefined) {
+            await rpc.request("workspace.openTextDocument", { uri: uri.toString() });
+            const live = registry.get(uri);
+            if (live !== undefined && !live.isClosed) return live;
+        }
 
         const buffer = await ctx.disk.readFile(uri.fsPath);
         const { text, encoding } = await decodeBuffer(buffer, options?.encoding);
@@ -519,12 +538,18 @@ export function createWorkspaceNamespace(
             return workspaceFolders[0]?.name;
         },
 
+        /** Deprecated upstream, still read: `workspaceFolders[0]`. */
+        get rootPath(): string | undefined {
+            return workspaceFolders[0]?.uri.fsPath;
+        },
+
         get workspaceFile(): vscode.Uri | undefined {
             return workspaceFile;
         },
 
+        // A closed document stays in the registry for the references extensions keep; it is not open.
         get textDocuments(): readonly vscode.TextDocument[] {
-            return registry.all();
+            return registry.all().filter((document) => !document.isClosed);
         },
 
         fs: createFileSystemNamespace(ctx.disk.fs, fsProviders),

@@ -102,6 +102,7 @@ import type { IWorkspaceFoldersSink } from "../../../api/common/iWorkspaceFolder
 import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
 import {
     type IWireDocumentChangedEvent,
+    type IWireDocumentStateChanged,
     type IWireExtensionCatalog,
     type IWireExtensionDescription,
 } from "../../../api/common/wireTypes.ts";
@@ -791,6 +792,10 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
 
     public didCloseTextDocument(uri: string): void {
         this.documents.didCloseTextDocument(uri);
+    }
+
+    public didChangeTextDocumentState(state: IWireDocumentStateChanged): void {
+        this.documents.didChangeTextDocumentState(state);
     }
 
     public provideCompletionItems(

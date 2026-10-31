@@ -18,6 +18,8 @@ export function documentSyncSourceOfModel(model: BaseTextEditorModel): IDocument
         languageId: model.languageId,
         version: document.versionId,
         isDirty: model.isModified,
+        eol: model.eol,
+        encoding: model.encoding,
         isTooLargeForTokenization: model.isTooLargeForTokenization,
         length: document.getValueLength(),
         getText: () => document.getText(),
@@ -45,11 +47,12 @@ export function openDocumentSyncSources(group: IEditorService): IDocumentSyncSou
     return [...openDocumentModels(group)].map(documentSyncSourceOfModel);
 }
 
-/** Plus untitled buffers without a tab: `openTextDocument({ content })` opens the document before showing it, as upstream. */
+/** Plus models without a tab: `openTextDocument` opens the document before showing it, as upstream. */
 function openDocumentModels(group: IEditorService): Set<BaseTextEditorModel> {
     const models = new Set<BaseTextEditorModel>();
     for (const editor of group.getTextSurfaces()) models.add(editor.model);
     for (const model of group.getUntitledModelsWithoutEditor()) models.add(model);
+    for (const model of group.getFileModelsWithoutEditor()) models.add(model);
     return models;
 }
 
@@ -58,6 +61,10 @@ type IOpenedDocument = Pick<IDocumentSyncSource, "uri" | "languageId">;
 interface ITrackedDocument {
     openedAs: IOpenedDocument;
     readonly subscriptions: DisposableStore;
+}
+
+function pushDocumentState(host: IDocumentSyncTarget, model: BaseTextEditorModel): void {
+    host.didChangeTextDocumentState({ uri: model.uri.toString(), isDirty: model.isModified, eol: model.eol });
 }
 
 /**
@@ -105,6 +112,11 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
                 resyncIdentity(model, record);
             }),
         );
+        subscriptions.add(
+            model.onDidChangeEol(() => {
+                pushDocumentState(host, model);
+            }),
+        );
         // "Enable Editing" on a large file: the document now fits, and a flush opens it (`didChangeTextDocument`).
         subscriptions.add(
             model.onDidChangeTooLargeForTokenization(() => {
@@ -124,6 +136,12 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
         for (const model of alive) trackModel(model);
     };
 
+    // A save moves no text, so no didChange would tell extensions the document is clean. Before the reply to `save`.
+    group.onEditorSaved(({ uri }) => {
+        for (const model of tracked.keys()) {
+            if (model.uri.toString() === uri) pushDocumentState(host, model);
+        }
+    });
     group.onDidChangeEditors(reconcile);
     // Stryker disable next-line CallExpression: equivalent: moving and merging tabs already arrive via onDidChangeEditors, the subscription is a safeguard
     groups.onDidGroupsChange(reconcile);

@@ -543,8 +543,9 @@ function parseWireWorkspaceEditOp(raw: unknown): IWireWorkspaceEditOp | null {
     if (obj.kind === "text") {
         if (typeof obj.resource !== "string") return null;
         const edits = parseWireEditorEdits(obj.edits);
-        if (edits.length === 0) return null;
-        return { kind: "text", resource: obj.resource, edits };
+        const setEndOfLine = obj.setEndOfLine === 1 || obj.setEndOfLine === 2 ? obj.setEndOfLine : undefined;
+        if (edits.length === 0 && setEndOfLine === undefined) return null;
+        return { kind: "text", resource: obj.resource, edits, ...(setEndOfLine === undefined ? {} : { setEndOfLine }) };
     }
     if (obj.kind === "create") {
         if (typeof obj.resource !== "string") return null;
@@ -552,7 +553,8 @@ function parseWireWorkspaceEditOp(raw: unknown): IWireWorkspaceEditOp | null {
             kind: "create",
             resource: obj.resource,
             ...(typeof obj.contents === "string" ? { contents: obj.contents } : {}),
-            ...(obj.overwrite === true ? { overwrite: true } : {}),
+            ...(typeof obj.contentsBase64 === "string" ? { contentsBase64: obj.contentsBase64 } : {}),
+            ...(typeof obj.overwrite === "boolean" ? { overwrite: obj.overwrite } : {}),
             ...(obj.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
         };
     }
@@ -570,7 +572,7 @@ function parseWireWorkspaceEditOp(raw: unknown): IWireWorkspaceEditOp | null {
             kind: "rename",
             from: obj.from,
             to: obj.to,
-            ...(obj.overwrite === true ? { overwrite: true } : {}),
+            ...(typeof obj.overwrite === "boolean" ? { overwrite: obj.overwrite } : {}),
             ...(obj.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
         };
     }

@@ -211,7 +211,14 @@ describe("CommandsNamespace (subprocess)", () => {
     });
 
     it("registerTextEditorCommand: callback receives the active editor, edit builder and args", async () => {
-        const editor = { document: { fileName: "/f.py" } } as unknown as vscode.TextEditor;
+        const builder = {} as vscode.TextEditorEdit;
+        const editor = {
+            document: { fileName: "/f.py" },
+            edit: (run: (edit: vscode.TextEditorEdit) => void) => {
+                run(builder);
+                return Promise.resolve(true);
+            },
+        } as unknown as vscode.TextEditor;
         const { commands, dispose } = createBridge(() => editor);
         const seen: unknown[][] = [];
         commands.registerTextEditorCommand("ext.te", (ed, edit, ...args: unknown[]) => {
@@ -222,14 +229,7 @@ describe("CommandsNamespace (subprocess)", () => {
 
         expect(seen).toHaveLength(1);
         expect(seen[0][0]).toBe(editor);
-        const edit = seen[0][1] as vscode.TextEditorEdit;
-        const pos = { line: 0, character: 0 } as vscode.Position;
-        expect(() => {
-            edit.insert(pos, "x");
-            edit.replace(pos, "y");
-            edit.delete({ start: pos, end: pos } as vscode.Range);
-            edit.setEndOfLine(1);
-        }).not.toThrow();
+        expect(seen[0][1]).toBe(builder);
         expect(seen[0].slice(2)).toEqual(["a", 2]);
         dispose();
     });
@@ -294,8 +294,57 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
+    it("[api:commands.registerTextEditorCommand] the edit starts after the callback returns; an async result does not delay it and resolves undefined", async () => {
+        const order: string[] = [];
+        const editor = {
+            edit: (run: (edit: vscode.TextEditorEdit) => void) => {
+                run({} as vscode.TextEditorEdit);
+                order.push("edit sent");
+                return Promise.resolve(true);
+            },
+        } as unknown as vscode.TextEditor;
+        const { commands, dispose } = createBridge(() => editor);
+        let finish: () => void = () => undefined;
+        // The declared callback returns void; extensions pass async functions all the same.
+        const asyncCallback = (): Promise<void> => {
+            order.push("callback");
+            return new Promise<void>((resolve) => {
+                finish = resolve;
+            });
+        };
+        commands.registerTextEditorCommand("ext.te.async", asyncCallback as unknown as () => void);
+
+        await expect(commands.executeCommand("ext.te.async")).resolves.toBeUndefined();
+
+        expect(order).toEqual(["callback", "edit sent"]);
+        finish();
+        dispose();
+    });
+
+    it("registerTextEditorCommand: a refused edit or a throwing callback only warns, as upstream", async () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        let result: Thenable<boolean> = Promise.resolve(false);
+        const editor = { edit: () => result } as unknown as vscode.TextEditor;
+        const { commands, dispose } = createBridge(() => editor);
+        commands.registerTextEditorCommand("ext.te.refused", () => undefined);
+
+        await expect(commands.executeCommand("ext.te.refused")).resolves.toBeUndefined();
+        expect(warn).toHaveBeenLastCalledWith('Edits from command "ext.te.refused" were not applied.');
+
+        result = Promise.reject(new Error("boom"));
+        await expect(commands.executeCommand("ext.te.refused")).resolves.toBeUndefined();
+        expect(warn.mock.lastCall?.[0]).toBe('An error occurred while running command "ext.te.refused"');
+        warn.mockRestore();
+        dispose();
+    });
+
     it("registerTextEditorCommand: thisArg is bound, dispose removes the command", async () => {
-        const editor = {} as vscode.TextEditor;
+        const editor = {
+            edit: (run: (edit: vscode.TextEditorEdit) => void) => {
+                run({} as vscode.TextEditorEdit);
+                return Promise.resolve(true);
+            },
+        } as unknown as vscode.TextEditor;
         const { commands, host, dispose } = createBridge(() => editor);
         const unregistered: string[] = [];
         host.handleNotification("commands.unregisterCommand", (p) => unregistered.push((p as { id: string }).id));

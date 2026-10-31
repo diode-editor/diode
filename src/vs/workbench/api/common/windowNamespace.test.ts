@@ -611,17 +611,28 @@ describe("WindowNamespace — editor write (#194)", () => {
         expect(stub.notifies.find((n) => n.method === "editor.setSelection")).toBeUndefined();
     });
 
-    it("editor.edit collects insert/replace/delete and sends editor.applyEdit", () => {
-        const { stub, editor } = activeEditor();
+    /** The builder validates against the mirror, as upstream's `_pushEdit`. */
+    function editorWithText(text: string) {
+        const context = activeEditor();
+        const lines = text.split("\n");
+        const document = context.editor.document as unknown as { applyFull(snapshot: unknown): void };
+        document.applyFull({ uri: URI, text: lines.join("\n"), version: 7 });
+        return context;
+    }
+
+    it("[api:TextEditor.edit] collects insert/replace/delete with the document version and EOL", () => {
+        const { stub, editor } = editorWithText("aaaa\nbbbb\ncccc\ndddd");
         void editor.edit((builder) => {
             builder.insert(new Position(0, 0), "X");
             builder.replace(new Range(1, 0, 1, 2), "Y");
             builder.delete(new Range(2, 0, 3, 0));
-            builder.setEndOfLine(1); // no-op in the MVP
+            builder.setEndOfLine(2);
         });
         const req = stub.requests.find((r) => r.method === "editor.applyEdit");
         expect(req?.params).toEqual({
             uri: URI,
+            version: 7,
+            setEndOfLine: 2,
             edits: [
                 { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "X" },
                 { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 2 } }, text: "Y" },
@@ -630,35 +641,81 @@ describe("WindowNamespace — editor write (#194)", () => {
         });
     });
 
+    it("[api:TextEditorEdit.replace] a range past the end is clamped to the document, unicode included", () => {
+        const { stub, editor } = editorWithText("日本語 🙂");
+        void editor.edit((builder) => {
+            builder.replace(new Range(0, 0, Number.MAX_VALUE, Number.MAX_VALUE), "new");
+        });
+        const req = stub.requests.find((r) => r.method === "editor.applyEdit");
+        expect((req?.params as { edits: unknown }).edits).toEqual([
+            {
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: "日本語 🙂".length } },
+                text: "new",
+            },
+        ]);
+    });
+
+    it("[api:TextEditorEdit.insert] an empty document takes an insert", () => {
+        const { stub, editor } = editorWithText("");
+        void editor.edit((builder) => {
+            builder.insert(new Position(5, 5), "x");
+        });
+        const req = stub.requests.find((r) => r.method === "editor.applyEdit");
+        expect((req?.params as { edits: unknown }).edits).toEqual([
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" },
+        ]);
+    });
+
+    it("[api:TextEditorEdit.replace] overlapping ranges reject with upstream's message, nothing is sent", async () => {
+        const { stub, editor } = editorWithText("Hello world!");
+        await expect(
+            editor.edit((builder) => {
+                builder.replace(new Range(0, 0, 0, 2), "He");
+                builder.replace(new Range(0, 1, 0, 3), "el");
+            }),
+        ).rejects.toThrow("Overlapping ranges are not allowed!");
+        expect(stub.requests.find((r) => r.method === "editor.applyEdit")).toBeUndefined();
+    });
+
+    it("[api:TextEditorEdit.insert] the builder throws outside the callback", async () => {
+        const { editor } = editorWithText("foo");
+        let kept: vscode.TextEditorEdit | undefined;
+        await editor.edit((builder) => {
+            kept = builder;
+        });
+        expect(() => kept?.insert(new Position(0, 0), "x")).toThrow("Edit is only valid while callback runs");
+        expect(() => kept?.setEndOfLine(1)).toThrow("Edit is only valid while callback runs");
+        expect(() => kept?.delete(new Range(0, 0, 0, 1))).toThrow("Edit is only valid while callback runs");
+        expect(() => kept?.replace(new Range(0, 0, 0, 1), "y")).toThrow("Edit is only valid while callback runs");
+    });
+
+    it("[api:TextEditorEdit.setEndOfLine] an illegal value and an unknown location throw inside the callback", async () => {
+        const { editor } = editorWithText("foo");
+        await editor.edit((builder) => {
+            expect(() => {
+                builder.setEndOfLine(3 as never);
+            }).toThrow("Illegal argument: endOfLine");
+            expect(() => {
+                builder.replace({} as never, "x");
+            }).toThrow("Unrecognized location");
+            expect(() => {
+                builder.delete({} as never);
+            }).toThrow("Unrecognized location");
+        });
+    });
+
+    it("[api:TextEditor.edit] a closed document rejects", async () => {
+        const { editor } = editorWithText("foo");
+        (editor.document as unknown as { isClosed: boolean }).isClosed = true;
+        await expect(editor.edit(() => undefined)).rejects.toThrow("TextEditor#edit not possible on closed editors");
+    });
+
     it("editor.edit without edits resolves true without RPC", async () => {
         const { stub, editor } = activeEditor();
         const ok = await editor.edit(() => {
             /* write nothing */
         });
         expect(ok).toBe(true);
-        expect(stub.requests.find((r) => r.method === "editor.applyEdit")).toBeUndefined();
-    });
-
-    it("editor.edit: an edit with a broken range is dropped, a reversed duck-typed one is flipped", () => {
-        const { stub, editor } = activeEditor();
-        void editor.edit((builder) => {
-            builder.replace(new Range(NaN, 0, 0, 1), "bad");
-            builder.delete({ start: { line: 1, character: 2 }, end: { line: 1, character: 0 } } as never);
-        });
-        const req = stub.requests.find((r) => r.method === "editor.applyEdit");
-        expect(req?.params).toEqual({
-            uri: URI,
-            edits: [{ range: { start: { line: 1, character: 0 }, end: { line: 1, character: 2 } }, text: "" }],
-        });
-    });
-
-    it("editor.edit: ALL edits dropped yields false without RPC (as the host would answer an empty batch)", async () => {
-        const { stub, editor } = activeEditor();
-        const ok = await editor.edit((builder) => {
-            builder.replace(new Range(NaN, 0, 0, 1), "bad");
-            builder.delete({ start: 1, end: 2 } as never);
-        });
-        expect(ok).toBe(false);
         expect(stub.requests.find((r) => r.method === "editor.applyEdit")).toBeUndefined();
     });
 

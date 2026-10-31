@@ -54,7 +54,7 @@ function makeCustomer(
 
 /** What goes over the wire for {@link src} of the same arguments. */
 function snap(text = "hello", version = 1, uri = "file:///a.ts"): IWireDocumentSyncSnapshot {
-    return { uri, languageId: "typescript", version, text, isDirty: false };
+    return { uri, languageId: "typescript", version, text, isDirty: false, eol: 1, encoding: "utf8" };
 }
 
 /** What the producer hands over; `built` counts how many times the text was built. */
@@ -64,6 +64,8 @@ function src(text = "hello", version = 1, uri = "file:///a.ts"): IDocumentSyncSo
         languageId: "typescript",
         version,
         isDirty: false,
+        eol: 1 as const,
+        encoding: "utf8",
         isTooLargeForTokenization: false,
         length: text.length,
         built: 0,

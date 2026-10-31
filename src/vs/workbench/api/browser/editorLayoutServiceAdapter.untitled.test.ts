@@ -34,6 +34,7 @@ describe("EditorLayoutServiceAdapter — untitled document without a tab", () =>
             didChangeTextDocument: (snapshot) => log.push(`flush ${snapshot.uri}`),
             didChangeTextDocumentContent: (event) => log.push(`change ${event.uri}`),
             didCloseTextDocument: (uri) => log.push(`close ${uri}`),
+            didChangeTextDocumentState: () => undefined,
         };
         bindDocumentSync(service, service.editorGroups, host);
     });

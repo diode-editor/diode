@@ -75,6 +75,12 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     getTextSurfaces(): readonly TextEditorPane[];
     /** Documents already open for extensions but not yet visible to the user. */
     getUntitledModelsWithoutEditor(): readonly TextFileModel[];
+    /** Upstream `$tryOpenDocument`: extensions see the document, a tab may never appear. Bounded in age and number while clean. */
+    getFileModelsWithoutEditor(): readonly TextFileModel[];
+    /** `false`: not a readable file. */
+    openTextDocumentWithoutEditor(uri: Uri): Promise<boolean>;
+    /** Synchronous, for a file known to exist: {@link getFileModelsWithoutEditor}. `null`: not a file resource. */
+    holdFileModel(uri: Uri): TextFileModel | null;
     /** In tab order, without untitled and non-disk ones. */
     getOpenFilePaths(): string[];
     /** Doesn't overwrite files changed on disk. `true` means everything was saved. */

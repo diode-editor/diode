@@ -2,7 +2,7 @@ import { Emitter } from "../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../base/common/uri.ts";
 import type { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
-import type { ISelection } from "../../../editor/common/core/iSelection.ts";
+import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { ILanguageService } from "../../../editor/common/languages/iLanguageService.ts";
 import type { IDocumentLanguageChange } from "../../../editor/common/model/iDocumentLanguageChange.ts";
@@ -15,6 +15,8 @@ import type { IUndoRedoElement } from "../../../platform/undoRedo/common/iUndoRe
 import type { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 
 let nextUndoContextId = 1;
+
+const BUFFER_ENCODING = "utf8";
 
 /**
  * Why "Enable Editing" did not happen ({@link BaseTextEditorModel.enableEditing}): the file holds more than a string
@@ -156,6 +158,11 @@ export abstract class BaseTextEditorModel extends Disposable {
         return this.doc.versionId !== this.savedVersionId || this.doc.eol !== this.savedEol;
     }
 
+    /** A buffer that isn't a file has no bytes to decode. */
+    public get encoding(): string {
+        return BUFFER_ENCODING;
+    }
+
     public get eol(): EndOfLine {
         return this.doc.eol;
     }
@@ -190,6 +197,26 @@ export abstract class BaseTextEditorModel extends Disposable {
             },
         };
     }
+
+    /** A model without a view (`openTextDocument` without a tab) has nobody to track selections. */
+    private readonly headlessEditTarget: ITextEditTarget = {
+        cloneSelections: () => [createSelection(0, 0, 0, 0)],
+        applyEdits: (edits, label) => {
+            const versionBefore = this.doc.versionId;
+            const { appliedVersion, inverseEdits } = this.doc.applyEdits(edits);
+            const selections = [createSelection(0, 0, 0, 0)];
+            return {
+                label,
+                versionBefore,
+                versionAfter: appliedVersion,
+                forwardEdits: edits,
+                backwardEdits: inverseEdits,
+                beforeSelections: selections,
+                afterSelections: selections,
+            };
+        },
+        markDirty: () => undefined,
+    };
 
     public get undoManager(): UndoManager {
         return this.undoManagerValue;
@@ -335,8 +362,7 @@ export abstract class BaseTextEditorModel extends Disposable {
         target?: ITextEditTarget,
         computeCursorState?: ICursorStateComputer,
     ): void {
-        const acting = target ?? this.editTargets.at(0);
-        if (acting === undefined) return;
+        const acting = target ?? this.editTargets.at(0) ?? this.headlessEditTarget;
         const element = acting.applyEdits(edits, label, computeCursorState);
         if (element) this.undoManagerValue.pushUndoElement(element);
         this.broadcastMarkDirty();
@@ -353,13 +379,25 @@ export abstract class BaseTextEditorModel extends Disposable {
         label: string,
         target?: ITextEditTarget,
     ): IUndoRedoElement | null {
-        const acting = target ?? this.editTargets.at(0);
-        if (acting === undefined) return null;
+        const acting = target ?? this.editTargets.at(0) ?? this.headlessEditTarget;
+        return this.captureDetachedStep(() => {
+            const element = acting.applyEdits(edits, label);
+            if (element) this.undoManagerValue.pushUndoElement(element);
+        });
+    }
+
+    /** {@link setEol} whose step goes to the caller, like {@link applyExternalEditsDetached}. */
+    public setEolDetached(eol: EndOfLine, target?: ITextEditTarget): IUndoRedoElement | null {
+        return this.captureDetachedStep(() => {
+            this.setEol(eol, target);
+        });
+    }
+
+    private captureDetachedStep(run: () => void): IUndoRedoElement | null {
         const captured: IUndoRedoElement[] = [];
         this.detachedUndoSteps = captured;
         try {
-            const element = acting.applyEdits(edits, label);
-            if (element) this.undoManagerValue.pushUndoElement(element);
+            run();
         } finally {
             this.detachedUndoSteps = null;
         }

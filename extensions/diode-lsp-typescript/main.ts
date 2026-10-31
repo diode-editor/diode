@@ -189,8 +189,8 @@ function projectStatusHost(clientRef: { readonly current?: LanguageClient }): IP
         createFile: (filePath, text) => {
             const uri = vscode.Uri.file(filePath);
             const edit = new vscode.WorkspaceEdit();
-            edit.createFile(uri);
-            edit.insert(uri, new vscode.Position(0, 0), text);
+            // `contents`, not a text edit: tsserver reads the config from disk, and a text edit would stay in a dirty model.
+            edit.createFile(uri, { contents: new TextEncoder().encode(text) });
             return vscode.workspace.applyEdit(edit);
         },
         openFile: async (filePath) => {

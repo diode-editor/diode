@@ -95,6 +95,16 @@ export interface IWireDocumentSyncSnapshot {
     /** LF-normalized. */
     readonly text: string;
     readonly isDirty?: boolean;
+    /** 1=LF, 2=CRLF: the text is normalized, so the line ending travels on its own. */
+    readonly eol?: 1 | 2;
+    readonly encoding?: string;
+}
+
+/** Upstream `$acceptDirtyStateChanged` + `$acceptModelEOLChanged`: a save or an EOL change moves no text. */
+export interface IWireDocumentStateChanged {
+    readonly uri: string;
+    readonly isDirty: boolean;
+    readonly eol: 1 | 2;
 }
 
 /** `range` is in document coordinates BEFORE this edit. */
@@ -149,6 +159,8 @@ export function parseWireDocumentSyncSnapshot(raw: unknown): IWireDocumentSyncSn
         version: obj.version,
         text: obj.text,
         ...(typeof obj.isDirty === "boolean" ? { isDirty: obj.isDirty } : {}),
+        ...(obj.eol === 1 || obj.eol === 2 ? { eol: obj.eol } : {}),
+        ...(typeof obj.encoding === "string" ? { encoding: obj.encoding } : {}),
     };
 }
 
@@ -791,6 +803,9 @@ export type IWireEditorEdit = ITextEdit;
 export interface IWireApplyEditParams {
     readonly uri: string;
     readonly edits: readonly IWireEditorEdit[];
+    /** Upstream `documentVersionId`: an edit built on another version of the document is refused. */
+    readonly version?: number;
+    readonly setEndOfLine?: 1 | 2;
 }
 
 export interface IWireSetSelectionParams {
@@ -873,11 +888,13 @@ export interface IWireResourceTextEdits {
  * `overwrite`/`ignoreIfExists` a collision rejects the whole edit; `contents` is UTF-8.
  */
 export type IWireWorkspaceEditOp =
-    | ({ readonly kind: "text" } & IWireResourceTextEdits)
+    | ({ readonly kind: "text"; readonly setEndOfLine?: 1 | 2 } & IWireResourceTextEdits)
     | {
           readonly kind: "create";
           readonly resource: string;
           readonly contents?: string;
+          /** Bytes that are not valid UTF-8 and would not survive {@link contents}. */
+          readonly contentsBase64?: string;
           readonly overwrite?: boolean;
           readonly ignoreIfExists?: boolean;
       }

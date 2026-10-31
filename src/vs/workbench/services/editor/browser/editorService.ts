@@ -46,6 +46,7 @@ import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel
 import type { ISerializedEditor } from "../../../common/stateKeys.ts";
 import { DialogService, DialogServiceDIToken } from "../../dialogs/browser/dialogService.ts";
 import type { IShutdownDirtyItem, IShutdownParticipant } from "../../lifecycle/browser/lifecycleService.ts";
+import { BoundModelReferences } from "../../textfile/common/boundModelReferences.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";
 import type { SaveOutcome, TextFileModel } from "../../textfile/common/textFileModel.ts";
 import { TextFileModelService, TextFileModelServiceDIToken } from "../../textfile/common/textFileModelService.ts";
@@ -169,6 +170,14 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     /** The service owns the model until the first {@link openUri} hands it to a tab. */
     private readonly untitledWithoutEditor = new Map<string, TextFileModel>();
 
+    private readonly fileModelsWithoutEditor = this.register(
+        new BoundModelReferences(() => {
+            this.fireEditorsChanged();
+        }),
+    );
+
+    private readonly files: IFileService;
+
     /** Read at save time, so an assignment also reaches already open editors. */
     public get saveParticipant(): SaveParticipant | undefined {
         return this.saveParticipantValue;
@@ -219,6 +228,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         );
         this.editorGroups = editorGroups ?? this.register(new EditorGroupsService(logService, configurationService));
         const fileService = files ?? this.register(new FileService());
+        this.files = fileService;
         this.textFileModels =
             textFileModels ??
             this.register(
@@ -248,6 +258,10 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         this.paneFactories = [createTextEditorPaneFactory(this), ...contributedPaneFactories];
         this.closeHandler = new EditorCloseHandler(dialogService, {
             surfaces: () => [...this.textPanes(), ...this.diffSidePanes()],
+            // Otherwise the edits the user just refused would survive in the model an extension holds.
+            didDiscard: (model) => {
+                this.releaseFileModelWithoutEditor(model);
+            },
         });
         const onSaveHost: IOnSaveParticipantHost = {
             configuration: configurationService,
@@ -335,9 +349,15 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
             fileService.onDidRunOperation((event) => {
                 // Stryker disable next-line ConditionalExpression: for Move the service always sets `target`; the check only narrows the type
                 if (event.operation === FileOperation.Move && event.target !== undefined) {
+                    const moved = this.moveHeldModels(event.resource, event.target);
                     this.handleMovedFile(event.resource, event.target);
+                    if (moved) this.fireEditorsChanged();
                 }
-                if (event.operation === FileOperation.Delete) this.handleDeletedFile(event.resource);
+                if (event.operation === FileOperation.Delete) {
+                    const released = this.releaseCleanHeldModels(event.resource);
+                    this.handleDeletedFile(event.resource);
+                    if (released) this.fireEditorsChanged();
+                }
             }),
         );
         // Deleted externally: with `closeOnFileDelete` clean tabs close (upstream
@@ -613,6 +633,73 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
 
     public getUntitledModelsWithoutEditor(): readonly TextFileModel[] {
         return [...this.untitledWithoutEditor.values()];
+    }
+
+    public getFileModelsWithoutEditor(): readonly TextFileModel[] {
+        return this.fileModelsWithoutEditor.models();
+    }
+
+    public async openTextDocumentWithoutEditor(uri: Uri): Promise<boolean> {
+        if (uri.scheme !== "file") return false;
+        try {
+            if (!(await this.files.stat(uri)).isFile) return false;
+        } catch {
+            return false;
+        }
+        this.holdFileModel(uri);
+        return true;
+    }
+
+    public holdFileModel(uri: Uri): TextFileModel | null {
+        if (uri.scheme !== "file") return null;
+        const reference = this.textFileModels.acquire(uri);
+        this.fileModelsWithoutEditor.add(reference);
+        this.fireEditorsChanged();
+        return reference.model;
+    }
+
+    private releaseFileModelWithoutEditor(model: BaseTextEditorModel): void {
+        const held = this.fileModelsWithoutEditor.models().find((candidate) => candidate === model);
+        if (held === undefined) return;
+        this.fileModelsWithoutEditor.release(held);
+        this.fireEditorsChanged();
+    }
+
+    /**
+     * Upstream `TextFileEditorModelManager.onDidRunWorkingCopyFileOperation`: unsaved edits travel with the file,
+     * a clean model is let go (upstream `BoundModelReferenceCollection.remove`).
+     */
+    private moveHeldModels(source: Uri, target: Uri): boolean {
+        let moved = false;
+        for (const model of this.fileModelsWithoutEditor.models()) {
+            const resource = movedResource(model.uri, source, target);
+            if (resource === null) continue;
+            moved = true;
+            if (model.isModified) {
+                const reference = this.textFileModels.acquire(resource);
+                reference.model.restoreUnsavedContents(model.getText());
+                this.fileModelsWithoutEditor.add(reference);
+            }
+            this.fileModelsWithoutEditor.release(model);
+        }
+        return moved;
+    }
+
+    private releaseCleanHeldModels(resource: Uri): boolean {
+        let released = false;
+        for (const model of this.fileModelsWithoutEditor.models()) {
+            if (!model.isModified && movedResource(model.uri, resource, resource) !== null) {
+                this.fileModelsWithoutEditor.release(model);
+                released = true;
+            }
+        }
+        return released;
+    }
+
+    /** Models whose tabs are gone (or never were): panes have no say in their dirtiness. */
+    private dirtyHeldModels(): TextFileModel[] {
+        const surfaces = new Set<BaseTextEditorModel>(this.getTextSurfaces().map((pane) => pane.model));
+        return this.fileModelsWithoutEditor.models().filter((model) => model.isModified && !surfaces.has(model));
     }
 
     private textPanes(): TextEditorPane[] {
@@ -896,12 +983,18 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
      * overwrites the file even with external changes: the user's choice must not be lost.
      */
     public collectDirty(): readonly IShutdownDirtyItem[] {
-        return this.getDirtyEditors(this.editorGroups.groups).map((editor) => ({
+        const editors = this.getDirtyEditors(this.editorGroups.groups).map((editor) => ({
             name: this.displayName(editor),
             isStillDirty: () =>
                 [...this.textPanes(), ...this.diffSidePanes()].some((pane) => pane.model === editor.model),
             save: async () => (await editor.save({ overwrite: true })) === "saved",
         }));
+        const models = this.dirtyHeldModels().map((model) => ({
+            name: path.basename(model.uri.fsPath),
+            isStillDirty: () => model.isModified,
+            save: async () => (await model.save({ overwrite: true })) === "saved",
+        }));
+        return [...editors, ...models];
     }
 
     /**
@@ -916,6 +1009,9 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
             if (outcome === "saved" || (outcome === "no-file" && options?.includeUntitled !== true)) continue;
             success = false;
         }
+        for (const model of this.dirtyHeldModels()) {
+            if ((await this.trySave(model)) !== "saved") success = false;
+        }
         return success;
     }
 
@@ -923,15 +1019,16 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     public async save(resource: Uri): Promise<Uri | undefined> {
         const key = resource.toString();
         const editor = this.getTextSurfaces().find((pane) => pane.uri.toString() === key);
-        if (editor === undefined) return undefined;
-        return (await this.trySave(editor)) === "saved" ? editor.uri : undefined;
+        const target = editor ?? this.fileModelsWithoutEditor.models().find((model) => model.uri.toString() === key);
+        if (target === undefined) return undefined;
+        return (await this.trySave(target)) === "saved" ? target.uri : undefined;
     }
 
-    private async trySave(editor: TextEditorPane): Promise<SaveOutcome | undefined> {
+    private async trySave(target: TextEditorPane | TextFileModel): Promise<SaveOutcome | undefined> {
         try {
-            return await editor.save();
+            return await target.save();
         } catch (error) {
-            this.logger.error(`cannot save ${editor.uri.toString()}: ${describeError(error)}`);
+            this.logger.error(`cannot save ${target.uri.toString()}: ${describeError(error)}`);
             return undefined;
         }
     }

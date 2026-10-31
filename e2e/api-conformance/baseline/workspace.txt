@@ -1,24 +1,42 @@
+vscode API - workspace SnippetString in WorkspaceEdit with keepWhitespace
+vscode API - workspace The api workspace.applyEdit failed for some case of mixing resourceChange and textEdit #80688, 1/2
+vscode API - workspace The api workspace.applyEdit failed for some case of mixing resourceChange and textEdit #80688, 2/2
 vscode API - workspace WorkspaceEdit api - after saving a deleted file, it still shows up as deleted. #42667
+vscode API - workspace WorkspaceEdit fails when creating then writing to file if file is open in the editor and is not empty #146964
+vscode API - workspace WorkspaceEdit: Problem recreating a renamed resource #42634
+vscode API - workspace WorkspaceEdit: applying edits before and after rename duplicates resource #42633
 vscode API - workspace WorkspaceEdit: create & ignoreIfExists
 vscode API - workspace WorkspaceEdit: create & override
 vscode API - workspace WorkspaceEdit: delete & ignoreIfNotExists
+vscode API - workspace WorkspaceEdit: insert & rename multiple
+vscode API - workspace WorkspaceEdit: rename & ignoreIfExists
 vscode API - workspace WorkspaceEdit: rename resource followed by edit does not work #42638
+vscode API - workspace applyEdit "edit A -> rename A to B (same case)" -> edit B
+vscode API - workspace applyEdit "edit A -> rename A to B -> edit B"
 vscode API - workspace applyEdit should fail when editing deleted resource
 vscode API - workspace applyEdit should fail when editing renamed from resource
 vscode API - workspace applyEdit should fail when renaming deleted resource
 vscode API - workspace encoding: openTextDocument - invalid encoding falls back to default
 vscode API - workspace encoding: text document encodings
+vscode API - workspace eol, change via applyEdit
+vscode API - workspace eol, change via editor
+vscode API - workspace eol, change via onWillSave
 vscode API - workspace eol, read
 vscode API - workspace events: onDidOpenTextDocument, onDidChangeTextDocument, onDidSaveTextDocument
+vscode API - workspace events: onDidSaveTextDocument fires even for non dirty file when saved
 vscode API - workspace findFiles
 vscode API - workspace findFiles - exclude
 vscode API - workspace findFiles, cancellation
 vscode API - workspace findFiles, exclude
 vscode API - workspace getWorkspaceFolder
+vscode API - workspace openTextDocument
 vscode API - workspace openTextDocument, illegal path
 vscode API - workspace openTextDocument, untitled without path but language ID and content
 vscode API - workspace openTextDocument, uri scheme/auth/path
 vscode API - workspace openTextDocument, with selection
 vscode API - workspace registerTextDocumentContentProvider, simple
+vscode API - workspace save
+vscode API - workspace saveAll
+vscode API - workspace workspace.applyEdit drops the TextEdit if there is a RenameFile later #77735 (without opened editor)
 vscode API - workspace workspaceFile
 vscode API - workspace workspaceFolders

@@ -127,7 +127,7 @@ export class TextFileModel extends BaseTextEditorModel {
     private loadGeneration = 0;
     private providedWatch: IDisposable | null = null;
 
-    public get encoding(): string {
+    public override get encoding(): string {
         return this.encodingValue;
     }
 

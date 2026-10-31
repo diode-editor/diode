@@ -236,6 +236,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.model.applyExternalEditsDetached(edits, label, this.component.editTarget);
     }
 
+    public setEolDetached(eol: EndOfLine): IUndoRedoElement | null {
+        return this.model.setEolDetached(eol, this.component.editTarget);
+    }
+
     public undo(): void {
         if (this.readOnly) return;
         // This view is the acting one: the step's selection snapshot is restored into it.

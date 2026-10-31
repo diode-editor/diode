@@ -36,6 +36,7 @@ function makeWorkspace() {
 
 const URI_A = Uri.file("/proj/a.ts");
 const URI_B = Uri.file("/proj/b.ts");
+const URI_C = Uri.file("/proj/c.ts");
 
 describe("workspace.applyEdit — RPC producer", () => {
     it("text edits go in one request, grouped by resource", async () => {
@@ -129,15 +130,17 @@ describe("workspace.applyEdit — RPC producer", () => {
         expect(stub.requests).toHaveLength(0);
     });
 
-    it("an edit of pure EOL edits only is a vacuous success without RPC", async () => {
+    it("[api:workspace.applyEdit] a pure EOL edit reaches the host", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         edit.set(URI_A, [TextEdit.setEndOfLine(EndOfLine.CRLF)]);
-        await expect(workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit)).resolves.toBe(true);
-        expect(stub.requests).toHaveLength(0);
+        void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit);
+        expect(stub.requests.find((r) => r.method === "workspace.applyEdit")?.params).toEqual({
+            ops: [{ kind: "text", resource: URI_A.toString(), edits: [], setEndOfLine: 2 }],
+        });
     });
 
-    it("ONLY a pure EOL edit is skipped: an empty replace and EOL with text are sent as text", () => {
+    it("an empty replace and EOL with text are sent as text", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         // An empty replace WITHOUT newEol is a regular edit: the document version grows, as in VS Code.
@@ -161,8 +164,34 @@ describe("workspace.applyEdit — RPC producer", () => {
                     kind: "text",
                     resource: URI_B.toString(),
                     edits: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" }],
+                    setEndOfLine: 1,
                 },
             ],
+        });
+    });
+
+    it("[api:WorkspaceEdit.insert] edits after a file operation are a separate operation: they see the text after it", () => {
+        const { stub, workspace } = makeWorkspace();
+        const edit = new WorkspaceEdit();
+        edit.insert(URI_A, new Position(0, 0), "one");
+        edit.renameFile(URI_B, URI_C);
+        edit.insert(URI_A, new Position(0, 0), "two");
+        void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit);
+        const params = stub.requests.find((r) => r.method === "workspace.applyEdit")?.params as {
+            ops: { kind: string }[];
+        };
+        expect(params.ops.map((op) => op.kind)).toEqual(["text", "rename", "text"]);
+        expect(edit.get(URI_A).map((item) => item.newText)).toEqual(["one", "two"]);
+        expect(edit.entries()).toHaveLength(1);
+    });
+
+    it("[api:WorkspaceEdit.createFile] bytes that aren't UTF-8 survive; explicit overwrite:false is kept", () => {
+        const { stub, workspace } = makeWorkspace();
+        const edit = new WorkspaceEdit();
+        edit.createFile(URI_A, { contents: Uint8Array.from([0xff, 0x00, 0xfe]), overwrite: false });
+        void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit);
+        expect(stub.requests.find((r) => r.method === "workspace.applyEdit")?.params).toEqual({
+            ops: [{ kind: "create", resource: URI_A.toString(), contentsBase64: "/wD+", overwrite: false }],
         });
     });
 

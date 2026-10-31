@@ -1,3 +1,4 @@
+import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 
 // Operation order matters: "Move to a new file" creates a file and writes to it right away, a rename refactoring
@@ -25,7 +26,7 @@ export type ResourceFileEdit =
           readonly kind: "create";
           readonly to: string;
           readonly directory?: boolean;
-          readonly contents?: string;
+          readonly contents?: string | Uint8Array;
           readonly overwrite?: boolean;
           readonly ignoreIfExists?: boolean;
       };
@@ -35,7 +36,7 @@ export type WorkspaceFileEdit =
     | {
           readonly kind: "create";
           readonly to: string;
-          readonly contents?: string;
+          readonly contents?: string | Uint8Array;
           readonly overwrite?: boolean;
           readonly ignoreIfExists?: boolean;
       }
@@ -45,6 +46,7 @@ export type WorkspaceFileEdit =
 export interface ResourceTextEdit {
     readonly resource: string;
     readonly edits: readonly ITextEdit[];
+    readonly setEndOfLine?: EndOfLine;
 }
 
 export type ResourceEdit = ResourceFileEdit | ResourceTextEdit;

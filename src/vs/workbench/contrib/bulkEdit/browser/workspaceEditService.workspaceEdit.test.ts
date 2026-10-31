@@ -62,9 +62,12 @@ function makeBuffers(open: Map<string, IFakeBuffer>, readOnly = new Set<string>(
                     buffer.text = applyToText(buffer.text, edits);
                     return buffer.step;
                 },
+                setEol: () => null,
                 save: () => Promise.resolve(),
             };
         },
+        open: () => null,
+        didReplaceOnDisk: () => undefined,
         // Only the first touched buffer is a participant: this tests the edit itself;
         // a history step across several buffers — workspaceEditService.undoAcrossFiles.test.ts.
         undoParticipants: (touched) =>
@@ -608,6 +611,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — open buffers", async () =>
     });
 });
 
+const insertAtStart = (text: string) => createTextEdit(createRange(0, 0, 0, 0), text);
+
 describe("WorkspaceEditService.applyWorkspaceEdit — file operations", async () => {
     it("creates a file and writes to it right away: operation order is kept", async () => {
         const { service, undoRedo } = makeService();
@@ -689,43 +694,87 @@ describe("WorkspaceEditService.applyWorkspaceEdit — file operations", async ()
         expect(fs.existsSync(file)).toBe(false);
     });
 
-    it("a file operation on a resource ALREADY edited as text refuses the edit", async () => {
+    it("edits before a rename travel with the file, edits after it see the renamed text", async () => {
         const { service } = makeService();
         const source = write("a.ts", "content\n");
         const target = path.join(tmpDir, "b.ts");
 
-        // Edits, then move: the edits' base is taken from the old path — an honest refusal instead of corruption.
         expect(
             await service.applyWorkspaceEdit(
-                [textEdit(source, replaceFirstLine("// head\n")), { kind: "rename", from: source, to: target }],
-                "Edit",
-            ),
-        ).toBe(false);
-        expect(read(source)).toBe("content\n");
-        expect(fs.existsSync(target)).toBe(false);
-
-        // Reverse order (file operation, then edits on the new path) —
-        // works: this is exactly what extensions send.
-        expect(
-            await service.applyWorkspaceEdit(
-                [{ kind: "rename", from: source, to: target }, textEdit(target, replaceFirstLine("// head\n"))],
+                [
+                    textEdit(source, insertAtStart("BEFORE")),
+                    { kind: "rename", from: source, to: target },
+                    textEdit(target, insertAtStart("AFTER")),
+                ],
                 "Edit",
             ),
         ).toBe(true);
-        expect(read(target)).toBe("// head\ncontent\n");
+        expect(read(target)).toBe("AFTERBEFOREcontent\n");
+        expect(fs.existsSync(source)).toBe(false);
     });
 
-    it("edit + delete of the SAME resource in one edit is refused", async () => {
+    it("the batch ends at a file operation: same position, later batch goes first (#80688)", async () => {
         const { service } = makeService();
-        const victim = write("victim.ts", "content\n");
+        const edited = write("a.ts", "");
+        const other = write("b.ts", "");
 
         expect(
             await service.applyWorkspaceEdit(
-                [textEdit(victim, replaceFirstLine("// head\n")), { kind: "delete", from: victim }],
+                [
+                    textEdit(edited, insertAtStart("one;")),
+                    { kind: "rename", from: other, to: path.join(tmpDir, "new", "deep", "b.ts") },
+                    textEdit(edited, insertAtStart("two;")),
+                ],
                 "Edit",
             ),
-        ).toBe(false);
-        expect(read(victim)).toBe("content\n");
+        ).toBe(true);
+        expect(read(edited)).toBe("two;one;");
+        // The missing parent directories are created.
+        expect(fs.existsSync(path.join(tmpDir, "new", "deep", "b.ts"))).toBe(true);
+    });
+
+    it("a rename onto itself is a no-op, not a collision", async () => {
+        const { service } = makeService();
+        const file = write("a.ts", "x");
+        expect(
+            await service.applyWorkspaceEdit(
+                [{ kind: "rename", from: file, to: file }, textEdit(file, insertAtStart("y"))],
+                "Edit",
+            ),
+        ).toBe(true);
+        expect(read(file)).toBe("yx");
+    });
+
+    it("ignoreIfExists skips an occupied target only without an explicit overwrite", async () => {
+        const { service } = makeService();
+        const a = write("a.ts", "aaa");
+        const b = write("b.ts", "bbb");
+        const rename = (extra: { overwrite?: boolean; ignoreIfExists?: boolean }) =>
+            service.applyWorkspaceEdit([{ kind: "rename", from: a, to: b, ...extra }], "Edit");
+
+        expect(await rename({})).toBe(false);
+        expect(await rename({ ignoreIfExists: true })).toBe(true);
+        expect(read(b)).toBe("bbb");
+        expect(await rename({ overwrite: false, ignoreIfExists: true })).toBe(false);
+        expect(await rename({ overwrite: true, ignoreIfExists: true })).toBe(true);
+        expect(read(b)).toBe("aaa");
+    });
+
+    it("create writes bytes as they are", async () => {
+        const { service } = makeService();
+        const file = path.join(tmpDir, "bin.dat");
+        const bytes = Uint8Array.from([0xff, 0x00, 0xfe]);
+        expect(await service.applyWorkspaceEdit([{ kind: "create", to: file, contents: bytes }], "Edit")).toBe(true);
+        expect(new Uint8Array(fs.readFileSync(file))).toEqual(bytes);
+    });
+
+    it("a line ending change goes to the file without text edits", async () => {
+        const { service } = makeService();
+        const file = write("a.ts", "a\nb\n");
+        expect(
+            await service.applyWorkspaceEdit([{ resource: resourceOf(file), edits: [], setEndOfLine: 2 }], "Edit"),
+        ).toBe(true);
+        expect(read(file)).toBe("a\r\nb\r\n");
     });
 
     it("delete + edit of the deleted resource in one edit is refused (nowhere to write)", async () => {
@@ -1031,7 +1080,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — file operations", async ()
             [
                 { resource: resourceOf(closed), edits: [replaceFirstLine("after\n")] },
                 { kind: "create", to: path.join(blocked, "x", "y") },
-                { kind: "rename", from: blocked, to: path.join(tmpDir, "dst", "deep", "x") },
+                // A directory into itself: validation passes, the OS refuses.
+                { kind: "rename", from: blocked, to: path.join(blocked, "x", "inner") },
             ],
             "Edit",
         );

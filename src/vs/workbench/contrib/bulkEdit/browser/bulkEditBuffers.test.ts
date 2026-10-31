@@ -47,6 +47,7 @@ function fakes({
         // The active tab comes LAST: this shows the target is picked by
         // activity, not "whichever comes first".
         getEditors: () => (active === null ? rest : [...rest, active]),
+        getFileModelsWithoutEditor: () => [],
     } as unknown as IEditorService;
     const registry = {
         get: (uri: Uri) => (models.has(uri.toString()) ? {} : null),
@@ -99,7 +100,7 @@ describe("BulkEditBuffers.get", () => {
         expect(buffers.get(ro.uri.toString())).toBe("read-only");
     });
 
-    it('a model in the registry without a tab is "read-only": no writing past the live buffer', () => {
+    it('a model of someone else (a diff side) without a tab is "read-only": no writing past the live buffer', () => {
         const resource = Uri.file(B).toString();
         const buffers = new BulkEditBuffers(...fakes({ active: pane(A), models: new Set([resource]) }));
         expect(buffers.get(resource)).toBe("read-only");

@@ -447,10 +447,12 @@ describe("serializeWorkspaceEdit — broken ranges", () => {
         expect(serializeWorkspaceEdit(edit)).toBeNull();
     });
 
-    it("an operation of only EOL noise simply drops out, it is not a rejection", () => {
+    it("an operation of only an EOL edit carries the line ending, it is not a rejection", () => {
         const edit = new WorkspaceEdit();
-        edit.set(URI_A, [TextEdit.setEndOfLine(EndOfLine.LF)]);
-        expect(serializeWorkspaceEdit(edit)).toStrictEqual([]);
+        edit.set(URI_A, [TextEdit.setEndOfLine(EndOfLine.CRLF)]);
+        expect(serializeWorkspaceEdit(edit)).toStrictEqual([
+            { kind: "text", resource: URI_A.toString(), edits: [], setEndOfLine: 2 },
+        ]);
     });
 
     it("a snippet edit with a reversed duck-typed range becomes text with the flipped range", () => {
