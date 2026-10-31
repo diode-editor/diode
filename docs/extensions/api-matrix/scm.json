@@ -1,0 +1,12 @@
+{
+  "members": {
+    "scm.createSourceControl": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "scm.inputBox": {
+      "class": "C",
+      "note": "needs the source control surface"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "members": {
+    "extensions.all": {
+      "class": "ok"
+    },
+    "extensions.getExtension": {
+      "class": "ok"
+    },
+    "extensions.onDidChange": {
+      "class": "ok"
+    }
+  }
+}

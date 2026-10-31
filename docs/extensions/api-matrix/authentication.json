@@ -1,0 +1,20 @@
+{
+  "members": {
+    "authentication.getAccounts": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "authentication.getSession": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "authentication.onDidChangeSessions": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "authentication.registerAuthenticationProvider": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    }
+  }
+}

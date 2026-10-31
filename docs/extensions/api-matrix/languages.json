@@ -1,0 +1,144 @@
+{
+  "members": {
+    "languages.createDiagnosticCollection": {
+      "class": "ok"
+    },
+    "languages.createLanguageStatusItem": {
+      "class": "ok"
+    },
+    "languages.getDiagnostics": {
+      "class": "ok"
+    },
+    "languages.getLanguages": {
+      "class": "B",
+      "note": "#916: not implemented"
+    },
+    "languages.match": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "languages.onDidChangeDiagnostics": {
+      "class": "ok"
+    },
+    "languages.registerCallHierarchyProvider": {
+      "class": "C",
+      "note": "registration is accepted, the provider is never called; needs new graphics"
+    },
+    "languages.registerCodeActionsProvider": {
+      "class": "ok"
+    },
+    "languages.registerCodeLensProvider": {
+      "class": "C",
+      "note": "registration is accepted, the provider is never called; needs new graphics"
+    },
+    "languages.registerColorProvider": {
+      "class": "ok"
+    },
+    "languages.registerCompletionItemProvider": {
+      "class": "ok"
+    },
+    "languages.registerDeclarationProvider": {
+      "class": "B",
+      "note": "registration is accepted, the provider is never called"
+    },
+    "languages.registerDefinitionProvider": {
+      "class": "ok"
+    },
+    "languages.registerDocumentDropEditProvider": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "languages.registerDocumentFormattingEditProvider": {
+      "class": "ok"
+    },
+    "languages.registerDocumentHighlightProvider": {
+      "class": "B",
+      "note": "registration is accepted, the provider is never called"
+    },
+    "languages.registerDocumentLinkProvider": {
+      "class": "C",
+      "note": "registration is accepted, the provider is never called; needs new graphics"
+    },
+    "languages.registerDocumentPasteEditProvider": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "languages.registerDocumentRangeFormattingEditProvider": {
+      "class": "ok"
+    },
+    "languages.registerDocumentRangeSemanticTokensProvider": {
+      "class": "ok"
+    },
+    "languages.registerDocumentSemanticTokensProvider": {
+      "class": "ok"
+    },
+    "languages.registerDocumentSymbolProvider": {
+      "class": "B",
+      "note": "registration is accepted, the provider is never called"
+    },
+    "languages.registerEvaluatableExpressionProvider": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "languages.registerFoldingRangeProvider": {
+      "class": "ok"
+    },
+    "languages.registerHoverProvider": {
+      "class": "ok"
+    },
+    "languages.registerImplementationProvider": {
+      "class": "B",
+      "note": "registration is accepted, the provider is never called"
+    },
+    "languages.registerInlayHintsProvider": {
+      "class": "C",
+      "note": "registration is accepted, the provider is never called; needs new graphics"
+    },
+    "languages.registerInlineCompletionItemProvider": {
+      "class": "ok"
+    },
+    "languages.registerInlineValuesProvider": {
+      "class": "C",
+      "note": "registration is accepted, the provider is never called; needs new graphics"
+    },
+    "languages.registerLinkedEditingRangeProvider": {
+      "class": "B",
+      "note": "registration is accepted, the provider is never called"
+    },
+    "languages.registerOnTypeFormattingEditProvider": {
+      "class": "B",
+      "note": "registration is accepted, the provider is never called"
+    },
+    "languages.registerReferenceProvider": {
+      "class": "ok"
+    },
+    "languages.registerRenameProvider": {
+      "class": "ok"
+    },
+    "languages.registerSelectionRangeProvider": {
+      "class": "ok"
+    },
+    "languages.registerSignatureHelpProvider": {
+      "class": "ok"
+    },
+    "languages.registerTypeDefinitionProvider": {
+      "class": "B",
+      "note": "registration is accepted, the provider is never called"
+    },
+    "languages.registerTypeHierarchyProvider": {
+      "class": "C",
+      "note": "registration is accepted, the provider is never called; needs new graphics"
+    },
+    "languages.registerWorkspaceSymbolProvider": {
+      "class": "B",
+      "note": "registration is accepted, the provider is never called"
+    },
+    "languages.setLanguageConfiguration": {
+      "class": "ok"
+    },
+    "languages.setTextDocumentLanguage": {
+      "class": "B",
+      "note": "#916: not implemented"
+    }
+  }
+}
