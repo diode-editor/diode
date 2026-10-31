@@ -98,6 +98,22 @@ describe("UndoManager", () => {
         expect(doc.getText()).toBe(afterText);
     });
 
+    it("the batch event says undo and redo; an edit in between is neither", () => {
+        const { doc, viewState, undoManager } = setup("hello");
+        const origins: [boolean, boolean][] = [];
+        doc.onDidChangeModelContent((e) => origins.push([e.isUndoing, e.isRedoing]));
+
+        undoManager.pushUndoElement(viewState.type("!")!);
+        undoManager.undo(viewState);
+        undoManager.redo(viewState);
+
+        expect(origins).toEqual([
+            [false, false],
+            [true, false],
+            [false, true],
+        ]);
+    });
+
     it("pushUndoElement clears redo stack", () => {
         const { doc, viewState, undoManager } = setup("hello");
 

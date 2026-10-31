@@ -99,20 +99,25 @@ export class UndoManager {
 
     /** `view` gets the step's selection snapshot restored; other views remap themselves. */
     public undo(view: IUndoViewBinding | null = null): boolean {
-        return this.moveStep(this.undoStack, this.redoStack, view);
+        return this.moveStep(this.undoStack, this.redoStack, view, "undo");
     }
 
     public redo(view: IUndoViewBinding | null = null): boolean {
-        return this.moveStep(this.redoStack, this.undoStack, view);
+        return this.moveStep(this.redoStack, this.undoStack, view, "redo");
     }
 
     /** All elements of the top step of `from`, newest first; the last one restores its selections last. */
-    private moveStep(from: MutableUndoElement[], to: MutableUndoElement[], view: IUndoViewBinding | null): boolean {
+    private moveStep(
+        from: MutableUndoElement[],
+        to: MutableUndoElement[],
+        view: IUndoViewBinding | null,
+        origin: "undo" | "redo",
+    ): boolean {
         const token = from.at(-1)?.token;
         if (token === undefined) return false;
         const moved: UndoStepToken = {};
         while (from.at(-1)?.token === token) {
-            if (!this.moveElement(from, to, moved, view)) return false;
+            if (!this.moveElement(from, to, moved, view, origin)) return false;
         }
         return true;
     }
@@ -122,12 +127,13 @@ export class UndoManager {
         to: MutableUndoElement[],
         token: UndoStepToken,
         view: IUndoViewBinding | null,
+        origin: "undo" | "redo",
     ): boolean {
         const element = from.pop();
         // Stryker disable next-line OptionalChaining: the caller has just seen this element at the top of `from`
         if (this.doc.versionId !== element?.versionAfter) return false;
 
-        const { inverseEdits } = this.doc.applyEdits(element.backwardEdits);
+        const { inverseEdits } = this.doc.applyUndoRedoEdits(element.backwardEdits, origin);
         view?.restoreSelections(element.beforeSelections);
         if (element.eolBefore !== undefined) {
             this.doc.setEol(element.eolBefore);

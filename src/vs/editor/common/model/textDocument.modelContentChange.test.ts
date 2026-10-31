@@ -45,6 +45,8 @@ describe("TextDocument.onDidChangeModelContent: batch of exact edits", () => {
                 versionId: 1,
                 eol: EndOfLine.CRLF,
                 isFlush: false,
+                isUndoing: false,
+                isRedoing: false,
             },
         ]);
     });
@@ -93,7 +95,9 @@ describe("TextDocument.onDidChangeModelContent: batch of exact edits", () => {
         const doc = new TextDocument("a\nb");
         const events = record(doc);
         doc.setText("x\r\ny");
-        expect(events).toEqual([{ changes: [], versionId: 1, eol: EndOfLine.CRLF, isFlush: true }]);
+        expect(events).toEqual([
+            { changes: [], versionId: 1, eol: EndOfLine.CRLF, isFlush: true, isUndoing: false, isRedoing: false },
+        ]);
     });
 
     it("property: mirror matches the document on random batches", () => {

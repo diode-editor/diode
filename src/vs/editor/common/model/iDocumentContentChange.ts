@@ -38,4 +38,7 @@ export interface IModelContentChangedEvent {
     readonly versionId: number;
     readonly eol: EndOfLine;
     readonly isFlush: boolean;
+    /** The batch comes from the undo stack, as upstream: extensions see it as `TextDocumentChangeReason`. */
+    readonly isUndoing: boolean;
+    readonly isRedoing: boolean;
 }

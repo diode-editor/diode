@@ -371,6 +371,43 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
+        // kind: "proxy-openvsx": the stock Auto Close Tag answers each typed `>` from
+        // `onDidChangeTextDocument` with `editor.edit` and `editor.selection =`. It reads `event.reason` to
+        // leave undo alone: without it, restoring a deleted `>` closes the tag a second time.
+        id: "formulahendry.auto-close-tag",
+        expectFiles: ["package.json", "out/src/extension.js"],
+        run: async (ctx) => {
+            const file = join(ctx.root, "page.xml");
+            writeFileSync(file, "");
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
+            try {
+                // Awaits activation, and in an empty document there is nothing to close.
+                await app.session.executeCommand("auto-close-tag.closeTag");
+                // `sendText` is a paste; the extension answers only a `>` typed on its own.
+                await app.session.sendText("<p");
+                await app.session.key(">");
+                await app.session.waitForText((text) => text.includes("<p></p>"), { timeoutMs: 40_000 });
+                // The caret stayed between the tags.
+                await app.session.sendText("abc");
+                await app.session.waitForText((text) => text.includes("<p>abc</p>"), { timeoutMs: 20_000 });
+                await app.session.key("Home");
+                await app.session.key("ArrowRight");
+                await app.session.key("ArrowRight");
+                await app.session.key("Delete");
+                await app.session.waitForText((text) => text.includes("<pabc</p>"), { timeoutMs: 20_000 });
+                await app.session.key("Ctrl+Z");
+                await app.session.waitForText((text) => text.includes("<p"), { timeoutMs: 20_000 });
+                await app.session.key("End");
+                // A round trip through the extension host: a wrong answer to the undo was sent before its
+                // reply. At the end of a closed tag the command itself inserts nothing.
+                await app.session.executeCommand("auto-close-tag.closeTag");
+                await app.session.waitForText((text) => text.includes("<p>abc</p>"), { timeoutMs: 20_000 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
         // kind: "proxy-openvsx", platform-specific vsix (~130 MB): the stock Claude Code. Its job here is
         // the ide server: the "✻ Claude Code" item and the lock file are written at the end of activate(),
         // MCP `initialize` answers with `ideName` from `env.appName`. Context, diagnostics and terminal are
