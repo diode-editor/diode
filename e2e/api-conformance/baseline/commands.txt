@@ -1,0 +1,2 @@
+vscode API - commands api-command: vscode.open
+vscode API - commands command with args

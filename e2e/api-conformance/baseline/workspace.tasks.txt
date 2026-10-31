@@ -1,0 +1,3 @@
+vscode API - tasks Tasks CustomExecution A task can be fetched and executed (#100577)
+vscode API - tasks Tasks CustomExecution Tasks can be run back to back
+vscode API - tasks Tasks ShellExecution Execution from onDidEndTaskProcess and onDidStartTaskProcess are equal to original

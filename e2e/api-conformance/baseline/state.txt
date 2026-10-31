@@ -1,0 +1,1 @@
+vscode API - globalState / workspaceState state basics

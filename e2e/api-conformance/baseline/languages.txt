@@ -1,0 +1,2 @@
+vscode API - languages diagnostics, read & event
+vscode API - languages setTextDocumentLanguage -> error when language does not exist

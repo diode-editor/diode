@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 0 |
+| test | 63 |
 | confirmed by a real extension | 0 |
 | used by a surveyed extension | 583 |
 
@@ -566,16 +566,16 @@ Proposed API or a false hit: class X when real.
 | `CodeActionKind` | ok |  | 0 | 0 |  |
 | `CodeActionKind.append` | ok |  | 0 | 0 |  |
 | `CodeActionKind.contains` | ok |  | 0 | 0 |  |
-| `CodeActionKind.Empty` | ok |  | 77 | 610,326,043 |  |
+| `CodeActionKind.Empty` | ok | yes | 77 | 610,326,043 |  |
 | `CodeActionKind.intersects` | ok |  | 0 | 0 |  |
 | `CodeActionKind.Notebook` | ok |  | 0 | 0 |  |
-| `CodeActionKind.QuickFix` | ok |  | 90 | 747,567,985 |  |
-| `CodeActionKind.Refactor` | ok |  | 78 | 617,678,800 |  |
+| `CodeActionKind.QuickFix` | ok | yes | 90 | 747,567,985 |  |
+| `CodeActionKind.Refactor` | ok | yes | 78 | 617,678,800 |  |
 | `CodeActionKind.RefactorExtract` | ok |  | 78 | 617,678,800 |  |
 | `CodeActionKind.RefactorInline` | ok |  | 77 | 610,326,043 |  |
 | `CodeActionKind.RefactorMove` | ok |  | 0 | 0 |  |
 | `CodeActionKind.RefactorRewrite` | ok |  | 81 | 625,314,021 |  |
-| `CodeActionKind.Source` | ok |  | 78 | 611,135,052 |  |
+| `CodeActionKind.Source` | ok | yes | 78 | 611,135,052 |  |
 | `CodeActionKind.SourceFixAll` | ok |  | 7 | 21,449,270 |  |
 | `CodeActionKind.SourceOrganizeImports` | ok |  | 77 | 610,326,043 |  |
 | `CodeActionKind.value` | ok |  | 0 | 0 |  |
@@ -615,9 +615,9 @@ Proposed API or a false hit: class X when real.
 | `Command.command` | ok |  | 0 | 0 |  |
 | `Command.title` | ok |  | 0 | 0 |  |
 | `Command.tooltip` | ok |  | 0 | 0 |  |
-| `commands.executeCommand` | ok |  | 163 | 1,124,066,680 |  |
+| `commands.executeCommand` | ok | yes | 163 | 1,124,066,680 |  |
 | `commands.getCommands` | B |  | 22 | 248,650,853 |  |
-| `commands.registerCommand` | ok |  | 178 | 1,156,419,053 |  |
+| `commands.registerCommand` | ok | yes | 178 | 1,156,419,053 |  |
 | `commands.registerTextEditorCommand` | A |  | 16 | 131,081,500 |  |
 | `Comment.author` | C |  | 0 | 0 |  |
 | `Comment.body` | C |  | 0 | 0 |  |
@@ -749,7 +749,7 @@ Proposed API or a false hit: class X when real.
 | `CustomEditorProvider.revertCustomDocument` | X |  | 0 | 0 |  |
 | `CustomEditorProvider.saveCustomDocument` | X |  | 0 | 0 |  |
 | `CustomEditorProvider.saveCustomDocumentAs` | X |  | 0 | 0 |  |
-| `CustomExecution` | ok |  | 9 | 140,439,234 |  |
+| `CustomExecution` | ok | yes | 9 | 140,439,234 |  |
 | `CustomReadonlyEditorProvider.openCustomDocument` | X |  | 0 | 0 |  |
 | `CustomReadonlyEditorProvider.resolveCustomEditor` | X |  | 0 | 0 |  |
 | `CustomTextEditorProvider.resolveCustomTextEditor` | X |  | 0 | 0 |  |
@@ -978,24 +978,24 @@ Proposed API or a false hit: class X when real.
 | `EnterAction.indentAction` | ok |  | 0 | 0 |  |
 | `EnterAction.removeText` | ok |  | 0 | 0 |  |
 | `env.appHost` | ok |  | 19 | 129,890,756 |  |
-| `env.appName` | ok |  | 105 | 904,185,553 |  |
-| `env.appRoot` | ok |  | 22 | 135,779,926 |  |
+| `env.appName` | ok | yes | 105 | 904,185,553 |  |
+| `env.appRoot` | ok | yes | 22 | 135,779,926 |  |
 | `env.asExternalUri` | B |  | 23 | 111,109,501 |  |
 | `env.clipboard` | ok |  | 73 | 420,753,210 |  |
 | `env.createTelemetryLogger` | ok |  | 7 | 57,102,796 |  |
 | `env.isAppPortable` | B |  | 0 | 0 |  |
 | `env.isNewAppInstall` | B |  | 1 | 620,681 |  |
 | `env.isTelemetryEnabled` | ok |  | 44 | 614,637,512 |  |
-| `env.language` | ok |  | 97 | 734,577,323 |  |
+| `env.language` | ok | yes | 97 | 734,577,323 |  |
 | `env.logLevel` | B |  | 6 | 18,596,305 |  |
-| `env.machineId` | ok |  | 52 | 614,169,069 |  |
+| `env.machineId` | ok | yes | 52 | 614,169,069 |  |
 | `env.onDidChangeLogLevel` | B |  | 3 | 4,961,951 |  |
 | `env.onDidChangeShell` | ok |  | 1 | 61,892,209 |  |
 | `env.onDidChangeTelemetryEnabled` | ok |  | 13 | 104,612,249 |  |
 | `env.openExternal` | ok |  | 128 | 880,569,421 |  |
 | `env.remoteName` | ok |  | 46 | 390,229,901 |  |
-| `env.sessionId` | ok |  | 39 | 483,965,689 |  |
-| `env.shell` | ok |  | 21 | 356,487,352 |  |
+| `env.sessionId` | ok | yes | 39 | 483,965,689 |  |
+| `env.shell` | ok | yes | 21 | 356,487,352 |  |
 | `env.uiKind` | ok |  | 34 | 294,260,468 |  |
 | `env.uriScheme` | ok |  | 22 | 133,366,099 |  |
 | `EnvironmentVariableCollection.append` | ok |  | 0 | 0 |  |
@@ -1021,7 +1021,7 @@ Proposed API or a false hit: class X when real.
 | `EvaluatableExpression.expression` | C |  | 0 | 0 |  |
 | `EvaluatableExpression.range` | C |  | 0 | 0 |  |
 | `EvaluatableExpressionProvider.provideEvaluatableExpression` | C |  | 0 | 0 |  |
-| `EventEmitter` | ok |  | 145 | 1,076,588,202 |  |
+| `EventEmitter` | ok | yes | 145 | 1,076,588,202 |  |
 | `EventEmitter.dispose` | ok |  | 0 | 0 |  |
 | `EventEmitter.event` | ok |  | 0 | 0 |  |
 | `EventEmitter.fire` | ok |  | 0 | 0 |  |
@@ -1039,7 +1039,7 @@ Proposed API or a false hit: class X when real.
 | `ExtensionContext.extensionMode` | ok |  | 0 | 0 |  |
 | `ExtensionContext.extensionPath` | ok |  | 0 | 0 |  |
 | `ExtensionContext.extensionUri` | ok |  | 0 | 0 |  |
-| `ExtensionContext.globalState` | ok |  | 0 | 0 |  |
+| `ExtensionContext.globalState` | ok | yes | 0 | 0 |  |
 | `ExtensionContext.globalStoragePath` | ok |  | 0 | 0 |  |
 | `ExtensionContext.globalStorageUri` | ok |  | 0 | 0 |  |
 | `ExtensionContext.languageModelAccessInformation` | C |  | 0 | 0 |  |
@@ -1049,7 +1049,7 @@ Proposed API or a false hit: class X when real.
 | `ExtensionContext.storagePath` | ok |  | 0 | 0 |  |
 | `ExtensionContext.storageUri` | ok |  | 0 | 0 |  |
 | `ExtensionContext.subscriptions` | ok |  | 0 | 0 |  |
-| `ExtensionContext.workspaceState` | ok |  | 0 | 0 |  |
+| `ExtensionContext.workspaceState` | ok | yes | 0 | 0 |  |
 | `ExtensionKind` | ok |  | 0 | 0 |  |
 | `ExtensionKind.UI` | ok |  | 7 | 29,080,306 |  |
 | `ExtensionKind.Workspace` | ok |  | 7 | 10,543,682 |  |
@@ -1345,9 +1345,9 @@ Proposed API or a false hit: class X when real.
 | `LanguageModelToolResultPart.content` | C |  | 0 | 0 |  |
 | `LanguageModelToolTokenizationOptions.countTokens` | C |  | 0 | 0 |  |
 | `LanguageModelToolTokenizationOptions.tokenBudget` | C |  | 0 | 0 |  |
-| `languages.createDiagnosticCollection` | ok |  | 95 | 755,041,819 |  |
+| `languages.createDiagnosticCollection` | ok | yes | 95 | 755,041,819 |  |
 | `languages.createLanguageStatusItem` | ok |  | 23 | 250,760,797 |  |
-| `languages.getDiagnostics` | ok |  | 22 | 217,055,681 |  |
+| `languages.getDiagnostics` | ok | yes | 22 | 217,055,681 |  |
 | `languages.getLanguages` | B |  | 2 | 13,406,554 |  |
 | `languages.match` | ok |  | 79 | 568,236,171 |  |
 | `languages.onDidChangeDiagnostics` | ok |  | 9 | 178,729,024 |  |
@@ -1384,7 +1384,7 @@ Proposed API or a false hit: class X when real.
 | `languages.registerTypeHierarchyProvider` | C |  | 69 | 512,262,735 |  |
 | `languages.registerWorkspaceSymbolProvider` | B |  | 77 | 555,872,071 |  |
 | `languages.setLanguageConfiguration` | ok |  | 22 | 147,598,036 |  |
-| `languages.setTextDocumentLanguage` | B |  | 15 | 138,689,114 |  |
+| `languages.setTextDocumentLanguage` | B | yes | 15 | 138,689,114 |  |
 | `LanguageStatusItem.accessibilityInformation` | B |  | 0 | 0 |  |
 | `LanguageStatusItem.busy` | ok |  | 0 | 0 |  |
 | `LanguageStatusItem.command` | ok |  | 0 | 0 |  |
@@ -1433,7 +1433,7 @@ Proposed API or a false hit: class X when real.
 | `LogOutputChannel.onDidChangeLogLevel` | B |  | 0 | 0 |  |
 | `LogOutputChannel.trace` | ok |  | 0 | 0 |  |
 | `LogOutputChannel.warn` | ok |  | 0 | 0 |  |
-| `MarkdownString` | ok |  | 114 | 848,856,487 |  |
+| `MarkdownString` | ok | yes | 114 | 848,856,487 |  |
 | `MarkdownString.appendCodeblock` | ok |  | 0 | 0 |  |
 | `MarkdownString.appendMarkdown` | ok |  | 0 | 0 |  |
 | `MarkdownString.appendText` | ok |  | 0 | 0 |  |
@@ -1791,7 +1791,7 @@ Proposed API or a false hit: class X when real.
 | `SemanticTokensLegend` | ok |  | 4 | 5,819,749 |  |
 | `SemanticTokensLegend.tokenModifiers` | ok |  | 0 | 0 |  |
 | `SemanticTokensLegend.tokenTypes` | ok |  | 0 | 0 |  |
-| `ShellExecution` | ok |  | 19 | 251,682,816 |  |
+| `ShellExecution` | ok | yes | 19 | 251,682,816 |  |
 | `ShellExecution.args` | ok |  | 0 | 0 |  |
 | `ShellExecution.command` | ok |  | 0 | 0 |  |
 | `ShellExecution.commandLine` | ok |  | 0 | 0 |  |
@@ -1976,7 +1976,7 @@ Proposed API or a false hit: class X when real.
 | `TabInputTextDiff.original` | ok |  | 0 | 0 |  |
 | `TabInputWebview` | X |  | 5 | 96,519,046 |  |
 | `TabInputWebview.viewType` | X |  | 0 | 0 |  |
-| `Task` | ok |  | 34 | 533,008,293 |  |
+| `Task` | ok | yes | 34 | 533,008,293 |  |
 | `Task.definition` | ok |  | 0 | 0 |  |
 | `Task.detail` | ok |  | 0 | 0 |  |
 | `Task.execution` | ok |  | 0 | 0 |  |
@@ -2022,13 +2022,13 @@ Proposed API or a false hit: class X when real.
 | `TaskRevealKind.Always` | ok |  | 11 | 235,477,039 |  |
 | `TaskRevealKind.Never` | ok |  | 2 | 42,388,389 |  |
 | `TaskRevealKind.Silent` | ok |  | 1 | 45,566,739 |  |
-| `tasks.executeTask` | ok |  | 31 | 482,649,859 |  |
-| `tasks.fetchTasks` | ok |  | 9 | 152,238,198 |  |
+| `tasks.executeTask` | ok | yes | 31 | 482,649,859 |  |
+| `tasks.fetchTasks` | ok | yes | 9 | 152,238,198 |  |
 | `tasks.onDidEndTask` | ok |  | 16 | 176,500,489 |  |
-| `tasks.onDidEndTaskProcess` | ok |  | 14 | 144,308,945 |  |
+| `tasks.onDidEndTaskProcess` | ok | yes | 14 | 144,308,945 |  |
 | `tasks.onDidStartTask` | ok |  | 5 | 30,484,167 |  |
-| `tasks.onDidStartTaskProcess` | ok |  | 0 | 0 |  |
-| `tasks.registerTaskProvider` | ok |  | 18 | 245,204,624 |  |
+| `tasks.onDidStartTaskProcess` | ok | yes | 0 | 0 |  |
+| `tasks.registerTaskProvider` | ok | yes | 18 | 245,204,624 |  |
 | `tasks.taskExecutions` | ok |  | 8 | 173,389,392 |  |
 | `TaskScope` | ok |  | 0 | 0 |  |
 | `TaskScope.Global` | ok |  | 8 | 135,203,472 |  |
@@ -2204,7 +2204,7 @@ Proposed API or a false hit: class X when real.
 | `TextDocument.encoding` | ok |  | 0 | 0 |  |
 | `TextDocument.eol` | ok |  | 0 | 0 |  |
 | `TextDocument.fileName` | ok |  | 0 | 0 |  |
-| `TextDocument.getText` | A |  | 0 | 0 |  |
+| `TextDocument.getText` | A | yes | 0 | 0 |  |
 | `TextDocument.getWordRangeAtPosition` | ok |  | 0 | 0 |  |
 | `TextDocument.isClosed` | ok |  | 0 | 0 |  |
 | `TextDocument.isDirty` | A |  | 0 | 0 |  |
@@ -2256,7 +2256,7 @@ Proposed API or a false hit: class X when real.
 | `TextEditor.insertSnippet` | C |  | 0 | 0 |  |
 | `TextEditor.options` | ok |  | 0 | 0 |  |
 | `TextEditor.revealRange` | B |  | 0 | 0 |  |
-| `TextEditor.selection` | ok |  | 0 | 0 |  |
+| `TextEditor.selection` | ok | yes | 0 | 0 |  |
 | `TextEditor.selections` | ok |  | 0 | 0 |  |
 | `TextEditor.setDecorations` | C |  | 0 | 0 |  |
 | `TextEditor.show` | B |  | 0 | 0 |  |
@@ -2350,8 +2350,8 @@ Proposed API or a false hit: class X when real.
 | `ThemeColor.id` | ok |  | 0 | 0 |  |
 | `ThemeIcon` | ok |  | 70 | 690,227,082 |  |
 | `ThemeIcon.color` | ok |  | 0 | 0 |  |
-| `ThemeIcon.File` | ok |  | 11 | 103,059,392 |  |
-| `ThemeIcon.Folder` | ok |  | 14 | 101,917,813 |  |
+| `ThemeIcon.File` | ok | yes | 11 | 103,059,392 |  |
+| `ThemeIcon.Folder` | ok | yes | 14 | 101,917,813 |  |
 | `ThemeIcon.id` | ok |  | 0 | 0 |  |
 | `TreeCheckboxChangeEvent.items` | B |  | 0 | 0 |  |
 | `TreeDataProvider.getChildren` | ok |  | 0 | 0 |  |
@@ -2363,7 +2363,7 @@ Proposed API or a false hit: class X when real.
 | `TreeDragAndDropController.dropMimeTypes` | C |  | 0 | 0 |  |
 | `TreeDragAndDropController.handleDrag` | C |  | 0 | 0 |  |
 | `TreeDragAndDropController.handleDrop` | C |  | 0 | 0 |  |
-| `TreeItem` | ok |  | 61 | 451,433,979 |  |
+| `TreeItem` | ok | yes | 61 | 451,433,979 |  |
 | `TreeItem.accessibilityInformation` | ok |  | 0 | 0 |  |
 | `TreeItem.checkboxState` | B |  | 0 | 0 |  |
 | `TreeItem.collapsibleState` | ok |  | 0 | 0 |  |
@@ -2492,14 +2492,14 @@ Proposed API or a false hit: class X when real.
 | `window.activeColorTheme` | ok |  | 29 | 130,368,078 |  |
 | `window.activeNotebookEditor` | X |  | 17 | 133,990,636 |  |
 | `window.activeTerminal` | ok |  | 15 | 216,575,445 |  |
-| `window.activeTextEditor` | B |  | 161 | 1,031,389,838 |  |
+| `window.activeTextEditor` | B | yes | 161 | 1,031,389,838 |  |
 | `window.createInputBox` | B |  | 27 | 437,973,972 |  |
 | `window.createOutputChannel` | ok |  | 144 | 1,097,202,143 |  |
-| `window.createQuickPick` | B |  | 57 | 660,652,049 |  |
+| `window.createQuickPick` | B | yes | 57 | 660,652,049 |  |
 | `window.createStatusBarItem` | ok |  | 86 | 651,676,549 |  |
-| `window.createTerminal` | ok |  | 59 | 442,493,421 |  |
+| `window.createTerminal` | ok | yes | 59 | 442,493,421 |  |
 | `window.createTextEditorDecorationType` | C |  | 56 | 481,992,789 |  |
-| `window.createTreeView` | ok |  | 47 | 432,182,103 |  |
+| `window.createTreeView` | ok | yes | 47 | 432,182,103 |  |
 | `window.createWebviewPanel` | X |  | 73 | 478,100,689 |  |
 | `window.onDidChangeActiveColorTheme` | ok |  | 18 | 52,945,951 |  |
 | `window.onDidChangeActiveNotebookEditor` | X |  | 7 | 30,867,966 |  |
@@ -2511,14 +2511,14 @@ Proposed API or a false hit: class X when real.
 | `window.onDidChangeTerminalState` | B |  | 5 | 120,897,053 |  |
 | `window.onDidChangeTextEditorOptions` | B |  | 4 | 82,872,454 |  |
 | `window.onDidChangeTextEditorSelection` | B |  | 50 | 361,667,096 |  |
-| `window.onDidChangeTextEditorViewColumn` | B |  | 4 | 86,704,102 |  |
+| `window.onDidChangeTextEditorViewColumn` | B | yes | 4 | 86,704,102 |  |
 | `window.onDidChangeTextEditorVisibleRanges` | B |  | 11 | 59,943,750 |  |
 | `window.onDidChangeVisibleNotebookEditors` | X |  | 2 | 12,114,147 |  |
-| `window.onDidChangeVisibleTextEditors` | ok |  | 43 | 497,715,134 |  |
+| `window.onDidChangeVisibleTextEditors` | ok | yes | 43 | 497,715,134 |  |
 | `window.onDidChangeWindowState` | ok |  | 21 | 174,307,028 |  |
-| `window.onDidCloseTerminal` | ok |  | 30 | 265,091,068 |  |
+| `window.onDidCloseTerminal` | ok | yes | 30 | 265,091,068 |  |
 | `window.onDidEndTerminalShellExecution` | B |  | 11 | 191,094,799 |  |
-| `window.onDidOpenTerminal` | ok |  | 9 | 190,820,773 |  |
+| `window.onDidOpenTerminal` | ok | yes | 9 | 190,820,773 |  |
 | `window.onDidStartTerminalShellExecution` | B |  | 7 | 181,551,041 |  |
 | `window.registerCustomEditorProvider` | X |  | 19 | 170,663,832 |  |
 | `window.registerFileDecorationProvider` | ok |  | 11 | 113,066,366 |  |
@@ -2531,38 +2531,38 @@ Proposed API or a false hit: class X when real.
 | `window.setStatusBarMessage` | ok |  | 17 | 172,825,375 |  |
 | `window.showErrorMessage` | ok |  | 161 | 1,110,059,497 |  |
 | `window.showInformationMessage` | ok |  | 162 | 1,070,330,218 |  |
-| `window.showInputBox` | B |  | 107 | 812,444,919 |  |
+| `window.showInputBox` | B | yes | 107 | 812,444,919 |  |
 | `window.showNotebookDocument` | X |  | 7 | 82,892,295 |  |
 | `window.showOpenDialog` | ok |  | 66 | 674,520,913 |  |
-| `window.showQuickPick` | B |  | 115 | 786,062,286 |  |
+| `window.showQuickPick` | B | yes | 115 | 786,062,286 |  |
 | `window.showSaveDialog` | ok |  | 41 | 265,247,891 |  |
-| `window.showTextDocument` | B |  | 136 | 1,032,207,702 |  |
+| `window.showTextDocument` | B | yes | 136 | 1,032,207,702 |  |
 | `window.showWarningMessage` | ok |  | 149 | 1,057,770,125 |  |
 | `window.showWorkspaceFolderPick` | B |  | 10 | 175,227,295 |  |
-| `window.state` | ok |  | 15 | 121,174,320 |  |
-| `window.tabGroups` | ok |  | 100 | 662,230,120 |  |
-| `window.terminals` | ok |  | 23 | 355,498,590 |  |
+| `window.state` | ok | yes | 15 | 121,174,320 |  |
+| `window.tabGroups` | ok | yes | 100 | 662,230,120 |  |
+| `window.terminals` | ok | yes | 23 | 355,498,590 |  |
 | `window.visibleNotebookEditors` | X |  | 6 | 24,331,125 |  |
-| `window.visibleTextEditors` | ok |  | 69 | 596,976,815 |  |
+| `window.visibleTextEditors` | ok | yes | 69 | 596,976,815 |  |
 | `window.withProgress` | B |  | 124 | 944,816,089 |  |
 | `window.withScmProgress` | C |  | 0 | 0 |  |
 | `WindowState.active` | ok |  | 0 | 0 |  |
 | `WindowState.focused` | ok |  | 0 | 0 |  |
-| `workspace.applyEdit` | A |  | 106 | 886,030,083 |  |
-| `workspace.asRelativePath` | ok |  | 53 | 542,990,002 |  |
+| `workspace.applyEdit` | A | yes | 106 | 886,030,083 |  |
+| `workspace.asRelativePath` | ok | yes | 53 | 542,990,002 |  |
 | `workspace.createFileSystemWatcher` | ok |  | 117 | 944,215,757 |  |
 | `workspace.decode` | B |  | 1 | 18,726,545 |  |
 | `workspace.encode` | B |  | 0 | 0 |  |
-| `workspace.findFiles` | ok |  | 72 | 686,973,290 |  |
-| `workspace.fs` | ok |  | 138 | 914,256,103 |  |
+| `workspace.findFiles` | ok | yes | 72 | 686,973,290 |  |
+| `workspace.fs` | ok | yes | 138 | 914,256,103 |  |
 | `workspace.getConfiguration` | ok |  | 176 | 1,135,915,147 |  |
-| `workspace.getWorkspaceFolder` | ok |  | 119 | 982,101,425 |  |
+| `workspace.getWorkspaceFolder` | ok | yes | 119 | 982,101,425 |  |
 | `workspace.isTrusted` | ok |  | 34 | 345,707,834 |  |
 | `workspace.name` | ok |  | 12 | 183,480,674 |  |
 | `workspace.notebookDocuments` | X |  | 75 | 583,025,321 |  |
 | `workspace.onDidChangeConfiguration` | ok |  | 147 | 1,063,598,568 |  |
 | `workspace.onDidChangeNotebookDocument` | X |  | 71 | 525,888,653 |  |
-| `workspace.onDidChangeTextDocument` | ok |  | 118 | 907,561,438 |  |
+| `workspace.onDidChangeTextDocument` | ok | yes | 118 | 907,561,438 |  |
 | `workspace.onDidChangeWorkspaceFolders` | B |  | 109 | 884,612,940 |  |
 | `workspace.onDidCloseNotebookDocument` | X |  | 72 | 519,617,722 |  |
 | `workspace.onDidCloseTextDocument` | ok |  | 104 | 807,332,966 |  |
@@ -2570,34 +2570,34 @@ Proposed API or a false hit: class X when real.
 | `workspace.onDidDeleteFiles` | B |  | 85 | 634,317,169 |  |
 | `workspace.onDidGrantWorkspaceTrust` | ok |  | 20 | 219,502,460 |  |
 | `workspace.onDidOpenNotebookDocument` | X |  | 69 | 512,262,735 |  |
-| `workspace.onDidOpenTextDocument` | ok |  | 98 | 794,779,906 |  |
+| `workspace.onDidOpenTextDocument` | ok | yes | 98 | 794,779,906 |  |
 | `workspace.onDidRenameFiles` | B |  | 82 | 627,808,812 |  |
 | `workspace.onDidSaveNotebookDocument` | X |  | 70 | 514,036,465 |  |
-| `workspace.onDidSaveTextDocument` | ok |  | 104 | 715,204,603 |  |
-| `workspace.onWillCreateFiles` | B |  | 73 | 551,893,376 |  |
-| `workspace.onWillDeleteFiles` | B |  | 74 | 552,496,647 |  |
+| `workspace.onDidSaveTextDocument` | ok | yes | 104 | 715,204,603 |  |
+| `workspace.onWillCreateFiles` | B | yes | 73 | 551,893,376 |  |
+| `workspace.onWillDeleteFiles` | B | yes | 74 | 552,496,647 |  |
 | `workspace.onWillRenameFiles` | B |  | 73 | 551,893,376 |  |
 | `workspace.onWillSaveNotebookDocument` | X |  | 0 | 0 |  |
 | `workspace.onWillSaveTextDocument` | ok |  | 79 | 622,743,962 |  |
 | `workspace.openNotebookDocument` | X |  | 12 | 94,704,857 |  |
-| `workspace.openTextDocument` | B |  | 104 | 814,693,192 |  |
-| `workspace.registerFileSystemProvider` | B |  | 16 | 123,646,172 |  |
+| `workspace.openTextDocument` | B | yes | 104 | 814,693,192 |  |
+| `workspace.registerFileSystemProvider` | B | yes | 16 | 123,646,172 |  |
 | `workspace.registerNotebookSerializer` | X |  | 6 | 9,529,994 |  |
 | `workspace.registerTaskProvider` | ok |  | 0 | 0 |  |
-| `workspace.registerTextDocumentContentProvider` | B |  | 74 | 520,791,593 |  |
+| `workspace.registerTextDocumentContentProvider` | B | yes | 74 | 520,791,593 |  |
 | `workspace.rootPath` | B |  | 16 | 122,654,834 |  |
 | `workspace.save` | ok |  | 4 | 68,749,046 |  |
 | `workspace.saveAll` | B |  | 15 | 114,231,247 |  |
 | `workspace.saveAs` | B |  | 0 | 0 |  |
 | `workspace.textDocuments` | ok |  | 104 | 766,706,967 |  |
 | `workspace.updateWorkspaceFolders` | B |  | 17 | 188,453,820 |  |
-| `workspace.workspaceFile` | ok |  | 20 | 270,512,450 |  |
-| `workspace.workspaceFolders` | ok |  | 142 | 1,022,232,086 |  |
+| `workspace.workspaceFile` | ok | yes | 20 | 270,512,450 |  |
+| `workspace.workspaceFolders` | ok | yes | 142 | 1,022,232,086 |  |
 | `WorkspaceConfiguration.get` | ok |  | 0 | 0 |  |
 | `WorkspaceConfiguration.has` | ok |  | 0 | 0 |  |
 | `WorkspaceConfiguration.inspect` | ok |  | 0 | 0 |  |
 | `WorkspaceConfiguration.update` | ok |  | 0 | 0 |  |
-| `WorkspaceEdit` | ok |  | 107 | 886,570,064 |  |
+| `WorkspaceEdit` | ok | yes | 107 | 886,570,064 |  |
 | `WorkspaceEdit.createFile` | ok |  | 0 | 0 |  |
 | `WorkspaceEdit.delete` | ok |  | 0 | 0 |  |
 | `WorkspaceEdit.deleteFile` | ok |  | 0 | 0 |  |

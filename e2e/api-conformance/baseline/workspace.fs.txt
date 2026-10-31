@@ -1,0 +1,11 @@
+vscode API - workspace-fs fs.createFolder creates recursively
+vscode API - workspace-fs fs.delete folder
+vscode API - workspace-fs fs.stat
+vscode API - workspace-fs fs.stat - bad scheme
+vscode API - workspace-fs fs.stat - missing file
+vscode API - workspace-fs fs.write/stat/read/delete
+vscode API - workspace-fs fs.writeFile creates parents recursively
+vscode API - workspace-fs throws FileSystemError (1)
+vscode API - workspace-fs throws FileSystemError (2)
+vscode API - workspace-fs vscode.workspace.fs.remove() (and copy()) succeed unexpectedly. #84177 (1)
+vscode API - workspace-fs vscode.workspace.fs.remove() (and copy()) succeed unexpectedly. #84177 (2)

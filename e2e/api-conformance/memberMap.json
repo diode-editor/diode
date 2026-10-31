@@ -1,0 +1,373 @@
+{
+    "commands vscode API - commands api-command: vscode.open": [
+        "commands.executeCommand",
+        "window.tabGroups",
+        "workspace.workspaceFolders"
+    ],
+    "commands vscode API - commands command with args": [
+        "commands.executeCommand",
+        "commands.registerCommand"
+    ],
+    "editor vscode API - editors editor contents are correctly read (large file)": [
+        "TextDocument.getText",
+        "window.showTextDocument",
+        "workspace.openTextDocument"
+    ],
+    "editor vscode API - editors editor contents are correctly read (small file)": [
+        "TextDocument.getText",
+        "window.showTextDocument",
+        "workspace.openTextDocument"
+    ],
+    "editor vscode API - editors extEditor.selection can be empty #18075": [
+        "TextEditor.selection",
+        "window.showTextDocument",
+        "workspace.openTextDocument"
+    ],
+    "env vscode API - env env is set": [
+        "env.appName",
+        "env.appRoot",
+        "env.language",
+        "env.machineId",
+        "env.sessionId",
+        "env.shell"
+    ],
+    "languages vscode API - languages diagnostics, read & event": [
+        "languages.createDiagnosticCollection",
+        "languages.getDiagnostics"
+    ],
+    "languages vscode API - languages setTextDocumentLanguage -> error when language does not exist": [
+        "languages.setTextDocumentLanguage",
+        "workspace.openTextDocument"
+    ],
+    "quickInput vscode API - quick input createQuickPick, dispose in onDidHide": [
+        "window.createQuickPick"
+    ],
+    "quickInput vscode API - quick input createQuickPick, hide and dispose": [
+        "window.createQuickPick"
+    ],
+    "quickInput vscode API - quick input createQuickPick, hide and hide": [
+        "window.createQuickPick"
+    ],
+    "quickInput vscode API - quick input createQuickPick, hide show hide": [
+        "window.createQuickPick"
+    ],
+    "readonlyFileSystem vscode API - file system readonly file system - boolean": [
+        "workspace.fs",
+        "workspace.registerFileSystemProvider"
+    ],
+    "readonlyFileSystem vscode API - file system readonly file system - markdown": [
+        "MarkdownString",
+        "workspace.fs",
+        "workspace.registerFileSystemProvider"
+    ],
+    "readonlyFileSystem vscode API - file system writeable file system": [
+        "workspace.fs",
+        "workspace.registerFileSystemProvider"
+    ],
+    "state vscode API - globalState / workspaceState state basics": [
+        "ExtensionContext.globalState",
+        "ExtensionContext.workspaceState"
+    ],
+    "terminal vscode API - terminal Terminal Extension pty terminals exitStatus.code should be set to the exit code (non-zero)": [
+        "EventEmitter",
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal Extension pty terminals exitStatus.code should be set to the exit code (undefined)": [
+        "EventEmitter",
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal Extension pty terminals exitStatus.code should be set to the exit code (zero)": [
+        "EventEmitter",
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal Extension pty terminals should fire onDidOpenTerminal and onDidCloseTerminal": [
+        "EventEmitter",
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal exitStatus.code should be set to undefined after a terminal is disposed": [
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal hideFromUser should be available to terminals API": [
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal",
+        "window.terminals"
+    ],
+    "terminal vscode API - terminal Terminal name in constructor should set terminal.name": [
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal onDidCloseTerminal event fires when terminal is disposed": [
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal onDidOpenTerminal should fire when a terminal is created": [
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal processId immediately after createTerminal should fetch the pid": [
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal selection should be undefined immediately after creation": [
+        "window.createTerminal"
+    ],
+    "terminal vscode API - terminal Terminal sendText immediately after createTerminal should not throw": [
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal"
+    ],
+    "tree vscode API - tree TreeView - element already registered after refresh": [
+        "EventEmitter",
+        "TreeItem",
+        "window.createTreeView"
+    ],
+    "types vscode API - types static properties, es5 compat class": [
+        "CodeActionKind.Empty",
+        "CodeActionKind.QuickFix",
+        "CodeActionKind.Refactor",
+        "CodeActionKind.Source",
+        "ThemeIcon.File",
+        "ThemeIcon.Folder"
+    ],
+    "window vscode API - window #7013 - input without options": [
+        "window.showInputBox"
+    ],
+    "window vscode API - window Tabs - ensure active tab is correct": [
+        "commands.executeCommand",
+        "window.showTextDocument",
+        "window.tabGroups",
+        "workspace.openTextDocument"
+    ],
+    "window vscode API - window Tabs - vscode.open & vscode.diff": [
+        "commands.executeCommand",
+        "window.showTextDocument",
+        "window.tabGroups",
+        "workspace.openTextDocument"
+    ],
+    "window vscode API - window active editor not always correct... #49125": [
+        "window.activeTextEditor",
+        "window.showTextDocument",
+        "window.state",
+        "window.visibleTextEditors",
+        "workspace.openTextDocument"
+    ],
+    "window vscode API - window editor, onDidChangeTextEditorViewColumn (move editor group)": [
+        "commands.executeCommand",
+        "window.activeTextEditor",
+        "window.onDidChangeTextEditorViewColumn",
+        "window.showTextDocument",
+        "workspace.openTextDocument",
+        "workspace.registerTextDocumentContentProvider"
+    ],
+    "window vscode API - window editor, onDidChangeVisibleTextEditors": [
+        "window.onDidChangeVisibleTextEditors",
+        "window.showTextDocument",
+        "workspace.openTextDocument"
+    ],
+    "window vscode API - window editor, opened via resource": [
+        "window.activeTextEditor",
+        "window.showTextDocument"
+    ],
+    "window vscode API - window showInputBox - cancel early": [
+        "window.showInputBox"
+    ],
+    "window vscode API - window showQuickPick, cancel early": [
+        "window.showQuickPick"
+    ],
+    "window vscode API - window showQuickPick, canceled by another picker": [
+        "window.showQuickPick"
+    ],
+    "window vscode API - window showQuickPick, native promise - #11754": [
+        "window.showQuickPick"
+    ],
+    "window vscode API - window showQuickPick, undefined on cancel": [
+        "window.showQuickPick"
+    ],
+    "workspace vscode API - workspace WorkspaceEdit api - after saving a deleted file, it still shows up as deleted. #42667": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace WorkspaceEdit: create & ignoreIfExists": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace WorkspaceEdit: create & override": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace WorkspaceEdit: delete & ignoreIfNotExists": [
+        "WorkspaceEdit",
+        "workspace.applyEdit"
+    ],
+    "workspace vscode API - workspace WorkspaceEdit: rename resource followed by edit does not work #42638": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace applyEdit should fail when editing deleted resource": [
+        "WorkspaceEdit",
+        "workspace.applyEdit"
+    ],
+    "workspace vscode API - workspace applyEdit should fail when editing renamed from resource": [
+        "WorkspaceEdit",
+        "workspace.applyEdit"
+    ],
+    "workspace vscode API - workspace applyEdit should fail when renaming deleted resource": [
+        "WorkspaceEdit",
+        "workspace.applyEdit"
+    ],
+    "workspace vscode API - workspace encoding: openTextDocument - invalid encoding falls back to default": [
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace encoding: text document encodings": [
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace eol, read": [
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace events: onDidOpenTextDocument, onDidChangeTextDocument, onDidSaveTextDocument": [
+        "window.showTextDocument",
+        "workspace.onDidChangeTextDocument",
+        "workspace.onDidOpenTextDocument",
+        "workspace.onDidSaveTextDocument",
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace findFiles": [
+        "workspace.asRelativePath",
+        "workspace.findFiles"
+    ],
+    "workspace vscode API - workspace findFiles - exclude": [
+        "workspace.asRelativePath",
+        "workspace.findFiles"
+    ],
+    "workspace vscode API - workspace findFiles, cancellation": [
+        "workspace.findFiles"
+    ],
+    "workspace vscode API - workspace findFiles, exclude": [
+        "workspace.asRelativePath",
+        "workspace.findFiles"
+    ],
+    "workspace vscode API - workspace getWorkspaceFolder": [
+        "workspace.getWorkspaceFolder"
+    ],
+    "workspace vscode API - workspace openTextDocument, illegal path": [
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace openTextDocument, untitled without path but language ID and content": [
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace openTextDocument, uri scheme/auth/path": [
+        "workspace.openTextDocument",
+        "workspace.registerTextDocumentContentProvider"
+    ],
+    "workspace vscode API - workspace openTextDocument, with selection": [
+        "window.showTextDocument",
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace registerTextDocumentContentProvider, simple": [
+        "workspace.openTextDocument",
+        "workspace.registerTextDocumentContentProvider"
+    ],
+    "workspace vscode API - workspace workspaceFile": [
+        "workspace.workspaceFile"
+    ],
+    "workspace vscode API - workspace workspaceFolders": [
+        "workspace.workspaceFolders"
+    ],
+    "workspace.event vscode API - workspace events onWillCreate/onDidCreate, make changes, edit new file fails": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.fs",
+        "workspace.onWillCreateFiles",
+        "workspace.openTextDocument"
+    ],
+    "workspace.event vscode API - workspace events onWillDelete/onDidDelete, make changes": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillDeleteFiles"
+    ],
+    "workspace.event vscode API - workspace events onWillDelete/onDidDelete, make changes, del another file": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillDeleteFiles"
+    ],
+    "workspace.event vscode API - workspace events onWillDelete/onDidDelete, make changes, double delete": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillDeleteFiles"
+    ],
+    "workspace.fs vscode API - workspace-fs fs.createFolder creates recursively": [
+        "workspace.fs"
+    ],
+    "workspace.fs vscode API - workspace-fs fs.delete folder": [
+        "workspace.fs"
+    ],
+    "workspace.fs vscode API - workspace-fs fs.stat": [
+        "workspace.fs"
+    ],
+    "workspace.fs vscode API - workspace-fs fs.stat - bad scheme": [
+        "workspace.fs"
+    ],
+    "workspace.fs vscode API - workspace-fs fs.stat - missing file": [
+        "workspace.fs"
+    ],
+    "workspace.fs vscode API - workspace-fs fs.write/stat/read/delete": [
+        "workspace.fs"
+    ],
+    "workspace.fs vscode API - workspace-fs fs.writeFile creates parents recursively": [
+        "workspace.fs"
+    ],
+    "workspace.fs vscode API - workspace-fs throws FileSystemError (1)": [
+        "workspace.fs"
+    ],
+    "workspace.fs vscode API - workspace-fs throws FileSystemError (2)": [
+        "workspace.fs"
+    ],
+    "workspace.fs vscode API - workspace-fs vscode.workspace.fs.remove() (and copy()) succeed unexpectedly. #84177 (1)": [
+        "workspace.fs"
+    ],
+    "workspace.fs vscode API - workspace-fs vscode.workspace.fs.remove() (and copy()) succeed unexpectedly. #84177 (2)": [
+        "workspace.fs"
+    ],
+    "workspace.tasks vscode API - tasks Tasks CustomExecution A task can be fetched and executed (#100577)": [
+        "CustomExecution",
+        "EventEmitter",
+        "Task",
+        "tasks.executeTask",
+        "tasks.fetchTasks",
+        "tasks.registerTaskProvider"
+    ],
+    "workspace.tasks vscode API - tasks Tasks CustomExecution Tasks can be run back to back": [
+        "CustomExecution",
+        "EventEmitter",
+        "Task",
+        "tasks.executeTask"
+    ],
+    "workspace.tasks vscode API - tasks Tasks ShellExecution Execution from onDidEndTaskProcess and onDidStartTaskProcess are equal to original": [
+        "EventEmitter",
+        "ShellExecution",
+        "Task",
+        "tasks.executeTask",
+        "tasks.onDidEndTaskProcess",
+        "tasks.onDidStartTaskProcess",
+        "window.terminals"
+    ]
+}

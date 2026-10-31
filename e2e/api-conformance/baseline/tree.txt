@@ -1,0 +1,1 @@
+vscode API - tree TreeView - element already registered after refresh
