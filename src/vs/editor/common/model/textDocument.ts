@@ -173,7 +173,7 @@ export class TextDocument implements ITextDocument {
     }
 
     public applyEdits(edits: readonly ITextEdit[]): IApplyEditsResult {
-        return this.applyEditsAs(edits, "edit");
+        return this.applyEditsAs(edits);
     }
 
     public applyUndoRedoEdits(edits: readonly ITextEdit[], origin: "undo" | "redo"): IApplyEditsResult {
@@ -191,7 +191,7 @@ export class TextDocument implements ITextDocument {
         this.applyEditsAs([{ range: { start: end, end }, text }], "append");
     }
 
-    private applyEditsAs(edits: readonly ITextEdit[], origin: "edit" | "append" | "undo" | "redo"): IApplyEditsResult {
+    private applyEditsAs(edits: readonly ITextEdit[], origin?: "append" | "undo" | "redo"): IApplyEditsResult {
         if (edits.length === 0) {
             return { appliedVersion: this.innerVersionId, inverseEdits: [] };
         }
