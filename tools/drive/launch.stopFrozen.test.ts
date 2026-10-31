@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -41,6 +41,7 @@ describe("stopSession", () => {
         async () => {
             const root = mkdtempSync(join(tmpdir(), "drive-stop-frozen-"));
             dirs.push(root);
+            mkdirSync(join(root, "drive"));
             const { child, port } = await spawnListener();
             const pid = child.pid ?? 0;
             const registry = new SessionRegistry(join(root, "registry"));

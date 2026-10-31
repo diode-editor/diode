@@ -24,7 +24,8 @@ import { extractUpstreamApiTests } from "./upstream.mjs";
 const here = import.meta.dirname;
 const repoRoot = path.resolve(here, "..", "..");
 const baselineDir = path.join(here, "baseline");
-const SESSION = "api-conformance";
+// By pid: two runs side by side must not stop each other's sessions.
+const SESSION = `api-conformance-${String(process.pid)}`;
 const TEST_TIMEOUT_MS = 8000;
 const DEFAULT_FILE_TIMEOUT_S = 300;
 
@@ -77,6 +78,7 @@ const suites = values.only === undefined ? SUITES : values.only.split(",");
 for (const suite of suites) {
     if (!SUITES.includes(suite)) throw new Error(`Unknown test file ${suite}. Known: ${SUITES.join(" ")}`);
 }
+if (values.hang !== undefined && !suites.includes(values.hang)) throw new Error(`--hang ${values.hang} is not among the test files of this run.`);
 const exclusions = JSON.parse(readFileSync(path.join(here, "exclusions.json"), "utf8"));
 
 const workDir = mkdtempSync(path.join(os.tmpdir(), "diode-api-conformance-"));
@@ -86,8 +88,6 @@ const extensionDir = path.join(workDir, "extension");
 await buildExtension({ repoRoot, upstreamDir, extensionDir, workDir, testTimeoutMs: TEST_TIMEOUT_MS });
 const vsix = path.join(workDir, "api-tests.vsix");
 await execFileAsync(process.execPath, [path.join(repoRoot, "scripts", "pack-vsix.mjs"), extensionDir, vsix]);
-
-await drive(["stop", "-s", SESSION], 60_000).catch(() => undefined);
 
 const report = [];
 const details = {};
@@ -116,7 +116,7 @@ for (const [index, suite] of suites.entries()) {
         comparison: compareSuite({ suite, green, skipped: new Set(results.skipped), baseline: readBaseline(baselineDir, suite), exclusions }),
     });
     details[suite] = { problem, planned: results.planned, loadError: results.loadError, green: [...green].sort(), failed: Object.fromEntries(results.failed), skipped: results.skipped, unfinished };
-    console.log(`${suite}: ${String(green.size)} green of ${String(planned.length)} in ${String(Math.round((Date.now() - startedAt) / 1000))} s${problem === undefined ? "" : ` (${problem})`}`);
+    console.log(`${suite}: ${String(report.at(-1).greenCount)} green of ${String(planned.length - report.at(-1).excludedCount)} in ${String(Math.round((Date.now() - startedAt) / 1000))} s${problem === undefined ? "" : ` (${problem})`}`);
     if (results.loadError !== undefined) console.log(results.loadError);
 }
 
@@ -133,5 +133,8 @@ if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMM
 if (values.keep) console.log(`Working directory: ${workDir}`);
 else rmSync(workDir, { recursive: true, force: true });
 
-const failed = !values.update && report.some((suite) => suite.comparison.regressions.length > 0);
-process.exitCode = failed ? 1 : 0;
+// A file that did not run to the end fails the command even with an empty baseline or with --update:
+// nothing is known about it, and with --update its baseline was left as it was.
+const incomplete = Object.values(details).some(({ problem, loadError }) => problem !== undefined || loadError !== undefined);
+const regressed = !values.update && report.some((suite) => suite.comparison.regressions.length > 0);
+process.exitCode = incomplete || regressed ? 1 : 0;

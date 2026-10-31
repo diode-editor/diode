@@ -26,7 +26,9 @@ export function connectWithRetry(url: string, timeoutMs: number, signal?: AbortS
     const deadline = Date.now() + timeoutMs;
     return new Promise((resolve, reject) => {
         const attempt = (): void => {
-            const ws = new WebSocket(url);
+            // A frozen process still gets its TCP connections from the kernel, but never answers the
+            // upgrade: without a handshake limit neither "open" nor "error" ever comes.
+            const ws = new WebSocket(url, { handshakeTimeout: Math.max(deadline - Date.now(), 1) });
             ws.once("open", () => {
                 // Aborted while the socket was opening: nobody needs it anymore.
                 if (signal?.aborted === true) ws.close();
