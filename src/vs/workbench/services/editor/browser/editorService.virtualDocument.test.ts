@@ -31,6 +31,7 @@ import { EditorService } from "./editorService.ts";
 const JAVA_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".java") ? "java" : undefined),
     getLanguageDisplayName: () => undefined,
+    getRegisteredLanguageIds: () => [],
     getExtensionForLanguage: () => undefined,
     requestLanguageFeatures: () => undefined,
     onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
@@ -121,6 +122,27 @@ describe("EditorService.openUri — non-disk resources", () => {
         expect(service.editorGroups.activeGroup.activeIndex).toBe(0);
         expect(service.editorGroups.activeGroup.editorCount).toBe(2);
         expect(provide).toHaveBeenCalledTimes(1);
+        service.dispose();
+    });
+
+    it("a tab of the resource in another group is not reused: the new group asks the provider itself", async () => {
+        const service = createEditorService();
+        const provide = vi
+            .fn<(uri: Uri) => Promise<string | null>>()
+            .mockResolvedValueOnce("first\n")
+            .mockResolvedValueOnce("second\n");
+        service.virtualDocumentSource = makeSource("demo", provide);
+        const uri = Uri.parse("demo:///a");
+        await service.openUri(uri);
+        const firstGroup = service.editorGroups.activeGroup;
+
+        const secondGroup = service.editorGroups.newGroup("after");
+        if (secondGroup === null) throw new Error("no second group");
+        await service.openUri(uri, { group: secondGroup });
+
+        expect(provide).toHaveBeenCalledTimes(2);
+        expect(secondGroup).not.toBe(firstGroup);
+        expect(service.getEditors().map((editor) => editor.getText())).toEqual(["first\n", "second\n"]);
         service.dispose();
     });
 

@@ -56,3 +56,17 @@ describe("NULL_COMMAND_SERVICE", () => {
         }).not.toThrow();
     });
 });
+
+describe("CommandServiceAdapter.listCommandIds", () => {
+    it("lists every registered command, without a title too", () => {
+        const registry = new CommandRegistry();
+        registry.register("with.title", () => undefined, "Title");
+        registry.register("_no.title", () => undefined);
+
+        expect(new CommandServiceAdapter(registry).listCommandIds()).toEqual(["with.title", "_no.title"]);
+    });
+
+    it("the null service lists nothing", () => {
+        expect(NULL_COMMAND_SERVICE.listCommandIds()).toEqual([]);
+    });
+});

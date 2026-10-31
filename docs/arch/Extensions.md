@@ -354,7 +354,19 @@
   `ExtensionHostModule`/`ExtensionTestHarness`; вкладка получается синтетической моделью
   (`TextFileModel.openSynthetic`) с `readOnly` — контракт `TextDocumentContentProvider` про
   read-only документы прямо и говорит. **Реестр отдельный от `IFileSystemProviderRegistry`**, как в
-  эталоне: одна схема может иметь и провайдера ФС, и провайдера содержимого.
+  эталоне: одна схема может иметь и провайдера ФС, и провайдера содержимого. На одну схему можно
+  несколько провайдеров (новый спрашивается первым, отвечает первый со строкой, упавший не мешает
+  остальным); запрещены ключи `Schemas` эталона (`file`, `untitled`…). Открытый так документ живой:
+  он в `textDocuments`, а пока вкладки нет, субпроцесс сам перечитывает его по `onDidChange`.
+  Отступление: без вкладки он не закрывается по таймеру, как модель в эталоне.
+- **Язык документа без модели:** `setTextDocumentLanguage` идёт на хост (`languages.changeLanguage`).
+  Есть модель — смена в ней даёт `editor.didClose`/`editor.didOpen`. Нет — ответ `applied: false`,
+  пару событий выдаёт сам субпроцесс, а хост держит выбор до появления вкладки
+  (`EditorLayoutServiceAdapter.pendingLanguages`). Язык документа без модели субпроцесс тоже
+  спрашивает у хоста (`languages.getLanguageOfDocument`), иначе там был бы `plaintext`.
+- **API-команды `vscode.execute*`** (`apiCommands.ts`): как `vscode.open`, живут в субпроцессе и в
+  `getCommands` не входят. Completion и code action спрашивают провайдеров этого же субпроцесса и
+  отдают их объекты; `vscode.executeLinkProvider` всегда отдаёт `[]`: провайдеры ссылок — no-op.
   `workspace.openTextDocument` по такой схеме спрашивает провайдера локально, без RPC, — он живёт в
   том же субпроцессе. Неудача открытия (схемы никто не обслуживает, провайдер отказался или
   сломался) — **не исключение**: `EditorService.openUri` не отклоняется никогда, причина уезжает в
@@ -371,6 +383,14 @@
   документ уже в `workspace.textDocuments`. Непустой `content` — несохранённая правка (буфер
   грязный, как `initialValue` эталона). `window.showTextDocument` по его ресурсу — `openUri`
   забирает модель во вкладку (владение переходит к ней), повторного didOpen нет: модель та же.
+  `openTextDocument(untitled:…)` — калька с `_handleUntitledScheme`: тот же запрос с `uri`, модель
+  живёт под этим ресурсом побайтно (`setUntitledResource`), с путём она грязная с самого начала
+  (`associatedResource`), язык — из пути, существующий файл — отказ. Расширению пустой безымянный
+  документ сразу читается грязным («mark as dirty» эталона), а модель и вкладка чистые до первой
+  правки. `save` пишет по абсолютному пути (`saveAs` модели: `didClose` untitled, `didOpen` файла,
+  тот же таб); относительный ресурс и ресурс с хостом пути не имеют — Save As (отступление: эталон
+  пишет в `/new.txt`). Текстовая правка оживляет неизвестный untitled-ресурс, `createFile` на него
+  пропускается, как в `CreateFileEdit`.
 - **Hover-провайдер seam (LSP):** `languages.registerHoverProvider` — калька с definition
   (`languages.provideHover` RPC, таймаут 5000 мс). Ядро спрашивает все подошедшие провайдеры и
   склеивает непустые ответы в порядке реестра (`ICoreHover {contents, range?}`, contents — блоки
@@ -851,7 +871,7 @@
   мимо middleware), логика написана против хоста-интерфейса и тестируется без `vscode`, `main.ts`
   только связывает. Отступления: «Configure» не открывает untitled-буфер со сниппетом, а создаёт
   `<папка>/jsconfig.json` одной `workspace.applyEdit` (createFile + текст шаблона, Ctrl+Z удаляет
-  файл) и открывает его (нет `openTextDocument(untitled:путь)` и `insertSnippet`; решение человека
+  файл) и открывает его (нет `insertSnippet`; решение человека
   2026-10-25); шаблон — с дефолтами `js/ts.implicitProjectConfig.*` (настроек нет); `projectInfo` без
   ответа убирает элемент вместо вечного Loading; активный редактор — `activeTextEditor`, а не
   активная вкладка. **Пересчёт без смены редактора:** tsserver сам замечает новый/удалённый конфиг

@@ -4,15 +4,19 @@ import { Disposable } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
 import { createSelection } from "../../../editor/common/core/iSelection.ts";
+import { type ILanguageService, NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../browser/parts/editor/iEditorPane.ts";
 import { isTextEditorPane, TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
+import type { BaseTextEditorModel } from "../../common/editor/textEditorModel.ts";
 import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
 import { ACTIVE_GROUP, columnToEditorGroup } from "../../services/editor/common/editorGroupColumn.ts";
 import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
 import type { IEditorLayoutService } from "../common/iEditorLayoutService.ts";
 import type {
+    IWireChangeLanguageParams,
+    IWireChangeLanguageResult,
     IWireCloseGroupsParams,
     IWireCloseTabsParams,
     IWireCreateUntitledParams,
@@ -30,12 +34,26 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     private readonly onDidChangeLayoutEmitter = this.register(new Emitter<IWireEditorLayout>());
     private flushScheduled = false;
     private pendingLayout = false;
+    /** The document had no model when the extension set its language: the choice waits for the tab. */
+    private readonly pendingLanguages = new Map<string, string>();
+    /**
+     * The newest call that takes focus: a slower, older open must not end up on top of it. Kept only while
+     * calls are in flight: after that, focus belongs to the user.
+     */
+    private latestFocusedShow: { readonly group: EditorGroup; readonly uri: Uri } | null = null;
+    private showsInFlight = 0;
+    private activeBeforeShows: EditorGroup;
 
     public constructor(
         private readonly editors: IEditorService,
         private readonly groups: IEditorGroupsService,
+        private readonly languages: Pick<
+            ILanguageService,
+            "getRegisteredLanguageIds" | "getLanguageIdForResource"
+        > = NULL_LANGUAGE_SERVICE,
     ) {
         super();
+        this.activeBeforeShows = groups.activeGroup;
         this.register(
             groups.onDidGroupsChange(() => {
                 this.scheduleLayoutPush();
@@ -48,6 +66,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         );
         this.register(
             editors.onDidChangeEditors(() => {
+                this.applyPendingLanguages();
                 this.scheduleLayoutPush();
             }),
         );
@@ -70,17 +89,30 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     public async showTextDocument(params: IWireShowTextDocumentParams): Promise<IWireShowTextDocumentResult> {
         const uri = Uri.parse(params.uri);
         const focus = params.preserveFocus !== true;
-        const previousActive = this.groups.activeGroup;
+        // Calls in flight have already moved the active group: the one to go back to predates all of them.
+        if (this.showsInFlight === 0) this.activeBeforeShows = this.groups.activeGroup;
+        const previousActive = this.activeBeforeShows;
         const target = columnToEditorGroup(this.groups, params.viewColumn ?? ACTIVE_GROUP, uri);
 
+        const show = { group: target, uri };
+        if (focus) this.latestFocusedShow = show;
+
         this.groups.focusGroup(target.id, { focus: false });
+        // Upstream `isUntitledWithAssociatedResource`: `Untitled-N` is a name, anything else a path to save to.
+        if (uri.scheme === "untitled") {
+            // Stryker disable next-line Regex: the pattern is not anchored, `\d` and `\d+` match the same names
+            this.editors.createUntitled({ uri, associated: uri.path.length > 1 && !/Untitled-\d+/.test(uri.path) });
+        }
         // Await the open: a non-disk resource (`jdt:`) arrives from the scheme provider
         // as a promise, and the selection from `params` must be applied to it. The group is explicit:
         // the column is already resolved, and a locked one the extension named must not redirect.
+        this.showsInFlight++;
         await this.editors.openUri(uri, { focus, group: target });
+        this.showsInFlight--;
 
-        const opened = this.groups.activeGroup;
-        const editor = opened.activePane;
+        // The target group and its tab, not "whatever is active now": requests of one tick all open
+        // before this continuation runs, so the active group already belongs to the last of them.
+        const editor = target.getPane(target.findPaneIndex(uri));
         if (isTextEditorPane(editor) && params.selection !== undefined) {
             const s = params.selection;
             // The extension's positions may not match our text (stale index, another revision):
@@ -96,18 +128,80 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
 
         // preserveFocus: the active group and focus stay unchanged, as in VS Code.
         if (!focus) this.groups.focusGroup(previousActive.id, { focus: false });
+        // A call made in the meantime moved focus on purpose.
+        this.yieldToLatestShow(show);
+        if (this.showsInFlight === 0) this.latestFocusedShow = null;
+
+        // Upstream `extHostTextEditors.showTextDocument`: a failed open rejects instead of naming another editor.
+        if (editor === null) throw new Error(`Could NOT open editor for "${params.uri}".`);
 
         // The reply must go out AFTER layoutChanged: the host flushes before the reply.
-        return Promise.resolve({
-            /* v8 ignore start -- openUri always inserts and activates the tab: activePane is never null here */
-            uri: editor?.uri.toString() ?? params.uri,
-            /* v8 ignore stop */
-            groupId: opened.id,
-            viewColumn: this.groups.viewColumnOf(opened),
-        });
+        return {
+            uri: editor.uri.toString(),
+            groupId: target.id,
+            viewColumn: this.groups.viewColumnOf(target),
+        };
     }
 
-    public createUntitledDocument(params: IWireCreateUntitledParams): IWireUriParams {
+    /** Only a non-disk open can finish after a newer call: it activated itself, the newer call stays on top. */
+    private yieldToLatestShow(finished: { readonly group: EditorGroup; readonly uri: Uri }): void {
+        const latest = this.latestFocusedShow;
+        // Stryker disable next-line ConditionalExpression: equivalent, the newest call activating itself again changes nothing
+        if (latest === null || latest === finished) return;
+        const index = latest.group.findPaneIndex(latest.uri);
+        if (index < 0) return;
+        this.groups.focusGroup(latest.group.id);
+        latest.group.activateTab(index);
+    }
+
+    public getLanguages(): readonly string[] {
+        return this.languages.getRegisteredLanguageIds();
+    }
+
+    public getLanguageOfDocument(uri: string): string | null {
+        return this.pendingLanguages.get(uri) ?? this.languages.getLanguageIdForResource(Uri.parse(uri).path) ?? null;
+    }
+
+    public changeDocumentLanguage({ uri, languageId }: IWireChangeLanguageParams): IWireChangeLanguageResult {
+        if (!this.languages.getRegisteredLanguageIds().includes(languageId)) {
+            throw new Error(`Unknown language id: ${languageId}`);
+        }
+        const model = this.findModel(uri);
+        if (model === undefined) {
+            this.pendingLanguages.set(uri, languageId);
+            return { applied: false };
+        }
+        model.setLanguage(languageId);
+        return { applied: true };
+    }
+
+    /** However the tab appeared: `showTextDocument`, quick open, the explorer. */
+    private applyPendingLanguages(): void {
+        for (const [uri, languageId] of this.pendingLanguages) {
+            const model = this.findModel(uri);
+            if (model === undefined) continue;
+            this.pendingLanguages.delete(uri);
+            model.setLanguage(languageId);
+        }
+    }
+
+    private findModel(uri: string): BaseTextEditorModel | undefined {
+        const surface = this.editors.getTextSurfaces().find((editor) => editor.model.uri.toString() === uri);
+        return (
+            surface?.model ??
+            [...this.editors.getUntitledModelsWithoutEditor(), ...this.editors.getFileModelsWithoutEditor()].find(
+                (model) => model.uri.toString() === uri,
+            )
+        );
+    }
+
+    public async createUntitledDocument(params: IWireCreateUntitledParams): Promise<IWireUriParams> {
+        if (params.uri !== undefined) {
+            const opened = await this.editors.openUntitledDocument(Uri.parse(params.uri), {
+                encoding: params.encoding,
+            });
+            return { uri: opened.toString() };
+        }
         const uri = this.editors.createUntitled({
             content: params.content,
             languageId: params.language,

@@ -10,8 +10,7 @@
       "class": "ok"
     },
     "languages.getLanguages": {
-      "class": "B",
-      "note": "#916: not implemented"
+      "class": "ok"
     },
     "languages.match": {
       "class": "ok",
@@ -137,8 +136,7 @@
       "class": "ok"
     },
     "languages.setTextDocumentLanguage": {
-      "class": "B",
-      "note": "#916: not implemented"
+      "class": "ok"
     }
   }
 }

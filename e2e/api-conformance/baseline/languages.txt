@@ -1,2 +1,5 @@
+vscode API - languages completions with document filters
+vscode API - languages diagnostics & CodeActionProvider
 vscode API - languages diagnostics, read & event
+vscode API - languages setTextDocumentLanguage -> close/open event
 vscode API - languages setTextDocumentLanguage -> error when language does not exist

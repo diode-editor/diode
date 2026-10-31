@@ -1,3 +1,5 @@
+import * as nodePath from "node:path";
+
 import type * as vscode from "vscode";
 
 import { cursorStyleFromApi, cursorStyleToApi } from "../../../editor/common/config/editorCursorStyle.ts";
@@ -109,6 +111,7 @@ export function createWindowNamespace(
         owner: ctx.owner,
     }),
     asRelativePath?: AsRelativePath,
+    getWorkspaceFolders: () => readonly vscode.WorkspaceFolder[] | undefined = () => undefined,
 ): typeof vscode.window {
     const { rpc, registry, owner } = ctx;
 
@@ -238,7 +241,7 @@ export function createWindowNamespace(
         const selections = parseWireSelections(p.selections);
         const groupId = typeof p.groupId === "number" ? p.groupId : effectiveActiveGroupId();
         selectionsByEditor.set(selectionKey(groupId, p.uri), selections);
-        if (p.uri === activeEditorUri) activeSelections = selections;
+        if (p.uri === activeEditorUri && groupId === effectiveActiveGroupId()) activeSelections = selections;
         // The cache is updated BEFORE dispatch: listeners read `editor.selections`.
         fireSelectionChanged(p.uri, groupId, selections, parseWireSelectionChangeKind(p.kind));
     });
@@ -303,13 +306,16 @@ export function createWindowNamespace(
 
         // A stale extension reference to an editor of a dead group gets viewColumn === undefined, not a TypeError.
         const aliveGroups = new Set(next.groups.map((group) => group.groupId));
+        // The sides of a diff tab are not tabs themselves, but their editors live as long as they are visible.
+        const visibleNext = new Set(visiblePairs(next));
         for (const [groupId, editors] of [...editorCache]) {
             if (!aliveGroups.has(groupId)) {
                 editorCache.delete(groupId);
                 continue;
             }
             for (const uri of [...editors.keys()]) {
-                if (!nextTabs.has(selectionKey(groupId, uri))) editors.delete(uri);
+                const key = selectionKey(groupId, uri);
+                if (!nextTabs.has(key) && !visibleNext.has(key)) editors.delete(uri);
             }
         }
         for (const key of [...selectionsByEditor.keys()]) {
@@ -371,11 +377,10 @@ export function createWindowNamespace(
         for (const group of next.groups) {
             const before = prevGroups.get(group.groupId);
             if (before === undefined || before.viewColumn === group.viewColumn) continue;
-            const editors = editorCache.get(group.groupId);
-            if (editors === undefined) continue;
-            for (const editor of editors.values()) {
+            // Upstream fires for the group's visible editors: a background tab has no editor there.
+            for (const { uri } of visibleDocuments({ groups: [group] })) {
                 const event: vscode.TextEditorViewColumnChangeEvent = {
-                    textEditor: editor,
+                    textEditor: getEditorFor(registry.getOrCreate(Uri.parse(uri)), group.groupId),
                     viewColumn: group.viewColumn,
                 };
                 for (const listener of [...viewColumnListeners]) listener(event);
@@ -946,6 +951,22 @@ export function createWindowNamespace(
         ): Thenable<string | undefined> => quickInput.showInputBox(options, token),
         // Cast to the four d.ts overloads: the implementation picks the result shape by `canPickMany`.
         showQuickPick: quickInput.showQuickPick as typeof vscode.window.showQuickPick,
+        // Upstream `_workbench.pickWorkspaceFolder`: a single folder is still offered, no folder means no picker.
+        showWorkspaceFolderPick: async (
+            options?: vscode.WorkspaceFolderPickOptions,
+        ): Promise<vscode.WorkspaceFolder | undefined> => {
+            const folders = getWorkspaceFolders();
+            if (folders === undefined || folders.length === 0) return undefined;
+            const picks = folders.map((folder) => ({
+                label: folder.name,
+                description: nodePath.dirname(folder.uri.fsPath),
+                folder,
+            }));
+            const pick = await quickInput.showQuickPick(picks, {
+                placeHolder: options?.placeHolder ?? "Select workspace folder",
+            });
+            return (pick as (typeof picks)[number] | undefined)?.folder;
+        },
         createQuickPick: <T extends vscode.QuickPickItem>(): vscode.QuickPick<T> => quickInput.createQuickPick<T>(),
         showOpenDialog: async (options?: vscode.OpenDialogOptions): Promise<vscode.Uri[] | undefined> => {
             const result = parseWireOpenDialogResult(
@@ -1060,6 +1081,22 @@ export function createWindowNamespace(
     };
 
     return implementsApi<typeof vscode.window>()(windowNs);
+}
+
+/**
+ * Upstream `extHost.api.impl`: the public `showTextDocument` goes through `openTextDocument` for a uri, so a
+ * missing file rejects and opens no tab. `vscode.open` keeps the plain show, as upstream. Disk only: other
+ * schemes may be known to the host alone (`untitled:`, snapshots).
+ */
+export function openBeforeShow(
+    show: typeof vscode.window.showTextDocument,
+    openTextDocument: (uri: vscode.Uri) => Thenable<vscode.TextDocument>,
+): typeof vscode.window.showTextDocument {
+    const showAny = show as (...args: unknown[]) => Thenable<vscode.TextEditor>;
+    return ((documentOrUri: unknown, ...rest: unknown[]) =>
+        documentOrUri instanceof Uri && documentOrUri.scheme === "file"
+            ? openTextDocument(documentOrUri).then(() => showAny(documentOrUri, ...rest))
+            : showAny(documentOrUri, ...rest)) as typeof vscode.window.showTextDocument;
 }
 
 function normalizeTabSize(value: number | string): number {

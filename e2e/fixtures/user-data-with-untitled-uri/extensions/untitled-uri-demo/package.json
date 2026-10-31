@@ -1,0 +1,20 @@
+{
+    "name": "untitled-uri-demo",
+    "displayName": "Untitled Uri Demo",
+    "description": "workspace.openTextDocument(untitled:new.txt): an extension opens a named untitled document, inserts text and shows it.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["onCommand:untitledUriDemo.open"],
+    "contributes": {
+        "commands": [
+            {
+                "command": "untitledUriDemo.open",
+                "title": "Untitled Uri Demo: Open"
+            }
+        ]
+    }
+}

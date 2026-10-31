@@ -3,6 +3,7 @@ import type { IModelContentChangedEvent } from "../../../editor/common/model/iDo
 import type { BaseTextEditorModel } from "../../common/editor/textEditorModel.ts";
 import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
+import { TextFileModel } from "../../services/textfile/common/textFileModel.ts";
 import type { IDocumentSyncSource, IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
 import type { IWireDocumentChangedEvent } from "../common/wireTypes.ts";
 
@@ -17,7 +18,7 @@ export function documentSyncSourceOfModel(model: BaseTextEditorModel): IDocument
         uri: model.uri.toString(),
         languageId: model.languageId,
         version: document.versionId,
-        isDirty: model.isModified,
+        isDirty: model.isDirtyForExtensions,
         eol: model.eol,
         encoding: model.encoding,
         isTooLargeForTokenization: model.isTooLargeForTokenization,
@@ -35,7 +36,7 @@ export function documentChangedEventOfModel(
         uri: model.uri.toString(),
         version: event.versionId,
         changes: event.changes.map(({ range, text }) => ({ range, text })),
-        isDirty: model.isModified,
+        isDirty: model.isDirtyForExtensions,
         ...(event.isUndoing ? { isUndoing: true } : {}),
         ...(event.isRedoing ? { isRedoing: true } : {}),
     };
@@ -69,8 +70,9 @@ function pushDocumentState(host: IDocumentSyncTarget, model: BaseTextEditorModel
     host.didChangeTextDocumentState({
         uri: model.uri.toString(),
         version: model.document.versionId,
-        isDirty: model.isModified,
+        isDirty: model.isDirtyForExtensions,
         eol: model.eol,
+        encoding: model.encoding,
     });
 }
 
@@ -124,6 +126,14 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
                 pushDocumentState(host, model);
             }),
         );
+        // Upstream `$acceptEncodingChanged`. Only a file model has an encoding of its own.
+        if (model instanceof TextFileModel) {
+            subscriptions.add(
+                model.onDidChangeEncoding(() => {
+                    pushDocumentState(host, model);
+                }),
+            );
+        }
         // A save moves no text, so no didChange would tell extensions the document is clean. Before the reply to `save`.
         subscriptions.add(
             model.onDidMarkSaved(() => {
@@ -140,11 +150,13 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
 
     const reconcile = (): void => {
         const alive = openDocumentModels(group);
+        // Each tab of a virtual document has its own model: the document stays open while one of them lives.
+        const aliveUris = new Set([...alive].map((model) => model.uri.toString()));
         for (const [model, record] of [...tracked]) {
             if (alive.has(model)) continue;
             record.subscriptions.dispose();
             tracked.delete(model);
-            host.didCloseTextDocument(record.openedAs.uri);
+            if (!aliveUris.has(record.openedAs.uri)) host.didCloseTextDocument(record.openedAs.uri);
         }
         for (const model of alive) trackModel(model);
     };

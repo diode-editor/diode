@@ -58,6 +58,11 @@ describe("hostWireParsers — parseWireEditorEdits", () => {
 });
 
 describe("hostWireParsers — parseWireCreateUntitledParams", () => {
+    it("a uri passes, a uri of the wrong shape is dropped", () => {
+        expect(parseWireCreateUntitledParams({ uri: "untitled:a" })).toStrictEqual({ uri: "untitled:a" });
+        expect(parseWireCreateUntitledParams({ uri: 1 })).toStrictEqual({});
+    });
+
     it("takes string fields, drops the rest one by one", () => {
         expect(parseWireCreateUntitledParams({ content: "c", language: "go", encoding: "utf8" })).toEqual({
             content: "c",

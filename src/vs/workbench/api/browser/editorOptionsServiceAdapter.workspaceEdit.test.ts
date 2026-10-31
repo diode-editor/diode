@@ -192,6 +192,34 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
         ]);
     });
 
+    describe("file operations on an untitled uri (nothing on disk answers for them)", () => {
+        const UNTITLED = "untitled:Untitled-1";
+
+        async function apply(op: IWireWorkspaceEditOp) {
+            const { service, calls } = spyService();
+            const applied = await createAdapter(emptyGroup(), service).applyWorkspaceEdit([op]);
+            return { applied, edits: calls[0]?.edits };
+        }
+
+        it("create and delete with ignoreIfNotExists are skipped: the edit succeeds with nothing to do", async () => {
+            expect((await apply({ kind: "create", resource: UNTITLED })).applied).toBe(true);
+            expect((await apply({ kind: "delete", resource: UNTITLED, ignoreIfNotExists: true })).applied).toBe(true);
+        });
+
+        it("delete without ignoreIfNotExists fails: the resource is missing", async () => {
+            expect(await apply({ kind: "delete", resource: UNTITLED })).toEqual({ applied: false, edits: undefined });
+        });
+
+        it("the same operations on a file reach the executor", async () => {
+            const resource = A.toString();
+
+            expect((await apply({ kind: "create", resource })).edits).toEqual([{ kind: "create", to: A.fsPath }]);
+            expect((await apply({ kind: "delete", resource, ignoreIfNotExists: true })).edits).toEqual([
+                expect.objectContaining({ kind: "delete", from: A.fsPath }),
+            ]);
+        });
+    });
+
     it("a text operation carries its line ending; none stays out of the model", async () => {
         const { service, calls } = spyService();
         const adapter = createAdapter(emptyGroup(), service);

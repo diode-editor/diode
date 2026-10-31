@@ -396,9 +396,9 @@ describe("WorkspaceNamespace — folders & documents", () => {
     });
 
     it("openTextDocument with a non-file URI rejects and does NOT read the disk", async () => {
-        // Bug class #107: the scheme fell through .fsPath, and `untitled:` went to nodeFs.readFile as a relative path.
+        // Bug class #107: the scheme fell through .fsPath, and a foreign uri went to nodeFs.readFile as a relative path.
         const { workspace } = makeCtx();
-        await expect(workspace.openTextDocument(Uri.parse("untitled:Untitled-1") as never)).rejects.toMatchObject({
+        await expect(workspace.openTextDocument(Uri.parse("foreign:Untitled-1") as never)).rejects.toMatchObject({
             code: "Unavailable",
         });
     });

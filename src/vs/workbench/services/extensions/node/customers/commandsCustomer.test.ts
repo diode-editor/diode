@@ -21,6 +21,7 @@ function fakeCommands() {
     const proxies: IProxyRecord[] = [];
     const service = {
         execute: vi.fn((id: string, args: readonly unknown[]) => `ran ${id} ${JSON.stringify(args)}`),
+        listCommandIds: () => [],
         registerProxy: (
             id: string,
             invoke: (args: readonly unknown[]) => unknown,
@@ -187,5 +188,21 @@ describe("CommandsCustomer — onCommand activator stubs", () => {
         h.customer.disarmAll();
         expect(h.commands.live("b")).toEqual([]);
         expect(h.commands.live("live")).toHaveLength(1);
+    });
+});
+
+describe("CommandsCustomer — commands.getCommands", () => {
+    it("answers with the ids of the command service", async () => {
+        const [hostChannel, peerChannel] = createInProcessChannelPair();
+        const hostRpc = new RpcEndpoint(hostChannel);
+        const peer = new RpcEndpoint(peerChannel);
+        const service = {
+            execute: () => undefined,
+            listCommandIds: () => ["a", "_b"],
+            registerProxy: () => ({ dispose: () => undefined }),
+        };
+        new CommandsCustomer(service, () => Promise.resolve(), undefined).attach({ rpc: hostRpc } as never);
+
+        await expect(peer.request("commands.getCommands" as never)).resolves.toEqual(["a", "_b"]);
     });
 });

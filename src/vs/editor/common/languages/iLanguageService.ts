@@ -11,6 +11,9 @@ export interface ILanguageService {
     /** With the dot (`".ts"`); the first one from `contributes.languages`. */
     getExtensionForLanguage(languageId: string): string | undefined;
 
+    /** `plaintext` included: it exists without any contribution, as upstream. */
+    getRegisteredLanguageIds(): readonly string[];
+
     /**
      * Like vscode `requestRichLanguageFeatures` (activation on `onLanguage:<id>`).
      * Fires once per language for the lifetime of the window.
@@ -24,6 +27,7 @@ export const NULL_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: () => undefined,
     getLanguageDisplayName: () => undefined,
     getExtensionForLanguage: () => undefined,
+    getRegisteredLanguageIds: () => ["plaintext"],
     requestLanguageFeatures: () => undefined,
     onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
 };

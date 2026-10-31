@@ -18,6 +18,15 @@ describe("vscode.commands: built-in vscode.open", () => {
         ]);
     });
 
+    it("[api:window.showTextDocument] the public show of a missing file rejects from opening it, unlike vscode.open", async () => {
+        const stub = makeStubRpc();
+        const { namespace } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk());
+
+        await expect(namespace.window.showTextDocument(Uri.file("/ws/greet_test.go"))).rejects.toThrow("ENOENT");
+
+        expect(stub.requests.map((request) => request.method)).not.toContain("editor.showTextDocument");
+    });
+
     it("https link requests env.openExternal", async () => {
         const stub = makeStubRpc();
         stub.responder = () => ({ opened: true });

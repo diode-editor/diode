@@ -26,6 +26,10 @@ export interface IUntitledOptions {
     readonly content?: string | undefined;
     readonly languageId?: string | undefined;
     readonly encoding?: string | undefined;
+    /** The resource an extension named; without it the buffer gets the next `Untitled-N`. An open one is reused. */
+    readonly uri?: Uri | undefined;
+    /** Upstream `associatedResource`: dirty from the start, a save writes to its path. */
+    readonly associated?: boolean | undefined;
 }
 
 export interface IOpenUriOptions {
@@ -65,6 +69,8 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     /** Switching to a diff fires `null`. */
     readonly onActiveEditorChanged: Event<TextEditorPane | null>;
     readonly onDidChangeActiveEditorSelection: Event<TextEditorPane>;
+    /** The visible tab of a group, other than the active editor. */
+    readonly onDidChangeInactiveEditorSelection: Event<TextEditorPane>;
 
     /** Across ALL groups. */
     getEditors(): readonly TextEditorPane[];
@@ -109,6 +115,8 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     newUntitled(options?: { focus?: boolean }): void;
     /** `workspace.openTextDocument({ content, language })`; {@link openUri} shows it. */
     createUntitled(options?: IUntitledOptions): Uri;
+    /** Upstream `$tryOpenDocument` for `untitled:`: rejects with upstream's message when the uri is invalid or its file exists. */
+    openUntitledDocument(uri: Uri, options?: { encoding?: string | undefined }): Promise<Uri>;
     canRestore(uri: Uri): boolean;
     readonly onDidFailOpen: Event<{ readonly uri: Uri; readonly reason: string }>;
 

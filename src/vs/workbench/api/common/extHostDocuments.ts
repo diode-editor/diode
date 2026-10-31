@@ -132,8 +132,14 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     }
 
     /** `false`: nothing an extension could see changed. */
-    public acceptState(state: { version: number; isDirty: boolean; eol: EndOfLine }): boolean {
-        const changed = state.version !== this.version || state.isDirty !== this.isDirty || state.eol !== this.eol;
+    public acceptState(state: { version: number; isDirty: boolean; eol: EndOfLine; encoding?: string }): boolean {
+        const encoding = state.encoding ?? this.encoding;
+        const changed =
+            state.version !== this.version ||
+            state.isDirty !== this.isDirty ||
+            state.eol !== this.eol ||
+            encoding !== this.encoding;
+        this.encoding = encoding;
         this.textCache = null;
         this.eol = state.eol;
         this.isDirty = state.isDirty;
@@ -313,6 +319,11 @@ export class DocumentRegistry {
         return doc;
     }
 
+    /** Only for a closed document about to be opened anew; extensions keep their reference to the old object. */
+    public forget(uri: Uri): void {
+        this.documents.delete(uri.toString());
+    }
+
     public upsertMeta(meta: ExtHostDocumentMeta): ExtHostTextDocument {
         const doc = this.getOrCreate(Uri.parse(meta.uri));
         doc.applyMeta(meta);
@@ -453,11 +464,29 @@ export class DocumentSyncTracker {
      * Resets the didOpen dedup: after didClose LSP requires a fresh didOpen. The document
      * stays in the registry: extensions may keep a reference to a closed one.
      */
+    /**
+     * For a document the core holds no model of, otherwise its `editor.didClose`/`editor.didOpen` do it.
+     * Upstream's order: the close listeners still see the old language.
+     */
+    public changeLanguage(doc: ExtHostTextDocument, languageId: string): void {
+        const uri = doc.uri.toString();
+        if (this.opened.has(uri)) {
+            this.close(doc.uri);
+            this.open({ uri, text: doc.getText(), languageId });
+            return;
+        }
+        this.onDidCloseEmitter.fire(doc);
+        doc.applyMeta({ uri, languageId });
+        this.onDidOpenEmitter.fire(doc);
+    }
+
     public close(uri: Uri): ExtHostTextDocument | null {
         const doc = this.registry.get(uri);
         if (doc === undefined || !this.opened.has(uri.toString())) return null;
         this.opened.delete(uri.toString());
         doc.isClosed = true;
+        // As upstream `ExtHostDocumentData.dispose`: a closed document has nothing left to save.
+        doc.isDirty = false;
         this.onDidCloseEmitter.fire(doc);
         return doc;
     }

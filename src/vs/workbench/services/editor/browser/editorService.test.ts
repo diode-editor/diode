@@ -22,6 +22,7 @@ import type { ILogService } from "../../../../platform/log/common/iLogService.ts
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
+import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../themes/common/themeService.ts";
 
@@ -152,10 +153,33 @@ describe("EditorService", () => {
             expect(ctrl.getEditors().map((e) => ctrl.displayName(e))).toEqual(["Untitled-2", "Untitled-3"]);
         });
 
+        it("suggestedSaveName of a named buffer: a name that fits the language stays, another extension is replaced", async () => {
+            const ctrl = createEditorService({
+                languageService: {
+                    ...NULL_LANGUAGE_SERVICE,
+                    getLanguageIdForResource: (name) => (/\.(java|jav)$/.test(name) ? "java" : undefined),
+                    getExtensionForLanguage: (id) => (id === "java" ? ".java" : undefined),
+                },
+            });
+            const suggested = async (name: string): Promise<string> => {
+                const uri = ctrl.createUntitled({ uri: Uri.parse(`untitled:${name}`), languageId: "java" });
+                await ctrl.openUri(uri);
+                const editor = ctrl.getActiveEditor();
+                if (editor === null) throw new Error("no editor");
+                return ctrl.suggestedSaveName(editor);
+            };
+
+            expect(await suggested("kept.java")).toBe("kept.java");
+            expect(await suggested("secondary.jav")).toBe("secondary.jav");
+            expect(await suggested("other.ts")).toBe("other.java");
+            expect(await suggested("bare")).toBe("bare.java");
+        });
+
         it("suggestedSaveName: label + buffer language extension (plaintext → .txt)", () => {
             const ctrl = createEditorService({
                 languageService: {
                     ...NULL_LANGUAGE_SERVICE,
+                    getRegisteredLanguageIds: () => [],
                     getExtensionForLanguage: (id) => (id === "plaintext" ? ".txt" : undefined),
                 },
             });
@@ -168,6 +192,7 @@ describe("EditorService", () => {
             const ctrl = createEditorService({
                 languageService: {
                     ...NULL_LANGUAGE_SERVICE,
+                    getRegisteredLanguageIds: () => [],
                     getExtensionForLanguage: (id) => (id === "typescript" ? ".ts" : ".txt"),
                 },
             });
@@ -751,6 +776,35 @@ describe("EditorService", () => {
             ctrl.newUntitled(); // no path on disk, so not in the snapshot
             ctrl.openFile(b);
             expect(ctrl.getOpenFilePaths()).toEqual([a, b]);
+        });
+    });
+
+    describe("onDidChangeInactiveEditorSelection", () => {
+        it("follows the visible tab of another group, without reporting the active editor", () => {
+            const ctrl = createEditorService();
+            ctrl.openFile(writeFile("a.ts", "one\ntwo"));
+            ctrl.openFile(writeFile("b.ts", "three\nfour"));
+            const inactive = ctrl.editorGroups.activeGroup;
+            const [paneA, paneB] = inactive.getPanes() as TextEditorPane[];
+            ctrl.splitActiveGroup();
+
+            const seen: TextEditorPane[] = [];
+            const sub = ctrl.onDidChangeInactiveEditorSelection((editor) => seen.push(editor));
+
+            ctrl.getActiveEditor()!.viewState.selections = [createCursorSelection(1, 0)];
+            expect(seen).toEqual([]);
+
+            paneB.viewState.selections = [createCursorSelection(1, 1)];
+            expect(seen).toEqual([paneB]);
+
+            // Another tab of the inactive group becomes visible: the subscription moves to it.
+            inactive.activateTab(0, { focus: false });
+            seen.length = 0;
+            paneB.viewState.selections = [createCursorSelection(1, 2)];
+            expect(seen).toEqual([]);
+            paneA.viewState.selections = [createCursorSelection(1, 1)];
+            expect(seen).toEqual([paneA]);
+            sub.dispose();
         });
     });
 
