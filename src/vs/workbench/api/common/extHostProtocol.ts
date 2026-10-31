@@ -114,6 +114,7 @@ import type {
     IWireReferenceParams,
     IWireReleaseSemanticTokens,
     IWireRenameParams,
+    IWireRevealRange,
     IWireSaveAllParams,
     IWireSaveDialogRequest,
     IWireSaveDialogResult,
@@ -359,6 +360,7 @@ export interface ISubprocessToHost {
 
         readonly "editor.setSelection": IWireSetSelectionParams;
         readonly "editor.setDecorations": IWireSetDecorations;
+        readonly "editor.revealRange": IWireRevealRange;
 
         readonly "diagnostics.publish": IWireDiagnosticsPublish;
 

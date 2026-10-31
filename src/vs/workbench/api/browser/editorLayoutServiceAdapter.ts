@@ -1,6 +1,6 @@
 import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
-import { Disposable } from "../../../base/common/lifecycle.ts";
+import { Disposable, DisposableStore } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
 import { createSelection } from "../../../editor/common/core/iSelection.ts";
@@ -42,6 +42,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
      */
     private latestFocusedShow: { readonly group: EditorGroup; readonly uri: Uri } | null = null;
     private showsInFlight = 0;
+    private readonly indentWatchers = this.register(new DisposableStore());
     private activeBeforeShows: EditorGroup;
 
     public constructor(
@@ -67,9 +68,24 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         this.register(
             editors.onDidChangeEditors(() => {
                 this.applyPendingLanguages();
+                this.watchIndentOptions();
                 this.scheduleLayoutPush();
             }),
         );
+        this.watchIndentOptions();
+    }
+
+    /** `TextEditor.options` reads the snapshot: detection and the status bar picker must reach it. */
+    private watchIndentOptions(): void {
+        this.indentWatchers.clear();
+        for (const pane of this.groups.groups.flatMap((group) => group.getPanes())) {
+            if (!(pane instanceof TextEditorPane)) continue;
+            this.indentWatchers.add(
+                pane.onDidChangeIndentOptions(() => {
+                    this.scheduleLayoutPush();
+                }),
+            );
+        }
     }
 
     public getLayoutSnapshot(): IWireEditorLayout {
@@ -286,6 +302,8 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             ...base,
             kind: "text",
             languageId: pane.languageId,
+            tabSize: pane.viewState.tabSize,
+            insertSpaces: pane.viewState.insertSpaces,
             // Selections only for the active tab: its selection is seeded to the extension from the snapshot.
             ...(isActive ? { selections: pane.viewState.selections.map(toWireSelection) } : {}),
         };

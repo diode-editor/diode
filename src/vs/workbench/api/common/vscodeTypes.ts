@@ -839,6 +839,13 @@ export enum TextEditorCursorStyle {
     UnderlineThin = 6,
 }
 
+export enum TextEditorRevealType {
+    Default = 0,
+    InCenter = 1,
+    InCenterIfOutsideViewport = 2,
+    AtTop = 3,
+}
+
 export enum ProgressLocation {
     SourceControl = 1,
     Window = 10,

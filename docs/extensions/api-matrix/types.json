@@ -6161,8 +6161,7 @@
       "class": "ok"
     },
     "TextEditor.revealRange": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditor.selection": {
       "class": "ok"
@@ -6269,24 +6268,19 @@
       "note": "not declared in vscode.d.ts"
     },
     "TextEditorRevealType": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorRevealType.AtTop": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorRevealType.Default": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorRevealType.InCenter": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorRevealType.InCenterIfOutsideViewport": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorSelectionChangeEvent.kind": {
       "class": "ok"

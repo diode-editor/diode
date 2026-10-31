@@ -58,6 +58,9 @@ import {
 
 export type WordWrapMode = "off" | "on" | "wordWrapColumn" | "bounded";
 
+/** The strategies of `vscode.TextEditorRevealType`. */
+export type RangeRevealType = "default" | "center" | "centerIfOutsideViewport" | "top";
+
 /** `editor.tabSize` / `editor.insertSpaces` / `editor.detectIndentation`: a baseline for detection, not an order. */
 export interface IIndentDefaults {
     readonly tabSize?: number;
@@ -1881,6 +1884,50 @@ export class EditorViewState {
         this.revealPosition(range.start);
     }
 
+    /**
+     * Upstream `_computeScrollTopToRevealRange`: only scrolls, so selections and folds stay and a line hidden
+     * by a fold reveals its fold header. Upstream pads the box with `cursorSurroundingLines`, 0 by default;
+     * ours defaults to 3 for the cursor (#89), which would keep `top` off the top row, so there is no padding.
+     * The terminal has no scrollbar over the last row (upstream's extra line for `Simple`) and no scrolling
+     * past the last line, so `top` and `center` stop at the end of the document.
+     */
+    public revealRangeByType(range: IRange, revealType: RangeRevealType): void {
+        if (this.viewportWidth <= 0 || this.viewportHeight <= 0) return;
+        const boxStart = this.visibleRowOf(range.start);
+        const boxEnd = this.visibleRowOf(range.end) + 1;
+        const maxScrollTop = Math.max(0, this.getViewLineCount() - this.viewportHeight);
+        const desired = this.scrollTopToReveal(boxStart, boxEnd, revealType);
+        this.scrollTop = Math.min(maxScrollTop, Math.max(0, desired));
+
+        // Upstream `onRevealRangeRequest`: several lines scroll to the base, one reveals its columns, start first.
+        if (range.start.line !== range.end.line) {
+            this.scrollLeft = 0;
+            return;
+        }
+        this.revealColumn(range.end);
+        this.revealColumn(range.start);
+    }
+
+    private scrollTopToReveal(boxStart: number, boxEnd: number, revealType: RangeRevealType): number {
+        const height = this.viewportHeight;
+        const inViewport = this.scrollTop <= boxStart && boxEnd <= this.scrollTop + height;
+        // A box larger than the viewport shows its top, whatever the type.
+        if (revealType === "top" || boxEnd - boxStart > height) return boxStart;
+        if (revealType === "center" || (revealType === "centerIfOutsideViewport" && !inViewport)) {
+            return Math.floor((boxStart + boxEnd - height) / 2);
+        }
+        if (revealType === "centerIfOutsideViewport") return this.scrollTop;
+        if (boxStart < this.scrollTop) return boxStart;
+        return boxEnd > this.scrollTop + height ? boxEnd - height : this.scrollTop;
+    }
+
+    /** The row of a position; a line hidden by a fold has none and answers with its fold header. */
+    private visibleRowOf(position: IPosition): number {
+        let line = position.line;
+        while (this.logicalToVisualLine(line) < 0) line--;
+        return this.viewLineForPosition(line, line === position.line ? position.character : 0);
+    }
+
     /** For commands that add a selection: after normalization the new one may end up anywhere, not in `selections[0]`. */
     public revealSelection(selection: ISelection): void {
         const range = selectionToRange(selection);
@@ -1988,6 +2035,10 @@ export class EditorViewState {
             this.scrollTop = visualLine - this.viewportHeight + 1 + margin;
         }
 
+        this.revealColumn(pos);
+    }
+
+    private revealColumn(pos: IPosition): void {
         // No wrap gate here: the scrollLeft setter holds "wrap ⇒ 0", so the writes below are no-ops.
         const insertions = this.lineInsertions;
         const dl = this.displayLineFor(
