@@ -326,7 +326,9 @@ export class WorkspaceEditService {
         edited: Map<string, IBulkEditBuffer>,
     ): Promise<void> {
         if (entry.kind === "file") {
-            await this.applyOne(entry.edit, ops, resources);
+            await this.applyOne(entry.edit, ops, resources, (target) => {
+                this.buffers.willDelete(Uri.file(target).toString());
+            });
             return;
         }
         const slot = entry.slot;
@@ -364,7 +366,16 @@ export class WorkspaceEditService {
         });
     }
 
-    private async applyOne(edit: ResourceFileEdit, ops: ReversibleOp[], resources: string[]): Promise<void> {
+    /**
+     * `willDelete`: what a workspace edit does to unsaved edits of a file it removes, as upstream. The explorer passes
+     * nothing: there a dirty tab outlives its file, struck through.
+     */
+    private async applyOne(
+        edit: ResourceFileEdit,
+        ops: ReversibleOp[],
+        resources: string[],
+        willDelete?: (target: string) => void,
+    ): Promise<void> {
         const files = this.files;
         // Guard against a value that bypassed the types (kind is typed as string on purpose,
         // so the check isn't considered "always true" and stays meaningful at runtime).
@@ -427,7 +438,7 @@ export class WorkspaceEditService {
                 // Trash bypasses the file service: we notify the tabs of the deleted
                 // resource ourselves (for a permanent delete the service does it).
                 const trash = async (): Promise<ITrashEntry> => {
-                    this.buffers.willDelete(Uri.file(from).toString());
+                    willDelete?.(from);
                     const trashed = await this.trash.trash(from);
                     this.buffers.didDelete(Uri.file(from).toString());
                     return trashed;
@@ -443,7 +454,7 @@ export class WorkspaceEditService {
                 });
             } else {
                 // Permanent — can't be undone, no history step.
-                this.buffers.willDelete(Uri.file(from).toString());
+                willDelete?.(from);
                 await removeIfExists(files, from);
             }
         } else {
@@ -469,7 +480,7 @@ export class WorkspaceEditService {
             ops.push({
                 undo: async () => {
                     // Undoing the edits of this step left the model of the new file dirty, and the file is going away.
-                    this.buffers.willDelete(Uri.file(createdRoot).toString());
+                    willDelete?.(createdRoot);
                     await removeIfExists(files, createdRoot);
                     await replaced?.restore();
                 },

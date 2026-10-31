@@ -267,6 +267,92 @@ describe("BulkEditBuffers — models without a tab", () => {
         ]);
     });
 
+    const bufferOf = (buffers: BulkEditBuffers) => {
+        const target = buffers.get(uri.toString());
+        if (target === null || target === "read-only") throw new Error("no buffer");
+        return target;
+    };
+    const gated = (answer: boolean) => ({
+        label: "s",
+        resources: [],
+        canUndo: () => answer,
+        canRedo: () => answer,
+        undo: () => {},
+        redo: () => {},
+    });
+
+    it.each([
+        [true, true],
+        [false, false],
+    ])("an edit step over a live model answers as the model's step: %s", (answer, expected) => {
+        const { buffers } = setup(model([], "first", { applyExternalEditsDetached: () => gated(answer) }));
+        const element = bufferOf(buffers).applyEdits(edits, "label");
+        expect(element?.canUndo?.()).toBe(expected);
+        expect(element?.canRedo?.()).toBe(expected);
+    });
+
+    it("a live model's step without its own answer allows undo and redo", () => {
+        const { buffers } = setup(model([], "first"));
+        const element = bufferOf(buffers).applyEdits(edits, "label");
+        expect(element?.canUndo?.()).toBe(true);
+        expect(element?.canRedo?.()).toBe(true);
+    });
+
+    it("edits that changed nothing are no step", () => {
+        const { buffers } = setup(model([], "first", { applyExternalEditsDetached: () => null }));
+        expect(bufferOf(buffers).applyEdits(edits, "label")).toBeNull();
+    });
+
+    it("redo with nothing to open refuses, naming the resource", () => {
+        const { buffers, registry, editors } = setup(model([], "first"));
+        const element = bufferOf(buffers).applyEdits(edits, "label");
+        registry.current = null;
+        editors.holdFileModel.mockReturnValueOnce(null as unknown as object);
+        expect(() => element?.redo()).toThrow(`No model for ${uri.toString()}`);
+    });
+
+    it.each([
+        [true, true, false],
+        [false, false, true],
+    ])("an EOL step answers as the model's while it lives, and refuses after: %s", (answer, expected, dead) => {
+        const { buffers, registry } = setup(model([], "first", { setEolDetached: () => gated(answer) }));
+        const element = bufferOf(buffers).setEol(2);
+        if (dead) registry.current = null;
+        expect(element?.canUndo?.()).toBe(dead ? false : expected);
+        expect(element?.canRedo?.()).toBe(dead ? false : expected);
+    });
+
+    it("an EOL step without its own answer allows undo and redo; no change of the ending is no step", () => {
+        const { buffers } = setup(
+            model([], "first", { setEolDetached: vi.fn(() => step([], "eol")).mockReturnValueOnce(step([], "eol")) }),
+        );
+        const element = bufferOf(buffers).setEol(2);
+        expect(element?.canUndo?.()).toBe(true);
+        expect(element?.canRedo?.()).toBe(true);
+
+        const same = setup(model([], "first", { setEolDetached: () => null }));
+        expect(bufferOf(same.buffers).setEol(2)).toBeNull();
+    });
+
+    it("save writes a modified model and leaves a clean one", async () => {
+        const save = vi.fn(() => Promise.resolve("saved"));
+        await bufferOf(setup(model([], "first", { isModified: false, save })).buffers).save();
+        expect(save).not.toHaveBeenCalled();
+        await bufferOf(setup(model([], "first", { isModified: true, save })).buffers).save();
+        expect(save).toHaveBeenCalledOnce();
+    });
+
+    it("didReplaceOnDisk reloads an open model; no model is nothing to do", () => {
+        const revertToDisk = vi.fn();
+        const { buffers, registry } = setup(model([], "first", { revertToDisk }));
+        buffers.didReplaceOnDisk(uri.toString());
+        expect(revertToDisk).toHaveBeenCalledOnce();
+        registry.current = null;
+        expect(() => {
+            buffers.didReplaceOnDisk(uri.toString());
+        }).not.toThrow();
+    });
+
     it("willDelete reverts softly at the resource", () => {
         const { buffers, editors } = setup(model([], "first"));
         buffers.willDelete(uri.toString());
