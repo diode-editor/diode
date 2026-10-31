@@ -260,6 +260,7 @@ export function createWorkspaceNamespace(
                 if (text === null) throw FileSystemError.FileNotFound(uri);
                 const languageId = await languageOfDocumentWithoutModel(uri);
                 documentsWithoutModel.add(key);
+                // Stryker disable next-line ConditionalExpression: equivalent: `applyMeta` skips an undefined language
                 return documentSync.open({ uri: key, text, ...(languageId !== undefined ? { languageId } : {}) });
             })
             .finally(() => {
@@ -571,6 +572,7 @@ export function createWorkspaceNamespace(
             uri: uri.toString(),
             text,
             encoding,
+            // Stryker disable next-line ConditionalExpression: equivalent: `applyMeta` skips an undefined language
             ...(languageId !== undefined ? { languageId } : {}),
             eol: detectEndOfLine(text) === CoreEndOfLine.CRLF ? EndOfLine.CRLF : EndOfLine.LF,
         });

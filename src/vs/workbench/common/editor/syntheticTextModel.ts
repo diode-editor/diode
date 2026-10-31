@@ -22,13 +22,6 @@ export class SyntheticTextModel extends BaseTextEditorModel {
         this.doc.setLanguage(languageId);
     }
 
-    private ownerIsWriting = false;
-
-    /** The document sync reads the state inside the content event, before {@link replaceContent} returns. */
-    public override get isModified(): boolean {
-        return !this.ownerIsWriting && super.isModified;
-    }
-
     /**
      * Bypasses `EditorViewState` on purpose: it has a read-only guard, but the owner must be able to write
      * (like vscode's `OutputChannelModel`). Append only: an edit at the end doesn't shift
@@ -44,14 +37,7 @@ export class SyntheticTextModel extends BaseTextEditorModel {
         this.broadcastMarkDirty();
     }
 
-    /** The owner's text is the saved state: a provider's change leaves the document clean. */
     public replaceContent(text: string): void {
-        this.ownerIsWriting = true;
-        try {
-            this.replaceText(text);
-        } finally {
-            this.ownerIsWriting = false;
-        }
-        this.markSaved();
+        this.replaceText(text);
     }
 }

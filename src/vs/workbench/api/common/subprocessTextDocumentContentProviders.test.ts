@@ -141,7 +141,8 @@ describe("SubprocessTextDocumentContentProviders", () => {
         } as unknown as vscode.TextDocumentContentProvider);
         second.register("jdt", evil);
         second.register("jdt", silent);
-        await expect(second.provide(JDT)).rejects.toThrow("first failure");
+        const failure: unknown = await second.provide(JDT).catch((error: unknown) => error);
+        expect((failure as Error).message).toBe("first failure");
         evilRegistration.dispose();
     });
 
@@ -170,6 +171,7 @@ describe("SubprocessTextDocumentContentProviders", () => {
         expect(onSchemes).toHaveBeenCalledTimes(1);
         expect(registry.has("jdt")).toBe(true);
 
+        second.dispose();
         second.dispose();
         expect(onSchemes).toHaveBeenCalledTimes(2);
         expect(registry.has("jdt")).toBe(false);

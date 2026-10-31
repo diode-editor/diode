@@ -106,6 +106,7 @@ describe("vscode.executeCompletionItemProvider", () => {
 
         expect(list.items.map((item) => item.label)).toEqual(["kept"]);
         expect(list.isIncomplete).toBe(true);
+        expect(error).toHaveBeenCalledWith(expect.stringContaining("provideCompletionItems failed: "));
         error.mockRestore();
     });
 
@@ -204,6 +205,7 @@ describe("vscode.executeCodeActionProvider", () => {
         languages.registerCodeActionsProvider("json", actions([kept]));
 
         expect(await executeProviders.codeActions(doc, RANGE, undefined, undefined)).toEqual([kept]);
+        expect(error).toHaveBeenCalledWith(expect.stringContaining("provideCodeActions failed: "));
         error.mockRestore();
     });
 
@@ -225,6 +227,14 @@ describe("vscode.executeCodeActionProvider", () => {
 
         expect(result).toEqual([hasEdit, resolved, beyond]);
         expect(resolve).toHaveBeenCalledTimes(1);
+    });
+
+    it("a provider without resolve keeps its action", async () => {
+        const { languages, executeProviders, doc } = setup();
+        const lazy = new CodeAction("lazy");
+        languages.registerCodeActionsProvider("json", actions([lazy]));
+
+        expect(await executeProviders.codeActions(doc, RANGE, undefined, 1)).toEqual([lazy]);
     });
 
     it("a resolve answering nothing keeps the action; a bare command is never resolved", async () => {

@@ -101,9 +101,8 @@ export class SubprocessTextDocumentContentProviders {
         return {
             dispose: () => {
                 const current = this.entries.get(scheme);
-                const index = current?.indexOf(entry) ?? -1;
-                if (current === undefined || index === -1) return;
-                current.splice(index, 1);
+                if (!current?.includes(entry)) return;
+                current.splice(current.indexOf(entry), 1);
                 entry.changed?.dispose();
                 if (current.length > 0) return;
                 this.entries.delete(scheme);

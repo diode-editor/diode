@@ -101,7 +101,10 @@ describe("workspace — documents of a content provider", () => {
         changed.fire(FOO as unknown as Uri);
         await flushMicrotasks();
         expect(doc.getText()).toBe("initial");
-        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith(
+            `text document content provider failed for ${FOO.toString()}`,
+            expect.any(Error),
+        );
 
         changed.fire(FOO as unknown as Uri);
         await flushMicrotasks();
@@ -125,6 +128,20 @@ describe("workspace — documents of a content provider", () => {
             method: "workspace.textDocumentContentChanged",
             params: { uri: FOO.toString() },
         });
+    });
+
+    it("a document the host closed is not refreshed any more", async () => {
+        const { stub, workspace } = setup();
+        const changed = new EventEmitter<Uri>();
+        const provider = counting(() => "text", changed);
+        workspace.registerTextDocumentContentProvider("foo", provider);
+        await workspace.openTextDocument(FOO);
+
+        stub.fire("editor.didClose", { uri: FOO.toString() });
+        changed.fire(FOO as unknown as Uri);
+        await flushMicrotasks();
+
+        expect(provider.calls()).toBe(1);
     });
 
     it("an event for a document nobody opened asks no provider", async () => {

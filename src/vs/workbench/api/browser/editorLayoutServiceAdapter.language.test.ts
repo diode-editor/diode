@@ -79,6 +79,10 @@ describe("EditorLayoutServiceAdapter — language of a document", () => {
         expect(adapter.changeDocumentLanguage({ uri, languageId: "json" })).toEqual({ applied: true });
 
         expect(service.getUntitledModelsWithoutEditor()[0].languageId).toBe("json");
+
+        const other = service.createUntitled().toString();
+        adapter.changeDocumentLanguage({ uri: other, languageId: "python" });
+        expect(service.getUntitledModelsWithoutEditor().map((model) => model.languageId)).toEqual(["json", "python"]);
     });
 
     it("an unknown language is refused with upstream's message and nothing changes", () => {
