@@ -11,8 +11,7 @@
       "class": "ok"
     },
     "window.activeTextEditor": {
-      "class": "B",
-      "note": "#917: activeTextEditor lags behind the resolved editor"
+      "class": "ok"
     },
     "window.createInputBox": {
       "class": "B",
@@ -75,12 +74,11 @@
       "note": "not declared in vscode.d.ts"
     },
     "window.onDidChangeTextEditorSelection": {
-      "class": "B",
-      "note": "#917: event timing differs from upstream"
+      "class": "ok",
+      "note": "deviation: a programmatic selection in an inactive group fires no event"
     },
     "window.onDidChangeTextEditorViewColumn": {
-      "class": "B",
-      "note": "#917: event timing differs from upstream"
+      "class": "ok"
     },
     "window.onDidChangeTextEditorVisibleRanges": {
       "class": "B",
@@ -165,8 +163,8 @@
       "class": "ok"
     },
     "window.showTextDocument": {
-      "class": "B",
-      "note": "#917: activeTextEditor lags behind the resolved editor"
+      "class": "ok",
+      "note": "deviation: a column that does not fit the terminal width opens in the last group that does"
     },
     "window.showWarningMessage": {
       "class": "ok"

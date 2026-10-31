@@ -373,10 +373,10 @@ describe("EditorOptionsServiceAdapter", () => {
         expect((seen[0] as { selections: { activeLine: number }[] }).selections[0].activeLine).toBe(4);
     });
 
-    it("does not echo back a selection set by the subprocess itself (echo guard)", async () => {
+    it("a selection set by the extension itself comes back as a Command change, as upstream", async () => {
         const { group, selections } = groupWithLiveSelections();
         const adapter = createAdapter(group, NO_BULK_EDITS);
-        const seen: unknown[] = [];
+        const seen: { kind?: number }[] = [];
         adapter.onActiveEditorSelectionChanged((s) => seen.push(s));
 
         adapter.setActiveEditorSelections(Uri.file("/a/b.ts").toString(), [
@@ -384,9 +384,8 @@ describe("EditorOptionsServiceAdapter", () => {
         ]);
         await Promise.resolve();
 
-        // No echo: otherwise the extension would get an event for each of its own `TextEditor.selection =`.
         expect(selections()).toHaveLength(1);
-        expect(seen).toHaveLength(0);
+        expect(seen.map((s) => s.kind)).toEqual([3]);
     });
 
     it("if the active editor vanished within the tick, sends the selections of the event's source", async () => {

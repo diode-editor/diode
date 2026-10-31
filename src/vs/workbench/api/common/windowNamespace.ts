@@ -303,13 +303,16 @@ export function createWindowNamespace(
 
         // A stale extension reference to an editor of a dead group gets viewColumn === undefined, not a TypeError.
         const aliveGroups = new Set(next.groups.map((group) => group.groupId));
+        // The sides of a diff tab are not tabs themselves, but their editors live as long as they are visible.
+        const visibleNext = new Set(visiblePairs(next));
         for (const [groupId, editors] of [...editorCache]) {
             if (!aliveGroups.has(groupId)) {
                 editorCache.delete(groupId);
                 continue;
             }
             for (const uri of [...editors.keys()]) {
-                if (!nextTabs.has(selectionKey(groupId, uri))) editors.delete(uri);
+                const key = selectionKey(groupId, uri);
+                if (!nextTabs.has(key) && !visibleNext.has(key)) editors.delete(uri);
             }
         }
         for (const key of [...selectionsByEditor.keys()]) {
@@ -371,11 +374,10 @@ export function createWindowNamespace(
         for (const group of next.groups) {
             const before = prevGroups.get(group.groupId);
             if (before === undefined || before.viewColumn === group.viewColumn) continue;
-            const editors = editorCache.get(group.groupId);
-            if (editors === undefined) continue;
-            for (const editor of editors.values()) {
+            // Upstream fires for the group's visible editors: a background tab has no editor there.
+            for (const { uri } of visibleDocuments({ groups: [group] })) {
                 const event: vscode.TextEditorViewColumnChangeEvent = {
-                    textEditor: editor,
+                    textEditor: getEditorFor(registry.getOrCreate(Uri.parse(uri)), group.groupId),
                     viewColumn: group.viewColumn,
                 };
                 for (const listener of [...viewColumnListeners]) listener(event);

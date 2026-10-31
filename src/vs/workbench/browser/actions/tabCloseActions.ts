@@ -88,8 +88,23 @@ export const closeUnmodifiedEditorsAction: CommandAction = {
     },
 };
 
+export const closeEditorsInOtherGroupsAction: CommandAction = {
+    id: "workbench.action.closeEditorsInOtherGroups",
+    title: "View: Close Editors in Other Groups",
+    async run(accessor) {
+        const service = accessor.get(EditorServiceDIToken);
+        const groups = accessor.get(EditorGroupsServiceDIToken);
+        const active = groups.activeGroup;
+        // A snapshot: an emptied group leaves the strip. One at a time: prompts for unsaved tabs do not overlap.
+        for (const group of [...groups.groups]) {
+            if (group !== active) await service.closeAllEditors(group);
+        }
+    },
+};
+
 export const TAB_CLOSE_ACTIONS: readonly CommandAction[] = [
     closeOtherEditorsAction,
     closeEditorsToTheRightAction,
     closeUnmodifiedEditorsAction,
+    closeEditorsInOtherGroupsAction,
 ];

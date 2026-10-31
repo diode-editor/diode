@@ -81,6 +81,57 @@ describe("EditorOptionsServiceAdapter: addressing by group", () => {
         expect(editorAt(0, 0).viewState.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
+    it("[api:window.onDidChangeTextEditorSelection] an extension's own selection comes back with kind Command, an unchanged one does not", async () => {
+        service.openFile(ws.path("a.ts"));
+        const editor = service.getActiveEditor()!;
+        const uri = editor.uri.toString();
+        const received: { kind?: number; line: number }[] = [];
+        const subscription = adapter.onActiveEditorSelectionChanged((event) => {
+            received.push({ kind: event.kind, line: event.selections[0].activeLine });
+        });
+        const selection = { anchorLine: 1, anchorCharacter: 0, activeLine: 1, activeCharacter: 2 };
+
+        adapter.setActiveEditorSelections(uri, [selection]);
+        await Promise.resolve();
+        expect(received).toEqual([{ kind: 3, line: 1 }]);
+
+        adapter.setActiveEditorSelections(uri, [selection]);
+        await Promise.resolve();
+        expect(received.length).toBe(1);
+
+        // Differs from the current selection in one field only: each of them counts as a change.
+        for (const moved of [
+            { ...selection, anchorLine: 0 },
+            { ...selection, anchorLine: 0, anchorCharacter: 1 },
+            { ...selection, anchorLine: 0, anchorCharacter: 1, activeLine: 0 },
+            { ...selection, anchorLine: 0, anchorCharacter: 1, activeLine: 0, activeCharacter: 3 },
+        ]) {
+            const before = received.length;
+            adapter.setActiveEditorSelections(uri, [moved]);
+            await Promise.resolve();
+            expect(received.length).toBe(before + 1);
+        }
+
+        subscription.dispose();
+    });
+
+    it("[api:window.onDidChangeTextEditorSelection] a change in a later cursor counts, not only in the first", async () => {
+        service.openFile(ws.path("a.ts"));
+        const uri = service.getActiveEditor()!.uri.toString();
+        const first = { anchorLine: 0, anchorCharacter: 0, activeLine: 0, activeCharacter: 1 };
+        const second = { anchorLine: 1, anchorCharacter: 0, activeLine: 1, activeCharacter: 1 };
+        adapter.setActiveEditorSelections(uri, [first, second]);
+        await Promise.resolve();
+        const seen: unknown[] = [];
+        const subscription = adapter.onActiveEditorSelectionChanged((event) => seen.push(event));
+
+        adapter.setActiveEditorSelections(uri, [first, { ...second, activeCharacter: 2 }]);
+        await Promise.resolve();
+
+        expect(seen.length).toBe(1);
+        subscription.dispose();
+    });
+
     it("setActiveEditorSelections: unknown groupId or foreign uri is a no-op", () => {
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;

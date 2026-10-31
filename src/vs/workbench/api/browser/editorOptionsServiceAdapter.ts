@@ -1,7 +1,11 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import type { EditorCursorStyleSetting } from "../../../editor/common/config/editorCursorStyle.ts";
-import { currentCursorChangeSource, type CursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
+import {
+    currentCursorChangeSource,
+    type CursorChangeSource,
+    withCursorChangeSource,
+} from "../../../editor/common/core/cursorChangeSource.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
@@ -35,8 +39,6 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private groupIdOf(editor: TextEditorPane): number {
         return this.groups.groupOf(editor)?.id ?? this.groups.activeGroup.id;
     }
-    /** The subprocess sets this selection itself: without the flag it would be echoed back to it. */
-    private applyingRemoteSelection = false;
     private selectionFlushScheduled = false;
     /**
      * Captured SYNCHRONOUSLY in the handler (by the deferred flush the gesture scope is already closed);
@@ -98,7 +100,6 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
 
     public onActiveEditorSelectionChanged(cb: (selections: IActiveEditorSelections) => void): IDisposable {
         return this.group.onDidChangeActiveEditorSelection((editor) => {
-            if (this.applyingRemoteSelection) return;
             this.pendingSelectionSource = currentCursorChangeSource();
             if (this.selectionFlushScheduled) return;
             this.selectionFlushScheduled = true;
@@ -128,11 +129,12 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
             const active = clampPositionToDocument(doc, { line: sel.activeLine, character: sel.activeCharacter });
             return createSelection(anchor.line, anchor.character, active.line, active.character);
         });
-        this.applyingRemoteSelection = true;
-        try {
-            editor.viewState.selections = mapped;
-        } finally {
-            this.applyingRemoteSelection = false;
+        // As upstream: the extension hears about its own change with kind Command, and nothing when
+        // the selection stays the same (`mainThreadEditor` sends only a delta).
+        if (!sameSelections(editor.viewState.selections, mapped)) {
+            withCursorChangeSource("command", () => {
+                editor.viewState.selections = mapped;
+            });
         }
         editor.focusEditor();
     }
@@ -292,4 +294,19 @@ function metaOf(editor: TextEditorPane | null): IActiveEditorMeta {
         eol: editor.eol === EndOfLine.CRLF ? 2 : 1,
         selection,
     };
+}
+
+function sameSelections(current: readonly ISelection[], next: readonly ISelection[]): boolean {
+    return (
+        current.length === next.length &&
+        current.every((selection, index) => {
+            const other = next[index];
+            return (
+                selection.anchor.line === other.anchor.line &&
+                selection.anchor.character === other.anchor.character &&
+                selection.active.line === other.active.line &&
+                selection.active.character === other.active.character
+            );
+        })
+    );
 }

@@ -120,7 +120,7 @@ extension terminals and tree views work; webview is the ceiling.
 | `activeTextEditor`, `visibleTextEditors` | ✅ | both sides of a visible diff tab are visible editors. Deviation: a snapshot side (a git revision, the clipboard, "on disk") has no document of its own and is not in `visibleTextEditors` |
 | `onDidChangeActiveTextEditor`, `onDidChangeVisibleTextEditors`, `onDidChangeTextEditorViewColumn` | ✅ | |
 | `state`, `onDidChangeWindowState` | ✅ | |
-| `showTextDocument` | 🟡 | opens the resource but returns the active editor |
+| `showTextDocument` | ✅ | returns the editor it showed, in its own column; after it resolves `activeTextEditor` is that editor (unless `preserveFocus`) and `document` is the object from `openTextDocument`. Calls made at once each answer for their own document, the last one stays active. A failed open rejects. Deviation: a column that does not fit the terminal width opens in the last group that does, so `viewColumn` is always defined but can be smaller than requested |
 | `showInformation/Warning/ErrorMessage` | ✅ | all four overloads, `MessageOptions` (`modal` + `detail`). Non-modal: a toast above the status bar; without buttons it closes on its own (info 10 s, warning 12 s, error 15 s), with buttons it waits about a minute without taking focus; at most three toasts at once; no notification center yet. Modal: a dialog in the center, Escape returns the `isCloseAffordance` button. Deviation: a message without buttons resolves when shown, not when the toast closes |
 | `createOutputChannel` | 🟡 | a channel in the Output panel with log levels; `clear`/`replace` are no-ops |
 | `withProgress` | 🟡 | a spinner in the status bar, message/increment are live; cancellation is not supported, the token never fires |

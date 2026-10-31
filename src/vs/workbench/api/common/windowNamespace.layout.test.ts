@@ -397,6 +397,75 @@ describe("WindowNamespace — layout differ (editor.layoutChanged)", () => {
         expect(window.visibleTextEditors[0].selection.active).toEqual({ line: 0, character: 0 });
     });
 
+    it("[api:window.onDidChangeTextEditorViewColumn] fires for the visible editor only, cached or not", () => {
+        const { stub, window, tabs } = makeCtx();
+        stub.fire("editor.layoutChanged", {
+            groups: [
+                { groupId: 1, viewColumn: 1, isActive: false, tabs: [tab(A, { isActive: true })] },
+                { groupId: 2, viewColumn: 2, isActive: true, tabs: [tab(A), tab(B, { isActive: true })] },
+            ],
+        });
+        // Background tab A of group 2 got an editor while it was visible, as after switching tabs.
+        stub.fire("editor.layoutChanged", {
+            groups: [
+                { groupId: 1, viewColumn: 1, isActive: false, tabs: [tab(A, { isActive: true })] },
+                { groupId: 2, viewColumn: 2, isActive: true, tabs: [tab(A, { isActive: true }), tab(B)] },
+            ],
+        });
+        expect(window.visibleTextEditors.length).toBe(2);
+        stub.fire("editor.layoutChanged", {
+            groups: [
+                { groupId: 1, viewColumn: 1, isActive: false, tabs: [tab(A, { isActive: true })] },
+                { groupId: 2, viewColumn: 2, isActive: true, tabs: [tab(A), tab(B, { isActive: true })] },
+            ],
+        });
+        const events: vscode.TextEditorViewColumnChangeEvent[] = [];
+        tabs.onDidChangeTextEditorViewColumn((e) => events.push(e));
+
+        stub.fire("editor.layoutChanged", {
+            groups: [{ groupId: 2, viewColumn: 1, isActive: true, tabs: [tab(A), tab(B, { isActive: true })] }],
+        });
+
+        expect(events.map((e) => [e.textEditor.document.uri.toString(), e.viewColumn])).toEqual([[B, 1]]);
+    });
+
+    it("[api:window.visibleTextEditors] a closed tab drops its editor: reopening gives a new object", () => {
+        const { stub, window } = makeCtx();
+        const withB = {
+            groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A), tab(B, { isActive: true })] }],
+        };
+        stub.fire("editor.layoutChanged", withB);
+        const closed = window.visibleTextEditors[0];
+
+        stub.fire("editor.layoutChanged", {
+            groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true })] }],
+        });
+        stub.fire("editor.layoutChanged", withB);
+
+        expect(window.visibleTextEditors[0] === closed).toBe(false);
+    });
+
+    it("[api:window.visibleTextEditors] the sides of a visible diff keep their editor objects across layouts", () => {
+        const { stub, window } = makeCtx();
+        const diffTab = {
+            ...tab("diff://1", { isActive: true, label: "diff" }),
+            kind: "diff",
+            original: A,
+            modified: B,
+            sideEditors: [A, B],
+        };
+        const layout = { groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [diffTab] }] };
+        stub.fire("editor.layoutChanged", layout);
+        const [original, modified] = window.visibleTextEditors;
+
+        stub.fire("editor.layoutChanged", {
+            groups: [{ ...layout.groups[0], tabs: [{ ...diffTab, isDirty: true }] }],
+        });
+
+        expect(window.visibleTextEditors[0] === original).toBe(true);
+        expect(window.visibleTextEditors[1] === modified).toBe(true);
+    });
+
     it("a group column change without cached editors does not fire a viewColumn event", () => {
         const { stub, tabs } = makeCtx();
         const events: vscode.TextEditorViewColumnChangeEvent[] = [];

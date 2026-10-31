@@ -137,6 +137,138 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(service.editorGroups.groups.length).toBe(3);
     });
 
+    it("[api:window.showTextDocument] calls of one tick each answer with their own column", async () => {
+        service.openFile(ws.path("a.ts"));
+        const uri = service.getActiveEditor()!.uri.toString();
+
+        const results = await Promise.all([1, 2, 3].map((viewColumn) => adapter.showTextDocument({ uri, viewColumn })));
+
+        expect(results.map((result) => result.viewColumn)).toEqual([1, 2, 3]);
+        expect(new Set(results.map((result) => result.groupId)).size).toBe(3);
+    });
+
+    it("[api:window.showTextDocument] calls of one tick each answer with their own document, the last one is active (#134786)", async () => {
+        ws.writeFile("c.ts", "gamma");
+        const uris = ["a.ts", "b.ts", "c.ts"].map((name) => Uri.file(ws.path(name)).toString());
+
+        const results = await Promise.all(uris.map((uri) => adapter.showTextDocument({ uri })));
+
+        expect(results.map((result) => result.uri)).toEqual(uris);
+        expect(service.getActiveEditor()?.uri.toString()).toBe(uris[2]);
+    });
+
+    it("[api:window.showTextDocument] preserveFocus does not take focus back from a call made meanwhile", async () => {
+        const uriA = Uri.file(ws.path("a.ts")).toString();
+        const uriB = Uri.file(ws.path("b.ts")).toString();
+        service.openFile(ws.path("a.ts"));
+
+        const [, focused] = await Promise.all([
+            adapter.showTextDocument({ uri: uriA, viewColumn: 2, preserveFocus: true }),
+            adapter.showTextDocument({ uri: uriB, viewColumn: 3 }),
+        ]);
+
+        expect(service.editorGroups.activeGroup.id).toBe(focused.groupId);
+    });
+
+    it("[api:window.showTextDocument] a finished call does not take focus back later", async () => {
+        const uriB = Uri.file(ws.path("b.ts")).toString();
+        service.openFile(ws.path("a.ts"));
+        await adapter.showTextDocument({ uri: uriB, viewColumn: 2 });
+
+        service.editorGroups.focusGroup({ index: 0 });
+        await adapter.showTextDocument({ uri: uriB, viewColumn: 2, preserveFocus: true });
+        expect(service.editorGroups.viewColumnOf(service.editorGroups.activeGroup)).toBe(1);
+
+        const uriA = Uri.file(ws.path("a.ts")).toString();
+        await adapter.showTextDocument({ uri: uriA, viewColumn: 2 });
+        service.editorGroups.focusGroup({ index: 0 });
+        await adapter.showTextDocument({ uri: uriA, viewColumn: 1 });
+        expect(service.getActiveEditor()?.uri.toString()).toBe(uriA);
+        expect(service.editorGroups.viewColumnOf(service.editorGroups.activeGroup)).toBe(1);
+    });
+
+    it("[api:window.showTextDocument] two preserveFocus calls of one tick return to the group active before both", async () => {
+        const uriA = Uri.file(ws.path("a.ts")).toString();
+        service.openFile(ws.path("a.ts"));
+        const before = service.editorGroups.activeGroup;
+
+        await Promise.all([
+            adapter.showTextDocument({ uri: uriA, viewColumn: 2, preserveFocus: true }),
+            adapter.showTextDocument({ uri: uriA, viewColumn: 3, preserveFocus: true }),
+        ]);
+
+        expect(service.editorGroups.activeGroup).toBe(before);
+    });
+
+    function slowSource(): { finish: (content: string) => void } {
+        const handle = { finish: (_content: string): void => undefined };
+        service.virtualDocumentSource = {
+            canProvide: () => true,
+            provide: () =>
+                new Promise<string>((resolve) => {
+                    handle.finish = resolve;
+                }),
+        };
+        return handle;
+    }
+
+    it("[api:window.showTextDocument] a preserveFocus call is never the newest focused one", async () => {
+        const uriA = Uri.file(ws.path("a.ts")).toString();
+        const uriB = Uri.file(ws.path("b.ts")).toString();
+        const source = slowSource();
+
+        const slow = adapter.showTextDocument({ uri: "slow://host/doc", viewColumn: 1 });
+        const focused = await adapter.showTextDocument({ uri: uriB, viewColumn: 2 });
+        await adapter.showTextDocument({ uri: uriA, viewColumn: 3, preserveFocus: true });
+        source.finish("late");
+        await slow;
+
+        expect(service.editorGroups.activeGroup.id).toBe(focused.groupId);
+    });
+
+    it("[api:window.showTextDocument] a focused call still loading does not take focus from a finished preserveFocus", async () => {
+        const uriA = Uri.file(ws.path("a.ts")).toString();
+        service.openFile(ws.path("a.ts"));
+        const before = service.editorGroups.activeGroup;
+        const source = slowSource();
+
+        const slow = adapter.showTextDocument({ uri: "slow://host/doc", viewColumn: 2 });
+        await adapter.showTextDocument({ uri: uriA, viewColumn: 3, preserveFocus: true });
+
+        expect(service.editorGroups.activeGroup).toBe(before);
+        source.finish("late");
+        await slow;
+    });
+
+    it("[api:window.showTextDocument] a failed open rejects and names the resource", async () => {
+        await expect(adapter.showTextDocument({ uri: "nope://host/missing" })).rejects.toThrow(
+            'Could NOT open editor for "nope://host/missing".',
+        );
+    });
+
+    it("[api:window.showTextDocument] a slow non-disk open does not end up on top of a newer call", async () => {
+        const uriB = Uri.file(ws.path("b.ts")).toString();
+        let provide: (content: string) => void = () => undefined;
+        service.virtualDocumentSource = {
+            canProvide: () => true,
+            provide: () =>
+                new Promise<string>((resolve) => {
+                    provide = resolve;
+                }),
+        };
+
+        const slow = adapter.showTextDocument({ uri: "slow://host/doc", viewColumn: 1 });
+        const newer = adapter.showTextDocument({ uri: uriB, viewColumn: 2 });
+        const newerResult = await newer;
+        provide("late");
+        const slowResult = await slow;
+
+        expect(slowResult.viewColumn).toBe(1);
+        expect(slowResult.uri).toBe("slow://host/doc");
+        expect(service.editorGroups.activeGroup.id).toBe(newerResult.groupId);
+        expect(service.getActiveEditor()?.uri.toString()).toBe(uriB);
+    });
+
     it("showTextDocument: preserveFocus keeps focus, selection sets the cursor", async () => {
         ws.writeFile("long.ts", Array.from({ length: 20 }, (_, i) => `l${i}`).join("\n"));
         service.openFile(ws.path("a.ts"));
