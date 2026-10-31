@@ -205,6 +205,7 @@
             "*": "ctrl+k ctrl+f",
             "mac-cmd (kitty) #1": "meta+k meta+f"
         },
+        "editor.action.goToReferences": "shift+f12",
         "editor.action.hideHover": "escape",
         "editor.action.indentLines": "tab",
         "editor.action.inlineSuggest.commit": "tab",

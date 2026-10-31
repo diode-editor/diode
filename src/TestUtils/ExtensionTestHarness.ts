@@ -394,12 +394,13 @@ export function provideHovers(
     return getHovers(harness.languageFeatures.hoverProvider, targetOf(request), request, token);
 }
 
-export function provideDefinitions(
+export async function provideDefinitions(
     harness: IExtensionHarness,
     request: IDefinitionRequest,
     token: ICancellationToken = CancellationTokenNone,
-): Promise<ICoreDefinitionLocation[]> {
-    return getDefinitions(harness.languageFeatures.definitionProvider, targetOf(request), request, token);
+): Promise<readonly ICoreDefinitionLocation[]> {
+    const model = await getDefinitions(harness.languageFeatures.definitionProvider, targetOf(request), request, token);
+    return model.references;
 }
 
 export function provideReferences(

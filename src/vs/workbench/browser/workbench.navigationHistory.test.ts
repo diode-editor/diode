@@ -12,6 +12,8 @@ import type { DefinitionProvider } from "../../editor/common/languages/iDefiniti
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
+import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
+
 /** A 40-line file, so there is room to step past the significance threshold (10 lines). */
 const lines = (prefix: string): string => Array.from({ length: 40 }, (_, i) => `${prefix} ${String(i)}`).join("\n");
 
@@ -65,6 +67,7 @@ describe("Workbench — navigation history (Go Back / Go Forward)", () => {
         h.activeEditor().goToPosition(12, 3);
         useDefinitions(() => Promise.resolve([{ uri: uri("beta.ts"), range: createRange(20, 5, 20, 9) }]));
 
+        h.container.get(WorkbenchContextKeysDIToken).update();
         await h.commands.execute("editor.action.revealDefinition");
         expect(caret()).toMatchObject({ uri: uri("beta.ts"), line: 20, character: 5 });
 
@@ -79,6 +82,7 @@ describe("Workbench — navigation history (Go Back / Go Forward)", () => {
         h.activeEditor().goToPosition(12, 3);
         useDefinitions(() => Promise.resolve([{ uri: uri("alpha.ts"), range: createRange(14, 2, 14, 6) }]));
 
+        h.container.get(WorkbenchContextKeysDIToken).update();
         await h.commands.execute("editor.action.revealDefinition");
         expect(caret()).toMatchObject({ uri: uri("alpha.ts"), line: 14, character: 2 });
 
