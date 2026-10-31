@@ -61,7 +61,7 @@ export class ReferencesService {
                 const virtual = this.group.virtualDocumentSource;
                 if (virtual.canProvide(uri.scheme)) {
                     const text = await virtual.provide(uri);
-                    // Stryker disable next-line ConditionalExpression,StringLiteral: no text and a failed read end the same way, the row is dropped
+                    // Stryker disable next-line ConditionalExpression,StringLiteral,CallExpression: no text and a failed read end the same way, the row is dropped
                     if (text === null) throw new Error(`No content for ${uri.toString()}`);
                     return text;
                 }

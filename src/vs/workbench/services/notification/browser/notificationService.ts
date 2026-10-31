@@ -101,6 +101,7 @@ export class NotificationService extends Disposable {
         // Stryker disable next-line UpdateOperator: the counter only needs unique ids, the step direction is unobservable since `--` yields equally distinct ids
         const notification: IActiveNotification = { ...message, id: this.nextId++ };
         if (this.isPassive(message)) {
+            this.removePassiveDuplicate(message);
             this.passiveList.push({ notification, timer: null });
             this.armVisibleTimers();
             this.fire();
@@ -175,6 +176,19 @@ export class NotificationService extends Disposable {
 
     public isEmpty(): boolean {
         return this.passiveList.length === 0 && this.askList.length === 0;
+    }
+
+    /** Upstream `NotificationsModel.addNotification`: a new toast replaces its identical live twin, with a fresh timer. */
+    private removePassiveDuplicate(message: INotificationMessage): void {
+        const index = this.passiveList.findIndex(
+            ({ notification }) =>
+                notification.severity === message.severity &&
+                notification.message === message.message &&
+                notification.detail === message.detail,
+        );
+        if (index < 0) return;
+        this.clearTimer(this.passiveList[index]);
+        this.passiveList.splice(index, 1);
     }
 
     /** A modal is never passive, even without buttons: the user must close it. */

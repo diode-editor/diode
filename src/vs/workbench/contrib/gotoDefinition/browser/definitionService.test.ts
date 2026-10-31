@@ -443,11 +443,11 @@ describe("DefinitionService — Go to Definition", () => {
             await service().revealDefinition();
             expect(calls).toEqual([]);
 
-            // Several targets, one of them at the caret.
+            // Several targets; the one at the caret sorts first, so only the count can skip the alternative.
             useDefinitions(() =>
                 Promise.resolve([
                     { uri: mainUri, range: createRange(1, 6, 1, 11) },
-                    { uri: mainUri, range: createRange(0, 6, 0, 11) },
+                    { uri: mainUri, range: createRange(3, 0, 3, 1) },
                 ]),
             );
             group().getActiveEditor()?.goToPosition(1, 8);
