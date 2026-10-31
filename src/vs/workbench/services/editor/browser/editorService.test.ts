@@ -156,6 +156,7 @@ describe("EditorService", () => {
             const ctrl = createEditorService({
                 languageService: {
                     ...NULL_LANGUAGE_SERVICE,
+                    getRegisteredLanguageIds: () => [],
                     getExtensionForLanguage: (id) => (id === "plaintext" ? ".txt" : undefined),
                 },
             });
@@ -168,6 +169,7 @@ describe("EditorService", () => {
             const ctrl = createEditorService({
                 languageService: {
                     ...NULL_LANGUAGE_SERVICE,
+                    getRegisteredLanguageIds: () => [],
                     getExtensionForLanguage: (id) => (id === "typescript" ? ".ts" : ".txt"),
                 },
             });

@@ -28,6 +28,7 @@ import {
 } from "./vscodeTypes.ts";
 import {
     type IWireApplyWorkspaceEditParams,
+    type IWireDocumentLanguage,
     type IWireFileStat,
     type IWireReadFileResult,
     type IWireTextContentResult,
@@ -214,7 +215,59 @@ export function createWorkspaceNamespace(
     });
     contentProviders.onDidChange((uri) => {
         rpc.notify("workspace.textDocumentContentChanged", { uri: uri.toString() });
+        if (documentsWithoutModel.has(uri.toString())) void refreshDocumentWithoutModel(uri);
     });
+
+    /**
+     * Virtual documents opened by an extension but shown in no tab, so the core re-reads nothing for them.
+     * Deviation: upstream closes such a model after a while, here it lives until the tab that shows it closes.
+     */
+    const documentsWithoutModel = new Set<string>();
+    const virtualDocumentsLoading = new Map<string, Promise<vscode.TextDocument>>();
+    let virtualDocumentRefresh = Promise.resolve();
+
+    /** One at a time, as upstream's `lastEvent`: a slow answer must not overwrite a newer one. */
+    function refreshDocumentWithoutModel(uri: vscode.Uri): Promise<void> {
+        virtualDocumentRefresh = virtualDocumentRefresh.then(async () => {
+            let text: string | null = null;
+            try {
+                text = await contentProviders.provide(uri);
+            } catch (err) {
+                console.warn(`text document content provider failed for ${uri.toString()}`, err);
+            }
+            if (text !== null && documentsWithoutModel.has(uri.toString())) {
+                documentSync.open({ uri: uri.toString(), text });
+            }
+        });
+        return virtualDocumentRefresh;
+    }
+
+    async function languageOfDocumentWithoutModel(uri: vscode.Uri): Promise<string | undefined> {
+        // Harnesses with a stub RPC answer undefined.
+        const answer = (await rpc.request("languages.getLanguageOfDocument", { uri: uri.toString() })) as
+            | IWireDocumentLanguage
+            | undefined;
+        return answer?.languageId ?? undefined;
+    }
+
+    function openVirtualDocument(uri: vscode.Uri): Promise<vscode.TextDocument> {
+        const key = uri.toString();
+        const loading = virtualDocumentsLoading.get(key);
+        if (loading !== undefined) return loading;
+        const opened = contentProviders
+            .provide(uri)
+            .then(async (text) => {
+                if (text === null) throw FileSystemError.FileNotFound(uri);
+                const languageId = await languageOfDocumentWithoutModel(uri);
+                documentsWithoutModel.add(key);
+                return documentSync.open({ uri: key, text, ...(languageId !== undefined ? { languageId } : {}) });
+            })
+            .finally(() => {
+                virtualDocumentsLoading.delete(key);
+            });
+        virtualDocumentsLoading.set(key, opened);
+        return opened;
+    }
 
     rpc.handleRequest(
         "workspace.provideTextDocumentContent",
@@ -247,7 +300,7 @@ export function createWorkspaceNamespace(
 
     const onDidChangeConfigurationEmitter = new EventEmitter<vscode.ConfigurationChangeEvent>();
     const onDidOpenTextDocumentEmitter = documentSync.onDidOpenEmitter;
-    const onDidCloseTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
+    const onDidCloseTextDocumentEmitter = documentSync.onDidCloseEmitter;
     const onDidChangeTextDocumentEmitter = documentSync.onDidChangeEmitter;
     const onWillSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocumentWillSaveEvent>();
     const onDidSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
@@ -265,7 +318,9 @@ export function createWorkspaceNamespace(
     // A flush (whole-content replacement) arrives in didChange as a snapshot.
     rpc.handleNotification("editor.didOpen", (params) => {
         const snap = parseWireDocumentSyncSnapshot(params);
-        if (snap !== null) documentSync.open(snap);
+        if (snap === null) return;
+        documentsWithoutModel.delete(snap.uri);
+        documentSync.open(snap);
     });
 
     rpc.handleNotification("editor.didChange", (params) => {
@@ -281,8 +336,8 @@ export function createWorkspaceNamespace(
     rpc.handleNotification("editor.didClose", (params) => {
         const p: { uri?: unknown } = params;
         if (typeof p.uri !== "string" || p.uri === "") return;
-        const doc = documentSync.close(Uri.parse(p.uri));
-        if (doc !== null) onDidCloseTextDocumentEmitter.fire(doc);
+        documentsWithoutModel.delete(p.uri);
+        documentSync.close(Uri.parse(p.uri));
     });
 
     rpc.handleNotification("workspace.initialize", (params) => {
@@ -450,13 +505,11 @@ export function createWorkspaceNamespace(
         // A string is a disk path (the `openTextDocument(path)` overload), not a uri.
         const uri = typeof uriOrPath === "string" ? Uri.file(uriOrPath) : uriOrPath;
         const open = registry.get(uri);
-        if (open !== undefined) return open;
+        const isVirtual = contentProviders.has(uri.scheme);
+        // A closed virtual document has no source of text but its provider: it is read again (same object).
+        if (open !== undefined && !(isVirtual && open.isClosed)) return open;
 
-        if (contentProviders.has(uri.scheme)) {
-            const content = await contentProviders.provide(uri);
-            if (content === null) throw FileSystemError.FileNotFound(uri);
-            return makeEphemeralDocument(uri, content, "utf8");
-        }
+        if (isVirtual) return openVirtualDocument(uri);
 
         const fsProvider = fsProviders.get(uri.scheme);
         if (fsProvider !== undefined) {
@@ -464,7 +517,7 @@ export function createWorkspaceNamespace(
                 Buffer.from(await fsProvider.readFile(uri)),
                 options?.encoding,
             );
-            return makeEphemeralDocument(uri, text, encoding);
+            return makeEphemeralDocument(uri, text, encoding, await languageOfDocumentWithoutModel(uri));
         }
 
         // For non-file schemes `fsPath` is not a path; do not pass it to node:fs.
@@ -472,7 +525,7 @@ export function createWorkspaceNamespace(
 
         const buffer = await ctx.disk.readFile(uri.fsPath);
         const { text, encoding } = await decodeBuffer(buffer, options?.encoding);
-        return makeEphemeralDocument(uri, text, encoding);
+        return makeEphemeralDocument(uri, text, encoding, await languageOfDocumentWithoutModel(uri));
     }
 
     /**
@@ -496,12 +549,13 @@ export function createWorkspaceNamespace(
     }
 
     /** Outside the registry: this is not an open buffer. */
-    function makeEphemeralDocument(uri: Uri, text: string, encoding: string): ExtHostTextDocument {
+    function makeEphemeralDocument(uri: Uri, text: string, encoding: string, languageId?: string): ExtHostTextDocument {
         const doc = new ExtHostTextDocument(uri, registry.wordDefinitionFor, registry.saveDocument);
         doc.applyFull({
             uri: uri.toString(),
             text,
             encoding,
+            ...(languageId !== undefined ? { languageId } : {}),
             eol: detectEndOfLine(text) === CoreEndOfLine.CRLF ? EndOfLine.CRLF : EndOfLine.LF,
         });
         return doc;
@@ -509,6 +563,14 @@ export function createWorkspaceNamespace(
 
     const workspaceNs = {
         registerTaskProvider,
+        /** Upstream `getPath`: legacy from before multi-root, the first folder. */
+        get rootPath(): string | undefined {
+            return workspaceFolders[0]?.uri.fsPath;
+        },
+        set rootPath(_value: string | undefined) {
+            throw new TypeError("rootPath is read-only");
+        },
+
         get workspaceFolders(): readonly vscode.WorkspaceFolder[] | undefined {
             return workspaceFolders.length === 0 ? undefined : workspaceFolders;
         },

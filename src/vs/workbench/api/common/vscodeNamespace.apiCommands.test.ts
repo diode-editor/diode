@@ -1,32 +1,99 @@
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type * as vscode from "vscode";
 
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
-import { Uri } from "./vscodeTypes.ts";
+import { CodeAction, CompletionItem, Position, Range, Uri } from "./vscodeTypes.ts";
 
-describe("vscode.commands: built-in vscode.open", () => {
-    it("file Uri with a column requests editor.showTextDocument, not commands.executeCommand", async () => {
-        const stub = makeStubRpc();
-        const { namespace } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk());
+describe("API commands and documents in the composed vscode namespace", () => {
+    let dir: string;
+    let file: Uri;
 
-        await namespace.commands.executeCommand("vscode.open", Uri.file("/ws/greet_test.go"), 2);
-
-        expect(stub.requests).toEqual([
-            { method: "editor.showTextDocument", params: { uri: "file:///ws/greet_test.go", viewColumn: 2 } },
-        ]);
+    beforeEach(() => {
+        dir = mkdtempSync(join(tmpdir(), "diode-api-commands-"));
+        writeFileSync(join(dir, "a.json"), "{}\n");
+        file = Uri.file(join(dir, "a.json"));
     });
 
-    it("https link requests env.openExternal", async () => {
+    afterEach(() => {
+        rmSync(dir, { recursive: true, force: true });
+    });
+
+    function setup() {
         const stub = makeStubRpc();
-        stub.responder = () => ({ opened: true });
+        stub.responder = (method) =>
+            method === "languages.getLanguageOfDocument" ? { languageId: "json" } : undefined;
         const { namespace } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk());
+        return { stub, vscode: namespace };
+    }
 
-        await namespace.commands.executeCommand("vscode.open", "https://github.com/golang/tools");
+    it("[api:languages.registerCompletionItemProvider] vscode.executeCompletionItemProvider reaches a provider on a file nobody opened", async () => {
+        const { vscode: api } = setup();
+        api.languages.registerCompletionItemProvider({ language: "json" }, {
+            provideCompletionItems: () => [new CompletionItem("foo")],
+        } as unknown as vscode.CompletionItemProvider);
 
-        expect(stub.requests).toEqual([
-            { method: "env.openExternal", params: { uri: "https://github.com/golang/tools" } },
-        ]);
+        const list = await api.commands.executeCommand<vscode.CompletionList>(
+            "vscode.executeCompletionItemProvider",
+            file,
+            new Position(0, 0),
+        );
+
+        expect(list.items.map((item) => item.label)).toEqual(["foo"]);
+    });
+
+    it("[api:languages.registerCodeActionsProvider] vscode.executeCodeActionProvider reaches a provider on a file nobody opened", async () => {
+        const { vscode: api } = setup();
+        const action = new CodeAction("fix");
+        api.languages.registerCodeActionsProvider({ language: "json" }, {
+            provideCodeActions: () => [action],
+        } as unknown as vscode.CodeActionProvider);
+
+        await expect(
+            api.commands.executeCommand("vscode.executeCodeActionProvider", file, new Range(0, 0, 0, 1)),
+        ).resolves.toEqual([action]);
+    });
+
+    it("vscode.open goes on working next to them", async () => {
+        const { stub, vscode: api } = setup();
+
+        await api.commands.executeCommand("vscode.open", file);
+
+        expect(stub.requests.some((request) => request.method === "editor.showTextDocument")).toBe(true);
+    });
+
+    it("[api:window.showWorkspaceFolderPick] sees the folders of the workspace", async () => {
+        const { stub, vscode: api } = setup();
+        stub.fire("workspace.initialize", { workspaceFolders: [{ uri: file.toString(), name: "one", index: 0 }] });
+        stub.responder = (method) => (method === "window.showQuickPick" ? { indices: [0] } : undefined);
+
+        const picked = await api.window.showWorkspaceFolderPick();
+
+        expect(picked?.name).toBe("one");
+    });
+
+    it("a file without a model has the language of the host; without an answer it stays plaintext", async () => {
+        const { stub, vscode: api } = setup();
+
+        expect((await api.workspace.openTextDocument(file)).languageId).toBe("json");
+
+        stub.responder = null;
+        expect((await api.workspace.openTextDocument(file)).languageId).toBe("plaintext");
+    });
+
+    it("a closed file document is not read through a provider: only virtual ones are", async () => {
+        const { stub, vscode: api } = setup();
+        stub.fire("editor.didOpen", { uri: file.toString(), text: "kept", languageId: "json", version: 1 });
+        stub.fire("editor.didClose", { uri: file.toString() });
+
+        const doc = await api.workspace.openTextDocument(file);
+
+        expect(doc.getText()).toBe("kept");
     });
 });

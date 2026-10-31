@@ -28,6 +28,7 @@ describe("ExtensionHost — env.appRoot (subprocess, from sources)", () => {
             ],
             statusBarItemSink: new ExtensionStatusBarAdapter(bar, {
                 execute: () => Promise.resolve(undefined),
+                listCommandIds: () => [],
                 registerProxy: () => ({ dispose: () => undefined }),
             }),
         });

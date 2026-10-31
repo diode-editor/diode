@@ -1,3 +1,5 @@
+import * as nodePath from "node:path";
+
 import type * as vscode from "vscode";
 
 import { cursorStyleFromApi, cursorStyleToApi } from "../../../editor/common/config/editorCursorStyle.ts";
@@ -109,6 +111,7 @@ export function createWindowNamespace(
         owner: ctx.owner,
     }),
     asRelativePath?: AsRelativePath,
+    getWorkspaceFolders: () => readonly vscode.WorkspaceFolder[] | undefined = () => undefined,
 ): typeof vscode.window {
     const { rpc, registry, owner } = ctx;
 
@@ -970,6 +973,22 @@ export function createWindowNamespace(
         ): Thenable<string | undefined> => quickInput.showInputBox(options, token),
         // Cast to the four d.ts overloads: the implementation picks the result shape by `canPickMany`.
         showQuickPick: quickInput.showQuickPick as typeof vscode.window.showQuickPick,
+        // Upstream `_workbench.pickWorkspaceFolder`: a single folder is still offered, no folder means no picker.
+        showWorkspaceFolderPick: async (
+            options?: vscode.WorkspaceFolderPickOptions,
+        ): Promise<vscode.WorkspaceFolder | undefined> => {
+            const folders = getWorkspaceFolders();
+            if (folders === undefined || folders.length === 0) return undefined;
+            const picks = folders.map((folder) => ({
+                label: folder.name,
+                description: nodePath.dirname(folder.uri.fsPath),
+                folder,
+            }));
+            const pick = await quickInput.showQuickPick(picks, {
+                placeHolder: options?.placeHolder ?? "Select workspace folder",
+            });
+            return (pick as (typeof picks)[number] | undefined)?.folder;
+        },
         createQuickPick: <T extends vscode.QuickPickItem>(): vscode.QuickPick<T> => quickInput.createQuickPick<T>(),
         showOpenDialog: async (options?: vscode.OpenDialogOptions): Promise<vscode.Uri[] | undefined> => {
             const result = parseWireOpenDialogResult(

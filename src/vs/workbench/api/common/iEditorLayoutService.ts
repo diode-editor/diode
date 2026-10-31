@@ -1,6 +1,8 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type {
+    IWireChangeLanguageParams,
+    IWireChangeLanguageResult,
     IWireCloseGroupsParams,
     IWireCloseTabsParams,
     IWireCreateUntitledParams,
@@ -27,6 +29,14 @@ export interface IEditorLayoutService {
     /** Untitled document without a tab; {@link showTextDocument} shows it later. */
     createUntitledDocument(params: IWireCreateUntitledParams): IWireUriParams;
 
+    getLanguages(): readonly string[];
+
+    /** The language set by {@link changeDocumentLanguage} while it waits for a model, otherwise by the path. */
+    getLanguageOfDocument(uri: string): string | null;
+
+    /** Upstream `$changeLanguage`. Throws on an unknown language. A document without a model gets it on {@link showTextDocument}. */
+    changeDocumentLanguage(params: IWireChangeLanguageParams): IWireChangeLanguageResult;
+
     /** `false`: the user cancelled the confirm dialog. */
     closeTabs(params: IWireCloseTabsParams): Promise<boolean>;
 
@@ -39,6 +49,11 @@ export const NULL_EDITOR_LAYOUT_SERVICE: IEditorLayoutService = {
     flushPendingLayout: () => undefined,
     showTextDocument: () => Promise.reject(new Error("editor layout unavailable")),
     createUntitledDocument: () => {
+        throw new Error("editor layout unavailable");
+    },
+    getLanguages: () => [],
+    getLanguageOfDocument: () => null,
+    changeDocumentLanguage: () => {
         throw new Error("editor layout unavailable");
     },
     closeTabs: () => Promise.resolve(false),

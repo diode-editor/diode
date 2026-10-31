@@ -134,8 +134,7 @@
       "note": "#916: a second provider for a scheme throws"
     },
     "workspace.rootPath": {
-      "class": "B",
-      "note": "#916: not implemented"
+      "class": "ok"
     },
     "workspace.save": {
       "class": "ok"

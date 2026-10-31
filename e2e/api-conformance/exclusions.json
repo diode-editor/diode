@@ -15,5 +15,6 @@
     "workspace vscode API - workspace findTextInFiles, cancellation": "proposed API: workspace.findTextInFiles",
     "workspace.tasks vscode API - tasks Tasks CustomExecution task should start and shutdown successfully": "proposed API: window.onDidWriteTerminalData",
     "env vscode API - env env.remoteName": "harness layout: expects the upstream built-in extensions vscode.git and vscode.media-preview; Diode has diode.git and no media-preview",
-    "languages vscode API - languages folding command": "harness layout: expects the upstream built-in extension vscode.json-language-features, which Diode does not bundle"
+    "languages vscode API - languages folding command": "harness layout: expects the upstream built-in extension vscode.json-language-features, which Diode does not bundle",
+    "languages vscode API - languages link detector": "out of scope of #916: registerDocumentLinkProvider stays a no-op and the core has no link detector, so vscode.executeLinkProvider answers []"
 }

@@ -402,6 +402,22 @@ export class DocumentSyncTracker {
      * Resets the didOpen dedup: after didClose LSP requires a fresh didOpen. The document
      * stays in the registry: extensions may keep a reference to a closed one.
      */
+    /**
+     * For a document the core holds no model of, otherwise its `editor.didClose`/`editor.didOpen` do it.
+     * Upstream's order: the close listeners still see the old language.
+     */
+    public changeLanguage(doc: ExtHostTextDocument, languageId: string): void {
+        const uri = doc.uri.toString();
+        if (this.opened.has(uri)) {
+            this.close(doc.uri);
+            this.open({ uri, text: doc.getText(), languageId });
+            return;
+        }
+        this.onDidCloseEmitter.fire(doc);
+        doc.applyMeta({ uri, languageId });
+        this.onDidOpenEmitter.fire(doc);
+    }
+
     public close(uri: Uri): ExtHostTextDocument | null {
         const doc = this.registry.get(uri);
         if (doc === undefined || !this.opened.has(uri.toString())) return null;

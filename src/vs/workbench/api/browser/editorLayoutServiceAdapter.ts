@@ -4,15 +4,19 @@ import { Disposable } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
 import { createSelection } from "../../../editor/common/core/iSelection.ts";
+import { type ILanguageService, NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorPane } from "../../browser/parts/editor/iEditorPane.ts";
 import { isTextEditorPane, TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
+import type { BaseTextEditorModel } from "../../common/editor/textEditorModel.ts";
 import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
 import { ACTIVE_GROUP, columnToEditorGroup } from "../../services/editor/common/editorGroupColumn.ts";
 import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
 import type { IEditorLayoutService } from "../common/iEditorLayoutService.ts";
 import type {
+    IWireChangeLanguageParams,
+    IWireChangeLanguageResult,
     IWireCloseGroupsParams,
     IWireCloseTabsParams,
     IWireCreateUntitledParams,
@@ -30,10 +34,16 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     private readonly onDidChangeLayoutEmitter = this.register(new Emitter<IWireEditorLayout>());
     private flushScheduled = false;
     private pendingLayout = false;
+    /** The document had no model when the extension set its language: the choice waits for the tab. */
+    private readonly pendingLanguages = new Map<string, string>();
 
     public constructor(
         private readonly editors: IEditorService,
         private readonly groups: IEditorGroupsService,
+        private readonly languages: Pick<
+            ILanguageService,
+            "getRegisteredLanguageIds" | "getLanguageIdForResource"
+        > = NULL_LANGUAGE_SERVICE,
     ) {
         super();
         this.register(
@@ -78,6 +88,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         // as a promise, and the selection from `params` must be applied to it. The group is explicit:
         // the column is already resolved, and a locked one the extension named must not redirect.
         await this.editors.openUri(uri, { focus, group: target });
+        this.applyPendingLanguage(params.uri);
 
         const opened = this.groups.activeGroup;
         const editor = opened.activePane;
@@ -105,6 +116,42 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             groupId: opened.id,
             viewColumn: this.groups.viewColumnOf(opened),
         });
+    }
+
+    public getLanguages(): readonly string[] {
+        return this.languages.getRegisteredLanguageIds();
+    }
+
+    public getLanguageOfDocument(uri: string): string | null {
+        return this.pendingLanguages.get(uri) ?? this.languages.getLanguageIdForResource(Uri.parse(uri).path) ?? null;
+    }
+
+    public changeDocumentLanguage({ uri, languageId }: IWireChangeLanguageParams): IWireChangeLanguageResult {
+        if (!this.languages.getRegisteredLanguageIds().includes(languageId)) {
+            throw new Error(`Unknown language id: ${languageId}`);
+        }
+        const model = this.findModel(uri);
+        if (model === undefined) {
+            this.pendingLanguages.set(uri, languageId);
+            return { applied: false };
+        }
+        model.setLanguage(languageId);
+        return { applied: true };
+    }
+
+    private applyPendingLanguage(uri: string): void {
+        const languageId = this.pendingLanguages.get(uri);
+        if (languageId === undefined) return;
+        this.pendingLanguages.delete(uri);
+        this.findModel(uri)?.setLanguage(languageId);
+    }
+
+    private findModel(uri: string): BaseTextEditorModel | undefined {
+        const surface = this.editors.getTextSurfaces().find((editor) => editor.model.uri.toString() === uri);
+        return (
+            surface?.model ??
+            this.editors.getUntitledModelsWithoutEditor().find((model) => model.uri.toString() === uri)
+        );
     }
 
     public createUntitledDocument(params: IWireCreateUntitledParams): IWireUriParams {

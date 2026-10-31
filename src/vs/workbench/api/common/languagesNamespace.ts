@@ -1,5 +1,6 @@
 import type * as vscode from "vscode";
 
+import { CancellationTokenNone } from "../../../base/common/cancellation.ts";
 import { describeRejection } from "../../../base/common/describeRejection.ts";
 import { CancellationError, isCancellationError } from "../../../base/common/errorSerialization.ts";
 import type { IRange } from "../../../editor/common/core/iRange.ts";
@@ -46,6 +47,8 @@ import {
     CodeAction,
     CodeActionKind,
     CodeActionTriggerKind,
+    CompletionItem,
+    CompletionList,
     CompletionTriggerKind,
     DisposableImpl,
     EventEmitter,
@@ -286,11 +289,28 @@ const NULL_CODE_ACTION_DEPS: ICodeActionDeps = {
     executeCommand: () => Promise.reject(new Error("commands bridge is not wired")),
 };
 
+/** What the `vscode.execute*Provider` API commands run: the extension's own providers, results in API types. */
+export interface ILanguageProviderExecutors {
+    completionItems(
+        document: vscode.TextDocument,
+        position: vscode.Position,
+        triggerCharacter: string | undefined,
+        itemResolveCount: number | undefined,
+    ): Promise<vscode.CompletionList>;
+    codeActions(
+        document: vscode.TextDocument,
+        range: vscode.Range,
+        kind: string | undefined,
+        itemResolveCount: number | undefined,
+    ): Promise<(vscode.CodeAction | vscode.Command)[]>;
+}
+
 export function createLanguagesNamespace(
     ctx: IVscodeHostContext,
     codeActionDeps: ICodeActionDeps = NULL_CODE_ACTION_DEPS,
 ): {
     languages: typeof vscode.languages;
+    executeProviders: ILanguageProviderExecutors;
 } {
     const { rpc, documentSync } = ctx;
     // By the handle from the core request (like upstream ExtHostLanguageFeatures._adapter).
@@ -1116,6 +1136,18 @@ export function createLanguagesNamespace(
     };
 
     const languagesNs = {
+        getLanguages: async (): Promise<string[]> => [...(await rpc.request("languages.getLanguages"))],
+        setTextDocumentLanguage: async (
+            document: vscode.TextDocument,
+            languageId: string,
+        ): Promise<vscode.TextDocument> => {
+            const { applied } = await rpc.request("languages.changeLanguage", {
+                uri: document.uri.toString(),
+                languageId,
+            });
+            if (!applied) documentSync.changeLanguage(document as ExtHostTextDocument, languageId);
+            return document;
+        },
         onDidChangeDiagnostics: diagnosticsChanged.event,
         getDiagnostics,
         createDiagnosticCollection,
@@ -1253,7 +1285,96 @@ export function createLanguagesNamespace(
         setLanguageConfiguration: createSetLanguageConfiguration(ctx),
     };
 
+    /** Best match first, as upstream's `LanguageFeatureRegistry.ordered`. */
+    function matching<T extends { readonly selector: vscode.DocumentSelector }>(
+        providers: ReadonlyMap<number, T>,
+        document: vscode.TextDocument,
+    ): T[] {
+        return [...providers.values()]
+            .map((registration) => ({ registration, rank: scoreDocumentSelector(registration.selector, document) }))
+            .filter(({ rank }) => rank > 0)
+            .sort((a, b) => b.rank - a.rank)
+            .map(({ registration }) => registration);
+    }
+
+    const executeProviders: ILanguageProviderExecutors = {
+        completionItems: async (document, position, triggerCharacter, itemResolveCount = 0) => {
+            const context: vscode.CompletionContext = {
+                triggerKind:
+                    triggerCharacter === undefined
+                        ? CompletionTriggerKind.Invoke
+                        : CompletionTriggerKind.TriggerCharacter,
+                triggerCharacter,
+            };
+            const found: { item: vscode.CompletionItem; registration: Owned<ICompletionRegistration> }[] = [];
+            let isIncomplete = false;
+            for (const registration of matching(completionProviders, document)) {
+                let result: unknown;
+                try {
+                    result = await callWithVscodeToken(CancellationTokenNone, (token) =>
+                        registration.provider.provideCompletionItems(document, position, token, context),
+                    );
+                } catch (err) {
+                    reportProviderFailure("provideCompletionItems", err, registration.owner);
+                }
+                const normalized = normalizeResult(result);
+                isIncomplete ||= normalized.isIncomplete;
+                for (const item of normalized.items) found.push({ item, registration });
+            }
+            const items = await Promise.all(
+                found.map(async ({ item, registration }, index) => {
+                    if (index >= itemResolveCount) return item;
+                    const { provider } = registration;
+                    const resolved = await callWithVscodeToken(CancellationTokenNone, (token) =>
+                        provider.resolveCompletionItem?.(item, token),
+                    );
+                    return resolved ?? item;
+                }),
+            );
+            return new CompletionList(items as CompletionItem[], isIncomplete);
+        },
+        codeActions: async (document, range, kind, itemResolveCount = 0) => {
+            const only = kind === undefined ? undefined : new CodeActionKind(kind);
+            const context: vscode.CodeActionContext = {
+                triggerKind: CodeActionTriggerKind.Invoke,
+                diagnostics: diagnosticsIntersecting(document.uri.toString(), range),
+                only,
+            };
+            const found: { item: vscode.CodeAction | vscode.Command; provider: vscode.CodeActionProvider }[] = [];
+            for (const registration of matching(codeActionProviders, document)) {
+                let result: unknown;
+                try {
+                    result = await callWithVscodeToken(CancellationTokenNone, (token) =>
+                        registration.provider.provideCodeActions(document, range, context, token),
+                    );
+                } catch (err) {
+                    reportProviderFailure("provideCodeActions", err, registration.owner);
+                }
+                if (!Array.isArray(result)) continue;
+                for (const item of result as (vscode.CodeAction | vscode.Command)[]) {
+                    if (typeof (item as { title?: unknown } | null | undefined)?.title !== "string") continue;
+                    // Bare commands have no kind and are dropped when a kind is asked for, as upstream.
+                    const itemKind = item instanceof CodeAction ? item.kind : undefined;
+                    if (only !== undefined && (itemKind === undefined || !only.contains(itemKind))) continue;
+                    found.push({ item, provider: registration.provider });
+                }
+            }
+            return Promise.all(
+                found.map(async ({ item, provider }, index) => {
+                    if (index >= itemResolveCount || !(item instanceof CodeAction) || item.edit !== undefined) {
+                        return item;
+                    }
+                    const resolved = await callWithVscodeToken(CancellationTokenNone, (token) =>
+                        provider.resolveCodeAction?.(item, token),
+                    );
+                    return resolved ?? item;
+                }),
+            );
+        },
+    };
+
     return {
         languages: implementsApi<typeof vscode.languages>()(languagesNs),
+        executeProviders,
     };
 }

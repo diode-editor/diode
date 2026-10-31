@@ -4,8 +4,7 @@
       "class": "ok"
     },
     "commands.getCommands": {
-      "class": "B",
-      "note": "#916: not implemented"
+      "class": "ok"
     },
     "commands.registerCommand": {
       "class": "ok"

@@ -21,6 +21,7 @@ function makeCommands(behaviour?: (id: string) => unknown): {
             calls.push({ id, args });
             return behaviour?.(id);
         },
+        listCommandIds: () => [],
         registerProxy: () => ({ dispose: () => undefined }),
     };
     return { service, calls };

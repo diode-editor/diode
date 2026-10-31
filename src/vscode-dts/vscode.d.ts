@@ -18,6 +18,23 @@
  *---------------------------------------------------------------------------*/
 
 declare module "vscode" {
+	/**
+	 * Options to configure the behavior of the {@link WorkspaceFolder workspace folder} pick UI.
+	 */
+	export interface WorkspaceFolderPickOptions {
+
+		/**
+		 * An optional string to show as placeholder in the input box to guide the user.
+		 */
+		placeHolder?: string;
+
+		/**
+		 * Set to `true` to keep the picker open when focus moves to another part of the editor or to another window.
+		 * This setting is ignored on iPad and is always `false`.
+		 */
+		ignoreFocusOut?: boolean;
+	}
+
 
 	/**
 	 * The version of the editor.
@@ -527,6 +544,15 @@ declare module "vscode" {
 	}
 
 	export namespace window {
+		/**
+		 * Shows a selection list of {@link workspace.workspaceFolders workspace folders} to pick from.
+		 * Returns `undefined` if no folder is open.
+		 *
+		 * @param options Configures the behavior of the workspace folder list.
+		 * @returns A promise that resolves to the workspace folder or `undefined`.
+		 */
+		export function showWorkspaceFolderPick(options?: WorkspaceFolderPickOptions): Thenable<WorkspaceFolder | undefined>;
+
 
 		/**
 		 * Represents the grid widget within the main editor area
@@ -1148,6 +1174,15 @@ declare module "vscode" {
 	 * ```
 	 */
 	export namespace commands {
+		/**
+		 * Retrieve the list of all available commands. Commands starting with an underscore are
+		 * treated as internal commands.
+		 *
+		 * @param filterInternal Set `true` to not see internal commands (starting with an underscore)
+		 * @returns Thenable that resolves to a list of command ids.
+		 */
+		export function getCommands(filterInternal?: boolean): Thenable<string[]>;
+
 
 		/**
 		 * Registers a command that can be invoked via a keyboard shortcut,
@@ -4008,6 +4043,17 @@ declare module "vscode" {
 	 * the editor-process so that they should be always used instead of nodejs-equivalents.
 	 */
 	export namespace workspace {
+		/**
+		 * The uri of the first entry of {@linkcode workspace.workspaceFolders workspaceFolders}
+		 * as `string`. `undefined` if there is no first entry.
+		 *
+		 * Refer to https://code.visualstudio.com/docs/editor/workspaces for more information
+		 * on workspaces.
+		 *
+		 * @deprecated Use {@linkcode workspace.workspaceFolders workspaceFolders} instead.
+		 */
+		export const rootPath: string | undefined;
+
 
 		/**
 		 * List of workspace folders (0-N) that are open in the editor. `undefined` when no workspace
@@ -7109,6 +7155,25 @@ declare module "vscode" {
 	}
 
 	export namespace languages {
+		/**
+		 * Return the identifiers of all known languages.
+		 * @returns Promise resolving to an array of identifier strings.
+		 */
+		export function getLanguages(): Thenable<string[]>;
+
+		/**
+		 * Set (and change) the {@link TextDocument.languageId language} that is associated
+		 * with the given document.
+		 *
+		 * *Note* that calling this function will trigger the {@linkcode workspace.onDidCloseTextDocument onDidCloseTextDocument} event
+		 * followed by the {@linkcode workspace.onDidOpenTextDocument onDidOpenTextDocument} event.
+		 *
+		 * @param document The document which language is to be changed
+		 * @param languageId The new language identifier.
+		 * @returns A thenable that resolves with the updated document.
+		 */
+		export function setTextDocumentLanguage(document: TextDocument, languageId: string): Thenable<TextDocument>;
+
 
 		/**
 		 * An {@link Event} which fires when the global set of diagnostics changes. This is

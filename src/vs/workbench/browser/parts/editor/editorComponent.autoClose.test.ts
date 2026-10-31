@@ -31,6 +31,7 @@ describe("EditorComponent: auto-closing from the language configuration", () => 
     const tsOnlyLanguages: ILanguageService = {
         getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
         getLanguageDisplayName: () => undefined,
+        getRegisteredLanguageIds: () => [],
         getExtensionForLanguage: () => undefined,
         requestLanguageFeatures: () => undefined,
         onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),

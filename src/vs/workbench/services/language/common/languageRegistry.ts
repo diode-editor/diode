@@ -81,6 +81,10 @@ export class LanguageRegistry implements ILanguageService {
         return Array.from(this.languages.values());
     }
 
+    public getRegisteredLanguageIds(): readonly string[] {
+        return [...new Set(["plaintext", ...this.languages.keys()])];
+    }
+
     public getLanguageDisplayName(languageId: string): string | undefined {
         return this.languages.get(languageId)?.aliases[0];
     }
