@@ -45,8 +45,8 @@ describe("EditorLayoutServiceAdapter — untitled document without a tab", () =>
         ws.dispose();
     });
 
-    it("document is open to extensions immediately: dirty, with text and language, but without a tab", () => {
-        const { uri } = adapter.createUntitledDocument({ content: "# Tools\n", language: "markdown" });
+    it("document is open to extensions immediately: dirty, with text and language, but without a tab", async () => {
+        const { uri } = await adapter.createUntitledDocument({ content: "# Tools\n", language: "markdown" });
 
         expect(uri).toBe("untitled:Untitled-1");
         expect(log).toEqual([`open ${uri}`]);
@@ -57,23 +57,23 @@ describe("EditorLayoutServiceAdapter — untitled document without a tab", () =>
         expect(openDocumentSyncSources(service).map((snapshot) => snapshot.uri)).toEqual([uri]);
     });
 
-    it("without options — a clean empty buffer; the number comes from the counter shared with New Untitled File", () => {
+    it("without options — an empty buffer that reads as dirty to extensions (as upstream); the number comes from the counter shared with New Untitled File", async () => {
         service.newUntitled();
-        const { uri } = adapter.createUntitledDocument({});
+        const { uri } = await adapter.createUntitledDocument({});
 
         expect(uri).toBe("untitled:Untitled-2");
-        expect(opened.at(-1)).toMatchObject({ uri, languageId: "plaintext", length: 0, isDirty: false });
+        expect(opened.at(-1)).toMatchObject({ uri, languageId: "plaintext", length: 0, isDirty: true });
         expect(opened.at(-1)?.getText()).toBe("");
     });
 
-    it("empty content is also a clean buffer (like upstream `!!initialValue`)", () => {
-        const { uri } = adapter.createUntitledDocument({ content: "" });
+    it("empty content: the model is clean (upstream `!!initialValue`), extensions read it as dirty", async () => {
+        const { uri } = await adapter.createUntitledDocument({ content: "" });
 
-        expect(opened.at(-1)).toMatchObject({ uri, length: 0, isDirty: false });
+        expect(opened.at(-1)).toMatchObject({ uri, length: 0, isDirty: true });
     });
 
     it("showTextDocument shows the same model as an Untitled-N tab — without a repeated open/close", async () => {
-        const { uri } = adapter.createUntitledDocument({ content: "go: /usr/bin/go\n", language: "markdown" });
+        const { uri } = await adapter.createUntitledDocument({ content: "go: /usr/bin/go\n", language: "markdown" });
         log.length = 0;
 
         const shown = await adapter.showTextDocument({ uri });
@@ -97,7 +97,7 @@ describe("EditorLayoutServiceAdapter — untitled document without a tab", () =>
     });
 
     it("showing again activates the already open tab instead of creating a second one", async () => {
-        const { uri } = adapter.createUntitledDocument({ content: "x" });
+        const { uri } = await adapter.createUntitledDocument({ content: "x" });
         await adapter.showTextDocument({ uri });
         service.openFile(ws.path("a.txt"));
 
@@ -110,7 +110,7 @@ describe("EditorLayoutServiceAdapter — untitled document without a tab", () =>
 
     it("shows in the side column (ViewColumn.Beside)", async () => {
         service.openFile(ws.path("a.txt"));
-        const { uri } = adapter.createUntitledDocument({ content: "x" });
+        const { uri } = await adapter.createUntitledDocument({ content: "x" });
 
         const shown = await adapter.showTextDocument({ uri, viewColumn: -2 });
 
@@ -151,15 +151,15 @@ describe("EditorLayoutServiceAdapter — untitled document without a tab", () =>
     });
 
     it("encoding from options is the encoding of the future Save As", async () => {
-        const { uri } = adapter.createUntitledDocument({ content: "x", encoding: "utf16le" });
+        const { uri } = await adapter.createUntitledDocument({ content: "x", encoding: "utf16le" });
         await adapter.showTextDocument({ uri });
 
         const pane = service.editorGroups.activeGroup.activePane;
         expect(isTextEditorPane(pane) && pane.encoding).toBe("utf16le");
     });
 
-    it("core closed with an unshown buffer — the model is released together with the service", () => {
-        adapter.createUntitledDocument({ content: "x" });
+    it("core closed with an unshown buffer — the model is released together with the service", async () => {
+        await adapter.createUntitledDocument({ content: "x" });
         const [model] = service.getUntitledModelsWithoutEditor();
         const disposeModel = vi.spyOn(model, "dispose");
 

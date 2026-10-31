@@ -25,7 +25,7 @@ export interface IEditorLayoutService {
     showTextDocument(params: IWireShowTextDocumentParams): Promise<IWireShowTextDocumentResult>;
 
     /** Untitled document without a tab; {@link showTextDocument} shows it later. */
-    createUntitledDocument(params: IWireCreateUntitledParams): IWireUriParams;
+    createUntitledDocument(params: IWireCreateUntitledParams): Promise<IWireUriParams>;
 
     /** A live model without a tab, upstream `$tryOpenDocument`. `null`: not a readable file. */
     openTextDocument(params: IWireUriParams): Promise<IWireUriParams | null>;

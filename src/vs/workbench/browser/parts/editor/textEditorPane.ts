@@ -111,6 +111,8 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
     public get label(): string {
         if (this.labelOverride !== null) return this.labelOverride;
         const uri = this.model.uri;
+        // An untitled buffer can carry a whole path: upstream names the tab by its basename too.
+        if (uri.scheme === "untitled") return path.posix.basename(uri.path);
         return uri.scheme === "file" ? path.basename(uri.fsPath) : uri.path;
     }
 
@@ -120,6 +122,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public get absoluteFilePath(): string | null {
         return this.fileModel?.absoluteFilePath ?? null;
+    }
+
+    public get isDirtyForExtensions(): boolean {
+        return this.model.isDirtyForExtensions;
     }
 
     public get isModified(): boolean {

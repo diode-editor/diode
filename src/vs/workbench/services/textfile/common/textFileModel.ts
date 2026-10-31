@@ -70,6 +70,10 @@ function diskEtag(stat: IDiskStat): string {
 /** The untitled number is assigned by the group ({@link TextFileModel.setUntitled}), which owns the counter. */
 const UNTITLED_PLACEHOLDER_URI = Uri.from({ scheme: "untitled", path: "Untitled" });
 
+export function untitledUriOf(untitledNumber: number): Uri {
+    return Uri.from({ scheme: "untitled", path: `Untitled-${untitledNumber}` });
+}
+
 /**
  * Like upstream `TextFileEditorModel.onDidFilesChange`: another editor's atomic write is a
  * delete immediately followed by a new file, so a disappearance is re-checked after a delay.
@@ -142,6 +146,10 @@ export class TextFileModel extends BaseTextEditorModel {
         this.encodingValue = encoding;
         this.onDidChangeEncodingEmitter.fire();
     }
+
+    /** Upstream `hasAssociatedFilePath`. Cleared when the buffer becomes a file. */
+    private hasAssociatedResource = false;
+    private markedDirtyForExtensions = false;
 
     private readonly onDidSaveDocumentEmitter = this.register(new Emitter<void>());
 
@@ -285,7 +293,60 @@ export class TextFileModel extends BaseTextEditorModel {
 
     /** Call before the editor enters the tab list and becomes visible to anyone. */
     public setUntitled(untitledNumber: number): void {
-        this.uriValue = Uri.from({ scheme: "untitled", path: `Untitled-${untitledNumber}` });
+        this.uriValue = untitledUriOf(untitledNumber);
+    }
+
+    /**
+     * An untitled buffer under a resource an extension named (upstream `associatedResource`). `associated` makes it
+     * dirty from the start, whatever its text: it is a file that has yet to be written.
+     */
+    public setUntitledResource(uri: Uri, { associated }: { associated: boolean }): void {
+        this.uriValue = uri;
+        this.hasAssociatedResource = associated;
+        if (associated)
+            this.doc.setLanguage(this.languageService.getLanguageIdForResource(uri.path) ?? this.languageId);
+    }
+
+    public override get isModified(): boolean {
+        if (this.hasAssociatedResource) return true;
+        // Upstream `onModelContentChanged`: an untitled buffer that became empty never shows a dirty indicator.
+        if (this.uriValue.scheme === "untitled" && this.doc.getValueLength() === 0)
+            return this.doc.eol !== this.savedEol;
+        return super.isModified;
+    }
+
+    /**
+     * Upstream `_doCreateUntitled` "mark as dirty": a document an extension created reads as dirty even while empty,
+     * and the model and its tab stay clean. Holds until the first edit, when the model speaks for itself.
+     */
+    public markDirtyForExtensions(): void {
+        this.markedDirtyForExtensions = true;
+        const subscription = this.doc.onDidChangeModelContent(() => {
+            this.markedDirtyForExtensions = false;
+            subscription.dispose();
+        });
+    }
+
+    public override get isDirtyForExtensions(): boolean {
+        return this.markedDirtyForExtensions || this.isModified;
+    }
+
+    /**
+     * Where a plain save writes without asking (upstream `suggestSavePath`). Deviation: upstream writes a relative
+     * `untitled:new.txt` to `/new.txt` and a host form to a UNC path; here both have no path and go to the Save As dialog.
+     */
+    private get associatedFilePath(): string | null {
+        if (!this.hasAssociatedResource || this.uriValue.authority !== "") return null;
+        return this.uriValue.path.startsWith("/") ? this.uriValue.path : null;
+    }
+
+    /** Upstream `doSaveAsTextFile` asks before writing over a file that appeared after the open: here "conflict" asks. */
+    private async saveToAssociatedFile(target: string, overwrite: boolean): Promise<SaveOutcome> {
+        if (!overwrite && (await this.files.exists(Uri.file(target)))) return "conflict";
+        // Upstream's write creates missing parents; the path came from an extension, nobody has seen it in a dialog.
+        await this.files.createFolder(Uri.file(path.dirname(target)));
+        await this.saveAs(target);
+        return "saved";
     }
 
     /**
@@ -643,6 +704,8 @@ export class TextFileModel extends BaseTextEditorModel {
 
     public async save(options?: { overwrite?: boolean }): Promise<SaveOutcome> {
         const filePath = this.filePath;
+        const associatedFile = this.associatedFilePath;
+        if (associatedFile !== null) return this.saveToAssociatedFile(associatedFile, options?.overwrite === true);
         if (filePath === null && !this.isProvided) return "no-file";
         // A document on disk cannot be modified, so the file already holds its text: writing it back would
         // stream the whole file through one buffer for nothing.
@@ -739,7 +802,10 @@ export class TextFileModel extends BaseTextEditorModel {
             await this.copyOnDiskTo(path.resolve(newPath));
             return;
         }
+        const previousUri = this.uriValue;
+        const previousAssociated = this.hasAssociatedResource;
         this.uriValue = Uri.file(path.resolve(newPath));
+        this.hasAssociatedResource = false;
         this.providedWatch?.dispose();
         this.providedWatch = null;
         const participation = this.saveParticipant?.participate(this) ?? null;
@@ -747,7 +813,16 @@ export class TextFileModel extends BaseTextEditorModel {
         const savedVersion = this.doc.versionId;
         const savedEol = this.doc.eol;
         const bytes = encodeStream(this.doc.createSnapshot(), this.encodingValue);
-        const written = await this.files.writeFile(this.uriValue, bytes, { atomic: true });
+        let written: IFileStat;
+        try {
+            written = await this.files.writeFile(this.uriValue, bytes, { atomic: true });
+        } catch (error) {
+            // Nothing was written: the buffer is still what it was, not a file that does not exist.
+            this.uriValue = previousUri;
+            this.hasAssociatedResource = previousAssociated;
+            throw error;
+        }
+        this.markedDirtyForExtensions = false;
         this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.doc.setLanguage(this.resolveLanguageId(newPath));
         this.markSaved(savedVersion, savedEol);

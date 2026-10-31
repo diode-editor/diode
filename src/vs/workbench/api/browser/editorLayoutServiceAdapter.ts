@@ -74,6 +74,10 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         const target = columnToEditorGroup(this.groups, params.viewColumn ?? ACTIVE_GROUP, uri);
 
         this.groups.focusGroup(target.id, { focus: false });
+        // Upstream `isUntitledWithAssociatedResource`: `Untitled-N` is a name, anything else a path to save to.
+        if (uri.scheme === "untitled") {
+            this.editors.createUntitled({ uri, associated: uri.path.length > 1 && !/Untitled-\d+/.test(uri.path) });
+        }
         // Await the open: a non-disk resource (`jdt:`) arrives from the scheme provider
         // as a promise, and the selection from `params` must be applied to it. The group is explicit:
         // the column is already resolved, and a locked one the extension named must not redirect.
@@ -107,7 +111,13 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         });
     }
 
-    public createUntitledDocument(params: IWireCreateUntitledParams): IWireUriParams {
+    public async createUntitledDocument(params: IWireCreateUntitledParams): Promise<IWireUriParams> {
+        if (params.uri !== undefined) {
+            const opened = await this.editors.openUntitledDocument(Uri.parse(params.uri), {
+                encoding: params.encoding,
+            });
+            return { uri: opened.toString() };
+        }
         const uri = this.editors.createUntitled({
             content: params.content,
             languageId: params.language,
