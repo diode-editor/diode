@@ -52,19 +52,16 @@
         "window.createQuickPick"
     ],
     "readonlyFileSystem vscode API - file system readonly file system - boolean": [
-        "workspace.fs.isWritableFileSystem",
-        "workspace.fs.writeFile",
+        "workspace.fs",
         "workspace.registerFileSystemProvider"
     ],
     "readonlyFileSystem vscode API - file system readonly file system - markdown": [
         "MarkdownString",
-        "workspace.fs.isWritableFileSystem",
-        "workspace.fs.writeFile",
+        "workspace.fs",
         "workspace.registerFileSystemProvider"
     ],
     "readonlyFileSystem vscode API - file system writeable file system": [
-        "workspace.fs.isWritableFileSystem",
-        "workspace.fs.writeFile",
+        "workspace.fs",
         "workspace.registerFileSystemProvider"
     ],
     "state vscode API - globalState / workspaceState state basics": [
@@ -298,7 +295,7 @@
     "workspace.event vscode API - workspace events onWillCreate/onDidCreate, make changes, edit new file fails": [
         "WorkspaceEdit",
         "workspace.applyEdit",
-        "workspace.fs.readFile",
+        "workspace.fs",
         "workspace.onWillCreateFiles",
         "workspace.openTextDocument"
     ],
@@ -318,54 +315,37 @@
         "workspace.onWillDeleteFiles"
     ],
     "workspace.fs vscode API - workspace-fs fs.createFolder creates recursively": [
-        "workspace.fs.createDirectory",
-        "workspace.fs.delete",
-        "workspace.fs.stat",
-        "workspace.fs.writeFile"
+        "workspace.fs"
     ],
     "workspace.fs vscode API - workspace-fs fs.delete folder": [
-        "workspace.fs.createDirectory",
-        "workspace.fs.delete",
-        "workspace.fs.stat",
-        "workspace.fs.writeFile"
+        "workspace.fs"
     ],
     "workspace.fs vscode API - workspace-fs fs.stat": [
-        "workspace.fs.readDirectory",
-        "workspace.fs.stat"
+        "workspace.fs"
     ],
     "workspace.fs vscode API - workspace-fs fs.stat - bad scheme": [
-        "workspace.fs.stat"
+        "workspace.fs"
     ],
     "workspace.fs vscode API - workspace-fs fs.stat - missing file": [
-        "workspace.fs.stat"
+        "workspace.fs"
     ],
     "workspace.fs vscode API - workspace-fs fs.write/stat/read/delete": [
-        "workspace.fs.delete",
-        "workspace.fs.readFile",
-        "workspace.fs.stat",
-        "workspace.fs.writeFile"
+        "workspace.fs"
     ],
     "workspace.fs vscode API - workspace-fs fs.writeFile creates parents recursively": [
-        "workspace.fs.delete",
-        "workspace.fs.stat",
-        "workspace.fs.writeFile"
+        "workspace.fs"
     ],
     "workspace.fs vscode API - workspace-fs throws FileSystemError (1)": [
-        "workspace.fs.stat"
+        "workspace.fs"
     ],
     "workspace.fs vscode API - workspace-fs throws FileSystemError (2)": [
-        "workspace.fs.stat"
+        "workspace.fs"
     ],
     "workspace.fs vscode API - workspace-fs vscode.workspace.fs.remove() (and copy()) succeed unexpectedly. #84177 (1)": [
-        "workspace.fs.delete",
-        "workspace.fs.readDirectory"
+        "workspace.fs"
     ],
     "workspace.fs vscode API - workspace-fs vscode.workspace.fs.remove() (and copy()) succeed unexpectedly. #84177 (2)": [
-        "workspace.fs.copy",
-        "workspace.fs.createDirectory",
-        "workspace.fs.delete",
-        "workspace.fs.readDirectory",
-        "workspace.fs.writeFile"
+        "workspace.fs"
     ],
     "workspace.tasks vscode API - tasks Tasks CustomExecution A task can be fetched and executed (#100577)": [
         "CustomExecution",
