@@ -244,8 +244,8 @@
       "note": "the provider is never called; needs new graphics"
     },
     "CancellationError": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
     },
     "CancellationToken.isCancellationRequested": {
       "class": "ok"
@@ -1090,12 +1090,12 @@
       "class": "ok"
     },
     "CompletionItemTag": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
     },
     "CompletionItemTag.Deprecated": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
     },
     "CompletionList": {
       "class": "ok"

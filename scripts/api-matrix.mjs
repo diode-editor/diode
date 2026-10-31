@@ -12,6 +12,8 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
+import ts from "typescript";
+
 import { loadSurface } from "./ext-survey-analyze.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "..");
@@ -25,6 +27,8 @@ const TEST_FILE = /\.test\.tsx?$/;
 export const CLASSES = ["ok", "A", "B", "C", "X"];
 const GAP_CLASSES = new Set(["A", "B", "C", "X"]);
 const CANDIDATES = 15;
+/** The epic puts icon themes in class C, and no API member shows them: only the contribution does. */
+const ICON_THEME_POINTS = new Set(["iconThemes", "productIconThemes"]);
 const TOP_GAPS = 100;
 
 /** Reads `<namespace>.json` files into one member map; a member in two files is an error. */
@@ -54,9 +58,31 @@ export function validateClasses(surface, classes) {
     return problems;
 }
 
-/** Tags in test titles: `[api:window.showTextDocument]`, several per title are fine. */
+/** `test.skip`, `test.todo`, `test.fails` and the like run nothing that proves a member. */
+const RUNNING_MODIFIERS = new Set(["only", "concurrent", "sequential", "each", "for"]);
+
+function isRunningTestCallee(callee) {
+    if (ts.isIdentifier(callee)) return callee.text === "test" || callee.text === "it";
+    if (ts.isPropertyAccessExpression(callee)) return RUNNING_MODIFIERS.has(callee.name.text) && isRunningTestCallee(callee.expression);
+    return ts.isCallExpression(callee) && ts.isPropertyAccessExpression(callee.expression) && isRunningTestCallee(callee.expression);
+}
+
+/** Tags in titles of running tests: `[api:window.showTextDocument]`, several per title are fine. */
 export function findApiTags(source) {
-    return [...source.matchAll(/\[api:([\w$.]+)\]/g)].map((match) => match[1]);
+    if (!source.includes("[api:")) return [];
+    const file = ts.createSourceFile("test.ts", source, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
+    const tags = [];
+    const visit = (node) => {
+        if (ts.isCallExpression(node) && node.arguments.length > 0 && isRunningTestCallee(node.expression)) {
+            const title = node.arguments[0];
+            if (ts.isStringLiteralLike(title) || ts.isTemplateExpression(title)) {
+                for (const match of title.getText(file).matchAll(/\[api:([\w$.]+)\]/g)) tags.push(match[1]);
+            }
+        }
+        ts.forEachChild(node, visit);
+    };
+    visit(file);
+    return tags;
 }
 
 function* walkTests(dir) {
@@ -141,7 +167,7 @@ export function extensionGaps(extension, classes) {
  */
 export function pickCandidates(extensions, classes, limit = CANDIDATES) {
     return extensions
-        .filter((e) => e.apiFound)
+        .filter((e) => e.apiFound && !(e.contributes ?? []).some((point) => ICON_THEME_POINTS.has(point)))
         .map((e) => ({ extension: e, gaps: extensionGaps(e, classes) }))
         .filter(({ gaps }) => gaps.length > 0 && gaps.every((g) => g.class === "A" || g.class === "B"))
         .sort((a, b) => a.gaps.length - b.gaps.length || b.extension.downloads - a.extension.downloads || a.extension.id.localeCompare(b.extension.id, "en"))
@@ -238,12 +264,13 @@ export function renderMatrix({ surface, classes, survey, tagged, conformance, co
         "",
     );
 
+    // No resolved member means "not found": a zero gap here would read as "nothing is missing".
     const ranked = extensions
-        .filter((e) => e.apiFound)
+        .filter((e) => e.apiFound && e.members.length > 0)
         .map((e) => ({ e, gaps: extensionGaps(e, classes) }))
         .sort((a, b) => a.gaps.length - b.gaps.length || b.e.downloads - a.e.downloads || a.e.id.localeCompare(b.e.id, "en"));
     const count = (gapList, c) => String(gapList.filter((g) => g.class === c).length);
-    out.push("## Extension ranking", "", "By the size of the gap, smallest first.", "");
+    out.push("## Extension ranking", "", "By the size of the gap, smallest first. Extensions with no resolved member are left out.", "");
     out.push(
         table(
             ["extension", "version", "downloads", "registry", "members", "gap", "A", "B", "C", "X"],
@@ -316,8 +343,15 @@ function main() {
         process.exitCode = 1;
         return;
     }
+    const conformance = readConformanceMembers();
+    const unknownMapped = [...conformance].filter((member) => !surface.has(member));
+    if (unknownMapped.length > 0) {
+        console.error(`e2e/api-conformance/memberMap.json: not members of vscode.d.ts: ${unknownMapped.join(", ")}`);
+        process.exitCode = 1;
+        return;
+    }
     const survey = JSON.parse(readFileSync(join(DOCS, "survey.json"), "utf8"));
-    const rendered = renderMatrix({ surface, classes, survey, tagged, conformance: readConformanceMembers(), confirmed: readConfirmed() });
+    const rendered = renderMatrix({ surface, classes, survey, tagged, conformance, confirmed: readConfirmed() });
     if (!values.check) {
         writeFileSync(OUTPUT_PATH, rendered);
         console.log(`${relative(repoRoot, OUTPUT_PATH)}: ${String(surface.size)} members, ${String(survey.extensions.length)} extensions`);

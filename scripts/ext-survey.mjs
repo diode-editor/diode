@@ -92,7 +92,13 @@ export function readVsix(vsixPath, visit) {
                     stream.on("data", (chunk) => chunks.push(chunk));
                     stream.on("error", fail);
                     stream.on("end", () => {
-                        visit(name, Buffer.concat(chunks));
+                        try {
+                            visit(name, Buffer.concat(chunks));
+                        } catch (error) {
+                            zip.close();
+                            fail(error);
+                            return;
+                        }
                         zip.readEntry();
                     });
                 });
@@ -161,7 +167,8 @@ export function uniqueIds(rows) {
     const seen = new Set();
     const ids = [];
     for (const row of rows) {
-        const id = `${row.namespace}.${row.name}`;
+        // Open VSX ids are case-insensitive: `golang.Go` and `golang.go` are one record.
+        const id = `${row.namespace}.${row.name}`.toLowerCase();
         if (!seen.has(id)) {
             seen.add(id);
             ids.push({ namespace: row.namespace, name: row.name });
@@ -216,6 +223,11 @@ async function main() {
         },
     });
     const top = Number(values.top);
+    if (!Number.isInteger(top) || top < 0) {
+        console.error(`ext-survey: --top must be a non-negative integer, got "${values.top}"`);
+        process.exitCode = 2;
+        return;
+    }
     mkdirSync(values.cache, { recursive: true });
     const surface = loadSurface();
     const today = new Date().toISOString().slice(0, 10);
@@ -267,7 +279,7 @@ async function main() {
 
     for (const ref of registryRefs) {
         const id = `${ref.namespace}.${ref.name}`;
-        if (!results.has(id)) await process1(ref, true);
+        if (![...results.keys()].some((known) => known.toLowerCase() === id.toLowerCase())) await process1(ref, true);
     }
 
     const extensions = sortSurvey([...results.values()]);
