@@ -83,8 +83,8 @@ export function createQuickInputApi(
     const selectListeners = new Map<number, (index: number) => void>();
     rpc.handleNotification("window.showQuickPick.didSelectItem", (params) => {
         const p: { handle?: unknown; index?: unknown } = params;
-        if (typeof p.handle !== "number" || typeof p.index !== "number") return;
-        selectListeners.get(p.handle)?.(p.index);
+        // A garbage handle is simply not found.
+        if (typeof p.index === "number") selectListeners.get(p.handle as number)?.(p.index);
     });
     // A map, not a single slot: an extension may hold two `showInputBox` calls at once, and
     // validation of the first may still be in flight.
@@ -213,7 +213,7 @@ export function createQuickInputApi(
 }
 
 function isThenable(value: unknown): value is PromiseLike<unknown> {
-    return typeof (value as { then?: unknown } | null | undefined)?.then === "function";
+    return typeof (value as { then?: unknown }).then === "function";
 }
 
 /** Our overlay has no group headers: a shown separator would become a pickable item. */

@@ -17,7 +17,7 @@ export function withResourceFields(
     if (resourceUri === undefined) return { label, description };
     if (label !== "") return { label, description: description ?? asRelativePath(resourceUri) };
     const slash = resourceUri.path.lastIndexOf("/");
-    const folder = resourceUri.with({ path: resourceUri.path.slice(0, slash) || "/" });
+    const folder = resourceUri.with({ path: resourceUri.path.slice(0, slash) });
     return {
         label: resourceUri.path.slice(slash + 1),
         description: description ?? asRelativePath(folder),

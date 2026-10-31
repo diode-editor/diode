@@ -31,6 +31,31 @@ describe("quick input commands on every flavor", () => {
         expect(component.isOpen()).toBe(false);
     });
 
+    it("after a show has closed they do not reach the widget it left behind", () => {
+        const { service, component } = createService();
+        const log: string[] = [];
+        const pick = service.createQuickPick<QuickPickSessionItem>({
+            onDidChangeValue: () => undefined,
+            onDidAccept: () => log.push("accept"),
+            onDidChangeActive: () => log.push("active"),
+            onDidChangeSelection: () => log.push("selection"),
+            onDidHide: () => undefined,
+        });
+        pick.update({ items: FRUITS, canSelectMany: true });
+        pick.show();
+        service.navigateOpen(true);
+        pick.hide();
+        log.length = 0;
+
+        service.navigateOpen(true);
+        service.toggleOpen();
+        service.acceptOpen();
+
+        expect(component.view.selectedIndex).toBe(0);
+        expect(component.view.checkedItems.size).toBe(0);
+        expect(log).toEqual([]);
+    });
+
     it("an input box: accept returns the text, close returns undefined", async () => {
         const { service, component } = createService();
         const accepted = service.input({ value: "farboo" });
@@ -174,6 +199,26 @@ describe("late items of a quick pick", () => {
         expect(component.view.inspectState()).toMatchObject({ checked: ["beta"] });
         service.acceptOpen();
         await expect(pending).resolves.toEqual([FRUITS[1]]);
+    });
+
+    it("items arriving after the show ended leave the next one's checks alone", async () => {
+        const { service, component } = createService();
+        let arrive!: (items: { items: readonly QuickPickItem[]; picked: readonly QuickPickItem[] }) => void;
+        const first = service.quickPickMany({
+            items: [],
+            lateItems: new Promise((resolve) => {
+                arrive = resolve;
+            }),
+        });
+        const own = { label: "own" };
+        const second = service.quickPickMany({ items: [own], picked: [own] });
+        await expect(first).resolves.toBeUndefined();
+        arrive({ items: FRUITS, picked: [] });
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(component.view.inspectState()).toMatchObject({ checked: ["own"] });
+        service.closeOpen();
+        await second;
     });
 
     it("items arriving after the show ended do not touch the next one", async () => {

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type * as vscode from "vscode";
 
+import { flushMicrotasks } from "../../../../TestUtils/timing.ts";
+
 import { createQuickInputApi, toWireQuickPickItem, toWireValidation } from "./quickInputNamespace.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
-import { CancellationTokenSource, InputBoxValidationSeverity, QuickPickItemKind } from "./vscodeTypes.ts";
+import { CancellationTokenSource, InputBoxValidationSeverity, QuickPickItemKind, Uri } from "./vscodeTypes.ts";
 
 function makeApi() {
     const stub = makeStubRpc();
@@ -395,6 +397,78 @@ describe("window.showQuickPick (shim)", () => {
         await pending;
         stub.fire("window.showQuickPick.didSelectItem", { handle: 1, index: 0 });
         expect(seen).toEqual([beta]);
+    });
+
+    it("a garbage or out-of-range selection does not reach onDidSelectItem", async () => {
+        const { stub, api } = makeApi();
+        const show = pendingAnswer();
+        stub.responder = () => show.promise;
+        const seen: unknown[] = [];
+        const pending = api.showQuickPick(["alpha"], {
+            onDidSelectItem: (item: unknown) => {
+                seen.push(item);
+            },
+        } as vscode.QuickPickOptions);
+        stub.fire("window.showQuickPick.didSelectItem", { handle: 1, index: "0" });
+        stub.fire("window.showQuickPick.didSelectItem", { handle: 1, index: 7 });
+        expect(seen).toEqual([]);
+        show.answer({ indices: null });
+        await pending;
+    });
+
+    it("a selection is fine without options or without a listener", async () => {
+        const { stub, api } = makeApi();
+        const show = pendingAnswer();
+        stub.responder = () => show.promise;
+        const bare = api.showQuickPick(["alpha"]);
+        const noListener = api.showQuickPick(["alpha"], {});
+        stub.fire("window.showQuickPick.didSelectItem", { handle: 1, index: 0 });
+        stub.fire("window.showQuickPick.didSelectItem", { handle: 2, index: 0 });
+        show.answer({ indices: null });
+        await Promise.all([bare, noListener]);
+    });
+
+    it("a list given as an array needs no items notification", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ indices: null });
+        await api.showQuickPick(["a"]);
+        await flushMicrotasks();
+        expect(stub.notifies.filter((n) => n.method === "window.showQuickPick.items")).toEqual([]);
+    });
+
+    it("the caller gets the very error of the items promise", async () => {
+        const { stub, api } = makeApi();
+        const show = pendingAnswer();
+        stub.responder = () => show.promise;
+        const failure = new Error("no list");
+        const pending = api.showQuickPick(Promise.reject(failure));
+        await flushMicrotasks();
+        show.answer({ indices: null });
+        await expect(pending).rejects.toBe(failure);
+    });
+
+    it("resourceUri with a real Uri: no label of its own, the folder is the description", () => {
+        const relative = (uri: vscode.Uri): string => uri.fsPath;
+        expect(toWireQuickPickItem({ resourceUri: Uri.file("/w/src/a.ts") } as never, relative)).toEqual({
+            label: "a.ts",
+            description: "/w/src",
+        });
+        expect(toWireQuickPickItem({ resourceUri: Uri.file("/a.ts") } as never, relative)).toEqual({
+            label: "a.ts",
+            description: "/",
+        });
+    });
+
+    it("without a relative-path function the full path describes the item", async () => {
+        const fileUri = Uri.file("/w/a.ts") as unknown as vscode.Uri;
+        expect(toWireQuickPickItem({ label: "own", resourceUri: fileUri })).toEqual({
+            label: "own",
+            description: "/w/a.ts",
+        });
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ indices: null });
+        await api.showQuickPick([{ label: "own", resourceUri: fileUri }]);
+        expect(lastRequest(stub, "window.showQuickPick").items).toEqual([{ label: "own", description: "/w/a.ts" }]);
     });
 
     it("[api:window.createQuickPick] resourceUri gives an item its label and description", () => {

@@ -124,6 +124,7 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
             if (picked === undefined) return undefined;
             return picked.map((item) => items.indexOf(item));
         } finally {
+            // Stryker disable next-line CallExpression: only frees the entry; items arriving after the show ended are ignored by `fillLate` either way
             this.awaitingItems.delete(request.handle);
             this.release(request.handle);
         }

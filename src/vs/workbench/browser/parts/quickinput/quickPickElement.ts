@@ -89,6 +89,7 @@ export class QuickPickElement extends TUIElement {
     private rowElements: TUIElement[] = [];
     private suppressActiveNotification = false;
     /** The owner asked for no highlight ({@link clearActive}), as opposed to a multi-select that has none yet. */
+    // Stryker disable next-line BooleanLiteral: it is read only with rows to check, and setting `items` resets it first
     private activeClearedByOwner = false;
 
     public constructor() {
@@ -150,6 +151,7 @@ export class QuickPickElement extends TUIElement {
         this.selectedIndexValue = this.canPickMany ? -1 : 0;
         this.activeClearedByOwner = false;
         this.rebuildRows();
+        // Stryker disable next-line ObjectLiteral: a missing `notify` reads as `!undefined`, i.e. exactly like `notify: false`
         this.moveCursorTo(this.selectedIndexValue, { notify: false });
         this.clearCursorIfNoActive();
         this.list.scrollTop = 0;
@@ -212,6 +214,7 @@ export class QuickPickElement extends TUIElement {
      */
     public resetFlavorState(): void {
         // A list without an active row is multi-select's state: it must not outlive the flavor.
+        // Stryker disable next-line EqualityOperator: at index 0 the extra `setActiveIndex(0)` stays on the same row
         if (this.canPickMany && this.selectedIndexValue < 0) this.setActiveIndex(0);
         this.canPickMany = false;
         this.checkedValue.clear();
@@ -246,6 +249,7 @@ export class QuickPickElement extends TUIElement {
      */
     public stepActive(next: boolean): void {
         const count = this.itemsValue.length;
+        // Stryker disable next-line ConditionalExpression: an empty list has no row to land on, whichever branch looks for one
         if (this.canPickMany || this.selectedIndexValue < 0 || count === 0) {
             this.moveSelection(next ? 1 : -1);
             return;

@@ -261,6 +261,32 @@ describe("ExtensionHost — window.showQuickPick", () => {
         await pending;
     });
 
+    it("a selection after the host was disposed is not sent", async () => {
+        const sink = makeSink();
+        const showQuickPick = sink.showQuickPick;
+        let select!: (index: number) => void;
+        sink.showQuickPick = (request, onDidSelectItem) => {
+            select = onDidSelectItem;
+            return showQuickPick(request, onDidSelectItem);
+        };
+        const { host, peer } = makeHost(sink);
+        const seen: unknown[] = [];
+        peer.handleNotification("window.showQuickPick.didSelectItem", (params) => seen.push(params));
+        void peer.request("window.showQuickPick", { handle: 4, items: [{ label: "a" }], picked: [] });
+        await flushMicrotasks();
+        host.dispose();
+        select(0);
+        await flushMicrotasks();
+        expect(seen).toEqual([]);
+    });
+
+    it("late items with no sink are dropped without an error", async () => {
+        const { peer, warnings } = makeHost();
+        peer.notify("window.showQuickPick.items", { handle: 3, items: [{ label: "a" }], picked: [] });
+        await flushMicrotasks();
+        expect(warnings).toEqual([]);
+    });
+
     it("late items reach the sink parsed, with their preselection; garbage does not", async () => {
         const sink = makeSink();
         const late: unknown[] = [];

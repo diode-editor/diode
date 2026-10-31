@@ -246,6 +246,49 @@ describe("QuickPickSession — owner changes echoed, as for an extension", () =>
         pick.update({ activeItems: [FRUITS[2]] });
         expect(log.at(-1)).toEqual(["active", ["cherry"]]);
     });
+
+    it("what was set before a show is confirmed once: the next show stays silent about it", () => {
+        const { pick, log } = echoing();
+        pick.update({ items: FRUITS, activeItems: [FRUITS[1]], selectedItems: [FRUITS[2]] });
+        pick.show();
+        pick.hide();
+        log.length = 0;
+        pick.show();
+        expect(log).toEqual([]);
+    });
+
+    it("an empty selection is reported, but accepts nothing", () => {
+        const { pick, log } = echoing();
+        pick.update({ items: FRUITS });
+        pick.show();
+        log.length = 0;
+        pick.update({ selectedItems: [] });
+        expect(log).toEqual([["selection", []]]);
+    });
+
+    it("an owner that hides on the selection gets no accept", () => {
+        const component = new QuickInputComponent();
+        const service = new QuickInputService(component);
+        component.attachHost(new BodyElement());
+        const log: string[] = [];
+        const pick = service.createQuickPick<QuickPickSessionItem>(
+            {
+                onDidChangeValue: () => undefined,
+                onDidAccept: () => log.push("accept"),
+                onDidChangeActive: () => undefined,
+                onDidChangeSelection: () => {
+                    log.push("selection");
+                    pick.hide();
+                },
+                onDidHide: () => log.push("hide"),
+            },
+            { echoOwnerChanges: true },
+        );
+        pick.update({ items: FRUITS });
+        pick.show();
+        pick.update({ selectedItems: [FRUITS[1]] });
+        expect(log).toEqual(["selection", "hide"]);
+    });
 });
 
 describe("QuickPickSession — multi-select", () => {
