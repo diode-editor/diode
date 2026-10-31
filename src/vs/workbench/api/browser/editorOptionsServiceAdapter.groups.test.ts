@@ -5,6 +5,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../base/common/uri.ts";
+import { createSelection } from "../../../editor/common/core/iSelection.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../editor/common/languages/tokenizationRegistry.ts";
@@ -129,6 +130,47 @@ describe("EditorOptionsServiceAdapter: addressing by group", () => {
         await Promise.resolve();
 
         expect(seen.length).toBe(1);
+        subscription.dispose();
+    });
+
+    it("[api:window.onDidChangeTextEditorSelection] the visible editor of an inactive group reports its own selection", async () => {
+        service.openFile(ws.path("a.ts"));
+        service.splitActiveGroup();
+        const inactive = service.editorGroups.groups[0];
+        const uri = editorAt(0, 0).uri.toString();
+        const seen: { groupId?: number | null; kind?: number; line: number }[] = [];
+        const subscription = adapter.onActiveEditorSelectionChanged((event) => {
+            seen.push({ groupId: event.groupId, kind: event.kind, line: event.selections[0].activeLine });
+        });
+
+        adapter.setActiveEditorSelections(
+            uri,
+            [{ anchorLine: 1, anchorCharacter: 0, activeLine: 1, activeCharacter: 1 }],
+            inactive.id,
+        );
+        await Promise.resolve();
+
+        expect(seen).toEqual([{ groupId: inactive.id, kind: 3, line: 1 }]);
+
+        // A group that became active reports through the active path, once.
+        service.editorGroups.focusGroup(inactive.id);
+        seen.length = 0;
+        adapter.setActiveEditorSelections(
+            uri,
+            [{ anchorLine: 0, anchorCharacter: 0, activeLine: 0, activeCharacter: 1 }],
+            inactive.id,
+        );
+        await Promise.resolve();
+        expect(seen.length).toBe(1);
+
+        // A closed tab is forgotten: its later changes report nothing.
+        const closed = editorAt(1, 0);
+        await service.closeAllEditors(service.editorGroups.groups[1]);
+        seen.length = 0;
+        closed.viewState.selections = [createSelection(1, 0, 1, 2)];
+        await Promise.resolve();
+        expect(seen).toEqual([]);
+
         subscription.dispose();
     });
 

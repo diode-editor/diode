@@ -240,6 +240,18 @@ describe("EditorLayoutServiceAdapter", () => {
         await slow;
     });
 
+    it("[api:window.showTextDocument] in one group a slow open does not take the tab of a newer call", async () => {
+        const uriB = Uri.file(ws.path("b.ts")).toString();
+        const source = slowSource();
+
+        const slow = adapter.showTextDocument({ uri: "slow://host/doc", viewColumn: 1 });
+        await adapter.showTextDocument({ uri: uriB, viewColumn: 1 });
+        source.finish("late");
+        await slow;
+
+        expect(service.getActiveEditor()?.uri.toString()).toBe(uriB);
+    });
+
     it("[api:window.showTextDocument] a failed open rejects and names the resource", async () => {
         await expect(adapter.showTextDocument({ uri: "nope://host/missing" })).rejects.toThrow(
             'Could NOT open editor for "nope://host/missing".',

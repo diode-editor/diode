@@ -154,6 +154,9 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     private readonly onDidChangeEditorsEmitter = new Emitter<void>();
     private readonly onDidChangeActiveEditorSelectionEmitter = new Emitter<TextEditorPane>();
     private activeSelectionSubscription?: IDisposable;
+    private activeSelectionEditor: TextEditorPane | null = null;
+    private readonly onDidChangeInactiveEditorSelectionEmitter = new Emitter<TextEditorPane>();
+    private readonly inactiveSelectionSubscriptions = new Map<TextEditorPane, IDisposable>();
     private saveParticipantValue?: SaveParticipant;
     public readonly textFileModels: TextFileModelService;
     private readonly paneBuilder: TextEditorPaneBuilder;
@@ -189,6 +192,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
 
     /** The subscription follows the new active editor by itself: consumers don't have to track tabs. */
     public readonly onDidChangeActiveEditorSelection = this.onDidChangeActiveEditorSelectionEmitter.event;
+    public readonly onDidChangeInactiveEditorSelection = this.onDidChangeInactiveEditorSelectionEmitter.event;
 
     public readonly onActiveEditorChanged = this.onActiveEditorChangedEmitter.event;
 
@@ -321,9 +325,16 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         );
         this.register(
             this.editorGroups.onDidChangeEditors(() => {
+                this.rebindInactiveSelectionForwarding();
                 this.fireEditorsChanged();
             }),
         );
+        this.register({
+            dispose: () => {
+                for (const subscription of this.inactiveSelectionSubscriptions.values()) subscription.dispose();
+                this.inactiveSelectionSubscriptions.clear();
+            },
+        });
         this.register(
             this.editorGroups.onDidChangeActivePane((pane) => {
                 this.fireActiveEditorChanged(pane);
@@ -1111,10 +1122,35 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     private rebindActiveSelectionForwarding(editor: TextEditorPane | null): void {
         this.activeSelectionSubscription?.dispose();
         this.activeSelectionSubscription = undefined;
+        this.activeSelectionEditor = editor;
+        this.rebindInactiveSelectionForwarding();
         if (editor === null) return;
         this.activeSelectionSubscription = editor.onDidChangeSelection(() => {
             this.onDidChangeActiveEditorSelectionEmitter.fire(editor);
         });
+    }
+
+    /** The visible tab of every other group: a click there moves the cursor before the group becomes active. */
+    private rebindInactiveSelectionForwarding(): void {
+        const visible = new Set(
+            this.editorGroups.groups
+                .map((group) => group.activePane)
+                .filter((pane) => pane instanceof TextEditorPane && pane !== this.activeSelectionEditor),
+        ) as Set<TextEditorPane>;
+        for (const [pane, subscription] of this.inactiveSelectionSubscriptions) {
+            if (visible.has(pane)) continue;
+            subscription.dispose();
+            this.inactiveSelectionSubscriptions.delete(pane);
+        }
+        for (const pane of visible) {
+            if (this.inactiveSelectionSubscriptions.has(pane)) continue;
+            this.inactiveSelectionSubscriptions.set(
+                pane,
+                pane.onDidChangeSelection(() => {
+                    this.onDidChangeInactiveEditorSelectionEmitter.fire(pane);
+                }),
+            );
+        }
     }
 
     private fireModelSaved(model: TextFileModel): void {

@@ -238,7 +238,7 @@ export function createWindowNamespace(
         const selections = parseWireSelections(p.selections);
         const groupId = typeof p.groupId === "number" ? p.groupId : effectiveActiveGroupId();
         selectionsByEditor.set(selectionKey(groupId, p.uri), selections);
-        if (p.uri === activeEditorUri) activeSelections = selections;
+        if (p.uri === activeEditorUri && groupId === effectiveActiveGroupId()) activeSelections = selections;
         // The cache is updated BEFORE dispatch: listeners read `editor.selections`.
         fireSelectionChanged(p.uri, groupId, selections, parseWireSelectionChangeKind(p.kind));
     });
@@ -1062,6 +1062,22 @@ export function createWindowNamespace(
     };
 
     return implementsApi<typeof vscode.window>()(windowNs);
+}
+
+/**
+ * Upstream `extHost.api.impl`: the public `showTextDocument` goes through `openTextDocument` for a uri, so a
+ * missing file rejects and opens no tab. `vscode.open` keeps the plain show, as upstream. Disk only: other
+ * schemes may be known to the host alone (`untitled:`, snapshots).
+ */
+export function openBeforeShow(
+    show: typeof vscode.window.showTextDocument,
+    openTextDocument: (uri: vscode.Uri) => Thenable<vscode.TextDocument>,
+): typeof vscode.window.showTextDocument {
+    const showAny = show as (...args: unknown[]) => Thenable<vscode.TextEditor>;
+    return ((documentOrUri: unknown, ...rest: unknown[]) =>
+        documentOrUri instanceof Uri && documentOrUri.scheme === "file"
+            ? openTextDocument(documentOrUri).then(() => showAny(documentOrUri, ...rest))
+            : showAny(documentOrUri, ...rest)) as typeof vscode.window.showTextDocument;
 }
 
 function normalizeTabSize(value: number | string): number {

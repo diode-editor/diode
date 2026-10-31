@@ -322,6 +322,7 @@ describe("EditorOptionsServiceAdapter", () => {
         const group = {
             ...GROUP_SURFACE,
             getActiveTabEditor: () => editor,
+            onDidChangeInactiveEditorSelection: () => ({ dispose: () => undefined }),
             onDidChangeActiveEditorSelection: (cb: (e: unknown) => void) => {
                 const wrapped = (): void => {
                     cb(editor);
@@ -438,6 +439,7 @@ describe("EditorOptionsServiceAdapter", () => {
             activeGroup: { id: 7 },
             viewColumnOf: () => 2,
             getActiveTabEditor: () => editor,
+            onDidChangeInactiveEditorSelection: () => ({ dispose: () => undefined }),
             onDidChangeActiveEditorSelection: (cb: (e: unknown) => void) => {
                 listeners.push(() => {
                     cb(editor);

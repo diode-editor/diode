@@ -164,7 +164,7 @@ import {
     ViewColumn,
     WorkspaceEdit,
 } from "./vscodeTypes.ts";
-import { createWindowNamespace } from "./windowNamespace.ts";
+import { createWindowNamespace, openBeforeShow } from "./windowNamespace.ts";
 import {
     type IWireEnvInitialize,
     type IWireExtensionDescription,
@@ -208,11 +208,13 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     });
     // Deferred call: `workspace` is built after `window`.
     const window = createWindowNamespace(ctx, terminals, treeViews, (uri) => workspace.asRelativePath(uri));
+    const showWithoutOpening = window.showTextDocument;
+    window.showTextDocument = openBeforeShow(showWithoutOpening, (uri) => workspace.openTextDocument(uri));
     // Deferred call: `tasks` is not built yet (it needs the `workspace` folders).
     const workspace = createWorkspaceNamespace(ctx, (type, provider) => tasks.registerTaskProvider(type, provider));
     // Built BEFORE languages: applyCodeAction runs the actions' commands.
     const apiCommands = createApiCommands({
-        showTextDocument: (uri, options) => window.showTextDocument(uri, options),
+        showTextDocument: (uri, options) => showWithoutOpening(uri, options),
         openExternal: (target) => env.openExternal(target),
     });
     const commands = buildCommandsNamespace(

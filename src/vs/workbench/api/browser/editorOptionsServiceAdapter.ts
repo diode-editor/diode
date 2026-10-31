@@ -1,4 +1,5 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import { DisposableStore } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import type { EditorCursorStyleSetting } from "../../../editor/common/config/editorCursorStyle.ts";
 import {
@@ -11,6 +12,7 @@ import { clampPositionToDocument } from "../../../editor/common/core/iPosition.t
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
 import type { BulkEdit, BulkEditOperation } from "../../contrib/bulkEdit/common/workspaceEdit.ts";
@@ -81,13 +83,19 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     }
 
     public getActiveEditorMeta(): IActiveEditorMeta {
-        const editor = this.group.getActiveTabEditor();
-        return this.metaOfEditor(editor);
+        return this.metaOfEditor(this.modifiedSideOfActiveDiff() ?? this.group.getActiveTabEditor());
+    }
+
+    /** Upstream `mainThreadDocumentsAndEditors`: for an active diff the API's active editor is its modified side. */
+    private modifiedSideOfActiveDiff(): TextEditorPane | null {
+        const pane = this.groups.activeGroup.activePane;
+        if (!(pane instanceof DiffEditorPane2) || pane.snapshotSides().includes("modified")) return null;
+        return pane.sidePanes()[1];
     }
 
     public onActiveEditorChanged(cb: (meta: IActiveEditorMeta) => void): IDisposable {
         return this.group.onActiveEditorChanged((editor) => {
-            cb(this.metaOfEditor(editor));
+            cb(this.metaOfEditor(editor ?? this.modifiedSideOfActiveDiff()));
         });
     }
 
@@ -99,6 +107,36 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     }
 
     public onActiveEditorSelectionChanged(cb: (selections: IActiveEditorSelections) => void): IDisposable {
+        const store = new DisposableStore();
+        store.add(this.forwardInactiveSelections(cb));
+        store.add(this.forwardActiveSelections(cb));
+        return store;
+    }
+
+    /** Each editor reports its own selection: upstream listens to every visible editor, not only the active one. */
+    private forwardInactiveSelections(cb: (selections: IActiveEditorSelections) => void): IDisposable {
+        const pending = new Map<TextEditorPane, CursorChangeSource | undefined>();
+        return this.group.onDidChangeInactiveEditorSelection((editor) => {
+            if (pending.size === 0) {
+                queueMicrotask(() => {
+                    const flushed = [...pending];
+                    pending.clear();
+                    for (const [pane, source] of flushed) {
+                        const kind = selectionChangeKindOf(source);
+                        cb({
+                            uri: pane.uri.toString(),
+                            selections: wireSelectionsOf(pane),
+                            groupId: this.groupIdOf(pane),
+                            ...(kind === undefined ? {} : { kind }),
+                        });
+                    }
+                });
+            }
+            pending.set(editor, currentCursorChangeSource());
+        });
+    }
+
+    private forwardActiveSelections(cb: (selections: IActiveEditorSelections) => void): IDisposable {
         return this.group.onDidChangeActiveEditorSelection((editor) => {
             this.pendingSelectionSource = currentCursorChangeSource();
             if (this.selectionFlushScheduled) return;
