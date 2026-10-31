@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { REGISTRY_SCHEMA_VERSION } from "../../src/vs/platform/extensionManagement/common/registryFormat.ts";
 import { removeTempDir } from "../helpers/appSession.ts";
 import { getBinaryPath } from "../helpers/buildOnce.ts";
+import { startApiJournal } from "./apiJournal.ts";
 import { MARKETPLACE_CHECKS } from "./checks.ts";
 import { createMarketplaceRoot, fetchPublishedIndex, PUBLISHED_REGISTRY_URL, runCli } from "./harness.ts";
 
@@ -76,7 +77,14 @@ describe.skipIf(OFFLINE)("marketplace: published extensions on the current code"
                         // reason, not a green case: the install above is already verified.
                         const missing = check.requires?.();
                         if (missing !== undefined) testContext.skip(missing);
-                        await check.run({ root });
+                        // Only a green check hands its journal over: a red one proves nothing.
+                        const journal = startApiJournal(entry.id);
+                        try {
+                            await check.run({ root });
+                            journal.keep();
+                        } finally {
+                            journal.stop();
+                        }
                     }
                 } finally {
                     removeTempDir(root);

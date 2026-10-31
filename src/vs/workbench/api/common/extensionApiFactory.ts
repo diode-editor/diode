@@ -2,6 +2,7 @@ import type * as vscode from "vscode";
 
 import { Uri } from "../../../base/common/uri.ts";
 
+import { type ApiTrace, tracedNamespace } from "./apiTrace.ts";
 import type { ExtensionPaths } from "./extensionPaths.ts";
 import type { ExtensionOwner } from "./vscodeHostContext.ts";
 
@@ -90,7 +91,12 @@ function ownedNamespace<T extends object>(
     return ns;
 }
 
-export function createExtensionApi(shared: typeof vscode, owner: ExtensionOwner, id: string): typeof vscode {
+export function createExtensionApi(
+    shared: typeof vscode,
+    owner: ExtensionOwner,
+    id: string,
+    trace?: ApiTrace,
+): typeof vscode {
     const api = mirror(shared);
     Object.defineProperties(api, {
         window: { value: ownedNamespace(shared.window, OWNED_MEMBERS.window, owner, id) },
@@ -99,7 +105,16 @@ export function createExtensionApi(shared: typeof vscode, owner: ExtensionOwner,
         tasks: { value: ownedNamespace(shared.tasks, OWNED_MEMBERS.tasks, owner, id) },
         workspace: { value: ownedNamespace(shared.workspace, OWNED_MEMBERS.workspace, owner, id) },
     });
+    if (trace !== undefined) traceNamespaces(api, id, trace);
     return api;
+}
+
+/** Namespaces only: the ESM shim and `__importStar` read every top-level export, so a read there proves nothing. */
+function traceNamespaces(api: typeof vscode, id: string, trace: ApiTrace): void {
+    for (const [name, value] of Object.entries(api as unknown as Record<string, object>)) {
+        if (!/^[a-z]/.test(name) || typeof value !== "object") continue;
+        Object.defineProperty(api, name, { value: tracedNamespace(value, name, id, trace) });
+    }
 }
 
 /** Like upstream's `NodeModuleRequireInterceptor`: values are read from `globalThis` at import time. */
@@ -117,6 +132,8 @@ export interface IExtensionApiFactoryOptions {
     readonly owner: ExtensionOwner;
     readonly paths: ExtensionPaths;
     readonly warn: (message: string) => void;
+    /** Absent unless `DIODE_API_TRACE` is set: the overlay then has no tracing wrappers at all. */
+    readonly trace?: ApiTrace;
 }
 
 /** A module outside known roots gets the shared namespace and one warning per factory lifetime, as upstream. */
@@ -135,7 +152,7 @@ export class ExtensionApiFactory {
     public forId(id: string): typeof vscode {
         let api = this.apis.get(id);
         if (api === undefined) {
-            api = createExtensionApi(this.options.shared, this.options.owner, id);
+            api = createExtensionApi(this.options.shared, this.options.owner, id, this.options.trace);
             this.apis.set(id, api);
         }
         return api;
