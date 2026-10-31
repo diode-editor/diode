@@ -48,6 +48,8 @@ describe.skipIf(OFFLINE)("marketplace: published extensions on the current code"
             `${entry.id}@${entry.latest.version} ${what}`,
             async (testContext) => {
                 const { root, userDataDir } = createMarketplaceRoot();
+                // Before the install: a red install must not leave the journal of an earlier green run.
+                const journal = startApiJournal(entry.id);
                 try {
                     const install = await runCli(binary, [
                         "--user-data-dir",
@@ -77,16 +79,12 @@ describe.skipIf(OFFLINE)("marketplace: published extensions on the current code"
                         // reason, not a green case: the install above is already verified.
                         const missing = check.requires?.();
                         if (missing !== undefined) testContext.skip(missing);
-                        // Only a green check hands its journal over: a red one proves nothing.
-                        const journal = startApiJournal(entry.id);
-                        try {
-                            await check.run({ root });
-                            journal.keep();
-                        } finally {
-                            journal.stop();
-                        }
+                        await check.run({ root });
+                        // Only a green check hands its journal over; the signal covers the last check timing out.
+                        if (!testContext.signal.aborted) journal.keep();
                     }
                 } finally {
+                    journal.stop();
                     removeTempDir(root);
                 }
             },

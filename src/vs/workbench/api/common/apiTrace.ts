@@ -116,7 +116,7 @@ function observeResponse(method: string, result: unknown, note: (field: string) 
             },
             () => undefined,
         );
-    } else {
+    } else if (typeof (result as { readonly then?: unknown } | null | undefined)?.then !== "function") {
         noteCompletionFields(result, note);
     }
 }

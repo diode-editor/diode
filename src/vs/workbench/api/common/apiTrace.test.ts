@@ -435,6 +435,16 @@ describe("provider tracing", () => {
         expect(kinds(rows())).toContainEqual(["CompletionItem.detail", "field", undefined]);
     });
 
+    it("a foreign thenable response is neither walked nor run by the journal", () => {
+        const then = vi.fn();
+        const { registered, rows } = registerThrough({
+            provideCompletionItems: () => ({ then, label: "a" }),
+        });
+        registered.provider.provideCompletionItems();
+        expect(then).not.toHaveBeenCalled();
+        expect(rows().filter((r) => r.kind === "field")).toEqual([]);
+    });
+
     it("other providers' responses are not walked", () => {
         const { registered, rows } = registerThrough({ provideHover: () => ({ contents: [] }) });
         registered.provider.provideHover();

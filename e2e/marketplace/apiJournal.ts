@@ -14,6 +14,9 @@ export interface IApiJournal {
     stop(): void;
 }
 
+/** vitest does not stop a timed-out check: its late `keep` and `stop` run during the next check. */
+let current: object | undefined;
+
 export function startApiJournal(id: string, dir = API_JOURNAL_DIR): IApiJournal {
     mkdirSync(dir, { recursive: true });
     const kept = join(dir, `${id}.jsonl`);
@@ -22,14 +25,19 @@ export function startApiJournal(id: string, dir = API_JOURNAL_DIR): IApiJournal 
     rmSync(kept, { force: true });
     rmSync(pending, { force: true });
     process.env.DIODE_API_TRACE = pending;
-    return {
+    const journal: IApiJournal = {
         keep: () => {
-            // Declarative extension: no host, so no journal and nothing to confirm.
-            if (existsSync(pending)) renameSync(pending, kept);
+            // No host was started (nothing but a declarative extension): no journal, nothing to confirm.
+            if (current === journal && existsSync(pending)) renameSync(pending, kept);
         },
         stop: () => {
-            delete process.env.DIODE_API_TRACE;
+            if (current === journal) {
+                current = undefined;
+                delete process.env.DIODE_API_TRACE;
+            }
             rmSync(pending, { force: true });
         },
     };
+    current = journal;
+    return journal;
 }
