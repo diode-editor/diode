@@ -293,7 +293,7 @@ describe("EditorActions — no active editor is a safe no-op", () => {
         const keybindings = new KeybindingRegistry();
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => ctrl);
-        for (const action of [cursorRightAction, cursorLineStartAction, cursorLineEndAction]) {
+        for (const action of [cursorRightAction, cursorLineStartAction, cursorLineEndAction, toggleInlayHintsAction]) {
             registerAction(commands, keybindings, accessor, action);
             expect(() => commands.execute(action.id)).not.toThrow();
         }

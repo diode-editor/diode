@@ -300,8 +300,27 @@ describe("EditorComponent — inlay hints", () => {
             pane.dispose();
         });
 
+        it("only a real pair moves a position: a lone surrogate on either side keeps it", async () => {
+            providers.register("*", provider([hint(0, 1, "H")]));
+            // Typed, not written to the file: UTF-8 has no lone surrogates, reading one back gives U+FFFD.
+            const lowAfterText = await open("ab");
+            lowAfterText.pane.goToPosition(0, 1);
+            lowAfterText.pane.viewState.type("\uDC00");
+            await lowAfterText.settle();
+            expect(lowAfterText.pane.viewState.document.getLineContent(0)).toBe("a\uDC00b");
+            expect(lowAfterText.row().startsWith("aH")).toBe(true);
+            lowAfterText.pane.dispose();
+            const highBeforeText = await open("a");
+            highBeforeText.pane.goToPosition(0, 0);
+            highBeforeText.pane.viewState.type("\uD83D");
+            await highBeforeText.settle();
+            expect(highBeforeText.pane.viewState.document.getLineContent(0)).toBe("\uD83Da");
+            expect(highBeforeText.row().endsWith("Ha")).toBe(true);
+            highBeforeText.pane.dispose();
+        });
+
         it("a position past the line end clamps to the line; a line past the document is dropped", async () => {
-            providers.register("*", provider([hint(0, 99, "H"), hint(9, 0, "G")]));
+            providers.register("*", provider([hint(0, 99, "H"), hint(9, 0, "G"), hint(1, 0, "F"), hint(-1, 0, "N")]));
             const { row, pane } = await open("ab");
             expect(row()).toBe("abH");
             pane.dispose();
@@ -409,6 +428,15 @@ describe("EditorComponent — inlay hints", () => {
             pane.dispose();
         });
 
+        it("counts one line's hints together whatever order the answer has them in", async () => {
+            providers.register("*", provider([hint(1, 0, "aaaa"), hint(0, 0, "b"), hint(1, 1, "cccc")]));
+            const { row, pane, settle } = await open("x\nyz");
+            pane.setInlayHints({ ...DEFAULT_INLAY_HINTS_OPTIONS, maximumLength: 5 });
+            await settle();
+            expect(row(1)).toBe("aaaayc…z");
+            pane.dispose();
+        });
+
         it("0 never truncates", async () => {
             const long = "a".repeat(50);
             providers.register("*", provider([hint(0, 0, long)]));
@@ -502,6 +530,102 @@ describe("EditorComponent — inlay hints", () => {
             expect(p.ranges.length).toBe(before);
             await settle();
             expect(p.ranges.length).toBe(before + 1);
+            pane.dispose();
+        });
+
+        it("a fast provider is asked again after the shortest debounce", async () => {
+            const p = recording();
+            providers.register("*", p.value);
+            const { pane } = await open("a");
+            const before = p.ranges.length;
+            pane.viewState.type("b");
+            await vi.advanceTimersByTimeAsync(30);
+            expect(p.ranges.length).toBe(before + 1);
+            pane.dispose();
+        });
+
+        it("a scroll above the requested window asks again", async () => {
+            const p = recording();
+            providers.register("*", p.value);
+            const { pane } = await open(lines(100), { size: new Size(40, 10) });
+            pane.viewState.scrollTop = 60;
+            await vi.advanceTimersByTimeAsync(SETTLE_MS);
+            const before = p.ranges.length;
+            pane.viewState.scrollTop = 0;
+            await vi.advanceTimersByTimeAsync(SETTLE_MS);
+            expect(p.ranges.length).toBe(before + 1);
+            pane.dispose();
+        });
+
+        it("a look option asks again", async () => {
+            const p = recording();
+            providers.register("*", p.value);
+            const { pane, settle } = await open("x");
+            const before = p.ranges.length;
+            pane.setInlayHints({ ...DEFAULT_INLAY_HINTS_OPTIONS, maximumLength: 7 });
+            await settle();
+            expect(p.ranges.length).toBe(before + 1);
+            pane.dispose();
+        });
+
+        it("turning off drops a request still waiting for its debounce", async () => {
+            const p = recording();
+            providers.register("*", p.value);
+            const { pane, settle } = await open("x");
+            const before = p.ranges.length;
+            pane.viewState.type("y");
+            pane.setInlayHints({ ...DEFAULT_INLAY_HINTS_OPTIONS, enabled: false });
+            await settle();
+            expect(p.ranges.length).toBe(before);
+            pane.dispose();
+        });
+
+        it("after turning off, a resize asks nobody", async () => {
+            const p = recording();
+            providers.register("*", p.value);
+            const { pane, app, settle } = await open(lines(100), { size: new Size(40, 6) });
+            pane.setInlayHints({ ...DEFAULT_INLAY_HINTS_OPTIONS, enabled: false });
+            const before = p.ranges.length;
+            app.backend.resize(new Size(40, 30));
+            await settle();
+            await settle();
+            expect(p.ranges.length).toBe(before);
+            pane.dispose();
+        });
+
+        it("closing the editor cancels the pending request", async () => {
+            const tokens: { isCancellationRequested: boolean }[] = [];
+            providers.register("*", {
+                provideInlayHints: (_model, _range, token) => {
+                    tokens.push(token);
+                    return new Promise(() => undefined);
+                },
+            });
+            const { pane } = await open("x");
+            expect(tokens.at(-1)?.isCancellationRequested).toBe(false);
+            pane.dispose();
+            expect(tokens.at(-1)?.isCancellationRequested).toBe(true);
+        });
+
+        it("a new answer removes the decorations of the previous one", async () => {
+            const change = new Emitter<void>();
+            providers.register("*", { ...provider([hint(0, 0, "H")]), onDidChangeInlayHints: change.event });
+            const { pane, settle } = await open("x");
+            const delta = vi.spyOn(pane.viewState.document, "deltaDecorations");
+            change.fire();
+            await settle();
+            change.fire();
+            await settle();
+            expect(delta.mock.calls[1][0]).toEqual(delta.mock.results[0].value);
+            expect(delta.mock.calls[1][0]).toHaveLength(1);
+            pane.dispose();
+        });
+
+        it("an answer of undefined costs only that provider", async () => {
+            providers.register("*", { provideInlayHints: () => undefined });
+            providers.register("*", provider([hint(0, 0, "H")]));
+            const { row, pane } = await open("x");
+            expect(row()).toBe("Hx");
             pane.dispose();
         });
 

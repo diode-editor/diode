@@ -142,6 +142,7 @@ export class EditorComponent extends Component {
     private inlayHintsOptions: IInlayHintsOptions = DEFAULT_INLAY_HINTS_OPTIONS;
     /** Two owners, each replacing only its own set; at one offset the squares go first. */
     private colorInsertions: readonly IInlineInsertion[] = [];
+    // Stryker disable next-line ArrayDeclaration: an entry without a line belongs to no line and is never painted
     private inlayHintInsertions: readonly IInlineInsertion[] = [];
     /** Not on the view state: it is recreated on reload from disk, and the extension host subscriber must survive that. */
     private readonly onDidChangeSelectionEmitter = new Emitter<void>();

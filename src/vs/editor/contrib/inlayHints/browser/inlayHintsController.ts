@@ -79,11 +79,8 @@ function disposeList(list: InlayHintList): void {
 function validCharacter(document: ITextDocument, line: number, character: number): number {
     const content = document.getLineContent(line);
     const clamped = Math.max(0, Math.min(character, content.length));
-    const inPair =
-        clamped > 0 &&
-        clamped < content.length &&
-        isHighSurrogate(content.charCodeAt(clamped - 1)) &&
-        isLowSurrogate(content.charCodeAt(clamped));
+    // Off either end of the line `charCodeAt` is NaN, which is no surrogate.
+    const inPair = isHighSurrogate(content.charCodeAt(clamped - 1)) && isLowSurrogate(content.charCodeAt(clamped));
     return inPair ? clamped - 1 : clamped;
 }
 
@@ -236,7 +233,6 @@ export class InlayHintsController extends Disposable {
         const request = new CancellationTokenSource();
         this.request = request;
         const document = this.model.document;
-        const versionId = document.versionId;
         const window = this.computeWindow();
         this.requestedWindow = window;
         const range: IRange = {
@@ -257,8 +253,9 @@ export class InlayHintsController extends Disposable {
             }),
         );
         const lists = answers.filter((list) => list !== null && list !== undefined);
-        // Superseded, stopped, or the text moved under the answer: whoever did that has scheduled the next request.
-        if (request.token.isCancellationRequested || document.versionId !== versionId) {
+        // Superseded, stopped, or the text moved under the answer (an edit cancels the request): whoever did that has
+        // scheduled the next one.
+        if (request.token.isCancellationRequested) {
             for (const list of lists) disposeList(list);
             return;
         }
@@ -298,7 +295,6 @@ export class InlayHintsController extends Disposable {
             }))
             .sort((a, b) => a.position.line - b.position.line || a.position.character - b.position.character)
             .slice(0, MAX_INLAY_HINTS);
-        const hadHints = this.decorators.length > 0;
         const ids = document.deltaDecorations(
             this.decorators.map((decorator) => decorator.id),
             shown.map(({ position }) => ({
@@ -314,13 +310,13 @@ export class InlayHintsController extends Disposable {
         this.decorators = ids.map((id, i) => ({ id, hint: shown[i].hint, graphemes: shown[i].graphemes }));
         for (const list of this.lists) disposeList(list);
         this.lists = lists;
-        // Stryker disable next-line ConditionalExpression,LogicalOperator: publishing no hints again changes nothing on the frame
-        if (hadHints || this.decorators.length > 0) this.publish();
+        this.publish();
     }
 
     private publish(): void {
         const { maximumLength } = this.options;
         const insertions: IInlineInsertion[] = [];
+        // Stryker disable next-line UnaryOperator: the length starts at 0, so meeting the first line "again" resets nothing
         let line = -1;
         let lineLength = 0;
         for (const decorator of this.decorators) {

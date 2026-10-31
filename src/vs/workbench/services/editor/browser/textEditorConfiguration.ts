@@ -115,8 +115,7 @@ export class TextEditorConfiguration extends Disposable {
      * the configured value the override goes away, so a `[language]` section applies again.
      */
     public toggleInlayHints(languageId: string | undefined): void {
-        const overrides = languageId === undefined ? undefined : { overrideIdentifier: languageId };
-        const configured = this.configuredInlayHints(overrides);
+        const configured = this.configuredInlayHints({ overrideIdentifier: languageId });
         const next = !(this.inlayHintsSessionOverride ?? configured);
         this.inlayHintsSessionOverride = next === configured ? null : next;
         this.reapply();

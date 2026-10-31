@@ -360,6 +360,21 @@ describe("TextEditorConfiguration", () => {
             spy.mockRestore();
         });
 
+        it("back at the configured value the override goes away: another language's section applies again", () => {
+            const spy = appliedOptions();
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({ "[css]": { "editor.inlayHints.enabled": "off" } }),
+            });
+            ctrl.openFile(writeFile("a.ts", "a"));
+            ctrl.getActiveEditor()!.setLanguage("typescript");
+            ctrl.editorConfiguration.toggleInlayHints("typescript");
+            ctrl.editorConfiguration.toggleInlayHints("typescript");
+            ctrl.openFile(writeFile("b.css", "b {}"));
+            ctrl.getActiveEditor()!.setLanguage("css");
+            expect(spy.mock.lastCall?.[0].enabled).toBe(false);
+            spy.mockRestore();
+        });
+
         it("the toggle writes nothing, a change of the key resets it, another key does not; fontStyle applies live", async () => {
             const spy = appliedOptions();
             const cfgWs = createTempWorkspace({ prefix: "diode-inlay-cfg-" });
