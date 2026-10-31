@@ -383,6 +383,14 @@
   документ уже в `workspace.textDocuments`. Непустой `content` — несохранённая правка (буфер
   грязный, как `initialValue` эталона). `window.showTextDocument` по его ресурсу — `openUri`
   забирает модель во вкладку (владение переходит к ней), повторного didOpen нет: модель та же.
+  `openTextDocument(untitled:…)` — калька с `_handleUntitledScheme`: тот же запрос с `uri`, модель
+  живёт под этим ресурсом побайтно (`setUntitledResource`), с путём она грязная с самого начала
+  (`associatedResource`), язык — из пути, существующий файл — отказ. Расширению пустой безымянный
+  документ сразу читается грязным («mark as dirty» эталона), а модель и вкладка чистые до первой
+  правки. `save` пишет по абсолютному пути (`saveAs` модели: `didClose` untitled, `didOpen` файла,
+  тот же таб); относительный ресурс и ресурс с хостом пути не имеют — Save As (отступление: эталон
+  пишет в `/new.txt`). Текстовая правка оживляет неизвестный untitled-ресурс, `createFile` на него
+  пропускается, как в `CreateFileEdit`.
 - **Hover-провайдер seam (LSP):** `languages.registerHoverProvider` — калька с definition
   (`languages.provideHover` RPC, таймаут 5000 мс). Ядро спрашивает все подошедшие провайдеры и
   склеивает непустые ответы в порядке реестра (`ICoreHover {contents, range?}`, contents — блоки
@@ -863,7 +871,7 @@
   мимо middleware), логика написана против хоста-интерфейса и тестируется без `vscode`, `main.ts`
   только связывает. Отступления: «Configure» не открывает untitled-буфер со сниппетом, а создаёт
   `<папка>/jsconfig.json` одной `workspace.applyEdit` (createFile + текст шаблона, Ctrl+Z удаляет
-  файл) и открывает его (нет `openTextDocument(untitled:путь)` и `insertSnippet`; решение человека
+  файл) и открывает его (нет `insertSnippet`; решение человека
   2026-10-25); шаблон — с дефолтами `js/ts.implicitProjectConfig.*` (настроек нет); `projectInfo` без
   ответа убирает элемент вместо вечного Loading; активный редактор — `activeTextEditor`, а не
   активная вкладка. **Пересчёт без смены редактора:** tsserver сам замечает новый/удалённый конфиг

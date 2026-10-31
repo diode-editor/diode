@@ -153,6 +153,28 @@ describe("EditorService", () => {
             expect(ctrl.getEditors().map((e) => ctrl.displayName(e))).toEqual(["Untitled-2", "Untitled-3"]);
         });
 
+        it("suggestedSaveName of a named buffer: a name that fits the language stays, another extension is replaced", async () => {
+            const ctrl = createEditorService({
+                languageService: {
+                    ...NULL_LANGUAGE_SERVICE,
+                    getLanguageIdForResource: (name) => (/\.(java|jav)$/.test(name) ? "java" : undefined),
+                    getExtensionForLanguage: (id) => (id === "java" ? ".java" : undefined),
+                },
+            });
+            const suggested = async (name: string): Promise<string> => {
+                const uri = ctrl.createUntitled({ uri: Uri.parse(`untitled:${name}`), languageId: "java" });
+                await ctrl.openUri(uri);
+                const editor = ctrl.getActiveEditor();
+                if (editor === null) throw new Error("no editor");
+                return ctrl.suggestedSaveName(editor);
+            };
+
+            expect(await suggested("kept.java")).toBe("kept.java");
+            expect(await suggested("secondary.jav")).toBe("secondary.jav");
+            expect(await suggested("other.ts")).toBe("other.java");
+            expect(await suggested("bare")).toBe("bare.java");
+        });
+
         it("suggestedSaveName: label + buffer language extension (plaintext → .txt)", () => {
             const ctrl = createEditorService({
                 languageService: {

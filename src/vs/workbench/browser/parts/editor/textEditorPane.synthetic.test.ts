@@ -37,6 +37,20 @@ describe("TextEditorPane over a synthetic model", () => {
         pane.dispose();
     });
 
+    it("without an override the label is the whole path; only an untitled buffer is named by its basename", () => {
+        const pane = syntheticPane();
+
+        expect(pane.label).toBe("/lib.jar/Lib.java");
+        pane.dispose();
+    });
+
+    it("extensions read it as clean: only an untitled buffer differs from isModified", () => {
+        const pane = syntheticPane();
+
+        expect(pane.isDirtyForExtensions).toBe(false);
+        pane.dispose();
+    });
+
     it("nothing to save or reload: no-file, false, encoding does not change", async () => {
         const pane = syntheticPane();
 

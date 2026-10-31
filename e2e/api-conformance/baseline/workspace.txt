@@ -11,11 +11,14 @@ vscode API - workspace WorkspaceEdit: delete & ignoreIfNotExists
 vscode API - workspace WorkspaceEdit: insert & rename multiple
 vscode API - workspace WorkspaceEdit: rename & ignoreIfExists
 vscode API - workspace WorkspaceEdit: rename resource followed by edit does not work #42638
+vscode API - workspace [Bug] Failed to create new test file when in an untitled file #1261
+vscode API - workspace applyEdit
 vscode API - workspace applyEdit "edit A -> rename A to B (same case)" -> edit B
 vscode API - workspace applyEdit "edit A -> rename A to B -> edit B"
 vscode API - workspace applyEdit should fail when editing deleted resource
 vscode API - workspace applyEdit should fail when editing renamed from resource
 vscode API - workspace applyEdit should fail when renaming deleted resource
+vscode API - workspace encoding: openTextDocument - can change the encoding of an existing untitled document
 vscode API - workspace encoding: openTextDocument - invalid encoding falls back to default
 vscode API - workspace encoding: text document encodings
 vscode API - workspace eol, change via applyEdit
@@ -31,6 +34,11 @@ vscode API - workspace findFiles, exclude
 vscode API - workspace getWorkspaceFolder
 vscode API - workspace openTextDocument
 vscode API - workspace openTextDocument, illegal path
+vscode API - workspace openTextDocument, untitled closes on save
+vscode API - workspace openTextDocument, untitled is dirty
+vscode API - workspace openTextDocument, untitled with host
+vscode API - workspace openTextDocument, untitled without path
+vscode API - workspace openTextDocument, untitled without path but language ID
 vscode API - workspace openTextDocument, untitled without path but language ID and content
 vscode API - workspace openTextDocument, uri scheme/auth/path
 vscode API - workspace openTextDocument, with selection

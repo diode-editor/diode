@@ -125,6 +125,27 @@ describe("EditorService.openUri — non-disk resources", () => {
         service.dispose();
     });
 
+    it("a tab of the resource in another group is not reused: the new group asks the provider itself", async () => {
+        const service = createEditorService();
+        const provide = vi
+            .fn<(uri: Uri) => Promise<string | null>>()
+            .mockResolvedValueOnce("first\n")
+            .mockResolvedValueOnce("second\n");
+        service.virtualDocumentSource = makeSource("demo", provide);
+        const uri = Uri.parse("demo:///a");
+        await service.openUri(uri);
+        const firstGroup = service.editorGroups.activeGroup;
+
+        const secondGroup = service.editorGroups.newGroup("after");
+        if (secondGroup === null) throw new Error("no second group");
+        await service.openUri(uri, { group: secondGroup });
+
+        expect(provide).toHaveBeenCalledTimes(2);
+        expect(secondGroup).not.toBe(firstGroup);
+        expect(service.getEditors().map((editor) => editor.getText())).toEqual(["first\n", "second\n"]);
+        service.dispose();
+    });
+
     it("no source at all: a message, not a crash", async () => {
         const service = createEditorService();
         const failures: { uri: string; reason: string }[] = [];

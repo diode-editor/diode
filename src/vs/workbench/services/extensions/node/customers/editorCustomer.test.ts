@@ -59,7 +59,7 @@ function setup() {
         },
         createUntitledDocument: (params) => {
             log.push(["createUntitled", params]);
-            return { uri: "untitled:Untitled-1" };
+            return Promise.resolve({ uri: "untitled:Untitled-1" });
         },
         getLanguages: () => [],
         getLanguageOfDocument: () => null,
