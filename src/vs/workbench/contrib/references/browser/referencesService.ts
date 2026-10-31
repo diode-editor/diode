@@ -1,6 +1,9 @@
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
+import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
+import { rangeContainsPosition } from "../../../../editor/common/core/iRange.ts";
 import { findWordRangeAt } from "../../../../editor/common/core/wordClassification.ts";
+import type { ICoreReference } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { IFileService } from "../../../../platform/files/common/files.ts";
@@ -18,7 +21,7 @@ import {
 } from "../../../services/textfile/common/textFileModelService.ts";
 
 import { getReferences } from "./getReferences.ts";
-import { buildReferenceGroups, type IReferenceTextSource } from "./referencePreview.ts";
+import { buildReferenceGroups, type IReferenceGroup, type IReferenceTextSource } from "./referencePreview.ts";
 import type { ReferencesComponent } from "./referencesComponent.ts";
 import { REFERENCES_VIEWLET_ID, ReferencesComponentDIToken } from "./referencesComponent.ts";
 
@@ -53,7 +56,16 @@ export class ReferencesService {
             // The open model is the source of truth for open files: it shows
             // unsaved edits, which the server also sees via didChange.
             openText: (uri: Uri) => models.get(uri)?.getText() ?? null,
-            readText: async (uri: Uri) => new TextDecoder().decode((await providers.readFile(uri)).value),
+            readText: async (uri: Uri) => {
+                // A go-to target may be off disk (`jdt:`): the file service knows nothing about it.
+                const virtual = this.group.virtualDocumentSource;
+                if (uri.scheme !== "file" && virtual.canProvide(uri.scheme)) {
+                    const text = await virtual.provide(uri);
+                    if (text === null) throw new Error(`No content for ${uri.toString()}`);
+                    return text;
+                }
+                return new TextDecoder().decode((await providers.readFile(uri)).value);
+            },
         };
     }
 
@@ -88,15 +100,50 @@ export class ReferencesService {
         );
         if (ticket.isStale()) return;
 
-        // `folders.at(0)` is a visible narrowing to single-folder semantics (multi-root is stage C in
-        // docs/TODO/MultiRoot.md).
-        // Stryker disable next-line StringLiteral: root without an open folder — any string that isn't a prefix of the reference path gives the same result (the path is shown whole)
-        const root = this.workspaceContext.getWorkspace().folders.at(0)?.uri.fsPath ?? "";
-        const groups = await buildReferenceGroups(references, this.textSource, root);
+        const groups = await this.buildGroups(references);
         if (ticket.isStale()) return;
 
         this.component.setResults(groups);
         this.sidebarService.showViewlet(REFERENCES_VIEWLET_ID);
+    }
+
+    /**
+     * A given set of locations in the panel: the targets of a go-to command or of a code lens. Without `reveal`
+     * the panel stays as it is, and F4/Shift+F4 walk the list. An empty list changes nothing: unlike a search
+     * there is nothing to report ("No results" is the caller's message).
+     * `active` as a position means a location of the active editor containing it.
+     */
+    public async showLocations(
+        title: string,
+        locations: readonly ICoreReference[],
+        active?: IPosition | ICoreReference,
+        options: { readonly reveal: boolean } = { reveal: true },
+    ): Promise<void> {
+        if (locations.length === 0) return;
+        const ticket = this.latest.start();
+        const groups = await this.buildGroups(locations);
+        if (ticket.isStale()) return;
+
+        this.component.setResults(groups, { title, active: this.resolveActive(locations, active) });
+        if (options.reveal) this.sidebarService.showViewlet(REFERENCES_VIEWLET_ID);
+    }
+
+    private resolveActive(
+        locations: readonly ICoreReference[],
+        active: IPosition | ICoreReference | undefined,
+    ): ICoreReference | undefined {
+        if (active === undefined) return undefined;
+        const uri = "uri" in active ? active.uri : this.group.getActiveEditor()?.uri.toString();
+        const position = "uri" in active ? active.range.start : active;
+        return locations.find((location) => location.uri === uri && rangeContainsPosition(location.range, position));
+    }
+
+    private buildGroups(references: readonly ICoreReference[]): Promise<IReferenceGroup[]> {
+        // `folders.at(0)` is a visible narrowing to single-folder semantics (multi-root is stage C in
+        // docs/TODO/MultiRoot.md).
+        // Stryker disable next-line StringLiteral: root without an open folder — any string that isn't a prefix of the reference path gives the same result (the path is shown whole)
+        const root = this.workspaceContext.getWorkspace().folders.at(0)?.uri.fsPath ?? "";
+        return buildReferenceGroups(references, this.textSource, root);
     }
 
     public clear(): void {

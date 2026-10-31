@@ -8,6 +8,7 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { listRowId } from "../../../../base/common/listRowId.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
+import type { ICoreReference } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -34,8 +35,15 @@ export interface IReferencesRevealEditor {
 }
 
 export interface IReferencesRevealTarget {
-    openUri(uri: Uri): void;
+    openUri(uri: Uri): Promise<void> | void;
     getActiveEditor(): IReferencesRevealEditor | null;
+}
+
+export interface IReferenceResultsOptions {
+    /** The section's name; `undefined` returns the registered "REFERENCES". */
+    readonly title?: string;
+    /** The row the list cursor lands on, by uri and range start; not found or `undefined` — the first row. */
+    readonly active?: ICoreReference;
 }
 
 export const ReferencesRevealTargetDIToken = token<IReferencesRevealTarget>("ReferencesRevealTarget");
@@ -84,7 +92,7 @@ export class ReferencesComponent extends Component {
     public constructor(
         private readonly revealTarget: IReferencesRevealTarget,
         private readonly contextKeys: ContextKeyService,
-        viewsService: ViewsService,
+        private readonly viewsService: ViewsService,
         private readonly jumps: IJumpRecorder,
     ) {
         super();
@@ -137,11 +145,12 @@ export class ReferencesComponent extends Component {
     }
 
     /** An empty list is a valid result ("No results"), not a reason to keep the old references. */
-    public setResults(groups: readonly IReferenceGroup[]): void {
+    public setResults(groups: readonly IReferenceGroup[], options: IReferenceResultsOptions = {}): void {
         this.searched = true;
         this.fileCount = groups.length;
         this.referenceCount = groups.reduce((sum, group) => sum + group.matches.length, 0);
-        this.rebuildRows(groups);
+        this.viewsService.setViewTitle(REFERENCES_VIEW_ID, options.title, null);
+        this.rebuildRows(groups, options.active);
         this.updateCount();
         this.refreshResultKeys();
     }
@@ -150,6 +159,7 @@ export class ReferencesComponent extends Component {
         this.searched = false;
         this.fileCount = 0;
         this.referenceCount = 0;
+        this.viewsService.setViewTitle(REFERENCES_VIEW_ID, undefined, null);
         this.rebuildRows([]);
         this.updateCount();
         this.refreshResultKeys();
@@ -197,7 +207,7 @@ export class ReferencesComponent extends Component {
         this.activateRow(id);
     }
 
-    private rebuildRows(groups: readonly IReferenceGroup[]): void {
+    private rebuildRows(groups: readonly IReferenceGroup[], active?: ICoreReference): void {
         this.results.clear();
         this.referenceRows.clear();
         this.fileRowIds = [];
@@ -219,8 +229,21 @@ export class ReferencesComponent extends Component {
             });
         }
 
-        const first = this.referenceRowIds.at(0);
+        const first = this.findRow(active) ?? this.referenceRowIds.at(0);
         if (first !== undefined) this.results.setCursorTo(first);
+    }
+
+    private findRow(target: ICoreReference | undefined): string | undefined {
+        if (target === undefined) return undefined;
+        const { line, character } = target.range.start;
+        return this.referenceRowIds.find((id) => {
+            const row = this.referenceRows.get(id);
+            return (
+                row?.group.uri === target.uri &&
+                row.match.lineNumber - 1 === line &&
+                row.match.startColumn === character
+            );
+        });
     }
 
     private activateRow(rowId: string): void {
@@ -230,15 +253,27 @@ export class ReferencesComponent extends Component {
             if (this.fileRowIds.includes(rowId)) this.results.toggleCollapsed(rowId);
             return;
         }
-        // The whole navigation is one history entry (see IJumpRecorder).
-        this.jumps.jump(() => {
-            this.revealTarget.openUri(Uri.file(row.group.absolutePath));
+        const uri = Uri.parse(row.group.uri);
+        const reveal = (): void => {
             const editor = this.revealTarget.getActiveEditor();
             if (editor === null) return;
             // List row lineNumber is 1-based, the editor expects 0-based.
             const line = row.match.lineNumber - 1;
             editor.goToPosition(line, row.match.startColumn);
             editor.revealRange(createRange(line, row.match.startColumn, line, row.match.endColumn));
+        };
+        // The whole navigation is one history entry (see IJumpRecorder). A non-disk target opens via the
+        // scheme provider, so the position can be set only after that.
+        if (uri.scheme !== "file") {
+            void this.jumps.jumpAsync(async () => {
+                await this.revealTarget.openUri(uri);
+                reveal();
+            });
+            return;
+        }
+        this.jumps.jump(() => {
+            void this.revealTarget.openUri(uri);
+            reveal();
         });
     }
 

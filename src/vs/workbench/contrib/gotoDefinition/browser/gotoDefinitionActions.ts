@@ -9,6 +9,7 @@ export const revealDefinitionAction: CommandAction = {
     title: "Go to Definition",
     keybinding: parseKeybinding("f12"),
     when: "textInputFocus",
+    enablement: "editorHasDefinitionProvider",
     // Group and order are copied from upstream (`goToCommands.ts`): the item is visible
     // only where someone provides a definition.
     menus: [
@@ -26,9 +27,10 @@ export const revealDefinitionAction: CommandAction = {
 
 export const revealDefinitionAsideAction: CommandAction = {
     id: "editor.action.revealDefinitionAside",
-    title: "Go to Definition to the Side",
+    title: "Open Definition to the Side",
     keybinding: parseChord("mod+k f12"),
     when: "textInputFocus",
+    enablement: "editorHasDefinitionProvider",
     run(accessor) {
         return accessor.get(DefinitionServiceDIToken).revealDefinition({ toSide: true });
     },

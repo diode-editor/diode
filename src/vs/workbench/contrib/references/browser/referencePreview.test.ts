@@ -52,6 +52,7 @@ describe("buildReferenceGroups", () => {
 
         expect(groups).toEqual([
             {
+                uri: Uri.file(`${ROOT}/src/a.ts`).toString(),
                 absolutePath: `${ROOT}/src/a.ts`,
                 relPath: "src/a.ts",
                 matches: [
@@ -70,6 +71,7 @@ describe("buildReferenceGroups", () => {
                 ],
             },
             {
+                uri: Uri.file(`${ROOT}/src/b.ts`).toString(),
                 absolutePath: `${ROOT}/src/b.ts`,
                 relPath: "src/b.ts",
                 matches: [
