@@ -22,6 +22,7 @@ import { buildVscodeNamespace } from "../../../api/common/vscodeNamespace.ts";
 import { ExtensionMode, Uri } from "../../../api/common/vscodeTypes.ts";
 import { parseWireMementoValue } from "../../../api/common/wireTypes.ts";
 import type { WorkspaceConfigStore } from "../../../api/common/workspaceConfigStore.ts";
+import { openApiTrace } from "../../../api/node/apiTraceFile.ts";
 import { createNodeExtHostDisk } from "../../../api/node/extHostDisk.ts";
 
 import { deactivateExtension } from "./extensionDeactivation.ts";
@@ -375,7 +376,9 @@ function installVscodeStub(
     const catalogSubscription = host.onDidReceiveCatalog((catalog) => {
         for (const description of catalog) paths.add(description.extensionPath, description.id);
     });
+    const tracePath = process.env.DIODE_API_TRACE;
     const api = new ExtensionApiFactory({
+        ...(tracePath === undefined || tracePath === "" ? {} : { trace: openApiTrace(tracePath, logger) }),
         shared: host.namespace,
         owner: host.owner,
         paths,

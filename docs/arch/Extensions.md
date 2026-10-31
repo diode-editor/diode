@@ -142,6 +142,8 @@
     ставится.
 
 ## Extensions/Host/ — extension host (real subprocess)
+**Журнал вызовов API** (`DIODE_API_TRACE=<файл>`, `api/common/apiTrace.ts`, запись — `api/node/apiTraceFile.ts`): слой поверх оверлея расширения для отметки «подтверждён» в матрице. Без переменной не создаётся ни одна обёртка. Формат, виды записей и границы → [docs/extensions/README.md](../extensions/README.md#журнал-вызовов).
+
 Изоляция кода расширений от ядра. Host форкает **один subprocess** (тот же бинарь / `main.ts` с env `DIODE_EXTENSION_HOST=1`) и общается с ним через **RPC поверх Node IPC**. Отступление от эталона: VS Code гоняет extension host по своему `RPCProtocol` (сокет, `MessageBuffer`/`VSBuffer`, JSON со спецслучаями для буферов и `$mid`-revive), у нас — канал Node. Швы:
 - **`IMessageChannel`** — транспортно-агностичный двунаправленный канал. Реализации: `IpcMessageChannel` (Node IPC) и `createInProcessChannelPair()` (unit-тесты).
   **Формат провода — структурный клон** (`serialization: "advanced"` у форка роли в `spawnSelfAsRole`,

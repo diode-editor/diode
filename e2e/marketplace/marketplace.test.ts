@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { REGISTRY_SCHEMA_VERSION } from "../../src/vs/platform/extensionManagement/common/registryFormat.ts";
 import { removeTempDir } from "../helpers/appSession.ts";
 import { getBinaryPath } from "../helpers/buildOnce.ts";
+import { startApiJournal } from "./apiJournal.ts";
 import { MARKETPLACE_CHECKS } from "./checks.ts";
 import { createMarketplaceRoot, fetchPublishedIndex, PUBLISHED_REGISTRY_URL, runCli } from "./harness.ts";
 
@@ -47,6 +48,8 @@ describe.skipIf(OFFLINE)("marketplace: published extensions on the current code"
             `${entry.id}@${entry.latest.version} ${what}`,
             async (testContext) => {
                 const { root, userDataDir } = createMarketplaceRoot();
+                // Before the install: a red install must not leave the journal of an earlier green run.
+                const journal = startApiJournal(entry.id);
                 try {
                     const install = await runCli(binary, [
                         "--user-data-dir",
@@ -77,8 +80,11 @@ describe.skipIf(OFFLINE)("marketplace: published extensions on the current code"
                         const missing = check.requires?.();
                         if (missing !== undefined) testContext.skip(missing);
                         await check.run({ root });
+                        // Only a green check hands its journal over; the signal covers the last check timing out.
+                        if (!testContext.signal.aborted) journal.keep();
                     }
                 } finally {
+                    journal.stop();
                     removeTempDir(root);
                 }
             },

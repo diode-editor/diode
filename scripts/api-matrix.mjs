@@ -6,9 +6,11 @@
  *
  *   node scripts/api-matrix.mjs           rewrite the generated file
  *   node scripts/api-matrix.mjs --check   fail if inputs are inconsistent or the file is stale (static gate)
+ *   node scripts/api-matrix.mjs --update-confirmed   take the "confirmed" marks from the journals of
+ *                                         green marketplace checks in e2e/marketplace/api-trace/, then rewrite
  */
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
@@ -20,6 +22,7 @@ const repoRoot = resolve(import.meta.dirname, "..");
 const DOCS = join(repoRoot, "docs", "extensions");
 export const OUTPUT_PATH = join(DOCS, "api-matrix.generated.md");
 const CONFORMANCE = join(repoRoot, "e2e", "api-conformance");
+const JOURNALS = join(repoRoot, "e2e", "marketplace", "api-trace");
 const TEST_ROOTS = ["src", "e2e", "extensions", "tools"];
 const TEST_FILE = /\.test\.tsx?$/;
 
@@ -148,6 +151,45 @@ function readConfirmed() {
         for (const member of members) confirmed.set(member, [...(confirmed.get(member) ?? []), id]);
     }
     return confirmed;
+}
+
+/** Registering a provider is not using it: `registered` alone confirms nothing, `invoked` does. */
+const CONFIRMING_KINDS = new Set(["call", "read", "invoked", "field"]);
+
+/**
+ * Members one extension really used, from its journal (JSON lines, see `apiTrace.ts`). The last line
+ * of a killed process may be cut, and the journal holds other extensions' calls too.
+ *
+ * @param {string} journal
+ * @param {string} id
+ * @param {{ has(member: string): boolean }} surface
+ */
+export function confirmedMembers(journal, id, surface) {
+    const members = new Set();
+    for (const line of journal.split("\n")) {
+        let row;
+        try {
+            row = JSON.parse(line);
+        } catch {
+            continue;
+        }
+        if (row?.extension === id && CONFIRMING_KINDS.has(row.kind) && surface.has(row.member)) members.add(row.member);
+    }
+    return [...members].sort((a, b) => a.localeCompare(b, "en"));
+}
+
+/** An extension without a journal keeps its marks: a partial run says nothing about the others. */
+function updateConfirmed(surface) {
+    if (!existsSync(JOURNALS)) return;
+    const dir = join(DOCS, "api-confirmed");
+    mkdirSync(dir, { recursive: true });
+    for (const file of readdirSync(JOURNALS).filter((f) => f.endsWith(".jsonl")).sort()) {
+        const id = file.slice(0, -".jsonl".length);
+        const members = confirmedMembers(readFileSync(join(JOURNALS, file), "utf8"), id, surface);
+        if (members.length === 0) continue;
+        writeFileSync(join(dir, `${id}.json`), `${JSON.stringify({ members }, null, 4)}\n`);
+        console.log(`docs/extensions/api-confirmed/${id}.json: ${String(members.length)} members`);
+    }
 }
 
 const formatDownloads = (n) => n.toLocaleString("en-US");
@@ -329,8 +371,9 @@ export function renderMatrix({ surface, classes, survey, tagged, conformance, co
 }
 
 function main() {
-    const { values } = parseArgs({ options: { check: { type: "boolean", default: false } } });
+    const { values } = parseArgs({ options: { check: { type: "boolean", default: false }, "update-confirmed": { type: "boolean", default: false } } });
     const surface = loadSurface();
+    if (values["update-confirmed"]) updateConfirmed(surface);
     const { classes, problems } = readClasses(join(DOCS, "api-matrix"));
     problems.push(...validateClasses(surface, classes));
     const tagged = readTaggedMembers();
