@@ -761,7 +761,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
             this.openResolvedUri(uri, null, options);
             return Promise.resolve();
         }
-        const untitled = uri.scheme === "untitled" ? this.findUntitledModel(uri) : undefined;
+        const untitled = this.findUntitledModel(uri);
         if (untitled !== undefined) {
             this.openUntitledWithoutEditor(untitled, options);
             return Promise.resolve();

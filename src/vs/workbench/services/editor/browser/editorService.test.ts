@@ -157,7 +157,7 @@ describe("EditorService", () => {
             const ctrl = createEditorService({
                 languageService: {
                     ...NULL_LANGUAGE_SERVICE,
-                    getLanguageIdForResource: (name) => (name.endsWith(".java") ? "java" : undefined),
+                    getLanguageIdForResource: (name) => (/\.(java|jav)$/.test(name) ? "java" : undefined),
                     getExtensionForLanguage: (id) => (id === "java" ? ".java" : undefined),
                 },
             });
@@ -170,6 +170,7 @@ describe("EditorService", () => {
             };
 
             expect(await suggested("kept.java")).toBe("kept.java");
+            expect(await suggested("secondary.jav")).toBe("secondary.jav");
             expect(await suggested("other.ts")).toBe("other.java");
             expect(await suggested("bare")).toBe("bare.java");
         });

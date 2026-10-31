@@ -526,7 +526,7 @@ export function createWorkspaceNamespace(
             const changesEncoding =
                 uri.scheme === "untitled" && requestedEncoding !== undefined && open.encoding !== requestedEncoding;
             if (!changesEncoding) return open;
-        } else if (open !== undefined && (uri.scheme === "untitled" || uri.scheme === "file")) {
+        } else if (uri.scheme === "untitled" || uri.scheme === "file") {
             // As upstream's document map: what opens now is a new document, a held closed one stays closed.
             registry.forget(uri);
         }

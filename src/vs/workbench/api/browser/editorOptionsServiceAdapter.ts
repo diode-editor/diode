@@ -286,9 +286,8 @@ function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null 
             continue;
         }
         // Upstream `CreateFileEdit`: "ignore, will be handled by a later edit"; a text edit brings the buffer to life.
-        if (op.kind === "create" && Uri.parse(op.resource).scheme === "untitled") continue;
         // Upstream `DeleteOperation`: nothing on disk answers for it, so it is a missing resource.
-        if (op.kind === "delete" && op.ignoreIfNotExists === true && Uri.parse(op.resource).scheme === "untitled") {
+        if (Uri.parse(op.resource).scheme === "untitled" && (op.kind === "create" || op.ignoreIfNotExists === true)) {
             continue;
         }
         const filePath = filePathOf(op.resource);
