@@ -1,9 +1,13 @@
-import { LatestRequest } from "../../../../base/common/cancellation.ts";
+import { type ICancellationToken, LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { createRange, rangeContainsPosition } from "../../../../editor/common/core/iRange.ts";
 import { findWordRangeAt } from "../../../../editor/common/core/wordClassification.ts";
-import type { ICoreDefinitionLocation } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import type { ILanguageFeatureTarget } from "../../../../editor/common/languageFeatureRegistry.ts";
+import type {
+    ICoreDefinitionLocation,
+    IDefinitionRequest,
+} from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -24,7 +28,7 @@ import { NotificationServiceDIToken } from "../../../services/notification/brows
 import type { ReferencesService } from "../../references/browser/referencesService.ts";
 import { ReferencesServiceDIToken } from "../../references/browser/referencesService.ts";
 
-import { createLocationModel, getDefinitions, type ILocationModel } from "./goToSymbol.ts";
+import { createLocationModel, getDefinitions, getImplementations, type ILocationModel } from "./goToSymbol.ts";
 
 export const DefinitionServiceDIToken = token<DefinitionService>("DefinitionService");
 
@@ -48,7 +52,46 @@ interface IShowOptions {
     readonly openInPeek: boolean;
 }
 
-const DEFINITION_COMMAND_ID = "editor.action.revealDefinition";
+/** What differs between upstream's `SymbolNavigationAction` subclasses. */
+interface ISymbolNavigation {
+    readonly commandId: string;
+    /** The title of the References panel section. */
+    readonly title: string;
+    readonly noResults: string;
+    readonly noResultsForWord: (word: string) => string;
+    readonly multipleSetting: "editor.gotoLocation.multipleDefinitions" | "editor.gotoLocation.multipleImplementations";
+    readonly alternativeSetting:
+        | "editor.gotoLocation.alternativeDefinitionCommand"
+        | "editor.gotoLocation.alternativeImplementationCommand";
+    readonly getLocations: (
+        languageFeatures: ILanguageFeaturesService,
+        target: ILanguageFeatureTarget,
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ) => Promise<ILocationModel>;
+}
+
+const DEFINITION_NAVIGATION: ISymbolNavigation = {
+    commandId: "editor.action.revealDefinition",
+    title: "Definitions",
+    noResults: "No definition found",
+    noResultsForWord: (word) => `No definition found for '${word}'`,
+    multipleSetting: "editor.gotoLocation.multipleDefinitions",
+    alternativeSetting: "editor.gotoLocation.alternativeDefinitionCommand",
+    getLocations: (languageFeatures, target, request, token) =>
+        getDefinitions(languageFeatures.definitionProvider, target, request, token),
+};
+
+const IMPLEMENTATION_NAVIGATION: ISymbolNavigation = {
+    commandId: "editor.action.goToImplementation",
+    title: "Implementations",
+    noResults: "No implementation found",
+    noResultsForWord: (word) => `No implementation found for '${word}'`,
+    multipleSetting: "editor.gotoLocation.multipleImplementations",
+    alternativeSetting: "editor.gotoLocation.alternativeImplementationCommand",
+    getLocations: (languageFeatures, target, request, token) =>
+        getImplementations(languageFeatures.implementationProvider, target, request, token),
+};
 
 export class DefinitionService {
     public static dependencies = [
@@ -76,11 +119,19 @@ export class DefinitionService {
         private readonly commands: CommandRegistry,
     ) {}
 
+    public revealDefinition({ toSide = false }: { toSide?: boolean } = {}): Promise<void> {
+        return this.navigate(DEFINITION_NAVIGATION, toSide);
+    }
+
+    public goToImplementation(): Promise<void> {
+        return this.navigate(IMPLEMENTATION_NAVIGATION, false);
+    }
+
     /**
      * A response after an edit or a cursor move is not applied (upstream `EditorStateCancellationTokenSource`):
      * otherwise a slow provider (jdtls on a cold start) would retroactively carry the user off to another file.
      */
-    public async revealDefinition({ toSide = false }: { toSide?: boolean } = {}): Promise<void> {
+    private async navigate(navigation: ISymbolNavigation, toSide: boolean): Promise<void> {
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
 
@@ -92,8 +143,8 @@ export class DefinitionService {
         // cancel a token nobody needs anymore.
         // Stryker disable BlockStatement: see above, the empty-finally mutant
         try {
-            model = await getDefinitions(
-                this.languageFeatures.definitionProvider,
+            model = await navigation.getLocations(
+                this.languageFeatures,
                 editor,
                 {
                     uri: editor.uri.toString(),
@@ -114,7 +165,7 @@ export class DefinitionService {
         const overrides = { overrideIdentifier: editor.languageId };
         if (model.references.length === 0) {
             const word = wordAt(editor.getText(), caret);
-            this.showInfo(word === null ? "No definition found" : `No definition found for '${word}'`);
+            this.showInfo(word === null ? navigation.noResults : navigation.noResultsForWord(word));
             return;
         }
         const [only, ...rest] = model.references;
@@ -123,12 +174,12 @@ export class DefinitionService {
             Uri.parse(only.uri).toString() === editor.uri.toString() &&
             rangeContainsPosition(only.range, caret)
         ) {
-            const alternative = this.configuration.get("editor.gotoLocation.alternativeDefinitionCommand", overrides);
-            if (await this.runAlternative(alternative, DEFINITION_COMMAND_ID)) return;
+            const alternative = this.configuration.get(navigation.alternativeSetting, overrides);
+            if (await this.runAlternative(alternative, navigation.commandId)) return;
         }
         await this.show(model, {
-            title: "Definitions",
-            multiple: this.configuration.get("editor.gotoLocation.multipleDefinitions", overrides),
+            title: navigation.title,
+            multiple: this.configuration.get(navigation.multipleSetting, overrides),
             toSide,
             openInPeek: false,
         });

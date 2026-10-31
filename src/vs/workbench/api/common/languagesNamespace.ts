@@ -1,6 +1,6 @@
 import type * as vscode from "vscode";
 
-import { CancellationTokenNone } from "../../../base/common/cancellation.ts";
+import { CancellationTokenNone, type ICancellationToken } from "../../../base/common/cancellation.ts";
 import { describeRejection } from "../../../base/common/describeRejection.ts";
 import { CancellationError, isCancellationError } from "../../../base/common/errorSerialization.ts";
 import type { IRange } from "../../../editor/common/core/iRange.ts";
@@ -119,6 +119,11 @@ export interface IRangeSemanticTokensRegistration {
 export interface IDefinitionRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.DefinitionProvider;
+}
+
+export interface IImplementationRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.ImplementationProvider;
 }
 
 export interface IRenameRegistration {
@@ -316,6 +321,7 @@ export function createLanguagesNamespace(
     // By the handle from the core request (like upstream ExtHostLanguageFeatures._adapter).
     const hoverProviders = new Map<number, Owned<IHoverRegistration>>();
     const definitionProviders = new Map<number, Owned<IDefinitionRegistration>>();
+    const implementationProviders = new Map<number, Owned<IImplementationRegistration>>();
     const referenceProviders = new Map<number, Owned<IReferenceRegistration>>();
     const signatureHelpProviders = new Map<number, Owned<ISignatureHelpRegistration>>();
     const completionProviders = new Map<number, Owned<ICompletionRegistration>>();
@@ -460,30 +466,56 @@ export function createLanguagesNamespace(
         return found;
     }
 
-    rpc.handleRequest(
-        "languages.provideDefinition",
-        async (params, cancellation): Promise<ICoreDefinitionLocation[]> => {
-            const p: Received<IWireDefinitionParams> = params;
-            const reg = definitionProviders.get(p.handle ?? -1);
-            if (reg === undefined) return [];
-            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
-            if (doc === null) return [];
-            const position = new Position(p.line ?? 0, p.character ?? 0);
-            let result: unknown;
-            try {
-                result = await callWithVscodeToken(cancellation, (token) =>
-                    reg.provider.provideDefinition(doc, position, token),
-                );
-            } catch (err) {
-                reportProviderFailure("provideDefinition", err, reg.owner);
-            }
-            const locations: ICoreDefinitionLocation[] = [];
-            for (const item of Array.isArray(result) ? result : [result]) {
-                const wire = serializeDefinitionLocation(item);
-                if (wire !== null) locations.push(wire);
-            }
-            return locations;
-        },
+    /** The shared body of the go-to requests: the result is `Definition | DefinitionLink[]`. */
+    async function provideLocations<T>(
+        params: Received<IWireDefinitionParams>,
+        cancellation: ICancellationToken,
+        providers: Map<number, Owned<T>>,
+        method: string,
+        call: (
+            reg: T,
+            doc: ExtHostTextDocument,
+            position: Position,
+            token: vscode.CancellationToken,
+        ) => vscode.ProviderResult<vscode.Definition | vscode.DefinitionLink[]>,
+    ): Promise<ICoreDefinitionLocation[]> {
+        const reg = providers.get(params.handle ?? -1);
+        if (reg === undefined) return [];
+        const doc = documentSync.resolve(params.uri, params.version, params.languageId);
+        if (doc === null) return [];
+        const position = new Position(params.line ?? 0, params.character ?? 0);
+        let result: unknown;
+        try {
+            result = await callWithVscodeToken(cancellation, (token) => call(reg, doc, position, token));
+        } catch (err) {
+            reportProviderFailure(method, err, reg.owner);
+        }
+        const locations: ICoreDefinitionLocation[] = [];
+        for (const item of Array.isArray(result) ? result : [result]) {
+            const wire = serializeDefinitionLocation(item);
+            if (wire !== null) locations.push(wire);
+        }
+        return locations;
+    }
+
+    rpc.handleRequest("languages.provideDefinition", (params, cancellation) =>
+        provideLocations(
+            params,
+            cancellation,
+            definitionProviders,
+            "provideDefinition",
+            ({ provider }, doc, position, token) => provider.provideDefinition(doc, position, token),
+        ),
+    );
+
+    rpc.handleRequest("languages.provideImplementation", (params, cancellation) =>
+        provideLocations(
+            params,
+            cancellation,
+            implementationProviders,
+            "provideImplementation",
+            ({ provider }, doc, position, token) => provider.provideImplementation(doc, position, token),
+        ),
     );
 
     rpc.handleRequest("languages.provideHover", async (params, cancellation): Promise<ICoreHover | null> => {
@@ -1176,6 +1208,11 @@ export function createLanguagesNamespace(
             selector: vscode.DocumentSelector,
             provider: vscode.DefinitionProvider,
         ): vscode.Disposable => registerByHandle(definitionProviders, "definition", selector, { selector, provider }),
+        registerImplementationProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.ImplementationProvider,
+        ): vscode.Disposable =>
+            registerByHandle(implementationProviders, "implementation", selector, { selector, provider }),
         registerHoverProvider: (selector: vscode.DocumentSelector, provider: vscode.HoverProvider): vscode.Disposable =>
             registerByHandle(hoverProviders, "hover", selector, { selector, provider }),
         registerReferenceProvider: (
@@ -1231,7 +1268,6 @@ export function createLanguagesNamespace(
         },
 
         registerDeclarationProvider: registerNoopProvider,
-        registerImplementationProvider: registerNoopProvider,
         registerTypeDefinitionProvider: registerNoopProvider,
         registerDocumentHighlightProvider: registerNoopProvider,
         registerDocumentSymbolProvider: registerNoopProvider,

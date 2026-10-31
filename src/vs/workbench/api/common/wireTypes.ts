@@ -391,6 +391,7 @@ export type IWireHoverParams = IWirePositionParams & IWireProviderHandle;
 export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "hover",
     "definition",
+    "implementation",
     "references",
     "signatureHelp",
     "completion",

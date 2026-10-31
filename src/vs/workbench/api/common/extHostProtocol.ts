@@ -193,6 +193,7 @@ export interface IHostToSubprocess {
             WireSemanticTokensResult | null,
         ];
         readonly "languages.provideDefinition": readonly [IWireDefinitionParams, ICoreDefinitionLocation[]];
+        readonly "languages.provideImplementation": readonly [IWireDefinitionParams, ICoreDefinitionLocation[]];
         readonly "languages.provideHover": readonly [IWireHoverParams, ICoreHover | null];
         readonly "languages.provideReferences": readonly [IWireReferenceParams, ICoreReference[]];
         readonly "languages.provideSignatureHelp": readonly [IWireSignatureHelpParams, ICoreSignatureHelp | null];

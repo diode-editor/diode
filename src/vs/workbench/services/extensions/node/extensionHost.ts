@@ -875,6 +875,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.languageFeatures.provideDefinition(handle, req, token);
     }
 
+    public provideImplementation(
+        handle: number,
+        req: IDefinitionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]> {
+        return this.languageFeatures.provideImplementation(handle, req, token);
+    }
+
     public provideHover(
         handle: number,
         req: IHoverRequest,

@@ -27,6 +27,7 @@ export class LanguageFeatureContextKeys implements IContextKeyContributor {
         const editor = this.group.getActiveEditor();
         const target: ILanguageFeatureTarget | null = editor;
         contextKeys.set("editorHasDefinitionProvider", this.has("definitionProvider", target));
+        contextKeys.set("editorHasImplementationProvider", this.has("implementationProvider", target));
         contextKeys.set("editorHasReferenceProvider", this.has("referenceProvider", target));
         contextKeys.set("editorHasRenameProvider", this.has("renameProvider", target));
         contextKeys.set("editorHasCodeActionsProvider", this.has("codeActionProvider", target));
@@ -47,6 +48,7 @@ export class LanguageFeatureContextKeys implements IContextKeyContributor {
     private has(
         feature:
             | "definitionProvider"
+            | "implementationProvider"
             | "referenceProvider"
             | "renameProvider"
             | "codeActionProvider"

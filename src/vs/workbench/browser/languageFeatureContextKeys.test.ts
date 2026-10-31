@@ -43,6 +43,7 @@ describe("LanguageFeatureContextKeys", () => {
         update();
 
         expect(keys.evaluate("editorHasDefinitionProvider")).toBe(false);
+        expect(keys.evaluate("editorHasImplementationProvider")).toBe(false);
         expect(keys.evaluate("editorHasReferenceProvider")).toBe(false);
         expect(keys.evaluate("editorHasRenameProvider")).toBe(false);
         expect(keys.evaluate("editorHasCodeActionsProvider")).toBe(false);
@@ -60,12 +61,17 @@ describe("LanguageFeatureContextKeys", () => {
         expect(keys.evaluate("editorHasDefinitionProvider")).toBe(false);
 
         features.definitionProvider.register({ language: "typescript" }, noop);
+        update();
+        expect(keys.evaluate("editorHasImplementationProvider")).toBe(false);
+
+        features.implementationProvider.register({ language: "typescript" }, noop);
         features.referenceProvider.register({ language: "typescript" }, noop);
         features.codeActionProvider.register({ language: "typescript" }, noop);
         features.documentFormattingEditProvider.register({ language: "typescript" }, noop);
         features.documentRangeFormattingEditProvider.register({ language: "typescript" }, noop);
         update();
         expect(keys.evaluate("editorHasDefinitionProvider")).toBe(true);
+        expect(keys.evaluate("editorHasImplementationProvider")).toBe(true);
         expect(keys.evaluate("editorHasReferenceProvider")).toBe(true);
         expect(keys.evaluate("editorHasCodeActionsProvider")).toBe(true);
         expect(keys.evaluate("editorHasDocumentFormattingProvider")).toBe(true);

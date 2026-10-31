@@ -15,6 +15,7 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.provideInlineCompletions": 5000,
     "languages.provideFoldingRanges": 1500,
     "languages.provideDefinition": 5000,
+    "languages.provideImplementation": 5000,
     "languages.provideHover": 5000,
     "languages.provideReferences": 5000,
     "languages.provideSignatureHelp": 5000,

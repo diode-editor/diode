@@ -36,4 +36,27 @@ export const revealDefinitionAsideAction: CommandAction = {
     },
 };
 
-export const GOTO_DEFINITION_ACTIONS: readonly CommandAction[] = [revealDefinitionAction, revealDefinitionAsideAction];
+export const goToImplementationAction: CommandAction = {
+    id: "editor.action.goToImplementation",
+    title: "Go to Implementations",
+    keybinding: parseKeybinding("mod+f12"),
+    when: "textInputFocus",
+    enablement: "editorHasImplementationProvider",
+    menus: [
+        {
+            menuId: MenuId.EditorContext,
+            group: "navigation",
+            order: 1.45,
+            when: "editorHasImplementationProvider",
+        },
+    ],
+    run(accessor) {
+        return accessor.get(DefinitionServiceDIToken).goToImplementation();
+    },
+};
+
+export const GOTO_DEFINITION_ACTIONS: readonly CommandAction[] = [
+    revealDefinitionAction,
+    revealDefinitionAsideAction,
+    goToImplementationAction,
+];

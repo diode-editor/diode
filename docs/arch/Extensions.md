@@ -352,6 +352,11 @@
   Цели в панели могут быть недисковыми: группа хранит `uri`, текст строк — от провайдера схемы.
   Команды с аргументами от расширений (`editor.action.goToLocations`, `peekLocations`, алиас
   `showReferences`, без пункта в палитре) терпят JSON-форму uri — разбор в `goToLocationsArguments.ts`.
+  **Implementation** (`languages.registerImplementationProvider`, RPC `languages.provideImplementation`,
+  реестр `implementationProvider`, Ctrl+F12 `editor.action.goToImplementation`) — тот же шов: обработчик
+  в субпроцессе общий (`provideLocations`), а `DefinitionService` параметризован видом запроса
+  (`ISymbolNavigation`: заголовок панели, сообщения, ключи настроек, реестр). Peek-вариант
+  (`editor.action.peekImplementation`) не заводим — роль Peek играет панель.
 - **Провайдер содержимого недисковых ресурсов:** `workspace.registerTextDocumentContentProvider` —
   дверь, которой в редактор попадают исходники, которых нет на диске (`jdt:`/`class:` у стокового
   `redhat.java`: класс из jar, исходник JDK, декомпиляция). Проводка — калька с провайдеров ФС:
