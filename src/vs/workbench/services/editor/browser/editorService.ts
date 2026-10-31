@@ -49,6 +49,7 @@ import type { IShutdownDirtyItem, IShutdownParticipant } from "../../lifecycle/b
 import { BoundModelReferences } from "../../textfile/common/boundModelReferences.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";
 import type { SaveOutcome, TextFileModel } from "../../textfile/common/textFileModel.ts";
+import type { ITextFileModelReference } from "../../textfile/common/textFileModelRegistry.ts";
 import { TextFileModelService, TextFileModelServiceDIToken } from "../../textfile/common/textFileModelService.ts";
 import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
@@ -169,6 +170,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
 
     /** The service owns the model until the first {@link openUri} hands it to a tab. */
     private readonly untitledWithoutEditor = new Map<string, TextFileModel>();
+    private readonly untitledTabCounts = new WeakMap<TextFileModel, number>();
     /** What extensions last heard as the active editor. */
     private activeEditorUri: string | null = null;
 
@@ -754,7 +756,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
             this.openResolvedUri(uri, null, options);
             return Promise.resolve();
         }
-        const untitled = this.untitledWithoutEditor.get(uri.toString());
+        const untitled = uri.scheme === "untitled" ? this.findUntitledModel(uri) : undefined;
         if (untitled !== undefined) {
             this.openUntitledWithoutEditor(untitled, options);
             return Promise.resolve();
@@ -936,8 +938,10 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     }
 
     public newUntitled({ focus = true }: { focus?: boolean } = {}): void {
-        const model = this.textFileModels.createUntitledModel();
-        const editor = this.paneBuilder.build(model);
+        const model = this.textFileModels.createUntitledModel(
+            (candidate) => this.findUntitledModel(candidate) !== undefined,
+        );
+        const editor = this.paneBuilder.build(model, this.referenceUntitled(model));
         this.editorConfiguration.apply(editor);
         const group = findGroup(this.editorGroups, undefined, undefined);
         this.editorGroups.openInGroup(group, () => {
@@ -965,6 +969,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         if (languageId !== undefined) model.setLanguage(languageId);
         // Stryker disable next-line ConditionalExpression: equivalent: setEncoding skips an unknown (or missing) encoding anyway
         if (encoding !== undefined) model.setEncoding(encoding);
+        if (uri === undefined) model.markDirtyForExtensions();
         // Empty text is not an edit: the buffer stays clean (upstream `!!initialValue`).
         if (content !== undefined && content !== "") model.restoreUnsavedContents(content);
         this.untitledWithoutEditor.set(model.uri.toString(), model);
@@ -994,10 +999,23 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         );
     }
 
+    /** Tabs of one untitled document in different groups share the model: it dies with the last of them. */
+    private referenceUntitled(model: TextFileModel): ITextFileModelReference {
+        this.untitledTabCounts.set(model, (this.untitledTabCounts.get(model) ?? 0) + 1);
+        return {
+            model,
+            dispose: () => {
+                const left = (this.untitledTabCounts.get(model) ?? 1) - 1;
+                this.untitledTabCounts.set(model, left);
+                if (left === 0) model.dispose();
+            },
+        };
+    }
+
     /** Model ownership passes to the tab. */
     private openUntitledWithoutEditor(model: TextFileModel, { focus = true, group: where }: IOpenUriOptions): void {
         this.untitledWithoutEditor.delete(model.uri.toString());
-        const editor = this.paneBuilder.build(model);
+        const editor = this.paneBuilder.build(model, this.referenceUntitled(model));
         this.editorConfiguration.apply(editor);
         const group = findGroup(this.editorGroups, model.uri, where);
         this.editorGroups.openInGroup(group, () => {

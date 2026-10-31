@@ -149,6 +149,7 @@ export class TextFileModel extends BaseTextEditorModel {
 
     /** Upstream `hasAssociatedFilePath`. Cleared when the buffer becomes a file. */
     private hasAssociatedResource = false;
+    private markedDirtyForExtensions = false;
 
     private readonly onDidSaveDocumentEmitter = this.register(new Emitter<void>());
 
@@ -307,7 +308,27 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     public override get isModified(): boolean {
-        return this.hasAssociatedResource || super.isModified;
+        if (this.hasAssociatedResource) return true;
+        // Upstream `onModelContentChanged`: an untitled buffer that became empty never shows a dirty indicator.
+        if (this.uriValue.scheme === "untitled" && this.doc.getValueLength() === 0)
+            return this.doc.eol !== this.savedEol;
+        return super.isModified;
+    }
+
+    /**
+     * Upstream `_doCreateUntitled` "mark as dirty": a document an extension created reads as dirty even while empty,
+     * and the model and its tab stay clean. Holds until the first edit, when the model speaks for itself.
+     */
+    public markDirtyForExtensions(): void {
+        this.markedDirtyForExtensions = true;
+        const subscription = this.doc.onDidChangeModelContent(() => {
+            this.markedDirtyForExtensions = false;
+            subscription.dispose();
+        });
+    }
+
+    public override get isDirtyForExtensions(): boolean {
+        return this.markedDirtyForExtensions || this.isModified;
     }
 
     /**
@@ -801,6 +822,7 @@ export class TextFileModel extends BaseTextEditorModel {
             this.hasAssociatedResource = previousAssociated;
             throw error;
         }
+        this.markedDirtyForExtensions = false;
         this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.doc.setLanguage(this.resolveLanguageId(newPath));
         this.markSaved(savedVersion, savedEol);

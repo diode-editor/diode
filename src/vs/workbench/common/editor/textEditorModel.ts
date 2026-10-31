@@ -173,6 +173,11 @@ export abstract class BaseTextEditorModel extends Disposable {
         return this.doc.versionId !== this.savedVersionId || this.doc.eol !== this.savedEol;
     }
 
+    /** What extensions read as `TextDocument.isDirty`; only an untitled buffer can differ from {@link isModified}. */
+    public get isDirtyForExtensions(): boolean {
+        return this.isModified;
+    }
+
     /** A buffer that isn't a file has no bytes to decode. */
     public get encoding(): string {
         return BUFFER_ENCODING;

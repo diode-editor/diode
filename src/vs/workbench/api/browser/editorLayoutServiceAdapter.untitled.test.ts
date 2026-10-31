@@ -57,19 +57,19 @@ describe("EditorLayoutServiceAdapter — untitled document without a tab", () =>
         expect(openDocumentSyncSources(service).map((snapshot) => snapshot.uri)).toEqual([uri]);
     });
 
-    it("without options — a clean empty buffer; the number comes from the counter shared with New Untitled File", async () => {
+    it("without options — an empty buffer that reads as dirty to extensions (as upstream); the number comes from the counter shared with New Untitled File", async () => {
         service.newUntitled();
         const { uri } = await adapter.createUntitledDocument({});
 
         expect(uri).toBe("untitled:Untitled-2");
-        expect(opened.at(-1)).toMatchObject({ uri, languageId: "plaintext", length: 0, isDirty: false });
+        expect(opened.at(-1)).toMatchObject({ uri, languageId: "plaintext", length: 0, isDirty: true });
         expect(opened.at(-1)?.getText()).toBe("");
     });
 
-    it("empty content is also a clean buffer (like upstream `!!initialValue`)", async () => {
+    it("empty content: the model is clean (upstream `!!initialValue`), extensions read it as dirty", async () => {
         const { uri } = await adapter.createUntitledDocument({ content: "" });
 
-        expect(opened.at(-1)).toMatchObject({ uri, length: 0, isDirty: false });
+        expect(opened.at(-1)).toMatchObject({ uri, length: 0, isDirty: true });
     });
 
     it("showTextDocument shows the same model as an Untitled-N tab — without a repeated open/close", async () => {

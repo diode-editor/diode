@@ -124,6 +124,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.fileModel?.absoluteFilePath ?? null;
     }
 
+    public get isDirtyForExtensions(): boolean {
+        return this.model.isDirtyForExtensions;
+    }
+
     public get isModified(): boolean {
         return this.model.isModified;
     }

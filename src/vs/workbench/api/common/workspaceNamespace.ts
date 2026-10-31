@@ -470,6 +470,9 @@ export function createWorkspaceNamespace(
             const changesEncoding =
                 uri.scheme === "untitled" && requestedEncoding !== undefined && open.encoding !== requestedEncoding;
             if (!changesEncoding) return open;
+        } else if (open !== undefined && (uri.scheme === "untitled" || uri.scheme === "file")) {
+            // As upstream's document map: what opens now is a new document, a held closed one stays closed.
+            registry.forget(uri);
         }
 
         if (uri.scheme === "untitled") {
@@ -528,17 +531,7 @@ export function createWorkspaceNamespace(
             ...(typeof encoding === "string" ? { encoding } : {}),
         });
         const uri = Uri.parse(created);
-        const document = registry.get(uri);
-        if (document === undefined) return makeEphemeralDocument(uri, text ?? "", "utf8");
-        // Upstream `_doCreateUntitled` "mark as dirty": even an empty one reads as dirty to the extension, while the
-        // model and its tab stay clean until the first edit.
-        documentSync.changeState({
-            uri: created,
-            version: document.version,
-            isDirty: true,
-            eol: document.eol === EndOfLine.CRLF ? 2 : 1,
-        });
-        return document;
+        return registry.get(uri) ?? makeEphemeralDocument(uri, text ?? "", "utf8");
     }
 
     /** Outside the registry: this is not an open buffer. */

@@ -319,6 +319,11 @@ export class DocumentRegistry {
         return doc;
     }
 
+    /** Only for a closed document about to be opened anew; extensions keep their reference to the old object. */
+    public forget(uri: Uri): void {
+        this.documents.delete(uri.toString());
+    }
+
     public upsertMeta(meta: ExtHostDocumentMeta): ExtHostTextDocument {
         const doc = this.getOrCreate(Uri.parse(meta.uri));
         doc.applyMeta(meta);

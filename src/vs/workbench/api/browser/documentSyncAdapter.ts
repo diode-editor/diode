@@ -18,7 +18,7 @@ export function documentSyncSourceOfModel(model: BaseTextEditorModel): IDocument
         uri: model.uri.toString(),
         languageId: model.languageId,
         version: document.versionId,
-        isDirty: model.isModified,
+        isDirty: model.isDirtyForExtensions,
         eol: model.eol,
         encoding: model.encoding,
         isTooLargeForTokenization: model.isTooLargeForTokenization,
@@ -36,7 +36,7 @@ export function documentChangedEventOfModel(
         uri: model.uri.toString(),
         version: event.versionId,
         changes: event.changes.map(({ range, text }) => ({ range, text })),
-        isDirty: model.isModified,
+        isDirty: model.isDirtyForExtensions,
     };
 }
 
@@ -68,7 +68,7 @@ function pushDocumentState(host: IDocumentSyncTarget, model: BaseTextEditorModel
     host.didChangeTextDocumentState({
         uri: model.uri.toString(),
         version: model.document.versionId,
-        isDirty: model.isModified,
+        isDirty: model.isDirtyForExtensions,
         eol: model.eol,
         encoding: model.encoding,
     });
