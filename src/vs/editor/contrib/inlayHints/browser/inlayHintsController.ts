@@ -6,6 +6,7 @@ import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import type { Event } from "../../../../base/common/event.ts";
 import { Disposable, DisposableStore } from "../../../../base/common/lifecycle.ts";
 import { StopWatch } from "../../../../base/common/stopwatch.ts";
+import { isHighSurrogate, isLowSurrogate } from "../../../../base/common/strings.ts";
 import type { IRange } from "../../../common/core/iRange.ts";
 import type { LanguageFeatureRegistry } from "../../../common/languageFeatureRegistry.ts";
 import {
@@ -16,6 +17,7 @@ import {
     type InlayHintsProvider,
 } from "../../../common/languages/iInlayHintsSource.ts";
 import type { IInlineInsertion } from "../../../common/model/iInlineInsertion.ts";
+import type { ITextDocument } from "../../../common/model/iTextDocument.ts";
 import { TrackedRangeStickiness } from "../../../common/model/trackedDecorations.ts";
 import { FeatureDebounce } from "../../../common/services/languageFeatureDebounce.ts";
 
@@ -62,6 +64,27 @@ interface IDecorator {
     readonly hint: InlayHint;
     /** Segmented once: `editor.inlayHints.maximumLength` counts what the user sees, not UTF-16 units. */
     readonly graphemes: readonly string[];
+}
+
+/** A provider's failure to clean up costs nobody else their hints. */
+function disposeList(list: InlayHintList): void {
+    try {
+        list.dispose();
+    } catch (e) {
+        onUnexpectedError(e);
+    }
+}
+
+/** Upstream `validatePosition`: past the line end clamps to it, inside a surrogate pair moves before the pair. */
+function validCharacter(document: ITextDocument, line: number, character: number): number {
+    const content = document.getLineContent(line);
+    const clamped = Math.max(0, Math.min(character, content.length));
+    const inPair =
+        clamped > 0 &&
+        clamped < content.length &&
+        isHighSurrogate(content.charCodeAt(clamped - 1)) &&
+        isLowSurrogate(content.charCodeAt(clamped));
+    return inPair ? clamped - 1 : clamped;
 }
 
 /** A label is one line of cells: upstream's DOM collapses a newline and keeps a tab as a space (`fixSpace`). */
@@ -236,7 +259,7 @@ export class InlayHintsController extends Disposable {
         const lists = answers.filter((list) => list !== null && list !== undefined);
         // Superseded, stopped, or the text moved under the answer: whoever did that has scheduled the next request.
         if (request.token.isCancellationRequested || document.versionId !== versionId) {
-            for (const list of lists) list.dispose();
+            for (const list of lists) disposeList(list);
             return;
         }
         this.request = null;
@@ -270,10 +293,7 @@ export class InlayHintsController extends Disposable {
                 graphemes: labelGraphemes(hint),
                 position: {
                     line: hint.position.line,
-                    character: Math.max(
-                        0,
-                        Math.min(hint.position.character, document.getLineLength(hint.position.line)),
-                    ),
+                    character: validCharacter(document, hint.position.line, hint.position.character),
                 },
             }))
             .sort((a, b) => a.position.line - b.position.line || a.position.character - b.position.character)
@@ -292,7 +312,7 @@ export class InlayHintsController extends Disposable {
             })),
         );
         this.decorators = ids.map((id, i) => ({ id, hint: shown[i].hint, graphemes: shown[i].graphemes }));
-        for (const list of this.lists) list.dispose();
+        for (const list of this.lists) disposeList(list);
         this.lists = lists;
         // Stryker disable next-line ConditionalExpression,LogicalOperator: publishing no hints again changes nothing on the frame
         if (hadHints || this.decorators.length > 0) this.publish();
