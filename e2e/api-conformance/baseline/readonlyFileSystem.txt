@@ -1,0 +1,3 @@
+vscode API - file system readonly file system - boolean
+vscode API - file system readonly file system - markdown
+vscode API - file system writeable file system

@@ -1,0 +1,12 @@
+vscode API - terminal Terminal Extension pty terminals exitStatus.code should be set to the exit code (non-zero)
+vscode API - terminal Terminal Extension pty terminals exitStatus.code should be set to the exit code (undefined)
+vscode API - terminal Terminal Extension pty terminals exitStatus.code should be set to the exit code (zero)
+vscode API - terminal Terminal Extension pty terminals should fire onDidOpenTerminal and onDidCloseTerminal
+vscode API - terminal Terminal exitStatus.code should be set to undefined after a terminal is disposed
+vscode API - terminal Terminal hideFromUser should be available to terminals API
+vscode API - terminal Terminal name in constructor should set terminal.name
+vscode API - terminal Terminal onDidCloseTerminal event fires when terminal is disposed
+vscode API - terminal Terminal onDidOpenTerminal should fire when a terminal is created
+vscode API - terminal Terminal processId immediately after createTerminal should fetch the pid
+vscode API - terminal Terminal selection should be undefined immediately after creation
+vscode API - terminal Terminal sendText immediately after createTerminal should not throw

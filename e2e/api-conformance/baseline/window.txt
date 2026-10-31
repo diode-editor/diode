@@ -1,0 +1,12 @@
+vscode API - window #7013 - input without options
+vscode API - window Tabs - ensure active tab is correct
+vscode API - window Tabs - vscode.open & vscode.diff
+vscode API - window active editor not always correct... #49125
+vscode API - window editor, onDidChangeTextEditorViewColumn (move editor group)
+vscode API - window editor, onDidChangeVisibleTextEditors
+vscode API - window editor, opened via resource
+vscode API - window showInputBox - cancel early
+vscode API - window showQuickPick, cancel early
+vscode API - window showQuickPick, canceled by another picker
+vscode API - window showQuickPick, native promise - #11754
+vscode API - window showQuickPick, undefined on cancel

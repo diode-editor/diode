@@ -1,0 +1,20 @@
+{
+    "terminal vscode API - terminal Terminal echo works in the default shell": "proposed API: window.onDidWriteTerminalData",
+    "terminal vscode API - terminal Terminal selection should be defined after selecting all content": "proposed API: window.onDidWriteTerminalData",
+    "terminal vscode API - terminal Terminal selection should be undefined after clearing a selection": "proposed API: window.onDidWriteTerminalData",
+    "terminal vscode API - terminal Terminal environmentVariableCollection should have collection variables apply to terminals immediately after setting": "proposed API: window.onDidWriteTerminalData",
+    "terminal vscode API - terminal Terminal environmentVariableCollection should have collection variables apply to environment variables that don't exist": "proposed API: window.onDidWriteTerminalData",
+    "terminal vscode API - terminal Terminal environmentVariableCollection should respect clearing entries": "proposed API: window.onDidWriteTerminalData",
+    "terminal vscode API - terminal Terminal environmentVariableCollection should respect deleting entries": "proposed API: window.onDidWriteTerminalData",
+    "window vscode API - window Tabs - Ensure tabs getter is correct": "notebook: workspace.openNotebookDocument",
+    "workspace vscode API - workspace `findFiles2`": "proposed API: workspace.findFiles2",
+    "workspace vscode API - workspace findFiles2 - null exclude": "proposed API: workspace.findFiles2",
+    "workspace vscode API - workspace findFiles2, exclude": "proposed API: workspace.findFiles2",
+    "workspace vscode API - workspace findFiles2, cancellation": "proposed API: workspace.findFiles2",
+    "workspace vscode API - workspace findTextInFiles": "proposed API: workspace.findTextInFiles",
+    "workspace vscode API - workspace findTextInFiles, cancellation": "proposed API: workspace.findTextInFiles",
+    "workspace.tasks vscode API - tasks Tasks CustomExecution task should start and shutdown successfully": "proposed API: window.onDidWriteTerminalData",
+    "env vscode API - env env.remoteName": "harness layout: expects the upstream built-in extensions vscode.git and vscode.media-preview; Diode has diode.git and no media-preview",
+    "languages vscode API - languages folding command": "harness layout: expects the upstream built-in extension vscode.json-language-features, which Diode does not bundle",
+    "window vscode API - window showInputBox - undefined on cancel": "flaky: a cancellation right after showInputBox is sometimes lost and the promise never settles (timed out in 3 of 6 runs); a bug of ours, not of the harness"
+}

@@ -1,0 +1,4 @@
+vscode API - quick input createQuickPick, dispose in onDidHide
+vscode API - quick input createQuickPick, hide and dispose
+vscode API - quick input createQuickPick, hide and hide
+vscode API - quick input createQuickPick, hide show hide

@@ -1,0 +1,1 @@
+vscode API - types static properties, es5 compat class

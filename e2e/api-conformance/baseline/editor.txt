@@ -1,0 +1,3 @@
+vscode API - editors editor contents are correctly read (large file)
+vscode API - editors editor contents are correctly read (small file)
+vscode API - editors extEditor.selection can be empty #18075
