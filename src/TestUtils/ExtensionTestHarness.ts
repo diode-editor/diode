@@ -72,7 +72,7 @@ import type { IWorkspaceFoldersSink } from "../vs/workbench/api/common/iWorkspac
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
 import { BulkEditBuffers } from "../vs/workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { WorkspaceEditService } from "../vs/workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
-import { getDefinitions } from "../vs/workbench/contrib/gotoDefinition/browser/goToSymbol.ts";
+import { getDefinitions, getImplementations } from "../vs/workbench/contrib/gotoDefinition/browser/goToSymbol.ts";
 import { getHovers } from "../vs/workbench/contrib/hover/browser/getHover.ts";
 import { provideInlineCompletions as provideInlineCompletionsFrom } from "../vs/workbench/contrib/inlineCompletions/browser/provideInlineCompletions.ts";
 import { provideSignatureHelp as provideSignatureHelpFrom } from "../vs/workbench/contrib/parameterHints/browser/provideSignatureHelp.ts";
@@ -423,6 +423,20 @@ export async function provideDefinitions(
     token: ICancellationToken = CancellationTokenNone,
 ): Promise<readonly ICoreDefinitionLocation[]> {
     const model = await getDefinitions(harness.languageFeatures.definitionProvider, targetOf(request), request, token);
+    return model.references;
+}
+
+export async function provideImplementations(
+    harness: IExtensionHarness,
+    request: IDefinitionRequest,
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<readonly ICoreDefinitionLocation[]> {
+    const model = await getImplementations(
+        harness.languageFeatures.implementationProvider,
+        targetOf(request),
+        request,
+        token,
+    );
     return model.references;
 }
 
