@@ -47,6 +47,16 @@ describe("NotificationService: messages without buttons", () => {
         expect(service.passive().map((n) => n.message)).toEqual([]);
     });
 
+    it("a replaced toast takes its timer along: repeats don't pile timers up", () => {
+        const service = new NotificationService();
+
+        service.show(message());
+        service.show(message());
+        service.show(message());
+
+        expect(vi.getTimerCount()).toBe(1);
+    });
+
     it.each([
         ["severity", { severity: "warn" }],
         ["message", { message: "different" }],
