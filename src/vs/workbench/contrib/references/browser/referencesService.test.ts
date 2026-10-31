@@ -49,6 +49,8 @@ interface IFakeEditorOptions {
     readonly source?: ReferenceProvider["provideReferences"];
     readonly noEditor?: boolean;
     readonly openModels?: Record<string, string>;
+    /** Text of `/Lib.java` by scheme; other resources of the scheme give `null`. */
+    readonly virtual?: Record<string, string>;
 }
 
 function fakeGroup(opts: IFakeEditorOptions = {}): IEditorService {
@@ -63,6 +65,11 @@ function fakeGroup(opts: IFakeEditorOptions = {}): IEditorService {
     };
     const group = {
         getActiveEditor: () => (opts.noEditor === true ? null : editor),
+        virtualDocumentSource: {
+            canProvide: (scheme: string) => opts.virtual?.[scheme] !== undefined,
+            provide: (uri: Uri) =>
+                Promise.resolve(uri.path === "/Lib.java" ? (opts.virtual?.[uri.scheme] ?? null) : null),
+        },
         // Plays the TextFileModelService role: the resource's open model.
         get: (uri: Uri) => {
             const text = opts.openModels?.[uri.fsPath];
@@ -374,6 +381,122 @@ describe("ReferencesService — findReferences", () => {
         await service.findReferences();
 
         expect(panel.shown[0][0].relPath).toBe(MAIN);
+    });
+});
+
+describe("ReferencesService — showLocations", () => {
+    const DEFS = `${ROOT}/src/defs.ts`;
+    const DISK = { [MAIN]: MAIN_TEXT, [DEFS]: "export function greet(name: string) {}\n" };
+    const LOCATIONS = [reference(DEFS, 0, 16, 21), reference(MAIN, 2, 14, 19)];
+
+    function setup(opts: IFakeEditorOptions = {}) {
+        const calls: unknown[] = [];
+        const panel = fakeComponent();
+        const { component } = panel;
+        const original = component.setResults.bind(component);
+        component.setResults = (groups, options) => {
+            calls.push(options);
+            original(groups, options);
+        };
+        const sidebar = fakeSidebar();
+        const service = createService(
+            component,
+            fakeGroup(opts),
+            fakeWorkspace(),
+            fakeProviders(DISK),
+            sidebar.service,
+        );
+        return { calls, panel, service, sidebar };
+    }
+
+    it("groups the locations, passes the title and shows the panel", async () => {
+        const { calls, panel, service, sidebar } = setup();
+
+        await service.showLocations("Definitions", LOCATIONS);
+
+        expect(panel.shown[0].map((g) => g.relPath)).toEqual(["src/defs.ts", "src/main.ts"]);
+        expect(calls).toEqual([{ title: "Definitions", active: undefined }]);
+        expect(sidebar.shown).toEqual([REFERENCES_VIEWLET_ID]);
+    });
+
+    it("reveal: false fills the panel without showing it", async () => {
+        const { panel, service, sidebar } = setup();
+
+        await service.showLocations("Definitions", LOCATIONS, undefined, { reveal: false });
+
+        expect(panel.shown).toHaveLength(1);
+        expect(sidebar.shown).toEqual([]);
+    });
+
+    it("an empty list does nothing and keeps a running search alive", async () => {
+        const { panel, service, sidebar } = setup();
+
+        await service.showLocations("Definitions", []);
+
+        expect(panel.shown).toEqual([]);
+        expect(sidebar.shown).toEqual([]);
+    });
+
+    it("active as a reference picks the location by uri and position inside its range", async () => {
+        const { calls, service } = setup();
+
+        await service.showLocations("Definitions", LOCATIONS, reference(MAIN, 2, 15, 15));
+
+        expect(calls).toEqual([{ title: "Definitions", active: LOCATIONS[1] }]);
+    });
+
+    it("active as a position looks in the active editor's file", async () => {
+        const { calls, service } = setup();
+
+        await service.showLocations("Definitions", LOCATIONS, { line: 2, character: 19 });
+
+        expect(calls).toEqual([{ title: "Definitions", active: LOCATIONS[1] }]);
+    });
+
+    it("active that matches nothing leaves the choice to the panel: same position, other file", async () => {
+        const { calls, service } = setup();
+
+        await service.showLocations("Definitions", LOCATIONS, reference(`${ROOT}/other.ts`, 2, 15, 15));
+        await service.showLocations("Definitions", LOCATIONS, { line: 0, character: 16 });
+
+        expect(calls).toEqual([
+            { title: "Definitions", active: undefined },
+            { title: "Definitions", active: undefined },
+        ]);
+    });
+
+    it("active as a position without an active editor matches nothing", async () => {
+        const { calls, service } = setup({ noEditor: true });
+
+        await service.showLocations("Definitions", LOCATIONS, { line: 2, character: 15 });
+
+        expect(calls).toEqual([{ title: "Definitions", active: undefined }]);
+    });
+
+    it("a later search wins over a list still reading its files", async () => {
+        const { panel, service } = setup({ source: () => Promise.resolve([reference(MAIN, 0, 9, 14)]) });
+
+        const stale = service.showLocations("Definitions", LOCATIONS);
+        await service.findReferences();
+        await stale;
+
+        expect(panel.shown).toHaveLength(1);
+        expect(panel.shown[0][0].matches[0].lineNumber).toBe(1);
+    });
+
+    it("a non-disk target takes its text from the scheme provider", async () => {
+        const { panel, service } = setup({
+            virtual: { jdt: "class Lib {}\n" },
+        });
+
+        await service.showLocations("Definitions", [
+            { uri: "jdt://contents/Lib.java", range: createRange(0, 6, 0, 9) },
+            { uri: "jdt://contents/Empty.java", range: createRange(0, 0, 0, 1) },
+        ]);
+
+        // The provider returned nothing for the second one: dropped, like an unreadable file.
+        expect(panel.shown[0].map((g) => g.uri)).toEqual(["jdt://contents/Lib.java"]);
+        expect(panel.shown[0][0].matches[0].preview.inside).toBe("Lib");
     });
 });
 

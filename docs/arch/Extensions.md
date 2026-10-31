@@ -341,7 +341,17 @@
   (`DefinitionService` + F12 `editor.action.revealDefinition`), кросс-файловая навигация паттерном
   Problems reveal (`openUri` + `goToPosition`). Результат провайдера
   `Location | Location[] | LocationLink[]` нормализуется субпроцессом (у LocationLink прицел —
-  `targetSelectionRange ?? targetRange`).
+  `targetSelectionRange ?? targetRange`). Ответы всех провайдеров сводит `createLocationModel`
+  (`goToSymbol.ts`, калька с `ReferencesModel`): сортировка по uri и диапазону, без точных дубликатов,
+  отдельно первая цель в порядке провайдера. Ноль целей — info-тост «No definition found for 'x'»
+  (инлайн-сообщения у курсора, `MessageController`, нет — отступление). Одна цель — переход, а если
+  она уже под курсором — `editor.gotoLocation.alternativeDefinitionCommand` с защитой от рекурсии.
+  Несколько — по `editor.gotoLocation.multipleDefinitions`, и роль Peek-виджета (его нет — отступление)
+  играет панель References: `ReferencesService.showLocations(title, locations, active, {reveal})`,
+  заголовок секции задаёт вызывающий. `goto` кладёт цели в панель без показа, по ним ходят F4/Shift+F4.
+  Цели в панели могут быть недисковыми: группа хранит `uri`, текст строк — от провайдера схемы.
+  Команды с аргументами от расширений (`editor.action.goToLocations`, `peekLocations`, алиас
+  `showReferences`, без пункта в палитре) терпят JSON-форму uri — разбор в `goToLocationsArguments.ts`.
 - **Провайдер содержимого недисковых ресурсов:** `workspace.registerTextDocumentContentProvider` —
   дверь, которой в редактор попадают исходники, которых нет на диске (`jdt:`/`class:` у стокового
   `redhat.java`: класс из jar, исходник JDK, декомпиляция). Проводка — калька с провайдеров ФС:

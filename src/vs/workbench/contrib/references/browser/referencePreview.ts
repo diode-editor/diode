@@ -5,6 +5,8 @@ import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 
 /** Shaped like a search file group, so rows are drawn by the same `buildFileRow`/`buildMatchRow`. */
 export interface IReferenceGroup {
+    /** The target's resource as the provider named it: it may be off disk (`jdt:`), where a path can't reopen it. */
+    readonly uri: string;
     readonly absolutePath: string;
     /** `/` separators. */
     readonly relPath: string;
@@ -49,7 +51,7 @@ export async function buildReferenceGroups(
         let group = groups.get(reference.uri);
         if (group === undefined) {
             const absolutePath = Uri.parse(reference.uri).fsPath;
-            group = { absolutePath, relPath: labelFor(absolutePath, root), matches: [] };
+            group = { uri: reference.uri, absolutePath, relPath: labelFor(absolutePath, root), matches: [] };
             groups.set(reference.uri, group);
         }
         group.matches.push(match);

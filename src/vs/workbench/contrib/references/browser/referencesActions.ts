@@ -32,6 +32,18 @@ export const findAllReferencesAction: CommandAction = {
     },
 };
 
+/** Upstream's id: the default of `editor.gotoLocation.alternative*Command`. An alias, the panel is our Peek. */
+export const goToReferencesAction: CommandAction = {
+    id: "editor.action.goToReferences",
+    title: "Go to References",
+    keybinding: parseKeybinding("shift+f12"),
+    when: "textInputFocus",
+    enablement: "editorHasReferenceProvider",
+    run(accessor) {
+        return accessor.get(ReferencesServiceDIToken).findReferences();
+    },
+};
+
 /** Deviation from VS Code forced by the missing activity bar: without a command there's no way back to the panel. */
 export const showReferencesAction: CommandAction = {
     id: "workbench.view.references",
@@ -136,6 +148,7 @@ export const expandReferencesAction: CommandAction = {
 
 export const REFERENCES_ACTIONS: readonly CommandAction[] = [
     findAllReferencesAction,
+    goToReferencesAction,
     showReferencesAction,
     nextReferenceAction,
     previousReferenceAction,

@@ -4,6 +4,38 @@ import {
 } from "../../../editor/common/model/largeFileOptions.ts";
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
+const gotoLocationMultiple = {
+    scope: "language-overridable",
+    type: "string",
+    enum: ["peek", "gotoAndPeek", "goto"],
+    default: "peek",
+    enumDescriptions: [
+        "Show Peek view of the results (default)",
+        "Go to the primary result and show a Peek view",
+        "Go to the primary result and enable Peek-less navigation to others",
+    ],
+} as const;
+
+/** Upstream `alternativeCommandOptions`, verbatim. */
+const gotoLocationAlternative = {
+    scope: "language-overridable",
+    type: "string",
+    enum: [
+        "",
+        "editor.action.referenceSearch.trigger",
+        "editor.action.goToReferences",
+        "editor.action.peekImplementation",
+        "editor.action.goToImplementation",
+        "editor.action.peekTypeDefinition",
+        "editor.action.goToTypeDefinition",
+        "editor.action.peekDeclaration",
+        "editor.action.revealDeclaration",
+        "editor.action.peekDefinition",
+        "editor.action.revealDefinitionAside",
+        "editor.action.revealDefinition",
+    ],
+} as const;
+
 export const editorConfiguration = {
     id: "editor",
     title: "Editor",
@@ -329,6 +361,60 @@ export const editorConfiguration = {
             description:
                 'Code action kinds to be run on save (e.g. `{"source.fixAll": true}`). ' +
                 "Kinds match hierarchically: `source.fixAll` also runs `source.fixAll.ruff`.",
+        },
+        // There is no Peek widget: "peek" shows the References panel instead (Extensions.md, Definition seam).
+        // The deprecated `editor.gotoLocation.multiple` is not registered.
+        "editor.gotoLocation.multipleDefinitions": {
+            ...gotoLocationMultiple,
+            description: "Controls the behavior the 'Go to Definition'-command when multiple target locations exist.",
+        },
+        "editor.gotoLocation.multipleTypeDefinitions": {
+            ...gotoLocationMultiple,
+            description:
+                "Controls the behavior the 'Go to Type Definition'-command when multiple target locations exist.",
+        },
+        "editor.gotoLocation.multipleDeclarations": {
+            ...gotoLocationMultiple,
+            description: "Controls the behavior the 'Go to Declaration'-command when multiple target locations exist.",
+        },
+        "editor.gotoLocation.multipleImplementations": {
+            ...gotoLocationMultiple,
+            description:
+                "Controls the behavior the 'Go to Implementations'-command when multiple target locations exist.",
+        },
+        "editor.gotoLocation.multipleReferences": {
+            ...gotoLocationMultiple,
+            description: "Controls the behavior the 'Go to References'-command when multiple target locations exist.",
+        },
+        "editor.gotoLocation.alternativeDefinitionCommand": {
+            ...gotoLocationAlternative,
+            default: "editor.action.goToReferences",
+            description:
+                "Alternative command id that is being executed when the result of 'Go to Definition' is the current location.",
+        },
+        "editor.gotoLocation.alternativeTypeDefinitionCommand": {
+            ...gotoLocationAlternative,
+            default: "editor.action.goToReferences",
+            description:
+                "Alternative command id that is being executed when the result of 'Go to Type Definition' is the current location.",
+        },
+        "editor.gotoLocation.alternativeDeclarationCommand": {
+            ...gotoLocationAlternative,
+            default: "editor.action.goToReferences",
+            description:
+                "Alternative command id that is being executed when the result of 'Go to Declaration' is the current location.",
+        },
+        "editor.gotoLocation.alternativeImplementationCommand": {
+            ...gotoLocationAlternative,
+            default: "",
+            description:
+                "Alternative command id that is being executed when the result of 'Go to Implementation' is the current location.",
+        },
+        "editor.gotoLocation.alternativeReferenceCommand": {
+            ...gotoLocationAlternative,
+            default: "",
+            description:
+                "Alternative command id that is being executed when the result of 'Go to Reference' is the current location.",
         },
     },
 } as const satisfies IConfigurationNode;
