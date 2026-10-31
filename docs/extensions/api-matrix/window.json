@@ -1,0 +1,206 @@
+{
+  "members": {
+    "window.activeColorTheme": {
+      "class": "ok"
+    },
+    "window.activeNotebookEditor": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "window.activeTerminal": {
+      "class": "ok"
+    },
+    "window.activeTextEditor": {
+      "class": "B",
+      "note": "#917: activeTextEditor lags behind the resolved editor"
+    },
+    "window.createInputBox": {
+      "class": "B",
+      "note": "#915: quick input behavior differs from upstream"
+    },
+    "window.createOutputChannel": {
+      "class": "ok"
+    },
+    "window.createQuickPick": {
+      "class": "B",
+      "note": "#915: quick input behavior differs from upstream"
+    },
+    "window.createStatusBarItem": {
+      "class": "ok"
+    },
+    "window.createTerminal": {
+      "class": "ok"
+    },
+    "window.createTextEditorDecorationType": {
+      "class": "C",
+      "note": "text decorations are not drawn; gutter and overview ruler only"
+    },
+    "window.createTreeView": {
+      "class": "ok"
+    },
+    "window.createWebviewPanel": {
+      "class": "X",
+      "note": "webview"
+    },
+    "window.onDidChangeActiveColorTheme": {
+      "class": "ok"
+    },
+    "window.onDidChangeActiveNotebookEditor": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "window.onDidChangeActiveTerminal": {
+      "class": "ok"
+    },
+    "window.onDidChangeActiveTextEditor": {
+      "class": "ok"
+    },
+    "window.onDidChangeNotebookEditorSelection": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "window.onDidChangeNotebookEditorVisibleRanges": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "window.onDidChangeTerminalShellIntegration": {
+      "class": "B",
+      "note": "never fires"
+    },
+    "window.onDidChangeTerminalState": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "window.onDidChangeTextEditorOptions": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "window.onDidChangeTextEditorSelection": {
+      "class": "B",
+      "note": "#917: event timing differs from upstream"
+    },
+    "window.onDidChangeTextEditorViewColumn": {
+      "class": "B",
+      "note": "#917: event timing differs from upstream"
+    },
+    "window.onDidChangeTextEditorVisibleRanges": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "window.onDidChangeVisibleNotebookEditors": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "window.onDidChangeVisibleTextEditors": {
+      "class": "ok"
+    },
+    "window.onDidChangeWindowState": {
+      "class": "ok"
+    },
+    "window.onDidCloseTerminal": {
+      "class": "ok"
+    },
+    "window.onDidEndTerminalShellExecution": {
+      "class": "B",
+      "note": "never fires"
+    },
+    "window.onDidOpenTerminal": {
+      "class": "ok"
+    },
+    "window.onDidStartTerminalShellExecution": {
+      "class": "B",
+      "note": "never fires"
+    },
+    "window.registerCustomEditorProvider": {
+      "class": "X",
+      "note": "webview"
+    },
+    "window.registerFileDecorationProvider": {
+      "class": "ok"
+    },
+    "window.registerTerminalLinkProvider": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "window.registerTerminalProfileProvider": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "window.registerTreeDataProvider": {
+      "class": "ok"
+    },
+    "window.registerUriHandler": {
+      "class": "ok"
+    },
+    "window.registerWebviewPanelSerializer": {
+      "class": "X",
+      "note": "webview"
+    },
+    "window.registerWebviewViewProvider": {
+      "class": "X",
+      "note": "webview"
+    },
+    "window.setStatusBarMessage": {
+      "class": "ok"
+    },
+    "window.showErrorMessage": {
+      "class": "ok"
+    },
+    "window.showInformationMessage": {
+      "class": "ok"
+    },
+    "window.showInputBox": {
+      "class": "B",
+      "note": "#915: quick input behavior differs from upstream"
+    },
+    "window.showNotebookDocument": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "window.showOpenDialog": {
+      "class": "ok"
+    },
+    "window.showQuickPick": {
+      "class": "B",
+      "note": "#915: quick input behavior differs from upstream"
+    },
+    "window.showSaveDialog": {
+      "class": "ok"
+    },
+    "window.showTextDocument": {
+      "class": "B",
+      "note": "#917: activeTextEditor lags behind the resolved editor"
+    },
+    "window.showWarningMessage": {
+      "class": "ok"
+    },
+    "window.showWorkspaceFolderPick": {
+      "class": "B",
+      "note": "#916: not implemented"
+    },
+    "window.state": {
+      "class": "ok"
+    },
+    "window.tabGroups": {
+      "class": "ok"
+    },
+    "window.terminals": {
+      "class": "ok"
+    },
+    "window.visibleNotebookEditors": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "window.visibleTextEditors": {
+      "class": "ok"
+    },
+    "window.withProgress": {
+      "class": "B",
+      "note": "cancellation token never fires, location is ignored"
+    },
+    "window.withScmProgress": {
+      "class": "C",
+      "note": "needs the source control surface"
+    }
+  }
+}

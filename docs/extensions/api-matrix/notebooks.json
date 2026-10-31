@@ -1,0 +1,16 @@
+{
+  "members": {
+    "notebooks.createNotebookController": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "notebooks.createRendererMessaging": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "notebooks.registerNotebookCellStatusBarItemProvider": {
+      "class": "X",
+      "note": "notebook"
+    }
+  }
+}

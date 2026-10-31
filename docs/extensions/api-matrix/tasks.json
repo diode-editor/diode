@@ -1,0 +1,28 @@
+{
+  "members": {
+    "tasks.executeTask": {
+      "class": "ok"
+    },
+    "tasks.fetchTasks": {
+      "class": "ok"
+    },
+    "tasks.onDidEndTask": {
+      "class": "ok"
+    },
+    "tasks.onDidEndTaskProcess": {
+      "class": "ok"
+    },
+    "tasks.onDidStartTask": {
+      "class": "ok"
+    },
+    "tasks.onDidStartTaskProcess": {
+      "class": "ok"
+    },
+    "tasks.registerTaskProvider": {
+      "class": "ok"
+    },
+    "tasks.taskExecutions": {
+      "class": "ok"
+    }
+  }
+}

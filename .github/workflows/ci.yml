@@ -92,8 +92,15 @@ jobs:
         continue-on-error: true
         run: npm run snapshot-check
 
+      # The extension x API matrix: every vscode.d.ts member has a class and the generated
+      # file matches its inputs (scripts/api-matrix.mjs). Offline: the survey is not rerun here.
+      - name: API matrix
+        id: apimatrix
+        continue-on-error: true
+        run: npm run api-matrix -- --check
+
       - name: Gate
-        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure' || steps.lazy.outcome == 'failure' || steps.cyrillic.outcome == 'failure' || steps.snapshot.outcome == 'failure'
+        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure' || steps.lazy.outcome == 'failure' || steps.cyrillic.outcome == 'failure' || steps.snapshot.outcome == 'failure' || steps.apimatrix.outcome == 'failure'
         run: |
           echo "typecheck: ${{ steps.typecheck.outcome }}"
           echo "lint:      ${{ steps.lint.outcome }}"
@@ -101,6 +108,7 @@ jobs:
           echo "lazy:      ${{ steps.lazy.outcome }}"
           echo "cyrillic:  ${{ steps.cyrillic.outcome }}"
           echo "snapshot:  ${{ steps.snapshot.outcome }}"
+          echo "apimatrix: ${{ steps.apimatrix.outcome }}"
           echo 'Formatting and import order are fixed by `npm run lint:fix`; the rest by hand.'
           exit 1
 

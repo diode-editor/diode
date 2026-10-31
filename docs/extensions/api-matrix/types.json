@@ -1,0 +1,7095 @@
+{
+  "members": {
+    "AccessibilityInformation.label": {
+      "class": "ok"
+    },
+    "AccessibilityInformation.role": {
+      "class": "ok"
+    },
+    "AuthenticationGetSessionOptions.account": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationGetSessionOptions.clearSessionPreference": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationGetSessionOptions.createIfNone": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationGetSessionOptions.forceNewSession": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationGetSessionOptions.silent": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationGetSessionPresentationOptions.detail": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationProvider.createSession": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationProvider.getSessions": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationProvider.onDidChangeSessions": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationProvider.removeSession": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationProviderAuthenticationSessionsChangeEvent.added": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationProviderAuthenticationSessionsChangeEvent.changed": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationProviderAuthenticationSessionsChangeEvent.removed": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationProviderInformation.id": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationProviderInformation.label": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationProviderOptions.supportsMultipleAccounts": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationProviderSessionOptions.account": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationSession.accessToken": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationSession.account": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationSession.id": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationSession.idToken": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationSession.scopes": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationSessionAccountInformation.id": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationSessionAccountInformation.label": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationSessionsChangeEvent.provider": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationWwwAuthenticateRequest.fallbackScopes": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AuthenticationWwwAuthenticateRequest.wwwAuthenticate": {
+      "class": "B",
+      "note": "null object: there is no sign-in"
+    },
+    "AutoClosingPair.close": {
+      "class": "ok"
+    },
+    "AutoClosingPair.notIn": {
+      "class": "ok"
+    },
+    "AutoClosingPair.open": {
+      "class": "ok"
+    },
+    "BranchCoverage": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "BranchCoverage.executed": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "BranchCoverage.label": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "BranchCoverage.location": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "Breakpoint": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "Breakpoint.condition": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "Breakpoint.enabled": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "Breakpoint.hitCondition": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "Breakpoint.id": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "Breakpoint.logMessage": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "BreakpointsChangeEvent.added": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "BreakpointsChangeEvent.changed": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "BreakpointsChangeEvent.removed": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "CallHierarchyIncomingCall": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyIncomingCall.from": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyIncomingCall.fromRanges": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyItem": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyItem.detail": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyItem.kind": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyItem.name": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyItem.range": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyItem.selectionRange": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyItem.tags": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyItem.uri": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyOutgoingCall": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyOutgoingCall.fromRanges": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyOutgoingCall.to": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyProvider.prepareCallHierarchy": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyProvider.provideCallHierarchyIncomingCalls": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CallHierarchyProvider.provideCallHierarchyOutgoingCalls": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CancellationError": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "CancellationToken.isCancellationRequested": {
+      "class": "ok"
+    },
+    "CancellationToken.onCancellationRequested": {
+      "class": "ok"
+    },
+    "CancellationTokenSource": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "CancellationTokenSource.cancel": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "CancellationTokenSource.dispose": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "CancellationTokenSource.token": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "ChatContext.history": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatErrorDetails.message": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatErrorDetails.responseIsFiltered": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatFollowup.command": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatFollowup.label": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatFollowup.participant": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatFollowup.prompt": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatFollowupProvider.provideFollowups": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatLanguageModelToolReference.name": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatLanguageModelToolReference.range": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatParticipant.dispose": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatParticipant.followupProvider": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatParticipant.iconPath": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatParticipant.id": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatParticipant.onDidReceiveFeedback": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatParticipant.requestHandler": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatPromptReference.id": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatPromptReference.modelDescription": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatPromptReference.range": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatPromptReference.value": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatRequest.command": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatRequest.model": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatRequest.prompt": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatRequest.references": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatRequest.toolInvocationToken": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatRequest.toolReferences": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatRequestTurn": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatRequestTurn.command": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatRequestTurn.participant": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatRequestTurn.prompt": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatRequestTurn.references": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatRequestTurn.toolReferences": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseAnchorPart": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseAnchorPart.title": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseAnchorPart.value": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseCommandButtonPart": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseCommandButtonPart.value": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseFileTree.children": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseFileTree.name": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseFileTreePart": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseFileTreePart.baseUri": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseFileTreePart.value": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseMarkdownPart": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseMarkdownPart.value": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseProgressPart": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseProgressPart.value": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseReferencePart": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseReferencePart.iconPath": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseReferencePart.value": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseStream.anchor": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseStream.button": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseStream.filetree": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseStream.markdown": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseStream.progress": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseStream.push": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseStream.reference": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseTurn": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseTurn.command": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseTurn.participant": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseTurn.response": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResponseTurn.result": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResult.errorDetails": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResult.metadata": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResultFeedback.kind": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResultFeedback.result": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResultFeedbackKind": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResultFeedbackKind.Helpful": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ChatResultFeedbackKind.Unhelpful": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "Clipboard.readText": {
+      "class": "ok"
+    },
+    "Clipboard.writeText": {
+      "class": "ok"
+    },
+    "CodeAction": {
+      "class": "ok"
+    },
+    "CodeAction.command": {
+      "class": "ok"
+    },
+    "CodeAction.diagnostics": {
+      "class": "ok"
+    },
+    "CodeAction.disabled": {
+      "class": "ok"
+    },
+    "CodeAction.edit": {
+      "class": "ok"
+    },
+    "CodeAction.isPreferred": {
+      "class": "ok"
+    },
+    "CodeAction.kind": {
+      "class": "ok"
+    },
+    "CodeAction.title": {
+      "class": "ok"
+    },
+    "CodeActionContext.diagnostics": {
+      "class": "ok"
+    },
+    "CodeActionContext.only": {
+      "class": "ok"
+    },
+    "CodeActionContext.triggerKind": {
+      "class": "ok"
+    },
+    "CodeActionKind": {
+      "class": "ok"
+    },
+    "CodeActionKind.append": {
+      "class": "ok"
+    },
+    "CodeActionKind.contains": {
+      "class": "ok"
+    },
+    "CodeActionKind.Empty": {
+      "class": "ok"
+    },
+    "CodeActionKind.intersects": {
+      "class": "ok"
+    },
+    "CodeActionKind.Notebook": {
+      "class": "ok"
+    },
+    "CodeActionKind.QuickFix": {
+      "class": "ok"
+    },
+    "CodeActionKind.Refactor": {
+      "class": "ok"
+    },
+    "CodeActionKind.RefactorExtract": {
+      "class": "ok"
+    },
+    "CodeActionKind.RefactorInline": {
+      "class": "ok"
+    },
+    "CodeActionKind.RefactorMove": {
+      "class": "ok"
+    },
+    "CodeActionKind.RefactorRewrite": {
+      "class": "ok"
+    },
+    "CodeActionKind.Source": {
+      "class": "ok"
+    },
+    "CodeActionKind.SourceFixAll": {
+      "class": "ok"
+    },
+    "CodeActionKind.SourceOrganizeImports": {
+      "class": "ok"
+    },
+    "CodeActionKind.value": {
+      "class": "ok"
+    },
+    "CodeActionProvider.provideCodeActions": {
+      "class": "ok"
+    },
+    "CodeActionProvider.resolveCodeAction": {
+      "class": "ok"
+    },
+    "CodeActionProviderMetadata.documentation": {
+      "class": "ok"
+    },
+    "CodeActionProviderMetadata.providedCodeActionKinds": {
+      "class": "ok"
+    },
+    "CodeActionTriggerKind": {
+      "class": "ok"
+    },
+    "CodeActionTriggerKind.Automatic": {
+      "class": "ok"
+    },
+    "CodeActionTriggerKind.Invoke": {
+      "class": "ok"
+    },
+    "CodeLens": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CodeLens.command": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CodeLens.isResolved": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CodeLens.range": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CodeLensProvider.onDidChangeCodeLenses": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CodeLensProvider.provideCodeLenses": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "CodeLensProvider.resolveCodeLens": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "Color": {
+      "class": "ok"
+    },
+    "Color.alpha": {
+      "class": "ok"
+    },
+    "Color.blue": {
+      "class": "ok"
+    },
+    "Color.green": {
+      "class": "ok"
+    },
+    "Color.red": {
+      "class": "ok"
+    },
+    "ColorInformation": {
+      "class": "ok"
+    },
+    "ColorInformation.color": {
+      "class": "ok"
+    },
+    "ColorInformation.range": {
+      "class": "ok"
+    },
+    "ColorPresentation": {
+      "class": "ok"
+    },
+    "ColorPresentation.additionalTextEdits": {
+      "class": "ok"
+    },
+    "ColorPresentation.label": {
+      "class": "ok"
+    },
+    "ColorPresentation.textEdit": {
+      "class": "ok"
+    },
+    "ColorTheme.kind": {
+      "class": "ok"
+    },
+    "ColorThemeKind": {
+      "class": "ok"
+    },
+    "ColorThemeKind.Dark": {
+      "class": "ok"
+    },
+    "ColorThemeKind.HighContrast": {
+      "class": "ok"
+    },
+    "ColorThemeKind.HighContrastLight": {
+      "class": "ok"
+    },
+    "ColorThemeKind.Light": {
+      "class": "ok"
+    },
+    "Command.arguments": {
+      "class": "ok"
+    },
+    "Command.command": {
+      "class": "ok"
+    },
+    "Command.title": {
+      "class": "ok"
+    },
+    "Command.tooltip": {
+      "class": "ok"
+    },
+    "Comment.author": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "Comment.body": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "Comment.contextValue": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "Comment.label": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "Comment.mode": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "Comment.reactions": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "Comment.timestamp": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentAuthorInformation.iconPath": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentAuthorInformation.name": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentController.commentingRangeProvider": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentController.createCommentThread": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentController.dispose": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentController.id": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentController.label": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentController.options": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentController.reactionHandler": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentingRangeProvider.provideCommentingRanges": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentingRanges.enableFileComments": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentingRanges.ranges": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentMode": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentMode.Editing": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentMode.Preview": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentOptions.placeHolder": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentOptions.prompt": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentReaction.authorHasReacted": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentReaction.count": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentReaction.iconPath": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentReaction.label": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentReply.text": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentReply.thread": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentRule.blockComment": {
+      "class": "ok"
+    },
+    "CommentRule.lineComment": {
+      "class": "ok"
+    },
+    "CommentThread.canReply": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThread.collapsibleState": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThread.comments": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThread.contextValue": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThread.dispose": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThread.label": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThread.range": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThread.state": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThread.uri": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThreadCollapsibleState": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThreadCollapsibleState.Collapsed": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThreadCollapsibleState.Expanded": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThreadState": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThreadState.Resolved": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CommentThreadState.Unresolved": {
+      "class": "C",
+      "note": "needs the comments surface"
+    },
+    "CompletionContext.triggerCharacter": {
+      "class": "ok"
+    },
+    "CompletionContext.triggerKind": {
+      "class": "ok"
+    },
+    "CompletionItem": {
+      "class": "ok"
+    },
+    "CompletionItem.additionalTextEdits": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "CompletionItem.command": {
+      "class": "ok"
+    },
+    "CompletionItem.commitCharacters": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "CompletionItem.detail": {
+      "class": "ok"
+    },
+    "CompletionItem.documentation": {
+      "class": "ok"
+    },
+    "CompletionItem.filterText": {
+      "class": "ok"
+    },
+    "CompletionItem.insertText": {
+      "class": "ok"
+    },
+    "CompletionItem.keepWhitespace": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "CompletionItem.kind": {
+      "class": "ok"
+    },
+    "CompletionItem.label": {
+      "class": "ok"
+    },
+    "CompletionItem.preselect": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "CompletionItem.range": {
+      "class": "ok"
+    },
+    "CompletionItem.sortText": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "CompletionItem.tags": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "CompletionItem.textEdit": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "CompletionItemKind": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Class": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Color": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Constant": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Constructor": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Enum": {
+      "class": "ok"
+    },
+    "CompletionItemKind.EnumMember": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Event": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Field": {
+      "class": "ok"
+    },
+    "CompletionItemKind.File": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Folder": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Function": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Interface": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Issue": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Keyword": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Method": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Module": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Operator": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Property": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Reference": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Snippet": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Struct": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Text": {
+      "class": "ok"
+    },
+    "CompletionItemKind.TypeParameter": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Unit": {
+      "class": "ok"
+    },
+    "CompletionItemKind.User": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Value": {
+      "class": "ok"
+    },
+    "CompletionItemKind.Variable": {
+      "class": "ok"
+    },
+    "CompletionItemLabel.description": {
+      "class": "ok"
+    },
+    "CompletionItemLabel.detail": {
+      "class": "ok"
+    },
+    "CompletionItemLabel.label": {
+      "class": "ok"
+    },
+    "CompletionItemProvider.provideCompletionItems": {
+      "class": "ok"
+    },
+    "CompletionItemProvider.resolveCompletionItem": {
+      "class": "ok"
+    },
+    "CompletionItemTag": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "CompletionItemTag.Deprecated": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "CompletionList": {
+      "class": "ok"
+    },
+    "CompletionList.isIncomplete": {
+      "class": "ok"
+    },
+    "CompletionList.items": {
+      "class": "ok"
+    },
+    "CompletionTriggerKind": {
+      "class": "ok"
+    },
+    "CompletionTriggerKind.Invoke": {
+      "class": "ok"
+    },
+    "CompletionTriggerKind.TriggerCharacter": {
+      "class": "ok"
+    },
+    "CompletionTriggerKind.TriggerForIncompleteCompletions": {
+      "class": "ok"
+    },
+    "ConfigurationChangeEvent.affectsConfiguration": {
+      "class": "ok"
+    },
+    "ConfigurationTarget": {
+      "class": "ok"
+    },
+    "ConfigurationTarget.Global": {
+      "class": "ok"
+    },
+    "ConfigurationTarget.Workspace": {
+      "class": "ok"
+    },
+    "ConfigurationTarget.WorkspaceFolder": {
+      "class": "ok"
+    },
+    "CustomDocument.dispose": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomDocument.uri": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomDocumentBackup.delete": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomDocumentBackup.id": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomDocumentBackupContext.destination": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomDocumentContentChangeEvent.document": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomDocumentEditEvent.document": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomDocumentEditEvent.label": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomDocumentEditEvent.redo": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomDocumentEditEvent.undo": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomDocumentOpenContext.backupId": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomDocumentOpenContext.untitledDocumentData": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomEditorProvider.backupCustomDocument": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomEditorProvider.onDidChangeCustomDocument": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomEditorProvider.revertCustomDocument": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomEditorProvider.saveCustomDocument": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomEditorProvider.saveCustomDocumentAs": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomExecution": {
+      "class": "ok"
+    },
+    "CustomReadonlyEditorProvider.openCustomDocument": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomReadonlyEditorProvider.resolveCustomEditor": {
+      "class": "X",
+      "note": "webview"
+    },
+    "CustomTextEditorProvider.resolveCustomTextEditor": {
+      "class": "X",
+      "note": "webview"
+    },
+    "DataTransfer": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DataTransfer.forEach": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DataTransfer.get": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DataTransfer.set": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DataTransferFile.data": {
+      "class": "ok"
+    },
+    "DataTransferFile.name": {
+      "class": "ok"
+    },
+    "DataTransferFile.uri": {
+      "class": "ok"
+    },
+    "DataTransferItem": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DataTransferItem.asFile": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DataTransferItem.asString": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DataTransferItem.value": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DebugAdapter.handleMessage": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapter.onDidSendMessage": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterDescriptorFactory.createDebugAdapterDescriptor": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterExecutable": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterExecutable.args": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterExecutable.command": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterExecutable.options": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterExecutableOptions.cwd": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterExecutableOptions.env": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterInlineImplementation": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterNamedPipeServer": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterNamedPipeServer.path": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterServer": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterServer.host": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterServer.port": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterTracker.onDidSendMessage": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterTracker.onError": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterTracker.onExit": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterTracker.onWillReceiveMessage": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterTracker.onWillStartSession": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterTracker.onWillStopSession": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugAdapterTrackerFactory.createDebugAdapterTracker": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConfiguration.name": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConfiguration.request": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConfiguration.type": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConfigurationProvider.provideDebugConfigurations": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConfigurationProvider.resolveDebugConfiguration": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConfigurationProvider.resolveDebugConfigurationWithSubstitutedVariables": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConfigurationProviderTriggerKind": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConfigurationProviderTriggerKind.Dynamic": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConfigurationProviderTriggerKind.Initial": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConsole.append": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConsole.appendLine": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConsoleMode": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConsoleMode.MergeWithParent": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugConsoleMode.Separate": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSession.configuration": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSession.customRequest": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSession.getDebugProtocolBreakpoint": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSession.id": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSession.name": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSession.parentSession": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSession.type": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSession.workspaceFolder": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionCustomEvent.body": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionCustomEvent.event": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionCustomEvent.session": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionOptions.compact": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionOptions.consoleMode": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionOptions.lifecycleManagedByParent": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionOptions.noDebug": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionOptions.parentSession": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionOptions.suppressDebugStatusbar": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionOptions.suppressDebugToolbar": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionOptions.suppressDebugView": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionOptions.suppressSaveBeforeStart": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugSessionOptions.testRun": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugStackFrame": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugStackFrame.frameId": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugStackFrame.session": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugStackFrame.threadId": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugThread": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugThread.session": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DebugThread.threadId": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "DeclarationCoverage": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "DeclarationCoverage.executed": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "DeclarationCoverage.location": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "DeclarationCoverage.name": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "DeclarationProvider.provideDeclaration": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DecorationInstanceRenderOptions.dark": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "DecorationInstanceRenderOptions.light": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "DecorationOptions.hoverMessage": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "DecorationOptions.range": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "DecorationOptions.renderOptions": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "DecorationRangeBehavior": {
+      "class": "ok"
+    },
+    "DecorationRangeBehavior.ClosedClosed": {
+      "class": "ok"
+    },
+    "DecorationRangeBehavior.ClosedOpen": {
+      "class": "ok"
+    },
+    "DecorationRangeBehavior.OpenClosed": {
+      "class": "ok"
+    },
+    "DecorationRangeBehavior.OpenOpen": {
+      "class": "ok"
+    },
+    "DecorationRenderOptions.dark": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "DecorationRenderOptions.isWholeLine": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "DecorationRenderOptions.light": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "DecorationRenderOptions.overviewRulerLane": {
+      "class": "ok"
+    },
+    "DecorationRenderOptions.rangeBehavior": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "DefinitionProvider.provideDefinition": {
+      "class": "ok"
+    },
+    "Diagnostic": {
+      "class": "ok"
+    },
+    "Diagnostic.code": {
+      "class": "ok"
+    },
+    "Diagnostic.message": {
+      "class": "ok"
+    },
+    "Diagnostic.range": {
+      "class": "ok"
+    },
+    "Diagnostic.relatedInformation": {
+      "class": "ok"
+    },
+    "Diagnostic.severity": {
+      "class": "ok"
+    },
+    "Diagnostic.source": {
+      "class": "ok"
+    },
+    "Diagnostic.tags": {
+      "class": "ok"
+    },
+    "DiagnosticChangeEvent.uris": {
+      "class": "ok"
+    },
+    "DiagnosticCollection.clear": {
+      "class": "ok"
+    },
+    "DiagnosticCollection.delete": {
+      "class": "ok"
+    },
+    "DiagnosticCollection.dispose": {
+      "class": "ok"
+    },
+    "DiagnosticCollection.forEach": {
+      "class": "ok"
+    },
+    "DiagnosticCollection.get": {
+      "class": "ok"
+    },
+    "DiagnosticCollection.has": {
+      "class": "ok"
+    },
+    "DiagnosticCollection.name": {
+      "class": "ok"
+    },
+    "DiagnosticCollection.set": {
+      "class": "ok"
+    },
+    "DiagnosticRelatedInformation": {
+      "class": "ok"
+    },
+    "DiagnosticRelatedInformation.location": {
+      "class": "ok"
+    },
+    "DiagnosticRelatedInformation.message": {
+      "class": "ok"
+    },
+    "DiagnosticSeverity": {
+      "class": "ok"
+    },
+    "DiagnosticSeverity.Error": {
+      "class": "ok"
+    },
+    "DiagnosticSeverity.Hint": {
+      "class": "ok"
+    },
+    "DiagnosticSeverity.Information": {
+      "class": "ok"
+    },
+    "DiagnosticSeverity.Warning": {
+      "class": "ok"
+    },
+    "DiagnosticTag": {
+      "class": "ok"
+    },
+    "DiagnosticTag.Deprecated": {
+      "class": "ok"
+    },
+    "DiagnosticTag.Unnecessary": {
+      "class": "ok"
+    },
+    "Disposable": {
+      "class": "ok"
+    },
+    "Disposable.dispose": {
+      "class": "ok"
+    },
+    "Disposable.from": {
+      "class": "ok"
+    },
+    "DocumentColorProvider.provideColorPresentations": {
+      "class": "C",
+      "note": "needs a color picker"
+    },
+    "DocumentColorProvider.provideDocumentColors": {
+      "class": "ok"
+    },
+    "DocumentDropEdit": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "DocumentDropEdit.additionalEdit": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "DocumentDropEdit.insertText": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "DocumentDropEdit.kind": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "DocumentDropEdit.title": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "DocumentDropEdit.yieldTo": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "DocumentDropEditProvider.provideDocumentDropEdits": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "DocumentDropEditProvider.resolveDocumentDropEdit": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "DocumentDropEditProviderMetadata.dropMimeTypes": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "DocumentDropEditProviderMetadata.providedDropEditKinds": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "DocumentDropOrPasteEditKind": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentDropOrPasteEditKind.append": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentDropOrPasteEditKind.contains": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentDropOrPasteEditKind.Empty": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentDropOrPasteEditKind.intersects": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentDropOrPasteEditKind.Text": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentDropOrPasteEditKind.TextUpdateImports": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentDropOrPasteEditKind.value": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentFilter.language": {
+      "class": "ok"
+    },
+    "DocumentFilter.notebookType": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentFilter.pattern": {
+      "class": "ok"
+    },
+    "DocumentFilter.scheme": {
+      "class": "ok"
+    },
+    "DocumentFormattingEditProvider.provideDocumentFormattingEdits": {
+      "class": "ok"
+    },
+    "DocumentHighlight": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentHighlight.kind": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentHighlight.range": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentHighlightKind": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentHighlightKind.Read": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentHighlightKind.Text": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentHighlightKind.Write": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentHighlightProvider.provideDocumentHighlights": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentLink": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "DocumentLink.range": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "DocumentLink.target": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "DocumentLink.tooltip": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "DocumentLinkProvider.provideDocumentLinks": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "DocumentLinkProvider.resolveDocumentLink": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "DocumentPasteEdit": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteEdit.additionalEdit": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteEdit.insertText": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteEdit.kind": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteEdit.title": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteEdit.yieldTo": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteEditContext.only": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteEditContext.triggerKind": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteEditProvider.prepareDocumentPaste": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteEditProvider.provideDocumentPasteEdits": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteEditProvider.resolveDocumentPasteEdit": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteProviderMetadata.copyMimeTypes": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteProviderMetadata.pasteMimeTypes": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteProviderMetadata.providedPasteEditKinds": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteTriggerKind": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteTriggerKind.Automatic": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentPasteTriggerKind.PasteAs": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentRangeFormattingEditProvider.provideDocumentRangeFormattingEdits": {
+      "class": "ok"
+    },
+    "DocumentRangeFormattingEditProvider.provideDocumentRangesFormattingEdits": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "DocumentRangeSemanticTokensProvider.onDidChangeSemanticTokens": {
+      "class": "ok"
+    },
+    "DocumentRangeSemanticTokensProvider.provideDocumentRangeSemanticTokens": {
+      "class": "ok"
+    },
+    "DocumentSemanticTokensProvider.onDidChangeSemanticTokens": {
+      "class": "ok"
+    },
+    "DocumentSemanticTokensProvider.provideDocumentSemanticTokens": {
+      "class": "ok"
+    },
+    "DocumentSemanticTokensProvider.provideDocumentSemanticTokensEdits": {
+      "class": "ok"
+    },
+    "DocumentSymbol": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentSymbol.children": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentSymbol.detail": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentSymbol.kind": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentSymbol.name": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentSymbol.range": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentSymbol.selectionRange": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentSymbol.tags": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentSymbolProvider.provideDocumentSymbols": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "DocumentSymbolProviderMetadata.label": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "EndOfLine": {
+      "class": "ok"
+    },
+    "EndOfLine.CRLF": {
+      "class": "ok"
+    },
+    "EndOfLine.LF": {
+      "class": "ok"
+    },
+    "EnterAction.appendText": {
+      "class": "ok"
+    },
+    "EnterAction.indentAction": {
+      "class": "ok"
+    },
+    "EnterAction.removeText": {
+      "class": "ok"
+    },
+    "EnvironmentVariableCollection.append": {
+      "class": "ok"
+    },
+    "EnvironmentVariableCollection.clear": {
+      "class": "ok"
+    },
+    "EnvironmentVariableCollection.delete": {
+      "class": "ok"
+    },
+    "EnvironmentVariableCollection.description": {
+      "class": "ok"
+    },
+    "EnvironmentVariableCollection.forEach": {
+      "class": "ok"
+    },
+    "EnvironmentVariableCollection.get": {
+      "class": "ok"
+    },
+    "EnvironmentVariableCollection.persistent": {
+      "class": "ok"
+    },
+    "EnvironmentVariableCollection.prepend": {
+      "class": "ok"
+    },
+    "EnvironmentVariableCollection.replace": {
+      "class": "ok"
+    },
+    "EnvironmentVariableMutator.options": {
+      "class": "ok"
+    },
+    "EnvironmentVariableMutator.type": {
+      "class": "ok"
+    },
+    "EnvironmentVariableMutator.value": {
+      "class": "ok"
+    },
+    "EnvironmentVariableMutatorOptions.applyAtProcessCreation": {
+      "class": "ok"
+    },
+    "EnvironmentVariableMutatorOptions.applyAtShellIntegration": {
+      "class": "ok"
+    },
+    "EnvironmentVariableMutatorType": {
+      "class": "ok"
+    },
+    "EnvironmentVariableMutatorType.Append": {
+      "class": "ok"
+    },
+    "EnvironmentVariableMutatorType.Prepend": {
+      "class": "ok"
+    },
+    "EnvironmentVariableMutatorType.Replace": {
+      "class": "ok"
+    },
+    "EnvironmentVariableScope.workspaceFolder": {
+      "class": "ok"
+    },
+    "EvaluatableExpression": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "EvaluatableExpression.expression": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "EvaluatableExpression.range": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "EvaluatableExpressionProvider.provideEvaluatableExpression": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "EventEmitter": {
+      "class": "ok"
+    },
+    "EventEmitter.dispose": {
+      "class": "ok"
+    },
+    "EventEmitter.event": {
+      "class": "ok"
+    },
+    "EventEmitter.fire": {
+      "class": "ok"
+    },
+    "Extension.activate": {
+      "class": "ok"
+    },
+    "Extension.exports": {
+      "class": "ok"
+    },
+    "Extension.extensionKind": {
+      "class": "ok"
+    },
+    "Extension.extensionPath": {
+      "class": "ok"
+    },
+    "Extension.extensionUri": {
+      "class": "ok"
+    },
+    "Extension.id": {
+      "class": "ok"
+    },
+    "Extension.isActive": {
+      "class": "ok"
+    },
+    "Extension.packageJSON": {
+      "class": "ok"
+    },
+    "ExtensionContext.asAbsolutePath": {
+      "class": "ok"
+    },
+    "ExtensionContext.environmentVariableCollection": {
+      "class": "ok"
+    },
+    "ExtensionContext.extension": {
+      "class": "ok"
+    },
+    "ExtensionContext.extensionMode": {
+      "class": "ok"
+    },
+    "ExtensionContext.extensionPath": {
+      "class": "ok"
+    },
+    "ExtensionContext.extensionUri": {
+      "class": "ok"
+    },
+    "ExtensionContext.globalState": {
+      "class": "ok"
+    },
+    "ExtensionContext.globalStoragePath": {
+      "class": "ok"
+    },
+    "ExtensionContext.globalStorageUri": {
+      "class": "ok"
+    },
+    "ExtensionContext.languageModelAccessInformation": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ExtensionContext.logPath": {
+      "class": "ok"
+    },
+    "ExtensionContext.logUri": {
+      "class": "ok"
+    },
+    "ExtensionContext.secrets": {
+      "class": "ok"
+    },
+    "ExtensionContext.storagePath": {
+      "class": "ok"
+    },
+    "ExtensionContext.storageUri": {
+      "class": "ok"
+    },
+    "ExtensionContext.subscriptions": {
+      "class": "ok"
+    },
+    "ExtensionContext.workspaceState": {
+      "class": "ok"
+    },
+    "ExtensionKind": {
+      "class": "ok"
+    },
+    "ExtensionKind.UI": {
+      "class": "ok"
+    },
+    "ExtensionKind.Workspace": {
+      "class": "ok"
+    },
+    "ExtensionMode": {
+      "class": "ok"
+    },
+    "ExtensionMode.Development": {
+      "class": "ok"
+    },
+    "ExtensionMode.Production": {
+      "class": "ok"
+    },
+    "ExtensionMode.Test": {
+      "class": "ok"
+    },
+    "ExtensionTerminalOptions.color": {
+      "class": "ok"
+    },
+    "ExtensionTerminalOptions.iconPath": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "ExtensionTerminalOptions.isTransient": {
+      "class": "ok"
+    },
+    "ExtensionTerminalOptions.location": {
+      "class": "ok"
+    },
+    "ExtensionTerminalOptions.name": {
+      "class": "ok"
+    },
+    "ExtensionTerminalOptions.pty": {
+      "class": "ok"
+    },
+    "ExtensionTerminalOptions.shellIntegrationNonce": {
+      "class": "ok"
+    },
+    "FileChangeEvent.type": {
+      "class": "ok"
+    },
+    "FileChangeEvent.uri": {
+      "class": "ok"
+    },
+    "FileChangeType": {
+      "class": "ok"
+    },
+    "FileChangeType.Changed": {
+      "class": "ok"
+    },
+    "FileChangeType.Created": {
+      "class": "ok"
+    },
+    "FileChangeType.Deleted": {
+      "class": "ok"
+    },
+    "FileCoverage": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "FileCoverage.branchCoverage": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "FileCoverage.declarationCoverage": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "FileCoverage.fromDetails": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "FileCoverage.includesTests": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "FileCoverage.statementCoverage": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "FileCoverage.uri": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "FileCreateEvent.files": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "FileDecoration": {
+      "class": "ok"
+    },
+    "FileDecoration.badge": {
+      "class": "ok"
+    },
+    "FileDecoration.color": {
+      "class": "ok"
+    },
+    "FileDecoration.propagate": {
+      "class": "ok"
+    },
+    "FileDecoration.tooltip": {
+      "class": "ok"
+    },
+    "FileDecorationProvider.onDidChangeFileDecorations": {
+      "class": "ok"
+    },
+    "FileDecorationProvider.provideFileDecoration": {
+      "class": "ok"
+    },
+    "FileDeleteEvent.files": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "FilePermission": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "FilePermission.Readonly": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "FileRenameEvent.files": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "FileStat.ctime": {
+      "class": "ok"
+    },
+    "FileStat.mtime": {
+      "class": "ok"
+    },
+    "FileStat.permissions": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "FileStat.size": {
+      "class": "ok"
+    },
+    "FileStat.type": {
+      "class": "ok"
+    },
+    "FileSystem.copy": {
+      "class": "ok"
+    },
+    "FileSystem.createDirectory": {
+      "class": "ok"
+    },
+    "FileSystem.delete": {
+      "class": "ok"
+    },
+    "FileSystem.isWritableFileSystem": {
+      "class": "ok"
+    },
+    "FileSystem.readDirectory": {
+      "class": "ok"
+    },
+    "FileSystem.readFile": {
+      "class": "ok"
+    },
+    "FileSystem.rename": {
+      "class": "ok"
+    },
+    "FileSystem.stat": {
+      "class": "ok"
+    },
+    "FileSystem.writeFile": {
+      "class": "ok"
+    },
+    "FileSystemError": {
+      "class": "ok"
+    },
+    "FileSystemError.code": {
+      "class": "ok"
+    },
+    "FileSystemError.FileExists": {
+      "class": "ok"
+    },
+    "FileSystemError.FileIsADirectory": {
+      "class": "ok"
+    },
+    "FileSystemError.FileNotADirectory": {
+      "class": "ok"
+    },
+    "FileSystemError.FileNotFound": {
+      "class": "ok"
+    },
+    "FileSystemError.NoPermissions": {
+      "class": "ok"
+    },
+    "FileSystemError.Unavailable": {
+      "class": "ok"
+    },
+    "FileSystemProvider.copy": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "FileSystemProvider.createDirectory": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "FileSystemProvider.delete": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "FileSystemProvider.onDidChangeFile": {
+      "class": "ok"
+    },
+    "FileSystemProvider.readDirectory": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "FileSystemProvider.readFile": {
+      "class": "ok"
+    },
+    "FileSystemProvider.rename": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "FileSystemProvider.stat": {
+      "class": "ok"
+    },
+    "FileSystemProvider.watch": {
+      "class": "ok"
+    },
+    "FileSystemProvider.writeFile": {
+      "class": "ok"
+    },
+    "FileSystemWatcher.ignoreChangeEvents": {
+      "class": "ok"
+    },
+    "FileSystemWatcher.ignoreCreateEvents": {
+      "class": "ok"
+    },
+    "FileSystemWatcher.ignoreDeleteEvents": {
+      "class": "ok"
+    },
+    "FileSystemWatcher.onDidChange": {
+      "class": "ok"
+    },
+    "FileSystemWatcher.onDidCreate": {
+      "class": "ok"
+    },
+    "FileSystemWatcher.onDidDelete": {
+      "class": "ok"
+    },
+    "FileType": {
+      "class": "ok"
+    },
+    "FileType.Directory": {
+      "class": "ok"
+    },
+    "FileType.File": {
+      "class": "ok"
+    },
+    "FileType.SymbolicLink": {
+      "class": "ok"
+    },
+    "FileType.Unknown": {
+      "class": "ok"
+    },
+    "FileWillCreateEvent.files": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "FileWillCreateEvent.token": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "FileWillCreateEvent.waitUntil": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "FileWillDeleteEvent.files": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "FileWillDeleteEvent.token": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "FileWillDeleteEvent.waitUntil": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "FileWillRenameEvent.files": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "FileWillRenameEvent.token": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "FileWillRenameEvent.waitUntil": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "FoldingRange": {
+      "class": "ok"
+    },
+    "FoldingRange.end": {
+      "class": "ok"
+    },
+    "FoldingRange.kind": {
+      "class": "ok"
+    },
+    "FoldingRange.start": {
+      "class": "ok"
+    },
+    "FoldingRangeKind": {
+      "class": "ok"
+    },
+    "FoldingRangeKind.Comment": {
+      "class": "ok"
+    },
+    "FoldingRangeKind.Imports": {
+      "class": "ok"
+    },
+    "FoldingRangeKind.Region": {
+      "class": "ok"
+    },
+    "FoldingRangeProvider.onDidChangeFoldingRanges": {
+      "class": "ok"
+    },
+    "FoldingRangeProvider.provideFoldingRanges": {
+      "class": "ok"
+    },
+    "FormattingOptions.insertSpaces": {
+      "class": "ok"
+    },
+    "FormattingOptions.tabSize": {
+      "class": "ok"
+    },
+    "FunctionBreakpoint": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "FunctionBreakpoint.functionName": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "GlobalEnvironmentVariableCollection.getScoped": {
+      "class": "ok"
+    },
+    "Hover": {
+      "class": "ok"
+    },
+    "Hover.contents": {
+      "class": "ok"
+    },
+    "Hover.range": {
+      "class": "ok"
+    },
+    "HoverProvider.provideHover": {
+      "class": "ok"
+    },
+    "ImplementationProvider.provideImplementation": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "IndentAction": {
+      "class": "ok"
+    },
+    "IndentAction.Indent": {
+      "class": "ok"
+    },
+    "IndentAction.IndentOutdent": {
+      "class": "ok"
+    },
+    "IndentAction.None": {
+      "class": "ok"
+    },
+    "IndentAction.Outdent": {
+      "class": "ok"
+    },
+    "IndentationRule.decreaseIndentPattern": {
+      "class": "ok"
+    },
+    "IndentationRule.increaseIndentPattern": {
+      "class": "ok"
+    },
+    "IndentationRule.indentNextLinePattern": {
+      "class": "ok"
+    },
+    "IndentationRule.unIndentedLinePattern": {
+      "class": "ok"
+    },
+    "InlayHint": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHint.kind": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHint.label": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHint.paddingLeft": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHint.paddingRight": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHint.position": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHint.textEdits": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHint.tooltip": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHintKind": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHintKind.Parameter": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHintKind.Type": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHintLabelPart": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHintLabelPart.command": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHintLabelPart.location": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHintLabelPart.tooltip": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHintLabelPart.value": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHintsProvider.onDidChangeInlayHints": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHintsProvider.provideInlayHints": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlayHintsProvider.resolveInlayHint": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "InlineCompletionContext.selectedCompletionInfo": {
+      "class": "ok"
+    },
+    "InlineCompletionContext.triggerKind": {
+      "class": "ok"
+    },
+    "InlineCompletionItem": {
+      "class": "ok"
+    },
+    "InlineCompletionItem.command": {
+      "class": "ok"
+    },
+    "InlineCompletionItem.filterText": {
+      "class": "ok"
+    },
+    "InlineCompletionItem.insertText": {
+      "class": "ok"
+    },
+    "InlineCompletionItem.range": {
+      "class": "ok"
+    },
+    "InlineCompletionItemProvider.provideInlineCompletionItems": {
+      "class": "ok"
+    },
+    "InlineCompletionList": {
+      "class": "ok"
+    },
+    "InlineCompletionList.items": {
+      "class": "ok"
+    },
+    "InlineCompletionTriggerKind": {
+      "class": "ok"
+    },
+    "InlineCompletionTriggerKind.Automatic": {
+      "class": "ok"
+    },
+    "InlineCompletionTriggerKind.Invoke": {
+      "class": "ok"
+    },
+    "InlineValueContext.frameId": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValueContext.stoppedLocation": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValueEvaluatableExpression": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValueEvaluatableExpression.expression": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValueEvaluatableExpression.range": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValuesProvider.onDidChangeInlineValues": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValuesProvider.provideInlineValues": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValueText": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValueText.range": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValueText.text": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValueVariableLookup": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValueVariableLookup.caseSensitiveLookup": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValueVariableLookup.range": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InlineValueVariableLookup.variableName": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "InputBox.buttons": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBox.onDidAccept": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBox.onDidChangeValue": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBox.onDidTriggerButton": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBox.password": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBox.placeholder": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBox.prompt": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBox.validationMessage": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBox.value": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBox.valueSelection": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxOptions.ignoreFocusOut": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxOptions.password": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxOptions.placeHolder": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxOptions.prompt": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxOptions.title": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxOptions.validateInput": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxOptions.value": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxOptions.valueSelection": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxValidationMessage.message": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxValidationMessage.severity": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxValidationSeverity": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxValidationSeverity.Error": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxValidationSeverity.Info": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "InputBoxValidationSeverity.Warning": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "LanguageConfiguration.__characterPairSupport": {
+      "class": "ok"
+    },
+    "LanguageConfiguration.__electricCharacterSupport": {
+      "class": "ok"
+    },
+    "LanguageConfiguration.autoClosingPairs": {
+      "class": "ok"
+    },
+    "LanguageConfiguration.brackets": {
+      "class": "ok"
+    },
+    "LanguageConfiguration.comments": {
+      "class": "ok"
+    },
+    "LanguageConfiguration.indentationRules": {
+      "class": "ok"
+    },
+    "LanguageConfiguration.onEnterRules": {
+      "class": "ok"
+    },
+    "LanguageConfiguration.wordPattern": {
+      "class": "ok"
+    },
+    "LanguageModelAccessInformation.canSendRequest": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelAccessInformation.onDidChange": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChat.countTokens": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChat.family": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChat.id": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChat.maxInputTokens": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChat.name": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChat.sendRequest": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChat.vendor": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChat.version": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatCapabilities.imageInput": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatCapabilities.toolCalling": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatInformation.capabilities": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatInformation.detail": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatInformation.family": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatInformation.id": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatInformation.maxInputTokens": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatInformation.maxOutputTokens": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatInformation.name": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatInformation.tooltip": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatInformation.version": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatMessage": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatMessage.Assistant": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatMessage.content": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatMessage.name": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatMessage.role": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatMessage.User": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatMessageRole": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatMessageRole.Assistant": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatMessageRole.User": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatProvider.onDidChangeLanguageModelChatInformation": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatProvider.provideLanguageModelChatInformation": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatProvider.provideLanguageModelChatResponse": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatProvider.provideTokenCount": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatRequestMessage.content": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatRequestMessage.name": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatRequestMessage.role": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatRequestOptions.justification": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatRequestOptions.modelOptions": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatRequestOptions.toolMode": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatRequestOptions.tools": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatResponse.stream": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatResponse.text": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatSelector.family": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatSelector.id": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatSelector.vendor": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatSelector.version": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatTool.description": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatTool.inputSchema": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatTool.name": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatToolMode": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatToolMode.Auto": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelChatToolMode.Required": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelDataPart": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelDataPart.data": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelDataPart.image": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelDataPart.json": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelDataPart.mimeType": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelDataPart.text": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelError": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelError.Blocked": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelError.code": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelError.NoPermissions": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelError.NotFound": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelPromptTsxPart": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelPromptTsxPart.value": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelTextPart": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelTextPart.value": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelTool.invoke": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelTool.prepareInvocation": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolCallPart": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolCallPart.callId": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolCallPart.input": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolCallPart.name": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolConfirmationMessages.message": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolConfirmationMessages.title": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolInformation.description": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolInformation.inputSchema": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolInformation.name": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolInformation.tags": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolInvocationOptions.input": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolInvocationOptions.tokenizationOptions": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolInvocationOptions.toolInvocationToken": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolInvocationPrepareOptions.input": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolResult": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolResult.content": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolResultPart": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolResultPart.callId": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolResultPart.content": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolTokenizationOptions.countTokens": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageModelToolTokenizationOptions.tokenBudget": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "LanguageStatusItem.accessibilityInformation": {
+      "class": "B",
+      "note": "stored, not drawn"
+    },
+    "LanguageStatusItem.busy": {
+      "class": "ok"
+    },
+    "LanguageStatusItem.command": {
+      "class": "ok"
+    },
+    "LanguageStatusItem.detail": {
+      "class": "ok"
+    },
+    "LanguageStatusItem.dispose": {
+      "class": "ok"
+    },
+    "LanguageStatusItem.id": {
+      "class": "ok"
+    },
+    "LanguageStatusItem.name": {
+      "class": "ok"
+    },
+    "LanguageStatusItem.selector": {
+      "class": "ok"
+    },
+    "LanguageStatusItem.severity": {
+      "class": "ok"
+    },
+    "LanguageStatusItem.text": {
+      "class": "ok"
+    },
+    "LanguageStatusSeverity": {
+      "class": "ok"
+    },
+    "LanguageStatusSeverity.Error": {
+      "class": "ok"
+    },
+    "LanguageStatusSeverity.Information": {
+      "class": "ok"
+    },
+    "LanguageStatusSeverity.Warning": {
+      "class": "ok"
+    },
+    "LineCommentRule.comment": {
+      "class": "ok"
+    },
+    "LineCommentRule.noIndent": {
+      "class": "ok"
+    },
+    "LinkedEditingRangeProvider.provideLinkedEditingRanges": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "LinkedEditingRanges": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "LinkedEditingRanges.ranges": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "LinkedEditingRanges.wordPattern": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "Location": {
+      "class": "ok"
+    },
+    "Location.range": {
+      "class": "ok"
+    },
+    "Location.uri": {
+      "class": "ok"
+    },
+    "LocationLink.originSelectionRange": {
+      "class": "ok"
+    },
+    "LocationLink.targetRange": {
+      "class": "ok"
+    },
+    "LocationLink.targetSelectionRange": {
+      "class": "ok"
+    },
+    "LocationLink.targetUri": {
+      "class": "ok"
+    },
+    "LogLevel": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "LogLevel.Debug": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "LogLevel.Error": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "LogLevel.Info": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "LogLevel.Off": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "LogLevel.Trace": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "LogLevel.Warning": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "LogOutputChannel.debug": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "LogOutputChannel.error": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "LogOutputChannel.info": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "LogOutputChannel.logLevel": {
+      "class": "B",
+      "note": "the level is fixed at Info"
+    },
+    "LogOutputChannel.onDidChangeLogLevel": {
+      "class": "B",
+      "note": "the level is fixed at Info"
+    },
+    "LogOutputChannel.trace": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "LogOutputChannel.warn": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "MarkdownString": {
+      "class": "ok"
+    },
+    "MarkdownString.appendCodeblock": {
+      "class": "ok"
+    },
+    "MarkdownString.appendMarkdown": {
+      "class": "ok"
+    },
+    "MarkdownString.appendText": {
+      "class": "ok"
+    },
+    "MarkdownString.baseUri": {
+      "class": "ok"
+    },
+    "MarkdownString.isTrusted": {
+      "class": "ok"
+    },
+    "MarkdownString.supportHtml": {
+      "class": "ok"
+    },
+    "MarkdownString.supportThemeIcons": {
+      "class": "ok"
+    },
+    "MarkdownString.value": {
+      "class": "ok"
+    },
+    "McpHttpServerDefinition": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpHttpServerDefinition.headers": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpHttpServerDefinition.label": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpHttpServerDefinition.uri": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpHttpServerDefinition.version": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpServerDefinitionProvider.onDidChangeMcpServerDefinitions": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpServerDefinitionProvider.provideMcpServerDefinitions": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpServerDefinitionProvider.resolveMcpServerDefinition": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpStdioServerDefinition": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpStdioServerDefinition.args": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpStdioServerDefinition.command": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpStdioServerDefinition.cwd": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpStdioServerDefinition.env": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpStdioServerDefinition.label": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "McpStdioServerDefinition.version": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "Memento.get": {
+      "class": "ok"
+    },
+    "Memento.keys": {
+      "class": "ok"
+    },
+    "Memento.update": {
+      "class": "ok"
+    },
+    "MessageItem.isCloseAffordance": {
+      "class": "ok"
+    },
+    "MessageItem.title": {
+      "class": "ok"
+    },
+    "MessageOptions.detail": {
+      "class": "ok"
+    },
+    "MessageOptions.modal": {
+      "class": "ok"
+    },
+    "NotebookCell.document": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCell.executionSummary": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCell.index": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCell.kind": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCell.metadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCell.notebook": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCell.outputs": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellData": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellData.executionSummary": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellData.kind": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellData.languageId": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellData.metadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellData.outputs": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellData.value": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecution.appendOutput": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecution.appendOutputItems": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecution.cell": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecution.clearOutput": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecution.end": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecution.executionOrder": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecution.replaceOutput": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecution.replaceOutputItems": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecution.start": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecution.token": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecutionSummary.executionOrder": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecutionSummary.success": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellExecutionSummary.timing": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellKind": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellKind.Code": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellKind.Markup": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellOutput": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellOutput.items": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellOutput.metadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellOutputItem": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellOutputItem.data": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellOutputItem.error": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellOutputItem.json": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellOutputItem.mime": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellOutputItem.stderr": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellOutputItem.stdout": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellOutputItem.text": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellStatusBarAlignment": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellStatusBarAlignment.Left": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellStatusBarAlignment.Right": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellStatusBarItem": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellStatusBarItem.accessibilityInformation": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellStatusBarItem.alignment": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellStatusBarItem.command": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellStatusBarItem.priority": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellStatusBarItem.text": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellStatusBarItem.tooltip": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellStatusBarItemProvider.onDidChangeCellStatusBarItems": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookCellStatusBarItemProvider.provideCellStatusBarItems": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.createNotebookCellExecution": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.description": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.detail": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.dispose": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.executeHandler": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.id": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.interruptHandler": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.label": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.notebookType": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.onDidChangeSelectedNotebooks": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.supportedLanguages": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.supportsExecutionOrder": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookController.updateNotebookAffinity": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookControllerAffinity": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookControllerAffinity.Default": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookControllerAffinity.Preferred": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookData": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookData.cells": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookData.metadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocument.cellAt": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocument.cellCount": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocument.getCells": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocument.isClosed": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocument.isDirty": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocument.isUntitled": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocument.metadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocument.notebookType": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocument.save": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocument.uri": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocument.version": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentCellChange.cell": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentCellChange.document": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentCellChange.executionSummary": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentCellChange.metadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentCellChange.outputs": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentChangeEvent.cellChanges": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentChangeEvent.contentChanges": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentChangeEvent.metadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentChangeEvent.notebook": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentContentChange.addedCells": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentContentChange.range": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentContentChange.removedCells": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentContentOptions.transientCellMetadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentContentOptions.transientDocumentMetadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentContentOptions.transientOutputs": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentShowOptions.preserveFocus": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentShowOptions.preview": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentShowOptions.selections": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentShowOptions.viewColumn": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentWillSaveEvent.notebook": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentWillSaveEvent.reason": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentWillSaveEvent.token": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookDocumentWillSaveEvent.waitUntil": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEdit": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEdit.deleteCells": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEdit.insertCells": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEdit.newCellMetadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEdit.newCells": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEdit.newNotebookMetadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEdit.range": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEdit.replaceCells": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEdit.updateCellMetadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEdit.updateNotebookMetadata": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditor.notebook": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditor.revealRange": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditor.selection": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditor.selections": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditor.viewColumn": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditor.visibleRanges": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditorRevealType": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditorRevealType.AtTop": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditorRevealType.Default": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditorRevealType.InCenter": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditorRevealType.InCenterIfOutsideViewport": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditorSelectionChangeEvent.notebookEditor": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditorSelectionChangeEvent.selections": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditorVisibleRangesChangeEvent.notebookEditor": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookEditorVisibleRangesChangeEvent.visibleRanges": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookRange": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookRange.end": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookRange.isEmpty": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookRange.start": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookRange.with": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookRendererMessaging.onDidReceiveMessage": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookRendererMessaging.postMessage": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookSerializer.deserializeNotebook": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "NotebookSerializer.serializeNotebook": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "OnEnterRule.action": {
+      "class": "ok"
+    },
+    "OnEnterRule.afterText": {
+      "class": "ok"
+    },
+    "OnEnterRule.beforeText": {
+      "class": "ok"
+    },
+    "OnEnterRule.previousLineText": {
+      "class": "ok"
+    },
+    "OnTypeFormattingEditProvider.provideOnTypeFormattingEdits": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "OpenDialogOptions.canSelectFiles": {
+      "class": "ok"
+    },
+    "OpenDialogOptions.canSelectFolders": {
+      "class": "ok"
+    },
+    "OpenDialogOptions.canSelectMany": {
+      "class": "ok"
+    },
+    "OpenDialogOptions.defaultUri": {
+      "class": "ok"
+    },
+    "OpenDialogOptions.filters": {
+      "class": "ok"
+    },
+    "OpenDialogOptions.openLabel": {
+      "class": "ok"
+    },
+    "OpenDialogOptions.title": {
+      "class": "ok"
+    },
+    "OutputChannel.append": {
+      "class": "ok"
+    },
+    "OutputChannel.appendLine": {
+      "class": "ok"
+    },
+    "OutputChannel.clear": {
+      "class": "A",
+      "note": "no-op: the output log is append-only"
+    },
+    "OutputChannel.dispose": {
+      "class": "ok"
+    },
+    "OutputChannel.hide": {
+      "class": "ok"
+    },
+    "OutputChannel.name": {
+      "class": "ok"
+    },
+    "OutputChannel.replace": {
+      "class": "A",
+      "note": "no-op: the output log is append-only"
+    },
+    "OutputChannel.show": {
+      "class": "ok"
+    },
+    "OverviewRulerLane": {
+      "class": "ok"
+    },
+    "OverviewRulerLane.Center": {
+      "class": "ok"
+    },
+    "OverviewRulerLane.Full": {
+      "class": "ok"
+    },
+    "OverviewRulerLane.Left": {
+      "class": "ok"
+    },
+    "OverviewRulerLane.Right": {
+      "class": "ok"
+    },
+    "ParameterInformation": {
+      "class": "ok"
+    },
+    "ParameterInformation.documentation": {
+      "class": "ok"
+    },
+    "ParameterInformation.label": {
+      "class": "ok"
+    },
+    "Position": {
+      "class": "ok"
+    },
+    "Position.character": {
+      "class": "ok"
+    },
+    "Position.compareTo": {
+      "class": "ok"
+    },
+    "Position.isAfter": {
+      "class": "ok"
+    },
+    "Position.isAfterOrEqual": {
+      "class": "ok"
+    },
+    "Position.isBefore": {
+      "class": "ok"
+    },
+    "Position.isBeforeOrEqual": {
+      "class": "ok"
+    },
+    "Position.isEqual": {
+      "class": "ok"
+    },
+    "Position.line": {
+      "class": "ok"
+    },
+    "Position.translate": {
+      "class": "ok"
+    },
+    "Position.with": {
+      "class": "ok"
+    },
+    "PreparedToolInvocation.confirmationMessages": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "PreparedToolInvocation.invocationMessage": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "PrepareLanguageModelChatModelOptions.silent": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ProcessExecution": {
+      "class": "ok"
+    },
+    "ProcessExecution.args": {
+      "class": "ok"
+    },
+    "ProcessExecution.options": {
+      "class": "ok"
+    },
+    "ProcessExecution.process": {
+      "class": "ok"
+    },
+    "ProcessExecutionOptions.cwd": {
+      "class": "ok"
+    },
+    "ProcessExecutionOptions.env": {
+      "class": "ok"
+    },
+    "Progress.report": {
+      "class": "ok"
+    },
+    "ProgressLocation": {
+      "class": "ok"
+    },
+    "ProgressLocation.Notification": {
+      "class": "ok"
+    },
+    "ProgressLocation.SourceControl": {
+      "class": "ok"
+    },
+    "ProgressLocation.Window": {
+      "class": "ok"
+    },
+    "ProgressOptions.cancellable": {
+      "class": "ok"
+    },
+    "ProgressOptions.location": {
+      "class": "ok"
+    },
+    "ProgressOptions.title": {
+      "class": "ok"
+    },
+    "ProvideLanguageModelChatResponseOptions.modelOptions": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ProvideLanguageModelChatResponseOptions.toolMode": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "ProvideLanguageModelChatResponseOptions.tools": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "Pseudoterminal.close": {
+      "class": "ok"
+    },
+    "Pseudoterminal.handleInput": {
+      "class": "ok"
+    },
+    "Pseudoterminal.onDidChangeName": {
+      "class": "ok"
+    },
+    "Pseudoterminal.onDidClose": {
+      "class": "ok"
+    },
+    "Pseudoterminal.onDidOverrideDimensions": {
+      "class": "ok"
+    },
+    "Pseudoterminal.onDidWrite": {
+      "class": "ok"
+    },
+    "Pseudoterminal.open": {
+      "class": "ok"
+    },
+    "Pseudoterminal.setDimensions": {
+      "class": "ok"
+    },
+    "QuickDiffProvider.provideOriginalResource": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "QuickInput.busy": {
+      "class": "ok"
+    },
+    "QuickInput.dispose": {
+      "class": "ok"
+    },
+    "QuickInput.enabled": {
+      "class": "ok"
+    },
+    "QuickInput.hide": {
+      "class": "ok"
+    },
+    "QuickInput.ignoreFocusOut": {
+      "class": "ok"
+    },
+    "QuickInput.onDidHide": {
+      "class": "ok"
+    },
+    "QuickInput.show": {
+      "class": "ok"
+    },
+    "QuickInput.step": {
+      "class": "ok"
+    },
+    "QuickInput.title": {
+      "class": "ok"
+    },
+    "QuickInput.totalSteps": {
+      "class": "ok"
+    },
+    "QuickInputButton.iconPath": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "QuickInputButton.location": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "QuickInputButton.toggle": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "QuickInputButton.tooltip": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "QuickInputButtonLocation": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "QuickInputButtonLocation.Inline": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "QuickInputButtonLocation.Input": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "QuickInputButtonLocation.Title": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "QuickInputButtons": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "QuickInputButtons.Back": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "QuickPick.activeItems": {
+      "class": "ok"
+    },
+    "QuickPick.buttons": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "QuickPick.canSelectMany": {
+      "class": "ok"
+    },
+    "QuickPick.items": {
+      "class": "ok"
+    },
+    "QuickPick.keepScrollPosition": {
+      "class": "ok"
+    },
+    "QuickPick.matchOnDescription": {
+      "class": "ok"
+    },
+    "QuickPick.matchOnDetail": {
+      "class": "ok"
+    },
+    "QuickPick.onDidAccept": {
+      "class": "ok"
+    },
+    "QuickPick.onDidChangeActive": {
+      "class": "ok"
+    },
+    "QuickPick.onDidChangeSelection": {
+      "class": "ok"
+    },
+    "QuickPick.onDidChangeValue": {
+      "class": "ok"
+    },
+    "QuickPick.onDidTriggerButton": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "QuickPick.onDidTriggerItemButton": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "QuickPick.placeholder": {
+      "class": "ok"
+    },
+    "QuickPick.prompt": {
+      "class": "ok"
+    },
+    "QuickPick.selectedItems": {
+      "class": "ok"
+    },
+    "QuickPick.value": {
+      "class": "ok"
+    },
+    "QuickPickItem.alwaysShow": {
+      "class": "ok"
+    },
+    "QuickPickItem.buttons": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "QuickPickItem.description": {
+      "class": "ok"
+    },
+    "QuickPickItem.detail": {
+      "class": "ok"
+    },
+    "QuickPickItem.iconPath": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "QuickPickItem.kind": {
+      "class": "ok"
+    },
+    "QuickPickItem.label": {
+      "class": "ok"
+    },
+    "QuickPickItem.picked": {
+      "class": "ok"
+    },
+    "QuickPickItem.resourceUri": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "QuickPickItemButtonEvent.button": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "QuickPickItemButtonEvent.item": {
+      "class": "B",
+      "note": "#915: quick input"
+    },
+    "QuickPickItemKind": {
+      "class": "ok"
+    },
+    "QuickPickItemKind.Default": {
+      "class": "ok"
+    },
+    "QuickPickItemKind.Separator": {
+      "class": "ok"
+    },
+    "QuickPickOptions.canPickMany": {
+      "class": "ok"
+    },
+    "QuickPickOptions.ignoreFocusOut": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "QuickPickOptions.matchOnDescription": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "QuickPickOptions.matchOnDetail": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "QuickPickOptions.onDidSelectItem": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "QuickPickOptions.placeHolder": {
+      "class": "ok"
+    },
+    "QuickPickOptions.prompt": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "QuickPickOptions.title": {
+      "class": "ok"
+    },
+    "Range": {
+      "class": "ok"
+    },
+    "Range.contains": {
+      "class": "ok"
+    },
+    "Range.end": {
+      "class": "ok"
+    },
+    "Range.intersection": {
+      "class": "ok"
+    },
+    "Range.isEmpty": {
+      "class": "ok"
+    },
+    "Range.isEqual": {
+      "class": "ok"
+    },
+    "Range.isSingleLine": {
+      "class": "ok"
+    },
+    "Range.start": {
+      "class": "ok"
+    },
+    "Range.union": {
+      "class": "ok"
+    },
+    "Range.with": {
+      "class": "ok"
+    },
+    "ReferenceContext.includeDeclaration": {
+      "class": "ok"
+    },
+    "ReferenceProvider.provideReferences": {
+      "class": "ok"
+    },
+    "RelativePattern": {
+      "class": "ok"
+    },
+    "RelativePattern.base": {
+      "class": "ok"
+    },
+    "RelativePattern.baseUri": {
+      "class": "ok"
+    },
+    "RelativePattern.pattern": {
+      "class": "ok"
+    },
+    "RenameProvider.prepareRename": {
+      "class": "ok"
+    },
+    "RenameProvider.provideRenameEdits": {
+      "class": "ok"
+    },
+    "RunOptions.reevaluateOnRerun": {
+      "class": "ok"
+    },
+    "SaveDialogOptions.defaultUri": {
+      "class": "ok"
+    },
+    "SaveDialogOptions.filters": {
+      "class": "ok"
+    },
+    "SaveDialogOptions.saveLabel": {
+      "class": "ok"
+    },
+    "SaveDialogOptions.title": {
+      "class": "ok"
+    },
+    "SecretStorage.delete": {
+      "class": "ok"
+    },
+    "SecretStorage.get": {
+      "class": "ok"
+    },
+    "SecretStorage.keys": {
+      "class": "ok"
+    },
+    "SecretStorage.onDidChange": {
+      "class": "ok"
+    },
+    "SecretStorage.store": {
+      "class": "ok"
+    },
+    "SecretStorageChangeEvent.key": {
+      "class": "ok"
+    },
+    "SelectedCompletionInfo.range": {
+      "class": "ok"
+    },
+    "SelectedCompletionInfo.text": {
+      "class": "ok"
+    },
+    "Selection": {
+      "class": "ok"
+    },
+    "Selection.active": {
+      "class": "ok"
+    },
+    "Selection.anchor": {
+      "class": "ok"
+    },
+    "Selection.isReversed": {
+      "class": "ok"
+    },
+    "SelectionRange": {
+      "class": "ok"
+    },
+    "SelectionRange.parent": {
+      "class": "ok"
+    },
+    "SelectionRange.range": {
+      "class": "ok"
+    },
+    "SelectionRangeProvider.provideSelectionRanges": {
+      "class": "ok"
+    },
+    "SemanticTokens": {
+      "class": "ok"
+    },
+    "SemanticTokens.data": {
+      "class": "ok"
+    },
+    "SemanticTokens.resultId": {
+      "class": "ok"
+    },
+    "SemanticTokensBuilder": {
+      "class": "ok"
+    },
+    "SemanticTokensBuilder.build": {
+      "class": "ok"
+    },
+    "SemanticTokensBuilder.push": {
+      "class": "ok"
+    },
+    "SemanticTokensEdit": {
+      "class": "ok"
+    },
+    "SemanticTokensEdit.data": {
+      "class": "ok"
+    },
+    "SemanticTokensEdit.deleteCount": {
+      "class": "ok"
+    },
+    "SemanticTokensEdit.start": {
+      "class": "ok"
+    },
+    "SemanticTokensEdits": {
+      "class": "ok"
+    },
+    "SemanticTokensEdits.edits": {
+      "class": "ok"
+    },
+    "SemanticTokensEdits.resultId": {
+      "class": "ok"
+    },
+    "SemanticTokensLegend": {
+      "class": "ok"
+    },
+    "SemanticTokensLegend.tokenModifiers": {
+      "class": "ok"
+    },
+    "SemanticTokensLegend.tokenTypes": {
+      "class": "ok"
+    },
+    "ShellExecution": {
+      "class": "ok"
+    },
+    "ShellExecution.args": {
+      "class": "ok"
+    },
+    "ShellExecution.command": {
+      "class": "ok"
+    },
+    "ShellExecution.commandLine": {
+      "class": "ok"
+    },
+    "ShellExecution.options": {
+      "class": "ok"
+    },
+    "ShellExecutionOptions.cwd": {
+      "class": "ok"
+    },
+    "ShellExecutionOptions.env": {
+      "class": "ok"
+    },
+    "ShellExecutionOptions.executable": {
+      "class": "ok"
+    },
+    "ShellExecutionOptions.shellArgs": {
+      "class": "ok"
+    },
+    "ShellExecutionOptions.shellQuoting": {
+      "class": "ok"
+    },
+    "ShellQuotedString.quoting": {
+      "class": "ok"
+    },
+    "ShellQuotedString.value": {
+      "class": "ok"
+    },
+    "ShellQuoting": {
+      "class": "ok"
+    },
+    "ShellQuoting.Escape": {
+      "class": "ok"
+    },
+    "ShellQuoting.Strong": {
+      "class": "ok"
+    },
+    "ShellQuoting.Weak": {
+      "class": "ok"
+    },
+    "ShellQuotingOptions.escape": {
+      "class": "ok"
+    },
+    "ShellQuotingOptions.strong": {
+      "class": "ok"
+    },
+    "ShellQuotingOptions.weak": {
+      "class": "ok"
+    },
+    "SignatureHelp": {
+      "class": "ok"
+    },
+    "SignatureHelp.activeParameter": {
+      "class": "ok"
+    },
+    "SignatureHelp.activeSignature": {
+      "class": "ok"
+    },
+    "SignatureHelp.signatures": {
+      "class": "ok"
+    },
+    "SignatureHelpContext.activeSignatureHelp": {
+      "class": "ok"
+    },
+    "SignatureHelpContext.isRetrigger": {
+      "class": "ok"
+    },
+    "SignatureHelpContext.triggerCharacter": {
+      "class": "ok"
+    },
+    "SignatureHelpContext.triggerKind": {
+      "class": "ok"
+    },
+    "SignatureHelpProvider.provideSignatureHelp": {
+      "class": "ok"
+    },
+    "SignatureHelpProviderMetadata.retriggerCharacters": {
+      "class": "ok"
+    },
+    "SignatureHelpProviderMetadata.triggerCharacters": {
+      "class": "ok"
+    },
+    "SignatureHelpTriggerKind": {
+      "class": "ok"
+    },
+    "SignatureHelpTriggerKind.ContentChange": {
+      "class": "ok"
+    },
+    "SignatureHelpTriggerKind.Invoke": {
+      "class": "ok"
+    },
+    "SignatureHelpTriggerKind.TriggerCharacter": {
+      "class": "ok"
+    },
+    "SignatureInformation": {
+      "class": "ok"
+    },
+    "SignatureInformation.activeParameter": {
+      "class": "ok"
+    },
+    "SignatureInformation.documentation": {
+      "class": "ok"
+    },
+    "SignatureInformation.label": {
+      "class": "ok"
+    },
+    "SignatureInformation.parameters": {
+      "class": "ok"
+    },
+    "SnippetString": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SnippetString.appendChoice": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SnippetString.appendPlaceholder": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SnippetString.appendTabstop": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SnippetString.appendText": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SnippetString.appendVariable": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SnippetString.value": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SnippetTextEdit": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SnippetTextEdit.insert": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SnippetTextEdit.keepWhitespace": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SnippetTextEdit.range": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SnippetTextEdit.replace": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SnippetTextEdit.snippet": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "SourceBreakpoint": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "SourceBreakpoint.location": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "SourceControl.acceptInputCommand": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControl.commitTemplate": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControl.count": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControl.createResourceGroup": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControl.dispose": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControl.id": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControl.inputBox": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControl.label": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControl.quickDiffProvider": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControl.rootUri": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControl.statusBarCommands": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlInputBox.enabled": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlInputBox.placeholder": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlInputBox.value": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlInputBox.visible": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceDecorations.dark": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceDecorations.faded": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceDecorations.light": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceDecorations.strikeThrough": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceDecorations.tooltip": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceGroup.contextValue": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceGroup.dispose": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceGroup.hideWhenEmpty": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceGroup.id": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceGroup.label": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceGroup.resourceStates": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceState.command": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceState.contextValue": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceState.decorations": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceState.resourceUri": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "SourceControlResourceThemableDecorations.iconPath": {
+      "class": "C",
+      "note": "needs the source control surface"
+    },
+    "StatementCoverage": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "StatementCoverage.branches": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "StatementCoverage.executed": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "StatementCoverage.location": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "StatusBarAlignment": {
+      "class": "ok"
+    },
+    "StatusBarAlignment.Left": {
+      "class": "ok"
+    },
+    "StatusBarAlignment.Right": {
+      "class": "ok"
+    },
+    "StatusBarItem.accessibilityInformation": {
+      "class": "B",
+      "note": "stored, not drawn"
+    },
+    "StatusBarItem.alignment": {
+      "class": "ok"
+    },
+    "StatusBarItem.backgroundColor": {
+      "class": "B",
+      "note": "stored, not drawn"
+    },
+    "StatusBarItem.color": {
+      "class": "B",
+      "note": "stored, not drawn"
+    },
+    "StatusBarItem.command": {
+      "class": "ok"
+    },
+    "StatusBarItem.dispose": {
+      "class": "ok"
+    },
+    "StatusBarItem.hide": {
+      "class": "ok"
+    },
+    "StatusBarItem.id": {
+      "class": "ok"
+    },
+    "StatusBarItem.name": {
+      "class": "ok"
+    },
+    "StatusBarItem.priority": {
+      "class": "ok"
+    },
+    "StatusBarItem.show": {
+      "class": "ok"
+    },
+    "StatusBarItem.text": {
+      "class": "ok"
+    },
+    "StatusBarItem.tooltip": {
+      "class": "B",
+      "note": "stored, not drawn"
+    },
+    "SymbolInformation": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolInformation.containerName": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolInformation.kind": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolInformation.location": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolInformation.name": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolInformation.tags": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Array": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Boolean": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Class": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Constant": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Constructor": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Enum": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.EnumMember": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Event": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Field": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.File": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Function": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Interface": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Key": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Method": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Module": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Namespace": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Null": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Number": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Object": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Operator": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Package": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Property": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.String": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Struct": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.TypeParameter": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolKind.Variable": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolTag": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SymbolTag.Deprecated": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "SyntaxTokenType": {
+      "class": "ok"
+    },
+    "SyntaxTokenType.Comment": {
+      "class": "ok"
+    },
+    "SyntaxTokenType.Other": {
+      "class": "ok"
+    },
+    "SyntaxTokenType.RegEx": {
+      "class": "ok"
+    },
+    "SyntaxTokenType.String": {
+      "class": "ok"
+    },
+    "Tab.group": {
+      "class": "ok"
+    },
+    "Tab.input": {
+      "class": "ok"
+    },
+    "Tab.isActive": {
+      "class": "ok"
+    },
+    "Tab.isDirty": {
+      "class": "ok"
+    },
+    "Tab.isPinned": {
+      "class": "ok"
+    },
+    "Tab.isPreview": {
+      "class": "ok"
+    },
+    "Tab.label": {
+      "class": "ok"
+    },
+    "TabChangeEvent.changed": {
+      "class": "ok"
+    },
+    "TabChangeEvent.closed": {
+      "class": "ok"
+    },
+    "TabChangeEvent.opened": {
+      "class": "ok"
+    },
+    "TabGroup.activeTab": {
+      "class": "ok"
+    },
+    "TabGroup.isActive": {
+      "class": "ok"
+    },
+    "TabGroup.tabs": {
+      "class": "ok"
+    },
+    "TabGroup.viewColumn": {
+      "class": "ok"
+    },
+    "TabGroupChangeEvent.changed": {
+      "class": "ok"
+    },
+    "TabGroupChangeEvent.closed": {
+      "class": "ok"
+    },
+    "TabGroupChangeEvent.opened": {
+      "class": "ok"
+    },
+    "TabGroups.activeTabGroup": {
+      "class": "ok"
+    },
+    "TabGroups.all": {
+      "class": "ok"
+    },
+    "TabGroups.close": {
+      "class": "ok"
+    },
+    "TabGroups.onDidChangeTabGroups": {
+      "class": "ok"
+    },
+    "TabGroups.onDidChangeTabs": {
+      "class": "ok"
+    },
+    "TabInputCustom": {
+      "class": "X",
+      "note": "webview"
+    },
+    "TabInputCustom.uri": {
+      "class": "X",
+      "note": "webview"
+    },
+    "TabInputCustom.viewType": {
+      "class": "X",
+      "note": "webview"
+    },
+    "TabInputNotebook": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "TabInputNotebook.notebookType": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "TabInputNotebook.uri": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "TabInputNotebookDiff": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "TabInputNotebookDiff.modified": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "TabInputNotebookDiff.notebookType": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "TabInputNotebookDiff.original": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "TabInputTerminal": {
+      "class": "ok"
+    },
+    "TabInputText": {
+      "class": "ok"
+    },
+    "TabInputText.uri": {
+      "class": "ok"
+    },
+    "TabInputTextDiff": {
+      "class": "ok"
+    },
+    "TabInputTextDiff.modified": {
+      "class": "ok"
+    },
+    "TabInputTextDiff.original": {
+      "class": "ok"
+    },
+    "TabInputWebview": {
+      "class": "X",
+      "note": "webview"
+    },
+    "TabInputWebview.viewType": {
+      "class": "X",
+      "note": "webview"
+    },
+    "Task": {
+      "class": "ok"
+    },
+    "Task.definition": {
+      "class": "ok"
+    },
+    "Task.detail": {
+      "class": "ok"
+    },
+    "Task.execution": {
+      "class": "ok"
+    },
+    "Task.group": {
+      "class": "ok"
+    },
+    "Task.isBackground": {
+      "class": "ok"
+    },
+    "Task.name": {
+      "class": "ok"
+    },
+    "Task.presentationOptions": {
+      "class": "ok"
+    },
+    "Task.problemMatchers": {
+      "class": "ok"
+    },
+    "Task.runOptions": {
+      "class": "ok"
+    },
+    "Task.scope": {
+      "class": "ok"
+    },
+    "Task.source": {
+      "class": "ok"
+    },
+    "TaskDefinition.type": {
+      "class": "ok"
+    },
+    "TaskEndEvent.execution": {
+      "class": "ok"
+    },
+    "TaskExecution.task": {
+      "class": "ok"
+    },
+    "TaskExecution.terminate": {
+      "class": "ok"
+    },
+    "TaskFilter.type": {
+      "class": "ok"
+    },
+    "TaskFilter.version": {
+      "class": "ok"
+    },
+    "TaskGroup": {
+      "class": "ok"
+    },
+    "TaskGroup.Build": {
+      "class": "ok"
+    },
+    "TaskGroup.Clean": {
+      "class": "ok"
+    },
+    "TaskGroup.id": {
+      "class": "ok"
+    },
+    "TaskGroup.isDefault": {
+      "class": "ok"
+    },
+    "TaskGroup.Rebuild": {
+      "class": "ok"
+    },
+    "TaskGroup.Test": {
+      "class": "ok"
+    },
+    "TaskPanelKind": {
+      "class": "ok"
+    },
+    "TaskPanelKind.Dedicated": {
+      "class": "ok"
+    },
+    "TaskPanelKind.New": {
+      "class": "ok"
+    },
+    "TaskPanelKind.Shared": {
+      "class": "ok"
+    },
+    "TaskPresentationOptions.clear": {
+      "class": "ok"
+    },
+    "TaskPresentationOptions.close": {
+      "class": "ok"
+    },
+    "TaskPresentationOptions.echo": {
+      "class": "ok"
+    },
+    "TaskPresentationOptions.focus": {
+      "class": "ok"
+    },
+    "TaskPresentationOptions.panel": {
+      "class": "ok"
+    },
+    "TaskPresentationOptions.reveal": {
+      "class": "ok"
+    },
+    "TaskPresentationOptions.showReuseMessage": {
+      "class": "ok"
+    },
+    "TaskProcessEndEvent.execution": {
+      "class": "ok"
+    },
+    "TaskProcessEndEvent.exitCode": {
+      "class": "ok"
+    },
+    "TaskProcessStartEvent.execution": {
+      "class": "ok"
+    },
+    "TaskProcessStartEvent.processId": {
+      "class": "ok"
+    },
+    "TaskProvider.provideTasks": {
+      "class": "ok"
+    },
+    "TaskProvider.resolveTask": {
+      "class": "ok"
+    },
+    "TaskRevealKind": {
+      "class": "ok"
+    },
+    "TaskRevealKind.Always": {
+      "class": "ok"
+    },
+    "TaskRevealKind.Never": {
+      "class": "ok"
+    },
+    "TaskRevealKind.Silent": {
+      "class": "ok"
+    },
+    "TaskScope": {
+      "class": "ok"
+    },
+    "TaskScope.Global": {
+      "class": "ok"
+    },
+    "TaskScope.Workspace": {
+      "class": "ok"
+    },
+    "TaskStartEvent.execution": {
+      "class": "ok"
+    },
+    "TelemetryLogger.dispose": {
+      "class": "ok"
+    },
+    "TelemetryLogger.isErrorsEnabled": {
+      "class": "ok"
+    },
+    "TelemetryLogger.isUsageEnabled": {
+      "class": "ok"
+    },
+    "TelemetryLogger.logError": {
+      "class": "ok"
+    },
+    "TelemetryLogger.logUsage": {
+      "class": "ok"
+    },
+    "TelemetryLogger.onDidChangeEnableStates": {
+      "class": "ok"
+    },
+    "TelemetryLoggerOptions.additionalCommonProperties": {
+      "class": "ok"
+    },
+    "TelemetryLoggerOptions.ignoreBuiltInCommonProperties": {
+      "class": "ok"
+    },
+    "TelemetryLoggerOptions.ignoreUnhandledErrors": {
+      "class": "ok"
+    },
+    "TelemetrySender.flush": {
+      "class": "ok"
+    },
+    "TelemetrySender.sendErrorData": {
+      "class": "ok"
+    },
+    "TelemetrySender.sendEventData": {
+      "class": "ok"
+    },
+    "TelemetryTrustedValue": {
+      "class": "ok"
+    },
+    "TelemetryTrustedValue.value": {
+      "class": "ok"
+    },
+    "Terminal.creationOptions": {
+      "class": "ok"
+    },
+    "Terminal.dispose": {
+      "class": "ok"
+    },
+    "Terminal.exitStatus": {
+      "class": "ok"
+    },
+    "Terminal.hide": {
+      "class": "ok"
+    },
+    "Terminal.name": {
+      "class": "ok"
+    },
+    "Terminal.processId": {
+      "class": "ok"
+    },
+    "Terminal.sendText": {
+      "class": "ok"
+    },
+    "Terminal.shellIntegration": {
+      "class": "ok"
+    },
+    "Terminal.show": {
+      "class": "ok"
+    },
+    "Terminal.state": {
+      "class": "ok"
+    },
+    "TerminalDimensions.columns": {
+      "class": "ok"
+    },
+    "TerminalDimensions.rows": {
+      "class": "ok"
+    },
+    "TerminalEditorLocationOptions.preserveFocus": {
+      "class": "ok"
+    },
+    "TerminalEditorLocationOptions.viewColumn": {
+      "class": "ok"
+    },
+    "TerminalExitReason": {
+      "class": "ok"
+    },
+    "TerminalExitReason.Extension": {
+      "class": "ok"
+    },
+    "TerminalExitReason.Process": {
+      "class": "ok"
+    },
+    "TerminalExitReason.Shutdown": {
+      "class": "ok"
+    },
+    "TerminalExitReason.Unknown": {
+      "class": "ok"
+    },
+    "TerminalExitReason.User": {
+      "class": "ok"
+    },
+    "TerminalExitStatus.code": {
+      "class": "ok"
+    },
+    "TerminalExitStatus.reason": {
+      "class": "ok"
+    },
+    "TerminalLink": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TerminalLink.length": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TerminalLink.startIndex": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TerminalLink.tooltip": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TerminalLinkContext.line": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TerminalLinkContext.terminal": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TerminalLinkProvider.handleTerminalLink": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TerminalLinkProvider.provideTerminalLinks": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TerminalLocation": {
+      "class": "ok"
+    },
+    "TerminalLocation.Editor": {
+      "class": "ok"
+    },
+    "TerminalLocation.Panel": {
+      "class": "ok"
+    },
+    "TerminalOptions.color": {
+      "class": "ok"
+    },
+    "TerminalOptions.cwd": {
+      "class": "ok"
+    },
+    "TerminalOptions.env": {
+      "class": "ok"
+    },
+    "TerminalOptions.hideFromUser": {
+      "class": "ok"
+    },
+    "TerminalOptions.iconPath": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TerminalOptions.isTransient": {
+      "class": "ok"
+    },
+    "TerminalOptions.location": {
+      "class": "ok"
+    },
+    "TerminalOptions.message": {
+      "class": "ok"
+    },
+    "TerminalOptions.name": {
+      "class": "ok"
+    },
+    "TerminalOptions.shellArgs": {
+      "class": "ok"
+    },
+    "TerminalOptions.shellIntegrationNonce": {
+      "class": "ok"
+    },
+    "TerminalOptions.shellPath": {
+      "class": "ok"
+    },
+    "TerminalOptions.strictEnv": {
+      "class": "ok"
+    },
+    "TerminalProfile": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TerminalProfile.options": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TerminalProfileProvider.provideTerminalProfile": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TerminalShellExecution.commandLine": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecution.cwd": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecution.read": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionCommandLine.confidence": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionCommandLine.isTrusted": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionCommandLine.value": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionCommandLineConfidence": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionCommandLineConfidence.High": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionCommandLineConfidence.Low": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionCommandLineConfidence.Medium": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionEndEvent.execution": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionEndEvent.exitCode": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionEndEvent.shellIntegration": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionEndEvent.terminal": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionStartEvent.execution": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionStartEvent.shellIntegration": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellExecutionStartEvent.terminal": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellIntegration.cwd": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellIntegration.executeCommand": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellIntegrationChangeEvent.shellIntegration": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalShellIntegrationChangeEvent.terminal": {
+      "class": "B",
+      "note": "no shell integration"
+    },
+    "TerminalSplitLocationOptions.parentTerminal": {
+      "class": "ok"
+    },
+    "TerminalState.isInteractedWith": {
+      "class": "ok"
+    },
+    "TerminalState.shell": {
+      "class": "ok"
+    },
+    "TestController.createRunProfile": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestController.createTestItem": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestController.createTestRun": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestController.dispose": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestController.id": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestController.invalidateTestResults": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestController.items": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestController.label": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestController.refreshHandler": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestController.resolveHandler": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestCoverageCount": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestCoverageCount.covered": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestCoverageCount.total": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItem.busy": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItem.canResolveChildren": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItem.children": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItem.description": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItem.error": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItem.id": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItem.label": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItem.parent": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItem.range": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItem.sortText": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItem.tags": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItem.uri": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItemCollection.add": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItemCollection.delete": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItemCollection.forEach": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItemCollection.get": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItemCollection.replace": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestItemCollection.size": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestMessage": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestMessage.actualOutput": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestMessage.contextValue": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestMessage.diff": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestMessage.expectedOutput": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestMessage.location": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestMessage.message": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestMessage.stackTrace": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestMessageStackFrame": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestMessageStackFrame.label": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestMessageStackFrame.position": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestMessageStackFrame.uri": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.addCoverage": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.appendOutput": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.end": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.enqueued": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.errored": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.failed": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.isPersisted": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.name": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.onDidDispose": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.passed": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.skipped": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.started": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRun.token": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfile.configureHandler": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfile.dispose": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfile.isDefault": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfile.kind": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfile.label": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfile.loadDetailedCoverage": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfile.loadDetailedCoverageForTest": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfile.onDidChangeDefault": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfile.runHandler": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfile.supportsContinuousRun": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfile.tag": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfileKind": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfileKind.Coverage": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfileKind.Debug": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunProfileKind.Run": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunRequest": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunRequest.continuous": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunRequest.exclude": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunRequest.include": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunRequest.preserveFocus": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestRunRequest.profile": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestTag": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TestTag.id": {
+      "class": "C",
+      "note": "needs the Testing surface"
+    },
+    "TextDocument.encoding": {
+      "class": "ok"
+    },
+    "TextDocument.eol": {
+      "class": "ok"
+    },
+    "TextDocument.fileName": {
+      "class": "ok"
+    },
+    "TextDocument.getText": {
+      "class": "A",
+      "note": "#914: resolves before the document mirror is updated"
+    },
+    "TextDocument.getWordRangeAtPosition": {
+      "class": "ok"
+    },
+    "TextDocument.isClosed": {
+      "class": "ok"
+    },
+    "TextDocument.isDirty": {
+      "class": "A",
+      "note": "#914: resolves before the document mirror is updated"
+    },
+    "TextDocument.isUntitled": {
+      "class": "ok"
+    },
+    "TextDocument.languageId": {
+      "class": "ok"
+    },
+    "TextDocument.lineAt": {
+      "class": "ok"
+    },
+    "TextDocument.lineCount": {
+      "class": "ok"
+    },
+    "TextDocument.offsetAt": {
+      "class": "ok"
+    },
+    "TextDocument.positionAt": {
+      "class": "ok"
+    },
+    "TextDocument.save": {
+      "class": "ok"
+    },
+    "TextDocument.uri": {
+      "class": "ok"
+    },
+    "TextDocument.validatePosition": {
+      "class": "ok"
+    },
+    "TextDocument.validateRange": {
+      "class": "ok"
+    },
+    "TextDocument.version": {
+      "class": "ok"
+    },
+    "TextDocumentChangeEvent.contentChanges": {
+      "class": "ok"
+    },
+    "TextDocumentChangeEvent.document": {
+      "class": "ok"
+    },
+    "TextDocumentChangeEvent.reason": {
+      "class": "ok"
+    },
+    "TextDocumentChangeReason": {
+      "class": "ok"
+    },
+    "TextDocumentChangeReason.Redo": {
+      "class": "ok"
+    },
+    "TextDocumentChangeReason.Undo": {
+      "class": "ok"
+    },
+    "TextDocumentContentChangeEvent.range": {
+      "class": "ok"
+    },
+    "TextDocumentContentChangeEvent.rangeLength": {
+      "class": "ok"
+    },
+    "TextDocumentContentChangeEvent.rangeOffset": {
+      "class": "ok"
+    },
+    "TextDocumentContentChangeEvent.text": {
+      "class": "ok"
+    },
+    "TextDocumentContentProvider.onDidChange": {
+      "class": "ok"
+    },
+    "TextDocumentContentProvider.provideTextDocumentContent": {
+      "class": "ok"
+    },
+    "TextDocumentSaveReason": {
+      "class": "ok"
+    },
+    "TextDocumentSaveReason.AfterDelay": {
+      "class": "ok"
+    },
+    "TextDocumentSaveReason.FocusOut": {
+      "class": "ok"
+    },
+    "TextDocumentSaveReason.Manual": {
+      "class": "ok"
+    },
+    "TextDocumentShowOptions.preserveFocus": {
+      "class": "ok"
+    },
+    "TextDocumentShowOptions.preview": {
+      "class": "ok"
+    },
+    "TextDocumentShowOptions.selection": {
+      "class": "ok"
+    },
+    "TextDocumentShowOptions.viewColumn": {
+      "class": "ok"
+    },
+    "TextDocumentWillSaveEvent.document": {
+      "class": "ok"
+    },
+    "TextDocumentWillSaveEvent.reason": {
+      "class": "ok"
+    },
+    "TextDocumentWillSaveEvent.waitUntil": {
+      "class": "ok"
+    },
+    "TextEdit": {
+      "class": "ok"
+    },
+    "TextEdit.delete": {
+      "class": "ok"
+    },
+    "TextEdit.insert": {
+      "class": "ok"
+    },
+    "TextEdit.newEol": {
+      "class": "ok"
+    },
+    "TextEdit.newText": {
+      "class": "ok"
+    },
+    "TextEdit.range": {
+      "class": "ok"
+    },
+    "TextEdit.replace": {
+      "class": "ok"
+    },
+    "TextEdit.setEndOfLine": {
+      "class": "ok"
+    },
+    "TextEditor.document": {
+      "class": "ok"
+    },
+    "TextEditor.edit": {
+      "class": "A",
+      "note": "#914: resolves before the document mirror is updated"
+    },
+    "TextEditor.hide": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditor.insertSnippet": {
+      "class": "C",
+      "note": "needs a snippet session"
+    },
+    "TextEditor.options": {
+      "class": "ok"
+    },
+    "TextEditor.revealRange": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditor.selection": {
+      "class": "ok"
+    },
+    "TextEditor.selections": {
+      "class": "ok"
+    },
+    "TextEditor.setDecorations": {
+      "class": "C",
+      "note": "text decorations are not drawn; gutter and overview ruler only"
+    },
+    "TextEditor.show": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditor.viewColumn": {
+      "class": "ok"
+    },
+    "TextEditor.visibleRanges": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorCursorStyle": {
+      "class": "ok"
+    },
+    "TextEditorCursorStyle.Block": {
+      "class": "ok"
+    },
+    "TextEditorCursorStyle.BlockOutline": {
+      "class": "ok"
+    },
+    "TextEditorCursorStyle.Line": {
+      "class": "ok"
+    },
+    "TextEditorCursorStyle.LineThin": {
+      "class": "ok"
+    },
+    "TextEditorCursorStyle.Underline": {
+      "class": "ok"
+    },
+    "TextEditorCursorStyle.UnderlineThin": {
+      "class": "ok"
+    },
+    "TextEditorDecorationType.dispose": {
+      "class": "ok"
+    },
+    "TextEditorDecorationType.key": {
+      "class": "ok"
+    },
+    "TextEditorEdit.delete": {
+      "class": "A",
+      "note": "#914: setEndOfLine does nothing; no overlap or out-of-callback errors"
+    },
+    "TextEditorEdit.insert": {
+      "class": "A",
+      "note": "#914: setEndOfLine does nothing; no overlap or out-of-callback errors"
+    },
+    "TextEditorEdit.replace": {
+      "class": "A",
+      "note": "#914: setEndOfLine does nothing; no overlap or out-of-callback errors"
+    },
+    "TextEditorEdit.setEndOfLine": {
+      "class": "A",
+      "note": "#914: setEndOfLine does nothing; no overlap or out-of-callback errors"
+    },
+    "TextEditorLineNumbersStyle": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorLineNumbersStyle.Interval": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorLineNumbersStyle.Off": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorLineNumbersStyle.On": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorLineNumbersStyle.Relative": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorOptions.cursorStyle": {
+      "class": "ok"
+    },
+    "TextEditorOptions.indentSize": {
+      "class": "ok"
+    },
+    "TextEditorOptions.insertSpaces": {
+      "class": "ok"
+    },
+    "TextEditorOptions.lineNumbers": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorOptions.tabSize": {
+      "class": "ok"
+    },
+    "TextEditorOptionsChangeEvent.options": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorOptionsChangeEvent.textEditor": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorRevealType": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorRevealType.AtTop": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorRevealType.Default": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorRevealType.InCenter": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorRevealType.InCenterIfOutsideViewport": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorSelectionChangeEvent.kind": {
+      "class": "ok"
+    },
+    "TextEditorSelectionChangeEvent.selections": {
+      "class": "ok"
+    },
+    "TextEditorSelectionChangeEvent.textEditor": {
+      "class": "ok"
+    },
+    "TextEditorSelectionChangeKind": {
+      "class": "ok"
+    },
+    "TextEditorSelectionChangeKind.Command": {
+      "class": "ok"
+    },
+    "TextEditorSelectionChangeKind.Keyboard": {
+      "class": "ok"
+    },
+    "TextEditorSelectionChangeKind.Mouse": {
+      "class": "ok"
+    },
+    "TextEditorViewColumnChangeEvent.textEditor": {
+      "class": "ok"
+    },
+    "TextEditorViewColumnChangeEvent.viewColumn": {
+      "class": "ok"
+    },
+    "TextEditorVisibleRangesChangeEvent.textEditor": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextEditorVisibleRangesChangeEvent.visibleRanges": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "TextLine.firstNonWhitespaceCharacterIndex": {
+      "class": "ok"
+    },
+    "TextLine.isEmptyOrWhitespace": {
+      "class": "ok"
+    },
+    "TextLine.lineNumber": {
+      "class": "ok"
+    },
+    "TextLine.range": {
+      "class": "ok"
+    },
+    "TextLine.rangeIncludingLineBreak": {
+      "class": "ok"
+    },
+    "TextLine.text": {
+      "class": "ok"
+    },
+    "ThemableDecorationAttachmentRenderOptions.backgroundColor": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationAttachmentRenderOptions.border": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationAttachmentRenderOptions.borderColor": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationAttachmentRenderOptions.color": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationAttachmentRenderOptions.contentIconPath": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationAttachmentRenderOptions.contentText": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationAttachmentRenderOptions.fontStyle": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationAttachmentRenderOptions.fontWeight": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationAttachmentRenderOptions.height": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationAttachmentRenderOptions.margin": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationAttachmentRenderOptions.textDecoration": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationAttachmentRenderOptions.width": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationInstanceRenderOptions.after": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationInstanceRenderOptions.before": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.after": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.backgroundColor": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.before": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.border": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.borderColor": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.borderRadius": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.borderSpacing": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.borderStyle": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.borderWidth": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.color": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.cursor": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.fontStyle": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.fontWeight": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.gutterIconPath": {
+      "class": "ok"
+    },
+    "ThemableDecorationRenderOptions.gutterIconSize": {
+      "class": "ok"
+    },
+    "ThemableDecorationRenderOptions.letterSpacing": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.opacity": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.outline": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.outlineColor": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.outlineStyle": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.outlineWidth": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemableDecorationRenderOptions.overviewRulerColor": {
+      "class": "ok"
+    },
+    "ThemableDecorationRenderOptions.textDecoration": {
+      "class": "C",
+      "note": "text decorations are not drawn"
+    },
+    "ThemeColor": {
+      "class": "ok"
+    },
+    "ThemeColor.id": {
+      "class": "ok"
+    },
+    "ThemeIcon": {
+      "class": "ok"
+    },
+    "ThemeIcon.color": {
+      "class": "ok"
+    },
+    "ThemeIcon.File": {
+      "class": "ok"
+    },
+    "ThemeIcon.Folder": {
+      "class": "ok"
+    },
+    "ThemeIcon.id": {
+      "class": "ok"
+    },
+    "TreeCheckboxChangeEvent.items": {
+      "class": "B",
+      "note": "checkboxes are not supported"
+    },
+    "TreeDataProvider.getChildren": {
+      "class": "ok"
+    },
+    "TreeDataProvider.getParent": {
+      "class": "ok"
+    },
+    "TreeDataProvider.getTreeItem": {
+      "class": "ok"
+    },
+    "TreeDataProvider.onDidChangeTreeData": {
+      "class": "ok"
+    },
+    "TreeDataProvider.resolveTreeItem": {
+      "class": "B",
+      "note": "never called"
+    },
+    "TreeDragAndDropController.dragMimeTypes": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "TreeDragAndDropController.dropMimeTypes": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "TreeDragAndDropController.handleDrag": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "TreeDragAndDropController.handleDrop": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "TreeItem": {
+      "class": "ok"
+    },
+    "TreeItem.accessibilityInformation": {
+      "class": "ok"
+    },
+    "TreeItem.checkboxState": {
+      "class": "B",
+      "note": "checkboxes are not supported"
+    },
+    "TreeItem.collapsibleState": {
+      "class": "ok"
+    },
+    "TreeItem.command": {
+      "class": "ok"
+    },
+    "TreeItem.contextValue": {
+      "class": "ok"
+    },
+    "TreeItem.description": {
+      "class": "ok"
+    },
+    "TreeItem.iconPath": {
+      "class": "ok"
+    },
+    "TreeItem.id": {
+      "class": "ok"
+    },
+    "TreeItem.label": {
+      "class": "ok"
+    },
+    "TreeItem.resourceUri": {
+      "class": "ok"
+    },
+    "TreeItem.tooltip": {
+      "class": "B",
+      "note": "stored, not drawn"
+    },
+    "TreeItemCheckboxState": {
+      "class": "B",
+      "note": "checkboxes are not supported"
+    },
+    "TreeItemCheckboxState.Checked": {
+      "class": "B",
+      "note": "checkboxes are not supported"
+    },
+    "TreeItemCheckboxState.Unchecked": {
+      "class": "B",
+      "note": "checkboxes are not supported"
+    },
+    "TreeItemCollapsibleState": {
+      "class": "ok"
+    },
+    "TreeItemCollapsibleState.Collapsed": {
+      "class": "ok"
+    },
+    "TreeItemCollapsibleState.Expanded": {
+      "class": "ok"
+    },
+    "TreeItemCollapsibleState.None": {
+      "class": "ok"
+    },
+    "TreeItemLabel.highlights": {
+      "class": "B",
+      "note": "stored, not drawn"
+    },
+    "TreeItemLabel.label": {
+      "class": "ok"
+    },
+    "TreeView.badge": {
+      "class": "B",
+      "note": "stored, not drawn"
+    },
+    "TreeView.description": {
+      "class": "ok"
+    },
+    "TreeView.message": {
+      "class": "ok"
+    },
+    "TreeView.onDidChangeCheckboxState": {
+      "class": "B",
+      "note": "checkboxes are not supported"
+    },
+    "TreeView.onDidChangeSelection": {
+      "class": "ok"
+    },
+    "TreeView.onDidChangeVisibility": {
+      "class": "ok"
+    },
+    "TreeView.onDidCollapseElement": {
+      "class": "ok"
+    },
+    "TreeView.onDidExpandElement": {
+      "class": "ok"
+    },
+    "TreeView.reveal": {
+      "class": "ok"
+    },
+    "TreeView.selection": {
+      "class": "ok"
+    },
+    "TreeView.title": {
+      "class": "ok"
+    },
+    "TreeView.visible": {
+      "class": "ok"
+    },
+    "TreeViewExpansionEvent.element": {
+      "class": "ok"
+    },
+    "TreeViewOptions.canSelectMany": {
+      "class": "ok"
+    },
+    "TreeViewOptions.dragAndDropController": {
+      "class": "C",
+      "note": "no drag and drop in the editor"
+    },
+    "TreeViewOptions.manageCheckboxStateManually": {
+      "class": "B",
+      "note": "checkboxes are not supported"
+    },
+    "TreeViewOptions.showCollapseAll": {
+      "class": "ok"
+    },
+    "TreeViewOptions.treeDataProvider": {
+      "class": "ok"
+    },
+    "TreeViewSelectionChangeEvent.selection": {
+      "class": "ok"
+    },
+    "TreeViewVisibilityChangeEvent.visible": {
+      "class": "ok"
+    },
+    "TypeDefinitionProvider.provideTypeDefinition": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "TypeHierarchyItem": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "TypeHierarchyItem.detail": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "TypeHierarchyItem.kind": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "TypeHierarchyItem.name": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "TypeHierarchyItem.range": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "TypeHierarchyItem.selectionRange": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "TypeHierarchyItem.tags": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "TypeHierarchyItem.uri": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "TypeHierarchyProvider.prepareTypeHierarchy": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "TypeHierarchyProvider.provideTypeHierarchySubtypes": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "TypeHierarchyProvider.provideTypeHierarchySupertypes": {
+      "class": "C",
+      "note": "the provider is never called; needs new graphics"
+    },
+    "UIKind": {
+      "class": "ok"
+    },
+    "UIKind.Desktop": {
+      "class": "ok"
+    },
+    "UIKind.Web": {
+      "class": "ok"
+    },
+    "Uri": {
+      "class": "ok"
+    },
+    "Uri.authority": {
+      "class": "ok"
+    },
+    "Uri.file": {
+      "class": "ok"
+    },
+    "Uri.fragment": {
+      "class": "ok"
+    },
+    "Uri.from": {
+      "class": "ok"
+    },
+    "Uri.fsPath": {
+      "class": "ok"
+    },
+    "Uri.joinPath": {
+      "class": "ok"
+    },
+    "Uri.parse": {
+      "class": "ok"
+    },
+    "Uri.path": {
+      "class": "ok"
+    },
+    "Uri.query": {
+      "class": "ok"
+    },
+    "Uri.scheme": {
+      "class": "ok"
+    },
+    "Uri.toJSON": {
+      "class": "ok"
+    },
+    "Uri.toString": {
+      "class": "ok"
+    },
+    "Uri.with": {
+      "class": "ok"
+    },
+    "UriHandler.handleUri": {
+      "class": "ok"
+    },
+    "version": {
+      "class": "ok"
+    },
+    "ViewBadge.tooltip": {
+      "class": "ok"
+    },
+    "ViewBadge.value": {
+      "class": "ok"
+    },
+    "ViewColumn": {
+      "class": "ok"
+    },
+    "ViewColumn.Active": {
+      "class": "ok"
+    },
+    "ViewColumn.Beside": {
+      "class": "ok"
+    },
+    "ViewColumn.Eight": {
+      "class": "ok"
+    },
+    "ViewColumn.Five": {
+      "class": "ok"
+    },
+    "ViewColumn.Four": {
+      "class": "ok"
+    },
+    "ViewColumn.Nine": {
+      "class": "ok"
+    },
+    "ViewColumn.One": {
+      "class": "ok"
+    },
+    "ViewColumn.Seven": {
+      "class": "ok"
+    },
+    "ViewColumn.Six": {
+      "class": "ok"
+    },
+    "ViewColumn.Three": {
+      "class": "ok"
+    },
+    "ViewColumn.Two": {
+      "class": "ok"
+    },
+    "Webview.asWebviewUri": {
+      "class": "X",
+      "note": "webview"
+    },
+    "Webview.cspSource": {
+      "class": "X",
+      "note": "webview"
+    },
+    "Webview.html": {
+      "class": "X",
+      "note": "webview"
+    },
+    "Webview.onDidReceiveMessage": {
+      "class": "X",
+      "note": "webview"
+    },
+    "Webview.options": {
+      "class": "X",
+      "note": "webview"
+    },
+    "Webview.postMessage": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewOptions.enableCommandUris": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewOptions.enableForms": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewOptions.enableScripts": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewOptions.localResourceRoots": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewOptions.portMapping": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanel.active": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanel.dispose": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanel.iconPath": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanel.onDidChangeViewState": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanel.onDidDispose": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanel.options": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanel.reveal": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanel.title": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanel.viewColumn": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanel.viewType": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanel.visible": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanel.webview": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanelOnDidChangeViewStateEvent.webviewPanel": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanelOptions.enableFindWidget": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanelOptions.retainContextWhenHidden": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPanelSerializer.deserializeWebviewPanel": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPortMapping.extensionHostPort": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewPortMapping.webviewPort": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewView.badge": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewView.description": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewView.onDidChangeVisibility": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewView.onDidDispose": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewView.show": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewView.title": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewView.viewType": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewView.visible": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewView.webview": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewViewProvider.resolveWebviewView": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WebviewViewResolveContext.state": {
+      "class": "X",
+      "note": "webview"
+    },
+    "WindowState.active": {
+      "class": "ok"
+    },
+    "WindowState.focused": {
+      "class": "ok"
+    },
+    "WorkspaceConfiguration.get": {
+      "class": "ok"
+    },
+    "WorkspaceConfiguration.has": {
+      "class": "ok"
+    },
+    "WorkspaceConfiguration.inspect": {
+      "class": "ok"
+    },
+    "WorkspaceConfiguration.update": {
+      "class": "ok"
+    },
+    "WorkspaceEdit": {
+      "class": "ok"
+    },
+    "WorkspaceEdit.createFile": {
+      "class": "ok"
+    },
+    "WorkspaceEdit.delete": {
+      "class": "ok"
+    },
+    "WorkspaceEdit.deleteFile": {
+      "class": "ok"
+    },
+    "WorkspaceEdit.entries": {
+      "class": "ok"
+    },
+    "WorkspaceEdit.get": {
+      "class": "ok"
+    },
+    "WorkspaceEdit.has": {
+      "class": "ok"
+    },
+    "WorkspaceEdit.insert": {
+      "class": "ok"
+    },
+    "WorkspaceEdit.renameFile": {
+      "class": "ok"
+    },
+    "WorkspaceEdit.replace": {
+      "class": "ok"
+    },
+    "WorkspaceEdit.set": {
+      "class": "ok"
+    },
+    "WorkspaceEdit.size": {
+      "class": "ok"
+    },
+    "WorkspaceEditEntryMetadata.description": {
+      "class": "ok"
+    },
+    "WorkspaceEditEntryMetadata.iconPath": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "WorkspaceEditEntryMetadata.label": {
+      "class": "ok"
+    },
+    "WorkspaceEditEntryMetadata.needsConfirmation": {
+      "class": "ok"
+    },
+    "WorkspaceEditMetadata.isRefactoring": {
+      "class": "ok"
+    },
+    "WorkspaceFolder.index": {
+      "class": "ok"
+    },
+    "WorkspaceFolder.name": {
+      "class": "ok"
+    },
+    "WorkspaceFolder.uri": {
+      "class": "ok"
+    },
+    "WorkspaceFolderPickOptions.ignoreFocusOut": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "WorkspaceFolderPickOptions.placeHolder": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "WorkspaceFoldersChangeEvent.added": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "WorkspaceFoldersChangeEvent.removed": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "WorkspaceSymbolProvider.provideWorkspaceSymbols": {
+      "class": "B",
+      "note": "the provider is never called"
+    },
+    "WorkspaceSymbolProvider.resolveWorkspaceSymbol": {
+      "class": "B",
+      "note": "the provider is never called"
+    }
+  }
+}

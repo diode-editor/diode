@@ -1,0 +1,13 @@
+{
+  "members": {
+    "l10n.bundle": {
+      "class": "ok"
+    },
+    "l10n.t": {
+      "class": "ok"
+    },
+    "l10n.uri": {
+      "class": "ok"
+    }
+  }
+}

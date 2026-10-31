@@ -1,0 +1,18 @@
+{
+  "members": {
+    "commands.executeCommand": {
+      "class": "ok"
+    },
+    "commands.getCommands": {
+      "class": "B",
+      "note": "#916: not implemented"
+    },
+    "commands.registerCommand": {
+      "class": "ok"
+    },
+    "commands.registerTextEditorCommand": {
+      "class": "A",
+      "note": "#914: the builder passed to the callback drops edits"
+    }
+  }
+}

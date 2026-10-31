@@ -1,0 +1,165 @@
+{
+  "members": {
+    "workspace.applyEdit": {
+      "class": "A",
+      "note": "#914: resolves before the document mirror is updated"
+    },
+    "workspace.asRelativePath": {
+      "class": "ok"
+    },
+    "workspace.createFileSystemWatcher": {
+      "class": "ok"
+    },
+    "workspace.decode": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "workspace.encode": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "workspace.findFiles": {
+      "class": "ok"
+    },
+    "workspace.fs": {
+      "class": "ok"
+    },
+    "workspace.getConfiguration": {
+      "class": "ok"
+    },
+    "workspace.getWorkspaceFolder": {
+      "class": "ok",
+      "note": "works at runtime, not declared in vscode.d.ts yet"
+    },
+    "workspace.isTrusted": {
+      "class": "ok"
+    },
+    "workspace.name": {
+      "class": "ok"
+    },
+    "workspace.notebookDocuments": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "workspace.onDidChangeConfiguration": {
+      "class": "ok"
+    },
+    "workspace.onDidChangeNotebookDocument": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "workspace.onDidChangeTextDocument": {
+      "class": "ok"
+    },
+    "workspace.onDidChangeWorkspaceFolders": {
+      "class": "B",
+      "note": "never fires"
+    },
+    "workspace.onDidCloseNotebookDocument": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "workspace.onDidCloseTextDocument": {
+      "class": "ok"
+    },
+    "workspace.onDidCreateFiles": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "workspace.onDidDeleteFiles": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "workspace.onDidGrantWorkspaceTrust": {
+      "class": "ok"
+    },
+    "workspace.onDidOpenNotebookDocument": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "workspace.onDidOpenTextDocument": {
+      "class": "ok"
+    },
+    "workspace.onDidRenameFiles": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "workspace.onDidSaveNotebookDocument": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "workspace.onDidSaveTextDocument": {
+      "class": "ok"
+    },
+    "workspace.onWillCreateFiles": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "workspace.onWillDeleteFiles": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "workspace.onWillRenameFiles": {
+      "class": "B",
+      "note": "#919: never fires"
+    },
+    "workspace.onWillSaveNotebookDocument": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "workspace.onWillSaveTextDocument": {
+      "class": "ok"
+    },
+    "workspace.openNotebookDocument": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "workspace.openTextDocument": {
+      "class": "B",
+      "note": "#918: untitled: uris are rejected"
+    },
+    "workspace.registerFileSystemProvider": {
+      "class": "B",
+      "note": "opens only as a diff side; directory operations are never called"
+    },
+    "workspace.registerNotebookSerializer": {
+      "class": "X",
+      "note": "notebook"
+    },
+    "workspace.registerTaskProvider": {
+      "class": "ok"
+    },
+    "workspace.registerTextDocumentContentProvider": {
+      "class": "B",
+      "note": "#916: a second provider for a scheme throws"
+    },
+    "workspace.rootPath": {
+      "class": "B",
+      "note": "#916: not implemented"
+    },
+    "workspace.save": {
+      "class": "ok"
+    },
+    "workspace.saveAll": {
+      "class": "B",
+      "note": "includeUntitled does not open Save As"
+    },
+    "workspace.saveAs": {
+      "class": "B",
+      "note": "not declared in vscode.d.ts"
+    },
+    "workspace.textDocuments": {
+      "class": "ok"
+    },
+    "workspace.updateWorkspaceFolders": {
+      "class": "B",
+      "note": "no multi-root: only an outcome of one folder is carried out"
+    },
+    "workspace.workspaceFile": {
+      "class": "ok"
+    },
+    "workspace.workspaceFolders": {
+      "class": "ok"
+    }
+  }
+}
