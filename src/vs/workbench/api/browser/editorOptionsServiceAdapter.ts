@@ -1,12 +1,18 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import { DisposableStore } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import type { EditorCursorStyleSetting } from "../../../editor/common/config/editorCursorStyle.ts";
-import { currentCursorChangeSource, type CursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
+import {
+    currentCursorChangeSource,
+    type CursorChangeSource,
+    withCursorChangeSource,
+} from "../../../editor/common/core/cursorChangeSource.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
 import type { BulkEdit, BulkEditOperation } from "../../contrib/bulkEdit/common/workspaceEdit.ts";
@@ -35,8 +41,6 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private groupIdOf(editor: TextEditorPane): number {
         return this.groups.groupOf(editor)?.id ?? this.groups.activeGroup.id;
     }
-    /** The subprocess sets this selection itself: without the flag it would be echoed back to it. */
-    private applyingRemoteSelection = false;
     private selectionFlushScheduled = false;
     /**
      * Captured SYNCHRONOUSLY in the handler (by the deferred flush the gesture scope is already closed);
@@ -79,13 +83,19 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     }
 
     public getActiveEditorMeta(): IActiveEditorMeta {
-        const editor = this.group.getActiveTabEditor();
-        return this.metaOfEditor(editor);
+        return this.metaOfEditor(this.modifiedSideOfActiveDiff() ?? this.group.getActiveTabEditor());
+    }
+
+    /** Upstream `mainThreadDocumentsAndEditors`: for an active diff the API's active editor is its modified side. */
+    private modifiedSideOfActiveDiff(): TextEditorPane | null {
+        const pane = this.groups.activeGroup.activePane;
+        if (!(pane instanceof DiffEditorPane2) || pane.snapshotSides().includes("modified")) return null;
+        return pane.sidePanes()[1];
     }
 
     public onActiveEditorChanged(cb: (meta: IActiveEditorMeta) => void): IDisposable {
         return this.group.onActiveEditorChanged((editor) => {
-            cb(this.metaOfEditor(editor));
+            cb(this.metaOfEditor(editor ?? this.modifiedSideOfActiveDiff()));
         });
     }
 
@@ -97,8 +107,37 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     }
 
     public onActiveEditorSelectionChanged(cb: (selections: IActiveEditorSelections) => void): IDisposable {
+        const store = new DisposableStore();
+        store.add(this.forwardInactiveSelections(cb));
+        store.add(this.forwardActiveSelections(cb));
+        return store;
+    }
+
+    /** Each editor reports its own selection: upstream listens to every visible editor, not only the active one. */
+    private forwardInactiveSelections(cb: (selections: IActiveEditorSelections) => void): IDisposable {
+        const pending = new Map<TextEditorPane, CursorChangeSource | undefined>();
+        return this.group.onDidChangeInactiveEditorSelection((editor) => {
+            if (pending.size === 0) {
+                queueMicrotask(() => {
+                    const flushed = [...pending];
+                    pending.clear();
+                    for (const [pane, source] of flushed) {
+                        const kind = selectionChangeKindOf(source);
+                        cb({
+                            uri: pane.uri.toString(),
+                            selections: wireSelectionsOf(pane),
+                            groupId: this.groupIdOf(pane),
+                            ...(kind === undefined ? {} : { kind }),
+                        });
+                    }
+                });
+            }
+            pending.set(editor, currentCursorChangeSource());
+        });
+    }
+
+    private forwardActiveSelections(cb: (selections: IActiveEditorSelections) => void): IDisposable {
         return this.group.onDidChangeActiveEditorSelection((editor) => {
-            if (this.applyingRemoteSelection) return;
             this.pendingSelectionSource = currentCursorChangeSource();
             if (this.selectionFlushScheduled) return;
             this.selectionFlushScheduled = true;
@@ -128,11 +167,12 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
             const active = clampPositionToDocument(doc, { line: sel.activeLine, character: sel.activeCharacter });
             return createSelection(anchor.line, anchor.character, active.line, active.character);
         });
-        this.applyingRemoteSelection = true;
-        try {
-            editor.viewState.selections = mapped;
-        } finally {
-            this.applyingRemoteSelection = false;
+        // As upstream: the extension hears about its own change with kind Command, and nothing when
+        // the selection stays the same (`mainThreadEditor` sends only a delta).
+        if (!sameSelections(editor.viewState.selections, mapped)) {
+            withCursorChangeSource("command", () => {
+                editor.viewState.selections = mapped;
+            });
         }
         editor.focusEditor();
     }
@@ -292,4 +332,19 @@ function metaOf(editor: TextEditorPane | null): IActiveEditorMeta {
         eol: editor.eol === EndOfLine.CRLF ? 2 : 1,
         selection,
     };
+}
+
+function sameSelections(current: readonly ISelection[], next: readonly ISelection[]): boolean {
+    return (
+        current.length === next.length &&
+        current.every((selection, index) => {
+            const other = next[index];
+            return (
+                selection.anchor.line === other.anchor.line &&
+                selection.anchor.character === other.anchor.character &&
+                selection.active.line === other.active.line &&
+                selection.active.character === other.active.character
+            );
+        })
+    );
 }

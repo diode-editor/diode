@@ -65,6 +65,8 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     /** Switching to a diff fires `null`. */
     readonly onActiveEditorChanged: Event<TextEditorPane | null>;
     readonly onDidChangeActiveEditorSelection: Event<TextEditorPane>;
+    /** The visible tab of a group, other than the active editor. */
+    readonly onDidChangeInactiveEditorSelection: Event<TextEditorPane>;
 
     /** Across ALL groups. */
     getEditors(): readonly TextEditorPane[];

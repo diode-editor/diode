@@ -12,6 +12,7 @@ type ActiveEditorRole = Pick<
     | "focusEditor"
     | "onActiveEditorChanged"
     | "onDidChangeActiveEditorSelection"
+    | "onDidChangeInactiveEditorSelection"
 >;
 
 /** Members outside the role throw with the member name: the test fails loudly instead of getting `undefined`. */
@@ -27,6 +28,7 @@ export function createTestActiveEditorService(editor: TextEditorPane | null): IE
         },
         onActiveEditorChanged: Event.None,
         onDidChangeActiveEditorSelection: Event.None,
+        onDidChangeInactiveEditorSelection: Event.None,
     } satisfies ActiveEditorRole;
     return new Proxy(role, {
         get(target, member) {
