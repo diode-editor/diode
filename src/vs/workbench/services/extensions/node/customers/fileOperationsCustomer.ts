@@ -29,10 +29,14 @@ export class FileOperationsCustomer implements IExtensionHostCustomer {
     public async willRunFileOperation(params: IWireFileOperationParams): Promise<readonly IWireWorkspaceEditOp[]> {
         const live = this.live;
         if (!live?.willSubscribed) return [];
-        const ops = await loggingRequest(live.rpc, this.logger)("workspace.willRunFileOperation", params, {
-            timeoutMs: params.timeoutMs,
-        }).catch(() => []);
-        return parseWireApplyWorkspaceEditParams({ ops }) ?? [];
+        try {
+            const ops = await loggingRequest(live.rpc, this.logger)("workspace.willRunFileOperation", params, {
+                timeoutMs: params.timeoutMs,
+            });
+            return parseWireApplyWorkspaceEditParams({ ops }) ?? [];
+        } catch {
+            return [];
+        }
     }
 
     public didRunFileOperation(event: IWireFileOperationEvent): void {

@@ -16,8 +16,11 @@ export class ExtHostFileOperations {
     private readonly onDidDeleteEmitter = new EventEmitter<vscode.FileDeleteEvent>();
     private readonly onDidRenameEmitter = new EventEmitter<vscode.FileRenameEvent>();
 
+    // Stryker disable next-line ArrayDeclaration: a stray entry throws when called, and fireWill skips a throwing listener
     private readonly willCreate: WillListener<vscode.FileWillCreateEvent>[] = [];
+    // Stryker disable next-line ArrayDeclaration: a stray entry throws when called, and fireWill skips a throwing listener
     private readonly willDelete: WillListener<vscode.FileWillDeleteEvent>[] = [];
+    // Stryker disable next-line ArrayDeclaration: a stray entry throws when called, and fireWill skips a throwing listener
     private readonly willRename: WillListener<vscode.FileWillRenameEvent>[] = [];
     private willCount = 0;
 
@@ -90,6 +93,7 @@ async function fireWill<E extends IWaitUntil>(
     const edits: WorkspaceEdit[] = [];
     for (const listener of [...listeners]) {
         if (token.isCancellationRequested) return [];
+        // Stryker disable next-line ArrayDeclaration: allSettled takes a stray non-promise as settled, nothing reads it
         const thenables: Thenable<unknown>[] = [];
         const event = Object.freeze({
             ...data,
@@ -106,8 +110,7 @@ async function fireWill<E extends IWaitUntil>(
         try {
             listener(event);
         } catch {
-            // One failing listener doesn't stop the others (as in vscode).
-            continue;
+            // One failing listener doesn't stop the others (as in vscode); what it passed to waitUntil still counts.
         }
         Object.freeze(thenables);
         // A rejected `waitUntil` only loses its own edit.

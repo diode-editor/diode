@@ -309,10 +309,10 @@ export class WorkspaceEditService {
         files: readonly IFileOperationPair[],
         members: readonly ReversibleOp[],
     ): ReversibleOp {
-        const confirmBeforeUndo = members.map((op) => op.confirmBeforeUndo).find((m): m is string => m !== undefined);
         const reversed = reverseOperation(operation, files);
         return {
-            ...(confirmBeforeUndo === undefined ? {} : { confirmBeforeUndo }),
+            // One kind in a group: all of its members ask, or none does.
+            confirmBeforeUndo: members[0].confirmBeforeUndo,
             undo: async () => {
                 for (let i = members.length - 1; i >= 0; i--) await members[i].undo();
                 this.fileOperationParticipant.didRun(reversed.operation, reversed.files);
@@ -321,8 +321,6 @@ export class WorkspaceEditService {
                 for (const op of members) await op.redo();
                 this.fileOperationParticipant.didRun(operation, files);
             },
-            canUndo: () => allAllow(members.map((op) => op.canUndo?.())),
-            canRedo: () => allAllow(members.map((op) => op.canRedo?.())),
         };
     }
 
@@ -333,8 +331,9 @@ export class WorkspaceEditService {
         step: IEditStep,
     ): Promise<void> {
         const edit = await this.fileOperationParticipant.willRun(operation, files);
-        if (edit === null || edit.length === 0) return;
+        if (edit === null) return;
         const plan = await this.planWorkspaceEdit(edit);
+        // Stryker disable next-line ConditionalExpression: a null plan throws inside applyPlan's try and leaves through the same return below
         if (plan === null) return;
         const nested = createStep(step.label, false, (target) => {
             this.buffers.willDelete(Uri.file(target).toString());
@@ -636,7 +635,7 @@ function createStep(label: string, tolerant: boolean, willDelete?: (target: stri
         edited: new Map(),
         participantEdited: new Set(),
         tolerant,
-        ...(willDelete === undefined ? {} : { willDelete }),
+        willDelete,
     };
 }
 
@@ -648,13 +647,7 @@ function pairOf(target: string, source?: string): IFileOperationPair {
 }
 
 function operationOf(edit: ResourceFileEdit): FileOperationKind {
-    switch (edit.kind) {
-        case "rename":
-        case "move":
-            return "move";
-        default:
-            return edit.kind;
-    }
+    return edit.kind === "rename" ? "move" : edit.kind;
 }
 
 /** Runs of one operation; a rename and an explorer move are the same one. */

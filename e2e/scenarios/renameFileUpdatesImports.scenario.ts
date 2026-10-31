@@ -58,7 +58,12 @@ export default defineScenario({
         await clickOn("main.ts");
         await editor.waitForText((t) => t.includes('"./helper"'));
 
-        await clickOn(`  ${OLD_NAME}`);
+        // After F12 the name is in the tab bar too, which comes first in the frame: the tree row is the last match.
+        const frame = await editor.captureFrame();
+        const rows = frameToText(frame).split("\n");
+        const row = rows.findLastIndex((line) => line.includes(OLD_NAME));
+        if (row < 0) throw new Error(`"${OLD_NAME}" is not on the screen`);
+        await editor.click(rows[row].indexOf(OLD_NAME) + 1, row);
         await editor.sendKey("F2");
         await editor.waitForText((t) => t.includes("Rename") && t.includes(OLD_NAME));
         for (let i = 0; i < OLD_NAME.length; i++) await editor.sendKey("Backspace");
@@ -66,7 +71,10 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Rename") && t.includes(NEW_NAME));
         await editor.sendKey("Enter");
 
-        await editor.waitForText((t) => t.includes('"./greeter"') && t.includes(NEW_NAME), { timeoutMs: 30000 });
+        // Clicking the tree row opened the renamed file; the import is in the other tab.
+        await editor.waitForText((t) => t.includes(NEW_NAME) && !t.includes(OLD_NAME), { timeoutMs: 30000 });
+        await clickOn("main.ts");
+        await editor.waitForText((t) => t.includes('"./greeter"'), { timeoutMs: 30000 });
         await editor.capture("renamed");
 
         await clickOn("greet();");

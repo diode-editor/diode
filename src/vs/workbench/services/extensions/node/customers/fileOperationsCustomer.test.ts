@@ -111,9 +111,14 @@ describe("FileOperationsCustomer", () => {
 
     it("after the subprocess is gone the subscription is forgotten", async () => {
         const { customer, peer, spawn } = setup();
+        const handler = vi.fn(() => []);
+        peer.handleRequest("workspace.willRunFileOperation", handler);
         await subscribe(peer);
         spawn.dispose();
 
         await expect(customer.willRunFileOperation(PARAMS)).resolves.toEqual([]);
+        await flushMicrotasks();
+
+        expect(handler).not.toHaveBeenCalled();
     });
 });

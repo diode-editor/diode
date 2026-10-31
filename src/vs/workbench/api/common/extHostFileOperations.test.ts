@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
+import { CancellationTokenSource, type ICancellationToken } from "../../../base/common/cancellation.ts";
 
 import { ExtHostFileOperations } from "./extHostFileOperations.ts";
 import type { HostRpc, SubprocessRpc } from "./extHostProtocol.ts";
 import { createInProcessChannelPair } from "./inProcessChannelPair.ts";
 import { RpcEndpoint } from "./rpcEndpoint.ts";
-import { Uri, WorkspaceEdit } from "./vscodeTypes.ts";
+import { Range, Uri, WorkspaceEdit } from "./vscodeTypes.ts";
+import type { IWireWorkspaceEditOp } from "./wireTypes.ts";
 
 const OLD = "file:///old.txt";
 const NEW = "file:///new.txt";
@@ -26,6 +27,24 @@ function insertEdit(text: string): WorkspaceEdit {
     const edit = new WorkspaceEdit();
     edit.createFile(Uri.parse(`file:///${text}`));
     return edit;
+}
+
+/** Calls the request handler itself: over RPC a cancelled request rejects, and its result can't be seen. */
+function directSetup() {
+    let handler: (params: unknown, token: ICancellationToken) => Promise<IWireWorkspaceEditOp[]> = () =>
+        Promise.resolve([]);
+    const rpc = {
+        handleNotification: () => ({ dispose: () => undefined }),
+        handleRequest: (_method: string, h: typeof handler) => {
+            handler = h;
+            return { dispose: () => undefined };
+        },
+        notify: () => undefined,
+    } as unknown as SubprocessRpc;
+    const operations = new ExtHostFileOperations(rpc);
+    const fire = (token: ICancellationToken) =>
+        handler({ operation: "create", files: [{ target: NEW }], timeoutMs: 1000 }, token);
+    return { operations, fire };
 }
 
 const flush = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
@@ -184,6 +203,57 @@ describe("ExtHostFileOperations", () => {
         await expect(reply.catch(() => [])).resolves.toEqual([]);
         await flush();
         expect(second).not.toHaveBeenCalled();
+    });
+
+    it("cancelled while the last listener is waited for: its edit is dropped", async () => {
+        const { operations, fire } = directSetup();
+        const source = new CancellationTokenSource();
+        operations.onWillCreateFiles((e) => {
+            e.waitUntil(
+                Promise.resolve().then(() => {
+                    source.cancel();
+                    return insertEdit("dropped");
+                }),
+            );
+        });
+
+        await expect(fire(source.token)).resolves.toEqual([]);
+    });
+
+    it("an edit that can't be serialized is skipped, the others are kept", async () => {
+        const { operations, fire } = directSetup();
+        const broken = new WorkspaceEdit();
+        broken.replace(Uri.parse("file:///broken"), { nonsense: true } as unknown as Range, "x");
+        operations.onWillCreateFiles((e) => {
+            e.waitUntil(Promise.resolve(broken));
+            e.waitUntil(Promise.resolve(insertEdit("kept")));
+        });
+
+        await expect(fire(new CancellationTokenSource().token)).resolves.toEqual([
+            expect.objectContaining({ resource: "file:///kept" }),
+        ]);
+    });
+
+    it("a listener that throws after waitUntil still contributes its edit, and is waited for", async () => {
+        const { operations, fire } = directSetup();
+        const log: string[] = [];
+        operations.onWillCreateFiles((e) => {
+            e.waitUntil(
+                new Promise((resolve) => setImmediate(resolve)).then(() => {
+                    log.push("edit ready");
+                    return insertEdit("kept");
+                }),
+            );
+            throw new Error("listener bug");
+        });
+        operations.onWillCreateFiles(() => {
+            log.push("next listener");
+        });
+
+        await expect(fire(new CancellationTokenSource().token)).resolves.toEqual([
+            expect.objectContaining({ resource: "file:///kept" }),
+        ]);
+        expect(log).toEqual(["edit ready", "next listener"]);
     });
 
     it("the event's cancellation token is there and the event is frozen", async () => {

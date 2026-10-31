@@ -13,17 +13,19 @@ function setup(timeout: unknown, ops: readonly IWireWorkspaceEditOp[] = []) {
         didRunFileOperation: vi.fn(),
     };
     const titles: string[] = [];
+    const locations: string[] = [];
     const adapter = new FileOperationParticipantAdapter(
         host,
         createTestConfigurationService({ "files.participants.timeout": timeout as number }),
         {
             withProgress: (options, task) => {
                 titles.push(options.title);
+                locations.push(options.location);
                 return task();
             },
         },
     );
-    return { adapter, host, titles };
+    return { adapter, host, titles, locations };
 }
 
 describe("FileOperationParticipantAdapter", () => {
@@ -54,6 +56,14 @@ describe("FileOperationParticipantAdapter", () => {
         await adapter.willRun(operation, FILES);
 
         expect(titles).toEqual([title]);
+    });
+
+    it("the progress goes to the status bar", async () => {
+        const { adapter, locations } = setup(1000);
+
+        await adapter.willRun("move", FILES);
+
+        expect(locations).toEqual(["window"]);
     });
 
     it("an edit on a non-file resource is refused as a whole", async () => {

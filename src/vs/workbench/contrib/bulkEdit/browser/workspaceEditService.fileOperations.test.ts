@@ -10,7 +10,7 @@ import type { IConfigurationService } from "../../../../platform/configuration/c
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { TrashService } from "../../../../platform/files/node/trashService.ts";
 import { UndoRedoService, WORKSPACE_UNDO_CONTEXT } from "../../../../platform/undoRedo/common/undoRedoService.ts";
-import { NULL_BULK_EDIT_BUFFERS } from "../common/iBulkEditBuffers.ts";
+import { type IBulkEditBuffers, NULL_BULK_EDIT_BUFFERS } from "../common/iBulkEditBuffers.ts";
 import type {
     FileOperationKind,
     IFileOperationPair,
@@ -378,5 +378,186 @@ describe("WorkspaceEditService — explorer operations [api:workspace.onWillRena
 
         expect(fs.readFileSync(other, "utf8")).toBe("BAR");
         expect(fs.existsSync(a)).toBe(true);
+    });
+});
+
+const INVOKING_TAB = "invoking-tab";
+
+function tabOf(resource: string): string {
+    return `tab:${resource}`;
+}
+
+/** `open` are the resources with a tab; with nothing touched the step belongs to the tab it was invoked from. */
+function fakeBuffers(open: readonly string[], willDelete: string[] = []): IBulkEditBuffers {
+    return {
+        ...NULL_BULK_EDIT_BUFFERS,
+        get: (resource) =>
+            open.includes(resource)
+                ? {
+                      text: () => "BAR",
+                      applyEdits: (_edits, label) => ({
+                          label,
+                          resources: [],
+                          undo: () => undefined,
+                          redo: () => undefined,
+                      }),
+                      setEol: () => null,
+                      save: () => Promise.resolve(),
+                  }
+                : null,
+        willDelete: (resource) => {
+            willDelete.push(resource);
+        },
+        undoParticipants: (touched) =>
+            touched.length === 0
+                ? [{ context: INVOKING_TAB, label: "tab", owner: false }]
+                : touched.map((resource) => ({ context: tabOf(resource), label: resource, owner: true })),
+    };
+}
+
+function serviceOver(
+    buffers: IBulkEditBuffers,
+    participant: IFileOperationParticipant,
+): { service: WorkspaceEditService; undo: UndoRedoService } {
+    const undo = new UndoRedoService();
+    const service = new WorkspaceEditService(undo, new TrashService(), NO_TRASH, buffers, diskFileService());
+    service.fileOperationParticipant = participant;
+    return { service, undo };
+}
+
+function textEdit(resource: string): BulkEdit {
+    return [
+        {
+            resource,
+            edits: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }, text: "FOO" }],
+        },
+    ];
+}
+
+describe("WorkspaceEditService — the undo step of a participant's edit", () => {
+    it("an explorer step with a participant's edit is in the tab's bucket and the explorer's, which don't own it", async () => {
+        const other = write("other.txt", "BAR");
+        const a = write("a.txt");
+        const tab = tabOf(uriOf(other));
+        const { service, undo } = serviceOver(
+            fakeBuffers([uriOf(other)]),
+            recordingParticipant([], () => textEdit(uriOf(other))),
+        );
+
+        await service.applyFileEdits([{ kind: "rename", from: a, to: path.join(dir, "b.txt") }], "Rename");
+
+        expect(undo.canUndo(tab)).toBe(true);
+        expect(undo.canUndo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
+
+        // The explorer's bucket holds no edit of its own: losing it doesn't break the step.
+        undo.clear(WORKSPACE_UNDO_CONTEXT);
+        await expect(undo.undo(tab)).resolves.toBe(true);
+        expect(fs.existsSync(a)).toBe(true);
+    });
+
+    it("an explorer step without such an edit stays out of the invoking tab", async () => {
+        const a = write("a.txt");
+        const { service, undo } = serviceOver(fakeBuffers([]), recordingParticipant([]));
+
+        await service.applyFileEdits([{ kind: "rename", from: a, to: path.join(dir, "b.txt") }], "Rename");
+
+        expect(undo.canUndo(INVOKING_TAB)).toBe(false);
+        expect(undo.canUndo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
+    });
+
+    it("a file a participant deletes loses its unsaved edits and is in the step's resources", async () => {
+        const a = write("a.txt");
+        const b = write("b.txt");
+        const dropped: string[] = [];
+        const { service, undo } = serviceOver(
+            fakeBuffers([], dropped),
+            recordingParticipant([], (_operation, files) =>
+                files[0].target === uriOf(path.join(dir, "a2.txt")) ? [{ kind: "delete", from: b }] : null,
+            ),
+        );
+
+        await service.applyWorkspaceEdit([{ kind: "rename", from: a, to: path.join(dir, "a2.txt") }], "t");
+
+        expect(dropped).toEqual([uriOf(b)]);
+        expect(undo.peekUndo(INVOKING_TAB)?.resources).toContain(b);
+    });
+
+    it("the edit of a participant of a participant's operation joins the step too", async () => {
+        const other = write("other.txt", "BAR");
+        const a = write("a.txt");
+        const b = write("b.txt");
+        const { service, undo } = serviceOver(
+            fakeBuffers([uriOf(other)]),
+            recordingParticipant([], (_operation, files) => {
+                if (files[0].target === uriOf(a)) return [{ kind: "delete", from: b }];
+                return files[0].target === uriOf(b) ? textEdit(uriOf(other)) : null;
+            }),
+        );
+
+        await service.applyWorkspaceEdit([{ kind: "delete", from: a }], "t");
+
+        expect(undo.canUndo(tabOf(uriOf(other)))).toBe(true);
+    });
+});
+
+describe("WorkspaceEditService — operations that report themselves", () => {
+    it("a move to another directory reports the target it picked, and undo reports it back", async () => {
+        const log: Log = [];
+        const a = write("src/a.txt");
+        write("dest/a.txt");
+        const { service, undo } = makeService(recordingParticipant(log));
+
+        await service.applyFileEdits([{ kind: "move", from: a, to: path.join(dir, "dest") }], "Move");
+        expect(log).toEqual(["will move a.txt>a copy.txt", "did move a.txt>a copy.txt"]);
+        log.length = 0;
+
+        await undo.undo(WORKSPACE_UNDO_CONTEXT);
+        expect(log).toEqual(["did move a copy.txt>a.txt"]);
+    });
+
+    it("undoing a copy asks first and reports a delete", async () => {
+        const log: Log = [];
+        const a = write("src/a.txt");
+        const { service, undo } = makeService(recordingParticipant(log));
+
+        const element = await service.applyFileEdits([{ kind: "copy", from: a, to: path.join(dir, "dest") }], "Paste");
+        expect(element?.confirmBeforeUndo).toBe("Are you sure you want to delete 'a.txt'?");
+        log.length = 0;
+
+        await undo.undo(WORKSPACE_UNDO_CONTEXT);
+        expect(log).toEqual(["did delete a.txt"]);
+    });
+
+    it("undoing a delete from the trash reports a create", async () => {
+        const saved = process.env.XDG_DATA_HOME;
+        process.env.XDG_DATA_HOME = path.join(dir, ".data");
+        try {
+            const log: Log = [];
+            const a = write("a.txt");
+            const undo = new UndoRedoService();
+            const service = new WorkspaceEditService(
+                undo,
+                new TrashService(),
+                {
+                    ...NULL_CONFIGURATION_SERVICE,
+                    get<T>(key: string, def?: T): T | undefined {
+                        return key === "files.enableTrash" ? (true as unknown as T) : def;
+                    },
+                },
+                NULL_BULK_EDIT_BUFFERS,
+                diskFileService(),
+            );
+            service.fileOperationParticipant = recordingParticipant(log);
+
+            await service.applyFileEdits([{ kind: "delete", from: a }], "Delete");
+            log.length = 0;
+
+            await undo.undo(WORKSPACE_UNDO_CONTEXT);
+            await undo.redo(WORKSPACE_UNDO_CONTEXT);
+            expect(log).toEqual(["did create a.txt", "did delete a.txt"]);
+        } finally {
+            if (saved === undefined) delete process.env.XDG_DATA_HOME;
+            else process.env.XDG_DATA_HOME = saved;
+        }
     });
 });
