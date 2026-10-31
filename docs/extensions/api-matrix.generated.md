@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 81 |
+| test | 84 |
 | confirmed by a real extension | 0 |
 | used by a surveyed extension | 583 |
 
@@ -36,7 +36,7 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `window.activeTextEditor` | B | 161 | 1,031,389,838 | #917: activeTextEditor lags behind the resolved editor |
 | `window.withProgress` | B | 124 | 944,816,089 | cancellation token never fires, location is ignored |
 | `workspace.onDidChangeWorkspaceFolders` | B | 109 | 884,612,940 | never fires |
-| `workspace.openTextDocument` | B | 104 | 814,693,192 | #918: untitled: uris are rejected. A file is a live model without a tab; an explicit encoding decodes a separate read until the encodings cluster. |
+| `workspace.openTextDocument` | B | 104 | 814,693,192 | A file is a live model without a tab; an explicit encoding decodes a separate read until the encodings cluster. untitled: uris as upstream, except that a relative or host uri has no path to write to: Ctrl+S asks through Save As, TextDocument.save gives false. |
 | `CodeLens` | C | 99 | 780,269,126 | the provider is never called; needs new graphics |
 | `SnippetString` | C | 95 | 736,241,729 | needs a snippet session |
 | `languages.registerCodeLensProvider` | C | 94 | 721,586,993 | registration is accepted, the provider is never called; needs new graphics |
@@ -2201,7 +2201,7 @@ Proposed API or a false hit: class X when real.
 | `tests.createTestController` | C |  | 16 | 241,632,971 |  |
 | `TestTag` | C |  | 9 | 126,484,023 |  |
 | `TestTag.id` | C |  | 0 | 0 |  |
-| `TextDocument.encoding` | ok |  | 0 | 0 |  |
+| `TextDocument.encoding` | ok | yes | 0 | 0 |  |
 | `TextDocument.eol` | ok | yes | 0 | 0 |  |
 | `TextDocument.fileName` | ok |  | 0 | 0 |  |
 | `TextDocument.getText` | A | yes | 0 | 0 |  |
@@ -2209,7 +2209,7 @@ Proposed API or a false hit: class X when real.
 | `TextDocument.isClosed` | ok |  | 0 | 0 |  |
 | `TextDocument.isDirty` | A | yes | 0 | 0 |  |
 | `TextDocument.isUntitled` | ok |  | 0 | 0 |  |
-| `TextDocument.languageId` | ok |  | 0 | 0 |  |
+| `TextDocument.languageId` | ok | yes | 0 | 0 |  |
 | `TextDocument.lineAt` | ok |  | 0 | 0 |  |
 | `TextDocument.lineCount` | ok |  | 0 | 0 |  |
 | `TextDocument.offsetAt` | ok |  | 0 | 0 |  |
@@ -2565,7 +2565,7 @@ Proposed API or a false hit: class X when real.
 | `workspace.onDidChangeTextDocument` | ok | yes | 118 | 907,561,438 |  |
 | `workspace.onDidChangeWorkspaceFolders` | B |  | 109 | 884,612,940 |  |
 | `workspace.onDidCloseNotebookDocument` | X |  | 72 | 519,617,722 |  |
-| `workspace.onDidCloseTextDocument` | ok |  | 104 | 807,332,966 |  |
+| `workspace.onDidCloseTextDocument` | ok | yes | 104 | 807,332,966 |  |
 | `workspace.onDidCreateFiles` | B |  | 81 | 583,742,693 |  |
 | `workspace.onDidDeleteFiles` | B |  | 85 | 634,317,169 |  |
 | `workspace.onDidGrantWorkspaceTrust` | ok |  | 20 | 219,502,460 |  |

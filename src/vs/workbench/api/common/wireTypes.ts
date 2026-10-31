@@ -107,6 +107,7 @@ export interface IWireDocumentStateChanged {
     readonly version: number;
     readonly isDirty: boolean;
     readonly eol: 1 | 2;
+    readonly encoding?: string;
 }
 
 /** `range` is in document coordinates BEFORE this edit. */
@@ -248,6 +249,8 @@ export interface IWireShowTextDocumentParams {
 
 /** Upstream `$tryCreateDocument`: an untitled document without a tab; the reply is {@link IWireUriParams}. */
 export interface IWireCreateUntitledParams {
+    /** `openTextDocument(untitled:…)`; without it the host picks the next `Untitled-N`. */
+    readonly uri?: string;
     readonly content?: string;
     readonly language?: string;
     readonly encoding?: string;

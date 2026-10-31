@@ -66,13 +66,13 @@ describe("ExtensionHost — untitled document openTextDocument({ content, langua
         }
     });
 
-    it("without options: an empty clean plaintext buffer, numbers go in order", async () => {
+    it("without options: an empty plaintext buffer that reads as dirty (as upstream), numbers go in order", async () => {
         const harness = await createExtensionTestHarness({ extensions: [FIXTURE] });
         try {
             const first = await open(harness, {});
             const second = await open(harness, {});
 
-            expect(first.document).toMatchObject({ uri: "untitled:Untitled-1", isDirty: false, text: "" });
+            expect(first.document).toMatchObject({ uri: "untitled:Untitled-1", isDirty: true, text: "" });
             expect(first.document.languageId).toBe("plaintext");
             expect(second.document.uri).toBe("untitled:Untitled-2");
         } finally {

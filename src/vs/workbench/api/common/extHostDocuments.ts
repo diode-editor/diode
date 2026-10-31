@@ -132,8 +132,14 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     }
 
     /** `false`: nothing an extension could see changed. */
-    public acceptState(state: { version: number; isDirty: boolean; eol: EndOfLine }): boolean {
-        const changed = state.version !== this.version || state.isDirty !== this.isDirty || state.eol !== this.eol;
+    public acceptState(state: { version: number; isDirty: boolean; eol: EndOfLine; encoding?: string }): boolean {
+        const encoding = state.encoding ?? this.encoding;
+        const changed =
+            state.version !== this.version ||
+            state.isDirty !== this.isDirty ||
+            state.eol !== this.eol ||
+            encoding !== this.encoding;
+        this.encoding = encoding;
         this.textCache = null;
         this.eol = state.eol;
         this.isDirty = state.isDirty;
@@ -452,6 +458,8 @@ export class DocumentSyncTracker {
         if (doc === undefined || !this.opened.has(uri.toString())) return null;
         this.opened.delete(uri.toString());
         doc.isClosed = true;
+        // As upstream `ExtHostDocumentData.dispose`: a closed document has nothing left to save.
+        doc.isDirty = false;
         this.onDidCloseEmitter.fire(doc);
         return doc;
     }

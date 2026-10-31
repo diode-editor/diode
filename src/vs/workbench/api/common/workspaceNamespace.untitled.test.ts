@@ -67,13 +67,17 @@ describe("WorkspaceNamespace — openTextDocument for an untitled document", () 
         expect(registry.all()).toEqual([]);
     });
 
-    it("uri and path still do not create an untitled document", async () => {
+    it("an untitled uri goes to the host as is, an explicit encoding with it", async () => {
         const { stub, workspace } = makeCtx();
 
-        await expect(
-            workspace.openTextDocument(Uri.parse("untitled:Other") as unknown as vscode.Uri),
-        ).rejects.toMatchObject({ code: "Unavailable" });
+        await workspace.openTextDocument(Uri.parse("untitled:Other") as unknown as vscode.Uri);
+        await workspace.openTextDocument(Uri.parse("untitled:Second") as unknown as vscode.Uri, {
+            encoding: "windows1252",
+        });
 
-        expect(createRequests(stub)).toEqual([]);
+        expect(createRequests(stub)).toEqual([
+            { uri: "untitled:Other" },
+            { uri: "untitled:Second", encoding: "windows1252" },
+        ]);
     });
 });

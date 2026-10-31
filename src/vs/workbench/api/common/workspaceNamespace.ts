@@ -279,10 +279,16 @@ export function createWorkspaceNamespace(
     });
 
     rpc.handleNotification("editor.didChangeDocumentState", (params) => {
-        const p: { uri?: unknown; version?: unknown; isDirty?: unknown; eol?: unknown } = params;
+        const p: { uri?: unknown; version?: unknown; isDirty?: unknown; eol?: unknown; encoding?: unknown } = params;
         if (typeof p.uri !== "string" || typeof p.isDirty !== "boolean" || typeof p.version !== "number") return;
         if (p.eol !== 1 && p.eol !== 2) return;
-        documentSync.changeState({ uri: p.uri, version: p.version, isDirty: p.isDirty, eol: p.eol });
+        documentSync.changeState({
+            uri: p.uri,
+            version: p.version,
+            isDirty: p.isDirty,
+            eol: p.eol,
+            ...(typeof p.encoding === "string" ? { encoding: p.encoding } : {}),
+        });
     });
 
     rpc.handleNotification("editor.didClose", (params) => {
@@ -457,8 +463,22 @@ export function createWorkspaceNamespace(
         // A string is a disk path (the `openTextDocument(path)` overload), not a uri.
         const uri = typeof uriOrPath === "string" ? Uri.file(uriOrPath) : uriOrPath;
         const open = registry.get(uri);
+        const requestedEncoding = options?.encoding;
         // A closed document stays in the registry for the references extensions keep; it is not open.
-        if (open !== undefined && !open.isClosed) return open;
+        if (open !== undefined && !open.isClosed) {
+            // Upstream `ensureDocumentData`: another encoding goes to the main side. Files are a later cluster.
+            const changesEncoding =
+                uri.scheme === "untitled" && requestedEncoding !== undefined && open.encoding !== requestedEncoding;
+            if (!changesEncoding) return open;
+        }
+
+        if (uri.scheme === "untitled") {
+            const { uri: opened } = await rpc.request("workspace.createUntitledDocument", {
+                uri: uri.toString(),
+                ...(requestedEncoding === undefined ? {} : { encoding: requestedEncoding }),
+            });
+            return registry.get(Uri.parse(opened)) ?? makeEphemeralDocument(uri, "", "utf8");
+        }
 
         if (contentProviders.has(uri.scheme)) {
             const content = await contentProviders.provide(uri);
@@ -508,7 +528,17 @@ export function createWorkspaceNamespace(
             ...(typeof encoding === "string" ? { encoding } : {}),
         });
         const uri = Uri.parse(created);
-        return registry.get(uri) ?? makeEphemeralDocument(uri, text ?? "", "utf8");
+        const document = registry.get(uri);
+        if (document === undefined) return makeEphemeralDocument(uri, text ?? "", "utf8");
+        // Upstream `_doCreateUntitled` "mark as dirty": even an empty one reads as dirty to the extension, while the
+        // model and its tab stay clean until the first edit.
+        documentSync.changeState({
+            uri: created,
+            version: document.version,
+            isDirty: true,
+            eol: document.eol === EndOfLine.CRLF ? 2 : 1,
+        });
+        return document;
     }
 
     /** Outside the registry: this is not an open buffer. */

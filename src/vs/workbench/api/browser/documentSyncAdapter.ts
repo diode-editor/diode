@@ -3,6 +3,7 @@ import type { IModelContentChangedEvent } from "../../../editor/common/model/iDo
 import type { BaseTextEditorModel } from "../../common/editor/textEditorModel.ts";
 import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
+import { TextFileModel } from "../../services/textfile/common/textFileModel.ts";
 import type { IDocumentSyncSource, IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
 import type { IWireDocumentChangedEvent } from "../common/wireTypes.ts";
 
@@ -69,6 +70,7 @@ function pushDocumentState(host: IDocumentSyncTarget, model: BaseTextEditorModel
         version: model.document.versionId,
         isDirty: model.isModified,
         eol: model.eol,
+        encoding: model.encoding,
     });
 }
 
@@ -122,6 +124,14 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
                 pushDocumentState(host, model);
             }),
         );
+        // Upstream `$acceptEncodingChanged`. Only a file model has an encoding of its own.
+        if (model instanceof TextFileModel) {
+            subscriptions.add(
+                model.onDidChangeEncoding(() => {
+                    pushDocumentState(host, model);
+                }),
+            );
+        }
         // A save moves no text, so no didChange would tell extensions the document is clean. Before the reply to `save`.
         subscriptions.add(
             model.onDidMarkSaved(() => {

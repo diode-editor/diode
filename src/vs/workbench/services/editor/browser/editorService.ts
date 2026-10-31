@@ -169,6 +169,8 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
 
     /** The service owns the model until the first {@link openUri} hands it to a tab. */
     private readonly untitledWithoutEditor = new Map<string, TextFileModel>();
+    /** What extensions last heard as the active editor. */
+    private activeEditorUri: string | null = null;
 
     private readonly fileModelsWithoutEditor = this.register(
         new BoundModelReferences(() => {
@@ -316,6 +318,12 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         this.register(
             this.textFileModels.onDidSaveModel((model) => {
                 this.fireEditorsChanged();
+                // Save As keeps the pane and changes its resource: upstream opens a new editor there, so for
+                // extensions the active editor is a different one.
+                const active = this.getActiveEditor();
+                if (active?.model === model && this.activeEditorUri !== model.uri.toString()) {
+                    this.fireActiveEditorChanged(active);
+                }
                 this.fireModelSaved(model);
             }),
         );
@@ -942,8 +950,18 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
      * `workspace.openTextDocument({ content })` (upstream `$tryCreateDocument`): the document is open for
      * extensions right away; `showTextDocument` creates the tab via {@link openUri}. Non-empty text makes a dirty buffer.
      */
-    public createUntitled({ content, languageId, encoding }: IUntitledOptions = {}): Uri {
-        const model = this.textFileModels.createUntitledModel();
+    public createUntitled({ content, languageId, encoding, uri, associated = false }: IUntitledOptions = {}): Uri {
+        const existing = uri === undefined ? undefined : this.findUntitledModel(uri);
+        if (existing !== undefined) {
+            if (encoding !== undefined) existing.setEncoding(encoding);
+            return existing.uri;
+        }
+        const model =
+            uri === undefined
+                ? this.textFileModels.createUntitledModel(
+                      (candidate) => this.findUntitledModel(candidate) !== undefined,
+                  )
+                : this.textFileModels.createUntitledModelAt(uri, { associated });
         if (languageId !== undefined) model.setLanguage(languageId);
         // Stryker disable next-line ConditionalExpression: equivalent: setEncoding skips an unknown (or missing) encoding anyway
         if (encoding !== undefined) model.setEncoding(encoding);
@@ -952,6 +970,28 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         this.untitledWithoutEditor.set(model.uri.toString(), model);
         this.fireEditorsChanged();
         return model.uri;
+    }
+
+    public async openUntitledDocument(uri: Uri, { encoding }: { encoding?: string | undefined } = {}): Promise<Uri> {
+        if (uri.path === "" && uri.authority === "") {
+            throw new Error("Invalid uri. Scheme and authority or path must be set.");
+        }
+        if (this.findUntitledModel(uri) === undefined && uri.authority === "" && uri.path.startsWith("/")) {
+            // Don't create a new file on top of an existing one, as upstream.
+            if (await this.files.exists(Uri.file(uri.path))) {
+                throw new Error(`cannot open ${uri.toString()}. Detail: file already exists`);
+            }
+        }
+        return this.createUntitled({ uri, encoding, associated: true });
+    }
+
+    private findUntitledModel(uri: Uri): TextFileModel | undefined {
+        const key = uri.toString();
+        return (
+            this.untitledWithoutEditor.get(key) ??
+            this.textPanes().find((pane) => pane.uri.toString() === key)?.fileModel ??
+            undefined
+        );
     }
 
     /** Model ownership passes to the tab. */
@@ -1013,9 +1053,9 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     public async saveAll(options?: { includeUntitled?: boolean }): Promise<boolean> {
         let success = true;
         for (const editor of this.getDirtyEditors(this.editorGroups.groups)) {
-            const outcome = await this.trySave(editor);
-            if (outcome === "saved" || (outcome === "no-file" && options?.includeUntitled !== true)) continue;
-            success = false;
+            // Checked before saving: an untitled buffer with a path would write itself.
+            if (editor.uri.scheme === "untitled" && options?.includeUntitled !== true) continue;
+            if ((await this.trySave(editor)) !== "saved") success = false;
         }
         for (const model of this.dirtyHeldModels()) {
             if ((await this.trySave(model)) !== "saved") success = false;
@@ -1026,10 +1066,22 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     /** Upstream `$save` without Save As: a clean buffer is written too (`force`). */
     public async save(resource: Uri): Promise<Uri | undefined> {
         const key = resource.toString();
+        const untitled = this.untitledWithoutEditor.get(key);
+        if (untitled !== undefined) return this.saveUntitledWithoutEditor(key, untitled);
         const editor = this.getTextSurfaces().find((pane) => pane.uri.toString() === key);
         const target = editor ?? this.fileModelsWithoutEditor.models().find((model) => model.uri.toString() === key);
         if (target === undefined) return undefined;
         return (await this.trySave(target)) === "saved" ? target.uri : undefined;
+    }
+
+    /** Saved, the untitled document is over (upstream closes it on save); the file has no tab to live in. */
+    private async saveUntitledWithoutEditor(key: string, model: TextFileModel): Promise<Uri | undefined> {
+        if ((await this.trySave(model)) !== "saved") return undefined;
+        const saved = model.uri;
+        this.untitledWithoutEditor.delete(key);
+        this.fireEditorsChanged();
+        model.dispose();
+        return saved;
     }
 
     private async trySave(target: TextEditorPane | TextFileModel): Promise<SaveOutcome | undefined> {
@@ -1092,8 +1144,11 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     /** The extension comes from the buffer's current language: change the language and the suggestion follows. */
     public suggestedSaveName(editor: TextEditorPane): string {
         const name = this.displayName(editor);
+        // Upstream `suggestFilename`: a name that already fits the language stays (`untitled:new.txt`).
+        if (this.languageService.getLanguageIdForResource(name) === editor.languageId) return name;
         const extension = this.languageService.getExtensionForLanguage(editor.languageId);
-        return extension === undefined ? name : `${name}${extension}`;
+        if (extension === undefined) return name;
+        return `${name.slice(0, name.length - path.extname(name).length)}${extension}`;
     }
 
     private fireEditorsChanged(): void {
@@ -1103,6 +1158,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     /** Only a text pane is exposed: for text consumers a diff means "no active editor". */
     private fireActiveEditorChanged(pane: IEditorPane | null): void {
         const editor = pane instanceof TextEditorPane ? pane : null;
+        this.activeEditorUri = editor?.uri.toString() ?? null;
         this.rebindActiveSelectionForwarding(editor);
         this.onActiveEditorChangedEmitter.fire(editor);
     }
