@@ -31,6 +31,7 @@ import { EditorService } from "./editorService.ts";
 const JAVA_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".java") ? "java" : undefined),
     getLanguageDisplayName: () => undefined,
+    getRegisteredLanguageIds: () => [],
     getExtensionForLanguage: () => undefined,
     requestLanguageFeatures: () => undefined,
     onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),

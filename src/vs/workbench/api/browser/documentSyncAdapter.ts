@@ -140,11 +140,13 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
 
     const reconcile = (): void => {
         const alive = openDocumentModels(group);
+        // Each tab of a virtual document has its own model: the document stays open while one of them lives.
+        const aliveUris = new Set([...alive].map((model) => model.uri.toString()));
         for (const [model, record] of [...tracked]) {
             if (alive.has(model)) continue;
             record.subscriptions.dispose();
             tracked.delete(model);
-            host.didCloseTextDocument(record.openedAs.uri);
+            if (!aliveUris.has(record.openedAs.uri)) host.didCloseTextDocument(record.openedAs.uri);
         }
         for (const model of alive) trackModel(model);
     };

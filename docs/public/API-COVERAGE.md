@@ -75,7 +75,8 @@ registration but are not called yet.
 | `match` | ✅ | works at runtime (selector scoring); not declared in `vscode.d.ts` yet |
 | other `register*Provider` (15: declaration, implementation, typeDefinition, documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, onTypeFormatting, inlayHints, inlineValues, inlineCompletion, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | registration is accepted as a no-op; the provider is never called |
 | `setLanguageConfiguration` | 🟡 | `wordPattern` (for `TextDocument.getWordRangeAtPosition` only; not passed to the editor's word selection and completion boundaries), `comments`, `brackets`, `autoClosingPairs` (layered over `language-configuration.json`: a set section replaces the file's, the latest layer wins, dispose removes it). Not applied: `indentationRules`, `onEnterRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, the deprecated `__electricCharacterSupport`/`__characterPairSupport` |
-| `getLanguages`, `setTextDocumentLanguage`, `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
+| `getLanguages`, `setTextDocumentLanguage` | ✅ | The language set on a document without a tab is applied when it gets one. |
+| `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
 
 ## vscode.workspace
 
@@ -132,7 +133,8 @@ extension terminals and tree views work; webview is the ceiling.
 | `createQuickPick` | 🟡 | a live picker with all the events (`onDidChangeValue`/`onDidAccept`/`onDidChangeActive`/`onDidChangeSelection`/`onDidHide`); `items`/`activeItems`/`selectedItems` can change while open; Enter does not close the picker, Enter on an empty list gives `onDidAccept` without a selection; `title` with `step`/`totalSteps`, `placeholder`, `prompt`, `value`, `canSelectMany`, `matchOnDescription`/`matchOnDetail`, `alwaysShow`, `keepScrollPosition`, a label and description derived from `resourceUri`; `activeItems` and `selectedItems` set by the extension come back as events, and a single selection also accepts, as in VS Code. Not drawn: separators, `busy`, `enabled: false`; not supported: `buttons` and item buttons, `iconPath`, `ignoreFocusOut`; `detail` as in `showQuickPick` |
 | `QuickPickItemKind` | ✅ | |
 | `showOpenDialog`, `showSaveDialog` | 🟡 | VS Code's simple (text-based) file dialog: a path line with the directory listing below, `..` and `~`, completion by arrow key, overwrite and create-directory prompts, filters, the first filter's extension on save. Local file system only; `canSelectMany` is not supported; `openLabel`/`saveLabel` are not drawn (Enter confirms) |
-| other quick input (`showWorkspaceFolderPick`, `createInputBox`) | 🕐 | |
+| `showWorkspaceFolderPick` | ✅ | A single folder is still offered, as in VS Code; no folder gives `undefined`. `ignoreFocusOut` has no effect. |
+| other quick input (`createInputBox`) | 🕐 | |
 | quick input commands (`workbench.action.acceptSelectedQuickOpenItem`, `closeQuickOpen`, `quickOpenSelectNext`/`Previous`, `quickOpenNavigateNext`/`Previous`, `quickPickManyToggle`, `focusQuickOpen`, `alternativeAcceptSelectedQuickOpenItem`, `quickInputBack`, `quickOpenWithModes`) | 🟡 | work on every form of quick input from extensions and user keybindings, and do nothing when none is open. `alternativeAccept` is a plain accept, `quickInputBack` does nothing (no buttons), `quickOpenNavigate*` has no accept on releasing the modifier |
 | `createStatusBarItem` | 🟡 | `text` with `$(name)` icons, `name`, `alignment`, `priority`, `command`, `show`/`hide`/`dispose`. Stubs: `tooltip`, `color`, `backgroundColor`, `accessibilityInformation`. Text longer than 24 characters is truncated |
 | `setStatusBarMessage` | ✅ | all three overloads; one shared "Extension Status" item for all extensions, messages form a stack |
@@ -158,7 +160,9 @@ extension terminals and tree views work; webview is the ceiling.
 | `registerCommand` | ✅ | |
 | `executeCommand` | ✅ | the editor's built-in commands and `setContext` (settings are readable in when clauses as `config.<key>`, as in VS Code); of the API commands, `vscode.open` (a `Uri` opens a tab with column/options like `showTextDocument`; http(s) opens externally like `env.openExternal`) |
 | `registerTextEditorCommand` | ✅ | a real edit builder: edits apply after the callback, as one undo step, and an async result does not delay them; without an active editor: a warning and no-op, as in VS Code |
-| `getCommands` | 🕐 | |
+| `getCommands` | ✅ | Commands of the editor and of extensions; API commands (`vscode.open`…) are not listed, as in VS Code. |
+| API commands `vscode.executeCompletionItemProvider`, `vscode.executeCodeActionProvider` | ✅ | Ask the providers of extensions; the results are the provider's own objects. |
+| API command `vscode.executeLinkProvider` | 🟡 | Always an empty list: `registerDocumentLinkProvider` is a no-op. |
 
 ## vscode.extensions
 

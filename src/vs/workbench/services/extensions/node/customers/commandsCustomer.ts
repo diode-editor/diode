@@ -97,6 +97,7 @@ export class CommandsCustomer implements IExtensionHostCustomer {
                 return Promise.resolve(withCursorChangeSource("command", () => this.commandService.execute(id, args)));
             }),
         );
+        store.add(rpc.handleRequest("commands.getCommands", () => this.commandService.listCommandIds()));
         store.add(
             rpc.handleNotification("commands.registerCommand", (params): void => {
                 const id = parseCommandId(params);

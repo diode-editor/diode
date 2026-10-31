@@ -45,6 +45,8 @@ import type {
     IWireApplyEditParams,
     IWireApplyWorkspaceEditParams,
     IWireChangedFiles,
+    IWireChangeLanguageParams,
+    IWireChangeLanguageResult,
     IWireClipboardText,
     IWireCloseGroupsParams,
     IWireCloseTabsParams,
@@ -62,6 +64,7 @@ import type {
     IWireDisposeDecorationType,
     IWireDocumentChangedEvent,
     IWireDocumentColorParams,
+    IWireDocumentLanguage,
     IWireDocumentSemanticTokensParams,
     IWireDocumentStateChanged,
     IWireDocumentSyncSnapshot,
@@ -298,6 +301,14 @@ export interface ISubprocessToHost {
         readonly "editor.closeGroups": readonly [IWireCloseGroupsParams, boolean];
 
         readonly "commands.executeCommand": readonly [IWireExecuteCommandParams, unknown];
+        /** Upstream `$getCommands`: everything in the core registry, internal ones too. */
+        readonly "commands.getCommands": readonly [undefined, readonly string[]];
+
+        readonly "languages.getLanguages": readonly [undefined, readonly string[]];
+        /** A document without a model has its language asked for, as upstream's `createByFilepathOrFirstLine`. */
+        readonly "languages.getLanguageOfDocument": readonly [IWireUriParams, IWireDocumentLanguage];
+        /** Responds AFTER `editor.didClose`/`editor.didOpen` of a document the core holds. */
+        readonly "languages.changeLanguage": readonly [IWireChangeLanguageParams, IWireChangeLanguageResult];
 
         readonly "window.showInputBox": readonly [IWireInputBoxRequest, IWireInputBoxResult];
         readonly "window.showQuickPick": readonly [IWireQuickPickRequest, IWireQuickPickResult];

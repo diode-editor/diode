@@ -361,7 +361,7 @@ describe("WorkspaceNamespace — openTextDocument and the live model", () => {
 
         const doc = await workspace.openTextDocument(FILE as never, { encoding: "utf8" });
 
-        expect(stub.requests).toEqual([]);
+        expect(stub.requests.map((request) => request.method)).not.toContain("workspace.openTextDocument");
         expect(doc.getText()).toBe("from disk");
     });
 

@@ -1,3 +1,4 @@
 vscode API - commands api-command: vscode.open
 vscode API - commands command with args
 vscode API - commands editorCommand with extra args
+vscode API - commands getCommands

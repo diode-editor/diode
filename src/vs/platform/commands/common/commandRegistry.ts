@@ -81,6 +81,11 @@ export class CommandRegistry implements IDisposable {
         return this.entries.get(id)?.title;
     }
 
+    /** Unlike {@link listCommands}, with the commands that have no title. */
+    public listCommandIds(): string[] {
+        return [...this.entries.keys()];
+    }
+
     public listCommands(): ICommandSnapshot[] {
         const result: ICommandSnapshot[] = [];
         for (const [id, entry] of this.entries) {

@@ -178,3 +178,58 @@ describe("WindowNamespace — showTextDocument (overload normalization)", () => 
         expect(editor === window.visibleTextEditors[0]).toBe(true);
     });
 });
+
+describe("window.showWorkspaceFolderPick", () => {
+    const folder = (name: string): vscode.WorkspaceFolder => ({ uri: Uri.file(`/ws/${name}`), name, index: 0 });
+
+    function pick(folders: readonly vscode.WorkspaceFolder[] | undefined, chosenIndex: number | null) {
+        const stub = makeStubRpc();
+        stub.responder = (method) =>
+            method === "window.showQuickPick" ? { indices: chosenIndex === null ? null : [chosenIndex] } : undefined;
+        const registry = new DocumentRegistry();
+        const ctx: IVscodeHostContext = {
+            rpc: stub.rpc,
+            registry,
+            documentSync: new DocumentSyncTracker(registry),
+            configStore: new WorkspaceConfigStore(),
+            disk: createNodeExtHostDisk(),
+            owner: new ExtensionOwner(),
+        };
+        const window = createWindowNamespace(ctx, undefined, undefined, undefined, () => folders);
+        return { stub, window };
+    }
+
+    it("[api:window.showWorkspaceFolderPick] no folders: undefined and no picker", async () => {
+        for (const folders of [undefined, []]) {
+            const { stub, window } = pick(folders, 0);
+
+            await expect(window.showWorkspaceFolderPick()).resolves.toBeUndefined();
+            expect(stub.requests).toEqual([]);
+        }
+    });
+
+    it("[api:window.showWorkspaceFolderPick] one folder is still offered, as upstream, with its parent as the description", async () => {
+        const only = folder("one");
+        const { stub, window } = pick([only], 0);
+
+        await expect(window.showWorkspaceFolderPick()).resolves.toBe(only);
+
+        const request = stub.requests.find((r) => r.method === "window.showQuickPick")?.params as {
+            items: { label: string; description?: string }[];
+            placeHolder?: string;
+        };
+        expect(request.items[0]).toMatchObject({ label: "one", description: "/ws" });
+        expect(request.placeHolder).toBe("Select workspace folder");
+    });
+
+    it("the placeholder of the options wins; cancelling gives undefined", async () => {
+        const { stub, window } = pick([folder("one"), folder("two")], null);
+
+        await expect(window.showWorkspaceFolderPick({ placeHolder: "Where?" })).resolves.toBeUndefined();
+
+        const request = stub.requests.find((r) => r.method === "window.showQuickPick")?.params as {
+            placeHolder?: string;
+        };
+        expect(request.placeHolder).toBe("Where?");
+    });
+});

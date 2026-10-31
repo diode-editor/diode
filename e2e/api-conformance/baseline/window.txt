@@ -33,3 +33,4 @@ vscode API - window showQuickPick, select first two
 vscode API - window showQuickPick, undefined on cancel
 vscode API - window showTextDocument ViewColumn is always defined (even when opening > ViewColumn.Nine)
 vscode API - window showTextDocument ViewColumn.BESIDE
+vscode API - window showWorkspaceFolderPick

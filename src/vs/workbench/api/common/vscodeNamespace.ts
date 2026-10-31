@@ -207,7 +207,13 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         owner: ctx.owner,
     });
     // Deferred call: `workspace` is built after `window`.
-    const window = createWindowNamespace(ctx, terminals, treeViews, (uri) => workspace.asRelativePath(uri));
+    const window = createWindowNamespace(
+        ctx,
+        terminals,
+        treeViews,
+        (uri) => workspace.asRelativePath(uri),
+        () => workspace.workspaceFolders,
+    );
     const showWithoutOpening = window.showTextDocument;
     window.showTextDocument = openBeforeShow(showWithoutOpening, (uri) => workspace.openTextDocument(uri));
     // Deferred call: `tasks` is not built yet (it needs the `workspace` folders).
@@ -216,6 +222,10 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     const apiCommands = createApiCommands({
         showTextDocument: (uri, options) => showWithoutOpening(uri, options),
         openExternal: (target) => env.openExternal(target),
+        openTextDocument: (uri) => workspace.openTextDocument(uri),
+        // Deferred call: providers live in `languages`, whose code actions run `commands`.
+        executeCompletionItemProvider: (...args) => executeProviders.completionItems(...args),
+        executeCodeActionProvider: (...args) => executeProviders.codeActions(...args),
     });
     const commands = buildCommandsNamespace(
         rpc,
@@ -224,7 +234,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         apiCommands,
         treeViews.processArgument,
     );
-    const { languages } = createLanguagesNamespace(ctx, {
+    const { languages, executeProviders } = createLanguagesNamespace(ctx, {
         applyEdit: (edit, metadata) => workspace.applyEdit(edit, metadata),
         executeCommand: (command, ...args) => commands.executeCommand(command, ...args),
     });

@@ -61,6 +61,9 @@ function setup() {
             log.push(["createUntitled", params]);
             return { uri: "untitled:Untitled-1" };
         },
+        getLanguages: () => [],
+        getLanguageOfDocument: () => null,
+        changeDocumentLanguage: () => ({ applied: false }),
         closeGroups: (params) => {
             log.push(["closeGroups", params]);
             return Promise.resolve(false);
@@ -309,5 +312,64 @@ describe("EditorCustomer — subprocess requests", () => {
             ["createUntitled", { content: "x", encoding: "utf8" }],
             ["createUntitled", {}],
         ]);
+    });
+});
+
+describe("EditorCustomer — languages", () => {
+    function attach() {
+        const layout = {
+            getLanguages: () => ["plaintext", "json"],
+            getLanguageOfDocument: vi.fn(() => "json"),
+            changeDocumentLanguage: vi.fn(() => ({ applied: true })),
+            onDidChangeLayout: () => ({ dispose: () => undefined }),
+        };
+        const options = {
+            onActiveEditorChanged: () => ({ dispose: () => undefined }),
+            onActiveEditorSelectionChanged: () => ({ dispose: () => undefined }),
+        };
+        const [hostChannel, peerChannel] = createInProcessChannelPair();
+        new EditorCustomer(
+            options as unknown as IEditorOptionsService,
+            layout as unknown as IEditorLayoutService,
+        ).attach({ rpc: new RpcEndpoint(hostChannel) } as never);
+        return {
+            layout,
+            peer: new RpcEndpoint(peerChannel) as unknown as { request(m: string, p?: unknown): Promise<unknown> },
+        };
+    }
+
+    it("languages.getLanguages answers with the layout service's list", async () => {
+        const { peer } = attach();
+
+        await expect(peer.request("languages.getLanguages")).resolves.toEqual(["plaintext", "json"]);
+    });
+
+    it("languages.getLanguageOfDocument wraps the answer", async () => {
+        const { peer, layout } = attach();
+
+        await expect(peer.request("languages.getLanguageOfDocument", { uri: "file:///a" })).resolves.toEqual({
+            languageId: "json",
+        });
+        expect(layout.getLanguageOfDocument).toHaveBeenCalledWith("file:///a");
+    });
+
+    it("languages.changeLanguage passes uri and language on and returns the result", async () => {
+        const { peer, layout } = attach();
+
+        await expect(
+            peer.request("languages.changeLanguage", { uri: "file:///a", languageId: "json" }),
+        ).resolves.toEqual({ applied: true });
+        expect(layout.changeDocumentLanguage).toHaveBeenCalledWith({ uri: "file:///a", languageId: "json" });
+    });
+
+    it.each([
+        ["languages.getLanguageOfDocument", { uri: 1 }],
+        ["languages.changeLanguage", { uri: 1, languageId: "json" }],
+        ["languages.changeLanguage", { uri: "file:///a", languageId: 1 }],
+    ])("%s refuses malformed params %#", async (method, params) => {
+        const { peer, layout } = attach();
+
+        await expect(peer.request(method, params)).rejects.toThrow("malformed params");
+        expect(layout.changeDocumentLanguage).not.toHaveBeenCalled();
     });
 });

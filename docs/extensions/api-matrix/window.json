@@ -169,8 +169,8 @@
       "class": "ok"
     },
     "window.showWorkspaceFolderPick": {
-      "class": "B",
-      "note": "#916: not implemented"
+      "class": "ok",
+      "note": "ignoreFocusOut is ignored: the quick input overlay has no such mode"
     },
     "window.state": {
       "class": "ok"
