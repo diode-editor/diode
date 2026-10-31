@@ -219,6 +219,74 @@ describe("EditorComponent — inlay hints", () => {
             expect(app.backend.getBgAt(new Point(GUTTER + 3, 0))).toBe(HINT_BG);
             pane.dispose();
         });
+
+        it("a selection across two hints of one line leaves each of them alone", async () => {
+            providers.register("*", provider([hint(0, 1, "H"), hint(0, 2, "I")]));
+            const { app, row, pane } = await open("abc");
+            expect(row()).toBe("aHbIc");
+            pane.viewState.selections = [createSelection(0, 0, 0, 3)];
+            app.render();
+            const selected = app.backend.getBgAt(new Point(GUTTER, 0));
+            expect(selected).not.toBe(DARK_PLUS_BACKGROUND);
+            expect(app.backend.getBgAt(new Point(GUTTER + 1, 0))).toBe(HINT_BG);
+            expect(app.backend.getBgAt(new Point(GUTTER + 2, 0))).toBe(selected);
+            expect(app.backend.getBgAt(new Point(GUTTER + 3, 0))).toBe(HINT_BG);
+            expect(app.backend.getBgAt(new Point(GUTTER + 4, 0))).toBe(selected);
+            pane.dispose();
+        });
+
+        it("a selection over a hint under horizontal scroll finds the hint's cells", async () => {
+            providers.register("*", provider([hint(0, 12, "HH")]));
+            const { app, row, pane } = await open("abcdefghijklmnopqrstuvwxyz".repeat(2), { size: new Size(20, 4) });
+            pane.viewState.scrollLeft = 10;
+            pane.viewState.selections = [createSelection(0, 0, 0, 20)];
+            app.render();
+            expect(row().startsWith("klHHmn")).toBe(true);
+            const selected = app.backend.getBgAt(new Point(GUTTER + 1, 0));
+            expect(selected).not.toBe(DARK_PLUS_BACKGROUND);
+            expect(app.backend.getBgAt(new Point(GUTTER + 2, 0))).toBe(HINT_BG);
+            expect(app.backend.getBgAt(new Point(GUTTER + 3, 0))).toBe(HINT_BG);
+            expect(app.backend.getBgAt(new Point(GUTTER + 4, 0))).toBe(selected);
+            pane.dispose();
+        });
+
+        it("a selection over a hint on a wrapped row finds the hint's cells", async () => {
+            providers.register("*", provider([hint(0, 13, "HH")]));
+            const { app, row, pane } = await open("abcdefghijklmnopqrstuvwxyz", { size: new Size(16, 4) });
+            pane.setWordWrap("on", 80);
+            await vi.advanceTimersByTimeAsync(0);
+            app.render();
+            pane.viewState.selections = [createSelection(0, 0, 0, 20)];
+            app.render();
+            const column = row(1).indexOf("HH");
+            expect(column).toBeGreaterThan(0);
+            const selected = app.backend.getBgAt(new Point(GUTTER, 0));
+            expect(selected).not.toBe(DARK_PLUS_BACKGROUND);
+            expect(app.backend.getBgAt(new Point(GUTTER + column - 1, 1))).toBe(selected);
+            expect(app.backend.getBgAt(new Point(GUTTER + column, 1))).toBe(HINT_BG);
+            expect(app.backend.getBgAt(new Point(GUTTER + column + 1, 1))).toBe(HINT_BG);
+            expect(app.backend.getBgAt(new Point(GUTTER + column + 2, 1))).toBe(selected);
+            pane.dispose();
+        });
+
+        it("a color square keeps taking the selection: only hints stay outside", async () => {
+            const colors = new LanguageFeatureRegistry<DocumentColorProvider>();
+            colors.register("*", new DefaultDocumentColorProvider());
+            const pane = createEditorPane({
+                colorProviders: colors,
+                inlayHintsProviders: providers,
+                file: Uri.file(ws.writeFile("c.css", "x: #fff")),
+            });
+            const app = TestApp.createWithContent(pane.view, new Size(40, 4));
+            await vi.advanceTimersByTimeAsync(SETTLE_MS);
+            pane.viewState.selections = [createSelection(0, 0, 0, 7)];
+            app.render();
+            const selected = app.backend.getBgAt(new Point(GUTTER, 0));
+            expect(selected).not.toBe(DARK_PLUS_BACKGROUND);
+            expect(app.backend.getTextAt(new Point(GUTTER + 3, 0), 1)).toBe("■");
+            expect(app.backend.getBgAt(new Point(GUTTER + 3, 0))).toBe(selected);
+            pane.dispose();
+        });
     });
 
     describe("edges", () => {
