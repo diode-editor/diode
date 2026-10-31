@@ -141,6 +141,8 @@ export class TextDocument implements ITextDocument {
             versionId: this.innerVersionId,
             eol: this.eol,
             isFlush: true,
+            isUndoing: false,
+            isRedoing: false,
         });
         if (this.eol !== eolBefore) this.onDidChangeEolEmitter.fire();
     }
@@ -171,7 +173,11 @@ export class TextDocument implements ITextDocument {
     }
 
     public applyEdits(edits: readonly ITextEdit[]): IApplyEditsResult {
-        return this.applyEditsAs(edits, false);
+        return this.applyEditsAs(edits, "edit");
+    }
+
+    public applyUndoRedoEdits(edits: readonly ITextEdit[], origin: "undo" | "redo"): IApplyEditsResult {
+        return this.applyEditsAs(edits, origin);
     }
 
     /**
@@ -182,10 +188,10 @@ export class TextDocument implements ITextDocument {
     public appendText(text: string): void {
         const lastLine = this.lineCount - 1;
         const end = { line: lastLine, character: this.getLineLength(lastLine) };
-        this.applyEditsAs([{ range: { start: end, end }, text }], true);
+        this.applyEditsAs([{ range: { start: end, end }, text }], "append");
     }
 
-    private applyEditsAs(edits: readonly ITextEdit[], isAppend: boolean): IApplyEditsResult {
+    private applyEditsAs(edits: readonly ITextEdit[], origin: "edit" | "append" | "undo" | "redo"): IApplyEditsResult {
         if (edits.length === 0) {
             return { appliedVersion: this.innerVersionId, inverseEdits: [] };
         }
@@ -228,7 +234,7 @@ export class TextDocument implements ITextDocument {
                 startLine: startLine + lineShift,
                 oldEndLine: oldEndLine + lineShift,
                 newEndLine: newEndLine + lineShift,
-                ...(isAppend ? { isAppend } : {}),
+                ...(origin === "append" ? { isAppend: true } : {}),
             });
             lineShift += newEndLine - oldEndLine;
         }
@@ -240,6 +246,8 @@ export class TextDocument implements ITextDocument {
             versionId: this.innerVersionId,
             eol: this.eol,
             isFlush: false,
+            isUndoing: origin === "undo",
+            isRedoing: origin === "redo",
         });
 
         return { appliedVersion: this.innerVersionId, inverseEdits };

@@ -111,6 +111,23 @@ describe("documentSyncAdapter", () => {
         expect(built).toHaveBeenCalledTimes(1);
     });
 
+    it("bindDocumentSync: undo and redo reach the wire; a plain edit carries no flag", () => {
+        const { host, deltas } = recordingHost();
+        service.openFile(ws.path("a.ts"));
+        bindDocumentSync(service, service.editorGroups, host);
+
+        const editor = service.getActiveEditor()!;
+        editor.model.undoManager.pushUndoElement(editor.viewState.type("x")!);
+        editor.model.undoManager.undo(editor.viewState);
+        editor.model.undoManager.redo(editor.viewState);
+
+        expect(deltas.map(({ isUndoing, isRedoing }) => ({ isUndoing, isRedoing }))).toEqual([
+            { isUndoing: undefined, isRedoing: undefined },
+            { isUndoing: true, isRedoing: undefined },
+            { isUndoing: undefined, isRedoing: true },
+        ]);
+    });
+
     it("bindDocumentSync: didOpen per document, didChange per edit, didClose on the last tab", () => {
         const { host, opened, changed, closed } = recordingHost();
         service.openFile(ws.path("a.ts"));
