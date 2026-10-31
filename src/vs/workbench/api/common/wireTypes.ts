@@ -103,6 +103,8 @@ export interface IWireDocumentSyncSnapshot {
 /** Upstream `$acceptDirtyStateChanged` + `$acceptModelEOLChanged`: a save or an EOL change moves no text. */
 export interface IWireDocumentStateChanged {
     readonly uri: string;
+    /** An EOL change is a new version with no content change. */
+    readonly version: number;
     readonly isDirty: boolean;
     readonly eol: 1 | 2;
 }
@@ -806,6 +808,8 @@ export interface IWireApplyEditParams {
     /** Upstream `documentVersionId`: an edit built on another version of the document is refused. */
     readonly version?: number;
     readonly setEndOfLine?: 1 | 2;
+    readonly undoStopBefore?: boolean;
+    readonly undoStopAfter?: boolean;
 }
 
 export interface IWireSetSelectionParams {

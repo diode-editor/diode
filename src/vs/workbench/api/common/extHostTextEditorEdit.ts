@@ -72,10 +72,12 @@ export class TextEditorEdit implements vscode.TextEditorEdit {
 /** Upstream `ExtHostTextEditor.edit` + `_applyEdit`. By the time the reply arrives the mirror is updated: the host sends `didChange` first. */
 export function applyTextEditorEdit(
     document: vscode.TextDocument,
+    isClosed: boolean,
     callback: (editBuilder: vscode.TextEditorEdit) => void,
+    options: { undoStopBefore?: boolean; undoStopAfter?: boolean } | undefined,
     send: (params: IWireApplyEditParams) => Thenable<boolean>,
 ): Thenable<boolean> {
-    if (document.isClosed) return Promise.reject(new Error("TextEditor#edit not possible on closed editors"));
+    if (isClosed) return Promise.reject(new Error("TextEditor#edit not possible on closed editors"));
     const builder = new TextEditorEdit(document);
     callback(builder);
     const data = builder.finalize();
@@ -86,5 +88,7 @@ export function applyTextEditorEdit(
         edits: data.edits,
         version: document.version,
         ...(data.setEndOfLine === undefined ? {} : { setEndOfLine: data.setEndOfLine }),
+        ...(options?.undoStopBefore === false ? { undoStopBefore: false } : {}),
+        ...(options?.undoStopAfter === false ? { undoStopAfter: false } : {}),
     });
 }

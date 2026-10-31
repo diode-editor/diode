@@ -61,7 +61,7 @@ export interface IEditorOptionsService {
     applyActiveEditorEdits(
         uri: string,
         edits: readonly IWireEditorEdit[],
-        options?: { version?: number; setEndOfLine?: 1 | 2 },
+        options?: { version?: number; setEndOfLine?: 1 | 2; undoStopBefore?: boolean; undoStopAfter?: boolean },
     ): boolean;
     /**
      * As one undo step. All-or-nothing: if any resource fails validation, nothing is

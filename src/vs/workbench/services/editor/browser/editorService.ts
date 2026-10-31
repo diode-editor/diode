@@ -353,11 +353,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                     this.handleMovedFile(event.resource, event.target);
                     if (moved) this.fireEditorsChanged();
                 }
-                if (event.operation === FileOperation.Delete) {
-                    const released = this.releaseCleanHeldModels(event.resource);
-                    this.handleDeletedFile(event.resource);
-                    if (released) this.fireEditorsChanged();
-                }
+                if (event.operation === FileOperation.Delete) this.handleDeletedFile(event.resource);
             }),
         );
         // Deleted externally: with `closeOnFileDelete` clean tabs close (upstream
@@ -491,6 +487,17 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     public handleDeletedFile(resource: Uri): void {
         // A move "onto itself" is non-`null` exactly for a resource equal to `resource` or under it.
         this.closeCleanEditors((pane) => movedResource(pane.uri, resource, resource) !== null);
+        if (this.releaseCleanHeldModels(resource)) this.fireEditorsChanged();
+    }
+
+    public revertSoftBeforeDelete(resource: Uri): void {
+        const models = new Set<TextFileModel>(this.fileModelsWithoutEditor.models());
+        for (const pane of this.getTextSurfaces()) {
+            if (pane.fileModel !== null) models.add(pane.fileModel);
+        }
+        for (const model of models) {
+            if (movedResource(model.uri, resource, resource) !== null) model.revertSoft();
+        }
     }
 
     /** Diff sides are left alone: the diff's owner fixes their resources. */

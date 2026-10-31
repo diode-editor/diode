@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 80 |
+| test | 81 |
 | confirmed by a real extension | 0 |
 | used by a surveyed extension | 583 |
 
@@ -2600,7 +2600,7 @@ Proposed API or a false hit: class X when real.
 | `WorkspaceEdit` | ok | yes | 107 | 886,570,064 |  |
 | `WorkspaceEdit.createFile` | ok | yes | 0 | 0 |  |
 | `WorkspaceEdit.delete` | ok |  | 0 | 0 |  |
-| `WorkspaceEdit.deleteFile` | ok |  | 0 | 0 |  |
+| `WorkspaceEdit.deleteFile` | ok | yes | 0 | 0 |  |
 | `WorkspaceEdit.entries` | ok |  | 0 | 0 |  |
 | `WorkspaceEdit.get` | ok |  | 0 | 0 |  |
 | `WorkspaceEdit.has` | ok |  | 0 | 0 |  |

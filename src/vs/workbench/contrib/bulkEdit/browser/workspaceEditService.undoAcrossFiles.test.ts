@@ -52,6 +52,7 @@ function harness(settings: Record<string, unknown> = {}): IHarness {
         // No live models here: a closed file takes the disk path this suite is about.
         holdFileModel: () => null,
         getFileModelsWithoutEditor: () => [],
+        revertSoftBeforeDelete: () => undefined,
     } as unknown as IEditorService;
     const models = { get: () => null } as unknown as TextFileModelService;
     const service = new WorkspaceEditService(

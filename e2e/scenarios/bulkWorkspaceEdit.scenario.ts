@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -60,12 +60,7 @@ export default defineScenario({
         await editor.capture("menu");
 
         await editor.sendKey("Enter");
-        await waitUntil(
-            () => Promise.resolve(readFileSync(closedFile, "utf8")),
-            (text) => text.includes("greet"),
-            { describe: "greet method appended to the closed b.ts", timeoutMs: 60_000, intervalMs: 250 },
-        );
-
+        // A closed file gets a dirty model, as upstream: the edit is in the document, not on disk.
         await editor.sendKey("Ctrl+P");
         await editor.sendText("b.ts");
         await editor.waitForText((t) => t.includes("b.ts"));

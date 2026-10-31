@@ -35,7 +35,9 @@ export interface IBulkEditBuffers {
      * A live model for a resource that is not open, as upstream's bulk edit gets one from the text model service:
      * the edit leaves it dirty and the file untouched. `null` — no models here, the edit goes straight to disk.
      */
-    open(resource: string): IBulkEditBuffer | null;
+    open(resource: string): Exclude<BulkEditTarget, null> | null;
+    /** The file is about to be deleted: its unsaved edits go with it, as upstream, or a later save brings it back. */
+    willDelete(resource: string): void;
     /** The file was replaced on disk by this edit: an open model drops its contents, unsaved ones included, as upstream. */
     didReplaceOnDisk(resource: string): void;
     /**
@@ -54,6 +56,9 @@ export interface IBulkEditBuffers {
 export const NULL_BULK_EDIT_BUFFERS: IBulkEditBuffers = {
     get: () => null,
     open: () => null,
+    willDelete: () => {
+        /* no models — nothing unsaved */
+    },
     didReplaceOnDisk: () => {
         /* no models — nothing to reload */
     },

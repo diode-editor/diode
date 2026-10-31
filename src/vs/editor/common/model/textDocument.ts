@@ -117,6 +117,8 @@ export class TextDocument implements ITextDocument {
         if (eol === this.eol) return;
         this.assertWritable("setEol");
         this.buffer.setEol(eol);
+        // As upstream `setEOL`: extensions see a new version of the text, `getText` differs.
+        this.innerVersionId++;
         this.onDidChangeEolEmitter.fire();
     }
 

@@ -15,6 +15,8 @@ interface MutableUndoElement {
     afterSelections: readonly ISelection[];
     eolBefore?: EndOfLine;
     eolAfter?: EndOfLine;
+    /** Elements with one token are one step: `undo`/`redo` move them together. */
+    token: UndoStepToken;
 }
 
 /** The document's other views remap their state themselves on `onDidChangeContent`. */
@@ -23,7 +25,7 @@ export interface IUndoViewBinding {
 }
 
 /**
- * Identity of a stack entry. Comparing by document version does not work: `undo`
+ * Identity of a step on the stack. Comparing by document version does not work: `undo`
  * rewrites the next element's `versionAfter`, so a version captured outside goes stale.
  */
 export interface UndoStepToken {
@@ -59,80 +61,82 @@ export class UndoManager {
     }
 
     public pushUndoElement(element: IUndoElement): void {
-        this.undoStack.push({ ...element });
+        this.undoStack.push({ ...element, token: { label: element.label } });
         this.redoStack.length = 0;
         this.onDidPush?.(element);
     }
 
+    /**
+     * Upstream's edit without an undo stop between: it joins the top step, so no new step is announced.
+     * Nothing on the stack — an ordinary push.
+     */
+    public joinUndoElement(element: IUndoElement): void {
+        const top = this.undoStack.at(-1);
+        if (top === undefined) {
+            this.pushUndoElement(element);
+            return;
+        }
+        this.undoStack.push({ ...element, token: top.token });
+        this.redoStack.length = 0;
+    }
+
     public peekUndoStep(): UndoStepToken | undefined {
-        return this.undoStack.at(-1);
+        return this.undoStack.at(-1)?.token;
     }
 
     public peekRedoStep(): UndoStepToken | undefined {
-        return this.redoStack.at(-1);
+        return this.redoStack.at(-1)?.token;
     }
 
     /** `undefined` is a valid argument and always gives `false`. */
     public canUndoStep(token: UndoStepToken | undefined): boolean {
         const top = this.undoStack.at(-1);
-        return top !== undefined && top === token && this.doc.versionId === top.versionAfter;
+        return top !== undefined && top.token === token && this.doc.versionId === top.versionAfter;
     }
 
     public canRedoStep(token: UndoStepToken | undefined): boolean {
         const top = this.redoStack.at(-1);
-        return top !== undefined && top === token && this.doc.versionId === top.versionAfter;
+        return top !== undefined && top.token === token && this.doc.versionId === top.versionAfter;
     }
 
     /** `view` gets the step's selection snapshot restored; other views remap themselves. */
     public undo(view: IUndoViewBinding | null = null): boolean {
-        const element = this.undoStack.pop();
-        if (!element) return false;
-
-        if (this.doc.versionId !== element.versionAfter) {
-            return false;
-        }
-
-        const { appliedVersion, inverseEdits } = this.doc.applyEdits(element.backwardEdits);
-        view?.restoreSelections(element.beforeSelections);
-        if (element.eolBefore !== undefined) {
-            this.doc.setEol(element.eolBefore);
-        }
-
-        this.redoStack.push({
-            label: element.label,
-            versionBefore: element.versionAfter,
-            versionAfter: appliedVersion,
-            forwardEdits: element.backwardEdits,
-            backwardEdits: inverseEdits,
-            beforeSelections: element.afterSelections,
-            afterSelections: element.beforeSelections,
-            eolBefore: element.eolAfter,
-            eolAfter: element.eolBefore,
-        });
-
-        // Rewriting `versionAfter` is why {@link UndoStepToken} compares identity, not versions.
-        if (this.undoStack.length > 0) {
-            this.undoStack[this.undoStack.length - 1].versionAfter = appliedVersion;
-        }
-
-        return true;
+        return this.moveStep(this.undoStack, this.redoStack, view);
     }
 
     public redo(view: IUndoViewBinding | null = null): boolean {
-        const element = this.redoStack.pop();
-        if (!element) return false;
+        return this.moveStep(this.redoStack, this.undoStack, view);
+    }
 
-        if (this.doc.versionId !== element.versionAfter) {
-            return false;
+    /** All elements of the top step of `from`, newest first; the last one restores its selections last. */
+    private moveStep(from: MutableUndoElement[], to: MutableUndoElement[], view: IUndoViewBinding | null): boolean {
+        const token = from.at(-1)?.token;
+        if (token === undefined) return false;
+        const moved: UndoStepToken = { label: token.label };
+        while (from.at(-1)?.token === token) {
+            if (!this.moveElement(from, to, moved, view)) return false;
         }
+        return true;
+    }
 
-        const { appliedVersion, inverseEdits } = this.doc.applyEdits(element.backwardEdits);
+    private moveElement(
+        from: MutableUndoElement[],
+        to: MutableUndoElement[],
+        token: UndoStepToken,
+        view: IUndoViewBinding | null,
+    ): boolean {
+        const element = from.pop();
+        if (this.doc.versionId !== element?.versionAfter) return false;
+
+        const { inverseEdits } = this.doc.applyEdits(element.backwardEdits);
         view?.restoreSelections(element.beforeSelections);
         if (element.eolBefore !== undefined) {
             this.doc.setEol(element.eolBefore);
         }
+        // After the EOL: restoring it is a version too.
+        const appliedVersion = this.doc.versionId;
 
-        this.undoStack.push({
+        to.push({
             label: element.label,
             versionBefore: element.versionAfter,
             versionAfter: appliedVersion,
@@ -142,11 +146,12 @@ export class UndoManager {
             afterSelections: element.beforeSelections,
             eolBefore: element.eolAfter,
             eolAfter: element.eolBefore,
+            token,
         });
 
         // Rewriting `versionAfter` is why {@link UndoStepToken} compares identity, not versions.
-        if (this.redoStack.length > 0) {
-            this.redoStack[this.redoStack.length - 1].versionAfter = appliedVersion;
+        if (from.length > 0) {
+            from[from.length - 1].versionAfter = appliedVersion;
         }
 
         return true;

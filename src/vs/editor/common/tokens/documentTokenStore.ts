@@ -1,3 +1,4 @@
+import { spliceInChunks } from "../../../base/common/arrays.ts";
 import type { Event } from "../../../base/common/event.ts";
 import { Emitter } from "../../../base/common/event.ts";
 import { Disposable } from "../../../base/common/lifecycle.ts";
@@ -217,11 +218,8 @@ export class DocumentTokenStore extends Disposable {
         const lineDelta = newEndLine - oldEndLine;
 
         if (lineDelta > 0) {
-            this.cachedTokens.splice(
-                oldEndLine + 1,
-                0,
-                ...new Array<Uint32Array | undefined>(lineDelta).fill(undefined),
-            );
+            const inserted = new Array<Uint32Array | undefined>(lineDelta).fill(undefined);
+            spliceInChunks(this.cachedTokens, oldEndLine + 1, 0, inserted);
         } else if (lineDelta < 0) {
             this.cachedTokens.splice(newEndLine + 1, -lineDelta);
         }

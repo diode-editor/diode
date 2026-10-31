@@ -279,13 +279,10 @@ export function createWorkspaceNamespace(
     });
 
     rpc.handleNotification("editor.didChangeDocumentState", (params) => {
-        const p: { uri?: unknown; isDirty?: unknown; eol?: unknown } = params;
-        if (typeof p.uri !== "string" || typeof p.isDirty !== "boolean") return;
-        registry.get(Uri.parse(p.uri))?.applyMeta({
-            uri: p.uri,
-            isDirty: p.isDirty,
-            ...(p.eol === 1 || p.eol === 2 ? { eol: p.eol } : {}),
-        });
+        const p: { uri?: unknown; version?: unknown; isDirty?: unknown; eol?: unknown } = params;
+        if (typeof p.uri !== "string" || typeof p.isDirty !== "boolean" || typeof p.version !== "number") return;
+        if (p.eol !== 1 && p.eol !== 2) return;
+        documentSync.changeState({ uri: p.uri, version: p.version, isDirty: p.isDirty, eol: p.eol });
     });
 
     rpc.handleNotification("editor.didClose", (params) => {

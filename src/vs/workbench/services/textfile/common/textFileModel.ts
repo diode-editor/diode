@@ -694,6 +694,16 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     /**
+     * Upstream `revert({ soft: true })`, before the file is deleted: the text stays and is no longer unsaved, so nothing
+     * asks to save it and no save brings the file back.
+     */
+    public revertSoft(): void {
+        if (!this.isModified) return;
+        this.markSaved();
+        this.broadcastMarkDirty();
+    }
+
+    /**
      * Edits of a dirty tab carried over by a rename/move in the explorer: like upstream
      * `TextFileEditorModelManager` `resolve({ contents })` on MOVE, the model stays
      * modified and the undo history starts from scratch.

@@ -178,3 +178,100 @@ describe("BulkEditBuffers.didDelete", () => {
         expect((handleDeletedFile.mock.calls[0][0] as Uri).fsPath).toBe(Uri.file("/proj/src").fsPath);
     });
 });
+
+describe("BulkEditBuffers — models without a tab", () => {
+    const uri = Uri.file(A);
+    const edits = [createTextEdit(createRange(0, 0, 0, 0), "x")];
+    const step = (log: string[], name: string) => ({
+        label: "s",
+        resources: [],
+        undo: () => {
+            log.push(`undo ${name}`);
+        },
+        redo: () => {
+            log.push(`redo ${name}`);
+        },
+    });
+    const model = (log: string[], name: string, overrides: object = {}) => ({
+        uri,
+        undoContext: `model:${name}`,
+        isTooLargeForTokenization: false,
+        isModified: false,
+        applyExternalEditsDetached: vi.fn(() => step(log, name)),
+        ...overrides,
+    });
+    const setup = (first: object, second: object = first) => {
+        const registry = { current: first as object | null };
+        const editors = {
+            getActiveTabEditor: () => null,
+            getEditors: () => [],
+            getFileModelsWithoutEditor: () => [registry.current],
+            holdFileModel: vi.fn((): object => {
+                registry.current = second;
+                return second;
+            }),
+            revertSoftBeforeDelete: vi.fn(),
+        };
+        const models = { get: () => registry.current };
+        return {
+            registry,
+            editors,
+            buffers: new BulkEditBuffers(
+                editors as unknown as IEditorService,
+                models as unknown as TextFileModelService,
+            ),
+        };
+    };
+
+    it("a model in the large-file mode refuses the edit: it is read-only and extensions don't see it", () => {
+        const { buffers } = setup(model([], "large", { isTooLargeForTokenization: true }));
+        expect(buffers.get(uri.toString())).toBe("read-only");
+        expect(buffers.open(uri.toString())).toBe("read-only");
+    });
+
+    it("redo after the model was let go replays the edits on a new one, undo then goes to it", () => {
+        const log: string[] = [];
+        const second = model(log, "second");
+        const { buffers, registry } = setup(model(log, "first"), second);
+        const target = buffers.get(uri.toString());
+        if (target === null || target === "read-only") throw new Error("no buffer");
+        const element = target.applyEdits(edits, "label");
+        if (element === null) throw new Error("no step");
+
+        void element.undo();
+        registry.current = null;
+        expect(element.canUndo?.()).toBe(false);
+        expect(element.canRedo?.()).toBe(true);
+
+        void element.redo();
+        expect(second.applyExternalEditsDetached).toHaveBeenCalledExactlyOnceWith(edits, "label");
+        expect(element.canUndo?.()).toBe(true);
+        void element.undo();
+        expect(log).toEqual(["undo first", "undo second"]);
+    });
+
+    it("redo with a live model is the model's own step", () => {
+        const log: string[] = [];
+        const { buffers, editors } = setup(model(log, "first"));
+        const target = buffers.get(uri.toString());
+        if (target === null || target === "read-only") throw new Error("no buffer");
+        void target.applyEdits(edits, "label")?.redo();
+        expect(log).toEqual(["redo first"]);
+        expect(editors.holdFileModel).not.toHaveBeenCalled();
+    });
+
+    it("the model of a touched resource takes part in the step, so a tab opened later undoes it", () => {
+        const { buffers } = setup(model([], "first"));
+        expect(buffers.undoParticipants([uri.toString()])).toEqual([
+            { context: "model:first", label: "a.ts", owner: false },
+        ]);
+    });
+
+    it("willDelete reverts softly at the resource", () => {
+        const { buffers, editors } = setup(model([], "first"));
+        buffers.willDelete(uri.toString());
+        expect(editors.revertSoftBeforeDelete.mock.calls.map(([resource]: unknown[]) => String(resource))).toEqual([
+            uri.toString(),
+        ]);
+    });
+});

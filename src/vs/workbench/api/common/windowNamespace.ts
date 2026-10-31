@@ -470,6 +470,9 @@ export function createWindowNamespace(
             }
             return toVscodeSelection(primary);
         };
+        // A closed tab drops the editor from the cache; a reopened one is another object, as upstream.
+        const isEditorClosed = (): boolean =>
+            document.isClosed || editorCache.get(groupId)?.get(document.uri.toString()) !== editorProxy;
         let storedOptions: vscode.TextEditorOptions = {};
         /** Lives with this object: a closed tab drops it from the cache, so a reopened one starts clean. */
         let cursorStyleOverride: vscode.TextEditorCursorStyle | undefined;
@@ -503,9 +506,11 @@ export function createWindowNamespace(
             },
             edit: (
                 callback: (editBuilder: vscode.TextEditorEdit) => void,
-                _options?: { undoStopBefore: boolean; undoStopAfter: boolean },
+                options?: { undoStopBefore: boolean; undoStopAfter: boolean },
             ): Thenable<boolean> =>
-                applyTextEditorEdit(document, callback, (params) => rpc.request("editor.applyEdit", params)),
+                applyTextEditorEdit(document, isEditorClosed(), callback, options, (params) =>
+                    rpc.request("editor.applyEdit", params),
+                ),
             setDecorations: (
                 decorationType: vscode.TextEditorDecorationType,
                 rangesOrOptions: readonly vscode.Range[] | readonly vscode.DecorationOptions[],
@@ -520,7 +525,7 @@ export function createWindowNamespace(
                 });
             },
         };
-        return new Proxy(editorData, {
+        const editorProxy: vscode.TextEditor = new Proxy(editorData, {
             set: (target, prop, value): boolean => {
                 if (prop === "options") {
                     if (typeof value !== "object" || value === null) return false;
@@ -572,6 +577,7 @@ export function createWindowNamespace(
                 return false;
             },
         });
+        return editorProxy;
     }
 
     // A uri without a decoration is sent bare, so the host clears it from the file. `undefined` (all

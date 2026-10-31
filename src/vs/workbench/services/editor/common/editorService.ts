@@ -77,6 +77,8 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     getUntitledModelsWithoutEditor(): readonly TextFileModel[];
     /** Upstream `$tryOpenDocument`: extensions see the document, a tab may never appear. Bounded in age and number while clean. */
     getFileModelsWithoutEditor(): readonly TextFileModel[];
+    /** Upstream's working copy file service: dirty models at or under the resource stop being unsaved. */
+    revertSoftBeforeDelete(resource: Uri): void;
     /** `false`: not a readable file. */
     openTextDocumentWithoutEditor(uri: Uri): Promise<boolean>;
     /** Synchronous, for a file known to exist: {@link getFileModelsWithoutEditor}. `null`: not a file resource. */

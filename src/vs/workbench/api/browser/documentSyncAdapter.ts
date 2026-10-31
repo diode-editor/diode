@@ -64,7 +64,12 @@ interface ITrackedDocument {
 }
 
 function pushDocumentState(host: IDocumentSyncTarget, model: BaseTextEditorModel): void {
-    host.didChangeTextDocumentState({ uri: model.uri.toString(), isDirty: model.isModified, eol: model.eol });
+    host.didChangeTextDocumentState({
+        uri: model.uri.toString(),
+        version: model.document.versionId,
+        isDirty: model.isModified,
+        eol: model.eol,
+    });
 }
 
 /**
@@ -117,6 +122,12 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
                 pushDocumentState(host, model);
             }),
         );
+        // A save moves no text, so no didChange would tell extensions the document is clean. Before the reply to `save`.
+        subscriptions.add(
+            model.onDidMarkSaved(() => {
+                pushDocumentState(host, model);
+            }),
+        );
         // "Enable Editing" on a large file: the document now fits, and a flush opens it (`didChangeTextDocument`).
         subscriptions.add(
             model.onDidChangeTooLargeForTokenization(() => {
@@ -136,12 +147,6 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
         for (const model of alive) trackModel(model);
     };
 
-    // A save moves no text, so no didChange would tell extensions the document is clean. Before the reply to `save`.
-    group.onEditorSaved(({ uri }) => {
-        for (const model of tracked.keys()) {
-            if (model.uri.toString() === uri) pushDocumentState(host, model);
-        }
-    });
     group.onDidChangeEditors(reconcile);
     // Stryker disable next-line CallExpression: equivalent: moving and merging tabs already arrive via onDidChangeEditors, the subscription is a safeguard
     groups.onDidGroupsChange(reconcile);

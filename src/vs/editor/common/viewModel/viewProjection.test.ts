@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { SPLICE_CHUNK } from "../../../base/common/arrays.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 
 import type { IHiddenRange, IViewProjection, LineBreaksProvider } from "./viewProjection.ts";
@@ -13,7 +14,6 @@ import {
     IdentityProjection,
     mergeLineChanges,
     shiftHiddenRanges,
-    SPLICE_CHUNK,
 } from "./viewProjection.ts";
 
 const NO_BREAKS: LineBreaksProvider = () => null;

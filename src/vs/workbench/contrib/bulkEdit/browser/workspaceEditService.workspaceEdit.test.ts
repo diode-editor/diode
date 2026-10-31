@@ -72,6 +72,7 @@ function makeBuffers(open: Map<string, IFakeBuffer>, readOnly = new Set<string>(
         // a history step across several buffers — workspaceEditService.undoAcrossFiles.test.ts.
         undoParticipants: (touched) =>
             touched.length > 0 ? [{ context: `buffer:${touched[0]}`, label: touched[0], owner: true }] : [],
+        willDelete: () => undefined,
         didDelete: NULL_BULK_EDIT_BUFFERS.didDelete,
     };
 }

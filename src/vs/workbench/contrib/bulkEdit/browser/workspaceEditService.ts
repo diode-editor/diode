@@ -331,9 +331,8 @@ export class WorkspaceEditService {
         }
         const slot = entry.slot;
         // Looked up now, not in the plan: an earlier operation of this edit may have moved or replaced the model.
-        const target = this.buffers.get(slot.resource);
-        if (target === "read-only") throw new Error(`Read-only resource: ${slot.resource}`);
-        const buffer = target ?? this.buffers.open(slot.resource);
+        const buffer = this.buffers.get(slot.resource) ?? this.buffers.open(slot.resource);
+        if (buffer === "read-only") throw new Error(`Read-only resource: ${slot.resource}`);
         if (buffer !== null) {
             if (slot.filePath !== null) resources.push(slot.filePath);
             edited.set(slot.resource, buffer);
@@ -428,6 +427,7 @@ export class WorkspaceEditService {
                 // Trash bypasses the file service: we notify the tabs of the deleted
                 // resource ourselves (for a permanent delete the service does it).
                 const trash = async (): Promise<ITrashEntry> => {
+                    this.buffers.willDelete(Uri.file(from).toString());
                     const trashed = await this.trash.trash(from);
                     this.buffers.didDelete(Uri.file(from).toString());
                     return trashed;
@@ -443,6 +443,7 @@ export class WorkspaceEditService {
                 });
             } else {
                 // Permanent — can't be undone, no history step.
+                this.buffers.willDelete(Uri.file(from).toString());
                 await removeIfExists(files, from);
             }
         } else {
@@ -467,6 +468,8 @@ export class WorkspaceEditService {
             resources.push(to);
             ops.push({
                 undo: async () => {
+                    // Undoing the edits of this step left the model of the new file dirty, and the file is going away.
+                    this.buffers.willDelete(Uri.file(createdRoot).toString());
                     await removeIfExists(files, createdRoot);
                     await replaced?.restore();
                 },

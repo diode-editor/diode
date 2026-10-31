@@ -44,7 +44,10 @@ describe("EditorService — file models without an editor", () => {
         model.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), text)], "edit");
     }
 
-    const heldPaths = () => service().getFileModelsWithoutEditor().map((model) => model.uri.fsPath);
+    const heldPaths = () =>
+        service()
+            .getFileModelsWithoutEditor()
+            .map((model) => model.uri.fsPath);
 
     it("opens a file, refuses a directory, a missing path and a foreign scheme", async () => {
         expect(await service().openTextDocumentWithoutEditor(Uri.file(ws.path("a.txt")))).toBe(true);
@@ -70,7 +73,9 @@ describe("EditorService — file models without an editor", () => {
 
         h.workbench.openFile(ws.path("a.txt"));
 
-        const pane = service().getEditors().find((editor) => editor.uri.fsPath === ws.path("a.txt"));
+        const pane = service()
+            .getEditors()
+            .find((editor) => editor.uri.fsPath === ws.path("a.txt"));
         expect(pane?.model).toBe(model);
         expect(pane?.getText()).toBe("Xa");
     });
@@ -136,7 +141,11 @@ describe("EditorService — file models without an editor", () => {
     it("the exit confirmation lists a dirty model once, and not one a tab already speaks for", async () => {
         const model = hold("a.txt");
         edit(model, "X");
-        expect(service().collectDirty().map((item) => item.name)).toEqual(["a.txt"]);
+        expect(
+            service()
+                .collectDirty()
+                .map((item) => item.name),
+        ).toEqual(["a.txt"]);
 
         const [item] = service().collectDirty();
         expect(item.isStillDirty()).toBe(true);
