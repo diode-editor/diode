@@ -665,11 +665,12 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return reference.model;
     }
 
+    /** The tab closes right after, and that is the news for the document sync. */
     private releaseFileModelWithoutEditor(model: BaseTextEditorModel): void {
         const held = this.fileModelsWithoutEditor.models().find((candidate) => candidate === model);
+        // Stryker disable next-line ConditionalExpression: releasing an unknown model does nothing, this only narrows the type
         if (held === undefined) return;
         this.fileModelsWithoutEditor.release(held);
-        this.fireEditorsChanged();
     }
 
     /**

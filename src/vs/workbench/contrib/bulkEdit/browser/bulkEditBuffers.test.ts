@@ -298,6 +298,14 @@ describe("BulkEditBuffers — models without a tab", () => {
         expect(element?.canRedo?.()).toBe(true);
     });
 
+    it("an EOL step refuses once its model is let go, whatever the step itself answers", () => {
+        const { buffers, registry } = setup(model([], "first", { setEolDetached: () => gated(true) }));
+        const element = bufferOf(buffers).setEol(2);
+        registry.current = null;
+        expect(element?.canUndo?.()).toBe(false);
+        expect(element?.canRedo?.()).toBe(false);
+    });
+
     it("edits that changed nothing are no step", () => {
         const { buffers } = setup(model([], "first", { applyExternalEditsDetached: () => null }));
         expect(bufferOf(buffers).applyEdits(edits, "label")).toBeNull();

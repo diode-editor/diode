@@ -10,7 +10,7 @@ import type { EditorGroup } from "./editorGroupModel.ts";
 export interface IEditorCloseSurfaces {
     surfaces(): readonly TextEditorPane[];
     /** The user refused to save: nothing but the closing tab may keep these edits alive. */
-    didDiscard?(model: BaseTextEditorModel): void;
+    didDiscard(model: BaseTextEditorModel): void;
 }
 
 /**
@@ -78,7 +78,7 @@ export class EditorCloseHandler {
                 if ((await target.save({ overwrite: true })) !== "saved") return false;
             }
         } else {
-            for (const target of targets) this.surfaces.didDiscard?.(target.model);
+            for (const target of targets) this.surfaces.didDiscard(target.model);
         }
         return true;
     }

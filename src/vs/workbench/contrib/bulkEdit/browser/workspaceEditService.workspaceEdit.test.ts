@@ -761,6 +761,32 @@ describe("WorkspaceEditService.applyWorkspaceEdit — file operations", async ()
         expect(read(b)).toBe("aaa");
     });
 
+    it("a rename onto itself is a no-op: applied, the file stays, nothing to undo", async () => {
+        const { service, undoRedo } = makeService();
+        const file = write("a.ts", "aaa");
+
+        expect(await service.applyWorkspaceEdit([{ kind: "rename", from: file, to: file }], "Edit")).toBe(true);
+
+        expect(read(file)).toBe("aaa");
+        expect(undoRedo.canUndo(WORKSPACE_UNDO_CONTEXT)).toBe(false);
+    });
+
+    it("a text edit after a create with bytes sees the decoded text", async () => {
+        const { service } = makeService();
+        const file = path.join(tmpDir, "made.ts");
+
+        const applied = await service.applyWorkspaceEdit(
+            [
+                { kind: "create", to: file, contents: new TextEncoder().encode("one\n") },
+                textEdit(file, createTextEdit(createRange(0, 3, 0, 3), "!")),
+            ],
+            "Edit",
+        );
+
+        expect(applied).toBe(true);
+        expect(read(file)).toBe("one!\n");
+    });
+
     it("create writes bytes as they are", async () => {
         const { service } = makeService();
         const file = path.join(tmpDir, "bin.dat");
@@ -1142,6 +1168,32 @@ describe("WorkspaceEditService.applyWorkspaceEdit — file operations", async ()
             expect(log).toEqual(["eol 2"]);
             await undoRedo.undo(`buffer:${resource}`);
             expect(log).toContain("undo eol");
+        });
+
+        it("a line ending given by one operation survives a later operation with text", async () => {
+            const file = write("b.ts", "one\n");
+            const resource = Uri.file(file).toString();
+            const { log, buffers } = eolBuffers(resource);
+            const { service } = makeService(buffers);
+
+            const applied = await service.applyWorkspaceEdit(
+                [{ resource, edits: [], setEndOfLine: 2 }, textEdit(file, replaceFirstLine("zero\n"))],
+                "Edit",
+            );
+
+            expect(applied).toBe(true);
+            expect(log).toEqual(["edits", "eol 2"]);
+        });
+
+        it("renaming a file open read-only moves it: only its text is refused, not the file", async () => {
+            const from = write("from.ts", "from");
+            const to = path.join(tmpDir, "to.ts");
+            const { service } = makeService(makeBuffers(new Map(), new Set([Uri.file(from).toString()])));
+
+            await expect(service.applyWorkspaceEdit([{ kind: "rename", from, to }], "Edit")).resolves.toBe(true);
+
+            expect(read(to)).toBe("from");
+            expect(fs.existsSync(from)).toBe(false);
         });
 
         it("a read-only resource refuses the whole edit", async () => {

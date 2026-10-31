@@ -698,7 +698,6 @@ export class TextFileModel extends BaseTextEditorModel {
      * asks to save it and no save brings the file back.
      */
     public revertSoft(): void {
-        if (!this.isModified) return;
         this.markSaved();
         this.broadcastMarkDirty();
     }

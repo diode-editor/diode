@@ -626,14 +626,12 @@ export function serializeWorkspaceEdit(edit: WorkspaceEdit): IWireWorkspaceEditO
                 if (serialized !== null) edits.push(serialized);
             }
             if (edits.length === 0 && broken) return null;
-            if (edits.length > 0 || setEndOfLine !== undefined) {
-                ops.push({
-                    kind: "text",
-                    resource: op.uri.toString(),
-                    edits,
-                    ...(setEndOfLine === undefined ? {} : { setEndOfLine }),
-                });
-            }
+            ops.push({
+                kind: "text",
+                resource: op.uri.toString(),
+                edits,
+                ...(setEndOfLine === undefined ? {} : { setEndOfLine }),
+            });
             continue;
         }
         if (op.kind === "rename") {

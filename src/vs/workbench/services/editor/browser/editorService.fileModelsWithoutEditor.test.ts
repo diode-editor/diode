@@ -144,6 +144,49 @@ describe("EditorService — file models without an editor", () => {
         expect(other.isModified).toBe(true);
     });
 
+    it("revertSoftBeforeDelete skips a tab without a file: it has nothing to revert", () => {
+        const dirty = hold("a.txt");
+        edit(dirty, "X");
+        service().openPane(service().openDetached(Uri.parse("output:log"), "log"));
+
+        service().revertSoftBeforeDelete(Uri.file(ws.path("a.txt")));
+
+        expect(dirty.isModified).toBe(false);
+    });
+
+    it("a soft revert repaints the views of the model: the dirty marker goes away", () => {
+        const model = hold("a.txt");
+        edit(model, "X");
+        let repainted = 0;
+        model.attachEditTarget({
+            cloneSelections: () => [],
+            applyEdits: () => undefined,
+            markDirty: () => {
+                repainted++;
+            },
+        });
+
+        model.revertSoft();
+
+        expect(repainted).toBe(1);
+    });
+
+    it("a model let go by its age is news for the document sync", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        try {
+            hold("a.txt");
+            let events = 0;
+            service().onDidChangeEditors(() => events++);
+
+            vi.advanceTimersByTime(3 * 60 * 1000);
+
+            expect(heldPaths()).toEqual([]);
+            expect(events).toBe(1);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("a foreign scheme isn't looked up: a provider's file isn't held", async () => {
         const stat = vi.spyOn(files(), "stat");
         await expect(service().openTextDocumentWithoutEditor(Uri.parse("rw:/a.txt"))).resolves.toBe(false);
@@ -225,6 +268,21 @@ describe("EditorService — file models without an editor", () => {
 
         expect(heldPaths()).toEqual([]);
         expect(service().textFileModels.get(Uri.file(ws.path("a.txt")))).toBeNull();
+    });
+
+    it("Don't Save lets go of that tab's model only", async () => {
+        edit(hold("a.txt"), "Y");
+        const model = hold("dir/b.txt");
+        edit(model, "X");
+        h.workbench.openFile(ws.path("dir/b.txt"));
+        const dialogs = h.container.get(DialogServiceDIToken);
+
+        const closed = service().closeEditor(service().editorGroups.activeGroup, 0);
+        await settle();
+        dialogs.getOpenConfirmSaveDialog()?.onDontSave?.();
+        expect(await closed).toBe(true);
+
+        expect(heldPaths()).toEqual([ws.path("a.txt")]);
     });
 
     it("Save on the last tab keeps the held model, now clean", async () => {

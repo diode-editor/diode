@@ -334,6 +334,7 @@ export class WorkspaceEditService {
         const slot = entry.slot;
         // Looked up now, not in the plan: an earlier operation of this edit may have moved or replaced the model.
         const buffer = this.buffers.get(slot.resource) ?? this.buffers.open(slot.resource);
+        // Stryker disable next-line ConditionalExpression,StringLiteral: without the guard `applyEdits` of a string throws instead, and any throw here rolls the edit back the same way; the catch drops the message
         if (buffer === "read-only") throw new Error(`Read-only resource: ${slot.resource}`);
         if (buffer !== null) {
             if (slot.filePath !== null) resources.push(slot.filePath);
@@ -346,6 +347,7 @@ export class WorkspaceEditService {
             return;
         }
         const filePath = slot.filePath;
+        // Stryker disable next-line ConditionalExpression,StringLiteral: the plan refuses a foreign resource without a buffer, so this only narrows the type; the catch drops the message
         if (filePath === null) throw new Error(`No buffer for ${slot.resource}`);
         resources.push(filePath);
         const before = slot.base;
@@ -468,6 +470,7 @@ export class WorkspaceEditService {
             // create added (and doesn't touch directories that already existed).
             const createdRoot = await shallowestMissingAncestor(files, to);
             const contents = edit.contents ?? "";
+            // Stryker disable next-line ConditionalExpression,StringLiteral: the file service writes a string as the same UTF-8 bytes, the encoding only satisfies the type
             const bytes = typeof contents === "string" ? new TextEncoder().encode(contents) : contents;
             const doCreate = async (): Promise<void> => {
                 await files.createFolder(Uri.file(path.dirname(to)));
@@ -564,11 +567,16 @@ async function validateFileEdit(edit: WorkspaceFileEdit, projection: ResourcePro
         return (await projection.exists(edit.from)) || edit.ignoreIfNotExists === true;
     }
     if (edit.kind === "rename" && !(await projection.exists(edit.from))) return false;
-    // A rename onto itself is a no-op ({@link skipsFileEdit}), not a collision.
-    if (edit.kind === "rename" && edit.from === edit.to) return true;
+    // A no-op ({@link skipsFileEdit}), not a collision.
+    if (renamesOntoItself(edit)) return true;
     if (!(await projection.exists(edit.to))) return true;
     // An occupied target without explicit permission — the edit is not applied.
     return edit.overwrite === true || skipsOccupiedTarget(edit);
+}
+
+function renamesOntoItself(edit: WorkspaceFileEdit): boolean {
+    // Stryker disable next-line ConditionalExpression: only a rename reaches here with a `from`, for a create `from === to` is false anyway
+    return edit.kind === "rename" && edit.from === edit.to;
 }
 
 /** Upstream `bulkFileEdits`: only with `overwrite` not given at all; an explicit `false` is a collision. */
@@ -582,7 +590,7 @@ function skipsOccupiedTarget(edit: { readonly overwrite?: boolean; readonly igno
  */
 async function skipsFileEdit(edit: WorkspaceFileEdit, projection: ResourceProjection): Promise<boolean> {
     if (edit.kind === "delete") return !(await projection.exists(edit.from));
-    if (edit.kind === "rename" && edit.from === edit.to) return true;
+    if (renamesOntoItself(edit)) return true;
     return skipsOccupiedTarget(edit) && (await projection.exists(edit.to));
 }
 
