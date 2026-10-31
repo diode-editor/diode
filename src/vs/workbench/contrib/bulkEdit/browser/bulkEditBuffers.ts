@@ -23,6 +23,12 @@ export class BulkEditBuffers implements IBulkEditBuffers {
         const pane = this.paneFor(resource);
         if (pane === null) {
             const uri = Uri.parse(resource);
+            if (uri.scheme === "untitled") {
+                const untitled = this.editors
+                    .getUntitledModelsWithoutEditor()
+                    .find((candidate) => candidate.uri.toString() === resource);
+                return untitled === undefined ? null : this.modelBuffer(untitled);
+            }
             const model = this.models.get(uri);
             if (model === null) return null;
             if (model.isTooLargeForTokenization) return "read-only";
@@ -42,7 +48,12 @@ export class BulkEditBuffers implements IBulkEditBuffers {
     }
 
     public open(resource: string): Exclude<BulkEditTarget, null> | null {
-        const model = this.editors.holdFileModel(Uri.parse(resource));
+        const uri = Uri.parse(resource);
+        if (uri.scheme === "untitled") {
+            this.editors.createUntitled({ uri });
+            return this.get(resource);
+        }
+        const model = this.editors.holdFileModel(uri);
         if (model === null) return null;
         // The large-file mode is read-only and not synced: an edit would resolve `true` while the extension sees nothing.
         return model.isTooLargeForTokenization ? "read-only" : this.modelBuffer(model);
@@ -60,7 +71,8 @@ export class BulkEditBuffers implements IBulkEditBuffers {
         // The step outlives the model once it is saved and let go: undoing would edit a dead document.
         const guarded = (step: IUndoRedoElement | null): IUndoRedoElement | null => {
             if (step === null) return null;
-            const alive = (): boolean => this.models.get(model.uri) === model;
+            const origin = model.uri;
+            const alive = (): boolean => this.isLive(model, origin.scheme === "untitled" ? origin : model.uri);
             return {
                 ...step,
                 canUndo: () => alive() && (step.canUndo?.() ?? true),
@@ -93,11 +105,12 @@ export class BulkEditBuffers implements IBulkEditBuffers {
         const uri = model.uri;
         let current = model;
         let currentStep = step;
-        const alive = (): boolean => this.models.get(uri) === current;
+        const alive = (): boolean => this.isLive(current, uri);
         return {
             ...step,
             canUndo: () => alive() && (currentStep.canUndo?.() ?? true),
-            canRedo: () => !alive() || (currentStep.canRedo?.() ?? true),
+            // A closed untitled buffer has no file to come back from.
+            canRedo: () => (alive() ? (currentStep.canRedo?.() ?? true) : uri.scheme === "file"),
             undo: () => currentStep.undo(),
             redo: () => {
                 if (alive()) return currentStep.redo();
@@ -107,6 +120,13 @@ export class BulkEditBuffers implements IBulkEditBuffers {
                 currentStep = reopened.applyExternalEditsDetached(edits, label) ?? currentStep;
             },
         };
+    }
+
+    /** An untitled buffer is not in the registry: its owner is the service or its tab. */
+    private isLive(model: TextFileModel, uri: Uri): boolean {
+        if (uri.scheme !== "untitled") return this.models.get(uri) === model;
+        if (this.editors.getUntitledModelsWithoutEditor().includes(model)) return true;
+        return this.editors.getEditors().some((editor) => editor.model === model);
     }
 
     public undoParticipants(touched: readonly string[]): IUndoParticipant[] {

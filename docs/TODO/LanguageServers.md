@@ -12,9 +12,6 @@ API (no-op провайдеры и наивные стабы) — [API-COVERAGE]
 
 ## Платформа
 
-- [ ] **F12 при нескольких целях берёт первую вслепую** (`definitionService.ts`, `locations[0]`), а
-  VS Code показывает список. Панель References для этого уже есть — осталось развернуть в неё
-  multi-target ответ.
 - [ ] **Гонка didClose/didOpen и folding при быстром переоткрытии файла.** Закрыть вкладку и тут же
   открыть тот же файл — тост «Request textDocument/foldingRange failed … The document should be
   opened for foldingRanges». Воспроизводится на живом бинаре подряд идущими активациями,

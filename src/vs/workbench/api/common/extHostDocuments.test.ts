@@ -30,6 +30,19 @@ describe("ExtHostDocuments — DocumentRegistry identity", () => {
         expect(reg.all()).toHaveLength(2);
     });
 
+    it("forget() drops the resource: the next getOrCreate is a new object, the old one keeps working", () => {
+        const reg = new DocumentRegistry();
+        const held = reg.upsertFull({ uri: Uri.file("/a.ts").toString(), text: "held" });
+        const other = reg.getOrCreate(Uri.file("/b.ts"));
+
+        reg.forget(Uri.file("/a.ts"));
+
+        expect(reg.get(Uri.file("/a.ts"))).toBeUndefined();
+        expect(reg.get(Uri.file("/b.ts"))).toBe(other);
+        expect(reg.getOrCreate(Uri.file("/a.ts"))).not.toBe(held);
+        expect(held.getText()).toBe("held");
+    });
+
     it("get() returns the document or undefined", () => {
         const reg = new DocumentRegistry();
         const doc = reg.getOrCreate(Uri.file("/a.ts"));
@@ -225,6 +238,24 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
         expect(doc.isClosed).toBe(true);
         expect(closed).toEqual(["a"]);
         expect(registry.get(Uri.parse(URI)) === doc).toBe(true);
+    });
+
+    it("close of a dirty document: a closed document has nothing left to save", () => {
+        const { tracker } = makeTracker();
+        const doc = tracker.open({ uri: URI, text: "a", isDirty: true });
+
+        tracker.close(Uri.parse(URI));
+
+        expect(doc.isDirty).toBe(false);
+    });
+
+    it("a state that differs only by encoding counts as a change, the same one does not", () => {
+        const { tracker } = makeTracker();
+        const doc = tracker.open({ uri: URI, text: "a", encoding: "utf8" });
+        const state = { version: doc.version, isDirty: doc.isDirty, eol: doc.eol };
+
+        expect(doc.acceptState({ ...state, encoding: "utf8" })).toBe(false);
+        expect(doc.acceptState({ ...state, encoding: "windows1252" })).toBe(true);
     });
 
     it("close of an unknown resource returns null without an event", () => {

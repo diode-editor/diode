@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../../base/common/uri.ts";
+import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
@@ -58,7 +59,109 @@ function fakes({
 const A = "/proj/a.ts";
 const B = "/proj/b.ts";
 
+describe("BulkEditBuffers — is an untitled document still there for undo", () => {
+    const step = () => ({ label: "s", resources: [], undo: () => {}, redo: () => {} });
+
+    function setup() {
+        const model = {
+            uri: Uri.parse("untitled:doc"),
+            undoContext: "ctx:doc",
+            isModified: true,
+            applyExternalEditsDetached: vi.fn(step),
+            setEolDetached: vi.fn(step),
+        };
+        const state = { withoutEditor: [model] as object[], tabs: [] as { model: object }[] };
+        const registry = { current: null as object | null };
+        const editors = {
+            getActiveTabEditor: () => null,
+            getEditors: () => state.tabs,
+            getUntitledModelsWithoutEditor: () => state.withoutEditor,
+        } as unknown as IEditorService;
+        const models = { get: () => registry.current } as unknown as TextFileModelService;
+        const target = new BulkEditBuffers(editors, models).get("untitled:doc");
+        if (target === null || target === "read-only") throw new Error("no buffer");
+        return { model, state, registry, target };
+    }
+
+    const edits = [createTextEdit(createRange(0, 0, 0, 0), "x")];
+
+    it("without a tab, in a tab next to others, and gone", () => {
+        const { model, state, target } = setup();
+        const element = target.applyEdits(edits, "label");
+        expect(element?.canUndo?.()).toBe(true);
+
+        state.withoutEditor = [];
+        state.tabs = [{ model: {} }, { model }];
+        expect(element?.canUndo?.()).toBe(true);
+
+        state.tabs = [{ model: {} }];
+        expect(element?.canUndo?.()).toBe(false);
+        expect(element?.canRedo?.()).toBe(false);
+    });
+
+    it("a step of the line ending keeps watching the untitled document after Save As moved its model", () => {
+        const { model, state, target } = setup();
+        const element = target.setEol(EndOfLine.CRLF);
+        state.withoutEditor = [];
+        state.tabs = [{ model }];
+
+        model.uri = Uri.file("/saved.txt");
+
+        expect(element?.canUndo?.()).toBe(true);
+    });
+
+    it("a step of the line ending on a file goes by the file's current resource", () => {
+        const model = {
+            uri: Uri.file("/first.txt"),
+            undoContext: "ctx:file",
+            isModified: true,
+            isTooLargeForTokenization: false,
+            setEolDetached: vi.fn(step),
+        };
+        const models = {
+            get: (uri: Uri) => (uri.toString() === model.uri.toString() ? model : null),
+        } as unknown as TextFileModelService;
+        const editors = {
+            getActiveTabEditor: () => null,
+            getEditors: () => [],
+            getFileModelsWithoutEditor: () => [model],
+        } as unknown as IEditorService;
+        const target = new BulkEditBuffers(editors, models).get(model.uri.toString());
+        if (target === null || target === "read-only") throw new Error("no buffer");
+        const element = target.setEol(EndOfLine.CRLF);
+
+        model.uri = Uri.file("/second.txt");
+
+        expect(element?.canUndo?.()).toBe(true);
+    });
+});
+
 describe("BulkEditBuffers.get", () => {
+    it("an untitled document without a tab: the edit goes to the model of that uri, not to another one", () => {
+        const untitled = (name: string) => ({
+            uri: Uri.parse(`untitled:${name}`),
+            undoContext: `ctx:${name}`,
+            isModified: true,
+            applyExternalEditsDetached: vi.fn(() => ({ label: "s", resources: [], undo: () => {}, redo: () => {} })),
+        });
+        const first = untitled("first");
+        const second = untitled("second");
+        const editors = {
+            getActiveTabEditor: () => null,
+            getEditors: () => [],
+            getUntitledModelsWithoutEditor: () => [first, second],
+        } as unknown as IEditorService;
+        const buffers = new BulkEditBuffers(editors, {} as unknown as TextFileModelService);
+
+        const target = buffers.get("untitled:second");
+        if (target === null || target === "read-only") throw new Error("no buffer");
+        target.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "x")], "label");
+
+        expect(second.applyExternalEditsDetached).toHaveBeenCalledOnce();
+        expect(first.applyExternalEditsDetached).not.toHaveBeenCalled();
+        expect(buffers.get("untitled:third")).toBeNull();
+    });
+
     it("the resource's tab is the buffer: text and edits go through it", () => {
         const active = pane(A);
         const buffers = new BulkEditBuffers(...fakes({ active }));

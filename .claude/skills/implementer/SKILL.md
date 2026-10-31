@@ -29,7 +29,8 @@ description: Реализатор задачи агентского лупа —
 
 1. Источник правды — GitHub, не память: `gh issue view <N> --comments` (последний комментарий
    `returned:`/`requeued:` — почему остановились), `gh pr view <pr> --comments` (отчёт
-   тестировщика начинается строкой `verdict: approve|bugs`), `gh pr checks <pr>`, сама ветка.
+   тестировщика начинается строкой `verdict: approve|bugs`), `node scripts/git/pr-status.mjs <pr>`
+   (`CONFLICTING` — первым делом влей `origin/main`, раздел «Конфликт с `main`»), сама ветка.
    Если это твоя же сессия, продолженная через `--resume`, всё равно сверь: что реально
    запушено и что говорит CI.
 2. Worktree: есть `.claude/worktrees/issue-<N>` — работай в нём (`cd`, `git fetch origin
@@ -92,21 +93,54 @@ claude-lease run -- node scripts/agent-loop/mutation-budget.mjs -- npm run test:
     node scripts/agent-loop/status.mjs write --task <N> --role implementer --status ready-for-test \
         --pr <номер> --branch issue/<N> --note "<решения по спеке и отступления, если есть>"
     ```
-4. Дальше параллельно: доводи CI до зелёного (`gh pr checks <pr> --watch`, красное чинить,
-   флаки по docs/PR.md) и жди тестировщика — в фоне:
+4. Дальше параллельно: доводи CI до зелёного (красное чинить, флаки по docs/PR.md) и жди
+   тестировщика — в фоне:
     ```sh
     node scripts/agent-loop/wait.mjs --task <N> --role tester --timeout 2h
     ```
     Пушить в `issue/<N>` можно: тестировщик работает в своей ветке `issue/<N>/tests`.
 
+CI ждёшь **только** так, не `gh pr checks --watch`:
+
+```sh
+node scripts/git/pr-status.mjs <pr> --watch
+```
+
+Код `0` — всё зелёное, `1` — что-то красное (упавшие перечислены), `13` — PR **CONFLICTING**:
+скрипт выходит сразу, не дожидаясь проверок, потому что ждать их бессмысленно (ниже).
+
+## Конфликт с `main` — чинить сразу, не ждать
+
+Рядом идёт вторая задача лупа, и она часто правит те же общие файлы (`docs/public/API-COVERAGE.md`,
+`docs/extensions/api-matrix*`, `e2e/api-conformance/*`, `docs/arch/*.md`, трекер). Как только её PR
+влит, твой становится `CONFLICTING`: GitHub не собирает merge-коммит, **новый CI на такой PR не
+запускается, а идущий бежит против уже несуществующей базы** — его вердикт ничего не стоит, и
+`gh pr merge` откажет. Урок 2026-10-31 (PR #931): реализатор два часа ждал проверок конфликтующего
+PR, задача провисела вдвое дольше нужного.
+
+Поэтому код `13` от `pr-status.mjs --watch`, отказ `gh pr merge` «not mergeable» или
+`CONFLICTING` в любой проверке статуса — одно и то же действие, немедленно:
+
+```sh
+git fetch origin main && git merge origin/main
+```
+
+Разреши конфликты (генерируемые файлы не своди руками — перегенерируй: `npm run api-matrix` и
+т. п.), `claude-lease run -- npm run check:diff`, коммит, push и снова `pr-status.mjs <pr> --watch`.
+Merge, не rebase: PR вливается squash'ем, merge-коммит в ветке никому не мешает, а force-push не
+нужен. И **перед финальным push** — тем, после которого ты собираешься вливать, — влей
+`origin/main` заранее тем же `git fetch origin main && git merge origin/main`: конфликт дешевле
+поймать до часового круга CI, чем после.
+
 ## Отчёт тестировщика
 
-- **`approve`** — зелёный CI → `gh pr ready <pr>` (после возврата PR может быть в draft, а draft не вливается) → `gh pr merge <pr> --squash --delete-branch` → статус `done`: squash-коммит в `main` — от владельца gh-аккаунта, автора не подменяем (GitHub принимает в `--author-email` только подтверждённый адрес этого аккаунта).
+- **`approve`** — `node scripts/git/pr-status.mjs <pr> --watch` с кодом `0` (код `13` — конфликт с `main`, раздел выше) → `gh pr ready <pr>` (после возврата PR может быть в draft, а draft не вливается) → `gh pr merge <pr> --squash --delete-branch` → статус `done`: squash-коммит в `main` — от владельца gh-аккаунта, автора не подменяем (GitHub принимает в `--author-email` только подтверждённый адрес этого аккаунта).
 - **`bugs`** — `git fetch origin issue/<N>/tests` и `git merge origin/issue/<N>/tests`: в
   статусе список багов с путями к падающим тестам. Чини каждый, пока его тест не станет
   зелёным; временный или дублирующий тест, который ничего не добавляет, можно убрать — но
   баг он поймал настоящий, починить его обязан. Бюджет мутаций общий на всю задачу. Потом
-  зелёный CI → влить → `done`:
+  `git fetch origin main && git merge origin/main`, push, `pr-status.mjs <pr> --watch` до кода `0`
+  → влить → `done`:
     ```sh
     node scripts/agent-loop/status.mjs write --task <N> --role implementer --status done --pr <номер> --branch issue/<N>
     ```

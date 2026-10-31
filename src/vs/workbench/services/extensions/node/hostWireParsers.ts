@@ -114,6 +114,7 @@ export function parseWireCreateUntitledParams(raw: unknown): IWireCreateUntitled
     // Primitives aren't rejected separately: their fields read as undefined.
     const obj = (raw ?? {}) as Record<string, unknown>;
     return {
+        ...(typeof obj.uri === "string" ? { uri: obj.uri } : {}),
         ...(typeof obj.content === "string" ? { content: obj.content } : {}),
         ...(typeof obj.language === "string" ? { language: obj.language } : {}),
         ...(typeof obj.encoding === "string" ? { encoding: obj.encoding } : {}),

@@ -77,6 +77,21 @@ function makeBuffers(open: Map<string, IFakeBuffer>, readOnly = new Set<string>(
     };
 }
 
+describe("WorkspaceEditService — a text edit brings an untitled resource to life", () => {
+    function buffersFor(buffer: IFakeBuffer): IBulkEditBuffers {
+        const live = makeBuffers(new Map([["untitled:new", buffer]]));
+        return { ...makeBuffers(new Map()), open: live.get };
+    }
+
+    it("the edit goes to the buffer opened for it", async () => {
+        const buffer: IFakeBuffer = { text: "", applied: [], step: null };
+        const edit = [{ resource: "untitled:new", edits: [createTextEdit(createRange(0, 0, 0, 0), "x")] }];
+
+        expect(await makeService(buffersFor(buffer)).service.applyWorkspaceEdit(edit, "edit")).toBe(true);
+        expect(buffer.text).toBe("x");
+    });
+});
+
 function applyToText(text: string, edits: readonly ITextEdit[]): string {
     const lines = text.split("\n");
     for (const edit of [...edits].reverse()) {

@@ -43,6 +43,9 @@ export const FOCUS_CONTEXTS: readonly Readonly<Record<string, boolean>>[] = [
         editorAreaFocus: true,
         editorGroupHasEditors: true,
         editorTabsMultiple: true,
+        // The enablement of the go-to keybindings: a document with a language server.
+        editorHasDefinitionProvider: true,
+        editorHasReferenceProvider: true,
     },
     { inputWidgetFocus: true },
     { listFocus: true },

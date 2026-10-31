@@ -158,6 +158,10 @@ import {
     DefinitionService,
     DefinitionServiceDIToken,
 } from "../../workbench/contrib/gotoDefinition/browser/definitionService.ts";
+import {
+    GoToLocationsCommandContribution,
+    GoToLocationsCommandContributionDIToken,
+} from "../../workbench/contrib/gotoDefinition/browser/goToLocationsCommandContribution.ts";
 import { HoverComponent, HoverComponentDIToken } from "../../workbench/contrib/hover/browser/hoverComponent.ts";
 import { HoverService, HoverServiceDIToken } from "../../workbench/contrib/hover/browser/hoverService.ts";
 import {
@@ -521,6 +525,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(CompletionServiceDIToken, CompletionService);
     container.bind(InlineCompletionsServiceDIToken, InlineCompletionsService);
     container.bind(DefinitionServiceDIToken, DefinitionService);
+    container.bind(GoToLocationsCommandContributionDIToken, GoToLocationsCommandContribution);
     container.bind(HoverComponentDIToken, HoverComponent);
     container.bind(HoverServiceDIToken, HoverService);
     container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);

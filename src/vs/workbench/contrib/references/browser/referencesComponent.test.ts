@@ -4,7 +4,9 @@ import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
-import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import { Uri } from "../../../../base/common/uri.ts";
+import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
@@ -14,7 +16,12 @@ import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.t
 import type { IReferenceGroup } from "./referencePreview.ts";
 import { type IReferencesRevealTarget, ReferencesComponent } from "./referencesComponent.ts";
 
-const NULL_VIEWS_SERVICE = { registerContainer: () => {}, registerView: () => {} } as unknown as ViewsService;
+const viewTitles: (string | undefined)[] = [];
+const NULL_VIEWS_SERVICE = {
+    registerContainer: () => {},
+    registerView: () => {},
+    setViewTitle: (_id: string, title: string | undefined) => viewTitles.push(title),
+} as unknown as ViewsService;
 
 function fakeReveal(opts: { noEditor?: boolean } = {}): {
     target: IReferencesRevealTarget;
@@ -26,7 +33,9 @@ function fakeReveal(opts: { noEditor?: boolean } = {}): {
     const positions: [number, number | undefined][] = [];
     const ranges: IRange[] = [];
     const target: IReferencesRevealTarget = {
-        openUri: (uri) => opened.push(uri.fsPath),
+        openUri: (uri) => {
+            opened.push(uri.fsPath);
+        },
         getActiveEditor: () =>
             opts.noEditor === true
                 ? null
@@ -40,6 +49,7 @@ function fakeReveal(opts: { noEditor?: boolean } = {}): {
 
 function group(relPath: string, lines: [number, string, string, string][]): IReferenceGroup {
     return {
+        uri: Uri.file(`/work/project/${relPath}`).toString(),
         absolutePath: `/work/project/${relPath}`,
         relPath,
         matches: lines.map(([lineNumber, before, inside, after]) => ({
@@ -79,6 +89,80 @@ const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 function line(backend: MockTerminalBackend, y: number): string {
     return backend.screenToString().split("\n")[y];
 }
+
+describe("ReferencesComponent — title and active row", () => {
+    const at = (relPath: string, line: number, character: number) => ({
+        uri: Uri.file(`/work/project/${relPath}`).toString(),
+        range: createRange(line, character, line, character + 5),
+    });
+    const cursor = (component: ReferencesComponent) => component.results.getCursorElement()?.id;
+
+    it("the title goes to the section; plain results and clear return the registered one", () => {
+        const component = make();
+        viewTitles.length = 0;
+
+        component.setResults(twoFiles(), { title: "Definitions" });
+        component.setResults(twoFiles());
+        component.setResults(twoFiles(), { title: "Locations" });
+        component.clear();
+
+        expect(viewTitles).toEqual(["Definitions", undefined, "Locations", undefined]);
+    });
+
+    it("the cursor lands on the active row, F4 continues from it", () => {
+        const reveal = fakeReveal();
+        const component = make({ reveal: reveal.target });
+
+        component.setResults(twoFiles(), { active: at("src/b.ts", 2, 9) });
+        expect(cursor(component)).toBe("ref:src/b.ts:0");
+
+        component.goToNextReference();
+        expect(cursor(component)).toBe("ref:src/a.ts:0");
+    });
+
+    it.each([
+        ["another file", at("src/c.ts", 2, 9)],
+        ["another line", at("src/b.ts", 3, 9)],
+        ["another column", at("src/b.ts", 2, 8)],
+    ])("an active row that isn't in the list falls back to the first: %s", (_name, active) => {
+        const component = make();
+
+        component.setResults(twoFiles(), { active });
+
+        expect(cursor(component)).toBe("ref:src/a.ts:0");
+    });
+
+    it("a non-disk row reopens its resource by uri and sets the position after it has opened", async () => {
+        const opened: string[] = [];
+        const positions: number[] = [];
+        let finishOpen = (): void => undefined;
+        const component = make({
+            reveal: {
+                openUri: (uri) => {
+                    opened.push(uri.toString(true));
+                    return new Promise((resolve) => {
+                        finishOpen = resolve;
+                    });
+                },
+                getActiveEditor: () => ({
+                    goToPosition: (line) => positions.push(line),
+                    revealRange: () => undefined,
+                }),
+            },
+        });
+        const jdt = "jdt://contents/Lib.java";
+        component.setResults([{ ...group("Lib.java", [[3, "class ", "Lib", ""]]), uri: jdt }]);
+
+        component.goToNextReference();
+        await flushMicrotasks(5);
+        expect(opened).toEqual([jdt]);
+        expect(positions).toEqual([]);
+
+        finishOpen();
+        await flushMicrotasks(5);
+        expect(positions).toEqual([2]);
+    });
+});
 
 describe("ReferencesComponent — filling the panel", () => {
     it("groups references by file with a counter and code lines", () => {

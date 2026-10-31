@@ -110,7 +110,7 @@
     },
     "workspace.openTextDocument": {
       "class": "B",
-      "note": "#918: untitled: uris are rejected. A file is a live model without a tab; an explicit encoding decodes a separate read until the encodings cluster."
+      "note": "A file is a live model without a tab; an explicit encoding decodes a separate read until the encodings cluster. untitled: uris as upstream, except that a relative or host uri has no path to write to: Ctrl+S asks through Save As, TextDocument.save gives false."
     },
     "workspace.registerFileSystemProvider": {
       "class": "B",
