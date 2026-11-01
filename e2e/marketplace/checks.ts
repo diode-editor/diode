@@ -600,10 +600,8 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await app.session.key("Ctrl+S");
                 await waitForFile("def f(x):\n    y\n");
 
-                await app.session.key("Enter");
-                await app.session.sendText("foo(");
-                await app.session.key("Enter");
-                await app.session.sendText("z");
+                // `sendText` is a paste and a paste does not auto-close the bracket, which is what makes this a hanging indent.
+                for (const key of ["Enter", "f", "o", "o", "(", "Enter", "z"]) await app.session.key(key);
                 await app.session.key("Ctrl+S");
                 await waitForFile("def f(x):\n    y\n    foo(\n        z\n    )\n");
             } finally {
