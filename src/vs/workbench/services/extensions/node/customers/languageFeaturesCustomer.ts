@@ -103,6 +103,7 @@ type LanguageRequestMethod =
     | "languages.resolveCodeLens"
     | "languages.provideInlayHints"
     | "languages.provideCompletionItems"
+    | "languages.provideFormattingEdits"
     | "languages.provideDocumentSemanticTokens"
     | "languages.provideDocumentRangeSemanticTokens";
 

@@ -60,11 +60,11 @@ API (no-op провайдеры и наивные стабы) — [API-COVERAGE]
 
 ## Форматирование
 
-- [ ] **Выбор форматтера — когда укусит** (решение человека: сейчас не делать; на `.ts` при
-  установленном prettier выигрывает prettier, и это то, чего хочет пользователь):
-  `editor.defaultFormatter` (глобальная и `[language]`); «Format Document With…»
-  (`editor.action.formatDocument.multiple`) — пикер провайдеров, выбор пишется в
-  `editor.defaultFormatter` языка; в проводе — личность провайдера (сейчас ядро видит только правки).
+- [x] `editor.defaultFormatter` (глобальная и `[language]`), в проводе — личность провайдера (#973). Без настройки
+  по-прежнему форматирует первый провайдер: на `.ts` при установленном prettier выигрывает prettier (решение человека);
+  эталон в этом случае спрашивает.
+- [ ] **Пикер форматтера — когда укусит:** «Format Document With…» (`editor.action.formatDocument.multiple`), выбор
+  пишется в `editor.defaultFormatter` языка.
 - [ ] **Остальная система (отложено):** `editor.formatOnPaste`, `editor.formatOnSaveMode` (`file`/`modifications` — дифф против
   git-версии в ядре есть).
 - [ ] `Prettier: Create Configuration File` и `eslint.createConfig` упирались в отсутствие

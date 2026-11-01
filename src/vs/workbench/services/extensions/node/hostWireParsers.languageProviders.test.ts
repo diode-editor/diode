@@ -109,6 +109,15 @@ describe("hostWireParsers — semantic tokens registration", () => {
         });
     });
 
+    it("extensionId passes only as a string", () => {
+        const registration = { handle: 6, kind: "formatting", selector: [] };
+        expect(parseWireLanguageProviderRegistration({ ...registration, extensionId: "acme.fmt" })).toStrictEqual({
+            ...registration,
+            extensionId: "acme.fmt",
+        });
+        expect(parseWireLanguageProviderRegistration({ ...registration, extensionId: 7 })).toStrictEqual(registration);
+    });
+
     it("a non-object legend leaves no field; hasOnDidChange only on true", () => {
         for (const legend of [null, "x", 3, undefined]) {
             expect(

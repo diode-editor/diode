@@ -66,7 +66,7 @@ registration but are not called yet.
 | `registerReferenceProvider` | ✅ | |
 | `registerRenameProvider` | ✅ | `prepareRename` (both response forms), edits across all affected files as one undo step; the new name is asked for in an input box, there is no inline rename widget |
 | `registerSignatureHelpProvider` | ✅ | both registration overloads |
-| `registerDocumentFormattingEditProvider` | ✅ | |
+| `registerDocumentFormattingEditProvider` | ✅ | `editor.defaultFormatter` picks the provider; without it the first one formats instead of asking, and there is no Format Document With picker |
 | `registerDocumentRangeFormattingEditProvider` | ✅ | the multi-range `provideDocumentRangesFormattingEdits` is not active |
 | `registerCodeActionsProvider` | ✅ | quickfix, organize imports, fix all; `CodeAction.disabled` as in VS Code (hidden from Quick Fix, auto-apply names the reason); there is no lightbulb indicator |
 | `registerFoldingRangeProvider` | ✅ | |

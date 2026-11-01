@@ -1418,7 +1418,8 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
 
 `editor.codeActionsOnSave` (объект VS Code `{ "<kind>": true | "explicit" | "always" | false |
 "never" }` или массив kinds; все сохранения diode ручные, так что `"explicit"` ≡ `true`) и
-`editor.formatOnSave`; дефолты выключены.
+`editor.formatOnSave`; дефолты выключены. Форматтер выбирает `editor.defaultFormatter` (id расширения приходит в
+`languages.register`): названный, но недоступный — не форматируем другим, команда пишет об этом в статус-бар, сохранение молчит.
 
 - **Композиция.** `TextFileSaveParticipant` (один на все модели) берёт список участников в момент
   save (живые настройки); `EditorService.collectSaveParticipants` собирает порядок VS Code: code
