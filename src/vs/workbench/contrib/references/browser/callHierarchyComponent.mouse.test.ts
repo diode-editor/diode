@@ -68,7 +68,9 @@ async function setup(openMode = "singleClick") {
         views.contextKeys,
         { show: () => undefined } as unknown as NotificationService,
         NERD_FONT_ICONS,
-        { get: () => openMode } as unknown as IConfigurationService,
+        {
+            get: (key: string) => (key === "workbench.list.openMode" ? openMode : undefined),
+        } as unknown as IConfigurationService,
     );
     await component.show();
     const app = TestApp.createWithContent(views.root(REFERENCES_VIEWLET_ID), new Size(50, 10));
