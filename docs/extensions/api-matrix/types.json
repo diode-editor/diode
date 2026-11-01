@@ -650,32 +650,25 @@
       "class": "ok"
     },
     "CodeLens": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CodeLens.command": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CodeLens.isResolved": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CodeLens.range": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CodeLensProvider.onDidChangeCodeLenses": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CodeLensProvider.provideCodeLenses": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CodeLensProvider.resolveCodeLens": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "Color": {
       "class": "ok"

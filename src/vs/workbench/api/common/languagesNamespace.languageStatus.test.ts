@@ -24,6 +24,7 @@ function makeLanguages(): ReturnType<typeof createLanguagesNamespace>["languages
     return createLanguagesNamespace(ctx, {
         applyEdit: () => Promise.resolve(false),
         executeCommand: () => Promise.resolve(undefined),
+        hasCommand: () => Promise.resolve(false),
     }).languages;
 }
 

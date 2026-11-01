@@ -27,8 +27,7 @@
       "class": "ok"
     },
     "languages.registerCodeLensProvider": {
-      "class": "C",
-      "note": "registration is accepted, the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "languages.registerColorProvider": {
       "class": "ok"

@@ -28,6 +28,9 @@ import {
     isFiniteNumber,
     type IWireCloseGroupsParams,
     type IWireCloseTabsParams,
+    type IWireCodeLens,
+    type IWireCodeLensCommand,
+    type IWireCodeLensList,
     type IWireConfigurationUpdate,
     type IWireCreateUntitledParams,
     type IWireDiagnosticsPublish,
@@ -324,6 +327,39 @@ function wireToCoreInlayHintLabel(raw: unknown): InlayHint["label"] | null {
 /** A broken hint is dropped, not the whole answer. The part's `value` is the core's `label`. */
 export function wireToCoreInlayHints(wire: readonly unknown[]): InlayHint[] {
     return wire.map((item) => wireToCoreInlayHint(item)).filter((hint) => hint !== null);
+}
+
+function wireCodeLensCommand(raw: unknown): IWireCodeLensCommand | null {
+    const command = (raw ?? {}) as Record<string, unknown>;
+    if (typeof command.id !== "string" || typeof command.title !== "string") return null;
+    return {
+        id: command.id,
+        title: command.title,
+        ...(typeof command.tooltip === "string" ? { tooltip: command.tooltip } : {}),
+    };
+}
+
+/** `null` — a lens that has no address or range. A broken command leaves a lens that waits for a resolve. */
+export function parseWireCodeLens(raw: unknown): IWireCodeLens | null {
+    const lens = (raw ?? {}) as Record<string, unknown>;
+    const { cacheId } = lens;
+    if (!Array.isArray(cacheId) || cacheId.length !== 2 || !cacheId.every(isFiniteNumber)) return null;
+    const range = parseRange(lens.range);
+    if (range === null) return null;
+    const command = wireCodeLensCommand(lens.command);
+    return {
+        cacheId: [cacheId[0], cacheId[1]],
+        range,
+        ...(command === null ? {} : { command }),
+    };
+}
+
+/** A broken lens is dropped, not the whole answer. */
+export function parseWireCodeLensList(wire: IWireCodeLensList): IWireCodeLensList {
+    return {
+        cacheId: wire.cacheId,
+        lenses: wire.lenses.map((lens) => parseWireCodeLens(lens)).filter((lens) => lens !== null),
+    };
 }
 
 function readWireCharacters(raw: readonly unknown[]): string[] {

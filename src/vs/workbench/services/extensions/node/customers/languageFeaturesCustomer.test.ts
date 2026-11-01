@@ -696,6 +696,123 @@ describe("LanguageFeaturesCustomer — inlay hints", () => {
     });
 });
 
+describe("LanguageFeaturesCustomer — code lens", () => {
+    const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7 };
+    const LENS = { cacheId: [3, 0] as const, range: CORE_RANGE, command: { id: "run", title: "Run" } };
+
+    it("provide: the document and the token go over the wire, a broken lens costs itself", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideCodeLenses": (params) => {
+                seen.push(params);
+                return { cacheId: 3, lenses: [LENS, { range: CORE_RANGE }] };
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideCodeLenses(1, REQ, caller.token)).toEqual({ cacheId: 3, lenses: [LENS] });
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7 }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: 5000 });
+    });
+
+    it("provide: RPC rejection, a hung request past its timeout, no spawn or an unsynced document — null", async () => {
+        const h = setupAnswering({
+            "languages.provideCodeLenses": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideCodeLenses(1, REQ)).toBeNull();
+
+        vi.useFakeTimers();
+        try {
+            const hung = setupAnswering({ "languages.provideCodeLenses": () => new Promise(() => undefined) });
+            const reply = hung.customer.provideCodeLenses(1, REQ);
+            await vi.advanceTimersByTimeAsync(5000);
+            expect(await reply).toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
+
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideCodeLenses(1, REQ)).toBeNull();
+        const unsynced = new LanguageFeaturesCustomer(TIMEOUTS, () => false, undefined);
+        const [a] = createInProcessChannelPair();
+        unsynced.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+        expect(await unsynced.provideCodeLenses(1, REQ)).toBeNull();
+    });
+
+    it("resolve: the address and the token go over the wire; no answer and a failure are null", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.resolveCodeLens": (params) => {
+                seen.push(params);
+                return LENS;
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.resolveCodeLens(1, [3, 0], caller.token)).toEqual(LENS);
+        expect(seen).toEqual([{ handle: 1, cacheId: [3, 0] }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: 5000 });
+
+        const empty = setupAnswering({ "languages.resolveCodeLens": () => null });
+        expect(await empty.customer.resolveCodeLens(1, [3, 0])).toBeNull();
+        const failing = setupAnswering({
+            "languages.resolveCodeLens": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await failing.customer.resolveCodeLens(1, [3, 0])).toBeNull();
+    });
+
+    it("release: a notification with the session; no spawn — nothing", async () => {
+        const h = setup();
+        const released = vi.fn();
+        h.peer.handleNotification("languages.releaseCodeLenses", released);
+        h.customer.releaseCodeLenses(2, 3);
+        await flushMicrotasks();
+        expect(released).toHaveBeenCalledWith({ handle: 2, cacheId: 3 });
+
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(() => {
+            detached.releaseCodeLenses(2, 3);
+        }).not.toThrow();
+    });
+
+    it("execute: the address goes over the wire without a timeout, the failure of the command rejects", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.executeCodeLensCommand": (params) => {
+                seen.push(params);
+            },
+        });
+        await h.customer.executeCodeLensCommand(1, [3, 0]);
+        expect(seen).toEqual([{ handle: 1, cacheId: [3, 0] }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ timeoutMs: undefined });
+
+        const failing = setupAnswering({
+            "languages.executeCodeLensCommand": () => {
+                throw new Error("command exploded");
+            },
+        });
+        await expect(failing.customer.executeCodeLensCommand(1, [3, 0])).rejects.toThrow("command exploded");
+
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        await expect(detached.executeCodeLensCommand(1, [3, 0])).resolves.toBeUndefined();
+    });
+
+    it("onDidChangeCodeLenses — only for a declared handle", async () => {
+        const h = setup();
+        const changed = vi.fn();
+        h.customer.onDidChangeCodeLenses(changed);
+        h.peer.notify("languages.register", { handle: 4, kind: "codeLens", selector: [] });
+        await flushMicrotasks();
+        h.peer.notify("languages.didChangeCodeLenses", { handle: 4 });
+        h.peer.notify("languages.didChangeCodeLenses", { handle: 8 });
+        h.peer.notify("languages.didChangeCodeLenses", null);
+        await flushMicrotasks();
+        expect(changed.mock.calls).toStrictEqual([[4]]);
+    });
+});
+
 describe("LanguageFeaturesCustomer — document colors", () => {
     const REQ = { uri: SYNCED, languageId: "css", versionId: 7, document: {} as ITextDocument };
     const RED = { range: CORE_RANGE, color: { red: 1, green: 0, blue: 0, alpha: 1 } };

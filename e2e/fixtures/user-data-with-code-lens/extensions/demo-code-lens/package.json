@@ -1,0 +1,14 @@
+{
+    "name": "demo-code-lens",
+    "displayName": "Demo Code Lens",
+    "description": "E2E demo extension: a code lens provider with a references lens and a Run lens that is resolved later.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onLanguage:typescript"
+    ]
+}
