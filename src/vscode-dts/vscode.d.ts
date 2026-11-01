@@ -7832,6 +7832,19 @@ declare module "vscode" {
 		export function registerColorProvider(selector: DocumentSelector, provider: DocumentColorProvider): Disposable;
 
 		/**
+		 * Register a code lens provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A code lens provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerCodeLensProvider(selector: DocumentSelector, provider: CodeLensProvider): Disposable;
+
+		/**
 		 * Register a inlay hints provider.
 		 *
 		 * Multiple providers can be registered for a language. In that case providers are asked in
@@ -8126,6 +8139,76 @@ declare module "vscode" {
 			 */
 			readonly range: Range;
 		}, token: CancellationToken): ProviderResult<ColorPresentation[]>;
+	}
+
+	/**
+	 * A code lens represents a {@link Command} that should be shown along with
+	 * source text, like the number of references, a way to run tests, etc.
+	 *
+	 * A code lens is _unresolved_ when no command is associated to it. For performance
+	 * reasons the creation of a code lens and resolving should be done to two stages.
+	 *
+	 * @see {@link CodeLensProvider.provideCodeLenses}
+	 * @see {@link CodeLensProvider.resolveCodeLens}
+	 */
+	export class CodeLens {
+
+		/**
+		 * The range in which this code lens is valid. Should only span a single line.
+		 */
+		range: Range;
+
+		/**
+		 * The command this code lens represents.
+		 */
+		command?: Command;
+
+		/**
+		 * `true` when there is a command associated.
+		 */
+		readonly isResolved: boolean;
+
+		/**
+		 * Creates a new code lens object.
+		 *
+		 * @param range The range to which this code lens applies.
+		 * @param command The command associated to this code lens.
+		 */
+		constructor(range: Range, command?: Command);
+	}
+
+	/**
+	 * A code lens provider adds {@link Command commands} to source text. The commands will be shown
+	 * as dedicated horizontal lines in between the source text.
+	 */
+	export interface CodeLensProvider<T extends CodeLens = CodeLens> {
+
+		/**
+		 * An optional event to signal that the code lenses from this provider have changed.
+		 */
+		onDidChangeCodeLenses?: Event<void>;
+
+		/**
+		 * Compute a list of {@link CodeLens lenses}. This call should return as fast as possible and if
+		 * computing the commands is expensive implementors should only return code lens objects with the
+		 * range set and implement {@link CodeLensProvider.resolveCodeLens resolve}.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns An array of code lenses or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideCodeLenses(document: TextDocument, token: CancellationToken): ProviderResult<T[]>;
+
+		/**
+		 * This function will be called for each visible code lens, usually when scrolling and after
+		 * calls to {@link CodeLensProvider.provideCodeLenses compute}-lenses.
+		 *
+		 * @param codeLens Code lens that must be resolved.
+		 * @param token A cancellation token.
+		 * @returns The given, resolved code lens or thenable that resolves to such.
+		 */
+		resolveCodeLens?(codeLens: T, token: CancellationToken): ProviderResult<T>;
 	}
 
 	/**

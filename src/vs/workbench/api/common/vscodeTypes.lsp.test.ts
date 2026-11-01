@@ -114,7 +114,7 @@ describe("vscodeTypes — LSP value classes", () => {
 
     it("CodeLens: isResolved by presence of command", () => {
         expect(new CodeLens(RANGE).isResolved).toBe(false);
-        expect(new CodeLens(RANGE, { command: "x" }).isResolved).toBe(true);
+        expect(new CodeLens(RANGE, { command: "x", title: "X" }).isResolved).toBe(true);
     });
 
     it("CodeAction/DocumentLink/InlayHint/SymbolInformation/hierarchies — constructors store fields", () => {

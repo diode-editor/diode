@@ -26,6 +26,7 @@ import {
     rangeFrom,
     readAdditionalTextEdits,
     readDocumentation,
+    serializeCodeLensCommand,
     serializeCompletionItem,
     serializeDefinitionLocation,
     serializeDocumentColors,
@@ -62,6 +63,10 @@ import {
 } from "./vscodeTypes.ts";
 import type {
     IWireCodeActionParams,
+    IWireCodeLens,
+    IWireCodeLensAddress,
+    IWireCodeLensList,
+    IWireCodeLensParams,
     IWireCompletionParams,
     IWireDefinitionParams,
     IWireDocumentColorParams,
@@ -78,6 +83,7 @@ import type {
     IWirePrepareRenameParams,
     IWireRangeSemanticTokensParams,
     IWireReferenceParams,
+    IWireReleaseCodeLenses,
     IWireReleaseSemanticTokens,
     IWireRenameParams,
     IWireSelectionRangeParams,
@@ -112,6 +118,13 @@ export interface IFoldingRegistration {
 export interface IInlayHintsRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.InlayHintsProvider;
+}
+
+export interface ICodeLensRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.CodeLensProvider;
+    /** Upstream `CodeLensAdapter._cache`: the original lenses of an answer until the core releases it. */
+    readonly sessions: Map<number, (vscode.CodeLens | null | undefined)[]>;
 }
 
 export interface IDocumentSemanticTokensRegistration {
@@ -295,21 +308,27 @@ function normalizeResult(result: unknown): { items: readonly vscode.CompletionIt
  * A provider failure doesn't break the command, but isn't silent either: a silent failure of the
  * stock prettier looked like "nothing to change" and left no trace in any log (#381).
  */
+function ownerTag(owner: string | undefined): string {
+    return owner === undefined ? "" : `[${owner}] `;
+}
+
 function reportProviderFailure(method: string, err: unknown, owner: string | undefined): void {
     if (isCancellationError(err)) return;
-    const tag = owner === undefined ? "" : `[${owner}] `;
-    console.error(`[ext-host] ${tag}${method} failed: ${describeRejection(err)}`);
+    console.error(`[ext-host] ${ownerTag(owner)}${method} failed: ${describeRejection(err)}`);
 }
 
 export interface ICodeActionDeps {
     readonly applyEdit: (edit: vscode.WorkspaceEdit, metadata?: vscode.WorkspaceEditMetadata) => Thenable<boolean>;
     readonly executeCommand: (command: string, ...args: unknown[]) => Thenable<unknown>;
+    /** The host answers an unknown id with `undefined`, so a lens asks first to report it as upstream does. */
+    readonly hasCommand: (command: string) => Thenable<boolean>;
 }
 
 const NULL_CODE_ACTION_DEPS: ICodeActionDeps = {
     // Stryker disable next-line ArrowFunction: `undefined` and `Promise<false>` are indistinguishable for applyCodeAction — both read as "not applied"
     applyEdit: () => Promise.resolve(false),
     executeCommand: () => Promise.reject(new Error("commands bridge is not wired")),
+    hasCommand: () => Promise.resolve(false),
 };
 
 /** What the `vscode.execute*Provider` API commands run: the extension's own providers, results in API types. */
@@ -354,6 +373,8 @@ export function createLanguagesNamespace(
     const selectionRangeProviders = new Map<number, Owned<ISelectionRangeRegistration>>();
     const colorProviders = new Map<number, Owned<IColorRegistration>>();
     const inlayHintsProviders = new Map<number, Owned<IInlayHintsRegistration>>();
+    const codeLensProviders = new Map<number, Owned<ICodeLensRegistration>>();
+    let nextCodeLensSession = 1;
     const semanticTokensProviders = new Map<number, Owned<IDocumentSemanticTokensRegistration>>();
     const rangeSemanticTokensProviders = new Map<number, Owned<IRangeSemanticTokensRegistration>>();
     let nextProviderHandle = 0;
@@ -637,6 +658,99 @@ export function createLanguagesNamespace(
             reportProviderFailure("provideInlayHints", err, reg.owner);
         }
         return serializeInlayHints(result, p.range);
+    });
+
+    /** Upstream `CodeLensAdapter.provideCodeLenses`. A lens without a range costs itself, its index stays. */
+    rpc.handleRequest(
+        "languages.provideCodeLenses",
+        async (params, cancellation): Promise<IWireCodeLensList | null> => {
+            const p: Received<IWireCodeLensParams> = params;
+            // The provider may have been removed while the request was in flight: "no lenses".
+            const reg = codeLensProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            let answer: unknown;
+            try {
+                answer = await callWithVscodeToken(cancellation, (token) => reg.provider.provideCodeLenses(doc, token));
+            } catch (err) {
+                reportProviderFailure("provideCodeLenses", err, reg.owner);
+                return null;
+            }
+            // A reply to a cancelled request is dropped by the host, nobody would release its session.
+            if (!Array.isArray(answer) || cancellation.isCancellationRequested) return null;
+            const originals = (answer as (vscode.CodeLens | null | undefined)[]).slice();
+            const cacheId = nextCodeLensSession++;
+            const lenses: IWireCodeLens[] = [];
+            originals.forEach((lens, index) => {
+                const range = rangeFrom(lens?.range);
+                if (range === null) {
+                    console.warn(`[ext-host] ${ownerTag(reg.owner)}INVALID code lens, range is not defined`);
+                    return;
+                }
+                const command = serializeCodeLensCommand(lens?.command);
+                lenses.push({ cacheId: [cacheId, index], range, ...(command === null ? {} : { command }) });
+            });
+            if (lenses.length === 0) return null;
+            reg.sessions.set(cacheId, originals);
+            return { cacheId, lenses };
+        },
+    );
+
+    function findCodeLens(p: Partial<IWireCodeLensAddress>): vscode.CodeLens | null {
+        const [session, index] = p.cacheId ?? [-1, -1];
+        return codeLensProviders.get(p.handle ?? -1)?.sessions.get(session)?.[index] ?? null;
+    }
+
+    /** Upstream `CodeLensAdapter.resolveCodeLens`. What it answers replaces the original: the command runs from there. */
+    rpc.handleRequest("languages.resolveCodeLens", async (params, cancellation): Promise<IWireCodeLens | null> => {
+        const p: Partial<IWireCodeLensAddress> = params;
+        const lens = findCodeLens(p);
+        const reg = codeLensProviders.get(p.handle ?? -1);
+        if (lens === null || reg === undefined || p.cacheId === undefined) return null;
+        const [session, index] = p.cacheId;
+        let resolved: vscode.CodeLens = lens;
+        if (typeof reg.provider.resolveCodeLens === "function" && (lens.command ?? null) === null) {
+            try {
+                const answer = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.resolveCodeLens?.(lens, token),
+                );
+                resolved = answer ?? lens;
+            } catch (err) {
+                reportProviderFailure("resolveCodeLens", err, reg.owner);
+                return null;
+            }
+        }
+        const originals = reg.sessions.get(session);
+        // Cancelled, or released while the provider was thinking.
+        if (cancellation.isCancellationRequested || originals === undefined) return null;
+        const command = serializeCodeLensCommand(resolved.command);
+        if (command === null) {
+            console.error(`[ext-host] ${ownerTag(reg.owner)}INVALID code lens resolved, lacks command`);
+            return null;
+        }
+        const range = rangeFrom(lens.range);
+        if (range === null) return null;
+        originals[index] = resolved;
+        return { cacheId: p.cacheId, range, command };
+    });
+
+    rpc.handleNotification("languages.releaseCodeLenses", (params) => {
+        const p = (params as Partial<IWireReleaseCodeLenses> | null | undefined) ?? {};
+        codeLensProviders.get(p.handle ?? -1)?.sessions.delete(p.cacheId ?? -1);
+    });
+
+    /**
+     * The extension's own objects are the arguments, whatever they are. A lens released under the click (its answer
+     * was just replaced) has nothing to run. A failure of the command rejects: the host shows it.
+     */
+    rpc.handleRequest("languages.executeCodeLensCommand", async (params): Promise<undefined> => {
+        const command = findCodeLens(params)?.command ?? null;
+        if (command === null) return undefined;
+        const id = command.command;
+        if (!(await codeActionDeps.hasCommand(id))) throw new Error(`command '${id}' not found`);
+        await codeActionDeps.executeCommand(id, ...((command.arguments ?? []) as unknown[]));
+        return undefined;
     });
 
     rpc.handleRequest(
@@ -1338,7 +1452,25 @@ export function createLanguagesNamespace(
         registerDocumentHighlightProvider: registerNoopProvider,
         registerDocumentSymbolProvider: registerNoopProvider,
         registerWorkspaceSymbolProvider: registerNoopProvider,
-        registerCodeLensProvider: registerNoopProvider,
+        registerCodeLensProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.CodeLensProvider,
+        ): vscode.Disposable => {
+            const onDidChange = provider.onDidChangeCodeLenses;
+            // The sessions live in the registration, so its removal frees them.
+            return registerByHandle(
+                codeLensProviders,
+                "codeLens",
+                selector,
+                { selector, provider, sessions: new Map() },
+                typeof onDidChange === "function" ? { hasOnDidChange: true } : {},
+                undefined,
+                (handle) =>
+                    onDidChange?.(() => {
+                        rpc.notify("languages.didChangeCodeLenses", { handle });
+                    }),
+            );
+        },
         registerDocumentLinkProvider: registerNoopProvider,
         registerColorProvider: (
             selector: vscode.DocumentSelector,

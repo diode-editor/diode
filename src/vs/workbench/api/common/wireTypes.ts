@@ -402,6 +402,41 @@ export interface IWireInlayHint {
     readonly paddingRight?: boolean;
 }
 
+/** Upstream `$provideCodeLenses`: the reply is `null` when the provider gave no lenses. */
+export type IWireCodeLensParams = IWireDocumentParams & IWireProviderHandle;
+
+/** The session of the answer and the index of the lens in what the provider returned. */
+export type WireCodeLensCacheId = readonly [number, number];
+
+/** Upstream `ICommandDto` without `arguments`: they stay in the subprocess, the command runs by the lens address. */
+export interface IWireCodeLensCommand {
+    /** Empty: a plain label, as upstream. */
+    readonly id: string;
+    readonly title: string;
+    readonly tooltip?: string;
+}
+
+export interface IWireCodeLens {
+    readonly cacheId: WireCodeLensCacheId;
+    readonly range: IRange;
+    readonly command?: IWireCodeLensCommand;
+}
+
+export interface IWireCodeLensList {
+    /** The session, released by `languages.releaseCodeLenses`. */
+    readonly cacheId: number;
+    readonly lenses: readonly IWireCodeLens[];
+}
+
+/** One lens of a session, for its resolve and for running its command. */
+export interface IWireCodeLensAddress extends IWireProviderHandle {
+    readonly cacheId: WireCodeLensCacheId;
+}
+
+export interface IWireReleaseCodeLenses extends IWireProviderHandle {
+    readonly cacheId: number;
+}
+
 export type IWireDefinitionParams = IWirePositionParams & IWireProviderHandle;
 
 export type IWireHoverParams = IWirePositionParams & IWireProviderHandle;
@@ -425,6 +460,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "selectionRange",
     "color",
     "inlayHints",
+    "codeLens",
     "semanticTokens",
     "rangeSemanticTokens",
 ] as const;

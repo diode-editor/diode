@@ -7,6 +7,7 @@ import type {
     ICodeActionRequest,
     ICoreCodeAction,
 } from "../../../editor/common/languages/iCodeActionSource.ts";
+import type { ICodeLensRequest } from "../../../editor/common/languages/iCodeLensSource.ts";
 import type { IColorInformation, IDocumentColorRequest } from "../../../editor/common/languages/iColorSource.ts";
 import type {
     ICompletionRequest,
@@ -44,7 +45,12 @@ import type {
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 import type { IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 
-import type { IWireLanguageProviderRegistration } from "./wireTypes.ts";
+import type {
+    IWireCodeLens,
+    IWireCodeLensList,
+    IWireLanguageProviderRegistration,
+    WireCodeLensCacheId,
+} from "./wireTypes.ts";
 
 /**
  * `ExtensionHost` implements it structurally; `LanguageFeaturesAdapter` registers the proxies
@@ -137,6 +143,21 @@ export interface IExtensionLanguageFeaturesBridge {
         token?: ICancellationToken,
     ): Promise<readonly InlayHint[] | null>;
     onDidChangeInlayHints(cb: (handle: number) => void): IDisposable;
+    provideCodeLenses(
+        handle: number,
+        request: ICodeLensRequest,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLensList | null>;
+    resolveCodeLens(
+        handle: number,
+        cacheId: WireCodeLensCacheId,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLens | null>;
+    /** The core no longer shows the answer `cacheId`. */
+    releaseCodeLenses(handle: number, cacheId: number): void;
+    /** Rejects with the failure of the command. No timeout: a command may run as long as it likes. */
+    executeCodeLensCommand(handle: number, cacheId: WireCodeLensCacheId): Promise<void>;
+    onDidChangeCodeLenses(cb: (handle: number) => void): IDisposable;
     provideDocumentSemanticTokens(
         handle: number,
         request: ISemanticTokensRequest,

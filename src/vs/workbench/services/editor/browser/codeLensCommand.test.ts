@@ -21,6 +21,33 @@ describe("runCodeLensCommand", () => {
         expect(show).not.toHaveBeenCalled();
     });
 
+    it("a command with its own way to run goes there, the registry does not need to know it", async () => {
+        const { commands, notifications, show } = setup();
+        const handler = vi.fn();
+        commands.register("cmd", handler);
+        const run = vi.fn(() => Promise.resolve());
+        await runCodeLensCommand(commands, notifications, { id: "cmd", title: "t", run });
+        await runCodeLensCommand(commands, notifications, { id: "unknown", title: "t", run });
+        expect(run).toHaveBeenCalledTimes(2);
+        expect(handler).not.toHaveBeenCalled();
+        expect(show).not.toHaveBeenCalled();
+    });
+
+    it("the failure of its own way to run is a toast with the message", async () => {
+        const { commands, notifications, show } = setup();
+        await runCodeLensCommand(commands, notifications, {
+            id: "cmd",
+            title: "t",
+            run: () => Promise.reject(new Error("command exploded")),
+        });
+        expect(show).toHaveBeenCalledWith({
+            severity: "error",
+            message: expect.stringContaining("command exploded") as string,
+            modal: false,
+            items: [],
+        });
+    });
+
     it("runs a command without arguments", async () => {
         const { commands, notifications } = setup();
         const handler = vi.fn();

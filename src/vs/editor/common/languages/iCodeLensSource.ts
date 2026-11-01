@@ -10,6 +10,11 @@ export interface CodeLensCommand {
     readonly title: string;
     readonly tooltip?: string;
     readonly arguments?: readonly unknown[];
+    /**
+     * Set when the command is not the registry's to run: the arguments of an extension's lens stay in the
+     * subprocess, so its proxy runs it there by the address of the lens. Otherwise `id` and `arguments` go to the registry.
+     */
+    readonly run?: () => Promise<void>;
 }
 
 /** upstream `languages.CodeLens`, 0-based like the rest of the core. Without `command` it waits for a resolve. */
@@ -23,6 +28,13 @@ export interface CodeLens {
 export interface CodeLensList {
     readonly lenses: readonly CodeLens[];
     dispose(): void;
+}
+
+/** What crosses to the extension host: the core asks about a document, the wire about its identity. */
+export interface ICodeLensRequest {
+    readonly uri: string;
+    readonly languageId: string;
+    readonly versionId: number;
 }
 
 /** What a provider is asked about. */

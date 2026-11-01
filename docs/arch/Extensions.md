@@ -466,6 +466,28 @@
   `resolveInlayHint` и кэш сессий не делаем, поэтому `$releaseInlayHints` нет и `dispose` списка — пустой; по
   проводу не едут `tooltip`, `textEdits`, `location` и `command` частей (у подсказки нет ни наведения, ни
   клика, [InlayHintsCodeLens.md](../TODO/InlayHintsCodeLens.md)); `displayName` не возим.
+- **Code lens seam:** `languages.registerCodeLensProvider` — по рецепту реестра (`kind: "codeLens"`,
+  `ILanguageFeaturesService.codeLensProvider`, RPC `languages.provideCodeLenses` и `languages.resolveCodeLens`,
+  по 5000 мс; отмена уходит провайдеру токеном). Как `CodeLensAdapter` эталона, субпроцесс держит оригинальные
+  линзы ответа в сессии (`ICodeLensRegistration.sessions`), по проводу идёт `IWireCodeLensList {cacheId, lenses}`,
+  у линзы — адрес `[session, index]`, диапазон и команда `{id, title, tooltip?}` **без аргументов**. Линза без
+  диапазона отбрасывается с предупреждением и id расширения, индексы остальных не сдвигаются; пустой ответ, сбой
+  (`reportProviderFailure`), отмена и таймаут — `null`, сессии не остаётся. `resolveCodeLens` зовётся на оригинале,
+  только если у линзы ещё нет команды; ответ заменяет оригинал в сессии (провайдер вправе вернуть новый объект), без
+  команды — `INVALID code lens resolved, lacks command` в лог и `null`. `dispose` списка в ядре —
+  нотификация `languages.releaseCodeLenses`; снятие провайдера освобождает сессии вместе с регистрацией.
+  `onDidChangeCodeLenses` объявляется в регистрации (`hasOnDidChange`) и идёт нотификацией
+  `languages.didChangeCodeLenses` до `onDidChange` прокси.
+  **Путь команды — отступление от `_generated_`-механизма эталона** (`CommandsConverter.toInternal`), решение
+  человека в #937: прокси `LanguageFeaturesAdapter` кладёт в `CodeLensCommand` поле `run`, и `runCodeLensCommand`
+  вызывает его вместо реестра → `languages.executeCodeLensCommand {handle, cacheId}` (без таймаута) → субпроцесс
+  берёт команду линзы и зовёт `commands.executeCommand(id, ...arguments)` с настоящими объектами: своя команда
+  расширения и API-команда исполняются на месте, команда хоста (`editor.action.showReferences`) уходит
+  обычным `commands.executeCommand`, и её аргументы сериализуются только тут. Отказ команды отвергает запрос, и хост
+  показывает тост. Хост отвечает на неизвестный id `undefined`, поэтому субпроцесс сперва сверяется
+  (`ICodeActionDeps.hasCommand`) и отвергает с `command 'x' not found`, как эталон. Линза, снятая под кликом, просто
+  ничего не исполняет. У линз провайдеров ядра `run` нет — у них реестр, как раньше. **Известный остаток:** ответ,
+  дошедший до хоста уже после отмены запроса, отбрасывается, и его сессия живёт до снятия провайдера (так и в эталоне).
 - **Signature-help seam (LSP):** `languages.registerSignatureHelpProvider` — та же калька
   (`languages.provideSignatureHelp` RPC, таймаут 5000 мс), но с двумя отличиями. Первое: провайдеров
   обходим по очереди и возвращаем ПЕРВЫЙ непустой ответ (vscode API предписывает именно это —

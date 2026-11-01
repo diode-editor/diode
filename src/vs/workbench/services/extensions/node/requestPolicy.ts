@@ -29,6 +29,8 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.provideSelectionRanges": 5000,
     "languages.provideDocumentColors": 5000,
     "languages.provideInlayHints": 5000,
+    "languages.provideCodeLenses": 5000,
+    "languages.resolveCodeLens": 5000,
 } as const satisfies Readonly<Record<string, number>>;
 
 export type TimedRequestMethod = keyof typeof DEFAULT_REQUEST_TIMEOUTS;
