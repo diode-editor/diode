@@ -3955,5 +3955,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-11-01-decb220b1b21.json",
+    "generatedAt": "2026-11-01T10:46:27.697Z",
+    "commit": "decb220b1b21",
+    "binaryVersion": "nightly-decb220",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
