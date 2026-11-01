@@ -2535,80 +2535,67 @@
       "class": "ok"
     },
     "InlayHint": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHint.kind": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHint.label": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHint.paddingLeft": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHint.paddingRight": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHint.position": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHint.textEdits": {
       "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "note": "accepted, not carried over the wire: a hint has no hover or click yet"
     },
     "InlayHint.tooltip": {
       "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "note": "accepted, not carried over the wire: a hint has no hover or click yet"
     },
     "InlayHintKind": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHintKind.Parameter": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHintKind.Type": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHintLabelPart": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHintLabelPart.command": {
       "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "note": "accepted, not carried over the wire: a hint has no hover or click yet"
     },
     "InlayHintLabelPart.location": {
       "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "note": "accepted, not carried over the wire: a hint has no hover or click yet"
     },
     "InlayHintLabelPart.tooltip": {
       "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "note": "accepted, not carried over the wire: a hint has no hover or click yet"
     },
     "InlayHintLabelPart.value": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHintsProvider.onDidChangeInlayHints": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHintsProvider.provideInlayHints": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "InlayHintsProvider.resolveInlayHint": {
       "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "note": "accepted, not carried over the wire: a hint has no hover or click yet"
     },
     "InlineCompletionContext.selectedCompletionInfo": {
       "class": "ok"

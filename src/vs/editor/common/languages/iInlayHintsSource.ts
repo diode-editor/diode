@@ -39,6 +39,14 @@ export interface InlayHintList {
     dispose(): void;
 }
 
+/** What crosses to the extension host: the core asks about a document, the wire about its identity. */
+export interface IInlayHintsRequest {
+    readonly uri: string;
+    readonly languageId: string;
+    readonly versionId: number;
+    readonly range: IRange;
+}
+
 /** What a provider is asked about: `document.versionId` is the version the answer must describe. */
 export interface IInlayHintsTarget extends ILanguageFeatureTarget {
     readonly document: ITextDocument;
