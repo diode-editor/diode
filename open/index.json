@@ -3925,5 +3925,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-11-01-babfedcb1c24.json",
+    "generatedAt": "2026-11-01T08:06:47.171Z",
+    "commit": "babfedcb1c24",
+    "binaryVersion": "nightly-babfedc",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
