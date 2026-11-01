@@ -184,6 +184,9 @@ describe("openDiffPair — file system provider side", () => {
             await expect(openDiffPair(container, { original: side(refused), modified: fileSide() })).resolves.toBe(
                 "unreadable",
             );
+            await expect(
+                openDiffPair(container, { original: side(refused, "empty"), modified: fileSide() }),
+            ).resolves.toBe("opened");
 
             editors.virtualDocumentSource = {
                 canProvide: () => true,
