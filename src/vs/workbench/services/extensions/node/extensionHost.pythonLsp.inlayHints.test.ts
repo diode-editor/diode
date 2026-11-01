@@ -99,6 +99,16 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — inlay hints from the sto
         });
     });
 
+    it("a python file opened after the server is up shows hints with no edit", { timeout: 240_000 }, async () => {
+        await withPython(ANNOTATED_PY, async ({ harness, frameHas }) => {
+            await frameHas(DEF_WITH_HINT, CALL_WITH_HINTS);
+            harness.group.openFile(
+                harness.writeFile("second.py", "def g(x: int, y: int):\n    return x + y\n\nq = g(3, 4)\n"),
+            );
+            await frameHas("def g(x: int, y: int) -> int:", "q: int = g(x=3, y=4)");
+        });
+    });
+
     it(
         "the issue's unannotated sample shows what the server infers: Any and no variable type",
         {
