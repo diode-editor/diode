@@ -644,6 +644,22 @@ export class EditorViewState {
         this.bumpFoldsVersion();
     }
 
+    /**
+     * For a recompute, which arrives after a delay: the cursor is brought back only if the new regions hid it
+     * or pushed it off the screen. A view scrolled away from the cursor (the wheel, `revealRange`) stays.
+     */
+    public applyRecomputedFoldingRegions(regions: IFoldingRegion[]): void {
+        const wasOnScreen = this.isPrimaryCursorOnScreen();
+        this.setFoldingRegions(regions);
+        const isHidden = this.logicalToVisualLine(this.primaryCursorLine) < 0;
+        if (isHidden || (wasOnScreen && !this.isPrimaryCursorOnScreen())) this.ensurePrimaryCursorVisible();
+    }
+
+    private isPrimaryCursorOnScreen(): boolean {
+        const row = this.viewLineForPosition(this.primaryCursorLine, this.primaryCursorColumn);
+        return row >= this.scrollTop && row < this.scrollTop + this.viewportHeight;
+    }
+
     public toggleFold(line: number): void {
         for (const region of this.foldedRegions) {
             if (region.startLine === line) {

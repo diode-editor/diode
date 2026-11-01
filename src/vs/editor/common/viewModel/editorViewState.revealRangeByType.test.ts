@@ -110,6 +110,38 @@ describe("EditorViewState.revealRangeByType", () => {
         expect(state.scrollLeft).toBe(0);
     });
 
+    it("a folding recompute keeps the revealed view while the cursor stays visible and off screen", () => {
+        const state = stateWith();
+        scrollTopAfter(state, 50, 50, "top");
+        state.applyRecomputedFoldingRegions([createFoldingRegion(60, 70)]);
+        expect(state.scrollTop).toBe(50);
+    });
+
+    it("a folding recompute that hides the cursor brings it back", () => {
+        const state = stateWith();
+        state.goToPosition(65, 0);
+        scrollTopAfter(state, 0, 0, "top");
+        const hiding = createFoldingRegion(60, 70);
+        hiding.isCollapsed = true;
+        state.applyRecomputedFoldingRegions([hiding]);
+        expect(state.primaryCursorLine).toBe(65);
+        expect(hiding.isCollapsed).toBe(false);
+        expect(state.scrollTop).toBe(56);
+    });
+
+    it("a folding recompute that pushes an on-screen cursor off the screen brings it back", () => {
+        const state = stateWith();
+        const collapsed = createFoldingRegion(5, 50);
+        collapsed.isCollapsed = true;
+        state.setFoldingRegions([collapsed]);
+        state.goToPosition(52, 0);
+        expect(state.scrollTop).toBe(0);
+
+        state.applyRecomputedFoldingRegions([]);
+
+        expect(state.scrollTop).toBe(43);
+    });
+
     it("the selection stays", () => {
         const state = stateWith();
         state.goToPosition(1, 0);

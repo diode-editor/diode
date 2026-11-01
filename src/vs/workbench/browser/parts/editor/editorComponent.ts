@@ -722,10 +722,8 @@ export class EditorComponent extends Component {
         for (const region of regions) {
             if (collapsedStarts.has(region.startLine)) region.isCollapsed = true;
         }
-        this.editorViewState.setFoldingRegions(regions);
-        // The recompute may have folded a region around the edited line (Tab moved it into a
-        // collapsed block) — keep the cursor visible, as upstream does.
-        this.editorViewState.ensurePrimaryCursorVisible();
+        // The recompute may have folded a region around the edited line (Tab moved it into a collapsed block).
+        this.editorViewState.applyRecomputedFoldingRegions(regions);
         this.editor.markDirty();
     }
 
