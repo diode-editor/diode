@@ -78,7 +78,7 @@ registration but are not called yet.
 | `match` | ✅ | works at runtime (selector scoring); not declared in `vscode.d.ts` yet |
 | `registerInlayHintsProvider` | 🟡 | hints are drawn inline, answers of several providers are merged, `onDidChangeInlayHints` asks again, `editor.inlayHints.*` and a toggle command apply. Without resolve: `resolveInlayHint` is not called, and `tooltip`, `textEdits` and the `location` and `command` of label parts have no effect, as a hint has no hover or click yet |
 | other `register*Provider` (10: documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, onTypeFormatting, inlineValues, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | registration is accepted as a no-op; the provider is never called |
-| `setLanguageConfiguration` | 🟡 | `wordPattern` (for `TextDocument.getWordRangeAtPosition` only; not passed to the editor's word selection and completion boundaries), `comments`, `brackets`, `autoClosingPairs` (layered over `language-configuration.json`: a set section replaces the file's, the latest layer wins, dispose removes it). Not applied: `indentationRules`, `onEnterRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, the deprecated `__electricCharacterSupport`/`__characterPairSupport` |
+| `setLanguageConfiguration` | 🟡 | `wordPattern` (for `TextDocument.getWordRangeAtPosition` only; not passed to the editor's word selection and completion boundaries), `comments`, `brackets`, `autoClosingPairs`, `onEnterRules` (layered over `language-configuration.json`: a set section replaces the file's, the latest layer wins, dispose removes it). Not applied: `indentationRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, the deprecated `__electricCharacterSupport`/`__characterPairSupport` |
 | `getLanguages`, `setTextDocumentLanguage` | ✅ | The language set on a document without a tab is applied when it gets one. |
 | `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
 
@@ -162,8 +162,9 @@ extension terminals and tree views work; webview is the ceiling.
 
 | member | status | comment |
 | --- | :-: | --- |
-| `registerCommand` | ✅ | |
+| `registerCommand` | ✅ | **Deviation:** registering an id the extension host already has does not throw `already exists`: the later registration wins, and disposing it brings the earlier one back. |
 | `executeCommand` | ✅ | the editor's built-in commands and `setContext` (settings are readable in when clauses as `config.<key>`, as in VS Code); of the API commands, `vscode.open` (a `Uri` opens a tab with column/options like `showTextDocument`; http(s) opens externally like `env.openExternal`) |
+| Commands `type`, `default:type` | 🟡 | `{ text }` goes to the focused editor as if typed: every cursor, selection replaced, auto-close, indent, `onEnterRules`, suggest triggers; without a focused editor or `text`, nothing happens. An extension can override `type` with `registerCommand`, and `executeCommand("type")` reaches it. **Deviation:** key presses do not go through an overridden `type`, so vim-style extensions cannot intercept typing. A selection change it causes in an extension's call reads as `Command`, not `Keyboard`. |
 | `registerTextEditorCommand` | ✅ | a real edit builder: edits apply after the callback, as one undo step, and an async result does not delay them; without an active editor: a warning and no-op, as in VS Code |
 | `getCommands` | ✅ | Commands of the editor and of extensions; API commands (`vscode.open`…) are not listed, as in VS Code. |
 | API commands `vscode.executeCompletionItemProvider`, `vscode.executeCodeActionProvider` | ✅ | Ask the providers of extensions; the results are the provider's own objects. |

@@ -127,6 +127,58 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
+    it("[api:commands.registerCommand] disposing the later registration brings the earlier one back, for the host too", async () => {
+        const { commands, host, dispose } = createBridge();
+        const unregistered: string[] = [];
+        host.handleNotification("commands.unregisterCommand", (p) => unregistered.push((p as { id: string }).id));
+
+        const first = commands.registerCommand("ext.dup", () => "one");
+        const second = commands.registerCommand("ext.dup", () => "two");
+        second.dispose();
+
+        await microtasks();
+        expect(unregistered).toEqual([]);
+        await expect(commands.executeCommand<string>("ext.dup")).resolves.toBe("one");
+        await expect(host.request("commands.executeCommand", { id: "ext.dup", args: [] })).resolves.toBe("one");
+
+        first.dispose();
+        await microtasks();
+        expect(unregistered).toEqual(["ext.dup"]);
+        dispose();
+    });
+
+    it("[api:commands.registerCommand] a second dispose does not take another registration with it", async () => {
+        const { commands, host, dispose } = createBridge();
+        const unregistered: string[] = [];
+        host.handleNotification("commands.unregisterCommand", (p) => unregistered.push((p as { id: string }).id));
+
+        const first = commands.registerCommand("ext.dup", () => "one");
+        commands.registerCommand("ext.dup", () => "two");
+        first.dispose();
+        first.dispose();
+
+        await microtasks();
+        expect(unregistered).toEqual([]);
+        await expect(commands.executeCommand<string>("ext.dup")).resolves.toBe("two");
+        dispose();
+    });
+
+    it("a dispose after the id is gone and taken anew leaves the new registration alone", async () => {
+        const { commands, host, dispose } = createBridge();
+        const unregistered: string[] = [];
+        host.handleNotification("commands.unregisterCommand", (p) => unregistered.push((p as { id: string }).id));
+
+        const old = commands.registerCommand("ext.dup", () => "one");
+        old.dispose();
+        commands.registerCommand("ext.dup", () => "two");
+        old.dispose();
+
+        await microtasks();
+        expect(unregistered).toEqual(["ext.dup"]);
+        await expect(commands.executeCommand<string>("ext.dup")).resolves.toBe("two");
+        dispose();
+    });
+
     it("host → subprocess: incoming commands.executeCommand runs the local callback with the passed args", async () => {
         const { commands, host, dispose } = createBridge();
         const seen: unknown[][] = [];

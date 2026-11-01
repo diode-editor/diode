@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 115 |
+| test | 116 |
 | confirmed by a real extension | 18 |
 | used by a surveyed extension | 583 |
 
@@ -1382,7 +1382,7 @@ Proposed API or a false hit: class X when real.
 | `languages.registerTypeDefinitionProvider` | B |  | 74 | 553,028,026 |  |
 | `languages.registerTypeHierarchyProvider` | C |  | 69 | 512,262,735 |  |
 | `languages.registerWorkspaceSymbolProvider` | B |  | 77 | 555,872,071 |  |
-| `languages.setLanguageConfiguration` | ok |  | 22 | 147,598,036 |  |
+| `languages.setLanguageConfiguration` | ok | yes | 22 | 147,598,036 |  |
 | `languages.setTextDocumentLanguage` | ok | yes | 15 | 138,689,114 |  |
 | `LanguageStatusItem.accessibilityInformation` | B |  | 0 | 0 |  |
 | `LanguageStatusItem.busy` | ok |  | 0 | 0 |  |
