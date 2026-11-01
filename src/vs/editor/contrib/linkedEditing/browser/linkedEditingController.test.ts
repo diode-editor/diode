@@ -552,6 +552,44 @@ describe("LinkedEditingController", () => {
             expect(apply.mock.calls[0][0]).toEqual([{ range: createRange(0, 10, 0, 12), text: "xyz" }]);
         });
 
+        it("new ranges arriving before the timer cancel the sync", async () => {
+            const h = await setup(TAGS);
+            const providers = new LanguageFeatureRegistry<LinkedEditingRangeProvider>();
+            providers.register("*", {
+                provideLinkedEditingRanges: () =>
+                    Promise.resolve({
+                        ranges: [
+                            createRange(0, 1, 0, h.text().indexOf(">")),
+                            createRange(0, h.text().indexOf("/") + 1, 0, h.text().lastIndexOf(">")),
+                        ],
+                    }),
+            });
+            h.controller.dispose();
+            const controller = new LinkedEditingController(h.pane, {
+                providers,
+                isSettingEnabled: () => true,
+                languageWordPattern: () => undefined,
+                debounce: new FeatureDebounce(50, 200),
+            });
+            disposers.unshift(() => {
+                controller.dispose();
+            });
+            await h.at(0, 1);
+            h.pane.viewState.document.applyEdits([{ range: createRange(0, 2, 0, 2), text: "x" }]);
+            await controller.updateRanges(true);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(h.text()).toBe("<oxoo></ooo>");
+        });
+
+        it("ranges gone before the timer: nothing is mirrored, and nothing throws", async () => {
+            const h = await setup(TAGS);
+            await h.at(0, 1);
+            h.pane.viewState.document.applyEdits([{ range: createRange(0, 2, 0, 2), text: "x" }]);
+            h.controller.clearRanges();
+            await vi.advanceTimersByTimeAsync(0);
+            expect(h.text()).toBe("<oxoo></ooo>");
+        });
+
         it("texts already equal: nothing is applied", async () => {
             const h = await setup(TAGS);
             const apply = vi.spyOn(h.pane, "applyEditsIntoLastUndoStep");
@@ -591,6 +629,14 @@ describe("LinkedEditingController", () => {
             h.pane.viewState.document.applyEdits([{ range: createRange(0, 8, 0, 8), text: "x" }]);
             await vi.advanceTimersByTimeAsync(0);
             expect(h.text()).toBe("<ooo></oxoo>");
+        });
+
+        it("an edit before the reference is not overwritten either", async () => {
+            const h = await setup(TAGS);
+            await h.at(0, 8);
+            h.pane.viewState.document.applyEdits([{ range: createRange(0, 1, 0, 1), text: "x" }]);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(h.text()).toBe("<xooo></ooo>");
         });
 
         it("a batch with one change outside the reference does not sync", async () => {
@@ -658,6 +704,18 @@ describe("LinkedEditingController", () => {
             answers[answers.length - 2]({ ranges: [createRange(0, 1, 0, 4)] });
             await vi.advanceTimersByTimeAsync(0);
             expect(h.pane.viewState.linkedEditingRanges).toEqual([newest]);
+        });
+
+        it("a second query for the position in flight is not sent", async () => {
+            const h = await setup(TAGS);
+            const { asked, controller } = deferred(h);
+            await vi.advanceTimersByTimeAsync(0);
+            h.pane.viewState.selections = [createCursorSelection(0, 2)];
+            await vi.advanceTimersByTimeAsync(SETTLE_MS);
+            asked.mockClear();
+            void controller.updateRanges();
+            await vi.advanceTimersByTimeAsync(0);
+            expect(asked).not.toHaveBeenCalled();
         });
 
         it("an answer after Escape is dropped, and the cancelled walk asks nobody else", async () => {
@@ -768,6 +826,23 @@ describe("LinkedEditingController", () => {
             await h.at(0, 2);
             await h.paste("a\nb");
             expect(h.text()).toBe("<oa\nboo></ooo>");
+        });
+
+        it("a multi-line reference, even when the word pattern allows a line break", async () => {
+            const h = await setup(TAGS, { wordPattern: /[\s\S]+/ });
+            await h.at(0, 2);
+            h.pane.pushUndo(h.pane.viewState.insertText("a\nb"));
+            await vi.advanceTimersByTimeAsync(0);
+            expect(h.pane.viewState.linkedEditingRanges).toEqual([]);
+            expect(h.text()).toBe("<oa\nboo></ooo>");
+        });
+
+        it("text the word pattern rejects: the ranges go with the sync, before any new query", async () => {
+            const h = await setup(TAGS);
+            await h.at(0, 3);
+            h.pane.pushUndo(h.pane.viewState.type(" "));
+            await vi.advanceTimersByTimeAsync(0);
+            expect(h.pane.viewState.linkedEditingRanges).toEqual([]);
         });
 
         it("Escape: the ranges go and typing is not mirrored", async () => {

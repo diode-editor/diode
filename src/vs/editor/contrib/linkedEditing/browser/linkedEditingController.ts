@@ -56,7 +56,10 @@ function reversed(text: string): string {
     return text.split("").reverse().join("");
 }
 
-/** Upstream `_syncRanges`, the single-line branch: only what differs is replaced, so the rest keeps its markers. */
+/**
+ * Upstream `_syncRanges`: only what differs is replaced, so the rest keeps its markers. The new value is one line, so
+ * the common parts never cross a line break, and a mirror over several lines needs no branch of its own.
+ */
 function minimalEdit(range: IRange, oldValue: string, newValue: string): ITextEdit | null {
     const prefix = commonPrefixLength(oldValue, newValue);
     const oldRest = oldValue.slice(prefix);
@@ -247,6 +250,7 @@ export class LinkedEditingController extends Disposable {
     private syncRanges(token: number): void {
         const ranges = this.currentRanges();
         const reference = ranges.at(0);
+        // Stryker disable next-line MethodExpression: the reference against itself gives no edit
         const mirrors = ranges.slice(1);
         if (token !== this.syncToken || reference === undefined) return;
         const document = this.editor.viewState.document;
@@ -262,10 +266,7 @@ export class LinkedEditingController extends Disposable {
         }
         const edits: ITextEdit[] = [];
         for (const mirror of mirrors) {
-            const edit =
-                mirror.start.line === mirror.end.line
-                    ? minimalEdit(mirror, document.getTextInRange(mirror), referenceValue)
-                    : createTextEdit(mirror, referenceValue);
+            const edit = minimalEdit(mirror, document.getTextInRange(mirror), referenceValue);
             if (edit !== null) edits.push(edit);
         }
         if (edits.length === 0) return;
