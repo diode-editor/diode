@@ -1,7 +1,30 @@
+import { createCursorSelection } from "../../../editor/common/core/iSelection.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
+import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
+
+function typeIntoFocusedEditor(accessor: ServiceAccessor, args: unknown): void {
+    const text = (args as { readonly text?: unknown } | null | undefined)?.text;
+    if (typeof text !== "string") return;
+    accessor.get(EditorServiceDIToken).getActiveEditor()?.typeText(text);
+}
+
+/**
+ * Upstream `Handler.Type`: acts on the focused editor only, without a `text` does nothing.
+ * Deviation: keys do not go through this command, so overriding it does not intercept typing.
+ */
+export const typeAction: CommandAction = {
+    id: "type",
+    title: "Type",
+    enablement: "editorTextFocus",
+    menus: [{ menuId: MenuId.CommandPalette, when: "false" }],
+    run: typeIntoFocusedEditor,
+};
+
+/** The original handler, for an extension that overrides `type`. */
+export const defaultTypeAction: CommandAction = { ...typeAction, id: "default:type" };
 
 export const deleteLeftAction: CommandAction = {
     id: "deleteLeft",
@@ -96,16 +119,50 @@ export const redoAction: CommandAction = {
     },
 };
 
-export const indentLinesAction: CommandAction = {
-    id: "editor.action.indentLines",
-    title: "Indent Line(s)",
+/** Upstream `CoreEditingCommands.Tab`: what the Tab key does, and what an extension falls back to from its own Tab binding. */
+export const tabAction: CommandAction = {
+    id: "tab",
+    title: "Tab",
     keybinding: parseKeybinding("tab"),
     when: "textInputFocus && !editorReadonly",
+    menus: [{ menuId: MenuId.CommandPalette, when: "false" }],
     run(accessor) {
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
         if (editor) {
             editor.pushUndo(editor.viewState.indentLines());
         }
+    },
+};
+
+export const indentLinesAction: CommandAction = {
+    id: "editor.action.indentLines",
+    title: "Indent Line(s)",
+    when: "textInputFocus && !editorReadonly",
+    run(accessor) {
+        const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+        if (editor) {
+            editor.pushUndo(editor.viewState.indentSelectedLines());
+        }
+    },
+};
+
+/**
+ * Upstream `InsertLineAfterAction`: a new line below each caret's line, whatever the column.
+ * Deviation: no default `ctrl+enter`, so the key keeps doing what it did outside the extensions that bind it.
+ */
+export const insertLineAfterAction: CommandAction = {
+    id: "editor.action.insertLineAfter",
+    title: "Insert Line Below",
+    when: "textInputFocus && !editorReadonly",
+    run(accessor) {
+        const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+        if (!editor) return;
+        const { viewState } = editor;
+        const lines = new Set(viewState.selections.map((selection) => selection.active.line));
+        viewState.selections = [...lines].map((line) =>
+            createCursorSelection(line, viewState.document.getLineLength(line)),
+        );
+        editor.insertLineBreak();
     },
 };
 

@@ -5,10 +5,15 @@ import { createTestActiveEditorService } from "../../../../TestUtils/testActiveE
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { createEditorPane } from "../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../base/common/uri.ts";
+import { createRange } from "../../../editor/common/core/iRange.ts";
 import { createCursorSelection, createSelection } from "../../../editor/common/core/iSelection.ts";
+import { createTextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import { LanguageFeatureRegistry } from "../../../editor/common/languageFeatureRegistry.ts";
+import type { OnTypeFormattingEditProvider } from "../../../editor/common/languages/iFormattingSource.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../editor/common/languages/tokenizationRegistry.ts";
+import { FormatOnTypeController } from "../../../editor/contrib/format/browser/formatOnType.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { registerAction } from "../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
@@ -31,9 +36,12 @@ import {
     deleteWordLeftAction,
     deleteWordRightAction,
     indentLinesAction,
+    insertLineAfterAction,
     outdentLinesAction,
     redoAction,
     selectAllAction,
+    tabAction,
+    typeAction,
     undoAction,
 } from "./editorEditActions.ts";
 
@@ -123,7 +131,9 @@ describe("EditorEditActions — deletion mutates the real document", () => {
             deleteWordLeftAction,
             deleteWordRightAction,
             deleteAllLeftAction,
+            tabAction,
             indentLinesAction,
+            insertLineAfterAction,
             outdentLinesAction,
         ]) {
             registerAction(commands, new KeybindingRegistry(), accessor, action);
@@ -144,11 +154,77 @@ describe("EditorEditActions — deletion mutates the real document", () => {
 });
 
 describe("EditorEditActions — indent / outdent", () => {
-    it("indentLines inserts a tab at a collapsed cursor", () => {
+    it("tab inserts at a collapsed cursor, in the middle of the line too", () => {
         const { editor, exec } = openEditor("hello");
-        editor.viewState.selections = [createCursorSelection(0, 0)];
+        editor.viewState.selections = [createCursorSelection(0, 2)];
+        exec(tabAction);
+        expect(editor.getText()).toBe("he\tllo");
+    });
+
+    it("tab adds a level to every line of a multi-line selection", () => {
+        const { editor, exec } = openEditor("aa\nbb");
+        editor.viewState.selections = [createSelection(0, 0, 1, 2)];
+        exec(tabAction);
+        expect(editor.getText()).toBe("\taa\n\tbb");
+    });
+
+    it("tab is one undo step", () => {
+        const { editor, exec } = openEditor("hello");
+        editor.viewState.selections = [createCursorSelection(0, 2)];
+        exec(tabAction);
+        exec(undoAction);
+        expect(editor.getText()).toBe("hello");
+    });
+
+    it("indentLines indents the whole line from a collapsed cursor in the middle of it", () => {
+        const { editor, exec } = openEditor("hello");
+        editor.viewState.selections = [createCursorSelection(0, 2)];
         exec(indentLinesAction);
         expect(editor.getText()).toBe("\thello");
+    });
+
+    it("insertLineAfter opens a line below from the middle of a line and puts the caret there", () => {
+        const { editor, exec } = openEditor("hello\nworld");
+        editor.viewState.selections = [createCursorSelection(0, 2)];
+        exec(insertLineAfterAction);
+        expect(editor.getText()).toBe("hello\n\nworld");
+        expect(editor.viewState.selections[0].active).toEqual({ line: 1, character: 0 });
+    });
+
+    it("insertLineAfter opens one line for two carets on the same line, and one per other line", () => {
+        const { editor, exec } = openEditor("aa\nbb");
+        editor.viewState.selections = [
+            createCursorSelection(0, 0),
+            createCursorSelection(0, 1),
+            createCursorSelection(1, 1),
+        ];
+        exec(insertLineAfterAction);
+        expect(editor.getText()).toBe("aa\n\nbb\n");
+    });
+
+    it("insertLineAfter does not touch a read-only editor", () => {
+        const { editor, exec } = openEditor("hello");
+        editor.viewState.readOnly = true;
+        exec(insertLineAfterAction);
+        expect(editor.getText()).toBe("hello");
+    });
+
+    it("insertLineAfter is not typing: a format on type provider with a newline trigger leaves the text alone", async () => {
+        const { editor, exec } = openEditor("hello\nworld");
+        const providers = new LanguageFeatureRegistry<OnTypeFormattingEditProvider>();
+        providers.register("*", {
+            triggerCharacters: ["\n"],
+            provideOnTypeFormattingEdits: () =>
+                Promise.resolve([createTextEdit(createRange(0, 0, 0, 0), "FORMATTED ")]),
+        });
+        const controller = new FormatOnTypeController(editor, { providers, isSettingEnabled: () => true });
+        editor.viewState.selections = [createCursorSelection(0, 2)];
+
+        exec(insertLineAfterAction);
+        await new Promise((resolve) => setImmediate(resolve));
+
+        expect(editor.getText()).toBe("hello\n\nworld");
+        controller.dispose();
     });
 
     it("indentLines prepends indent to every line of a multi-line selection", () => {
@@ -216,5 +292,29 @@ describe("EditorEditActions — selectAll", () => {
         editor.viewState.selections = [createSelection(0, 0, 0, 11)];
         exec(deleteLeftAction);
         expect(editor.getText()).toBe("");
+    });
+});
+
+describe("EditorEditActions — type", () => {
+    function accessorWith(editor: { typeText(text: string): void } | undefined) {
+        const accessor = new Container();
+        accessor.bind(EditorServiceDIToken, () => ({ getActiveEditor: () => editor }) as never);
+        return accessor;
+    }
+
+    it("hands the text to the active editor", () => {
+        const typed: string[] = [];
+        typeAction.run(accessorWith({ typeText: (text) => typed.push(text) }), { text: "x" });
+        expect(typed).toEqual(["x"]);
+    });
+
+    it("without an active editor does nothing", () => {
+        expect(() => typeAction.run(accessorWith(undefined), { text: "x" })).not.toThrow();
+    });
+
+    it.each([[undefined], [null], [{}], [{ text: 1 }]])("without a text (%j) does nothing", (args) => {
+        const typed: string[] = [];
+        typeAction.run(accessorWith({ typeText: (text) => typed.push(text) }), args);
+        expect(typed).toEqual([]);
     });
 });

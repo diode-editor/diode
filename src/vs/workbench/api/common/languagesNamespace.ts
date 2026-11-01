@@ -4,6 +4,11 @@ import { CancellationTokenNone, type ICancellationToken } from "../../../base/co
 import { describeRejection } from "../../../base/common/describeRejection.ts";
 import { CancellationError, isCancellationError } from "../../../base/common/errorSerialization.ts";
 import type { IRange } from "../../../editor/common/core/iRange.ts";
+import type {
+    ICallHierarchyIncomingCall,
+    ICallHierarchyOutgoingCall,
+    ICallHierarchySession,
+} from "../../../editor/common/languages/iCallHierarchySource.ts";
 import type { IColorInformation } from "../../../editor/common/languages/iColorSource.ts";
 import type {
     ICoreCompletionItem,
@@ -15,9 +20,14 @@ import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.t
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
 import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ITypeHierarchyItem,
+    ITypeHierarchySession,
+} from "../../../editor/common/languages/iTypeHierarchySource.ts";
 
 import { implementsApi } from "./apiSurface.ts";
 import { scoreDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
+import { CallHierarchySessions } from "./extHostCallHierarchy.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createSetLanguageConfiguration } from "./extHostLanguageConfiguration.ts";
 import { createLanguageStatusItemFactory } from "./extHostLanguageStatus.ts";
@@ -26,14 +36,17 @@ import {
     rangeFrom,
     readAdditionalTextEdits,
     readDocumentation,
+    serializeCodeLensCommand,
     serializeCompletionItem,
     serializeDefinitionLocation,
     serializeDocumentColors,
+    serializeDocumentHighlights,
     serializeDocumentSymbols,
     serializeFoldingRange,
     serializeHoverContents,
     serializeInlayHints,
     serializeInlineCompletionItem,
+    serializeLinkedEditingRanges,
     serializeRenamePrepare,
     serializeSelectionRanges,
     serializeSignatureHelp,
@@ -43,6 +56,7 @@ import {
     toVscodeSignatureHelp,
     toWireMarker,
 } from "./extHostTypeConverters.ts";
+import { TypeHierarchySessions } from "./extHostTypeHierarchy.ts";
 import { callWithVscodeToken, toVscodeCancellationToken } from "./vscodeCancellation.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
@@ -62,10 +76,17 @@ import {
     WorkspaceEdit,
 } from "./vscodeTypes.ts";
 import type {
+    IWireCallHierarchyCallsParams,
     IWireCodeActionParams,
+    IWireCodeLens,
+    IWireCodeLensAddress,
+    IWireCodeLensList,
+    IWireCodeLensParams,
     IWireCompletionParams,
     IWireDefinitionParams,
     IWireDocumentColorParams,
+    IWireDocumentHighlight,
+    IWireDocumentHighlightParams,
     IWireDocumentSemanticTokensParams,
     IWireDocumentSymbolParams,
     IWireEditorEdit,
@@ -77,13 +98,22 @@ import type {
     IWireInlayHintsParams,
     IWireInlineCompletionParams,
     IWireLanguageProviderMetadata,
+    IWireLinkedEditingRangeParams,
+    IWireLinkedEditingRanges,
+    IWireOnTypeFormattingParams,
+    IWirePrepareCallHierarchyParams,
     IWirePrepareRenameParams,
+    IWirePrepareTypeHierarchyParams,
     IWireRangeSemanticTokensParams,
     IWireReferenceParams,
+    IWireReleaseCallHierarchy,
+    IWireReleaseCodeLenses,
     IWireReleaseSemanticTokens,
+    IWireReleaseTypeHierarchy,
     IWireRenameParams,
     IWireSelectionRangeParams,
     IWireSignatureHelpParams,
+    IWireTypeHierarchyParams,
     Received,
     WireCodeAction,
     WireFoldingRange,
@@ -121,6 +151,13 @@ export interface IInlayHintsRegistration {
     readonly provider: vscode.InlayHintsProvider;
 }
 
+export interface ICodeLensRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.CodeLensProvider;
+    /** Upstream `CodeLensAdapter._cache`: the original lenses of an answer until the core releases it. */
+    readonly sessions: Map<number, (vscode.CodeLens | null | undefined)[]>;
+}
+
 export interface IDocumentSemanticTokensRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly adapter: DocumentSemanticTokensAdapter;
@@ -154,6 +191,16 @@ export interface IDeclarationRegistration {
 export interface IRenameRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.RenameProvider;
+}
+
+export interface IDocumentHighlightRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.DocumentHighlightProvider;
+}
+
+export interface ILinkedEditingRangeRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.LinkedEditingRangeProvider;
 }
 
 export interface ISelectionRangeRegistration {
@@ -192,6 +239,11 @@ export interface ICodeActionRegistration {
 export interface IFormattingRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.DocumentFormattingEditProvider;
+}
+
+export interface IOnTypeFormattingRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.OnTypeFormattingEditProvider;
 }
 
 export interface IRangeFormattingRegistration {
@@ -298,25 +350,43 @@ function normalizeResult(result: unknown): { items: readonly vscode.CompletionIt
     return { items: Array.isArray(items) ? (items as vscode.CompletionItem[]) : [], isIncomplete };
 }
 
+interface ICallHierarchyRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.CallHierarchyProvider;
+    readonly sessions: CallHierarchySessions;
+}
+
+interface ITypeHierarchyRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.TypeHierarchyProvider;
+    readonly sessions: TypeHierarchySessions;
+}
+
 /**
  * A provider failure doesn't break the command, but isn't silent either: a silent failure of the
  * stock prettier looked like "nothing to change" and left no trace in any log (#381).
  */
+function ownerTag(owner: string | undefined): string {
+    return owner === undefined ? "" : `[${owner}] `;
+}
+
 function reportProviderFailure(method: string, err: unknown, owner: string | undefined): void {
     if (isCancellationError(err)) return;
-    const tag = owner === undefined ? "" : `[${owner}] `;
-    console.error(`[ext-host] ${tag}${method} failed: ${describeRejection(err)}`);
+    console.error(`[ext-host] ${ownerTag(owner)}${method} failed: ${describeRejection(err)}`);
 }
 
 export interface ICodeActionDeps {
     readonly applyEdit: (edit: vscode.WorkspaceEdit, metadata?: vscode.WorkspaceEditMetadata) => Thenable<boolean>;
     readonly executeCommand: (command: string, ...args: unknown[]) => Thenable<unknown>;
+    /** The host answers an unknown id with `undefined`, so a lens asks first to report it as upstream does. */
+    readonly hasCommand: (command: string) => Thenable<boolean>;
 }
 
 const NULL_CODE_ACTION_DEPS: ICodeActionDeps = {
     // Stryker disable next-line ArrowFunction: `undefined` and `Promise<false>` are indistinguishable for applyCodeAction — both read as "not applied"
     applyEdit: () => Promise.resolve(false),
     executeCommand: () => Promise.reject(new Error("commands bridge is not wired")),
+    hasCommand: () => Promise.resolve(false),
 };
 
 /** What the `vscode.execute*Provider` API commands run: the extension's own providers, results in API types. */
@@ -333,6 +403,17 @@ export interface ILanguageProviderExecutors {
         kind: string | undefined,
         itemResolveCount: number | undefined,
     ): Promise<(vscode.CodeAction | vscode.Command)[]>;
+}
+
+/** What is not an edit is dropped; anything but an array is no edits. */
+function serializeTextEdits(result: unknown): IWireEditorEdit[] {
+    if (!Array.isArray(result)) return [];
+    const edits: IWireEditorEdit[] = [];
+    for (const item of result) {
+        const wire = serializeTextEdit(item);
+        if (wire !== null) edits.push(wire);
+    }
+    return edits;
 }
 
 export function createLanguagesNamespace(
@@ -354,14 +435,21 @@ export function createLanguagesNamespace(
     const completionProviders = new Map<number, Owned<ICompletionRegistration>>();
     const formattingProviders = new Map<number, Owned<IFormattingRegistration>>();
     const rangeFormattingProviders = new Map<number, Owned<IRangeFormattingRegistration>>();
+    const onTypeFormattingProviders = new Map<number, Owned<IOnTypeFormattingRegistration>>();
     const codeActionProviders = new Map<number, Owned<ICodeActionRegistration>>();
     const foldingProviders = new Map<number, Owned<IFoldingRegistration>>();
     const documentSymbolProviders = new Map<number, Owned<IDocumentSymbolRegistration>>();
     const inlineCompletionProviders = new Map<number, Owned<IInlineCompletionRegistration>>();
     const renameProviders = new Map<number, Owned<IRenameRegistration>>();
     const selectionRangeProviders = new Map<number, Owned<ISelectionRangeRegistration>>();
+    const callHierarchyProviders = new Map<number, Owned<ICallHierarchyRegistration>>();
+    const typeHierarchyProviders = new Map<number, Owned<ITypeHierarchyRegistration>>();
+    const documentHighlightProviders = new Map<number, Owned<IDocumentHighlightRegistration>>();
+    const linkedEditingRangeProviders = new Map<number, Owned<ILinkedEditingRangeRegistration>>();
     const colorProviders = new Map<number, Owned<IColorRegistration>>();
     const inlayHintsProviders = new Map<number, Owned<IInlayHintsRegistration>>();
+    const codeLensProviders = new Map<number, Owned<ICodeLensRegistration>>();
+    let nextCodeLensSession = 1;
     const semanticTokensProviders = new Map<number, Owned<IDocumentSemanticTokensRegistration>>();
     const rangeSemanticTokensProviders = new Map<number, Owned<IRangeSemanticTokensRegistration>>();
     let nextProviderHandle = 0;
@@ -589,6 +677,48 @@ export function createLanguagesNamespace(
         return { contents, ...(range === null ? {} : { range }) };
     });
 
+    rpc.handleRequest(
+        "languages.provideDocumentHighlights",
+        async (params, cancellation): Promise<IWireDocumentHighlight[] | null> => {
+            const p: Received<IWireDocumentHighlightParams> = params;
+            const reg = documentHighlightProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            let result: unknown;
+            try {
+                result = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideDocumentHighlights(doc, position, token),
+                );
+            } catch (err) {
+                reportProviderFailure("provideDocumentHighlights", err, reg.owner);
+            }
+            return serializeDocumentHighlights(result);
+        },
+    );
+
+    rpc.handleRequest(
+        "languages.provideLinkedEditingRanges",
+        async (params, cancellation): Promise<IWireLinkedEditingRanges | null> => {
+            const p: Received<IWireLinkedEditingRangeParams> = params;
+            const reg = linkedEditingRangeProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            let result: unknown;
+            try {
+                result = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideLinkedEditingRanges(doc, position, token),
+                );
+            } catch (err) {
+                reportProviderFailure("provideLinkedEditingRanges", err, reg.owner);
+            }
+            return serializeLinkedEditingRanges(result);
+        },
+    );
+
     rpc.handleRequest("languages.provideSelectionRanges", async (params, cancellation): Promise<IRange[][]> => {
         const p: Received<IWireSelectionRangeParams> = params;
         const reg = selectionRangeProviders.get(p.handle ?? -1);
@@ -606,6 +736,134 @@ export function createLanguagesNamespace(
             reportProviderFailure("provideSelectionRanges", err, reg.owner);
         }
         return serializeSelectionRanges(result, wirePositions);
+    });
+
+    rpc.handleRequest(
+        "languages.prepareCallHierarchy",
+        async (params, cancellation): Promise<ICallHierarchySession | null> => {
+            const p: Received<IWirePrepareCallHierarchyParams> = params;
+            const reg = callHierarchyProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            try {
+                const result: unknown = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.prepareCallHierarchy(doc, position, token),
+                );
+                return reg.sessions.prepare(result);
+            } catch (err) {
+                reportProviderFailure("prepareCallHierarchy", err, reg.owner);
+                return null;
+            }
+        },
+    );
+
+    rpc.handleRequest(
+        "languages.provideCallHierarchyIncomingCalls",
+        async (params, cancellation): Promise<ICallHierarchyIncomingCall[]> => {
+            const p: Partial<IWireCallHierarchyCallsParams> = params;
+            const reg = callHierarchyProviders.get(p.handle ?? -1);
+            if (reg === undefined) return [];
+            try {
+                const { sessionId, item } = reg.sessions.item(p.sessionId ?? -1, p.itemId ?? -1);
+                const result: unknown = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideCallHierarchyIncomingCalls(item, token),
+                );
+                return reg.sessions.incomingCalls(sessionId, result);
+            } catch (err) {
+                reportProviderFailure("provideCallHierarchyIncomingCalls", err, reg.owner);
+                return [];
+            }
+        },
+    );
+
+    rpc.handleRequest(
+        "languages.provideCallHierarchyOutgoingCalls",
+        async (params, cancellation): Promise<ICallHierarchyOutgoingCall[]> => {
+            const p: Partial<IWireCallHierarchyCallsParams> = params;
+            const reg = callHierarchyProviders.get(p.handle ?? -1);
+            if (reg === undefined) return [];
+            try {
+                const { sessionId, item } = reg.sessions.item(p.sessionId ?? -1, p.itemId ?? -1);
+                const result: unknown = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideCallHierarchyOutgoingCalls(item, token),
+                );
+                return reg.sessions.outgoingCalls(sessionId, result);
+            } catch (err) {
+                reportProviderFailure("provideCallHierarchyOutgoingCalls", err, reg.owner);
+                return [];
+            }
+        },
+    );
+
+    rpc.handleNotification("languages.releaseCallHierarchy", (params) => {
+        const p = (params as Partial<IWireReleaseCallHierarchy> | null | undefined) ?? {};
+        callHierarchyProviders.get(p.handle ?? -1)?.sessions.release(p.sessionId ?? -1);
+    });
+
+    rpc.handleRequest(
+        "languages.prepareTypeHierarchy",
+        async (params, cancellation): Promise<ITypeHierarchySession | null> => {
+            const p: Received<IWirePrepareTypeHierarchyParams> = params;
+            const reg = typeHierarchyProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            try {
+                const result: unknown = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.prepareTypeHierarchy(doc, position, token),
+                );
+                return reg.sessions.prepare(result);
+            } catch (err) {
+                reportProviderFailure("prepareTypeHierarchy", err, reg.owner);
+                return null;
+            }
+        },
+    );
+
+    rpc.handleRequest(
+        "languages.provideTypeHierarchySupertypes",
+        async (params, cancellation): Promise<ITypeHierarchyItem[]> => {
+            const p: Partial<IWireTypeHierarchyParams> = params;
+            const reg = typeHierarchyProviders.get(p.handle ?? -1);
+            if (reg === undefined) return [];
+            try {
+                const { sessionId, item } = reg.sessions.item(p.sessionId ?? -1, p.itemId ?? -1);
+                const result: unknown = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideTypeHierarchySupertypes(item, token),
+                );
+                return reg.sessions.types(sessionId, result);
+            } catch (err) {
+                reportProviderFailure("provideTypeHierarchySupertypes", err, reg.owner);
+                return [];
+            }
+        },
+    );
+
+    rpc.handleRequest(
+        "languages.provideTypeHierarchySubtypes",
+        async (params, cancellation): Promise<ITypeHierarchyItem[]> => {
+            const p: Partial<IWireTypeHierarchyParams> = params;
+            const reg = typeHierarchyProviders.get(p.handle ?? -1);
+            if (reg === undefined) return [];
+            try {
+                const { sessionId, item } = reg.sessions.item(p.sessionId ?? -1, p.itemId ?? -1);
+                const result: unknown = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideTypeHierarchySubtypes(item, token),
+                );
+                return reg.sessions.types(sessionId, result);
+            } catch (err) {
+                reportProviderFailure("provideTypeHierarchySubtypes", err, reg.owner);
+                return [];
+            }
+        },
+    );
+
+    rpc.handleNotification("languages.releaseTypeHierarchy", (params) => {
+        const p = (params as Partial<IWireReleaseTypeHierarchy> | null | undefined) ?? {};
+        typeHierarchyProviders.get(p.handle ?? -1)?.sessions.release(p.sessionId ?? -1);
     });
 
     rpc.handleRequest(
@@ -645,6 +903,110 @@ export function createLanguagesNamespace(
             reportProviderFailure("provideInlayHints", err, reg.owner);
         }
         return serializeInlayHints(result, p.range);
+    });
+
+    /** Upstream `CodeLensAdapter.provideCodeLenses`. A lens without a range costs itself, its index stays. */
+    rpc.handleRequest(
+        "languages.provideCodeLenses",
+        async (params, cancellation): Promise<IWireCodeLensList | null> => {
+            const p: Received<IWireCodeLensParams> = params;
+            // The provider may have been removed while the request was in flight: "no lenses".
+            const reg = codeLensProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            let answer: unknown;
+            try {
+                answer = await callWithVscodeToken(cancellation, (token) => reg.provider.provideCodeLenses(doc, token));
+            } catch (err) {
+                reportProviderFailure("provideCodeLenses", err, reg.owner);
+                return null;
+            }
+            // A reply to a cancelled request is dropped by the host, nobody would release its session.
+            if (!Array.isArray(answer) || cancellation.isCancellationRequested) return null;
+            const originals = (answer as (vscode.CodeLens | null | undefined)[]).slice();
+            // Stryker disable next-line UpdateOperator: any ids that differ will do
+            const cacheId = nextCodeLensSession++;
+            const lenses: IWireCodeLens[] = [];
+            originals.forEach((lens, index) => {
+                const range = rangeFrom(lens?.range);
+                if (range === null) {
+                    console.warn(`[ext-host] ${ownerTag(reg.owner)}INVALID code lens, range is not defined`);
+                    return;
+                }
+                // Stryker disable next-line OptionalChaining: a lens with a range is there
+                const command = serializeCodeLensCommand(lens?.command);
+                lenses.push({ cacheId: [cacheId, index], range, ...(command === null ? {} : { command }) });
+            });
+            if (lenses.length === 0) return null;
+            reg.sessions.set(cacheId, originals);
+            return { cacheId, lenses };
+        },
+    );
+
+    function findCodeLens(p: Partial<IWireCodeLensAddress>) {
+        if (p.cacheId === undefined) return null;
+        const [session, index] = p.cacheId;
+        const reg = codeLensProviders.get(p.handle ?? -1);
+        if (reg === undefined) return null;
+        const originals = reg.sessions.get(session);
+        if (originals === undefined) return null;
+        const lens = originals[index] ?? null;
+        if (lens === null) return null;
+        return { cacheId: p.cacheId, reg, session, index, originals, lens };
+    }
+
+    /** Upstream `CodeLensAdapter.resolveCodeLens`. What it answers replaces the original: the command runs from there. */
+    rpc.handleRequest("languages.resolveCodeLens", async (params, cancellation): Promise<IWireCodeLens | null> => {
+        const found = findCodeLens(params);
+        if (found === null) return null;
+        const { cacheId, reg, session, index, originals, lens } = found;
+        let resolved: vscode.CodeLens = lens;
+        if ((lens.command ?? null) === null) {
+            try {
+                const answer = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.resolveCodeLens?.(lens, token),
+                );
+                resolved = answer ?? lens;
+            } catch (err) {
+                reportProviderFailure("resolveCodeLens", err, reg.owner);
+                return null;
+            }
+        }
+        // Cancelled, or released while the provider was thinking.
+        if (cancellation.isCancellationRequested || !reg.sessions.has(session)) return null;
+        const command = serializeCodeLensCommand(resolved.command);
+        if (command === null) {
+            console.error(`[ext-host] ${ownerTag(reg.owner)}INVALID code lens resolved, lacks command`);
+            return null;
+        }
+        const range = rangeFrom(lens.range);
+        if (range === null) return null;
+        originals[index] = resolved;
+        return { cacheId, range, command };
+    });
+
+    rpc.handleNotification("languages.releaseCodeLenses", (params) => {
+        const p = (params as Partial<IWireReleaseCodeLenses> | null | undefined) ?? {};
+        codeLensProviders.get(p.handle ?? -1)?.sessions.delete(p.cacheId ?? -1);
+    });
+
+    /**
+     * The extension's own objects are the arguments, whatever they are. A lens released under the click (its answer
+     * was just replaced) has nothing to run. A failure of the command rejects: the host shows it.
+     */
+    rpc.handleRequest("languages.executeCodeLensCommand", async (params): Promise<undefined> => {
+        const command = findCodeLens(params)?.lens.command ?? null;
+        if (command === null) return undefined;
+        const id = command.command;
+        if (!(await codeActionDeps.hasCommand(id))) throw new Error(`command '${id}' not found`);
+        try {
+            await codeActionDeps.executeCommand(id, ...((command.arguments ?? []) as unknown[]));
+        } catch (err) {
+            // The wire would turn nothing into the text "undefined"; upstream shows no toast for it.
+            if (err !== undefined && err !== null) throw err;
+        }
+        return undefined;
     });
 
     rpc.handleRequest(
@@ -806,14 +1168,33 @@ export function createLanguagesNamespace(
                 owner,
             );
         }
-        if (!Array.isArray(result)) return [];
-        const edits: IWireEditorEdit[] = [];
-        for (const item of result) {
-            const wire = serializeTextEdit(item);
-            if (wire !== null) edits.push(wire);
-        }
-        return edits;
+        return serializeTextEdits(result);
     });
+
+    rpc.handleRequest(
+        "languages.provideOnTypeFormattingEdits",
+        async (params, cancellation): Promise<IWireEditorEdit[]> => {
+            const p: Received<IWireOnTypeFormattingParams> = params;
+            const reg = onTypeFormattingProviders.get(p.handle ?? -1);
+            if (reg === undefined) return [];
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return [];
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            const options: vscode.FormattingOptions = {
+                tabSize: p.tabSize ?? 4,
+                insertSpaces: p.insertSpaces ?? true,
+            };
+            let result: unknown;
+            try {
+                result = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideOnTypeFormattingEdits(doc, position, p.ch ?? "", options, token),
+                );
+            } catch (err) {
+                reportProviderFailure("provideOnTypeFormattingEdits", err, reg.owner);
+            }
+            return serializeTextEdits(result);
+        },
+    );
 
     // Context diagnostics are collected here from local DiagnosticCollections (with private
     // `data` the server matches fixes by) rather than shipped from the host as a lossy copy.
@@ -1366,15 +1747,49 @@ export function createLanguagesNamespace(
             );
         },
 
-        registerDocumentHighlightProvider: registerNoopProvider,
+        registerDocumentHighlightProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.DocumentHighlightProvider,
+        ): vscode.Disposable =>
+            registerByHandle(documentHighlightProviders, "documentHighlight", selector, { selector, provider }),
         registerWorkspaceSymbolProvider: registerNoopProvider,
-        registerCodeLensProvider: registerNoopProvider,
+        registerCodeLensProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.CodeLensProvider,
+        ): vscode.Disposable => {
+            const onDidChange = provider.onDidChangeCodeLenses;
+            // The sessions live in the registration, so its removal frees them.
+            return registerByHandle(
+                codeLensProviders,
+                "codeLens",
+                selector,
+                { selector, provider, sessions: new Map() },
+                typeof onDidChange === "function" ? { hasOnDidChange: true } : {},
+                undefined,
+                (handle) =>
+                    onDidChange?.(() => {
+                        rpc.notify("languages.didChangeCodeLenses", { handle });
+                    }),
+            );
+        },
         registerDocumentLinkProvider: registerNoopProvider,
         registerColorProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.DocumentColorProvider,
         ): vscode.Disposable => registerByHandle(colorProviders, "color", selector, { selector, provider }),
-        registerOnTypeFormattingEditProvider: registerNoopProvider,
+        registerOnTypeFormattingEditProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.OnTypeFormattingEditProvider,
+            firstTriggerCharacter: string,
+            ...moreTriggerCharacter: string[]
+        ): vscode.Disposable =>
+            registerByHandle(
+                onTypeFormattingProviders,
+                "onTypeFormatting",
+                selector,
+                { selector, provider },
+                { triggerCharacters: [firstTriggerCharacter, ...moreTriggerCharacter] },
+            ),
         registerSelectionRangeProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.SelectionRangeProvider,
@@ -1428,9 +1843,31 @@ export function createLanguagesNamespace(
             provider: vscode.InlineCompletionItemProvider,
         ): vscode.Disposable =>
             registerByHandle(inlineCompletionProviders, "inlineCompletions", selector, { selector, provider }),
-        registerLinkedEditingRangeProvider: registerNoopProvider,
-        registerCallHierarchyProvider: registerNoopProvider,
-        registerTypeHierarchyProvider: registerNoopProvider,
+        registerLinkedEditingRangeProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.LinkedEditingRangeProvider,
+        ): vscode.Disposable =>
+            registerByHandle(linkedEditingRangeProviders, "linkedEditingRange", selector, { selector, provider }),
+        registerCallHierarchyProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.CallHierarchyProvider,
+        ): vscode.Disposable =>
+            registerByHandle(callHierarchyProviders, "callHierarchy", selector, {
+                selector,
+                provider,
+                // The sessions live and die with the registration.
+                sessions: new CallHierarchySessions(),
+            }),
+        registerTypeHierarchyProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.TypeHierarchyProvider,
+        ): vscode.Disposable =>
+            registerByHandle(typeHierarchyProviders, "typeHierarchy", selector, {
+                selector,
+                provider,
+                // The sessions live and die with the registration.
+                sessions: new TypeHierarchySessions(),
+            }),
         setLanguageConfiguration: createSetLanguageConfiguration(ctx),
     };
 

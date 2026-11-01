@@ -38,6 +38,17 @@ const FRUITS: QuickPickSessionItem[] = [
     { label: "cherry" },
 ];
 
+describe("QuickPickSession — Back", () => {
+    it("an owner that does not listen for Back loses nothing when it is pressed", () => {
+        const { pick, component, log } = setup();
+        pick.update({ back: true });
+        pick.show();
+        component.view.goBack();
+        expect(component.isOpen()).toBe(true);
+        expect(log).toEqual([]);
+    });
+});
+
 describe("QuickPickSession — show and live state", () => {
     it("a hidden picker accumulates state and shows it on show()", () => {
         const { pick, component, view } = setup();

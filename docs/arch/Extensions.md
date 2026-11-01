@@ -449,6 +449,18 @@
   нужен в рантайме: его конструирует конвертер vscode-languageclient. Слияние ответов со встроенными
   ступенями — `editor/contrib/smartSelect/smartSelect.ts` (порт `provideSelectionRanges` эталона),
   стек Expand/Shrink — `SmartSelectController`, команды — contrib `smartSelect`.
+- **Linked editing seam (LSP):** `languages.registerLinkedEditingRangeProvider` — по рецепту реестра
+  (`kind: "linkedEditingRange"`, `ILanguageFeaturesService.linkedEditingRangeProvider`, RPC
+  `languages.provideLinkedEditingRanges`, 5000 мс). Субпроцесс отдаёт `{ranges, wordPattern?, wordPatternFlags?}`
+  или `null`, если нет массива `ranges`; `RegExp` пересекает провод источником и флагами, в ядре собирается
+  заново. Ответ берётся у первого провайдера с непустыми `ranges`. Класс `vscode.LinkedEditingRanges` нужен в
+  рантайме: его конструирует конвертер vscode-languageclient. Потребитель — `LinkedEditingController`
+  ([Editor.md](Editor.md#editorcontriblinkedediting-связанная-правка-тегов)).
+- **On type formatting seam (LSP):** `languages.registerOnTypeFormattingEditProvider` — по рецепту реестра
+  (`kind: "onTypeFormatting"`, `ILanguageFeaturesService.onTypeFormattingEditProvider`, RPC
+  `languages.provideOnTypeFormattingEdits`, 5000 мс). `firstTriggerCharacter` и `moreTriggerCharacter` едут
+  метаданными `triggerCharacters`; ответ — `ITextEdit[]`, отказ — пустой список. Потребитель — `FormatOnTypeController`
+  ([Editor.md](Editor.md#editorcontribformat-format-on-type)).
 - **Color seam:** `languages.registerColorProvider` — по рецепту реестра (`kind: "color"`,
   `ILanguageFeaturesService.colorProvider`, RPC `languages.provideDocumentColors`, 5000 мс; отмена по
   новой правке уходит провайдеру токеном). Субпроцесс отдаёт `IColorInformation[]`
@@ -469,6 +481,28 @@
   `resolveInlayHint` и кэш сессий не делаем, поэтому `$releaseInlayHints` нет и `dispose` списка — пустой; по
   проводу не едут `tooltip`, `textEdits`, `location` и `command` частей (у подсказки нет ни наведения, ни
   клика, [InlayHintsCodeLens.md](../TODO/InlayHintsCodeLens.md)); `displayName` не возим.
+- **Code lens seam:** `languages.registerCodeLensProvider` — по рецепту реестра (`kind: "codeLens"`,
+  `ILanguageFeaturesService.codeLensProvider`, RPC `languages.provideCodeLenses` и `languages.resolveCodeLens`,
+  по 5000 мс; отмена уходит провайдеру токеном). Как `CodeLensAdapter` эталона, субпроцесс держит оригинальные
+  линзы ответа в сессии (`ICodeLensRegistration.sessions`), по проводу идёт `IWireCodeLensList {cacheId, lenses}`,
+  у линзы — адрес `[session, index]`, диапазон и команда `{id, title, tooltip?}` **без аргументов**. Линза без
+  диапазона отбрасывается с предупреждением и id расширения, индексы остальных не сдвигаются; пустой ответ, сбой
+  (`reportProviderFailure`), отмена и таймаут — `null`, сессии не остаётся. `resolveCodeLens` зовётся на оригинале,
+  только если у линзы ещё нет команды; ответ заменяет оригинал в сессии (провайдер вправе вернуть новый объект), без
+  команды — `INVALID code lens resolved, lacks command` в лог и `null`. `dispose` списка в ядре —
+  нотификация `languages.releaseCodeLenses`; снятие провайдера освобождает сессии вместе с регистрацией.
+  `onDidChangeCodeLenses` объявляется в регистрации (`hasOnDidChange`) и идёт нотификацией
+  `languages.didChangeCodeLenses` до `onDidChange` прокси.
+  **Путь команды — отступление от `_generated_`-механизма эталона** (`CommandsConverter.toInternal`), решение
+  человека в #937: прокси `LanguageFeaturesAdapter` кладёт в `CodeLensCommand` поле `run`, и `runCodeLensCommand`
+  вызывает его вместо реестра → `languages.executeCodeLensCommand {handle, cacheId}` (без таймаута) → субпроцесс
+  берёт команду линзы и зовёт `commands.executeCommand(id, ...arguments)` с настоящими объектами: своя команда
+  расширения и API-команда исполняются на месте, команда хоста (`editor.action.showReferences`) уходит
+  обычным `commands.executeCommand`, и её аргументы сериализуются только тут. Отказ команды отвергает запрос, и хост
+  показывает тост. Хост отвечает на неизвестный id `undefined`, поэтому субпроцесс сперва сверяется
+  (`ICodeActionDeps.hasCommand`) и отвергает с `command 'x' not found`, как эталон. Линза, снятая под кликом, просто
+  ничего не исполняет. У линз провайдеров ядра `run` нет — у них реестр, как раньше. **Известный остаток:** ответ,
+  дошедший до хоста уже после отмены запроса, отбрасывается, и его сессия живёт до снятия провайдера (так и в эталоне).
 - **Signature-help seam (LSP):** `languages.registerSignatureHelpProvider` — та же калька
   (`languages.provideSignatureHelp` RPC, таймаут 5000 мс), но с двумя отличиями. Первое: провайдеров
   обходим по очереди и возвращаем ПЕРВЫЙ непустой ответ (vscode API предписывает именно это —
@@ -600,7 +634,10 @@
   inline completions, срок которых едет в самом запросе, и `languages.provideCompletionItems`, у
   которого срока нет вовсе (как в upstream: по «пустому» ответу ядро открыло бы попап словами из
   буфера вместо пунктов медленного language server'а; ожидание ограничивает токен
-  `CompletionService` — перезапрос, уход каретки из слова, закрытие). Хост шлёт через
+  `CompletionService` — перезапрос, уход каретки из слова, закрытие). Срока нет и у
+  `languages.provideInlayHints`, `languages.provideCodeLenses`, `languages.resolveCodeLens` (как в
+  upstream: пустой ответ никто не перезапрашивает, и занятый импортом jdt.ls навсегда оставлял на кадре
+  `no commands`; ожидание ограничивает токен контроллера — правка, закрытие). Хост шлёт через
   `loggingRequest`: истёкший срок — debug, отказ — warn с методом и ошибкой (стек доезжает целиком);
   результат в обоих случаях пустой, UI не ждёт.
 - **Ошибки через RPC (G4):** отказ обработчика едет `SerializedError`
@@ -831,12 +868,12 @@
   `LanguageConfigurationCustomer`):** по эталону `wordPattern` остаётся в субпроцессе — определение
   слова языка в `DocumentRegistry` для `getWordRangeAtPosition` (и эфемерных документов
   `openTextDocument`), а секции, которые ядро умеет из `language-configuration.json` (`comments`,
-  `brackets`, `autoClosingPairs`), уезжают notify `languages.setLanguageConfiguration` слоем в
+  `brackets`, `autoClosingPairs`, `onEnterRules`, `wordPattern` — его читает linked editing), уезжают notify `languages.setLanguageConfiguration` слоем в
   `ILanguageConfigurationService.register` — как `register(…, priority)` эталона: секция слоя
   заменяет секцию файла, поздний слой побеждает ранний, результат слияния разворачивается тем же
   `resolveLanguageConfiguration`. Снятие — `languages.unsetLanguageConfiguration` по handle; смерть
-  субпроцесса снимает все его слои (кастомер живёт один спавн). `indentationRules`/`onEnterRules` не
-  применяются: ядро не умеет их и из файла.
+  субпроцесса снимает все его слои (кастомер живёт один спавн). `indentationRules` не
+  применяются: ядро не умеет их и из файла. `onEnterRules` регулярки идут как `{ pattern, flags }`, действие — в формате файла.
 - **Значки `$(name)` в тексте расширений:** подменщик — `renderCodicons` (`base/common/codicons.ts`
   над генерируемой таблицей `codicons.generated.ts`: `scripts/import-codicons.mjs`, пин в лок-степе
   с `vscode.d.ts`). Политика: известное имя → глиф, **неизвестное выбрасывается** (литерал `$(foo)`
@@ -896,6 +933,17 @@
   запрос с `only` ⊇ `source.organizeImports.ts` и считает правки лениво; клиент дописывает действие
   с пустым `WorkspaceEdit`, и команда молчит, как в VS Code, вместо «No organize imports action for
   'javascript'».
+  **Inlay hints и code lens** включаются ключами эталона `typescript-language-features`
+  (`typescript.inlayHints.*`, `javascript.inlayHints.*`, `*.referencesCodeLens.*`,
+  `typescript.implementationsCodeLens.*`), по умолчанию выключены. Сервер берёт эти предпочтения только из
+  `workspace/didChangeConfiguration` (`workspace/configuration` он спрашивает лишь про `formattingOptions`) и заменяет
+  ими свою копию целиком, поэтому `synchronize.configurationSection` плюс middleware
+  `workspace.didChangeConfiguration` шлют полный перевод (`lib/serverSettings.ts`) на старте и при каждой смене;
+  сервер сам просит клиента обновить подсказки и линзы (`inlayHint/refresh`, `codeLens/refresh`). Перевод как в
+  `getInlayHintsPreferences` эталона: `suppressWhen*` → `includeWhen*` с отрицанием. Настройки читаются без `scope`:
+  уведомление одно на сервер, поэтому `scope: "resource"` у подсказок на деле — на всё окно. Сервер игнорирует
+  `implementationsCodeLens.showOnInterfaceMethods`. Не объявлены `js/ts.*` (единые ключи эталона 1.127) и
+  `implementationsCodeLens.showOnAllClassMethods`, у старых ключей поэтому нет `markdownDeprecationMessage`.
   **Статус проекта JS/TS** (`lib/projectStatus.ts`, `lib/projectConfig.ts`) — порт эталонного
   `IntellisenseStatus` и команд `tsconfig.ts`: элемент Language Status `typescript.projectStatus`
   («No jsconfig» → «Configure JSConfig», путь конфига → «Open Config File», «Loading IntelliSense
@@ -904,7 +952,7 @@
   мимо middleware), логика написана против хоста-интерфейса и тестируется без `vscode`, `main.ts`
   только связывает. Отступления: «Configure» не открывает untitled-буфер со сниппетом, а создаёт
   `<папка>/jsconfig.json` одной `workspace.applyEdit` (createFile + текст шаблона, Ctrl+Z удаляет
-  файл) и открывает его (нет `insertSnippet`; решение человека
+  файл) и открывает его (нет сниппет-сессий; решение человека
   2026-10-25); шаблон — с дефолтами `js/ts.implicitProjectConfig.*` (настроек нет); `projectInfo` без
   ответа убирает элемент вместо вечного Loading; активный редактор — `activeTextEditor`, а не
   активная вкладка. **Пересчёт без смены редактора:** tsserver сам замечает новый/удалённый конфиг
@@ -1355,8 +1403,18 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
   молчащий сервер не морозит правку. Сервер без `resolveProvider` (gopls) шлёт `additionalTextEdits`
   сразу в списке: они едут в пункте (`ICoreCompletionItem.additionalEdits`), и accept применяет их без
   resolve — как «sync additional edits» в `suggestController` эталона.
-- **Сниппеты не поддержаны** (осознанно): `SnippetString` — только транспорт, плейсхолдеры
-  вырезаются (`stripSnippetPlaceholders`), чтобы `${1:name}` не попал в буфер.
+- **Сниппет-сессий нет** (осознанно): `SnippetString` — только транспорт, плейсхолдеры
+  вырезаются (`stripSnippetPlaceholders`), чтобы `${1:name}` не попал в буфер. `TextEditor.insertSnippet`
+  (`extHostSnippetInsert.ts`) вставляет текст с отступами эталона и ставит каретку на первую позицию,
+  но Tab по позициям не ходит.
+- **Клавиши ждут текстовую команду расширения** (отступление от эталона). `registerTextEditorCommand`
+  помечает регистрацию `textEditor: true`; пока прокси не получил ответ, `attachKeyboardInputHold`
+  (`keyboardInputHold.ts`) держит клавиши в capture на корне и затем прогоняет их в порядке нажатия. Иначе
+  клавиша меняет версию документа, правка команды отклоняется, и у Python Indent пропадает перевод строки
+  (#967). Ответ приходит после правки: subprocess шлёт `editor.applyEdit` раньше. Потолок — 1 с, зависшее
+  расширение клавиатуру не отнимет. Обычные `registerCommand` не держат: они могут ждать человека. Вставка
+  (`paste`) не удерживается; переигранный Tab, который никто не обработал, не двигает фокус: это делает только
+  движок для своего ввода.
 - Markdown в документации и hover показывается текстом — рендерера markdown нет.
 
 ### Участники сохранения

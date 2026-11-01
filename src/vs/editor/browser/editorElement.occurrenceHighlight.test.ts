@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createRange } from "../common/core/iRange.ts";
 import { createCursorSelection, createSelection } from "../common/core/iSelection.ts";
+import { DocumentHighlightKind, wordHighlightSetOf } from "../common/languages/iDocumentHighlightSource.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
@@ -88,10 +89,10 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
         expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(editor.resolvedStyle.bg);
     });
 
-    it("uses the configured wordHighlight background when set", () => {
+    it("a textual occurrence uses the configured wordHighlightText background", () => {
         const custom = packRgb(90, 10, 10);
         const { app, editor, viewState, gw } = createEditor("foo foo");
-        editor.setStyleVars({ "editor.wordHighlightBackground": custom });
+        editor.setStyleVars({ "editor.wordHighlightTextBackground": custom });
         viewState.selections = [createCursorSelection(0, 0)];
         settle(app);
 
@@ -108,12 +109,107 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
         expect(app.backend.getBgAt(new Point(gw + 5, 0))).toBe(editor.resolvedStyle.bg);
     });
 
-    it("suppresses the highlight while a selection is active", () => {
+    it("suppresses the highlight while a selection wider than a word is active", () => {
         const { app, editor, viewState, gw } = createEditor("foo bar foo");
-        viewState.selections = [createSelection(0, 4, 0, 7)];
+        viewState.selections = [createSelection(0, 0, 0, 7)];
         settle(app);
 
-        expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(editor.resolvedStyle.bg);
+        expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(editor.resolvedStyle.bg);
+    });
+
+    it("a selection inside a word highlights that word's occurrences", () => {
+        const { app, viewState, gw } = createEditor("foo bar foo");
+        viewState.selections = [createSelection(0, 0, 0, 2)];
+        settle(app);
+
+        expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(OCCURRENCE_BG);
+    });
+
+    it("paints each kind in its own color, the text under the cells unchanged", () => {
+        const [read, write, text] = [packRgb(10, 0, 0), packRgb(0, 10, 0), packRgb(0, 0, 10)];
+        const { app, editor, viewState, gw } = createEditor("foo bar baz qux");
+        editor.setStyleVars({
+            "editor.wordHighlightBackground": read,
+            "editor.wordHighlightStrongBackground": write,
+            "editor.wordHighlightTextBackground": text,
+        });
+        viewState.wordHighlights = wordHighlightSetOf([
+            { range: createRange(0, 0, 0, 3), kind: DocumentHighlightKind.Read },
+            { range: createRange(0, 4, 0, 7), kind: DocumentHighlightKind.Write },
+            { range: createRange(0, 8, 0, 11), kind: DocumentHighlightKind.Text },
+        ]);
+        app.render();
+
+        expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(read);
+        expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(write);
+        expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(text);
+        expect(app.backend.getBgAt(new Point(gw + 12, 0))).toBe(editor.resolvedStyle.bg);
+    });
+
+    it("linked ranges repaint by themselves, in their color and over the occurrences", () => {
+        const [read, linked] = [packRgb(10, 0, 0), packRgb(0, 10, 0)];
+        const { app, editor, viewState, gw } = createEditor("foo bar");
+        editor.setStyleVars({ "editor.wordHighlightBackground": read, "editor.linkedEditingBackground": linked });
+        viewState.wordHighlights = wordHighlightSetOf([
+            { range: createRange(0, 0, 0, 3), kind: DocumentHighlightKind.Read },
+        ]);
+        app.render();
+        const markDirty = vi.spyOn(editor, "markDirty");
+
+        viewState.linkedEditingRanges = [createRange(0, 0, 0, 3)];
+        expect(markDirty).toHaveBeenCalled();
+        app.render();
+        expect(app.backend.getBgAt(new Point(gw, 0))).toBe(linked);
+
+        viewState.linkedEditingRanges = [];
+        app.render();
+        expect(app.backend.getBgAt(new Point(gw, 0))).toBe(read);
+    });
+
+    it("marks each kind on the scrollbar in its own color", () => {
+        const [read, write, text] = [packRgb(10, 0, 0), packRgb(0, 10, 0), packRgb(0, 0, 10)];
+        const { app, editor, viewState } = createEditor("a\nb\nc");
+        editor.setStyleVars({
+            "editorOverviewRuler.wordHighlightForeground": read,
+            "editorOverviewRuler.wordHighlightStrongForeground": write,
+            "editorOverviewRuler.wordHighlightTextForeground": text,
+        });
+        viewState.wordHighlights = wordHighlightSetOf([
+            { range: createRange(0, 0, 0, 1), kind: DocumentHighlightKind.Read },
+            { range: createRange(1, 0, 1, 1), kind: DocumentHighlightKind.Write },
+            { range: createRange(2, 0, 2, 1), kind: DocumentHighlightKind.Text },
+        ]);
+
+        app.render();
+        const colorByRow = new Map(editor.getScrollBarMarkers().map((marker) => [marker.start, marker.color]));
+        expect(colorByRow).toEqual(
+            new Map([
+                [0, read],
+                [1, write],
+                [2, text],
+            ]),
+        );
+    });
+
+    it("a new set of any kind rebuilds the marks", () => {
+        const { editor, viewState } = createEditor("a\nb");
+        editor.setStyleVars({
+            "editorOverviewRuler.wordHighlightForeground": packRgb(10, 0, 0),
+            "editorOverviewRuler.wordHighlightStrongForeground": packRgb(0, 10, 0),
+            "editorOverviewRuler.wordHighlightTextForeground": packRgb(0, 0, 10),
+        });
+        const range = createRange(0, 0, 0, 1);
+        const lengths = [DocumentHighlightKind.Text, DocumentHighlightKind.Read, DocumentHighlightKind.Write].map(
+            (kind) => {
+                viewState.wordHighlights = wordHighlightSetOf([]);
+                const before = editor.getScrollBarMarkers();
+                viewState.wordHighlights = wordHighlightSetOf([{ range, kind }]);
+                const after = editor.getScrollBarMarkers();
+                expect(after).not.toBe(before);
+                return after.length;
+            },
+        );
+        expect(lengths).toEqual([1, 1, 1]);
     });
 
     it("hides the highlight in the very frame a selection appears", () => {
@@ -121,7 +217,7 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
         viewState.selections = [createCursorSelection(0, 0)];
         settle(app);
 
-        viewState.selections = [createSelection(0, 4, 0, 7)];
+        viewState.selections = [createSelection(0, 0, 0, 7)];
         app.render();
 
         expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(editor.resolvedStyle.bg);
@@ -174,7 +270,7 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
 
     it("keeps the set while the cursor moves within a highlighted word (upstream `_run`)", () => {
         const { app, editor, viewState } = createEditor("foo bar foo");
-        editor.setStyleVars({ "editorOverviewRuler.wordHighlightForeground": packRgb(1, 2, 3) });
+        editor.setStyleVars({ "editorOverviewRuler.wordHighlightTextForeground": packRgb(1, 2, 3) });
         viewState.selections = [createCursorSelection(0, 0)];
         settle(app);
         const before = editor.getScrollBarMarkers();
@@ -273,7 +369,7 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
         ["end", 3],
     ])("keeps the set with the caret at the word's %s (both ends count)", (_, character) => {
         const { app, editor, viewState } = createEditor("foo bar foo");
-        editor.setStyleVars({ "editorOverviewRuler.wordHighlightForeground": packRgb(1, 2, 3) });
+        editor.setStyleVars({ "editorOverviewRuler.wordHighlightTextForeground": packRgb(1, 2, 3) });
         viewState.selections = [createCursorSelection(0, 1)];
         settle(app);
         const before = editor.getScrollBarMarkers();

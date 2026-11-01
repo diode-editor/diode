@@ -19,12 +19,19 @@ export interface ContextKeyTypes {
     editorHasTypeDefinitionProvider: boolean;
     editorHasDeclarationProvider: boolean;
     editorHasReferenceProvider: boolean;
+    editorHasCallHierarchyProvider: boolean;
+    editorHasTypeHierarchyProvider: boolean;
     editorHasRenameProvider: boolean;
     editorHasCodeActionsProvider: boolean;
+    editorHasCodeLensProvider: boolean;
     editorHasDocumentFormattingProvider: boolean;
     editorHasDocumentSelectionFormattingProvider: boolean;
     editorHasInlayHintsProvider: boolean;
     editorHasSelection: boolean;
+    /** Upstream `ctxHasWordHighlights`: the active editor has occurrences on the frame. */
+    hasWordHighlights: boolean;
+    /** Upstream `CONTEXT_ONTYPE_RENAME_INPUT_VISIBLE`: the active editor has linked ranges on the frame. */
+    LinkedEditingInputVisible: boolean;
     editorLangId: string;
     /** Upstream name of our {@link textInputFocus}, kept for extension `when` clauses. */
     editorTextFocus: boolean;
@@ -115,6 +122,14 @@ export interface ContextKeyTypes {
     referencesViewletVisible: boolean;
     hasReferenceResult: boolean;
     referencesViewHasSomeCollapsibleResult: boolean;
+    /** "incoming" | "outgoing"; the title button shows the current direction. */
+    callHierarchyMode: string;
+    /** The tree section is registered in the References container. */
+    callHierarchyVisible: boolean;
+    /** "subtypes" | "supertypes"; the title button shows the current direction. */
+    typeHierarchyMode: string;
+    /** The hierarchy section of the References container holds a type tree. */
+    typeHierarchyVisible: boolean;
     scmViewletVisible: boolean;
     /** VS Code: `scmInputIsInFocus`. */
     scmInputFocus: boolean;
@@ -145,6 +160,8 @@ export interface ContextKeyTypes {
 
     /** `"empty"` | `"folder"` (upstream also has `"workspace"`). */
     workbenchState: string;
+    /** Always `true`: no trust model, matches `workspace.isTrusted`. */
+    isWorkspaceTrusted: boolean;
 
     /** Id of the tab whose controls the header currently shows. */
     view: string;

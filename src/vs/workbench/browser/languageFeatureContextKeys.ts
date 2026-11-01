@@ -22,6 +22,9 @@ const FEATURES = [
     "documentFormattingEditProvider",
     "documentRangeFormattingEditProvider",
     "inlayHintsProvider",
+    "codeLensProvider",
+    "callHierarchyProvider",
+    "typeHierarchyProvider",
 ] as const;
 
 /**
@@ -68,6 +71,9 @@ export class LanguageFeatureContextKeys extends Disposable implements IContextKe
             this.has("documentRangeFormattingEditProvider", target),
         );
         contextKeys.set("editorHasInlayHintsProvider", this.has("inlayHintsProvider", target));
+        contextKeys.set("editorHasCodeLensProvider", this.has("codeLensProvider", target));
+        contextKeys.set("editorHasCallHierarchyProvider", this.has("callHierarchyProvider", target));
+        contextKeys.set("editorHasTypeHierarchyProvider", this.has("typeHierarchyProvider", target));
         // Upstream hides Format Selection when there is no selection.
         const selection = editor?.viewState.selections[0];
         const empty =
@@ -75,6 +81,8 @@ export class LanguageFeatureContextKeys extends Disposable implements IContextKe
             (selection.anchor.line === selection.active.line &&
                 selection.anchor.character === selection.active.character);
         contextKeys.set("editorHasSelection", !empty);
+        contextKeys.set("hasWordHighlights", (editor?.viewState.wordHighlights.ranges.length ?? 0) > 0);
+        contextKeys.set("LinkedEditingInputVisible", (editor?.viewState.linkedEditingRanges.length ?? 0) > 0);
     }
 
     private has(feature: (typeof FEATURES)[number], target: ILanguageFeatureTarget | null): boolean {

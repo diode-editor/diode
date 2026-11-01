@@ -67,7 +67,8 @@ describe("loggingRequest", () => {
 });
 
 describe("DEFAULT_REQUEST_TIMEOUTS", () => {
-    // `languages.provideCompletionItems` is intentionally absent: completion waits without a deadline.
+    // Intentionally absent, they wait without a deadline as upstream: `languages.provideCompletionItems`,
+    // `languages.provideInlayHints`, `languages.provideCodeLenses`, `languages.resolveCodeLens`.
     it("per-method wire deadlines match the previous host option defaults", () => {
         expect(DEFAULT_REQUEST_TIMEOUTS).toEqual({
             "workspace.willSaveTextDocument": 1500,
@@ -83,13 +84,21 @@ describe("DEFAULT_REQUEST_TIMEOUTS", () => {
             "languages.provideReferences": 5000,
             "languages.provideSignatureHelp": 5000,
             "languages.provideFormattingEdits": 5000,
+            "languages.provideOnTypeFormattingEdits": 5000,
             "languages.provideCodeActions": 5000,
             "languages.applyCodeAction": 10000,
             "languages.prepareRename": 5000,
             "languages.provideRenameEdits": 10000,
             "languages.provideSelectionRanges": 5000,
+            "languages.prepareCallHierarchy": 5000,
+            "languages.provideCallHierarchyIncomingCalls": 5000,
+            "languages.provideCallHierarchyOutgoingCalls": 5000,
+            "languages.prepareTypeHierarchy": 5000,
+            "languages.provideTypeHierarchySupertypes": 5000,
+            "languages.provideTypeHierarchySubtypes": 5000,
+            "languages.provideDocumentHighlights": 5000,
+            "languages.provideLinkedEditingRanges": 5000,
             "languages.provideDocumentColors": 5000,
-            "languages.provideInlayHints": 5000,
         });
     });
 });

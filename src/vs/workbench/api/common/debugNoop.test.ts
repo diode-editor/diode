@@ -94,6 +94,40 @@ describe("vscode.debug — null object: there are no sessions and never will be"
         ]);
     });
 
+    it("every start attempt is a warning toast without buttons; startDebugging does not wait for its dismissal", async () => {
+        const { stub, vscode } = makeVscode();
+        stub.responder = () => new Promise(() => undefined);
+        await expect(vscode.debug.startDebugging(undefined, "a")).resolves.toBe(false);
+        await expect(vscode.debug.startDebugging(undefined, "b")).resolves.toBe(false);
+        const toast = {
+            method: "window.showMessage",
+            params: {
+                severity: "warn",
+                message: "starting a debug session is not supported in TUI yet — no session started",
+                modal: false,
+                detail: undefined,
+                items: [],
+            },
+        };
+        expect(stub.requests).toEqual([toast, toast]);
+    });
+
+    it("a toast that cannot be shown costs the extension nothing", async () => {
+        const { stub, vscode } = makeVscode();
+        stub.responder = () => {
+            throw new Error("host is gone");
+        };
+        const unhandled = vi.fn();
+        process.on("unhandledRejection", unhandled);
+        try {
+            await expect(vscode.debug.startDebugging(undefined, "a")).resolves.toBe(false);
+            await new Promise((resolve) => setImmediate(resolve));
+            expect(unhandled).not.toHaveBeenCalled();
+        } finally {
+            process.off("unhandledRejection", unhandled);
+        }
+    });
+
     describe("asDebugSourceUri — as upstream", () => {
         it("a source reference becomes a debug: uri with path, session and ref", () => {
             const { vscode } = makeVscode();

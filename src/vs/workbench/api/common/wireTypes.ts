@@ -387,6 +387,32 @@ export interface IWireSelectionRangeParams extends IWireDocumentParams, IWirePro
     readonly positions: readonly IPosition[];
 }
 
+/** Upstream `$provideDocumentHighlights`: the reply is `null` when the provider declined. */
+export interface IWireDocumentHighlightParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly line: number;
+    readonly character: number;
+}
+
+export interface IWireDocumentHighlight {
+    readonly range: IRange;
+    /** `DocumentHighlightKind`; absent when the extension gave a plain object without one. */
+    readonly kind?: number;
+}
+
+/** Upstream `$provideLinkedEditingRanges`: the reply is `null` when the provider declined. */
+export interface IWireLinkedEditingRangeParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly line: number;
+    readonly character: number;
+}
+
+export interface IWireLinkedEditingRanges {
+    readonly ranges: IRange[];
+    /** `RegExp.source`. */
+    readonly wordPattern?: string;
+    /** `RegExp.flags`: `/x/i` must not lose its `i` on the way to the core. */
+    readonly wordPatternFlags?: string;
+}
+
 /** Upstream `$provideDocumentColors`: the reply is `null` when the provider gave no colors. */
 export type IWireDocumentColorParams = IWireDocumentParams & IWireProviderHandle;
 
@@ -404,7 +430,65 @@ export interface IWireInlayHint {
     readonly paddingRight?: boolean;
 }
 
+/** Upstream `$provideCodeLenses`: the reply is `null` when the provider gave no lenses. */
+export type IWireCodeLensParams = IWireDocumentParams & IWireProviderHandle;
+
+/** The session of the answer and the index of the lens in what the provider returned. */
+export type WireCodeLensCacheId = readonly [number, number];
+
+/** Upstream `ICommandDto` without `arguments`: they stay in the subprocess, the command runs by the lens address. */
+export interface IWireCodeLensCommand {
+    /** Empty: a plain label, as upstream. */
+    readonly id: string;
+    readonly title: string;
+    readonly tooltip?: string;
+}
+
+export interface IWireCodeLens {
+    readonly cacheId: WireCodeLensCacheId;
+    readonly range: IRange;
+    readonly command?: IWireCodeLensCommand;
+}
+
+export interface IWireCodeLensList {
+    /** The session, released by `languages.releaseCodeLenses`. */
+    readonly cacheId: number;
+    readonly lenses: readonly IWireCodeLens[];
+}
+
+/** One lens of a session, for its resolve and for running its command. */
+export interface IWireCodeLensAddress extends IWireProviderHandle {
+    readonly cacheId: WireCodeLensCacheId;
+}
+
+export interface IWireReleaseCodeLenses extends IWireProviderHandle {
+    readonly cacheId: number;
+}
+
 export type IWireDefinitionParams = IWirePositionParams & IWireProviderHandle;
+
+/** Upstream `$prepareCallHierarchy`: the reply is `null` when the provider found nothing at the position. */
+export type IWirePrepareCallHierarchyParams = IWirePositionParams & IWireProviderHandle;
+
+/** Upstream `$provideCallHierarchyIncomingCalls`/`OutgoingCalls`: the original item stays in the subprocess. */
+export interface IWireCallHierarchyCallsParams extends IWireProviderHandle {
+    readonly sessionId: number;
+    readonly itemId: number;
+}
+
+/** Upstream `$releaseCallHierarchy`. */
+export interface IWireReleaseCallHierarchy extends IWireProviderHandle {
+    readonly sessionId: number;
+}
+
+/** Upstream `$prepareTypeHierarchy`: the reply is `null` when the provider found nothing at the position. */
+export type IWirePrepareTypeHierarchyParams = IWirePositionParams & IWireProviderHandle;
+
+/** Upstream `$provideTypeHierarchySupertypes`/`Subtypes`: the original item stays in the subprocess. */
+export type IWireTypeHierarchyParams = IWireCallHierarchyCallsParams;
+
+/** Upstream `$releaseTypeHierarchy`. */
+export type IWireReleaseTypeHierarchy = IWireReleaseCallHierarchy;
 
 export type IWireHoverParams = IWirePositionParams & IWireProviderHandle;
 
@@ -420,14 +504,20 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "completion",
     "formatting",
     "rangeFormatting",
+    "onTypeFormatting",
     "codeActions",
     "folding",
     "documentSymbol",
     "inlineCompletions",
     "rename",
     "selectionRange",
+    "callHierarchy",
+    "typeHierarchy",
+    "documentHighlight",
+    "linkedEditingRange",
     "color",
     "inlayHints",
+    "codeLens",
     "semanticTokens",
     "rangeSemanticTokens",
 ] as const;
@@ -519,6 +609,14 @@ export interface IWireFormattingParams extends IWireDocumentParams {
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
     readonly range?: IRange;
+}
+
+export interface IWireOnTypeFormattingParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly line: number;
+    readonly character: number;
+    readonly ch: string;
+    readonly tabSize: number;
+    readonly insertSpaces: boolean;
 }
 
 /**
@@ -843,6 +941,8 @@ export interface IWireApplyEditParams {
     readonly setEndOfLine?: 1 | 2;
     readonly undoStopBefore?: boolean;
     readonly undoStopAfter?: boolean;
+    /** The selections after the edit, applied with it: `insertSnippet` must not leave a window for a typed key. */
+    readonly selectionsAfter?: readonly IWireSelection[];
 }
 
 export interface IWireSetSelectionParams {
@@ -1035,9 +1135,12 @@ export interface IWireFileDecorationsChanged {
 
 export function parseRange(raw: unknown): IRange | null {
     if (typeof raw !== "object" || raw === null) return null;
+    // `Range.toJSON()` is a pair: that is what a `vscode.Range` becomes on the JSON fallback of the transport.
     const r = raw as { start?: unknown; end?: unknown };
-    const start = r.start as { line?: unknown; character?: unknown } | undefined;
-    const end = r.end as { line?: unknown; character?: unknown } | undefined;
+    const [start, end] = (Array.isArray(raw) ? raw : [r.start, r.end]) as (
+        | { line?: unknown; character?: unknown }
+        | undefined
+    )[];
     if (
         start == null ||
         end == null ||
@@ -1254,6 +1357,8 @@ export interface IWireQuickPickSessionItem {
 /** Absent means "untouched", `null` means "reset to `undefined`" (upstream `_pendingUpdate`). */
 export interface IWireQuickPickUpdate {
     readonly handle: number;
+    /** Only in the first update, the one that creates the host's side: `window.createInputBox`. */
+    readonly inputBox?: boolean;
     readonly visible?: boolean;
     readonly title?: string | null;
     readonly step?: number | null;
@@ -1261,6 +1366,12 @@ export interface IWireQuickPickUpdate {
     readonly placeholder?: string | null;
     readonly prompt?: string | null;
     readonly value?: string;
+    /** `null` selects the whole value, as upstream's unset `InputBox.valueSelection`. */
+    readonly valueSelection?: readonly [number, number] | null;
+    readonly password?: boolean;
+    readonly validationMessage?: IWireValidationMessage | null;
+    /** `QuickInputButtons.Back` is among the buttons; the overlay draws no other. */
+    readonly back?: boolean;
     readonly canSelectMany?: boolean;
     readonly matchOnDescription?: boolean;
     readonly matchOnDetail?: boolean;
@@ -1282,7 +1393,8 @@ export type IWireQuickPickEvent =
     | { readonly handle: number; readonly kind: "accept" }
     | { readonly handle: number; readonly kind: "changeActive"; readonly items: readonly number[] }
     | { readonly handle: number; readonly kind: "changeSelection"; readonly items: readonly number[] }
-    | { readonly handle: number; readonly kind: "hide" };
+    | { readonly handle: number; readonly kind: "hide" }
+    | { readonly handle: number; readonly kind: "back" };
 
 export function parseWireQuickPickEvent(raw: unknown): IWireQuickPickEvent | null {
     // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the check below rejects a non-object anyway (it lacks the needed field), so replacing the operand with `false` has no observable effect
@@ -1295,6 +1407,7 @@ export function parseWireQuickPickEvent(raw: unknown): IWireQuickPickEvent | nul
             return typeof p.value === "string" ? { handle, kind: "changeValue", value: p.value } : null;
         case "accept":
         case "hide":
+        case "back":
             return { handle, kind: p.kind };
         case "changeActive":
         case "changeSelection":
@@ -1675,6 +1788,11 @@ export interface IWireExecuteCommandParams {
 
 export interface IWireCommandId {
     readonly id: string;
+}
+
+export interface IWireRegisterCommandParams extends IWireCommandId {
+    /** `registerTextEditorCommand`: keys wait for its answer, an edit built on a stale version would be refused. */
+    readonly textEditor?: true;
 }
 
 export interface IWireChangeLanguageParams {

@@ -136,6 +136,8 @@ describe("tier gate asymmetry — user-facing contract", () => {
         "fileOperations.copyPath | Ctrl+K Alt+C | Shift+Alt+C",
         "git.commit | Alt+Enter | Ctrl+Enter",
         "input.deleteWordLeft | Alt+Backspace | Ctrl+Backspace",
+        // No legacy fallback (#949): `ctrl+k ctrl+h` is Output's; the palette and the context menu run it there.
+        "references-view.showCallHierarchy | Shift+Alt+H | Shift+Alt+H",
         "workbench.action.files.saveAs | Ctrl+K Alt+S | Ctrl+Shift+S",
         "workbench.action.focusFifthEditorGroup | Ctrl+K 5 | Ctrl+5",
         "workbench.action.focusFirstEditorGroup | Ctrl+K 1 | Ctrl+1",
@@ -231,7 +233,7 @@ describe("default keybinding collisions", () => {
         "down: cursorDown / selectNextSuggestion",
         "pagedown: cursorPageDown / selectNextPageSuggestion",
         "pageup: cursorPageUp / selectPrevPageSuggestion",
-        "tab: acceptSelectedSuggestion / editor.action.indentLines",
+        "tab: acceptSelectedSuggestion / tab",
         "up: cursorUp / selectPrevSuggestion",
         // Long-standing pc layout debt, tracked in docs/TODO/MacKeybindings.md.
         "ctrl+k ctrl+f: editor.action.formatSelection / workbench.action.navigateForward",

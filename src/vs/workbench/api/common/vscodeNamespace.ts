@@ -32,6 +32,7 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { createExtHostTreeViews } from "./extHostTreeViews.ts";
 import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
+import { QuickInputButtonLocation, QuickInputButtons } from "./quickInputButtons.ts";
 import { createTasksNamespace } from "./tasksNamespace.ts";
 import { createTelemetryLogger } from "./telemetryLogger.ts";
 import { createTerminalNamespace } from "./terminalNamespace.ts";
@@ -49,6 +50,7 @@ import {
 } from "./testingTypes.ts";
 import { createTestsNoop } from "./testsNoop.ts";
 import { TextEditorRevealType } from "./textEditorRevealType.ts";
+import { CallHierarchyIncomingCall, CallHierarchyOutgoingCall } from "./vscodeCallHierarchyTypes.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import {
@@ -79,6 +81,7 @@ import {
     DiagnosticSeverity,
     DiagnosticTag,
     DisposableImpl,
+    DocumentHighlight,
     DocumentHighlightKind,
     DocumentLink,
     DocumentSymbol,
@@ -103,6 +106,7 @@ import {
     InlineCompletionTriggerKind,
     InputBoxValidationSeverity,
     LanguageStatusSeverity,
+    LinkedEditingRanges,
     Location,
     LogLevel,
     MarkdownString,
@@ -229,6 +233,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         // Deferred call: providers live in `languages`, whose code actions run `commands`.
         executeCompletionItemProvider: (...args) => executeProviders.completionItems(...args),
         executeCodeActionProvider: (...args) => executeProviders.codeActions(...args),
+        getActiveTextEditor: () => window.activeTextEditor,
     });
     const commands = buildCommandsNamespace(
         rpc,
@@ -240,6 +245,8 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     const { languages, executeProviders } = createLanguagesNamespace(ctx, {
         applyEdit: (edit, metadata) => workspace.applyEdit(edit, metadata),
         executeCommand: (command, ...args) => commands.executeCommand(command, ...args),
+        // API commands are not declared to the host, the extension's own are.
+        hasCommand: async (command) => apiCommands.has(command) || (await commands.getCommands()).includes(command),
     });
 
     // The `env.initialize` seed arrives before the first activation; there are no terminal profiles, so `onDidChangeShell` never fires.
@@ -355,15 +362,19 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         CodeActionKind,
         CodeActionTriggerKind,
         DocumentLink,
+        DocumentHighlight,
         DocumentHighlightKind,
         InlayHint,
         InlayHintKind,
+        LinkedEditingRanges,
         InlayHintLabelPart,
         SymbolInformation,
         SymbolKind,
         SymbolTag,
         CompletionItemTag,
+        CallHierarchyIncomingCall,
         CallHierarchyItem,
+        CallHierarchyOutgoingCall,
         TypeHierarchyItem,
         CancellationError,
         CancellationTokenSource,
@@ -457,6 +468,8 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         BranchCoverage,
         DeclarationCoverage,
         DocumentSymbol,
+        QuickInputButtonLocation,
+        QuickInputButtons,
         QuickPickItemKind,
         NotebookCellKind,
         IndentAction,

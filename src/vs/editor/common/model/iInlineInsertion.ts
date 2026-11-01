@@ -26,7 +26,7 @@ export interface IInlineInsertion {
      * Where a caret at `offset` is drawn. `"left"` (the default, upstream injected-text affinity):
      * ghost text stays right of what was typed. `"right"`: the terminal caret is a block over the
      * cell right of the caret point, so an insertion that must never be covered by it (a color
-     * swatch) puts the caret on the character after it. Deviation from upstream: there the caret is
+     * swatch, a hint before an argument) puts the caret on the character after it. Deviation from upstream: there the caret is
      * a thin bar between cells and stays left of the swatch.
      */
     readonly caretSide?: "left" | "right";

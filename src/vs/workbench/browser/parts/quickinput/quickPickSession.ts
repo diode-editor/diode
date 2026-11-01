@@ -1,4 +1,4 @@
-import type { QuickPickItem } from "../../../common/quickPickItem.ts";
+import type { QuickPickItem, ValidationSeverity } from "../../../common/quickPickItem.ts";
 
 import type { QuickPickElement } from "./quickPickElement.ts";
 
@@ -18,6 +18,10 @@ export interface QuickPickSessionState<T extends QuickPickSessionItem> {
     /** Upstream `valueSelection`, `[start, end)`; `undefined` puts the cursor at the end. */
     readonly valueSelection: readonly [number, number] | undefined;
     readonly validationMessage: string | undefined;
+    readonly validationSeverity: ValidationSeverity;
+    readonly password: boolean;
+    /** Draws the Back button in the title and enables its key. */
+    readonly back: boolean;
     readonly canSelectMany: boolean;
     /** With no `matchOn*` field set, the list isn't filtered. */
     readonly matchOnLabel: boolean;
@@ -37,6 +41,7 @@ export interface QuickPickSessionEvents<T extends QuickPickSessionItem> {
     onDidChangeActive(items: readonly T[]): void;
     onDidChangeSelection(items: readonly T[]): void;
     onDidHide(): void;
+    onDidTriggerBack?(): void;
 }
 
 /**
@@ -59,6 +64,9 @@ const DEFAULT_STATE: QuickPickSessionState<never> = {
     value: "",
     valueSelection: undefined,
     validationMessage: undefined,
+    validationSeverity: "error",
+    password: false,
+    back: false,
     canSelectMany: false,
     matchOnLabel: true,
     matchOnDescription: false,
@@ -213,6 +221,9 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         view.onAcceptMany = () => {
             this.events.onDidAccept();
         };
+        view.onBack = () => {
+            this.events.onDidTriggerBack?.();
+        };
 
         view.setQuery(this.state.value);
         this.applyValueSelection(view);
@@ -241,7 +252,9 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         view.placeholder = this.state.placeholder ?? "";
         view.canPickMany = this.state.canSelectMany;
         view.validationMessage = this.state.validationMessage ?? null;
-        view.validationSeverity = "error";
+        view.validationSeverity = this.state.validationSeverity;
+        view.password = this.state.password;
+        view.backVisible = this.state.back;
     }
 
     private fillList(view: QuickPickElement, keepPosition: boolean): void {

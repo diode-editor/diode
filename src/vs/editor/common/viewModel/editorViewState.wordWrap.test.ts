@@ -184,3 +184,39 @@ describe("EditorViewState word wrap — scrollLeft", () => {
         expect(state.scrollLeft).toBe(7);
     });
 });
+
+describe("EditorViewState — wrapping sees the insertions", () => {
+    function wrapped(): EditorViewState {
+        const state = new EditorViewState(new TextDocument("aaaa bbbb\nccc"));
+        state.viewportWidth = 10;
+        state.viewportHeight = 10;
+        state.wordWrap = "on";
+        return state;
+    }
+
+    it("an insertion that overflows the line adds a row, removing it takes the row away", () => {
+        const state = wrapped();
+        expect(state.docLineForViewLine(1)).toBe(1);
+        state.inlineInsertions = [{ line: 0, offset: 4, text: ": int" }];
+        expect(state.docLineForViewLine(1)).toBe(0);
+        expect(state.docLineForViewLine(2)).toBe(1);
+        state.inlineInsertions = [];
+        expect(state.docLineForViewLine(1)).toBe(1);
+    });
+
+    it("insertions set while wrap is off count once it is on", () => {
+        const state = wrapped();
+        state.wordWrap = "off";
+        state.inlineInsertions = [{ line: 0, offset: 4, text: ": int" }];
+        expect(state.docLineForViewLine(1)).toBe(1);
+        state.wordWrap = "on";
+        expect(state.docLineForViewLine(1)).toBe(0);
+    });
+
+    it("a recolored insertion keeps the rows", () => {
+        const state = wrapped();
+        state.inlineInsertions = [{ line: 0, offset: 4, text: ": int" }];
+        state.inlineInsertions = [{ line: 0, offset: 4, text: ": int", italic: true }];
+        expect(state.docLineForViewLine(2)).toBe(1);
+    });
+});

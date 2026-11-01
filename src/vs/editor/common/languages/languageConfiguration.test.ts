@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import type { ILanguageConfiguration } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
+import type {
+    ILanguageConfiguration,
+    IOnEnterAction,
+} from "../../../platform/extensions/common/iLanguageConfiguration.ts";
 
 import {
     DEFAULT_AUTO_CLOSE_BEFORE,
     EMPTY_LANGUAGE_CONFIGURATION,
     resolveLanguageConfiguration,
 } from "./languageConfiguration.ts";
+
+const ENTER_NONE: IOnEnterAction = { indent: "none" };
+const ENTER_INDENT: IOnEnterAction = { indent: "indent" };
 
 describe("resolveLanguageConfiguration", () => {
     it("resolves a full configuration with explicit sections", () => {
@@ -135,5 +141,95 @@ describe("resolveLanguageConfiguration", () => {
         expect(EMPTY_LANGUAGE_CONFIGURATION.autoClosingPairs).toEqual([]);
         expect(EMPTY_LANGUAGE_CONFIGURATION.surroundingPairs).toEqual([]);
         expect(EMPTY_LANGUAGE_CONFIGURATION.autoCloseBefore).toBe(DEFAULT_AUTO_CLOSE_BEFORE);
+    });
+});
+
+describe("resolveLanguageConfiguration — onEnterRules", () => {
+    it.each(["none", "indent", "indentOutdent", "outdent"] as const)("keeps the %s action whole", (indent) => {
+        const action = { indent, appendText: "a", removeText: 2 };
+        const [rule] = resolveLanguageConfiguration({ onEnterRules: [{ beforeText: "a", action }] }).onEnterRules;
+        expect(rule.action).toStrictEqual(action);
+    });
+
+    it("no optional action fields stay absent", () => {
+        const [rule] = resolveLanguageConfiguration({
+            onEnterRules: [{ beforeText: "a", action: ENTER_NONE }],
+        }).onEnterRules;
+        expect(rule.action).toStrictEqual(ENTER_NONE);
+    });
+
+    it("a regex that is not a string or a pattern counts as absent", () => {
+        const rules = resolveLanguageConfiguration({
+            onEnterRules: [
+                { beforeText: {}, action: ENTER_NONE },
+                { beforeText: 5, action: ENTER_NONE },
+                { beforeText: null, action: ENTER_NONE },
+                { beforeText: "a", afterText: null, previousLineText: {}, action: ENTER_NONE },
+            ],
+        } as never).onEnterRules;
+        expect(rules).toEqual([
+            { beforeText: /a/, afterText: undefined, previousLineText: undefined, action: ENTER_NONE },
+        ]);
+    });
+
+    it("takes a string or a pattern with flags", () => {
+        const [first, second] = resolveLanguageConfiguration({
+            onEnterRules: [
+                { beforeText: "a", action: ENTER_NONE },
+                {
+                    beforeText: { pattern: "b", flags: "i" },
+                    afterText: "c",
+                    previousLineText: "d",
+                    action: ENTER_INDENT,
+                },
+            ],
+        }).onEnterRules;
+        expect(first).toEqual({
+            beforeText: /a/,
+            afterText: undefined,
+            previousLineText: undefined,
+            action: ENTER_NONE,
+        });
+        expect(second).toEqual({ beforeText: /b/i, afterText: /c/, previousLineText: /d/, action: ENTER_INDENT });
+    });
+
+    it("drops a rule with a broken beforeText, action or indent, and only that rule", () => {
+        const rules = resolveLanguageConfiguration({
+            onEnterRules: [
+                null,
+                "rule",
+                { beforeText: "(", action: ENTER_NONE },
+                { action: ENTER_NONE },
+                { beforeText: "a" },
+                { beforeText: "a", action: null },
+                { beforeText: "a", action: { indent: "sideways" } },
+                { beforeText: "good", action: ENTER_NONE },
+            ],
+        } as never).onEnterRules;
+        expect(rules.map((rule) => rule.beforeText.source)).toEqual(["good"]);
+    });
+
+    it("a broken optional regex is dropped on its own, junk action fields too", () => {
+        const [rule] = resolveLanguageConfiguration({
+            onEnterRules: [
+                {
+                    beforeText: "a",
+                    afterText: "(",
+                    previousLineText: "[",
+                    action: { indent: "none", appendText: 1, removeText: "x" },
+                },
+            ],
+        } as never).onEnterRules;
+        expect(rule).toEqual({
+            beforeText: /a/,
+            afterText: undefined,
+            previousLineText: undefined,
+            action: ENTER_NONE,
+        });
+    });
+
+    it("a section that is not an array resolves to no rules", () => {
+        expect(resolveLanguageConfiguration({ onEnterRules: "x" } as never).onEnterRules).toEqual([]);
+        expect(resolveLanguageConfiguration({}).onEnterRules).toEqual([]);
     });
 });

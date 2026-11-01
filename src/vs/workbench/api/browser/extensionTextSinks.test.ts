@@ -232,6 +232,7 @@ function statusBarSetup(): { bar: StatusBarService; adapter: ExtensionStatusBarA
     const bar = new StatusBarService(NULL_STATE_SERVICE);
     const commands: ICommandService = {
         execute: () => undefined,
+        holdInputUntil: () => undefined,
         listCommandIds: () => [],
         registerProxy: () => ({ dispose: () => undefined }),
     };

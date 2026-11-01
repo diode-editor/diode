@@ -254,7 +254,7 @@ expectScreen(backend, screen`
 
 Откуда 1,5 ГБ: инстанс редактора ≈ 330 МБ RSS, LSP-сьюты сверху держат сервер (basedpyright ≈ 385 МБ, tsserver ≈ 356 МБ) — около 1 ГБ на LSP-тест, сборка бинаря (tsup + SEA) при промахе кэша — ещё ~0,7 ГБ. Wall e2e почти не зависит от ядер: это ожидания (settle, старт языковых серверов), а не CPU, — на 4 ядрах и двух воркерах прогон всего вдвое дольше, чем на 16 и восьми.
 
-**Тяжёлая полоса.** Файлы с настоящими JVM (redhat.java: syntax- и standard-сервер) — `e2e/marketplace/marketplace.test.ts` и `e2e/scenarios-heavy.test.ts` (сценарий `java-lsp`) — вынесены в отдельный проект vitest `e2e-heavy` (`sequence.groupOrder: 1`, `maxWorkers: 1`): он идёт ПОСЛЕ остальных и строго по одному. Замер: две JVM-пары разом на 7,6 ГБ дали пик 6,3 ГБ и таймауты обеих (и соседнего `rename-symbol` от голода по CPU). Список узкий намеренно — всё, что туда попадает, теряет параллельность; новый потребитель JVM — в `HEAVY` в `vitest.e2e.config.ts` (сценарий — в `HEAVY_SCENARIOS` в `suite.ts`). Проекты с разным `maxWorkers` в vitest 4 обязаны иметь разный `groupOrder`, а группы идут последовательно — поэтому полоса именно «после», а не «рядом».
+**Тяжёлая полоса.** Файлы с настоящими JVM (redhat.java: syntax- и standard-сервер) — `e2e/marketplace/marketplace.test.ts` и `e2e/scenarios-heavy.test.ts` (сценарии на JVM, например `java-lsp`) — вынесены в отдельный проект vitest `e2e-heavy` (`sequence.groupOrder: 1`, `maxWorkers: 1`): он идёт ПОСЛЕ остальных и строго по одному. Замер: две JVM-пары разом на 7,6 ГБ дали пик 6,3 ГБ и таймауты обеих (и соседнего `rename-symbol` от голода по CPU). Список узкий намеренно — всё, что туда попадает, теряет параллельность; новый потребитель JVM — в `HEAVY` в `vitest.e2e.config.ts` (сценарий — в `HEAVY_SCENARIOS` в `suite.ts`). Проекты с разным `maxWorkers` в vitest 4 обязаны иметь разный `groupOrder`, а группы идут последовательно — поэтому полоса именно «после», а не «рядом».
 
 **Автоповтор упавших файлов** (`scripts/e2e.mjs` — это и есть `npm run test:e2e`): проход 1 — весь набор с JSON-репортом в `reports/e2e/`; проход 2 — только упавшие файлы, одним воркером, на том же бинаре. Код 0 — только если второй проход зелёный. Упавшие в первом и зелёные во втором печатаются в итоге списком **FLAKY** — с тестами и первой строкой ошибки (в CI ещё и в `$GITHUB_STEP_SUMMARY` и аннотацией). Флак не прячется: он виден в каждом прогоне, пока его не починят. Повтора нет, если упало больше `DIODE_E2E_RETRY_MAX` (8) файлов — это поломка, а не флак; если vitest вышел с ошибкой без упавших файлов (необработанная ошибка, globalSetup); при `DIODE_E2E_RETRY=0`. `retry` самого vitest выключен намеренно: он повторяет молча и под той же нагрузкой. Исключение — тесты и сценарии из [списка известных флаков](#список-известных-флаков-test-flakesjson-testutilsflaketestrunnerts): известный флак не должен стоить перезапуска CI (в CI e2e идёт одним воркером, второй проход — в тех же условиях, и `region-folding` падал в обоих), а аннотация `Known flake retried` оставляет его видимым. Упал во всех попытках — файл красный и идёт во второй проход как обычно. Аргументы уходят vitest как есть: `npm run test:e2e -- e2e/mouse.test.ts`. Итог — `reports/e2e/summary.md`/`summary.json`.
 
@@ -544,14 +544,15 @@ PATH есть. `claudeCodeSessionEnv()` ещё и обнуляет `CLAUDE_CONFI
 
 1. `tsc --noEmit --incremental` — по всей программе (тип ломается не там, где правка), buildinfo в `node_modules/.cache/diode/`; повторный прогон — секунды.
 2. `eslint --cache --cache-strategy content` — только изменённые файлы.
-3. `vitest related --run <файлы>` — тесты, которые транзитивно импортируют изменённое.
+3. `scripts/check-stryker-disable.mjs` — храповик на `Stryker disable` про недостижимый код ([MUTATION.md](MUTATION.md#выживший-мутант--не-всегда-дыра)), когда в диффе есть не-тестовые файлы.
+4. `vitest related --run <файлы>` — тесты, которые транзитивно импортируют изменённое.
 
 ```bash
 npm run check:diff                     # tsc + eslint + vitest related
 npm run check:diff -- --near           # тесты только соседние: foo.ts → foo.test.ts, foo.*.test.ts
 npm run check:diff -- --coverage       # + покрытие изменённых не-тестовых файлов
 npm run check:diff -- --base <ref>     # другая база (стек PR: база — ветка родителя)
-npm run check:diff -- --skip tsc,lint  # пропустить шаги
+npm run check:diff -- --skip tsc,lint  # пропустить шаги (tsc, lint, ratchet, test)
 npm run check:diff -- --list           # только показать файлы диффа
 ```
 

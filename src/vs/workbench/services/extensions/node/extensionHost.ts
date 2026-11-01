@@ -9,10 +9,17 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type {
+    ICallHierarchyIncomingCall,
+    ICallHierarchyOutgoingCall,
+    ICallHierarchyRequest,
+    ICallHierarchySession,
+} from "../../../../editor/common/languages/iCallHierarchySource.ts";
+import type {
     IApplyCodeActionOptions,
     ICodeActionRequest,
     ICoreCodeAction,
 } from "../../../../editor/common/languages/iCodeActionSource.ts";
+import type { ICodeLensRequest } from "../../../../editor/common/languages/iCodeLensSource.ts";
 import type { IColorInformation, IDocumentColorRequest } from "../../../../editor/common/languages/iColorSource.ts";
 import type {
     ICompletionRequest,
@@ -24,11 +31,18 @@ import type {
     IDefinitionRequest,
 } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type {
+    IDocumentHighlight,
+    IDocumentHighlightRequest,
+} from "../../../../editor/common/languages/iDocumentHighlightSource.ts";
+import type {
     ICoreDocumentSymbol,
     IDocumentSymbolRequest,
 } from "../../../../editor/common/languages/iDocumentSymbolSource.ts";
 import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
-import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
+import type {
+    IFormattingRequest,
+    IOnTypeFormattingRequest,
+} from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
 import type { IInlayHintsRequest, InlayHint } from "../../../../editor/common/languages/iInlayHintsSource.ts";
 import type {
@@ -39,6 +53,10 @@ import {
     type ILanguageConfigurationService,
     NULL_LANGUAGE_CONFIGURATION_SERVICE,
 } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
+import type {
+    ILinkedEditingRangeRequest,
+    ILinkedEditingRanges,
+} from "../../../../editor/common/languages/iLinkedEditingSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreRenameLocation,
@@ -56,6 +74,11 @@ import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ITypeHierarchyItem,
+    ITypeHierarchyRequest,
+    ITypeHierarchySession,
+} from "../../../../editor/common/languages/iTypeHierarchySource.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
 import type { ConfigurationScope } from "../../../../platform/configuration/common/configurationRegistry.ts";
@@ -104,7 +127,12 @@ import {
 import type { ILanguageStatusSink } from "../../../api/common/iLanguageStatusSink.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
 import type { IWorkspaceFoldersSink } from "../../../api/common/iWorkspaceFoldersSink.ts";
-import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
+import type {
+    IWireCodeLens,
+    IWireCodeLensList,
+    IWireLanguageProviderRegistration,
+    WireCodeLensCacheId,
+} from "../../../api/common/wireTypes.ts";
 import {
     type IWireDocumentChangedEvent,
     type IWireDocumentStateChanged,
@@ -851,6 +879,82 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.languageFeatures.provideSelectionRanges(handle, req, token);
     }
 
+    public prepareCallHierarchy(
+        handle: number,
+        req: ICallHierarchyRequest,
+        token?: ICancellationToken,
+    ): Promise<ICallHierarchySession | null> {
+        return this.languageFeatures.prepareCallHierarchy(handle, req, token);
+    }
+
+    public provideCallHierarchyIncomingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ICallHierarchyIncomingCall[]> {
+        return this.languageFeatures.provideCallHierarchyIncomingCalls(handle, sessionId, itemId, token);
+    }
+
+    public provideCallHierarchyOutgoingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ICallHierarchyOutgoingCall[]> {
+        return this.languageFeatures.provideCallHierarchyOutgoingCalls(handle, sessionId, itemId, token);
+    }
+
+    public releaseCallHierarchy(handle: number, sessionId: number): void {
+        this.languageFeatures.releaseCallHierarchy(handle, sessionId);
+    }
+
+    public prepareTypeHierarchy(
+        handle: number,
+        req: ITypeHierarchyRequest,
+        token?: ICancellationToken,
+    ): Promise<ITypeHierarchySession | null> {
+        return this.languageFeatures.prepareTypeHierarchy(handle, req, token);
+    }
+
+    public provideTypeHierarchySupertypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]> {
+        return this.languageFeatures.provideTypeHierarchySupertypes(handle, sessionId, itemId, token);
+    }
+
+    public provideTypeHierarchySubtypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]> {
+        return this.languageFeatures.provideTypeHierarchySubtypes(handle, sessionId, itemId, token);
+    }
+
+    public releaseTypeHierarchy(handle: number, sessionId: number): void {
+        this.languageFeatures.releaseTypeHierarchy(handle, sessionId);
+    }
+
+    public provideDocumentHighlights(
+        handle: number,
+        req: IDocumentHighlightRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly IDocumentHighlight[] | null> {
+        return this.languageFeatures.provideDocumentHighlights(handle, req, token);
+    }
+
+    public provideLinkedEditingRanges(
+        handle: number,
+        req: ILinkedEditingRangeRequest,
+        token?: ICancellationToken,
+    ): Promise<ILinkedEditingRanges | null> {
+        return this.languageFeatures.provideLinkedEditingRanges(handle, req, token);
+    }
+
     public provideDocumentColors(
         handle: number,
         req: IDocumentColorRequest,
@@ -869,6 +973,34 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
 
     public get onDidChangeInlayHints(): Event<number> {
         return this.languageFeatures.onDidChangeInlayHints;
+    }
+
+    public provideCodeLenses(
+        handle: number,
+        req: ICodeLensRequest,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLensList | null> {
+        return this.languageFeatures.provideCodeLenses(handle, req, token);
+    }
+
+    public resolveCodeLens(
+        handle: number,
+        cacheId: WireCodeLensCacheId,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLens | null> {
+        return this.languageFeatures.resolveCodeLens(handle, cacheId, token);
+    }
+
+    public releaseCodeLenses(handle: number, cacheId: number): void {
+        this.languageFeatures.releaseCodeLenses(handle, cacheId);
+    }
+
+    public executeCodeLensCommand(handle: number, cacheId: WireCodeLensCacheId): Promise<void> {
+        return this.languageFeatures.executeCodeLensCommand(handle, cacheId);
+    }
+
+    public get onDidChangeCodeLenses(): Event<number> {
+        return this.languageFeatures.onDidChangeCodeLenses;
     }
 
     public provideDocumentSemanticTokens(
@@ -958,6 +1090,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token?: ICancellationToken,
     ): Promise<readonly ITextEdit[]> {
         return this.languageFeatures.provideFormattingEdits(handle, req, token);
+    }
+
+    public provideOnTypeFormattingEdits(
+        handle: number,
+        req: IOnTypeFormattingRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ITextEdit[]> {
+        return this.languageFeatures.provideOnTypeFormattingEdits(handle, req, token);
     }
 
     public provideCodeActions(

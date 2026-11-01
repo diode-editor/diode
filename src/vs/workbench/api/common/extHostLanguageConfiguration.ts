@@ -5,14 +5,16 @@ import type {
     IAutoClosingPair,
     ICommentRule,
     ILanguageConfiguration,
+    IOnEnterRule,
+    IRegExpDefinition,
 } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
 
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
-import { DisposableImpl, SyntaxTokenType } from "./vscodeTypes.ts";
+import { DisposableImpl, IndentAction, SyntaxTokenType } from "./vscodeTypes.ts";
 
 /**
- * As upstream: `wordPattern` lives in the subprocess; `comments`/`brackets`/
- * `autoClosingPairs` go to the host as a layer over `language-configuration.json`
+ * As upstream: `wordPattern` is kept in the subprocess for documents and, with `comments`/`brackets`/
+ * `autoClosingPairs`/`onEnterRules`, goes to the host as a layer over `language-configuration.json`
  * (dispose removes the layer but, as upstream, not the word definition); other
  * sections are accepted and ignored since the core does not support them.
  */
@@ -43,11 +45,13 @@ export function createSetLanguageConfiguration(
 }
 
 function toWireConfiguration(configuration: vscode.LanguageConfiguration): ILanguageConfiguration {
-    const { comments, brackets, autoClosingPairs } = configuration;
+    const { comments, brackets, autoClosingPairs, onEnterRules, wordPattern } = configuration;
     return {
+        ...(wordPattern === undefined ? {} : { wordPattern: toWireRegExp(wordPattern) }),
         ...(comments === undefined ? {} : { comments: toWireComments(comments) }),
         ...(brackets === undefined ? {} : { brackets }),
         ...(autoClosingPairs === undefined ? {} : { autoClosingPairs: autoClosingPairs.map(toWireAutoClosingPair) }),
+        ...(onEnterRules === undefined ? {} : { onEnterRules: onEnterRules.map(toWireOnEnterRule) }),
     };
 }
 
@@ -69,4 +73,29 @@ function toWireAutoClosingPair(pair: vscode.AutoClosingPair): IAutoClosingPair {
         else if ((kind as number) === (SyntaxTokenType.Comment as number)) notIn.push("comment");
     }
     return { open: pair.open, close: pair.close, notIn };
+}
+
+function toWireRegExp(regex: RegExp): IRegExpDefinition {
+    return { pattern: regex.source, flags: regex.flags };
+}
+
+const WIRE_INDENT_ACTIONS = {
+    [IndentAction.None]: "none",
+    [IndentAction.Indent]: "indent",
+    [IndentAction.IndentOutdent]: "indentOutdent",
+    [IndentAction.Outdent]: "outdent",
+} as const;
+
+function toWireOnEnterRule(rule: vscode.OnEnterRule): IOnEnterRule {
+    const { beforeText, afterText, previousLineText, action } = rule;
+    return {
+        beforeText: toWireRegExp(beforeText),
+        ...(afterText === undefined ? {} : { afterText: toWireRegExp(afterText) }),
+        ...(previousLineText === undefined ? {} : { previousLineText: toWireRegExp(previousLineText) }),
+        action: {
+            indent: WIRE_INDENT_ACTIONS[action.indentAction],
+            ...(action.appendText === undefined ? {} : { appendText: action.appendText }),
+            ...(action.removeText === undefined ? {} : { removeText: action.removeText }),
+        },
+    };
 }

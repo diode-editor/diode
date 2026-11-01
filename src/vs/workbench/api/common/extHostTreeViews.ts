@@ -469,8 +469,9 @@ class ExtHostTreeView<T> {
         }
         const items: IWireTreeItem[] = [];
         for (const node of this.topLevelChanged(elements as ReadonlySet<T>)) {
+            const previousHandle = node.item.handle;
             await this.refreshNode(node);
-            items.push(node.item);
+            items.push(node.item.handle === previousHandle ? node.item : { ...node.item, previousHandle });
         }
         if (items.length > 0) await this.rpc.request("treeView.refresh", { viewId: this.viewId, items });
     }

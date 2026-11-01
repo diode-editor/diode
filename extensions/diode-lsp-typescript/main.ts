@@ -4,6 +4,7 @@ import { stat, unlink, writeFile } from "node:fs/promises";
 import * as vscode from "vscode";
 import {
     CancellationToken,
+    DidChangeConfigurationNotification,
     ExecuteCommandRequest,
     LanguageClient,
     type LanguageClientOptions,
@@ -22,6 +23,7 @@ import {
 } from "./lib/projectStatus.ts";
 import { createRefactoringEditsMiddleware, type RefactoringEditsHost } from "./lib/refactoringEdits.ts";
 import { LANGUAGE_SERVERS, resolveServerCommand } from "./lib/resolveServer.ts";
+import { serverSettings, SYNCHRONIZED_SECTIONS } from "./lib/serverSettings.ts";
 
 /** Bundled server extraction starts when builtins are registered; activation can overtake it. */
 const BUNDLED_WAIT_MS = 5_000;
@@ -110,6 +112,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             outputChannel,
             progressOnInitialization: true,
             ...(Object.keys(initializationOptions).length > 0 ? { initializationOptions } : {}),
+            // Sends on start and on each change of these sections; the payload comes from the middleware below.
+            synchronize: { configurationSection: SYNCHRONIZED_SECTIONS },
             middleware: {
                 provideCodeActions: withNoopOrganizeImports,
                 // tsserver notices a new or deleted config by polling it (2 s) and loads the project in the
@@ -121,6 +125,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 },
                 executeCommand: (command, args, next) => refactoringEdits.executeCommand(command, args, next),
                 workspace: {
+                    // The stock payload copies the sections as they are and drops `false`; the server wants its own keys.
+                    didChangeConfiguration: async () => {
+                        const section = vscode.workspace.getConfiguration();
+                        await clientRef.current?.sendNotification(DidChangeConfigurationNotification.type, {
+                            settings: serverSettings((key, fallback) => section.get(key, fallback)),
+                        });
+                    },
                     handleApplyEdit: (params, next) =>
                         refactoringEdits.handleApplyEdit(params, (edit) => next(edit, CancellationToken.None)),
                 },

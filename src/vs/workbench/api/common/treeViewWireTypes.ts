@@ -16,6 +16,11 @@ export interface IWireThemeIcon {
  */
 export interface IWireTreeItem {
     readonly handle: string;
+    /**
+     * Only in `treeView.refresh`, when the refreshed row got a new handle (a row without an `id` is keyed by its
+     * label): the host knows it by this one. Upstream keys `$refresh` by the old handle.
+     */
+    readonly previousHandle?: string;
     readonly parentHandle?: string;
     /** Already resolved: `TreeItemLabel.label`, or the `resourceUri` basename when there is no label. */
     readonly label: string;

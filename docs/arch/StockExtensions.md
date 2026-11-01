@@ -23,6 +23,15 @@
   `bundled/libs/bin/ruff`, его исполняемость восстанавливает `installVsix` (exec-бит из
   zip-атрибутов). Курируемый дефолт `ruff.importStrategy: "useBundled"` — детерминированный
   нативный сервер без Python. Смоук — undercurl F401.
+- **`KevinRose.vsc-python-indent`** (#967) — universal, Enter в `.py` идёт через
+  `pythonIndent.newlineAndIndent`. Enter между скобками (`foo(|)`, висячий отступ) зовёт
+  `insertSnippet` без `await`, с пустым edit builder: без этого метода перевод строки терялся.
+  `insertSnippet` у нас — текст с отступами эталона и каретка на первой позиции, без сниппет-сессии,
+  поэтому Tab при `pythonIndent.useTabOnHangingIndent` не перепрыгивает скобку (строка в `limits`).
+  Каретка едет в самом `editor.applyEdit` (`selectionsAfter`): следующая клавиша приходит раньше
+  ответа расширения. Смоук — набор посимвольно, файл на диске после `def f(x):` и `foo(`.
+  Клавиша, обогнавшая ответ на Enter, сделала бы правку устаревшей и потеряла бы перевод строки
+  (проверка версии как в эталоне), поэтому клавиши ждут ответа → [Extensions.md](Extensions.md).
 - **`dbaeumer.vscode-eslint`** — universal. Расширение НЕ бандлит линтер: eslintServer резолвит
   библиотеку eslint из `node_modules` открытого проекта, поэтому тестовые обвязки доносят её сами
   (`eslintFixture.ts`: кэшируемый `npm install eslint` + симлинк в воркспейс; закоммитить такую
@@ -34,8 +43,8 @@
   `"workbench.colorTheme": "Catppuccin Mocha"` → фон редактора в кадре равен `editor.background` из
   `themes/mocha.json`, тема есть в пикере.
 - **`golang.go`** (сайт#19) — universal, гейт `engines.diode: ">=0.9.2"` (до #657 активация падала на
-  `vscode.debug`). `support: partial`: отладчика нет, Testing view и code lens'ов пока нет,
-  welcome/pprof — webview; требование Go toolchain — пунктом в `limits` и в readme (решение человека,
+  `vscode.debug`). `support: partial`: отладчика нет (`debug test` — тост), Testing view нет,
+  welcome/pprof — webview; code lens и inlay hints работают; требование Go toolchain — пунктом в `limits` и в readme (решение человека,
   как JDK у `redhat.java`). gopls в vsix нет — расширение ставит его само `go install`; смоук кладёт
   заранее собранный gopls в GOBIN (в CI — `.github/actions/go-tools`), без Go кейс пропускается
   (`requires` у чека). Open VSX пишет id как `golang/Go` — см. открытый пункт про регистр id в
@@ -75,6 +84,17 @@
   а не в безымянный `.markdownlint.json` (#931). `support: partial`: нет сниппетов комментариев `markdownlint-disable`
   (`contributes.snippets`). Смоук — MD018 в Problems, quick fix через `Ctrl+.`, конфиг в отдельной вкладке. После
   `source.fixAll` каретка сдвигается: расширение заменяет документ целиком через `editor.edit`.
+- **`yzhang.markdown-all-in-one`** — прокси на сток Open VSX 3.6.2, без языкового сервера. Гейт `engines.diode: ">=0.12.6"`:
+  расширению нужны ядровые `tab`, `editor.action.insertLineAfter` и `editor.action.insertSnippet` (#968), в 0.12.5 их нет.
+  `support: partial`. Привязки `enter`, `tab`, `ctrl+b`, `ctrl+i` ограничены языками Markdown в `when`: вне `.md` клавиши
+  ведут себя как раньше, `Ctrl+B` переключает боковую панель. Поэтому у `insertLineAfter` нет ядровой `ctrl+enter` эталона.
+  В терминале без расширенных клавиш `Ctrl+I` — тот же байт, что Tab, а `Ctrl+M` — что Enter; остаётся палитра. Линза оглавления в 3.6.2 — только
+  статус (`Table of Contents (up to date)`, `command: ''`), кнопки Update нет, обновляют `toc.update` и сохранение
+  (`toc.updateOnSave`). Подсказки файлов и якорей — за настройкой `markdown.extension.completion.enabled`, по умолчанию
+  выключена, как и в эталоне. Своего превью Markdown в Diode нет, поэтому `markdown.previewStyles`, `markdownItPlugins` и
+  `autoShowPreviewToSide` не действуют. `setDecorations` виден частично: зачёркивание есть, фона у code span нет. При
+  активации расширение пишет в stderr `"undefined" is not valid JSON`: читает `VSCODE_NLS_CONFIG`, которого у нас нет,
+  ловит ошибку и работает на английском.
 - **`christian-kohler.npm-intellisense`** — прокси на сток Open VSX 1.4.5, `support: full`, правок в ядре не понадобилось.
   Гейт `engines.diode: ">=0.12.5"` — последний тег на момент записи. Читает устаревший `workspace.rootPath`: без открытой
   папки не регистрирует ни провайдер, ни команду, как и в VS Code. Встроенный TS-клиент тоже предлагает зависимости из
@@ -91,6 +111,8 @@
   сохранение чистит снова. Сообщение «Deleting N trailing space regions» в статус-баре обрезано общим пределом
   `MAX_ITEM_WIDTH` (24 ячейки, `extensionStatusBarAdapter.ts`), в эталоне предел — 40% ширины окна. Смоук — колонка
   каретки в кадре и байты файла, для команды и для `trimOnSave`.
+- **`vscode.merge-conflict`** (#969) — прокси на сборку встроенного расширения VS Code от Eclipse Theia, Open VSX 1.95.3. Гейт `engines.diode: ">=0.12.6"`: нужны линзы (#936/#937), `revealRange` (#963) и правки этой задачи. `support: partial`: блоки current и incoming не закрашены, мост `setDecorations` знает только gutter и overview ruler (класс C эпика #912). `Compare` держится на двух правках ядра: сторона `vscode.diff` читается и из провайдера содержимого, не только из файлового сервиса (порядок как в `TextModelResolverService`: сначала провайдер ФС), а `Range.toJSON` отдаёт эталонную пару `[start, end]` — расширение кладёт `JSON.stringify` диапазонов в query и разбирает обратно как массив. `merge-conflict.next` при переходе вверх ставит конфликт верхней строкой, линза над ним остаётся за краем: прокрутка на строку вверх её показывает. Смоук — линза в кадре, `Compare` с обеими сторонами, клик `Accept Incoming`, байты файла.
+- **`vscjava.vscode-maven`** (#977) — прокси на сток Open VSX 0.45.3. Гейт `engines.diode: ">=0.12.6"`: нужны `window.createInputBox` и кнопка Back (`New Project`), константно ложные `commandPalette` и ключ `isWorkspaceTrusted`. Плагины в дереве приходят со строки без `id`, а после `mvn help:describe` расширение переименовывает строку: handle такой строки строится из подписи и меняется, поэтому `treeView.refresh` несёт `previousHandle`, и воркбенч перечитывает родителя (как `getItemsToRefresh` эталона). `support: partial`: `Debug` в меню цели плагина отладчик не запускает (тост расширения `Debugger for Java is required`), сниппеты `pom.xml` вставляются без табстопов и поправки отступа (класс C эпика #912), пункт в меню чужого вида `javaProject.maven` не показывается. Нужен `mvn` из PATH или `maven.executable.path`: без него тост `Maven executable not found in PATH`, битый явный путь расширение передаёт в терминал как есть. `maven.goal.custom` и `maven.project.effectivePom` без аргумента не показывают ничего или падают, и в эталоне тоже: у них `when: never`, зовут их из дерева или через `maven.goal.execute` → `Custom ...`. Quick fix `Add a dependency` появляется, только когда каретка внутри `<dependencies>`, а не на самом теге. Генерация архетипа задаёт вопросы в терминале (`Define value for property`), фокус туда не переходит, как в эталоне. Смоук — `a:b` в секции, чистая от `when: never` палитра и `BUILD SUCCESS` цели, без `mvn` кейс пропускается (`requires`).
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
 
@@ -106,6 +128,17 @@ vsix», а не строка в таблице builtin-клиента. Сьют�
   `fromEnvironment` зовёт API `ms-python.python` без try/catch и роняет активацию — курируемый
   дефолт `importStrategy: "useBundled"`. Folding у Python — indentation-based ядра: сервер
   `textDocument/foldingRange` не реализует.
+- **basedpyright, inlay hints** (#939) — работают без правок ядра, включены по умолчанию:
+  `-> int` после сигнатуры, `: int` у переменной, `a=` перед позиционным аргументом. Тип сервер
+  выводит только из аннотаций: на `def f(a, b): return a + b` и `r = f(1, 2)` он сам отвечает
+  `-> Any` и не даёт подсказки у `r`, это не потеря на нашей стороне (проверено прямым запросом к
+  серверу). `editor.inlayHints.enabled` и `[python]` действуют сразу и сервер не трогают. Настройки
+  `basedpyright.analysis.inlayHints.*` доходят до сервера без перезапуска, но подсказки на экране
+  меняются со следующего запроса (правка, прокрутка за запрошенное окно): сервер не шлёт
+  `workspace/inlayHint/refresh`, а контроллер эталона на чужую настройку не перезапрашивает. Вывод
+  про эталон — по исходникам сервера и контроллера, в живом VS Code не сверялось. Code lens у
+  сервера нет: `codeLensProvider` нет в ответе на `initialize`, регистрации тоже; появление в новой
+  версии покажет `extensionHost.pythonLsp.inlayHints.test.ts`.
 - **ruff**: линт-диагностики — pull с re-pull на правку буфера; quickfix по диагностике (safe-фикс
   `isPreferred`); `source.organizeImports.ruff` / `source.fixAll.ruff` (иерархический матч kinds);
   формат документа и выделения — от нативного `ruff server`, Python не нужен. `importStrategy:
@@ -161,7 +194,17 @@ eval-режим node, иначе расширение молча не линти
 - **Не будет (webview)**: редактор настроек форматтера (`contributes.customEditors`; регистрация —
   инертный no-op, иначе падала вся активация), markdown-превью документации, диалог Change Signature.
   Отладка, тесты, «Java Projects» — отдельные расширения Extension Pack for Java.
-- Inlay hints, code lens, outline, workspace symbols, call/type hierarchy, selection range, on-type
+- **Inlay hints и code lens работают.** Подсказки имён параметров — сразу (`literals`, дефолт
+  расширения), `java.inlayHints.parameterNames.enabled: none` убирает их на лету. Линзы —
+  `java.referencesCodeLens.enabled` и `java.implementationCodeLens`, дефолты расширения выключены; клик
+  идёт через `java.show.references`/`java.show.implementations` в `editor.action.showReferences`.
+  `0 references` на кадре есть, как в VS Code; команда у него настоящая, но едет с пустым списком, и
+  `peekLocations` молча ничего не открывает (в эталоне `muteMessage` без `noResultsMessage`). **Грабля:** линзы
+  приходят сразу, а считает их jdt.ls только после импорта проекта, десятки секунд, поэтому у
+  `resolveCodeLens` нет дедлайна, как в эталоне; с дедлайном 5 с кадр навсегда оставался с
+  `no commands` ([Extensions.md](Extensions.md)). Тесты —
+  `extensionHost.javaLsp.{inlayHints,codeLens}.test.ts`, демо — `java-lens-hints`.
+- Outline, workspace symbols, call/type hierarchy, selection range, on-type
   formatting сервер умеет — Java получит их сама по мере закрытия `register*Provider`
   ([API-COVERAGE](../public/API-COVERAGE.md)). Классов-ловушек у этого клиента не всплыло: ошибок
   конвертации в `client.outputChannel` за прогоны нет. Активация → готовность на игрушечном проекте
@@ -181,10 +224,21 @@ eval-режим node, иначе расширение молча не линти
 - **vscode-go при `isIncomplete: true` ставит ВСЕМ пунктам `filterText` первого** (фильтрует gopls,
   клиент обязан перезапрашивать на каждый символ); gopls кладёт авто-импорт в `additionalTextEdits`
   сразу, resolve-провайдера у него нет.
+- **Линзы.** Над `func TestX` — `run test | debug test`, над `package` — `run package tests | run file
+  tests` (`go.enableCodeLens.runtest`, провайдер самого расширения, не gopls); в `go.mod` —
+  `Reset go.mod diagnostics | Run govulncheck | Run go mod tidy` от gopls. Клик по `run test` гоняет
+  `go test` в канал OUTPUT «Go Tests» (`extensions.golang.go.go-tests`). `debug test` доходит до
+  `vscode.debug.startDebugging` — null-объект показывает тост и отдаёт `false`.
+- **Inlay hints и настройки.** `go.inlayHints.*` расширение кладёт в `ui.inlayhint.hints` из
+  middleware `workspace/configuration`, но только если ключ `gopls` (`type: object` без `default`)
+  читается объектом — поэтому дефолт по типу ключа манифеста обязателен, как `getDefaultValue` эталона
+  (иначе `null`, и смена настройки до сервера не доходит). `workspace/inlayHint/refresh` gopls не шлёт
+  вовсе: новое значение видно со следующего запроса (правка, прокрутка за окно, открытие файла) — так
+  же и в VS Code. `go.enableCodeLens` расширение применяет сразу, своим `onDidChangeCodeLenses`.
 - **Решения человека:** отладчик не делаем (`vscode.debug` — null-объект); фичи, которых ядро ещё не
-  умеет (CodeLens, inlay hints, outline, Go to Implementation, call hierarchy, Testing view, деревья
-  `go.explorer`/package outline, when-фильтр палитры), ради Go отдельно не делаем — заработают сами
-  с ядром. Welcome-страница и pprof — webview, не будет.
+  умеет (outline, Go to Implementation, call hierarchy, Testing view, деревья `go.explorer`/package
+  outline, when-фильтр палитры), ради Go отдельно не делаем — заработают сами с ядром. Welcome-страница
+  и pprof — webview, не будет.
 - Спайк заново: `PATH=<go>/bin:$PATH npm run -s drive -- start --seed e2e/fixtures/goSample --install
   golang.go --open main.go`, лог — `drive -- output extensions.golang.go.go`.
 
@@ -209,6 +263,16 @@ languageclient только при вызове провайдера, а соо�
 понадобятся вместе с провайдерами. Автодополнение по схеме AWS работает из вшитых схем без terraform
 CLI и `terraform init`; форматирование требует terraform в PATH (`Terraform (CLI) is required`) —
 окружение, а не Diode. Запись магазина гейтится `engines.diode >=0.7.3`.
+
+**Code lens.** `terraform.codelens.referenceCount: true` даёт над блоками, на которые есть ссылки, линзу
+`N references`; клик идёт через команду расширения `client.showReferences` (не `terraform.showReferences`) в
+`editor.action.showReferences` и открывает references view. Расширение читает настройку один раз, при
+старте клиента, и только тогда объявляет серверу `experimental.showReferencesCommandId`; `codeLensProvider`
+сервер объявляет всегда и без этой настройки отвечает пусто. Поэтому смена настройки на лету линзы не
+снимает — расширение предлагает «Reload VSCode window», после перезагрузки их нет. Это поведение самого
+vsix, в VS Code то же. Снять линзы без перезагрузки можно настройкой ядра `editor.codeLens: false`.
+`inlayHintProvider` `terraform-ls` не объявляет, провайдер inlay hints не регистрируется. Тесты —
+`extensionHost.terraformLsp.codeLens.test.ts`, сценарий — `terraform-code-lens.scenario.ts`.
 
 ## Форматирование: `esbenp.prettier-vscode`
 

@@ -13,7 +13,9 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type { ITokenizationSupport } from "../../../../editor/common/languages.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
+import type { CodeLensCommand, CodeLensProvider } from "../../../../editor/common/languages/iCodeLensSource.ts";
 import type { DocumentColorProvider } from "../../../../editor/common/languages/iColorSource.ts";
+import type { DocumentHighlightProvider } from "../../../../editor/common/languages/iDocumentHighlightSource.ts";
 import type { FoldingRangeProvider } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { InlayHintsProvider } from "../../../../editor/common/languages/iInlayHintsSource.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
@@ -29,6 +31,13 @@ import { FeatureDebounce } from "../../../../editor/common/services/languageFeat
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
 import type { IIndentDefaults, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
+import {
+    CodeLensController,
+    DEFAULT_CODE_LENS_OPTIONS,
+    type ICodeLensOptions,
+    type ICodeLensPick,
+    type ICodeLensViewport,
+} from "../../../../editor/contrib/codelens/browser/codeLensController.ts";
 import {
     ColorDetector,
     DEFAULT_COLOR_DECORATORS_OPTIONS,
@@ -76,6 +85,12 @@ export function sameIndentConfiguration(a: IIndentConfiguration, b: IIndentConfi
 
 /** Values of `editor.scrollbarMarkers`. */
 export type ScrollbarMarkersSetting = "off" | "auto" | "inside" | "outside";
+
+/** What the file editor needs for code lens: the providers, and who runs a clicked title. */
+export interface ICodeLensFeature {
+    readonly providers: LanguageFeatureRegistry<CodeLensProvider>;
+    runCommand(command: CodeLensCommand): Promise<void>;
+}
 
 export class EditorComponent extends Component {
     public readonly view: ScrollBarDecorator;
@@ -140,6 +155,11 @@ export class EditorComponent extends Component {
     /** `null` without providers and in the large-file mode, like {@link colorDetector}. */
     private inlayHintsController: InlayHintsController | null = null;
     private inlayHintsOptions: IInlayHintsOptions = DEFAULT_INLAY_HINTS_OPTIONS;
+    /** Absent everywhere but the file editor, like {@link inlayHintsProviders}. */
+    private readonly codeLens: ICodeLensFeature | undefined;
+    /** `null` without providers and in the large-file mode, like {@link colorDetector}. */
+    private codeLensController: CodeLensController | null = null;
+    private codeLensOptions: ICodeLensOptions = DEFAULT_CODE_LENS_OPTIONS;
     /** Two owners, each replacing only its own set; at one offset the squares go first. */
     private colorInsertions: readonly IInlineInsertion[] = [];
     // Stryker disable next-line ArrayDeclaration: an entry without a line belongs to no line and is never painted
@@ -149,6 +169,7 @@ export class EditorComponent extends Component {
     /** On the component for the same reason. */
     private readonly onDidChangeIndentOptionsEmitter = new Emitter<void>();
     private readonly onDidTypeEmitter = new Emitter<string>();
+    private readonly onDidTypeNewLineEmitter = new Emitter<void>();
 
     public get editTarget(): ITextEditTarget {
         return this.editTargetValue;
@@ -172,10 +193,14 @@ export class EditorComponent extends Component {
 
     /** Survives `EditorElement` recreation when the file is reloaded. */
     public readonly onDidType = this.onDidTypeEmitter.event;
+    public readonly onDidTypeNewLine = this.onDidTypeNewLineEmitter.event;
 
     private attachTypeForwarding(): void {
         this.editor.onDidType((text) => {
             this.onDidTypeEmitter.fire(text);
+        });
+        this.editor.onDidTypeNewLine(() => {
+            this.onDidTypeNewLineEmitter.fire();
         });
     }
 
@@ -196,6 +221,8 @@ export class EditorComponent extends Component {
         indentConfiguration: IIndentConfiguration = {},
         colorProviders?: LanguageFeatureRegistry<DocumentColorProvider>,
         inlayHintsProviders?: LanguageFeatureRegistry<InlayHintsProvider>,
+        codeLens?: ICodeLensFeature,
+        documentHighlightProviders?: LanguageFeatureRegistry<DocumentHighlightProvider>,
     ) {
         super();
         this.foldingProviders = foldingProviders;
@@ -211,7 +238,12 @@ export class EditorComponent extends Component {
         this.semanticTokensFeature = semanticTokens;
         this.colorProviders = colorProviders;
         this.inlayHintsProviders = inlayHintsProviders;
+        this.codeLens = codeLens;
         this.editor = new EditorElement(this.editorViewState);
+        if (documentHighlightProviders !== undefined) {
+            this.editor.wordHighlighter.setProviders(documentHighlightProviders, model);
+        }
+        this.register(this.editor.wordHighlighter);
         this.applyTokenizer();
         this.editor.tokenStyleResolver = tokenStyleResolver;
         this.attachLanguageConfiguration();
@@ -227,6 +259,7 @@ export class EditorComponent extends Component {
         this.attachSemanticTokensUnlessTooLarge();
         this.attachColorDetectorUnlessTooLarge();
         this.attachInlayHintsUnlessTooLarge();
+        this.attachCodeLensUnlessTooLarge();
         this.applyOccurrenceHighlight();
 
         // The closures read component fields, so they survive EditorElement
@@ -275,6 +308,7 @@ export class EditorComponent extends Component {
                 this.attachSemanticTokensUnlessTooLarge();
                 this.attachColorDetectorUnlessTooLarge();
                 this.attachInlayHintsUnlessTooLarge();
+                this.attachCodeLensUnlessTooLarge();
                 this.applyOccurrenceHighlight();
                 this.applyWordWrap();
                 this.scheduleFoldingRecompute();
@@ -348,19 +382,7 @@ export class EditorComponent extends Component {
         this.inlayHintsController = this.register(
             new InlayHintsController(
                 this.model,
-                {
-                    getVisibleLineRange: () => this.visibleLineRange(),
-                    onDidChangeVisibleRange: (listener) => {
-                        const view = this.editorViewState.onDidChangeView(listener);
-                        const height = this.editor.onDidChangeViewportHeight(listener);
-                        return {
-                            dispose: () => {
-                                view.dispose();
-                                height.dispose();
-                            },
-                        };
-                    },
-                },
+                this.visibleRangeViewport(),
                 this.inlayHintsProviders,
                 this.inlayHintsOptions,
                 (insertions) => {
@@ -369,6 +391,43 @@ export class EditorComponent extends Component {
                 },
             ),
         );
+    }
+
+    private attachCodeLensUnlessTooLarge(): void {
+        const feature = this.codeLens;
+        if (feature === undefined || this.tooLarge) return;
+        this.codeLensController = this.register(
+            new CodeLensController(
+                this.model,
+                this.visibleRangeViewport(),
+                feature.providers,
+                this.codeLensOptions,
+                (zones) => {
+                    this.editor.setCodeLensZones(zones);
+                },
+            ),
+        );
+        this.register(
+            this.editor.onDidClickCodeLens((command) => {
+                void feature.runCommand(command);
+            }),
+        );
+    }
+
+    private visibleRangeViewport(): ICodeLensViewport {
+        return {
+            getVisibleLineRange: () => this.visibleLineRange(),
+            onDidChangeVisibleRange: (listener) => {
+                const view = this.editorViewState.onDidChangeView(listener);
+                const height = this.editor.onDidChangeViewportHeight(listener);
+                return {
+                    dispose: () => {
+                        view.dispose();
+                        height.dispose();
+                    },
+                };
+            },
+        };
     }
 
     private visibleLineRange(): { startLine: number; endLine: number } {
@@ -385,6 +444,16 @@ export class EditorComponent extends Component {
     public setInlayHints(options: IInlayHintsOptions): void {
         this.inlayHintsOptions = options;
         this.inlayHintsController?.setOptions(options);
+    }
+
+    /** `editor.codeLens` and the glyph set of `$(icon)` in the titles. */
+    public setCodeLens(options: ICodeLensOptions): void {
+        this.codeLensOptions = options;
+        this.codeLensController?.setOptions(options);
+    }
+
+    public getCodeLensPicksAtLine(line: number): Promise<readonly ICodeLensPick[]> {
+        return this.codeLensController?.getPicksAtLine(line) ?? Promise.resolve([]);
     }
 
     private publishInsertions(): void {
@@ -455,6 +524,14 @@ export class EditorComponent extends Component {
         this.editor.focus();
     }
 
+    public insertLineBreak(): void {
+        this.editor.insertLineBreak();
+    }
+
+    public typeText(text: string): void {
+        this.editor.typeText(text);
+    }
+
     public pushUndo(element: IUndoElement | undefined): void {
         if (element) {
             this.editor.undoManager.pushUndoElement(element);
@@ -522,6 +599,14 @@ export class EditorComponent extends Component {
     public setOccurrenceHighlightEnabled(enabled: boolean): void {
         this.occurrenceHighlightRequested = enabled;
         this.applyOccurrenceHighlight();
+    }
+
+    public setOccurrenceHighlightDelay(delay: number): void {
+        this.editor.wordHighlighter.delay = delay;
+    }
+
+    public triggerWordHighlight(): void {
+        this.editor.wordHighlighter.trigger();
     }
 
     private applyOccurrenceHighlight(): void {

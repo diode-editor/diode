@@ -4,10 +4,17 @@ import { Disposable, DisposableStore, type IDisposable } from "../../../../../ba
 import type { IRange } from "../../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../../editor/common/core/iTextEdit.ts";
 import type {
+    ICallHierarchyIncomingCall,
+    ICallHierarchyOutgoingCall,
+    ICallHierarchyRequest,
+    ICallHierarchySession,
+} from "../../../../../editor/common/languages/iCallHierarchySource.ts";
+import type {
     IApplyCodeActionOptions,
     ICodeActionRequest,
     ICoreCodeAction,
 } from "../../../../../editor/common/languages/iCodeActionSource.ts";
+import type { ICodeLensRequest } from "../../../../../editor/common/languages/iCodeLensSource.ts";
 import type { IColorInformation, IDocumentColorRequest } from "../../../../../editor/common/languages/iColorSource.ts";
 import type {
     ICompletionRequest,
@@ -19,17 +26,28 @@ import type {
     IDefinitionRequest,
 } from "../../../../../editor/common/languages/iDefinitionSource.ts";
 import type {
+    IDocumentHighlight,
+    IDocumentHighlightRequest,
+} from "../../../../../editor/common/languages/iDocumentHighlightSource.ts";
+import type {
     ICoreDocumentSymbol,
     IDocumentSymbolRequest,
 } from "../../../../../editor/common/languages/iDocumentSymbolSource.ts";
 import type { IFoldingRequest } from "../../../../../editor/common/languages/iFoldingSource.ts";
-import type { IFormattingRequest } from "../../../../../editor/common/languages/iFormattingSource.ts";
+import type {
+    IFormattingRequest,
+    IOnTypeFormattingRequest,
+} from "../../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../../editor/common/languages/iHoverSource.ts";
 import type { IInlayHintsRequest, InlayHint } from "../../../../../editor/common/languages/iInlayHintsSource.ts";
 import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../../../../../editor/common/languages/iInlineCompletionSource.ts";
+import type {
+    ILinkedEditingRangeRequest,
+    ILinkedEditingRanges,
+} from "../../../../../editor/common/languages/iLinkedEditingSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreRenameLocation,
@@ -48,18 +66,28 @@ import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ITypeHierarchyItem,
+    ITypeHierarchyRequest,
+    ITypeHierarchySession,
+} from "../../../../../editor/common/languages/iTypeHierarchySource.ts";
 import type { IFoldingRegion } from "../../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type { HostRpc, IHostToSubprocess } from "../../../../api/common/extHostProtocol.ts";
 import type { RequestParams, RequestResult } from "../../../../api/common/rpcEndpoint.ts";
 import type {
+    IWireCodeLens,
+    IWireCodeLensList,
     IWireDocumentParams,
     IWireLanguageProviderRegistration,
     IWirePositionParams,
+    WireCodeLensCacheId,
 } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { ProviderRequestBatcher } from "../../common/providerRequestBatcher.ts";
 import {
+    parseWireCodeLens,
+    parseWireCodeLensList,
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
     parseWireProviderHandle,
@@ -74,6 +102,10 @@ const EMPTY_COMPLETION_RESULT: ICoreCompletionResult = { items: [], isIncomplete
 
 type LanguageRequestMethod =
     | Exclude<TimedRequestMethod, "workspace.willSaveTextDocument">
+    | "languages.executeCodeLensCommand"
+    | "languages.provideCodeLenses"
+    | "languages.resolveCodeLens"
+    | "languages.provideInlayHints"
     | "languages.provideCompletionItems"
     | "languages.provideDocumentSemanticTokens"
     | "languages.provideDocumentRangeSemanticTokens";
@@ -103,6 +135,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     public readonly onDidChangeSemanticTokens = this.onDidChangeSemanticTokensEmitter.event;
     private readonly onDidChangeInlayHintsEmitter = this.register(new Emitter<number>());
     public readonly onDidChangeInlayHints = this.onDidChangeInlayHintsEmitter.event;
+    private readonly onDidChangeCodeLensesEmitter = this.register(new Emitter<number>());
+    public readonly onDidChangeCodeLenses = this.onDidChangeCodeLensesEmitter.event;
     private rpc: HostRpc | null = null;
     private readonly inlineCompletionsBatcher = new ProviderRequestBatcher<
         IInlineCompletionRequest,
@@ -387,6 +421,30 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
+    /** Empty — nothing to change, also when there is no subprocess, the document is not synced or the extension timed out. */
+    public async provideOnTypeFormattingEdits(
+        handle: number,
+        req: IOnTypeFormattingRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ITextEdit[]> {
+        return this.request(
+            "languages.provideOnTypeFormattingEdits",
+            {
+                handle,
+                uri: req.uri,
+                languageId: req.languageId,
+                version: req.versionId,
+                line: req.position.line,
+                character: req.position.character,
+                ch: req.ch,
+                tabSize: req.tabSize,
+                insertSpaces: req.insertSpaces,
+            },
+            [],
+            { token },
+        );
+    }
+
     public async provideCodeActions(
         handle: number,
         req: ICodeActionRequest,
@@ -456,6 +514,119 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
+    /** `null` — nothing at the position, also when there is no subprocess or the extension timed out. */
+    public async prepareCallHierarchy(
+        handle: number,
+        req: ICallHierarchyRequest,
+        token?: ICancellationToken,
+    ): Promise<ICallHierarchySession | null> {
+        return this.request("languages.prepareCallHierarchy", { handle, ...positionParams(req) }, null, { token });
+    }
+
+    public async provideCallHierarchyIncomingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ICallHierarchyIncomingCall[]> {
+        return this.request("languages.provideCallHierarchyIncomingCalls", { handle, sessionId, itemId }, [], {
+            token,
+        });
+    }
+
+    public async provideCallHierarchyOutgoingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ICallHierarchyOutgoingCall[]> {
+        return this.request("languages.provideCallHierarchyOutgoingCalls", { handle, sessionId, itemId }, [], {
+            token,
+        });
+    }
+
+    public releaseCallHierarchy(handle: number, sessionId: number): void {
+        this.rpc?.notify("languages.releaseCallHierarchy", { handle, sessionId });
+    }
+
+    /** `null` — nothing at the position, also when there is no subprocess or the extension timed out. */
+    public async prepareTypeHierarchy(
+        handle: number,
+        req: ITypeHierarchyRequest,
+        token?: ICancellationToken,
+    ): Promise<ITypeHierarchySession | null> {
+        return this.request("languages.prepareTypeHierarchy", { handle, ...positionParams(req) }, null, { token });
+    }
+
+    public async provideTypeHierarchySupertypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]> {
+        return this.request("languages.provideTypeHierarchySupertypes", { handle, sessionId, itemId }, [], { token });
+    }
+
+    public async provideTypeHierarchySubtypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]> {
+        return this.request("languages.provideTypeHierarchySubtypes", { handle, sessionId, itemId }, [], { token });
+    }
+
+    public releaseTypeHierarchy(handle: number, sessionId: number): void {
+        this.rpc?.notify("languages.releaseTypeHierarchy", { handle, sessionId });
+    }
+
+    /** `null` — the provider declined, also when there is no subprocess, the document is not synced or the extension timed out. */
+    public async provideDocumentHighlights(
+        handle: number,
+        req: IDocumentHighlightRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly IDocumentHighlight[] | null> {
+        return this.request(
+            "languages.provideDocumentHighlights",
+            {
+                handle,
+                uri: req.uri,
+                languageId: req.languageId,
+                version: req.versionId,
+                line: req.position.line,
+                character: req.position.character,
+            },
+            null,
+            { token },
+        );
+    }
+
+    /** `null` — the provider declined, also when there is no subprocess, the document is not synced or the extension timed out. */
+    public async provideLinkedEditingRanges(
+        handle: number,
+        req: ILinkedEditingRangeRequest,
+        token?: ICancellationToken,
+    ): Promise<ILinkedEditingRanges | null> {
+        const answer = await this.request(
+            "languages.provideLinkedEditingRanges",
+            {
+                handle,
+                uri: req.uri,
+                languageId: req.languageId,
+                version: req.versionId,
+                line: req.position.line,
+                character: req.position.character,
+            },
+            null,
+            { token },
+        );
+        if (answer === null) return null;
+        const { ranges, wordPattern, wordPatternFlags } = answer;
+        return wordPattern === undefined
+            ? { ranges }
+            : { ranges, wordPattern: new RegExp(wordPattern, wordPatternFlags) };
+    }
+
     /** `null` — no colors, also when there is no subprocess, the document is not synced or the extension timed out. */
     public async provideDocumentColors(
         handle: number,
@@ -470,7 +641,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
-    /** `null` — no hints, also when there is no subprocess, the document is not synced or the extension timed out. */
+    /** `null` — no hints, also when there is no subprocess, the document is not synced or the token cancelled it. */
     public async provideInlayHints(
         handle: number,
         req: IInlayHintsRequest,
@@ -483,6 +654,39 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             { token },
         );
         return wire === null ? null : wireToCoreInlayHints(wire);
+    }
+
+    /** `null` — no lenses, also when there is no subprocess, the document is not synced or the token cancelled it. */
+    public async provideCodeLenses(
+        handle: number,
+        req: ICodeLensRequest,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLensList | null> {
+        const wire = await this.request(
+            "languages.provideCodeLenses",
+            { handle, uri: req.uri, languageId: req.languageId, version: req.versionId },
+            null,
+            { token },
+        );
+        return wire === null ? null : parseWireCodeLensList(wire);
+    }
+
+    public async resolveCodeLens(
+        handle: number,
+        cacheId: WireCodeLensCacheId,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLens | null> {
+        const wire = await this.request("languages.resolveCodeLens", { handle, cacheId }, null, { token });
+        return parseWireCodeLens(wire);
+    }
+
+    public releaseCodeLenses(handle: number, cacheId: number): void {
+        this.rpc?.notify("languages.releaseCodeLenses", { handle, cacheId });
+    }
+
+    /** No timeout, and the failure of the command is the caller's to show. No subprocess: nothing to run. */
+    public executeCodeLensCommand(handle: number, cacheId: WireCodeLensCacheId): Promise<void> {
+        return this.request("languages.executeCodeLensCommand", { handle, cacheId }, undefined, { rethrow: true });
     }
 
     /**
@@ -582,6 +786,15 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` before the event — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (parsed !== null && this.providers.has(parsed.handle)) {
                     this.onDidChangeInlayHintsEmitter.fire(parsed.handle);
+                }
+            }),
+        );
+        store.add(
+            rpc.handleNotification("languages.didChangeCodeLenses", (params) => {
+                const parsed = parseWireProviderHandle(params);
+                // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` before the event — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
+                if (parsed !== null && this.providers.has(parsed.handle)) {
+                    this.onDidChangeCodeLensesEmitter.fire(parsed.handle);
                 }
             }),
         );

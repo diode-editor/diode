@@ -196,6 +196,10 @@ function spawnReadyHost(
 }
 
 class FakeCommandService implements ICommandService {
+    public holdInputUntil(): void {
+        /* keys are not under test here */
+    }
+
     public listCommandIds(): readonly string[] {
         return [];
     }
