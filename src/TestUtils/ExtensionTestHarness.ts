@@ -225,6 +225,8 @@ export interface IExtensionHarness {
     readonly languageFeatures: ILanguageFeaturesService;
     readonly themeService: ThemeService;
     readonly commandRegistry: CommandRegistry;
+    /** What the subprocess reads; a write here reaches a stock extension as `onDidChangeConfiguration`. */
+    readonly extensionConfiguration: IConfigurationService;
     readonly tmpDir: string;
     readonly workspaceEditService: WorkspaceEditService;
     writeFile(name: string, content: string): string;
@@ -404,6 +406,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         languageFeatures,
         themeService,
         commandRegistry,
+        extensionConfiguration: extensionConfigurationService,
         tmpDir,
         workspaceEditService,
         writeFile,
