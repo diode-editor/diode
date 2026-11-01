@@ -82,6 +82,14 @@ jobs:
         continue-on-error: true
         run: npm run cyrillic-check
 
+      # Dead code is deleted, not silenced: per-file `Stryker disable` markers whose reason says
+      # unreachable/defensive/"for the type" only go down (scripts/check-stryker-disable.mjs,
+      # baseline in scripts/stryker-disable-baseline.json, docs/MUTATION.md).
+      - name: Stryker disable
+        id: strykerdisable
+        continue-on-error: true
+        run: npm run stryker-disable-check
+
       # The core's V8 snapshot (SEA `useSnapshot`): main.cjs builds into a snapshot, the
       # module top level doesn't read the build environment (traps + a poisoned build),
       # and after deserialization it sees the launch environment (scripts/check-snapshot.mjs).
@@ -100,13 +108,14 @@ jobs:
         run: npm run api-matrix -- --check
 
       - name: Gate
-        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure' || steps.lazy.outcome == 'failure' || steps.cyrillic.outcome == 'failure' || steps.snapshot.outcome == 'failure' || steps.apimatrix.outcome == 'failure'
+        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure' || steps.lazy.outcome == 'failure' || steps.cyrillic.outcome == 'failure' || steps.strykerdisable.outcome == 'failure' || steps.snapshot.outcome == 'failure' || steps.apimatrix.outcome == 'failure'
         run: |
           echo "typecheck: ${{ steps.typecheck.outcome }}"
           echo "lint:      ${{ steps.lint.outcome }}"
           echo "layers:    ${{ steps.layers.outcome }}"
           echo "lazy:      ${{ steps.lazy.outcome }}"
           echo "cyrillic:  ${{ steps.cyrillic.outcome }}"
+          echo "stryker:   ${{ steps.strykerdisable.outcome }}"
           echo "snapshot:  ${{ steps.snapshot.outcome }}"
           echo "apimatrix: ${{ steps.apimatrix.outcome }}"
           echo 'Formatting and import order are fixed by `npm run lint:fix`; the rest by hand.'

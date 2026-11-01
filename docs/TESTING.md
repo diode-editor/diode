@@ -544,14 +544,15 @@ PATH есть. `claudeCodeSessionEnv()` ещё и обнуляет `CLAUDE_CONFI
 
 1. `tsc --noEmit --incremental` — по всей программе (тип ломается не там, где правка), buildinfo в `node_modules/.cache/diode/`; повторный прогон — секунды.
 2. `eslint --cache --cache-strategy content` — только изменённые файлы.
-3. `vitest related --run <файлы>` — тесты, которые транзитивно импортируют изменённое.
+3. `scripts/check-stryker-disable.mjs` — храповик на `Stryker disable` про недостижимый код ([MUTATION.md](MUTATION.md#выживший-мутант--не-всегда-дыра)), когда в диффе есть не-тестовые файлы.
+4. `vitest related --run <файлы>` — тесты, которые транзитивно импортируют изменённое.
 
 ```bash
 npm run check:diff                     # tsc + eslint + vitest related
 npm run check:diff -- --near           # тесты только соседние: foo.ts → foo.test.ts, foo.*.test.ts
 npm run check:diff -- --coverage       # + покрытие изменённых не-тестовых файлов
 npm run check:diff -- --base <ref>     # другая база (стек PR: база — ветка родителя)
-npm run check:diff -- --skip tsc,lint  # пропустить шаги
+npm run check:diff -- --skip tsc,lint  # пропустить шаги (tsc, lint, ratchet, test)
 npm run check:diff -- --list           # только показать файлы диффа
 ```
 

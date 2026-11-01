@@ -36,6 +36,7 @@
     "check:diff": "node scripts/check-diff.mjs",
     "valid-layers-check": "node scripts/check-layers.mjs",
     "cyrillic-check": "node scripts/check-cyrillic.mjs",
+    "stryker-disable-check": "node scripts/check-stryker-disable.mjs",
     "lazy-chunks-check": "node scripts/check-lazy-chunks.mjs",
     "snapshot-check": "node scripts/check-snapshot.mjs",
     "api-matrix": "node scripts/api-matrix.mjs",

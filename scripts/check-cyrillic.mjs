@@ -13,6 +13,8 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
+import { compare, lowered } from "./ratchet.mjs";
+
 const BASELINE = "scripts/cyrillic-baseline.json";
 export const CYRILLIC = /[\u0400-\u04ff]/;
 // Docs stay Russian, so a link into them carries a Russian anchor: `docs/STYLE.md#комментарии`.
@@ -28,28 +30,6 @@ export const hasCyrillic = (line) => CYRILLIC.test(line.replace(DOC_ANCHOR, ".md
 export function cyrillicLines(text) {
     if (text.includes("\0")) return 0;
     return text.split("\n").filter(hasCyrillic).length;
-}
-
-export function compare(baseline, counts) {
-    const over = [];
-    const below = [];
-    for (const file of new Set([...Object.keys(baseline), ...Object.keys(counts)])) {
-        const count = counts[file] ?? 0;
-        const allowed = baseline[file] ?? 0;
-        if (count > allowed) over.push({ file, count, allowed });
-        else if (count < allowed) below.push({ file, count, allowed });
-    }
-    return { over, below };
-}
-
-/** Lowered baseline: min of old and current, zeros and vanished files dropped, never raised. */
-export function lowered(baseline, counts) {
-    const next = {};
-    for (const file of Object.keys(baseline).sort()) {
-        const count = Math.min(baseline[file], counts[file] ?? 0);
-        if (count > 0) next[file] = count;
-    }
-    return next;
 }
 
 export function scan() {

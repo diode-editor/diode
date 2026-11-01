@@ -12,16 +12,16 @@ import { pathToFileURL } from "node:url";
 const CACHE_DIR = "node_modules/.cache/diode";
 const SOURCE_RE = /^(src|extensions)\/.+\.(ts|mts|cts)$/;
 const TEST_RE = /\.test\.ts$/;
-const STEPS = ["tsc", "lint", "test"];
+const STEPS = ["tsc", "lint", "ratchet", "test"];
 
 function usage(code) {
-    console.log(`Usage: npm run check:diff -- [--base <ref>] [--near] [--coverage] [--skip tsc,lint,test] [--list]
+    console.log(`Usage: npm run check:diff -- [--base <ref>] [--near] [--coverage] [--skip tsc,lint,ratchet,test] [--list]
 
   --base <ref>   diff base (merge-base with origin/main by default)
   --near         instead of \`vitest related\` (the whole importer graph), only neighbor
                  tests: Foo.ts → Foo.test.ts, Foo.*.test.ts; plus the changed tests
   --coverage     add coverage of the changed non-test files (the ratchet is untouched)
-  --skip <steps> skip comma-separated steps: tsc, lint, test
+  --skip <steps> skip comma-separated steps: tsc, lint, ratchet, test
   --list         only list the diff files and exit`);
     process.exit(code);
 }
@@ -141,6 +141,12 @@ function main() {
             ...files,
         ]);
         if (!ok) failed.push("lint");
+    }
+
+    if (!opts.skip.has("ratchet") && files.some((f) => !TEST_RE.test(f))) {
+        // Dead code is deleted, not silenced (docs/MUTATION.md): the per-file count of
+        // `Stryker disable` markers about unreachable code only goes down.
+        if (!run("stryker-disable ratchet", process.execPath, ["scripts/check-stryker-disable.mjs"])) failed.push("ratchet");
     }
 
     if (!opts.skip.has("test")) {
