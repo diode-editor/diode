@@ -37,6 +37,9 @@
   changed externally»: все тесты зелёные, но прогон красный от необработанного rejection `FileOperationError … ENOENT,
   lstat …/diode-saveconflict-*/doc.txt`, похоже, фоновая проверка файла пережила удаление временного каталога.
   Ubuntu, PR #930 (ран 41213738904), `--failed` позеленил. Не в `test-flakes.json`: повтор теста не ловит ошибку вне теста.
+- [ ] `extensionHost.todoTree.test.ts` › «TODOS shows the workspace's tags, follows an edit, a click on a tag opens
+  its line, the status bar counts them»: `waitUntil: the cursor on FIXME's line did not happen within 10000 ms` —
+  похоже на сценарий `todo-tree` ниже (курсор не доехал после клика по узлу). Ubuntu, PR #984 (ран 41256229694), дифф не задет.
 - [ ] Сценарий `todo-tree` (`e2e/scenarios/todo-tree.scenario.ts`): `waitUntil(screen text predicate) timed out
   after 10000ms` на ожидании `Ln 4, Col 1` — клик по узлу «FIXME : fixed port» дерево отрисовал, а курсор остался
   на `Ln 1, Col 1`. Ubuntu, `main` 0.12.0 (ран 40334352898, обе попытки, дифф — версия); прогоны до и после зелёные.
