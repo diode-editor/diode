@@ -155,6 +155,10 @@ import {
 import { FindComponent, FindComponentDIToken } from "../../workbench/contrib/find/browser/findComponent.ts";
 import { FindService, FindServiceDIToken } from "../../workbench/contrib/find/browser/findService.ts";
 import {
+    FormatOnTypeService,
+    FormatOnTypeServiceDIToken,
+} from "../../workbench/contrib/format/browser/formatOnTypeService.ts";
+import {
     DefinitionService,
     DefinitionServiceDIToken,
 } from "../../workbench/contrib/gotoDefinition/browser/definitionService.ts";
@@ -541,6 +545,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(HoverComponentDIToken, HoverComponent);
     container.bind(HoverServiceDIToken, HoverService);
     container.bind(LinkedEditingServiceDIToken, LinkedEditingService);
+    container.bind(FormatOnTypeServiceDIToken, FormatOnTypeService);
     container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);
     container.bind(ParameterHintsServiceDIToken, ParameterHintsService);
     // Stryker disable next-line CallExpression: DI binding without a unit test; end-to-end — e2e scenario call-hierarchy

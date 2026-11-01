@@ -453,6 +453,11 @@
   заново. Ответ берётся у первого провайдера с непустыми `ranges`. Класс `vscode.LinkedEditingRanges` нужен в
   рантайме: его конструирует конвертер vscode-languageclient. Потребитель — `LinkedEditingController`
   ([Editor.md](Editor.md#editorcontriblinkedediting-связанная-правка-тегов)).
+- **On type formatting seam (LSP):** `languages.registerOnTypeFormattingEditProvider` — по рецепту реестра
+  (`kind: "onTypeFormatting"`, `ILanguageFeaturesService.onTypeFormattingEditProvider`, RPC
+  `languages.provideOnTypeFormattingEdits`, 5000 мс). `firstTriggerCharacter` и `moreTriggerCharacter` едут
+  метаданными `triggerCharacters`; ответ — `ITextEdit[]`, отказ — пустой список. Потребитель — `FormatOnTypeController`
+  ([Editor.md](Editor.md#editorcontribformat-format-on-type)).
 - **Color seam:** `languages.registerColorProvider` — по рецепту реестра (`kind: "color"`,
   `ILanguageFeaturesService.colorProvider`, RPC `languages.provideDocumentColors`, 5000 мс; отмена по
   новой правке уходит провайдеру токеном). Субпроцесс отдаёт `IColorInformation[]`

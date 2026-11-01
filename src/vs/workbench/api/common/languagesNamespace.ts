@@ -98,6 +98,7 @@ import type {
     IWireLanguageProviderMetadata,
     IWireLinkedEditingRangeParams,
     IWireLinkedEditingRanges,
+    IWireOnTypeFormattingParams,
     IWirePrepareCallHierarchyParams,
     IWirePrepareRenameParams,
     IWirePrepareTypeHierarchyParams,
@@ -231,6 +232,11 @@ export interface ICodeActionRegistration {
 export interface IFormattingRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.DocumentFormattingEditProvider;
+}
+
+export interface IOnTypeFormattingRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.OnTypeFormattingEditProvider;
 }
 
 export interface IRangeFormattingRegistration {
@@ -392,6 +398,17 @@ export interface ILanguageProviderExecutors {
     ): Promise<(vscode.CodeAction | vscode.Command)[]>;
 }
 
+/** What is not an edit is dropped; anything but an array is no edits. */
+function serializeTextEdits(result: unknown): IWireEditorEdit[] {
+    if (!Array.isArray(result)) return [];
+    const edits: IWireEditorEdit[] = [];
+    for (const item of result) {
+        const wire = serializeTextEdit(item);
+        if (wire !== null) edits.push(wire);
+    }
+    return edits;
+}
+
 export function createLanguagesNamespace(
     ctx: IVscodeHostContext,
     codeActionDeps: ICodeActionDeps = NULL_CODE_ACTION_DEPS,
@@ -411,6 +428,7 @@ export function createLanguagesNamespace(
     const completionProviders = new Map<number, Owned<ICompletionRegistration>>();
     const formattingProviders = new Map<number, Owned<IFormattingRegistration>>();
     const rangeFormattingProviders = new Map<number, Owned<IRangeFormattingRegistration>>();
+    const onTypeFormattingProviders = new Map<number, Owned<IOnTypeFormattingRegistration>>();
     const codeActionProviders = new Map<number, Owned<ICodeActionRegistration>>();
     const foldingProviders = new Map<number, Owned<IFoldingRegistration>>();
     const inlineCompletionProviders = new Map<number, Owned<IInlineCompletionRegistration>>();
@@ -1142,14 +1160,33 @@ export function createLanguagesNamespace(
                 owner,
             );
         }
-        if (!Array.isArray(result)) return [];
-        const edits: IWireEditorEdit[] = [];
-        for (const item of result) {
-            const wire = serializeTextEdit(item);
-            if (wire !== null) edits.push(wire);
-        }
-        return edits;
+        return serializeTextEdits(result);
     });
+
+    rpc.handleRequest(
+        "languages.provideOnTypeFormattingEdits",
+        async (params, cancellation): Promise<IWireEditorEdit[]> => {
+            const p: Received<IWireOnTypeFormattingParams> = params;
+            const reg = onTypeFormattingProviders.get(p.handle ?? -1);
+            if (reg === undefined) return [];
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return [];
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            const options: vscode.FormattingOptions = {
+                tabSize: p.tabSize ?? 4,
+                insertSpaces: p.insertSpaces ?? true,
+            };
+            let result: unknown;
+            try {
+                result = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideOnTypeFormattingEdits(doc, position, p.ch ?? "", options, token),
+                );
+            } catch (err) {
+                reportProviderFailure("provideOnTypeFormattingEdits", err, reg.owner);
+            }
+            return serializeTextEdits(result);
+        },
+    );
 
     // Context diagnostics are collected here from local DiagnosticCollections (with private
     // `data` the server matches fixes by) rather than shipped from the host as a lossy copy.
@@ -1710,7 +1747,19 @@ export function createLanguagesNamespace(
             selector: vscode.DocumentSelector,
             provider: vscode.DocumentColorProvider,
         ): vscode.Disposable => registerByHandle(colorProviders, "color", selector, { selector, provider }),
-        registerOnTypeFormattingEditProvider: registerNoopProvider,
+        registerOnTypeFormattingEditProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.OnTypeFormattingEditProvider,
+            firstTriggerCharacter: string,
+            ...moreTriggerCharacter: string[]
+        ): vscode.Disposable =>
+            registerByHandle(
+                onTypeFormattingProviders,
+                "onTypeFormatting",
+                selector,
+                { selector, provider },
+                { triggerCharacters: [firstTriggerCharacter, ...moreTriggerCharacter] },
+            ),
         registerSelectionRangeProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.SelectionRangeProvider,

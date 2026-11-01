@@ -114,6 +114,7 @@ import type {
     IWireLinkedEditingRanges,
     IWireMarkersChanged,
     IWireMementoUpdate,
+    IWireOnTypeFormattingParams,
     IWireOpenDialogRequest,
     IWireOpenDialogResult,
     IWireOpenExternalResult,
@@ -232,6 +233,7 @@ export interface IHostToSubprocess {
         readonly "languages.provideReferences": readonly [IWireReferenceParams, ICoreReference[]];
         readonly "languages.provideSignatureHelp": readonly [IWireSignatureHelpParams, ICoreSignatureHelp | null];
         readonly "languages.provideFormattingEdits": readonly [IWireFormattingParams, ITextEdit[]];
+        readonly "languages.provideOnTypeFormattingEdits": readonly [IWireOnTypeFormattingParams, ITextEdit[]];
         readonly "languages.provideCodeActions": readonly [IWireCodeActionParams, WireCodeAction[]];
         readonly "languages.applyCodeAction": readonly [{ readonly id: string; readonly onSave?: boolean }, boolean];
         readonly "languages.prepareRename": readonly [IWirePrepareRenameParams, WireRenamePrepare | null];

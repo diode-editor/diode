@@ -115,6 +115,12 @@ export class LanguageFeaturesAdapter extends Disposable {
                 provideDocumentRangeFormattingEdits: (request, token) =>
                     this.bridge.provideFormattingEdits(handle, request, token),
             }),
+        onTypeFormatting: ({ handle, selector, triggerCharacters = [] }) =>
+            this.languageFeatures.onTypeFormattingEditProvider.register(selector, {
+                triggerCharacters,
+                provideOnTypeFormattingEdits: (request, token) =>
+                    this.bridge.provideOnTypeFormattingEdits(handle, request, token),
+            }),
         codeActions: ({ handle, selector, providedCodeActionKinds = [] }) =>
             this.languageFeatures.codeActionProvider.register(selector, {
                 providedCodeActionKinds,

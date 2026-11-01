@@ -323,6 +323,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.component.onDidType(listener);
     }
 
+    public onDidTypeNewLine(listener: () => void): IDisposable {
+        return this.component.onDidTypeNewLine(listener);
+    }
+
     public getCaretAnchor(): OverlayAnchorPosition | null {
         return this.component.getCaretAnchor();
     }

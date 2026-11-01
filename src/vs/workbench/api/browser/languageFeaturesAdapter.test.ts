@@ -99,6 +99,9 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideDocumentHighlights: vi.fn((handle: number) =>
             Promise.resolve(handle === 0 ? null : [{ range: createRange(0, 0, 0, handle), kind: 2 }]),
         ),
+        provideOnTypeFormattingEdits: vi.fn((handle: number) =>
+            Promise.resolve([{ range: createRange(0, 0, 0, handle), text: "x" }]),
+        ),
         provideLinkedEditingRanges: vi.fn((handle: number) =>
             Promise.resolve(handle === 0 ? null : { ranges: [createRange(0, 0, 0, handle)], wordPattern: /x/ }),
         ),
@@ -391,6 +394,42 @@ describe("LanguageFeaturesAdapter", () => {
         bridge.providers = [];
         bridge.fire();
         expect(features.documentHighlightProvider.has(TS)).toBe(false);
+        adapter.dispose();
+    });
+
+    it("onTypeFormatting: the triggers reach the registry and the bridge is asked by its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            {
+                handle: 5,
+                kind: "onTypeFormatting",
+                selector: [{ language: "typescript" }],
+                triggerCharacters: [";", "\n"],
+            },
+            { handle: 6, kind: "onTypeFormatting", selector: [{ language: "go" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.onTypeFormattingEditProvider.ordered(TS);
+        expect(provider.triggerCharacters).toEqual([";", "\n"]);
+        const [bare] = features.onTypeFormattingEditProvider.ordered({ uri: TS.uri, languageId: "go" });
+        expect(bare.triggerCharacters).toEqual([]);
+
+        const request = {
+            uri: "file:///w/a.ts",
+            languageId: "typescript",
+            versionId: 1,
+            position: { line: 0, character: 1 },
+            ch: ";",
+            tabSize: 4,
+            insertSpaces: true,
+        };
+        const token = new CancellationTokenSource().token;
+        expect(await provider.provideOnTypeFormattingEdits(request, token)).toEqual([
+            { range: createRange(0, 0, 0, 5), text: "x" },
+        ]);
+        expect(bridge.provideOnTypeFormattingEdits).toHaveBeenCalledWith(5, request, token);
         adapter.dispose();
     });
 

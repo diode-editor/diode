@@ -1034,6 +1034,46 @@ describe("LanguageFeaturesCustomer — document highlights", () => {
         expect(await detached.provideDocumentHighlights(1, REQ)).toBeNull();
     });
 
+    it("on type formatting: the position, the character and the options go over the wire", async () => {
+        const seen: unknown[] = [];
+        const edit = { range: CORE_RANGE, text: "x" };
+        const h = setupAnswering({
+            "languages.provideOnTypeFormattingEdits": (params) => {
+                seen.push(params);
+                return [edit];
+            },
+        });
+        const caller = new CancellationTokenSource();
+        const request = { ...REQ, ch: "\n", tabSize: 2, insertSpaces: false };
+        expect(await h.customer.provideOnTypeFormattingEdits(1, request, caller.token)).toEqual([edit]);
+        expect(seen).toEqual([
+            {
+                handle: 1,
+                uri: SYNCED,
+                languageId: "typescript",
+                version: 7,
+                line: 2,
+                character: 4,
+                ch: "\n",
+                tabSize: 2,
+                insertSpaces: false,
+            },
+        ]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("on type formatting: RPC rejection or no spawn — no edits", async () => {
+        const request = { ...REQ, ch: ";", tabSize: 4, insertSpaces: true };
+        const h = setupAnswering({
+            "languages.provideOnTypeFormattingEdits": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideOnTypeFormattingEdits(1, request)).toEqual([]);
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideOnTypeFormattingEdits(1, request)).toEqual([]);
+    });
+
     it("linked editing: the position and the token go over the wire, the pattern comes back a RegExp", async () => {
         const seen: unknown[] = [];
         const h = setupAnswering({

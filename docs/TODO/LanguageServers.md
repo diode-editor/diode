@@ -65,8 +65,7 @@ API (no-op провайдеры и наивные стабы) — [API-COVERAGE]
   `editor.defaultFormatter` (глобальная и `[language]`); «Format Document With…»
   (`editor.action.formatDocument.multiple`) — пикер провайдеров, выбор пишется в
   `editor.defaultFormatter` языка; в проводе — личность провайдера (сейчас ядро видит только правки).
-- [ ] **Остальная система (отложено):** `editor.formatOnType` (отдельный шов: правка → запрос по
-  строке), `editor.formatOnPaste`, `editor.formatOnSaveMode` (`file`/`modifications` — дифф против
+- [ ] **Остальная система (отложено):** `editor.formatOnPaste`, `editor.formatOnSaveMode` (`file`/`modifications` — дифф против
   git-версии в ядре есть).
 - [ ] `Prettier: Create Configuration File` и `eslint.createConfig` упирались в отсутствие
   `showOpenDialog` и `createTerminal` — оба теперь есть: проверить живьём и снять пункт из

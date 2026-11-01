@@ -502,6 +502,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "completion",
     "formatting",
     "rangeFormatting",
+    "onTypeFormatting",
     "codeActions",
     "folding",
     "inlineCompletions",
@@ -605,6 +606,14 @@ export interface IWireFormattingParams extends IWireDocumentParams {
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
     readonly range?: IRange;
+}
+
+export interface IWireOnTypeFormattingParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly line: number;
+    readonly character: number;
+    readonly ch: string;
+    readonly tabSize: number;
+    readonly insertSpaces: boolean;
 }
 
 /**

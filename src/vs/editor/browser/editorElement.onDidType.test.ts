@@ -106,3 +106,39 @@ describe("EditorElement.onDidType", () => {
         expect(last).toEqual(["c"]);
     });
 });
+
+describe("EditorElement.onDidTypeNewLine", () => {
+    it("Enter fires it after the edit and stays out of onDidType", () => {
+        const { editor, viewState, typed } = makeEditor("a");
+        const seen: string[] = [];
+        editor.onDidTypeNewLine(() => seen.push(viewState.document.getText()));
+        press(editor, "Enter");
+        expect(seen).toEqual(["a\n"]);
+        expect(typed).toEqual([]);
+    });
+
+    it("the type command with a line break fires it too", () => {
+        const { editor } = makeEditor("a");
+        let fired = 0;
+        editor.onDidTypeNewLine(() => fired++);
+        editor.typeText("b\nc");
+        expect(fired).toBe(1);
+    });
+
+    it("a read-only editor stays silent", () => {
+        const { editor, viewState } = makeEditor("a");
+        viewState.readOnly = true;
+        let fired = 0;
+        editor.onDidTypeNewLine(() => fired++);
+        press(editor, "Enter");
+        expect(fired).toBe(0);
+    });
+
+    it("another character does not fire it", () => {
+        const { editor } = makeEditor("a");
+        let fired = 0;
+        editor.onDidTypeNewLine(() => fired++);
+        press(editor, ";");
+        expect(fired).toBe(0);
+    });
+});

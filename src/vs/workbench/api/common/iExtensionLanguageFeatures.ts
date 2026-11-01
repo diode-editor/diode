@@ -29,7 +29,10 @@ import type {
     IDocumentHighlightRequest,
 } from "../../../editor/common/languages/iDocumentHighlightSource.ts";
 import type { IFoldingRequest } from "../../../editor/common/languages/iFoldingSource.ts";
-import type { IFormattingRequest } from "../../../editor/common/languages/iFormattingSource.ts";
+import type {
+    IFormattingRequest,
+    IOnTypeFormattingRequest,
+} from "../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
 import type { IInlayHintsRequest, InlayHint } from "../../../editor/common/languages/iInlayHintsSource.ts";
 import type {
@@ -117,6 +120,11 @@ export interface IExtensionLanguageFeaturesBridge {
     ): Promise<ICoreCompletionResult>;
     resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null>;
     /** With `request.range`, the range provider `handle`; without it, the document one. */
+    provideOnTypeFormattingEdits(
+        handle: number,
+        request: IOnTypeFormattingRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ITextEdit[]>;
     provideFormattingEdits(
         handle: number,
         request: IFormattingRequest,

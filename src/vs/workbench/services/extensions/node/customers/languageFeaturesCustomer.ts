@@ -30,7 +30,10 @@ import type {
     IDocumentHighlightRequest,
 } from "../../../../../editor/common/languages/iDocumentHighlightSource.ts";
 import type { IFoldingRequest } from "../../../../../editor/common/languages/iFoldingSource.ts";
-import type { IFormattingRequest } from "../../../../../editor/common/languages/iFormattingSource.ts";
+import type {
+    IFormattingRequest,
+    IOnTypeFormattingRequest,
+} from "../../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../../editor/common/languages/iHoverSource.ts";
 import type { IInlayHintsRequest, InlayHint } from "../../../../../editor/common/languages/iInlayHintsSource.ts";
 import type {
@@ -395,6 +398,30 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 insertSpaces: req.insertSpaces,
                 // Stryker disable next-line ConditionalExpression: the spread is about payload cleanliness, the RPC JSON transport drops `undefined` keys anyway
                 ...(req.range === undefined ? {} : { range: req.range }),
+            },
+            [],
+            { token },
+        );
+    }
+
+    /** Empty — nothing to change, also when there is no subprocess, the document is not synced or the extension timed out. */
+    public async provideOnTypeFormattingEdits(
+        handle: number,
+        req: IOnTypeFormattingRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ITextEdit[]> {
+        return this.request(
+            "languages.provideOnTypeFormattingEdits",
+            {
+                handle,
+                uri: req.uri,
+                languageId: req.languageId,
+                version: req.versionId,
+                line: req.position.line,
+                character: req.position.character,
+                ch: req.ch,
+                tabSize: req.tabSize,
+                insertSpaces: req.insertSpaces,
             },
             [],
             { token },

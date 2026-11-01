@@ -14,7 +14,6 @@ const NOOP_PROVIDERS = [
     "registerDocumentLinkProvider",
     "registerDocumentSymbolProvider",
     "registerInlineValuesProvider",
-    "registerOnTypeFormattingEditProvider",
     "registerSelectionRangeProvider",
     "registerWorkspaceSymbolProvider",
 ];
