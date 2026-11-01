@@ -195,6 +195,67 @@ describe("EditorComponent — inlay hints", () => {
             pane.dispose();
         });
 
+        it("a hint before an argument: the block caret stands on the argument's first character", async () => {
+            providers.register("*", provider([hint(0, 2, "p:", { paddingRight: true })]));
+            const { app, row, pane } = await open("f(abc)");
+            expect(row()).toBe("f(p: abc)");
+            pane.goToPosition(0, 2);
+            app.render();
+            expect(pane.getCaretAnchor()?.screenX).toBe(GUTTER + 5);
+            pane.viewState.cursorRight();
+            app.render();
+            expect(pane.getCaretAnchor()?.screenX).toBe(GUTTER + 6);
+            pane.viewState.cursorLeft();
+            pane.viewState.cursorLeft();
+            app.render();
+            expect(pane.getCaretAnchor()?.screenX).toBe(GUTTER + 1);
+            pane.dispose();
+        });
+
+        it("typing at a leading hint's point keeps the caret next to the typed text", async () => {
+            providers.register("*", provider([hint(0, 2, "p:")]));
+            const { app, row, pane } = await open("f(abc)");
+            pane.goToPosition(0, 2);
+            pane.viewState.type("x");
+            app.render();
+            expect(row()).toBe("f(xp:abc)");
+            expect(pane.getCaretAnchor()?.screenX).toBe(GUTTER + 3);
+            pane.dispose();
+        });
+
+        it.each([
+            ["after a name", "let x = 1", 5],
+            ["at the end of a line", "f(a)", 4],
+            ["before whitespace", "f() {", 3],
+        ])("a hint %s keeps the caret left of it", async (_name, text, offset) => {
+            providers.register("*", provider([hint(0, offset, "HH")]));
+            const { app, pane } = await open(text);
+            pane.goToPosition(0, offset);
+            app.render();
+            expect(pane.getCaretAnchor()?.screenX).toBe(GUTTER + offset);
+            pane.dispose();
+        });
+
+        it("a hint at column 0 before text lets the caret onto the text", async () => {
+            providers.register("*", provider([hint(0, 0, "HH")]));
+            const { app, pane } = await open("ab");
+            pane.goToPosition(0, 0);
+            app.render();
+            expect(pane.getCaretAnchor()?.screenX).toBe(GUTTER + 2);
+            pane.dispose();
+        });
+
+        it("ghost text at a leading hint's point: the caret stays before the ghost", async () => {
+            providers.register("*", provider([hint(0, 2, "H")]));
+            const { app, row, pane } = await open("f(a)");
+            pane.goToPosition(0, 2);
+            pane.setGhostText({ line: 0, character: 2, lines: ["gg"] });
+            app.render();
+            expect(row()).toBe("f(ggHa)");
+            expect(pane.getCaretAnchor()?.screenX).toBe(GUTTER + 2);
+            pane.dispose();
+        });
+
         it("a selection across a hint leaves the hint's cells alone and does not copy them", async () => {
             providers.register("*", provider([hint(0, 2, "HH", { paddingLeft: true })]));
             const { app, row, pane } = await open("abcd");
