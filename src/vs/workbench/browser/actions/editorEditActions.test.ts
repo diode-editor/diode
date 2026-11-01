@@ -34,6 +34,7 @@ import {
     outdentLinesAction,
     redoAction,
     selectAllAction,
+    typeAction,
     undoAction,
 } from "./editorEditActions.ts";
 
@@ -216,5 +217,29 @@ describe("EditorEditActions — selectAll", () => {
         editor.viewState.selections = [createSelection(0, 0, 0, 11)];
         exec(deleteLeftAction);
         expect(editor.getText()).toBe("");
+    });
+});
+
+describe("EditorEditActions — type", () => {
+    function accessorWith(editor: { typeText(text: string): void } | undefined) {
+        const accessor = new Container();
+        accessor.bind(EditorServiceDIToken, () => ({ getActiveEditor: () => editor }) as never);
+        return accessor;
+    }
+
+    it("hands the text to the active editor", () => {
+        const typed: string[] = [];
+        typeAction.run(accessorWith({ typeText: (text) => typed.push(text) }), { text: "x" });
+        expect(typed).toEqual(["x"]);
+    });
+
+    it("without an active editor does nothing", () => {
+        expect(() => typeAction.run(accessorWith(undefined), { text: "x" })).not.toThrow();
+    });
+
+    it.each([[undefined], [null], [{}], [{ text: 1 }]])("without a text (%j) does nothing", (args) => {
+        const typed: string[] = [];
+        typeAction.run(accessorWith({ typeText: (text) => typed.push(text) }), args);
+        expect(typed).toEqual([]);
     });
 });

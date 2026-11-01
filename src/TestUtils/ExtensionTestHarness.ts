@@ -213,6 +213,8 @@ export interface IExtensionHarnessOptions {
     readonly environment?: IExtensionHostEnvironment;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
+    /** What the editors read pairs and `onEnterRules` from; pass the same service as {@link languageConfigurations}. */
+    readonly editorLanguageConfigurations?: ILanguageConfigurationService;
 }
 
 export interface IExtensionHarness {
@@ -251,7 +253,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
-        undefined,
+        options.editorLanguageConfigurations,
         undefined,
         [],
         languageFeatures,

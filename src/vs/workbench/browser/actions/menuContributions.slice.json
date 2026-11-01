@@ -13,7 +13,9 @@
             "workbench.action.focusQuickOpen",
             "workbench.action.quickPickManyToggle",
             "workbench.action.quickInputBack",
-            "workbench.action.quickOpenWithModes"
+            "workbench.action.quickOpenWithModes",
+            "type",
+            "default:type"
         ]
     },
     "EditorContext": {
