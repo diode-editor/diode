@@ -43,8 +43,8 @@
   `"workbench.colorTheme": "Catppuccin Mocha"` → фон редактора в кадре равен `editor.background` из
   `themes/mocha.json`, тема есть в пикере.
 - **`golang.go`** (сайт#19) — universal, гейт `engines.diode: ">=0.9.2"` (до #657 активация падала на
-  `vscode.debug`). `support: partial`: отладчика нет, Testing view и code lens'ов пока нет,
-  welcome/pprof — webview; требование Go toolchain — пунктом в `limits` и в readme (решение человека,
+  `vscode.debug`). `support: partial`: отладчика нет (`debug test` — тост), Testing view нет,
+  welcome/pprof — webview; code lens и inlay hints работают; требование Go toolchain — пунктом в `limits` и в readme (решение человека,
   как JDK у `redhat.java`). gopls в vsix нет — расширение ставит его само `go install`; смоук кладёт
   заранее собранный gopls в GOBIN (в CI — `.github/actions/go-tools`), без Go кейс пропускается
   (`requires` у чека). Open VSX пишет id как `golang/Go` — см. открытый пункт про регистр id в
@@ -224,10 +224,21 @@ eval-режим node, иначе расширение молча не линти
 - **vscode-go при `isIncomplete: true` ставит ВСЕМ пунктам `filterText` первого** (фильтрует gopls,
   клиент обязан перезапрашивать на каждый символ); gopls кладёт авто-импорт в `additionalTextEdits`
   сразу, resolve-провайдера у него нет.
+- **Линзы.** Над `func TestX` — `run test | debug test`, над `package` — `run package tests | run file
+  tests` (`go.enableCodeLens.runtest`, провайдер самого расширения, не gopls); в `go.mod` —
+  `Reset go.mod diagnostics | Run govulncheck | Run go mod tidy` от gopls. Клик по `run test` гоняет
+  `go test` в канал OUTPUT «Go Tests» (`extensions.golang.go.go-tests`). `debug test` доходит до
+  `vscode.debug.startDebugging` — null-объект показывает тост и отдаёт `false`.
+- **Inlay hints и настройки.** `go.inlayHints.*` расширение кладёт в `ui.inlayhint.hints` из
+  middleware `workspace/configuration`, но только если ключ `gopls` (`type: object` без `default`)
+  читается объектом — поэтому дефолт по типу ключа манифеста обязателен, как `getDefaultValue` эталона
+  (иначе `null`, и смена настройки до сервера не доходит). `workspace/inlayHint/refresh` gopls не шлёт
+  вовсе: новое значение видно со следующего запроса (правка, прокрутка за окно, открытие файла) — так
+  же и в VS Code. `go.enableCodeLens` расширение применяет сразу, своим `onDidChangeCodeLenses`.
 - **Решения человека:** отладчик не делаем (`vscode.debug` — null-объект); фичи, которых ядро ещё не
-  умеет (CodeLens, inlay hints, outline, Go to Implementation, call hierarchy, Testing view, деревья
-  `go.explorer`/package outline, when-фильтр палитры), ради Go отдельно не делаем — заработают сами
-  с ядром. Welcome-страница и pprof — webview, не будет.
+  умеет (outline, Go to Implementation, call hierarchy, Testing view, деревья `go.explorer`/package
+  outline, when-фильтр палитры), ради Go отдельно не делаем — заработают сами с ядром. Welcome-страница
+  и pprof — webview, не будет.
 - Спайк заново: `PATH=<go>/bin:$PATH npm run -s drive -- start --seed e2e/fixtures/goSample --install
   golang.go --open main.go`, лог — `drive -- output extensions.golang.go.go`.
 

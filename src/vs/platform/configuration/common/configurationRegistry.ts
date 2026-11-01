@@ -70,6 +70,28 @@ function parseExtensionScope(scope: unknown): ConfigurationScope {
     return SCOPES.find((s) => s === scope) ?? "window";
 }
 
+/**
+ * Upstream `getDefaultValue`: a manifest key without `default` reads the empty value of its type. `golang.go` forwards
+ * `go.inlayHints` to gopls only when its `gopls` key (`type: object`, no default) reads as an object.
+ */
+function defaultValueOfType(type: unknown): unknown {
+    switch (Array.isArray(type) ? (type as readonly unknown[])[0] : type) {
+        case "boolean":
+            return false;
+        case "integer":
+        case "number":
+            return 0;
+        case "string":
+            return "";
+        case "array":
+            return [];
+        case "object":
+            return {};
+        default:
+            return null;
+    }
+}
+
 export class ConfigurationRegistry {
     private readonly properties = new Map<string, IConfigurationPropertySchema>();
     private readonly extensionProperties = new Map<string, IExtensionConfigurationProperty>();
@@ -94,7 +116,9 @@ export class ConfigurationRegistry {
     /** A taken key is skipped with a warning instead of throwing like core does: this is a foreign manifest. */
     public registerExtensionConfiguration(
         extensionId: string,
-        properties: Readonly<Record<string, { readonly default?: unknown; readonly scope?: unknown }>>,
+        properties: Readonly<
+            Record<string, { readonly default?: unknown; readonly scope?: unknown; readonly type?: unknown }>
+        >,
         onProblem?: (message: string) => void,
     ): void {
         for (const [key, schema] of Object.entries(properties)) {
@@ -104,7 +128,7 @@ export class ConfigurationRegistry {
                 continue;
             }
             this.extensionProperties.set(key, {
-                default: schema.default,
+                default: schema.default === undefined ? defaultValueOfType(schema.type) : schema.default,
                 scope: parseExtensionScope(schema.scope),
                 extensionId,
             });
