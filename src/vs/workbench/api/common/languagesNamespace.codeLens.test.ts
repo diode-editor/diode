@@ -529,6 +529,19 @@ describe("languages.executeCodeLensCommand", () => {
         );
     });
 
+    it.each([[undefined], [null]])("a command that throws %s is no failure", async (thrown) => {
+        const { stub, languages, execute } = makeCtx();
+        execute.mockRejectedValueOnce(thrown);
+        languages.registerCodeLensProvider(
+            "typescript",
+            provider(() => [lens({ command: "run", title: "Run" })]),
+        );
+        const { lenses } = await provideList(stub);
+        await expect(
+            stub.callRequest("languages.executeCodeLensCommand", address(lenses[0].cacheId)),
+        ).resolves.toBeUndefined();
+    });
+
     it("a command nobody knows rejects in upstream's wording, without running", async () => {
         const { stub, languages, execute } = makeCtx((id) => id !== "missing");
         languages.registerCodeLensProvider(

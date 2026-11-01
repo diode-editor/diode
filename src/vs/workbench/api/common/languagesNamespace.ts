@@ -749,7 +749,12 @@ export function createLanguagesNamespace(
         if (command === null) return undefined;
         const id = command.command;
         if (!(await codeActionDeps.hasCommand(id))) throw new Error(`command '${id}' not found`);
-        await codeActionDeps.executeCommand(id, ...((command.arguments ?? []) as unknown[]));
+        try {
+            await codeActionDeps.executeCommand(id, ...((command.arguments ?? []) as unknown[]));
+        } catch (err) {
+            // The wire would turn nothing into the text "undefined"; upstream shows no toast for it.
+            if (err !== undefined && err !== null) throw err;
+        }
         return undefined;
     });
 

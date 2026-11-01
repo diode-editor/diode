@@ -84,6 +84,38 @@ describe("runCodeLensCommand", () => {
         expect(shown.message).toContain("boom");
     });
 
+    function failing(reason: unknown): () => Promise<void> {
+        return () => Promise.reject(reason as Error);
+    }
+
+    it("the toast is the message of the error, without the stack", async () => {
+        const { commands, notifications, show } = setup();
+        await runCodeLensCommand(commands, notifications, { id: "c", title: "t", run: failing(new Error("boom")) });
+        expect(show.mock.lastCall?.[0]).toMatchObject({ message: "boom" });
+    });
+
+    it("an error from the wire that carries a thrown string has no stack: the message is the toast", async () => {
+        const { commands, notifications, show } = setup();
+        const wire = new Error("plain string failure");
+        wire.stack = "";
+        await runCodeLensCommand(commands, notifications, { id: "c", title: "t", run: failing(wire) });
+        expect(show.mock.lastCall?.[0]).toMatchObject({ message: "plain string failure" });
+    });
+
+    it("an error without a message shows its name; a thrown string shows itself", async () => {
+        const { commands, notifications, show } = setup();
+        await runCodeLensCommand(commands, notifications, { id: "c", title: "t", run: failing(new TypeError()) });
+        expect(show.mock.lastCall?.[0]).toMatchObject({ message: "TypeError" });
+        await runCodeLensCommand(commands, notifications, { id: "c", title: "t", run: failing("text") });
+        expect(show.mock.lastCall?.[0]).toMatchObject({ message: "text" });
+    });
+
+    it.each([[undefined], [null]])("%s thrown is no toast", async (reason) => {
+        const { commands, notifications, show } = setup();
+        await runCodeLensCommand(commands, notifications, { id: "c", title: "t", run: failing(reason) });
+        expect(show).not.toHaveBeenCalled();
+    });
+
     it("without the services nothing throws", async () => {
         await expect(runCodeLensCommand(undefined, undefined, { id: "cmd", title: "t" })).resolves.toBeUndefined();
     });

@@ -4,6 +4,16 @@ import type { CommandRegistry } from "../../../../platform/commands/common/comma
 import type { NotificationService } from "../../notification/browser/notificationService.ts";
 
 /**
+ * What a person reads, as upstream's `notificationService.error`: the message, not the stack. Nothing thrown is no toast.
+ * An error from the subprocess has an empty `stack` when a non-`Error` was thrown, its text is in `message`.
+ */
+function failureMessage(error: unknown): string | null {
+    if (error === undefined || error === null) return null;
+    if (error instanceof Error) return error.message === "" ? error.name : error.message;
+    return describeRejection(error);
+}
+
+/**
  * Upstream `commandService.executeCommand(...).catch(notificationService.error)`. Our registry answers an unknown
  * id with `undefined`, so that case is checked here, in upstream's wording.
  */
@@ -23,6 +33,7 @@ export async function runCodeLensCommand(
     try {
         await (run === undefined ? commands?.execute(command.id, ...(command.arguments ?? [])) : run());
     } catch (error) {
-        fail(describeRejection(error));
+        const message = failureMessage(error);
+        if (message !== null) fail(message);
     }
 }
