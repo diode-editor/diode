@@ -11,6 +11,7 @@ function setup(): { open: (...args: unknown[]) => Promise<unknown>; deps: IApiCo
         openTextDocument: vi.fn(() => Promise.resolve({} as vscode.TextDocument)),
         executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
         executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+        getActiveTextEditor: () => undefined,
     };
     const handler = createApiCommands(deps).get("vscode.open");
     if (handler === undefined) throw new Error("vscode.open is not registered");
@@ -103,6 +104,46 @@ describe("apiCommands — vscode.open", () => {
     });
 });
 
+describe("apiCommands — editor.action.insertSnippet", () => {
+    function run(editor: vscode.TextEditor | undefined): (...args: unknown[]) => Promise<unknown> {
+        const deps: IApiCommandsDeps = {
+            showTextDocument: vi.fn(() => Promise.resolve({})),
+            openExternal: vi.fn(() => Promise.resolve(true)),
+            openTextDocument: vi.fn(() => Promise.resolve({} as vscode.TextDocument)),
+            executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
+            executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+            getActiveTextEditor: () => editor,
+        };
+        const handler = createApiCommands(deps).get("editor.action.insertSnippet");
+        if (handler === undefined) throw new Error("editor.action.insertSnippet is not registered");
+        return async (...args) => handler(...args);
+    }
+
+    it("[api:commands.executeCommand] hands an inline snippet to the active editor", async () => {
+        const insertSnippet = vi.fn(() => Promise.resolve(true));
+        const call = run({ insertSnippet } as unknown as vscode.TextEditor);
+
+        await expect(call({ snippet: "[$TM_SELECTED_TEXT$0](url)" })).resolves.toBeUndefined();
+
+        expect(insertSnippet).toHaveBeenCalledTimes(1);
+        expect(insertSnippet.mock.calls[0]).toEqual([expect.objectContaining({ value: "[$TM_SELECTED_TEXT$0](url)" })]);
+    });
+
+    it("does nothing without an inline snippet: a lookup by langId and name has no contributed snippets", async () => {
+        const insertSnippet = vi.fn(() => Promise.resolve(true));
+        const call = run({ insertSnippet } as unknown as vscode.TextEditor);
+
+        await call({ langId: "markdown", name: "x" });
+        await call();
+
+        expect(insertSnippet).not.toHaveBeenCalled();
+    });
+
+    it("does nothing without an active editor", async () => {
+        await expect(run(undefined)({ snippet: "x" })).resolves.toBeUndefined();
+    });
+});
+
 describe("apiCommands — vscode.execute*", () => {
     const uri = Uri.file("/ws/a.json");
     const doc = {} as vscode.TextDocument;
@@ -114,6 +155,7 @@ describe("apiCommands — vscode.execute*", () => {
             openTextDocument: vi.fn(() => Promise.resolve(doc)),
             executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
             executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+            getActiveTextEditor: () => undefined,
         };
         const handler = createApiCommands(deps).get(id);
         if (handler === undefined) throw new Error(`${id} is not registered`);

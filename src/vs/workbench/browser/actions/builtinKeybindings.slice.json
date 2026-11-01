@@ -52,8 +52,8 @@
         "pageup: selectPrevPageSuggestion [suggestWidgetVisible] > cursorPageUp [textViewFocus]",
         "shift+f4: references-view.prev [hasReferenceResult] > search.action.focusPreviousSearchResult [hasSearchResult]",
         "shift+meta+p: workbench.action.quickOpenNavigatePreviousInFilePicker [((inFilesPicker && inputWidgetFocus) && (tier != 'legacy')) && (macKeys >= 3)] > workbench.action.showCommands [macKeys >= 3]",
-        "tab: acceptSelectedSuggestion [suggestWidgetVisible] > editor.action.indentLines [textInputFocus && !editorReadonly]",
-        "tab: editor.action.inlineSuggest.commit [inlineSuggestionVisible && !suggestWidgetVisible && inlineSuggestionHasIndentationLessThanTabSize] > editor.action.indentLines [textInputFocus && !editorReadonly]",
+        "tab: acceptSelectedSuggestion [suggestWidgetVisible] > tab [textInputFocus && !editorReadonly]",
+        "tab: editor.action.inlineSuggest.commit [inlineSuggestionVisible && !suggestWidgetVisible && inlineSuggestionHasIndentationLessThanTabSize] > tab [textInputFocus && !editorReadonly]",
         "up: selectPrevSuggestion [suggestWidgetVisible] > cursorUp [textViewFocus]",
         "up: showPrevParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > cursorUp [textViewFocus]"
     ],
@@ -208,7 +208,6 @@
         "editor.action.goToImplementation": "ctrl+f12",
         "editor.action.goToReferences": "shift+f12",
         "editor.action.hideHover": "escape",
-        "editor.action.indentLines": "tab",
         "editor.action.inlineSuggest.commit": "tab",
         "editor.action.inlineSuggest.hide": "escape",
         "editor.action.inlineSuggest.trigger": "alt+\\",
@@ -551,6 +550,7 @@
         "selectPrevSuggestion": "up",
         "showNextParameterHint": "down",
         "showPrevParameterHint": "up",
+        "tab": "tab",
         "toggleSuggestionDetails": "ctrl+space",
         "undo": {
             "*": "ctrl+z",

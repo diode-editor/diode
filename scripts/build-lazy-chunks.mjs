@@ -69,12 +69,13 @@ export const LAZY_CHUNKS = [
     },
     // Budget is the measurement plus ~5%; shared with the core: vscodeTypes, the RPC protocol,
     // vscode-uri, jsonc-parser, base/common. Raises: 155 for the environmentVariableCollection
-    // parsers, 156 (a human decision) for `sideEditors` in the strip snapshot (#683, 155.06 KB).
+    // parsers, 156 (a human decision) for `sideEditors` in the strip snapshot (#683, 155.06 KB),
+    // 157 for `vscode.DocumentHighlight` in vscodeTypes (#948, 156.3 KB).
     {
         id: "roles/extension-host",
         reason: "extension host role: vscode API implementation",
         entry: "src/vs/diode/roles/extensionHostRole.ts",
-        sharedBudgetKb: 156,
+        sharedBudgetKb: 157,
     },
     // Shared with the core (63 KB of 75): chokidar, which the core keeps for settings file subscriptions.
     {

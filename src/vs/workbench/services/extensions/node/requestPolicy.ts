@@ -29,6 +29,7 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.prepareRename": 5000,
     "languages.provideRenameEdits": 10000,
     "languages.provideSelectionRanges": 5000,
+    "languages.provideDocumentHighlights": 5000,
     "languages.provideDocumentColors": 5000,
 } as const satisfies Readonly<Record<string, number>>;
 

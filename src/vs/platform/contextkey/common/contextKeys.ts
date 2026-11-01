@@ -26,6 +26,8 @@ export interface ContextKeyTypes {
     editorHasDocumentSelectionFormattingProvider: boolean;
     editorHasInlayHintsProvider: boolean;
     editorHasSelection: boolean;
+    /** Upstream `ctxHasWordHighlights`: the active editor has occurrences on the frame. */
+    hasWordHighlights: boolean;
     editorLangId: string;
     /** Upstream name of our {@link textInputFocus}, kept for extension `when` clauses. */
     editorTextFocus: boolean;

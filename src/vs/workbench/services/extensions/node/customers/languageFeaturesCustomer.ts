@@ -19,6 +19,10 @@ import type {
     ICoreDefinitionLocation,
     IDefinitionRequest,
 } from "../../../../../editor/common/languages/iDefinitionSource.ts";
+import type {
+    IDocumentHighlight,
+    IDocumentHighlightRequest,
+} from "../../../../../editor/common/languages/iDocumentHighlightSource.ts";
 import type { IFoldingRequest } from "../../../../../editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../../editor/common/languages/iHoverSource.ts";
@@ -447,6 +451,27 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             "languages.provideSelectionRanges",
             { handle, uri: req.uri, languageId: req.languageId, version: req.versionId, positions: req.positions },
             [],
+            { token },
+        );
+    }
+
+    /** `null` — the provider declined, also when there is no subprocess, the document is not synced or the extension timed out. */
+    public async provideDocumentHighlights(
+        handle: number,
+        req: IDocumentHighlightRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly IDocumentHighlight[] | null> {
+        return this.request(
+            "languages.provideDocumentHighlights",
+            {
+                handle,
+                uri: req.uri,
+                languageId: req.languageId,
+                version: req.versionId,
+                line: req.position.line,
+                character: req.position.character,
+            },
+            null,
             { token },
         );
     }

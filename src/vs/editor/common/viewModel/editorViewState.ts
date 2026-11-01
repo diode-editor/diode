@@ -17,6 +17,7 @@ import { sortAndMergeSelections } from "../core/sortAndMergeSelections.ts";
 import { charClass } from "../core/wordClassification.ts";
 import { DEFAULT_WORD_REGEXP, getWordAtText } from "../core/wordHelper.ts";
 import { computeNewLinePlan, findOnEnterAction } from "../languages/autoIndent.ts";
+import { EMPTY_WORD_HIGHLIGHT_SET, type IWordHighlightSet } from "../languages/iDocumentHighlightSource.ts";
 import type { IResolvedOnEnterRule } from "../languages/languageConfiguration.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import type { IInlineInsertion } from "../model/iInlineInsertion.ts";
@@ -165,6 +166,12 @@ export class EditorViewState {
     private readonly onDidChangeFollowTailEmitter = new Emitter<void>();
     /** {@link followTail} flipped: by a cursor move, a reload or {@link setFollowTail}. */
     public readonly onDidChangeFollowTail = this.onDidChangeFollowTailEmitter.event;
+    private readonly onDidChangeWordHighlightsEmitter = new Emitter<void>();
+    /**
+     * Not {@link onDidChangeView}: the set changes with every move of the caret and inside edits, and nothing
+     * about the viewport changes with it (the listeners there re-request viewport tokens, re-sync folded lenses).
+     */
+    public readonly onDidChangeWordHighlights = this.onDidChangeWordHighlightsEmitter.event;
     public get searchMatches(): IRange[] {
         return this.searchMatchesValue;
     }
@@ -172,6 +179,17 @@ export class EditorViewState {
     public set searchMatches(value: IRange[]) {
         this.searchMatchesValue = value;
         this.fireViewChange();
+    }
+
+    /** The occurrences on the frame; computed by `WordHighlighter`, an edit drops them, so they match the text. */
+    public get wordHighlights(): IWordHighlightSet {
+        return this.wordHighlightsValue;
+    }
+
+    public set wordHighlights(value: IWordHighlightSet) {
+        if (this.wordHighlightsValue === value) return;
+        this.wordHighlightsValue = value;
+        this.onDidChangeWordHighlightsEmitter.fire();
     }
 
     /** -1 means no active match. */
@@ -186,6 +204,7 @@ export class EditorViewState {
     }
 
     private searchMatchesValue: IRange[] = [];
+    private wordHighlightsValue: IWordHighlightSet = EMPTY_WORD_HIGHLIGHT_SET;
     private currentSearchMatchIndexValue = -1;
     public readonly document: ITextDocument;
     public foldedRegions: IFoldingRegion[] = [];
@@ -1706,6 +1725,11 @@ export class EditorViewState {
         if (!spansMultipleLines) {
             return this.typeEach((range) => this.indentUnitAt(range.start));
         }
+        return this.shiftIndent(1);
+    }
+
+    /** Upstream `editor.action.indentLines`: a level on every touched line, wherever the caret stands. */
+    public indentSelectedLines(): IUndoElement | undefined {
         return this.shiftIndent(1);
     }
 
