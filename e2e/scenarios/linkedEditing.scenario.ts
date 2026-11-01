@@ -62,7 +62,7 @@ export default defineScenario({
         });
         await editor.capture("linked-ranges");
 
-        await editor.type("x");
+        await editor.sendText("x");
         await editor.waitForText((t) => t.includes("<dxiv></dxiv>"));
         await editor.capture("both-tags-rewritten");
 
@@ -80,7 +80,7 @@ export default defineScenario({
             const [plain, open] = await backgrounds(editor, "<div>", [0, 1]);
             return open === plain;
         });
-        await editor.type("y");
+        await editor.sendText("y");
         await editor.waitForText((t) => t.includes("<dyiv></div>"));
         await editor.capture("escape-breaks-the-link");
     },
