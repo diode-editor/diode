@@ -77,6 +77,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
 
     /** `TextEditor.options` reads the snapshot: detection and the status bar picker must reach it. */
     private watchIndentOptions(): void {
+        // Stryker disable next-line all: without it a pane holds a second listener, and the push coalesces them
         this.indentWatchers.clear();
         for (const pane of this.groups.groups.flatMap((group) => group.getPanes())) {
             if (!(pane instanceof TextEditorPane)) continue;

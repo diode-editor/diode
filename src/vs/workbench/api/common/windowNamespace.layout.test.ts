@@ -45,6 +45,29 @@ function tab(uri: string, opts: Partial<{ isActive: boolean; isDirty: boolean; l
 const A = Uri.file("/p/a.ts").toString();
 const B = Uri.file("/p/b.ts").toString();
 
+describe("WindowNamespace — TextEditor.options from the snapshot", () => {
+    function activeEditorIn(tabs: readonly object[]) {
+        const { stub, window } = makeCtx();
+        stub.fire("editor.activeEditorChanged", { uri: A, languageId: "typescript" });
+        stub.fire("editor.layoutChanged", { groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs }] });
+        return window.activeTextEditor!;
+    }
+
+    it("reads the indentation of its own tab, not of a neighbour", () => {
+        const editor = activeEditorIn([
+            { ...tab(B), tabSize: 8, insertSpaces: true },
+            { ...tab(A, { isActive: true }), tabSize: 2, insertSpaces: false },
+        ]);
+        expect(editor.options).toEqual({ tabSize: 2, insertSpaces: false });
+    });
+
+    it("a tab without indentation in the snapshot gives no keys", () => {
+        const editor = activeEditorIn([tab(A, { isActive: true })]);
+        expect(editor.options).not.toHaveProperty("tabSize");
+        expect(editor.options).not.toHaveProperty("insertSpaces");
+    });
+});
+
 describe("WindowNamespace — layout differ (editor.layoutChanged)", () => {
     it("AS-12: tabGroups.all is built from the snapshot; exactly one active group", () => {
         const { stub, tabs } = makeCtx();

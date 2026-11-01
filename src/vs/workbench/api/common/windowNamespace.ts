@@ -20,6 +20,7 @@ import { createQuickInputApi } from "./quickInputNamespace.ts";
 import type { AsRelativePath } from "./quickInputResource.ts";
 import { createStatusBarMessage } from "./statusBarMessage.ts";
 import { createTerminalNamespace, type ITerminalNamespace } from "./terminalNamespace.ts";
+import { TextEditorRevealType } from "./textEditorRevealType.ts";
 import { createUriHandlers } from "./uriHandlers.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
@@ -31,7 +32,6 @@ import {
     StatusBarAlignment,
     TabInputText,
     TabInputTextDiff,
-    TextEditorRevealType,
     Uri,
 } from "./vscodeTypes.ts";
 import { createWebviewNoopMembers } from "./webviewNoop.ts";

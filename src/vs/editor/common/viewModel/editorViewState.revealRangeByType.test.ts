@@ -44,6 +44,13 @@ describe("EditorViewState.revealRangeByType", () => {
         expect(scrollTopAfter(state, 19, 20, "centerIfOutsideViewport")).toBe(15);
     });
 
+    it("centerIfOutsideViewport leaves a short box touching either edge in place", () => {
+        const state = stateWith();
+        state.scrollTop = 20;
+        expect(scrollTopAfter(state, 20, 22, "centerIfOutsideViewport")).toBe(20);
+        expect(scrollTopAfter(state, 27, 29, "centerIfOutsideViewport")).toBe(20);
+    });
+
     it("a box larger than the viewport shows its top, whatever the type", () => {
         for (const type of ["default", "center", "centerIfOutsideViewport", "top"] as const) {
             const state = stateWith();
@@ -140,6 +147,32 @@ describe("EditorViewState.revealRangeByType", () => {
         state.applyRecomputedFoldingRegions([]);
 
         expect(state.scrollTop).toBe(43);
+    });
+
+    describe("a folding recompute that moves a cursor to below the screen", () => {
+        /** Folded 5..50: line 52 is row 7, line 62 is row 17. Unfolding moves them to rows 52 and 62. */
+        function unfoldWith(cursorLine: number, scrollTop: number): number {
+            const state = stateWith();
+            const collapsed = createFoldingRegion(5, 50);
+            collapsed.isCollapsed = true;
+            state.setFoldingRegions([collapsed]);
+            state.goToPosition(cursorLine, 0);
+            state.scrollTop = scrollTop;
+            state.applyRecomputedFoldingRegions([]);
+            return state.scrollTop;
+        }
+
+        it("brings it back from the top row of the screen", () => {
+            expect(unfoldWith(52, 7)).toBe(43);
+        });
+
+        it("leaves it when it was above the screen", () => {
+            expect(unfoldWith(52, 8)).toBe(8);
+        });
+
+        it("leaves it when it was on the row just below the screen", () => {
+            expect(unfoldWith(62, 7)).toBe(7);
+        });
     });
 
     it("the selection stays", () => {

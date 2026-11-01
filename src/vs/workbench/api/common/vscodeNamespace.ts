@@ -48,6 +48,7 @@ import {
     TestTag,
 } from "./testingTypes.ts";
 import { createTestsNoop } from "./testsNoop.ts";
+import { TextEditorRevealType } from "./textEditorRevealType.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import {
@@ -154,7 +155,6 @@ import {
     TextDocumentSaveReason,
     TextEdit,
     TextEditorCursorStyle,
-    TextEditorRevealType,
     TextEditorSelectionChangeKind,
     ThemeColor,
     ThemeIcon,

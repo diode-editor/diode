@@ -1926,15 +1926,14 @@ export class EditorViewState {
 
     private scrollTopToReveal(boxStart: number, boxEnd: number, revealType: RangeRevealType): number {
         const height = this.viewportHeight;
+        if (revealType === "top") return boxStart;
         const inViewport = this.scrollTop <= boxStart && boxEnd <= this.scrollTop + height;
-        // A box larger than the viewport shows its top, whatever the type.
-        if (revealType === "top" || boxEnd - boxStart > height) return boxStart;
-        if (revealType === "center" || (revealType === "centerIfOutsideViewport" && !inViewport)) {
-            return Math.floor((boxStart + boxEnd - height) / 2);
-        }
-        if (revealType === "centerIfOutsideViewport") return this.scrollTop;
-        if (boxStart < this.scrollTop) return boxStart;
-        return boxEnd > this.scrollTop + height ? boxEnd - height : this.scrollTop;
+        const centers = revealType === "center" || (revealType === "centerIfOutsideViewport" && !inViewport);
+        const desired = centers
+            ? Math.floor((boxStart + boxEnd - height) / 2)
+            : Math.max(this.scrollTop, boxEnd - height);
+        // Capped by the start: a box larger than the viewport shows its top, whatever the type.
+        return Math.min(boxStart, desired);
     }
 
     /** The row of a position; a line hidden by a fold has none and answers with its fold header. */

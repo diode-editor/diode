@@ -6,6 +6,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
+import { TextEditorRevealType } from "./textEditorRevealType.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     EventEmitter,
@@ -14,7 +15,6 @@ import {
     Position,
     Range,
     Selection,
-    TextEditorRevealType,
     ThemeColor,
     Uri,
 } from "./vscodeTypes.ts";
