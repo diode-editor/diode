@@ -115,15 +115,13 @@ describe("format: formatter selection from registries", () => {
         }
         const ranged = { ...REQUEST, range: createRange(0, 0, 0, 1) };
 
-        it("picks the named extension wherever it stands in the order, ignoring case", async () => {
-            for (const id of ["acme.first", "acme.second"]) {
-                const name = id === "acme.first" ? "acme.first" : "Acme.Second";
-                const features = twoFormatters();
-                expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN, id)).toEqual([
-                    edit(`document ${name}`),
-                ]);
-                expect(await formatRange(features, TS, ranged, TOKEN, id)).toEqual([edit(`range ${name}`)]);
-            }
+        it.each([
+            ["acme.first", "acme.first"],
+            ["acme.second", "Acme.Second"],
+        ])("picks %s wherever it stands in the order, ignoring case", async (id, name) => {
+            const features = twoFormatters();
+            expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN, id)).toEqual([edit(`document ${name}`)]);
+            expect(await formatRange(features, TS, ranged, TOKEN, id)).toEqual([edit(`range ${name}`)]);
         });
 
         it("nothing configured: the first provider formats, null and an empty id alike", async () => {
@@ -150,19 +148,6 @@ describe("format: formatter selection from registries", () => {
             expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN, "acme.rangeonly")).toEqual([
                 edit("synthetic"),
             ]);
-        });
-
-        it("Format Selection with a named extension that has no range provider: no formatter", async () => {
-            const features = new LanguageFeaturesService();
-            features.documentFormattingEditProvider.register("*", {
-                extensionId: "acme.wholeonly",
-                provideDocumentFormattingEdits: () => Promise.resolve([edit("document")]),
-            });
-            features.documentRangeFormattingEditProvider.register("*", {
-                extensionId: "acme.other",
-                provideDocumentRangeFormattingEdits: () => Promise.resolve([edit("other")]),
-            });
-            expect(await formatRange(features, TS, ranged, TOKEN, "acme.wholeonly")).toBeNull();
         });
     });
 

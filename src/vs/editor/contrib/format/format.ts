@@ -1,4 +1,5 @@
 import type { ICancellationToken } from "../../../base/common/cancellation.ts";
+import { extensionKey } from "../../../platform/extensions/common/extensionDependencies.ts";
 import { createRange, type IRange } from "../../common/core/iRange.ts";
 import type { ITextEdit } from "../../common/core/iTextEdit.ts";
 import type { ILanguageFeatureTarget } from "../../common/languageFeatureRegistry.ts";
@@ -23,14 +24,13 @@ export function hasDocumentFormatter(
     );
 }
 
-/** Extension ids compare case-insensitively, as upstream's `ExtensionIdentifier.equals`. */
 function selectFormatter<T extends { readonly extensionId?: string }>(
     ordered: readonly T[],
     defaultFormatterId: string | null | undefined,
 ): T | undefined {
     if (!defaultFormatterId) return ordered.at(0);
-    const wanted = defaultFormatterId.toLowerCase();
-    return ordered.find((provider) => provider.extensionId?.toLowerCase() === wanted);
+    const wanted = extensionKey(defaultFormatterId);
+    return ordered.find(({ extensionId }) => extensionId !== undefined && extensionKey(extensionId) === wanted);
 }
 
 /** `range` is the whole document ({@link documentRange}): a range formatter's request carries no text. */

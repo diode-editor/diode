@@ -460,7 +460,13 @@ export function createLanguagesNamespace(
         // Capture the owner now: the overlay sets it only for the duration of the
         // synchronous `register*`, while a provider failure happens much later.
         providers.set(handle, { ...registration, owner: ctx.owner.current });
-        rpc.notify("languages.register", { handle, kind, selector: toWireLanguageFilters(selector), ...metadata });
+        rpc.notify("languages.register", {
+            handle,
+            kind,
+            selector: toWireLanguageFilters(selector),
+            extensionId: ctx.owner.current,
+            ...metadata,
+        });
         const subscription = subscribe?.(handle);
         return new DisposableImpl(() => {
             if (!providers.delete(handle)) return;
@@ -1688,26 +1694,13 @@ export function createLanguagesNamespace(
         registerDocumentFormattingEditProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.DocumentFormattingEditProvider,
-        ): vscode.Disposable =>
-            registerByHandle(
-                formattingProviders,
-                "formatting",
-                selector,
-                { selector, provider },
-                { extensionId: ctx.owner.current },
-            ),
+        ): vscode.Disposable => registerByHandle(formattingProviders, "formatting", selector, { selector, provider }),
 
         registerDocumentRangeFormattingEditProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.DocumentRangeFormattingEditProvider,
         ): vscode.Disposable =>
-            registerByHandle(
-                rangeFormattingProviders,
-                "rangeFormatting",
-                selector,
-                { selector, provider },
-                { extensionId: ctx.owner.current },
-            ),
+            registerByHandle(rangeFormattingProviders, "rangeFormatting", selector, { selector, provider }),
 
         registerCodeActionsProvider: (
             selector: vscode.DocumentSelector,

@@ -20,6 +20,11 @@ export function f(x) {
 }
 `;
 
+export const BIOME_SETTINGS = {
+    "[javascript]": { "editor.defaultFormatter": "biomejs.biome" },
+    "editor.codeActionsOnSave": { "source.organizeImports.biome": "explicit" },
+};
+
 export function npmMissing(): string | undefined {
     const found = spawnSync("npm", ["--version"], { stdio: "ignore", shell: process.platform === "win32" });
     return found.status === 0 ? undefined : "npm not found in PATH: the Biome package cannot be installed";

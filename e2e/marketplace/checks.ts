@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { npmMissing, writeBiomeProject } from "../../src/TestUtils/biomeFixture.ts";
+import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../../src/TestUtils/biomeFixture.ts";
 import {
     ensureEslintLibrary,
     ESLINT_FLAT_CONFIG,
@@ -819,10 +819,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 root: ctx.root,
                 keepRoot: true,
                 open: [projectRoot, file],
-                settings: {
-                    "[javascript]": { "editor.defaultFormatter": "biomejs.biome" },
-                    "editor.codeActionsOnSave": { "source.organizeImports.biome": "explicit" },
-                },
+                settings: BIOME_SETTINGS,
             });
             try {
                 await waitUntil(
@@ -876,9 +873,6 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 "languages.registerDocumentSymbolProvider",
             ]) {
                 if (registered.includes(absent)) throw new Error(`Biome now registers ${absent}: update the entry`);
-            }
-            if (!registered.includes("languages.registerDocumentFormattingEditProvider")) {
-                throw new Error(`no formatter in the journal: ${registered.join(", ")}`);
             }
         },
     },

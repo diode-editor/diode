@@ -28,7 +28,7 @@ async function runFormat(accessor: ServiceAccessor, useSelection: boolean, label
 
     const defaultFormatterId = accessor
         .get(IConfigurationServiceDIToken)
-        .get<string | null>("editor.defaultFormatter", { overrideIdentifier: editor.languageId });
+        .get("editor.defaultFormatter", { overrideIdentifier: editor.languageId });
     const text = editor.getText();
     const request = {
         uri: editor.uri.toString(),

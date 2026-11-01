@@ -94,7 +94,7 @@ export function createFormatOnSaveParticipant(host: IOnSaveParticipantHost): Sav
             documentRange(pane.model.document),
             // The version check below discards a stale response; the pipeline has no cancellation of its own.
             CancellationTokenNone,
-            host.configuration.get<string | null>("editor.defaultFormatter", {
+            host.configuration.get("editor.defaultFormatter", {
                 overrideIdentifier: snapshot.languageId,
             }),
         );

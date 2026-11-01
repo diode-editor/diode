@@ -2,7 +2,7 @@ import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { npmMissing, writeBiomeProject } from "../../src/TestUtils/biomeFixture.ts";
+import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../../src/TestUtils/biomeFixture.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
@@ -24,10 +24,7 @@ export default defineScenario({
     // Extension host scenarios run a subprocess: Linux only.
     skipOn: ["win32", "darwin"],
     requires: npmMissing,
-    settings: {
-        "[javascript]": { "editor.defaultFormatter": "biomejs.biome" },
-        "editor.codeActionsOnSave": { "source.organizeImports.biome": "explicit" },
-    },
+    settings: BIOME_SETTINGS,
     prepare() {
         rmSync(projectRoot, { recursive: true, force: true });
         writeBiomeProject(projectRoot);
