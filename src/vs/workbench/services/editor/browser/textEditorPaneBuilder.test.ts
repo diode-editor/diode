@@ -32,13 +32,17 @@ describe("TextEditorPaneBuilder — inlay hints", () => {
         return { builder, provideInlayHints };
     }
 
-    /** The first request leaves on a zero timer: the pane is built before its document is synced. */
-    const firstRequest = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+    afterEach(() => {
+        vi.useRealTimers();
+    });
 
     it("a file editor asks the providers", async () => {
         const { builder, provideInlayHints } = setup();
         const pane = builder.build(new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService()));
-        await firstRequest();
+        await vi.advanceTimersByTimeAsync(1000);
         expect(provideInlayHints).toHaveBeenCalledOnce();
         pane.dispose();
     });
@@ -52,7 +56,7 @@ describe("TextEditorPaneBuilder — inlay hints", () => {
             "plaintext",
         );
         const pane = builder.build(model);
-        await firstRequest();
+        await vi.advanceTimersByTimeAsync(1000);
         expect(provideInlayHints).not.toHaveBeenCalled();
         pane.dispose();
     });

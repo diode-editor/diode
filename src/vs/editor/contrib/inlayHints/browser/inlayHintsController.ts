@@ -206,8 +206,8 @@ export class InlayHintsController extends Disposable {
                 }),
             );
         }
-        // Upstream `scheduler.schedule(0)`. Not a direct call: the editor is built before its document reaches the
-        // extension host, a request from here would be answered "not synced" and nothing would ask again until an edit.
+        // Upstream's `scheduler.schedule(0)`: an editor is built before its document reaches the extension host, and a
+        // request sent now would be answered "not synced" with nothing to ask again.
         this.scheduler.schedule(0);
     }
 

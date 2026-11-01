@@ -918,6 +918,17 @@
   запрос с `only` ⊇ `source.organizeImports.ts` и считает правки лениво; клиент дописывает действие
   с пустым `WorkspaceEdit`, и команда молчит, как в VS Code, вместо «No organize imports action for
   'javascript'».
+  **Inlay hints и code lens** включаются ключами эталона `typescript-language-features`
+  (`typescript.inlayHints.*`, `javascript.inlayHints.*`, `*.referencesCodeLens.*`,
+  `typescript.implementationsCodeLens.*`), по умолчанию выключены. Сервер берёт эти предпочтения только из
+  `workspace/didChangeConfiguration` (`workspace/configuration` он спрашивает лишь про `formattingOptions`) и заменяет
+  ими свою копию целиком, поэтому `synchronize.configurationSection` плюс middleware
+  `workspace.didChangeConfiguration` шлют полный перевод (`lib/serverSettings.ts`) на старте и при каждой смене;
+  сервер сам просит клиента обновить подсказки и линзы (`inlayHint/refresh`, `codeLens/refresh`). Перевод как в
+  `getInlayHintsPreferences` эталона: `suppressWhen*` → `includeWhen*` с отрицанием. Настройки читаются без `scope`:
+  уведомление одно на сервер, поэтому `scope: "resource"` у подсказок на деле — на всё окно. Сервер игнорирует
+  `implementationsCodeLens.showOnInterfaceMethods`. Не объявлены `js/ts.*` (единые ключи эталона 1.127) и
+  `implementationsCodeLens.showOnAllClassMethods`, у старых ключей поэтому нет `markdownDeprecationMessage`.
   **Статус проекта JS/TS** (`lib/projectStatus.ts`, `lib/projectConfig.ts`) — порт эталонного
   `IntellisenseStatus` и команд `tsconfig.ts`: элемент Language Status `typescript.projectStatus`
   («No jsconfig» → «Configure JSConfig», путь конфига → «Open Config File», «Loading IntelliSense

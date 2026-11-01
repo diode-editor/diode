@@ -77,6 +77,19 @@ describe("EditorComponent — inlay hints", () => {
         return { pane, app, row, settle };
     }
 
+    it("a new editor asks the providers after it is built: its document reaches the extension host only then", async () => {
+        const provideInlayHints = vi.fn(() => ({ hints: [], dispose: () => undefined }));
+        providers.register("*", { provideInlayHints });
+        const pane = createEditorPane({
+            inlayHintsProviders: providers,
+            file: Uri.file(ws.writeFile("a.ts", "let x = 1")),
+        });
+        expect(provideInlayHints).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(provideInlayHints).toHaveBeenCalledTimes(1);
+        pane.dispose();
+    });
+
     describe("frame", () => {
         it("draws the label at its position in the hint colors; the tail moves right", async () => {
             providers.register("*", provider([hint(0, 5, ": number")]));
