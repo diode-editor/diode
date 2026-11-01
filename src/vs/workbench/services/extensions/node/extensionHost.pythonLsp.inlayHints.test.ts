@@ -99,6 +99,35 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — inlay hints from the sto
         });
     });
 
+    it("a python file opened after the server is up shows hints with no edit", { timeout: 240_000 }, async () => {
+        await withPython(ANNOTATED_PY, async ({ harness, frameHas }) => {
+            await frameHas(DEF_WITH_HINT, CALL_WITH_HINTS);
+            harness.group.openFile(
+                harness.writeFile("second.py", "def g(x: int, y: int):\n    return x + y\n\nq = g(3, 4)\n"),
+            );
+            await frameHas("def g(x: int, y: int) -> int:", "q: int = g(x=3, y=4)");
+        });
+    });
+
+    it(
+        "with word wrap, a line that fits only without its hints wraps and loses no text",
+        { timeout: 240_000 },
+        async () => {
+            // 39 characters: fits the wrap column alone, not with `: int`, `a=` and `b=`.
+            const source = "def f(a: int, b: int):\n    return a + b\n\nresult_value_name = f(1111111, 2222222)\n";
+            await withPython(source, async ({ harness, frame, frameHas }) => {
+                const editor = harness.group.getActiveEditor();
+                if (editor === null) throw new Error("no active editor");
+                editor.setWordWrap("wordWrapColumn", 40);
+                await frameHas("result_value_name: int");
+                // The hints push the line over the column, so it takes two rows. When the column is the edge of the
+                // viewport (`wordWrap: on` in a narrow terminal), not wrapping here cuts real text off the frame.
+                expect(frame()).not.toContain("result_value_name: int = f(a=1111111, b=2222222)");
+                expect(frame().replace(/\s+/g, "")).toContain("result_value_name:int=f(a=1111111,b=2222222)");
+            });
+        },
+    );
+
     it(
         "the issue's unannotated sample shows what the server infers: Any and no variable type",
         {
