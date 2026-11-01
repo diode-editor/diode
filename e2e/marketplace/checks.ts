@@ -475,7 +475,8 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 settings: { "npm-intellisense.scanDevDependencies": true },
             });
             try {
-                // Awaits activation, so the completion provider is registered before the typing below.
+                // `executeCommand` rejects an id that is not registered yet, and the typing below needs the provider.
+                await app.session.waitForReady();
                 await app.session.executeCommand("npm-intellisense.import");
                 await app.session.waitForText((text) => text.includes("npm module") && text.includes("dev-only-mod"), {
                     timeoutMs: 40_000,
