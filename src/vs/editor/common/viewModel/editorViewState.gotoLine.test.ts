@@ -79,22 +79,59 @@ describe("EditorViewState.goToPosition", () => {
     });
 });
 
-describe("EditorViewState.revealRangeInCenter", () => {
+describe("EditorViewState.revealRangeNearBottom", () => {
     const at = (line: number) => ({ start: { line, character: 0 }, end: { line, character: 3 } });
 
-    it("puts the line in the middle of the viewport, in either direction, and leaves the selection", () => {
+    it("puts the line two rows above the viewport's end, in either direction, and leaves the selection", () => {
         const state = makeState(100);
-        state.revealRangeInCenter(at(50));
-        expect(state.scrollTop).toBe(45);
-        state.revealRangeInCenter(at(20));
-        expect(state.scrollTop).toBe(15);
+        state.revealRangeNearBottom(at(50));
+        expect(state.scrollTop).toBe(43);
+        state.revealRangeNearBottom(at(20));
+        expect(state.scrollTop).toBe(13);
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
     it("stops at the top of the document", () => {
         const state = makeState(100);
-        state.revealRangeInCenter(at(50));
-        state.revealRangeInCenter(at(2));
+        state.revealRangeNearBottom(at(50));
+        state.revealRangeNearBottom(at(2));
         expect(state.scrollTop).toBe(0);
+    });
+
+    it("in a tiny viewport the context never pushes the line off the screen", () => {
+        const state = makeState(100);
+        state.viewportHeight = 3;
+        state.revealRangeNearBottom(at(50));
+        expect(state.scrollTop).toBe(49);
+    });
+});
+
+describe("EditorViewState collapsed folds", () => {
+    function folded(): EditorViewState {
+        const state = makeState(30);
+        state.setFoldingRegions([
+            { startLine: 2, endLine: 5, isCollapsed: true },
+            { startLine: 10, endLine: 14, isCollapsed: false },
+        ] as never);
+        return state;
+    }
+
+    it("reports the start lines of the collapsed regions", () => {
+        expect(folded().getCollapsedFolds()).toEqual([2]);
+    });
+
+    it("restoring puts both directions back and rebuilds", () => {
+        const state = folded();
+        const version = state.foldStateVersion;
+        state.restoreCollapsedFolds([10]);
+        expect(state.getCollapsedFolds()).toEqual([10]);
+        expect(state.foldStateVersion).toBeGreaterThan(version);
+    });
+
+    it("restoring the same state does not count as a change", () => {
+        const state = folded();
+        const version = state.foldStateVersion;
+        state.restoreCollapsedFolds([2]);
+        expect(state.foldStateVersion).toBe(version);
     });
 });

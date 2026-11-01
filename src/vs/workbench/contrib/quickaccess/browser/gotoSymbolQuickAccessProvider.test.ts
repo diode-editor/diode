@@ -56,20 +56,24 @@ interface IFixture {
     readonly refresh: ReturnType<typeof vi.fn<(preserveSelection: boolean) => void>>;
     readonly jump: ReturnType<typeof vi.fn>;
     readonly goToPosition: ReturnType<typeof vi.fn<(line: number, character?: number) => void>>;
-    readonly revealRangeInCenter: ReturnType<typeof vi.fn<(range: IRange) => void>>;
+    readonly restoreCollapsedFolds: ReturnType<typeof vi.fn<(startLines: readonly number[]) => void>>;
+    readonly revealRangeNearBottom: ReturnType<typeof vi.fn<(range: IRange) => void>>;
 }
 
 function makeFixture(activeEditor = true, cursor = createCursorSelection(6, 2)): IFixture {
     const features = new LanguageFeaturesService();
     const decorations: IExternalDecorations[] = [];
     const goToPosition = vi.fn<(line: number, character?: number) => void>();
-    const revealRangeInCenter = vi.fn<(range: IRange) => void>();
+    const revealRangeNearBottom = vi.fn<(range: IRange) => void>();
+    const restoreCollapsedFolds = vi.fn<(startLines: readonly number[]) => void>();
     const viewState = {
         scrollTop: 3,
         selections: [cursor] as readonly ISelection[],
         primaryCursorLine: cursor.active.line,
         primaryCursorColumn: cursor.active.character,
-        revealRangeInCenter,
+        revealRangeNearBottom,
+        getCollapsedFolds: () => [10],
+        restoreCollapsedFolds,
         goToPosition,
     };
     const editor: IGotoSymbolEditor = {
@@ -88,7 +92,17 @@ function makeFixture(activeEditor = true, cursor = createCursorSelection(6, 2)):
         { jump, jumpAsync: vi.fn() } as unknown as IJumpRecorder,
     );
     const refresh = vi.fn<(preserveSelection: boolean) => void>();
-    return { provider, features, editor, decorations, refresh, jump, goToPosition, revealRangeInCenter };
+    return {
+        provider,
+        features,
+        editor,
+        decorations,
+        refresh,
+        jump,
+        goToPosition,
+        revealRangeNearBottom,
+        restoreCollapsedFolds,
+    };
 }
 
 function registerProvider(fixture: IFixture, answer: readonly ICoreDocumentSymbol[] = TREE): DocumentSymbolProvider {
@@ -415,17 +429,33 @@ describe("GotoSymbolQuickAccessProvider — preview and return", () => {
 
     it("the active row is revealed and its name's line lit, the selection untouched", () => {
         fixture.provider.onActiveItemChanged(items[1]);
-        expect(fixture.revealRangeInCenter).toHaveBeenCalledWith(createRange(1, 4, 1, 9));
+        expect(fixture.revealRangeNearBottom).toHaveBeenCalledWith(createRange(1, 4, 1, 9));
         expect(fixture.decorations).toEqual([
             { lineBackgrounds: [{ startLine: 1, endLine: 1, colorToken: "editor.rangeHighlightBackground" }] },
         ]);
         expect(fixture.goToPosition).not.toHaveBeenCalled();
     });
 
+    it("every preview, cancel and accept put back the folds the picker found, before moving on", () => {
+        fixture.provider.onActiveItemChanged(items[1]);
+        expect(fixture.restoreCollapsedFolds).toHaveBeenCalledExactlyOnceWith([10]);
+        expect(fixture.restoreCollapsedFolds.mock.invocationCallOrder[0]).toBeLessThan(
+            fixture.revealRangeNearBottom.mock.invocationCallOrder[0],
+        );
+
+        fixture.provider.onHide("accept");
+        expect(fixture.restoreCollapsedFolds).toHaveBeenCalledTimes(2);
+    });
+
+    it("cancel puts the folds back too", () => {
+        fixture.provider.onHide("cancel");
+        expect(fixture.restoreCollapsedFolds).toHaveBeenCalledExactlyOnceWith([10]);
+    });
+
     it("an informational row or none previews nothing", () => {
         fixture.provider.onActiveItemChanged({ label: "No editor symbols" });
         fixture.provider.onActiveItemChanged(undefined);
-        expect(fixture.revealRangeInCenter).not.toHaveBeenCalled();
+        expect(fixture.revealRangeNearBottom).not.toHaveBeenCalled();
         expect(fixture.decorations).toEqual([]);
     });
 
@@ -463,7 +493,7 @@ describe("GotoSymbolQuickAccessProvider — preview and return", () => {
         const { viewState } = fixture.editor;
         fixture.provider.onHide("cancel");
         fixture.provider.onActiveItemChanged(items[0]);
-        expect(fixture.revealRangeInCenter).not.toHaveBeenCalled();
+        expect(fixture.revealRangeNearBottom).not.toHaveBeenCalled();
         viewState.scrollTop = 99;
         fixture.provider.onHide("cancel");
         expect(viewState.scrollTop).toBe(99);

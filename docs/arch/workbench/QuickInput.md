@@ -87,8 +87,8 @@
   `IWorkspaceRootSource` → `ExplorerService`, оба структурно),
   `GotoSymbolQuickAccessProvider` (`@` и `@:`, `workbench.action.gotoSymbol`, Ctrl+Shift+O, ключ
   `inFileSymbolsPicker`; шов `IGotoSymbolEditorSource` → `EditorService`): символы запрашиваются раз на показ у
-  первого провайдера с непустым ответом и фильтруются на каждую клавишу; превью — `revealRangeInCenter` и фон строки
-  `editor.rangeHighlightBackground` без смены выделения, `cancel` возвращает `scrollTop` и выделения, `accept` ставит
+  первого провайдера с непустым ответом и фильтруются на каждую клавишу; превью — `revealRangeNearBottom` (не центр, как в эталоне: центр закрыт пикером) и фон строки
+  `editor.rangeHighlightBackground` без смены выделения, `cancel` возвращает `scrollTop`, выделения и свёрнутые области (шаг превью и `accept` разворачивают только нужную), `accept` ставит
   курсор через `jumps.jump`. Отступления от эталона: у виджета нет сепараторов (имя группы — `hint` первой строки,
   как у tasks), зачёркивания (метка `(deprecated)`), индикатора `busy` (пока ответ в пути, список пуст);
   подсвечена строка имени символа, а не весь его диапазон. Соседний

@@ -1079,51 +1079,36 @@ export class InlayHint implements vscode.InlayHint {
 }
 
 export class SymbolInformation {
-    public static validate(candidate: SymbolInformation): void {
-        if (!candidate.name) throw new Error("name must not be falsy");
-    }
-
-    public name: string;
-    public kind: SymbolKind;
-    public tags?: SymbolTag[];
-    public containerName: string;
-    public location: Location;
+    // `declare`: no fields to emit. This module counts against `sharedBudgetKb` of the extension host chunk.
+    declare public name: string;
+    declare public kind: SymbolKind;
+    declare public tags?: SymbolTag[];
+    declare public containerName: string;
+    declare public location: Location;
 
     public constructor(name: string, kind: SymbolKind, containerName: string, location: Location);
     public constructor(name: string, kind: SymbolKind, range: Range, uri?: Uri, containerName?: string);
-    public constructor(
-        name: string,
-        kind: SymbolKind,
-        rangeOrContainer: string | Range,
-        locationOrUri?: Location | Uri,
-        containerName?: string,
-    ) {
+    public constructor(name: string, kind: SymbolKind, at: string | Range, to?: Location | Uri, box = "") {
+        if (!name) throw new Error("name must not be falsy");
         this.name = name;
         this.kind = kind;
-        if (typeof rangeOrContainer === "string") {
-            this.containerName = rangeOrContainer;
-            this.location = locationOrUri as Location;
-        } else {
-            this.containerName = containerName ?? "";
-            this.location = new Location(locationOrUri as Uri, rangeOrContainer);
-        }
-        SymbolInformation.validate(this);
+        const old = typeof at !== "string";
+        this.containerName = old ? box : at;
+        this.location = old ? new Location(to as Uri, at) : (to as Location);
     }
 }
 
 export class DocumentSymbol {
-    public static validate(candidate: DocumentSymbol): void {
+    public static validate(this: void, candidate: DocumentSymbol): void {
         if (!candidate.name) throw new Error("name must not be falsy");
         if (!candidate.range.contains(candidate.selectionRange)) {
             throw new Error("selectionRange must be contained in fullRange");
         }
         // The types promise an array, but a JS extension may have overwritten it.
-        (candidate.children as DocumentSymbol[] | undefined)?.forEach((child) => {
-            DocumentSymbol.validate(child);
-        });
+        (candidate.children as DocumentSymbol[] | undefined)?.forEach(DocumentSymbol.validate);
     }
 
-    public tags?: SymbolTag[];
+    declare public tags?: SymbolTag[];
     public children: DocumentSymbol[] = [];
 
     public constructor(

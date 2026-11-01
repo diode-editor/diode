@@ -48,7 +48,9 @@ export interface IGotoSymbolViewState {
     set selections(value: readonly ISelection[]);
     readonly primaryCursorLine: number;
     readonly primaryCursorColumn: number;
-    revealRangeInCenter(range: IRange): void;
+    revealRangeNearBottom(range: IRange): void;
+    getCollapsedFolds(): readonly number[];
+    restoreCollapsedFolds(startLines: readonly number[]): void;
     goToPosition(line: number, character?: number): void;
 }
 
@@ -201,6 +203,8 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
     private state: SymbolsState = { phase: "noEditor" };
     private editor: IGotoSymbolEditor | null = null;
     private restore: (() => void) | null = null;
+    /** A preview unfolds only the region of the symbol it shows, not every one it passed. */
+    private restoreFolds: (() => void) | null = null;
     private cursor: IPosition | null = null;
     private request: CancellationTokenSource | null = null;
     private registryListener: IDisposable | null = null;
@@ -226,7 +230,12 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
         const { viewState } = editor;
         const scrollTop = viewState.scrollTop;
         const selections = [...viewState.selections];
+        const folds = viewState.getCollapsedFolds();
+        this.restoreFolds = () => {
+            viewState.restoreCollapsedFolds(folds);
+        };
         this.restore = () => {
+            viewState.restoreCollapsedFolds(folds);
             viewState.selections = selections;
             viewState.scrollTop = scrollTop;
         };
@@ -252,8 +261,9 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
         this.request?.cancel();
         this.request = null;
         this.editor?.setDecorations(EMPTY_EXTERNAL_DECORATIONS);
-        if (reason === "cancel") this.restore?.();
+        (reason === "cancel" ? this.restore : this.restoreFolds)?.();
         this.restore = null;
+        this.restoreFolds = null;
         this.editor = null;
     }
 
@@ -286,7 +296,8 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
     public onActiveItemChanged(item: QuickAccessItem | undefined): void {
         if (!isSymbolItem(item) || this.editor === null) return;
         const { selectionRange } = item.symbol;
-        this.editor.viewState.revealRangeInCenter(selectionRange);
+        this.restoreFolds?.();
+        this.editor.viewState.revealRangeNearBottom(selectionRange);
         const line = selectionRange.start.line;
         this.editor.setDecorations({
             lineBackgrounds: [{ startLine: line, endLine: line, colorToken: "editor.rangeHighlightBackground" }],
