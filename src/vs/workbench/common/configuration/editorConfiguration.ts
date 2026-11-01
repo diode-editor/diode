@@ -126,6 +126,13 @@ export const editorConfiguration = {
             maximum: 1000000,
             description: "Controls the max number of color decorators that can be rendered in an editor at once.",
         },
+        // `editor.codeLensFontFamily` and `editor.codeLensFontSize` are not ported: a terminal has one font.
+        "editor.codeLens": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description: "Controls whether the editor shows CodeLens.",
+        },
         // `editor.inlayHints.fontSize` and `fontFamily` are not ported: a terminal has one font.
         "editor.inlayHints.enabled": {
             scope: "language-overridable",
@@ -170,8 +177,28 @@ export const editorConfiguration = {
             scope: "language-overridable",
             type: "string",
             enum: ["off", "singleFile", "multiFile"],
+            enumDescriptions: [
+                "Does not highlight occurrences.",
+                "Highlights occurrences only in the current file.",
+                "Experimental: Highlights occurrences across all valid open files.",
+            ],
             default: "singleFile",
-            description: "Controls whether the editor highlights semantic symbol occurrences.",
+            description: "Controls whether occurrences should be highlighted across open files.",
+        },
+        "editor.occurrencesHighlightDelay": {
+            scope: "language-overridable",
+            type: "integer",
+            default: 0,
+            minimum: 0,
+            maximum: 2000,
+            description: "Controls the delay in milliseconds after which occurrences are highlighted.",
+        },
+        "editor.linkedEditing": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description:
+                "Controls whether the editor has linked editing enabled. Depending on the language, related symbols such as HTML tags, are updated while editing.",
         },
         // Our own key: VS Code draws the overview ruler inside its scrollbar and has nowhere else to put it.
         "editor.scrollbarMarkers": {
@@ -267,6 +294,12 @@ export const editorConfiguration = {
             description:
                 "The number of lines above which a file is treated as large when `editor.largeFileOptimizations` " +
                 "is on.",
+        },
+        "editor.formatOnType": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description: "Controls whether the editor should automatically format the line after typing.",
         },
         "editor.formatOnSave": {
             scope: "language-overridable",

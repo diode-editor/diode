@@ -447,6 +447,32 @@ declare module "vscode" {
 		}): Thenable<boolean>;
 
 		/**
+		 * Insert a {@link SnippetString snippet} and put the editor into snippet mode. "Snippet mode"
+		 * means the editor adds placeholders and additional cursors so that the user can complete
+		 * or accept the snippet.
+		 *
+		 * @param snippet The snippet to insert in this edit.
+		 * @param location Position or range at which to insert the snippet, defaults to the current editor selection or selections.
+		 * @param options The undo/redo behavior around this edit. By default, undo stops will be created before and after this edit.
+		 * @returns A promise that resolves with a value indicating if the snippet could be inserted. Note that the promise does not signal
+		 * that the snippet is completely filled-in or accepted.
+		 */
+		insertSnippet(snippet: SnippetString, location?: Position | Range | readonly Position[] | readonly Range[], options?: {
+			/**
+			 * Add undo stop before making the edits.
+			 */
+			readonly undoStopBefore: boolean;
+			/**
+			 * Add undo stop after making the edits.
+			 */
+			readonly undoStopAfter: boolean;
+			/**
+			 * Keep whitespace of the {@link SnippetString.value} as is.
+			 */
+			readonly keepWhitespace?: boolean;
+		}): Thenable<boolean>;
+
+		/**
 		 * Adds a set of decorations to the text editor. If a set of decorations already exists with
 		 * the given {@link TextEditorDecorationType decoration type}, they will be replaced. If
 		 * `rangesOrOptions` is empty, the existing decorations with the given {@link TextEditorDecorationType decoration type}
@@ -1085,6 +1111,17 @@ declare module "vscode" {
 		 * @returns A new {@link QuickPick}.
 		 */
 		export function createQuickPick<T extends QuickPickItem>(): QuickPick<T>;
+
+		/**
+		 * Creates a {@link InputBox} to let the user enter some text input.
+		 *
+		 * Note that in many cases the more convenient {@link window.showInputBox} is easier to use.
+		 * {@link window.createInputBox} should be used when {@link window.showInputBox} does not offer
+		 * the required flexibility.
+		 *
+		 * @returns A new {@link InputBox}.
+		 */
+		export function createInputBox(): InputBox;
 
 		/**
 		 * Creates a new {@link OutputChannel output channel} with the given name and language id
@@ -5446,6 +5483,26 @@ declare module "vscode" {
 		readonly onDidAccept: Event<void>;
 
 		/**
+		 * Buttons for actions in the UI.
+		 */
+		buttons: readonly QuickInputButton[];
+
+		/**
+		 * An event signaling when a button was triggered.
+		 *
+		 * This event fires for buttons stored in the {@link QuickPick.buttons buttons} array. This event does
+		 * not fire for buttons on a {@link QuickPickItem}.
+		 */
+		readonly onDidTriggerButton: Event<QuickInputButton>;
+
+		/**
+		 * An event signaling when a button in a particular {@link QuickPickItem} was triggered.
+		 *
+		 * This event does not fire for buttons in the title bar which are part of {@link QuickPick.buttons buttons}.
+		 */
+		readonly onDidTriggerItemButton: Event<QuickPickItemButtonEvent<T>>;
+
+		/**
 		 * Items to pick from. This can be read and updated by the extension.
 		 */
 		items: readonly T[];
@@ -5489,6 +5546,163 @@ declare module "vscode" {
 		 * An event signaling when the selected items have changed.
 		 */
 		readonly onDidChangeSelection: Event<readonly T[]>;
+	}
+
+	/**
+	 * A concrete {@link QuickInput} to let the user input a text value.
+	 *
+	 * Note that in many cases the more convenient {@link window.showInputBox} is easier to use.
+	 * {@link window.createInputBox} should be used when {@link window.showInputBox} does not offer
+	 * the required flexibility.
+	 */
+	export interface InputBox extends QuickInput {
+
+		/**
+		 * The current input value.
+		 */
+		value: string;
+
+		/**
+		 * Selection range in the input value.
+		 *
+		 * Defined as tuple of two numbers where the first is the inclusive start index and the second the
+		 * exclusive end index. When `undefined` the whole pre-filled value will be selected, when empty
+		 * (start equals end) only the cursor will be set, otherwise the defined range will be selected.
+		 *
+		 * This property does not get updated when the user types or makes a selection, but it can be updated
+		 * by the extension.
+		 */
+		valueSelection: readonly [number, number] | undefined;
+
+		/**
+		 * Optional placeholder text shown when no value has been input.
+		 */
+		placeholder: string | undefined;
+
+		/**
+		 * Determines if the input value should be hidden. Defaults to `false`.
+		 */
+		password: boolean;
+
+		/**
+		 * An event signaling when the value has changed.
+		 */
+		readonly onDidChangeValue: Event<string>;
+
+		/**
+		 * An event signaling when the user indicated acceptance of the input value.
+		 */
+		readonly onDidAccept: Event<void>;
+
+		/**
+		 * Buttons for actions in the UI.
+		 */
+		buttons: readonly QuickInputButton[];
+
+		/**
+		 * An event signaling when a button was triggered.
+		 */
+		readonly onDidTriggerButton: Event<QuickInputButton>;
+
+		/**
+		 * An optional prompt text providing some ask or explanation to the user.
+		 */
+		prompt: string | undefined;
+
+		/**
+		 * An optional validation message indicating a problem with the current input value.
+		 *
+		 * By setting a string, the InputBox will use a default {@link InputBoxValidationSeverity} of Error.
+		 * Returning `undefined` clears the validation message.
+		 */
+		validationMessage: string | InputBoxValidationMessage | undefined;
+	}
+
+	/**
+	 * Specifies the location where a {@link QuickInputButton} should be rendered.
+	 */
+	export enum QuickInputButtonLocation {
+		/**
+		 * The button is rendered in the title bar.
+		 */
+		Title = 1,
+
+		/**
+		 * The button is rendered inline to the right of the input box.
+		 */
+		Inline = 2,
+
+		/**
+		 * The button is rendered at the far end inside the input box.
+		 */
+		Input = 3
+	}
+
+	/**
+	 * A button for an action in a {@link QuickPick} or {@link InputBox}.
+	 */
+	export interface QuickInputButton {
+		/**
+		 * The icon for the button.
+		 */
+		readonly iconPath: IconPath;
+
+		/**
+		 * An optional tooltip displayed when hovering over the button.
+		 */
+		readonly tooltip?: string | undefined;
+
+		/**
+		 * The location where the button should be rendered.
+		 *
+		 * Defaults to {@link QuickInputButtonLocation.Title}.
+		 *
+		 * **Note:** This property is ignored if the button was added to a {@link QuickPickItem}.
+		 */
+		location?: QuickInputButtonLocation;
+
+		/**
+		 * When present, indicates that the button is a toggle button that can be checked or unchecked.
+		 */
+		readonly toggle?: {
+			/**
+			 * Indicates whether the toggle button is currently checked.
+			 * This property will be updated when the button is toggled.
+			 */
+			checked: boolean;
+		};
+	}
+
+	/**
+	 * Predefined buttons for {@link QuickPick} and {@link InputBox}.
+	 */
+	export class QuickInputButtons {
+		/**
+		 * A predefined back button for {@link QuickPick} and {@link InputBox}.
+		 *
+		 * This button should be used for consistency when a navigation back button is needed. It comes
+		 * with a predefined icon, tooltip, and location.
+		 */
+		static readonly Back: QuickInputButton;
+
+		/**
+		 * @hidden
+		 */
+		private constructor();
+	}
+
+	/**
+	 * An event describing a button that was pressed on a {@link QuickPickItem}.
+	 */
+	export interface QuickPickItemButtonEvent<T extends QuickPickItem> {
+		/**
+		 * The button that was pressed.
+		 */
+		readonly button: QuickInputButton;
+		/**
+		 * The item that the button belongs to.
+		 */
+		readonly item: T;
 	}
 
 	/**
@@ -6999,6 +7213,30 @@ declare module "vscode" {
 	}
 
 	/**
+	 * The document formatting provider interface defines the contract between extensions and
+	 * the formatting-feature.
+	 */
+	export interface OnTypeFormattingEditProvider {
+
+		/**
+		 * Provide formatting edits after a character has been typed.
+		 *
+		 * The given position and character should hint to the provider
+		 * what range the position to expand to, like find the matching `{`
+		 * when `}` has been entered.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param ch The character that has been typed.
+		 * @param options Options controlling formatting.
+		 * @param token A cancellation token.
+		 * @returns A set of text edits or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideOnTypeFormattingEdits(document: TextDocument, position: Position, ch: string, options: FormattingOptions, token: CancellationToken): ProviderResult<TextEdit[]>;
+	}
+
+	/**
 	 * The rename provider interface defines the contract between extensions and
 	 * the [rename](https://code.visualstudio.com/docs/editor/editingevolved#_rename-symbol)-feature.
 	 */
@@ -8047,6 +8285,21 @@ declare module "vscode" {
 		export function registerDocumentRangeFormattingEditProvider(selector: DocumentSelector, provider: DocumentRangeFormattingEditProvider): Disposable;
 
 		/**
+		 * Register a formatting provider that works on type. The provider is active when the user enables the setting `editor.formatOnType`.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are sorted
+		 * by their {@link languages.match score} and the best-matching provider is used. Failure
+		 * of the selected provider will cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider An on type formatting edit provider.
+		 * @param firstTriggerCharacter A character on which formatting should be triggered, like `}`.
+		 * @param moreTriggerCharacter More trigger characters.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerOnTypeFormattingEditProvider(selector: DocumentSelector, provider: OnTypeFormattingEditProvider, firstTriggerCharacter: string, ...moreTriggerCharacter: string[]): Disposable;
+
+		/**
 		 * Register a code action provider.
 		 *
 		 * Multiple providers can be registered for a language. In that case providers are asked in
@@ -8091,6 +8344,24 @@ declare module "vscode" {
 		export function registerSelectionRangeProvider(selector: DocumentSelector, provider: SelectionRangeProvider): Disposable;
 
 		/**
+		 * Register a call hierarchy provider.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A call hierarchy provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerCallHierarchyProvider(selector: DocumentSelector, provider: CallHierarchyProvider): Disposable;
+
+		/**
+		 * Register a type hierarchy provider.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A type hierarchy provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerTypeHierarchyProvider(selector: DocumentSelector, provider: TypeHierarchyProvider): Disposable;
+
+		/**
 		 * Register a color provider.
 		 *
 		 * Multiple providers can be registered for a language. In that case providers are asked in
@@ -8101,7 +8372,22 @@ declare module "vscode" {
 		 * @param provider A color provider.
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
+		export function registerDocumentHighlightProvider(selector: DocumentSelector, provider: DocumentHighlightProvider): Disposable;
+
 		export function registerColorProvider(selector: DocumentSelector, provider: DocumentColorProvider): Disposable;
+
+		/**
+		 * Register a code lens provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A code lens provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerCodeLensProvider(selector: DocumentSelector, provider: CodeLensProvider): Disposable;
 
 		/**
 		 * Register a inlay hints provider.
@@ -8115,6 +8401,19 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
 		export function registerInlayHintsProvider(selector: DocumentSelector, provider: InlayHintsProvider): Disposable;
+
+		/**
+		 * Register a linked editing range provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are sorted
+		 * by their {@link languages.match score} and the best-matching provider that has a result is used. Failure
+		 * of the selected provider will cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A linked editing range provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerLinkedEditingRangeProvider(selector: DocumentSelector, provider: LinkedEditingRangeProvider): Disposable;
 
 		/**
 		 * Creates a new {@link LanguageStatusItem language status item}.
@@ -8224,6 +8523,104 @@ declare module "vscode" {
 	 * A selection range represents a part of a selection hierarchy. A selection range
 	 * may have a parent selection range that contains it.
 	 */
+	export enum DocumentHighlightKind {
+
+		/**
+		 * A textual occurrence.
+		 */
+		Text = 0,
+
+		/**
+		 * Read-access of a symbol, like reading a variable.
+		 */
+		Read = 1,
+
+		/**
+		 * Write-access of a symbol, like writing to a variable.
+		 */
+		Write = 2
+	}
+
+	export class DocumentHighlight {
+
+		/**
+		 * The range this highlight applies to.
+		 */
+		range: Range;
+
+		/**
+		 * The highlight kind, default is {@link DocumentHighlightKind.Text text}.
+		 */
+		kind?: DocumentHighlightKind;
+
+		/**
+		 * Creates a new document highlight object.
+		 *
+		 * @param range The range the highlight applies to.
+		 * @param kind The highlight kind, default is {@link DocumentHighlightKind.Text text}.
+		 */
+		constructor(range: Range, kind?: DocumentHighlightKind);
+	}
+
+	export interface DocumentHighlightProvider {
+
+		/**
+		 * Provide a set of document highlights, like all occurrences of a variable or
+		 * all exit-points of a function.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns An array of document highlights or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideDocumentHighlights(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<DocumentHighlight[]>;
+	}
+
+	/**
+	 * Represents a list of ranges that can be edited together along with a word pattern to describe valid range contents.
+	 */
+	export class LinkedEditingRanges {
+		/**
+		 * Create a new linked editing ranges object.
+		 *
+		 * @param ranges A list of ranges that can be edited together
+		 * @param wordPattern An optional word pattern that describes valid contents for the given ranges
+		 */
+		constructor(ranges: Range[], wordPattern?: RegExp);
+
+		/**
+		 * A list of ranges that can be edited together. The ranges must have
+		 * identical length and text content. The ranges cannot overlap.
+		 */
+		readonly ranges: Range[];
+
+		/**
+		 * An optional word pattern that describes valid contents for the given ranges.
+		 * If no pattern is provided, the language configuration's word pattern will be used.
+		 */
+		readonly wordPattern: RegExp | undefined;
+	}
+
+	/**
+	 * The linked editing range provider interface defines the contract between extensions and
+	 * the linked editing feature.
+	 */
+	export interface LinkedEditingRangeProvider {
+		/**
+		 * For a given position in a document, returns the range of the symbol at the position and all ranges
+		 * that have the same content. A change to one of the ranges can be applied to all other ranges if the new content
+		 * is valid. An optional word pattern can be returned with the result to describe valid contents.
+		 * If no result-specific word pattern is provided, the word pattern from the language configuration is used.
+		 *
+		 * @param document The document in which the provider was invoked.
+		 * @param position The position at which the provider was invoked.
+		 * @param token A cancellation token.
+		 * @returns A list of ranges that can be edited together
+		 */
+		provideLinkedEditingRanges(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<LinkedEditingRanges>;
+	}
+
 	export class SelectionRange {
 
 		/**
@@ -8263,6 +8660,247 @@ declare module "vscode" {
 		 * signaled by returning `undefined` or `null`.
 		 */
 		provideSelectionRanges(document: TextDocument, positions: readonly Position[], token: CancellationToken): ProviderResult<SelectionRange[]>;
+	}
+
+	/**
+	 * Represents programming constructs like functions or constructors in the context
+	 * of call hierarchy.
+	 */
+	export class CallHierarchyItem {
+		/**
+		 * The name of this item.
+		 */
+		name: string;
+
+		/**
+		 * The kind of this item.
+		 */
+		kind: SymbolKind;
+
+		/**
+		 * Tags for this item.
+		 */
+		tags?: readonly SymbolTag[];
+
+		/**
+		 * More detail for this item, e.g. the signature of a function.
+		 */
+		detail?: string;
+
+		/**
+		 * The resource identifier of this item.
+		 */
+		uri: Uri;
+
+		/**
+		 * The range enclosing this symbol not including leading/trailing whitespace but everything else, e.g. comments and code.
+		 */
+		range: Range;
+
+		/**
+		 * The range that should be selected and revealed when this symbol is being picked, e.g. the name of a function.
+		 * Must be contained by the {@linkcode CallHierarchyItem.range range}.
+		 */
+		selectionRange: Range;
+
+		/**
+		 * Creates a new call hierarchy item.
+		 */
+		constructor(kind: SymbolKind, name: string, detail: string, uri: Uri, range: Range, selectionRange: Range);
+	}
+
+	/**
+	 * Represents an incoming call, e.g. a caller of a method or constructor.
+	 */
+	export class CallHierarchyIncomingCall {
+
+		/**
+		 * The item that makes the call.
+		 */
+		from: CallHierarchyItem;
+
+		/**
+		 * The range at which at which the calls appears. This is relative to the caller
+		 * denoted by {@linkcode CallHierarchyIncomingCall.from this.from}.
+		 */
+		fromRanges: Range[];
+
+		/**
+		 * Create a new call object.
+		 *
+		 * @param item The item making the call.
+		 * @param fromRanges The ranges at which the calls appear.
+		 */
+		constructor(item: CallHierarchyItem, fromRanges: Range[]);
+	}
+
+	/**
+	 * Represents an outgoing call, e.g. calling a getter from a method or a method from a constructor etc.
+	 */
+	export class CallHierarchyOutgoingCall {
+
+		/**
+		 * The item that is called.
+		 */
+		to: CallHierarchyItem;
+
+		/**
+		 * The range at which this item is called. This is the range relative to the caller, e.g the item
+		 * passed to {@linkcode CallHierarchyProvider.provideCallHierarchyOutgoingCalls provideCallHierarchyOutgoingCalls}
+		 * and not {@linkcode CallHierarchyOutgoingCall.to this.to}.
+		 */
+		fromRanges: Range[];
+
+		/**
+		 * Create a new call object.
+		 *
+		 * @param item The item being called
+		 * @param fromRanges The ranges at which the calls appear.
+		 */
+		constructor(item: CallHierarchyItem, fromRanges: Range[]);
+	}
+
+	/**
+	 * The call hierarchy provider interface describes the contract between extensions
+	 * and the call hierarchy feature which allows to browse calls and caller of function,
+	 * methods, constructor etc.
+	 */
+	export interface CallHierarchyProvider {
+
+		/**
+		 * Bootstraps call hierarchy by returning the item that is denoted by the given document
+		 * and position. This item will be used as entry into the call graph. Providers should
+		 * return `undefined` or `null` when there is no item at the given location.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns One or multiple call hierarchy items or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		prepareCallHierarchy(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<CallHierarchyItem | CallHierarchyItem[]>;
+
+		/**
+		 * Provide all incoming calls for an item, e.g all callers for a method. In graph terms this describes directed
+		 * and annotated edges inside the call graph, e.g the given item is the starting node and the result is the nodes
+		 * that can be reached.
+		 *
+		 * @param item The hierarchy item for which incoming calls should be computed.
+		 * @param token A cancellation token.
+		 * @returns A set of incoming calls or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideCallHierarchyIncomingCalls(item: CallHierarchyItem, token: CancellationToken): ProviderResult<CallHierarchyIncomingCall[]>;
+
+		/**
+		 * Provide all outgoing calls for an item, e.g call calls to functions, methods, or constructors from the given item. In
+		 * graph terms this describes directed and annotated edges inside the call graph, e.g the given item is the starting
+		 * node and the result is the nodes that can be reached.
+		 *
+		 * @param item The hierarchy item for which outgoing calls should be computed.
+		 * @param token A cancellation token.
+		 * @returns A set of outgoing calls or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideCallHierarchyOutgoingCalls(item: CallHierarchyItem, token: CancellationToken): ProviderResult<CallHierarchyOutgoingCall[]>;
+	}
+
+	/**
+	 * Represents an item of a type hierarchy, like a class or an interface.
+	 */
+	export class TypeHierarchyItem {
+		/**
+		 * The name of this item.
+		 */
+		name: string;
+
+		/**
+		 * The kind of this item.
+		 */
+		kind: SymbolKind;
+
+		/**
+		 * Tags for this item.
+		 */
+		tags?: ReadonlyArray<SymbolTag>;
+
+		/**
+		 * More detail for this item, e.g. the signature of a function.
+		 */
+		detail?: string;
+
+		/**
+		 * The resource identifier of this item.
+		 */
+		uri: Uri;
+
+		/**
+		 * The range enclosing this symbol not including leading/trailing whitespace
+		 * but everything else, e.g. comments and code.
+		 */
+		range: Range;
+
+		/**
+		 * The range that should be selected and revealed when this symbol is being
+		 * picked, e.g. the name of a class. Must be contained by the {@link TypeHierarchyItem.range range}-property.
+		 */
+		selectionRange: Range;
+
+		/**
+		 * Creates a new type hierarchy item.
+		 *
+		 * @param kind The kind of the item.
+		 * @param name The name of the item.
+		 * @param detail The details of the item.
+		 * @param uri The Uri of the item.
+		 * @param range The whole range of the item.
+		 * @param selectionRange The selection range of the item.
+		 */
+		constructor(kind: SymbolKind, name: string, detail: string, uri: Uri, range: Range, selectionRange: Range);
+	}
+
+	/**
+	 * The type hierarchy provider interface describes the contract between extensions
+	 * and the type hierarchy feature.
+	 */
+	export interface TypeHierarchyProvider {
+
+		/**
+		 * Bootstraps type hierarchy by returning the item that is denoted by the given document
+		 * and position. This item will be used as entry into the type graph. Providers should
+		 * return `undefined` or `null` when there is no item at the given location.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns One or multiple type hierarchy items or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		prepareTypeHierarchy(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<TypeHierarchyItem | TypeHierarchyItem[]>;
+
+		/**
+		 * Provide all supertypes for an item, e.g all types from which a type is derived/inherited. In graph terms this describes directed
+		 * and annotated edges inside the type graph, e.g the given item is the starting node and the result is the nodes
+		 * that can be reached.
+		 *
+		 * @param item The hierarchy item for which super types should be computed.
+		 * @param token A cancellation token.
+		 * @returns A set of direct supertypes or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideTypeHierarchySupertypes(item: TypeHierarchyItem, token: CancellationToken): ProviderResult<TypeHierarchyItem[]>;
+
+		/**
+		 * Provide all subtypes for an item, e.g all types which are derived/inherited from the given item. In
+		 * graph terms this describes directed and annotated edges inside the type graph, e.g the given item is the starting
+		 * node and the result is the nodes that can be reached.
+		 *
+		 * @param item The hierarchy item for which subtypes should be computed.
+		 * @param token A cancellation token.
+		 * @returns A set of direct subtypes or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideTypeHierarchySubtypes(item: TypeHierarchyItem, token: CancellationToken): ProviderResult<TypeHierarchyItem[]>;
 	}
 
 	/**
@@ -8398,6 +9036,76 @@ declare module "vscode" {
 			 */
 			readonly range: Range;
 		}, token: CancellationToken): ProviderResult<ColorPresentation[]>;
+	}
+
+	/**
+	 * A code lens represents a {@link Command} that should be shown along with
+	 * source text, like the number of references, a way to run tests, etc.
+	 *
+	 * A code lens is _unresolved_ when no command is associated to it. For performance
+	 * reasons the creation of a code lens and resolving should be done to two stages.
+	 *
+	 * @see {@link CodeLensProvider.provideCodeLenses}
+	 * @see {@link CodeLensProvider.resolveCodeLens}
+	 */
+	export class CodeLens {
+
+		/**
+		 * The range in which this code lens is valid. Should only span a single line.
+		 */
+		range: Range;
+
+		/**
+		 * The command this code lens represents.
+		 */
+		command?: Command;
+
+		/**
+		 * `true` when there is a command associated.
+		 */
+		readonly isResolved: boolean;
+
+		/**
+		 * Creates a new code lens object.
+		 *
+		 * @param range The range to which this code lens applies.
+		 * @param command The command associated to this code lens.
+		 */
+		constructor(range: Range, command?: Command);
+	}
+
+	/**
+	 * A code lens provider adds {@link Command commands} to source text. The commands will be shown
+	 * as dedicated horizontal lines in between the source text.
+	 */
+	export interface CodeLensProvider<T extends CodeLens = CodeLens> {
+
+		/**
+		 * An optional event to signal that the code lenses from this provider have changed.
+		 */
+		onDidChangeCodeLenses?: Event<void>;
+
+		/**
+		 * Compute a list of {@link CodeLens lenses}. This call should return as fast as possible and if
+		 * computing the commands is expensive implementors should only return code lens objects with the
+		 * range set and implement {@link CodeLensProvider.resolveCodeLens resolve}.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns An array of code lenses or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideCodeLenses(document: TextDocument, token: CancellationToken): ProviderResult<T[]>;
+
+		/**
+		 * This function will be called for each visible code lens, usually when scrolling and after
+		 * calls to {@link CodeLensProvider.provideCodeLenses compute}-lenses.
+		 *
+		 * @param codeLens Code lens that must be resolved.
+		 * @param token A cancellation token.
+		 * @returns The given, resolved code lens or thenable that resolves to such.
+		 */
+		resolveCodeLens?(codeLens: T, token: CancellationToken): ProviderResult<T>;
 	}
 
 	/**

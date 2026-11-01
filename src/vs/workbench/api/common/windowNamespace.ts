@@ -6,6 +6,7 @@ import { cursorStyleFromApi, cursorStyleToApi } from "../../../editor/common/con
 
 import { implementsApi } from "./apiSurface.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { buildSnippetEdits, snippetRanges } from "./extHostSnippetInsert.ts";
 import { applyTextEditorEdit } from "./extHostTextEditorEdit.ts";
 import { createExtHostTreeViews, type ITreeViewMembers } from "./extHostTreeViews.ts";
 import {
@@ -100,6 +101,9 @@ function slugify(name: string, fallback: string): string {
 export function slugifyChannelName(name: string): string {
     return slugify(name, "channel");
 }
+
+/** `TextEditor.options` is empty until the first layout snapshot; upstream's default stands in. */
+const DEFAULT_SNIPPET_TAB_SIZE = 4;
 
 /**
  * `terminals` is passed when `vscode.tasks` shares terminals with `window` (pty `CustomExecution`);
@@ -527,6 +531,49 @@ export function createWindowNamespace(
                 applyTextEditorEdit(document, isEditorClosed(), callback, options, (params) =>
                     rpc.request("editor.applyEdit", params),
                 ),
+            // Upstream `insertSnippet`, without the session: see `extHostSnippetInsert.ts`.
+            insertSnippet: (
+                snippet: vscode.SnippetString,
+                location?: vscode.Position | vscode.Range | readonly vscode.Position[] | readonly vscode.Range[],
+                options?: {
+                    readonly undoStopBefore: boolean;
+                    readonly undoStopAfter: boolean;
+                    readonly keepWhitespace?: boolean;
+                },
+            ): Thenable<boolean> => {
+                if (isEditorClosed()) {
+                    return Promise.reject(new Error("TextEditor#insertSnippet not possible on closed editors"));
+                }
+                const { tabSize, insertSpaces } = editorData.options;
+                const { edits, selectionsAfter } = buildSnippetEdits(
+                    document,
+                    snippet.value,
+                    snippetRanges(location, editorData.selections),
+                    {
+                        tabSize: typeof tabSize === "number" ? tabSize : DEFAULT_SNIPPET_TAB_SIZE,
+                        insertSpaces: insertSpaces !== false,
+                    },
+                    options?.keepWhitespace === true,
+                );
+                const applied = rpc.request("editor.applyEdit", {
+                    uri: document.uri.toString(),
+                    edits,
+                    version: document.version,
+                    selectionsAfter,
+                    ...(options?.undoStopBefore === false ? { undoStopBefore: false } : {}),
+                    ...(options?.undoStopAfter === false ? { undoStopAfter: false } : {}),
+                });
+                // Upstream `SnippetSession.insert` reveals the primary selection.
+                const [{ activeLine, activeCharacter }] = selectionsAfter;
+                const caret = { line: activeLine, character: activeCharacter };
+                rpc.notify("editor.revealRange", {
+                    uri: document.uri.toString(),
+                    groupId,
+                    range: { start: caret, end: caret },
+                    revealType: TextEditorRevealType.Default,
+                });
+                return applied;
+            },
             setDecorations: (
                 decorationType: vscode.TextEditorDecorationType,
                 rangesOrOptions: readonly vscode.Range[] | readonly vscode.DecorationOptions[],
@@ -988,6 +1035,7 @@ export function createWindowNamespace(
             return (pick as (typeof picks)[number] | undefined)?.folder;
         },
         createQuickPick: <T extends vscode.QuickPickItem>(): vscode.QuickPick<T> => quickInput.createQuickPick<T>(),
+        createInputBox: (): vscode.InputBox => quickInput.createInputBox(),
         showOpenDialog: async (options?: vscode.OpenDialogOptions): Promise<vscode.Uri[] | undefined> => {
             const result = parseWireOpenDialogResult(
                 await rpc.request("window.showOpenDialog", {

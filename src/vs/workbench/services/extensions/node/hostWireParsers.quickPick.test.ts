@@ -3,6 +3,36 @@ import { describe, expect, it } from "vitest";
 import { parseWireQuickPickDispose, parseWireQuickPickUpdate } from "./hostWireParsers.ts";
 
 describe("parseWireQuickPickUpdate", () => {
+    it("carries the input box fields and the Back flag; garbage reads as untouched", () => {
+        expect(
+            parseWireQuickPickUpdate({
+                handle: 3,
+                inputBox: true,
+                back: true,
+                password: true,
+                valueSelection: [1, 2],
+                validationMessage: { message: "Bad", severity: "warning" },
+            }),
+        ).toEqual({
+            handle: 3,
+            inputBox: true,
+            back: true,
+            password: true,
+            valueSelection: [1, 2],
+            validationMessage: { message: "Bad", severity: "warning" },
+        });
+        expect(parseWireQuickPickUpdate({ handle: 3, valueSelection: null, validationMessage: null })).toEqual({
+            handle: 3,
+            valueSelection: null,
+            validationMessage: null,
+        });
+        for (const valueSelection of [[1], [1, 2, 3], ["a", 2], [1, "b"], "x"]) {
+            expect(parseWireQuickPickUpdate({ handle: 3, valueSelection, inputBox: "y", back: 1 })).toEqual({
+                handle: 3,
+            });
+        }
+    });
+
     it("the diff has only the sent fields; null means reset", () => {
         expect(parseWireQuickPickUpdate({ handle: 3, title: null, canSelectMany: true, value: "" })).toEqual({
             handle: 3,

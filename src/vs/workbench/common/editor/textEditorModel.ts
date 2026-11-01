@@ -401,6 +401,17 @@ export abstract class BaseTextEditorModel extends Disposable {
     }
 
     /**
+     * Upstream's `popUndoStop` + `executeEdits`: the edits join the top undo step, so one undo takes back both
+     * them and whatever made that step. Selections shift along with the edits.
+     */
+    public applyEditsIntoLastUndoStep(edits: readonly ITextEdit[], label: string, target?: ITextEditTarget): void {
+        const acting = target ?? this.editTargets.at(0) ?? this.headlessEditTarget;
+        const element = acting.applyEdits(edits, label);
+        if (element) this.undoManagerValue.joinUndoElement(element);
+        this.broadcastMarkDirty();
+    }
+
+    /**
      * The step doesn't go into the shared `UndoRedoService`: bulk edit makes one step for the whole
      * `workspace.applyEdit`. It still lands in the document's {@link UndoManager} as usual;
      * otherwise the version gate would discard the document history as stale.

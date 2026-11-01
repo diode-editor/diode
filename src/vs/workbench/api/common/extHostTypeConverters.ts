@@ -34,8 +34,11 @@ import {
     type WorkspaceEdit,
 } from "./vscodeTypes.ts";
 import type {
+    IWireCodeLensCommand,
+    IWireDocumentHighlight,
     IWireEditorEdit,
     IWireInlayHint,
+    IWireLinkedEditingRanges,
     IWireSelection,
     IWireWorkspaceEditOp,
     SerializedColor,
@@ -625,6 +628,43 @@ function containsRange(outer: IRange, inner: IRange): boolean {
     return comparePositions(outer.start, inner.start) <= 0 && comparePositions(inner.end, outer.end) <= 0;
 }
 
+/**
+ * Upstream `DocumentHighlight.from` over the provider's array. Not an array (`undefined`, `null`, garbage) is
+ * `null`, the provider declined; an entry without a range is dropped.
+ */
+export function serializeDocumentHighlights(raw: unknown): IWireDocumentHighlight[] | null {
+    if (!Array.isArray(raw)) return null;
+    const result: IWireDocumentHighlight[] = [];
+    for (const item of raw as unknown[]) {
+        const range = rangeFrom((item as { range?: unknown } | null | undefined)?.range);
+        if (range === null) continue;
+        const kind = (item as { kind?: unknown }).kind;
+        result.push({ range, ...(isFiniteNumber(kind) ? { kind } : {}) });
+    }
+    return result;
+}
+
+/**
+ * Upstream `LinkedEditingRangeAdapter`: no `ranges` array (`undefined`, `null`, garbage) is `null`, the provider
+ * declined; an entry that is not a range is dropped.
+ */
+export function serializeLinkedEditingRanges(raw: unknown): IWireLinkedEditingRanges | null {
+    const value = raw as { ranges?: unknown; wordPattern?: unknown } | null | undefined;
+    if (!Array.isArray(value?.ranges)) return null;
+    const ranges: IRange[] = [];
+    for (const item of value.ranges as unknown[]) {
+        const range = rangeFrom(item);
+        if (range !== null) ranges.push(range);
+    }
+    const { wordPattern } = value;
+    return {
+        ranges,
+        ...(wordPattern instanceof RegExp
+            ? { wordPattern: wordPattern.source, wordPatternFlags: wordPattern.flags }
+            : {}),
+    };
+}
+
 /** A channel outside [0, 1] is clamped; not a number (NaN included) — `null`, the color is dropped. */
 function colorChannel(raw: unknown): number | null {
     if (typeof raw !== "number" || Number.isNaN(raw)) return null;
@@ -700,6 +740,17 @@ export function serializeInlayHints(raw: unknown, range: IRange): IWireInlayHint
     if (!Array.isArray(raw)) return null;
     const hints = (raw as unknown[]).map((item) => inlayHintFrom(item, range)).filter((hint) => hint !== null);
     return hints.length === 0 ? null : hints;
+}
+
+/** `null` — no command to show: nothing, or no title. A command without an id is upstream's plain label. */
+export function serializeCodeLensCommand(raw: unknown): IWireCodeLensCommand | null {
+    const command = (raw ?? {}) as { command?: unknown; title?: unknown; tooltip?: unknown };
+    if (typeof command.title !== "string") return null;
+    return {
+        id: typeof command.command === "string" ? command.command : "",
+        title: command.title,
+        ...(typeof command.tooltip === "string" ? { tooltip: command.tooltip } : {}),
+    };
 }
 
 /** Edit fields are public and writable, and the host does not re-validate the will-save response. */

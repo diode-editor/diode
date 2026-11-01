@@ -19,6 +19,10 @@ import type { IGutterChangeDecoration } from "../../../../editor/common/model/iG
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { ICursorStateComputer } from "../../../../editor/common/viewModel/trackedSelections.ts";
+import type {
+    ICodeLensOptions,
+    ICodeLensPick,
+} from "../../../../editor/contrib/codelens/browser/codeLensController.ts";
 import type { IColorDecoratorsOptions } from "../../../../editor/contrib/colorPicker/browser/colorDetector.ts";
 import type { IInlayHintsOptions } from "../../../../editor/contrib/inlayHints/browser/inlayHintsController.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
@@ -241,6 +245,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
      * Returns the undo step to the caller instead of pushing it to the document's bucket, so a bulk
      * edit can build ONE step for the whole `workspace.applyEdit`.
      */
+    public applyEditsIntoLastUndoStep(edits: readonly ITextEdit[], label: string): void {
+        this.model.applyEditsIntoLastUndoStep(edits, label, this.component.editTarget);
+    }
+
     public applyExternalEditsDetached(edits: readonly ITextEdit[], label: string): IUndoRedoElement | null {
         return this.model.applyExternalEditsDetached(edits, label, this.component.editTarget);
     }
@@ -324,6 +332,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.component.onDidType(listener);
     }
 
+    public onDidTypeNewLine(listener: () => void): IDisposable {
+        return this.component.onDidTypeNewLine(listener);
+    }
+
     public getCaretAnchor(): OverlayAnchorPosition | null {
         return this.component.getCaretAnchor();
     }
@@ -334,6 +346,15 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public focusEditor(): void {
         this.component.focus();
+    }
+
+    /** As if typed on the keyboard: auto-close, indent, `onEnterRules`, suggest triggers. */
+    public insertLineBreak(): void {
+        this.component.insertLineBreak();
+    }
+
+    public typeText(text: string): void {
+        this.component.typeText(text);
     }
 
     public pushUndo(element: IUndoElement | undefined): void {
@@ -354,6 +375,16 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public setOccurrenceHighlightEnabled(enabled: boolean): void {
         this.component.setOccurrenceHighlightEnabled(enabled);
+    }
+
+    /** `editor.occurrencesHighlightDelay`. */
+    public setOccurrenceHighlightDelay(delay: number): void {
+        this.component.setOccurrenceHighlightDelay(delay);
+    }
+
+    /** `editor.action.wordHighlight.trigger`. */
+    public triggerWordHighlight(): void {
+        this.component.triggerWordHighlight();
     }
 
     /** `diode.icons.nerdFont`: the glyph set of the folding chevrons. */
@@ -389,6 +420,14 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public setInlayHints(options: IInlayHintsOptions): void {
         this.component.setInlayHints(options);
+    }
+
+    public setCodeLens(options: ICodeLensOptions): void {
+        this.component.setCodeLens(options);
+    }
+
+    public getCodeLensPicksAtLine(line: number): Promise<readonly ICodeLensPick[]> {
+        return this.component.getCodeLensPicksAtLine(line);
     }
 
     /**

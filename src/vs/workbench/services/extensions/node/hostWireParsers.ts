@@ -28,6 +28,9 @@ import {
     isFiniteNumber,
     type IWireCloseGroupsParams,
     type IWireCloseTabsParams,
+    type IWireCodeLens,
+    type IWireCodeLensCommand,
+    type IWireCodeLensList,
     type IWireConfigurationUpdate,
     type IWireCreateUntitledParams,
     type IWireDiagnosticsPublish,
@@ -324,6 +327,39 @@ function wireToCoreInlayHintLabel(raw: unknown): InlayHint["label"] | null {
 /** A broken hint is dropped, not the whole answer. The part's `value` is the core's `label`. */
 export function wireToCoreInlayHints(wire: readonly unknown[]): InlayHint[] {
     return wire.map((item) => wireToCoreInlayHint(item)).filter((hint) => hint !== null);
+}
+
+function wireCodeLensCommand(raw: unknown): IWireCodeLensCommand | null {
+    const command = (raw ?? {}) as Record<string, unknown>;
+    if (typeof command.id !== "string" || typeof command.title !== "string") return null;
+    return {
+        id: command.id,
+        title: command.title,
+        ...(typeof command.tooltip === "string" ? { tooltip: command.tooltip } : {}),
+    };
+}
+
+/** `null` — a lens that has no address or range. A broken command leaves a lens that waits for a resolve. */
+export function parseWireCodeLens(raw: unknown): IWireCodeLens | null {
+    const lens = (raw ?? {}) as Record<string, unknown>;
+    const { cacheId } = lens;
+    if (!Array.isArray(cacheId) || cacheId.length !== 2 || !cacheId.every(isFiniteNumber)) return null;
+    const range = parseRange(lens.range);
+    if (range === null) return null;
+    const command = wireCodeLensCommand(lens.command);
+    return {
+        cacheId: [cacheId[0], cacheId[1]],
+        range,
+        ...(command === null ? {} : { command }),
+    };
+}
+
+/** A broken lens is dropped, not the whole answer. */
+export function parseWireCodeLensList(wire: IWireCodeLensList): IWireCodeLensList {
+    return {
+        cacheId: wire.cacheId,
+        lenses: wire.lenses.map((lens) => parseWireCodeLens(lens)).filter((lens) => lens !== null),
+    };
 }
 
 function readWireCharacters(raw: readonly unknown[]): string[] {
@@ -834,6 +870,14 @@ function optionalWireHandles(value: unknown): number[] | undefined {
     return value.filter((i): i is number => Number.isInteger(i) && i >= 0);
 }
 
+/** A `[start, end)` pair, `null` ("cleared") or a missing field ("untouched"). */
+function wireValueSelection(value: unknown): readonly [number, number] | null | undefined {
+    if (value === null) return null;
+    if (!Array.isArray(value) || value.length !== 2) return undefined;
+    const [start, end] = value as unknown[];
+    return isFiniteNumber(start) && isFiniteNumber(end) ? [start, end] : undefined;
+}
+
 /** A field of a foreign type reads as "untouched": a diff of one property must not fail the whole update. */
 export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | null {
     // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast exit; the check below filters a non-object anyway (it lacks the required field), so replacing the operand with `false` has no observable effect
@@ -842,6 +886,7 @@ export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | n
     if (!isFiniteNumber(p.handle)) return null;
     const fields: Record<string, unknown> = {
         handle: p.handle,
+        inputBox: optionalWireBoolean(p.inputBox),
         visible: optionalWireBoolean(p.visible),
         title: nullableWireString(p.title),
         step: nullableWireNumber(p.step),
@@ -849,6 +894,10 @@ export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | n
         placeholder: nullableWireString(p.placeholder),
         prompt: nullableWireString(p.prompt),
         value: optionalWireString(p.value),
+        valueSelection: wireValueSelection(p.valueSelection),
+        password: optionalWireBoolean(p.password),
+        validationMessage: "validationMessage" in p ? parseWireValidationMessage(p.validationMessage) : undefined,
+        back: optionalWireBoolean(p.back),
         canSelectMany: optionalWireBoolean(p.canSelectMany),
         matchOnDescription: optionalWireBoolean(p.matchOnDescription),
         matchOnDetail: optionalWireBoolean(p.matchOnDetail),

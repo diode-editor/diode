@@ -33,6 +33,9 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `extensionHost.typescriptLsp.projectStatus.test.ts`, «No jsconfig → Configure JSConfig…»: метка статуса уже
+  `jsconfig.json`, а команда ещё `_typescript.createOrOpenConfig`; проверка команды идёт без ожидания, сразу после
+  ожидания метки (run 41297584473, PR #1000, дифф — только тесты terraform).
 - [ ] `editorElement.performance.test.ts`, «displayLineFor caps the visible long line»: замер времени, 336 мс при пороге
   298 в dry run Stryker, из-за этого mutation-job остался без вердикта (run 41260477522, PR #985, дифф — команда `type`).
 - [ ] Бенч `e2e/bench/hugeBudget.bench.ts`, log500m Enable Editing: `ArrowDown during the load` — медиана 32 мс при

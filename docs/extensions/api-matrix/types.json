@@ -650,32 +650,25 @@
       "class": "ok"
     },
     "CodeLens": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CodeLens.command": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CodeLens.isResolved": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CodeLens.range": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CodeLensProvider.onDidChangeCodeLenses": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CodeLensProvider.provideCodeLenses": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CodeLensProvider.resolveCodeLens": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "Color": {
       "class": "ok"
@@ -2693,44 +2686,34 @@
       "note": "needs a debugger"
     },
     "InputBox.buttons": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.onDidAccept": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.onDidChangeValue": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.onDidTriggerButton": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.password": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.placeholder": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.prompt": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.validationMessage": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.value": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.valueSelection": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxOptions.ignoreFocusOut": {
       "class": "B",
@@ -4231,51 +4214,43 @@
       "class": "ok"
     },
     "QuickInputButton.iconPath": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickInputButton.location": {
       "class": "B",
-      "note": "#915: quick input"
+      "note": "only QuickInputButtons.Back is drawn; other buttons stay with the extension"
     },
     "QuickInputButton.toggle": {
       "class": "B",
-      "note": "#915: quick input"
+      "note": "only QuickInputButtons.Back is drawn; other buttons stay with the extension"
     },
     "QuickInputButton.tooltip": {
       "class": "B",
-      "note": "#915: quick input"
+      "note": "only QuickInputButtons.Back is drawn; other buttons stay with the extension"
     },
     "QuickInputButtonLocation": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickInputButtonLocation.Inline": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickInputButtonLocation.Input": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickInputButtonLocation.Title": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickInputButtons": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickInputButtons.Back": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickPick.activeItems": {
       "class": "ok"
     },
     "QuickPick.buttons": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "QuickPick.canSelectMany": {
       "class": "ok"
@@ -4305,12 +4280,11 @@
       "class": "ok"
     },
     "QuickPick.onDidTriggerButton": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "QuickPick.onDidTriggerItemButton": {
       "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "note": "item buttons are not drawn: the event exists and stays silent"
     },
     "QuickPick.placeholder": {
       "class": "ok"
@@ -4356,11 +4330,11 @@
     },
     "QuickPickItemButtonEvent.button": {
       "class": "B",
-      "note": "#915: quick input"
+      "note": "item buttons are not drawn: the event exists and stays silent"
     },
     "QuickPickItemButtonEvent.item": {
       "class": "B",
-      "note": "#915: quick input"
+      "note": "item buttons are not drawn: the event exists and stays silent"
     },
     "QuickPickItemKind": {
       "class": "ok"
@@ -4684,55 +4658,55 @@
     },
     "SnippetString": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetString.appendChoice": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetString.appendPlaceholder": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetString.appendTabstop": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetString.appendText": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetString.appendVariable": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetString.value": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetTextEdit": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetTextEdit.insert": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetTextEdit.keepWhitespace": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetTextEdit.range": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetTextEdit.replace": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetTextEdit.snippet": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SourceBreakpoint": {
       "class": "C",
@@ -6142,7 +6116,7 @@
     },
     "TextEditor.insertSnippet": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "TextEditor.options": {
       "class": "ok"

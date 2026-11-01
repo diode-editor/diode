@@ -45,5 +45,10 @@ export default defineScenario({
         await editor.sendText("  ");
         await editor.waitForText((t) => t.includes("  const total : number = add(left: 1, 2);"));
         await editor.capture("after an edit");
+
+        // From column 2 to the argument: the block caret stands on "1", not on the parameter hint before it.
+        for (let i = 0; i < "const total = add(".length; i++) await editor.sendKey("ArrowRight");
+        await editor.waitForText((t) => t.includes("Col 21"));
+        await editor.capture("caret on the argument");
     },
 });

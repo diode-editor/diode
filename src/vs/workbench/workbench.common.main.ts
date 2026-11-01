@@ -35,19 +35,24 @@ import {
     cursorWordRightSelectAction,
     scrollLineDownAction,
     scrollLineUpAction,
+    showLensesInCurrentLineAction,
     toggleInlayHintsAction,
     toggleWordWrapAction,
 } from "./browser/actions/editorActions.ts";
 import {
+    defaultTypeAction,
     deleteAllLeftAction,
     deleteLeftAction,
     deleteRightAction,
     deleteWordLeftAction,
     deleteWordRightAction,
     indentLinesAction,
+    insertLineAfterAction,
     outdentLinesAction,
     redoAction,
     selectAllAction,
+    tabAction,
+    typeAction,
     undoAction,
 } from "./browser/actions/editorEditActions.ts";
 import { EDITOR_GROUP_ACTIONS } from "./browser/actions/editorGroupActions.ts";
@@ -155,6 +160,7 @@ import { FindComponentDIToken } from "./contrib/find/browser/findComponent.ts";
 import { FindServiceDIToken } from "./contrib/find/browser/findService.ts";
 import { FOLDING_ACTIONS } from "./contrib/folding/browser/foldingActions.ts";
 import { FORMAT_ACTIONS } from "./contrib/format/browser/formatActions.ts";
+import { FormatOnTypeServiceDIToken } from "./contrib/format/browser/formatOnTypeService.ts";
 import { GOTO_DEFINITION_ACTIONS } from "./contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
 import { GoToLocationsCommandContributionDIToken } from "./contrib/gotoDefinition/browser/goToLocationsCommandContribution.ts";
 import { HOVER_ACTIONS } from "./contrib/hover/browser/hoverActions.ts";
@@ -170,6 +176,8 @@ import { LargeFileFollowStatusDIToken } from "./contrib/largeFile/browser/largeF
 import { LargeFileIndexingStatusDIToken } from "./contrib/largeFile/browser/largeFileIndexingStatus.ts";
 import { LargeFileOptimizationsWarnerDIToken } from "./contrib/largeFile/browser/largeFileOptimizationsWarner.ts";
 import { LINES_OPERATIONS_ACTIONS } from "./contrib/linesOperations/browser/linesOperationsActions.ts";
+import { LINKED_EDITING_ACTIONS } from "./contrib/linkedEditing/browser/linkedEditingActions.ts";
+import { LinkedEditingServiceDIToken } from "./contrib/linkedEditing/browser/linkedEditingService.ts";
 import { DiagnosticsServiceDIToken } from "./contrib/markers/browser/diagnosticsService.ts";
 import { ProblemsComponentDIToken } from "./contrib/markers/browser/problemsComponent.ts";
 import { MULTI_CURSOR_ACTIONS } from "./contrib/multicursor/browser/multiCursorActions.ts";
@@ -183,8 +191,10 @@ import { KeybindingRecorderComponentDIToken } from "./contrib/preferences/browse
 import { PREFERENCES_ACTIONS } from "./contrib/preferences/browser/preferencesActions.ts";
 import { QUICK_ACCESS_ACTIONS } from "./contrib/quickaccess/browser/quickOpenActions.ts";
 import { QuickOpenServiceDIToken } from "./contrib/quickaccess/browser/quickOpenService.ts";
+import { CALL_HIERARCHY_ACTIONS } from "./contrib/references/browser/callHierarchyActions.ts";
 import { REFERENCES_ACTIONS } from "./contrib/references/browser/referencesActions.ts";
 import { ReferencesComponentDIToken } from "./contrib/references/browser/referencesComponent.ts";
+import { TYPE_HIERARCHY_ACTIONS } from "./contrib/references/browser/typeHierarchyActions.ts";
 import { RENAME_ACTIONS } from "./contrib/rename/browser/renameActions.ts";
 import { ChangesComponentDIToken } from "./contrib/scm/browser/changesComponent.ts";
 import { GIT_MENU_SUBMENUS } from "./contrib/scm/browser/gitMenus.ts";
@@ -243,6 +253,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: HoverComponentDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the service is resolved anyway (WorkbenchContextKeys holds it) — the entry only hands over lifetime ownership
     { token: HoverServiceDIToken, phase: "blockStartup" },
+    { token: LinkedEditingServiceDIToken, phase: "blockStartup" },
+    { token: FormatOnTypeServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (ParameterHintsService in the next entry holds it) — the entry only hands over lifetime ownership
     { token: ParameterHintsComponentDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: like the hover service, resolved via WorkbenchContextKeys — the entry only hands over lifetime ownership
@@ -376,10 +388,13 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     cursorPageUpSelectAction,
     scrollLineUpAction,
     scrollLineDownAction,
+    showLensesInCurrentLineAction,
     toggleInlayHintsAction,
     toggleWordWrapAction,
     ...MULTI_CURSOR_ACTIONS,
     ...SMART_SELECT_ACTIONS,
+    typeAction,
+    defaultTypeAction,
     deleteLeftAction,
     deleteRightAction,
     deleteWordLeftAction,
@@ -388,7 +403,9 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     undoAction,
     redoAction,
     selectAllAction,
+    tabAction,
     indentLinesAction,
+    insertLineAfterAction,
     outdentLinesAction,
     ...LINES_OPERATIONS_ACTIONS,
     ...COMMENT_ACTIONS,
@@ -399,6 +416,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...SUGGEST_ACTIONS,
     ...GOTO_DEFINITION_ACTIONS,
     ...HOVER_ACTIONS,
+    ...LINKED_EDITING_ACTIONS,
     ...PARAMETER_HINTS_ACTIONS,
     ...FORMAT_ACTIONS,
     ...CODE_ACTION_ACTIONS,
@@ -470,6 +488,8 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...SCM_ACTIONS,
     ...EXTENSIONS_ACTIONS,
     ...REFERENCES_ACTIONS,
+    ...CALL_HIERARCHY_ACTIONS,
+    ...TYPE_HIERARCHY_ACTIONS,
     ...RENAME_ACTIONS,
 ];
 

@@ -1,0 +1,14 @@
+{
+    "name": "on-type-spaces",
+    "displayName": "On Type Spaces",
+    "description": "E2E demo extension: an on type formatting provider that puts spaces around the equals sign on a semicolon.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onLanguage:plaintext"
+    ]
+}

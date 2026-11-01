@@ -31,6 +31,12 @@
         "down: showNextParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > cursorDown [textViewFocus]",
         "end: lastCompressedFolder [filesExplorerFocus && !inputWidgetFocus && explorerViewletCompressedFocus && !explorerViewletCompressedLastFocus] > list.focusLast [listFocus]",
         "enter: acceptSelectedSuggestion [suggestWidgetVisible] > editor.action.nextMatchFindAction [findWidgetVisible]",
+        "escape: cancelLinkedEditingInput [(editorTextFocus) && (LinkedEditingInputVisible)] > closeFindWidget [findWidgetVisible]",
+        "escape: cancelLinkedEditingInput [(editorTextFocus) && (LinkedEditingInputVisible)] > closeParameterHints [parameterHintsVisible && !suggestWidgetVisible]",
+        "escape: cancelLinkedEditingInput [(editorTextFocus) && (LinkedEditingInputVisible)] > editor.action.hideHover [editorHoverVisible]",
+        "escape: cancelLinkedEditingInput [(editorTextFocus) && (LinkedEditingInputVisible)] > editor.action.inlineSuggest.hide [inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)]",
+        "escape: cancelLinkedEditingInput [(editorTextFocus) && (LinkedEditingInputVisible)] > hideSuggestWidget [suggestWidgetVisible]",
+        "escape: cancelLinkedEditingInput [(editorTextFocus) && (LinkedEditingInputVisible)] > removeSecondaryCursors [textViewFocus && editorHasMultipleSelections]",
         "escape: closeFindWidget [findWidgetVisible] > removeSecondaryCursors [textViewFocus && editorHasMultipleSelections]",
         "escape: closeParameterHints [parameterHintsVisible && !suggestWidgetVisible] > closeFindWidget [findWidgetVisible]",
         "escape: closeParameterHints [parameterHintsVisible && !suggestWidgetVisible] > editor.action.hideHover [editorHoverVisible]",
@@ -45,16 +51,18 @@
         "escape: hideSuggestWidget [suggestWidgetVisible] > closeFindWidget [findWidgetVisible]",
         "escape: hideSuggestWidget [suggestWidgetVisible] > editor.action.inlineSuggest.hide [inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)]",
         "escape: hideSuggestWidget [suggestWidgetVisible] > removeSecondaryCursors [textViewFocus && editorHasMultipleSelections]",
+        "escape: workbench.action.closeQuickOpen [inQuickOpen && inputWidgetFocus] > cancelLinkedEditingInput [(editorTextFocus) && (LinkedEditingInputVisible)]",
         "escape: workbench.action.closeQuickOpen [inQuickOpen && inputWidgetFocus] > closeFindWidget [findWidgetVisible]",
         "f4: references-view.next [hasReferenceResult] > search.action.focusNextSearchResult [hasSearchResult]",
         "home: firstCompressedFolder [filesExplorerFocus && !inputWidgetFocus && explorerViewletCompressedFocus && !explorerViewletCompressedFirstFocus] > list.focusFirst [listFocus]",
         "meta+p: workbench.action.quickOpenNavigateNextInFilePicker [(inFilesPicker && inputWidgetFocus) && (macKeys >= 3)] > workbench.action.quickOpen [macKeys >= 3]",
         "pagedown: selectNextPageSuggestion [suggestWidgetVisible] > cursorPageDown [textViewFocus]",
         "pageup: selectPrevPageSuggestion [suggestWidgetVisible] > cursorPageUp [textViewFocus]",
+        "shift+escape: workbench.action.closeQuickOpen [inQuickOpen && inputWidgetFocus] > cancelLinkedEditingInput [(editorTextFocus) && (LinkedEditingInputVisible)]",
         "shift+f4: references-view.prev [hasReferenceResult] > search.action.focusPreviousSearchResult [hasSearchResult]",
         "shift+meta+p: workbench.action.quickOpenNavigatePreviousInFilePicker [((inFilesPicker && inputWidgetFocus) && (tier != 'legacy')) && (macKeys >= 3)] > workbench.action.showCommands [macKeys >= 3]",
-        "tab: acceptSelectedSuggestion [suggestWidgetVisible] > editor.action.indentLines [textInputFocus && !editorReadonly]",
-        "tab: editor.action.inlineSuggest.commit [inlineSuggestionVisible && !suggestWidgetVisible && inlineSuggestionHasIndentationLessThanTabSize] > editor.action.indentLines [textInputFocus && !editorReadonly]",
+        "tab: acceptSelectedSuggestion [suggestWidgetVisible] > tab [textInputFocus && !editorReadonly]",
+        "tab: editor.action.inlineSuggest.commit [inlineSuggestionVisible && !suggestWidgetVisible && inlineSuggestionHasIndentationLessThanTabSize] > tab [textInputFocus && !editorReadonly]",
         "up: selectPrevSuggestion [suggestWidgetVisible] > cursorUp [textViewFocus]",
         "up: showPrevParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > cursorUp [textViewFocus]"
     ],
@@ -64,6 +72,7 @@
             "*": "ctrl+f",
             "mac-cmd (kitty) #1": "meta+f"
         },
+        "cancelLinkedEditingInput": "escape",
         "closeFindWidget": "escape",
         "closeParameterHints": "escape",
         "cursorBottom": {
@@ -209,7 +218,6 @@
         "editor.action.goToImplementation": "ctrl+f12",
         "editor.action.goToReferences": "shift+f12",
         "editor.action.hideHover": "escape",
-        "editor.action.indentLines": "tab",
         "editor.action.inlineSuggest.commit": "tab",
         "editor.action.inlineSuggest.hide": "escape",
         "editor.action.inlineSuggest.trigger": "alt+\\",
@@ -230,6 +238,7 @@
             "mac-legacy (tmux) #3": "ctrl+k ctrl+i"
         },
         "editor.action.insertCursorBelow": "ctrl+alt+down",
+        "editor.action.linkedEditing": "ctrl+shift+f2",
         "editor.action.moveLinesDownAction": "alt+down",
         "editor.action.moveLinesUpAction": "alt+up",
         "editor.action.moveSelectionToNextFindMatch": {
@@ -525,6 +534,7 @@
         "references-view.findReferences": "ctrl+k ctrl+r",
         "references-view.next": "f4",
         "references-view.prev": "shift+f4",
+        "references-view.showCallHierarchy": "shift+alt+h",
         "removeSecondaryCursors": "escape",
         "scm.action.focusChanges": "down",
         "scrollLineDown": {
@@ -552,6 +562,7 @@
         "selectPrevSuggestion": "up",
         "showNextParameterHint": "down",
         "showPrevParameterHint": "up",
+        "tab": "tab",
         "toggleSuggestionDetails": "ctrl+space",
         "undo": {
             "*": "ctrl+z",

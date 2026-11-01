@@ -906,6 +906,30 @@ export enum DocumentHighlightKind {
     Write = 2,
 }
 
+export class DocumentHighlight implements vscode.DocumentHighlight {
+    public range: Range;
+    public kind: DocumentHighlightKind;
+
+    public constructor(range: Range, kind: DocumentHighlightKind = DocumentHighlightKind.Text) {
+        this.range = range;
+        this.kind = kind;
+    }
+
+    public toJSON(): unknown {
+        return { range: this.range, kind: DocumentHighlightKind[this.kind] };
+    }
+}
+
+export class LinkedEditingRanges implements vscode.LinkedEditingRanges {
+    public readonly ranges: Range[];
+    public readonly wordPattern: RegExp | undefined;
+
+    public constructor(ranges: Range[], wordPattern?: RegExp) {
+        this.ranges = ranges;
+        this.wordPattern = wordPattern;
+    }
+}
+
 export enum SymbolTag {
     Deprecated = 1,
 }
@@ -1003,11 +1027,11 @@ export class Diagnostic implements vscode.Diagnostic {
     }
 }
 
-export class CodeLens {
+export class CodeLens implements vscode.CodeLens {
     public range: Range;
-    public command?: unknown;
+    public command?: vscode.Command;
 
-    public constructor(range: Range, command?: unknown) {
+    public constructor(range: Range, command?: vscode.Command) {
         this.range = range;
         this.command = command;
     }
@@ -1130,6 +1154,8 @@ export class DocumentSymbol {
 }
 
 export class CallHierarchyItem {
+    public tags?: SymbolTag[];
+
     public constructor(
         public kind: SymbolKind,
         public name: string,
@@ -1141,6 +1167,8 @@ export class CallHierarchyItem {
 }
 
 export class TypeHierarchyItem {
+    public tags?: SymbolTag[];
+
     public constructor(
         public kind: SymbolKind,
         public name: string,

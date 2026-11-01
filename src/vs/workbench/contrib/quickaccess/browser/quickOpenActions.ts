@@ -131,13 +131,13 @@ export const quickPickManyToggleAction: CommandAction = {
     },
 };
 
-/** Upstream fires the Back button; our quick input has no buttons, so nobody is there to go back to. */
+/** Upstream's keys are per platform; Alt+Left, its Windows one, lives in the widget: others don't reach a terminal. */
 export const quickInputBackAction: CommandAction = {
     id: "workbench.action.quickInputBack",
     title: "Quick Input Back",
     menus: HIDDEN_FROM_PALETTE,
-    run() {
-        // Nothing to do, see above.
+    run(accessor) {
+        accessor.get(QuickInputServiceDIToken).backOpen();
     },
 };
 

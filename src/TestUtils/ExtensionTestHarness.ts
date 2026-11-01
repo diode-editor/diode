@@ -163,6 +163,7 @@ export async function registerAndActivate(host: ExtensionHost, reg: IExtensionRe
     return disposable;
 }
 import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
+import { attachKeyboardInputHold } from "../vs/workbench/services/keybinding/browser/keyboardInputHold.ts";
 import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../vs/workbench/services/themes/common/themeService.ts";
 
@@ -218,6 +219,8 @@ export interface IExtensionHarnessOptions {
     readonly environment?: IExtensionHostEnvironment;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
+    /** What the editors read pairs and `onEnterRules` from; pass the same service as {@link languageConfigurations}. */
+    readonly editorLanguageConfigurations?: ILanguageConfigurationService;
 }
 
 export interface IExtensionHarness {
@@ -227,6 +230,8 @@ export interface IExtensionHarness {
     readonly languageFeatures: ILanguageFeaturesService;
     readonly themeService: ThemeService;
     readonly commandRegistry: CommandRegistry;
+    /** What the subprocess reads; a write here reaches a stock extension as `onDidChangeConfiguration`. */
+    readonly extensionConfiguration: IConfigurationService;
     readonly tmpDir: string;
     readonly workspaceEditService: WorkspaceEditService;
     writeFile(name: string, content: string): string;
@@ -256,7 +261,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         NULL_FILE_WATCHER,
         createTestEditorContextMenuController(),
         NULL_LOG_SERVICE,
-        undefined,
+        options.editorLanguageConfigurations,
         undefined,
         [],
         languageFeatures,
@@ -372,6 +377,8 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     }
 
     const app = TestApp.createWithContent(groupComponent.view);
+    // The workbench attaches it to its root; the harness has no workbench, and keys must wait here too.
+    attachKeyboardInputHold(groupComponent.view, commandRegistry);
 
     const flushRpc = async (turns = 2): Promise<void> => {
         for (let i = 0; i < turns; i++) {
@@ -404,6 +411,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         languageFeatures,
         themeService,
         commandRegistry,
+        extensionConfiguration: extensionConfigurationService,
         tmpDir,
         workspaceEditService,
         writeFile,

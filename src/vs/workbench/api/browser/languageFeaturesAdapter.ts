@@ -1,14 +1,22 @@
 import type { Event } from "../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
+import type { CodeLens } from "../../../editor/common/languages/iCodeLensSource.ts";
 import type { ILanguageFeaturesService } from "../../../editor/common/services/languageFeatures.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
 import type {
+    IWireCodeLens,
     IWireLanguageProviderRegistration,
     IWireSemanticTokensLegend,
+    WireCodeLensCacheId,
     WireLanguageFeatureKind,
 } from "../common/wireTypes.ts";
 
 const EMPTY_LEGEND: IWireSemanticTokensLegend = { tokenTypes: [], tokenModifiers: [] };
+
+/** Upstream `ICodeLensDto`: the core hands the lens back to resolve it, with the address on it. */
+interface IExtensionCodeLens extends CodeLens {
+    readonly cacheId: WireCodeLensCacheId;
+}
 
 interface ILiveRegistration {
     readonly source: IWireLanguageProviderRegistration;
@@ -107,6 +115,12 @@ export class LanguageFeaturesAdapter extends Disposable {
                 provideDocumentRangeFormattingEdits: (request, token) =>
                     this.bridge.provideFormattingEdits(handle, request, token),
             }),
+        onTypeFormatting: ({ handle, selector, triggerCharacters = [] }) =>
+            this.languageFeatures.onTypeFormattingEditProvider.register(selector, {
+                triggerCharacters,
+                provideOnTypeFormattingEdits: (request, token) =>
+                    this.bridge.provideOnTypeFormattingEdits(handle, request, token),
+            }),
         codeActions: ({ handle, selector, providedCodeActionKinds = [] }) =>
             this.languageFeatures.codeActionProvider.register(selector, {
                 providedCodeActionKinds,
@@ -135,9 +149,41 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.languageFeatures.selectionRangeProvider.register(selector, {
                 provideSelectionRanges: (request, token) => this.bridge.provideSelectionRanges(handle, request, token),
             }),
+        documentHighlight: ({ handle, selector }) =>
+            this.languageFeatures.documentHighlightProvider.register(selector, {
+                provideDocumentHighlights: (request, token) =>
+                    this.bridge.provideDocumentHighlights(handle, request, token),
+            }),
+        linkedEditingRange: ({ handle, selector }) =>
+            this.languageFeatures.linkedEditingRangeProvider.register(selector, {
+                provideLinkedEditingRanges: (request, token) =>
+                    this.bridge.provideLinkedEditingRanges(handle, request, token),
+            }),
         color: ({ handle, selector }) =>
             this.languageFeatures.colorProvider.register(selector, {
                 provideDocumentColors: (request, token) => this.bridge.provideDocumentColors(handle, request, token),
+            }),
+        callHierarchy: ({ handle, selector }) =>
+            this.languageFeatures.callHierarchyProvider.register(selector, {
+                prepareCallHierarchy: (request, token) => this.bridge.prepareCallHierarchy(handle, request, token),
+                provideIncomingCalls: (sessionId, itemId, token) =>
+                    this.bridge.provideCallHierarchyIncomingCalls(handle, sessionId, itemId, token),
+                provideOutgoingCalls: (sessionId, itemId, token) =>
+                    this.bridge.provideCallHierarchyOutgoingCalls(handle, sessionId, itemId, token),
+                releaseCallHierarchy: (sessionId) => {
+                    this.bridge.releaseCallHierarchy(handle, sessionId);
+                },
+            }),
+        typeHierarchy: ({ handle, selector }) =>
+            this.languageFeatures.typeHierarchyProvider.register(selector, {
+                prepareTypeHierarchy: (request, token) => this.bridge.prepareTypeHierarchy(handle, request, token),
+                provideSupertypes: (sessionId, itemId, token) =>
+                    this.bridge.provideTypeHierarchySupertypes(handle, sessionId, itemId, token),
+                provideSubtypes: (sessionId, itemId, token) =>
+                    this.bridge.provideTypeHierarchySubtypes(handle, sessionId, itemId, token),
+                releaseTypeHierarchy: (sessionId) => {
+                    this.bridge.releaseTypeHierarchy(handle, sessionId);
+                },
             }),
         // The hints die with their answer: there is no resolve cache in the subprocess to release.
         inlayHints: ({ handle, selector, hasOnDidChange }) =>
@@ -152,6 +198,31 @@ export class LanguageFeaturesAdapter extends Disposable {
                     };
                     const hints = await this.bridge.provideInlayHints(handle, request, token);
                     return hints === null ? null : { hints, dispose: () => undefined };
+                },
+            }),
+        // Upstream `MainThreadCodeLensProvider`, always able to resolve: the subprocess knows whether the provider can.
+        codeLens: ({ handle, selector, hasOnDidChange }) =>
+            this.languageFeatures.codeLensProvider.register(selector, {
+                ...(hasOnDidChange === true ? { onDidChange: this.codeLensChangeEvent(handle) } : {}),
+                provideCodeLenses: async (model, token) => {
+                    const request = {
+                        uri: model.uri.toString(),
+                        languageId: model.languageId,
+                        versionId: model.document.versionId,
+                    };
+                    const list = await this.bridge.provideCodeLenses(handle, request, token);
+                    if (list === null) return null;
+                    return {
+                        lenses: list.lenses.map((lens) => this.toCoreCodeLens(handle, lens)),
+                        dispose: () => {
+                            this.bridge.releaseCodeLenses(handle, list.cacheId);
+                        },
+                    };
+                },
+                resolveCodeLens: async (_model, lens, token) => {
+                    const { cacheId } = lens as IExtensionCodeLens;
+                    const resolved = await this.bridge.resolveCodeLens(handle, cacheId, token);
+                    return resolved === null ? null : this.toCoreCodeLens(handle, resolved);
                 },
             }),
         // Upstream `MainThreadDocumentSemanticTokensProvider`: the result id is a
@@ -194,6 +265,23 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.bridge.onDidChangeInlayHints((changed) => {
                 if (changed === handle) listener();
             });
+    }
+
+    private codeLensChangeEvent(handle: number): Event<void> {
+        return (listener) =>
+            this.bridge.onDidChangeCodeLenses((changed) => {
+                if (changed === handle) listener();
+            });
+    }
+
+    private toCoreCodeLens(handle: number, { cacheId, range, command }: IWireCodeLens): IExtensionCodeLens {
+        return {
+            cacheId,
+            range,
+            ...(command === undefined
+                ? {}
+                : { command: { ...command, run: () => this.bridge.executeCodeLensCommand(handle, cacheId) } }),
+        };
     }
 
     private registerProxy(reg: IWireLanguageProviderRegistration): IDisposable {

@@ -29,7 +29,7 @@ function makeEditor(content: string, occurrences = false): EditorElement {
         "editorOverviewRuler.warningForeground": WARNING,
         "editorOverviewRuler.infoForeground": INFO,
         "editorOverviewRuler.findMatchForeground": FIND,
-        "editorOverviewRuler.wordHighlightForeground": WORD,
+        "editorOverviewRuler.wordHighlightTextForeground": WORD,
     });
     return editor;
 }
@@ -286,7 +286,7 @@ describe("EditorElement — scrollbar markers", () => {
             const editor = occurrenceEditor();
             const markers = markersOf(editor);
             const color = packRgb(1, 2, 3);
-            editor.setStyleVars({ "editorOverviewRuler.wordHighlightForeground": color });
+            editor.setStyleVars({ "editorOverviewRuler.wordHighlightTextForeground": color });
             TestApp.createWithContent(editor, new Size(40, 10)).render();
 
             expect(editor.getScrollBarMarkers()).not.toBe(markers);

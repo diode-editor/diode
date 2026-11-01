@@ -177,6 +177,10 @@ EOL); экшены фич — `contrib/<f>/browser/*Actions.ts`. Как они �
   `services/dialogs/browser/simpleFileDialog.ts`); открытие — команда
   `workbench.openFile`, смена воркспейса — шов `IWorkspaceFolderOpener` →
   `WorkbenchComponent` структурно, биндинг в `workbenchModule.ts`.
+- `browser/actions/editorActions.ts`, `codelens.showLensesInCurrentLine` — quick pick
+  с титулами линз строки каретки, `when: textInputFocus && editorHasCodeLensProvider`,
+  без клавиши, как в эталоне; нет линз — пикер не открывается. Выполнение и тост об
+  ошибке — общие с кликом по линзе (`services/editor/browser/codeLensCommand.ts`).
 - Экшены под `findWidgetVisible`/`suggestWidgetVisible`
   (`contrib/find/browser/findActions.ts`, `contrib/suggest/browser/suggestActions.ts`)
   перебивают editor-команды весом правила (`KeybindingWeight`).

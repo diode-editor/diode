@@ -70,6 +70,24 @@ export const PANEL_ACTIVE_VIEW_STATE: IStateDescriptor<string> = {
     default: "",
 };
 
+export type CallHierarchyMode = "incoming" | "outgoing";
+
+/** Upstream's key and default. */
+export const CALL_HIERARCHY_MODE_STATE: IStateDescriptor<CallHierarchyMode> = {
+    key: "references-view.callHierarchyMode",
+    scope: "workspace",
+    default: "incoming",
+};
+
+export type TypeHierarchyMode = "subtypes" | "supertypes";
+
+/** Upstream's key and default. */
+export const TYPE_HIERARCHY_MODE_STATE: IStateDescriptor<TypeHierarchyMode> = {
+    key: "references-view.typeHierarchyMode",
+    scope: "workspace",
+    default: "subtypes",
+};
+
 /** `list` is a flat list of files with matches under each file, `tree` is the directory hierarchy. */
 export type SearchViewMode = "tree" | "list";
 

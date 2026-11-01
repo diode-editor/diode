@@ -56,6 +56,9 @@ export class TextEditorConfiguration extends Disposable {
         // "singleFile"/"multiFile" both enable: we only support single-file scope.
         const occurrencesHighlight = this.configurationService.get("editor.occurrencesHighlight", overrides);
         editor.setOccurrenceHighlightEnabled(occurrencesHighlight !== "off");
+        editor.setOccurrenceHighlightDelay(
+            this.configurationService.get("editor.occurrencesHighlightDelay", overrides),
+        );
 
         this.applyCursorStyle(editor);
         editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines", overrides));
@@ -71,6 +74,10 @@ export class TextEditorConfiguration extends Disposable {
             padding: this.configurationService.get("editor.inlayHints.padding", overrides),
             maximumLength: this.configurationService.get("editor.inlayHints.maximumLength", overrides),
             fontStyle: this.configurationService.get("diode.editor.inlayHints.fontStyle", overrides),
+        });
+        editor.setCodeLens({
+            enabled: this.configurationService.get("editor.codeLens", overrides),
+            nerdFont: this.icons.nerdFont,
         });
         editor.setNerdFont(this.icons.nerdFont);
 

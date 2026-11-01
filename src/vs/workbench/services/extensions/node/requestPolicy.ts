@@ -8,6 +8,8 @@ import type { RequestFn } from "./hostRequests.ts";
  * Ms. An expired deadline cancels the request with an empty result; inline completions take the deadline
  * from the request. `provideCompletionItems` is intentionally absent, as upstream: on an empty response
  * the core opens the popup with buffer words, and a slow language server would be left without its items.
+ * Inlay hints and code lens are absent too, as upstream: nothing asks again after an empty answer, so a server busy
+ * with its import (jdt.ls) would leave "no commands" on the frame for good; an edit cancels them through the token.
  */
 export const DEFAULT_REQUEST_TIMEOUTS = {
     "workspace.willSaveTextDocument": 1500,
@@ -23,13 +25,21 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.provideReferences": 5000,
     "languages.provideSignatureHelp": 5000,
     "languages.provideFormattingEdits": 5000,
+    "languages.provideOnTypeFormattingEdits": 5000,
     "languages.provideCodeActions": 5000,
     "languages.applyCodeAction": 10000,
     "languages.prepareRename": 5000,
     "languages.provideRenameEdits": 10000,
     "languages.provideSelectionRanges": 5000,
+    "languages.provideDocumentHighlights": 5000,
+    "languages.provideLinkedEditingRanges": 5000,
     "languages.provideDocumentColors": 5000,
-    "languages.provideInlayHints": 5000,
+    "languages.prepareCallHierarchy": 5000,
+    "languages.provideCallHierarchyIncomingCalls": 5000,
+    "languages.provideCallHierarchyOutgoingCalls": 5000,
+    "languages.prepareTypeHierarchy": 5000,
+    "languages.provideTypeHierarchySupertypes": 5000,
+    "languages.provideTypeHierarchySubtypes": 5000,
 } as const satisfies Readonly<Record<string, number>>;
 
 export type TimedRequestMethod = keyof typeof DEFAULT_REQUEST_TIMEOUTS;

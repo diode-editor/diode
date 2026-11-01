@@ -17,6 +17,7 @@ import { runWhenGlobalIdle } from "../../base/common/async.ts";
 import { codicon, iconGlyph } from "../../base/common/codicons.ts";
 import { Emitter } from "../../base/common/event.ts";
 import type { IDisposable } from "../../base/common/lifecycle.ts";
+import { firstNonWhitespaceIndex } from "../../base/common/strings.ts";
 import type { IMarkerDecoration } from "../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { withCursorChangeSource } from "../common/core/cursorChangeSource.ts";
@@ -31,6 +32,7 @@ import {
 } from "../common/core/iSelection.ts";
 import { findWordRangeAt } from "../common/core/wordClassification.ts";
 import { findSurroundingPair, planAutoClose } from "../common/languages/autoClosing.ts";
+import type { CodeLensCommand, ICodeLensZone } from "../common/languages/iCodeLensSource.ts";
 import type { ISemanticTokensLegend } from "../common/languages/iSemanticTokensSource.ts";
 import {
     type ISemanticTokenStyleResolver,
@@ -58,9 +60,9 @@ import {
     LONG_LINE_TRUNCATION_BADGE_WIDTH,
     STOP_RENDERING_LINE_AFTER,
 } from "../common/viewModel/longLineRendering.ts";
-import { computeWordOccurrences } from "../contrib/find/computeWordOccurrences.ts";
 import { computeIndentLevel } from "../contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
+import { WordHighlighter } from "../contrib/wordHighlighter/browser/wordHighlighter.ts";
 
 import type { IPaintTextLineInsertion, ITextViewportGeometry } from "./textViewRendering.ts";
 import {
@@ -78,11 +80,8 @@ import { resolveSemanticTokenStyle, SemanticTokenIndex, TokenIndex } from "./tok
 
 const FIND_MATCH_BG = packRgb(98, 91, 23);
 const FIND_MATCH_CURRENT_BG = packRgb(168, 109, 0);
-const NO_RANGES: readonly IRange[] = [];
 const NO_CACHED_SCROLL_BAR_MARKERS: ICachedScrollBarMarkers = { sources: [], markers: [] };
 
-/** Upstream `WordHighlighter.runDelayer`: the occurrence query runs once the cursor settles. */
-const OCCURRENCE_RUN_DELAY_MS = 50;
 /**
  * Lines the width sweep measures per idle slice: about a millisecond of code lines through
  * the generic grapheme path, so a keystroke between slices never waits on it.
@@ -146,14 +145,9 @@ function sameMarkers(a: readonly IScrollBarMarker[], b: readonly IScrollBarMarke
     );
 }
 
-/** `ranges` sorted and not overlapping; both ends count, as upstream `Range.containsPosition`. */
-function sortedRangesContain(ranges: readonly IRange[], pos: IPosition): boolean {
-    const i = findFirstIdxMonotonousOrArrLen(ranges, (range) => comparePositions(range.end, pos) >= 0);
-    return i < ranges.length && comparePositions(ranges[i].start, pos) <= 0;
-}
-
 export class EditorElement extends TUIElement implements IScrollable {
     public readonly viewState: EditorViewState;
+    public readonly wordHighlighter: WordHighlighter;
     /** A file editor puts the document's shared manager here: one history however many views show it. */
     public undoManager: UndoManager;
     public tokenStyleResolver: ITokenStyleResolver = NULL_TOKEN_STYLE_RESOLVER;
@@ -170,6 +164,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     private readonly onDidChangeViewportHeightEmitter = new Emitter<void>();
     /** The view state's height is a plain field written during layout: whoever asks by the visible lines listens here. */
     public readonly onDidChangeViewportHeight = this.onDidChangeViewportHeightEmitter.event;
+    private readonly onDidClickCodeLensEmitter = new Emitter<CodeLensCommand>();
+    /** A left click on the title of a code lens. */
+    public readonly onDidClickCodeLens = this.onDidClickCodeLensEmitter.event;
 
     /**
      * Upstream `ICodeEditor.onDidType`: fires AFTER the edit, including auto-close, typeover
@@ -177,6 +174,10 @@ export class EditorElement extends TUIElement implements IScrollable {
      * (popup trigger characters) need typing specifically.
      */
     public readonly onDidType = this.onDidTypeEmitter.event;
+
+    private readonly onDidTypeNewLineEmitter = new Emitter<void>();
+    /** Enter, after the edit. Apart from {@link onDidType}: a popup has no business with it, format on type has. */
+    public readonly onDidTypeNewLine = this.onDidTypeNewLineEmitter.event;
 
     public get tabSize(): number {
         return this.viewState.tabSize;
@@ -187,13 +188,12 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public get occurrenceHighlightEnabled(): boolean {
-        return this.occurrenceHighlightEnabledValue;
+        return this.wordHighlighter.enabled;
     }
 
     public set occurrenceHighlightEnabled(enabled: boolean) {
-        // Off hides the set at once (`occurrenceCaret`), on queries again.
-        this.occurrenceHighlightEnabledValue = enabled;
-        this.requestOccurrences();
+        this.wordHighlighter.enabled = enabled;
+        this.markDirty();
     }
 
     /**
@@ -227,33 +227,24 @@ export class EditorElement extends TUIElement implements IScrollable {
     private largeFileMaxWidth = 0;
     /** The pending idle slice of the width sweep ({@link runWidthSweep}); null while none is scheduled. */
     private widthSweep: IDisposable | null = null;
-    private occurrenceHighlightEnabledValue = true;
-    /**
-     * Word occurrences are computed off the frame path, like the upstream `WordHighlighter`: a
-     * request arms a timer after the next frame, the timer runs the query. The ranges are sorted;
-     * an edit drops them (upstream `_stopAll`), so they always match the text.
-     */
-    private occurrences: readonly IRange[] | null = null;
-    // The first query waits for the first frame: a big file shows its text before the search.
-    private occurrenceRunRequested = true;
-    private occurrenceTimer: ReturnType<typeof setTimeout> | undefined;
-    /**
-     * The cursor move of an edit (typing, Enter, undo) is not an explicit move: upstream keeps
-     * the highlight off until the next one (`CursorChangeReason`). The edit and its cursor move
-     * share one synchronous task, in either order: the view state remaps selections inside the
-     * content event, before this element hears it. So a request made in the task of an edit is
-     * withdrawn, and a cursor move after the edit in the same task makes none.
-     */
-    private occurrenceTask: { edited: boolean; requested: boolean } | null = null;
-    private occurrenceMarkers = NO_CACHED_SCROLL_BAR_MARKERS;
+    private occurrenceTextMarkers = NO_CACHED_SCROLL_BAR_MARKERS;
+    private occurrenceReadMarkers = NO_CACHED_SCROLL_BAR_MARKERS;
+    private occurrenceWriteMarkers = NO_CACHED_SCROLL_BAR_MARKERS;
     private findMarkers = NO_CACHED_SCROLL_BAR_MARKERS;
     private scrollBarMarkers: {
-        readonly occurrences: readonly IScrollBarMarker[];
+        readonly occurrenceText: readonly IScrollBarMarker[];
+        readonly occurrenceRead: readonly IScrollBarMarker[];
+        readonly occurrenceWrite: readonly IScrollBarMarker[];
         readonly find: readonly IScrollBarMarker[];
         readonly small: readonly IScrollBarMarker[];
         readonly markers: readonly IScrollBarMarker[];
     } | null = null;
     private ghostTextValue: IGhostText | null = null;
+    // Stryker disable next-line ArrayDeclaration: a garbage zone has no line, so it is never visible and has no rows
+    private codeLensZones: readonly ICodeLensZone[] = [];
+    /** The zones that have rows now, by anchor. */
+    private codeLensByAnchor: ReadonlyMap<number, ICodeLensZone> = new Map();
+    private codeLensFoldVersion = 0;
     private inlineInsertionsValue: readonly IInlineInsertion[] = NO_INLINE_INSERTIONS;
     private renderedDocLines: { first: number; last: number } | undefined;
 
@@ -262,21 +253,92 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /**
-     * The element puts the suggestion's tail (lines after the first) into its own view zones. They
-     * are mutually exclusive with the owner's zones ({@link decorations}), so ghost text exists only
-     * in the file editor and is off in diff (where `diffEditorPane2` owns the zones).
+     * The element puts the suggestion's tail (lines after the first) into its own set of view zones; other
+     * owners' zones stay. The tail takes the first rows of a merged anchor: it hangs right under its line.
      */
     public setGhostText(ghost: IGhostText | null): void {
         if (ghostTextEquals(this.ghostTextValue, ghost)) return;
-        const hadZones = (this.ghostTextValue?.lines.length ?? 1) > 1;
         this.ghostTextValue = ghost;
         const needsZones = ghost !== null && ghost.lines.length > 1;
-        // setViewZones replaces the WHOLE zone set, so leave it alone unless ghost text uses
-        // zones: foreign zones (should any appear) stay intact.
-        if (hadZones || needsZones) {
-            this.viewState.setViewZones(needsZones ? [{ afterLine: ghost.line, size: ghost.lines.length - 1 }] : []);
-        }
+        // Stryker disable ArrayDeclaration,StringLiteral: a garbage zone has no size and drops; the owner is only a distinct key
+        this.viewState.setViewZones(
+            needsZones ? [{ afterLine: ghost.line, size: ghost.lines.length - 1 }] : [],
+            "ghostText",
+        );
+        // Stryker restore ArrayDeclaration,StringLiteral
         this.syncInlineInsertions();
+    }
+
+    /** How many rows at `anchor` belong to the suggestion's tail. */
+    private ghostZoneRows(anchor: number): number {
+        const ghost = this.ghostTextValue;
+        return ghost !== null && ghost.line === anchor ? ghost.lines.length - 1 : 0;
+    }
+
+    /** One zone row above each line that has lenses and is not folded away. */
+    public setCodeLensZones(zones: readonly ICodeLensZone[]): void {
+        // Saves a repaint on each edit of a file without lenses: the sync below would set the same zones.
+        // Stryker disable next-line ConditionalExpression: see above
+        if (zones.length === 0 && this.codeLensZones.length === 0) return;
+        this.codeLensZones = zones;
+        this.syncCodeLensZones();
+        this.markDirty();
+    }
+
+    private syncCodeLensZones(): void {
+        const viewState = this.viewState;
+        this.codeLensFoldVersion = viewState.foldStateVersion;
+        const visible = this.codeLensZones.filter((zone) => viewState.isLineVisible(zone.line));
+        this.codeLensByAnchor = new Map(visible.map((zone) => [zone.line - 1, zone]));
+
+        // Upstream `StableEditorScrollState`: zones arriving above the viewport don't move the text under the
+        // user. Scrolled to the very top, the viewport stays there: a lens of the first line is shown.
+        const { scrollTop } = viewState;
+        const topLine = viewState.docLineForViewLine(scrollTop);
+        const rowsIntoTopLine = scrollTop - viewState.viewLineForPosition(topLine, 0);
+        viewState.setViewZones(
+            visible.map((zone) => ({ afterLine: zone.line - 1, size: 1 })),
+            // Stryker disable next-line StringLiteral: the owner is only a distinct key
+            "codeLens",
+        );
+        if (scrollTop > 0) {
+            viewState.scrollTop = viewState.viewLineForPosition(topLine, 0) + rowsIntoTopLine;
+        }
+    }
+
+    /** The lens zone under a row of the element; `undefined` for the rows of a document line or of another owner. */
+    private codeLensZoneAtRow(localY: number): ICodeLensZone | undefined {
+        const row = this.viewState.zoneRowForViewLine(this.viewState.scrollTop + localY);
+        if (row === null || row.offset < this.ghostZoneRows(row.anchor)) return undefined;
+        return this.codeLensByAnchor.get(row.anchor);
+    }
+
+    /** The text as painted: indented to the first non-whitespace column of its line, in spaces. */
+    private codeLensLayout(zone: ICodeLensZone): { readonly displayLine: DisplayLine; readonly indent: number } {
+        const viewState = this.viewState;
+        const content = viewState.document.getLineContent(zone.line);
+        // -1 for a line of whitespace only: no indent, as upstream.
+        const first = Math.max(firstNonWhitespaceIndex(content), 0);
+        const indent = viewState.displayLineFor(content.slice(0, first)).displayWidth;
+        return { displayLine: viewState.displayLineFor(" ".repeat(indent) + zone.text), indent };
+    }
+
+    private clickCodeLens(zone: ICodeLensZone, localX: number): void {
+        this.dragAnchor = null;
+        const { displayLine, indent } = this.codeLensLayout(zone);
+        const column = localX - this.gutterWidth + this.viewState.scrollLeft;
+        const action = zone.actions.find(
+            ({ start, end }) =>
+                column >= displayLine.offsetToColumn(indent + start) &&
+                column < displayLine.offsetToColumn(indent + end),
+        );
+        if (action !== undefined) {
+            this.onDidClickCodeLensEmitter.fire(action.command);
+            return;
+        }
+        // The separator or the empty part of the row: goes to the line, which may be just below the viewport.
+        const content = this.viewState.document.getLineContent(zone.line);
+        this.viewState.goToPosition(zone.line, Math.max(0, firstNonWhitespaceIndex(content)));
     }
 
     public get inlineInsertions(): readonly IInlineInsertion[] {
@@ -331,12 +393,26 @@ export class EditorElement extends TUIElement implements IScrollable {
             vs.isWordWrapActive ? vs.viewportWidth : null,
             vs.tabSize,
         ];
-        const occurrences = this.getOccurrenceHighlights();
+        const occurrences = vs.wordHighlights;
         const searchMatches = vs.searchMatches;
-        this.occurrenceMarkers = this.rangeMarkers(
-            this.occurrenceMarkers,
-            occurrences,
+        this.occurrenceTextMarkers = this.rangeMarkers(
+            this.occurrenceTextMarkers,
+            occurrences.text,
+            "editorOverviewRuler.wordHighlightTextForeground",
+            ScrollBarMarkerPriority.WordHighlight,
+            projection,
+        );
+        this.occurrenceReadMarkers = this.rangeMarkers(
+            this.occurrenceReadMarkers,
+            occurrences.read,
             "editorOverviewRuler.wordHighlightForeground",
+            ScrollBarMarkerPriority.WordHighlight,
+            projection,
+        );
+        this.occurrenceWriteMarkers = this.rangeMarkers(
+            this.occurrenceWriteMarkers,
+            occurrences.write,
+            "editorOverviewRuler.wordHighlightStrongForeground",
             ScrollBarMarkerPriority.WordHighlight,
             projection,
         );
@@ -364,19 +440,25 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         const cached = this.scrollBarMarkers;
         if (
-            cached?.occurrences === this.occurrenceMarkers.markers &&
+            cached?.occurrenceText === this.occurrenceTextMarkers.markers &&
+            cached.occurrenceRead === this.occurrenceReadMarkers.markers &&
+            cached.occurrenceWrite === this.occurrenceWriteMarkers.markers &&
             cached.find === this.findMarkers.markers &&
             sameMarkers(cached.small, small)
         ) {
             return cached.markers;
         }
-        const markers = this.occurrenceMarkers.markers.concat(
+        const markers = this.occurrenceTextMarkers.markers.concat(
+            this.occurrenceReadMarkers.markers,
+            this.occurrenceWriteMarkers.markers,
             changeMarkers,
             this.findMarkers.markers,
             diagnosticMarkers,
         );
         this.scrollBarMarkers = {
-            occurrences: this.occurrenceMarkers.markers,
+            occurrenceText: this.occurrenceTextMarkers.markers,
+            occurrenceRead: this.occurrenceReadMarkers.markers,
+            occurrenceWrite: this.occurrenceWriteMarkers.markers,
             find: this.findMarkers.markers,
             small,
             markers,
@@ -645,27 +727,30 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.focusable = true;
         this.viewState = viewState;
         this.undoManager = new UndoManager(viewState.document);
+        this.wordHighlighter = new WordHighlighter(viewState);
 
+        this.viewState.onDidChangeWordHighlights(() => {
+            this.markDirty();
+        });
+        this.viewState.onDidChangeLinkedEditingRanges(() => {
+            this.markDirty();
+        });
         this.viewState.onDidChangeCursorPosition(() => {
-            const task = this.currentOccurrenceTask();
-            if (!task.edited) {
-                task.requested = true;
-                this.requestOccurrences();
-            }
             this.markDirty();
         });
         // Scroll, folding and edits away from the cursor (extension applyEdits) too: under
         // damage tracking an unmarked widget is not repainted.
         this.viewState.onDidChangeView(() => {
+            // A fold hides or shows the lenses of the lines inside it. The condition only saves work: syncing the
+            // same state again sets the same zones, a no-op.
+            // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator: see above
+            if (this.codeLensZones.length > 0 && this.codeLensFoldVersion !== this.viewState.foldStateVersion) {
+                this.syncCodeLensZones();
+            }
             this.markDirty();
         });
         this.viewState.document.onDidChangeContent((change) => {
             if (change.isFlush === true) this.largeFileMaxWidth = 0;
-            // Upstream `onDidChangeModelContent` → `_stopAll`: no full-file search per keystroke.
-            this.dropOccurrences();
-            const task = this.currentOccurrenceTask();
-            task.edited = true;
-            if (task.requested) this.occurrenceRunRequested = false;
             this.markDirty();
         });
 
@@ -826,11 +911,9 @@ export class EditorElement extends TUIElement implements IScrollable {
                 for (let x = 0; x < gutterW; x++) {
                     context.setCell(x, screenY, { char: " ", bg: gutBg });
                 }
-                // The editor's own zone exists only for ghost text (see setGhostText): a single zone at
-                // ghost.line of exactly lines.length - 1 rows, so mutants weakening the anchor and
-                // offset checks are unreachable.
-                // Stryker disable next-line ConditionalExpression,EqualityOperator,ArithmeticOperator: see above
-                if (ghost !== null && zoneRow.anchor === ghost.line && zoneRow.offset + 1 < ghost.lines.length) {
+                // Without a ghost there are no ghost rows: `ghost !== null` narrows the type for the branch.
+                // Stryker disable next-line ConditionalExpression: see above
+                if (ghost !== null && zoneRow.offset < this.ghostZoneRows(zoneRow.anchor)) {
                     // The extra column of a "<=" mutant is clipped by the element rectangle.
                     // Stryker disable next-line EqualityOperator: see above
                     for (let x = 0; x < contentCols; x++) {
@@ -844,6 +927,27 @@ export class EditorElement extends TUIElement implements IScrollable {
                         fg: ghostFg,
                         bg: editorBg,
                         style: StyleFlags.Italic,
+                    });
+                    continue;
+                }
+                const lens = this.codeLensByAnchor.get(zoneRow.anchor);
+                if (lens !== undefined) {
+                    const lensFg = this.styleVar("editorCodeLens.foreground");
+                    // The extra column of a "<=" mutant is clipped by the element rectangle.
+                    // Stryker disable next-line EqualityOperator: see above
+                    for (let x = 0; x < contentCols; x++) {
+                        // Stryker disable next-line StringLiteral: a cell with no char reads as a space
+                        context.setCell(gutterW + x, screenY, { char: " ", fg: lensFg, bg: editorBg });
+                    }
+                    paintPhantomText(context, {
+                        displayLine: this.codeLensLayout(lens).displayLine,
+                        screenY,
+                        gutterW,
+                        contentCols,
+                        fg: lensFg,
+                        bg: editorBg,
+                        style: StyleFlags.None,
+                        scrollLeft,
                     });
                     continue;
                 }
@@ -1027,8 +1131,12 @@ export class EditorElement extends TUIElement implements IScrollable {
             paintRangeBackground(context, decoration.range, this.styleVar(decoration.colorToken), geometry);
         }
 
-        const occurrenceBg = this.styleVar("editor.wordHighlightBackground");
-        paintSortedRangeBackgrounds(context, this.getOccurrenceHighlights(), occurrenceBg, geometry);
+        const occurrences = this.viewState.wordHighlights;
+        this.paintOccurrences(context, occurrences.text, "editor.wordHighlightTextBackground", geometry);
+        this.paintOccurrences(context, occurrences.read, "editor.wordHighlightBackground", geometry);
+        this.paintOccurrences(context, occurrences.write, "editor.wordHighlightStrongBackground", geometry);
+        // Over the occurrences: the same word usually carries both.
+        this.paintOccurrences(context, this.viewState.linkedEditingRanges, "editor.linkedEditingBackground", geometry);
 
         const searchMatches = this.viewState.searchMatches;
         const currentMatchIndex = this.viewState.currentSearchMatchIndex;
@@ -1072,14 +1180,18 @@ export class EditorElement extends TUIElement implements IScrollable {
             context.setCursorPosition(caret.x, caret.y, this.cursorStyle);
         }
 
-        // After the frame, never in it: on a big file the query walks every line.
-        if (this.occurrenceRunRequested) {
-            this.occurrenceRunRequested = false;
-            clearTimeout(this.occurrenceTimer);
-            this.occurrenceTimer = setTimeout(() => {
-                this.runOccurrences();
-            }, OCCURRENCE_RUN_DELAY_MS);
-        }
+        this.wordHighlighter.onFrame();
+    }
+
+    /** Tokens resolve only when there is something to paint: a bare element has no theme. */
+    private paintOccurrences(
+        context: RenderContext,
+        ranges: readonly IRange[],
+        colorToken: string,
+        geometry: ITextViewportGeometry,
+    ): void {
+        if (ranges.length === 0) return;
+        paintSortedRangeBackgrounds(context, ranges, this.styleVar(colorToken), geometry);
     }
 
     /** Colors are resolved here, on the frame: hit-test and the caret need none. */
@@ -1236,58 +1348,6 @@ export class EditorElement extends TUIElement implements IScrollable {
         }
     }
 
-    private currentOccurrenceTask(): { edited: boolean; requested: boolean } {
-        if (this.occurrenceTask === null) {
-            // Stryker disable next-line ObjectLiteral: `{}` reads both flags as undefined, i.e. false
-            this.occurrenceTask = { edited: false, requested: false };
-            queueMicrotask(() => {
-                this.occurrenceTask = null;
-            });
-        }
-        return this.occurrenceTask;
-    }
-
-    /** Upstream `runDelayer.trigger`: the query is armed by the next frame, see {@link render}. */
-    private requestOccurrences(): void {
-        this.occurrenceRunRequested = true;
-        this.markDirty();
-    }
-
-    /**
-     * Like upstream `_stopAll`, a query already armed stays: it reads the caret when it runs.
-     * No repaint of its own: the edit that drops it repaints anyway.
-     */
-    private dropOccurrences(): void {
-        this.occurrences = null;
-    }
-
-    /**
-     * No highlight with a selection or multi-cursor: in VS Code a selection switches to
-     * selection-highlight, and with several cursors the background would clash with "select next occurrence".
-     */
-    private get occurrenceCaret(): IPosition | null {
-        if (!this.occurrenceHighlightEnabledValue) return null;
-        if (this.viewState.selections.length !== 1) return null;
-        const primary = this.viewState.selections[0];
-        return isSelectionCollapsed(primary) ? primary.active : null;
-    }
-
-    /** Upstream `WordHighlighter._run`: a caret still inside a highlighted word keeps the set. */
-    private runOccurrences(): void {
-        const pos = this.occurrenceCaret;
-        // Without a caret the set stays hidden by `getOccurrenceHighlights`; an edit drops it.
-        if (pos === null) return;
-        if (this.occurrences !== null && sortedRangesContain(this.occurrences, pos)) return;
-        this.occurrences = computeWordOccurrences(this.viewState.document, pos);
-        this.markDirty();
-    }
-
-    /** Sorted by position: the painters and the scrollbar rely on it. */
-    private getOccurrenceHighlights(): readonly IRange[] {
-        if (this.occurrences === null || this.occurrenceCaret === null) return NO_RANGES;
-        return this.occurrences;
-    }
-
     private handleWheel(event: TUIMouseEvent): void {
         const viewState = this.viewState;
         const maxScrollTop = Math.max(0, viewState.getViewLineCount() - viewState.viewportHeight);
@@ -1340,6 +1400,12 @@ export class EditorElement extends TUIElement implements IScrollable {
             return;
         }
 
+        const lens = this.codeLensZoneAtRow(event.localY);
+        if (lens !== undefined) {
+            this.clickCodeLens(lens, event.localX);
+            return;
+        }
+
         const pos = this.docPositionAt(event.localX, event.localY);
 
         // Before the shift branches: Shift+Alt+click extends the selection, not multi-cursor.
@@ -1364,6 +1430,8 @@ export class EditorElement extends TUIElement implements IScrollable {
         if (event.button !== "left") return;
         // docPositionAt would clamp the gutter to column 0 and select the line's first word.
         if (event.localX < this.gutterWidth) return;
+        // docPositionAt would take the nearest line of the document under a zone.
+        if (this.viewState.viewLineKind(this.viewState.scrollTop + event.localY) === "zone") return;
 
         const pos = this.docPositionAt(event.localX, event.localY);
         const lineContent = this.viewState.document.getLineContent(pos.line);
@@ -1406,16 +1474,47 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     private handleKeyPress(event: TUIKeyboardEvent): void {
         if (event.key === "Enter") {
-            this.pushUndo(this.viewState.insertNewLine());
+            this.typeChar("\n");
             return;
         }
 
         if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
-            if (!this.tryTypePaired(event.key)) this.pushUndo(this.viewState.type(event.key));
-            if (this.viewState.readOnly) return;
-            this.onDidTypeEmitter.fire(event.key);
+            this.typeChar(event.key);
+        }
+    }
+
+    /**
+     * The `type` command: the same path as the keyboard, one character at a time (upstream `Cursor.type`
+     * with the `keyboard` source). Unlike upstream, `onDidType` fires per character, as it does for keys.
+     */
+    public typeText(text: string): void {
+        withCursorChangeSource("keyboard", () => {
+            for (const char of text.replace(/\r\n?/g, "\n")) {
+                this.typeChar(char);
+            }
+        });
+    }
+
+    /** A line break by a command, not by typing (upstream `EnterOperation`): {@link onDidTypeNewLine} stays silent. */
+    public insertLineBreak(): void {
+        withCursorChangeSource("keyboard", () => {
+            this.pushNewLine();
+        });
+    }
+
+    private pushNewLine(): void {
+        this.pushUndo(this.viewState.insertNewLine(this.languageConfigurationSource?.()?.onEnterRules));
+    }
+
+    private typeChar(char: string): void {
+        if (char === "\n") {
+            this.pushNewLine();
+            if (!this.viewState.readOnly) this.onDidTypeNewLineEmitter.fire();
             return;
         }
+        if (!this.tryTypePaired(char)) this.pushUndo(this.viewState.type(char));
+        if (this.viewState.readOnly) return;
+        this.onDidTypeEmitter.fire(char);
     }
 
     /**

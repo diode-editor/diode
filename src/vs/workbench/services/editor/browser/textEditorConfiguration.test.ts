@@ -201,6 +201,18 @@ describe("TextEditorConfiguration", () => {
             }
         });
 
+        it("editor.occurrencesHighlightDelay reaches the word highlighter", () => {
+            const spy = vi.spyOn(TextEditorPane.prototype, "setOccurrenceHighlightDelay");
+            try {
+                createEditorService({
+                    configurationService: stubConfigurationService({ "editor.occurrencesHighlightDelay": 300 }),
+                }).openFile(writeFile("a.ts", "const x = 1;"));
+                expect(spy).toHaveBeenLastCalledWith(300);
+            } finally {
+                spy.mockRestore();
+            }
+        });
+
         it("editor.occurrencesHighlight: off disables occurrence highlighting, the default enables it", () => {
             const spy = vi.spyOn(TextEditorPane.prototype, "setOccurrenceHighlightEnabled");
             try {
@@ -269,6 +281,18 @@ describe("TextEditorConfiguration", () => {
         function appliedOptions() {
             return vi.spyOn(TextEditorPane.prototype, "setInlayHints");
         }
+
+        it("editor.codeLens: on by default, a language override turns it off", () => {
+            const spy = vi.spyOn(TextEditorPane.prototype, "setCodeLens");
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({ "[css]": { "editor.codeLens": false } }),
+            });
+            ctrl.openFile(writeFile("a.ts", "a"));
+            expect(spy.mock.lastCall?.[0].enabled).toBe(true);
+            ctrl.getActiveEditor()!.setLanguage("css");
+            expect(spy.mock.lastCall?.[0].enabled).toBe(false);
+            spy.mockRestore();
+        });
 
         it("defaults: on, no padding, 43, normal", () => {
             const spy = appliedOptions();

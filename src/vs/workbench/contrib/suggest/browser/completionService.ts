@@ -247,12 +247,9 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         const prefixStart = providerStart ?? wordStart(caretLine, caret.character);
         const prefix = caretLine.slice(prefixStart, caret.character);
 
-        // Buffer words are mixed in only where the provider set no range of its own:
-        // after a dot they would be noise on top of the type's members.
-        const items =
-            providerStart === null
-                ? [...extensionItems, ...this.wordItems(editor, prefix, extensionItems)]
-                : extensionItems;
+        // Upstream's word provider is registered for `*`, in the last group of `orderedGroups`, and
+        // `provideSuggestionItems` stops at the first group with results: words only when no provider has any.
+        const items = extensionItems.length > 0 ? extensionItems : this.wordItems(editor, prefix);
         if (items.length === 0) return;
 
         const anchor = editor.getCaretAnchor();
@@ -616,11 +613,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     }
 
     /** Which documents to take words from follows `editor.wordBasedSuggestions` (upstream `WordBasedCompletionItemProvider`). */
-    private wordItems(
-        editor: TextEditorPane,
-        prefix: string,
-        extensionItems: readonly ICoreCompletionItem[],
-    ): ICoreCompletionItem[] {
+    private wordItems(editor: TextEditorPane, prefix: string): ICoreCompletionItem[] {
         const languageId = editor.languageId;
         const mode = this.configuration.get("editor.wordBasedSuggestions", { overrideIdentifier: languageId });
         if (mode === "off") return [];
@@ -646,10 +639,11 @@ export class CompletionService extends Disposable implements IContextKeyContribu
                       ...others.filter((candidate) => mode === "allDocuments" || candidate.languageId === languageId),
                   ];
         const texts = sources.map((source) => source.getText());
-        const existing = new Set(extensionItems.map((item) => item.label));
-        return collectWordCompletions(texts, prefix)
-            .filter((word) => !existing.has(word))
-            .map((word) => ({ label: word, insertText: word, kind: KIND_TEXT }));
+        return collectWordCompletions(texts, prefix).map((word) => ({
+            label: word,
+            insertText: word,
+            kind: KIND_TEXT,
+        }));
     }
 
     /**

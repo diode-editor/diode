@@ -42,6 +42,36 @@ export const editorColors = {
         defaults: { dark: "#474747", light: "#C6C6C6" },
         description: "Background color of a symbol during read-access, for example when reading a variable.",
     },
+    // Opaque approximations of VS Code's #004972B8 (dark) / #0e639c40 (light), as above.
+    "editor.wordHighlightStrongBackground": {
+        defaults: { dark: "#083D5B", light: "#C3D8E6" },
+        description:
+            "Background color of a symbol during write-access, like writing to a variable. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "editor.wordHighlightTextBackground": {
+        defaults: { dark: "editor.wordHighlightBackground", light: "editor.wordHighlightBackground" },
+        description:
+            "Background color of a textual occurrence for a symbol. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    // Opaque approximations of VS Code's #f00 with alpha 0.3 composited over the editor bg. VS Code's hcLight is
+    // white; hc kinds map to dark/light here.
+    "editor.linkedEditingBackground": {
+        defaults: { dark: "#621515", light: "#FFB3B3" },
+        description: "Background color when the editor auto renames on type.",
+    },
+    // For themes only: a terminal cell has no border to draw. VS Code's hc default is `activeContrastBorder`.
+    "editor.wordHighlightBorder": {
+        defaults: null,
+        description: "Border color of a symbol during read-access, like reading a variable.",
+    },
+    "editor.wordHighlightStrongBorder": {
+        defaults: null,
+        description: "Border color of a symbol during write-access, like writing to a variable.",
+    },
+    "editor.wordHighlightTextBorder": {
+        defaults: null,
+        description: "Border color of a textual occurrence for a symbol.",
+    },
     // VS Code's hcLight is #CCCCCC; hc kinds map to dark/light here.
     "editorWhitespace.foreground": {
         defaults: { dark: "#e3e4e229", light: "#33333333" },
@@ -92,6 +122,10 @@ export const editorColors = {
     "editorGhostText.foreground": {
         defaults: { dark: "#6A6A6A", light: "#888888" },
         description: "Foreground color of the ghost text in the editor.",
+    },
+    "editorCodeLens.foreground": {
+        defaults: { dark: "#999999", light: "#919191" },
+        description: "Foreground color of editor CodeLens",
     },
     "editorInlayHint.foreground": {
         defaults: { dark: "#969696", light: "#969696" },
@@ -155,6 +189,24 @@ export const editorColors = {
         defaults: { dark: "#A0A0A0CC", light: "#A0A0A0CC" },
         description:
             "Overview ruler marker color for symbol highlights. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "editorOverviewRuler.wordHighlightStrongForeground": {
+        defaults: { dark: "#C0A0C0CC", light: "#C0A0C0CC" },
+        description:
+            "Overview ruler marker color for write-access symbol highlights. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "editorOverviewRuler.selectionHighlightForeground": {
+        defaults: { dark: "#A0A0A0CC", light: "#A0A0A0CC" },
+        description:
+            "Overview ruler marker color for selection highlights. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "editorOverviewRuler.wordHighlightTextForeground": {
+        defaults: {
+            dark: "editorOverviewRuler.selectionHighlightForeground",
+            light: "editorOverviewRuler.selectionHighlightForeground",
+        },
+        description:
+            "Overview ruler marker color of a textual occurrence for a symbol. The color must not be opaque so as not to hide underlying decorations.",
     },
     "editorGutter.foldingControlForeground": {
         defaults: null,

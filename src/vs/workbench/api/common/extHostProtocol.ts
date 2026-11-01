@@ -1,5 +1,10 @@
 import type { IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import type {
+    ICallHierarchyIncomingCall,
+    ICallHierarchyOutgoingCall,
+    ICallHierarchySession,
+} from "../../../editor/common/languages/iCallHierarchySource.ts";
 import type { IColorInformation } from "../../../editor/common/languages/iColorSource.ts";
 import type {
     ICoreCompletionResult,
@@ -11,6 +16,10 @@ import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.t
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
 import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ITypeHierarchyItem,
+    ITypeHierarchySession,
+} from "../../../editor/common/languages/iTypeHierarchySource.ts";
 
 import type { IActiveEditorMeta, IActiveEditorSelections, IEditorOptionsState } from "./iEditorOptionsService.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
@@ -45,6 +54,7 @@ import type {
     IWireActivateExtensionParams,
     IWireApplyEditParams,
     IWireApplyWorkspaceEditParams,
+    IWireCallHierarchyCallsParams,
     IWireChangedFiles,
     IWireChangeLanguageParams,
     IWireChangeLanguageResult,
@@ -52,6 +62,10 @@ import type {
     IWireCloseGroupsParams,
     IWireCloseTabsParams,
     IWireCodeActionParams,
+    IWireCodeLens,
+    IWireCodeLensAddress,
+    IWireCodeLensList,
+    IWireCodeLensParams,
     IWireColorTheme,
     IWireCommandId,
     IWireCompletionParams,
@@ -65,6 +79,8 @@ import type {
     IWireDisposeDecorationType,
     IWireDocumentChangedEvent,
     IWireDocumentColorParams,
+    IWireDocumentHighlight,
+    IWireDocumentHighlightParams,
     IWireDocumentLanguage,
     IWireDocumentSemanticTokensParams,
     IWireDocumentStateChanged,
@@ -96,14 +112,19 @@ import type {
     IWireLanguageProviderRegistration,
     IWireLanguageProviderUnregistration,
     IWireLanguageStatusItem,
+    IWireLinkedEditingRangeParams,
+    IWireLinkedEditingRanges,
     IWireMarkersChanged,
     IWireMementoUpdate,
+    IWireOnTypeFormattingParams,
     IWireOpenDialogRequest,
     IWireOpenDialogResult,
     IWireOpenExternalResult,
     IWireOutputAppend,
     IWireOutputShow,
+    IWirePrepareCallHierarchyParams,
     IWirePrepareRenameParams,
+    IWirePrepareTypeHierarchyParams,
     IWireProgressEnd,
     IWireProgressReport,
     IWireProgressStart,
@@ -119,7 +140,11 @@ import type {
     IWireRangeSemanticTokensParams,
     IWireReadFileResult,
     IWireReferenceParams,
+    IWireRegisterCommandParams,
+    IWireReleaseCallHierarchy,
+    IWireReleaseCodeLenses,
     IWireReleaseSemanticTokens,
+    IWireReleaseTypeHierarchy,
     IWireRenameParams,
     IWireRevealRange,
     IWireSaveAllParams,
@@ -157,6 +182,7 @@ import type {
     IWireTerminalShow,
     IWireTerminalTarget,
     IWireTextContentResult,
+    IWireTypeHierarchyParams,
     IWireUpdateWorkspaceFolders,
     IWireUriHandlerRegistration,
     IWireUriParams,
@@ -210,13 +236,43 @@ export interface IHostToSubprocess {
         readonly "languages.provideReferences": readonly [IWireReferenceParams, ICoreReference[]];
         readonly "languages.provideSignatureHelp": readonly [IWireSignatureHelpParams, ICoreSignatureHelp | null];
         readonly "languages.provideFormattingEdits": readonly [IWireFormattingParams, ITextEdit[]];
+        readonly "languages.provideOnTypeFormattingEdits": readonly [IWireOnTypeFormattingParams, ITextEdit[]];
         readonly "languages.provideCodeActions": readonly [IWireCodeActionParams, WireCodeAction[]];
         readonly "languages.applyCodeAction": readonly [{ readonly id: string; readonly onSave?: boolean }, boolean];
         readonly "languages.prepareRename": readonly [IWirePrepareRenameParams, WireRenamePrepare | null];
         readonly "languages.provideRenameEdits": readonly [IWireRenameParams, WireRenameResult];
         readonly "languages.provideSelectionRanges": readonly [IWireSelectionRangeParams, IRange[][]];
+        readonly "languages.provideDocumentHighlights": readonly [
+            IWireDocumentHighlightParams,
+            IWireDocumentHighlight[] | null,
+        ];
+        readonly "languages.provideLinkedEditingRanges": readonly [
+            IWireLinkedEditingRangeParams,
+            IWireLinkedEditingRanges | null,
+        ];
         readonly "languages.provideDocumentColors": readonly [IWireDocumentColorParams, IColorInformation[] | null];
         readonly "languages.provideInlayHints": readonly [IWireInlayHintsParams, IWireInlayHint[] | null];
+        readonly "languages.prepareCallHierarchy": readonly [
+            IWirePrepareCallHierarchyParams,
+            ICallHierarchySession | null,
+        ];
+        readonly "languages.provideCallHierarchyIncomingCalls": readonly [
+            IWireCallHierarchyCallsParams,
+            ICallHierarchyIncomingCall[],
+        ];
+        readonly "languages.provideCallHierarchyOutgoingCalls": readonly [
+            IWireCallHierarchyCallsParams,
+            ICallHierarchyOutgoingCall[],
+        ];
+        readonly "languages.prepareTypeHierarchy": readonly [
+            IWirePrepareTypeHierarchyParams,
+            ITypeHierarchySession | null,
+        ];
+        readonly "languages.provideTypeHierarchySupertypes": readonly [IWireTypeHierarchyParams, ITypeHierarchyItem[]];
+        readonly "languages.provideTypeHierarchySubtypes": readonly [IWireTypeHierarchyParams, ITypeHierarchyItem[]];
+        readonly "languages.provideCodeLenses": readonly [IWireCodeLensParams, IWireCodeLensList | null];
+        readonly "languages.resolveCodeLens": readonly [IWireCodeLensAddress, IWireCodeLens | null];
+        readonly "languages.executeCodeLensCommand": readonly [IWireCodeLensAddress, undefined];
 
         readonly "workspace.fs.readFile": readonly [IWireUriParams, IWireReadFileResult];
         readonly "workspace.fs.stat": readonly [IWireUriParams, IWireFileStat | null];
@@ -246,6 +302,9 @@ export interface IHostToSubprocess {
     };
     readonly notifications: {
         readonly "languages.releaseDocumentSemanticTokens": IWireReleaseSemanticTokens;
+        readonly "languages.releaseCallHierarchy": IWireReleaseCallHierarchy;
+        readonly "languages.releaseTypeHierarchy": IWireReleaseTypeHierarchy;
+        readonly "languages.releaseCodeLenses": IWireReleaseCodeLenses;
         /** Other owners' MarkerService markers: a mirror for `languages.getDiagnostics`. */
         readonly "diagnostics.markersChanged": IWireMarkersChanged;
 
@@ -361,6 +420,7 @@ export interface ISubprocessToHost {
         readonly "languages.unregister": IWireLanguageProviderUnregistration;
         readonly "languages.didChangeSemanticTokens": IWireProviderHandle;
         readonly "languages.didChangeInlayHints": IWireProviderHandle;
+        readonly "languages.didChangeCodeLenses": IWireProviderHandle;
         /** Removed by the same `handle`. */
         readonly "languages.setLanguageConfiguration": IWireLanguageConfiguration;
         readonly "languages.unsetLanguageConfiguration": IWireProviderHandle;
@@ -384,7 +444,7 @@ export interface ISubprocessToHost {
 
         readonly "diagnostics.publish": IWireDiagnosticsPublish;
 
-        readonly "commands.registerCommand": IWireCommandId;
+        readonly "commands.registerCommand": IWireRegisterCommandParams;
         readonly "commands.unregisterCommand": IWireCommandId;
 
         readonly "window.progress.start": IWireProgressStart;

@@ -191,7 +191,13 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     public applyActiveEditorEdits(
         uri: string,
         edits: readonly IWireEditorEdit[],
-        options: { version?: number; setEndOfLine?: EndOfLine; undoStopBefore?: boolean; undoStopAfter?: boolean } = {},
+        options: {
+            version?: number;
+            setEndOfLine?: EndOfLine;
+            undoStopBefore?: boolean;
+            undoStopAfter?: boolean;
+            selectionsAfter?: readonly IWireSelection[];
+        } = {},
     ): boolean {
         // The edit targets the document (the model is shared): any tab of the resource in any group will do.
         const editor = this.anyEditorFor(uri);
@@ -205,7 +211,15 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         // Overlapping edits would apply to already consumed text: reject the whole batch,
         // like `Overlapping ranges are not allowed` in vscode.
         if (textEdits === null) return false;
-        if (textEdits.length > 0) editor.applyExternalEdits(textEdits, "extension edit", undefined, options);
+        const { selectionsAfter, ...undoStops } = options;
+        const computeCursorState =
+            selectionsAfter === undefined
+                ? undefined
+                : () =>
+                      selectionsAfter.map((sel) =>
+                          createSelection(sel.anchorLine, sel.anchorCharacter, sel.activeLine, sel.activeCharacter),
+                      );
+        if (textEdits.length > 0) editor.applyExternalEdits(textEdits, "extension edit", computeCursorState, undoStops);
         if (options.setEndOfLine !== undefined) editor.setEol(options.setEndOfLine);
         return true;
     }

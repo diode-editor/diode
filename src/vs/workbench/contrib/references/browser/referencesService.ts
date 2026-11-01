@@ -105,6 +105,7 @@ export class ReferencesService {
         if (ticket.isStale()) return;
 
         this.component.setResults(groups);
+        this.component.revealResults();
         this.sidebarService.showViewlet(REFERENCES_VIEWLET_ID);
     }
 
@@ -126,7 +127,10 @@ export class ReferencesService {
         if (ticket.isStale()) return;
 
         this.component.setResults(groups, { title, active: this.resolveActive(locations, active) });
-        if (options.reveal) this.sidebarService.showViewlet(REFERENCES_VIEWLET_ID);
+        if (options.reveal) {
+            this.component.revealResults();
+            this.sidebarService.showViewlet(REFERENCES_VIEWLET_ID);
+        }
     }
 
     private resolveActive(

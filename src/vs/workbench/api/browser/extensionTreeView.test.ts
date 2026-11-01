@@ -920,6 +920,96 @@ function click(f: IFixture, x: number, y: number): void {
     }
 }
 
+describe("ExtensionTreeView — a row refreshed under a new handle", () => {
+    function expandable(handle: string, label: string): IWireTreeItem {
+        return item(handle, label, { collapsibleState: 1 });
+    }
+
+    async function expand(f: IFixture, row: IWireTreeItem): Promise<void> {
+        await f.tree.reveal({
+            viewId: "test.view",
+            item: row,
+            parentChain: [],
+            select: true,
+            focus: false,
+            expand: true,
+        });
+    }
+
+    it("a root row comes from the root", async () => {
+        const source = fakeSource({ "": [item("a", "before")] });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        source.requests.length = 0;
+        source.children[""] = [item("b", "after")];
+
+        await f.tree.refresh([item("b", "after", { previousHandle: "a" })]);
+
+        expect(labels(f)).toEqual(["after"]);
+        expect(source.requests).toEqual([undefined]);
+    });
+
+    it("a root row comes from the provider even after a failed read of the root", async () => {
+        const source = fakeSource({ "": [item("a", "before")] });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        source.fail = new Error("boom");
+        await f.tree.refresh(undefined);
+        source.fail = null;
+        source.children[""] = [item("b", "after")];
+
+        await f.tree.refresh([item("b", "after", { previousHandle: "a" })]);
+
+        expect(labels(f)).toEqual(["after"]);
+    });
+
+    it("a nested row comes from its parent, and the root is not reread", async () => {
+        const parent = expandable("p", "pkg");
+        const source = fakeSource({ "": [parent], p: [item("p/a", "before", { parentHandle: "p" })] });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        await expand(f, parent);
+        source.requests.length = 0;
+        source.children.p = [item("p/b", "after", { parentHandle: "p" })];
+
+        await f.tree.refresh([item("p/b", "after", { parentHandle: "p", previousHandle: "p/a" })]);
+
+        expect(labels(f)).toEqual(["pkg", "after"]);
+        expect(source.requests).toEqual(["p"]);
+    });
+
+    it("a previous handle the tree does not know rereads nothing", async () => {
+        const source = fakeSource({ "": [item("a", "alpha")] });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        source.requests.length = 0;
+
+        await f.tree.refresh([item("b", "after", { previousHandle: "ghost" })]);
+
+        expect(source.requests).toEqual([]);
+    });
+
+    it("an expanded row under a new handle is not collapsed again by Collapse All", async () => {
+        const row = expandable("p", "pkg");
+        const source = fakeSource({ "": [row], p: [item("p/c", "child", { parentHandle: "p" })] });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        await expand(f, row);
+        source.children[""] = [expandable("q", "renamed")];
+        await f.tree.refresh([item("q", "renamed", { collapsibleState: 1, previousHandle: "p" })]);
+        source.expansions.length = 0;
+
+        await f.tree.collapseAll();
+
+        expect(source.expansions).toEqual([]);
+    });
+});
+
 describe("ExtensionTreeView — welcome state", () => {
     it("empty until the root answers; an expanded row with no children doesn't make the tree empty", async () => {
         const source = fakeSource({ "": [item("p", "pkg", { collapsibleState: 2 })], p: [] });

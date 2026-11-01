@@ -1,3 +1,4 @@
+import "./rangeJsonShape.ts";
 import type * as vscode from "vscode";
 
 import { Uri } from "../../../base/common/uri.ts";
@@ -37,14 +38,20 @@ export const OWNED_MEMBERS = {
         "registerDeclarationProvider",
         "registerDefinitionProvider",
         "registerDocumentFormattingEditProvider",
+        "registerCallHierarchyProvider",
+        "registerTypeHierarchyProvider",
+        "registerDocumentHighlightProvider",
         "registerDocumentRangeFormattingEditProvider",
         "registerDocumentRangeSemanticTokensProvider",
         "registerDocumentSemanticTokensProvider",
         "registerDocumentSymbolProvider",
         "registerFoldingRangeProvider",
         "registerHoverProvider",
+        "registerCodeLensProvider",
         "registerImplementationProvider",
         "registerInlayHintsProvider",
+        "registerOnTypeFormattingEditProvider",
+        "registerLinkedEditingRangeProvider",
         "registerInlineCompletionItemProvider",
         "registerReferenceProvider",
         "registerRenameProvider",

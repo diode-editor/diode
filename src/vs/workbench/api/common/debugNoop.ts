@@ -3,13 +3,14 @@ import type * as vscode from "vscode";
 import { Uri } from "../../../base/common/uri.ts";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
+import { createMessageApi } from "./messageNamespace.ts";
 import { DisposableImpl, EventEmitter } from "./vscodeTypes.ts";
 
 /**
  * There is no debugger (docs/arch/StockExtensions.md), but without the namespace `golang.go`
  * crashed midway through `activate()` on `registerDebugConfigurationProvider`, and ~60
  * `go.*` commands never got registered. Shape follows upstream, behavior is "no sessions now
- * or ever"; the user gets one warn line in Output per debugger type.
+ * or ever"; the user gets one warn line in Output per debugger type and a toast per start attempt.
  */
 
 const OUTPUT_CHANNEL = "extensions";
@@ -17,6 +18,8 @@ const OUTPUT_LABEL = "Extensions";
 
 /** Never collides with a debugger type. */
 const START_KEY = "\0start";
+
+const START_REFUSED = "starting a debug session is not supported in TUI yet — no session started";
 
 export function createDebugNoop(rpc: SubprocessRpc): typeof vscode.debug {
     const reported = new Set<string>();
@@ -59,7 +62,12 @@ export function createDebugNoop(rpc: SubprocessRpc): typeof vscode.debug {
         // Trackers are also registered for other types (`*`); they say nothing about the extension's debugger.
         registerDebugAdapterTrackerFactory: noopDisposable,
         startDebugging: (): Promise<boolean> => {
-            report(START_KEY, "starting a debug session is not supported in TUI yet — no session started");
+            report(START_KEY, START_REFUSED);
+            // A user's gesture (`debug test` lens of golang.go) must not end in silence; every attempt gets its toast.
+            // Not awaited: extensions await `startDebugging`, and a toast stays until it is dismissed.
+            void createMessageApi(rpc)
+                .showWarningMessage(START_REFUSED)
+                .then(undefined, () => undefined);
             return Promise.resolve(false);
         },
         stopDebugging: (): Promise<void> => Promise.resolve(),

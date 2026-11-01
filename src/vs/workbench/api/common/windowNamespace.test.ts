@@ -15,6 +15,7 @@ import {
     Position,
     Range,
     Selection,
+    SnippetString,
     ThemeColor,
     Uri,
 } from "./vscodeTypes.ts";
@@ -245,6 +246,14 @@ describe("WindowNamespace", () => {
         pick.show();
         expect(stub.notifies.map((n) => n.method)).toEqual(["window.quickPick.update"]);
         expect(stub.notifies[0]?.params).toMatchObject({ title: "Pick", visible: true });
+    });
+
+    it("createInputBox returns a live box: show() sends its state to the host", () => {
+        const { stub, window } = makeCtx();
+        const box = window.createInputBox();
+        box.prompt = "Group";
+        box.show();
+        expect(stub.notifies[0]?.params).toMatchObject({ inputBox: true, prompt: "Group", visible: true });
     });
 
     it("showInputBox is sent to the host as a request and resolves with the input", async () => {
@@ -740,6 +749,175 @@ describe("WindowNamespace — editor write (#194)", () => {
         stub.fire("editor.layoutChanged", { groups: [] });
         editor.revealRange(new Range(1, 0, 1, 0));
         expect(stub.notifies.filter((n) => n.method === "editor.revealRange")).toEqual([]);
+    });
+
+    describe("[api:TextEditor.insertSnippet]", () => {
+        /** Our class has no `append*` builders yet (#991); the method only reads `value`. */
+        const snippet = (value: string) => new SnippetString(value) as unknown as vscode.SnippetString;
+        const edit = (
+            startLine: number,
+            startCharacter: number,
+            endLine: number,
+            endCharacter: number,
+            text: string,
+        ) => ({
+            range: {
+                start: { line: startLine, character: startCharacter },
+                end: { line: endLine, character: endCharacter },
+            },
+            text,
+        });
+        const caret = (line: number, character: number) => ({
+            anchorLine: line,
+            anchorCharacter: character,
+            activeLine: line,
+            activeCharacter: character,
+        });
+        function sent(stub: ReturnType<typeof makeStubRpc>): Record<string, unknown> {
+            return stub.requests.find((r) => r.method === "editor.applyEdit")?.params as Record<string, unknown>;
+        }
+
+        it("sends the edit, the version and the caret together, and reveals the caret", async () => {
+            const { stub, editor } = editorWithText("    foo()");
+            const ok = await editor.insertSnippet(snippet("\n    $0\n"), new Position(0, 8));
+            expect(ok).toBeUndefined();
+            expect(sent(stub)).toEqual({
+                uri: URI,
+                version: 7,
+                edits: [edit(0, 8, 0, 8, "\n        \n    ")],
+                selectionsAfter: [caret(1, 8)],
+            });
+            expect(stub.notifies.find((n) => n.method === "editor.revealRange")?.params).toEqual({
+                uri: URI,
+                groupId: 1,
+                range: { start: { line: 1, character: 8 }, end: { line: 1, character: 8 } },
+                revealType: TextEditorRevealType.Default,
+            });
+        });
+
+        it("without a location or with an empty list it replaces the selections", () => {
+            const first = editorWithText("abcd\nefgh\nijkl");
+            void first.editor.insertSnippet(snippet("X"));
+            expect(sent(first.stub).edits).toEqual([edit(0, 1, 2, 3, "X")]);
+
+            const second = editorWithText("abcd\nefgh\nijkl");
+            void second.editor.insertSnippet(snippet("X"), []);
+            expect(sent(second.stub).edits).toEqual([edit(0, 1, 2, 3, "X")]);
+        });
+
+        it("takes a range, and clamps it to the document", () => {
+            const { stub, editor } = editorWithText("abcd");
+            void editor.insertSnippet(snippet("X"), new Range(0, 1, 9, 9));
+            expect(sent(stub).edits).toEqual([edit(0, 1, 0, 4, "X")]);
+            expect(sent(stub).selectionsAfter).toEqual([caret(0, 2)]);
+        });
+
+        it("orders locations and computes each caret in the document after the whole batch", () => {
+            const { stub, editor } = editorWithText("abcd\nefgh");
+            void editor.insertSnippet(snippet("x\n$0y"), [
+                new Position(1, 2),
+                new Position(0, 3),
+                new Position(0, 1),
+                new Position(1, 0),
+            ]);
+            expect(sent(stub).edits).toEqual([
+                edit(0, 1, 0, 1, "x\ny"),
+                edit(0, 3, 0, 3, "x\ny"),
+                edit(1, 0, 1, 0, "x\ny"),
+                edit(1, 2, 1, 2, "x\ny"),
+            ]);
+            expect(sent(stub).selectionsAfter).toEqual([caret(1, 0), caret(2, 0), caret(4, 0), caret(5, 0)]);
+        });
+
+        it("a location on the line after a replaced range is not shifted sideways", () => {
+            const { stub, editor } = editorWithText("abcd\nefgh");
+            void editor.insertSnippet(snippet("long$0"), [new Range(0, 0, 0, 1), new Range(1, 1, 1, 1)]);
+            expect(sent(stub).selectionsAfter).toEqual([caret(0, 4), caret(1, 5)]);
+        });
+
+        it("a location on the same line follows the width of the edit before it", () => {
+            const { stub, editor } = editorWithText("abcd");
+            void editor.insertSnippet(snippet("long$0"), [new Range(0, 0, 0, 1), new Range(0, 2, 0, 2)]);
+            expect(sent(stub).selectionsAfter).toEqual([caret(0, 4), caret(0, 9)]);
+        });
+
+        it("a multi-line replacement moves later locations up by the lines it removed", () => {
+            const { stub, editor } = editorWithText("a\nb\nc\nd");
+            void editor.insertSnippet(snippet("X"), [new Range(0, 0, 2, 0), new Range(3, 0, 3, 0)]);
+            expect(sent(stub).selectionsAfter).toEqual([caret(0, 1), caret(1, 1)]);
+        });
+
+        it("two locations with one start keep the shorter first", () => {
+            const { stub, editor } = editorWithText("abcd");
+            void editor.insertSnippet(snippet("X"), [new Range(0, 0, 0, 2), new Range(0, 0, 0, 0)]);
+            expect(sent(stub).edits).toEqual([edit(0, 0, 0, 0, "X"), edit(0, 0, 0, 2, "X")]);
+        });
+
+        it("a placeholder is selected across its lines", () => {
+            const { stub, editor } = editorWithText("abcd");
+            void editor.insertSnippet(snippet("<${1:name}>"), new Position(0, 1));
+            expect(sent(stub).selectionsAfter).toEqual([
+                { anchorLine: 0, anchorCharacter: 2, activeLine: 0, activeCharacter: 6 },
+            ]);
+        });
+
+        it("takes the indentation of the line only up to the location", () => {
+            const { stub, editor } = editorWithText("    abcd");
+            void editor.insertSnippet(snippet("x\ny"), new Position(0, 2));
+            expect(sent(stub).edits).toEqual([edit(0, 2, 0, 2, "x\n  y")]);
+        });
+
+        it("indents by the editor's tab settings, and by 4 spaces when it has none yet", () => {
+            const { stub, editor } = editorWithText("abcd");
+            void editor.insertSnippet(snippet("x\n    y"), new Position(0, 0));
+            expect(sent(stub).edits).toEqual([edit(0, 0, 0, 0, "x\n    y")]);
+
+            const defaulted = editorWithText("abcd");
+            void defaulted.editor.insertSnippet(snippet("x\n\ty"), new Position(0, 0));
+            expect(sent(defaulted.stub).edits).toEqual([edit(0, 0, 0, 0, "x\n    y")]);
+
+            const tabs = editorWithText("abcd");
+            tabs.editor.options = { tabSize: 2, insertSpaces: false };
+            void tabs.editor.insertSnippet(snippet("x\n    y"), new Position(0, 0));
+            expect(sent(tabs.stub).edits).toEqual([edit(0, 0, 0, 0, "x\n\t\ty")]);
+        });
+
+        it("keepWhitespace goes through, and undo stops only when switched off", () => {
+            const kept = editorWithText("    abcd");
+            void kept.editor.insertSnippet(snippet("x\ny"), new Position(0, 4), {
+                undoStopBefore: true,
+                undoStopAfter: true,
+                keepWhitespace: true,
+            });
+            expect(sent(kept.stub).edits).toEqual([edit(0, 4, 0, 4, "x\ny")]);
+            expect(sent(kept.stub)).not.toHaveProperty("undoStopBefore");
+            expect(sent(kept.stub)).not.toHaveProperty("undoStopAfter");
+
+            const before = editorWithText("abcd");
+            void before.editor.insertSnippet(snippet("x"), new Position(0, 0), {
+                undoStopBefore: false,
+                undoStopAfter: true,
+            });
+            expect(sent(before.stub)).toMatchObject({ undoStopBefore: false });
+            expect(sent(before.stub)).not.toHaveProperty("undoStopAfter");
+
+            const after = editorWithText("abcd");
+            void after.editor.insertSnippet(snippet("x"), new Position(0, 0), {
+                undoStopBefore: true,
+                undoStopAfter: false,
+            });
+            expect(sent(after.stub)).toMatchObject({ undoStopAfter: false });
+            expect(sent(after.stub)).not.toHaveProperty("undoStopBefore");
+        });
+
+        it("a closed editor rejects with upstream's message and sends nothing", async () => {
+            const { stub, editor } = editorWithText("abcd");
+            stub.fire("editor.layoutChanged", { groups: [] });
+            await expect(editor.insertSnippet(snippet("x"))).rejects.toThrow(
+                "TextEditor#insertSnippet not possible on closed editors",
+            );
+            expect(stub.requests.find((r) => r.method === "editor.applyEdit")).toBeUndefined();
+        });
     });
 
     it("editor.edit without edits resolves true without RPC", async () => {

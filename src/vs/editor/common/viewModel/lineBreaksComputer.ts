@@ -1,5 +1,8 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
 
+import type { IInlineInsertion } from "../model/iInlineInsertion.ts";
+
+import { composedLineContent } from "./lineInsertions.ts";
 import { STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
 
 /** Clamped here, at the only use site: a viewport of a couple of columns would yield degenerate fragments. */
@@ -11,7 +14,12 @@ export const MIN_WRAP_WIDTH = 8;
  * are measured by {@link DisplayLine}, not a custom scanner. Simplification: no
  * `wordWrapBreakBefore/AfterCharacters`, the tail past {@link STOP_RENDERING_LINE_AFTER} is not wrapped.
  */
-export function computeLineBreakOffsets(lineContent: string, tabSize: number, wrapWidth: number): number[] | null {
+export function computeLineBreakOffsets(
+    lineContent: string,
+    tabSize: number,
+    wrapWidth: number,
+    canBreakAt: (offset: number) => boolean = () => true,
+): number[] | null {
     const width = Math.max(MIN_WRAP_WIDTH, wrapWidth);
     const dl = new DisplayLine(lineContent, tabSize, STOP_RENDERING_LINE_AFTER);
     // Fast path is a pure optimization: without it a fitting line goes through the loop,
@@ -24,12 +32,21 @@ export function computeLineBreakOffsets(lineContent: string, tabSize: number, wr
     // -1: no whitespace in the current fragment yet.
     let candidateOffset = -1;
     let candidateCol = 0;
+    // The last place a long word may be cut: the slot that overflows, unless a break is not allowed there.
+    let cutOffset = 0;
+    let cutCol = 0;
     let col = 0;
     for (const slot of dl.slots) {
         const slotEnd = col + slot.displayWidth;
+        if (canBreakAt(slot.offset)) {
+            cutOffset = slot.offset;
+            cutCol = col;
+        }
         if (slot.grapheme === " " || slot.grapheme === "\t") {
-            candidateOffset = slot.offset + slot.length;
-            candidateCol = slotEnd;
+            if (canBreakAt(slot.offset + slot.length)) {
+                candidateOffset = slot.offset + slot.length;
+                candidateCol = slotEnd;
+            }
         } else {
             // A loop, not an if: after wrapping at the candidate the word may still not fit
             // the new fragment, so a hard cut follows.
@@ -40,16 +57,51 @@ export function computeLineBreakOffsets(lineContent: string, tabSize: number, wr
                     fragStartCol = candidateCol;
                     candidateOffset = -1;
                 } else {
-                    /* v8 ignore start -- infinite-loop guard: a non-whitespace grapheme wider than the whole width (width >= MIN_WRAP_WIDTH=8, graphemes <= 2 columns) is unreachable */
-                    // Stryker disable next-line all: unreachable guard, see v8 ignore above
-                    if (col === fragStartCol) break;
-                    /* v8 ignore stop */
-                    breaks.push(slot.offset);
-                    fragStartCol = col;
+                    // Nowhere to cut: an insertion wider than the width overflows the fragment.
+                    if (cutCol <= fragStartCol) break;
+                    breaks.push(cutOffset);
+                    fragStartCol = cutCol;
                 }
             }
         }
         col = slotEnd;
     }
     return breaks.length > 0 ? breaks : null;
+}
+
+/**
+ * Upstream `monospaceLineBreaksComputer` measures injected text too. Offsets are of the document line. A fragment
+ * boundary at an insertion point keeps the insertion on the fragment before it (`composedFragmentStart`), so a break
+ * is allowed right after an insertion and neither inside nor right before it: there it would push the cells over.
+ */
+export function computeComposedLineBreakOffsets(
+    lineContent: string,
+    insertions: readonly IInlineInsertion[],
+    tabSize: number,
+    wrapWidth: number,
+): number[] | null {
+    let shift = 0;
+    const ranges = insertions.map((insertion) => {
+        const start = insertion.offset + shift;
+        shift += insertion.text.length;
+        // At the line start "right after" would be document offset 0: an empty first fragment.
+        return { start, end: start + insertion.text.length + (insertion.offset === 0 ? 1 : 0) };
+    });
+    const breaks = computeLineBreakOffsets(
+        composedLineContent(new Map([[0, insertions]]), 0, lineContent),
+        tabSize,
+        wrapWidth,
+        (offset) => !ranges.some((range) => offset >= range.start && offset < range.end),
+    );
+    return (
+        breaks?.map((offset) => {
+            let inserted = 0;
+            for (const insertion of insertions) {
+                // Stryker disable next-line EqualityOperator: `canBreakAt` forbids a break exactly at an insertion start, and an empty insertion adds nothing, so `>` gives the same result
+                if (insertion.offset + inserted >= offset) break;
+                inserted += insertion.text.length;
+            }
+            return offset - inserted;
+        }) ?? null
+    );
 }

@@ -1,0 +1,14 @@
+{
+    "name": "linked-tags",
+    "displayName": "Linked Tags",
+    "description": "E2E demo extension: a linked editing provider that links the name in the opening and the closing tag.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onLanguage:plaintext"
+    ]
+}

@@ -1,6 +1,6 @@
 # Inlay hints и code lens: что не вошло в ядро
 
-Ядро inlay hints — #934, шов extension host — #935. Устройство — [Editor.md](../arch/Editor.md#editorcontribinlayhints-inlay-hints).
+Ядро inlay hints — #934, шов extension host — #935; ядро code lens — #936, шов — #937. Устройство — [Editor.md](../arch/Editor.md#editorcontribinlayhints-inlay-hints), [code lens](../arch/Editor.md#editorcontribcodelens-code-lens).
 
 - [ ] Tooltip подсказки по наведению: у редактора нет mouse-hover на вставках.
 - [ ] Ctrl+клик по части метки (`location`, `command`) и подчёркивание активной части.
@@ -9,4 +9,9 @@
 - [ ] `resolveInlayHint` и кэш сессий подсказок в субпроцессе (`$resolveInlayHint`, `$releaseInlayHints`): вызывается перед показом tooltip и `textEdits`, до них не нужен.
 - [ ] Кэш подсказок при переключении вкладок (`_inlayHintsCache` эталона): сейчас после открытия они приходят заново.
 - [ ] Подсказки в диффе и OUTPUT: сейчас только редактор файла.
-- [ ] Code lens: тот же вопрос про мышь и строки над кодом.
+- [ ] Tooltip линзы (`command.tooltip`): у редактора нет mouse-hover на рядах зон.
+- [ ] Кэш линз в storage (`codeLensCache.ts` эталона): сейчас после открытия линзы приходят заново.
+- [ ] Перезапрос линз по фокусу и отмена по потере фокуса (`onDidFocusEditorText`/`onDidBlurEditorText` эталона).
+- [ ] Линзы в диффе и OUTPUT: сейчас только редактор файла.
+- [ ] `golang.go` в реестре сайта (`extensions/golang.go.json`, #941): после релиза с линзами и подсказками убрать из `limits` и readme «no run test code lenses», добавить в `works`. Раньше нельзя — `works`/`limits` не привязаны к версии, а выпущенный редактор этого не умеет.
+- [ ] `ColorDetector` шлёт первый запрос прямо из конструктора, как делал `InlayHintsController` до #941 (документ ещё не в extension host, ответ «not synced», до правки не переспрашивает). Не проверено живьём: воспроизвести на втором открытом файле; эталон зовёт `beginCompute` там же, но у него нет гейта по синхронизации.

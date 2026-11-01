@@ -16,7 +16,9 @@ import { compareTextEditsInDocumentOrder, createTextEdit } from "../core/iTextEd
 import { sortAndMergeSelections } from "../core/sortAndMergeSelections.ts";
 import { charClass } from "../core/wordClassification.ts";
 import { DEFAULT_WORD_REGEXP, getWordAtText } from "../core/wordHelper.ts";
-import { computeNewLinePlan } from "../languages/autoIndent.ts";
+import { computeNewLinePlan, findOnEnterAction } from "../languages/autoIndent.ts";
+import { EMPTY_WORD_HIGHLIGHT_SET, type IWordHighlightSet } from "../languages/iDocumentHighlightSource.ts";
+import type { IResolvedOnEnterRule } from "../languages/languageConfiguration.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import type { IInlineInsertion } from "../model/iInlineInsertion.ts";
 import { NO_INLINE_INSERTIONS } from "../model/iInlineInsertion.ts";
@@ -29,7 +31,7 @@ import type { LineTokens } from "../tokens/lineTokens.ts";
 import type { ISemanticLineTokens } from "../tokens/semanticTokensLines.ts";
 import type { SemanticTokensStore } from "../tokens/semanticTokensStore.ts";
 
-import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
+import type { IViewZone, ViewLineKind, ViewZoneOwner } from "./iViewZone.ts";
 import { LineBreaksCache } from "./lineBreaksCache.ts";
 import type { LineInsertions } from "./lineInsertions.ts";
 import { composedCaretOffset, composedLineContent, groupLineInsertions } from "./lineInsertions.ts";
@@ -94,6 +96,7 @@ interface IProjectionCacheEntry {
     readonly docVersion: number;
     readonly foldsVersion: number;
     readonly zonesVersion: number;
+    readonly wrapInsertionsVersion: number;
     readonly wrapWidth: number;
     readonly tabSize: number;
     /** The collapsed folds the rows were built with: a fold recompute that keeps them is not a rebuild. */
@@ -166,6 +169,15 @@ export class EditorViewState {
     private readonly onDidChangeFollowTailEmitter = new Emitter<void>();
     /** {@link followTail} flipped: by a cursor move, a reload or {@link setFollowTail}. */
     public readonly onDidChangeFollowTail = this.onDidChangeFollowTailEmitter.event;
+    private readonly onDidChangeWordHighlightsEmitter = new Emitter<void>();
+    /**
+     * Not {@link onDidChangeView}: the set changes with every move of the caret and inside edits, and nothing
+     * about the viewport changes with it (the listeners there re-request viewport tokens, re-sync folded lenses).
+     */
+    public readonly onDidChangeWordHighlights = this.onDidChangeWordHighlightsEmitter.event;
+    private readonly onDidChangeLinkedEditingRangesEmitter = new Emitter<void>();
+    /** Not {@link onDidChangeView}, for the reason of {@link onDidChangeWordHighlights}. */
+    public readonly onDidChangeLinkedEditingRanges = this.onDidChangeLinkedEditingRangesEmitter.event;
     public get searchMatches(): IRange[] {
         return this.searchMatchesValue;
     }
@@ -173,6 +185,27 @@ export class EditorViewState {
     public set searchMatches(value: IRange[]) {
         this.searchMatchesValue = value;
         this.fireViewChange();
+    }
+
+    /** The occurrences on the frame; computed by `WordHighlighter`, an edit drops them, so they match the text. */
+    public get wordHighlights(): IWordHighlightSet {
+        return this.wordHighlightsValue;
+    }
+
+    public set wordHighlights(value: IWordHighlightSet) {
+        if (this.wordHighlightsValue === value) return;
+        this.wordHighlightsValue = value;
+        this.onDidChangeWordHighlightsEmitter.fire();
+    }
+
+    /** The linked ranges on the frame, sorted; kept by `LinkedEditingController`, which tracks them through edits. */
+    public get linkedEditingRanges(): readonly IRange[] {
+        return this.linkedEditingRangesValue;
+    }
+
+    public set linkedEditingRanges(value: readonly IRange[]) {
+        this.linkedEditingRangesValue = value;
+        this.onDidChangeLinkedEditingRangesEmitter.fire();
     }
 
     /** -1 means no active match. */
@@ -187,10 +220,14 @@ export class EditorViewState {
     }
 
     private searchMatchesValue: IRange[] = [];
+    private wordHighlightsValue: IWordHighlightSet = EMPTY_WORD_HIGHLIGHT_SET;
+    private linkedEditingRangesValue: readonly IRange[] = [];
     private currentSearchMatchIndexValue = -1;
     public readonly document: ITextDocument;
     public foldedRegions: IFoldingRegion[] = [];
     private viewZonesValue: readonly IViewZone[] = [];
+    /** Each owner replaces only its set; {@link viewZonesValue} is their sum by anchor. */
+    private readonly viewZoneSets = new Map<ViewZoneOwner, readonly IViewZone[]>();
     /** Render must call `tokenStore.tokenizeViewport(top, bottom)` before reading tokens. */
     public tokenStore: DocumentTokenStore | undefined;
     public semanticTokens: SemanticTokensStore | undefined;
@@ -214,6 +251,9 @@ export class EditorViewState {
     private foldsVersion = 0;
     private zonesVersion = 0;
     private lineBreaksCacheValue: LineBreaksCache | null = null;
+    private inlineInsertionsValue: readonly IInlineInsertion[] = NO_INLINE_INSERTIONS;
+    /** Bumped when insertions change how a line wraps: the rows are built from them too. */
+    private wrapInsertionsVersion = 0;
 
     /**
      * Own mutators recompute selections and folds exactly; the
@@ -350,6 +390,7 @@ export class EditorViewState {
         // Stryker disable next-line ConditionalExpression: pure memoization, a cache recreated with the same params gives the same result, only slower
         this.lineBreaksCacheValue ??= new LineBreaksCache(this.document, this.tabSize, wrapWidth);
         this.lineBreaksCacheValue.setParams(this.tabSize, wrapWidth);
+        this.lineBreaksCacheValue.setInsertions(this.lineInsertions);
         return this.lineBreaksCacheValue;
     }
 
@@ -571,7 +612,15 @@ export class EditorViewState {
      * Cells of the view absent from the document (ghost text, color decorators), set by the view:
      * the cursor reveal measures the caret on the composed line, where it is drawn.
      */
-    public inlineInsertions: readonly IInlineInsertion[] = NO_INLINE_INSERTIONS;
+    public get inlineInsertions(): readonly IInlineInsertion[] {
+        return this.inlineInsertionsValue;
+    }
+
+    public set inlineInsertions(insertions: readonly IInlineInsertion[]) {
+        this.inlineInsertionsValue = insertions;
+        // Stryker disable next-line ConditionalExpression,UpdateOperator: any version other than the one the rows were built with means a rebuild, and an extra rebuild gives the same rows; a lost bump is covered by "an insertion that overflows the line adds a row"
+        if (this.lineBreaksCacheValue?.setInsertions(this.lineInsertions) === true) this.wrapInsertionsVersion++;
+    }
 
     /** {@link inlineInsertions} clamped into the current document, by line. */
     public get lineInsertions(): LineInsertions {
@@ -579,20 +628,22 @@ export class EditorViewState {
     }
 
     /**
-     * Normalizes: drops empty view zones, clamps anchors to `[-1, lineCount-1]`, merges equal
-     * anchors. The same set is a no-op without an event: the setter is called on every diff recompute.
+     * Replaces the set of `owner`, the other owners' zones stay. Normalizes: drops empty view zones, clamps anchors
+     * to `[-1, lineCount-1]`, merges equal anchors. The same result is a no-op without an event: the setter is called
+     * on every diff recompute.
      */
-    public setViewZones(zones: readonly IViewZone[]): void {
-        const byAnchor = new Map<number, number>();
-        for (const zone of zones) {
-            if (zone.size <= 0) continue;
-            const anchor = Math.min(Math.max(-1, zone.afterLine), this.document.lineCount - 1);
-            byAnchor.set(anchor, (byAnchor.get(anchor) ?? 0) + zone.size);
-        }
-        const normalized: IViewZone[] = [...byAnchor.entries()]
-            .sort((a, b) => a[0] - b[0])
-            .map(([afterLine, size]) => ({ afterLine, size }));
-
+    // Stryker disable next-line StringLiteral: the owner is only a distinct key
+    public setViewZones(zones: readonly IViewZone[], owner: ViewZoneOwner = "view"): void {
+        this.viewZoneSets.set(
+            owner,
+            zones
+                .filter((zone) => zone.size > 0)
+                .map((zone) => ({
+                    afterLine: Math.min(Math.max(-1, zone.afterLine), this.document.lineCount - 1),
+                    size: zone.size,
+                })),
+        );
+        const normalized = this.mergedViewZones();
         const same =
             normalized.length === this.viewZonesValue.length &&
             normalized.every(
@@ -604,6 +655,19 @@ export class EditorViewState {
         this.viewZonesValue = normalized;
         this.zonesVersion++;
         this.fireViewChange();
+    }
+
+    private mergedViewZones(): IViewZone[] {
+        const byAnchor = new Map<number, number>();
+        for (const zones of this.viewZoneSets.values()) {
+            for (const zone of zones) byAnchor.set(zone.afterLine, (byAnchor.get(zone.afterLine) ?? 0) + zone.size);
+        }
+        return [...byAnchor.entries()].sort((a, b) => a[0] - b[0]).map(([afterLine, size]) => ({ afterLine, size }));
+    }
+
+    /** `false` for a line hidden by a collapsed fold. */
+    public isLineVisible(line: number): boolean {
+        return this.buildProjection().firstRowOfDocLine(line) >= 0;
     }
 
     public viewLineKind(viewLine: number): ViewLineKind {
@@ -1077,18 +1141,26 @@ export class EditorViewState {
         };
     }
 
-    public insertNewLine(): IUndoElement | undefined {
+    // Stryker disable next-line ArrayDeclaration: a junk rule has no action, the same as no rules
+    public insertNewLine(onEnterRules: readonly IResolvedOnEnterRule[] = []): IUndoElement | undefined {
         if (this.readOnly) return undefined;
         const beforeSelections = this.cloneSelections();
         const versionBefore = this.document.versionId;
         const sorted = this.sortedSelections();
         const plans = sorted.map((sel) => {
             const range = selectionToRange(sel);
+            const lineContent = this.document.getLineContent(range.start.line);
             return computeNewLinePlan({
-                lineContent: this.document.getLineContent(range.start.line),
+                lineContent,
                 column: range.start.character,
                 tabSize: this.tabSize,
                 insertSpaces: this.insertSpaces,
+                enterAction: findOnEnterAction(
+                    onEnterRules,
+                    range.start.line > 0 ? this.document.getLineContent(range.start.line - 1) : "",
+                    lineContent.slice(0, range.start.character),
+                    this.document.getLineContent(range.end.line).slice(range.end.character),
+                ),
             });
         });
         const edits = sorted.map((sel, i) => createTextEdit(selectionToRange(sel), plans[i].editText));
@@ -1682,6 +1754,11 @@ export class EditorViewState {
         return this.shiftIndent(1);
     }
 
+    /** Upstream `editor.action.indentLines`: a level on every touched line, wherever the caret stands. */
+    public indentSelectedLines(): IUndoElement | undefined {
+        return this.shiftIndent(1);
+    }
+
     public outdentLines(): IUndoElement | undefined {
         return this.shiftIndent(-1);
     }
@@ -2063,6 +2140,13 @@ export class EditorViewState {
         this.revealPosition(this.selections[0].active);
     }
 
+    private firstRowWithZonesAbove(row: number): number {
+        const projection = this.buildProjection();
+        let top = row;
+        while (projection.zoneRowAt(top - 1) !== null) top--;
+        return top;
+    }
+
     private revealPosition(pos: IPosition): void {
         if (this.viewportWidth <= 0 || this.viewportHeight <= 0) return;
 
@@ -2076,10 +2160,19 @@ export class EditorViewState {
         const maxMargin = Math.floor((this.viewportHeight - 1) / 2);
         const margin = Math.max(0, Math.min(this.cursorSurroundingLines, maxMargin));
 
-        if (visualLine < this.scrollTop + margin) {
-            this.scrollTop = Math.max(0, visualLine - margin);
-        } else if (visualLine > this.scrollTop + this.viewportHeight - 1 - margin) {
-            this.scrollTop = visualLine - this.viewportHeight + 1 + margin;
+        // The scrollTop range that shows the line with its margins. The zones right above the line belong to it: a code
+        // lens stays visible over its line. A zone taller than the viewport gives way to the line itself.
+        const lowest = visualLine - this.viewportHeight + 1 + margin;
+        const highest = Math.max(this.firstRowWithZonesAbove(visualLine) - margin, lowest);
+        // At either bound the assignment changes nothing.
+        // Stryker disable next-line EqualityOperator: see above
+        if (this.scrollTop > highest) {
+            this.scrollTop = Math.max(0, highest);
+        }
+        // Not an else: Stryker does not see a disable comment in front of `else if`. After the branch above this is false.
+        // Stryker disable next-line EqualityOperator: see above
+        if (this.scrollTop < lowest) {
+            this.scrollTop = lowest;
         }
 
         this.revealColumn(pos);
@@ -2110,6 +2203,7 @@ export class EditorViewState {
             cache.docVersion === this.contentRevision &&
             cache.foldsVersion === this.foldsVersion &&
             cache.zonesVersion === this.zonesVersion &&
+            cache.wrapInsertionsVersion === this.wrapInsertionsVersion &&
             cache.wrapWidth === wrapWidth &&
             cache.tabSize === this.tabSize
         ) {
@@ -2141,6 +2235,7 @@ export class EditorViewState {
             docVersion: this.contentRevision,
             foldsVersion: this.foldsVersion,
             zonesVersion: this.zonesVersion,
+            wrapInsertionsVersion: this.wrapInsertionsVersion,
             wrapWidth,
             tabSize: this.tabSize,
             hidden,
@@ -2166,6 +2261,8 @@ export class EditorViewState {
         if (this.viewZonesValue.length > 0 || cache.wrapWidth !== wrapWidth || cache.tabSize !== this.tabSize) {
             return false;
         }
+        // Stryker disable next-line ConditionalExpression: see above, a rebuild gives the same rows
+        if (cache.wrapInsertionsVersion !== this.wrapInsertionsVersion) return false;
         // Stryker disable next-line ConditionalExpression: see above
         if (pending === null) {
             // A version change without an event is a desync (as in LineBreaksCache): rebuild rather than guess.
@@ -2250,14 +2347,20 @@ export class EditorViewState {
      */
     private adjustViewZonesForLineChange(editStartLine: number, editEndLine: number, lineDelta: number): void {
         if (this.viewZonesValue.length === 0 || lineDelta === 0) return;
-        this.viewZonesValue = this.viewZonesValue.map((zone) => {
-            if (zone.afterLine > editEndLine) {
-                return { afterLine: zone.afterLine + lineDelta, size: zone.size };
-            }
-            if (zone.afterLine < editStartLine) return zone;
-            const clamped = Math.max(editStartLine - 1, Math.min(zone.afterLine, editEndLine + lineDelta));
-            return clamped === zone.afterLine ? zone : { afterLine: clamped, size: zone.size };
-        });
+        for (const [owner, zones] of this.viewZoneSets) {
+            this.viewZoneSets.set(
+                owner,
+                zones.map((zone) => {
+                    if (zone.afterLine > editEndLine) {
+                        return { afterLine: zone.afterLine + lineDelta, size: zone.size };
+                    }
+                    if (zone.afterLine < editStartLine) return zone;
+                    const clamped = Math.max(editStartLine - 1, Math.min(zone.afterLine, editEndLine + lineDelta));
+                    return clamped === zone.afterLine ? zone : { afterLine: clamped, size: zone.size };
+                }),
+            );
+        }
+        this.viewZonesValue = this.mergedViewZones();
     }
 
     private sortedSelections(): ISelection[] {

@@ -155,6 +155,10 @@ import {
 import { FindComponent, FindComponentDIToken } from "../../workbench/contrib/find/browser/findComponent.ts";
 import { FindService, FindServiceDIToken } from "../../workbench/contrib/find/browser/findService.ts";
 import {
+    FormatOnTypeService,
+    FormatOnTypeServiceDIToken,
+} from "../../workbench/contrib/format/browser/formatOnTypeService.ts";
+import {
     DefinitionService,
     DefinitionServiceDIToken,
 } from "../../workbench/contrib/gotoDefinition/browser/definitionService.ts";
@@ -184,6 +188,10 @@ import {
     LargeFileOptimizationsWarner,
     LargeFileOptimizationsWarnerDIToken,
 } from "../../workbench/contrib/largeFile/browser/largeFileOptimizationsWarner.ts";
+import {
+    LinkedEditingService,
+    LinkedEditingServiceDIToken,
+} from "../../workbench/contrib/linkedEditing/browser/linkedEditingService.ts";
 import {
     DiagnosticsEditorSourceDIToken,
     DiagnosticsService,
@@ -242,6 +250,10 @@ import {
     QuickAccessRegistryDIToken,
 } from "../../workbench/contrib/quickaccess/common/quickAccessRegistry.ts";
 import {
+    CallHierarchyComponent,
+    CallHierarchyComponentDIToken,
+} from "../../workbench/contrib/references/browser/callHierarchyComponent.ts";
+import {
     ReferencesComponent,
     ReferencesComponentDIToken,
     ReferencesRevealTargetDIToken,
@@ -250,6 +262,10 @@ import {
     ReferencesService,
     ReferencesServiceDIToken,
 } from "../../workbench/contrib/references/browser/referencesService.ts";
+import {
+    TypeHierarchyComponent,
+    TypeHierarchyComponentDIToken,
+} from "../../workbench/contrib/references/browser/typeHierarchyComponent.ts";
 import { RenameService, RenameServiceDIToken } from "../../workbench/contrib/rename/browser/renameService.ts";
 import { ChangesComponent, ChangesComponentDIToken } from "../../workbench/contrib/scm/browser/changesComponent.ts";
 import { ScmChangesService, ScmChangesServiceDIToken } from "../../workbench/contrib/scm/browser/changesService.ts";
@@ -535,8 +551,14 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(GoToLocationsCommandContributionDIToken, GoToLocationsCommandContribution);
     container.bind(HoverComponentDIToken, HoverComponent);
     container.bind(HoverServiceDIToken, HoverService);
+    container.bind(LinkedEditingServiceDIToken, LinkedEditingService);
+    container.bind(FormatOnTypeServiceDIToken, FormatOnTypeService);
     container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);
     container.bind(ParameterHintsServiceDIToken, ParameterHintsService);
+    // Stryker disable next-line CallExpression: DI binding without a unit test; end-to-end — e2e scenario call-hierarchy
+    container.bind(CallHierarchyComponentDIToken, CallHierarchyComponent);
+    // Stryker disable next-line CallExpression: DI binding without a unit test; end-to-end — e2e scenario type-hierarchy
+    container.bind(TypeHierarchyComponentDIToken, TypeHierarchyComponent);
     container.bind(ReferencesComponentDIToken, ReferencesComponent);
     container.bind(ReferencesServiceDIToken, ReferencesService);
     container.bind(RenameServiceDIToken, RenameService);

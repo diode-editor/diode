@@ -1,0 +1,14 @@
+{
+    "name": "failing-code-lens",
+    "displayName": "Failing Code Lens",
+    "description": "E2E fixture: code lenses whose commands fail in different ways.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onLanguage:typescript"
+    ]
+}
