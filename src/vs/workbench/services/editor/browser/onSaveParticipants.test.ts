@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ISelection } from "../../../../editor/common/core/iSelection.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -16,6 +17,7 @@ import type { IConfigurationService } from "../../../../platform/configuration/c
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
+import { SAVE_PARTICIPANT_TIMEOUT_MS } from "../../textfile/common/textFileSaveParticipant.ts";
 
 import {
     createCodeActionsOnSaveParticipant,
@@ -95,6 +97,36 @@ describe("createFormatOnSaveParticipant: editor.defaultFormatter", () => {
         const settings = { "editor.formatOnSave": true, "[python]": { "editor.defaultFormatter": "acme.first" } };
         await createFormatOnSaveParticipant(savingHost(settings, runs))(SNAPSHOT);
         expect(runs).toEqual(["acme.first"]);
+    });
+
+    it("the request is cancelled at the save participant's deadline, not before", async () => {
+        vi.useFakeTimers();
+        try {
+            let token: ICancellationToken | undefined;
+            const languageFeatures = new LanguageFeaturesService();
+            languageFeatures.documentFormattingEditProvider.register("*", {
+                provideDocumentFormattingEdits: (_request, seen) => {
+                    token = seen;
+                    return new Promise(() => undefined);
+                },
+            });
+            const pane = {
+                model: { document: new TextDocument("x\n") },
+                viewState: { tabSize: 4, insertSpaces: true },
+            } as unknown as TextEditorPane;
+            void createFormatOnSaveParticipant({
+                configuration: config({ "editor.formatOnSave": true }),
+                languageFeatures,
+                paneForUri: () => pane,
+            })(SNAPSHOT);
+
+            vi.advanceTimersByTime(SAVE_PARTICIPANT_TIMEOUT_MS - 1);
+            expect(token?.isCancellationRequested).toBe(false);
+            vi.advanceTimersByTime(1);
+            expect(token?.isCancellationRequested).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it("a named formatter that is missing is a silent no-op on save", async () => {

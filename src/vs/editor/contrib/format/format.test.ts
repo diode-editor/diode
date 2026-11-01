@@ -124,6 +124,16 @@ describe("format: formatter selection from registries", () => {
             expect(await formatRange(features, TS, ranged, TOKEN, id)).toEqual([edit(`range ${name}`)]);
         });
 
+        it("a provider without an extension is skipped, not matched and not a failure", async () => {
+            const features = twoFormatters();
+            features.documentFormattingEditProvider.register("*", {
+                provideDocumentFormattingEdits: () => Promise.resolve([edit("nobody")]),
+            });
+            expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN, "acme.first")).toEqual([
+                edit("document acme.first"),
+            ]);
+        });
+
         it("nothing configured: the first provider formats, null and an empty id alike", async () => {
             const features = twoFormatters();
             const [first] = features.documentFormattingEditProvider.ordered(TS);

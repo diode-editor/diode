@@ -1,4 +1,4 @@
-import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
+import { CancellationTokenNone, CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
@@ -9,6 +9,7 @@ import type { IConfigurationService } from "../../../../platform/configuration/c
 import { applyFormattingEdits } from "../../../browser/parts/editor/applyFormattingEdits.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";
+import { SAVE_PARTICIPANT_TIMEOUT_MS } from "../../textfile/common/textFileSaveParticipant.ts";
 
 // Source actions (`editor.codeActionsOnSave`) first, then format: edits land in the buffer BEFORE the write.
 // The setting is read at save time.
@@ -81,23 +82,32 @@ export function createFormatOnSaveParticipant(host: IOnSaveParticipantHost): Sav
         if (pane === null) return [];
         const versionId = pane.model.document.versionId;
         const target = { uri: Uri.parse(snapshot.uri), languageId: snapshot.languageId };
-        const edits = await formatDocument(
-            host.languageFeatures,
-            target,
-            {
-                uri: snapshot.uri,
-                languageId: snapshot.languageId,
-                versionId,
-                tabSize: pane.viewState.tabSize,
-                insertSpaces: pane.viewState.insertSpaces,
-            },
-            documentRange(pane.model.document),
-            // The version check below discards a stale response; the pipeline has no cancellation of its own.
-            CancellationTokenNone,
-            host.configuration.get("editor.defaultFormatter", {
-                overrideIdentifier: snapshot.languageId,
-            }),
-        );
+        // The save goes on without this participant at the deadline: an answer after it would edit the saved file.
+        const deadline = new CancellationTokenSource();
+        const timer = setTimeout(() => {
+            deadline.cancel();
+        }, SAVE_PARTICIPANT_TIMEOUT_MS);
+        let edits: Awaited<ReturnType<typeof formatDocument>>;
+        try {
+            edits = await formatDocument(
+                host.languageFeatures,
+                target,
+                {
+                    uri: snapshot.uri,
+                    languageId: snapshot.languageId,
+                    versionId,
+                    tabSize: pane.viewState.tabSize,
+                    insertSpaces: pane.viewState.insertSpaces,
+                },
+                documentRange(pane.model.document),
+                deadline.token,
+                host.configuration.get("editor.defaultFormatter", {
+                    overrideIdentifier: snapshot.languageId,
+                }),
+            );
+        } finally {
+            clearTimeout(timer);
+        }
         if (edits === null || edits.length === 0) return [];
         if (pane.model.document.versionId !== versionId) return [];
         applyFormattingEdits(pane, edits, "Format on Save");
