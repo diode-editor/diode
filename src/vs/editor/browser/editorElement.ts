@@ -1519,16 +1519,35 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     private handleKeyPress(event: TUIKeyboardEvent): void {
         if (event.key === "Enter") {
-            this.pushUndo(this.viewState.insertNewLine());
+            this.typeChar("\n");
             return;
         }
 
         if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
-            if (!this.tryTypePaired(event.key)) this.pushUndo(this.viewState.type(event.key));
-            if (this.viewState.readOnly) return;
-            this.onDidTypeEmitter.fire(event.key);
+            this.typeChar(event.key);
+        }
+    }
+
+    /**
+     * The `type` command: the same path as the keyboard, one character at a time (upstream `Cursor.type`
+     * with the `keyboard` source). Unlike upstream, `onDidType` fires per character, as it does for keys.
+     */
+    public typeText(text: string): void {
+        withCursorChangeSource("keyboard", () => {
+            for (const char of text.replace(/\r\n?/g, "\n")) {
+                this.typeChar(char);
+            }
+        });
+    }
+
+    private typeChar(char: string): void {
+        if (char === "\n") {
+            this.pushUndo(this.viewState.insertNewLine(this.languageConfigurationSource?.()?.onEnterRules));
             return;
         }
+        if (!this.tryTypePaired(char)) this.pushUndo(this.viewState.type(char));
+        if (this.viewState.readOnly) return;
+        this.onDidTypeEmitter.fire(char);
     }
 
     /**

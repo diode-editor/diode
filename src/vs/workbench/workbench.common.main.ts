@@ -40,6 +40,7 @@ import {
     toggleWordWrapAction,
 } from "./browser/actions/editorActions.ts";
 import {
+    defaultTypeAction,
     deleteAllLeftAction,
     deleteLeftAction,
     deleteRightAction,
@@ -49,6 +50,7 @@ import {
     outdentLinesAction,
     redoAction,
     selectAllAction,
+    typeAction,
     undoAction,
 } from "./browser/actions/editorEditActions.ts";
 import { EDITOR_GROUP_ACTIONS } from "./browser/actions/editorGroupActions.ts";
@@ -382,6 +384,8 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     toggleWordWrapAction,
     ...MULTI_CURSOR_ACTIONS,
     ...SMART_SELECT_ACTIONS,
+    typeAction,
+    defaultTypeAction,
     deleteLeftAction,
     deleteRightAction,
     deleteWordLeftAction,

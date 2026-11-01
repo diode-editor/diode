@@ -70,9 +70,57 @@ describe("languages.setLanguageConfiguration", () => {
                             { open: "{", close: "}", notIn: [] },
                             { open: '"', close: '"', notIn: ["string", "comment"] },
                         ],
+                        onEnterRules: [
+                            {
+                                beforeText: { pattern: "^\\/\\/", flags: "" },
+                                action: { indent: "none", appendText: "// " },
+                            },
+                        ],
                     },
                 },
             },
+        ]);
+    });
+
+    it.each([
+        [IndentAction.None, "none"],
+        [IndentAction.Indent, "indent"],
+        [IndentAction.IndentOutdent, "indentOutdent"],
+        [IndentAction.Outdent, "outdent"],
+    ])("[api:languages.setLanguageConfiguration] onEnterRules: indent action %i goes as %s", (indentAction, indent) => {
+        const { setLanguageConfiguration, sent } = setup();
+        setLanguageConfiguration("go", {
+            onEnterRules: [
+                {
+                    beforeText: /a/i,
+                    afterText: /b/,
+                    previousLineText: /c/g,
+                    action: { indentAction, removeText: 2 },
+                },
+            ],
+        });
+        // toStrictEqual: an unset field is not sent at all.
+        expect(sent().map((n) => (n.params as { configuration: unknown }).configuration)).toStrictEqual([
+            {
+                onEnterRules: [
+                    {
+                        beforeText: { pattern: "a", flags: "i" },
+                        afterText: { pattern: "b", flags: "" },
+                        previousLineText: { pattern: "c", flags: "g" },
+                        action: { indent, removeText: 2 },
+                    },
+                ],
+            },
+        ]);
+    });
+
+    it("[api:languages.setLanguageConfiguration] onEnterRules: an unset field of a rule is not sent", () => {
+        const { setLanguageConfiguration, sent } = setup();
+        setLanguageConfiguration("go", {
+            onEnterRules: [{ beforeText: /a/, action: { indentAction: IndentAction.None } }],
+        });
+        expect(sent().map((n) => (n.params as { configuration: unknown }).configuration)).toStrictEqual([
+            { onEnterRules: [{ beforeText: { pattern: "a", flags: "" }, action: { indent: "none" } }] },
         ]);
     });
 

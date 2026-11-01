@@ -1,7 +1,29 @@
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
+import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
+
+function typeIntoFocusedEditor(accessor: ServiceAccessor, args: unknown): void {
+    const text = (args as { readonly text?: unknown } | null | undefined)?.text;
+    if (typeof text !== "string") return;
+    accessor.get(EditorServiceDIToken).getActiveEditor()?.typeText(text);
+}
+
+/**
+ * Upstream `Handler.Type`: acts on the focused editor only, without a `text` does nothing.
+ * Deviation: keys do not go through this command, so overriding it does not intercept typing.
+ */
+export const typeAction: CommandAction = {
+    id: "type",
+    title: "Type",
+    enablement: "editorTextFocus",
+    menus: [{ menuId: MenuId.CommandPalette, when: "false" }],
+    run: typeIntoFocusedEditor,
+};
+
+/** The original handler, for an extension that overrides `type`. */
+export const defaultTypeAction: CommandAction = { ...typeAction, id: "default:type" };
 
 export const deleteLeftAction: CommandAction = {
     id: "deleteLeft",

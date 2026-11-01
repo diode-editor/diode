@@ -78,7 +78,7 @@ registration but are not called yet.
 | `match` | ✅ | works at runtime (selector scoring); not declared in `vscode.d.ts` yet |
 | `registerInlayHintsProvider` | 🟡 | hints are drawn inline, answers of several providers are merged, `onDidChangeInlayHints` asks again, `editor.inlayHints.*` and a toggle command apply. Without resolve: `resolveInlayHint` is not called, and `tooltip`, `textEdits` and the `location` and `command` of label parts have no effect, as a hint has no hover or click yet |
 | other `register*Provider` (10: documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, onTypeFormatting, inlineValues, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | registration is accepted as a no-op; the provider is never called |
-| `setLanguageConfiguration` | 🟡 | `wordPattern` (for `TextDocument.getWordRangeAtPosition` only; not passed to the editor's word selection and completion boundaries), `comments`, `brackets`, `autoClosingPairs` (layered over `language-configuration.json`: a set section replaces the file's, the latest layer wins, dispose removes it). Not applied: `indentationRules`, `onEnterRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, the deprecated `__electricCharacterSupport`/`__characterPairSupport` |
+| `setLanguageConfiguration` | 🟡 | `wordPattern` (for `TextDocument.getWordRangeAtPosition` only; not passed to the editor's word selection and completion boundaries), `comments`, `brackets`, `autoClosingPairs`, `onEnterRules` (layered over `language-configuration.json`: a set section replaces the file's, the latest layer wins, dispose removes it). Not applied: `indentationRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, the deprecated `__electricCharacterSupport`/`__characterPairSupport` |
 | `getLanguages`, `setTextDocumentLanguage` | ✅ | The language set on a document without a tab is applied when it gets one. |
 | `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
 
@@ -162,8 +162,9 @@ extension terminals and tree views work; webview is the ceiling.
 
 | member | status | comment |
 | --- | :-: | --- |
-| `registerCommand` | ✅ | |
+| `registerCommand` | ✅ | **Deviation:** registering an id the extension host already has does not throw `already exists`: the later registration wins, and disposing it brings the earlier one back. |
 | `executeCommand` | ✅ | the editor's built-in commands and `setContext` (settings are readable in when clauses as `config.<key>`, as in VS Code); of the API commands, `vscode.open` (a `Uri` opens a tab with column/options like `showTextDocument`; http(s) opens externally like `env.openExternal`) |
+| Commands `type`, `default:type` | 🟡 | `{ text }` goes to the focused editor as if typed: every cursor, selection replaced, auto-close, indent, `onEnterRules`, suggest triggers; without a focused editor or `text`, nothing happens. An extension can override `type` with `registerCommand`, and `executeCommand("type")` reaches it. **Deviation:** key presses do not go through an overridden `type`, so vim-style extensions cannot intercept typing. A selection change it causes in an extension's call reads as `Command`, not `Keyboard`. |
 | `registerTextEditorCommand` | ✅ | a real edit builder: edits apply after the callback, as one undo step, and an async result does not delay them; without an active editor: a warning and no-op, as in VS Code |
 | `getCommands` | ✅ | Commands of the editor and of extensions; API commands (`vscode.open`…) are not listed, as in VS Code. |
 | API commands `vscode.executeCompletionItemProvider`, `vscode.executeCodeActionProvider` | ✅ | Ask the providers of extensions; the results are the provider's own objects. |
@@ -355,7 +356,7 @@ reason: everything is declared and implemented, but `save` is a 🟡 stub.
 
 | type | active | not active |
 | --- | :-: | --- |
-| `TextEditor` | 7/12 | `visibleRanges`, `insertSnippet`, `revealRange`, `show`, `hide` |
+| `TextEditor` | 8/12 | `visibleRanges`, `insertSnippet`, `show`, `hide` |
 | `TextDocument` | 19/19 | — (the class is checked by the compiler against `vscode.TextDocument`). `save` goes through the editor with save participants and the scheme's provider; a document not open in the editor gives `false`, a closed one rejects. `getWordRangeAtPosition` uses VS Code's default word definition or the extension's regex (no language `wordPattern`; a regex matching the empty string throws). `offsetAt`/`positionAt`/`validateRange`/`validatePosition` work |
 | `TextEditorOptions` | 4/5 | `lineNumbers` |
 | `TerminalOptions` | 12/13 | `iconPath` |
@@ -380,7 +381,9 @@ The type matches VS Code, the meaning differs:
 | --- | --- |
 | `vscode.version` | the version of **Diode**, not of VS Code |
 | `Event<T>` | subscriptions are wrapped in the extension host's own emitter |
+| `TextEditorOptions.tabSize`, `insertSpaces` | the getter gives the editor's resolved values, detection included; a value the extension assigned wins over a later change by the user. An editor showing one side of a diff has none until assigned |
 | `TextEditorOptions.indentSize` | aliased to `tabSize`; Diode does not distinguish them yet |
+| `TextEditor.revealRange` | scrolling is immediate, not smooth, and stops at the end of the document: VS Code's `editor.scrollBeyondLastLine` has no counterpart, so `AtTop` near the end leaves the range lower. An editor showing one side of a diff does not scroll |
 | `TextEditorOptions.cursorStyle` | a terminal has three cursor shapes: `LineThin` draws as `Line`, `BlockOutline` as `Block`, `UnderlineThin` as `Underline`. The getter is `undefined` while neither the extension nor `editor.cursorStyle` sets a style: the editor then keeps the terminal's own cursor shape |
 | `environmentVariableCollection` | the whole API (`replace`/`append`/`prepend`, `get`, `forEach`, iteration, `delete`, `clear`, `description`, `persistent`, `getScoped` per folder). Collections of all extensions are merged as in VS Code and applied to every terminal process (a person's shells, extension terminals, tasks), except terminals with `strictEnv`; `persistent` collections survive a restart and are available in `activate()`. Deviations: `applyAtShellIntegration` has no effect (no shell integration); no "environment is stale" indicator and no relaunch on `terminal.integrated.environmentChangesRelaunch`, the next process gets the new values; `${…}` variables in values are not expanded |
 | `SecretStorage` | **unencrypted**: there is no OS keychain, secrets are stored in plain text in `<profileDir>/secrets.json` with `0600` permissions. Everything else follows the contract: `get`/`store`/`delete`/`keys`, `onDidChange` on writes and deletes, values survive a restart, one compartment per extension |

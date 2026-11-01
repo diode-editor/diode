@@ -331,6 +331,11 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.component.focus();
     }
 
+    /** As if typed on the keyboard: auto-close, indent, `onEnterRules`, suggest triggers. */
+    public typeText(text: string): void {
+        this.component.typeText(text);
+    }
+
     public pushUndo(element: IUndoElement | undefined): void {
         this.component.pushUndo(element);
     }

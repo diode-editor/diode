@@ -35,6 +35,7 @@ function setup() {
         getActiveEditorOptions: () => ({ tabSize: 4, insertSpaces: true }),
         setActiveEditorOptions: vi.fn(),
         setEditorCursorStyle: vi.fn(),
+        revealEditorRange: vi.fn(),
         getActiveEditorMeta: () => META,
         onActiveEditorChanged: (cb: (meta: IActiveEditorMeta) => void) => activeEditor.event(cb),
         onActiveEditorSelectionChanged: (cb: (s: IActiveEditorSelections) => void) => selection.event(cb),
@@ -170,6 +171,31 @@ describe("EditorCustomer — subprocess requests", () => {
         expect(vi.mocked(h.editorOptions.setEditorCursorStyle).mock.calls).toEqual([
             ["file:///a.ts", 7, "block"],
             ["file:///b.ts", 1, "underline-thin"],
+        ]);
+    });
+
+    it("editor.revealRange maps the enum to a strategy for the editor at uri + group; junk is dropped", async () => {
+        const h = setup();
+        h.attachTo();
+        const uri = "file:///a.ts";
+        const cases: readonly unknown[] = [
+            { uri, groupId: 7, range: RANGE, revealType: 0 },
+            { uri, groupId: 7, range: RANGE, revealType: 1 },
+            { uri, groupId: 7, range: RANGE, revealType: 2 },
+            { uri, groupId: 7, range: RANGE, revealType: 3 },
+            { uri, groupId: 7, range: RANGE, revealType: 4 },
+            { uri, groupId: 7, range: RANGE, revealType: "1" },
+            { uri, groupId: 7, range: null, revealType: 0 },
+            { uri, groupId: "7", range: RANGE, revealType: 0 },
+            { groupId: 7, range: RANGE, revealType: 0 },
+        ];
+        for (const params of cases) h.peer.notify("editor.revealRange", params);
+        await flushMicrotasks();
+        expect(vi.mocked(h.editorOptions.revealEditorRange).mock.calls).toEqual([
+            [uri, 7, RANGE, "default"],
+            [uri, 7, RANGE, "center"],
+            [uri, 7, RANGE, "centerIfOutsideViewport"],
+            [uri, 7, RANGE, "top"],
         ]);
     });
 

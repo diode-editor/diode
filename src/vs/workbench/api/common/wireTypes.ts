@@ -189,6 +189,9 @@ export interface IWireTabSnapshot {
     readonly sideEditors?: readonly string[];
     readonly languageId?: string;
     readonly selections?: readonly IWireSelection[];
+    /** The editor's resolved indentation, detection included; a text tab only. */
+    readonly tabSize?: number;
+    readonly insertSpaces?: boolean;
 }
 
 export interface IWireTabGroupSnapshot {
@@ -236,6 +239,8 @@ export function parseWireEditorLayout(raw: unknown): IWireEditorLayout | null {
                 ...(sideEditors !== undefined ? { sideEditors } : {}),
                 ...(typeof t.languageId === "string" ? { languageId: t.languageId } : {}),
                 ...(Array.isArray(t.selections) ? { selections: parseWireSelections(t.selections) } : {}),
+                ...(isFiniteNumber(t.tabSize) ? { tabSize: t.tabSize } : {}),
+                ...(typeof t.insertSpaces === "boolean" ? { insertSpaces: t.insertSpaces } : {}),
             });
         }
         groups.push({ groupId: g.groupId, viewColumn: g.viewColumn, isActive: g.isActive, tabs });
@@ -1000,6 +1005,14 @@ export interface IWireSetDecorations {
     readonly ranges: readonly IRange[];
     /** The host currently decorates the resource in all groups and ignores this field. */
     readonly groupId: number;
+}
+
+export interface IWireRevealRange {
+    readonly uri: string;
+    readonly groupId: number;
+    readonly range: IRange;
+    /** `vscode.TextEditorRevealType`. */
+    readonly revealType: number;
 }
 
 export interface IWireFileDecoration {

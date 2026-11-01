@@ -109,6 +109,8 @@
     "editor.action.changeAll",
     "editor.action.smartSelect.expand",
     "editor.action.smartSelect.shrink",
+    "type",
+    "default:type",
     "deleteLeft",
     "deleteRight",
     "deleteWordLeft",

@@ -10,6 +10,7 @@ import { applyTextEditorEdit } from "./extHostTextEditorEdit.ts";
 import { createExtHostTreeViews, type ITreeViewMembers } from "./extHostTreeViews.ts";
 import {
     normalizeDecorationRanges,
+    rangeFrom,
     serializeDecorationRenderOptions,
     toVscodeSelection,
     toWireSelection,
@@ -19,6 +20,7 @@ import { createQuickInputApi } from "./quickInputNamespace.ts";
 import type { AsRelativePath } from "./quickInputResource.ts";
 import { createStatusBarMessage } from "./statusBarMessage.ts";
 import { createTerminalNamespace, type ITerminalNamespace } from "./terminalNamespace.ts";
+import { TextEditorRevealType } from "./textEditorRevealType.ts";
 import { createUriHandlers } from "./uriHandlers.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
@@ -490,7 +492,14 @@ export function createWindowNamespace(
         const editorData: vscode.TextEditor = {
             get options(): vscode.TextEditorOptions {
                 const cursorStyle = effectiveCursorStyle();
-                return cursorStyle === undefined ? { ...storedOptions } : { ...storedOptions, cursorStyle };
+                const tab = layoutGroup(groupId)?.tabs.find((candidate) => candidate.uri === document.uri.toString());
+                return {
+                    // Upstream's getter is always resolved: vsc-python-indent computes the next indent from `tabSize`.
+                    ...(tab?.tabSize === undefined ? {} : { tabSize: tab.tabSize }),
+                    ...(tab?.insertSpaces === undefined ? {} : { insertSpaces: tab.insertSpaces }),
+                    ...storedOptions,
+                    ...(cursorStyle === undefined ? {} : { cursorStyle }),
+                };
             },
             document,
             /** Read from the current snapshot: renumbering does not break the object (AS-9). */
@@ -529,6 +538,17 @@ export function createWindowNamespace(
                     uri: document.uri.toString(),
                     ranges: normalizeDecorationRanges(rangesOrOptions),
                     groupId,
+                });
+            },
+            // Upstream `_runOnProxy`: a disposed editor only warns, the extension's command carries on.
+            revealRange: (range: vscode.Range, revealType?: vscode.TextEditorRevealType): void => {
+                const wireRange = rangeFrom(range);
+                if (wireRange === null || isEditorClosed()) return;
+                rpc.notify("editor.revealRange", {
+                    uri: document.uri.toString(),
+                    groupId,
+                    range: wireRange,
+                    revealType: revealType ?? TextEditorRevealType.Default,
                 });
             },
         };

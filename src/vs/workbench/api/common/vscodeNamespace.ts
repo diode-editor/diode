@@ -48,6 +48,7 @@ import {
     TestTag,
 } from "./testingTypes.ts";
 import { createTestsNoop } from "./testsNoop.ts";
+import { TextEditorRevealType } from "./textEditorRevealType.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import {
@@ -386,6 +387,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         UIKind,
         ColorThemeKind,
         TextEditorCursorStyle,
+        TextEditorRevealType,
         TextEditorSelectionChangeKind,
         ThemeColor,
         FileDecoration,

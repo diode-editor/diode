@@ -39,6 +39,8 @@ export interface IActiveEditorMeta {
 
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { EditorCursorStyleSetting } from "../../../editor/common/config/editorCursorStyle.ts";
+import type { IRange } from "../../../editor/common/core/iRange.ts";
+import type { RangeRevealType } from "../../../editor/common/viewModel/editorViewState.ts";
 
 import type { IWireEditorEdit, IWireSelection, IWireWorkspaceEditOp, WireSelectionChangeKind } from "./wireTypes.ts";
 
@@ -50,6 +52,11 @@ export interface IEditorOptionsService {
      * no-op if that tab is gone.
      */
     setEditorCursorStyle(uri: string, groupId: number, style: EditorCursorStyleSetting): void;
+    /**
+     * Scrolls the tab of `uri` in group `groupId`, whichever group is active; the range is clamped to the
+     * document, selection and focus stay. No-op if that tab is gone.
+     */
+    revealEditorRange(uri: string, groupId: number, range: IRange, revealType: RangeRevealType): void;
     getActiveEditorFilePath(): string | null;
     getActiveEditorMeta(): IActiveEditorMeta;
     onActiveEditorChanged(cb: (meta: IActiveEditorMeta) => void): IDisposable;

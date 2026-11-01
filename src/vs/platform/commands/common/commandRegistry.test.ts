@@ -20,6 +20,63 @@ function settleMicrotasks(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+describe("CommandRegistry — shadowing an id", () => {
+    it("the later registration wins; disposing it brings the previous handler and title back", () => {
+        const registry = new CommandRegistry();
+        const builtin = vi.fn();
+        const override = vi.fn();
+        registry.register("type", builtin, "Built-in");
+        const shadow = registry.register("type", override);
+
+        registry.execute("type");
+        expect(override).toHaveBeenCalledOnce();
+        expect(builtin).not.toHaveBeenCalled();
+        expect(registry.getTitle("type")).toBeUndefined();
+        expect(registry.listCommands()).toEqual([]);
+        expect(registry.listCommandIds()).toEqual(["type"]);
+
+        shadow.dispose();
+        registry.execute("type");
+        expect(builtin).toHaveBeenCalledOnce();
+        expect(registry.getTitle("type")).toBe("Built-in");
+        expect(registry.listCommands().map((command) => command.id)).toEqual(["type"]);
+    });
+
+    it("disposing a shadowed registration leaves the one in force", () => {
+        const registry = new CommandRegistry();
+        const first = vi.fn();
+        const second = vi.fn();
+        const shadowed = registry.register("c", first);
+        registry.register("c", second);
+
+        shadowed.dispose();
+        registry.execute("c");
+        expect(second).toHaveBeenCalledOnce();
+        expect(first).not.toHaveBeenCalled();
+    });
+
+    it("a second dispose does not take another registration of the same handler with it", () => {
+        const registry = new CommandRegistry();
+        const handler = vi.fn();
+        const first = registry.register("c", handler);
+        registry.register("c", handler);
+
+        first.dispose();
+        first.dispose();
+        expect(registry.has("c")).toBe(true);
+    });
+
+    it("the last dispose removes the id; a dispose after that does nothing", () => {
+        const registry = new CommandRegistry();
+        const only = registry.register("c", vi.fn());
+        only.dispose();
+        expect(registry.has("c")).toBe(false);
+        expect(registry.listCommandIds()).toEqual([]);
+        only.dispose();
+        expect(registry.has("c")).toBe(false);
+    });
+});
+
 describe("CommandRegistry", () => {
     it("executes a registered command", () => {
         const registry = new CommandRegistry();
