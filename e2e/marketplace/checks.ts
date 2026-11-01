@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -445,6 +445,66 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 });
             } finally {
                 await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Trailing Spaces edits through `registerTextEditorCommand` and a
+        // will-save `waitUntil`. Blanks don't show in a frame, so the status bar column at the line end
+        // stands for them: 9 with the spaces, 6 without.
+        id: "shardulm94.trailing-spaces",
+        expectFiles: ["package.json", "dist/extension.js"],
+        run: async (ctx) => {
+            const source = "alpha   \nbeta  \n";
+            const trimmed = "alpha\nbeta\n";
+            const waitForContent = (file: string, content: string) =>
+                waitUntil(
+                    () => readFileSync(file, "utf8"),
+                    (text) => text === content,
+                    { describe: `${file} holding ${JSON.stringify(content)}`, timeoutMs: 20_000, intervalMs: 100 },
+                );
+
+            const byCommand = join(ctx.root, "command.txt");
+            writeFileSync(byCommand, source);
+            const commandApp = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [byCommand] });
+            try {
+                // Awaits activation; the highlight itself is not painted, but must not fail.
+                await commandApp.session.executeCommand("trailing-spaces.highlightTrailingSpaces");
+                await commandApp.session.key("Ctrl+Home");
+                await commandApp.session.key("End");
+                await commandApp.session.waitForText((text) => text.includes("Ln 1, Col 9"), { timeoutMs: 20_000 });
+                await commandApp.session.executeCommand("trailing-spaces.deleteTrailingSpaces");
+                await commandApp.session.waitForText((text) => text.includes("Ln 1, Col 6"), { timeoutMs: 20_000 });
+                await commandApp.session.key("Ctrl+S");
+                await waitForContent(byCommand, trimmed);
+            } finally {
+                await commandApp.dispose();
+            }
+
+            const onSave = join(ctx.root, "save.txt");
+            writeFileSync(onSave, source);
+            const saveApp = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [onSave],
+                settings: { "trailing-spaces.trimOnSave": true },
+            });
+            try {
+                await saveApp.session.executeCommand("trailing-spaces.highlightTrailingSpaces");
+                await saveApp.session.key("Ctrl+Home");
+                await saveApp.session.key("End");
+                await saveApp.session.waitForText((text) => text.includes("Ln 1, Col 9"), { timeoutMs: 20_000 });
+                await saveApp.session.key("Ctrl+S");
+                await waitForContent(onSave, trimmed);
+                await saveApp.session.waitForText((text) => text.includes("Ln 1, Col 6"), { timeoutMs: 20_000 });
+                // Undo brings the spaces and the caret back, and the next save trims them again.
+                await saveApp.session.key("Ctrl+Z");
+                await saveApp.session.waitForText((text) => text.includes("Ln 1, Col 9"), { timeoutMs: 20_000 });
+                await saveApp.session.key("Ctrl+S");
+                await saveApp.session.waitForText((text) => text.includes("Ln 1, Col 6"), { timeoutMs: 20_000 });
+                await waitForContent(onSave, trimmed);
+            } finally {
+                await saveApp.dispose();
             }
         },
     },
