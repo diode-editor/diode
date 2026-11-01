@@ -53,9 +53,10 @@ describe("EditorElement.typeText", () => {
         ["\\r\\n", "a\r\nb"],
         ["\\r", "a\rb"],
     ])("%s counts as one line break", (_name, text) => {
-        const { editor, viewState } = makeEditor("");
+        const { editor, viewState, typed } = makeEditor("");
         editor.typeText(text);
         expect(viewState.document.getText()).toBe("a\nb");
+        expect(typed).toEqual(["a", "b"]);
     });
 
     it("keeps a character outside the BMP whole", () => {

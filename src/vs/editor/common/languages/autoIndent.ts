@@ -59,7 +59,7 @@ export function findOnEnterAction(
 /** Upstream `unshiftIndent`: back to the previous tab stop. */
 function outdent(indentation: string, tabSize: number): string {
     if (indentation.endsWith("\t")) return indentation.slice(0, -1);
-    const spaces = indentation.length - indentation.trimEnd().length;
+    const spaces = indentation.length - indentation.replace(/ +$/, "").length;
     return indentation.slice(0, indentation.length - Math.min(spaces, spaces % tabSize || tabSize));
 }
 

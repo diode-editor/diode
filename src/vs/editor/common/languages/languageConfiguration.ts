@@ -113,10 +113,11 @@ export function resolveLanguageConfiguration(raw: ILanguageConfiguration): IReso
 }
 
 function toRegExp(value: string | IRegExpDefinition | null | undefined): RegExp | undefined {
-    if (value === null || value === undefined) return undefined;
     const definition = typeof value === "string" ? { pattern: value } : value;
+    if (typeof definition?.pattern !== "string") return undefined;
     try {
         return new RegExp(definition.pattern, definition.flags);
+        // Stryker disable next-line BlockStatement: an empty catch returns undefined as well
     } catch {
         return undefined;
     }
@@ -124,8 +125,7 @@ function toRegExp(value: string | IRegExpDefinition | null | undefined): RegExp 
 
 /** As upstream `_extractValidOnEnterRules`: a broken `beforeText` or `indent` drops the rule, a broken optional regex only itself. */
 function toOnEnterRule(rule: IOnEnterRule | null): IResolvedOnEnterRule | undefined {
-    if (typeof rule !== "object" || rule === null) return undefined;
-    const action = rule.action as IOnEnterAction | null | undefined;
+    const action = rule?.action as IOnEnterAction | null | undefined;
     if (typeof action !== "object" || action === null) return undefined;
     if (!["none", "indent", "indentOutdent", "outdent"].includes(action.indent)) return undefined;
     const beforeText = toRegExp(rule.beforeText);

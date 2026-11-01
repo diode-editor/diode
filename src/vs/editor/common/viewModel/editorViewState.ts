@@ -1056,6 +1056,7 @@ export class EditorViewState {
         };
     }
 
+    // Stryker disable next-line ArrayDeclaration: a junk rule has no action, the same as no rules
     public insertNewLine(onEnterRules: readonly IResolvedOnEnterRule[] = []): IUndoElement | undefined {
         if (this.readOnly) return undefined;
         const beforeSelections = this.cloneSelections();

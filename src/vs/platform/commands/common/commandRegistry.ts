@@ -56,8 +56,9 @@ export class CommandRegistry implements IDisposable {
         return {
             dispose: () => {
                 const current = this.entries.get(id);
-                const index = current?.indexOf(entry) ?? -1;
-                if (current === undefined || index < 0) return;
+                if (current === undefined) return;
+                const index = current.indexOf(entry);
+                if (index < 0) return;
                 current.splice(index, 1);
                 if (current.length === 0) this.entries.delete(id);
             },
@@ -104,6 +105,7 @@ export class CommandRegistry implements IDisposable {
         const result: ICommandSnapshot[] = [];
         for (const id of this.entries.keys()) {
             const entry = this.top(id);
+            // Stryker disable next-line OptionalChaining: a stack in the map is never empty
             if (entry?.title !== undefined) {
                 result.push({ id, title: entry.title, enablement: entry.enablement, category: entry.category });
             }

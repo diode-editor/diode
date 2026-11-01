@@ -114,6 +114,16 @@ describe("languages.setLanguageConfiguration", () => {
         ]);
     });
 
+    it("[api:languages.setLanguageConfiguration] onEnterRules: an unset field of a rule is not sent", () => {
+        const { setLanguageConfiguration, sent } = setup();
+        setLanguageConfiguration("go", {
+            onEnterRules: [{ beforeText: /a/, action: { indentAction: IndentAction.None } }],
+        });
+        expect(sent().map((n) => (n.params as { configuration: unknown }).configuration)).toStrictEqual([
+            { onEnterRules: [{ beforeText: { pattern: "a", flags: "" }, action: { indent: "none" } }] },
+        ]);
+    });
+
     it("a line comment rule is just the marker; an empty configuration is an empty layer", () => {
         const { setLanguageConfiguration, sent } = setup();
         setLanguageConfiguration("go", { comments: { lineComment: { comment: "#", noIndent: true } } });
