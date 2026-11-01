@@ -171,7 +171,17 @@ eval-режим node, иначе расширение молча не линти
 - **Не будет (webview)**: редактор настроек форматтера (`contributes.customEditors`; регистрация —
   инертный no-op, иначе падала вся активация), markdown-превью документации, диалог Change Signature.
   Отладка, тесты, «Java Projects» — отдельные расширения Extension Pack for Java.
-- Inlay hints, code lens, outline, workspace symbols, call/type hierarchy, selection range, on-type
+- **Inlay hints и code lens работают.** Подсказки имён параметров — сразу (`literals`, дефолт
+  расширения), `java.inlayHints.parameterNames.enabled: none` убирает их на лету. Линзы —
+  `java.referencesCodeLens.enabled` и `java.implementationCodeLens`, дефолты расширения выключены; клик
+  идёт через `java.show.references`/`java.show.implementations` в `editor.action.showReferences`.
+  `0 references` на кадре есть, как в VS Code; команда у него настоящая, но едет с пустым списком, и
+  `peekLocations` молча ничего не открывает (в эталоне `muteMessage` без `noResultsMessage`). **Грабля:** линзы
+  приходят сразу, а считает их jdt.ls только после импорта проекта, десятки секунд, поэтому у
+  `resolveCodeLens` нет дедлайна, как в эталоне; с дедлайном 5 с кадр навсегда оставался с
+  `no commands` ([Extensions.md](Extensions.md)). Тесты —
+  `extensionHost.javaLsp.{inlayHints,codeLens}.test.ts`, демо — `java-lens-hints`.
+- Outline, workspace symbols, call/type hierarchy, selection range, on-type
   formatting сервер умеет — Java получит их сама по мере закрытия `register*Provider`
   ([API-COVERAGE](../public/API-COVERAGE.md)). Классов-ловушек у этого клиента не всплыло: ошибок
   конвертации в `client.outputChannel` за прогоны нет. Активация → готовность на игрушечном проекте
