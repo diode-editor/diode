@@ -21,7 +21,6 @@ const NULL_VIEWS_SERVICE = {
     registerContainer: () => {},
     registerView: () => {},
     setViewTitle: (_id: string, title: string | undefined) => viewTitles.push(title),
-    setViewVisible: () => {},
 } as unknown as ViewsService;
 
 function fakeReveal(opts: { noEditor?: boolean } = {}): {

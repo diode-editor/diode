@@ -24,12 +24,19 @@ const ROOT = "/work/project";
 const MAIN = `${ROOT}/src/main.ts`;
 const MAIN_TEXT = 'import { greet } from "./defs";\n\nconst hello = greet("world");\n';
 
-function fakeComponent(): { component: ReferencesComponent; shown: IReferenceGroup[][]; cleared: number } {
+function fakeComponent(): {
+    component: ReferencesComponent;
+    shown: IReferenceGroup[][];
+    cleared: number;
+    revealed: number;
+} {
     const shown: IReferenceGroup[][] = [];
-    const state = { cleared: 0 };
+    const state = { cleared: 0, revealed: 0 };
     const component = {
         setResults: (groups: readonly IReferenceGroup[]) => shown.push([...groups]),
-        revealResults: () => undefined,
+        revealResults: () => {
+            state.revealed++;
+        },
         clear: () => {
             state.cleared++;
         },
@@ -39,6 +46,9 @@ function fakeComponent(): { component: ReferencesComponent; shown: IReferenceGro
         shown,
         get cleared(): number {
             return state.cleared;
+        },
+        get revealed(): number {
+            return state.revealed;
         },
     };
 }
@@ -160,6 +170,7 @@ describe("ReferencesService — findReferences", () => {
             },
         ]);
         expect(panel.shown).toHaveLength(1);
+        expect(panel.revealed).toBe(1);
         expect(panel.shown[0].map((g) => g.relPath)).toEqual(["src/defs.ts", "src/main.ts"]);
         expect(panel.shown[0][0].matches[0].preview).toEqual({
             before: "export function ",
@@ -418,6 +429,7 @@ describe("ReferencesService — showLocations", () => {
         expect(panel.shown[0].map((g) => g.relPath)).toEqual(["src/defs.ts", "src/main.ts"]);
         expect(calls).toEqual([{ title: "Definitions", active: undefined }]);
         expect(sidebar.shown).toEqual([REFERENCES_VIEWLET_ID]);
+        expect(panel.revealed).toBe(1);
     });
 
     it("reveal: false fills the panel without showing it", async () => {
@@ -427,6 +439,7 @@ describe("ReferencesService — showLocations", () => {
 
         expect(panel.shown).toHaveLength(1);
         expect(sidebar.shown).toEqual([]);
+        expect(panel.revealed).toBe(0);
     });
 
     it("an empty list does nothing and keeps a running search alive", async () => {

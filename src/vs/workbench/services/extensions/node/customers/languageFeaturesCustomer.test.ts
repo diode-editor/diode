@@ -651,9 +651,17 @@ describe("LanguageFeaturesCustomer — selection ranges", () => {
             },
         });
         const request = { uri: SYNCED, languageId: "typescript", versionId: 7, line: 2, character: 3 };
-        expect(await h.customer.prepareCallHierarchy(1, request)).toEqual(session);
-        expect(await h.customer.provideCallHierarchyIncomingCalls(1, 40, 2)).toEqual([{ incoming: true }]);
-        expect(await h.customer.provideCallHierarchyOutgoingCalls(1, 40, 3)).toEqual([{ outgoing: true }]);
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.prepareCallHierarchy(1, request, caller.token)).toEqual(session);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+        expect(await h.customer.provideCallHierarchyIncomingCalls(1, 40, 2, caller.token)).toEqual([
+            { incoming: true },
+        ]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+        expect(await h.customer.provideCallHierarchyOutgoingCalls(1, 40, 3, caller.token)).toEqual([
+            { outgoing: true },
+        ]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
         expect(seen).toEqual([
             { handle: 1, uri: SYNCED, languageId: "typescript", version: 7, line: 2, character: 3 },
             { handle: 1, sessionId: 40, itemId: 2 },

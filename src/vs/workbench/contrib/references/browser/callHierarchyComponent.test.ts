@@ -13,6 +13,7 @@ import { LanguageFeaturesService } from "../../../../editor/common/services/lang
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
+import { ViewMessageElement } from "../../../browser/parts/views/viewMessageElement.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { CALL_HIERARCHY_MODE_STATE } from "../../../common/stateKeys.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
@@ -194,7 +195,10 @@ describe("CallHierarchyComponent", () => {
         const { component, frame } = setup(provider);
         await component.show();
         expect(frame()).toContain("No results.");
+        const setText = vi.spyOn(ViewMessageElement.prototype, "setText");
         await component.setDirection("outgoing");
+        expect(setText).toHaveBeenCalledWith("");
+        setText.mockRestore();
         expect(frame()).not.toContain("No results.");
         expect(frame()).toContain("callee");
     });

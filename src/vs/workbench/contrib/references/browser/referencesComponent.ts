@@ -171,9 +171,8 @@ export class ReferencesComponent extends Component {
         this.refreshResultKeys();
     }
 
-    /** Before the viewlet opens: the section may be hidden in favor of the call hierarchy tree. */
+    /** Before the viewlet opens: the call hierarchy tree gives way, which brings this section back. */
     public revealResults(): void {
-        this.viewsService.setViewVisible(REFERENCES_VIEW_ID, true);
         this.onDidRevealResultsEmitter.fire();
     }
 
