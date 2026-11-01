@@ -104,6 +104,18 @@ describe("EditorViewState.revealRangeByType", () => {
         expect(state.scrollTop).toBeGreaterThan(state.logicalToVisualLine(5));
     });
 
+    it("with wrap a line hidden by a fold reveals the first row of its header, whatever its column", () => {
+        const state = stateWith(100, "a".repeat(30));
+        state.wordWrap = "on";
+        state.setFoldingRegions([createFoldingRegion(40, 60)]);
+        state.foldRegionContaining(40);
+        expect(state.viewLineForPosition(40, 25)).toBeGreaterThan(state.viewLineForPosition(40, 0));
+
+        state.revealRangeByType(createRange(50, 25, 50, 25), "top");
+
+        expect(state.scrollTop).toBe(state.viewLineForPosition(40, 0));
+    });
+
     it("one line reveals its columns with the start first, several lines scroll back to the base", () => {
         const state = stateWith(100, "a".repeat(200));
         state.revealRangeByType(createRange(5, 100, 5, 110), "default");
