@@ -148,6 +148,17 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.languageFeatures.colorProvider.register(selector, {
                 provideDocumentColors: (request, token) => this.bridge.provideDocumentColors(handle, request, token),
             }),
+        callHierarchy: ({ handle, selector }) =>
+            this.languageFeatures.callHierarchyProvider.register(selector, {
+                prepareCallHierarchy: (request, token) => this.bridge.prepareCallHierarchy(handle, request, token),
+                provideIncomingCalls: (sessionId, itemId, token) =>
+                    this.bridge.provideCallHierarchyIncomingCalls(handle, sessionId, itemId, token),
+                provideOutgoingCalls: (sessionId, itemId, token) =>
+                    this.bridge.provideCallHierarchyOutgoingCalls(handle, sessionId, itemId, token),
+                releaseCallHierarchy: (sessionId) => {
+                    this.bridge.releaseCallHierarchy(handle, sessionId);
+                },
+            }),
         // The hints die with their answer: there is no resolve cache in the subprocess to release.
         inlayHints: ({ handle, selector, hasOnDidChange }) =>
             this.languageFeatures.inlayHintsProvider.register(selector, {

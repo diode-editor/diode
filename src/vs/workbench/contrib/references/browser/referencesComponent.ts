@@ -5,8 +5,9 @@ import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import { listRowId } from "../../../../base/common/listRowId.ts";
-import { Uri } from "../../../../base/common/uri.ts";
+import type { Uri } from "../../../../base/common/uri.ts";
 import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICoreReference } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -22,6 +23,7 @@ import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 import { buildFileRow, buildMatchRow, type ISearchRowStyles } from "../../search/browser/searchResultRows.ts";
 
 import type { IReferenceGroup } from "./referencePreview.ts";
+import { revealLocation } from "./revealLocation.ts";
 
 export const ReferencesComponentDIToken = token<ReferencesComponent>("ReferencesComponent");
 
@@ -78,6 +80,10 @@ export class ReferencesComponent extends Component {
      * by file name is free navigation.
      */
     public readonly results = new ListViewElement();
+
+    private readonly onDidRevealResultsEmitter = new Emitter<void>();
+    /** The panel is about to show the list: the call hierarchy tree gives way to it. */
+    public readonly onDidRevealResults = this.onDidRevealResultsEmitter.event;
 
     private referenceRows = new Map<string, IReferenceRow>();
     // Stryker disable next-line ArrayDeclaration: the initial value before the first rebuild is unobservable — nothing to collapse, and `rebuildRows` replaces it
@@ -165,6 +171,11 @@ export class ReferencesComponent extends Component {
         this.refreshResultKeys();
     }
 
+    /** Before the viewlet opens: the call hierarchy tree gives way, which brings this section back. */
+    public revealResults(): void {
+        this.onDidRevealResultsEmitter.fire();
+    }
+
     public get resultCount(): number {
         return this.referenceCount;
     }
@@ -249,28 +260,14 @@ export class ReferencesComponent extends Component {
             if (this.fileRowIds.includes(rowId)) this.results.toggleCollapsed(rowId);
             return;
         }
-        const uri = Uri.parse(row.group.uri);
-        const reveal = (): void => {
-            const editor = this.revealTarget.getActiveEditor();
-            if (editor === null) return;
-            // List row lineNumber is 1-based, the editor expects 0-based.
-            const line = row.match.lineNumber - 1;
-            editor.goToPosition(line, row.match.startColumn);
-            editor.revealRange(createRange(line, row.match.startColumn, line, row.match.endColumn));
-        };
-        // The whole navigation is one history entry (see IJumpRecorder). A non-disk target opens via the
-        // scheme provider, so the position can be set only after that.
-        if (uri.scheme !== "file") {
-            void this.jumps.jumpAsync(async () => {
-                await this.revealTarget.openUri(uri);
-                reveal();
-            });
-            return;
-        }
-        this.jumps.jump(() => {
-            void this.revealTarget.openUri(uri);
-            reveal();
-        });
+        // List row lineNumber is 1-based, the editor expects 0-based.
+        const line = row.match.lineNumber - 1;
+        revealLocation(
+            this.revealTarget,
+            this.jumps,
+            row.group.uri,
+            createRange(line, row.match.startColumn, line, row.match.endColumn),
+        );
     }
 
     private updateCount(): void {

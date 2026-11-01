@@ -237,6 +237,10 @@ import {
     QuickAccessRegistryDIToken,
 } from "../../workbench/contrib/quickaccess/common/quickAccessRegistry.ts";
 import {
+    CallHierarchyComponent,
+    CallHierarchyComponentDIToken,
+} from "../../workbench/contrib/references/browser/callHierarchyComponent.ts";
+import {
     ReferencesComponent,
     ReferencesComponentDIToken,
     ReferencesRevealTargetDIToken,
@@ -530,6 +534,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(HoverServiceDIToken, HoverService);
     container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);
     container.bind(ParameterHintsServiceDIToken, ParameterHintsService);
+    // Stryker disable next-line CallExpression: DI binding without a unit test; end-to-end — e2e scenario call-hierarchy
+    container.bind(CallHierarchyComponentDIToken, CallHierarchyComponent);
     container.bind(ReferencesComponentDIToken, ReferencesComponent);
     container.bind(ReferencesServiceDIToken, ReferencesService);
     container.bind(RenameServiceDIToken, RenameService);

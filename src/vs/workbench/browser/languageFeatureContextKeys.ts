@@ -23,6 +23,7 @@ const FEATURES = [
     "documentRangeFormattingEditProvider",
     "inlayHintsProvider",
     "codeLensProvider",
+    "callHierarchyProvider",
 ] as const;
 
 /**
@@ -70,6 +71,7 @@ export class LanguageFeatureContextKeys extends Disposable implements IContextKe
         );
         contextKeys.set("editorHasInlayHintsProvider", this.has("inlayHintsProvider", target));
         contextKeys.set("editorHasCodeLensProvider", this.has("codeLensProvider", target));
+        contextKeys.set("editorHasCallHierarchyProvider", this.has("callHierarchyProvider", target));
         // Upstream hides Format Selection when there is no selection.
         const selection = editor?.viewState.selections[0];
         const empty =

@@ -1,5 +1,10 @@
 import type { IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import type {
+    ICallHierarchyIncomingCall,
+    ICallHierarchyOutgoingCall,
+    ICallHierarchySession,
+} from "../../../editor/common/languages/iCallHierarchySource.ts";
 import type { IColorInformation } from "../../../editor/common/languages/iColorSource.ts";
 import type {
     ICoreCompletionResult,
@@ -44,6 +49,7 @@ import type {
     IWireActivateExtensionParams,
     IWireApplyEditParams,
     IWireApplyWorkspaceEditParams,
+    IWireCallHierarchyCallsParams,
     IWireChangedFiles,
     IWireChangeLanguageParams,
     IWireChangeLanguageResult,
@@ -107,6 +113,7 @@ import type {
     IWireOpenExternalResult,
     IWireOutputAppend,
     IWireOutputShow,
+    IWirePrepareCallHierarchyParams,
     IWirePrepareRenameParams,
     IWireProgressEnd,
     IWireProgressReport,
@@ -124,6 +131,7 @@ import type {
     IWireReadFileResult,
     IWireReferenceParams,
     IWireRegisterCommandParams,
+    IWireReleaseCallHierarchy,
     IWireReleaseCodeLenses,
     IWireReleaseSemanticTokens,
     IWireRenameParams,
@@ -226,6 +234,18 @@ export interface IHostToSubprocess {
         ];
         readonly "languages.provideDocumentColors": readonly [IWireDocumentColorParams, IColorInformation[] | null];
         readonly "languages.provideInlayHints": readonly [IWireInlayHintsParams, IWireInlayHint[] | null];
+        readonly "languages.prepareCallHierarchy": readonly [
+            IWirePrepareCallHierarchyParams,
+            ICallHierarchySession | null,
+        ];
+        readonly "languages.provideCallHierarchyIncomingCalls": readonly [
+            IWireCallHierarchyCallsParams,
+            ICallHierarchyIncomingCall[],
+        ];
+        readonly "languages.provideCallHierarchyOutgoingCalls": readonly [
+            IWireCallHierarchyCallsParams,
+            ICallHierarchyOutgoingCall[],
+        ];
         readonly "languages.provideCodeLenses": readonly [IWireCodeLensParams, IWireCodeLensList | null];
         readonly "languages.resolveCodeLens": readonly [IWireCodeLensAddress, IWireCodeLens | null];
         readonly "languages.executeCodeLensCommand": readonly [IWireCodeLensAddress, undefined];
@@ -258,6 +278,7 @@ export interface IHostToSubprocess {
     };
     readonly notifications: {
         readonly "languages.releaseDocumentSemanticTokens": IWireReleaseSemanticTokens;
+        readonly "languages.releaseCallHierarchy": IWireReleaseCallHierarchy;
         readonly "languages.releaseCodeLenses": IWireReleaseCodeLenses;
         /** Other owners' MarkerService markers: a mirror for `languages.getDiagnostics`. */
         readonly "diagnostics.markersChanged": IWireMarkersChanged;

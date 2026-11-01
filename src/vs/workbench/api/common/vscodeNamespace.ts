@@ -50,6 +50,7 @@ import {
 } from "./testingTypes.ts";
 import { createTestsNoop } from "./testsNoop.ts";
 import { TextEditorRevealType } from "./textEditorRevealType.ts";
+import { CallHierarchyIncomingCall, CallHierarchyOutgoingCall } from "./vscodeCallHierarchyTypes.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import {
@@ -369,7 +370,9 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         SymbolKind,
         SymbolTag,
         CompletionItemTag,
+        CallHierarchyIncomingCall,
         CallHierarchyItem,
+        CallHierarchyOutgoingCall,
         TypeHierarchyItem,
         CancellationError,
         CancellationTokenSource,

@@ -4,6 +4,12 @@ import { Disposable, DisposableStore, type IDisposable } from "../../../../../ba
 import type { IRange } from "../../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../../editor/common/core/iTextEdit.ts";
 import type {
+    ICallHierarchyIncomingCall,
+    ICallHierarchyOutgoingCall,
+    ICallHierarchyRequest,
+    ICallHierarchySession,
+} from "../../../../../editor/common/languages/iCallHierarchySource.ts";
+import type {
     IApplyCodeActionOptions,
     ICodeActionRequest,
     ICoreCodeAction,
@@ -453,6 +459,41 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             [],
             { token },
         );
+    }
+
+    /** `null` — nothing at the position, also when there is no subprocess or the extension timed out. */
+    public async prepareCallHierarchy(
+        handle: number,
+        req: ICallHierarchyRequest,
+        token?: ICancellationToken,
+    ): Promise<ICallHierarchySession | null> {
+        return this.request("languages.prepareCallHierarchy", { handle, ...positionParams(req) }, null, { token });
+    }
+
+    public async provideCallHierarchyIncomingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ICallHierarchyIncomingCall[]> {
+        return this.request("languages.provideCallHierarchyIncomingCalls", { handle, sessionId, itemId }, [], {
+            token,
+        });
+    }
+
+    public async provideCallHierarchyOutgoingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ICallHierarchyOutgoingCall[]> {
+        return this.request("languages.provideCallHierarchyOutgoingCalls", { handle, sessionId, itemId }, [], {
+            token,
+        });
+    }
+
+    public releaseCallHierarchy(handle: number, sessionId: number): void {
+        this.rpc?.notify("languages.releaseCallHierarchy", { handle, sessionId });
     }
 
     /** `null` — the provider declined, also when there is no subprocess, the document is not synced or the extension timed out. */

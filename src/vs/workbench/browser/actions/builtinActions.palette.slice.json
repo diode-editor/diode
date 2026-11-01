@@ -440,5 +440,9 @@
     "references-view.clear",
     "references-view.collapseAll",
     "references-view.expandAll",
+    "references-view.showCallHierarchy",
+    "references-view.showOutgoingCalls",
+    "references-view.showIncomingCalls",
+    "references-view.removeCallItem",
     "editor.action.rename"
 ]

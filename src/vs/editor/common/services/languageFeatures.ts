@@ -1,5 +1,6 @@
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
 import type { LanguageFeatureRegistry } from "../languageFeatureRegistry.ts";
+import type { CallHierarchyProvider } from "../languages/iCallHierarchySource.ts";
 import type { CodeActionProvider } from "../languages/iCodeActionSource.ts";
 import type { CodeLensProvider } from "../languages/iCodeLensSource.ts";
 import type { DocumentColorProvider } from "../languages/iColorSource.ts";
@@ -50,6 +51,7 @@ export interface ILanguageFeaturesService {
     readonly colorProvider: LanguageFeatureRegistry<DocumentColorProvider>;
     readonly inlayHintsProvider: LanguageFeatureRegistry<InlayHintsProvider>;
     readonly codeLensProvider: LanguageFeatureRegistry<CodeLensProvider>;
+    readonly callHierarchyProvider: LanguageFeatureRegistry<CallHierarchyProvider>;
 }
 
 // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string is only a debug label

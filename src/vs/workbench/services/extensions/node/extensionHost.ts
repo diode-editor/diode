@@ -9,6 +9,12 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type {
+    ICallHierarchyIncomingCall,
+    ICallHierarchyOutgoingCall,
+    ICallHierarchyRequest,
+    ICallHierarchySession,
+} from "../../../../editor/common/languages/iCallHierarchySource.ts";
+import type {
     IApplyCodeActionOptions,
     ICodeActionRequest,
     ICoreCodeAction,
@@ -847,6 +853,36 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token?: ICancellationToken,
     ): Promise<readonly (readonly IRange[])[]> {
         return this.languageFeatures.provideSelectionRanges(handle, req, token);
+    }
+
+    public prepareCallHierarchy(
+        handle: number,
+        req: ICallHierarchyRequest,
+        token?: ICancellationToken,
+    ): Promise<ICallHierarchySession | null> {
+        return this.languageFeatures.prepareCallHierarchy(handle, req, token);
+    }
+
+    public provideCallHierarchyIncomingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ICallHierarchyIncomingCall[]> {
+        return this.languageFeatures.provideCallHierarchyIncomingCalls(handle, sessionId, itemId, token);
+    }
+
+    public provideCallHierarchyOutgoingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ICallHierarchyOutgoingCall[]> {
+        return this.languageFeatures.provideCallHierarchyOutgoingCalls(handle, sessionId, itemId, token);
+    }
+
+    public releaseCallHierarchy(handle: number, sessionId: number): void {
+        this.languageFeatures.releaseCallHierarchy(handle, sessionId);
     }
 
     public provideDocumentHighlights(

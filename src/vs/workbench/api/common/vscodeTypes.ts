@@ -1133,6 +1133,8 @@ export class DocumentSymbol {
 }
 
 export class CallHierarchyItem {
+    public tags?: SymbolTag[];
+
     public constructor(
         public kind: SymbolKind,
         public name: string,

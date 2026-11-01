@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 137 |
+| test | 144 |
 | confirmed by a real extension | 52 |
 | used by a surveyed extension | 583 |
 
@@ -457,10 +457,10 @@ Proposed API or a false hit: class X when real.
 | `BreakpointsChangeEvent.added` | C |  | 0 | 0 |  |
 | `BreakpointsChangeEvent.changed` | C |  | 0 | 0 |  |
 | `BreakpointsChangeEvent.removed` | C |  | 0 | 0 |  |
-| `CallHierarchyIncomingCall` | C |  | 76 | 582,200,263 |  |
+| `CallHierarchyIncomingCall` | C | yes | 76 | 582,200,263 |  |
 | `CallHierarchyIncomingCall.from` | C |  | 0 | 0 |  |
 | `CallHierarchyIncomingCall.fromRanges` | C |  | 0 | 0 |  |
-| `CallHierarchyItem` | C |  | 77 | 582,689,207 |  |
+| `CallHierarchyItem` | C | yes | 77 | 582,689,207 |  |
 | `CallHierarchyItem.detail` | C |  | 0 | 0 |  |
 | `CallHierarchyItem.kind` | C |  | 0 | 0 |  |
 | `CallHierarchyItem.name` | C |  | 0 | 0 |  |
@@ -468,12 +468,12 @@ Proposed API or a false hit: class X when real.
 | `CallHierarchyItem.selectionRange` | C |  | 0 | 0 |  |
 | `CallHierarchyItem.tags` | C |  | 0 | 0 |  |
 | `CallHierarchyItem.uri` | C |  | 0 | 0 |  |
-| `CallHierarchyOutgoingCall` | C |  | 76 | 582,200,263 |  |
+| `CallHierarchyOutgoingCall` | C | yes | 76 | 582,200,263 |  |
 | `CallHierarchyOutgoingCall.fromRanges` | C |  | 0 | 0 |  |
 | `CallHierarchyOutgoingCall.to` | C |  | 0 | 0 |  |
-| `CallHierarchyProvider.prepareCallHierarchy` | C |  | 0 | 0 |  |
-| `CallHierarchyProvider.provideCallHierarchyIncomingCalls` | C |  | 0 | 0 |  |
-| `CallHierarchyProvider.provideCallHierarchyOutgoingCalls` | C |  | 0 | 0 |  |
+| `CallHierarchyProvider.prepareCallHierarchy` | C | yes | 0 | 0 |  |
+| `CallHierarchyProvider.provideCallHierarchyIncomingCalls` | C | yes | 0 | 0 |  |
+| `CallHierarchyProvider.provideCallHierarchyOutgoingCalls` | C | yes | 0 | 0 |  |
 | `CancellationError` | ok |  | 76 | 580,122,489 |  |
 | `CancellationToken.isCancellationRequested` | ok |  | 0 | 0 |  |
 | `CancellationToken.onCancellationRequested` | ok |  | 0 | 0 |  |
@@ -1351,7 +1351,7 @@ Proposed API or a false hit: class X when real.
 | `languages.getLanguages` | ok | yes | 2 | 13,406,554 |  |
 | `languages.match` | ok |  | 79 | 568,236,171 |  |
 | `languages.onDidChangeDiagnostics` | ok |  | 9 | 178,729,024 |  |
-| `languages.registerCallHierarchyProvider` | C |  | 74 | 553,028,026 |  |
+| `languages.registerCallHierarchyProvider` | C | yes | 74 | 553,028,026 |  |
 | `languages.registerCodeActionsProvider` | ok | yes | 94 | 802,908,021 |  |
 | `languages.registerCodeLensProvider` | ok | yes | 94 | 721,586,993 | vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `languages.registerColorProvider` | ok |  | 75 | 553,935,609 |  |
