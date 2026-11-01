@@ -4075,5 +4075,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-11-01-fec4005352c3.json",
+    "generatedAt": "2026-11-01T13:10:10.521Z",
+    "commit": "fec4005352c3",
+    "binaryVersion": "nightly-fec4005",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
