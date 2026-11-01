@@ -356,6 +356,16 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.component.setOccurrenceHighlightEnabled(enabled);
     }
 
+    /** `editor.occurrencesHighlightDelay`. */
+    public setOccurrenceHighlightDelay(delay: number): void {
+        this.component.setOccurrenceHighlightDelay(delay);
+    }
+
+    /** `editor.action.wordHighlight.trigger`. */
+    public triggerWordHighlight(): void {
+        this.component.triggerWordHighlight();
+    }
+
     /** `diode.icons.nerdFont`: the glyph set of the folding chevrons. */
     public setNerdFont(nerdFont: boolean): void {
         this.component.setNerdFont(nerdFont);

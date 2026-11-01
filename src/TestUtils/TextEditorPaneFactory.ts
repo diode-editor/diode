@@ -1,6 +1,7 @@
 import type { Uri } from "../vs/base/common/uri.ts";
 import type { LanguageFeatureRegistry } from "../vs/editor/common/languageFeatureRegistry.ts";
 import type { DocumentColorProvider } from "../vs/editor/common/languages/iColorSource.ts";
+import type { DocumentHighlightProvider } from "../vs/editor/common/languages/iDocumentHighlightSource.ts";
 import type { FoldingRangeProvider } from "../vs/editor/common/languages/iFoldingSource.ts";
 import type { InlayHintsProvider } from "../vs/editor/common/languages/iInlayHintsSource.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
@@ -33,6 +34,7 @@ export interface IEditorPaneOverrides {
     readonly foldingProviders?: LanguageFeatureRegistry<FoldingRangeProvider>;
     readonly colorProviders?: LanguageFeatureRegistry<DocumentColorProvider>;
     readonly inlayHintsProviders?: LanguageFeatureRegistry<InlayHintsProvider>;
+    readonly documentHighlightProviders?: LanguageFeatureRegistry<DocumentHighlightProvider>;
     readonly codeLens?: ICodeLensFeature;
     /** Defaults to the real disk. */
     readonly files?: IFileService;
@@ -78,6 +80,7 @@ export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEdit
         overrides.colorProviders,
         overrides.inlayHintsProviders,
         overrides.codeLens,
+        overrides.documentHighlightProviders,
     );
     return new TextEditorPane(model, component);
 }

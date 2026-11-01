@@ -15,6 +15,7 @@ import type { ITokenizationSupport } from "../../../../editor/common/languages.t
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
 import type { CodeLensCommand, CodeLensProvider } from "../../../../editor/common/languages/iCodeLensSource.ts";
 import type { DocumentColorProvider } from "../../../../editor/common/languages/iColorSource.ts";
+import type { DocumentHighlightProvider } from "../../../../editor/common/languages/iDocumentHighlightSource.ts";
 import type { FoldingRangeProvider } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { InlayHintsProvider } from "../../../../editor/common/languages/iInlayHintsSource.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
@@ -216,6 +217,7 @@ export class EditorComponent extends Component {
         colorProviders?: LanguageFeatureRegistry<DocumentColorProvider>,
         inlayHintsProviders?: LanguageFeatureRegistry<InlayHintsProvider>,
         codeLens?: ICodeLensFeature,
+        documentHighlightProviders?: LanguageFeatureRegistry<DocumentHighlightProvider>,
     ) {
         super();
         this.foldingProviders = foldingProviders;
@@ -233,6 +235,10 @@ export class EditorComponent extends Component {
         this.inlayHintsProviders = inlayHintsProviders;
         this.codeLens = codeLens;
         this.editor = new EditorElement(this.editorViewState);
+        if (documentHighlightProviders !== undefined) {
+            this.editor.wordHighlighter.setProviders(documentHighlightProviders, model);
+        }
+        this.register(this.editor.wordHighlighter);
         this.applyTokenizer();
         this.editor.tokenStyleResolver = tokenStyleResolver;
         this.attachLanguageConfiguration();
@@ -584,6 +590,14 @@ export class EditorComponent extends Component {
     public setOccurrenceHighlightEnabled(enabled: boolean): void {
         this.occurrenceHighlightRequested = enabled;
         this.applyOccurrenceHighlight();
+    }
+
+    public setOccurrenceHighlightDelay(delay: number): void {
+        this.editor.wordHighlighter.delay = delay;
+    }
+
+    public triggerWordHighlight(): void {
+        this.editor.wordHighlighter.trigger();
     }
 
     private applyOccurrenceHighlight(): void {

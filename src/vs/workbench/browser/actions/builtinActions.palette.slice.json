@@ -273,6 +273,7 @@
     "closeFindWidget",
     "editor.action.wordHighlight.next",
     "editor.action.wordHighlight.prev",
+    "editor.action.wordHighlight.trigger",
     "editor.action.inlineSuggest.trigger",
     "editor.action.inlineSuggest.commit",
     "editor.action.inlineSuggest.hide",
