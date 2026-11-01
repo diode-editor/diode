@@ -203,6 +203,7 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
             await this.refreshRoot();
             return;
         }
+        // Stryker disable next-line ConditionalExpression: equivalent, forget(undefined) deletes nothing and returns false
         const rekeyed = items.filter((item) => item.previousHandle !== undefined && this.forget(item.previousHandle));
         for (const item of items) {
             const node = this.nodes.get(item.handle);
@@ -218,15 +219,16 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
         }
         // Upstream `getItemsToRefresh`: the tree keys rows by handle, so a row under a new one comes from its parent.
         for (const parentHandle of new Set(rekeyed.map((item) => item.parentHandle))) {
+            // Stryker disable next-line ConditionalExpression: the guard is for the type, nodes.get(undefined) is undefined
             const parent = parentHandle === undefined ? undefined : this.nodes.get(parentHandle);
-            if (parent === undefined) await this.loadRoot();
-            else await this.tree.refresh(parent);
+            await this.tree.refresh(parent);
         }
     }
 
     /** `false` — the host has no such row: it isn't in the tree, and is ignored as upstream. */
     private forget(handle: string): boolean {
         this.expanded.delete(handle);
+        // Stryker disable next-line all: frees memory only, expanding a row rereads and overwrites its children
         this.lastChildren.delete(handle);
         return this.nodes.delete(handle);
     }

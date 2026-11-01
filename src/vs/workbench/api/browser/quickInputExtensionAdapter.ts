@@ -186,8 +186,8 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
             },
             { echoOwnerChanges: true },
         );
-        // Upstream's input box has no list, and its pre-filled value starts selected: typing replaces it.
-        if (inputBox) session.update({ matchOnLabel: false, valueSelection: WHOLE_VALUE });
+        // Upstream's input box pre-fills its value selected: typing replaces it.
+        if (inputBox) session.update({ valueSelection: WHOLE_VALUE });
         return { session, byHandle: new Map(), inputBox };
     }
 
