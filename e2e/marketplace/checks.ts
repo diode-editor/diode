@@ -449,6 +449,71 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
+        // kind: "proxy-openvsx": the stock npm Intellisense reads the manifest next to the file. The builtin
+        // TS client offers package.json dependencies too, so `left-pad` alone stays green without the
+        // extension: TS strips the `@types/` prefix, and only this extension offers the full name.
+        id: "christian-kohler.npm-intellisense",
+        expectFiles: ["package.json", "out/src/extension.js"],
+        run: async (ctx) => {
+            // The extension registers nothing without `workspace.rootPath`, and the root holds user-data-dir.
+            const projectRoot = join(ctx.root, "project");
+            mkdirSync(projectRoot);
+            writeFileSync(
+                join(projectRoot, "package.json"),
+                JSON.stringify({
+                    name: "sample",
+                    dependencies: { "left-pad": "1.3.0", "@types/only-npm-intellisense": "1.0.0" },
+                    devDependencies: { "dev-only-mod": "1.0.0" },
+                }),
+            );
+            const file = join(projectRoot, "a.js");
+            writeFileSync(file, "");
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [projectRoot, file],
+                settings: { "npm-intellisense.scanDevDependencies": true },
+            });
+            try {
+                // `executeCommand` rejects an id that is not registered yet, and the typing below needs the provider.
+                await app.session.waitForReady();
+                await app.session.executeCommand("npm-intellisense.import");
+                await app.session.waitForText((text) => text.includes("npm module") && text.includes("dev-only-mod"), {
+                    timeoutMs: 40_000,
+                });
+                await app.session.key("Escape");
+                await app.session.waitForText((text) => !text.includes("npm module") && !text.includes("import {}"), {
+                    timeoutMs: 20_000,
+                });
+                // A paste opens no completion popup, the typed quote does.
+                await app.session.sendText("const x = require(");
+                await app.session.key('"');
+                await app.session.waitForText(
+                    (text) => text.includes("left-pad") && text.includes("@types/only-npm-intellisense"),
+                    { timeoutMs: 60_000 },
+                );
+                // By arrow, not by typing `@types`: `@` closes the popup, and it may not reopen while tsserver warms up.
+                await app.session.key("ArrowDown");
+                await app.session.key("Enter");
+                // The pasted `(` has no auto-closed pair; the quote does.
+                await app.session.waitForText((text) => text.includes('require("@types/only-npm-intellisense"'), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.key("Ctrl+Home");
+                await app.session.executeCommand("npm-intellisense.import");
+                await app.session.waitForText((text) => text.includes("npm module") && text.includes("dev-only-mod"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.key("Enter");
+                await app.session.waitForText((text) => text.includes("import {} from 'left-pad';"), {
+                    timeoutMs: 20_000,
+                });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
         // kind: "proxy-openvsx": the stock Trailing Spaces edits through `registerTextEditorCommand` and a
         // will-save `waitUntil`. Blanks don't show in a frame, so the status bar column at the line end
         // stands for them: 9 with the spaces, 6 without.

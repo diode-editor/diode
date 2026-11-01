@@ -75,6 +75,14 @@
   а не в безымянный `.markdownlint.json` (#931). `support: partial`: нет сниппетов комментариев `markdownlint-disable`
   (`contributes.snippets`). Смоук — MD018 в Problems, quick fix через `Ctrl+.`, конфиг в отдельной вкладке. После
   `source.fixAll` каретка сдвигается: расширение заменяет документ целиком через `editor.edit`.
+- **`christian-kohler.npm-intellisense`** — прокси на сток Open VSX 1.4.5, `support: full`, правок в ядре не понадобилось.
+  Гейт `engines.diode: ">=0.12.5"` — последний тег на момент записи. Читает устаревший `workspace.rootPath`: без открытой
+  папки не регистрирует ни провайдер, ни команду, как и в VS Code. Встроенный TS-клиент тоже предлагает зависимости из
+  `package.json`, поэтому `left-pad` в попапе ничего не доказывает: смоук смотрит на `@types/…`, у которого TS срезает
+  префикс. `npm-intellisense.import` вставляет строку в позицию каретки (`selection.start`), а не в начало файла; `;\r\n`
+  из `importLinebreak` приводится к EOL документа. Escape в quick pick даёт в расширении `TypeError` (`item.label` от
+  `undefined`) — в журнале это `unhandled rejection`, файл не меняется, хост жив. Смоук выбирает пункт стрелкой, а не
+  набором `@types`: `@` закрывает попап, и пока tsserver не прогрелся, тот не возвращается (ядро, не расширение).
 - **`shardulm94.trailing-spaces`** — прокси на сток Open VSX 0.4.4. `support: partial`: подсветка в тексте не рисуется,
   мост `setDecorations` знает только gutter и overview ruler, поэтому команда `Highlight` и настройки цвета видимого
   эффекта не дают (класс C эпика #912). `Delete - Modified Lines Only` сравнивает документ с файлом на диске, git не
