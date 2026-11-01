@@ -582,8 +582,7 @@ export class EditorViewState {
 
     public set inlineInsertions(insertions: readonly IInlineInsertion[]) {
         this.inlineInsertionsValue = insertions;
-        // Wrap off: `wrapBreaks` hands them over when it comes back on, and that rebuilds the rows anyway.
-        if (this.effectiveWrapWidth() === null) return;
+        // Stryker disable next-line ConditionalExpression,UpdateOperator: any version other than the one the rows were built with means a rebuild, and an extra rebuild gives the same rows; a lost bump is covered by "an insertion that overflows the line adds a row"
         if (this.lineBreaksCacheValue?.setInsertions(this.lineInsertions) === true) this.wrapInsertionsVersion++;
     }
 
@@ -2192,6 +2191,7 @@ export class EditorViewState {
         if (this.viewZonesValue.length > 0 || cache.wrapWidth !== wrapWidth || cache.tabSize !== this.tabSize) {
             return false;
         }
+        // Stryker disable next-line ConditionalExpression: see above, a rebuild gives the same rows
         if (cache.wrapInsertionsVersion !== this.wrapInsertionsVersion) return false;
         // Stryker disable next-line ConditionalExpression: see above
         if (pending === null) {

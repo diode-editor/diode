@@ -85,8 +85,8 @@ export class LineBreaksCache extends Disposable {
     }
 }
 
-/** Looks do not wrap: a recolored hint keeps its rows. */
+/** Looks do not wrap: a recolored hint keeps its rows. Lines come from either map, so at most one side is absent. */
 function sameCells(a: readonly IInlineInsertion[] | undefined, b: readonly IInlineInsertion[] | undefined): boolean {
-    if (a === undefined || b === undefined) return a === b;
+    if (a === undefined || b === undefined) return false;
     return a.length === b.length && a.every((item, i) => item.offset === b[i].offset && item.text === b[i].text);
 }

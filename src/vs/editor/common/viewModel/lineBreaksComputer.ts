@@ -80,14 +80,13 @@ export function computeComposedLineBreakOffsets(
     tabSize: number,
     wrapWidth: number,
 ): number[] | null {
-    const ranges: { readonly start: number; readonly end: number }[] = [];
     let shift = 0;
-    for (const insertion of insertions) {
+    const ranges = insertions.map((insertion) => {
         const start = insertion.offset + shift;
         shift += insertion.text.length;
         // At the line start "right after" would be document offset 0: an empty first fragment.
-        ranges.push({ start, end: start + insertion.text.length + (insertion.offset === 0 ? 1 : 0) });
-    }
+        return { start, end: start + insertion.text.length + (insertion.offset === 0 ? 1 : 0) };
+    });
     const breaks = computeLineBreakOffsets(
         composedLineContent(new Map([[0, insertions]]), 0, lineContent),
         tabSize,
@@ -98,6 +97,7 @@ export function computeComposedLineBreakOffsets(
         breaks?.map((offset) => {
             let inserted = 0;
             for (const insertion of insertions) {
+                // Stryker disable next-line EqualityOperator: `canBreakAt` forbids a break exactly at an insertion start, and an empty insertion adds nothing, so `>` gives the same result
                 if (insertion.offset + inserted >= offset) break;
                 inserted += insertion.text.length;
             }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createDeleteEdit, createInsertEdit } from "../core/iTextEdit.ts";
+import type { IInlineInsertion } from "../model/iInlineInsertion.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
 import { LineBreaksCache } from "./lineBreaksCache.ts";
@@ -113,5 +114,55 @@ describe("LineBreaksCache", () => {
 
         doc.applyEdits([createDeleteEdit(0, 0, 2, 0)]); // [ONE_BREAK]
         expect(cache.getBreaks(0)).toEqual([14]);
+    });
+});
+
+describe("LineBreaksCache.setInsertions", () => {
+    const hint = { line: 0, offset: 4, text: ": int" };
+    const other = { line: 0, offset: 6, text: "b=" };
+
+    function withInsertions(...insertions: IInlineInsertion[]): LineBreaksCache {
+        const cache = new LineBreaksCache(new TextDocument(`aaaa bbbb\n${ONE_BREAK}`), 4, WIDTH);
+        cache.setInsertions(new Map([[0, insertions]]));
+        return cache;
+    }
+
+    it("wraps the line by the composed text, and back when the insertion is gone", () => {
+        const cache = withInsertions(hint);
+        expect(cache.getBreaks(0)).toEqual([5]);
+        expect(cache.setInsertions(new Map())).toBe(true);
+        expect(cache.getBreaks(0)).toBeNull();
+    });
+
+    it("a line that gets its first insertion has changed", () => {
+        const cache = new LineBreaksCache(new TextDocument("aaaa bbbb"), 4, WIDTH);
+        expect(cache.getBreaks(0)).toBeNull();
+        expect(cache.setInsertions(new Map([[0, [hint]]]))).toBe(true);
+        expect(cache.getBreaks(0)).toEqual([5]);
+    });
+
+    it("the same cells in another look change nothing and keep the computed breaks", () => {
+        const cache = withInsertions(hint, other);
+        const breaks = cache.getBreaks(0);
+        expect(cache.setInsertions(new Map([[0, [{ ...hint, italic: true }, { ...other }]]]))).toBe(false);
+        expect(cache.getBreaks(0)).toBe(breaks);
+    });
+
+    it.each<[string, IInlineInsertion[]]>([
+        ["the offset", [{ ...hint, offset: 3 }, other]],
+        ["the text of the same length", [{ ...hint, text: ": str" }, other]],
+        ["a later item", [hint, { ...other, text: "c=" }]],
+        ["the count, one more", [hint, other, { line: 0, offset: 7, text: "c=" }]],
+        ["the count, one less", [hint]],
+    ])("a change of %s is a change", (_name, next) => {
+        const cache = withInsertions(hint, other);
+        expect(cache.setInsertions(new Map([[0, next]]))).toBe(true);
+    });
+
+    it("recomputes only the line that changed", () => {
+        const cache = withInsertions(hint);
+        const untouched = cache.getBreaks(1);
+        cache.setInsertions(new Map([[0, [other]]]));
+        expect(cache.getBreaks(1)).toBe(untouched);
     });
 });
