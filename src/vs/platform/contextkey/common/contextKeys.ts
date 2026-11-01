@@ -19,6 +19,7 @@ export interface ContextKeyTypes {
     editorHasReferenceProvider: boolean;
     editorHasRenameProvider: boolean;
     editorHasCodeActionsProvider: boolean;
+    editorHasCodeLensProvider: boolean;
     editorHasDocumentFormattingProvider: boolean;
     editorHasDocumentSelectionFormattingProvider: boolean;
     editorHasInlayHintsProvider: boolean;

@@ -72,6 +72,10 @@ export class TextEditorConfiguration extends Disposable {
             maximumLength: this.configurationService.get("editor.inlayHints.maximumLength", overrides),
             fontStyle: this.configurationService.get("diode.editor.inlayHints.fontStyle", overrides),
         });
+        editor.setCodeLens({
+            enabled: this.configurationService.get("editor.codeLens", overrides),
+            nerdFont: this.icons.nerdFont,
+        });
         editor.setNerdFont(this.icons.nerdFont);
 
         // Indent config is a baseline, not an order: with `editor.detectIndentation` the file wins.

@@ -29,7 +29,7 @@ import type { LineTokens } from "../tokens/lineTokens.ts";
 import type { ISemanticLineTokens } from "../tokens/semanticTokensLines.ts";
 import type { SemanticTokensStore } from "../tokens/semanticTokensStore.ts";
 
-import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
+import type { IViewZone, ViewLineKind, ViewZoneOwner } from "./iViewZone.ts";
 import { LineBreaksCache } from "./lineBreaksCache.ts";
 import type { LineInsertions } from "./lineInsertions.ts";
 import { composedCaretOffset, composedLineContent, groupLineInsertions } from "./lineInsertions.ts";
@@ -185,6 +185,8 @@ export class EditorViewState {
     public readonly document: ITextDocument;
     public foldedRegions: IFoldingRegion[] = [];
     private viewZonesValue: readonly IViewZone[] = [];
+    /** Each owner replaces only its set; {@link viewZonesValue} is their sum by anchor. */
+    private readonly viewZoneSets = new Map<ViewZoneOwner, readonly IViewZone[]>();
     /** Render must call `tokenStore.tokenizeViewport(top, bottom)` before reading tokens. */
     public tokenStore: DocumentTokenStore | undefined;
     public semanticTokens: SemanticTokensStore | undefined;
@@ -573,20 +575,21 @@ export class EditorViewState {
     }
 
     /**
-     * Normalizes: drops empty view zones, clamps anchors to `[-1, lineCount-1]`, merges equal
-     * anchors. The same set is a no-op without an event: the setter is called on every diff recompute.
+     * Replaces the set of `owner`, the other owners' zones stay. Normalizes: drops empty view zones, clamps anchors
+     * to `[-1, lineCount-1]`, merges equal anchors. The same result is a no-op without an event: the setter is called
+     * on every diff recompute.
      */
-    public setViewZones(zones: readonly IViewZone[]): void {
-        const byAnchor = new Map<number, number>();
-        for (const zone of zones) {
-            if (zone.size <= 0) continue;
-            const anchor = Math.min(Math.max(-1, zone.afterLine), this.document.lineCount - 1);
-            byAnchor.set(anchor, (byAnchor.get(anchor) ?? 0) + zone.size);
-        }
-        const normalized: IViewZone[] = [...byAnchor.entries()]
-            .sort((a, b) => a[0] - b[0])
-            .map(([afterLine, size]) => ({ afterLine, size }));
-
+    public setViewZones(zones: readonly IViewZone[], owner: ViewZoneOwner = "view"): void {
+        this.viewZoneSets.set(
+            owner,
+            zones
+                .filter((zone) => zone.size > 0)
+                .map((zone) => ({
+                    afterLine: Math.min(Math.max(-1, zone.afterLine), this.document.lineCount - 1),
+                    size: zone.size,
+                })),
+        );
+        const normalized = this.mergedViewZones();
         const same =
             normalized.length === this.viewZonesValue.length &&
             normalized.every(
@@ -598,6 +601,19 @@ export class EditorViewState {
         this.viewZonesValue = normalized;
         this.zonesVersion++;
         this.fireViewChange();
+    }
+
+    private mergedViewZones(): IViewZone[] {
+        const byAnchor = new Map<number, number>();
+        for (const zones of this.viewZoneSets.values()) {
+            for (const zone of zones) byAnchor.set(zone.afterLine, (byAnchor.get(zone.afterLine) ?? 0) + zone.size);
+        }
+        return [...byAnchor.entries()].sort((a, b) => a[0] - b[0]).map(([afterLine, size]) => ({ afterLine, size }));
+    }
+
+    /** `false` for a line hidden by a collapsed fold. */
+    public isLineVisible(line: number): boolean {
+        return this.buildProjection().firstRowOfDocLine(line) >= 0;
     }
 
     public viewLineKind(viewLine: number): ViewLineKind {
@@ -1969,6 +1985,13 @@ export class EditorViewState {
         this.revealPosition(this.selections[0].active);
     }
 
+    private firstRowWithZonesAbove(row: number): number {
+        const projection = this.buildProjection();
+        let top = row;
+        while (projection.zoneRowAt(top - 1) !== null) top--;
+        return top;
+    }
+
     private revealPosition(pos: IPosition): void {
         if (this.viewportWidth <= 0 || this.viewportHeight <= 0) return;
 
@@ -1982,8 +2005,11 @@ export class EditorViewState {
         const maxMargin = Math.floor((this.viewportHeight - 1) / 2);
         const margin = Math.max(0, Math.min(this.cursorSurroundingLines, maxMargin));
 
-        if (visualLine < this.scrollTop + margin) {
-            this.scrollTop = Math.max(0, visualLine - margin);
+        // The zones right above the line belong to it: a code lens stays visible over its line. A zone taller than
+        // the viewport gives way to the line itself.
+        const top = Math.max(this.firstRowWithZonesAbove(visualLine), visualLine - this.viewportHeight + 1 + margin);
+        if (top < this.scrollTop + margin) {
+            this.scrollTop = Math.max(0, top - margin);
         } else if (visualLine > this.scrollTop + this.viewportHeight - 1 - margin) {
             this.scrollTop = visualLine - this.viewportHeight + 1 + margin;
         }
@@ -2152,14 +2178,20 @@ export class EditorViewState {
      */
     private adjustViewZonesForLineChange(editStartLine: number, editEndLine: number, lineDelta: number): void {
         if (this.viewZonesValue.length === 0 || lineDelta === 0) return;
-        this.viewZonesValue = this.viewZonesValue.map((zone) => {
-            if (zone.afterLine > editEndLine) {
-                return { afterLine: zone.afterLine + lineDelta, size: zone.size };
-            }
-            if (zone.afterLine < editStartLine) return zone;
-            const clamped = Math.max(editStartLine - 1, Math.min(zone.afterLine, editEndLine + lineDelta));
-            return clamped === zone.afterLine ? zone : { afterLine: clamped, size: zone.size };
-        });
+        for (const [owner, zones] of this.viewZoneSets) {
+            this.viewZoneSets.set(
+                owner,
+                zones.map((zone) => {
+                    if (zone.afterLine > editEndLine) {
+                        return { afterLine: zone.afterLine + lineDelta, size: zone.size };
+                    }
+                    if (zone.afterLine < editStartLine) return zone;
+                    const clamped = Math.max(editStartLine - 1, Math.min(zone.afterLine, editEndLine + lineDelta));
+                    return clamped === zone.afterLine ? zone : { afterLine: clamped, size: zone.size };
+                }),
+            );
+        }
+        this.viewZonesValue = this.mergedViewZones();
     }
 
     private sortedSelections(): ISelection[] {

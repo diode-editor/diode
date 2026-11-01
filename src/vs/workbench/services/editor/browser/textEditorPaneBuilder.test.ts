@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
@@ -46,6 +46,51 @@ describe("TextEditorPaneBuilder — inlay hints", () => {
         );
         const pane = builder.build(model);
         expect(provideInlayHints).not.toHaveBeenCalled();
+        pane.dispose();
+    });
+});
+
+describe("TextEditorPaneBuilder — code lens", () => {
+    function setup() {
+        const features = new LanguageFeaturesService();
+        const provideCodeLenses = vi.fn(() => null);
+        features.codeLensProvider.register("*", { provideCodeLenses });
+        const builder = new TextEditorPaneBuilder(
+            new TokenizationRegistry(),
+            NULL_TOKEN_STYLE_RESOLVER,
+            NULL_LANGUAGE_CONFIGURATION_SERVICE,
+            features,
+            createTestEditorContextMenuController(),
+        );
+        return { builder, provideCodeLenses };
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it("a file editor asks the providers", async () => {
+        const { builder, provideCodeLenses } = setup();
+        const pane = builder.build(new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService()));
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(provideCodeLenses).toHaveBeenCalledOnce();
+        pane.dispose();
+    });
+
+    it("a panel or a virtual document (a synthetic model) does not", async () => {
+        const { builder, provideCodeLenses } = setup();
+        const model = new SyntheticTextModel(
+            NULL_LANGUAGE_SERVICE,
+            new UndoRedoService(),
+            Uri.parse("output:channel"),
+            "plaintext",
+        );
+        const pane = builder.build(model);
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(provideCodeLenses).not.toHaveBeenCalled();
         pane.dispose();
     });
 });

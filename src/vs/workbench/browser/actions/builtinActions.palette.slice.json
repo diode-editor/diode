@@ -94,6 +94,7 @@
     "cursorPageUpSelect",
     "scrollLineUp",
     "scrollLineDown",
+    "codelens.showLensesInCurrentLine",
     "diode.editor.inlayHints.toggle",
     "editor.action.toggleWordWrap",
     "editor.action.insertCursorAbove",

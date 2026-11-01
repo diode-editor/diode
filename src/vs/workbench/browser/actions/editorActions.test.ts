@@ -4,12 +4,14 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/
 import { createTestConfigurationService } from "../../../../TestUtils/testConfigurationService.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { createCursorSelection } from "../../../editor/common/core/iSelection.ts";
+import type { CodeLensCommand } from "../../../editor/common/languages/iCodeLensSource.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../editor/common/languages/tokenizationRegistry.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { registerAction } from "../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
+import { CommandRegistryDIToken } from "../../../platform/commands/common/commandRegistry.ts";
 import { NULL_FILE_WATCHER } from "../../../platform/files/common/iFileWatcher.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -18,8 +20,10 @@ import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 import { EditorService } from "../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
+import { NotificationServiceDIToken } from "../../services/notification/browser/notificationService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
+import { QuickInputServiceDIToken } from "../parts/quickinput/quickInputService.ts";
 
 import {
     cursorBottomAction,
@@ -50,6 +54,7 @@ import {
     cursorWordRightSelectAction,
     scrollLineDownAction,
     scrollLineUpAction,
+    showLensesInCurrentLineAction,
     toggleInlayHintsAction,
     toggleWordWrapAction,
 } from "./editorActions.ts";
@@ -297,5 +302,65 @@ describe("EditorActions — no active editor is a safe no-op", () => {
             registerAction(commands, keybindings, accessor, action);
             expect(() => commands.execute(action.id)).not.toThrow();
         }
+    });
+});
+
+describe("EditorActions — show lenses of the current line", () => {
+    const RUN = { id: "cmd.run", title: "Run", arguments: [1] };
+
+    function setup(commandsAtLine: readonly CodeLensCommand[], pick: (items: readonly unknown[]) => unknown) {
+        const { ctrl, editor } = openEditor();
+        const lines: number[] = [];
+        vi.spyOn(editor, "getCodeLensCommandsAtLine").mockImplementation((line) => {
+            lines.push(line);
+            return Promise.resolve(commandsAtLine);
+        });
+        const quickPick = vi.fn((options: { items: readonly unknown[] }) => Promise.resolve(pick(options.items)));
+        const commands = new CommandRegistry();
+        const handler = vi.fn();
+        commands.register("cmd.run", handler);
+        const accessor = new Container();
+        accessor.bind(EditorServiceDIToken, () => ctrl);
+        accessor.bind(QuickInputServiceDIToken, () => ({ quickPick }) as never);
+        accessor.bind(CommandRegistryDIToken, () => commands);
+        accessor.bind(NotificationServiceDIToken, () => ({ show: vi.fn() }) as never);
+        return { editor, lines, quickPick, handler, accessor };
+    }
+
+    it("command metadata as upstream: id, title, gate, no key", () => {
+        expect(showLensesInCurrentLineAction.id).toBe("codelens.showLensesInCurrentLine");
+        expect(showLensesInCurrentLineAction.title).toBe("Show CodeLens Commands for Current Line");
+        expect(showLensesInCurrentLineAction.when).toBe("textInputFocus && editorHasCodeLensProvider");
+        expect(showLensesInCurrentLineAction.keybinding).toBeUndefined();
+    });
+
+    it("offers the titles of the caret line and runs the picked command with its arguments", async () => {
+        const { editor, lines, quickPick, handler, accessor } = setup([RUN], (items) => items[0]);
+        editor.viewState.goToPosition(1, 0);
+        await showLensesInCurrentLineAction.run(accessor);
+        expect(lines).toEqual([1]);
+        expect(quickPick).toHaveBeenCalledWith({
+            placeholder: "Select a command",
+            items: [{ label: "Run", command: RUN }],
+        });
+        expect(handler).toHaveBeenCalledWith(1);
+    });
+
+    it("no lenses: no picker", async () => {
+        const { quickPick, accessor } = setup([], () => undefined);
+        await showLensesInCurrentLineAction.run(accessor);
+        expect(quickPick).not.toHaveBeenCalled();
+    });
+
+    it("the picker dismissed: nothing runs", async () => {
+        const { handler, accessor } = setup([RUN], () => undefined);
+        await showLensesInCurrentLineAction.run(accessor);
+        expect(handler).not.toHaveBeenCalled();
+    });
+
+    it("no active editor: a safe no-op", async () => {
+        const accessor = new Container();
+        accessor.bind(EditorServiceDIToken, () => createGroup());
+        await expect(showLensesInCurrentLineAction.run(accessor)).resolves.toBeUndefined();
     });
 });

@@ -40,6 +40,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "editor.colorDecorators": "language-overridable",
     "editor.defaultColorDecorators": "language-overridable",
     "editor.colorDecoratorsLimit": "language-overridable",
+    "editor.codeLens": "language-overridable",
     "editor.inlayHints.enabled": "language-overridable",
     "editor.inlayHints.padding": "language-overridable",
     "editor.inlayHints.maximumLength": "language-overridable",

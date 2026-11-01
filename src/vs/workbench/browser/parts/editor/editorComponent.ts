@@ -13,6 +13,7 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type { ITokenizationSupport } from "../../../../editor/common/languages.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
+import type { CodeLensCommand, CodeLensProvider } from "../../../../editor/common/languages/iCodeLensSource.ts";
 import type { DocumentColorProvider } from "../../../../editor/common/languages/iColorSource.ts";
 import type { FoldingRangeProvider } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { InlayHintsProvider } from "../../../../editor/common/languages/iInlayHintsSource.ts";
@@ -29,6 +30,12 @@ import { FeatureDebounce } from "../../../../editor/common/services/languageFeat
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
 import type { IIndentDefaults, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
+import {
+    CodeLensController,
+    DEFAULT_CODE_LENS_OPTIONS,
+    type ICodeLensOptions,
+    type ICodeLensViewport,
+} from "../../../../editor/contrib/codelens/browser/codeLensController.ts";
 import {
     ColorDetector,
     DEFAULT_COLOR_DECORATORS_OPTIONS,
@@ -76,6 +83,12 @@ export function sameIndentConfiguration(a: IIndentConfiguration, b: IIndentConfi
 
 /** Values of `editor.scrollbarMarkers`. */
 export type ScrollbarMarkersSetting = "off" | "auto" | "inside" | "outside";
+
+/** What the file editor needs for code lens: the providers, and who runs a clicked title. */
+export interface ICodeLensFeature {
+    readonly providers: LanguageFeatureRegistry<CodeLensProvider>;
+    runCommand(command: CodeLensCommand): Promise<void>;
+}
 
 export class EditorComponent extends Component {
     public readonly view: ScrollBarDecorator;
@@ -140,6 +153,11 @@ export class EditorComponent extends Component {
     /** `null` without providers and in the large-file mode, like {@link colorDetector}. */
     private inlayHintsController: InlayHintsController | null = null;
     private inlayHintsOptions: IInlayHintsOptions = DEFAULT_INLAY_HINTS_OPTIONS;
+    /** Absent everywhere but the file editor, like {@link inlayHintsProviders}. */
+    private readonly codeLens: ICodeLensFeature | undefined;
+    /** `null` without providers and in the large-file mode, like {@link colorDetector}. */
+    private codeLensController: CodeLensController | null = null;
+    private codeLensOptions: ICodeLensOptions = DEFAULT_CODE_LENS_OPTIONS;
     /** Two owners, each replacing only its own set; at one offset the squares go first. */
     private colorInsertions: readonly IInlineInsertion[] = [];
     // Stryker disable next-line ArrayDeclaration: an entry without a line belongs to no line and is never painted
@@ -196,6 +214,7 @@ export class EditorComponent extends Component {
         indentConfiguration: IIndentConfiguration = {},
         colorProviders?: LanguageFeatureRegistry<DocumentColorProvider>,
         inlayHintsProviders?: LanguageFeatureRegistry<InlayHintsProvider>,
+        codeLens?: ICodeLensFeature,
     ) {
         super();
         this.foldingProviders = foldingProviders;
@@ -211,6 +230,7 @@ export class EditorComponent extends Component {
         this.semanticTokensFeature = semanticTokens;
         this.colorProviders = colorProviders;
         this.inlayHintsProviders = inlayHintsProviders;
+        this.codeLens = codeLens;
         this.editor = new EditorElement(this.editorViewState);
         this.applyTokenizer();
         this.editor.tokenStyleResolver = tokenStyleResolver;
@@ -227,6 +247,7 @@ export class EditorComponent extends Component {
         this.attachSemanticTokensUnlessTooLarge();
         this.attachColorDetectorUnlessTooLarge();
         this.attachInlayHintsUnlessTooLarge();
+        this.attachCodeLensUnlessTooLarge();
         this.applyOccurrenceHighlight();
 
         // The closures read component fields, so they survive EditorElement
@@ -275,6 +296,7 @@ export class EditorComponent extends Component {
                 this.attachSemanticTokensUnlessTooLarge();
                 this.attachColorDetectorUnlessTooLarge();
                 this.attachInlayHintsUnlessTooLarge();
+                this.attachCodeLensUnlessTooLarge();
                 this.applyOccurrenceHighlight();
                 this.applyWordWrap();
                 this.scheduleFoldingRecompute();
@@ -348,19 +370,7 @@ export class EditorComponent extends Component {
         this.inlayHintsController = this.register(
             new InlayHintsController(
                 this.model,
-                {
-                    getVisibleLineRange: () => this.visibleLineRange(),
-                    onDidChangeVisibleRange: (listener) => {
-                        const view = this.editorViewState.onDidChangeView(listener);
-                        const height = this.editor.onDidChangeViewportHeight(listener);
-                        return {
-                            dispose: () => {
-                                view.dispose();
-                                height.dispose();
-                            },
-                        };
-                    },
-                },
+                this.visibleRangeViewport(),
                 this.inlayHintsProviders,
                 this.inlayHintsOptions,
                 (insertions) => {
@@ -369,6 +379,43 @@ export class EditorComponent extends Component {
                 },
             ),
         );
+    }
+
+    private attachCodeLensUnlessTooLarge(): void {
+        const feature = this.codeLens;
+        if (feature === undefined || this.tooLarge) return;
+        this.codeLensController = this.register(
+            new CodeLensController(
+                this.model,
+                this.visibleRangeViewport(),
+                feature.providers,
+                this.codeLensOptions,
+                (zones) => {
+                    this.editor.setCodeLensZones(zones);
+                },
+            ),
+        );
+        this.register(
+            this.editor.onDidClickCodeLens((command) => {
+                void feature.runCommand(command);
+            }),
+        );
+    }
+
+    private visibleRangeViewport(): ICodeLensViewport {
+        return {
+            getVisibleLineRange: () => this.visibleLineRange(),
+            onDidChangeVisibleRange: (listener) => {
+                const view = this.editorViewState.onDidChangeView(listener);
+                const height = this.editor.onDidChangeViewportHeight(listener);
+                return {
+                    dispose: () => {
+                        view.dispose();
+                        height.dispose();
+                    },
+                };
+            },
+        };
     }
 
     private visibleLineRange(): { startLine: number; endLine: number } {
@@ -385,6 +432,16 @@ export class EditorComponent extends Component {
     public setInlayHints(options: IInlayHintsOptions): void {
         this.inlayHintsOptions = options;
         this.inlayHintsController?.setOptions(options);
+    }
+
+    /** `editor.codeLens` and the glyph set of `$(icon)` in the titles. */
+    public setCodeLens(options: ICodeLensOptions): void {
+        this.codeLensOptions = options;
+        this.codeLensController?.setOptions(options);
+    }
+
+    public getCodeLensCommandsAtLine(line: number): Promise<readonly CodeLensCommand[]> {
+        return this.codeLensController?.getCommandsAtLine(line) ?? Promise.resolve([]);
     }
 
     private publishInsertions(): void {

@@ -1,7 +1,12 @@
+import type { CodeLensCommand } from "../../../editor/common/languages/iCodeLensSource.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
+import { CommandRegistryDIToken } from "../../../platform/commands/common/commandRegistry.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
+import { runCodeLensCommand } from "../../services/editor/browser/codeLensCommand.ts";
 import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
+import { NotificationServiceDIToken } from "../../services/notification/browser/notificationService.ts";
+import { QuickInputServiceDIToken } from "../parts/quickinput/quickInputService.ts";
 
 export const cursorLeftAction: CommandAction = {
     id: "cursorLeft",
@@ -311,5 +316,29 @@ export const toggleInlayHintsAction: CommandAction = {
     run(accessor) {
         const editors = accessor.get(EditorServiceDIToken);
         editors.editorConfiguration.toggleInlayHints(editors.getActiveEditor()?.languageId);
+    },
+};
+
+/** Upstream `ShowLensesInCurrentLine`; no default key, as upstream. */
+export const showLensesInCurrentLineAction: CommandAction = {
+    id: "codelens.showLensesInCurrentLine",
+    title: "Show CodeLens Commands for Current Line",
+    when: "textInputFocus && editorHasCodeLensProvider",
+    async run(accessor) {
+        const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+        if (editor === null) return;
+        const commands = await editor.getCodeLensCommandsAtLine(editor.viewState.primaryCursorLine);
+        // No empty picker.
+        if (commands.length === 0) return;
+        const picked = (await accessor.get(QuickInputServiceDIToken).quickPick({
+            placeholder: "Select a command",
+            items: commands.map((command) => ({ label: command.title, command })),
+        })) as { readonly command: CodeLensCommand } | undefined;
+        if (picked === undefined) return;
+        await runCodeLensCommand(
+            accessor.get(CommandRegistryDIToken),
+            accessor.get(NotificationServiceDIToken),
+            picked.command,
+        );
     },
 };
