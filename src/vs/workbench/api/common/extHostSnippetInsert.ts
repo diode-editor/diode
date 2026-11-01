@@ -4,16 +4,15 @@ import { Range } from "./vscodeTypes.ts";
 import type { IWireEditorEdit, IWireSelection } from "./wireTypes.ts";
 
 /**
- * `TextEditor.insertSnippet` without a snippet session (class C of the API matrix): the text goes in with
- * upstream's indentation and the caret lands on the first tab stop, but Tab does not walk the remaining stops.
- * The grammar is the one of `stripSnippetPlaceholders`; variables stay literal text.
+ * `TextEditor.insertSnippet` without a snippet session (class C of the API matrix): the text goes in as upstream's
+ * `SnippetParser` makes it and with upstream's indentation, the caret lands on the first tab stop, but Tab does not
+ * walk the remaining stops. Variables stay literal text.
  */
 
-interface ISnippetSegment {
-    readonly text: string;
-    /** Set when the segment is a tab stop: `$1`, `${1}`, `${1:text}`, `${1|a,b|}`. */
-    readonly tabStop?: number;
-}
+type SnippetNode =
+    | { readonly text: string }
+    /** `children: null` has no text of its own: `$1`, `${1}`. A mirror takes the text of its placeholder. */
+    | { readonly tabStop: number; readonly children: readonly SnippetNode[] | null };
 
 export interface IResolvedSnippet {
     readonly text: string;
@@ -32,31 +31,85 @@ export interface ISnippetEdits {
     readonly selectionsAfter: readonly IWireSelection[];
 }
 
-/** An escaped dollar, `$1`, or `${1}` with an optional `:text` or `|a,b|`. */
-const SNIPPET_TOKEN = /\\\$|\$(?:(\d+)|\{(\d+)(?::([^}]*)|\|([^|]*)\|)?\})/g;
+const PLAIN_STOP = /\$(\d+)|\$\{(\d+)\}/y;
+const PLACEHOLDER_START = /\$\{(\d+):/y;
+/** The options are kept raw: only the first is used, and `\,` does not end it. */
+const CHOICE = /\$\{(\d+)\|((?:\\.|[^|\\])*)\|\}/y;
 
-function parseSnippetSegments(template: string): ISnippetSegment[] {
-    const segments: ISnippetSegment[] = [];
+/** Upstream `_parseEscaped`: only these are escapes, any other backslash is text. */
+function isEscapable(char: string | undefined): boolean {
+    return char === "$" || char === "}" || char === "\\";
+}
+
+function matchAt(pattern: RegExp, template: string, index: number): RegExpExecArray | null {
+    pattern.lastIndex = index;
+    return pattern.exec(template);
+}
+
+/** A placeholder without its closing brace is `null`: its `$` is then text, as upstream's parser backs off. */
+function parseTabStop(template: string, index: number): { node: SnippetNode; end: number } | null {
+    const plain = matchAt(PLAIN_STOP, template, index);
+    if (plain !== null) {
+        const groups: readonly (string | undefined)[] = plain;
+        return { node: { tabStop: Number(groups[1] ?? groups[2]), children: null }, end: PLAIN_STOP.lastIndex };
+    }
+    const choice = matchAt(CHOICE, template, index);
+    if (choice !== null) {
+        const first = /^(?:\\.|[^,\\])*/.exec(choice[2])?.[0] ?? "";
+        const text = first.replace(/\\([,|\\])/g, "$1");
+        return { node: { tabStop: Number(choice[1]), children: [{ text }] }, end: CHOICE.lastIndex };
+    }
+    const placeholder = matchAt(PLACEHOLDER_START, template, index);
+    if (placeholder === null) return null;
+    const inner = parseNodes(template, PLACEHOLDER_START.lastIndex, true);
+    if (inner.end >= template.length) return null;
+    return { node: { tabStop: Number(placeholder[1]), children: inner.nodes }, end: inner.end + 1 };
+}
+
+/** Inside a placeholder it stops on the closing brace, and `end` points at it; `end` past the text means none was found. */
+function parseNodes(template: string, from: number, inPlaceholder: boolean): { nodes: SnippetNode[]; end: number } {
+    const nodes: SnippetNode[] = [];
     let text = "";
-    let last = 0;
-    for (const match of template.matchAll(SNIPPET_TOKEN)) {
-        text += template.slice(last, match.index);
-        last = match.index + match[0].length;
-        // Groups that did not take part are `undefined`, which the type of a match does not say.
-        const groups: readonly (string | undefined)[] = match;
-        const [, plainStop, bracedStop, placeholder, choices] = groups;
-        const tabStop = plainStop ?? bracedStop;
-        if (tabStop === undefined) {
-            text += "$";
+    const flush = (): void => {
+        if (text.length > 0) nodes.push({ text });
+        text = "";
+    };
+    let index = from;
+    while (index < template.length) {
+        const char = template[index];
+        if (char === "}" && inPlaceholder) break;
+        if (char === "\\" && isEscapable(template[index + 1])) {
+            text += template[index + 1];
+            index += 2;
             continue;
         }
-        segments.push({ text });
-        text = "";
-        // Stryker disable next-line StringLiteral: equivalent `join` separator, `split(…, 1)` yields one element
-        segments.push({ text: placeholder ?? choices?.split(",", 1).join("") ?? "", tabStop: Number(tabStop) });
+        const stop = char === "$" ? parseTabStop(template, index) : null;
+        if (stop === null) {
+            text += char;
+            index++;
+            continue;
+        }
+        flush();
+        nodes.push(stop.node);
+        index = stop.end;
     }
-    segments.push({ text: text + template.slice(last) });
-    return segments;
+    flush();
+    return { nodes, end: index };
+}
+
+/** `first` keeps the first placeholder with text per stop: upstream's `fillInIncompletePlaceholder`. */
+function collectStops(
+    nodes: readonly SnippetNode[],
+    first: Map<number, readonly SnippetNode[]>,
+    stops: number[],
+): void {
+    for (const node of nodes) {
+        if ("text" in node) continue;
+        stops.push(node.tabStop);
+        if (node.children === null) continue;
+        if (!first.has(node.tabStop)) first.set(node.tabStop, node.children);
+        collectStops(node.children, first, stops);
+    }
 }
 
 /** Not `autoIndent.getLeadingWhitespace`: that module would join the code shared by the extension host role and the core. */
@@ -85,16 +138,20 @@ export function resolveSnippet(
     lineLeadingWhitespace: string,
     indentation: ISnippetIndentation | null,
 ): IResolvedSnippet {
-    const segments = parseSnippetSegments(template);
-    // Stryker disable next-line ConditionalExpression: equivalent, `undefined > 0` is false as well
-    const positive = segments.flatMap(({ tabStop }) => (tabStop !== undefined && tabStop > 0 ? [tabStop] : []));
+    const { nodes } = parseNodes(template, 0, false);
+    const placeholders = new Map<number, readonly SnippetNode[]>();
+    const stops: number[] = [];
+    collectStops(nodes, placeholders, stops);
+    const positive = stops.filter((stop) => stop > 0);
     // The caret goes to the first stop; `$0` is the last one, and without any stops the end of the text is.
     const target = positive.length > 0 ? Math.min(...positive) : 0;
 
     let text = "";
     let selection: { start: number; end: number } | null = null;
-    for (const segment of segments) {
-        const lines = segment.text.split(/\r\n|\r|\n/);
+    /** A mirror inside its own placeholder would never end. */
+    const open = new Set<number>();
+    const appendText = (value: string): void => {
+        const lines = value.split(/\r\n|\r|\n/);
         const adjusted =
             indentation === null
                 ? lines
@@ -105,14 +162,28 @@ export function resolveSnippet(
                           ? normalizeIndentation(lineLeadingWhitespace + line, indentation)
                           : line;
                   });
-        const start = text.length;
         text += adjusted.join("\n");
-        if (selection === null && segment.tabStop === target) selection = { start, end: text.length };
-    }
+    };
+    const append = (list: readonly SnippetNode[]): void => {
+        for (const node of list) {
+            if ("text" in node) {
+                appendText(node.text);
+                continue;
+            }
+            if (open.has(node.tabStop)) continue;
+            const start = text.length;
+            open.add(node.tabStop);
+            append(node.children ?? placeholders.get(node.tabStop) ?? []);
+            open.delete(node.tabStop);
+            if (selection === null && node.tabStop === target) selection = { start, end: text.length };
+        }
+    };
+    append(nodes);
+    const found = selection as { start: number; end: number } | null;
     return {
         text,
-        selectionStart: selection?.start ?? text.length,
-        selectionEnd: selection?.end ?? text.length,
+        selectionStart: found?.start ?? text.length,
+        selectionEnd: found?.end ?? text.length,
     };
 }
 

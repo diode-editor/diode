@@ -21,6 +21,10 @@ exports.activate = function activate(context) {
             void editor.insertSnippet(new vscode.SnippetString("\n    $0\n"));
             editor.revealRange(new vscode.Range(position, new vscode.Position(position.line + 2, 0)));
         }),
+        // The other path of the same extension: Enter after `def f():` goes through the edit builder.
+        vscode.commands.registerTextEditorCommand("test.snippet.editEnter", (editor, edit) => {
+            edit.insert(editor.selection.active, "\n    ");
+        }),
         vscode.commands.registerCommand("test.snippet.insert", (template, location, options) =>
             vscode.window.activeTextEditor.insertSnippet(new vscode.SnippetString(template), toLocation(location), options),
         ),

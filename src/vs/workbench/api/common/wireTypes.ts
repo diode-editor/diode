@@ -1676,6 +1676,11 @@ export interface IWireCommandId {
     readonly id: string;
 }
 
+export interface IWireRegisterCommandParams extends IWireCommandId {
+    /** `registerTextEditorCommand`: keys wait for its answer, an edit built on a stale version would be refused. */
+    readonly textEditor?: true;
+}
+
 export interface IWireChangeLanguageParams {
     readonly uri: string;
     readonly languageId: string;

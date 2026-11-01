@@ -55,6 +55,49 @@ describe("resolveSnippet", () => {
         expect(drawn("a$1b\nc", "  ")).toBe("a|b\n  c");
     });
 
+    it("unescapes what upstream escapes and keeps any other backslash", () => {
+        expect(drawn("\\$x \\} \\\\ \\n")).toBe("$x } \\ \\n|");
+        expect(drawn("${1:a\\}b}")).toBe("[a}b]");
+        expect(drawn("a}b")).toBe("a}b|");
+    });
+
+    it("takes the first choice up to an unescaped comma, and unescapes it", () => {
+        expect(drawn("${1|a\\,b,c|}")).toBe("[a,b]");
+        expect(drawn("${1|a\\|b\\\\,c|}")).toBe("[a|b\\]");
+    });
+
+    it("leaves a nested placeholder's text, and selects the outer one around it", () => {
+        expect(drawn("${1:foo ${2:bar}}")).toBe("[foo bar]");
+        expect(drawn("${2:foo ${1:bar}}")).toBe("foo [bar]");
+        expect(drawn("${1:a\\$b ${2:${3:deep}}!}")).toBe("[a$b deep!]");
+    });
+
+    it("gives a mirror the text of its placeholder, wherever that one is", () => {
+        expect(drawn("${1:x} ${1}")).toBe("[x] x");
+        expect(drawn("$1 ${1:x}")).toBe("[x] x");
+        expect(drawn("${2:${1:in}} $1")).toBe("[in] in");
+    });
+
+    it("keeps the first placeholder's text when a stop has two", () => {
+        expect(drawn("${1:a} ${1:b} $1")).toBe("[a] b a");
+    });
+
+    it("survives a mirror inside its own placeholder", () => {
+        expect(drawn("${1:a$1b}")).toBe("[ab]");
+        expect(drawn("${1:a$2} ${2:b$1}")).toBe("[ab] ba");
+    });
+
+    it("treats a placeholder without its closing brace as text", () => {
+        expect(drawn("${1:abc")).toBe("${1:abc|");
+        expect(drawn("${1:ab$2")).toBe("${1:ab|");
+        expect(drawn("$ ${x}")).toBe("$ ${x}|");
+        expect(drawn("${1|a,b")).toBe("${1|a,b|");
+    });
+
+    it("an empty template is an empty insertion", () => {
+        expect(drawn("")).toBe("|");
+    });
+
     it("normalizes a segment after a line break when the line has no indentation", () => {
         expect(drawn("\n$1\tx")).toBe("\n|    x");
     });

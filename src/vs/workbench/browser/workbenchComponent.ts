@@ -33,6 +33,7 @@ import type { IEditorService } from "../services/editor/common/editorService.ts"
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 import type { KeybindingDispatcher } from "../services/keybinding/browser/keybindingDispatcher.ts";
 import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keybindingDispatcher.ts";
+import { attachKeyboardInputHold } from "../services/keybinding/browser/keyboardInputHold.ts";
 import { KeybindingsEditorServiceDIToken } from "../services/keybinding/common/iKeybindingsEditorService.ts";
 import type { LayoutService } from "../services/layout/browser/layoutService.ts";
 import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
@@ -170,6 +171,7 @@ export class WorkbenchComponent extends Component {
                 handler(event);
                 if (event.defaultPrevented && !this.view.isLayoutDirty) this.view.markDirty();
             };
+        this.register(attachKeyboardInputHold(this.view, accessor.get(CommandRegistryDIToken)));
         // Stryker disable ObjectLiteral,BooleanLiteral: capture vs bubble only differs for a widget that swallows keydown in the target phase mid-chord; printable keys and default actions are suppressed anyway (keypress capture, preventDefault), and the dispatcher bypasses modal overlays
         this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDownCapture), {
             capture: true,

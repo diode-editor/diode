@@ -102,6 +102,7 @@ export class CommandsCustomer implements IExtensionHostCustomer {
             rpc.handleNotification("commands.registerCommand", (params): void => {
                 const id = parseCommandId(params);
                 if (id === null) return;
+                const holdsInput = (params as { textEditor?: unknown }).textEditor === true;
                 this.disarm(id);
                 // Re-registering an id: `set` disposes the previous proxy only after the new one is registered —
                 // the registry removes the entry only if it still points to the handler being disposed.
@@ -109,7 +110,11 @@ export class CommandsCustomer implements IExtensionHostCustomer {
                     id,
                     this.commandService.registerProxy(
                         id,
-                        (args) => rpc.request("commands.executeCommand", { id, args }),
+                        (args) => {
+                            const answer = rpc.request("commands.executeCommand", { id, args });
+                            if (holdsInput) this.commandService.holdInputUntil(answer);
+                            return answer;
+                        },
                         this.titles.get(id),
                         this.categories.get(id),
                     ),

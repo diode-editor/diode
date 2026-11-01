@@ -22,6 +22,7 @@ async function makeHarness() {
         environment: { machineId: () => "f00d", defaultShell: () => "/usr/bin/fish", appRoot: () => "" },
         statusBarItemSink: new ExtensionStatusBarAdapter(bar, {
             execute: () => Promise.resolve(undefined),
+            holdInputUntil: () => undefined,
             listCommandIds: () => [],
             registerProxy: () => ({ dispose: () => undefined }),
         }),

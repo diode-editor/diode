@@ -1,4 +1,5 @@
 import { describeRejection } from "../../../base/common/describeRejection.ts";
+import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
@@ -7,6 +8,8 @@ import { NULL_LOGGER } from "../../log/common/nullLogService.ts";
 export const CommandRegistryDIToken = token<CommandRegistry>("CommandRegistry");
 
 export type CommandHandler = (...args: unknown[]) => unknown;
+
+const INPUT_HOLD_LIMIT_MS = 1000;
 
 function isThenable(value: unknown): value is PromiseLike<unknown> {
     return typeof (value as PromiseLike<unknown> | null)?.then === "function";
@@ -39,8 +42,35 @@ export function commandPaletteLabel(cmd: Pick<ICommandSnapshot, "title" | "categ
 export class CommandRegistry implements IDisposable {
     /** The last entry of a stack is the one in force; an empty stack is removed. */
     private entries = new Map<string, CommandEntry[]>();
+    private inputHolds = 0;
+    private readonly inputReleased = new Emitter<void>();
+    public readonly onDidReleaseInput = this.inputReleased.event;
 
     public constructor(private readonly logger: ILogger = NULL_LOGGER) {}
+
+    /**
+     * Keys wait until `done` settles, then run in the order they were pressed. For a command whose edit is built
+     * in another process: a key overtaking it would make the edit stale, and the edit would be refused.
+     * Bounded, so a stuck extension cannot take the keyboard away.
+     */
+    public holdInputUntil(done: PromiseLike<unknown>): void {
+        this.inputHolds++;
+        let released = false;
+        const release = (): void => {
+            if (released) return;
+            released = true;
+            clearTimeout(timer);
+            this.inputHolds--;
+            if (this.inputHolds > 0) return;
+            this.inputReleased.fire();
+        };
+        const timer = setTimeout(release, INPUT_HOLD_LIMIT_MS);
+        done.then(release, release);
+    }
+
+    public get isInputHeld(): boolean {
+        return this.inputHolds > 0;
+    }
 
     public register(
         id: string,

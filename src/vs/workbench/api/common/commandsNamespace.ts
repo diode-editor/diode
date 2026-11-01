@@ -34,16 +34,17 @@ export function buildCommandsNamespace(
         return handler(...args.map(processArgument));
     });
 
-    const registerCommand = (
+    const addCommand = (
         id: string,
         callback: (...args: unknown[]) => unknown,
-        thisArg?: unknown,
+        thisArg: unknown,
+        textEditor: boolean,
     ): vscode.Disposable => {
         const bound: CommandHandler = thisArg != null ? (...args) => callback.apply(thisArg, args) : callback;
         const stack = localCommands.get(id) ?? [];
         stack.push(bound);
         localCommands.set(id, stack);
-        rpc.notify("commands.registerCommand", { id });
+        rpc.notify("commands.registerCommand", textEditor ? { id, textEditor } : { id });
         return new DisposableImpl(() => {
             // A second dispose finds nothing, and must not take someone else's registration.
             const index = stack.lastIndexOf(bound);
@@ -57,6 +58,12 @@ export function buildCommandsNamespace(
         });
     };
 
+    const registerCommand = (
+        id: string,
+        callback: (...args: unknown[]) => unknown,
+        thisArg?: unknown,
+    ): vscode.Disposable => addCommand(id, callback, thisArg, false);
+
     /** Upstream `ExtHostTextEditors.registerTextEditorCommand`: what the callback returns does not delay the edit. */
     const registerTextEditorCommand = (
         id: string,
@@ -66,7 +73,7 @@ export function buildCommandsNamespace(
         // Owner is captured at registration: by execution time the surrounding owner is gone.
         const extensionId = owner?.current;
         const tag = extensionId === undefined ? "" : `[${extensionId}] `;
-        return registerCommand(id, (...args: unknown[]): unknown => {
+        const run = (...args: unknown[]): unknown => {
             const editor = getActiveTextEditor?.();
             if (editor === undefined) {
                 console.warn(`${tag}Cannot execute text editor command "${id}": no active text editor`);
@@ -84,7 +91,8 @@ export function buildCommandsNamespace(
                         console.warn(`${tag}An error occurred while running command "${id}"`, error);
                     },
                 );
-        });
+        };
+        return addCommand(id, run, undefined, true);
     };
 
     const executeCommand = <T = unknown>(id: string, ...args: unknown[]): Promise<T> => {
