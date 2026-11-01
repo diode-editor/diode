@@ -900,6 +900,22 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.languageFeatures.provideImplementation(handle, req, token);
     }
 
+    public provideTypeDefinition(
+        handle: number,
+        req: IDefinitionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]> {
+        return this.languageFeatures.provideTypeDefinition(handle, req, token);
+    }
+
+    public provideDeclaration(
+        handle: number,
+        req: IDefinitionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]> {
+        return this.languageFeatures.provideDeclaration(handle, req, token);
+    }
+
     public provideHover(
         handle: number,
         req: IHoverRequest,

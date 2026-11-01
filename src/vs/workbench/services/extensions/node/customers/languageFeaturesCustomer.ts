@@ -258,6 +258,38 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
+    public async provideTypeDefinition(
+        handle: number,
+        req: IDefinitionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]> {
+        return this.request(
+            "languages.provideTypeDefinition",
+            {
+                handle,
+                ...positionParams(req),
+            },
+            [],
+            { token },
+        );
+    }
+
+    public async provideDeclaration(
+        handle: number,
+        req: IDefinitionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]> {
+        return this.request(
+            "languages.provideDeclaration",
+            {
+                handle,
+                ...positionParams(req),
+            },
+            [],
+            { token },
+        );
+    }
+
     public async provideHover(
         handle: number,
         req: IHoverRequest,

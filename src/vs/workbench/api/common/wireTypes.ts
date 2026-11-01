@@ -406,6 +406,8 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "hover",
     "definition",
     "implementation",
+    "typeDefinition",
+    "declaration",
     "references",
     "signatureHelp",
     "completion",

@@ -52,6 +52,12 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideImplementation: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///impl${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
+        provideTypeDefinition: vi.fn((handle: number) =>
+            Promise.resolve([{ uri: `file:///type${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
+        ),
+        provideDeclaration: vi.fn((handle: number) =>
+            Promise.resolve([{ uri: `file:///decl${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
+        ),
         provideSignatureHelp: vi.fn((handle: number) =>
             Promise.resolve({
                 signatures: [{ label: `sig ${String(handle)}`, parameters: [] }],
@@ -189,6 +195,30 @@ describe("LanguageFeaturesAdapter", () => {
             { uri: "file:///impl6.ts", range: createRange(0, 0, 0, 1) },
         ]);
         expect(bridge.provideImplementation).toHaveBeenCalledWith(6, REQUEST, token);
+    });
+
+    it("type definition and declaration: each proxy lands in its own registry with its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 7, kind: "typeDefinition", selector: [{ language: "typescript" }] },
+            { handle: 8, kind: "declaration", selector: [{ language: "typescript" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        expect(features.definitionProvider.has(TS)).toBe(false);
+        expect(features.implementationProvider.has(TS)).toBe(false);
+
+        const [typeDefinition] = features.typeDefinitionProvider.ordered(TS);
+        const [declaration] = features.declarationProvider.ordered(TS);
+        const token = new CancellationTokenSource().token;
+        expect(await typeDefinition.provideTypeDefinition(REQUEST, token)).toEqual([
+            { uri: "file:///type7.ts", range: createRange(0, 0, 0, 1) },
+        ]);
+        expect(await declaration.provideDeclaration(REQUEST, token)).toEqual([
+            { uri: "file:///decl8.ts", range: createRange(0, 0, 0, 1) },
+        ]);
+        expect(bridge.provideTypeDefinition).toHaveBeenCalledWith(7, REQUEST, token);
+        expect(bridge.provideDeclaration).toHaveBeenCalledWith(8, REQUEST, token);
     });
 
     it("rename: proxy in its registry, both methods call the host with its handle", async () => {

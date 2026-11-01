@@ -5,10 +5,12 @@ import type {
     LanguageFeatureRegistry,
 } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type {
+    DeclarationProvider,
     DefinitionProvider,
     ICoreDefinitionLocation,
     IDefinitionRequest,
     ImplementationProvider,
+    TypeDefinitionProvider,
 } from "../../../../editor/common/languages/iDefinitionSource.ts";
 
 /** The part of upstream `ReferencesModel` that decides where a go-to command lands. */
@@ -59,4 +61,22 @@ export function getImplementations(
     token: ICancellationToken,
 ): Promise<ILocationModel> {
     return findLocations(registry, target, (provider) => provider.provideImplementation(request, token));
+}
+
+export function getTypeDefinitions(
+    registry: LanguageFeatureRegistry<TypeDefinitionProvider>,
+    target: ILanguageFeatureTarget,
+    request: IDefinitionRequest,
+    token: ICancellationToken,
+): Promise<ILocationModel> {
+    return findLocations(registry, target, (provider) => provider.provideTypeDefinition(request, token));
+}
+
+export function getDeclarations(
+    registry: LanguageFeatureRegistry<DeclarationProvider>,
+    target: ILanguageFeatureTarget,
+    request: IDefinitionRequest,
+    token: ICancellationToken,
+): Promise<ILocationModel> {
+    return findLocations(registry, target, (provider) => provider.provideDeclaration(request, token));
 }

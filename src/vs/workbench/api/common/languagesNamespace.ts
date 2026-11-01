@@ -134,6 +134,16 @@ export interface IImplementationRegistration {
     readonly provider: vscode.ImplementationProvider;
 }
 
+export interface ITypeDefinitionRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.TypeDefinitionProvider;
+}
+
+export interface IDeclarationRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.DeclarationProvider;
+}
+
 export interface IRenameRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.RenameProvider;
@@ -330,6 +340,8 @@ export function createLanguagesNamespace(
     const hoverProviders = new Map<number, Owned<IHoverRegistration>>();
     const definitionProviders = new Map<number, Owned<IDefinitionRegistration>>();
     const implementationProviders = new Map<number, Owned<IImplementationRegistration>>();
+    const typeDefinitionProviders = new Map<number, Owned<ITypeDefinitionRegistration>>();
+    const declarationProviders = new Map<number, Owned<IDeclarationRegistration>>();
     const referenceProviders = new Map<number, Owned<IReferenceRegistration>>();
     const signatureHelpProviders = new Map<number, Owned<ISignatureHelpRegistration>>();
     const completionProviders = new Map<number, Owned<ICompletionRegistration>>();
@@ -524,6 +536,26 @@ export function createLanguagesNamespace(
             implementationProviders,
             "provideImplementation",
             ({ provider }, doc, position, token) => provider.provideImplementation(doc, position, token),
+        ),
+    );
+
+    rpc.handleRequest("languages.provideTypeDefinition", (params, cancellation) =>
+        provideLocations(
+            params,
+            cancellation,
+            typeDefinitionProviders,
+            "provideTypeDefinition",
+            ({ provider }, doc, position, token) => provider.provideTypeDefinition(doc, position, token),
+        ),
+    );
+
+    rpc.handleRequest("languages.provideDeclaration", (params, cancellation) =>
+        provideLocations(
+            params,
+            cancellation,
+            declarationProviders,
+            "provideDeclaration",
+            ({ provider }, doc, position, token) => provider.provideDeclaration(doc, position, token),
         ),
     );
 
@@ -1240,6 +1272,15 @@ export function createLanguagesNamespace(
             provider: vscode.ImplementationProvider,
         ): vscode.Disposable =>
             registerByHandle(implementationProviders, "implementation", selector, { selector, provider }),
+        registerTypeDefinitionProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.TypeDefinitionProvider,
+        ): vscode.Disposable =>
+            registerByHandle(typeDefinitionProviders, "typeDefinition", selector, { selector, provider }),
+        registerDeclarationProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.DeclarationProvider,
+        ): vscode.Disposable => registerByHandle(declarationProviders, "declaration", selector, { selector, provider }),
         registerHoverProvider: (selector: vscode.DocumentSelector, provider: vscode.HoverProvider): vscode.Disposable =>
             registerByHandle(hoverProviders, "hover", selector, { selector, provider }),
         registerReferenceProvider: (
@@ -1294,8 +1335,6 @@ export function createLanguagesNamespace(
             );
         },
 
-        registerDeclarationProvider: registerNoopProvider,
-        registerTypeDefinitionProvider: registerNoopProvider,
         registerDocumentHighlightProvider: registerNoopProvider,
         registerDocumentSymbolProvider: registerNoopProvider,
         registerWorkspaceSymbolProvider: registerNoopProvider,

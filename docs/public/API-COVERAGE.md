@@ -60,6 +60,8 @@ registration but are not called yet.
 | `registerCompletionItemProvider` | ✅ | trigger characters, resolve (documentation, auto-import) |
 | `registerDefinitionProvider` | ✅ | |
 | `registerImplementationProvider` | ✅ | Go to Implementations (Ctrl+F12): one target is a jump, several go to the References panel per `editor.gotoLocation.multipleImplementations` |
+| `registerTypeDefinitionProvider` | ✅ | Go to Type Definition (Command Palette, editor context menu, no default key): one target is a jump, several go to the References panel per `editor.gotoLocation.multipleTypeDefinitions` |
+| `registerDeclarationProvider` | ✅ | Go to Declaration (Command Palette, editor context menu, no default key): one target is a jump, several go to the References panel per `editor.gotoLocation.multipleDeclarations` |
 | `registerHoverProvider` | ✅ | multiple providers are concatenated |
 | `registerReferenceProvider` | ✅ | |
 | `registerRenameProvider` | ✅ | `prepareRename` (both response forms), edits across all affected files as one undo step; the new name is asked for in an input box, there is no inline rename widget |
@@ -75,7 +77,7 @@ registration but are not called yet.
 | `createLanguageStatusItem` | 🟡 | items matching the active editor show as one Language Status segment left of the language in the status bar (the glyph follows the highest severity, a spinner while any item is busy); clicking it opens a quick pick of the items instead of VS Code's hover, choosing one runs its `command`. Not supported: pinning items as their own segments, `accessibilityInformation` |
 | `match` | ✅ | works at runtime (selector scoring); not declared in `vscode.d.ts` yet |
 | `registerInlayHintsProvider` | 🟡 | hints are drawn inline, answers of several providers are merged, `onDidChangeInlayHints` asks again, `editor.inlayHints.*` and a toggle command apply. Without resolve: `resolveInlayHint` is not called, and `tooltip`, `textEdits` and the `location` and `command` of label parts have no effect, as a hint has no hover or click yet |
-| other `register*Provider` (12: declaration, typeDefinition, documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, onTypeFormatting, inlineValues, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | registration is accepted as a no-op; the provider is never called |
+| other `register*Provider` (10: documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, onTypeFormatting, inlineValues, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | registration is accepted as a no-op; the provider is never called |
 | `setLanguageConfiguration` | 🟡 | `wordPattern` (for `TextDocument.getWordRangeAtPosition` only; not passed to the editor's word selection and completion boundaries), `comments`, `brackets`, `autoClosingPairs` (layered over `language-configuration.json`: a set section replaces the file's, the latest layer wins, dispose removes it). Not applied: `indentationRules`, `onEnterRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, the deprecated `__electricCharacterSupport`/`__characterPairSupport` |
 | `getLanguages`, `setTextDocumentLanguage` | ✅ | The language set on a document without a tab is applied when it gets one. |
 | `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |

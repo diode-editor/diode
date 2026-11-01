@@ -65,6 +65,16 @@ export interface IExtensionLanguageFeaturesBridge {
         request: IDefinitionRequest,
         token: ICancellationToken,
     ): Promise<readonly ICoreDefinitionLocation[]>;
+    provideTypeDefinition(
+        handle: number,
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]>;
+    provideDeclaration(
+        handle: number,
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]>;
     provideReferences(
         handle: number,
         request: IReferenceRequest,
