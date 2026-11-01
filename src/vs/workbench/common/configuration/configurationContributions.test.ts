@@ -39,6 +39,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "editor.foldingMaximumRegions": "language-overridable",
     "editor.colorDecorators": "language-overridable",
     "editor.defaultColorDecorators": "language-overridable",
+    "editor.defaultFormatter": "language-overridable",
     "editor.colorDecoratorsLimit": "language-overridable",
     "editor.codeLens": "language-overridable",
     "editor.inlayHints.enabled": "language-overridable",

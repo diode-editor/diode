@@ -539,6 +539,8 @@ export interface IWireLanguageProviderMetadata {
     readonly legend?: IWireSemanticTokensLegend;
     /** The event arrives as a `languages.didChangeSemanticTokens` notification. */
     readonly hasOnDidChange?: boolean;
+    /** Formatters only: what `editor.defaultFormatter` names. */
+    readonly extensionId?: string;
 }
 
 export interface IWireLanguageProviderRegistration extends IWireLanguageProviderMetadata {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 import {
@@ -8,17 +9,21 @@ import {
     LanguageFeaturesServiceDIToken,
 } from "../../../../editor/common/services/languageFeatures.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { formatDocumentAction, formatSelectionAction } from "../../../contrib/format/browser/formatActions.ts";
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
-function registerFormatActions(harness: {
-    commandRegistry: Parameters<typeof registerAction>[0];
-    group: unknown;
-    languageFeatures: ILanguageFeaturesService;
-}): string[] {
+function registerFormatActions(
+    harness: {
+        commandRegistry: Parameters<typeof registerAction>[0];
+        group: unknown;
+        languageFeatures: ILanguageFeaturesService;
+    },
+    settings: Record<string, unknown> = {},
+): string[] {
     const notices: string[] = [];
     const statusBar = {
         addEntry: (entry: { text: string }) => {
@@ -29,6 +34,7 @@ function registerFormatActions(harness: {
     const accessor = new Container();
     accessor.bind(EditorServiceDIToken, () => harness.group as never);
     accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
+    accessor.bind(IConfigurationServiceDIToken, () => createTestConfigurationService(settings));
     accessor.bind(StatusBarServiceDIToken, () => statusBar);
     const keybindings = new KeybindingRegistry();
     registerAction(harness.commandRegistry, keybindings, accessor, formatDocumentAction);
@@ -37,6 +43,30 @@ function registerFormatActions(harness: {
 }
 
 describe("ExtensionHost — editor.action.formatDocument (subprocess)", () => {
+    it.each(["test.formatterA", "test.formatterB"])(
+        "[api:languages.registerDocumentFormattingEditProvider] editor.defaultFormatter %s picks that extension over the wire",
+        async (chosen) => {
+            const harness = await createExtensionTestHarness({
+                initialFile: { name: "doc.txt", content: "text" },
+                extensions: [
+                    extensionFixture("test.formatterA", "namedFormatterA/extension.cjs"),
+                    extensionFixture("test.formatterB", "namedFormatterB/extension.cjs"),
+                ],
+            });
+            try {
+                registerFormatActions(harness, { "editor.defaultFormatter": chosen });
+                await settle();
+
+                await harness.commandRegistry.execute("editor.action.formatDocument");
+                await settle();
+
+                expect(harness.group.getActiveEditor()?.getText()).toBe(`${chosen} text`);
+            } finally {
+                await harness.dispose();
+            }
+        },
+    );
+
     it("the command formats the document with the provider's edits, undo reverts in one step", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "doc.txt", content: "alpha    beta\ngamma  delta" },

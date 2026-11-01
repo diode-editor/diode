@@ -1688,13 +1688,26 @@ export function createLanguagesNamespace(
         registerDocumentFormattingEditProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.DocumentFormattingEditProvider,
-        ): vscode.Disposable => registerByHandle(formattingProviders, "formatting", selector, { selector, provider }),
+        ): vscode.Disposable =>
+            registerByHandle(
+                formattingProviders,
+                "formatting",
+                selector,
+                { selector, provider },
+                { extensionId: ctx.owner.current },
+            ),
 
         registerDocumentRangeFormattingEditProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.DocumentRangeFormattingEditProvider,
         ): vscode.Disposable =>
-            registerByHandle(rangeFormattingProviders, "rangeFormatting", selector, { selector, provider }),
+            registerByHandle(
+                rangeFormattingProviders,
+                "rangeFormatting",
+                selector,
+                { selector, provider },
+                { extensionId: ctx.owner.current },
+            ),
 
         registerCodeActionsProvider: (
             selector: vscode.DocumentSelector,

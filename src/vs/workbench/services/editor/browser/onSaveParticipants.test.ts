@@ -10,6 +10,7 @@ import type {
     ICoreCodeAction,
 } from "../../../../editor/common/languages/iCodeActionSource.ts";
 import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
+import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
@@ -68,6 +69,41 @@ function host(overrides: {
         paneForUri: overrides.paneForUri ?? (() => null),
     };
 }
+
+describe("createFormatOnSaveParticipant: editor.defaultFormatter", () => {
+    const providerRun = (extensionId: string, runs: string[]) => ({
+        extensionId,
+        provideDocumentFormattingEdits: () => {
+            runs.push(extensionId);
+            return Promise.resolve([]);
+        },
+    });
+
+    function savingHost(settings: Record<string, unknown>, runs: string[]): IOnSaveParticipantHost {
+        const languageFeatures = new LanguageFeaturesService();
+        languageFeatures.documentFormattingEditProvider.register("*", providerRun("acme.first", runs));
+        languageFeatures.documentFormattingEditProvider.register("*", providerRun("acme.second", runs));
+        const pane = {
+            model: { document: new TextDocument("x\n") },
+            viewState: { tabSize: 4, insertSpaces: true },
+        } as unknown as TextEditorPane;
+        return { configuration: config(settings), languageFeatures, paneForUri: () => pane };
+    }
+
+    it("runs exactly the formatter named for the language, once", async () => {
+        const runs: string[] = [];
+        const settings = { "editor.formatOnSave": true, "[python]": { "editor.defaultFormatter": "acme.first" } };
+        await createFormatOnSaveParticipant(savingHost(settings, runs))(SNAPSHOT);
+        expect(runs).toEqual(["acme.first"]);
+    });
+
+    it("a named formatter that is missing is a silent no-op on save", async () => {
+        const runs: string[] = [];
+        const settings = { "editor.formatOnSave": true, "editor.defaultFormatter": "acme.gone" };
+        expect(await createFormatOnSaveParticipant(savingHost(settings, runs))(SNAPSHOT)).toEqual([]);
+        expect(runs).toEqual([]);
+    });
+});
 
 describe("enabledCodeActionKindsOnSave", () => {
     it("object: true/explicit/always enable, false/never/other do not", () => {

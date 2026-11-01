@@ -4,6 +4,7 @@ import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/servic
 import { documentRange, formatDocument, formatRange } from "../../../../editor/contrib/format/format.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { applyFormattingEdits } from "../../../browser/parts/editor/applyFormattingEdits.ts";
@@ -25,6 +26,9 @@ async function runFormat(accessor: ServiceAccessor, useSelection: boolean, label
     const editor = group.getActiveEditor();
     if (editor === null) return;
 
+    const defaultFormatterId = accessor
+        .get(IConfigurationServiceDIToken)
+        .get<string | null>("editor.defaultFormatter", { overrideIdentifier: editor.languageId });
     const text = editor.getText();
     const request = {
         uri: editor.uri.toString(),
@@ -45,13 +49,27 @@ async function runFormat(accessor: ServiceAccessor, useSelection: boolean, label
                   editor,
                   { ...request, range: selectionRange(editor.viewState.selections[0], text) },
                   state.token,
+                  defaultFormatterId,
               )
-            : await formatDocument(languageFeatures, editor, request, documentRange(text), state.token);
+            : await formatDocument(
+                  languageFeatures,
+                  editor,
+                  request,
+                  documentRange(text),
+                  state.token,
+                  defaultFormatterId,
+              );
     } finally {
         state.dispose();
     }
     if (edits === null) {
-        showTransientNotice(statusBar, "formatting.notice", `No formatter for '${editor.languageId}' installed`);
+        showTransientNotice(
+            statusBar,
+            "formatting.notice",
+            defaultFormatterId
+                ? `Extension '${defaultFormatterId}' is configured as formatter but not available. Select a different default formatter to continue.`
+                : `No formatter for '${editor.languageId}' installed`,
+        );
         return;
     }
     if (edits.length === 0) return;
