@@ -16,7 +16,12 @@ export interface IInlineInsertion {
     readonly fg?: number;
     /** Theme token resolved at render time; neither this nor {@link fg} — the editor text color. */
     readonly colorToken?: string;
+    /** Theme token of the cells' background, composited over the editor background; absent — the line's own. */
+    readonly bgToken?: string;
     readonly italic?: boolean;
+    readonly dim?: boolean;
+    /** A selection, find match or occurrence spanning the insertion leaves its cells alone (inlay hints). */
+    readonly outsideRangeBackgrounds?: boolean;
     /**
      * Where a caret at `offset` is drawn. `"left"` (the default, upstream injected-text affinity):
      * ghost text stays right of what was typed. `"right"`: the terminal caret is a block over the

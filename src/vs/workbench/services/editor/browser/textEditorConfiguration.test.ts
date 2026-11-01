@@ -265,6 +265,159 @@ describe("TextEditorConfiguration", () => {
         });
     });
 
+    describe("inlay hints", () => {
+        function appliedOptions() {
+            return vi.spyOn(TextEditorPane.prototype, "setInlayHints");
+        }
+
+        it("defaults: on, no padding, 43, normal", () => {
+            const spy = appliedOptions();
+            createEditorService().openFile(writeFile("a.ts", "a"));
+            expect(spy).toHaveBeenLastCalledWith({
+                enabled: true,
+                padding: false,
+                maximumLength: 43,
+                fontStyle: "normal",
+            });
+            spy.mockRestore();
+        });
+
+        it("every key reaches the editor through its [language] section", () => {
+            const spy = appliedOptions();
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({
+                    "[css]": {
+                        "editor.inlayHints.enabled": "off",
+                        "editor.inlayHints.padding": true,
+                        "editor.inlayHints.maximumLength": 7,
+                        "diode.editor.inlayHints.fontStyle": "dim",
+                    },
+                }),
+            });
+            ctrl.openFile(writeFile("a.css", "a {}"));
+            ctrl.getActiveEditor()!.setLanguage("css");
+            expect(spy).toHaveBeenLastCalledWith({ enabled: false, padding: true, maximumLength: 7, fontStyle: "dim" });
+            spy.mockRestore();
+        });
+
+        it.each([
+            ["on", true],
+            ["onUnlessPressed", true],
+            ["offUnlessPressed", false],
+            ["off", false],
+            [true, true],
+            [false, false],
+            ["sideways", true],
+        ])("editor.inlayHints.enabled %j shows hints: %j", (value, enabled) => {
+            const spy = appliedOptions();
+            createEditorService({
+                configurationService: stubConfigurationService({ "editor.inlayHints.enabled": value }),
+            }).openFile(writeFile("a.ts", "a"));
+            expect(spy.mock.lastCall?.[0].enabled).toBe(enabled);
+            spy.mockRestore();
+        });
+
+        it("a negative maximumLength clamps to 0, a fractional one truncates", () => {
+            const spy = appliedOptions();
+            for (const [value, expected] of [
+                [-5, 0],
+                [7.9, 7],
+            ]) {
+                createEditorService({
+                    configurationService: stubConfigurationService({ "editor.inlayHints.maximumLength": value }),
+                }).openFile(writeFile("a.ts", "a"));
+                expect(spy.mock.lastCall?.[0].maximumLength).toBe(expected);
+            }
+            spy.mockRestore();
+        });
+
+        it("the toggle flips every open editor and a new one; a second toggle gives the configuration back", () => {
+            const spy = appliedOptions();
+            const ctrl = createEditorService();
+            ctrl.openFile(writeFile("a.ts", "a"));
+            ctrl.openFile(writeFile("b.ts", "b"));
+            spy.mockClear();
+            ctrl.editorConfiguration.toggleInlayHints("typescript");
+            expect(spy.mock.calls.map(([options]) => options.enabled)).toEqual([false, false]);
+            ctrl.openFile(writeFile("c.ts", "c"));
+            expect(spy.mock.lastCall?.[0].enabled).toBe(false);
+            spy.mockClear();
+            ctrl.editorConfiguration.toggleInlayHints("typescript");
+            expect(spy.mock.calls.every(([options]) => options.enabled)).toBe(true);
+            spy.mockRestore();
+        });
+
+        it("the toggle starts from what the active language shows", () => {
+            const spy = appliedOptions();
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({ "[css]": { "editor.inlayHints.enabled": "off" } }),
+            });
+            ctrl.openFile(writeFile("a.css", "a {}"));
+            ctrl.getActiveEditor()!.setLanguage("css");
+            expect(spy.mock.lastCall?.[0].enabled).toBe(false);
+            ctrl.editorConfiguration.toggleInlayHints("css");
+            expect(spy.mock.lastCall?.[0].enabled).toBe(true);
+            spy.mockRestore();
+        });
+
+        it("back at the configured value the override goes away: another language's section applies again", () => {
+            const spy = appliedOptions();
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({ "[css]": { "editor.inlayHints.enabled": "off" } }),
+            });
+            ctrl.openFile(writeFile("a.ts", "a"));
+            ctrl.getActiveEditor()!.setLanguage("typescript");
+            ctrl.editorConfiguration.toggleInlayHints("typescript");
+            ctrl.editorConfiguration.toggleInlayHints("typescript");
+            ctrl.openFile(writeFile("b.css", "b {}"));
+            ctrl.getActiveEditor()!.setLanguage("css");
+            expect(spy.mock.lastCall?.[0].enabled).toBe(false);
+            spy.mockRestore();
+        });
+
+        it("the toggle writes nothing, a change of the key resets it, another key does not; fontStyle applies live", async () => {
+            const spy = appliedOptions();
+            const cfgWs = createTempWorkspace({ prefix: "diode-inlay-cfg-" });
+            const paths = resolveUserDataPaths({ homedir: "/never", userDataDir: cfgWs.dir });
+            const write = (content: string): void => {
+                fs.mkdirSync(path.dirname(paths.settingsFile), { recursive: true });
+                fs.writeFileSync(paths.settingsFile, content, "utf-8");
+            };
+            write("{}");
+            const cfg = await loadConfiguration(
+                paths,
+                undefined,
+                undefined,
+                new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS),
+            );
+            const ctrl = createEditorService({ configurationService: cfg });
+            ctrl.openFile(writeFile("a.ts", "a"));
+            ctrl.getActiveEditor()!.setLanguage("typescript");
+
+            ctrl.editorConfiguration.toggleInlayHints("typescript");
+            expect(spy.mock.lastCall?.[0].enabled).toBe(false);
+            expect(fs.readFileSync(paths.settingsFile, "utf-8")).toBe("{}");
+
+            write(`{ "diode.editor.inlayHints.fontStyle": "italic" }`);
+            await cfg.reload();
+            expect(spy.mock.lastCall?.[0]).toMatchObject({ enabled: false, fontStyle: "italic" });
+
+            write(`{ "editor.inlayHints.enabled": "onUnlessPressed" }`);
+            await cfg.reload();
+            expect(spy.mock.lastCall?.[0].enabled).toBe(true);
+
+            ctrl.editorConfiguration.toggleInlayHints("typescript");
+            expect(spy.mock.lastCall?.[0].enabled).toBe(false);
+            write(`{ "[typescript]": { "editor.inlayHints.enabled": "on" } }`);
+            await cfg.reload();
+            expect(spy.mock.lastCall?.[0].enabled).toBe(true);
+
+            ctrl.dispose();
+            cfgWs.dispose();
+            spy.mockRestore();
+        });
+    });
+
     describe("toggleWordWrap (Alt+Z)", () => {
         it("toggles off ↔ on over the default config in all open editors", () => {
             const ctrl = createEditorService();

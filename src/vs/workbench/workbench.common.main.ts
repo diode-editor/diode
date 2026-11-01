@@ -35,6 +35,7 @@ import {
     cursorWordRightSelectAction,
     scrollLineDownAction,
     scrollLineUpAction,
+    toggleInlayHintsAction,
     toggleWordWrapAction,
 } from "./browser/actions/editorActions.ts";
 import {
@@ -375,6 +376,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     cursorPageUpSelectAction,
     scrollLineUpAction,
     scrollLineDownAction,
+    toggleInlayHintsAction,
     toggleWordWrapAction,
     ...MULTI_CURSOR_ACTIONS,
     ...SMART_SELECT_ACTIONS,

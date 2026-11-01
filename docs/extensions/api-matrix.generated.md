@@ -23,7 +23,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 | mark | members |
 | --- | --- |
 | test | 101 |
-| confirmed by a real extension | 10 |
+| confirmed by a real extension | 18 |
 | used by a surveyed extension | 583 |
 
 ## Gap ranking
@@ -616,7 +616,7 @@ Proposed API or a false hit: class X when real.
 | `Command.tooltip` | ok |  | 0 | 0 |  |
 | `commands.executeCommand` | ok | yes | 163 | 1,124,066,680 |  |
 | `commands.getCommands` | ok | yes | 22 | 248,650,853 |  |
-| `commands.registerCommand` | ok | yes | 178 | 1,156,419,053 |  |
+| `commands.registerCommand` | ok | yes | 178 | 1,156,419,053 | christian-kohler.npm-intellisense |
 | `commands.registerTextEditorCommand` | ok | yes | 16 | 131,081,500 | shardulm94.trailing-spaces |
 | `Comment.author` | C |  | 0 | 0 |  |
 | `Comment.body` | C |  | 0 | 0 |  |
@@ -677,13 +677,13 @@ Proposed API or a false hit: class X when real.
 | `CompletionItem.filterText` | ok |  | 0 | 0 |  |
 | `CompletionItem.insertText` | ok |  | 0 | 0 |  |
 | `CompletionItem.keepWhitespace` | B |  | 0 | 0 |  |
-| `CompletionItem.kind` | ok |  | 0 | 0 |  |
-| `CompletionItem.label` | ok |  | 0 | 0 |  |
+| `CompletionItem.kind` | ok |  | 0 | 0 | christian-kohler.npm-intellisense |
+| `CompletionItem.label` | ok |  | 0 | 0 | christian-kohler.npm-intellisense |
 | `CompletionItem.preselect` | B |  | 0 | 0 |  |
 | `CompletionItem.range` | ok |  | 0 | 0 |  |
 | `CompletionItem.sortText` | B |  | 0 | 0 |  |
 | `CompletionItem.tags` | B |  | 0 | 0 |  |
-| `CompletionItem.textEdit` | B |  | 0 | 0 |  |
+| `CompletionItem.textEdit` | B |  | 0 | 0 | christian-kohler.npm-intellisense |
 | `CompletionItemKind` | ok |  | 0 | 0 |  |
 | `CompletionItemKind.Class` | ok |  | 5 | 8,252,493 |  |
 | `CompletionItemKind.Color` | ok |  | 3 | 14,015,496 |  |
@@ -1354,7 +1354,7 @@ Proposed API or a false hit: class X when real.
 | `languages.registerCodeActionsProvider` | ok | yes | 94 | 802,908,021 |  |
 | `languages.registerCodeLensProvider` | C |  | 94 | 721,586,993 |  |
 | `languages.registerColorProvider` | ok |  | 75 | 553,935,609 |  |
-| `languages.registerCompletionItemProvider` | ok | yes | 100 | 769,073,820 |  |
+| `languages.registerCompletionItemProvider` | ok | yes | 100 | 769,073,820 | christian-kohler.npm-intellisense |
 | `languages.registerDeclarationProvider` | B |  | 74 | 553,028,026 |  |
 | `languages.registerDefinitionProvider` | ok |  | 81 | 588,318,046 |  |
 | `languages.registerDocumentDropEditProvider` | C |  | 4 | 18,090,004 |  |
@@ -2491,7 +2491,7 @@ Proposed API or a false hit: class X when real.
 | `window.activeColorTheme` | ok |  | 29 | 130,368,078 |  |
 | `window.activeNotebookEditor` | X |  | 17 | 133,990,636 |  |
 | `window.activeTerminal` | ok |  | 15 | 216,575,445 |  |
-| `window.activeTextEditor` | ok | yes | 161 | 1,031,389,838 |  |
+| `window.activeTextEditor` | ok | yes | 161 | 1,031,389,838 | christian-kohler.npm-intellisense |
 | `window.createInputBox` | B |  | 27 | 437,973,972 |  |
 | `window.createOutputChannel` | ok |  | 144 | 1,097,202,143 |  |
 | `window.createQuickPick` | ok | yes | 57 | 660,652,049 |  |
@@ -2533,7 +2533,7 @@ Proposed API or a false hit: class X when real.
 | `window.showInputBox` | ok | yes | 107 | 812,444,919 |  |
 | `window.showNotebookDocument` | X |  | 7 | 82,892,295 |  |
 | `window.showOpenDialog` | ok |  | 66 | 674,520,913 |  |
-| `window.showQuickPick` | ok | yes | 115 | 786,062,286 |  |
+| `window.showQuickPick` | ok | yes | 115 | 786,062,286 | christian-kohler.npm-intellisense |
 | `window.showSaveDialog` | ok |  | 41 | 265,247,891 |  |
 | `window.showTextDocument` | ok | yes | 136 | 1,032,207,702 |  |
 | `window.showWarningMessage` | ok |  | 149 | 1,057,770,125 |  |
@@ -2554,7 +2554,7 @@ Proposed API or a false hit: class X when real.
 | `workspace.encode` | B |  | 0 | 0 |  |
 | `workspace.findFiles` | ok | yes | 72 | 686,973,290 |  |
 | `workspace.fs` | ok | yes | 138 | 914,256,103 |  |
-| `workspace.getConfiguration` | ok |  | 176 | 1,135,915,147 | shardulm94.trailing-spaces |
+| `workspace.getConfiguration` | ok |  | 176 | 1,135,915,147 | christian-kohler.npm-intellisense, shardulm94.trailing-spaces |
 | `workspace.getWorkspaceFolder` | ok | yes | 119 | 982,101,425 |  |
 | `workspace.isTrusted` | ok |  | 34 | 345,707,834 |  |
 | `workspace.name` | ok |  | 12 | 183,480,674 |  |
@@ -2584,7 +2584,7 @@ Proposed API or a false hit: class X when real.
 | `workspace.registerNotebookSerializer` | X |  | 6 | 9,529,994 |  |
 | `workspace.registerTaskProvider` | ok |  | 0 | 0 |  |
 | `workspace.registerTextDocumentContentProvider` | B | yes | 74 | 520,791,593 |  |
-| `workspace.rootPath` | ok | yes | 16 | 122,654,834 |  |
+| `workspace.rootPath` | ok | yes | 16 | 122,654,834 | christian-kohler.npm-intellisense |
 | `workspace.save` | ok | yes | 4 | 68,749,046 |  |
 | `workspace.saveAll` | B | yes | 15 | 114,231,247 |  |
 | `workspace.saveAs` | B |  | 0 | 0 |  |

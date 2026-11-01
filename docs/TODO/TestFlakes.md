@@ -33,6 +33,8 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] e2e `quick-input-validation` и `extension-untitled-uri`, только windows-latest: `waitUntil(screen text predicate)`
+  не дождался за 10 с (run 41255028793, PR #959, дифф — inlay hints); на ubuntu и при перезапуске зелёные.
 - [ ] `workbench.saveConflict.test.ts`, последний тест перед ошибкой — «saves without a prompt when the file was not
   changed externally»: все тесты зелёные, но прогон красный от необработанного rejection `FileOperationError … ENOENT,
   lstat …/diode-saveconflict-*/doc.txt`, похоже, фоновая проверка файла пережила удаление временного каталога.

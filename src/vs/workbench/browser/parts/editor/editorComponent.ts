@@ -15,6 +15,7 @@ import type { ITokenizationSupport } from "../../../../editor/common/languages.t
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
 import type { DocumentColorProvider } from "../../../../editor/common/languages/iColorSource.ts";
 import type { FoldingRangeProvider } from "../../../../editor/common/languages/iFoldingSource.ts";
+import type { InlayHintsProvider } from "../../../../editor/common/languages/iInlayHintsSource.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
@@ -40,6 +41,11 @@ import {
 } from "../../../../editor/contrib/folding/foldingRegionsLimit.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import { provideFoldingRanges } from "../../../../editor/contrib/folding/syntaxRangeProvider.ts";
+import {
+    DEFAULT_INLAY_HINTS_OPTIONS,
+    type IInlayHintsOptions,
+    InlayHintsController,
+} from "../../../../editor/contrib/inlayHints/browser/inlayHintsController.ts";
 import type { DocumentSemanticTokensFeature } from "../../../../editor/contrib/semanticTokens/browser/documentSemanticTokens.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
@@ -129,6 +135,15 @@ export class EditorComponent extends Component {
     /** `null` without providers and in the large-file mode (upstream's detector is cut off by the worker's size limit). */
     private colorDetector: ColorDetector | null = null;
     private colorDecoratorsOptions: IColorDecoratorsOptions = DEFAULT_COLOR_DECORATORS_OPTIONS;
+    /** Absent everywhere but the file editor (`TextEditorPaneBuilder`): diff sides and panels ask nobody. */
+    private readonly inlayHintsProviders: LanguageFeatureRegistry<InlayHintsProvider> | undefined;
+    /** `null` without providers and in the large-file mode, like {@link colorDetector}. */
+    private inlayHintsController: InlayHintsController | null = null;
+    private inlayHintsOptions: IInlayHintsOptions = DEFAULT_INLAY_HINTS_OPTIONS;
+    /** Two owners, each replacing only its own set; at one offset the squares go first. */
+    private colorInsertions: readonly IInlineInsertion[] = [];
+    // Stryker disable next-line ArrayDeclaration: an entry without a line belongs to no line and is never painted
+    private inlayHintInsertions: readonly IInlineInsertion[] = [];
     /** Not on the view state: it is recreated on reload from disk, and the extension host subscriber must survive that. */
     private readonly onDidChangeSelectionEmitter = new Emitter<void>();
     /** On the component for the same reason. */
@@ -180,6 +195,7 @@ export class EditorComponent extends Component {
         semanticTokens?: DocumentSemanticTokensFeature,
         indentConfiguration: IIndentConfiguration = {},
         colorProviders?: LanguageFeatureRegistry<DocumentColorProvider>,
+        inlayHintsProviders?: LanguageFeatureRegistry<InlayHintsProvider>,
     ) {
         super();
         this.foldingProviders = foldingProviders;
@@ -194,6 +210,7 @@ export class EditorComponent extends Component {
         this.editorViewState.isTooLargeForTokenization = this.tooLarge;
         this.semanticTokensFeature = semanticTokens;
         this.colorProviders = colorProviders;
+        this.inlayHintsProviders = inlayHintsProviders;
         this.editor = new EditorElement(this.editorViewState);
         this.applyTokenizer();
         this.editor.tokenStyleResolver = tokenStyleResolver;
@@ -209,6 +226,7 @@ export class EditorComponent extends Component {
         this.view.markerPlacement = "auto";
         this.attachSemanticTokensUnlessTooLarge();
         this.attachColorDetectorUnlessTooLarge();
+        this.attachInlayHintsUnlessTooLarge();
         this.applyOccurrenceHighlight();
 
         // The closures read component fields, so they survive EditorElement
@@ -256,6 +274,7 @@ export class EditorComponent extends Component {
                 this.applyTokenizer();
                 this.attachSemanticTokensUnlessTooLarge();
                 this.attachColorDetectorUnlessTooLarge();
+                this.attachInlayHintsUnlessTooLarge();
                 this.applyOccurrenceHighlight();
                 this.applyWordWrap();
                 this.scheduleFoldingRecompute();
@@ -308,15 +327,7 @@ export class EditorComponent extends Component {
         );
         this.register(
             reference.attachViewport({
-                getVisibleLineRange: () => {
-                    const viewState = this.editorViewState;
-                    // docLineForViewLine itself clamps lines past the end of the view to the last one.
-                    const top = viewState.scrollTop;
-                    return {
-                        startLine: viewState.docLineForViewLine(top),
-                        endLine: viewState.docLineForViewLine(top + Math.max(viewState.viewportHeight, 1) - 1),
-                    };
-                },
+                getVisibleLineRange: () => this.visibleLineRange(),
                 onDidChangeVisibleRange: this.editorViewState.onDidChangeView,
             }),
         );
@@ -327,9 +338,57 @@ export class EditorComponent extends Component {
         if (this.colorProviders === undefined || this.tooLarge) return;
         this.colorDetector = this.register(
             new ColorDetector(this.model, this.colorProviders, this.colorDecoratorsOptions, (insertions) => {
-                this.editor.setInlineInsertions(insertions);
+                this.setInlineInsertions(insertions);
             }),
         );
+    }
+
+    private attachInlayHintsUnlessTooLarge(): void {
+        if (this.inlayHintsProviders === undefined || this.tooLarge) return;
+        this.inlayHintsController = this.register(
+            new InlayHintsController(
+                this.model,
+                {
+                    getVisibleLineRange: () => this.visibleLineRange(),
+                    onDidChangeVisibleRange: (listener) => {
+                        const view = this.editorViewState.onDidChangeView(listener);
+                        const height = this.editor.onDidChangeViewportHeight(listener);
+                        return {
+                            dispose: () => {
+                                view.dispose();
+                                height.dispose();
+                            },
+                        };
+                    },
+                },
+                this.inlayHintsProviders,
+                this.inlayHintsOptions,
+                (insertions) => {
+                    this.inlayHintInsertions = insertions;
+                    this.publishInsertions();
+                },
+            ),
+        );
+    }
+
+    private visibleLineRange(): { startLine: number; endLine: number } {
+        const viewState = this.editorViewState;
+        // docLineForViewLine itself clamps lines past the end of the view to the last one.
+        const top = viewState.scrollTop;
+        return {
+            startLine: viewState.docLineForViewLine(top),
+            endLine: viewState.docLineForViewLine(top + Math.max(viewState.viewportHeight, 1) - 1),
+        };
+    }
+
+    /** `editor.inlayHints.*`, `diode.editor.inlayHints.fontStyle` and the session toggle. */
+    public setInlayHints(options: IInlayHintsOptions): void {
+        this.inlayHintsOptions = options;
+        this.inlayHintsController?.setOptions(options);
+    }
+
+    private publishInsertions(): void {
+        this.editor.setInlineInsertions([...this.colorInsertions, ...this.inlayHintInsertions]);
     }
 
     /** `editor.colorDecorators`, `editor.defaultColorDecorators`, `editor.colorDecoratorsLimit`. */
@@ -549,9 +608,10 @@ export class EditorComponent extends Component {
         this.editor.setGhostText(ghost);
     }
 
-    /** Cells absent from the document (color decorators); the ghost text keeps its own. */
+    /** Cells absent from the document (color decorators); ghost text and inlay hints keep their own. */
     public setInlineInsertions(insertions: readonly IInlineInsertion[]): void {
-        this.editor.setInlineInsertions(insertions);
+        this.colorInsertions = insertions;
+        this.publishInsertions();
     }
 
     public revealRange(range: IRange): void {
