@@ -117,6 +117,7 @@ import type {
     IWireRangeSemanticTokensParams,
     IWireReadFileResult,
     IWireReferenceParams,
+    IWireRegisterCommandParams,
     IWireReleaseSemanticTokens,
     IWireRenameParams,
     IWireRevealRange,
@@ -381,7 +382,7 @@ export interface ISubprocessToHost {
 
         readonly "diagnostics.publish": IWireDiagnosticsPublish;
 
-        readonly "commands.registerCommand": IWireCommandId;
+        readonly "commands.registerCommand": IWireRegisterCommandParams;
         readonly "commands.unregisterCommand": IWireCommandId;
 
         readonly "window.progress.start": IWireProgressStart;

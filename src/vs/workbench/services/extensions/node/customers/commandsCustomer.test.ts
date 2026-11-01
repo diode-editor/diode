@@ -21,6 +21,7 @@ function fakeCommands() {
     const proxies: IProxyRecord[] = [];
     const service = {
         execute: vi.fn((id: string, args: readonly unknown[]) => `ran ${id} ${JSON.stringify(args)}`),
+        holdInputUntil: vi.fn(),
         listCommandIds: () => [],
         registerProxy: (
             id: string,
@@ -36,7 +37,10 @@ function fakeCommands() {
                 },
             };
         },
-    } as unknown as ICommandService & { execute: ReturnType<typeof vi.fn> };
+    } as unknown as ICommandService & {
+        execute: ReturnType<typeof vi.fn>;
+        holdInputUntil: ReturnType<typeof vi.fn>;
+    };
     const live = (id: string) => proxies.filter((p) => p.id === id && !p.disposed);
     return { service, proxies, live };
 }
@@ -72,6 +76,24 @@ describe("CommandsCustomer — subprocess command proxies", () => {
         expect(proxy).toMatchObject({ title: renderCodicons("$(play) Run", true), category: "Ext" });
         expect(proxy.title).not.toContain("$(");
         await expect(proxy.invoke([1, 2])).resolves.toEqual({ id: "ext.run", args: [1, 2] });
+    });
+
+    it("commands.registerCommand: only a text editor command holds input until its answer", async () => {
+        const h = setup();
+        h.attachTo();
+        h.peer.handleRequest("commands.executeCommand", () => "answer");
+
+        h.peer.notify("commands.registerCommand", { id: "ext.plain" });
+        h.peer.notify("commands.registerCommand", { id: "ext.junk", textEditor: "yes" });
+        h.peer.notify("commands.registerCommand", { id: "ext.edit", textEditor: true });
+        await flushMicrotasks();
+
+        await h.commands.live("ext.plain")[0].invoke([]);
+        await h.commands.live("ext.junk")[0].invoke([]);
+        expect(h.commands.service.holdInputUntil).not.toHaveBeenCalled();
+
+        await expect(h.commands.live("ext.edit")[0].invoke([])).resolves.toBe("answer");
+        expect(h.commands.service.holdInputUntil).toHaveBeenCalledOnce();
     });
 
     it("re-registration replaces the proxy, unregister removes it; a junk id is ignored", async () => {
@@ -198,6 +220,7 @@ describe("CommandsCustomer — commands.getCommands", () => {
         const peer = new RpcEndpoint(peerChannel);
         const service = {
             execute: () => undefined,
+            holdInputUntil: () => undefined,
             listCommandIds: () => ["a", "_b"],
             registerProxy: () => ({ dispose: () => undefined }),
         };

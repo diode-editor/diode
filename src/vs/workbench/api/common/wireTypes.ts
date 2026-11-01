@@ -840,6 +840,8 @@ export interface IWireApplyEditParams {
     readonly setEndOfLine?: 1 | 2;
     readonly undoStopBefore?: boolean;
     readonly undoStopAfter?: boolean;
+    /** The selections after the edit, applied with it: `insertSnippet` must not leave a window for a typed key. */
+    readonly selectionsAfter?: readonly IWireSelection[];
 }
 
 export interface IWireSetSelectionParams {
@@ -1682,6 +1684,11 @@ export interface IWireExecuteCommandParams {
 
 export interface IWireCommandId {
     readonly id: string;
+}
+
+export interface IWireRegisterCommandParams extends IWireCommandId {
+    /** `registerTextEditorCommand`: keys wait for its answer, an edit built on a stale version would be refused. */
+    readonly textEditor?: true;
 }
 
 export interface IWireChangeLanguageParams {

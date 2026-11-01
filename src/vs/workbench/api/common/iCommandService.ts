@@ -5,6 +5,9 @@ export interface ICommandService {
     /** Throws if the command is missing, so the rejection reaches the subprocess. */
     execute(id: string, args: readonly unknown[]): unknown;
 
+    /** Keys wait for `done`, then run in order: an extension's text editor command must not be overtaken. */
+    holdInputUntil(done: PromiseLike<unknown>): void;
+
     /** Every registered id, hidden from the palette or not. */
     listCommandIds(): readonly string[];
 
@@ -22,6 +25,7 @@ export interface ICommandService {
 
 export const NULL_COMMAND_SERVICE: ICommandService = {
     execute: () => undefined,
+    holdInputUntil: () => undefined,
     listCommandIds: () => [],
     registerProxy: () => ({ dispose: () => undefined }),
 };

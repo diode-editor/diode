@@ -262,6 +262,21 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
+    it("registerTextEditorCommand says so in commands.registerCommand, registerCommand does not", async () => {
+        const { commands, host, dispose } = createBridge();
+        const seen: unknown[] = [];
+        host.handleNotification("commands.registerCommand", (params) => {
+            seen.push(params);
+        });
+
+        commands.registerCommand("ext.plain", () => undefined);
+        commands.registerTextEditorCommand("ext.edit", () => undefined);
+        await microtasks();
+
+        expect(seen).toEqual([{ id: "ext.plain" }, { id: "ext.edit", textEditor: true }]);
+        dispose();
+    });
+
     it("registerTextEditorCommand: callback receives the active editor, edit builder and args", async () => {
         const builder = {} as vscode.TextEditorEdit;
         const editor = {

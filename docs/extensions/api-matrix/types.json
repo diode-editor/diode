@@ -4665,55 +4665,55 @@
     },
     "SnippetString": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetString.appendChoice": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetString.appendPlaceholder": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetString.appendTabstop": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetString.appendText": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetString.appendVariable": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetString.value": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetTextEdit": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetTextEdit.insert": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetTextEdit.keepWhitespace": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetTextEdit.range": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetTextEdit.replace": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SnippetTextEdit.snippet": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "SourceBreakpoint": {
       "class": "C",
@@ -6123,7 +6123,7 @@
     },
     "TextEditor.insertSnippet": {
       "class": "C",
-      "note": "needs a snippet session"
+      "note": "text and caret only; snippet mode needs a snippet session"
     },
     "TextEditor.options": {
       "class": "ok"
