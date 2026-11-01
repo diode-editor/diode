@@ -151,6 +151,7 @@ export abstract class ExtHostQuickInput implements vscode.QuickInput {
             case "back":
                 this.onDidTriggerButtonEmitter.fire(QuickInputButtons.Back);
                 break;
+            // Stryker disable next-line ConditionalExpression: equivalent — the branch only breaks, and no event is handled after it
             default:
                 break;
         }

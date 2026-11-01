@@ -58,6 +58,9 @@ describe("window.createInputBox: state and wire", () => {
 
     it("[api:InputBox.password] [api:InputBox.valueSelection] later changes are a diff without the flavor mark; unset selection is null", () => {
         const { box, updates } = setup();
+        expect(box.password).toBe(false);
+        expect(box.valueSelection).toBeUndefined();
+        expect(box.validationMessage).toBeUndefined();
         box.show();
         box.password = true;
         box.valueSelection = [1, 2];
@@ -151,6 +154,41 @@ describe("QuickInput buttons", () => {
         box.buttons = [];
         vi.runAllTimers();
         expect(updates().at(-1)?.back).toBe(false);
+    });
+
+    it("buttons start empty and are a copy: editing your own array changes nothing", () => {
+        const { box } = setup();
+        expect(box.buttons).toEqual([]);
+        const own = [QuickInputButtons.Back];
+        box.buttons = own;
+        own.pop();
+        expect(box.buttons).toEqual([QuickInputButtons.Back]);
+    });
+
+    it("an event of another flavor is not taken for the Back button", () => {
+        const { box, hostEvent } = setup();
+        const pressed: vscode.QuickInputButton[] = [];
+        box.onDidTriggerButton((button) => pressed.push(button));
+        box.show();
+        hostEvent({ kind: "changeActive", items: [0] });
+        hostEvent({ kind: "changeSelection", items: [0] });
+        expect(pressed).toEqual([]);
+    });
+
+    it("dispose unsubscribes every listener", () => {
+        const { box } = setup();
+        const log: string[] = [];
+        box.onDidChangeValue(() => log.push("value"));
+        box.onDidAccept(() => log.push("accept"));
+        box.onDidHide(() => log.push("hide"));
+        box.onDidTriggerButton(() => log.push("button"));
+        box.dispose();
+
+        const direct = box as unknown as { acceptEvent(event: Record<string, unknown>): void };
+        for (const kind of ["accept", "hide", "back"]) direct.acceptEvent({ handle: 1, kind });
+        direct.acceptEvent({ handle: 1, kind: "changeValue", value: "x" });
+
+        expect(log).toEqual([]);
     });
 
     it("[api:QuickPick.buttons] [api:QuickPick.onDidTriggerButton] the picker has the same Back; a custom button stays with the extension", () => {
