@@ -14,7 +14,7 @@ import { loadScenarioFiles, repoRoot, runScenario, scenarioFiles } from "./frame
 export const SCENARIO_SLICES = 4;
 
 /** Run sequentially after the rest (vitest.e2e.config.ts); excluded from the regular slices. */
-export const HEAVY_SCENARIOS: readonly string[] = ["java-lsp.scenario.ts", "javaMoveTypeUndo.scenario.ts"];
+export const HEAVY_SCENARIOS: readonly string[] = ["java-lsp.scenario.ts", "javaMoveTypeUndo.scenario.ts", "java-lens-hints.scenario.ts"];
 
 const e2eDir = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
