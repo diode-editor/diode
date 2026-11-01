@@ -310,12 +310,11 @@ export class EditorElement extends TUIElement implements IScrollable {
         const { scrollTop } = viewState;
         const topLine = viewState.docLineForViewLine(scrollTop);
         const rowsIntoTopLine = scrollTop - viewState.viewLineForPosition(topLine, 0);
-        const before = viewState.viewZones;
         viewState.setViewZones(
             visible.map((zone) => ({ afterLine: zone.line - 1, size: 1 })),
             "codeLens",
         );
-        if (viewState.viewZones !== before && scrollTop > 0) {
+        if (scrollTop > 0) {
             viewState.scrollTop = viewState.viewLineForPosition(topLine, 0) + rowsIntoTopLine;
         }
     }
@@ -331,8 +330,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     private codeLensLayout(zone: ICodeLensZone): { readonly displayLine: DisplayLine; readonly indent: number } {
         const viewState = this.viewState;
         const content = viewState.document.getLineContent(zone.line);
-        const first = firstNonWhitespaceIndex(content);
-        const indent = first <= 0 ? 0 : viewState.displayLineFor(content.slice(0, first)).displayWidth;
+        // -1 for a line of whitespace only: no indent, as upstream.
+        const first = Math.max(firstNonWhitespaceIndex(content), 0);
+        const indent = viewState.displayLineFor(content.slice(0, first)).displayWidth;
         return { displayLine: viewState.displayLineFor(" ".repeat(indent) + zone.text), indent };
     }
 
@@ -732,7 +732,9 @@ export class EditorElement extends TUIElement implements IScrollable {
         // Scroll, folding and edits away from the cursor (extension applyEdits) too: under
         // damage tracking an unmarked widget is not repainted.
         this.viewState.onDidChangeView(() => {
-            // A fold hides or shows the lenses of the lines inside it.
+            // A fold hides or shows the lenses of the lines inside it. The condition only saves work: syncing the
+            // same state again sets the same zones, a no-op.
+            // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator: see above
             if (this.codeLensZones.length > 0 && this.codeLensFoldVersion !== this.viewState.foldStateVersion) {
                 this.syncCodeLensZones();
             }

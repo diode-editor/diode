@@ -332,6 +332,35 @@ describe("EditorComponent — code lens", () => {
         expect(runCommand).not.toHaveBeenCalled();
     });
 
+    it("the cell right after a title is not the title", async () => {
+        providers.register("*", provider([lens(0, command("run"))]));
+        await open("alpha");
+        click(GUTTER + 3, 0);
+        expect(runCommand).not.toHaveBeenCalled();
+    });
+
+    it("a line of whitespace only gives its lens no indent", async () => {
+        providers.register("*", provider([lens(1, command("t"))]));
+        const { frame } = await open("alpha\n    \nbravo");
+        expect(frame()[1]).toBe("t");
+    });
+
+    it("the ghost tail of another line does not shadow a click on the lens", async () => {
+        providers.register("*", provider([lens(2, command("t"))]));
+        const { editor, frame } = await open("alpha\nbravo\ncharlie");
+        editor.setGhostText({ line: 0, character: 5, lines: ["-a", "tail"] });
+        // alpha-a, tail, bravo, t, charlie
+        expect(frame().slice(0, 4)).toEqual(["alpha-a", "tail", "bravo", "t"]);
+        click(GUTTER, 3);
+        expect(runCommand).toHaveBeenCalledOnce();
+    });
+
+    it("without code lens at all the picker gets nothing", async () => {
+        const editor = createEditorPane();
+        pane = editor;
+        await expect(editor.getCodeLensPicksAtLine(0)).resolves.toEqual([]);
+    });
+
     it("a right click and a command without an id don't run anything", async () => {
         providers.register("*", provider([lens(0, command("label", ""))]));
         await open("alpha");

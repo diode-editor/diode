@@ -132,6 +132,7 @@ export class CodeLensController extends Disposable {
             dispose: () => {
                 this.isDisposedController = true;
                 this.stop();
+                // Stryker disable next-line ArrayDeclaration: nothing disposes the lists of a disposed controller
                 this.replaceItems([], []);
             },
         });
@@ -192,6 +193,7 @@ export class CodeLensController extends Disposable {
         this.provideScheduler.schedule(provideDebounce.get(this.key));
     }
 
+    // Stryker disable next-line BlockStatement: one shared key only averages the debounce of all documents, a tuning
     private get key(): string {
         return this.model.uri.toString();
     }
@@ -247,19 +249,14 @@ export class CodeLensController extends Disposable {
         if (this.hasWaitingInView()) this.scheduleResolve();
     }
 
-    /** Sorted as upstream `getCodeLensModel`: line, provider rank, column. A range past the document is clamped into it. */
+    /** Within a line as upstream `getCodeLensModel`: provider rank, column. A range past the document is clamped into it. */
     private replaceItems(
         candidates: readonly { readonly lens: CodeLens; readonly rank: number; readonly provider: CodeLensProvider }[],
         lists: readonly CodeLensList[],
     ): void {
         const sorted = candidates
             .map((candidate) => ({ ...candidate, range: this.clampRange(candidate.lens.range) }))
-            .sort(
-                (a, b) =>
-                    a.range.start.line - b.range.start.line ||
-                    a.rank - b.rank ||
-                    a.range.start.character - b.range.start.character,
-            );
+            .sort((a, b) => a.rank - b.rank || a.range.start.character - b.range.start.character);
         const ids = this.model.document.deltaDecorations(
             this.items.map((item) => item.id),
             sorted.map(({ range }) => ({
@@ -279,6 +276,7 @@ export class CodeLensController extends Disposable {
                 provider,
                 lens,
                 nonEmptyAtStart: range.start.line !== range.end.line || range.start.character !== range.end.character,
+                // Stryker disable next-line StringLiteral: only "waiting" and "failed" are ever compared with
                 state: needsResolve ? "waiting" : "settled",
             };
         });
@@ -296,7 +294,10 @@ export class CodeLensController extends Disposable {
         return { start: clampPosition(range.start), end: clampPosition(range.end) };
     }
 
-    /** Upstream `CodeLensWidget.isValid`: the text of the lens is gone, a delete of its line among others. */
+    /**
+     * Upstream `CodeLensWidget.isValid`: the text of the lens is gone, a delete of its line among others. The item
+     * stays until the next answer replaces it, with no range it is neither shown, nor resolved, nor picked.
+     */
     private dropCollapsed(): void {
         const document = this.model.document;
         const gone = this.items.filter((item) => {
@@ -308,12 +309,10 @@ export class CodeLensController extends Disposable {
                     range.start.character === range.end.character)
             );
         });
-        if (gone.length === 0) return;
         document.deltaDecorations(
             gone.map((item) => item.id),
             [],
         );
-        this.items = this.items.filter((item) => !gone.includes(item));
     }
 
     private waitingInView(): ILensItem[] {
@@ -341,6 +340,7 @@ export class CodeLensController extends Disposable {
             this.waitingInView().map(async (item) => {
                 let resolved: CodeLens | null | undefined = null;
                 try {
+                    // Stryker disable next-line OptionalChaining: an item waits only if its provider can resolve; for the type
                     resolved = await item.provider.resolveCodeLens?.(this.model, item.lens, request.token);
                 } catch (e) {
                     onUnexpectedError(e);
@@ -349,6 +349,7 @@ export class CodeLensController extends Disposable {
                 if (resolved === null || resolved === undefined) {
                     item.state = "failed";
                 } else {
+                    // Stryker disable next-line StringLiteral: only "waiting" and "failed" are ever compared with
                     item.state = "settled";
                     item.lens = { ...item.lens, command: resolved.command ?? item.lens.command };
                 }
@@ -380,7 +381,6 @@ export class CodeLensController extends Disposable {
         const byLine = new Map<number, ILensItem[]>();
         for (const item of this.items) {
             const line = document.getDecorationRange(item.id)?.start.line;
-            // Stryker disable next-line ConditionalExpression: our ids live until we remove them; `undefined` is only for the type
             if (line === undefined) continue;
             const group = byLine.get(line);
             if (group === undefined) byLine.set(line, [item]);
