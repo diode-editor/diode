@@ -44,6 +44,8 @@ describe("LanguageFeatureContextKeys", () => {
 
         expect(keys.evaluate("editorHasDefinitionProvider")).toBe(false);
         expect(keys.evaluate("editorHasImplementationProvider")).toBe(false);
+        expect(keys.evaluate("editorHasTypeDefinitionProvider")).toBe(false);
+        expect(keys.evaluate("editorHasDeclarationProvider")).toBe(false);
         expect(keys.evaluate("editorHasReferenceProvider")).toBe(false);
         expect(keys.evaluate("editorHasRenameProvider")).toBe(false);
         expect(keys.evaluate("editorHasCodeActionsProvider")).toBe(false);
@@ -54,6 +56,8 @@ describe("LanguageFeatureContextKeys", () => {
     it.each([
         ["definitionProvider", "editorHasDefinitionProvider"],
         ["implementationProvider", "editorHasImplementationProvider"],
+        ["typeDefinitionProvider", "editorHasTypeDefinitionProvider"],
+        ["declarationProvider", "editorHasDeclarationProvider"],
         ["referenceProvider", "editorHasReferenceProvider"],
         ["renameProvider", "editorHasRenameProvider"],
         ["codeActionProvider", "editorHasCodeActionsProvider"],

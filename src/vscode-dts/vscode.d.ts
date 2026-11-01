@@ -6341,6 +6341,48 @@ declare module "vscode" {
 	}
 
 	/**
+	 * The type definition provider defines the contract between extensions and
+	 * the go to type definition feature.
+	 */
+	export interface TypeDefinitionProvider {
+
+		/**
+		 * Provide the type definition of the symbol at the given position and document.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns A definition or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideTypeDefinition(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<Definition | DefinitionLink[]>;
+	}
+
+	/**
+	 * The declaration of a symbol representation as one or many {@link Location locations}
+	 * or {@link LocationLink location links}.
+	 */
+	export type Declaration = Location | Location[] | LocationLink[];
+
+	/**
+	 * The declaration provider interface defines the contract between extensions and
+	 * the go to declaration feature.
+	 */
+	export interface DeclarationProvider {
+
+		/**
+		 * Provide the declaration of the symbol at the given position and document.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns A declaration or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined` or `null`.
+		 */
+		provideDeclaration(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<Declaration>;
+	}
+
+	/**
 	 * A hover represents additional information for a symbol or word. Hovers are
 	 * rendered in a tooltip-like widget.
 	 */
@@ -7549,6 +7591,32 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
 		export function registerImplementationProvider(selector: DocumentSelector, provider: ImplementationProvider): Disposable;
+
+		/**
+		 * Register a type definition provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A type definition provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerTypeDefinitionProvider(selector: DocumentSelector, provider: TypeDefinitionProvider): Disposable;
+
+		/**
+		 * Register a declaration provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A declaration provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerDeclarationProvider(selector: DocumentSelector, provider: DeclarationProvider): Disposable;
 
 		/**
 		 * Register a hover provider.

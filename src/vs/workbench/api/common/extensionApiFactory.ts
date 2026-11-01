@@ -34,6 +34,7 @@ export const OWNED_MEMBERS = {
         "registerCodeActionsProvider",
         "registerColorProvider",
         "registerCompletionItemProvider",
+        "registerDeclarationProvider",
         "registerDefinitionProvider",
         "registerDocumentFormattingEditProvider",
         "registerDocumentRangeFormattingEditProvider",
@@ -46,6 +47,7 @@ export const OWNED_MEMBERS = {
         "registerReferenceProvider",
         "registerRenameProvider",
         "registerSignatureHelpProvider",
+        "registerTypeDefinitionProvider",
     ],
     commands: ["registerCommand", "registerTextEditorCommand"],
     // `executeTask` too: the task source and the provider's task id come from the caller.
