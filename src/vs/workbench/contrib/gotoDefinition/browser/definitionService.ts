@@ -28,7 +28,14 @@ import { NotificationServiceDIToken } from "../../../services/notification/brows
 import type { ReferencesService } from "../../references/browser/referencesService.ts";
 import { ReferencesServiceDIToken } from "../../references/browser/referencesService.ts";
 
-import { createLocationModel, getDefinitions, getImplementations, type ILocationModel } from "./goToSymbol.ts";
+import {
+    createLocationModel,
+    getDeclarations,
+    getDefinitions,
+    getImplementations,
+    getTypeDefinitions,
+    type ILocationModel,
+} from "./goToSymbol.ts";
 
 export const DefinitionServiceDIToken = token<DefinitionService>("DefinitionService");
 
@@ -59,10 +66,16 @@ interface ISymbolNavigation {
     readonly title: string;
     readonly noResults: string;
     readonly noResultsForWord: (word: string) => string;
-    readonly multipleSetting: "editor.gotoLocation.multipleDefinitions" | "editor.gotoLocation.multipleImplementations";
+    readonly multipleSetting:
+        | "editor.gotoLocation.multipleDefinitions"
+        | "editor.gotoLocation.multipleImplementations"
+        | "editor.gotoLocation.multipleTypeDefinitions"
+        | "editor.gotoLocation.multipleDeclarations";
     readonly alternativeSetting:
         | "editor.gotoLocation.alternativeDefinitionCommand"
-        | "editor.gotoLocation.alternativeImplementationCommand";
+        | "editor.gotoLocation.alternativeImplementationCommand"
+        | "editor.gotoLocation.alternativeTypeDefinitionCommand"
+        | "editor.gotoLocation.alternativeDeclarationCommand";
     readonly getLocations: (
         languageFeatures: ILanguageFeaturesService,
         target: ILanguageFeatureTarget,
@@ -91,6 +104,28 @@ const IMPLEMENTATION_NAVIGATION: ISymbolNavigation = {
     alternativeSetting: "editor.gotoLocation.alternativeImplementationCommand",
     getLocations: (languageFeatures, target, request, token) =>
         getImplementations(languageFeatures.implementationProvider, target, request, token),
+};
+
+const TYPE_DEFINITION_NAVIGATION: ISymbolNavigation = {
+    commandId: "editor.action.goToTypeDefinition",
+    title: "Type Definitions",
+    noResults: "No type definition found",
+    noResultsForWord: (word) => `No type definition found for '${word}'`,
+    multipleSetting: "editor.gotoLocation.multipleTypeDefinitions",
+    alternativeSetting: "editor.gotoLocation.alternativeTypeDefinitionCommand",
+    getLocations: (languageFeatures, target, request, token) =>
+        getTypeDefinitions(languageFeatures.typeDefinitionProvider, target, request, token),
+};
+
+const DECLARATION_NAVIGATION: ISymbolNavigation = {
+    commandId: "editor.action.revealDeclaration",
+    title: "Declarations",
+    noResults: "No declaration found",
+    noResultsForWord: (word) => `No declaration found for '${word}'`,
+    multipleSetting: "editor.gotoLocation.multipleDeclarations",
+    alternativeSetting: "editor.gotoLocation.alternativeDeclarationCommand",
+    getLocations: (languageFeatures, target, request, token) =>
+        getDeclarations(languageFeatures.declarationProvider, target, request, token),
 };
 
 export class DefinitionService {
@@ -125,6 +160,14 @@ export class DefinitionService {
 
     public goToImplementation(): Promise<void> {
         return this.navigate(IMPLEMENTATION_NAVIGATION, false);
+    }
+
+    public goToTypeDefinition(): Promise<void> {
+        return this.navigate(TYPE_DEFINITION_NAVIGATION, false);
+    }
+
+    public revealDeclaration(): Promise<void> {
+        return this.navigate(DECLARATION_NAVIGATION, false);
     }
 
     /**
