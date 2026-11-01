@@ -114,9 +114,9 @@ function colorTokensOf(kind: InlayHintKind | undefined): { readonly fg: string; 
  * trailing a word (a type after a name) or ending the visible text keeps the caret left of it, so
  * the caret stays next to what is being typed.
  */
-function caretSideOfHint(lineContent: string, offset: number): "left" | "right" {
-    if (offset >= lineContent.length || charClass(lineContent[offset]) === 0) return "left";
-    return offset > 0 && isWordChar(lineContent[offset - 1]) ? "left" : "right";
+function hintLeadsText(lineContent: string, offset: number): boolean {
+    if (offset >= lineContent.length || charClass(lineContent[offset]) === 0) return false;
+    return offset === 0 || !isWordChar(lineContent[offset - 1]);
 }
 
 export class InlayHintsController extends Disposable {
@@ -359,8 +359,12 @@ export class InlayHintsController extends Disposable {
         offset: number,
         label: string,
     ): void {
-        const caretSide = caretSideOfHint(this.model.document.getLineContent(line), offset);
-        const base = { line, offset, caretSide, outsideRangeBackgrounds: true } as const;
+        const base: Pick<IInlineInsertion, "line" | "offset" | "caretSide" | "outsideRangeBackgrounds"> = {
+            line,
+            offset,
+            ...(hintLeadsText(this.model.document.getLineContent(line), offset) ? { caretSide: "right" } : {}),
+            outsideRangeBackgrounds: true,
+        };
         if (hint.paddingLeft === true) insertions.push({ ...base, text: " " });
         const { fg, bg } = colorTokensOf(hint.kind);
         const { padding, fontStyle } = this.options;
