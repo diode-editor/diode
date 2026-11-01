@@ -231,6 +231,16 @@ languageclient только при вызове провайдера, а соо�
 CLI и `terraform init`; форматирование требует terraform в PATH (`Terraform (CLI) is required`) —
 окружение, а не Diode. Запись магазина гейтится `engines.diode >=0.7.3`.
 
+**Code lens.** `terraform.codelens.referenceCount: true` даёт над блоками, на которые есть ссылки, линзу
+`N references`; клик идёт через команду расширения `client.showReferences` (не `terraform.showReferences`) в
+`editor.action.showReferences` и открывает references view. Расширение читает настройку один раз, при
+старте клиента, и только тогда объявляет серверу `experimental.showReferencesCommandId`; `codeLensProvider`
+сервер объявляет всегда и без этой настройки отвечает пусто. Поэтому смена настройки на лету линзы не
+снимает — расширение предлагает «Reload VSCode window», после перезагрузки их нет. Это поведение самого
+vsix, в VS Code то же. Снять линзы без перезагрузки можно настройкой ядра `editor.codeLens: false`.
+`inlayHintProvider` `terraform-ls` не объявляет, провайдер inlay hints не регистрируется. Тесты —
+`extensionHost.terraformLsp.codeLens.test.ts`, сценарий — `terraform-code-lens.scenario.ts`.
+
 ## Форматирование: `esbenp.prettier-vscode`
 
 Своего форматтера у ядра нет намеренно — форматирует только провайдер расширения. Prettier закрывает
