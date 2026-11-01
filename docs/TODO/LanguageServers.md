@@ -50,8 +50,9 @@ API (no-op провайдеры и наивные стабы) — [API-COVERAGE]
   TreeView-API ([Extensions](Extensions.md#ui-вклады-viewscontainers--views)).
 - [ ] **HCP Terraform.** Настоящий `vscode.authentication` (провайдеры расширений, `getSession` через
   провайдер, `onAuthenticationRequest:<id>`), вход по токену в quick input; панели workspaces/runs
-  поверх деревьев. Code lens (счётчики ссылок `terraform-ls`) — шов есть (#937), проверка на стоковом
-  сервере — отдельной задачей.
+  поверх деревьев.
+- [x] **Code lens.** Счётчики ссылок `terraform-ls` работают на стоковом расширении (#942,
+  [arch/StockExtensions.md](../arch/StockExtensions.md#terraform-hashicorpterraform)).
 - [ ] Не разобрано: при наборе на машинной скорости (строка за ~200 мс) попап автодополнения не
   открылся — каждая клавиша отменяет предыдущий запрос (`-32800 RequestCancelled`), а на последнюю
   запрос до сервера не дошёл. При человеческом темпе открывается. Может быть свойством
