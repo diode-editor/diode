@@ -278,10 +278,12 @@ export class EditorElement extends TUIElement implements IScrollable {
         if (ghostTextEquals(this.ghostTextValue, ghost)) return;
         this.ghostTextValue = ghost;
         const needsZones = ghost !== null && ghost.lines.length > 1;
+        // Stryker disable ArrayDeclaration,StringLiteral: a garbage zone has no size and drops; the owner is only a distinct key
         this.viewState.setViewZones(
             needsZones ? [{ afterLine: ghost.line, size: ghost.lines.length - 1 }] : [],
             "ghostText",
         );
+        // Stryker restore ArrayDeclaration,StringLiteral
         this.syncInlineInsertions();
     }
 
@@ -293,6 +295,8 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     /** One zone row above each line that has lenses and is not folded away. */
     public setCodeLensZones(zones: readonly ICodeLensZone[]): void {
+        // Saves a repaint on each edit of a file without lenses: the sync below would set the same zones.
+        // Stryker disable next-line ConditionalExpression: see above
         if (zones.length === 0 && this.codeLensZones.length === 0) return;
         this.codeLensZones = zones;
         this.syncCodeLensZones();
@@ -312,6 +316,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         const rowsIntoTopLine = scrollTop - viewState.viewLineForPosition(topLine, 0);
         viewState.setViewZones(
             visible.map((zone) => ({ afterLine: zone.line - 1, size: 1 })),
+            // Stryker disable next-line StringLiteral: the owner is only a distinct key
             "codeLens",
         );
         if (scrollTop > 0) {
@@ -907,6 +912,8 @@ export class EditorElement extends TUIElement implements IScrollable {
                 for (let x = 0; x < gutterW; x++) {
                     context.setCell(x, screenY, { char: " ", bg: gutBg });
                 }
+                // Without a ghost there are no ghost rows: `ghost !== null` narrows the type for the branch.
+                // Stryker disable next-line ConditionalExpression: see above
                 if (ghost !== null && zoneRow.offset < this.ghostZoneRows(zoneRow.anchor)) {
                     // The extra column of a "<=" mutant is clipped by the element rectangle.
                     // Stryker disable next-line EqualityOperator: see above
@@ -927,7 +934,10 @@ export class EditorElement extends TUIElement implements IScrollable {
                 const lens = this.codeLensByAnchor.get(zoneRow.anchor);
                 if (lens !== undefined) {
                     const lensFg = this.styleVar("editorCodeLens.foreground");
+                    // The extra column of a "<=" mutant is clipped by the element rectangle.
+                    // Stryker disable next-line EqualityOperator: see above
                     for (let x = 0; x < contentCols; x++) {
+                        // Stryker disable next-line StringLiteral: a cell with no char reads as a space
                         context.setCell(gutterW + x, screenY, { char: " ", fg: lensFg, bg: editorBg });
                     }
                     paintPhantomText(context, {

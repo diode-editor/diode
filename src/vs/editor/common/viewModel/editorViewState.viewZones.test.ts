@@ -42,6 +42,16 @@ describe("EditorViewState view zones — projection", () => {
         expect(sketch(state)).toBe("0 1 · ·");
     });
 
+    it("the zones it keeps: an empty one is dropped, an anchor past the end comes to the last line", () => {
+        const state = makeState("a\nb");
+        state.setViewZones([
+            { afterLine: 0, size: 0 },
+            { afterLine: 99, size: 2 },
+        ]);
+
+        expect(state.viewZones).toEqual([{ afterLine: 1, size: 2 }]);
+    });
+
     it("several zones and merging of equal anchors", () => {
         const state = makeState("a\nb\nc");
         state.setViewZones([

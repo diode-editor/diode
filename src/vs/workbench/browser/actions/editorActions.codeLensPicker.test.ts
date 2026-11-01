@@ -2,8 +2,8 @@ import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createEditorPane } from "../../../../TestUtils/TextEditorPaneFactory.ts";
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
+import { createEditorPane } from "../../../../TestUtils/TextEditorPaneFactory.ts";
 import { LanguageFeatureRegistry } from "../../../editor/common/languageFeatureRegistry.ts";
 import type { CodeLensProvider } from "../../../editor/common/languages/iCodeLensSource.ts";
 import { Container } from "../../../platform/instantiation/common/diContainer.ts";

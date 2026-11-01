@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { renderCodicons } from "../../../../base/common/codicons.ts";
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
+import { renderCodicons } from "../../../../base/common/codicons.ts";
 import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -125,21 +125,31 @@ describe("CodeLensController", () => {
             await settle();
             expect(zones()).toEqual([
                 { line: 1, text: "b", actions: [{ start: 0, end: 1, command: b }] },
-                { line: 3, text: "a | b", actions: [{ start: 0, end: 1, command: a }, { start: 4, end: 5, command: b }] },
+                {
+                    line: 3,
+                    text: "a | b",
+                    actions: [
+                        { start: 0, end: 1, command: a },
+                        { start: 4, end: 5, command: b },
+                    ],
+                },
                 { line: 5, text: "a", actions: [{ start: 0, end: 1, command: a }] },
             ]);
         });
 
         it("a line goes by provider rank, then column", async () => {
-            providers.register("*", answering([lens(1, command("older"), 0)]));
+            providers.register("*", answering([lens(1, command("o2"), 1), lens(1, command("o1"), 0)]));
             providers.register("*", answering([lens(1, command("late"), 5), lens(1, command("early"), 1)]));
             const { zones, settle } = setup();
             await settle();
-            expect(zones()[0].text).toBe("early | late | older");
+            expect(zones()[0].text).toBe("early | late | o1 | o2");
         });
 
         it("an empty title between two takes no place and no separator", async () => {
-            providers.register("*", answering([lens(0, command("a"), 0), lens(0, command(""), 1), lens(0, command("b"), 2)]));
+            providers.register(
+                "*",
+                answering([lens(0, command("a"), 0), lens(0, command(""), 1), lens(0, command("b"), 2)]),
+            );
             const { zones, settle } = setup();
             await settle();
             expect(zones()[0].text).toBe("a | b");
@@ -227,9 +237,9 @@ describe("CodeLensController", () => {
             // The provide is over, the resolve's debounce is running.
             await vi.advanceTimersByTimeAsync(380);
             expect(resolveCodeLens).not.toHaveBeenCalled();
+            expect(vi.getTimerCount()).toBe(1);
             controller.setOptions({ enabled: false, nerdFont: false });
-            await vi.advanceTimersByTimeAsync(SETTLE_MS);
-            expect(resolveCodeLens).not.toHaveBeenCalled();
+            expect(vi.getTimerCount()).toBe(0);
         });
 
         it("turning off cancels the provide in flight, and its late answer shows nothing", async () => {
@@ -503,9 +513,9 @@ describe("CodeLensController", () => {
 
         it("arms no timer with nothing to resolve in view, after the provide and on a scroll", async () => {
             providers.register("*", answering([lens(5)], { resolveCodeLens: () => null }));
-            const { visible, visibleRange, settle } = setup();
+            const { visible, visibleRange } = setup();
             visible.endLine = 1;
-            await settle();
+            await vi.advanceTimersByTimeAsync(380);
             expect(vi.getTimerCount()).toBe(0);
             visibleRange.fire();
             expect(vi.getTimerCount()).toBe(0);

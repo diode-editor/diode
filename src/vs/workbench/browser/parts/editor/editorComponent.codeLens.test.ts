@@ -332,6 +332,49 @@ describe("EditorComponent — code lens", () => {
         expect(runCommand).not.toHaveBeenCalled();
     });
 
+    it("the row owns its cells past the title: the lens color, the editor background", async () => {
+        providers.register("*", provider([lens(1, command("t"))]));
+        const { app, frame } = await open("alpha\nbravo");
+        frame();
+        for (const x of [GUTTER + 1, GUTTER + 20]) {
+            expect(app.backend.getFgAt(new Point(x, 1))).toBe(LENS_FG);
+            expect(app.backend.getBgAt(new Point(x, 1))).toBe(app.backend.getBgAt(new Point(x, 2)));
+        }
+        expect(app.backend.getTextAt(new Point(0, 1), GUTTER).trim()).toBe("");
+    });
+
+    it("zones arriving above a wrapped top line keep the rows into it", async () => {
+        const answers: ((value: { lenses: readonly CodeLens[]; dispose(): void }) => void)[] = [];
+        providers.register("*", {
+            provideCodeLenses: () =>
+                new Promise((resolve) => {
+                    answers.push(resolve);
+                }),
+        });
+        const { editor, settle } = await open(`alpha\n${"x".repeat(300)}\nb`, new Size(20, 4));
+        editor.viewState.wordWrap = "on";
+        editor.viewState.scrollTop = 3;
+        answers[0]({ lenses: [lens(0, command("a"))], dispose: () => undefined });
+        await settle();
+        expect(editor.viewState.scrollTop).toBe(4);
+    });
+
+    it("too large at first: asked only after Enable Editing", async () => {
+        const provideCodeLenses = vi.fn(() => null);
+        providers.register("*", { provideCodeLenses });
+        const editor = createEditorPane({
+            codeLens: { providers, runCommand },
+            largeFileOptions: { largeFileOptimizations: true, sizeThresholdMb: 1, lineCountThreshold: 2 },
+            file: Uri.file(ws.writeFile("big.ts", "1\n2\n3")),
+        });
+        pane = editor;
+        await vi.advanceTimersByTimeAsync(SETTLE_MS);
+        expect(provideCodeLenses).not.toHaveBeenCalled();
+        editor.model.forcefullyEnableFeatures();
+        await vi.advanceTimersByTimeAsync(SETTLE_MS);
+        expect(provideCodeLenses).toHaveBeenCalledOnce();
+    });
+
     it("the cell right after a title is not the title", async () => {
         providers.register("*", provider([lens(0, command("run"))]));
         await open("alpha");

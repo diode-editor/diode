@@ -320,9 +320,10 @@ export class CodeLensController extends Disposable {
         const document = this.model.document;
         return this.items.filter((item) => {
             if (item.state !== "waiting") return false;
-            const line = document.getDecorationRange(item.id)?.start.line;
+            // A dropped lens has no line and is in no viewport.
+            const line = document.getDecorationRange(item.id)?.start.line ?? -1;
             // The bottom row may be the zone of the line below the last visible one.
-            return line !== undefined && line >= startLine && line <= endLine + 1;
+            return line >= startLine && line <= endLine + 1;
         });
     }
 

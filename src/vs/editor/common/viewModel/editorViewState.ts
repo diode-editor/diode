@@ -579,6 +579,7 @@ export class EditorViewState {
      * to `[-1, lineCount-1]`, merges equal anchors. The same result is a no-op without an event: the setter is called
      * on every diff recompute.
      */
+    // Stryker disable next-line StringLiteral: the owner is only a distinct key
     public setViewZones(zones: readonly IViewZone[], owner: ViewZoneOwner = "view"): void {
         this.viewZoneSets.set(
             owner,
