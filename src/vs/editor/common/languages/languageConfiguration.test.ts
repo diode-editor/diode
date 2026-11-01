@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { ILanguageConfiguration, IOnEnterAction } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
+import type {
+    ILanguageConfiguration,
+    IOnEnterAction,
+} from "../../../platform/extensions/common/iLanguageConfiguration.ts";
 
 import {
     DEFAULT_AUTO_CLOSE_BEFORE,
@@ -149,7 +152,9 @@ describe("resolveLanguageConfiguration — onEnterRules", () => {
     });
 
     it("no optional action fields stay absent", () => {
-        const [rule] = resolveLanguageConfiguration({ onEnterRules: [{ beforeText: "a", action: ENTER_NONE }] }).onEnterRules;
+        const [rule] = resolveLanguageConfiguration({
+            onEnterRules: [{ beforeText: "a", action: ENTER_NONE }],
+        }).onEnterRules;
         expect(rule.action).toStrictEqual(ENTER_NONE);
     });
 
@@ -162,17 +167,29 @@ describe("resolveLanguageConfiguration — onEnterRules", () => {
                 { beforeText: "a", afterText: null, previousLineText: {}, action: ENTER_NONE },
             ],
         } as never).onEnterRules;
-        expect(rules).toEqual([{ beforeText: /a/, afterText: undefined, previousLineText: undefined, action: ENTER_NONE }]);
+        expect(rules).toEqual([
+            { beforeText: /a/, afterText: undefined, previousLineText: undefined, action: ENTER_NONE },
+        ]);
     });
 
     it("takes a string or a pattern with flags", () => {
         const [first, second] = resolveLanguageConfiguration({
             onEnterRules: [
                 { beforeText: "a", action: ENTER_NONE },
-                { beforeText: { pattern: "b", flags: "i" }, afterText: "c", previousLineText: "d", action: ENTER_INDENT },
+                {
+                    beforeText: { pattern: "b", flags: "i" },
+                    afterText: "c",
+                    previousLineText: "d",
+                    action: ENTER_INDENT,
+                },
             ],
         }).onEnterRules;
-        expect(first).toEqual({ beforeText: /a/, afterText: undefined, previousLineText: undefined, action: ENTER_NONE });
+        expect(first).toEqual({
+            beforeText: /a/,
+            afterText: undefined,
+            previousLineText: undefined,
+            action: ENTER_NONE,
+        });
         expect(second).toEqual({ beforeText: /b/i, afterText: /c/, previousLineText: /d/, action: ENTER_INDENT });
     });
 
@@ -203,7 +220,12 @@ describe("resolveLanguageConfiguration — onEnterRules", () => {
                 },
             ],
         } as never).onEnterRules;
-        expect(rule).toEqual({ beforeText: /a/, afterText: undefined, previousLineText: undefined, action: ENTER_NONE });
+        expect(rule).toEqual({
+            beforeText: /a/,
+            afterText: undefined,
+            previousLineText: undefined,
+            action: ENTER_NONE,
+        });
     });
 
     it("a section that is not an array resolves to no rules", () => {

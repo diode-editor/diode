@@ -125,7 +125,8 @@ function toRegExp(value: string | IRegExpDefinition | null | undefined): RegExp 
 
 /** As upstream `_extractValidOnEnterRules`: a broken `beforeText` or `indent` drops the rule, a broken optional regex only itself. */
 function toOnEnterRule(rule: IOnEnterRule | null): IResolvedOnEnterRule | undefined {
-    const action = rule?.action as IOnEnterAction | null | undefined;
+    if (rule === null) return undefined;
+    const action = rule.action as IOnEnterAction | null | undefined;
     if (typeof action !== "object" || action === null) return undefined;
     if (!["none", "indent", "indentOutdent", "outdent"].includes(action.indent)) return undefined;
     const beforeText = toRegExp(rule.beforeText);
