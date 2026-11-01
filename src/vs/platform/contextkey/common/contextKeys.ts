@@ -143,6 +143,8 @@ export interface ContextKeyTypes {
 
     /** `"empty"` | `"folder"` (upstream also has `"workspace"`). */
     workbenchState: string;
+    /** Always `true`: no trust model, matches `workspace.isTrusted`. */
+    isWorkspaceTrusted: boolean;
 
     /** Id of the tab whose controls the header currently shows. */
     view: string;

@@ -27,6 +27,7 @@ interface IExtensionQuickPickItem extends QuickPickSessionItem {
 
 interface IExtensionQuickPick {
     readonly session: QuickPickSession<IExtensionQuickPickItem>;
+    readonly inputBox: boolean;
     byHandle: ReadonlyMap<number, IExtensionQuickPickItem>;
 }
 
@@ -138,7 +139,7 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
     public updateQuickPick(update: IWireQuickPickUpdate, emit: (event: IWireQuickPickEvent) => void): void {
         let pick = this.quickPicks.get(update.handle);
         if (pick === undefined) {
-            pick = this.createQuickPick(update.handle, emit);
+            pick = this.createQuickPick(update.handle, emit, update.inputBox === true);
             this.quickPicks.set(update.handle, pick);
         }
         const changes = toSessionChanges(update, pick, this.icons);
@@ -156,7 +157,11 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
         pick.session.dispose();
     }
 
-    private createQuickPick(handle: number, emit: (event: IWireQuickPickEvent) => void): IExtensionQuickPick {
+    private createQuickPick(
+        handle: number,
+        emit: (event: IWireQuickPickEvent) => void,
+        inputBox: boolean,
+    ): IExtensionQuickPick {
         const handles = (items: readonly IExtensionQuickPickItem[]): number[] => items.map((item) => item.handle);
         const session = this.quickInput.createQuickPick<IExtensionQuickPickItem>(
             {
@@ -175,10 +180,15 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
                 onDidHide: () => {
                     emit({ handle, kind: "hide" });
                 },
+                onDidTriggerBack: () => {
+                    emit({ handle, kind: "back" });
+                },
             },
             { echoOwnerChanges: true },
         );
-        return { session, byHandle: new Map() };
+        // Upstream's input box has no list, and its pre-filled value starts selected: typing replaces it.
+        if (inputBox) session.update({ matchOnLabel: false, valueSelection: WHOLE_VALUE });
+        return { session, byHandle: new Map(), inputBox };
     }
 
     public cancel(handle: number): void {
@@ -221,6 +231,14 @@ function toSessionChanges(
     for (const key of PLAIN_FIELDS) {
         if (key in update) changes[key] = update[key] ?? undefined;
     }
+    if ("valueSelection" in update) {
+        changes.valueSelection = update.valueSelection ?? (pick.inputBox ? WHOLE_VALUE : undefined);
+    }
+    if ("validationMessage" in update) {
+        const message = update.validationMessage;
+        changes.validationMessage = renderLabel(message?.message);
+        changes.validationSeverity = message?.severity ?? "error";
+    }
     if (update.items !== undefined) {
         const items = update.items.map((item) => toSessionItem(item, icons));
         pick.byHandle = new Map(items.map((item) => [item.handle, item]));
@@ -236,6 +254,9 @@ function toSessionChanges(
     return changes as Partial<QuickPickSessionState<IExtensionQuickPickItem>>;
 }
 
+/** The widget clamps the range to the text. */
+const WHOLE_VALUE: readonly [number, number] = [0, Number.MAX_SAFE_INTEGER];
+
 const LABEL_FIELDS = ["title", "placeholder", "prompt"] as const;
 
 /** `null` means "reset"; `value` is not a label, it gets edited. */
@@ -243,6 +264,8 @@ const PLAIN_FIELDS = [
     "step",
     "totalSteps",
     "value",
+    "password",
+    "back",
     "canSelectMany",
     "matchOnDescription",
     "matchOnDetail",

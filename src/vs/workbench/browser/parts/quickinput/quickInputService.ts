@@ -306,6 +306,10 @@ export class QuickInputService {
         if (this.component.isOpen()) this.component.view.toggleChecked();
     }
 
+    public backOpen(): void {
+        if (this.component.isOpen()) this.component.view.goBack();
+    }
+
     public focusOpen(): void {
         if (this.component.isOpen()) this.component.view.focus();
     }

@@ -6,6 +6,8 @@ import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 /** Shared by the query, the message and list rows: separate literals left the query misaligned with the results. */
 export const CONTENT_PAD = 1;
 
+const BACK_GLYPH = "←";
+
 /**
  * A title set into the border (`┤ Save As ├`) and a separator at a given row — things the engine's
  * `BoxContainerElement` can't do. The frame doesn't handle content padding: a `PaddingContainerElement`
@@ -16,6 +18,9 @@ export class QuickPickFrameElement extends TUIElement {
     private titleValue: string | undefined = undefined;
     /** In element coordinates; null means no separator. */
     private separatorRowValue: number | null = null;
+    private backVisibleValue = false;
+    /** Where the last frame drew the Back button; `null` when it did not fit or is off. */
+    private backColumn: number | null = null;
 
     public constructor(child: TUIElement) {
         super();
@@ -31,6 +36,21 @@ export class QuickPickFrameElement extends TUIElement {
         if (this.titleValue === value) return;
         this.titleValue = value;
         this.markDirty();
+    }
+
+    public get backVisible(): boolean {
+        return this.backVisibleValue;
+    }
+
+    public setBackVisible(value: boolean): void {
+        if (this.backVisibleValue === value) return;
+        this.backVisibleValue = value;
+        this.markDirty();
+    }
+
+    /** In element coordinates. */
+    public isBackButtonAt(x: number, y: number): boolean {
+        return y === 0 && x === this.backColumn;
     }
 
     public setSeparatorRow(value: number | null): void {
@@ -63,10 +83,11 @@ export class QuickPickFrameElement extends TUIElement {
         const separators = separator !== null && separator > 0 && separator < h - 1 ? [separator] : undefined;
         context.drawBox(0, 0, w, h, { fg: border, bg: background, fill: true, separators });
 
-        const title = this.titleValue;
-        if (title !== undefined && title !== "") {
-            this.renderTitle(context, title, w, background, border);
-        }
+        this.backColumn = null;
+        const title = [this.backVisibleValue ? BACK_GLYPH : "", this.titleValue ?? ""]
+            .filter((part) => part !== "")
+            .join(" ");
+        if (title !== "") this.renderTitle(context, title, w, background, border);
 
         this.renderChildren(context);
     }
@@ -80,5 +101,7 @@ export class QuickPickFrameElement extends TUIElement {
         context.setCell(startX - 1, 0, { char: "┤", fg: border, bg: background });
         context.drawText(startX, 0, label, { fg: this.styleVar("quickPick.titleForeground"), bg: background });
         context.setCell(startX + labelWidth, 0, { char: "├", fg: border, bg: background });
+        // The leading space of the label comes first.
+        if (this.backVisibleValue) this.backColumn = startX + 1;
     }
 }

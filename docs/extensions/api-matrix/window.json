@@ -14,8 +14,7 @@
       "class": "ok"
     },
     "window.createInputBox": {
-      "class": "B",
-      "note": "not implemented: only the promise-based showInputBox exists"
+      "class": "ok"
     },
     "window.createOutputChannel": {
       "class": "ok"

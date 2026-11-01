@@ -1087,6 +1087,17 @@ declare module "vscode" {
 		export function createQuickPick<T extends QuickPickItem>(): QuickPick<T>;
 
 		/**
+		 * Creates a {@link InputBox} to let the user enter some text input.
+		 *
+		 * Note that in many cases the more convenient {@link window.showInputBox} is easier to use.
+		 * {@link window.createInputBox} should be used when {@link window.showInputBox} does not offer
+		 * the required flexibility.
+		 *
+		 * @returns A new {@link InputBox}.
+		 */
+		export function createInputBox(): InputBox;
+
+		/**
 		 * Creates a new {@link OutputChannel output channel} with the given name and language id
 		 * If language id is not provided, then **Log** is used as default language id.
 		 *
@@ -5446,6 +5457,26 @@ declare module "vscode" {
 		readonly onDidAccept: Event<void>;
 
 		/**
+		 * Buttons for actions in the UI.
+		 */
+		buttons: readonly QuickInputButton[];
+
+		/**
+		 * An event signaling when a button was triggered.
+		 *
+		 * This event fires for buttons stored in the {@link QuickPick.buttons buttons} array. This event does
+		 * not fire for buttons on a {@link QuickPickItem}.
+		 */
+		readonly onDidTriggerButton: Event<QuickInputButton>;
+
+		/**
+		 * An event signaling when a button in a particular {@link QuickPickItem} was triggered.
+		 *
+		 * This event does not fire for buttons in the title bar which are part of {@link QuickPick.buttons buttons}.
+		 */
+		readonly onDidTriggerItemButton: Event<QuickPickItemButtonEvent<T>>;
+
+		/**
 		 * Items to pick from. This can be read and updated by the extension.
 		 */
 		items: readonly T[];
@@ -5489,6 +5520,163 @@ declare module "vscode" {
 		 * An event signaling when the selected items have changed.
 		 */
 		readonly onDidChangeSelection: Event<readonly T[]>;
+	}
+
+	/**
+	 * A concrete {@link QuickInput} to let the user input a text value.
+	 *
+	 * Note that in many cases the more convenient {@link window.showInputBox} is easier to use.
+	 * {@link window.createInputBox} should be used when {@link window.showInputBox} does not offer
+	 * the required flexibility.
+	 */
+	export interface InputBox extends QuickInput {
+
+		/**
+		 * The current input value.
+		 */
+		value: string;
+
+		/**
+		 * Selection range in the input value.
+		 *
+		 * Defined as tuple of two numbers where the first is the inclusive start index and the second the
+		 * exclusive end index. When `undefined` the whole pre-filled value will be selected, when empty
+		 * (start equals end) only the cursor will be set, otherwise the defined range will be selected.
+		 *
+		 * This property does not get updated when the user types or makes a selection, but it can be updated
+		 * by the extension.
+		 */
+		valueSelection: readonly [number, number] | undefined;
+
+		/**
+		 * Optional placeholder text shown when no value has been input.
+		 */
+		placeholder: string | undefined;
+
+		/**
+		 * Determines if the input value should be hidden. Defaults to `false`.
+		 */
+		password: boolean;
+
+		/**
+		 * An event signaling when the value has changed.
+		 */
+		readonly onDidChangeValue: Event<string>;
+
+		/**
+		 * An event signaling when the user indicated acceptance of the input value.
+		 */
+		readonly onDidAccept: Event<void>;
+
+		/**
+		 * Buttons for actions in the UI.
+		 */
+		buttons: readonly QuickInputButton[];
+
+		/**
+		 * An event signaling when a button was triggered.
+		 */
+		readonly onDidTriggerButton: Event<QuickInputButton>;
+
+		/**
+		 * An optional prompt text providing some ask or explanation to the user.
+		 */
+		prompt: string | undefined;
+
+		/**
+		 * An optional validation message indicating a problem with the current input value.
+		 *
+		 * By setting a string, the InputBox will use a default {@link InputBoxValidationSeverity} of Error.
+		 * Returning `undefined` clears the validation message.
+		 */
+		validationMessage: string | InputBoxValidationMessage | undefined;
+	}
+
+	/**
+	 * Specifies the location where a {@link QuickInputButton} should be rendered.
+	 */
+	export enum QuickInputButtonLocation {
+		/**
+		 * The button is rendered in the title bar.
+		 */
+		Title = 1,
+
+		/**
+		 * The button is rendered inline to the right of the input box.
+		 */
+		Inline = 2,
+
+		/**
+		 * The button is rendered at the far end inside the input box.
+		 */
+		Input = 3
+	}
+
+	/**
+	 * A button for an action in a {@link QuickPick} or {@link InputBox}.
+	 */
+	export interface QuickInputButton {
+		/**
+		 * The icon for the button.
+		 */
+		readonly iconPath: IconPath;
+
+		/**
+		 * An optional tooltip displayed when hovering over the button.
+		 */
+		readonly tooltip?: string | undefined;
+
+		/**
+		 * The location where the button should be rendered.
+		 *
+		 * Defaults to {@link QuickInputButtonLocation.Title}.
+		 *
+		 * **Note:** This property is ignored if the button was added to a {@link QuickPickItem}.
+		 */
+		location?: QuickInputButtonLocation;
+
+		/**
+		 * When present, indicates that the button is a toggle button that can be checked or unchecked.
+		 */
+		readonly toggle?: {
+			/**
+			 * Indicates whether the toggle button is currently checked.
+			 * This property will be updated when the button is toggled.
+			 */
+			checked: boolean;
+		};
+	}
+
+	/**
+	 * Predefined buttons for {@link QuickPick} and {@link InputBox}.
+	 */
+	export class QuickInputButtons {
+		/**
+		 * A predefined back button for {@link QuickPick} and {@link InputBox}.
+		 *
+		 * This button should be used for consistency when a navigation back button is needed. It comes
+		 * with a predefined icon, tooltip, and location.
+		 */
+		static readonly Back: QuickInputButton;
+
+		/**
+		 * @hidden
+		 */
+		private constructor();
+	}
+
+	/**
+	 * An event describing a button that was pressed on a {@link QuickPickItem}.
+	 */
+	export interface QuickPickItemButtonEvent<T extends QuickPickItem> {
+		/**
+		 * The button that was pressed.
+		 */
+		readonly button: QuickInputButton;
+		/**
+		 * The item that the button belongs to.
+		 */
+		readonly item: T;
 	}
 
 	/**

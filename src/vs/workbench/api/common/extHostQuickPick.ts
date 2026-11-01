@@ -1,32 +1,15 @@
 import type * as vscode from "vscode";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
+import { ExtHostQuickInput } from "./extHostQuickInput.ts";
 import { type AsRelativePath, withResourceFields } from "./quickInputResource.ts";
 import { EventEmitter, QuickPickItemKind } from "./vscodeTypes.ts";
 import type { IWireQuickPickEvent, IWireQuickPickSessionItem } from "./wireTypes.ts";
 
-/** `null` means "reset to undefined". */
-type PendingUpdate = Record<string, unknown>;
-
 /**
- * Upstream `ExtHostQuickPick`: an own copy of the state; setters accumulate a diff while
- * the picker is visible, and it goes to the host on a next-tick timer; `show()`/`hide()` send
- * what has accumulated immediately. An item handle is its index in the extension's `items`.
- * `busy`, `enabled`, `ignoreFocusOut` are stored but not sent to the host: the overlay has none of them.
+ * Upstream `ExtHostQuickPick`. An item handle is its index in the extension's `items`.
  */
-export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.QuickPick<T> {
-    // Defaults follow upstream even where d.ts says otherwise: until assigned,
-    // the host defaults apply.
-    public enabled = true;
-    public busy = false;
-    public ignoreFocusOut = true;
-
-    private titleValue: string | undefined;
-    private stepValue: number | undefined;
-    private totalStepsValue: number | undefined;
-    private valueValue = "";
-    private placeholderValue: string | undefined;
-    private promptValue: string | undefined;
+export class ExtHostQuickPick<T extends vscode.QuickPickItem> extends ExtHostQuickInput implements vscode.QuickPick<T> {
     private itemsValue: readonly T[] = [];
     private canSelectManyValue = false;
     private matchOnDescriptionValue = true;
@@ -35,78 +18,22 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
     private activeItemsValue: readonly T[] = [];
     private selectedItemsValue: readonly T[] = [];
 
-    private visible = false;
-    /** Hiding is reported to the extension once per show (upstream, #135747). */
-    private expectingHide = false;
-    private disposed = false;
-    private pending: PendingUpdate = {};
-    private updateTimer: ReturnType<typeof setTimeout> | undefined;
-
-    private readonly onDidChangeValueEmitter = new EventEmitter<string>();
-    private readonly onDidAcceptEmitter = new EventEmitter<void>();
     private readonly onDidChangeActiveEmitter = new EventEmitter<readonly T[]>();
     private readonly onDidChangeSelectionEmitter = new EventEmitter<readonly T[]>();
-    private readonly onDidHideEmitter = new EventEmitter<void>();
+    private readonly onDidTriggerItemButtonEmitter = new EventEmitter<vscode.QuickPickItemButtonEvent<T>>();
 
-    public readonly onDidChangeValue = this.onDidChangeValueEmitter.event;
-    public readonly onDidAccept = this.onDidAcceptEmitter.event;
     public readonly onDidChangeActive = this.onDidChangeActiveEmitter.event;
     public readonly onDidChangeSelection = this.onDidChangeSelectionEmitter.event;
-    public readonly onDidHide = this.onDidHideEmitter.event;
+    /** Item buttons are not drawn, so it never fires; the member exists because extensions subscribe to it. */
+    public readonly onDidTriggerItemButton = this.onDidTriggerItemButtonEmitter.event;
 
     public constructor(
-        private readonly rpc: SubprocessRpc,
-        public readonly handle: number,
-        private readonly onDispose: () => void,
+        rpc: SubprocessRpc,
+        handle: number,
+        onDispose: () => void,
         private readonly asRelativePath: AsRelativePath = (uri) => uri.fsPath,
-    ) {}
-
-    public get title(): string | undefined {
-        return this.titleValue;
-    }
-    public set title(title: string | undefined) {
-        this.titleValue = title;
-        this.update({ title });
-    }
-
-    public get step(): number | undefined {
-        return this.stepValue;
-    }
-    public set step(step: number | undefined) {
-        this.stepValue = step;
-        this.update({ step });
-    }
-
-    public get totalSteps(): number | undefined {
-        return this.totalStepsValue;
-    }
-    public set totalSteps(totalSteps: number | undefined) {
-        this.totalStepsValue = totalSteps;
-        this.update({ totalSteps });
-    }
-
-    public get value(): string {
-        return this.valueValue;
-    }
-    public set value(value: string) {
-        this.valueValue = value;
-        this.update({ value });
-    }
-
-    public get placeholder(): string | undefined {
-        return this.placeholderValue;
-    }
-    public set placeholder(placeholder: string | undefined) {
-        this.placeholderValue = placeholder;
-        this.update({ placeholder });
-    }
-
-    public get prompt(): string | undefined {
-        return this.promptValue;
-    }
-    public set prompt(prompt: string | undefined) {
-        this.promptValue = prompt;
-        this.update({ prompt });
+    ) {
+        super(rpc, handle, onDispose);
     }
 
     public get items(): readonly T[] {
@@ -178,40 +105,8 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
         this.update({ selectedItems: this.toHandles(this.selectedItemsValue) });
     }
 
-    public show(): void {
-        this.visible = true;
-        this.expectingHide = true;
-        this.update({ visible: true });
-    }
-
-    public hide(): void {
-        this.visible = false;
-        this.update({ visible: false });
-    }
-
-    public dispose(): void {
-        if (this.disposed) return;
-        this.disposed = true;
-        this.fireDidHide();
-        clearTimeout(this.updateTimer);
-        this.onDidChangeValueEmitter.dispose();
-        this.onDidAcceptEmitter.dispose();
-        this.onDidChangeActiveEmitter.dispose();
-        this.onDidChangeSelectionEmitter.dispose();
-        this.onDidHideEmitter.dispose();
-        this.onDispose();
-        this.rpc.notify("window.quickPick.dispose", { handle: this.handle });
-    }
-
-    public acceptEvent(event: IWireQuickPickEvent): void {
+    public override acceptEvent(event: IWireQuickPickEvent): void {
         switch (event.kind) {
-            case "changeValue":
-                this.valueValue = event.value;
-                this.onDidChangeValueEmitter.fire(event.value);
-                break;
-            case "accept":
-                this.onDidAcceptEmitter.fire();
-                break;
             case "changeActive":
                 this.activeItemsValue = this.toItems(event.items);
                 this.onDidChangeActiveEmitter.fire(this.activeItemsValue);
@@ -220,19 +115,16 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
                 this.selectedItemsValue = this.toItems(event.items);
                 this.onDidChangeSelectionEmitter.fire(this.selectedItemsValue);
                 break;
-            case "hide":
-                // Visibility is NOT cleared, as upstream: the response to a previous hide() may
-                // arrive during the next show. The cost: after Escape `dispose()` fires a second onDidHide.
-                this.fireDidHide();
+            default:
+                super.acceptEvent(event);
                 break;
         }
     }
 
-    private fireDidHide(): void {
-        if (!this.expectingHide) return;
-        // Upstream: show→hide→show→hide = two events.
-        this.expectingHide = this.visible;
-        this.onDidHideEmitter.fire();
+    protected override disposeEmitters(): void {
+        this.onDidChangeActiveEmitter.dispose();
+        this.onDidChangeSelectionEmitter.dispose();
+        this.onDidTriggerItemButtonEmitter.dispose();
     }
 
     private ownItems(items: readonly T[]): T[] {
@@ -249,27 +141,5 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
             const item = this.itemsValue[handle] as T | undefined;
             return item === undefined ? [] : [item];
         });
-    }
-
-    private update(properties: PendingUpdate): void {
-        if (this.disposed) return;
-        for (const [key, value] of Object.entries(properties)) {
-            this.pending[key] = value === undefined ? null : value;
-        }
-        if ("visible" in this.pending) {
-            clearTimeout(this.updateTimer);
-            this.updateTimer = undefined;
-            this.dispatchUpdate();
-        } else if (this.visible && this.updateTimer === undefined) {
-            this.updateTimer = setTimeout(() => {
-                this.updateTimer = undefined;
-                this.dispatchUpdate();
-            }, 0);
-        }
-    }
-
-    private dispatchUpdate(): void {
-        this.rpc.notify("window.quickPick.update", { ...this.pending, handle: this.handle });
-        this.pending = {};
     }
 }
