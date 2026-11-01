@@ -39,6 +39,7 @@ export const OWNED_MEMBERS = {
         "registerDefinitionProvider",
         "registerDocumentFormattingEditProvider",
         "registerCallHierarchyProvider",
+        "registerTypeHierarchyProvider",
         "registerDocumentHighlightProvider",
         "registerDocumentRangeFormattingEditProvider",
         "registerDocumentRangeSemanticTokensProvider",

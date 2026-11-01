@@ -17,7 +17,6 @@ const NOOP_PROVIDERS = [
     "registerLinkedEditingRangeProvider",
     "registerOnTypeFormattingEditProvider",
     "registerSelectionRangeProvider",
-    "registerTypeHierarchyProvider",
     "registerWorkspaceSymbolProvider",
 ];
 

@@ -438,6 +438,12 @@ Find All References наполняет вьюлет сайдбара `REFERENCES
   `null`). В `legacy`-терминале Shift+Alt+H не доезжает, а `ctrl+k ctrl+h` занят Output: там команда только в палитре
   и контекстном меню. «No results.» в секции — когда единственный корень без детей; `prepare` без ответа — тост, дерево
   не трогаем.
+- **Type hierarchy** — тот же view `references-view.hierarchy`: `TypeHierarchyComponent` и `CallHierarchyComponent` —
+  наследники `HierarchyComponent`, разница описана в `IHierarchyKind`. У каждого своё дерево и сессия, но секция одна:
+  показ одного дерева снимает другое через `onWillShow` (зависимость односторонняя, типы знают о вызовах). Секция общая,
+  поэтому `when` кнопок заголовка проверяет не только режим, но и `callHierarchyVisible`/`typeHierarchyVisible`. Клавиши у
+  Show Type Hierarchy нет, как и у эталона. Enter ведёт на `selectionRange.start` в обоих направлениях; остальное
+  (перекоренение, «No results.», тост) — как у call hierarchy.
 - **Peek-виджета (`Shift+F12`) нет осознанно**: это редактор внутри оверлея со своим
   скроллом и роутингом клавиш, в терминале панель полезнее. Нет и истории прошлых
   запросов, удаления результата и переключателя list/tree. Каретка не на слове —

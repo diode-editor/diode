@@ -42,7 +42,8 @@
             "editor.action.goToTypeDefinition",
             "editor.action.goToImplementation",
             "references-view.findReferences",
-            "references-view.showCallHierarchy"
+            "references-view.showCallHierarchy",
+            "references-view.showTypeHierarchy"
         ],
         "z_commands": [
             "workbench.action.showCommands"
@@ -445,10 +446,13 @@
             "references-view.expandAll",
             "references-view.showOutgoingCalls",
             "references-view.showIncomingCalls",
+            "references-view.showSupertypes",
+            "references-view.showSubtypes",
             "workbench.action.files.saveAll",
             "explorer.newFolder",
             "references-view.clear",
             "references-view.removeCallItem",
+            "references-view.removeTypeItem",
             "workbench.files.action.refreshFilesExplorer",
             "openEditors.closeAll",
             "workbench.action.terminal.kill"

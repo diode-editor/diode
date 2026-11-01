@@ -21,7 +21,8 @@ import type { IEditorService } from "../../../services/editor/common/editorServi
 import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
 import type { NotificationService } from "../../../services/notification/browser/notificationService.ts";
 
-import { CALL_HIERARCHY_VIEW_ID, CallHierarchyComponent } from "./callHierarchyComponent.ts";
+import { CallHierarchyComponent } from "./callHierarchyComponent.ts";
+import { HIERARCHY_VIEW_ID } from "./hierarchyComponent.ts";
 import { REFERENCES_VIEW_ID, REFERENCES_VIEWLET_ID, ReferencesComponent } from "./referencesComponent.ts";
 
 const CONFIGURATION = { get: () => undefined } as unknown as IConfigurationService;
@@ -158,7 +159,7 @@ describe("CallHierarchyComponent", () => {
         const { component, sections } = setup();
         expect(sections()).toEqual([REFERENCES_VIEW_ID]);
         await component.show();
-        expect(sections()).toEqual([CALL_HIERARCHY_VIEW_ID]);
+        expect(sections()).toEqual([HIERARCHY_VIEW_ID]);
     });
 
     it("nothing at the caret: a toast, no section, no session to release", async () => {

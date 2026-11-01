@@ -191,6 +191,7 @@ import { QuickOpenServiceDIToken } from "./contrib/quickaccess/browser/quickOpen
 import { CALL_HIERARCHY_ACTIONS } from "./contrib/references/browser/callHierarchyActions.ts";
 import { REFERENCES_ACTIONS } from "./contrib/references/browser/referencesActions.ts";
 import { ReferencesComponentDIToken } from "./contrib/references/browser/referencesComponent.ts";
+import { TYPE_HIERARCHY_ACTIONS } from "./contrib/references/browser/typeHierarchyActions.ts";
 import { RENAME_ACTIONS } from "./contrib/rename/browser/renameActions.ts";
 import { ChangesComponentDIToken } from "./contrib/scm/browser/changesComponent.ts";
 import { GIT_MENU_SUBMENUS } from "./contrib/scm/browser/gitMenus.ts";
@@ -482,6 +483,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...EXTENSIONS_ACTIONS,
     ...REFERENCES_ACTIONS,
     ...CALL_HIERARCHY_ACTIONS,
+    ...TYPE_HIERARCHY_ACTIONS,
     ...RENAME_ACTIONS,
 ];
 

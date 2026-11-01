@@ -444,5 +444,9 @@
     "references-view.showOutgoingCalls",
     "references-view.showIncomingCalls",
     "references-view.removeCallItem",
+    "references-view.showTypeHierarchy",
+    "references-view.showSupertypes",
+    "references-view.showSubtypes",
+    "references-view.removeTypeItem",
     "editor.action.rename"
 ]

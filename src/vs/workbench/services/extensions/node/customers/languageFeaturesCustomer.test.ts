@@ -591,6 +591,18 @@ describe("LanguageFeaturesCustomer — semantic tokens", () => {
         expect(released).toStrictEqual([{ handle: 3, sessionId: 9 }]);
     });
 
+    it("releaseTypeHierarchy goes as a notification with handle and session", async () => {
+        const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        const [a, b] = createInProcessChannelPair();
+        const peer = new RpcEndpoint(b);
+        const released: unknown[] = [];
+        peer.handleNotification("languages.releaseTypeHierarchy", (params) => released.push(params));
+        customer.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+        customer.releaseTypeHierarchy(3, 9);
+        await flushMicrotasks();
+        expect(released).toStrictEqual([{ handle: 3, sessionId: 9 }]);
+    });
+
     it("releaseDocumentSemanticTokens goes as a notification with handle and id", async () => {
         const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         const [a, b] = createInProcessChannelPair();
@@ -681,6 +693,49 @@ describe("LanguageFeaturesCustomer — selection ranges", () => {
         expect(await detached.provideCallHierarchyOutgoingCalls(1, 40, 2)).toEqual([]);
         expect(() => {
             detached.releaseCallHierarchy(1, 40);
+        }).not.toThrow();
+    });
+
+    it("type hierarchy: session, supertypes and subtypes go with the handle and the caller's token", async () => {
+        const seen: unknown[] = [];
+        const session = { sessionId: 40, items: [] };
+        const h = setupAnswering({
+            "languages.prepareTypeHierarchy": (params) => {
+                seen.push(params);
+                return session;
+            },
+            "languages.provideTypeHierarchySupertypes": (params) => {
+                seen.push(params);
+                return [{ supertype: true }];
+            },
+            "languages.provideTypeHierarchySubtypes": (params) => {
+                seen.push(params);
+                return [{ subtype: true }];
+            },
+        });
+        const request = { uri: SYNCED, languageId: "typescript", versionId: 7, line: 2, character: 3 };
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.prepareTypeHierarchy(1, request, caller.token)).toEqual(session);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+        expect(await h.customer.provideTypeHierarchySupertypes(1, 40, 2, caller.token)).toEqual([{ supertype: true }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+        expect(await h.customer.provideTypeHierarchySubtypes(1, 40, 3, caller.token)).toEqual([{ subtype: true }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+        expect(seen).toEqual([
+            { handle: 1, uri: SYNCED, languageId: "typescript", version: 7, line: 2, character: 3 },
+            { handle: 1, sessionId: 40, itemId: 2 },
+            { handle: 1, sessionId: 40, itemId: 3 },
+        ]);
+    });
+
+    it("type hierarchy without a subprocess: no session, no types, a release is silent", async () => {
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        const request = { uri: SYNCED, languageId: "typescript", versionId: 7, line: 0, character: 0 };
+        expect(await detached.prepareTypeHierarchy(1, request)).toBeNull();
+        expect(await detached.provideTypeHierarchySupertypes(1, 40, 2)).toEqual([]);
+        expect(await detached.provideTypeHierarchySubtypes(1, 40, 2)).toEqual([]);
+        expect(() => {
+            detached.releaseTypeHierarchy(1, 40);
         }).not.toThrow();
     });
 

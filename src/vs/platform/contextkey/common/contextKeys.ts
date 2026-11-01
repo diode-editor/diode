@@ -20,6 +20,7 @@ export interface ContextKeyTypes {
     editorHasDeclarationProvider: boolean;
     editorHasReferenceProvider: boolean;
     editorHasCallHierarchyProvider: boolean;
+    editorHasTypeHierarchyProvider: boolean;
     editorHasRenameProvider: boolean;
     editorHasCodeActionsProvider: boolean;
     editorHasCodeLensProvider: boolean;
@@ -121,6 +122,10 @@ export interface ContextKeyTypes {
     callHierarchyMode: string;
     /** The tree section is registered in the References container. */
     callHierarchyVisible: boolean;
+    /** "subtypes" | "supertypes"; the title button shows the current direction. */
+    typeHierarchyMode: string;
+    /** The hierarchy section of the References container holds a type tree. */
+    typeHierarchyVisible: boolean;
     scmViewletVisible: boolean;
     /** VS Code: `scmInputIsInFocus`. */
     scmInputFocus: boolean;

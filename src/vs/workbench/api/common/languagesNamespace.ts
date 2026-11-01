@@ -20,6 +20,10 @@ import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.t
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
 import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ITypeHierarchyItem,
+    ITypeHierarchySession,
+} from "../../../editor/common/languages/iTypeHierarchySource.ts";
 
 import { implementsApi } from "./apiSurface.ts";
 import { scoreDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
@@ -50,6 +54,7 @@ import {
     toVscodeSignatureHelp,
     toWireMarker,
 } from "./extHostTypeConverters.ts";
+import { TypeHierarchySessions } from "./extHostTypeHierarchy.ts";
 import { callWithVscodeToken, toVscodeCancellationToken } from "./vscodeCancellation.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
@@ -92,14 +97,17 @@ import type {
     IWireLanguageProviderMetadata,
     IWirePrepareCallHierarchyParams,
     IWirePrepareRenameParams,
+    IWirePrepareTypeHierarchyParams,
     IWireRangeSemanticTokensParams,
     IWireReferenceParams,
     IWireReleaseCallHierarchy,
     IWireReleaseCodeLenses,
     IWireReleaseSemanticTokens,
+    IWireReleaseTypeHierarchy,
     IWireRenameParams,
     IWireSelectionRangeParams,
     IWireSignatureHelpParams,
+    IWireTypeHierarchyParams,
     Received,
     WireCodeAction,
     WireFoldingRange,
@@ -327,6 +335,12 @@ interface ICallHierarchyRegistration {
     readonly sessions: CallHierarchySessions;
 }
 
+interface ITypeHierarchyRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.TypeHierarchyProvider;
+    readonly sessions: TypeHierarchySessions;
+}
+
 /**
  * A provider failure doesn't break the command, but isn't silent either: a silent failure of the
  * stock prettier looked like "nothing to change" and left no trace in any log (#381).
@@ -395,6 +409,7 @@ export function createLanguagesNamespace(
     const renameProviders = new Map<number, Owned<IRenameRegistration>>();
     const selectionRangeProviders = new Map<number, Owned<ISelectionRangeRegistration>>();
     const callHierarchyProviders = new Map<number, Owned<ICallHierarchyRegistration>>();
+    const typeHierarchyProviders = new Map<number, Owned<ITypeHierarchyRegistration>>();
     const documentHighlightProviders = new Map<number, Owned<IDocumentHighlightRegistration>>();
     const colorProviders = new Map<number, Owned<IColorRegistration>>();
     const inlayHintsProviders = new Map<number, Owned<IInlayHintsRegistration>>();
@@ -729,6 +744,70 @@ export function createLanguagesNamespace(
     rpc.handleNotification("languages.releaseCallHierarchy", (params) => {
         const p = (params as Partial<IWireReleaseCallHierarchy> | null | undefined) ?? {};
         callHierarchyProviders.get(p.handle ?? -1)?.sessions.release(p.sessionId ?? -1);
+    });
+
+    rpc.handleRequest(
+        "languages.prepareTypeHierarchy",
+        async (params, cancellation): Promise<ITypeHierarchySession | null> => {
+            const p: Received<IWirePrepareTypeHierarchyParams> = params;
+            const reg = typeHierarchyProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            try {
+                const result: unknown = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.prepareTypeHierarchy(doc, position, token),
+                );
+                return reg.sessions.prepare(result);
+            } catch (err) {
+                reportProviderFailure("prepareTypeHierarchy", err, reg.owner);
+                return null;
+            }
+        },
+    );
+
+    rpc.handleRequest(
+        "languages.provideTypeHierarchySupertypes",
+        async (params, cancellation): Promise<ITypeHierarchyItem[]> => {
+            const p: Partial<IWireTypeHierarchyParams> = params;
+            const reg = typeHierarchyProviders.get(p.handle ?? -1);
+            if (reg === undefined) return [];
+            try {
+                const { sessionId, item } = reg.sessions.item(p.sessionId ?? -1, p.itemId ?? -1);
+                const result: unknown = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideTypeHierarchySupertypes(item, token),
+                );
+                return reg.sessions.types(sessionId, result);
+            } catch (err) {
+                reportProviderFailure("provideTypeHierarchySupertypes", err, reg.owner);
+                return [];
+            }
+        },
+    );
+
+    rpc.handleRequest(
+        "languages.provideTypeHierarchySubtypes",
+        async (params, cancellation): Promise<ITypeHierarchyItem[]> => {
+            const p: Partial<IWireTypeHierarchyParams> = params;
+            const reg = typeHierarchyProviders.get(p.handle ?? -1);
+            if (reg === undefined) return [];
+            try {
+                const { sessionId, item } = reg.sessions.item(p.sessionId ?? -1, p.itemId ?? -1);
+                const result: unknown = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideTypeHierarchySubtypes(item, token),
+                );
+                return reg.sessions.types(sessionId, result);
+            } catch (err) {
+                reportProviderFailure("provideTypeHierarchySubtypes", err, reg.owner);
+                return [];
+            }
+        },
+    );
+
+    rpc.handleNotification("languages.releaseTypeHierarchy", (params) => {
+        const p = (params as Partial<IWireReleaseTypeHierarchy> | null | undefined) ?? {};
+        typeHierarchyProviders.get(p.handle ?? -1)?.sessions.release(p.sessionId ?? -1);
     });
 
     rpc.handleRequest(
@@ -1666,7 +1745,16 @@ export function createLanguagesNamespace(
                 // The sessions live and die with the registration.
                 sessions: new CallHierarchySessions(),
             }),
-        registerTypeHierarchyProvider: registerNoopProvider,
+        registerTypeHierarchyProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.TypeHierarchyProvider,
+        ): vscode.Disposable =>
+            registerByHandle(typeHierarchyProviders, "typeHierarchy", selector, {
+                selector,
+                provider,
+                // The sessions live and die with the registration.
+                sessions: new TypeHierarchySessions(),
+            }),
         setLanguageConfiguration: createSetLanguageConfiguration(ctx),
     };
 

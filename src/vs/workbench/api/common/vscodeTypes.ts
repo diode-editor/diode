@@ -1146,6 +1146,8 @@ export class CallHierarchyItem {
 }
 
 export class TypeHierarchyItem {
+    public tags?: SymbolTag[];
+
     public constructor(
         public kind: SymbolKind,
         public name: string,

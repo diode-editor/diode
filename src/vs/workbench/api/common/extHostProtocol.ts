@@ -15,6 +15,10 @@ import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.t
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
 import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ITypeHierarchyItem,
+    ITypeHierarchySession,
+} from "../../../editor/common/languages/iTypeHierarchySource.ts";
 
 import type { IActiveEditorMeta, IActiveEditorSelections, IEditorOptionsState } from "./iEditorOptionsService.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
@@ -115,6 +119,7 @@ import type {
     IWireOutputShow,
     IWirePrepareCallHierarchyParams,
     IWirePrepareRenameParams,
+    IWirePrepareTypeHierarchyParams,
     IWireProgressEnd,
     IWireProgressReport,
     IWireProgressStart,
@@ -134,6 +139,7 @@ import type {
     IWireReleaseCallHierarchy,
     IWireReleaseCodeLenses,
     IWireReleaseSemanticTokens,
+    IWireReleaseTypeHierarchy,
     IWireRenameParams,
     IWireRevealRange,
     IWireSaveAllParams,
@@ -171,6 +177,7 @@ import type {
     IWireTerminalShow,
     IWireTerminalTarget,
     IWireTextContentResult,
+    IWireTypeHierarchyParams,
     IWireUpdateWorkspaceFolders,
     IWireUriHandlerRegistration,
     IWireUriParams,
@@ -246,6 +253,12 @@ export interface IHostToSubprocess {
             IWireCallHierarchyCallsParams,
             ICallHierarchyOutgoingCall[],
         ];
+        readonly "languages.prepareTypeHierarchy": readonly [
+            IWirePrepareTypeHierarchyParams,
+            ITypeHierarchySession | null,
+        ];
+        readonly "languages.provideTypeHierarchySupertypes": readonly [IWireTypeHierarchyParams, ITypeHierarchyItem[]];
+        readonly "languages.provideTypeHierarchySubtypes": readonly [IWireTypeHierarchyParams, ITypeHierarchyItem[]];
         readonly "languages.provideCodeLenses": readonly [IWireCodeLensParams, IWireCodeLensList | null];
         readonly "languages.resolveCodeLens": readonly [IWireCodeLensAddress, IWireCodeLens | null];
         readonly "languages.executeCodeLensCommand": readonly [IWireCodeLensAddress, undefined];
@@ -279,6 +292,7 @@ export interface IHostToSubprocess {
     readonly notifications: {
         readonly "languages.releaseDocumentSemanticTokens": IWireReleaseSemanticTokens;
         readonly "languages.releaseCallHierarchy": IWireReleaseCallHierarchy;
+        readonly "languages.releaseTypeHierarchy": IWireReleaseTypeHierarchy;
         readonly "languages.releaseCodeLenses": IWireReleaseCodeLenses;
         /** Other owners' MarkerService markers: a mirror for `languages.getDiagnostics`. */
         readonly "diagnostics.markersChanged": IWireMarkersChanged;
