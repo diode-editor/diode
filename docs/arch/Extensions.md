@@ -455,6 +455,17 @@
   **отступление** по спеке #884: эталон глушит детектор самой регистрацией провайдера на документ.
   Классы `vscode.Color`/`ColorInformation`/`ColorPresentation` — в рантайме (их конструирует
   конвертер vscode-languageclient); пикера нет, `provideColorPresentations` не вызывается.
+- **Inlay hints seam:** `languages.registerInlayHintsProvider` — по рецепту реестра (`kind: "inlayHints"`,
+  `ILanguageFeaturesService.inlayHintsProvider`, RPC `languages.provideInlayHints`, 5000 мс; отмена по новой
+  правке уходит провайдеру токеном). Субпроцесс отдаёт `IWireInlayHint[]` (`serializeInlayHints`: пустая метка
+  и позиция вне запрошенного диапазона отбрасывают одну подсказку, как `_isValidInlayHint` эталона) или `null`,
+  если подсказок нет — пустой ответ, не массив, сбой (`reportProviderFailure` с id расширения) или таймаут.
+  Хост разбирает ответ `wireToCoreInlayHints`: битая позиция и неизвестный `kind` стоят одной подсказки.
+  `onDidChangeInlayHints` объявляется в регистрации (`hasOnDidChange`) и идёт нотификацией
+  `languages.didChangeInlayHints` до события прокси; контроллер перезапрашивает. **Отступления:**
+  `resolveInlayHint` и кэш сессий не делаем, поэтому `$releaseInlayHints` нет и `dispose` списка — пустой; по
+  проводу не едут `tooltip`, `textEdits`, `location` и `command` частей (у подсказки нет ни наведения, ни
+  клика, [InlayHintsCodeLens.md](../TODO/InlayHintsCodeLens.md)); `displayName` не возим.
 - **Signature-help seam (LSP):** `languages.registerSignatureHelpProvider` — та же калька
   (`languages.provideSignatureHelp` RPC, таймаут 5000 мс), но с двумя отличиями. Первое: провайдеров
   обходим по очереди и возвращаем ПЕРВЫЙ непустой ответ (vscode API предписывает именно это —

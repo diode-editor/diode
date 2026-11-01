@@ -43,6 +43,7 @@ export const OWNED_MEMBERS = {
         "registerFoldingRangeProvider",
         "registerHoverProvider",
         "registerImplementationProvider",
+        "registerInlayHintsProvider",
         "registerInlineCompletionItemProvider",
         "registerReferenceProvider",
         "registerRenameProvider",

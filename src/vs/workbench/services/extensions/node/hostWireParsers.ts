@@ -1,4 +1,5 @@
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import type { InlayHint, InlayHintKind } from "../../../../editor/common/languages/iInlayHintsSource.ts";
 import type { ICoreRenameLocation } from "../../../../editor/common/languages/iRenameSource.ts";
 import type {
     ISemanticTokens,
@@ -294,6 +295,35 @@ export function wireToCoreSemanticTokens(
             data: edit.data === undefined ? undefined : new Uint32Array(edit.data),
         })),
     };
+}
+
+function wireToCoreInlayHint(raw: unknown): InlayHint | null {
+    const hint = (raw ?? {}) as Record<string, unknown>;
+    const position = (hint.position ?? {}) as Record<string, unknown>;
+    if (!isFiniteNumber(position.line) || !isFiniteNumber(position.character)) return null;
+    if (hint.kind !== undefined && hint.kind !== 1 && hint.kind !== 2) return null;
+    const label = wireToCoreInlayHintLabel(hint.label);
+    if (label === null) return null;
+    return {
+        position: { line: position.line, character: position.character },
+        label,
+        ...(hint.kind === undefined ? {} : { kind: hint.kind as InlayHintKind }),
+        ...(hint.paddingLeft === true ? { paddingLeft: true } : {}),
+        ...(hint.paddingRight === true ? { paddingRight: true } : {}),
+    };
+}
+
+function wireToCoreInlayHintLabel(raw: unknown): InlayHint["label"] | null {
+    if (typeof raw === "string") return raw;
+    if (!Array.isArray(raw)) return null;
+    const parts = (raw as unknown[]).map((part) => (part as { value?: unknown } | null)?.value);
+    if (!parts.every((value) => typeof value === "string")) return null;
+    return parts.map((label) => ({ label }));
+}
+
+/** A broken hint is dropped, not the whole answer. The part's `value` is the core's `label`. */
+export function wireToCoreInlayHints(wire: readonly unknown[]): InlayHint[] {
+    return wire.map((item) => wireToCoreInlayHint(item)).filter((hint) => hint !== null);
 }
 
 function readWireCharacters(raw: readonly unknown[]): string[] {

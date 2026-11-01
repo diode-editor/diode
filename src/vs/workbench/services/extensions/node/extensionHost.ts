@@ -26,6 +26,7 @@ import type {
 import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
+import type { IInlayHintsRequest, InlayHint } from "../../../../editor/common/languages/iInlayHintsSource.ts";
 import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
@@ -844,6 +845,18 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token?: ICancellationToken,
     ): Promise<readonly IColorInformation[] | null> {
         return this.languageFeatures.provideDocumentColors(handle, req, token);
+    }
+
+    public provideInlayHints(
+        handle: number,
+        req: IInlayHintsRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly InlayHint[] | null> {
+        return this.languageFeatures.provideInlayHints(handle, req, token);
+    }
+
+    public get onDidChangeInlayHints(): Event<number> {
+        return this.languageFeatures.onDidChangeInlayHints;
     }
 
     public provideDocumentSemanticTokens(
