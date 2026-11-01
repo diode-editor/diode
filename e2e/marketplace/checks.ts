@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../../src/TestUtils/biomeFixture.ts";
 import {
     ensureEslintLibrary,
     ESLINT_FLAT_CONFIG,
@@ -801,6 +802,77 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 );
             } finally {
                 await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Biome. It has no binary of its own, the server comes from the project's
+        // `@biomejs/biome`. The indent of 8 in biome.json tells its formatting from anything else that formats.
+        id: "biomejs.biome",
+        expectFiles: ["package.json", "out/main.js"],
+        requires: npmMissing,
+        timeoutMs: 300_000,
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "project");
+            const file = writeBiomeProject(projectRoot);
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [projectRoot, file],
+                settings: BIOME_SETTINGS,
+            });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl squiggle from the Biome server", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                await app.session.executeCommand("editor.action.formatDocument");
+                // The frame draws an indent guide in the first column of the indent.
+                await app.session.waitForText((text) => text.includes("▏       debugger;"), { timeoutMs: 20_000 });
+
+                await app.session.key("Ctrl+Home");
+                await app.session.key("ArrowDown");
+                await app.session.key("ArrowDown");
+                await app.session.key("ArrowDown");
+                await app.session.key("Ctrl+.");
+                await app.session.waitForText((text) => text.includes("Suppress rule lint/suspicious/noDebugger"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.key("Escape");
+
+                // Organize imports on save: `b` goes above `z`.
+                await app.session.key("Ctrl+s");
+                await waitUntil(
+                    () => Promise.resolve(readFileSync(file, "utf8")),
+                    (text) => text.indexOf('"./b.js"') < text.indexOf('"./z.js"') && text.includes("        debugger;"),
+                    { describe: "the file saved with sorted imports and Biome's indent", timeoutMs: 20_000 },
+                );
+
+                await app.session.executeCommand("biome.restart");
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "the squiggle after biome.restart", timeoutMs: 30_000, intervalMs: 500 },
+                );
+            } finally {
+                await app.dispose();
+            }
+            // After dispose: the journal flushes on a timer. These features are not in the server, not missing here.
+            const registered = readFileSync(process.env.DIODE_API_TRACE ?? "", "utf8")
+                .split("\n")
+                .filter((line) => line !== "")
+                .map((line) => JSON.parse(line) as { extension: string; kind: string; member: string })
+                .filter((row) => row.extension === "biomejs.biome" && row.kind === "registered")
+                .map((row) => row.member);
+            for (const absent of [
+                "languages.registerInlayHintsProvider",
+                "languages.registerCodeLensProvider",
+                "languages.registerDefinitionProvider",
+                "languages.registerReferenceProvider",
+                "languages.registerDocumentSymbolProvider",
+            ]) {
+                if (registered.includes(absent)) throw new Error(`Biome now registers ${absent}: update the entry`);
             }
         },
     },

@@ -28,7 +28,6 @@ const TIMEOUTS: RequestTimeouts = {
     "languages.provideHover": 106,
     "languages.provideReferences": 107,
     "languages.provideSignatureHelp": 108,
-    "languages.provideFormattingEdits": 109,
     "languages.provideCodeActions": 110,
     "languages.applyCodeAction": 111,
     "languages.prepareRename": 112,
@@ -311,7 +310,8 @@ describe("LanguageFeaturesCustomer — requests only for synced documents", () =
             ),
         );
         expect(seen).toContainEqual(["languages.provideCompletionItems", undefined]);
-        expect(seen.filter(([, timeoutMs]) => timeoutMs === undefined)).toHaveLength(1);
+        expect(seen).toContainEqual(["languages.provideFormattingEdits", undefined]);
+        expect(seen.filter(([, timeoutMs]) => timeoutMs === undefined)).toHaveLength(2);
     });
 });
 

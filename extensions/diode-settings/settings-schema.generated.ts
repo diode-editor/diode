@@ -110,6 +110,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["auto", "always", "never"],
     },
     {
+        key: "editor.defaultFormatter",
+        type: "string | null",
+        default: null,
+        description:
+            "Defines a default formatter which takes precedence over all other formatter settings. Must be the identifier of an extension contributing a formatter.",
+    },
+    {
         key: "editor.detectIndentation",
         type: "boolean",
         default: true,

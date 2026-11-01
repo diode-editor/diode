@@ -313,6 +313,15 @@ export const editorConfiguration = {
             default: false,
             description: "Format a file on save. A formatter must be available (an extension providing it).",
         },
+        // Upstream's `enum` lists the installed extensions and is filled at run time; the schema here is static.
+        "editor.defaultFormatter": {
+            scope: "language-overridable",
+            type: ["string", "null"],
+            default: null,
+            description:
+                "Defines a default formatter which takes precedence over all other formatter settings. " +
+                "Must be the identifier of an extension contributing a formatter.",
+        },
         // As upstream, gates only the automatic request: `editor.action.inlineSuggest.trigger` works even with `false`.
         "editor.inlineSuggest.enabled": {
             scope: "language-overridable",

@@ -10,6 +10,8 @@ import type { RequestFn } from "./hostRequests.ts";
  * the core opens the popup with buffer words, and a slow language server would be left without its items.
  * Inlay hints and code lens are absent too, as upstream: nothing asks again after an empty answer, so a server busy
  * with its import (jdt.ls) would leave "no commands" on the frame for good; an edit cancels them through the token.
+ * Formatting is absent as upstream too: a large file takes a formatter longer than any deadline here, an edit cancels
+ * the request, and format on save cancels it at the save participant's deadline.
  */
 export const DEFAULT_REQUEST_TIMEOUTS = {
     "workspace.willSaveTextDocument": 1500,
@@ -23,7 +25,6 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.provideHover": 5000,
     "languages.provideReferences": 5000,
     "languages.provideSignatureHelp": 5000,
-    "languages.provideFormattingEdits": 5000,
     "languages.provideOnTypeFormattingEdits": 5000,
     "languages.provideCodeActions": 5000,
     "languages.applyCodeAction": 10000,
