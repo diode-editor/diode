@@ -104,7 +104,7 @@ describe("LanguagesNamespace — languages.provideInlayHints", () => {
         );
         languages.registerInlayHintsProvider("typescript", { provideInlayHints });
 
-        expect(await provide(stub)).toEqual([{ position: { line: 0, character: 7 }, label: ": number" }]);
+        expect(await provide(stub)).toStrictEqual([{ position: { line: 0, character: 7 }, label: ": number" }]);
         const [doc, range] = provideInlayHints.mock.calls[0];
         expect(doc.getText()).toBe(TEXT);
         expect([range.start.line, range.start.character, range.end.line, range.end.character]).toEqual([0, 0, 1, 12]);
@@ -160,9 +160,9 @@ describe("LanguagesNamespace — languages.provideInlayHints", () => {
         languages.registerInlayHintsProvider(
             "typescript",
             provider(() => [
-                hint(0, 1, ""),
-                hint(0, 1, []),
-                hint(0, 1, [new InlayHintLabelPart(""), new InlayHintLabelPart("")]),
+                hint(0, 6, ""),
+                hint(0, 6, []),
+                hint(0, 6, [new InlayHintLabelPart(""), new InlayHintLabelPart("")]),
                 hint(5, 0, "after the range"),
                 hint(1, 13, "after the range on its last line"),
                 hint(0, 3, "before the range"),

@@ -33,6 +33,7 @@ describe("wireToCoreInlayHints", () => {
                 { position: AT, label: 7 },
                 { position: AT },
                 { position: AT, label: [{ value: 1 }] },
+                { position: AT, label: [{ value: "a" }, { value: 1 }] },
                 { position: AT, label: [null] },
                 null,
                 7,
