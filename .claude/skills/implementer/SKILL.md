@@ -18,7 +18,9 @@ description: Реализатор задачи агентского лупа —
    спрашивай: напиши статус `returned` с вопросом и остановись (ниже). Это нормальный исход.
    Если неясность мелкая и есть разумный дефолт по эталону vscode — выбери его и запиши
    решение в описание PR и в `--note` статуса `ready-for-test`: тестировщик проверит именно его.
-3. Worktree: `EnterWorktree` с именем `issue-<N>`, затем `git branch -m issue/<N>` и
+3. Worktree: `EnterWorktree` с именем `issue-<N>`, затем `git branch -m issue/<N>`,
+   `npm run git:fetch` и `git reset --hard origin/main` (ветка ещё пустая, терять нечего — зато
+   стартуешь от свежего `main`, а не от того, что лежало в основном клоне), потом
    `node scripts/git/wt-bootstrap.mjs`. Ветка обязана называться `issue/<N>` — по ней тебя
    находят тестировщик, менеджер и уборка.
 
@@ -85,7 +87,8 @@ claude-lease run -- node scripts/agent-loop/mutation-budget.mjs -- npm run test:
 ## PR и `ready-for-test`
 
 1. Перед PR — живой запуск (скилл `drive`) и взгляд на кадр, как велит AGENTS.md.
-2. Push только по https: `git push https://github.com/diode-editor/diode.git issue/<N>`.
+2. Слей свежий `origin/main` (раздел «Конфликт с `main`»). Push только по https:
+   `git push https://github.com/diode-editor/diode.git issue/<N>`.
    PR по docs/PR.md: заголовок и тело по-английски, в теле `Closes #<N>`, как воспроизвести,
    принятые решения по неясностям; фича с видимой частью — сценарий-демо в `e2e/scenarios/`.
 3. **Сразу после создания PR**, не дожидаясь CI:
@@ -132,9 +135,29 @@ Merge, не rebase: PR вливается squash'ем, merge-коммит в в�
 `origin/main` заранее тем же `git fetch origin main && git merge origin/main`: конфликт дешевле
 поймать до часового круга CI, чем после.
 
+Лучше конфликта не дожидаться вовсе — в лупе идут до пяти задач разом, и соседние дописывают те
+же регистрации в `languagesNamespace.ts`, `wireTypes.ts`, `hostWireParsers.ts`, списки в тестах,
+`docs/TODO/*.md`:
+
+- **Перед каждым push** в `issue/<N>` и возвращаясь к ветке после долгого ожидания (CI, `wait.mjs`) —
+  `npm run git:fetch` и сверка пересечения: `git diff --name-only origin/main...HEAD` (твои файлы)
+  против `git diff --name-only HEAD...origin/main` (что приехало в `main`). Пусто — сливать не
+  обязательно (docs/GIT.md, «Отставание базы без пересечения»). Непусто — `git merge origin/main`
+  сейчас, тесты задетых файлов, `claude-lease run -- npm run check:diff`, и только потом push.
+- **Общие файлы правь точечно**: своя строка в таблице, своя регистрация в списке, свой абзац в
+  доке; чужие строки не переформатируй и не переставляй (docs/PR.md, «CONFLICTING»).
+- **Разбор конфликта.** Списки, таблицы, перечисления, `switch`-ветки, регистрации провайдеров,
+  строки API-COVERAGE и no-op тестов — оставляй обе стороны, затем `typecheck` и точечные тесты.
+  Конфликт в логике (сосед переписал ту же функцию) — прочитай его PR
+  (`git log origin/main -- <файл>`, `gh pr view <номер>`), перенеси свою правку на его версию и
+  перепроверь тестами. Чужая правка делает твою спеку невыполнимой или противоречит ей — это
+  решение человека: `returned` с вопросом, а не тихий откат чужого.
+- Упал после слияния тест вне твоего диффа — это не твой конфликт: docs/PR.md («Красный CI на
+  чужом», флаки).
+
 ## Отчёт тестировщика
 
-- **`approve`** — `node scripts/git/pr-status.mjs <pr> --watch` с кодом `0` (код `13` — конфликт с `main`, раздел выше) → `gh pr ready <pr>` (после возврата PR может быть в draft, а draft не вливается) → `gh pr merge <pr> --squash --delete-branch` → статус `done`: squash-коммит в `main` — от владельца gh-аккаунта, автора не подменяем (GitHub принимает в `--author-email` только подтверждённый адрес этого аккаунта).
+- **`approve`** — `npm run git:fetch` и сверка пересечения с `main` (раздел «Конфликт с `main`»; непустое — слей, push, CI заново) → `node scripts/git/pr-status.mjs <pr> --watch` с кодом `0` (код `13` — конфликт с `main`, раздел выше) → `gh pr ready <pr>` (после возврата PR может быть в draft, а draft не вливается) → `gh pr merge <pr> --squash --delete-branch` → статус `done`: squash-коммит в `main` — от владельца gh-аккаунта, автора не подменяем (GitHub принимает в `--author-email` только подтверждённый адрес этого аккаунта).
 - **`bugs`** — `git fetch origin issue/<N>/tests` и `git merge origin/issue/<N>/tests`: в
   статусе список багов с путями к падающим тестам. Чини каждый, пока его тест не станет
   зелёным; временный или дублирующий тест, который ничего не добавляет, можно убрать — но
