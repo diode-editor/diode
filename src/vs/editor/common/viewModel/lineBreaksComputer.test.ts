@@ -114,6 +114,11 @@ describe("computeLineBreakOffsets — with insertions", () => {
         expect(computeLineBreakOffsets("abcdefghij", 4, 8, [at(1, "x"), at(5, "yyyyyy")])).toEqual([4, 6]);
     });
 
+    it("the last cells of a second insertion are still the insertion: the cut goes before its character", () => {
+        // "axxx" | "byyyycde" | "f": the overflow lands on the last "y".
+        expect(computeLineBreakOffsets("abcdef", 4, 8, [at(1, "xxx"), at(2, "yyyy")])).toEqual([1, 5]);
+    });
+
     it("a stale offset past the line end clamps to it", () => {
         expect(computeLineBreakOffsets("ab", 4, 8, [at(50, "xx")])).toBeNull();
         expect(computeLineBreakOffsets("abcd efgh", 4, 8, [at(50, "x")])).toEqual([5]);
