@@ -901,7 +901,7 @@
   мимо middleware), логика написана против хоста-интерфейса и тестируется без `vscode`, `main.ts`
   только связывает. Отступления: «Configure» не открывает untitled-буфер со сниппетом, а создаёт
   `<папка>/jsconfig.json` одной `workspace.applyEdit` (createFile + текст шаблона, Ctrl+Z удаляет
-  файл) и открывает его (нет `insertSnippet`; решение человека
+  файл) и открывает его (нет сниппет-сессий; решение человека
   2026-10-25); шаблон — с дефолтами `js/ts.implicitProjectConfig.*` (настроек нет); `projectInfo` без
   ответа убирает элемент вместо вечного Loading; активный редактор — `activeTextEditor`, а не
   активная вкладка. **Пересчёт без смены редактора:** tsserver сам замечает новый/удалённый конфиг
@@ -1352,8 +1352,10 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
   молчащий сервер не морозит правку. Сервер без `resolveProvider` (gopls) шлёт `additionalTextEdits`
   сразу в списке: они едут в пункте (`ICoreCompletionItem.additionalEdits`), и accept применяет их без
   resolve — как «sync additional edits» в `suggestController` эталона.
-- **Сниппеты не поддержаны** (осознанно): `SnippetString` — только транспорт, плейсхолдеры
-  вырезаются (`stripSnippetPlaceholders`), чтобы `${1:name}` не попал в буфер.
+- **Сниппет-сессий нет** (осознанно): `SnippetString` — только транспорт, плейсхолдеры
+  вырезаются (`stripSnippetPlaceholders`), чтобы `${1:name}` не попал в буфер. `TextEditor.insertSnippet`
+  (`extHostSnippetInsert.ts`) вставляет текст с отступами эталона и ставит каретку на первую позицию,
+  но Tab по позициям не ходит.
 - Markdown в документации и hover показывается текстом — рендерера markdown нет.
 
 ### Участники сохранения

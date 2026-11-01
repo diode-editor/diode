@@ -355,7 +355,7 @@ reason: everything is declared and implemented, but `save` is a 🟡 stub.
 
 | type | active | not active |
 | --- | :-: | --- |
-| `TextEditor` | 8/12 | `visibleRanges`, `insertSnippet`, `show`, `hide` |
+| `TextEditor` | 9/12 | `visibleRanges`, `show`, `hide` |
 | `TextDocument` | 19/19 | — (the class is checked by the compiler against `vscode.TextDocument`). `save` goes through the editor with save participants and the scheme's provider; a document not open in the editor gives `false`, a closed one rejects. `getWordRangeAtPosition` uses VS Code's default word definition or the extension's regex (no language `wordPattern`; a regex matching the empty string throws). `offsetAt`/`positionAt`/`validateRange`/`validatePosition` work |
 | `TextEditorOptions` | 4/5 | `lineNumbers` |
 | `TerminalOptions` | 12/13 | `iconPath` |
@@ -382,6 +382,7 @@ The type matches VS Code, the meaning differs:
 | `Event<T>` | subscriptions are wrapped in the extension host's own emitter |
 | `TextEditorOptions.tabSize`, `insertSpaces` | the getter gives the editor's resolved values, detection included; a value the extension assigned wins over a later change by the user. An editor showing one side of a diff has none until assigned |
 | `TextEditorOptions.indentSize` | aliased to `tabSize`; Diode does not distinguish them yet |
+| `TextEditor.insertSnippet` | the text goes in with VS Code's indentation and the caret lands on the first tab stop, a placeholder's text selected, as one undo step. There is no snippet mode: Tab does not move to the next stop, mirrored stops do not follow, and variables such as `$TM_FILENAME` stay literal text |
 | `TextEditor.revealRange` | scrolling is immediate, not smooth, and stops at the end of the document: VS Code's `editor.scrollBeyondLastLine` has no counterpart, so `AtTop` near the end leaves the range lower. An editor showing one side of a diff does not scroll |
 | `TextEditorOptions.cursorStyle` | a terminal has three cursor shapes: `LineThin` draws as `Line`, `BlockOutline` as `Block`, `UnderlineThin` as `Underline`. The getter is `undefined` while neither the extension nor `editor.cursorStyle` sets a style: the editor then keeps the terminal's own cursor shape |
 | `environmentVariableCollection` | the whole API (`replace`/`append`/`prepend`, `get`, `forEach`, iteration, `delete`, `clear`, `description`, `persistent`, `getScoped` per folder). Collections of all extensions are merged as in VS Code and applied to every terminal process (a person's shells, extension terminals, tasks), except terminals with `strictEnv`; `persistent` collections survive a restart and are available in `activate()`. Deviations: `applyAtShellIntegration` has no effect (no shell integration); no "environment is stale" indicator and no relaunch on `terminal.integrated.environmentChangesRelaunch`, the next process gets the new values; `${…}` variables in values are not expanded |

@@ -254,6 +254,19 @@ describe("EditorCustomer — subprocess requests", () => {
         await expect(options({ setEndOfLine: 2 })).resolves.toStrictEqual({ setEndOfLine: 2 });
     });
 
+    it("editor.applyEdit: selectionsAfter reaches the core, junk and an empty list stay out", async () => {
+        const h = setup();
+        h.attachTo();
+        const options = async (selectionsAfter: unknown): Promise<unknown> => {
+            await h.peer.request("editor.applyEdit", { uri: "file:///a.ts", edits: [], selectionsAfter });
+            return vi.mocked(h.editorOptions.applyActiveEditorEdits).mock.lastCall?.[2];
+        };
+        const selection = { anchorLine: 1, anchorCharacter: 2, activeLine: 3, activeCharacter: 4 };
+        await expect(options([selection])).resolves.toStrictEqual({ selectionsAfter: [selection] });
+        await expect(options([])).resolves.toStrictEqual({});
+        await expect(options("x")).resolves.toStrictEqual({});
+    });
+
     it("workspace.applyEdit: junk — false without the port; a valid set — the port verdict", async () => {
         const h = setup();
         h.attachTo();

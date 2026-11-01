@@ -574,6 +574,44 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
+        // kind: "proxy-openvsx", universal: Enter goes through `pythonIndent.newlineAndIndent`. The text is typed key
+        // by key, as bracket auto-close is what sends `foo(` down the `insertSnippet` path of the extension.
+        id: "KevinRose.vsc-python-indent",
+        expectFiles: ["package.json", "out/extension.js", "out/parse-wasm/pythonindent_bg.wasm"],
+        run: async (ctx) => {
+            const file = join(ctx.root, "indent.py");
+            writeFileSync(file, "\n");
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
+            const waitForFile = (expected: string): Promise<void> =>
+                waitUntil(
+                    () => readFileSync(file, "utf8"),
+                    (text) => text === expected,
+                    { describe: `indent.py holding ${JSON.stringify(expected)}`, timeoutMs: 20_000, intervalMs: 100 },
+                ).then(() => undefined);
+            try {
+                await app.session.waitForReady();
+                await app.session.sendText("def f(x):");
+                await app.session.key("Enter");
+                await app.session.sendText("y");
+                // The second row of the frame, with the indent guide in the first column of the indent.
+                await app.session.waitForText((text) => /\b2\s+\S\s{3}y\s*$/m.test(text) && text.includes("Ln 2, Col 6"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.key("Ctrl+S");
+                await waitForFile("def f(x):\n    y\n");
+
+                await app.session.key("Enter");
+                await app.session.sendText("foo(");
+                await app.session.key("Enter");
+                await app.session.sendText("z");
+                await app.session.key("Ctrl+S");
+                await waitForFile("def f(x):\n    y\n    foo(\n        z\n    )\n");
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
         // kind: "proxy-openvsx", platform-specific vsix (~130 MB): the stock Claude Code. Its job here is
         // the ide server: the "✻ Claude Code" item and the lock file are written at the end of activate(),
         // MCP `initialize` answers with `ideName` from `env.appName`. Context, diagnostics and terminal are

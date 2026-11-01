@@ -840,6 +840,8 @@ export interface IWireApplyEditParams {
     readonly setEndOfLine?: 1 | 2;
     readonly undoStopBefore?: boolean;
     readonly undoStopAfter?: boolean;
+    /** The selections after the edit, applied with it: `insertSnippet` must not leave a window for a typed key. */
+    readonly selectionsAfter?: readonly IWireSelection[];
 }
 
 export interface IWireSetSelectionParams {

@@ -1,0 +1,19 @@
+{
+    "name": "insert-snippet",
+    "displayName": "Insert Snippet",
+    "description": "E2E demo extension: opens a hanging indent with TextEditor.insertSnippet, as KevinRose.vsc-python-indent does.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "contributes": {
+        "commands": [
+            {
+                "command": "insertSnippetDemo.hang",
+                "title": "Insert Snippet: Hanging Indent"
+            }
+        ]
+    }
+}

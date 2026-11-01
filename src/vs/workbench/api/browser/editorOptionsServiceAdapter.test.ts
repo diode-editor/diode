@@ -229,6 +229,35 @@ describe("EditorOptionsServiceAdapter", () => {
         );
     });
 
+    it("applyActiveEditorEdits() hands selectionsAfter over as the edit's cursor state, not as undo stops", () => {
+        const applyExternalEdits = vi.fn();
+        const editor = {
+            uri: Uri.file("/a/b.ts"),
+            model: { document: { lineCount: 3, getLineLength: () => 10 } },
+            applyExternalEdits,
+        };
+        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
+        const adapter = createAdapter(group, NO_BULK_EDITS);
+
+        const edit = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "hi" };
+        const selectionsAfter = [{ anchorLine: 0, anchorCharacter: 1, activeLine: 2, activeCharacter: 3 }];
+        adapter.applyActiveEditorEdits(Uri.file("/a/b.ts").toString(), [edit], {
+            selectionsAfter,
+            undoStopAfter: false,
+        });
+
+        const [, , computeCursorState, undoStops] = applyExternalEdits.mock.calls[0] as [
+            unknown,
+            unknown,
+            () => unknown,
+            unknown,
+        ];
+        expect(undoStops).toEqual({ undoStopAfter: false });
+        expect(computeCursorState()).toEqual([
+            { anchor: { line: 0, character: 1 }, active: { line: 2, character: 3 }, idealColumn: undefined },
+        ]);
+    });
+
     it("applyActiveEditorEdits() returns false on overlapping edits, document untouched", () => {
         const applyExternalEdits = vi.fn();
         const editor = {

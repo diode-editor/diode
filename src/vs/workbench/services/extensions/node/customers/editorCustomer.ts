@@ -104,13 +104,16 @@ export class EditorCustomer implements IExtensionHostCustomer {
                     setEndOfLine?: unknown;
                     undoStopBefore?: unknown;
                     undoStopAfter?: unknown;
+                    selectionsAfter?: unknown;
                 } = params;
                 if (typeof p.uri !== "string") return false;
+                const selectionsAfter = parseWireSelections(p.selectionsAfter);
                 return this.editorOptions.applyActiveEditorEdits(p.uri, parseWireEditorEdits(p.edits), {
                     ...(typeof p.version === "number" ? { version: p.version } : {}),
                     ...(p.setEndOfLine === 1 || p.setEndOfLine === 2 ? { setEndOfLine: p.setEndOfLine } : {}),
                     ...(p.undoStopBefore === false ? { undoStopBefore: false } : {}),
                     ...(p.undoStopAfter === false ? { undoStopAfter: false } : {}),
+                    ...(selectionsAfter.length > 0 ? { selectionsAfter } : {}),
                 });
             }),
         );

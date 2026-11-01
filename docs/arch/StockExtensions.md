@@ -23,6 +23,13 @@
   `bundled/libs/bin/ruff`, его исполняемость восстанавливает `installVsix` (exec-бит из
   zip-атрибутов). Курируемый дефолт `ruff.importStrategy: "useBundled"` — детерминированный
   нативный сервер без Python. Смоук — undercurl F401.
+- **`KevinRose.vsc-python-indent`** (#967) — universal, Enter в `.py` идёт через
+  `pythonIndent.newlineAndIndent`. Enter между скобками (`foo(|)`, висячий отступ) зовёт
+  `insertSnippet` без `await`, с пустым edit builder: без этого метода перевод строки терялся.
+  `insertSnippet` у нас — текст с отступами эталона и каретка на первой позиции, без сниппет-сессии,
+  поэтому Tab при `pythonIndent.useTabOnHangingIndent` не перепрыгивает скобку (строка в `limits`).
+  Каретка едет в самом `editor.applyEdit` (`selectionsAfter`): следующая клавиша приходит раньше
+  ответа расширения. Смоук — набор посимвольно, файл на диске после `def f(x):` и `foo(`.
 - **`dbaeumer.vscode-eslint`** — universal. Расширение НЕ бандлит линтер: eslintServer резолвит
   библиотеку eslint из `node_modules` открытого проекта, поэтому тестовые обвязки доносят её сами
   (`eslintFixture.ts`: кэшируемый `npm install eslint` + симлинк в воркспейс; закоммитить такую
