@@ -120,6 +120,40 @@ describe("attachKeyboardInputHold", () => {
         expect(dispatch).toHaveBeenCalledOnce();
     });
 
+    it("a root without a focus manager gets the key on the view", async () => {
+        const { commands, view, seen, send } = setup();
+        vi.spyOn(view, "getRoot").mockReturnValue({ focusManager: null } as never);
+        const done = deferred();
+        commands.holdInputUntil(done.promise);
+        send("keydown", "a");
+
+        done.resolve();
+        await done.promise;
+        await Promise.resolve();
+
+        expect(seen).toEqual(["keydown:a"]);
+    });
+
+    it("an answer cancels the limit, and release fires only when the last hold ends", async () => {
+        vi.useFakeTimers();
+        const { commands } = setup();
+        const released = vi.fn();
+        commands.onDidReleaseInput(released);
+        const a = deferred();
+        const b = deferred();
+        commands.holdInputUntil(a.promise);
+        commands.holdInputUntil(b.promise);
+
+        a.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(released).not.toHaveBeenCalled();
+
+        b.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(released).toHaveBeenCalledOnce();
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
     it("a stuck command gives the keyboard back after the limit", () => {
         vi.useFakeTimers();
         const { commands, seen, send } = setup();

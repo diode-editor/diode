@@ -15,10 +15,9 @@ import type { CommandRegistry } from "../../../../platform/commands/common/comma
  */
 export function attachKeyboardInputHold(view: TUIElement, commands: CommandRegistry): IDisposable {
     const held: TUIKeyboardEvent[] = [];
-    let replaying = false;
 
     const hold = (event: TUIKeyboardEvent): void => {
-        if (replaying || !commands.isInputHeld) return;
+        if (!commands.isInputHeld) return;
         held.push(event);
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -30,7 +29,6 @@ export function attachKeyboardInputHold(view: TUIElement, commands: CommandRegis
             const event = held.shift();
             if (event === undefined) return;
             const target = view.getRoot()?.focusManager?.activeElement ?? view;
-            replaying = true;
             target.dispatchEvent(
                 new TUIKeyboardEvent(event.type as "keydown" | "keypress", {
                     key: event.key,
@@ -42,7 +40,6 @@ export function attachKeyboardInputHold(view: TUIElement, commands: CommandRegis
                     raw: event.raw,
                 }),
             );
-            replaying = false;
         }
     };
 

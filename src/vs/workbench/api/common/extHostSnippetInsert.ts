@@ -33,8 +33,8 @@ export interface ISnippetEdits {
 
 const PLAIN_STOP = /\$(\d+)|\$\{(\d+)\}/y;
 const PLACEHOLDER_START = /\$\{(\d+):/y;
-/** The options are kept raw: only the first is used, and `\,` does not end it. */
-const CHOICE = /\$\{(\d+)\|((?:\\.|[^|\\])*)\|\}/y;
+/** The second group is the first option, the only one used; `\,` does not end it. */
+const CHOICE = /\$\{(\d+)\|((?:\\.|[^,|\\])*)(?:,(?:\\.|[^|\\])*)?\|\}/y;
 
 /** Upstream `_parseEscaped`: only these are escapes, any other backslash is text. */
 function isEscapable(char: string | undefined): boolean {
@@ -55,8 +55,7 @@ function parseTabStop(template: string, index: number): { node: SnippetNode; end
     }
     const choice = matchAt(CHOICE, template, index);
     if (choice !== null) {
-        const first = /^(?:\\.|[^,\\])*/.exec(choice[2])?.[0] ?? "";
-        const text = first.replace(/\\([,|\\])/g, "$1");
+        const text = choice[2].replace(/\\([,|\\])/g, "$1");
         return { node: { tabStop: Number(choice[1]), children: [{ text }] }, end: CHOICE.lastIndex };
     }
     const placeholder = matchAt(PLACEHOLDER_START, template, index);
@@ -71,7 +70,7 @@ function parseNodes(template: string, from: number, inPlaceholder: boolean): { n
     const nodes: SnippetNode[] = [];
     let text = "";
     const flush = (): void => {
-        if (text.length > 0) nodes.push({ text });
+        nodes.push({ text });
         text = "";
     };
     let index = from;
@@ -83,7 +82,7 @@ function parseNodes(template: string, from: number, inPlaceholder: boolean): { n
             index += 2;
             continue;
         }
-        const stop = char === "$" ? parseTabStop(template, index) : null;
+        const stop = parseTabStop(template, index);
         if (stop === null) {
             text += char;
             index++;
@@ -140,6 +139,7 @@ export function resolveSnippet(
 ): IResolvedSnippet {
     const { nodes } = parseNodes(template, 0, false);
     const placeholders = new Map<number, readonly SnippetNode[]>();
+    // Stryker disable next-line ArrayDeclaration: equivalent, the filter below drops a non-number
     const stops: number[] = [];
     collectStops(nodes, placeholders, stops);
     const positive = stops.filter((stop) => stop > 0);
