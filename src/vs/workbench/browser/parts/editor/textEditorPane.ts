@@ -11,6 +11,7 @@ import type { EditorCursorStyleSetting } from "../../../../editor/common/config/
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
+import type { ILink } from "../../../../editor/common/languages/iLinkSource.ts";
 import { DEFAULT_ENCODING } from "../../../../editor/common/model/encoding.ts";
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
@@ -407,6 +408,18 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public setColorDecorators(options: IColorDecoratorsOptions): void {
         this.component.setColorDecorators(options);
+    }
+
+    public setLinksEnabled(enabled: boolean): void {
+        this.component.setLinksEnabled(enabled);
+    }
+
+    public onDidClickLink(listener: (link: ILink) => void): IDisposable {
+        return this.component.onDidClickLink(listener);
+    }
+
+    public getLinksAtSelections(): readonly ILink[] {
+        return this.component.getLinksAtSelections();
     }
 
     public setInlayHints(options: IInlayHintsOptions): void {

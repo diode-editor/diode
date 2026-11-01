@@ -411,6 +411,26 @@ export interface IWireLinkedEditingRanges {
     readonly wordPatternFlags?: string;
 }
 
+export type IWireDocumentLinksParams = IWireDocumentParams & IWireProviderHandle;
+
+export interface IWireDocumentLink {
+    /** Index in the list; with `cacheId` it finds the provider's own object for `resolveDocumentLink`. */
+    readonly id: number;
+    readonly range: IRange;
+    readonly target?: string;
+    readonly tooltip?: string;
+}
+
+export interface IWireDocumentLinkList {
+    readonly cacheId: number;
+    readonly links: readonly IWireDocumentLink[];
+}
+
+export interface IWireResolveDocumentLinkParams extends IWireProviderHandle {
+    readonly cacheId: number;
+    readonly id: number;
+}
+
 /** Upstream `$provideDocumentColors`: the reply is `null` when the provider gave no colors. */
 export type IWireDocumentColorParams = IWireDocumentParams & IWireProviderHandle;
 
@@ -513,6 +533,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "documentHighlight",
     "linkedEditingRange",
     "color",
+    "documentLink",
     "inlayHints",
     "codeLens",
     "semanticTokens",
@@ -534,6 +555,8 @@ export interface IWireLanguageProviderMetadata {
     readonly triggerCharacters?: readonly string[];
     /** Characters that re-request the hint while it is shown (signature help). */
     readonly retriggerCharacters?: readonly string[];
+    /** The provider has `resolveDocumentLink`. */
+    readonly hasResolve?: boolean;
     /** The core skips a provider whose kinds do not intersect the requested `only`. */
     readonly providedCodeActionKinds?: readonly string[];
     readonly legend?: IWireSemanticTokensLegend;

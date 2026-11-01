@@ -4,9 +4,10 @@ import type * as async from "../../../../base/common/async.ts";
 import type { IdleDeadline } from "../../../../base/common/async.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import type { IColorInformation } from "../../../common/languages/iColorSource.ts";
+import { SCAN_BATCH_LINES } from "../../../common/languages/idleDocumentScan.ts";
 import { TextDocument } from "../../../common/model/textDocument.ts";
 
-import { COLOR_SCAN_BATCH_LINES, DefaultDocumentColorProvider } from "./defaultDocumentColorProvider.ts";
+import { DefaultDocumentColorProvider } from "./defaultDocumentColorProvider.ts";
 
 /** Idle slices the test hands out by hand, each with the time it has left. */
 const slices: ((idle: IdleDeadline) => void)[] = [];
@@ -28,10 +29,10 @@ async function runSlice(timeRemaining: number): Promise<void> {
 
 /** Colors on the first line, the first line of the second batch and the last line. */
 function document(): TextDocument {
-    const lines = Array.from({ length: 2 * COLOR_SCAN_BATCH_LINES + 1 }, () => "x");
+    const lines = Array.from({ length: 2 * SCAN_BATCH_LINES + 1 }, () => "x");
     lines[0] = "#f00";
-    lines[COLOR_SCAN_BATCH_LINES] = "a #0f0";
-    lines[2 * COLOR_SCAN_BATCH_LINES] = "b rgb(0, 0, 255)";
+    lines[SCAN_BATCH_LINES] = "a #0f0";
+    lines[2 * SCAN_BATCH_LINES] = "b rgb(0, 0, 255)";
     return new TextDocument(lines.join("\n"));
 }
 
@@ -62,12 +63,12 @@ describe("DefaultDocumentColorProvider", () => {
                 { line: 0, character: 4 },
             ],
             [
-                { line: COLOR_SCAN_BATCH_LINES, character: 2 },
-                { line: COLOR_SCAN_BATCH_LINES, character: 6 },
+                { line: SCAN_BATCH_LINES, character: 2 },
+                { line: SCAN_BATCH_LINES, character: 6 },
             ],
             [
-                { line: 2 * COLOR_SCAN_BATCH_LINES, character: 2 },
-                { line: 2 * COLOR_SCAN_BATCH_LINES, character: 16 },
+                { line: 2 * SCAN_BATCH_LINES, character: 2 },
+                { line: 2 * SCAN_BATCH_LINES, character: 16 },
             ],
         ]);
         expect(slices).toEqual([]);

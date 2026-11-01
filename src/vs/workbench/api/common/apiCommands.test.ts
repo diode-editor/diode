@@ -187,7 +187,7 @@ describe("apiCommands — vscode.execute*", () => {
         expect(deps.executeCodeActionProvider).toHaveBeenNthCalledWith(2, doc, selection, undefined, undefined);
     });
 
-    it("vscode.executeLinkProvider answers an empty list: link providers are a no-op", async () => {
+    it("vscode.executeLinkProvider answers an empty list: not wired to the link providers", async () => {
         await expect(run("vscode.executeLinkProvider").call(uri)).resolves.toEqual([]);
         await expect(run("vscode.executeLinkProvider").call(uri, 5)).resolves.toEqual([]);
     });

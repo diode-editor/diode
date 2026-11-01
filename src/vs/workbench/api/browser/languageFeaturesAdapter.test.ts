@@ -8,6 +8,7 @@ import { createRange } from "../../../editor/common/core/iRange.ts";
 import type { CodeLens, ICodeLensRequest } from "../../../editor/common/languages/iCodeLensSource.ts";
 import type { IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
 import type { IInlayHintsRequest, InlayHint } from "../../../editor/common/languages/iInlayHintsSource.ts";
+import type { ILinkRequest } from "../../../editor/common/languages/iLinkSource.ts";
 import type { ITextDocument } from "../../../editor/common/model/iTextDocument.ts";
 import { LanguageFeaturesService } from "../../../editor/common/services/languageFeaturesService.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
@@ -105,6 +106,16 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideLinkedEditingRanges: vi.fn((handle: number) =>
             Promise.resolve(handle === 0 ? null : { ranges: [createRange(0, 0, 0, handle)], wordPattern: /x/ }),
         ),
+        provideDocumentLinks: vi.fn(() =>
+            Promise.resolve({
+                cacheId: 7,
+                links: [
+                    { id: 0, range: createRange(0, 0, 0, 3), target: "https://a.b/", tooltip: "tip" },
+                    { id: 1, range: createRange(1, 0, 1, 3) },
+                ],
+            }),
+        ),
+        resolveDocumentLink: vi.fn(() => Promise.resolve("https://resolved/")),
         provideDocumentColors: vi.fn((handle: number) =>
             Promise.resolve([{ range: createRange(0, 0, 0, handle), color: { red: 1, green: 0, blue: 0, alpha: 1 } }]),
         ),
@@ -212,6 +223,31 @@ const hover = (handle: number, language = "typescript"): IWireLanguageProviderRe
 });
 
 describe("LanguageFeaturesAdapter", () => {
+    it("documentLink: the links carry a resolver bound to their list, only with hasResolve", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 3, kind: "documentLink", selector: [{ language: "go" }], hasResolve: true },
+            { handle: 4, kind: "documentLink", selector: [{ language: "c" }] },
+        ];
+        const languageFeatures = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, languageFeatures);
+        const token = CancellationTokenNone;
+        const ask = (languageId: string) => {
+            const target = { uri: Uri.file("/a"), languageId };
+            const request = { uri: "file:///a", languageId, versionId: 1 } as ILinkRequest;
+            return languageFeatures.documentLinkProvider.ordered(target)[0].provideLinks(request, token);
+        };
+
+        const links = await ask("go");
+        expect(bridge.provideDocumentLinks).toHaveBeenCalledWith(3, expect.anything(), token);
+        expect(links?.[0]).toMatchObject({ url: "https://a.b/", tooltip: "tip", range: createRange(0, 0, 0, 3) });
+        await expect(links?.[1].resolve?.(token)).resolves.toBe("https://resolved/");
+        expect(bridge.resolveDocumentLink).toHaveBeenCalledWith(3, 7, 1, token);
+
+        expect((await ask("c"))?.[1].resolve).toBeUndefined();
+        adapter.dispose();
+    });
+
     it("callHierarchy: the proxy asks and releases by the provider's handle", async () => {
         const bridge = makeBridge();
         const service = new LanguageFeaturesService();

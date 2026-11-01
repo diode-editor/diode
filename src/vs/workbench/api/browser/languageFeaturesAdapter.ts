@@ -155,6 +155,22 @@ export class LanguageFeaturesAdapter extends Disposable {
                 provideLinkedEditingRanges: (request, token) =>
                     this.bridge.provideLinkedEditingRanges(handle, request, token),
             }),
+        documentLink: ({ handle, selector, hasResolve }) =>
+            this.languageFeatures.documentLinkProvider.register(selector, {
+                provideLinks: async (request, token) => {
+                    const list = await this.bridge.provideDocumentLinks(handle, request, token);
+                    return list?.links.map(({ id, range, target, tooltip }) => ({
+                        range,
+                        url: target,
+                        tooltip,
+                        resolve:
+                            hasResolve === true
+                                ? (resolveToken) =>
+                                      this.bridge.resolveDocumentLink(handle, list.cacheId, id, resolveToken)
+                                : undefined,
+                    }));
+                },
+            }),
         color: ({ handle, selector }) =>
             this.languageFeatures.colorProvider.register(selector, {
                 provideDocumentColors: (request, token) => this.bridge.provideDocumentColors(handle, request, token),

@@ -83,7 +83,8 @@ registration but are not called yet.
 | `registerLinkedEditingRangeProvider` | ✅ | a change in one range is mirrored into the others, in one undo step, and the ranges are highlighted while `editor.linkedEditing` is on or after `editor.action.linkedEditing`; `LinkedEditingRanges.wordPattern` and the language's `wordPattern` end the link on text they do not match |
 | `registerTypeHierarchyProvider` | ✅ | Show Type Hierarchy (editor context menu, palette): a tree in the References panel with lazy expansion, a direction toggle and go to the type's declaration |
 | `registerOnTypeFormattingEditProvider` | ✅ | with `editor.formatOnType` on, a trigger character of the first provider (Enter included) formats after typing, as a separate undo step; skipped with several cursors or a selection, dropped when the text at or above the caret's line changes first |
-| other `register*Provider` (4: documentSymbol, workspaceSymbol, documentLink, inlineValues) | 🕐 | registration is accepted as a no-op; the provider is never called |
+| `registerDocumentLinkProvider` | ✅ | links are underlined with those of the built-in `http(s)`/`file` detector (where they meet, the provider's win); Ctrl+click and **Open Link** open them: `http(s)` and `mailto` outside, `file:` with `#L10` in the editor, `command:` runs the command. `resolveDocumentLink` is called when a link without a target is opened. `DocumentLink.tooltip` is kept but not shown (no mouse hover); `editor.links` turns everything off |
+| other `register*Provider` (3: documentSymbol, workspaceSymbol, inlineValues) | 🕐 | registration is accepted as a no-op; the provider is never called |
 | `setLanguageConfiguration` | 🟡 | `wordPattern` (for `TextDocument.getWordRangeAtPosition` and linked editing; not passed to the editor's word selection and completion boundaries), `comments`, `brackets`, `autoClosingPairs`, `onEnterRules` (layered over `language-configuration.json`: a set section replaces the file's, the latest layer wins, dispose removes it). Not applied: `indentationRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, the deprecated `__electricCharacterSupport`/`__characterPairSupport` |
 | `getLanguages`, `setTextDocumentLanguage` | ✅ | The language set on a document without a tab is applied when it gets one. |
 | `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
@@ -174,7 +175,7 @@ extension terminals and tree views work; webview is the ceiling.
 | `registerTextEditorCommand` | ✅ | a real edit builder: edits apply after the callback, as one undo step, and an async result does not delay them; without an active editor: a warning and no-op, as in VS Code |
 | `getCommands` | ✅ | Commands of the editor and of extensions; API commands (`vscode.open`…) are not listed, as in VS Code. |
 | API commands `vscode.executeCompletionItemProvider`, `vscode.executeCodeActionProvider` | ✅ | Ask the providers of extensions; the results are the provider's own objects. |
-| API command `vscode.executeLinkProvider` | 🟡 | Always an empty list: `registerDocumentLinkProvider` is a no-op. |
+| API command `vscode.executeLinkProvider` | 🟡 | Always an empty list: the command is not wired to the link providers yet. |
 
 ## vscode.extensions
 

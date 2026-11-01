@@ -33,6 +33,7 @@ import { createSetLanguageConfiguration } from "./extHostLanguageConfiguration.t
 import { createLanguageStatusItemFactory } from "./extHostLanguageStatus.ts";
 import { DocumentRangeSemanticTokensAdapter, DocumentSemanticTokensAdapter } from "./extHostSemanticTokens.ts";
 import {
+    documentLinkTarget,
     rangeFrom,
     readAdditionalTextEdits,
     readDocumentation,
@@ -41,6 +42,7 @@ import {
     serializeDefinitionLocation,
     serializeDocumentColors,
     serializeDocumentHighlights,
+    serializeDocumentLinks,
     serializeFoldingRange,
     serializeHoverContents,
     serializeInlayHints,
@@ -86,6 +88,8 @@ import type {
     IWireDocumentColorParams,
     IWireDocumentHighlight,
     IWireDocumentHighlightParams,
+    IWireDocumentLinkList,
+    IWireDocumentLinksParams,
     IWireDocumentSemanticTokensParams,
     IWireEditorEdit,
     IWireFoldingParams,
@@ -109,6 +113,7 @@ import type {
     IWireReleaseSemanticTokens,
     IWireReleaseTypeHierarchy,
     IWireRenameParams,
+    IWireResolveDocumentLinkParams,
     IWireSelectionRangeParams,
     IWireSignatureHelpParams,
     IWireTypeHierarchyParams,
@@ -232,6 +237,11 @@ export interface ICodeActionRegistration {
 export interface IFormattingRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.DocumentFormattingEditProvider;
+}
+
+export interface IDocumentLinkRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.DocumentLinkProvider;
 }
 
 export interface IOnTypeFormattingRegistration {
@@ -429,6 +439,7 @@ export function createLanguagesNamespace(
     const formattingProviders = new Map<number, Owned<IFormattingRegistration>>();
     const rangeFormattingProviders = new Map<number, Owned<IRangeFormattingRegistration>>();
     const onTypeFormattingProviders = new Map<number, Owned<IOnTypeFormattingRegistration>>();
+    const documentLinkProviders = new Map<number, Owned<IDocumentLinkRegistration>>();
     const codeActionProviders = new Map<number, Owned<ICodeActionRegistration>>();
     const foldingProviders = new Map<number, Owned<IFoldingRegistration>>();
     const inlineCompletionProviders = new Map<number, Owned<IInlineCompletionRegistration>>();
@@ -485,6 +496,28 @@ export function createLanguagesNamespace(
         const [rawCacheId, rawIndex] = id.split(".");
         const bucket = completionCache.get(Number(rawCacheId));
         return bucket?.[Number(rawIndex)] ?? null;
+    }
+
+    // `resolveDocumentLink` gets THE SAME object the provider returned. Depth is per provider and document: every
+    // visible editor holds its own list, and a depth shared between them would lose the links of the one not edited.
+    const documentLinkCache = new Map<
+        number,
+        { readonly handle: number; readonly uri: string | undefined; readonly items: readonly unknown[] }
+    >();
+
+    function rememberDocumentLinks(handle: number, uri: string | undefined, items: readonly unknown[]): number {
+        const cacheId = nextCacheId++;
+        documentLinkCache.set(cacheId, { handle, uri, items });
+        const own = [...documentLinkCache].filter(([, bucket]) => bucket.handle === handle && bucket.uri === uri);
+        const excess = own.length - COMPLETION_CACHE_DEPTH;
+        for (const [key] of own.slice(0, excess)) documentLinkCache.delete(key);
+        return cacheId;
+    }
+
+    function forgetDocumentLinks(handle: number): void {
+        for (const [key, bucket] of documentLinkCache) {
+            if (bucket.handle === handle) documentLinkCache.delete(key);
+        }
     }
 
     // The action applied must be THE SAME object the provider returned (in the client it is a
@@ -878,6 +911,44 @@ export function createLanguagesNamespace(
             return serializeDocumentColors(result);
         },
     );
+
+    rpc.handleRequest(
+        "languages.provideDocumentLinks",
+        async (params, cancellation): Promise<IWireDocumentLinkList | null> => {
+            const p: Received<IWireDocumentLinksParams> = params;
+            const handle = p.handle ?? -1;
+            const reg = documentLinkProviders.get(handle);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            let result: unknown;
+            try {
+                result = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideDocumentLinks(doc, token),
+                );
+            } catch (err) {
+                reportProviderFailure("provideDocumentLinks", err, reg.owner);
+            }
+            const { links, valid } = serializeDocumentLinks(result);
+            return { cacheId: rememberDocumentLinks(handle, p.uri, valid), links };
+        },
+    );
+
+    rpc.handleRequest("languages.resolveDocumentLink", async (params, cancellation): Promise<string | null> => {
+        const p = (params as Partial<IWireResolveDocumentLinkParams> | null | undefined) ?? {};
+        const reg = documentLinkProviders.get(p.handle ?? -1);
+        const item = documentLinkCache.get(p.cacheId ?? -1)?.items[p.id ?? -1];
+        if (reg === undefined || item === undefined) return null;
+        try {
+            const resolved: unknown = await callWithVscodeToken(cancellation, (token) =>
+                reg.provider.resolveDocumentLink?.(item as vscode.DocumentLink, token),
+            );
+            return documentLinkTarget(resolved ?? item);
+        } catch (err) {
+            reportProviderFailure("resolveDocumentLink", err, reg.owner);
+            return null;
+        }
+    });
 
     rpc.handleRequest("languages.provideInlayHints", async (params, cancellation): Promise<IWireInlayHint[] | null> => {
         const p: Received<IWireInlayHintsParams, "range"> = params;
@@ -1742,7 +1813,18 @@ export function createLanguagesNamespace(
                     }),
             );
         },
-        registerDocumentLinkProvider: registerNoopProvider,
+        registerDocumentLinkProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.DocumentLinkProvider,
+        ): vscode.Disposable =>
+            registerByHandle(
+                documentLinkProviders,
+                "documentLink",
+                selector,
+                { selector, provider },
+                { hasResolve: typeof provider.resolveDocumentLink === "function" },
+                forgetDocumentLinks,
+            ),
         registerColorProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.DocumentColorProvider,

@@ -8144,6 +8144,19 @@ declare module "vscode" {
 		export function registerLinkedEditingRangeProvider(selector: DocumentSelector, provider: LinkedEditingRangeProvider): Disposable;
 
 		/**
+		 * Register a document link provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A document link provider.
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerDocumentLinkProvider(selector: DocumentSelector, provider: DocumentLinkProvider): Disposable;
+
+		/**
 		 * Creates a new {@link LanguageStatusItem language status item}.
 		 *
 		 * @param id The identifier of the item.
@@ -8303,6 +8316,69 @@ declare module "vscode" {
 		 * signaled by returning `undefined`, `null`, or an empty array.
 		 */
 		provideDocumentHighlights(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<DocumentHighlight[]>;
+	}
+
+	/**
+	 * A document link is a range in a text document that links to an internal or external resource, like another
+	 * text document or a web site.
+	 */
+	export class DocumentLink {
+
+		/**
+		 * The range this link applies to.
+		 */
+		range: Range;
+
+		/**
+		 * The uri this link points to.
+		 */
+		target?: Uri;
+
+		/**
+		 * The tooltip text when you hover over this link.
+		 *
+		 * If a tooltip is provided, is will be displayed in a string that includes instructions on how to
+		 * trigger the link, such as `{0} (ctrl + click)`. The specific instructions vary depending on OS,
+		 * user settings, and localization.
+		 */
+		tooltip?: string;
+
+		/**
+		 * Creates a new document link.
+		 *
+		 * @param range The range the document link applies to. Must not be empty.
+		 * @param target The uri the document link points to.
+		 */
+		constructor(range: Range, target?: Uri);
+	}
+
+	/**
+	 * The document link provider defines the contract between extensions and feature of showing
+	 * links in the editor.
+	 */
+	export interface DocumentLinkProvider<T extends DocumentLink = DocumentLink> {
+
+		/**
+		 * Provide links for the given document. Note that the editor ships with a default provider that detects
+		 * `http(s)` and `file` links.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns An array of {@link DocumentLink document links} or a thenable that resolves to such. The lack of a result
+		 * can be signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideDocumentLinks(document: TextDocument, token: CancellationToken): ProviderResult<T[]>;
+
+		/**
+		 * Given a link fill in its {@link DocumentLink.target target}. This method is called when an incomplete
+		 * link is selected in the UI. Providers can implement this method and return incomplete links
+		 * (without target) from the {@linkcode DocumentLinkProvider.provideDocumentLinks provideDocumentLinks} method which
+		 * often helps to improve performance.
+		 *
+		 * @param link The link that is to be resolved.
+		 * @param token A cancellation token.
+		 */
+		resolveDocumentLink?(link: T, token: CancellationToken): ProviderResult<T>;
 	}
 
 	/**

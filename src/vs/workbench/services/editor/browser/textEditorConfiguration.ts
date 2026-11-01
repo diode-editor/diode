@@ -64,6 +64,7 @@ export class TextEditorConfiguration extends Disposable {
         editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines", overrides));
         editor.setScrollbarMarkers(this.configurationService.get("editor.scrollbarMarkers", overrides));
         editor.setFoldingMaximumRegions(this.configurationService.get("editor.foldingMaximumRegions", overrides));
+        editor.setLinksEnabled(this.configurationService.get("editor.links", overrides));
         editor.setColorDecorators({
             enabled: this.configurationService.get("editor.colorDecorators", overrides),
             defaultEnablement: this.configurationService.get("editor.defaultColorDecorators", overrides),

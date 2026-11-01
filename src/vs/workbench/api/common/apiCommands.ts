@@ -82,8 +82,8 @@ function isHttpString(value: unknown): boolean {
 }
 
 /**
- * Deviation: always empty. `registerDocumentLinkProvider` is a no-op and the core has no link detector,
- * so there is nothing to ask. The arguments are still checked, as upstream.
+ * Deviation: always empty, the command is not wired to the link providers yet. The arguments are still checked,
+ * as upstream.
  */
 function executeLinkProvider(args: readonly unknown[]): Promise<readonly never[]> {
     const [uri, linkResolveCount] = args;

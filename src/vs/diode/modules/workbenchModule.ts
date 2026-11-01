@@ -192,6 +192,7 @@ import {
     LinkedEditingService,
     LinkedEditingServiceDIToken,
 } from "../../workbench/contrib/linkedEditing/browser/linkedEditingService.ts";
+import { LinksService, LinksServiceDIToken } from "../../workbench/contrib/links/browser/linksService.ts";
 import {
     DiagnosticsEditorSourceDIToken,
     DiagnosticsService,
@@ -545,6 +546,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(HoverComponentDIToken, HoverComponent);
     container.bind(HoverServiceDIToken, HoverService);
     container.bind(LinkedEditingServiceDIToken, LinkedEditingService);
+    container.bind(LinksServiceDIToken, LinksService);
     container.bind(FormatOnTypeServiceDIToken, FormatOnTypeService);
     container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);
     container.bind(ParameterHintsServiceDIToken, ParameterHintsService);

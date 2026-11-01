@@ -357,6 +357,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Controls whether the editor has linked editing enabled. Depending on the language, related symbols such as HTML tags, are updated while editing.",
     },
     {
+        key: "editor.links",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the editor should detect links and make them clickable.",
+    },
+    {
         key: "editor.occurrencesHighlight",
         type: "string",
         default: "singleFile",

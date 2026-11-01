@@ -81,6 +81,8 @@ import type {
     IWireDocumentHighlight,
     IWireDocumentHighlightParams,
     IWireDocumentLanguage,
+    IWireDocumentLinkList,
+    IWireDocumentLinksParams,
     IWireDocumentSemanticTokensParams,
     IWireDocumentStateChanged,
     IWireDocumentSyncSnapshot,
@@ -144,6 +146,7 @@ import type {
     IWireReleaseSemanticTokens,
     IWireReleaseTypeHierarchy,
     IWireRenameParams,
+    IWireResolveDocumentLinkParams,
     IWireRevealRange,
     IWireSaveAllParams,
     IWireSaveDialogRequest,
@@ -248,6 +251,8 @@ export interface IHostToSubprocess {
             IWireLinkedEditingRanges | null,
         ];
         readonly "languages.provideDocumentColors": readonly [IWireDocumentColorParams, IColorInformation[] | null];
+        readonly "languages.provideDocumentLinks": readonly [IWireDocumentLinksParams, IWireDocumentLinkList | null];
+        readonly "languages.resolveDocumentLink": readonly [IWireResolveDocumentLinkParams, string | null];
         readonly "languages.provideInlayHints": readonly [IWireInlayHintsParams, IWireInlayHint[] | null];
         readonly "languages.prepareCallHierarchy": readonly [
             IWirePrepareCallHierarchyParams,

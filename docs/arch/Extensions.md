@@ -385,7 +385,7 @@
   спрашивает у хоста (`languages.getLanguageOfDocument`), иначе там был бы `plaintext`.
 - **API-команды `vscode.execute*`** (`apiCommands.ts`): как `vscode.open`, живут в субпроцессе и в
   `getCommands` не входят. Completion и code action спрашивают провайдеров этого же субпроцесса и
-  отдают их объекты; `vscode.executeLinkProvider` всегда отдаёт `[]`: провайдеры ссылок — no-op.
+  отдают их объекты; `vscode.executeLinkProvider` всегда отдаёт `[]`: к провайдерам ссылок команда пока не подключена.
   `workspace.openTextDocument` по такой схеме спрашивает провайдера локально, без RPC, — он живёт в
   том же субпроцессе. Неудача открытия (схемы никто не обслуживает, провайдер отказался или
   сломался) — **не исключение**: `EditorService.openUri` не отклоняется никогда, причина уезжает в
@@ -458,6 +458,15 @@
   `languages.provideOnTypeFormattingEdits`, 5000 мс). `firstTriggerCharacter` и `moreTriggerCharacter` едут
   метаданными `triggerCharacters`; ответ — `ITextEdit[]`, отказ — пустой список. Потребитель — `FormatOnTypeController`
   ([Editor.md](Editor.md#editorcontribformat-format-on-type)).
+- **Document link seam:** `languages.registerDocumentLinkProvider` — по рецепту реестра (`kind: "documentLink"`,
+  `ILanguageFeaturesService.documentLinkProvider`, RPC `languages.provideDocumentLinks` и
+  `languages.resolveDocumentLink`, по 5000 мс). Метаданные — `hasResolve`. Ответ — `{cacheId, links: [{id, range,
+  target?, tooltip?}]}`, `target` — `Uri.toString()`; битая запись отбрасывается одна, отказ провайдера — пустой список.
+  Оригиналы ссылок лежат в субпроцессе (`resolveDocumentLink` получает тот же объект): глубина 2 **на пару провайдер +
+  документ**, освобождение вытеснением и снятием провайдера. Общая на провайдера глубина, как у code action, здесь
+  не годится: у каждого видимого редактора свой список, и правка в одном потеряла бы ссылки другого. `tooltip`
+  едет, но не показывается (нет hover мышью). Потребитель — `LinkDetector`
+  ([Editor.md](Editor.md#editorcontriblinks-ссылки-в-тексте)).
 - **Color seam:** `languages.registerColorProvider` — по рецепту реестра (`kind: "color"`,
   `ILanguageFeaturesService.colorProvider`, RPC `languages.provideDocumentColors`, 5000 мс; отмена по
   новой правке уходит провайдеру токеном). Субпроцесс отдаёт `IColorInformation[]`

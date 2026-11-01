@@ -70,6 +70,7 @@ import {
     caretLocalCell,
     docPositionAt,
     forEachRangeCell,
+    forEachVisibleSortedRange,
     paintCarets,
     paintPhantomText,
     paintRangeBackground,
@@ -167,6 +168,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     private readonly onDidClickCodeLensEmitter = new Emitter<CodeLensCommand>();
     /** A left click on the title of a code lens. */
     public readonly onDidClickCodeLens = this.onDidClickCodeLensEmitter.event;
+    private readonly onDidClickDocumentLinkEmitter = new Emitter<IPosition>();
+    /** Ctrl+click: the press and the release on one link. The position is the link's start. */
+    public readonly onDidClickDocumentLink = this.onDidClickDocumentLinkEmitter.event;
 
     /**
      * Upstream `ICodeEditor.onDidType`: fires AFTER the edit, including auto-close, typeover
@@ -343,6 +347,14 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     public get inlineInsertions(): readonly IInlineInsertion[] {
         return this.inlineInsertionsValue;
+    }
+
+    /** By position and not overlapping (`LinkDetector`). */
+    public setDocumentLinks(ranges: readonly IRange[]): void {
+        this.documentLinks = ranges;
+        this.activeDocumentLink = null;
+        this.pressedDocumentLink = null;
+        this.markDirty();
     }
 
     /** Insertions of the owner (color decorators); ghost text has its own, both are drawn. */
@@ -780,11 +792,14 @@ export class EditorElement extends TUIElement implements IScrollable {
                 this.handleMouseMove(event);
             });
         });
-        this.addEventListener("mouseup", () => {
+        this.addEventListener("mouseup", (event) => {
             this.dragAnchor = null;
+            this.releaseDocumentLink(event);
         });
         this.addEventListener("mouseleave", () => {
             this.setFoldGutterHovered(false);
+            this.pressedDocumentLink = null;
+            this.setActiveDocumentLink(null);
         });
         this.addEventListener("wheel", (event) => {
             this.handleWheel(event);
@@ -1153,6 +1168,8 @@ export class EditorElement extends TUIElement implements IScrollable {
             paintRangeBackground(context, searchMatches[currentMatchIndex], FIND_MATCH_CURRENT_BG, geometry);
         }
 
+        this.paintDocumentLinks(context, geometry);
+
         // Squiggles go after backgrounds so their color and undercurl win.
         for (const decoration of this.markerDecorations) {
             this.paintMarkerDecoration(context, decoration, geometry, indentGuideCells);
@@ -1192,6 +1209,19 @@ export class EditorElement extends TUIElement implements IScrollable {
     ): void {
         if (ranges.length === 0) return;
         paintSortedRangeBackgrounds(context, ranges, this.styleVar(colorToken), geometry);
+    }
+
+    /** The underline joins what the token set (bold, italic); the active link also takes its color. */
+    private paintDocumentLinks(context: RenderContext, geometry: ITextViewportGeometry): void {
+        const active = this.activeDocumentLink;
+        forEachVisibleSortedRange(this.documentLinks, geometry, (range) => {
+            const fg = active === range ? this.styleVar("editorLink.activeForeground") : undefined;
+            forEachRangeCell(range, geometry, (screenX, screenY) => {
+                const cell = context.getCell(screenX, screenY);
+                if (cell === null) return;
+                context.setCell(screenX, screenY, { fg, style: cell.style | StyleFlags.Underline });
+            });
+        });
     }
 
     /** Colors are resolved here, on the frame: hit-test and the caret need none. */
@@ -1373,6 +1403,12 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     private dragAnchor: { line: number; character: number } | null = null;
 
+    private documentLinks: readonly IRange[] = [];
+    /** Under the pointer with Ctrl held: only as far as the terminal reports modifiers on a move. */
+    private activeDocumentLink: IRange | null = null;
+    /** The link of a Ctrl+left press, kept for its release. */
+    private pressedDocumentLink: IRange | null = null;
+
     // Expanded regions show the chevron only on hover (VS Code `showFoldingControls: "mouseover"`).
     private foldGutterHovered = false;
 
@@ -1404,6 +1440,15 @@ export class EditorElement extends TUIElement implements IScrollable {
         if (lens !== undefined) {
             this.clickCodeLens(lens, event.localX);
             return;
+        }
+
+        if (event.ctrlKey) {
+            const link = this.documentLinkAtCell(event.localX, event.localY);
+            if (link !== null) {
+                // Opens on release, like the terminal's links; the caret stays.
+                this.pressedDocumentLink = link;
+                return;
+            }
         }
 
         const pos = this.docPositionAt(event.localX, event.localY);
@@ -1458,8 +1503,41 @@ export class EditorElement extends TUIElement implements IScrollable {
         return true;
     }
 
+    /**
+     * The link in this very cell. Unlike a caret's position, the cell right after a link is not on it, and neither
+     * is the gutter, a view zone or the space past the end of the document, which `docPositionAt` clamps to text.
+     */
+    private documentLinkAtCell(localX: number, localY: number): IRange | null {
+        if (localX < this.gutterWidth) return null;
+        const viewLine = this.viewState.scrollTop + localY;
+        if (viewLine >= this.viewState.getViewLineCount()) return null;
+        if (this.viewState.viewLineKind(viewLine) === "zone") return null;
+        const pos = this.docPositionAt(localX, localY);
+        return (
+            this.documentLinks.find(
+                (range) => comparePositions(range.start, pos) <= 0 && comparePositions(pos, range.end) < 0,
+            ) ?? null
+        );
+    }
+
+    private releaseDocumentLink(event: TUIMouseEvent): void {
+        const pressed = this.pressedDocumentLink;
+        if (pressed === null) return;
+        this.pressedDocumentLink = null;
+        if (this.documentLinkAtCell(event.localX, event.localY) === pressed) {
+            this.onDidClickDocumentLinkEmitter.fire(pressed.start);
+        }
+    }
+
+    private setActiveDocumentLink(range: IRange | null): void {
+        if (this.activeDocumentLink === range) return;
+        this.activeDocumentLink = range;
+        this.markDirty();
+    }
+
     private handleMouseMove(event: TUIMouseEvent): void {
         this.setFoldGutterHovered(event.localX >= 0 && event.localX < this.gutterWidth);
+        this.setActiveDocumentLink(event.ctrlKey ? this.documentLinkAtCell(event.localX, event.localY) : null);
 
         if (this.dragAnchor === null) return;
         /* v8 ignore start -- unreachable: getViewLineCount() is never 0 (document always has a line; fold headers stay visible) */

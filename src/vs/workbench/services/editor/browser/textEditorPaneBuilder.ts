@@ -82,6 +82,8 @@ export class TextEditorPaneBuilder {
                   }
                 : undefined,
             this.languageFeatures.documentHighlightProvider,
+            // Only the file editor: the diff and OUTPUT have no links.
+            model instanceof TextFileModel ? this.languageFeatures.documentLinkProvider : undefined,
         );
         const editor = new TextEditorPane(model, component, modelOwnership);
         // The editor context menu policy listens for "contextmenu" on the pair's wrapper;
