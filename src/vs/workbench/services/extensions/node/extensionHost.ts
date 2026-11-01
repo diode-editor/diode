@@ -67,6 +67,11 @@ import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ITypeHierarchyItem,
+    ITypeHierarchyRequest,
+    ITypeHierarchySession,
+} from "../../../../editor/common/languages/iTypeHierarchySource.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
 import type { ConfigurationScope } from "../../../../platform/configuration/common/configurationRegistry.ts";
@@ -887,6 +892,36 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
 
     public releaseCallHierarchy(handle: number, sessionId: number): void {
         this.languageFeatures.releaseCallHierarchy(handle, sessionId);
+    }
+
+    public prepareTypeHierarchy(
+        handle: number,
+        req: ITypeHierarchyRequest,
+        token?: ICancellationToken,
+    ): Promise<ITypeHierarchySession | null> {
+        return this.languageFeatures.prepareTypeHierarchy(handle, req, token);
+    }
+
+    public provideTypeHierarchySupertypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]> {
+        return this.languageFeatures.provideTypeHierarchySupertypes(handle, sessionId, itemId, token);
+    }
+
+    public provideTypeHierarchySubtypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]> {
+        return this.languageFeatures.provideTypeHierarchySubtypes(handle, sessionId, itemId, token);
+    }
+
+    public releaseTypeHierarchy(handle: number, sessionId: number): void {
+        this.languageFeatures.releaseTypeHierarchy(handle, sessionId);
     }
 
     public provideDocumentHighlights(

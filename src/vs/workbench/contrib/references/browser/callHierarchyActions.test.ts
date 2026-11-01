@@ -12,7 +12,7 @@ import {
     showIncomingCallsAction,
     showOutgoingCallsAction,
 } from "./callHierarchyActions.ts";
-import { CALL_HIERARCHY_VIEW_ID } from "./callHierarchyComponent.ts";
+import { HIERARCHY_VIEW_ID } from "./hierarchyComponent.ts";
 
 function accessor() {
     const component = { show: vi.fn(), setDirection: vi.fn(), dismiss: vi.fn() };
@@ -49,6 +49,7 @@ describe("call hierarchy actions", () => {
 
     it("the direction pair shares a title slot and shows one button by the current mode", () => {
         const keys = new ContextKeyService();
+        keys.set("callHierarchyVisible", true);
         const outgoing = titleMenu(showOutgoingCallsAction);
         const incoming = titleMenu(showIncomingCallsAction);
         expect(outgoing.order).toBe(incoming.order);
@@ -64,10 +65,22 @@ describe("call hierarchy actions", () => {
     it("title buttons belong to the hierarchy section only", () => {
         for (const action of [showOutgoingCallsAction, showIncomingCallsAction, removeCallItemAction]) {
             const visible = titleMenu(action).visible;
-            expect(visible?.({ view: CALL_HIERARCHY_VIEW_ID })).toBe(true);
+            expect(visible?.({ view: HIERARCHY_VIEW_ID })).toBe(true);
             expect(visible?.({ view: "references-view.tree" })).toBe(false);
             expect(action.when).toBe("callHierarchyVisible");
         }
+    });
+
+    it("no button stays over a type tree in the shared section", () => {
+        const keys = new ContextKeyService();
+        keys.set("callHierarchyVisible", false);
+        keys.set("callHierarchyMode", "incoming");
+        expect(keys.evaluate(titleMenu(showOutgoingCallsAction).when!)).toBe(false);
+        keys.set("callHierarchyMode", "outgoing");
+        expect(keys.evaluate(titleMenu(showIncomingCallsAction).when!)).toBe(false);
+        expect(keys.evaluate(titleMenu(removeCallItemAction).when!)).toBe(false);
+        keys.set("callHierarchyVisible", true);
+        expect(keys.evaluate(titleMenu(removeCallItemAction).when!)).toBe(true);
     });
 
     it("commands drive the component", async () => {

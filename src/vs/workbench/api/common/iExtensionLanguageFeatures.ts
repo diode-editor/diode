@@ -57,6 +57,11 @@ import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ITypeHierarchyItem,
+    ITypeHierarchyRequest,
+    ITypeHierarchySession,
+} from "../../../editor/common/languages/iTypeHierarchySource.ts";
 import type { IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 
 import type {
@@ -160,6 +165,25 @@ export interface IExtensionLanguageFeaturesBridge {
     ): Promise<readonly ICallHierarchyOutgoingCall[]>;
     /** The tree is gone: the subprocess forgets the session's original items. */
     releaseCallHierarchy(handle: number, sessionId: number): void;
+    prepareTypeHierarchy(
+        handle: number,
+        request: ITypeHierarchyRequest,
+        token: ICancellationToken,
+    ): Promise<ITypeHierarchySession | null>;
+    provideTypeHierarchySupertypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]>;
+    provideTypeHierarchySubtypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]>;
+    /** The tree is gone: the subprocess forgets the session's original items. */
+    releaseTypeHierarchy(handle: number, sessionId: number): void;
     /** `null`: the provider declined, the next one or the textual search takes over. */
     provideDocumentHighlights(
         handle: number,

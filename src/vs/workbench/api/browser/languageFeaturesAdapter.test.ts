@@ -109,6 +109,10 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideCallHierarchyIncomingCalls: vi.fn(() => Promise.resolve([])),
         provideCallHierarchyOutgoingCalls: vi.fn(() => Promise.resolve([])),
         releaseCallHierarchy: vi.fn(),
+        prepareTypeHierarchy: vi.fn((handle: number) => Promise.resolve({ sessionId: handle, items: [] })),
+        provideTypeHierarchySupertypes: vi.fn(() => Promise.resolve([])),
+        provideTypeHierarchySubtypes: vi.fn(() => Promise.resolve([])),
+        releaseTypeHierarchy: vi.fn(),
         provideReferences: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///ref${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
@@ -226,6 +230,30 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.provideCallHierarchyOutgoingCalls).toHaveBeenCalledWith(5, 40, 3, token);
         provider.releaseCallHierarchy(40);
         expect(bridge.releaseCallHierarchy).toHaveBeenCalledWith(5, 40);
+        adapter.dispose();
+    });
+
+    it("typeHierarchy: the proxy asks and releases by the provider's handle", async () => {
+        const bridge = makeBridge();
+        const service = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, service);
+        bridge.providers = [{ handle: 5, kind: "typeHierarchy", selector: [{ language: "typescript" }] }];
+        bridge.fire();
+        const [provider] = service.typeHierarchyProvider.ordered({
+            uri: Uri.file("/a.ts"),
+            languageId: "typescript",
+        } as never);
+        const token = new CancellationTokenSource().token;
+        const request = { uri: "file:///a.ts", languageId: "typescript", versionId: 1, line: 0, character: 0 };
+
+        await provider.prepareTypeHierarchy(request, token);
+        expect(bridge.prepareTypeHierarchy).toHaveBeenCalledWith(5, request, token);
+        await provider.provideSupertypes(40, 2, token);
+        expect(bridge.provideTypeHierarchySupertypes).toHaveBeenCalledWith(5, 40, 2, token);
+        await provider.provideSubtypes(40, 3, token);
+        expect(bridge.provideTypeHierarchySubtypes).toHaveBeenCalledWith(5, 40, 3, token);
+        provider.releaseTypeHierarchy(40);
+        expect(bridge.releaseTypeHierarchy).toHaveBeenCalledWith(5, 40);
         adapter.dispose();
     });
 

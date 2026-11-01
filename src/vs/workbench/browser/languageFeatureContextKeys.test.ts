@@ -107,6 +107,10 @@ describe("LanguageFeatureContextKeys", () => {
         expect(keys.evaluate("editorHasCallHierarchyProvider")).toBe(false);
         features.callHierarchyProvider.register({ language: "typescript" }, {} as never);
         expect(keys.evaluate("editorHasCallHierarchyProvider")).toBe(true);
+
+        expect(keys.evaluate("editorHasTypeHierarchyProvider")).toBe(false);
+        features.typeHierarchyProvider.register({ language: "typescript" }, {} as never);
+        expect(keys.evaluate("editorHasTypeHierarchyProvider")).toBe(true);
         expect(keys.evaluate("editorHasCodeLensProvider")).toBe(false);
         features.codeLensProvider.register({ language: "typescript" }, {} as never);
         expect(keys.evaluate("editorHasCodeLensProvider")).toBe(true);

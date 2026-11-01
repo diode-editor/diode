@@ -187,6 +187,8 @@ export const CODICON_UNICODE: Readonly<Partial<Record<string, string>>> = {
     "triangle-left": "◂",
     "triangle-right": "▸",
     "triangle-up": "▴",
+    "type-hierarchy-sub": "↓",
+    "type-hierarchy-super": "↑",
     unlock: "◦",
     verified: "✓",
     "verified-filled": "✓",

@@ -479,6 +479,15 @@ export interface IWireReleaseCallHierarchy extends IWireProviderHandle {
     readonly sessionId: number;
 }
 
+/** Upstream `$prepareTypeHierarchy`: the reply is `null` when the provider found nothing at the position. */
+export type IWirePrepareTypeHierarchyParams = IWirePositionParams & IWireProviderHandle;
+
+/** Upstream `$provideTypeHierarchySupertypes`/`Subtypes`: the original item stays in the subprocess. */
+export type IWireTypeHierarchyParams = IWireCallHierarchyCallsParams;
+
+/** Upstream `$releaseTypeHierarchy`. */
+export type IWireReleaseTypeHierarchy = IWireReleaseCallHierarchy;
+
 export type IWireHoverParams = IWirePositionParams & IWireProviderHandle;
 
 /** Counterpart of upstream `$registerXxxProvider(handle, selector)` + `$unregister(handle)`. */
@@ -499,6 +508,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "rename",
     "selectionRange",
     "callHierarchy",
+    "typeHierarchy",
     "documentHighlight",
     "linkedEditingRange",
     "color",

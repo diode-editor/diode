@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 144 |
+| test | 149 |
 | confirmed by a real extension | 52 |
 | used by a surveyed extension | 583 |
 
@@ -1381,7 +1381,7 @@ Proposed API or a false hit: class X when real.
 | `languages.registerSelectionRangeProvider` | ok |  | 75 | 553,935,609 |  |
 | `languages.registerSignatureHelpProvider` | ok |  | 76 | 554,964,488 |  |
 | `languages.registerTypeDefinitionProvider` | B |  | 74 | 553,028,026 |  |
-| `languages.registerTypeHierarchyProvider` | C |  | 69 | 512,262,735 |  |
+| `languages.registerTypeHierarchyProvider` | C | yes | 69 | 512,262,735 |  |
 | `languages.registerWorkspaceSymbolProvider` | B |  | 77 | 555,872,071 |  |
 | `languages.setLanguageConfiguration` | ok | yes | 22 | 147,598,036 | yzhang.markdown-all-in-one |
 | `languages.setTextDocumentLanguage` | ok | yes | 15 | 138,689,114 |  |
@@ -2405,7 +2405,7 @@ Proposed API or a false hit: class X when real.
 | `TreeViewSelectionChangeEvent.selection` | ok |  | 0 | 0 |  |
 | `TreeViewVisibilityChangeEvent.visible` | ok |  | 0 | 0 |  |
 | `TypeDefinitionProvider.provideTypeDefinition` | B |  | 0 | 0 |  |
-| `TypeHierarchyItem` | C |  | 70 | 512,751,679 |  |
+| `TypeHierarchyItem` | C | yes | 70 | 512,751,679 |  |
 | `TypeHierarchyItem.detail` | C |  | 0 | 0 |  |
 | `TypeHierarchyItem.kind` | C |  | 0 | 0 |  |
 | `TypeHierarchyItem.name` | C |  | 0 | 0 |  |
@@ -2413,9 +2413,9 @@ Proposed API or a false hit: class X when real.
 | `TypeHierarchyItem.selectionRange` | C |  | 0 | 0 |  |
 | `TypeHierarchyItem.tags` | C |  | 0 | 0 |  |
 | `TypeHierarchyItem.uri` | C |  | 0 | 0 |  |
-| `TypeHierarchyProvider.prepareTypeHierarchy` | C |  | 0 | 0 |  |
-| `TypeHierarchyProvider.provideTypeHierarchySubtypes` | C |  | 0 | 0 |  |
-| `TypeHierarchyProvider.provideTypeHierarchySupertypes` | C |  | 0 | 0 |  |
+| `TypeHierarchyProvider.prepareTypeHierarchy` | C | yes | 0 | 0 |  |
+| `TypeHierarchyProvider.provideTypeHierarchySubtypes` | C | yes | 0 | 0 |  |
+| `TypeHierarchyProvider.provideTypeHierarchySupertypes` | C | yes | 0 | 0 |  |
 | `UIKind` | ok |  | 1 | 61,892,209 |  |
 | `UIKind.Desktop` | ok |  | 17 | 122,334,434 |  |
 | `UIKind.Web` | ok |  | 29 | 283,305,678 |  |

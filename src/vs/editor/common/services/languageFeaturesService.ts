@@ -28,6 +28,7 @@ import type {
     DocumentSemanticTokensProvider,
 } from "../languages/iSemanticTokensSource.ts";
 import type { SignatureHelpProvider } from "../languages/iSignatureHelpSource.ts";
+import type { TypeHierarchyProvider } from "../languages/iTypeHierarchySource.ts";
 
 import type { ILanguageFeaturesService } from "./languageFeatures.ts";
 
@@ -57,4 +58,5 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
     public readonly inlayHintsProvider = new LanguageFeatureRegistry<InlayHintsProvider>();
     public readonly codeLensProvider = new LanguageFeatureRegistry<CodeLensProvider>();
     public readonly callHierarchyProvider = new LanguageFeatureRegistry<CallHierarchyProvider>();
+    public readonly typeHierarchyProvider = new LanguageFeatureRegistry<TypeHierarchyProvider>();
 }

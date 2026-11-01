@@ -164,6 +164,17 @@ export class LanguageFeaturesAdapter extends Disposable {
                     this.bridge.releaseCallHierarchy(handle, sessionId);
                 },
             }),
+        typeHierarchy: ({ handle, selector }) =>
+            this.languageFeatures.typeHierarchyProvider.register(selector, {
+                prepareTypeHierarchy: (request, token) => this.bridge.prepareTypeHierarchy(handle, request, token),
+                provideSupertypes: (sessionId, itemId, token) =>
+                    this.bridge.provideTypeHierarchySupertypes(handle, sessionId, itemId, token),
+                provideSubtypes: (sessionId, itemId, token) =>
+                    this.bridge.provideTypeHierarchySubtypes(handle, sessionId, itemId, token),
+                releaseTypeHierarchy: (sessionId) => {
+                    this.bridge.releaseTypeHierarchy(handle, sessionId);
+                },
+            }),
         // The hints die with their answer: there is no resolve cache in the subprocess to release.
         inlayHints: ({ handle, selector, hasOnDidChange }) =>
             this.languageFeatures.inlayHintsProvider.register(selector, {
