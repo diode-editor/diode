@@ -77,6 +77,9 @@ const EMPTY_COMPLETION_RESULT: ICoreCompletionResult = { items: [], isIncomplete
 type LanguageRequestMethod =
     | Exclude<TimedRequestMethod, "workspace.willSaveTextDocument">
     | "languages.executeCodeLensCommand"
+    | "languages.provideCodeLenses"
+    | "languages.resolveCodeLens"
+    | "languages.provideInlayHints"
     | "languages.provideCompletionItems"
     | "languages.provideDocumentSemanticTokens"
     | "languages.provideDocumentRangeSemanticTokens";
@@ -462,7 +465,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
-    /** `null` — no hints, also when there is no subprocess, the document is not synced or the extension timed out. */
+    /** `null` — no hints, also when there is no subprocess, the document is not synced or the token cancelled it. */
     public async provideInlayHints(
         handle: number,
         req: IInlayHintsRequest,
@@ -477,7 +480,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         return wire === null ? null : wireToCoreInlayHints(wire);
     }
 
-    /** `null` — no lenses, also when there is no subprocess, the document is not synced or the extension timed out. */
+    /** `null` — no lenses, also when there is no subprocess, the document is not synced or the token cancelled it. */
     public async provideCodeLenses(
         handle: number,
         req: ICodeLensRequest,

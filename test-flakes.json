@@ -5,14 +5,18 @@
             "file": "e2e/scenarios/quickInputValidation.scenario.ts",
             "test": "quick-input-validation",
             "action": "retry",
-            "platforms": ["win32"],
+            "platforms": [
+                "win32"
+            ],
             "note": "waitUntil(screen text predicate) timed out after 10000ms on windows-latest (run 41255028793, PR #959, whose diff is inlay hints); green on ubuntu and on the rerun"
         },
         {
             "file": "e2e/scenarios/extensionUntitledUri.scenario.ts",
             "test": "extension-untitled-uri",
             "action": "retry",
-            "platforms": ["win32"],
+            "platforms": [
+                "win32"
+            ],
             "note": "waitUntil(screen text predicate) timed out after 10000ms on windows-latest (run 41255028793, PR #959, whose diff is inlay hints); green on ubuntu and on the rerun"
         },
         {
@@ -143,6 +147,12 @@
             "test": "EditorElement — extremely long lines must not freeze > displayLineFor caps the visible long line",
             "action": "retry",
             "note": "wall clock: expected 335.9 to be less than 298.4 in Stryker's dry run, so the mutation job got no verdict (run 41260477522, PR #985)"
+        },
+        {
+            "file": "src/vs/workbench/services/extensions/node/extensionHost.typescriptLsp.projectStatus.test.ts",
+            "test": "ExtensionHost — JS/TS project status from the stock typescript-language-server > No jsconfig → Configure JSConfig → the status names jsconfig.json and the move updates an unopened importer",
+            "action": "retry",
+            "note": "the label already says jsconfig.json while the command is still _typescript.createOrOpenConfig (run 41297584473, PR #1000)"
         }
     ]
 }
