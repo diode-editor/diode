@@ -327,12 +327,12 @@ export const showLensesInCurrentLineAction: CommandAction = {
     async run(accessor) {
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
         if (editor === null) return;
-        const commands = await editor.getCodeLensCommandsAtLine(editor.viewState.primaryCursorLine);
+        const picks = await editor.getCodeLensPicksAtLine(editor.viewState.primaryCursorLine);
         // No empty picker.
-        if (commands.length === 0) return;
+        if (picks.length === 0) return;
         const picked = (await accessor.get(QuickInputServiceDIToken).quickPick({
             placeholder: "Select a command",
-            items: commands.map((command) => ({ label: command.title, command })),
+            items: picks,
         })) as { readonly command: CodeLensCommand } | undefined;
         if (picked === undefined) return;
         await runCodeLensCommand(

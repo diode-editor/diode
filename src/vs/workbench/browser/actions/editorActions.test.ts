@@ -309,11 +309,12 @@ describe("EditorActions — show lenses of the current line", () => {
     const RUN = { id: "cmd.run", title: "Run", arguments: [1] };
 
     function setup(commandsAtLine: readonly CodeLensCommand[], pick: (items: readonly unknown[]) => unknown) {
+        const picks = commandsAtLine.map((command) => ({ label: command.title, command }));
         const { ctrl, editor } = openEditor();
         const lines: number[] = [];
-        vi.spyOn(editor, "getCodeLensCommandsAtLine").mockImplementation((line) => {
+        vi.spyOn(editor, "getCodeLensPicksAtLine").mockImplementation((line) => {
             lines.push(line);
-            return Promise.resolve(commandsAtLine);
+            return Promise.resolve(picks);
         });
         const quickPick = vi.fn((options: { items: readonly unknown[] }) => Promise.resolve(pick(options.items)));
         const commands = new CommandRegistry();

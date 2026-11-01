@@ -39,6 +39,12 @@ export interface ICodeLensOptions {
 
 export const DEFAULT_CODE_LENS_OPTIONS: ICodeLensOptions = { enabled: true, nerdFont: false };
 
+/** A row of the picker: the title as the lens row shows it. */
+export interface ICodeLensPick {
+    readonly label: string;
+    readonly command: CodeLensCommand;
+}
+
 export interface ICodeLensModel extends ICodeLensTarget {
     readonly onDidChangeLanguage: Event<unknown>;
 }
@@ -140,17 +146,18 @@ export class CodeLensController extends Disposable {
     }
 
     /** Lenses of the line with a title to show, after whatever is in flight has answered. */
-    public async getCommandsAtLine(line: number): Promise<readonly CodeLensCommand[]> {
+    public async getPicksAtLine(line: number): Promise<readonly ICodeLensPick[]> {
         await this.providing;
         await this.resolving;
         const document = this.model.document;
-        const commands: CodeLensCommand[] = [];
+        const picks: ICodeLensPick[] = [];
         for (const item of this.items) {
             const command = item.lens.command;
             if (command === undefined || document.getDecorationRange(item.id)?.start.line !== line) continue;
-            if (titleText(command, this.options.nerdFont) !== "") commands.push(command);
+            const label = titleText(command, this.options.nerdFont);
+            if (label !== "") picks.push({ label, command });
         }
-        return commands;
+        return picks;
     }
 
     /** Upstream `_onModelChange`: everything on screen goes, and the providers are asked after the debounce. */

@@ -34,6 +34,7 @@ import {
     CodeLensController,
     DEFAULT_CODE_LENS_OPTIONS,
     type ICodeLensOptions,
+    type ICodeLensPick,
     type ICodeLensViewport,
 } from "../../../../editor/contrib/codelens/browser/codeLensController.ts";
 import {
@@ -440,8 +441,8 @@ export class EditorComponent extends Component {
         this.codeLensController?.setOptions(options);
     }
 
-    public getCodeLensCommandsAtLine(line: number): Promise<readonly CodeLensCommand[]> {
-        return this.codeLensController?.getCommandsAtLine(line) ?? Promise.resolve([]);
+    public getCodeLensPicksAtLine(line: number): Promise<readonly ICodeLensPick[]> {
+        return this.codeLensController?.getPicksAtLine(line) ?? Promise.resolve([]);
     }
 
     private publishInsertions(): void {

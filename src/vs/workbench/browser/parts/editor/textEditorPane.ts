@@ -11,7 +11,6 @@ import type { EditorCursorStyleSetting } from "../../../../editor/common/config/
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
-import type { CodeLensCommand } from "../../../../editor/common/languages/iCodeLensSource.ts";
 import { DEFAULT_ENCODING } from "../../../../editor/common/model/encoding.ts";
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
@@ -19,7 +18,10 @@ import type { IGutterChangeDecoration } from "../../../../editor/common/model/iG
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { ICursorStateComputer } from "../../../../editor/common/viewModel/trackedSelections.ts";
-import type { ICodeLensOptions } from "../../../../editor/contrib/codelens/browser/codeLensController.ts";
+import type {
+    ICodeLensOptions,
+    ICodeLensPick,
+} from "../../../../editor/contrib/codelens/browser/codeLensController.ts";
 import type { IColorDecoratorsOptions } from "../../../../editor/contrib/colorPicker/browser/colorDetector.ts";
 import type { IInlayHintsOptions } from "../../../../editor/contrib/inlayHints/browser/inlayHintsController.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
@@ -388,8 +390,8 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.component.setCodeLens(options);
     }
 
-    public getCodeLensCommandsAtLine(line: number): Promise<readonly CodeLensCommand[]> {
-        return this.component.getCodeLensCommandsAtLine(line);
+    public getCodeLensPicksAtLine(line: number): Promise<readonly ICodeLensPick[]> {
+        return this.component.getCodeLensPicksAtLine(line);
     }
 
     /**

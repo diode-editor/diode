@@ -445,8 +445,8 @@ describe("EditorComponent — code lens", () => {
         const run = command("run");
         providers.register("*", provider([lens(1, run), lens(1, command(""))]));
         const { editor } = await open("alpha\nbravo");
-        await expect(editor.getCodeLensCommandsAtLine(1)).resolves.toEqual([run]);
-        await expect(editor.getCodeLensCommandsAtLine(0)).resolves.toEqual([]);
+        await expect(editor.getCodeLensPicksAtLine(1)).resolves.toEqual([{ label: "run", command: run }]);
+        await expect(editor.getCodeLensPicksAtLine(0)).resolves.toEqual([]);
     });
 
     it("closing the editor disposes the lists", async () => {
