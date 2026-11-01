@@ -461,10 +461,10 @@
 - **Document link seam:** `languages.registerDocumentLinkProvider` — по рецепту реестра (`kind: "documentLink"`,
   `ILanguageFeaturesService.documentLinkProvider`, RPC `languages.provideDocumentLinks` и
   `languages.resolveDocumentLink`, по 5000 мс). Метаданные — `hasResolve`. Ответ — `{cacheId, links: [{id, range,
-  target?, tooltip?}]}`, `target` — `Uri.toString()`; битая запись отбрасывается одна, отказ провайдера — пустой список.
-  Оригиналы ссылок лежат в субпроцессе (`resolveDocumentLink` получает тот же объект): глубина 2 **на пару провайдер +
-  документ**, освобождение вытеснением и снятием провайдера. Общая на провайдера глубина, как у code action, здесь
-  не годится: у каждого видимого редактора свой список, и правка в одном потеряла бы ссылки другого. `tooltip`
+  target?, tooltip?}]}`, `target` — `encodeURI(uri.toString(true))`, как href у опенера эталона (голый `toString()` кодирует `=`, `&`, `@`); битая запись отбрасывается одна, отказ провайдера — пустой список.
+  Оригиналы ссылок лежат в субпроцессе (`resolveDocumentLink` получает тот же объект): глубина 2 **в версиях документа на пару провайдер +
+  документ**, освобождение вытеснением и снятием провайдера. Глубина в списках, как у code action, здесь не годится: у
+  каждого сплита свой список той же версии, и третий вытеснил бы ссылки первого. `tooltip`
   едет, но не показывается (нет hover мышью). Потребитель — `LinkDetector`
   ([Editor.md](Editor.md#editorcontriblinks-ссылки-в-тексте)).
 - **Color seam:** `languages.registerColorProvider` — по рецепту реестра (`kind: "color"`,

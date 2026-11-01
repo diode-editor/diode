@@ -653,10 +653,13 @@ export function serializeDocumentLinks(raw: unknown): {
     return { links, valid };
 }
 
-/** `null` — no target yet, or a `resolveDocumentLink` that did not give one. */
+/**
+ * `null` — no target yet, or a `resolveDocumentLink` that did not give one. As upstream's opener turns a URI into an
+ * href: `toString()` alone would encode the `=`, `&` and `@` a url needs as they are.
+ */
 export function documentLinkTarget(raw: unknown): string | null {
     const target = (raw as { target?: unknown } | null | undefined)?.target;
-    return Uri.isUri(target) ? target.toString() : null;
+    return Uri.isUri(target) ? encodeURI(target.toString(true)) : null;
 }
 
 /** Part fields other than `value` have nothing to draw them yet. `null` is a label upstream calls invalid. */

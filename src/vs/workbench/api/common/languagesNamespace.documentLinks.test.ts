@@ -17,7 +17,7 @@ const PROVIDE = "languages.provideDocumentLinks";
 const RESOLVE = "languages.resolveDocumentLink";
 const WIRE_RANGE = { start: { line: 0, character: 1 }, end: { line: 0, character: 4 } };
 
-function makeCtx(): { stub: IStubRpc; languages: typeof vscode.languages } {
+function makeCtx(): { stub: IStubRpc; languages: typeof vscode.languages; sync: (version: number) => void } {
     const stub = makeStubRpc();
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
@@ -35,7 +35,10 @@ function makeCtx(): { stub: IStubRpc; languages: typeof vscode.languages } {
     });
     ctx.documentSync.open({ uri: URI, languageId: "go", version: 1, text: "import x\n" });
     ctx.documentSync.open({ uri: OTHER_URI, languageId: "go", version: 1, text: "other\n" });
-    return { stub, languages };
+    const sync = (version: number): void => {
+        ctx.documentSync.open({ uri: URI, languageId: "go", version, text: "import x\n" });
+    };
+    return { stub, languages, sync };
 }
 
 function params(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -110,6 +113,14 @@ describe("LanguagesNamespace — registerDocumentLinkProvider", () => {
 
         await stub.callRequest(RESOLVE, { handle: 0, cacheId: list.cacheId, id: 0 });
         expect(resolve.mock.calls[0][0]).toBe(good);
+    });
+
+    it("a target goes over the wire as a url: what it needs literally is not encoded", async () => {
+        const { stub, languages } = makeCtx();
+        const target = "https://a.b/x@v1?k=v&l=a,b#frag";
+        languages.registerDocumentLinkProvider("go", { provideDocumentLinks: () => [link(target)] });
+        const list = (await stub.callRequest(PROVIDE, params())) as { links: { target: string }[] };
+        expect(list.links[0].target).toBe(target);
     });
 
     it("a tooltip that is not a string is not sent", async () => {
@@ -199,13 +210,29 @@ describe("LanguagesNamespace — registerDocumentLinkProvider", () => {
             expect(await stub.callRequest(RESOLVE, null)).toBeNull();
         });
 
-        it("depth 2 per document: the third list evicts the first, the other document's survives", async () => {
+        it("the lists of one version all stay: every split of a document holds its own", async () => {
             const { stub, languages } = makeCtx();
             withResolve(languages, () => link("https://resolved/"));
+            const lists = [
+                (await stub.callRequest(PROVIDE, params())) as IList,
+                (await stub.callRequest(PROVIDE, params())) as IList,
+                (await stub.callRequest(PROVIDE, params())) as IList,
+            ];
+            for (const { cacheId } of lists) {
+                expect(await stub.callRequest(RESOLVE, { handle: 0, cacheId, id: 0 })).toBe("https://resolved/");
+            }
+        });
+
+        it("depth 2 in versions: the third version evicts the first, the other document's survives", async () => {
+            const { stub, languages, sync } = makeCtx();
+            withResolve(languages, () => link("https://resolved/"));
             const other = (await stub.callRequest(PROVIDE, params({ uri: OTHER_URI }))) as IList;
-            const first = (await stub.callRequest(PROVIDE, params())) as IList;
-            const second = (await stub.callRequest(PROVIDE, params())) as IList;
-            const third = (await stub.callRequest(PROVIDE, params())) as IList;
+            sync(1);
+            const first = (await stub.callRequest(PROVIDE, params({ version: 1 }))) as IList;
+            sync(2);
+            const second = (await stub.callRequest(PROVIDE, params({ version: 2 }))) as IList;
+            sync(3);
+            const third = (await stub.callRequest(PROVIDE, params({ version: 3 }))) as IList;
             const ask = (cacheId: number) => stub.callRequest(RESOLVE, { handle: 0, cacheId, id: 0 });
 
             expect(await ask(first.cacheId)).toBeNull();
@@ -215,13 +242,16 @@ describe("LanguagesNamespace — registerDocumentLinkProvider", () => {
         });
 
         it("depth 2 per provider: another provider's lists do not evict these", async () => {
-            const { stub, languages } = makeCtx();
+            const { stub, languages, sync } = makeCtx();
             withResolve(languages, () => link("https://resolved/"));
             withResolve(languages, () => link("https://resolved/"));
             const mine = (await stub.callRequest(PROVIDE, params({ handle: 0 }))) as IList;
-            await stub.callRequest(PROVIDE, params({ handle: 1 }));
-            await stub.callRequest(PROVIDE, params({ handle: 1 }));
-            await stub.callRequest(PROVIDE, params({ handle: 1 }));
+            sync(1);
+            await stub.callRequest(PROVIDE, params({ handle: 1, version: 1 }));
+            sync(2);
+            await stub.callRequest(PROVIDE, params({ handle: 1, version: 2 }));
+            sync(3);
+            await stub.callRequest(PROVIDE, params({ handle: 1, version: 3 }));
             expect(await stub.callRequest(RESOLVE, { handle: 0, cacheId: mine.cacheId, id: 0 })).toBe(
                 "https://resolved/",
             );

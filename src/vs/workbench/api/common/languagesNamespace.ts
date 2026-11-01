@@ -504,19 +504,33 @@ export function createLanguagesNamespace(
         return bucket?.[Number(rawIndex)] ?? null;
     }
 
-    // `resolveDocumentLink` gets THE SAME object the provider returned. Depth is per provider and document: every
-    // visible editor holds its own list, and a depth shared between them would lose the links of the one not edited.
+    // `resolveDocumentLink` gets THE SAME object the provider returned. Depth is in versions of the document, per
+    // provider: every split holds its own list of the same version, and a depth in lists would lose the first split's.
     const documentLinkCache = new Map<
         number,
-        { readonly handle: number; readonly uri: string | undefined; readonly items: readonly unknown[] }
+        {
+            readonly handle: number;
+            readonly uri: string | undefined;
+            readonly version: number | undefined;
+            readonly items: readonly unknown[];
+        }
     >();
 
-    function rememberDocumentLinks(handle: number, uri: string | undefined, items: readonly unknown[]): number {
+    function rememberDocumentLinks(
+        handle: number,
+        uri: string | undefined,
+        version: number | undefined,
+        items: readonly unknown[],
+    ): number {
         const cacheId = nextCacheId++;
-        documentLinkCache.set(cacheId, { handle, uri, items });
+        documentLinkCache.set(cacheId, { handle, uri, version, items });
         const own = [...documentLinkCache].filter(([, bucket]) => bucket.handle === handle && bucket.uri === uri);
-        const excess = own.length - COMPLETION_CACHE_DEPTH;
-        for (const [key] of own.slice(0, excess)) documentLinkCache.delete(key);
+        // Insertion order is version order: an older one never asks after a newer one has.
+        const versions = [...new Set(own.map(([, bucket]) => bucket.version))];
+        const stale = new Set(versions.slice(0, -COMPLETION_CACHE_DEPTH));
+        for (const [key, bucket] of own) {
+            if (stale.has(bucket.version)) documentLinkCache.delete(key);
+        }
         return cacheId;
     }
 
@@ -936,7 +950,7 @@ export function createLanguagesNamespace(
                 reportProviderFailure("provideDocumentLinks", err, reg.owner);
             }
             const { links, valid } = serializeDocumentLinks(result);
-            return { cacheId: rememberDocumentLinks(handle, p.uri, valid), links };
+            return { cacheId: rememberDocumentLinks(handle, p.uri, p.version, valid), links };
         },
     );
 
