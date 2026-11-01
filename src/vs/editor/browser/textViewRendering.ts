@@ -116,7 +116,7 @@ export function buildViewportRows(
 export function forEachRangeCell(
     range: IRange,
     geo: ITextViewportGeometry,
-    visit: (screenX: number, screenY: number) => void,
+    visit: (screenX: number, screenY: number, column: number, row: TextViewportRow) => void,
 ): void {
     const rows = geo.rows;
     const first = findFirstIdxMonotonousOrArrLen(rows, (row) => row.logLine >= range.start.line);
@@ -142,9 +142,24 @@ export function forEachRangeCell(
         const screenXEnd = Math.min(geo.contentCols, endCol - geo.scrollLeft);
 
         for (let screenX = screenXStart; screenX < screenXEnd; screenX++) {
-            visit(geo.gutterW + screenX, row.screenY);
+            visit(geo.gutterW + screenX, row.screenY, screenX + geo.scrollLeft + fragStartCol, row);
         }
     }
+}
+
+/** Whether a display column of the composed line belongs to an insertion that keeps its own background. */
+function isOutsideRangeBackgrounds(geo: ITextViewportGeometry, row: TextViewportRow, column: number): boolean {
+    let shift = 0;
+    for (const insertion of geo.insertions.get(row.logLine) ?? []) {
+        const start = insertion.offset + shift;
+        shift += insertion.text.length;
+        if (insertion.outsideRangeBackgrounds !== true) continue;
+        const end = start + insertion.text.length;
+        if (column >= row.displayLine.offsetToColumn(start) && column < row.displayLine.offsetToColumn(end)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /** Only `bg`: the glyph and fg under the highlight are kept. */
@@ -154,8 +169,8 @@ export function paintRangeBackground(
     bg: number,
     geo: ITextViewportGeometry,
 ): void {
-    forEachRangeCell(range, geo, (screenX, screenY) => {
-        context.setCell(screenX, screenY, { bg });
+    forEachRangeCell(range, geo, (screenX, screenY, column, row) => {
+        if (!isOutsideRangeBackgrounds(geo, row, column)) context.setCell(screenX, screenY, { bg });
     });
 }
 
@@ -213,6 +228,8 @@ export interface IPaintTextLineInsertion {
     readonly offset: number;
     readonly length: number;
     readonly fg: number;
+    /** Already composited; absent — the line's background. */
+    readonly bg?: number;
     readonly style: number;
 }
 
@@ -275,6 +292,7 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
         const insertion = next < insertions.length ? insertions[next] : undefined;
         if (insertion !== undefined && slot.offset >= insertion.offset + shift) {
             fg = insertion.fg;
+            bg = insertion.bg ?? bg;
             style = insertion.style;
         } else {
             const offset = slot.offset - shift;

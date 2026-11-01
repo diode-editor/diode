@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { createTestConfigurationService } from "../../../../TestUtils/testConfigurationService.ts";
@@ -50,6 +50,7 @@ import {
     cursorWordRightSelectAction,
     scrollLineDownAction,
     scrollLineUpAction,
+    toggleInlayHintsAction,
     toggleWordWrapAction,
 } from "./editorActions.ts";
 
@@ -267,6 +268,24 @@ describe("EditorActions — View: Toggle Word Wrap", () => {
     });
 });
 
+describe("EditorActions — toggle inlay hints", () => {
+    it("command metadata: our id, the palette title, focus gate, no default key", () => {
+        expect(toggleInlayHintsAction.id).toBe("diode.editor.inlayHints.toggle");
+        expect(toggleInlayHintsAction.title).toBe("Toggle Inlay Hints");
+        expect(toggleInlayHintsAction.when).toBe("textInputFocus");
+        expect(toggleInlayHintsAction.keybinding).toBeUndefined();
+    });
+
+    it("hides the hints of the active editor and shows them back", () => {
+        const { editor, exec } = openEditor();
+        const spy = vi.spyOn(editor, "setInlayHints");
+        exec(toggleInlayHintsAction);
+        expect(spy.mock.lastCall?.[0].enabled).toBe(false);
+        exec(toggleInlayHintsAction);
+        expect(spy.mock.lastCall?.[0].enabled).toBe(true);
+    });
+});
+
 describe("EditorActions — no active editor is a safe no-op", () => {
     it("does not throw when the group has no open editor", () => {
         const ctrl = createGroup();
@@ -274,7 +293,7 @@ describe("EditorActions — no active editor is a safe no-op", () => {
         const keybindings = new KeybindingRegistry();
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => ctrl);
-        for (const action of [cursorRightAction, cursorLineStartAction, cursorLineEndAction]) {
+        for (const action of [cursorRightAction, cursorLineStartAction, cursorLineEndAction, toggleInlayHintsAction]) {
             registerAction(commands, keybindings, accessor, action);
             expect(() => commands.execute(action.id)).not.toThrow();
         }

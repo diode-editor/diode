@@ -47,6 +47,9 @@ function inRange(schema: IConfigurationPropertySchema, value: number): boolean {
  * string) — upstream `EditorIntOption.clampedInt` clamps it into the range and truncates.
  */
 function fixedValue(schema: IConfigurationPropertySchema, value: unknown): unknown {
+    if (typeof value === "boolean" && schema.booleanEquivalents !== undefined) {
+        return value ? schema.booleanEquivalents.true : schema.booleanEquivalents.false;
+    }
     if (schema.type !== "integer") return schema.default;
     const parsed = typeof value === "string" ? parseInt(value, 10) : value;
     if (!isFiniteNumber(parsed)) return schema.default;

@@ -302,3 +302,14 @@ export const toggleWordWrapAction: CommandAction = {
         accessor.get(EditorServiceDIToken).editorConfiguration.toggleWordWrap();
     },
 };
+
+/** Our command: upstream holds Ctrl+Alt instead, and a terminal does not report key releases. No default key. */
+export const toggleInlayHintsAction: CommandAction = {
+    id: "diode.editor.inlayHints.toggle",
+    title: "Toggle Inlay Hints",
+    when: "textInputFocus",
+    run(accessor) {
+        const editors = accessor.get(EditorServiceDIToken);
+        editors.editorConfiguration.toggleInlayHints(editors.getActiveEditor()?.languageId);
+    },
+};
