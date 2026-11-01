@@ -158,6 +158,7 @@ export async function registerAndActivate(host: ExtensionHost, reg: IExtensionRe
     return disposable;
 }
 import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
+import { attachKeyboardInputHold } from "../vs/workbench/services/keybinding/browser/keyboardInputHold.ts";
 import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../vs/workbench/services/themes/common/themeService.ts";
 
@@ -369,6 +370,8 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     }
 
     const app = TestApp.createWithContent(groupComponent.view);
+    // The workbench attaches it to its root; the harness has no workbench, and keys must wait here too.
+    attachKeyboardInputHold(groupComponent.view, commandRegistry);
 
     const flushRpc = async (turns = 2): Promise<void> => {
         for (let i = 0; i < turns; i++) {

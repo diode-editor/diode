@@ -447,6 +447,32 @@ declare module "vscode" {
 		}): Thenable<boolean>;
 
 		/**
+		 * Insert a {@link SnippetString snippet} and put the editor into snippet mode. "Snippet mode"
+		 * means the editor adds placeholders and additional cursors so that the user can complete
+		 * or accept the snippet.
+		 *
+		 * @param snippet The snippet to insert in this edit.
+		 * @param location Position or range at which to insert the snippet, defaults to the current editor selection or selections.
+		 * @param options The undo/redo behavior around this edit. By default, undo stops will be created before and after this edit.
+		 * @returns A promise that resolves with a value indicating if the snippet could be inserted. Note that the promise does not signal
+		 * that the snippet is completely filled-in or accepted.
+		 */
+		insertSnippet(snippet: SnippetString, location?: Position | Range | readonly Position[] | readonly Range[], options?: {
+			/**
+			 * Add undo stop before making the edits.
+			 */
+			readonly undoStopBefore: boolean;
+			/**
+			 * Add undo stop after making the edits.
+			 */
+			readonly undoStopAfter: boolean;
+			/**
+			 * Keep whitespace of the {@link SnippetString.value} as is.
+			 */
+			readonly keepWhitespace?: boolean;
+		}): Thenable<boolean>;
+
+		/**
 		 * Adds a set of decorations to the text editor. If a set of decorations already exists with
 		 * the given {@link TextEditorDecorationType decoration type}, they will be replaced. If
 		 * `rangesOrOptions` is empty, the existing decorations with the given {@link TextEditorDecorationType decoration type}

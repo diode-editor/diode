@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 136 |
+| test | 137 |
 | confirmed by a real extension | 37 |
 | used by a surveyed extension | 583 |
 
@@ -35,7 +35,7 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `window.withProgress` | B | 124 | 944,816,089 | cancellation token never fires, location is ignored |
 | `workspace.onDidChangeWorkspaceFolders` | B | 109 | 884,612,940 | never fires |
 | `workspace.openTextDocument` | B | 104 | 814,693,192 | A file is a live model without a tab; an explicit encoding decodes a separate read until the encodings cluster. untitled: uris as upstream, except that a relative or host uri has no path to write to: Ctrl+S asks through Save As, TextDocument.save gives false. |
-| `SnippetString` | C | 95 | 736,241,729 | needs a snippet session |
+| `SnippetString` | C | 95 | 736,241,729 | text and caret only; snippet mode needs a snippet session |
 | `SymbolKind.Property` | B | 81 | 684,369,652 | the provider is never called |
 | `DocumentLink` | C | 84 | 647,723,130 | the provider is never called; needs new graphics |
 | `SymbolInformation` | B | 84 | 635,989,694 | the provider is never called |
@@ -81,7 +81,7 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `debug.onDidTerminateDebugSession` | C | 27 | 402,897,992 | needs a debugger |
 | `TabInputNotebook` | X | 34 | 346,368,003 | notebook |
 | `debug.registerDebugConfigurationProvider` | C | 24 | 341,511,617 | needs a debugger |
-| `SnippetTextEdit` | C | 29 | 313,879,605 | needs a snippet session |
+| `SnippetTextEdit` | C | 29 | 313,879,605 | text and caret only; snippet mode needs a snippet session |
 | `debug.onDidStartDebugSession` | C | 21 | 282,985,515 | needs a debugger |
 | `debug.activeDebugSession` | C | 21 | 280,309,222 | needs a debugger |
 | `debug.registerDebugAdapterDescriptorFactory` | C | 16 | 275,810,190 | needs a debugger |
@@ -2253,7 +2253,7 @@ Proposed API or a false hit: class X when real.
 | `TextEditor.document` | ok |  | 0 | 0 |  |
 | `TextEditor.edit` | ok | yes | 0 | 0 |  |
 | `TextEditor.hide` | B |  | 0 | 0 |  |
-| `TextEditor.insertSnippet` | C |  | 0 | 0 |  |
+| `TextEditor.insertSnippet` | C | yes | 0 | 0 |  |
 | `TextEditor.options` | ok | yes | 0 | 0 |  |
 | `TextEditor.revealRange` | ok | yes | 0 | 0 |  |
 | `TextEditor.selection` | ok | yes | 0 | 0 |  |
