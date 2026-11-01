@@ -1,5 +1,5 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
@@ -66,6 +66,22 @@ describe("EditorOptionsServiceAdapter: addressing by group", () => {
         expect(pane instanceof TextEditorPane).toBe(true);
         return pane as TextEditorPane;
     }
+
+    it("revealEditorRange clamps the range to the document; an editor that is gone is a no-op", () => {
+        service.openFile(ws.path("a.ts"));
+        const view = editorAt(0, 0).viewState;
+        const reveal = vi.spyOn(view, "revealRangeByType");
+        const groupId = service.editorGroups.groups[0].id;
+        const uri = Uri.file(ws.path("a.ts")).toString();
+        const range = { start: { line: 1, character: 99 }, end: { line: 99, character: 0 } };
+
+        adapter.revealEditorRange(Uri.file(ws.path("b.ts")).toString(), groupId, range, "top");
+        expect(reveal).not.toHaveBeenCalled();
+
+        adapter.revealEditorRange(uri, groupId, range, "top");
+        const clamped = { start: { line: 1, character: 4 }, end: { line: 1, character: 0 } };
+        expect(reveal).toHaveBeenCalledWith(clamped, "top");
+    });
 
     it("setActiveEditorSelections with groupId sets the selection on THAT group's view (AS-10)", () => {
         service.openFile(ws.path("a.ts"));

@@ -3,6 +3,7 @@ import {
     cursorStyleFromApi,
     type EditorCursorStyleSetting,
 } from "../../../../../editor/common/config/editorCursorStyle.ts";
+import type { RangeRevealType } from "../../../../../editor/common/viewModel/editorViewState.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IEditorLayoutService } from "../../../../api/common/iEditorLayoutService.ts";
 import type {
@@ -13,6 +14,7 @@ import type {
 import {
     type IWireSaveResult,
     type IWireShowTextDocumentResult,
+    parseRange,
     parseWireSelections,
 } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
@@ -24,6 +26,14 @@ import {
     parseWireEditorEdits,
     parseWireShowTextDocumentParams,
 } from "../hostWireParsers.ts";
+
+/** By the value of `vscode.TextEditorRevealType`. */
+const REVEAL_TYPES: ReadonlyMap<unknown, RangeRevealType> = new Map<unknown, RangeRevealType>([
+    [0, "default"],
+    [1, "center"],
+    [2, "centerIfOutsideViewport"],
+    [3, "top"],
+]);
 
 export class EditorCustomer implements IExtensionHostCustomer {
     private rpc: HostRpc | null = null;
@@ -71,6 +81,18 @@ export class EditorCustomer implements IExtensionHostCustomer {
                     parseWireSelections(p.selections),
                     typeof p.groupId === "number" ? p.groupId : undefined,
                 );
+            }),
+        );
+        // Arrives after the edits the extension awaited, and the range is clamped against their result.
+        store.add(
+            rpc.handleNotification("editor.revealRange", (params): void => {
+                const p: { uri?: unknown; groupId?: unknown; range?: unknown; revealType?: unknown } = params;
+                const range = parseRange(p.range);
+                const revealType = REVEAL_TYPES.get(p.revealType);
+                // Upstream `MainThreadTextEditor.revealRange` ignores an unknown type too.
+                if (typeof p.uri !== "string" || typeof p.groupId !== "number" || range === null) return;
+                if (revealType === undefined) return;
+                this.editorOptions.revealEditorRange(p.uri, p.groupId, range, revealType);
             }),
         );
         store.add(

@@ -115,12 +115,13 @@ export function resolveLanguageConfiguration(raw: ILanguageConfiguration): IReso
 function toRegExp(value: string | IRegExpDefinition | null | undefined): RegExp | undefined {
     const definition = typeof value === "string" ? { pattern: value } : value;
     if (typeof definition?.pattern !== "string") return undefined;
+    // Stryker disable BlockStatement: an empty catch returns undefined as well
     try {
         return new RegExp(definition.pattern, definition.flags);
-        // Stryker disable next-line BlockStatement: an empty catch returns undefined as well
     } catch {
         return undefined;
     }
+    // Stryker restore BlockStatement
 }
 
 /** As upstream `_extractValidOnEnterRules`: a broken `beforeText` or `indent` drops the rule, a broken optional regex only itself. */

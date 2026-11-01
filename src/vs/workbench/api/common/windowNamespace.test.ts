@@ -6,6 +6,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
+import { TextEditorRevealType } from "./textEditorRevealType.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
     EventEmitter,
@@ -718,6 +719,27 @@ describe("WindowNamespace — editor write (#194)", () => {
 
         expect(editor.document.isClosed).toBe(false);
         await expect(editor.edit(() => undefined)).rejects.toThrow("TextEditor#edit not possible on closed editors");
+    });
+
+    it("[api:TextEditor.revealRange] sends the range and type; no type means Default", () => {
+        const { stub, editor } = activeEditor();
+        const range = new Range(1, 2, 3, 4);
+        editor.revealRange(range, TextEditorRevealType.AtTop);
+        editor.revealRange(range);
+        const sent = stub.notifies.filter((n) => n.method === "editor.revealRange").map((n) => n.params);
+        const wire = { start: { line: 1, character: 2 }, end: { line: 3, character: 4 } };
+        expect(sent).toEqual([
+            { uri: URI, groupId: 1, range: wire, revealType: 3 },
+            { uri: URI, groupId: 1, range: wire, revealType: 0 },
+        ]);
+    });
+
+    it("[api:TextEditor.revealRange] on a closed editor or with a broken range sends nothing and does not throw", () => {
+        const { stub, editor } = activeEditor();
+        editor.revealRange(undefined as unknown as Range);
+        stub.fire("editor.layoutChanged", { groups: [] });
+        editor.revealRange(new Range(1, 0, 1, 0));
+        expect(stub.notifies.filter((n) => n.method === "editor.revealRange")).toEqual([]);
     });
 
     it("editor.edit without edits resolves true without RPC", async () => {
