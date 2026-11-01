@@ -32,14 +32,18 @@ describe("TextEditorPaneBuilder — inlay hints", () => {
         return { builder, provideInlayHints };
     }
 
-    it("a file editor asks the providers", () => {
+    /** The first request leaves on a zero timer: the pane is built before its document is synced. */
+    const firstRequest = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+    it("a file editor asks the providers", async () => {
         const { builder, provideInlayHints } = setup();
         const pane = builder.build(new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService()));
+        await firstRequest();
         expect(provideInlayHints).toHaveBeenCalledOnce();
         pane.dispose();
     });
 
-    it("a panel or a virtual document (a synthetic model) does not", () => {
+    it("a panel or a virtual document (a synthetic model) does not", async () => {
         const { builder, provideInlayHints } = setup();
         const model = new SyntheticTextModel(
             NULL_LANGUAGE_SERVICE,
@@ -48,6 +52,7 @@ describe("TextEditorPaneBuilder — inlay hints", () => {
             "plaintext",
         );
         const pane = builder.build(model);
+        await firstRequest();
         expect(provideInlayHints).not.toHaveBeenCalled();
         pane.dispose();
     });

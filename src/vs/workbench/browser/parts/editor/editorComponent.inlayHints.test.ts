@@ -483,6 +483,19 @@ describe("EditorComponent — inlay hints", () => {
         const lines = (count: number): string =>
             Array.from({ length: count }, (_, i) => `line ${String(i)}`).join("\n");
 
+        it("does not ask while the pane is being built: the document reaches the subprocess only after that", async () => {
+            const p = recording();
+            providers.register("*", p.value);
+            const pane = createEditorPane({
+                inlayHintsProviders: providers,
+                file: Uri.file(ws.writeFile("a.ts", lines(3))),
+            });
+            expect(p.ranges).toEqual([]);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(p.ranges.length).toBe(1);
+            pane.dispose();
+        });
+
         it("asks for the visible lines plus a viewport above and below", async () => {
             const p = recording();
             providers.register("*", p.value);

@@ -87,18 +87,41 @@ describe("ConfigurationRegistry — extension settings", () => {
 
         expect(registry.getDefaultConfiguration()).toEqual({
             editor: { tabSize: 4, insertSpaces: true },
-            ruff: { importStrategy: "fromEnvironment" },
+            ruff: { importStrategy: "fromEnvironment", path: null },
         });
         expect(registry.getExtensionConfigurationProperties().get("ruff.importStrategy")).toEqual({
             default: "fromEnvironment",
             scope: "resource",
             extensionId: "acme.ruff",
         });
-        // A key without a default is known but stays out of the defaults tree (not even
-        // as an `undefined` value: toEqual would not tell them apart).
         expect(registry.getExtensionConfigurationProperties().has("ruff.path")).toBe(true);
-        expect(Object.keys(registry.getDefaultConfiguration().ruff as object)).toEqual(["importStrategy"]);
         expect(registry.getConfigurationProperties().has("ruff.importStrategy")).toBe(false);
+    });
+
+    it.each([
+        ["boolean", false],
+        ["integer", 0],
+        ["number", 0],
+        ["string", ""],
+        ["array", []],
+        ["object", {}],
+        ["null", null],
+        [undefined, null],
+        [["object", "string"], {}],
+        [["string", "object"], ""],
+    ])("a key of type %j without a default reads %j, as upstream", (type, expected) => {
+        const registry = new ConfigurationRegistry();
+        registry.registerExtensionConfiguration("a.b", { key: { type } });
+        expect(registry.getDefaultConfiguration().key).toEqual(expected);
+    });
+
+    it("an explicit default wins over the type's: null and falsy values stay", () => {
+        const registry = new ConfigurationRegistry();
+        registry.registerExtensionConfiguration("a.b", {
+            nothing: { type: "object", default: null },
+            off: { type: "object", default: false },
+        });
+        expect(registry.getDefaultConfiguration()).toEqual({ nothing: null, off: false });
     });
 
     it.each([

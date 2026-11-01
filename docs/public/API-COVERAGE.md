@@ -273,7 +273,7 @@ Adapter Protocol is planned, see [status](STATUS.md)).
 | member | status | comment |
 | --- | :-: | --- |
 | `registerDebugConfigurationProvider`, `registerDebugAdapterDescriptorFactory`, `registerDebugAdapterTrackerFactory` | 🟡 | a `Disposable`; providers and factories are never called; one line per debugger type in Output |
-| `startDebugging` / `stopDebugging` | 🟡 | `false` (one line in Output) / resolves |
+| `startDebugging` / `stopDebugging` | 🟡 | `false` (a warning toast per attempt, one line in Output) / resolves |
 | `activeDebugSession`, `activeStackItem`, `breakpoints`, `activeDebugConsole` | 🟡 | `undefined` / `undefined` / empty / a console whose output is not shown |
 | `onDidChangeActiveDebugSession`, `onDidStartDebugSession`, `onDidReceiveDebugSessionCustomEvent`, `onDidTerminateDebugSession`, `onDidChangeBreakpoints`, `onDidChangeActiveStackItem` | 🟡 | valid events that never fire |
 | `addBreakpoints`, `removeBreakpoints` | 🟡 | no-op |

@@ -134,7 +134,8 @@ describe("ConfigurationService — workspace layer", () => {
 
             expect(cfg.get("terminal.tier")).toBe("legacy");
             expect(cfg.get("update.mode")).toBe("default");
-            expect(cfg.get("java.secret")).toBeUndefined();
+            // The manifest has no type and no default: its default is null, as upstream, not the workspace's value.
+            expect(cfg.get("java.secret")).toBeNull();
             expect(cfg.inspect("terminal.tier").workspace).toBeUndefined();
             expect(cfg.get("java.home")).toBe("/jdk");
             expect(cfg.get("unknown.key")).toBe(1);
