@@ -159,7 +159,7 @@ extension terminals and tree views work; webview is the ceiling.
 
 | member | status | comment |
 | --- | :-: | --- |
-| `registerCommand` | ✅ | |
+| `registerCommand` | ✅ | **Deviation:** registering an id the extension host already has does not throw `already exists`: the later registration wins, and disposing it brings the earlier one back. |
 | `executeCommand` | ✅ | the editor's built-in commands and `setContext` (settings are readable in when clauses as `config.<key>`, as in VS Code); of the API commands, `vscode.open` (a `Uri` opens a tab with column/options like `showTextDocument`; http(s) opens externally like `env.openExternal`) |
 | Commands `type`, `default:type` | 🟡 | `{ text }` goes to the focused editor as if typed: every cursor, selection replaced, auto-close, indent, `onEnterRules`, suggest triggers; without a focused editor or `text`, nothing happens. An extension can override `type` with `registerCommand`, and `executeCommand("type")` reaches it. **Deviation:** key presses do not go through an overridden `type`, so vim-style extensions cannot intercept typing. A selection change it causes in an extension's call reads as `Command`, not `Keyboard`. |
 | `registerTextEditorCommand` | ✅ | a real edit builder: edits apply after the callback, as one undo step, and an async result does not delay them; without an active editor: a warning and no-op, as in VS Code |
