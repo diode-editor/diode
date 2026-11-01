@@ -1,4 +1,3 @@
-import { CallHierarchyIncomingCall, CallHierarchyOutgoingCall } from "./vscodeCallHierarchyTypes.ts";
 import { randomUUID } from "node:crypto";
 
 import type * as vscode from "vscode";
@@ -51,6 +50,7 @@ import {
 } from "./testingTypes.ts";
 import { createTestsNoop } from "./testsNoop.ts";
 import { TextEditorRevealType } from "./textEditorRevealType.ts";
+import { CallHierarchyIncomingCall, CallHierarchyOutgoingCall } from "./vscodeCallHierarchyTypes.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { VSCODE_SHIM_VERSION } from "./vscodeShimVersion.ts";
 import {

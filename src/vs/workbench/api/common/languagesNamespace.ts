@@ -665,7 +665,7 @@ export function createLanguagesNamespace(
             const reg = callHierarchyProviders.get(p.handle ?? -1);
             if (reg === undefined) return [];
             try {
-                const { sessionId, item } = reg.sessions.item(p.sessionId, p.itemId);
+                const { sessionId, item } = reg.sessions.item(p.sessionId ?? -1, p.itemId ?? -1);
                 const result: unknown = await callWithVscodeToken(cancellation, (token) =>
                     reg.provider.provideCallHierarchyIncomingCalls(item, token),
                 );
@@ -684,7 +684,7 @@ export function createLanguagesNamespace(
             const reg = callHierarchyProviders.get(p.handle ?? -1);
             if (reg === undefined) return [];
             try {
-                const { sessionId, item } = reg.sessions.item(p.sessionId, p.itemId);
+                const { sessionId, item } = reg.sessions.item(p.sessionId ?? -1, p.itemId ?? -1);
                 const result: unknown = await callWithVscodeToken(cancellation, (token) =>
                     reg.provider.provideCallHierarchyOutgoingCalls(item, token),
                 );
@@ -698,7 +698,7 @@ export function createLanguagesNamespace(
 
     rpc.handleNotification("languages.releaseCallHierarchy", (params) => {
         const p = (params as Partial<IWireReleaseCallHierarchy> | null | undefined) ?? {};
-        callHierarchyProviders.get(p.handle ?? -1)?.sessions.release(p.sessionId);
+        callHierarchyProviders.get(p.handle ?? -1)?.sessions.release(p.sessionId ?? -1);
     });
 
     rpc.handleRequest(

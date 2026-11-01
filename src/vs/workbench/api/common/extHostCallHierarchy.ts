@@ -27,7 +27,7 @@ export class CallHierarchySessions {
     private nextItemId = 1;
 
     public prepare(raw: unknown): ICallHierarchySession | null {
-        const list = raw === null || raw === undefined ? [] : Array.isArray(raw) ? (raw as unknown[]) : [raw];
+        const list = Array.isArray(raw) ? (raw as unknown[]) : [raw];
         const sessionId = this.nextSessionId;
         const items: ICallHierarchyItem[] = [];
         const cache = new Map<number, unknown>();
@@ -36,16 +36,16 @@ export class CallHierarchySessions {
             if (wire !== null) items.push(wire);
         }
         if (items.length === 0) return null;
+        // Stryker disable next-line UpdateOperator: any step gives distinct ids
         this.nextSessionId++;
         this.sessions.set(sessionId, cache);
         return { sessionId, items };
     }
 
     /** @throws for a released session or an unknown item, as upstream: the caller reports it to the extension's log. */
-    public item(sessionId: number | undefined, itemId: number | undefined): IResolvedItem {
-        const session = sessionId === undefined ? undefined : this.sessions.get(sessionId);
-        const item = itemId === undefined ? undefined : session?.get(itemId);
-        if (sessionId === undefined || item === undefined) throw new Error("missing call hierarchy item");
+    public item(sessionId: number, itemId: number): IResolvedItem {
+        const item = this.sessions.get(sessionId)?.get(itemId);
+        if (item === undefined) throw new Error("missing call hierarchy item");
         return { sessionId, item: item as vscode.CallHierarchyItem };
     }
 
@@ -57,8 +57,8 @@ export class CallHierarchySessions {
         return this.calls(sessionId, raw, "to", (to, fromRanges) => ({ to, fromRanges }));
     }
 
-    public release(sessionId: number | undefined): void {
-        if (sessionId !== undefined) this.sessions.delete(sessionId);
+    public release(sessionId: number): void {
+        this.sessions.delete(sessionId);
     }
 
     private calls<T>(
@@ -83,6 +83,7 @@ export class CallHierarchySessions {
     private remember(cache: Map<number, unknown>, raw: unknown): ICallHierarchyItem | null {
         const wire = serializeItem(raw, this.nextItemId);
         if (wire === null) return null;
+        // Stryker disable next-line UpdateOperator: any step gives distinct ids
         this.nextItemId++;
         cache.set(wire.itemId, raw);
         return wire;

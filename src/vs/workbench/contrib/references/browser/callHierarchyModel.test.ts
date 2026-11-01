@@ -72,7 +72,7 @@ describe("CallsModel", () => {
 
 describe("callNodeTarget", () => {
     const node = { item: item(1, "x", "file:///a.ts", 4) };
-    const ranges = [createRange(8, 1, 8, 2), createRange(6, 9, 6, 10), createRange(6, 2, 6, 3)];
+    const ranges = [createRange(8, 1, 8, 2), createRange(6, 2, 6, 3), createRange(6, 9, 6, 10)];
 
     it("outgoing opens the target's name, whatever the call ranges", () => {
         expect(callNodeTarget("outgoing", { ...node, fromRanges: ranges })).toEqual({ line: 4, character: 4 });
@@ -106,7 +106,7 @@ describe("CallHierarchyTreeProvider", () => {
         for (let kind = 0; kind <= 25; kind++) {
             expect(provider.getTreeItem({ item: { ...item(1, "x"), kind } }).icon, `kind ${String(kind)}`).toBeTruthy();
         }
-        expect(provider.getTreeItem({ item: { ...item(1, "x"), kind: 99 } })).toEqual({
+        expect(provider.getTreeItem({ item: { ...item(1, "x"), kind: 99 } })).toStrictEqual({
             label: "x",
             collapsible: true,
         });

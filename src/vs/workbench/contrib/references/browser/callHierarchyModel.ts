@@ -54,6 +54,7 @@ export interface ICallNode {
 }
 
 function compareNodes(a: ICallNode, b: ICallNode): number {
+    // Stryker disable next-line EqualityOperator: the uris are different here, `<` and `<=` agree
     if (a.item.uri !== b.item.uri) return a.item.uri < b.item.uri ? -1 : 1;
     return comparePositions(a.item.range.start, b.item.range.start);
 }
@@ -101,7 +102,9 @@ export function callNodeTarget(direction: CallHierarchyMode, node: ICallNode): I
     const start = node.item.selectionRange.start;
     if (direction === "outgoing") return start;
     let first: IPosition | undefined;
+    // Stryker disable next-line ArrayDeclaration: a junk element has no `start`, so `first` stays empty just the same
     for (const range of node.fromRanges ?? []) {
+        // Stryker disable next-line EqualityOperator: equal positions are the same answer
         if (first === undefined || comparePositions(range.start, first) < 0) first = range.start;
     }
     return first ?? start;
@@ -118,6 +121,7 @@ export class CallHierarchyTreeProvider implements ITreeDataProvider<ICallNode> {
 
     public setModel(model: CallsModel | null): void {
         this.model = model;
+        // Stryker disable next-line UpdateOperator: any step gives new keys
         this.generation++;
     }
 

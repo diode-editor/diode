@@ -76,8 +76,12 @@ function setup(provider: CallHierarchyProvider = makeProvider(), stored = new Ma
         },
     } as IStateService;
     const toasts: string[] = [];
+    const toastOptions: unknown[] = [];
     const notifications = {
-        show: ({ message }: { message: string }) => toasts.push(message),
+        show: (toast: { message: string }) => {
+            toasts.push(toast.message);
+            toastOptions.push(toast);
+        },
     } as unknown as NotificationService;
     const component = new CallHierarchyComponent(
         views.service,
@@ -96,7 +100,20 @@ function setup(provider: CallHierarchyProvider = makeProvider(), stored = new Ma
     const key = (name: "callHierarchyMode" | "callHierarchyVisible"): unknown => views.contextKeys.get(name);
     /** The sections of the container, as the frame builds them. */
     const sections = (): readonly string[] => views.paneView(REFERENCES_VIEWLET_ID).getPaneIds();
-    return { views, component, references, provider, opened, positions, toasts, frame, key, stored, sections };
+    return {
+        views,
+        component,
+        references,
+        provider,
+        opened,
+        positions,
+        toasts,
+        toastOptions,
+        frame,
+        key,
+        stored,
+        sections,
+    };
 }
 
 describe("CallHierarchyComponent", () => {
@@ -117,6 +134,21 @@ describe("CallHierarchyComponent", () => {
         expect(key("callHierarchyMode")).toBe("incoming");
     });
 
+    it("the tree takes the focus, is styled as the sidebar and starts one column in", async () => {
+        const { component, frame } = setup();
+        const focus = vi.spyOn(component.tree, "focus");
+        await component.show();
+        expect(focus).toHaveBeenCalled();
+        expect(component.tree.id).toBe("callHierarchyTree");
+        expect(component.view.id).toBe("callHierarchyView");
+        expect(component.view.style).toEqual({ fg: "sideBar.foreground", bg: "sideBar.background" });
+        expect(frame()).not.toContain("No results.");
+        const rootRow = frame()
+            .split("\n")
+            .find((row) => row.includes("root") && !row.includes("Callers"));
+        expect(rootRow?.startsWith(" ")).toBe(true);
+    });
+
     it("the section replaces the list of references in the container", async () => {
         const { component, sections } = setup();
         expect(sections()).toEqual([REFERENCES_VIEW_ID]);
@@ -125,9 +157,10 @@ describe("CallHierarchyComponent", () => {
     });
 
     it("nothing at the caret: a toast, no section, no session to release", async () => {
-        const { component, provider, toasts, sections, key } = setup(makeProvider(null));
+        const { component, provider, toasts, toastOptions, sections, key } = setup(makeProvider(null));
         await component.show();
         expect(toasts).toEqual(["No results"]);
+        expect(toastOptions).toEqual([{ severity: "info", message: "No results", modal: false, items: [] }]);
         expect(sections()).toEqual([REFERENCES_VIEW_ID]);
         expect(key("callHierarchyVisible")).not.toBe(true);
         expect(provider.releaseCallHierarchy).not.toHaveBeenCalled();
@@ -153,6 +186,55 @@ describe("CallHierarchyComponent", () => {
         await component.show();
         expect(frame()).toContain("No results.");
         expect(component.tree.getSelectedNode()?.item.name).toBe("root");
+    });
+
+    it("the message goes away when the switched tree has rows", async () => {
+        const provider = makeProvider();
+        provider.provideIncomingCalls = vi.fn(() => Promise.resolve([]));
+        const { component, frame } = setup(provider);
+        await component.show();
+        expect(frame()).toContain("No results.");
+        await component.setDirection("outgoing");
+        expect(frame()).not.toContain("No results.");
+        expect(frame()).toContain("callee");
+    });
+
+    it("a late empty answer of the replaced tree says nothing about the new one", async () => {
+        const provider = makeProvider();
+        let answer: () => void = () => undefined;
+        provider.provideIncomingCalls = vi.fn(
+            () =>
+                new Promise((resolve) => {
+                    answer = () => {
+                        resolve([]);
+                    };
+                }),
+        ) as CallHierarchyProvider["provideIncomingCalls"];
+        const { component, frame } = setup(provider);
+        const showing = component.show();
+        await waitUntil("children requested", () => vi.mocked(provider.provideIncomingCalls).mock.calls.length > 0);
+        await component.setDirection("outgoing");
+        answer();
+        await showing;
+        expect(frame()).toContain("callee");
+        expect(frame()).not.toContain("No results.");
+    });
+
+    it("an answer arriving after dispose is released", async () => {
+        const provider = makeProvider();
+        let answer: (session: ICallHierarchySession) => void = () => undefined;
+        provider.prepareCallHierarchy = vi.fn(
+            () =>
+                new Promise<ICallHierarchySession>((resolve) => {
+                    answer = resolve;
+                }),
+        );
+        const { component } = setup(provider);
+        const showing = component.show();
+        component.dispose();
+        answer({ sessionId: 78, items: [ROOT] });
+        await showing;
+        expect(provider.releaseCallHierarchy).toHaveBeenCalledWith(78);
     });
 
     it("several roots without children stay without a message", async () => {

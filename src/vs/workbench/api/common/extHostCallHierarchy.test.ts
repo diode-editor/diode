@@ -30,6 +30,7 @@ describe("CallHierarchySessions", () => {
             range: RANGE,
             selectionRange: RANGE,
         });
+        expect(sessions.prepare(raw("odd", { detail: 5 }))?.items[0]).not.toHaveProperty("detail");
         const [full] = sessions.prepare(raw("full", { detail: "d", tags: [1, "x"], kind: "bad" }))?.items ?? [];
         expect(full.detail).toBe("d");
         expect(full.tags).toEqual([1]);
@@ -40,6 +41,7 @@ describe("CallHierarchySessions", () => {
         const sessions = new CallHierarchySessions();
         for (const broken of [
             "text",
+            raw("no name", { name: 1 }),
             raw("no uri", { uri: null }),
             raw("no range", { range: null }),
             raw("no selection", { selectionRange: null }),
@@ -63,7 +65,9 @@ describe("CallHierarchySessions", () => {
         expect(sessions.item(sessionId, call.from.itemId).item).toBe(caller);
 
         const callee = raw("callee");
-        const [out] = sessions.outgoingCalls(sessionId, [{ to: callee, fromRanges: "bad" }, { to: null }, null]);
+        const calls = sessions.outgoingCalls(sessionId, [{ to: callee, fromRanges: "bad" }, { to: null }, null]);
+        expect(calls).toHaveLength(1);
+        const [out] = calls;
         expect(out.fromRanges).toEqual([]);
         expect(sessions.item(sessionId, out.to.itemId).item).toBe(callee);
         expect(sessions.outgoingCalls(sessionId, null)).toEqual([]);
@@ -77,12 +81,9 @@ describe("CallHierarchySessions", () => {
         expect(second.sessionId).not.toBe(first.sessionId);
 
         sessions.release(first.sessionId);
-        sessions.release(undefined);
         expect(() => sessions.item(first.sessionId, first.items[0].itemId)).toThrow("missing call hierarchy item");
         expect(sessions.incomingCalls(first.sessionId, [{ from: raw("late"), fromRanges: [] }])).toEqual([]);
         expect(sessions.item(second.sessionId, second.items[0].itemId).sessionId).toBe(second.sessionId);
-        expect(() => sessions.item(undefined, 1)).toThrow("missing call hierarchy item");
-        expect(() => sessions.item(second.sessionId, undefined)).toThrow("missing call hierarchy item");
         expect(() => sessions.item(second.sessionId, 999)).toThrow("missing call hierarchy item");
     });
 });

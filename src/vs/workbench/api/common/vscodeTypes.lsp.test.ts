@@ -1,6 +1,6 @@
-import { CallHierarchyIncomingCall, CallHierarchyOutgoingCall } from "./vscodeCallHierarchyTypes.ts";
 import { describe, expect, it } from "vitest";
 
+import { CallHierarchyIncomingCall, CallHierarchyOutgoingCall } from "./vscodeCallHierarchyTypes.ts";
 import {
     CallHierarchyItem,
     CancellationError,

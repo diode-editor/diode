@@ -122,6 +122,10 @@ export class CallHierarchyComponent extends Disposable {
         });
     }
 
+    public get view(): HeaderBodyViewElement {
+        return this.root;
+    }
+
     /** Nothing at the caret: a toast, and the tree that is already there stays (upstream core, `No results`). */
     public async show(): Promise<void> {
         const editor = this.group.getActiveEditor();
@@ -183,8 +187,7 @@ export class CallHierarchyComponent extends Disposable {
         this.model = null;
         this.provider.setModel(null);
         void this.tree.refresh();
-        this.message.setText("");
-        this.viewsService.setViewVisible(REFERENCES_VIEW_ID, true);
+        // The container shows its remaining section by itself once this one is gone.
         this.viewsService.unregisterView(CALL_HIERARCHY_VIEW_ID);
         this.contextKeys.set("callHierarchyVisible", false);
     }
@@ -240,9 +243,12 @@ export class CallHierarchyComponent extends Disposable {
         // Replaced or dismissed while the provider was answering: the rows belong to another tree now.
         if (this.model !== model) return;
         const first = children.at(0);
-        await this.tree.reveal(first === undefined ? [root] : [root, first]);
+        if (first !== undefined) {
+            await this.tree.reveal([root, first]);
+            return;
+        }
         // The only root with nothing under it: the tree alone would look like it is still loading.
-        if (first === undefined && model.roots.length === 1) this.message.setText(NO_RESULTS);
+        if (model.roots.length === 1) this.message.setText(NO_RESULTS);
     }
 
     private activate(node: ICallNode): void {
