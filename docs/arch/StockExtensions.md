@@ -88,7 +88,7 @@
   расширению нужны ядровые `tab`, `editor.action.insertLineAfter` и `editor.action.insertSnippet` (#968), в 0.12.5 их нет.
   `support: partial`. Привязки `enter`, `tab`, `ctrl+b`, `ctrl+i` ограничены языками Markdown в `when`: вне `.md` клавиши
   ведут себя как раньше, `Ctrl+B` переключает боковую панель. Поэтому у `insertLineAfter` нет ядровой `ctrl+enter` эталона.
-  В терминале без расширенных клавиш `Ctrl+I` — тот же байт, что Tab; остаётся палитра. Линза оглавления в 3.6.2 — только
+  В терминале без расширенных клавиш `Ctrl+I` — тот же байт, что Tab, а `Ctrl+M` — что Enter; остаётся палитра. Линза оглавления в 3.6.2 — только
   статус (`Table of Contents (up to date)`, `command: ''`), кнопки Update нет, обновляют `toc.update` и сохранение
   (`toc.updateOnSave`). Подсказки файлов и якорей — за настройкой `markdown.extension.completion.enabled`, по умолчанию
   выключена, как и в эталоне. Своего превью Markdown в Diode нет, поэтому `markdown.previewStyles`, `markdownItPlugins` и

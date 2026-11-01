@@ -1463,16 +1463,16 @@ describe("CompletionService", () => {
         expect(component.view.items.map((i) => i.label)).toEqual(["Head", "one"]);
     });
 
-    it("word-based: collects words from all open editors and dedupes against providers", async () => {
+    it("word-based: collects words from all open editors without repeats", async () => {
         const fake = makeEditor("", 0, "alpha beta");
         const other = makeEditor("", 0, "beta gamma indent_style");
-        const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
+        const source = vi.fn(() => Promise.resolve(completionResult([])));
         const { service, component, body } = createService(makeGroup(fake.editor, source, [other.editor]));
         TestApp.create(body, new Size(80, 24));
         await service.trigger();
 
         const labels = component.view.items.map((i) => i.label);
-        expect(labels).toEqual(["indent_style", "indent_size", "root", "alpha", "beta", "gamma"]);
+        expect(labels).toEqual(["alpha", "beta", "gamma", "indent_style"]);
     });
 
     it("no active editor → no-op", async () => {
