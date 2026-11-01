@@ -347,8 +347,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         key: "editor.occurrencesHighlight",
         type: "string",
         default: "singleFile",
-        description: "Controls whether the editor highlights semantic symbol occurrences.",
+        description: "Controls whether occurrences should be highlighted across open files.",
         enum: ["off", "singleFile", "multiFile"],
+    },
+    {
+        key: "editor.occurrencesHighlightDelay",
+        type: "integer",
+        default: 0,
+        description: "Controls the delay in milliseconds after which occurrences are highlighted.",
     },
     {
         key: "editor.quickSuggestions",

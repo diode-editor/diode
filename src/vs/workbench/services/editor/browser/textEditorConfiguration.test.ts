@@ -201,6 +201,18 @@ describe("TextEditorConfiguration", () => {
             }
         });
 
+        it("editor.occurrencesHighlightDelay reaches the word highlighter", () => {
+            const spy = vi.spyOn(TextEditorPane.prototype, "setOccurrenceHighlightDelay");
+            try {
+                createEditorService({
+                    configurationService: stubConfigurationService({ "editor.occurrencesHighlightDelay": 300 }),
+                }).openFile(writeFile("a.ts", "const x = 1;"));
+                expect(spy).toHaveBeenLastCalledWith(300);
+            } finally {
+                spy.mockRestore();
+            }
+        });
+
         it("editor.occurrencesHighlight: off disables occurrence highlighting, the default enables it", () => {
             const spy = vi.spyOn(TextEditorPane.prototype, "setOccurrenceHighlightEnabled");
             try {

@@ -60,9 +60,9 @@ import {
     LONG_LINE_TRUNCATION_BADGE_WIDTH,
     STOP_RENDERING_LINE_AFTER,
 } from "../common/viewModel/longLineRendering.ts";
-import { computeWordOccurrences } from "../contrib/find/computeWordOccurrences.ts";
 import { computeIndentLevel } from "../contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
+import { WordHighlighter } from "../contrib/wordHighlighter/browser/wordHighlighter.ts";
 
 import type { IPaintTextLineInsertion, ITextViewportGeometry } from "./textViewRendering.ts";
 import {
@@ -80,11 +80,8 @@ import { resolveSemanticTokenStyle, SemanticTokenIndex, TokenIndex } from "./tok
 
 const FIND_MATCH_BG = packRgb(98, 91, 23);
 const FIND_MATCH_CURRENT_BG = packRgb(168, 109, 0);
-const NO_RANGES: readonly IRange[] = [];
 const NO_CACHED_SCROLL_BAR_MARKERS: ICachedScrollBarMarkers = { sources: [], markers: [] };
 
-/** Upstream `WordHighlighter.runDelayer`: the occurrence query runs once the cursor settles. */
-const OCCURRENCE_RUN_DELAY_MS = 50;
 /**
  * Lines the width sweep measures per idle slice: about a millisecond of code lines through
  * the generic grapheme path, so a keystroke between slices never waits on it.
@@ -148,14 +145,9 @@ function sameMarkers(a: readonly IScrollBarMarker[], b: readonly IScrollBarMarke
     );
 }
 
-/** `ranges` sorted and not overlapping; both ends count, as upstream `Range.containsPosition`. */
-function sortedRangesContain(ranges: readonly IRange[], pos: IPosition): boolean {
-    const i = findFirstIdxMonotonousOrArrLen(ranges, (range) => comparePositions(range.end, pos) >= 0);
-    return i < ranges.length && comparePositions(ranges[i].start, pos) <= 0;
-}
-
 export class EditorElement extends TUIElement implements IScrollable {
     public readonly viewState: EditorViewState;
+    public readonly wordHighlighter: WordHighlighter;
     /** A file editor puts the document's shared manager here: one history however many views show it. */
     public undoManager: UndoManager;
     public tokenStyleResolver: ITokenStyleResolver = NULL_TOKEN_STYLE_RESOLVER;
@@ -192,13 +184,12 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public get occurrenceHighlightEnabled(): boolean {
-        return this.occurrenceHighlightEnabledValue;
+        return this.wordHighlighter.enabled;
     }
 
     public set occurrenceHighlightEnabled(enabled: boolean) {
-        // Off hides the set at once (`occurrenceCaret`), on queries again.
-        this.occurrenceHighlightEnabledValue = enabled;
-        this.requestOccurrences();
+        this.wordHighlighter.enabled = enabled;
+        this.markDirty();
     }
 
     /**
@@ -232,28 +223,14 @@ export class EditorElement extends TUIElement implements IScrollable {
     private largeFileMaxWidth = 0;
     /** The pending idle slice of the width sweep ({@link runWidthSweep}); null while none is scheduled. */
     private widthSweep: IDisposable | null = null;
-    private occurrenceHighlightEnabledValue = true;
-    /**
-     * Word occurrences are computed off the frame path, like the upstream `WordHighlighter`: a
-     * request arms a timer after the next frame, the timer runs the query. The ranges are sorted;
-     * an edit drops them (upstream `_stopAll`), so they always match the text.
-     */
-    private occurrences: readonly IRange[] | null = null;
-    // The first query waits for the first frame: a big file shows its text before the search.
-    private occurrenceRunRequested = true;
-    private occurrenceTimer: ReturnType<typeof setTimeout> | undefined;
-    /**
-     * The cursor move of an edit (typing, Enter, undo) is not an explicit move: upstream keeps
-     * the highlight off until the next one (`CursorChangeReason`). The edit and its cursor move
-     * share one synchronous task, in either order: the view state remaps selections inside the
-     * content event, before this element hears it. So a request made in the task of an edit is
-     * withdrawn, and a cursor move after the edit in the same task makes none.
-     */
-    private occurrenceTask: { edited: boolean; requested: boolean } | null = null;
-    private occurrenceMarkers = NO_CACHED_SCROLL_BAR_MARKERS;
+    private occurrenceTextMarkers = NO_CACHED_SCROLL_BAR_MARKERS;
+    private occurrenceReadMarkers = NO_CACHED_SCROLL_BAR_MARKERS;
+    private occurrenceWriteMarkers = NO_CACHED_SCROLL_BAR_MARKERS;
     private findMarkers = NO_CACHED_SCROLL_BAR_MARKERS;
     private scrollBarMarkers: {
-        readonly occurrences: readonly IScrollBarMarker[];
+        readonly occurrenceText: readonly IScrollBarMarker[];
+        readonly occurrenceRead: readonly IScrollBarMarker[];
+        readonly occurrenceWrite: readonly IScrollBarMarker[];
         readonly find: readonly IScrollBarMarker[];
         readonly small: readonly IScrollBarMarker[];
         readonly markers: readonly IScrollBarMarker[];
@@ -412,12 +389,26 @@ export class EditorElement extends TUIElement implements IScrollable {
             vs.isWordWrapActive ? vs.viewportWidth : null,
             vs.tabSize,
         ];
-        const occurrences = this.getOccurrenceHighlights();
+        const occurrences = vs.wordHighlights;
         const searchMatches = vs.searchMatches;
-        this.occurrenceMarkers = this.rangeMarkers(
-            this.occurrenceMarkers,
-            occurrences,
+        this.occurrenceTextMarkers = this.rangeMarkers(
+            this.occurrenceTextMarkers,
+            occurrences.text,
+            "editorOverviewRuler.wordHighlightTextForeground",
+            ScrollBarMarkerPriority.WordHighlight,
+            projection,
+        );
+        this.occurrenceReadMarkers = this.rangeMarkers(
+            this.occurrenceReadMarkers,
+            occurrences.read,
             "editorOverviewRuler.wordHighlightForeground",
+            ScrollBarMarkerPriority.WordHighlight,
+            projection,
+        );
+        this.occurrenceWriteMarkers = this.rangeMarkers(
+            this.occurrenceWriteMarkers,
+            occurrences.write,
+            "editorOverviewRuler.wordHighlightStrongForeground",
             ScrollBarMarkerPriority.WordHighlight,
             projection,
         );
@@ -445,19 +436,25 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         const cached = this.scrollBarMarkers;
         if (
-            cached?.occurrences === this.occurrenceMarkers.markers &&
+            cached?.occurrenceText === this.occurrenceTextMarkers.markers &&
+            cached.occurrenceRead === this.occurrenceReadMarkers.markers &&
+            cached.occurrenceWrite === this.occurrenceWriteMarkers.markers &&
             cached.find === this.findMarkers.markers &&
             sameMarkers(cached.small, small)
         ) {
             return cached.markers;
         }
-        const markers = this.occurrenceMarkers.markers.concat(
+        const markers = this.occurrenceTextMarkers.markers.concat(
+            this.occurrenceReadMarkers.markers,
+            this.occurrenceWriteMarkers.markers,
             changeMarkers,
             this.findMarkers.markers,
             diagnosticMarkers,
         );
         this.scrollBarMarkers = {
-            occurrences: this.occurrenceMarkers.markers,
+            occurrenceText: this.occurrenceTextMarkers.markers,
+            occurrenceRead: this.occurrenceReadMarkers.markers,
+            occurrenceWrite: this.occurrenceWriteMarkers.markers,
             find: this.findMarkers.markers,
             small,
             markers,
@@ -726,13 +723,12 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.focusable = true;
         this.viewState = viewState;
         this.undoManager = new UndoManager(viewState.document);
+        this.wordHighlighter = new WordHighlighter(viewState);
 
+        this.viewState.onDidChangeWordHighlights(() => {
+            this.markDirty();
+        });
         this.viewState.onDidChangeCursorPosition(() => {
-            const task = this.currentOccurrenceTask();
-            if (!task.edited) {
-                task.requested = true;
-                this.requestOccurrences();
-            }
             this.markDirty();
         });
         // Scroll, folding and edits away from the cursor (extension applyEdits) too: under
@@ -748,11 +744,6 @@ export class EditorElement extends TUIElement implements IScrollable {
         });
         this.viewState.document.onDidChangeContent((change) => {
             if (change.isFlush === true) this.largeFileMaxWidth = 0;
-            // Upstream `onDidChangeModelContent` → `_stopAll`: no full-file search per keystroke.
-            this.dropOccurrences();
-            const task = this.currentOccurrenceTask();
-            task.edited = true;
-            if (task.requested) this.occurrenceRunRequested = false;
             this.markDirty();
         });
 
@@ -1133,8 +1124,10 @@ export class EditorElement extends TUIElement implements IScrollable {
             paintRangeBackground(context, decoration.range, this.styleVar(decoration.colorToken), geometry);
         }
 
-        const occurrenceBg = this.styleVar("editor.wordHighlightBackground");
-        paintSortedRangeBackgrounds(context, this.getOccurrenceHighlights(), occurrenceBg, geometry);
+        const occurrences = this.viewState.wordHighlights;
+        this.paintOccurrences(context, occurrences.text, "editor.wordHighlightTextBackground", geometry);
+        this.paintOccurrences(context, occurrences.read, "editor.wordHighlightBackground", geometry);
+        this.paintOccurrences(context, occurrences.write, "editor.wordHighlightStrongBackground", geometry);
 
         const searchMatches = this.viewState.searchMatches;
         const currentMatchIndex = this.viewState.currentSearchMatchIndex;
@@ -1178,14 +1171,18 @@ export class EditorElement extends TUIElement implements IScrollable {
             context.setCursorPosition(caret.x, caret.y, this.cursorStyle);
         }
 
-        // After the frame, never in it: on a big file the query walks every line.
-        if (this.occurrenceRunRequested) {
-            this.occurrenceRunRequested = false;
-            clearTimeout(this.occurrenceTimer);
-            this.occurrenceTimer = setTimeout(() => {
-                this.runOccurrences();
-            }, OCCURRENCE_RUN_DELAY_MS);
-        }
+        this.wordHighlighter.onFrame();
+    }
+
+    /** Tokens resolve only when there is something to paint: a bare element has no theme. */
+    private paintOccurrences(
+        context: RenderContext,
+        ranges: readonly IRange[],
+        colorToken: string,
+        geometry: ITextViewportGeometry,
+    ): void {
+        if (ranges.length === 0) return;
+        paintSortedRangeBackgrounds(context, ranges, this.styleVar(colorToken), geometry);
     }
 
     /** Colors are resolved here, on the frame: hit-test and the caret need none. */
@@ -1340,58 +1337,6 @@ export class EditorElement extends TUIElement implements IScrollable {
             case MarkerSeverity.Hint:
                 return this.styleVar("editorHint.foreground");
         }
-    }
-
-    private currentOccurrenceTask(): { edited: boolean; requested: boolean } {
-        if (this.occurrenceTask === null) {
-            // Stryker disable next-line ObjectLiteral: `{}` reads both flags as undefined, i.e. false
-            this.occurrenceTask = { edited: false, requested: false };
-            queueMicrotask(() => {
-                this.occurrenceTask = null;
-            });
-        }
-        return this.occurrenceTask;
-    }
-
-    /** Upstream `runDelayer.trigger`: the query is armed by the next frame, see {@link render}. */
-    private requestOccurrences(): void {
-        this.occurrenceRunRequested = true;
-        this.markDirty();
-    }
-
-    /**
-     * Like upstream `_stopAll`, a query already armed stays: it reads the caret when it runs.
-     * No repaint of its own: the edit that drops it repaints anyway.
-     */
-    private dropOccurrences(): void {
-        this.occurrences = null;
-    }
-
-    /**
-     * No highlight with a selection or multi-cursor: in VS Code a selection switches to
-     * selection-highlight, and with several cursors the background would clash with "select next occurrence".
-     */
-    private get occurrenceCaret(): IPosition | null {
-        if (!this.occurrenceHighlightEnabledValue) return null;
-        if (this.viewState.selections.length !== 1) return null;
-        const primary = this.viewState.selections[0];
-        return isSelectionCollapsed(primary) ? primary.active : null;
-    }
-
-    /** Upstream `WordHighlighter._run`: a caret still inside a highlighted word keeps the set. */
-    private runOccurrences(): void {
-        const pos = this.occurrenceCaret;
-        // Without a caret the set stays hidden by `getOccurrenceHighlights`; an edit drops it.
-        if (pos === null) return;
-        if (this.occurrences !== null && sortedRangesContain(this.occurrences, pos)) return;
-        this.occurrences = computeWordOccurrences(this.viewState.document, pos);
-        this.markDirty();
-    }
-
-    /** Sorted by position: the painters and the scrollbar rely on it. */
-    private getOccurrenceHighlights(): readonly IRange[] {
-        if (this.occurrences === null || this.occurrenceCaret === null) return NO_RANGES;
-        return this.occurrences;
     }
 
     private handleWheel(event: TUIMouseEvent): void {

@@ -33,6 +33,7 @@ import {
     type WorkspaceEdit,
 } from "./vscodeTypes.ts";
 import type {
+    IWireDocumentHighlight,
     IWireEditorEdit,
     IWireInlayHint,
     IWireSelection,
@@ -549,6 +550,22 @@ export function serializeSelectionRanges(raw: unknown, positions: readonly IPosi
 
 function containsRange(outer: IRange, inner: IRange): boolean {
     return comparePositions(outer.start, inner.start) <= 0 && comparePositions(inner.end, outer.end) <= 0;
+}
+
+/**
+ * Upstream `DocumentHighlight.from` over the provider's array. Not an array (`undefined`, `null`, garbage) is
+ * `null`, the provider declined; an entry without a range is dropped.
+ */
+export function serializeDocumentHighlights(raw: unknown): IWireDocumentHighlight[] | null {
+    if (!Array.isArray(raw)) return null;
+    const result: IWireDocumentHighlight[] = [];
+    for (const item of raw as unknown[]) {
+        const range = rangeFrom((item as { range?: unknown } | null | undefined)?.range);
+        if (range === null) continue;
+        const kind = (item as { kind?: unknown }).kind;
+        result.push({ range, ...(isFiniteNumber(kind) ? { kind } : {}) });
+    }
+    return result;
 }
 
 /** A channel outside [0, 1] is clamped; not a number (NaN included) — `null`, the color is dropped. */

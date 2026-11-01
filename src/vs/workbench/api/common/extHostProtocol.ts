@@ -64,6 +64,8 @@ import type {
     IWireDisposeDecorationType,
     IWireDocumentChangedEvent,
     IWireDocumentColorParams,
+    IWireDocumentHighlight,
+    IWireDocumentHighlightParams,
     IWireDocumentLanguage,
     IWireDocumentSemanticTokensParams,
     IWireDocumentStateChanged,
@@ -213,6 +215,10 @@ export interface IHostToSubprocess {
         readonly "languages.prepareRename": readonly [IWirePrepareRenameParams, WireRenamePrepare | null];
         readonly "languages.provideRenameEdits": readonly [IWireRenameParams, WireRenameResult];
         readonly "languages.provideSelectionRanges": readonly [IWireSelectionRangeParams, IRange[][]];
+        readonly "languages.provideDocumentHighlights": readonly [
+            IWireDocumentHighlightParams,
+            IWireDocumentHighlight[] | null,
+        ];
         readonly "languages.provideDocumentColors": readonly [IWireDocumentColorParams, IColorInformation[] | null];
         readonly "languages.provideInlayHints": readonly [IWireInlayHintsParams, IWireInlayHint[] | null];
 

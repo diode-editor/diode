@@ -8043,6 +8043,8 @@ declare module "vscode" {
 		 * @param provider A color provider.
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
+		export function registerDocumentHighlightProvider(selector: DocumentSelector, provider: DocumentHighlightProvider): Disposable;
+
 		export function registerColorProvider(selector: DocumentSelector, provider: DocumentColorProvider): Disposable;
 
 		/**
@@ -8166,6 +8168,60 @@ declare module "vscode" {
 	 * A selection range represents a part of a selection hierarchy. A selection range
 	 * may have a parent selection range that contains it.
 	 */
+	export enum DocumentHighlightKind {
+
+		/**
+		 * A textual occurrence.
+		 */
+		Text = 0,
+
+		/**
+		 * Read-access of a symbol, like reading a variable.
+		 */
+		Read = 1,
+
+		/**
+		 * Write-access of a symbol, like writing to a variable.
+		 */
+		Write = 2
+	}
+
+	export class DocumentHighlight {
+
+		/**
+		 * The range this highlight applies to.
+		 */
+		range: Range;
+
+		/**
+		 * The highlight kind, default is {@link DocumentHighlightKind.Text text}.
+		 */
+		kind?: DocumentHighlightKind;
+
+		/**
+		 * Creates a new document highlight object.
+		 *
+		 * @param range The range the highlight applies to.
+		 * @param kind The highlight kind, default is {@link DocumentHighlightKind.Text text}.
+		 */
+		constructor(range: Range, kind?: DocumentHighlightKind);
+	}
+
+	export interface DocumentHighlightProvider {
+
+		/**
+		 * Provide a set of document highlights, like all occurrences of a variable or
+		 * all exit-points of a function.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns An array of document highlights or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideDocumentHighlights(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<DocumentHighlight[]>;
+	}
+
 	export class SelectionRange {
 
 		/**

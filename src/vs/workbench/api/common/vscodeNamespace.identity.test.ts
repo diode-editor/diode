@@ -124,6 +124,7 @@ describe("VscodeNamespace: stable activeTextEditor identity", () => {
             "CodeAction",
             "CodeActionKind",
             "DocumentLink",
+            "DocumentHighlight",
             "DocumentHighlightKind",
             "InlayHint",
             "SymbolInformation",

@@ -385,6 +385,18 @@ export interface IWireSelectionRangeParams extends IWireDocumentParams, IWirePro
     readonly positions: readonly IPosition[];
 }
 
+/** Upstream `$provideDocumentHighlights`: the reply is `null` when the provider declined. */
+export interface IWireDocumentHighlightParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly line: number;
+    readonly character: number;
+}
+
+export interface IWireDocumentHighlight {
+    readonly range: IRange;
+    /** `DocumentHighlightKind`; absent when the extension gave a plain object without one. */
+    readonly kind?: number;
+}
+
 /** Upstream `$provideDocumentColors`: the reply is `null` when the provider gave no colors. */
 export type IWireDocumentColorParams = IWireDocumentParams & IWireProviderHandle;
 
@@ -423,6 +435,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "inlineCompletions",
     "rename",
     "selectionRange",
+    "documentHighlight",
     "color",
     "inlayHints",
     "semanticTokens",
