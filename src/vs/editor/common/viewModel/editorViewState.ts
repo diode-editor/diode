@@ -2085,8 +2085,10 @@ export class EditorViewState {
         // Stryker disable next-line EqualityOperator: see above
         if (this.scrollTop > highest) {
             this.scrollTop = Math.max(0, highest);
-            // Stryker disable next-line EqualityOperator: see above
-        } else if (this.scrollTop < lowest) {
+        }
+        // Not an else: Stryker does not see a disable comment in front of `else if`. After the branch above this is false.
+        // Stryker disable next-line EqualityOperator: see above
+        if (this.scrollTop < lowest) {
             this.scrollTop = lowest;
         }
 
