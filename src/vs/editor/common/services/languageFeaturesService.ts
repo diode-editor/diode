@@ -1,4 +1,5 @@
 import { LanguageFeatureRegistry } from "../languageFeatureRegistry.ts";
+import type { CallHierarchyProvider } from "../languages/iCallHierarchySource.ts";
 import type { CodeActionProvider } from "../languages/iCodeActionSource.ts";
 import type { CodeLensProvider } from "../languages/iCodeLensSource.ts";
 import type { DocumentColorProvider } from "../languages/iColorSource.ts";
@@ -51,4 +52,5 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
     public readonly colorProvider = new LanguageFeatureRegistry<DocumentColorProvider>();
     public readonly inlayHintsProvider = new LanguageFeatureRegistry<InlayHintsProvider>();
     public readonly codeLensProvider = new LanguageFeatureRegistry<CodeLensProvider>();
+    public readonly callHierarchyProvider = new LanguageFeatureRegistry<CallHierarchyProvider>();
 }

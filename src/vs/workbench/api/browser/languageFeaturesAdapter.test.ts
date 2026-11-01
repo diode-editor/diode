@@ -90,6 +90,10 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideDocumentColors: vi.fn((handle: number) =>
             Promise.resolve([{ range: createRange(0, 0, 0, handle), color: { red: 1, green: 0, blue: 0, alpha: 1 } }]),
         ),
+        prepareCallHierarchy: vi.fn((handle: number) => Promise.resolve({ sessionId: handle, items: [] })),
+        provideCallHierarchyIncomingCalls: vi.fn(() => Promise.resolve([])),
+        provideCallHierarchyOutgoingCalls: vi.fn(() => Promise.resolve([])),
+        releaseCallHierarchy: vi.fn(),
         provideReferences: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///ref${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
@@ -143,6 +147,30 @@ const hover = (handle: number, language = "typescript"): IWireLanguageProviderRe
 });
 
 describe("LanguageFeaturesAdapter", () => {
+    it("callHierarchy: the proxy asks and releases by the provider's handle", async () => {
+        const bridge = makeBridge();
+        const service = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, service);
+        bridge.providers = [{ handle: 5, kind: "callHierarchy", selector: [{ language: "typescript" }] }];
+        bridge.fire();
+        const [provider] = service.callHierarchyProvider.ordered({
+            uri: Uri.file("/a.ts"),
+            languageId: "typescript",
+        } as never);
+        const token = new CancellationTokenSource().token;
+        const request = { uri: "file:///a.ts", languageId: "typescript", versionId: 1, line: 0, character: 0 };
+
+        await provider.prepareCallHierarchy(request, token);
+        expect(bridge.prepareCallHierarchy).toHaveBeenCalledWith(5, request, token);
+        await provider.provideIncomingCalls(40, 2, token);
+        expect(bridge.provideCallHierarchyIncomingCalls).toHaveBeenCalledWith(5, 40, 2, token);
+        await provider.provideOutgoingCalls(40, 3, token);
+        expect(bridge.provideCallHierarchyOutgoingCalls).toHaveBeenCalledWith(5, 40, 3, token);
+        provider.releaseCallHierarchy(40);
+        expect(bridge.releaseCallHierarchy).toHaveBeenCalledWith(5, 40);
+        adapter.dispose();
+    });
+
     it("picks up registrations declared before the adapter is created", async () => {
         const bridge = makeBridge();
         bridge.providers = [hover(1)];

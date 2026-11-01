@@ -1,3 +1,4 @@
+import { CallHierarchyIncomingCall, CallHierarchyOutgoingCall } from "./vscodeCallHierarchyTypes.ts";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -135,6 +136,12 @@ describe("vscodeTypes — LSP value classes", () => {
 
         const call = new CallHierarchyItem(SymbolKind.Method, "m", "detail", URI, RANGE, RANGE);
         expect(call.name).toBe("m");
+        const incoming = new CallHierarchyIncomingCall(call, [RANGE]);
+        expect(incoming.from).toBe(call);
+        expect(incoming.fromRanges).toEqual([RANGE]);
+        const outgoing = new CallHierarchyOutgoingCall(call, [RANGE]);
+        expect(outgoing.to).toBe(call);
+        expect(outgoing.fromRanges).toEqual([RANGE]);
         const type = new TypeHierarchyItem(SymbolKind.Class, "C", "detail", URI, RANGE, RANGE);
         expect(type.kind).toBe(SymbolKind.Class);
     });

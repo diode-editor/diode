@@ -134,6 +134,8 @@ describe("VscodeNamespace: stable activeTextEditor identity", () => {
             "CompletionTriggerKind",
             "SnippetString",
             "CallHierarchyItem",
+            "CallHierarchyIncomingCall",
+            "CallHierarchyOutgoingCall",
             "TypeHierarchyItem",
             "CancellationError",
             "CancellationTokenSource",

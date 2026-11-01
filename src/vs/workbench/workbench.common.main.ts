@@ -186,6 +186,7 @@ import { KeybindingRecorderComponentDIToken } from "./contrib/preferences/browse
 import { PREFERENCES_ACTIONS } from "./contrib/preferences/browser/preferencesActions.ts";
 import { QUICK_ACCESS_ACTIONS } from "./contrib/quickaccess/browser/quickOpenActions.ts";
 import { QuickOpenServiceDIToken } from "./contrib/quickaccess/browser/quickOpenService.ts";
+import { CALL_HIERARCHY_ACTIONS } from "./contrib/references/browser/callHierarchyActions.ts";
 import { REFERENCES_ACTIONS } from "./contrib/references/browser/referencesActions.ts";
 import { ReferencesComponentDIToken } from "./contrib/references/browser/referencesComponent.ts";
 import { RENAME_ACTIONS } from "./contrib/rename/browser/renameActions.ts";
@@ -476,6 +477,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...SCM_ACTIONS,
     ...EXTENSIONS_ACTIONS,
     ...REFERENCES_ACTIONS,
+    ...CALL_HIERARCHY_ACTIONS,
     ...RENAME_ACTIONS,
 ];
 

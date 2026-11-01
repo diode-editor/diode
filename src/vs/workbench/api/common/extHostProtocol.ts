@@ -1,5 +1,10 @@
 import type { IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import type {
+    ICallHierarchyIncomingCall,
+    ICallHierarchyOutgoingCall,
+    ICallHierarchySession,
+} from "../../../editor/common/languages/iCallHierarchySource.ts";
 import type { IColorInformation } from "../../../editor/common/languages/iColorSource.ts";
 import type {
     ICoreCompletionResult,
@@ -44,6 +49,7 @@ import type {
     IWireActivateExtensionParams,
     IWireApplyEditParams,
     IWireApplyWorkspaceEditParams,
+    IWireCallHierarchyCallsParams,
     IWireChangedFiles,
     IWireChangeLanguageParams,
     IWireChangeLanguageResult,
@@ -101,6 +107,7 @@ import type {
     IWireOpenExternalResult,
     IWireOutputAppend,
     IWireOutputShow,
+    IWirePrepareCallHierarchyParams,
     IWirePrepareRenameParams,
     IWireProgressEnd,
     IWireProgressReport,
@@ -118,6 +125,7 @@ import type {
     IWireReadFileResult,
     IWireReferenceParams,
     IWireRegisterCommandParams,
+    IWireReleaseCallHierarchy,
     IWireReleaseSemanticTokens,
     IWireRenameParams,
     IWireRevealRange,
@@ -215,6 +223,18 @@ export interface IHostToSubprocess {
         readonly "languages.provideSelectionRanges": readonly [IWireSelectionRangeParams, IRange[][]];
         readonly "languages.provideDocumentColors": readonly [IWireDocumentColorParams, IColorInformation[] | null];
         readonly "languages.provideInlayHints": readonly [IWireInlayHintsParams, IWireInlayHint[] | null];
+        readonly "languages.prepareCallHierarchy": readonly [
+            IWirePrepareCallHierarchyParams,
+            ICallHierarchySession | null,
+        ];
+        readonly "languages.provideCallHierarchyIncomingCalls": readonly [
+            IWireCallHierarchyCallsParams,
+            ICallHierarchyIncomingCall[],
+        ];
+        readonly "languages.provideCallHierarchyOutgoingCalls": readonly [
+            IWireCallHierarchyCallsParams,
+            ICallHierarchyOutgoingCall[],
+        ];
 
         readonly "workspace.fs.readFile": readonly [IWireUriParams, IWireReadFileResult];
         readonly "workspace.fs.stat": readonly [IWireUriParams, IWireFileStat | null];
@@ -244,6 +264,7 @@ export interface IHostToSubprocess {
     };
     readonly notifications: {
         readonly "languages.releaseDocumentSemanticTokens": IWireReleaseSemanticTokens;
+        readonly "languages.releaseCallHierarchy": IWireReleaseCallHierarchy;
         /** Other owners' MarkerService markers: a mirror for `languages.getDiagnostics`. */
         readonly "diagnostics.markersChanged": IWireMarkersChanged;
 

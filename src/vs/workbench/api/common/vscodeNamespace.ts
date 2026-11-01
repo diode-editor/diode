@@ -1,3 +1,4 @@
+import { CallHierarchyIncomingCall, CallHierarchyOutgoingCall } from "./vscodeCallHierarchyTypes.ts";
 import { randomUUID } from "node:crypto";
 
 import type * as vscode from "vscode";
@@ -364,7 +365,9 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         SymbolKind,
         SymbolTag,
         CompletionItemTag,
+        CallHierarchyIncomingCall,
         CallHierarchyItem,
+        CallHierarchyOutgoingCall,
         TypeHierarchyItem,
         CancellationError,
         CancellationTokenSource,

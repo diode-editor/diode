@@ -4,6 +4,11 @@ import { CancellationTokenNone, type ICancellationToken } from "../../../base/co
 import { describeRejection } from "../../../base/common/describeRejection.ts";
 import { CancellationError, isCancellationError } from "../../../base/common/errorSerialization.ts";
 import type { IRange } from "../../../editor/common/core/iRange.ts";
+import type {
+    ICallHierarchyIncomingCall,
+    ICallHierarchyOutgoingCall,
+    ICallHierarchySession,
+} from "../../../editor/common/languages/iCallHierarchySource.ts";
 import type { IColorInformation } from "../../../editor/common/languages/iColorSource.ts";
 import type {
     ICoreCompletionItem,
@@ -18,6 +23,7 @@ import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSigna
 
 import { implementsApi } from "./apiSurface.ts";
 import { scoreDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
+import { CallHierarchySessions } from "./extHostCallHierarchy.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createSetLanguageConfiguration } from "./extHostLanguageConfiguration.ts";
 import { createLanguageStatusItemFactory } from "./extHostLanguageStatus.ts";
@@ -61,6 +67,7 @@ import {
     WorkspaceEdit,
 } from "./vscodeTypes.ts";
 import type {
+    IWireCallHierarchyCallsParams,
     IWireCodeActionParams,
     IWireCompletionParams,
     IWireDefinitionParams,
@@ -75,9 +82,11 @@ import type {
     IWireInlayHintsParams,
     IWireInlineCompletionParams,
     IWireLanguageProviderMetadata,
+    IWirePrepareCallHierarchyParams,
     IWirePrepareRenameParams,
     IWireRangeSemanticTokensParams,
     IWireReferenceParams,
+    IWireReleaseCallHierarchy,
     IWireReleaseSemanticTokens,
     IWireRenameParams,
     IWireSelectionRangeParams,
@@ -295,6 +304,12 @@ function normalizeResult(result: unknown): { items: readonly vscode.CompletionIt
  * A provider failure doesn't break the command, but isn't silent either: a silent failure of the
  * stock prettier looked like "nothing to change" and left no trace in any log (#381).
  */
+interface ICallHierarchyRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.CallHierarchyProvider;
+    readonly sessions: CallHierarchySessions;
+}
+
 function reportProviderFailure(method: string, err: unknown, owner: string | undefined): void {
     if (isCancellationError(err)) return;
     const tag = owner === undefined ? "" : `[${owner}] `;
@@ -352,6 +367,7 @@ export function createLanguagesNamespace(
     const inlineCompletionProviders = new Map<number, Owned<IInlineCompletionRegistration>>();
     const renameProviders = new Map<number, Owned<IRenameRegistration>>();
     const selectionRangeProviders = new Map<number, Owned<ISelectionRangeRegistration>>();
+    const callHierarchyProviders = new Map<number, Owned<ICallHierarchyRegistration>>();
     const colorProviders = new Map<number, Owned<IColorRegistration>>();
     const inlayHintsProviders = new Map<number, Owned<IInlayHintsRegistration>>();
     const semanticTokensProviders = new Map<number, Owned<IDocumentSemanticTokensRegistration>>();
@@ -598,6 +614,70 @@ export function createLanguagesNamespace(
             reportProviderFailure("provideSelectionRanges", err, reg.owner);
         }
         return serializeSelectionRanges(result, wirePositions);
+    });
+
+    rpc.handleRequest(
+        "languages.prepareCallHierarchy",
+        async (params, cancellation): Promise<ICallHierarchySession | null> => {
+            const p: Received<IWirePrepareCallHierarchyParams> = params;
+            const reg = callHierarchyProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            try {
+                const result: unknown = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.prepareCallHierarchy(doc, position, token),
+                );
+                return reg.sessions.prepare(result);
+            } catch (err) {
+                reportProviderFailure("prepareCallHierarchy", err, reg.owner);
+                return null;
+            }
+        },
+    );
+
+    rpc.handleRequest(
+        "languages.provideCallHierarchyIncomingCalls",
+        async (params, cancellation): Promise<ICallHierarchyIncomingCall[]> => {
+            const p: Partial<IWireCallHierarchyCallsParams> = params;
+            const reg = callHierarchyProviders.get(p.handle ?? -1);
+            if (reg === undefined) return [];
+            try {
+                const { sessionId, item } = reg.sessions.item(p.sessionId, p.itemId);
+                const result: unknown = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideCallHierarchyIncomingCalls(item, token),
+                );
+                return reg.sessions.incomingCalls(sessionId, result);
+            } catch (err) {
+                reportProviderFailure("provideCallHierarchyIncomingCalls", err, reg.owner);
+                return [];
+            }
+        },
+    );
+
+    rpc.handleRequest(
+        "languages.provideCallHierarchyOutgoingCalls",
+        async (params, cancellation): Promise<ICallHierarchyOutgoingCall[]> => {
+            const p: Partial<IWireCallHierarchyCallsParams> = params;
+            const reg = callHierarchyProviders.get(p.handle ?? -1);
+            if (reg === undefined) return [];
+            try {
+                const { sessionId, item } = reg.sessions.item(p.sessionId, p.itemId);
+                const result: unknown = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideCallHierarchyOutgoingCalls(item, token),
+                );
+                return reg.sessions.outgoingCalls(sessionId, result);
+            } catch (err) {
+                reportProviderFailure("provideCallHierarchyOutgoingCalls", err, reg.owner);
+                return [];
+            }
+        },
+    );
+
+    rpc.handleNotification("languages.releaseCallHierarchy", (params) => {
+        const p = (params as Partial<IWireReleaseCallHierarchy> | null | undefined) ?? {};
+        callHierarchyProviders.get(p.handle ?? -1)?.sessions.release(p.sessionId);
     });
 
     rpc.handleRequest(
@@ -1399,7 +1479,16 @@ export function createLanguagesNamespace(
         ): vscode.Disposable =>
             registerByHandle(inlineCompletionProviders, "inlineCompletions", selector, { selector, provider }),
         registerLinkedEditingRangeProvider: registerNoopProvider,
-        registerCallHierarchyProvider: registerNoopProvider,
+        registerCallHierarchyProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.CallHierarchyProvider,
+        ): vscode.Disposable =>
+            registerByHandle(callHierarchyProviders, "callHierarchy", selector, {
+                selector,
+                provider,
+                // The sessions live and die with the registration.
+                sessions: new CallHierarchySessions(),
+            }),
         registerTypeHierarchyProvider: registerNoopProvider,
         setLanguageConfiguration: createSetLanguageConfiguration(ctx),
     };

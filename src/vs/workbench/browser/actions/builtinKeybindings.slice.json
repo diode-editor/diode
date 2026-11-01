@@ -524,6 +524,7 @@
         "references-view.findReferences": "ctrl+k ctrl+r",
         "references-view.next": "f4",
         "references-view.prev": "shift+f4",
+        "references-view.showCallHierarchy": "shift+alt+h",
         "removeSecondaryCursors": "escape",
         "scm.action.focusChanges": "down",
         "scrollLineDown": {

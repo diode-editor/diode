@@ -3,6 +3,12 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type {
+    ICallHierarchyIncomingCall,
+    ICallHierarchyOutgoingCall,
+    ICallHierarchyRequest,
+    ICallHierarchySession,
+} from "../../../editor/common/languages/iCallHierarchySource.ts";
+import type {
     IApplyCodeActionOptions,
     ICodeActionRequest,
     ICoreCodeAction,
@@ -121,6 +127,25 @@ export interface IExtensionLanguageFeaturesBridge {
         request: ISelectionRangeRequest,
         token: ICancellationToken,
     ): Promise<readonly (readonly IRange[])[]>;
+    prepareCallHierarchy(
+        handle: number,
+        request: ICallHierarchyRequest,
+        token: ICancellationToken,
+    ): Promise<ICallHierarchySession | null>;
+    provideCallHierarchyIncomingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token: ICancellationToken,
+    ): Promise<readonly ICallHierarchyIncomingCall[]>;
+    provideCallHierarchyOutgoingCalls(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token: ICancellationToken,
+    ): Promise<readonly ICallHierarchyOutgoingCall[]>;
+    /** The tree is gone: the subprocess forgets the session's original items. */
+    releaseCallHierarchy(handle: number, sessionId: number): void;
     /** `null`: the provider gave no colors, the default detector may take over. */
     provideDocumentColors(
         handle: number,

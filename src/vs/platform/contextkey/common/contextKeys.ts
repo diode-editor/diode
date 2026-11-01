@@ -19,6 +19,7 @@ export interface ContextKeyTypes {
     editorHasTypeDefinitionProvider: boolean;
     editorHasDeclarationProvider: boolean;
     editorHasReferenceProvider: boolean;
+    editorHasCallHierarchyProvider: boolean;
     editorHasRenameProvider: boolean;
     editorHasCodeActionsProvider: boolean;
     editorHasCodeLensProvider: boolean;
@@ -114,6 +115,10 @@ export interface ContextKeyTypes {
     referencesViewletVisible: boolean;
     hasReferenceResult: boolean;
     referencesViewHasSomeCollapsibleResult: boolean;
+    /** "incoming" | "outgoing"; the title button shows the current direction. */
+    callHierarchyMode: string;
+    /** The tree section is registered in the References container. */
+    callHierarchyVisible: boolean;
     scmViewletVisible: boolean;
     /** VS Code: `scmInputIsInFocus`. */
     scmInputFocus: boolean;

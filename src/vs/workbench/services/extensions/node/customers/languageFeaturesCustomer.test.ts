@@ -575,6 +575,18 @@ describe("LanguageFeaturesCustomer — semantic tokens", () => {
         expect(h.sent).not.toHaveBeenCalled();
     });
 
+    it("releaseCallHierarchy goes as a notification with handle and session", async () => {
+        const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        const [a, b] = createInProcessChannelPair();
+        const peer = new RpcEndpoint(b);
+        const released: unknown[] = [];
+        peer.handleNotification("languages.releaseCallHierarchy", (params) => released.push(params));
+        customer.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+        customer.releaseCallHierarchy(3, 9);
+        await flushMicrotasks();
+        expect(released).toStrictEqual([{ handle: 3, sessionId: 9 }]);
+    });
+
     it("releaseDocumentSemanticTokens goes as a notification with handle and id", async () => {
         const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         const [a, b] = createInProcessChannelPair();
@@ -619,6 +631,45 @@ describe("LanguageFeaturesCustomer — selection ranges", () => {
             { handle: 1, uri: SYNCED, languageId: "typescript", version: 7, positions: REQ.positions },
         ]);
         expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("call hierarchy: position params, session and item ids go over the wire, replies as is", async () => {
+        const seen: unknown[] = [];
+        const session = { sessionId: 40, items: [] };
+        const h = setupAnswering({
+            "languages.prepareCallHierarchy": (params) => {
+                seen.push(params);
+                return session;
+            },
+            "languages.provideCallHierarchyIncomingCalls": (params) => {
+                seen.push(params);
+                return [{ incoming: true }];
+            },
+            "languages.provideCallHierarchyOutgoingCalls": (params) => {
+                seen.push(params);
+                return [{ outgoing: true }];
+            },
+        });
+        const request = { uri: SYNCED, languageId: "typescript", versionId: 7, line: 2, character: 3 };
+        expect(await h.customer.prepareCallHierarchy(1, request)).toEqual(session);
+        expect(await h.customer.provideCallHierarchyIncomingCalls(1, 40, 2)).toEqual([{ incoming: true }]);
+        expect(await h.customer.provideCallHierarchyOutgoingCalls(1, 40, 3)).toEqual([{ outgoing: true }]);
+        expect(seen).toEqual([
+            { handle: 1, uri: SYNCED, languageId: "typescript", version: 7, line: 2, character: 3 },
+            { handle: 1, sessionId: 40, itemId: 2 },
+            { handle: 1, sessionId: 40, itemId: 3 },
+        ]);
+    });
+
+    it("call hierarchy without a subprocess: no session, no calls, a release is silent", async () => {
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        const request = { uri: SYNCED, languageId: "typescript", versionId: 7, line: 0, character: 0 };
+        expect(await detached.prepareCallHierarchy(1, request)).toBeNull();
+        expect(await detached.provideCallHierarchyIncomingCalls(1, 40, 2)).toEqual([]);
+        expect(await detached.provideCallHierarchyOutgoingCalls(1, 40, 2)).toEqual([]);
+        expect(() => {
+            detached.releaseCallHierarchy(1, 40);
+        }).not.toThrow();
     });
 
     it("RPC rejection or no spawn — no selection ranges", async () => {

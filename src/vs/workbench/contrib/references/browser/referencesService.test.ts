@@ -29,6 +29,7 @@ function fakeComponent(): { component: ReferencesComponent; shown: IReferenceGro
     const state = { cleared: 0 };
     const component = {
         setResults: (groups: readonly IReferenceGroup[]) => shown.push([...groups]),
+        revealResults: () => undefined,
         clear: () => {
             state.cleared++;
         },
