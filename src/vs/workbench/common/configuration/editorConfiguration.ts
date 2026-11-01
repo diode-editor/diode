@@ -177,8 +177,21 @@ export const editorConfiguration = {
             scope: "language-overridable",
             type: "string",
             enum: ["off", "singleFile", "multiFile"],
+            enumDescriptions: [
+                "Does not highlight occurrences.",
+                "Highlights occurrences only in the current file.",
+                "Experimental: Highlights occurrences across all valid open files.",
+            ],
             default: "singleFile",
-            description: "Controls whether the editor highlights semantic symbol occurrences.",
+            description: "Controls whether occurrences should be highlighted across open files.",
+        },
+        "editor.occurrencesHighlightDelay": {
+            scope: "language-overridable",
+            type: "integer",
+            default: 0,
+            minimum: 0,
+            maximum: 2000,
+            description: "Controls the delay in milliseconds after which occurrences are highlighted.",
         },
         // Our own key: VS Code draws the overview ruler inside its scrollbar and has nowhere else to put it.
         "editor.scrollbarMarkers": {

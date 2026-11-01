@@ -1,7 +1,7 @@
 {
     "name": "insert-snippet",
     "displayName": "Insert Snippet",
-    "description": "E2E demo extension: opens a hanging indent with TextEditor.insertSnippet, as KevinRose.vsc-python-indent does.",
+    "description": "E2E demo extension: opens a hanging indent with TextEditor.insertSnippet, as KevinRose.vsc-python-indent does, and calls the core edit commands yzhang.markdown-all-in-one relies on.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",
@@ -13,6 +13,18 @@
             {
                 "command": "insertSnippetDemo.hang",
                 "title": "Insert Snippet: Hanging Indent"
+            },
+            {
+                "command": "insertSnippetDemo.link",
+                "title": "Insert Snippet: Link Over the Selection"
+            },
+            {
+                "command": "insertSnippetDemo.tab",
+                "title": "Insert Snippet: Core Tab"
+            },
+            {
+                "command": "insertSnippetDemo.lineBelow",
+                "title": "Insert Snippet: Core Line Below"
             }
         ]
     }

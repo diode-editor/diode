@@ -47,7 +47,8 @@ export function compareTextEditsInDocumentOrder(a: ITextEdit, b: ITextEdit): num
  * zero-width inserts at the same point do NOT count as overlapping.
  */
 export function hasOverlappingEdits(edits: readonly ITextEdit[]): boolean {
-    const sorted = [...edits].sort((a, b) => comparePositions(a.range.start, b.range.start));
+    // By end too: an insertion at the start of a deletion touches it whichever way round the batch lists them.
+    const sorted = [...edits].sort(compareTextEditsInDocumentOrder);
     for (let i = 1; i < sorted.length; i++) {
         if (comparePositions(sorted[i].range.start, sorted[i - 1].range.end) < 0) return true;
     }

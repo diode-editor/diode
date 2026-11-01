@@ -6,7 +6,7 @@ import type { IWireEditorEdit, IWireSelection } from "./wireTypes.ts";
 /**
  * `TextEditor.insertSnippet` without a snippet session (class C of the API matrix): the text goes in as upstream's
  * `SnippetParser` makes it and with upstream's indentation, the caret lands on the first tab stop, but Tab does not
- * walk the remaining stops. Variables stay literal text.
+ * walk the remaining stops. Of the variables only `TM_SELECTED_TEXT` is resolved, the rest stay literal text.
  */
 
 type SnippetNode =
@@ -31,6 +31,8 @@ export interface ISnippetEdits {
     readonly selectionsAfter: readonly IWireSelection[];
 }
 
+/** The lookahead keeps a longer name, such as `$TM_SELECTED_TEXTS`, from matching. */
+const SELECTED_TEXT_VARIABLE = /\$TM_SELECTED_TEXT(?![_a-zA-Z0-9])|\$\{TM_SELECTED_TEXT\}/y;
 const PLAIN_STOP = /\$(\d+)|\$\{(\d+)\}/y;
 const PLACEHOLDER_START = /\$\{(\d+):/y;
 /** The second group is the first option, the only one used; `\,` does not end it. */
@@ -47,7 +49,13 @@ function matchAt(pattern: RegExp, template: string, index: number): RegExpExecAr
 }
 
 /** A placeholder without its closing brace is `null`: its `$` is then text, as upstream's parser backs off. */
-function parseTabStop(template: string, index: number): { node: SnippetNode; end: number } | null {
+function parseTabStop(
+    template: string,
+    index: number,
+    selectedText: string,
+): { node: SnippetNode; end: number } | null {
+    const variable = matchAt(SELECTED_TEXT_VARIABLE, template, index);
+    if (variable !== null) return { node: { text: selectedText }, end: SELECTED_TEXT_VARIABLE.lastIndex };
     const plain = matchAt(PLAIN_STOP, template, index);
     if (plain !== null) {
         const groups: readonly (string | undefined)[] = plain;
@@ -60,13 +68,18 @@ function parseTabStop(template: string, index: number): { node: SnippetNode; end
     }
     const placeholder = matchAt(PLACEHOLDER_START, template, index);
     if (placeholder === null) return null;
-    const inner = parseNodes(template, PLACEHOLDER_START.lastIndex, true);
+    const inner = parseNodes(template, PLACEHOLDER_START.lastIndex, true, selectedText);
     if (inner.end >= template.length) return null;
     return { node: { tabStop: Number(placeholder[1]), children: inner.nodes }, end: inner.end + 1 };
 }
 
 /** Inside a placeholder it stops on the closing brace, and `end` points at it; `end` past the text means none was found. */
-function parseNodes(template: string, from: number, inPlaceholder: boolean): { nodes: SnippetNode[]; end: number } {
+function parseNodes(
+    template: string,
+    from: number,
+    inPlaceholder: boolean,
+    selectedText: string,
+): { nodes: SnippetNode[]; end: number } {
     const nodes: SnippetNode[] = [];
     let text = "";
     const flush = (): void => {
@@ -82,7 +95,7 @@ function parseNodes(template: string, from: number, inPlaceholder: boolean): { n
             index += 2;
             continue;
         }
-        const stop = parseTabStop(template, index);
+        const stop = parseTabStop(template, index, selectedText);
         if (stop === null) {
             text += char;
             index++;
@@ -136,8 +149,9 @@ export function resolveSnippet(
     template: string,
     lineLeadingWhitespace: string,
     indentation: ISnippetIndentation | null,
+    selectedText = "",
 ): IResolvedSnippet {
-    const { nodes } = parseNodes(template, 0, false);
+    const { nodes } = parseNodes(template, 0, false, selectedText);
     const placeholders = new Map<number, readonly SnippetNode[]>();
     // Stryker disable next-line ArrayDeclaration: equivalent, the filter below drops a non-number
     const stops: number[] = [];
@@ -230,7 +244,7 @@ export function buildSnippetEdits(
     for (const range of sorted) {
         const { start, end } = range;
         const lead = getLeadingWhitespace(document.lineAt(start.line).text.slice(0, start.character));
-        const resolved = resolveSnippet(template, lead, keepWhitespace ? null : indentation);
+        const resolved = resolveSnippet(template, lead, keepWhitespace ? null : indentation, document.getText(range));
         edits.push({
             range: {
                 start: { line: start.line, character: start.character },

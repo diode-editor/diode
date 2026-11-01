@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -440,6 +440,104 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await app.session.waitForText((text) => text.includes("# Title") && !text.includes("MD013"), {
                     timeoutMs: 20_000,
                 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Markdown All in One binds enter, tab and ctrl+b in Markdown and falls back
+        // to the core `type` and `tab`. The code lens is read from the frame, `a.txt` holds the keys outside Markdown.
+        id: "yzhang.markdown-all-in-one",
+        expectFiles: ["package.json", "dist/node/main.js"],
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "project");
+            mkdirSync(projectRoot);
+            const file = join(projectRoot, "doc.md");
+            writeFileSync(file, "# Title\n\nplain\n\n- item\n\nword\n\n| a | bbbb |\n|---|---|\n| ccccc | d |\n");
+            const other = join(projectRoot, "a.txt");
+            writeFileSync(other, "hello\n");
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [projectRoot, other, file] });
+            const { session } = app;
+            const frameHas = (needle: string) =>
+                session.waitForText((text) => text.includes(needle), { timeoutMs: 20_000 });
+            const goToLine = async (line: number): Promise<void> => {
+                await session.key("Ctrl+Home");
+                for (let i = 1; i < line; i++) await session.key("ArrowDown");
+                await session.key("End");
+            };
+            try {
+                await session.waitForText((text) => text.includes("# Title"), { timeoutMs: 40_000 });
+                // Waits for the activation; without a table of contents the command changes nothing.
+                await session.executeCommand("markdown.extension.toc.update");
+
+                await goToLine(3);
+                await session.key("Enter");
+                await frameHas("Ln 4, Col 1");
+                await session.executeCommand("undo");
+
+                await goToLine(5);
+                await session.key("Enter");
+                await frameHas("Ln 6, Col 3");
+                await session.key("Enter");
+                await frameHas("Ln 6, Col 1");
+                await session.executeCommand("undo");
+                await session.executeCommand("undo");
+
+                // The `when` of the Tab binding reads a context the extension sets after the caret moves.
+                await goToLine(5);
+                await waitUntil(
+                    () => session.getContextKey("markdown.extension.editor.cursor.inList"),
+                    (inList) => inList === true,
+                    { timeoutMs: 20_000 },
+                );
+                // Past the marker the extension falls back to the core `tab`.
+                await session.key("Tab");
+                await frameHas("Ln 5, Col 9");
+                await session.executeCommand("undo");
+                // On the marker it changes the level of the list item.
+                await session.key("Home");
+                await session.key("Tab");
+                await frameHas("    - item");
+                await session.key("Shift+Tab");
+                await session.waitForText((text) => !text.includes("    - item"), { timeoutMs: 20_000 });
+
+                await goToLine(7);
+                await session.key("Ctrl+b");
+                await frameHas("**word**");
+                await session.executeCommand("undo");
+
+                await session.key("Ctrl+Home");
+                await session.executeCommand("markdown.extension.toc.create");
+                await frameHas("[Title](#title)");
+                await frameHas("Table of Contents (up to date)");
+                await session.key("Ctrl+End");
+                await session.key("Enter");
+                await session.text("## Later");
+                await frameHas("Table of Contents (out of date)");
+                await session.executeCommand("markdown.extension.toc.update");
+                await frameHas("[Later](#later)");
+                await frameHas("Table of Contents (up to date)");
+
+                await session.executeCommand("editor.action.formatDocument");
+                await frameHas("| ccccc | d    |");
+
+                await session.executeCommand("workbench.action.files.save");
+                await session.executeCommand("markdown.extension.printToHtml");
+                await waitUntil(
+                    () => existsSync(join(projectRoot, "doc.html")),
+                    (written) => written,
+                    { timeoutMs: 20_000 },
+                );
+
+                await session.executeCommand("workbench.action.previousEditor");
+                await frameHas("Plain Text");
+                await session.key("End");
+                await session.key("Enter");
+                await frameHas("Ln 2, Col 1");
+                await frameHas("PROJECT");
+                await session.key("Ctrl+b");
+                await session.waitForText((text) => !text.includes("PROJECT"), { timeoutMs: 20_000 });
             } finally {
                 await app.dispose();
             }

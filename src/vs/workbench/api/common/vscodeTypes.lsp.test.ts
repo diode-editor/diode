@@ -15,6 +15,7 @@ import {
     DiagnosticRelatedInformation,
     DiagnosticSeverity,
     DiagnosticTag,
+    DocumentHighlight,
     DocumentHighlightKind,
     DocumentLink,
     DocumentSymbol,
@@ -333,6 +334,12 @@ describe("vscodeTypes — LSP value classes", () => {
         expect(DiagnosticTag.Deprecated).toBe(2);
         expect(CompletionItemTag.Deprecated).toBe(1);
         expect(DocumentHighlightKind.Write).toBe(2);
+        const range = new Range(0, 0, 0, 1);
+        expect(new DocumentHighlight(range).kind).toBe(DocumentHighlightKind.Text);
+        expect(new DocumentHighlight(range).range).toBe(range);
+        const write = new DocumentHighlight(range, DocumentHighlightKind.Write);
+        expect(write.kind).toBe(DocumentHighlightKind.Write);
+        expect(write.toJSON()).toEqual({ range, kind: "Write" });
         expect(SymbolTag.Deprecated).toBe(1);
         expect(SymbolKind.TypeParameter).toBe(25);
         expect(LogLevel.Error).toBe(5);

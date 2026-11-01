@@ -24,6 +24,10 @@ import type {
     ICoreDefinitionLocation,
     IDefinitionRequest,
 } from "../../../../editor/common/languages/iDefinitionSource.ts";
+import type {
+    IDocumentHighlight,
+    IDocumentHighlightRequest,
+} from "../../../../editor/common/languages/iDocumentHighlightSource.ts";
 import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
@@ -843,6 +847,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token?: ICancellationToken,
     ): Promise<readonly (readonly IRange[])[]> {
         return this.languageFeatures.provideSelectionRanges(handle, req, token);
+    }
+
+    public provideDocumentHighlights(
+        handle: number,
+        req: IDocumentHighlightRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly IDocumentHighlight[] | null> {
+        return this.languageFeatures.provideDocumentHighlights(handle, req, token);
     }
 
     public provideDocumentColors(

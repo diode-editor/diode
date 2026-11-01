@@ -906,6 +906,20 @@ export enum DocumentHighlightKind {
     Write = 2,
 }
 
+export class DocumentHighlight implements vscode.DocumentHighlight {
+    public range: Range;
+    public kind: DocumentHighlightKind;
+
+    public constructor(range: Range, kind: DocumentHighlightKind = DocumentHighlightKind.Text) {
+        this.range = range;
+        this.kind = kind;
+    }
+
+    public toJSON(): unknown {
+        return { range: this.range, kind: DocumentHighlightKind[this.kind] };
+    }
+}
+
 export enum SymbolTag {
     Deprecated = 1,
 }
