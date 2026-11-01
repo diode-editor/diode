@@ -1050,12 +1050,35 @@ export class DocumentLink {
     }
 }
 
-export class InlayHint {
-    public position: Position;
-    public label: unknown;
-    public kind?: unknown;
+/** Upstream `InlayHintKind`. */
+export enum InlayHintKind {
+    Type = 1,
+    Parameter = 2,
+}
 
-    public constructor(position: Position, label: unknown, kind?: unknown) {
+/** Only `value` goes over the wire: a hint has no hover or click yet (docs/TODO/InlayHintsCodeLens.md). */
+export class InlayHintLabelPart implements vscode.InlayHintLabelPart {
+    public value: string;
+    public tooltip?: string | vscode.MarkdownString;
+    public location?: vscode.Location;
+    public command?: vscode.Command;
+
+    public constructor(value: string) {
+        this.value = value;
+    }
+}
+
+/** `tooltip` and `textEdits` stay here: a hint has no hover or double click yet (docs/TODO/InlayHintsCodeLens.md). */
+export class InlayHint implements vscode.InlayHint {
+    public position: Position;
+    public label: string | InlayHintLabelPart[];
+    public tooltip?: string | vscode.MarkdownString;
+    public kind?: vscode.InlayHintKind;
+    public textEdits?: TextEdit[];
+    public paddingLeft?: boolean;
+    public paddingRight?: boolean;
+
+    public constructor(position: Position, label: string | InlayHintLabelPart[], kind?: vscode.InlayHintKind) {
         this.position = position;
         this.label = label;
         this.kind = kind;

@@ -21,6 +21,7 @@ import type {
 import type { IFoldingRequest } from "../../../../../editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../../editor/common/languages/iHoverSource.ts";
+import type { IInlayHintsRequest, InlayHint } from "../../../../../editor/common/languages/iInlayHintsSource.ts";
 import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
@@ -59,6 +60,7 @@ import {
     parseWireLanguageProviderUnregistration,
     parseWireProviderHandle,
     wireToCoreFoldingRegions,
+    wireToCoreInlayHints,
     wireToCoreRenameLocation,
     wireToCoreSemanticTokens,
 } from "../hostWireParsers.ts";
@@ -95,6 +97,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     public readonly onProvidersChanged = this.onProvidersChangedEmitter.event;
     private readonly onDidChangeSemanticTokensEmitter = this.register(new Emitter<number>());
     public readonly onDidChangeSemanticTokens = this.onDidChangeSemanticTokensEmitter.event;
+    private readonly onDidChangeInlayHintsEmitter = this.register(new Emitter<number>());
+    public readonly onDidChangeInlayHints = this.onDidChangeInlayHintsEmitter.event;
     private rpc: HostRpc | null = null;
     private readonly inlineCompletionsBatcher = new ProviderRequestBatcher<
         IInlineCompletionRequest,
@@ -245,6 +249,38 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     ): Promise<readonly ICoreDefinitionLocation[]> {
         return this.request(
             "languages.provideImplementation",
+            {
+                handle,
+                ...positionParams(req),
+            },
+            [],
+            { token },
+        );
+    }
+
+    public async provideTypeDefinition(
+        handle: number,
+        req: IDefinitionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]> {
+        return this.request(
+            "languages.provideTypeDefinition",
+            {
+                handle,
+                ...positionParams(req),
+            },
+            [],
+            { token },
+        );
+    }
+
+    public async provideDeclaration(
+        handle: number,
+        req: IDefinitionRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]> {
+        return this.request(
+            "languages.provideDeclaration",
             {
                 handle,
                 ...positionParams(req),
@@ -417,6 +453,21 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
+    /** `null` — no hints, also when there is no subprocess, the document is not synced or the extension timed out. */
+    public async provideInlayHints(
+        handle: number,
+        req: IInlayHintsRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly InlayHint[] | null> {
+        const wire = await this.request(
+            "languages.provideInlayHints",
+            { handle, uri: req.uri, languageId: req.languageId, version: req.versionId, range: req.range },
+            null,
+            { token },
+        );
+        return wire === null ? null : wireToCoreInlayHints(wire);
+    }
+
     /**
      * The reply `resultId` is its id in the subprocess as a string (upstream
      * `MainThreadDocumentSemanticTokensProvider`). No timeout, like upstream:
@@ -505,6 +556,15 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` before the event — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (parsed !== null && this.providers.has(parsed.handle)) {
                     this.onDidChangeSemanticTokensEmitter.fire(parsed.handle);
+                }
+            }),
+        );
+        store.add(
+            rpc.handleNotification("languages.didChangeInlayHints", (params) => {
+                const parsed = parseWireProviderHandle(params);
+                // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` before the event — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
+                if (parsed !== null && this.providers.has(parsed.handle)) {
+                    this.onDidChangeInlayHintsEmitter.fire(parsed.handle);
                 }
             }),
         );

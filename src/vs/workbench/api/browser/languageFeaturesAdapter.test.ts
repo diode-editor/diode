@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
 import { CancellationTokenNone } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import type { IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
+import type { IInlayHintsRequest, InlayHint } from "../../../editor/common/languages/iInlayHintsSource.ts";
 import type { ITextDocument } from "../../../editor/common/model/iTextDocument.ts";
 import { LanguageFeaturesService } from "../../../editor/common/services/languageFeaturesService.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
@@ -26,10 +28,12 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
     providers: IWireLanguageProviderRegistration[];
     fire(): void;
     fireSemanticTokens(handle: number): void;
+    fireInlayHints(handle: number): void;
     listeners: number;
 } {
     const listeners: (() => void)[] = [];
     const semanticListeners: ((handle: number) => void)[] = [];
+    const inlayHintListeners: ((handle: number) => void)[] = [];
     const bridge = {
         providers: [] as IWireLanguageProviderRegistration[],
         getLanguageProviders: () => bridge.providers,
@@ -47,6 +51,12 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         ),
         provideImplementation: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///impl${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
+        ),
+        provideTypeDefinition: vi.fn((handle: number) =>
+            Promise.resolve([{ uri: `file:///type${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
+        ),
+        provideDeclaration: vi.fn((handle: number) =>
+            Promise.resolve([{ uri: `file:///decl${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
         provideSignatureHelp: vi.fn((handle: number) =>
             Promise.resolve({
@@ -100,6 +110,21 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         },
         fireSemanticTokens: (handle: number) => {
             for (const cb of [...semanticListeners]) cb(handle);
+        },
+        provideInlayHints: vi.fn(
+            (handle: number, _request: IInlayHintsRequest, _token?: ICancellationToken): Promise<InlayHint[] | null> =>
+                Promise.resolve(handle === 0 ? null : [{ position: { line: 0, character: handle }, label: "hint" }]),
+        ),
+        onDidChangeInlayHints: (cb: (handle: number) => void) => {
+            inlayHintListeners.push(cb);
+            return {
+                dispose: () => {
+                    inlayHintListeners.splice(inlayHintListeners.indexOf(cb), 1);
+                },
+            };
+        },
+        fireInlayHints: (handle: number) => {
+            for (const cb of [...inlayHintListeners]) cb(handle);
         },
         fire: () => {
             for (const cb of [...listeners]) cb();
@@ -172,6 +197,30 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.provideImplementation).toHaveBeenCalledWith(6, REQUEST, token);
     });
 
+    it("type definition and declaration: each proxy lands in its own registry with its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 7, kind: "typeDefinition", selector: [{ language: "typescript" }] },
+            { handle: 8, kind: "declaration", selector: [{ language: "typescript" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        expect(features.definitionProvider.has(TS)).toBe(false);
+        expect(features.implementationProvider.has(TS)).toBe(false);
+
+        const [typeDefinition] = features.typeDefinitionProvider.ordered(TS);
+        const [declaration] = features.declarationProvider.ordered(TS);
+        const token = new CancellationTokenSource().token;
+        expect(await typeDefinition.provideTypeDefinition(REQUEST, token)).toEqual([
+            { uri: "file:///type7.ts", range: createRange(0, 0, 0, 1) },
+        ]);
+        expect(await declaration.provideDeclaration(REQUEST, token)).toEqual([
+            { uri: "file:///decl8.ts", range: createRange(0, 0, 0, 1) },
+        ]);
+        expect(bridge.provideTypeDefinition).toHaveBeenCalledWith(7, REQUEST, token);
+        expect(bridge.provideDeclaration).toHaveBeenCalledWith(8, REQUEST, token);
+    });
+
     it("rename: proxy in its registry, both methods call the host with its handle", async () => {
         const bridge = makeBridge();
         bridge.providers = [{ handle: 9, kind: "rename", selector: [{ language: "typescript" }] }];
@@ -229,6 +278,57 @@ describe("LanguageFeaturesAdapter", () => {
         bridge.fire();
         expect(features.colorProvider.has(TS)).toBe(false);
         adapter.dispose();
+    });
+
+    it("inlayHints: a proxy in its registry asks the host about the model, with its handle and token", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 5, kind: "inlayHints", selector: [{ language: "typescript" }] },
+            { handle: 0, kind: "inlayHints", selector: [{ language: "typescript" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const providers = features.inlayHintsProvider.ordered(TS);
+        expect(providers).toHaveLength(2);
+        const model = { ...TS, document: { versionId: 3 } as ITextDocument };
+        const range = createRange(0, 0, 4, 0);
+        const token = new CancellationTokenSource().token;
+        const answers = await Promise.all(providers.map(async (p) => p.provideInlayHints(model, range, token)));
+
+        expect(bridge.provideInlayHints).toHaveBeenCalledWith(
+            5,
+            { uri: TS.uri.toString(), languageId: TS.languageId, versionId: 3, range },
+            token,
+        );
+        expect(answers.find((list) => list === null)).toBeNull();
+        const list = answers.find((answer) => answer !== null && answer !== undefined);
+        expect(list?.hints).toEqual([{ position: { line: 0, character: 5 }, label: "hint" }]);
+        expect(() => list?.dispose()).not.toThrow();
+    });
+
+    it("inlayHints: the change event reaches the provider of its handle; none without hasOnDidChange", () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 1, kind: "inlayHints", selector: [{ language: "typescript" }], hasOnDidChange: true },
+            { handle: 2, kind: "inlayHints", selector: [{ language: "python" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.inlayHintsProvider.ordered(TS);
+        const listener = vi.fn();
+        const subscription = provider.onDidChangeInlayHints?.(listener);
+        bridge.fireInlayHints(9);
+        expect(listener).not.toHaveBeenCalled();
+        bridge.fireInlayHints(1);
+        expect(listener).toHaveBeenCalledOnce();
+        subscription?.dispose();
+        bridge.fireInlayHints(1);
+        expect(listener).toHaveBeenCalledOnce();
+
+        const [silent] = features.inlayHintsProvider.ordered({ ...TS, languageId: "python" });
+        expect(silent.onDidChangeInlayHints).toBeUndefined();
     });
 
     it("signatureHelp: triggers come from registration metadata, empty without metadata", async () => {

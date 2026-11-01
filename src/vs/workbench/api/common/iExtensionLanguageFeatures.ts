@@ -20,6 +20,7 @@ import type {
 import type { IFoldingRequest } from "../../../editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
+import type { IInlayHintsRequest, InlayHint } from "../../../editor/common/languages/iInlayHintsSource.ts";
 import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
@@ -60,6 +61,16 @@ export interface IExtensionLanguageFeaturesBridge {
         token: ICancellationToken,
     ): Promise<readonly ICoreDefinitionLocation[]>;
     provideImplementation(
+        handle: number,
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]>;
+    provideTypeDefinition(
+        handle: number,
+        request: IDefinitionRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDefinitionLocation[]>;
+    provideDeclaration(
         handle: number,
         request: IDefinitionRequest,
         token: ICancellationToken,
@@ -120,6 +131,12 @@ export interface IExtensionLanguageFeaturesBridge {
      * Document tokens; `previousResultId` is the numeric id of this provider's previous
      * response (0 if none). The response's `resultId` is the same id as a string.
      */
+    provideInlayHints(
+        handle: number,
+        request: IInlayHintsRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly InlayHint[] | null>;
+    onDidChangeInlayHints(cb: (handle: number) => void): IDisposable;
     provideDocumentSemanticTokens(
         handle: number,
         request: ISemanticTokensRequest,

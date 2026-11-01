@@ -388,6 +388,20 @@ export interface IWireSelectionRangeParams extends IWireDocumentParams, IWirePro
 /** Upstream `$provideDocumentColors`: the reply is `null` when the provider gave no colors. */
 export type IWireDocumentColorParams = IWireDocumentParams & IWireProviderHandle;
 
+/** Upstream `$provideInlayHints`: the reply is `null` when the provider gave no hints. */
+export interface IWireInlayHintsParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly range: IRange;
+}
+
+/** Upstream `IInlayHintDto` without what nothing draws yet: tooltips, part locations and commands, text edits. */
+export interface IWireInlayHint {
+    readonly position: IPosition;
+    readonly label: string | readonly { readonly value: string }[];
+    readonly kind?: 1 | 2;
+    readonly paddingLeft?: boolean;
+    readonly paddingRight?: boolean;
+}
+
 export type IWireDefinitionParams = IWirePositionParams & IWireProviderHandle;
 
 export type IWireHoverParams = IWirePositionParams & IWireProviderHandle;
@@ -397,6 +411,8 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "hover",
     "definition",
     "implementation",
+    "typeDefinition",
+    "declaration",
     "references",
     "signatureHelp",
     "completion",
@@ -408,6 +424,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "rename",
     "selectionRange",
     "color",
+    "inlayHints",
     "semanticTokens",
     "rangeSemanticTokens",
 ] as const;

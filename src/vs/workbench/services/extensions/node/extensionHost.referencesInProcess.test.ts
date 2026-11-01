@@ -185,6 +185,40 @@ describe("ExtensionHost — references request by handle (in-process)", () => {
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
+    it.each([
+        ["languages.provideTypeDefinition", "provideTypeDefinition"],
+        ["languages.provideDeclaration", "provideDeclaration"],
+    ] as const)("%s by handle: the handle reaches the subprocess", async (method, call) => {
+        const { host, peer } = makeHost();
+        const provide = vi.fn((_params: unknown) => Promise.resolve([REF]));
+        peer.handleRequest(method, provide);
+
+        expect(await host[call](7, requestOf())).toEqual([CORE_REF]);
+        expect(provide.mock.calls[0]?.[0]).toMatchObject({ handle: 7, line: 0, character: 0, version: 3 });
+    });
+
+    it.each([
+        ["languages.provideTypeDefinition", "provideTypeDefinition"],
+        ["languages.provideDeclaration", "provideDeclaration"],
+    ] as const)("core cancellation reaches the subprocess token (%s)", async (method, call) => {
+        const { host, peer } = makeHost();
+        let seen: ICancellationToken | null = null;
+        peer.handleRequest(method, (_params, token) => {
+            seen = token;
+            return new Promise(() => undefined);
+        });
+
+        const source = new CancellationTokenSource();
+        const pending = host[call](0, requestOf(), source.token);
+        await flushMicrotasks();
+        expect(seen!.isCancellationRequested).toBe(false);
+
+        source.cancel();
+        await flushMicrotasks();
+        expect(seen!.isCancellationRequested).toBe(true);
+        void pending;
+    });
+
     it("core cancellation reaches the subprocess token (provideImplementation)", async () => {
         const { host, peer } = makeHost();
         let seen: ICancellationToken | null = null;
