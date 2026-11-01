@@ -247,6 +247,14 @@ describe("WindowNamespace", () => {
         expect(stub.notifies[0]?.params).toMatchObject({ title: "Pick", visible: true });
     });
 
+    it("createInputBox returns a live box: show() sends its state to the host", () => {
+        const { stub, window } = makeCtx();
+        const box = window.createInputBox();
+        box.prompt = "Group";
+        box.show();
+        expect(stub.notifies[0]?.params).toMatchObject({ inputBox: true, prompt: "Group", visible: true });
+    });
+
     it("showInputBox is sent to the host as a request and resolves with the input", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ value: "Ada" });

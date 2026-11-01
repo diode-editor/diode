@@ -56,6 +56,14 @@ describe("window.createInputBox: state and wire", () => {
         ]);
     });
 
+    it("input boxes and quick picks made in turn never share a handle", () => {
+        const { api, box, updates } = setup();
+        const pick = api.createQuickPick();
+        const second = api.createInputBox();
+        for (const input of [box, pick, second]) input.show();
+        expect(new Set(updates().map((update) => update.handle)).size).toBe(3);
+    });
+
     it("[api:InputBox.password] [api:InputBox.valueSelection] later changes are a diff without the flavor mark; unset selection is null", () => {
         const { box, updates } = setup();
         expect(box.password).toBe(false);

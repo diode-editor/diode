@@ -44,8 +44,10 @@ export class QuickPickFrameElement extends TUIElement {
     }
 
     public setBackVisible(value: boolean): void {
+        // Stryker disable next-line ConditionalExpression: only saves a repaint, the frame comes out the same
         if (this.backVisibleValue === value) return;
         this.backVisibleValue = value;
+        // Stryker disable next-line CallExpression: the only caller, the session, repaints the widget after each update
         this.markDirty();
     }
 
@@ -104,6 +106,7 @@ export class QuickPickFrameElement extends TUIElement {
         context.drawText(startX, 0, label, { fg: this.styleVar("quickPick.titleForeground"), bg: background });
         context.setCell(startX + labelWidth, 0, { char: "├", fg: border, bg: background });
         // The leading space of the label comes first.
+        // Stryker disable next-line ConditionalExpression: without the button goBack ignores a click there anyway
         if (this.backVisibleValue) this.backColumn = startX + 1;
     }
 }

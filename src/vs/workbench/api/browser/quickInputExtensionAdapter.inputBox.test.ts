@@ -24,7 +24,7 @@ function setup() {
         testApp.render();
         return testApp.backend.screenToString();
     };
-    return { adapter, service, component, testApp, events, emit, frame };
+    return { adapter, service, component, body, testApp, events, emit, frame };
 }
 
 function clickAt(testApp: TestApp, x: number, y: number): void {
@@ -117,6 +117,27 @@ describe("QuickInputExtensionAdapter: input box flavor", () => {
         expect(component.view.getQuery()).toBe("Y");
     });
 
+    it("an update naming neither the selection nor the message leaves both as they are", () => {
+        const { adapter, component, testApp, emit, frame } = setup();
+        adapter.updateQuickPick(
+            {
+                handle: 5,
+                inputBox: true,
+                visible: true,
+                value: "abcd",
+                valueSelection: [1, 2],
+                validationMessage: { message: "Careful", severity: "warning" },
+            },
+            emit,
+        );
+
+        adapter.updateQuickPick({ handle: 5, title: "Later" }, emit);
+
+        expect(frame()).toContain("Careful");
+        testApp.sendKey("X");
+        expect(component.view.getQuery()).toBe("aXcd");
+    });
+
     it("a quick pick still starts with the cursor after its value", () => {
         const { adapter, component, testApp, emit } = setup();
         adapter.updateQuickPick({ handle: 5, visible: true, value: "ab" }, emit);
@@ -175,6 +196,60 @@ describe("QuickInputExtensionAdapter: Back button", () => {
         testApp.sendKey("Alt+ArrowLeft");
         service.backOpen();
         expect(events.filter((event) => event.kind === "back")).toHaveLength(2);
+    });
+
+    it("Alt+Left is consumed, so it does not also reach the editor's own navigation", () => {
+        const { body, testApp } = withBack();
+        const consumed: boolean[] = [];
+        body.addEventListener("keydown", (event) => consumed.push(event.defaultPrevented));
+        testApp.sendKey("Alt+ArrowLeft");
+        expect(consumed).toEqual([true]);
+    });
+
+    it("a click on the arrow is consumed", () => {
+        const { body, testApp, frame } = withBack();
+        const lines = frame().split("\n");
+        const row = lines.findIndex((line) => line.includes("← Create"));
+        const consumed: boolean[] = [];
+        body.addEventListener("click", (event) => consumed.push(event.defaultPrevented));
+        clickAt(testApp, (lines[row] ?? "").indexOf("←"), row);
+        expect(consumed).toEqual([true]);
+    });
+
+    it("the left arrow alone and another Alt chord are not back", () => {
+        const { testApp, events } = withBack();
+        testApp.sendKey("ArrowLeft");
+        testApp.sendKey("Alt+x");
+        expect(events.filter((event) => event.kind === "back")).toEqual([]);
+    });
+
+    it("a click under the arrow is not back", () => {
+        const { testApp, events, frame } = withBack();
+        const lines = frame().split("\n");
+        const row = lines.findIndex((line) => line.includes("← Create"));
+        clickAt(testApp, (lines[row] ?? "").indexOf("←"), row + 1);
+        expect(events.filter((event) => event.kind === "back")).toEqual([]);
+    });
+
+    it("the command does nothing once the picker is closed", () => {
+        const { service, events } = withBack();
+        service.cancel();
+        service.backOpen();
+        expect(events.filter((event) => event.kind === "back")).toEqual([]);
+    });
+
+    it("the button is in the inspected state while it is shown", () => {
+        const { adapter, component, emit } = withBack();
+        expect(component.view.inspectState()).toMatchObject({ back: true });
+        adapter.updateQuickPick({ handle: 5, back: false }, emit);
+        expect(component.view.inspectState()).not.toHaveProperty("back");
+    });
+
+    it("removing the button from a drawn picker repaints it without the arrow", () => {
+        const { adapter, emit, frame } = withBack();
+        expect(frame()).toContain("←");
+        adapter.updateQuickPick({ handle: 5, back: false }, emit);
+        expect(frame()).not.toContain("←");
     });
 
     it("removing the button clears the arrow and its key", () => {

@@ -110,6 +110,7 @@ export function createQuickInputApi(
 
         createInputBox: (): vscode.InputBox => {
             const handle = nextHandle++;
+            // Stryker disable next-line ArrowFunction: frees the entry only, a disposed box's emitters fire nothing
             const inputBox = new ExtHostInputBox(rpc, handle, () => quickInputs.delete(handle));
             quickInputs.set(handle, inputBox);
             return inputBox;

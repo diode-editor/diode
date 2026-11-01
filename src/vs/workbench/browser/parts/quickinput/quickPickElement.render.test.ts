@@ -181,6 +181,14 @@ describe("QuickPickElement — layout", () => {
         expect(backend.getTextAt(new Point(0, 0), 6)).toBe("╭────╮");
     });
 
+    it("Back with no owner listening does nothing", () => {
+        const picker = makePicker();
+        picker.backVisible = true;
+        expect(() => {
+            picker.goBack();
+        }).not.toThrow();
+    });
+
     it("the hint follows the description on the right", () => {
         const picker = makePicker(40);
         picker.items = [{ label: "Bind", description: "keyboard", hint: "Configure Binding" }];

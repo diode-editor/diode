@@ -124,6 +124,7 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> extends ExtHostQui
     protected override disposeEmitters(): void {
         this.onDidChangeActiveEmitter.dispose();
         this.onDidChangeSelectionEmitter.dispose();
+        // Stryker disable next-line all: item buttons are not drawn, this event never fires, so nothing can observe it
         this.onDidTriggerItemButtonEmitter.dispose();
     }
 
