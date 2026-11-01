@@ -73,6 +73,19 @@ describe("ExtensionHost — inlay hints providers (subprocess)", () => {
         }
     });
 
+    it("a file opened after the provider is registered shows its pills with no edit", async () => {
+        const { harness, frame } = await open("const a = 1;\n");
+        try {
+            await waitUntil("the hint in the first file", () => frame().includes("const a : number = 1;"));
+            harness.group.openFile(harness.writeFile("second.ts", "const b = 2;\n"));
+            // The first request is scheduled, so setting the options right after the opening is in time for it.
+            harness.group.getActiveEditor()?.setInlayHints(DEFAULT_INLAY_HINTS_OPTIONS);
+            await waitUntil("the hint in the second file", () => frame().includes("const b : number = 2;"));
+        } finally {
+            await harness.dispose();
+        }
+    });
+
     it("turning the setting off removes the pills, turning it on brings them back", async () => {
         const { harness, editor, frame } = await open("const a = 1;\n");
         try {

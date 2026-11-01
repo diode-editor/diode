@@ -13,6 +13,7 @@ import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.t
 import { DIFF_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { showTransientNotice, TRANSIENT_NOTICE_MS } from "../../../services/statusbar/common/transientNotice.ts";
@@ -20,6 +21,15 @@ import type { TextFileModel } from "../../../services/textfile/common/textFileMo
 import { TextFileModelServiceDIToken } from "../../../services/textfile/common/textFileModelService.ts";
 
 const DIFF_SCHEME = "diode-diff";
+
+/**
+ * Where a snapshot side's text comes from. Content providers live in their own registry, apart from the
+ * file service, as upstream; `editors` rather than the source itself, because the composition injects it late.
+ */
+export interface IDiffSideReader {
+    readonly files: IFileService;
+    readonly editors: Pick<IEditorService, "virtualDocumentSource">;
+}
 
 export const COMPARE_NOTICE_MS = TRANSIENT_NOTICE_MS;
 
@@ -79,7 +89,7 @@ export async function openDiffPair(
         /* v8 ignore stop */
         // Fresh side specs: the text of a text (Clipboard) side may have changed.
         paneOptions.set(pane, options);
-        if (!(await refreshSnapshotSides(accessor.get(IFileServiceDIToken), pane, options))) {
+        if (!(await refreshSnapshotSides(sideReader(accessor), pane, options))) {
             return "unreadable";
         }
         // Focus in its tab activates the group anyway (activateTab below triggers the group's
@@ -120,10 +130,10 @@ export function diffPaneRecipe(pane: DiffEditorPane2): IOpenDiffPairOptions | un
 const paneOptions = new WeakMap<DiffEditorPane2, IOpenDiffPairOptions>();
 
 /** A side read error is silently skipped: the tab shows the previous snapshot, no notice without a user action. */
-export async function refreshDiffSnapshots(providers: IFileService, pane: DiffEditorPane2): Promise<void> {
+export async function refreshDiffSnapshots(reader: IDiffSideReader, pane: DiffEditorPane2): Promise<void> {
     const options = paneOptions.get(pane);
     if (options === undefined) return;
-    await refreshSnapshotSides(providers, pane, options);
+    await refreshSnapshotSides(reader, pane, options);
 }
 
 /** `null`: a side is unreadable per its policy; refs of already acquired sides are released. */
@@ -174,7 +184,7 @@ async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Prom
         }
     }
     if (side.preferDisk === true || side.uri.scheme !== "file") {
-        const text = await readSideText(accessor.get(IFileServiceDIToken), side);
+        const text = await readSideText(sideReader(accessor), side);
         return text === null ? null : { kind: "snapshot", text };
     }
 
@@ -200,24 +210,37 @@ function isWritableProvided(files: IFileService, uri: Uri): boolean {
     );
 }
 
-async function readSideText(providers: IFileService, side: IDiffSideSpec): Promise<string | null> {
+function sideReader(accessor: ServiceAccessor): IDiffSideReader {
+    return { files: accessor.get(IFileServiceDIToken), editors: accessor.get(EditorServiceDIToken) };
+}
+
+async function readSideText(reader: IDiffSideReader, side: IDiffSideSpec): Promise<string | null> {
     if (side.text !== undefined) return side.text;
     if (side.uri === undefined) return "";
     try {
-        // A scheme without a provider is also a readFile rejection (Unavailable), caught below.
-        return new TextDecoder().decode((await providers.readFile(side.uri)).value);
+        const text = await readResourceText(reader, side.uri);
+        if (text !== null) return text;
     } catch {
-        return side.onMissing === "empty" ? "" : null;
+        // Unreadable: the `onMissing` policy below decides.
     }
+    return side.onMissing === "empty" ? "" : null;
+}
+
+/** The file service first, then a content provider: the order of upstream `TextModelResolverService`. */
+async function readResourceText(reader: IDiffSideReader, uri: Uri): Promise<string | null> {
+    const virtual = reader.editors.virtualDocumentSource;
+    if (!reader.files.hasProvider(uri) && virtual.canProvide(uri.scheme)) return virtual.provide(uri);
+    // A scheme without any provider is also a readFile rejection (Unavailable).
+    return new TextDecoder().decode((await reader.files.readFile(uri)).value);
 }
 
 async function refreshSnapshotSides(
-    providers: IFileService,
+    reader: IDiffSideReader,
     pane: DiffEditorPane2,
     options: IOpenDiffPairOptions,
 ): Promise<boolean> {
     for (const side of pane.snapshotSides()) {
-        const text = await readSideText(providers, side === "original" ? options.original : options.modified);
+        const text = await readSideText(reader, side === "original" ? options.original : options.modified);
         if (text === null) return false;
         pane.replaceSnapshotContent(side, text);
     }

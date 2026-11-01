@@ -1083,9 +1083,12 @@ export interface IWireFileDecorationsChanged {
 
 export function parseRange(raw: unknown): IRange | null {
     if (typeof raw !== "object" || raw === null) return null;
+    // `Range.toJSON()` is a pair: that is what a `vscode.Range` becomes on the JSON fallback of the transport.
     const r = raw as { start?: unknown; end?: unknown };
-    const start = r.start as { line?: unknown; character?: unknown } | undefined;
-    const end = r.end as { line?: unknown; character?: unknown } | undefined;
+    const [start, end] = (Array.isArray(raw) ? raw : [r.start, r.end]) as (
+        | { line?: unknown; character?: unknown }
+        | undefined
+    )[];
     if (
         start == null ||
         end == null ||

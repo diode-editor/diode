@@ -1,8 +1,9 @@
 import { Disposable } from "../../../base/common/lifecycle.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
+import type { IInlineInsertion } from "../model/iInlineInsertion.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 
-import { computeLineBreakOffsets } from "./lineBreaksComputer.ts";
+import { computeComposedLineBreakOffsets, computeLineBreakOffsets } from "./lineBreaksComputer.ts";
 import { type LineInsertions, NO_LINE_INSERTIONS } from "./lineInsertions.ts";
 
 /**
@@ -13,9 +14,9 @@ export class LineBreaksCache extends Disposable {
     private readonly document: ITextDocument;
     private tabSize: number;
     private wrapWidth: number;
+    private insertions: LineInsertions = NO_LINE_INSERTIONS;
 
     private breaks: (number[] | null | undefined)[];
-    private insertions: LineInsertions = NO_LINE_INSERTIONS;
 
     public constructor(document: ITextDocument, tabSize: number, wrapWidth: number) {
         super();
@@ -38,22 +39,15 @@ export class LineBreaksCache extends Disposable {
         this.breaks = new Array<number[] | null | undefined>(this.document.lineCount);
     }
 
-    /** Drops only the lines whose insertions differ; `false` means no line does, the breaks are all still valid. */
+    /** `true` when some line wraps by other text now: the rows built from this cache are stale. */
     public setInsertions(insertions: LineInsertions): boolean {
-        const previous = this.insertions;
-        this.insertions = insertions;
         let changed = false;
-        for (const line of new Set([...previous.keys(), ...insertions.keys()])) {
-            const before = previous.get(line);
-            const after = insertions.get(line);
-            const same =
-                before !== undefined &&
-                before.length === after?.length &&
-                before.every((b, i) => b.offset === after[i].offset && b.text === after[i].text);
-            if (same) continue;
-            changed = true;
+        for (const line of new Set([...this.insertions.keys(), ...insertions.keys()])) {
+            if (sameCells(this.insertions.get(line), insertions.get(line))) continue;
             this.breaks[line] = undefined;
+            changed = true;
         }
+        this.insertions = insertions;
         return changed;
     }
 
@@ -64,12 +58,12 @@ export class LineBreaksCache extends Disposable {
         }
         let entry = this.breaks[line];
         if (entry === undefined) {
-            entry = computeLineBreakOffsets(
-                this.document.getLineContent(line),
-                this.tabSize,
-                this.wrapWidth,
-                this.insertions.get(line),
-            );
+            const content = this.document.getLineContent(line);
+            const insertions = this.insertions.get(line);
+            entry =
+                insertions === undefined
+                    ? computeLineBreakOffsets(content, this.tabSize, this.wrapWidth)
+                    : computeComposedLineBreakOffsets(content, insertions, this.tabSize, this.wrapWidth);
             this.breaks[line] = entry;
         }
         return entry;
@@ -89,4 +83,10 @@ export class LineBreaksCache extends Disposable {
             this.breaks[i] = undefined;
         }
     }
+}
+
+/** Looks do not wrap: a recolored hint keeps its rows. Lines come from either map, so at most one side is absent. */
+function sameCells(a: readonly IInlineInsertion[] | undefined, b: readonly IInlineInsertion[] | undefined): boolean {
+    if (a === undefined || b === undefined) return false;
+    return a.length === b.length && a.every((item, i) => item.offset === b[i].offset && item.text === b[i].text);
 }

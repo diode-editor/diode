@@ -111,6 +111,7 @@
   сохранение чистит снова. Сообщение «Deleting N trailing space regions» в статус-баре обрезано общим пределом
   `MAX_ITEM_WIDTH` (24 ячейки, `extensionStatusBarAdapter.ts`), в эталоне предел — 40% ширины окна. Смоук — колонка
   каретки в кадре и байты файла, для команды и для `trimOnSave`.
+- **`vscode.merge-conflict`** (#969) — прокси на сборку встроенного расширения VS Code от Eclipse Theia, Open VSX 1.95.3. Гейт `engines.diode: ">=0.12.6"`: нужны линзы (#936/#937), `revealRange` (#963) и правки этой задачи. `support: partial`: блоки current и incoming не закрашены, мост `setDecorations` знает только gutter и overview ruler (класс C эпика #912). `Compare` держится на двух правках ядра: сторона `vscode.diff` читается и из провайдера содержимого, не только из файлового сервиса (порядок как в `TextModelResolverService`: сначала провайдер ФС), а `Range.toJSON` отдаёт эталонную пару `[start, end]` — расширение кладёт `JSON.stringify` диапазонов в query и разбирает обратно как массив. `merge-conflict.next` при переходе вверх ставит конфликт верхней строкой, линза над ним остаётся за краем: прокрутка на строку вверх её показывает. Смоук — линза в кадре, `Compare` с обеими сторонами, клик `Accept Incoming`, байты файла.
 - **`vscjava.vscode-maven`** (#977) — прокси на сток Open VSX 0.45.3. Гейт `engines.diode: ">=0.12.6"`: нужны `window.createInputBox` и кнопка Back (`New Project`), константно ложные `commandPalette` и ключ `isWorkspaceTrusted`. Плагины в дереве приходят со строки без `id`, а после `mvn help:describe` расширение переименовывает строку: handle такой строки строится из подписи и меняется, поэтому `treeView.refresh` несёт `previousHandle`, и воркбенч перечитывает родителя (как `getItemsToRefresh` эталона). `support: partial`: `Debug` в меню цели плагина отладчик не запускает (тост расширения `Debugger for Java is required`), сниппеты `pom.xml` вставляются без табстопов и поправки отступа (класс C эпика #912), пункт в меню чужого вида `javaProject.maven` не показывается. Нужен `mvn` из PATH или `maven.executable.path`: без него тост `Maven executable not found in PATH`, битый явный путь расширение передаёт в терминал как есть. `maven.goal.custom` и `maven.project.effectivePom` без аргумента не показывают ничего или падают, и в эталоне тоже: у них `when: never`, зовут их из дерева или через `maven.goal.execute` → `Custom ...`. Quick fix `Add a dependency` появляется, только когда каретка внутри `<dependencies>`, а не на самом теге. Генерация архетипа задаёт вопросы в терминале (`Define value for property`), фокус туда не переходит, как в эталоне. Смоук — `a:b` в секции, чистая от `when: never` палитра и `BUILD SUCCESS` цели, без `mvn` кейс пропускается (`requires`).
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
@@ -127,6 +128,17 @@ vsix», а не строка в таблице builtin-клиента. Сьют�
   `fromEnvironment` зовёт API `ms-python.python` без try/catch и роняет активацию — курируемый
   дефолт `importStrategy: "useBundled"`. Folding у Python — indentation-based ядра: сервер
   `textDocument/foldingRange` не реализует.
+- **basedpyright, inlay hints** (#939) — работают без правок ядра, включены по умолчанию:
+  `-> int` после сигнатуры, `: int` у переменной, `a=` перед позиционным аргументом. Тип сервер
+  выводит только из аннотаций: на `def f(a, b): return a + b` и `r = f(1, 2)` он сам отвечает
+  `-> Any` и не даёт подсказки у `r`, это не потеря на нашей стороне (проверено прямым запросом к
+  серверу). `editor.inlayHints.enabled` и `[python]` действуют сразу и сервер не трогают. Настройки
+  `basedpyright.analysis.inlayHints.*` доходят до сервера без перезапуска, но подсказки на экране
+  меняются со следующего запроса (правка, прокрутка за запрошенное окно): сервер не шлёт
+  `workspace/inlayHint/refresh`, а контроллер эталона на чужую настройку не перезапрашивает. Вывод
+  про эталон — по исходникам сервера и контроллера, в живом VS Code не сверялось. Code lens у
+  сервера нет: `codeLensProvider` нет в ответе на `initialize`, регистрации тоже; появление в новой
+  версии покажет `extensionHost.pythonLsp.inlayHints.test.ts`.
 - **ruff**: линт-диагностики — pull с re-pull на правку буфера; quickfix по диагностике (safe-фикс
   `isPreferred`); `source.organizeImports.ruff` / `source.fixAll.ruff` (иерархический матч kinds);
   формат документа и выделения — от нативного `ruff server`, Python не нужен. `importStrategy:
