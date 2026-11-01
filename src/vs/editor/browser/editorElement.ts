@@ -259,6 +259,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         readonly markers: readonly IScrollBarMarker[];
     } | null = null;
     private ghostTextValue: IGhostText | null = null;
+    // Stryker disable next-line ArrayDeclaration: a garbage zone has no line, so it is never visible and has no rows
     private codeLensZones: readonly ICodeLensZone[] = [];
     /** The zones that have rows now, by anchor. */
     private codeLensByAnchor: ReadonlyMap<number, ICodeLensZone> = new Map();

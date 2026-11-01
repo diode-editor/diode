@@ -303,6 +303,39 @@ describe("EditorViewState view zones — cursor", () => {
         expect(state.scrollTop).toBeGreaterThan(caretView - state.viewportHeight);
         expect(state.scrollTop).toBeLessThanOrEqual(caretView);
     });
+
+    describe("reveal with a zone right above the line", () => {
+        function setup(zoneSize: number, margin: number): EditorViewState {
+            const state = makeState(Array.from({ length: 40 }, (_, i) => `l${String(i)}`).join("\n"));
+            state.viewportHeight = 5;
+            state.cursorSurroundingLines = margin;
+            state.setViewZones([{ afterLine: 9, size: zoneSize }]);
+            return state;
+        }
+
+        it("coming from below, the zone comes into view over its line, past the margin", () => {
+            const state = setup(1, 1);
+            state.scrollTop = 20;
+            state.goToPosition(10, 0);
+            expect(state.scrollTop).toBe(9);
+        });
+
+        it("a zone taller than the viewport gives way to the line: its last rows are shown", () => {
+            const state = setup(10, 0);
+            state.scrollTop = 30;
+            state.goToPosition(10, 0);
+            expect(state.scrollTop).toBe(16);
+        });
+
+        it("the margin stays under the line, and a repeated reveal does not move", () => {
+            const state = setup(10, 1);
+            state.scrollTop = 30;
+            state.goToPosition(10, 0);
+            expect(state.scrollTop).toBe(17);
+            state.goToPosition(10, 0);
+            expect(state.scrollTop).toBe(17);
+        });
+    });
 });
 
 describe("EditorViewState — hidden cursor at the edge (indirection regression)", () => {

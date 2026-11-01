@@ -460,6 +460,18 @@ describe("CodeLensController", () => {
             expect(zones()).toEqual([]);
         });
 
+        it("a dropped lens that was waiting is not resolved: it has no line in the viewport", async () => {
+            const resolveCodeLens = vi.fn(() => null);
+            once([lens(1)], { resolveCodeLens });
+            const { edit, visibleRange, settle } = setup();
+            await vi.advanceTimersByTimeAsync(380);
+            edit({ start: { line: 1, character: 0 }, end: { line: 1, character: 1 } }, "");
+            await Promise.resolve();
+            visibleRange.fire();
+            await settle();
+            expect(resolveCodeLens).not.toHaveBeenCalled();
+        });
+
         it("a dropped lens survives the next edit, a scroll and the picker", async () => {
             once([lens(1, command("t")), lens(2)], { resolveCodeLens: () => null });
             const { edit, insert, visibleRange, controller, zones } = setup();

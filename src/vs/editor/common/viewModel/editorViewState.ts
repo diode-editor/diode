@@ -2077,13 +2077,17 @@ export class EditorViewState {
         const maxMargin = Math.floor((this.viewportHeight - 1) / 2);
         const margin = Math.max(0, Math.min(this.cursorSurroundingLines, maxMargin));
 
-        // The zones right above the line belong to it: a code lens stays visible over its line. A zone taller than
-        // the viewport gives way to the line itself.
-        const top = Math.max(this.firstRowWithZonesAbove(visualLine), visualLine - this.viewportHeight + 1 + margin);
-        if (top < this.scrollTop + margin) {
-            this.scrollTop = Math.max(0, top - margin);
-        } else if (visualLine > this.scrollTop + this.viewportHeight - 1 - margin) {
-            this.scrollTop = visualLine - this.viewportHeight + 1 + margin;
+        // The scrollTop range that shows the line with its margins. The zones right above the line belong to it: a code
+        // lens stays visible over its line. A zone taller than the viewport gives way to the line itself.
+        const lowest = visualLine - this.viewportHeight + 1 + margin;
+        const highest = Math.max(this.firstRowWithZonesAbove(visualLine) - margin, lowest);
+        // At either bound the assignment changes nothing.
+        // Stryker disable next-line EqualityOperator: see above
+        if (this.scrollTop > highest) {
+            this.scrollTop = Math.max(0, highest);
+            // Stryker disable next-line EqualityOperator: see above
+        } else if (this.scrollTop < lowest) {
+            this.scrollTop = lowest;
         }
 
         this.revealColumn(pos);
