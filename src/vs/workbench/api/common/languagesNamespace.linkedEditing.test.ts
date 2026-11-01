@@ -109,14 +109,38 @@ describe("LanguagesNamespace — registerLinkedEditingRangeProvider", () => {
         expect(await stub.callRequest(METHOD, params())).toBeNull();
     });
 
-    it("a throwing provider is null, and the rejection does not reach the host", async () => {
+    it("a throwing provider is null, is reported and the host lives on", async () => {
         const { stub, languages } = makeCtx();
-        const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+        const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
         register(languages, () => {
             throw new Error("boom");
         });
         expect(await stub.callRequest(METHOD, params())).toBeNull();
-        error.mockRestore();
+        expect(errors).toHaveBeenCalledWith(expect.stringContaining("provideLinkedEditingRanges failed: "));
+        errors.mockRestore();
+    });
+
+    it("the request goes to the provider of its handle; without a handle to none", async () => {
+        const { stub, languages } = makeCtx();
+        const first = vi.fn(() => undefined);
+        const second = vi.fn(() => undefined);
+        register(languages, first);
+        register(languages, second);
+        expect(await stub.callRequest(METHOD, params({ handle: undefined }))).toBeNull();
+        expect(first).not.toHaveBeenCalled();
+        await stub.callRequest(METHOD, params({ handle: 1 }));
+        expect(second).toHaveBeenCalledTimes(1);
+        expect(first).not.toHaveBeenCalled();
+    });
+
+    it("the position comes from the request, on any line", async () => {
+        const { stub, languages } = makeCtx();
+        const provide = vi.fn<(document: vscode.TextDocument, position: vscode.Position) => unknown>(() => undefined);
+        register(languages, provide as never);
+        await stub.callRequest(METHOD, params({ line: 1, character: 0 }));
+        expect(provide.mock.calls[0][1].line).toBe(1);
+        await stub.callRequest(METHOD, params({ line: undefined, character: undefined }));
+        expect(provide.mock.calls[1][1].line).toBe(0);
     });
 
     it("an unknown handle and an unsynced document are null", async () => {

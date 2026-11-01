@@ -164,13 +164,55 @@ describe("LinkedEditingService", () => {
         t.dispose();
     });
 
+    it("without an active editor nothing breaks: registrations, settings and the language pattern", async () => {
+        const t = setup();
+        t.switchTo(null);
+        t.features.linkedEditingRangeProvider.register("*", {
+            provideLinkedEditingRanges: () => Promise.resolve(null),
+        });
+        t.setSetting(false);
+        await vi.advanceTimersByTimeAsync(SETTLE_MS);
+        expect(t.pane.viewState.linkedEditingRanges).toEqual([]);
+        t.dispose();
+    });
+
+    it("a registration or a setting that changes nothing keeps the ranges and does not ask", async () => {
+        const t = setup();
+        t.pane.viewState.selections = [createCursorSelection(0, 2)];
+        await vi.advanceTimersByTimeAsync(SETTLE_MS);
+        const repaint = vi.fn();
+        t.pane.viewState.onDidChangeLinkedEditingRanges(repaint);
+        t.features.linkedEditingRangeProvider.register("*", {
+            provideLinkedEditingRanges: () => Promise.resolve({ ranges: [OPEN, CLOSE] }),
+        });
+        t.setSetting(true);
+        await vi.advanceTimersByTimeAsync(SETTLE_MS);
+        expect(repaint).not.toHaveBeenCalled();
+        t.dispose();
+    });
+
+    it("a language configuration not loaded yet falls back to the default word", async () => {
+        const t = setup();
+        vi.spyOn(t.languageConfiguration, "get").mockReturnValue(undefined);
+        t.pane.viewState.selections = [createCursorSelection(0, 2)];
+        await vi.advanceTimersByTimeAsync(SETTLE_MS);
+        t.pane.pushUndo(t.pane.viewState.type("1"));
+        await vi.advanceTimersByTimeAsync(SETTLE_MS);
+        expect(t.pane.viewState.document.getText()).toBe("<a1aa></a1aa>");
+        t.dispose();
+    });
+
     it("the language changing asks anew", async () => {
         const t = setup();
         t.pane.viewState.selections = [createCursorSelection(0, 2)];
         await vi.advanceTimersByTimeAsync(SETTLE_MS);
         vi.mocked(t.languageConfiguration.ensureLoaded).mockClear();
+        const repaint = vi.fn();
+        t.pane.viewState.onDidChangeLinkedEditingRanges(repaint);
         t.pane.viewState.document.setLanguage("typescript");
         expect(t.languageConfiguration.ensureLoaded).toHaveBeenCalledTimes(1);
+        // The old ranges went at once, the new answer brought them back.
+        expect(repaint).toHaveBeenCalled();
         await vi.advanceTimersByTimeAsync(SETTLE_MS);
         expect(t.pane.viewState.linkedEditingRanges).toEqual([OPEN, CLOSE]);
         t.dispose();
@@ -194,6 +236,15 @@ describe("linked editing actions", () => {
             when: "editorTextFocus",
             enablement: "!editorReadonly && editorHasRenameProvider",
         });
+    });
+
+    it("both run the service", async () => {
+        const service = { start: vi.fn(() => Promise.resolve()), cancel: vi.fn() };
+        const accessor = { get: () => service } as unknown as Parameters<typeof startLinkedEditingAction.run>[0];
+        await startLinkedEditingAction.run(accessor);
+        expect(service.start).toHaveBeenCalledTimes(1);
+        await cancelLinkedEditingInputAction.run(accessor);
+        expect(service.cancel).toHaveBeenCalledTimes(1);
     });
 
     it("cancelLinkedEditingInput outweighs the other Escape handlers of the editor", () => {

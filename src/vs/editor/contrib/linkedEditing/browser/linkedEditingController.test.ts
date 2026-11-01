@@ -530,6 +530,230 @@ describe("LinkedEditingController", () => {
         });
     });
 
+    describe("the mirror edit", () => {
+        it("replaces only what differs, under its label", async () => {
+            const h = await setup("<abcd></abcd>");
+            const apply = vi.spyOn(h.pane, "applyEditsIntoLastUndoStep");
+            await h.at(0, 3);
+            await h.type("x");
+            expect(apply.mock.calls).toEqual([[[{ range: createRange(0, 11, 0, 11), text: "x" }], "linkedEditing"]]);
+            apply.mockClear();
+            await h.run("deleteLeft");
+            expect(apply.mock.calls).toEqual([[[{ range: createRange(0, 10, 0, 11), text: "" }], "linkedEditing"]]);
+        });
+
+        it("a replaced middle keeps the common prefix and suffix", async () => {
+            const h = await setup("<abcd></abcd>");
+            const apply = vi.spyOn(h.pane, "applyEditsIntoLastUndoStep");
+            await h.at(0, 2);
+            await h.select(0, 2, 4);
+            await h.type("xyz");
+            expect(h.text()).toBe("<axyzd></axyzd>");
+            expect(apply.mock.calls[0][0]).toEqual([{ range: createRange(0, 10, 0, 12), text: "xyz" }]);
+        });
+
+        it("texts already equal: nothing is applied", async () => {
+            const h = await setup(TAGS);
+            const apply = vi.spyOn(h.pane, "applyEditsIntoLastUndoStep");
+            await h.at(0, 1);
+            h.pane.viewState.document.applyEdits([{ range: createRange(0, 1, 0, 2), text: "o" }]);
+            await vi.advanceTimersByTimeAsync(SETTLE_MS);
+            expect(apply).not.toHaveBeenCalled();
+        });
+
+        it("a mirror over several lines is replaced whole", async () => {
+            const h = await setup("<aa>\nb\nc");
+            const providers = new LanguageFeatureRegistry<LinkedEditingRangeProvider>();
+            providers.register("*", {
+                provideLinkedEditingRanges: () =>
+                    Promise.resolve({ ranges: [createRange(0, 1, 0, 3), createRange(1, 0, 2, 1)] }),
+            });
+            h.controller.dispose();
+            const controller = new LinkedEditingController(h.pane, {
+                providers,
+                isSettingEnabled: () => true,
+                languageWordPattern: () => undefined,
+                debounce: new FeatureDebounce(50, 200),
+            });
+            disposers.unshift(() => {
+                controller.dispose();
+            });
+            await h.at(0, 2);
+            await h.type("x");
+            expect(h.text()).toBe("<axa>\naxa");
+        });
+    });
+
+    describe("edits that are not the reference's", () => {
+        it("an edit in the mirror is not overwritten from the reference", async () => {
+            const h = await setup(TAGS);
+            await h.at(0, 1);
+            h.pane.viewState.document.applyEdits([{ range: createRange(0, 8, 0, 8), text: "x" }]);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(h.text()).toBe("<ooo></oxoo>");
+        });
+
+        it("a batch with one change outside the reference does not sync", async () => {
+            const h = await setup("<ooo></ooo> a");
+            await h.at(0, 1);
+            h.pane.viewState.document.applyEdits([
+                { range: createRange(0, 2, 0, 2), text: "x" },
+                { range: createRange(0, 12, 0, 12), text: "y" },
+            ]);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(h.text()).toBe("<oxoo></ooo> ya");
+        });
+
+        it("a reload does not sync, and the next query decides", async () => {
+            const h = await setup(TAGS);
+            await h.at(0, 1);
+            const apply = vi.spyOn(h.pane, "applyEditsIntoLastUndoStep");
+            h.provide.mockClear();
+            h.pane.viewState.document.setText("<aaa></bbb>");
+            await vi.advanceTimersByTimeAsync(SETTLE_MS);
+            expect(apply).not.toHaveBeenCalled();
+            expect(h.provide).toHaveBeenCalled();
+            expect(h.text()).toBe("<aaa></bbb>");
+        });
+    });
+
+    describe("late and superseded answers", () => {
+        function deferred(h: IHarness, askedAfter?: LinkedEditingRangeProvider) {
+            const answers: ((value: { ranges: IRange[] } | null) => void)[] = [];
+            const asked = vi.fn();
+            const providers = new LanguageFeatureRegistry<LinkedEditingRangeProvider>();
+            // Among equal scores the later registration is asked first.
+            if (askedAfter !== undefined) providers.register("*", askedAfter);
+            providers.register("*", {
+                provideLinkedEditingRanges: () => {
+                    asked();
+                    return new Promise((resolve) => {
+                        answers.push(resolve);
+                    });
+                },
+            });
+            h.controller.dispose();
+            const controller = new LinkedEditingController(h.pane, {
+                providers,
+                isSettingEnabled: () => true,
+                languageWordPattern: () => undefined,
+                debounce: new FeatureDebounce(50, 200),
+            });
+            disposers.unshift(() => {
+                controller.dispose();
+            });
+            return { answers, asked, controller, providers };
+        }
+
+        it("a superseded answer is dropped, the newest one counts", async () => {
+            const h = await setup("<ooo></ooo> aaa");
+            const { answers } = deferred(h);
+            await vi.advanceTimersByTimeAsync(0);
+            await h.at(0, 1);
+            await h.at(0, 13);
+            const newest = createRange(0, 12, 0, 15);
+            answers.at(-1)?.({ ranges: [newest] });
+            await vi.advanceTimersByTimeAsync(0);
+            expect(h.pane.viewState.linkedEditingRanges).toEqual([newest]);
+            answers[answers.length - 2]({ ranges: [createRange(0, 1, 0, 4)] });
+            await vi.advanceTimersByTimeAsync(0);
+            expect(h.pane.viewState.linkedEditingRanges).toEqual([newest]);
+        });
+
+        it("an answer after Escape is dropped, and the cancelled walk asks nobody else", async () => {
+            const h = await setup(TAGS);
+            const next = vi.fn(() => Promise.resolve(null));
+            const { answers, controller } = deferred(h, { provideLinkedEditingRanges: next });
+            await vi.advanceTimersByTimeAsync(0);
+            controller.clearRanges();
+            for (const answer of answers) answer(null);
+            await vi.advanceTimersByTimeAsync(0);
+            next.mockClear();
+            answers.length = 0;
+            h.pane.viewState.selections = [createCursorSelection(0, 2)];
+            await vi.advanceTimersByTimeAsync(SETTLE_MS);
+            controller.clearRanges();
+            for (const answer of answers) answer(null);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(next).not.toHaveBeenCalled();
+            answers.length = 0;
+            expect(h.pane.viewState.linkedEditingRanges).toEqual([]);
+        });
+    });
+
+    describe("asking again", () => {
+        it("the same position and version are not asked twice", async () => {
+            const h = await setup(TAGS);
+            await h.at(0, 1);
+            h.provide.mockClear();
+            await h.controller.updateRanges();
+            expect(h.provide).not.toHaveBeenCalled();
+        });
+
+        it("a move at the same version with no ranges asks again, without an error", async () => {
+            const h = await setup("<ooo> <ooo>");
+            await h.at(0, 5);
+            expect(h.pane.viewState.linkedEditingRanges).toEqual([]);
+            h.provide.mockClear();
+            await h.at(0, 6);
+            expect(h.provide).toHaveBeenCalledTimes(1);
+        });
+
+        it("an edit away from the caret asks again at the same position", async () => {
+            const h = await setup("<ooo></ooo> a");
+            await h.at(0, 1);
+            h.provide.mockClear();
+            h.pane.viewState.document.applyEdits([{ range: createRange(0, 13, 0, 13), text: "y" }]);
+            await vi.advanceTimersByTimeAsync(SETTLE_MS);
+            expect(h.provide).toHaveBeenCalledTimes(1);
+        });
+
+        it("the answer no longer holding the caret, or declining, ends the link", async () => {
+            const h = await setup("<ooo></ooo> a");
+            const answers: ({ ranges: IRange[] } | null)[] = [{ ranges: [createRange(0, 7, 0, 10)] }, null];
+            const providers = new LanguageFeatureRegistry<LinkedEditingRangeProvider>();
+            let current: { ranges: IRange[] } | null = { ranges: [createRange(0, 1, 0, 4), createRange(0, 7, 0, 10)] };
+            providers.register("*", { provideLinkedEditingRanges: () => Promise.resolve(current) });
+            h.controller.dispose();
+            const controller = new LinkedEditingController(h.pane, {
+                providers,
+                isSettingEnabled: () => true,
+                languageWordPattern: () => undefined,
+                debounce: new FeatureDebounce(50, 200),
+            });
+            disposers.unshift(() => {
+                controller.dispose();
+            });
+            for (const answer of answers) {
+                current = { ranges: [createRange(0, 1, 0, 4), createRange(0, 7, 0, 10)] };
+                await h.at(0, 2);
+                await controller.updateRanges(true);
+                expect(h.pane.viewState.linkedEditingRanges).toHaveLength(2);
+                current = answer;
+                h.pane.viewState.document.applyEdits([{ range: createRange(0, 13, 0, 13), text: "y" }]);
+                await vi.advanceTimersByTimeAsync(SETTLE_MS);
+                expect(h.pane.viewState.linkedEditingRanges).toEqual([]);
+            }
+        });
+
+        it("a pending query does not outlive dispose", async () => {
+            const h = await setup("<ooo></ooo> aaa");
+            h.provide.mockClear();
+            h.pane.viewState.selections = [createCursorSelection(0, 13)];
+            h.controller.dispose();
+            await vi.advanceTimersByTimeAsync(SETTLE_MS);
+            expect(h.provide).not.toHaveBeenCalled();
+        });
+
+        it("clearing with nothing on the frame does not repaint", async () => {
+            const h = await setup(TAGS, { setting: false });
+            const repaint = vi.fn();
+            h.pane.viewState.onDidChangeLinkedEditingRanges(repaint);
+            h.controller.clearRanges();
+            expect(repaint).not.toHaveBeenCalled();
+        });
+    });
+
     describe("what ends the link", () => {
         it("several cursors", async () => {
             const h = await setup(TAGS);

@@ -46,18 +46,14 @@ function touches(a: IRange, b: IRange): boolean {
     return comparePositions(a.start, b.end) <= 0 && comparePositions(b.start, a.end) <= 0;
 }
 
+/** A search, not a counting loop: a mutated counter would hang the whole gate (docs/MUTATION.md). */
 function commonPrefixLength(a: string, b: string): number {
-    const max = Math.min(a.length, b.length);
-    let i = 0;
-    while (i < max && a[i] === b[i]) i++;
-    return i;
+    const firstDifference = a.split("").findIndex((char, i) => char !== b[i]);
+    return firstDifference < 0 ? a.length : firstDifference;
 }
 
-function commonSuffixLength(a: string, b: string): number {
-    const max = Math.min(a.length, b.length);
-    let i = 0;
-    while (i < max && a[a.length - 1 - i] === b[b.length - 1 - i]) i++;
-    return i;
+function reversed(text: string): string {
+    return text.split("").reverse().join("");
 }
 
 /** Upstream `_syncRanges`, the single-line branch: only what differs is replaced, so the rest keeps its markers. */
@@ -65,7 +61,7 @@ function minimalEdit(range: IRange, oldValue: string, newValue: string): ITextEd
     const prefix = commonPrefixLength(oldValue, newValue);
     const oldRest = oldValue.slice(prefix);
     const newRest = newValue.slice(prefix);
-    const suffix = commonSuffixLength(oldRest, newRest);
+    const suffix = commonPrefixLength(reversed(oldRest), reversed(newRest));
     const startCharacter = range.start.character + prefix;
     const endCharacter = range.end.character - suffix;
     const text = newRest.slice(0, newRest.length - suffix);
@@ -77,21 +73,19 @@ function minimalEdit(range: IRange, oldValue: string, newValue: string): ITextEd
  * Port of upstream `LinkedEditingContribution` for the active editor.
  *
  * One deviation: upstream subscribes to the editor only while the setting is on, so its Start Linked Editing with
- * the setting off lights the ranges up and nothing follows. Here the command opens a session that mirrors like any
- * other and ends with the ranges ({@link forced}).
+ * the setting off lights the ranges up and nothing follows. Here the subscriptions stay, so the ranges of the command
+ * mirror like any other; with the setting off they are simply not asked for again once they are gone.
  */
 export class LinkedEditingController extends Disposable {
+    // Stryker disable next-line BooleanLiteral: the constructor's reinitialize sets it before anything reads it
     private enabled = false;
-    /** Started by the command: outlives the setting being off until the ranges are gone. */
-    private forced = false;
     /** The one at index 0 is the reference. */
+    // Stryker disable next-line ArrayDeclaration: the constructor's reinitialize clears them, a foreign id removes nothing
     private decorationIds: string[] = [];
     private wordPattern: RegExp = DEFAULT_WORD_REGEXP;
     /** A new set of ranges cancels a sync still waiting for its timer. */
     private syncToken = 0;
-    private ignoreChangeEvent = false;
     private updateTimer: ReturnType<typeof setTimeout> | undefined;
-    private syncTimer: ReturnType<typeof setTimeout> | undefined;
     private request: CancellationTokenSource | null = null;
     private requestPosition: IPosition | null = null;
     private requestVersion: number | null = null;
@@ -114,10 +108,10 @@ export class LinkedEditingController extends Disposable {
         this.register({
             dispose: () => {
                 clearTimeout(this.updateTimer);
-                clearTimeout(this.syncTimer);
                 this.clearRanges();
             },
         });
+        // Stryker disable next-line BooleanLiteral: on or off, the first call has no ranges and asks if it may
         this.reinitialize(true);
     }
 
@@ -127,12 +121,11 @@ export class LinkedEditingController extends Disposable {
         if (enabled === this.enabled && !forceRefresh) return;
         this.enabled = enabled;
         this.clearRanges();
-        if (enabled) void this.updateRanges();
+        void this.updateRanges();
     }
 
     /** Upstream `clearRanges`: Escape, a break-out, or a caret that left the ranges. */
     public clearRanges(): void {
-        this.forced = false;
         this.request?.cancel();
         this.request = null;
         this.requestPosition = null;
@@ -145,7 +138,7 @@ export class LinkedEditingController extends Disposable {
     public async updateRanges(force = false): Promise<void> {
         const viewState = this.editor.viewState;
         const selections = viewState.selections;
-        if (selections.length > 1 || (!this.enabled && !this.forced && !force)) {
+        if (selections.length > 1) {
             this.clearRanges();
             return;
         }
@@ -156,14 +149,11 @@ export class LinkedEditingController extends Disposable {
             if (positionsEqual(position, this.requestPosition)) return;
             if (reference !== undefined && containsPosition(reference, position)) return;
         }
-        if (this.requestPosition === null || !positionsEqual(this.requestPosition, position)) {
-            if (reference === undefined || !containsPosition(reference, position)) {
-                this.clearRanges();
-                // The session of the command ends with its ranges, and with the setting off nothing asks again.
-                if (!this.enabled && !force) return;
-            }
+        if (reference === undefined || !containsPosition(reference, position)) {
+            this.clearRanges();
+            // The ranges of the command end here: with the setting off nothing asks again.
+            if (!this.enabled && !force) return;
         }
-        if (force) this.forced = true;
         this.requestPosition = position;
         this.requestVersion = versionId;
         this.request?.cancel();
@@ -206,7 +196,11 @@ export class LinkedEditingController extends Disposable {
     }
 
     private applyResponse(response: ILinkedEditingRanges | null, position: IPosition): void {
-        const ranges = response?.ranges ?? [];
+        if (response === null) {
+            this.clearRanges();
+            return;
+        }
+        const { ranges } = response;
         const referenceIndex = ranges.findIndex((range) => containsPosition(range, position));
         // Cannot do linked editing if the ranges are not where the cursor is.
         if (referenceIndex < 0) {
@@ -214,12 +208,13 @@ export class LinkedEditingController extends Disposable {
             return;
         }
         this.wordPattern =
-            response?.wordPattern ?? this.options.languageWordPattern(this.editor.languageId) ?? DEFAULT_WORD_REGEXP;
+            response.wordPattern ?? this.options.languageWordPattern(this.editor.languageId) ?? DEFAULT_WORD_REGEXP;
         const ordered = [ranges[referenceIndex], ...ranges.filter((_, i) => i !== referenceIndex)];
         this.decorationIds = this.editor.viewState.document.deltaDecorations(
             this.decorationIds,
             ordered.map((range) => ({ range, options: DECORATION })),
         );
+        // Stryker disable next-line UpdateOperator: the token only has to differ
         this.syncToken++;
         this.publishRanges();
     }
@@ -233,20 +228,17 @@ export class LinkedEditingController extends Disposable {
 
     private onContentChanged(event: IModelContentChangedEvent): void {
         this.publishRanges();
-        if (!this.ignoreChangeEvent) {
-            const reference = this.currentRanges().at(0);
-            if (
-                reference !== undefined &&
-                !event.isFlush &&
-                event.changes.every((change) => touches(reference, change.range))
-            ) {
-                const token = this.syncToken;
-                clearTimeout(this.syncTimer);
-                this.syncTimer = setTimeout(() => {
-                    this.syncRanges(token);
-                }, 0);
-                return;
-            }
+        const reference = this.currentRanges().at(0);
+        if (
+            reference !== undefined &&
+            !event.isFlush &&
+            event.changes.every((change) => touches(reference, change.range))
+        ) {
+            const token = this.syncToken;
+            setTimeout(() => {
+                this.syncRanges(token);
+            }, 0);
+            return;
         }
         this.scheduleUpdate();
     }
@@ -277,12 +269,8 @@ export class LinkedEditingController extends Disposable {
             if (edit !== null) edits.push(edit);
         }
         if (edits.length === 0) return;
-        this.ignoreChangeEvent = true;
-        try {
-            this.editor.applyEditsIntoLastUndoStep(edits, "linkedEditing");
-        } finally {
-            this.ignoreChangeEvent = false;
-        }
+        // Its own event needs no guard: a sync after it finds the texts equal and edits nothing.
+        this.editor.applyEditsIntoLastUndoStep(edits, "linkedEditing");
     }
 
     /** Where the decorations are now, the reference first. */
