@@ -23,7 +23,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 | mark | members |
 | --- | --- |
 | test | 98 |
-| confirmed by a real extension | 0 |
+| confirmed by a real extension | 10 |
 | used by a surveyed extension | 583 |
 
 ## Gap ranking
@@ -617,7 +617,7 @@ Proposed API or a false hit: class X when real.
 | `commands.executeCommand` | ok | yes | 163 | 1,124,066,680 |  |
 | `commands.getCommands` | ok | yes | 22 | 248,650,853 |  |
 | `commands.registerCommand` | ok | yes | 178 | 1,156,419,053 |  |
-| `commands.registerTextEditorCommand` | ok | yes | 16 | 131,081,500 |  |
+| `commands.registerTextEditorCommand` | ok | yes | 16 | 131,081,500 | shardulm94.trailing-spaces |
 | `Comment.author` | C |  | 0 | 0 |  |
 | `Comment.body` | C |  | 0 | 0 |  |
 | `Comment.contextValue` | C |  | 0 | 0 |  |
@@ -2497,13 +2497,13 @@ Proposed API or a false hit: class X when real.
 | `window.createQuickPick` | ok | yes | 57 | 660,652,049 |  |
 | `window.createStatusBarItem` | ok |  | 86 | 651,676,549 |  |
 | `window.createTerminal` | ok | yes | 59 | 442,493,421 |  |
-| `window.createTextEditorDecorationType` | C |  | 56 | 481,992,789 |  |
+| `window.createTextEditorDecorationType` | C |  | 56 | 481,992,789 | shardulm94.trailing-spaces |
 | `window.createTreeView` | ok | yes | 47 | 432,182,103 |  |
 | `window.createWebviewPanel` | X |  | 73 | 478,100,689 |  |
 | `window.onDidChangeActiveColorTheme` | ok |  | 18 | 52,945,951 |  |
 | `window.onDidChangeActiveNotebookEditor` | X |  | 7 | 30,867,966 |  |
 | `window.onDidChangeActiveTerminal` | ok |  | 7 | 77,966,493 |  |
-| `window.onDidChangeActiveTextEditor` | ok |  | 125 | 831,039,923 |  |
+| `window.onDidChangeActiveTextEditor` | ok |  | 125 | 831,039,923 | shardulm94.trailing-spaces |
 | `window.onDidChangeNotebookEditorSelection` | X |  | 3 | 10,746,297 |  |
 | `window.onDidChangeNotebookEditorVisibleRanges` | X |  | 0 | 0 |  |
 | `window.onDidChangeTerminalShellIntegration` | B |  | 9 | 210,306,892 |  |
@@ -2527,7 +2527,7 @@ Proposed API or a false hit: class X when real.
 | `window.registerUriHandler` | ok |  | 29 | 154,696,228 |  |
 | `window.registerWebviewPanelSerializer` | X |  | 22 | 185,880,430 |  |
 | `window.registerWebviewViewProvider` | X |  | 43 | 174,711,816 |  |
-| `window.setStatusBarMessage` | ok |  | 17 | 172,825,375 |  |
+| `window.setStatusBarMessage` | ok |  | 17 | 172,825,375 | shardulm94.trailing-spaces |
 | `window.showErrorMessage` | ok |  | 161 | 1,110,059,497 |  |
 | `window.showInformationMessage` | ok |  | 162 | 1,070,330,218 |  |
 | `window.showInputBox` | ok | yes | 107 | 812,444,919 |  |
@@ -2542,7 +2542,7 @@ Proposed API or a false hit: class X when real.
 | `window.tabGroups` | ok | yes | 100 | 662,230,120 |  |
 | `window.terminals` | ok | yes | 23 | 355,498,590 |  |
 | `window.visibleNotebookEditors` | X |  | 6 | 24,331,125 |  |
-| `window.visibleTextEditors` | ok | yes | 69 | 596,976,815 |  |
+| `window.visibleTextEditors` | ok | yes | 69 | 596,976,815 | shardulm94.trailing-spaces |
 | `window.withProgress` | B |  | 124 | 944,816,089 |  |
 | `window.withScmProgress` | C |  | 0 | 0 |  |
 | `WindowState.active` | ok |  | 0 | 0 |  |
@@ -2554,14 +2554,14 @@ Proposed API or a false hit: class X when real.
 | `workspace.encode` | B |  | 0 | 0 |  |
 | `workspace.findFiles` | ok | yes | 72 | 686,973,290 |  |
 | `workspace.fs` | ok | yes | 138 | 914,256,103 |  |
-| `workspace.getConfiguration` | ok |  | 176 | 1,135,915,147 |  |
+| `workspace.getConfiguration` | ok |  | 176 | 1,135,915,147 | shardulm94.trailing-spaces |
 | `workspace.getWorkspaceFolder` | ok | yes | 119 | 982,101,425 |  |
 | `workspace.isTrusted` | ok |  | 34 | 345,707,834 |  |
 | `workspace.name` | ok |  | 12 | 183,480,674 |  |
 | `workspace.notebookDocuments` | X |  | 75 | 583,025,321 |  |
-| `workspace.onDidChangeConfiguration` | ok |  | 147 | 1,063,598,568 |  |
+| `workspace.onDidChangeConfiguration` | ok |  | 147 | 1,063,598,568 | shardulm94.trailing-spaces |
 | `workspace.onDidChangeNotebookDocument` | X |  | 71 | 525,888,653 |  |
-| `workspace.onDidChangeTextDocument` | ok | yes | 118 | 907,561,438 |  |
+| `workspace.onDidChangeTextDocument` | ok | yes | 118 | 907,561,438 | shardulm94.trailing-spaces |
 | `workspace.onDidChangeWorkspaceFolders` | B |  | 109 | 884,612,940 |  |
 | `workspace.onDidCloseNotebookDocument` | X |  | 72 | 519,617,722 |  |
 | `workspace.onDidCloseTextDocument` | ok | yes | 104 | 807,332,966 |  |
@@ -2569,7 +2569,7 @@ Proposed API or a false hit: class X when real.
 | `workspace.onDidDeleteFiles` | ok | yes | 85 | 634,317,169 |  |
 | `workspace.onDidGrantWorkspaceTrust` | ok |  | 20 | 219,502,460 |  |
 | `workspace.onDidOpenNotebookDocument` | X |  | 69 | 512,262,735 |  |
-| `workspace.onDidOpenTextDocument` | ok | yes | 98 | 794,779,906 |  |
+| `workspace.onDidOpenTextDocument` | ok | yes | 98 | 794,779,906 | shardulm94.trailing-spaces |
 | `workspace.onDidRenameFiles` | ok | yes | 82 | 627,808,812 |  |
 | `workspace.onDidSaveNotebookDocument` | X |  | 70 | 514,036,465 |  |
 | `workspace.onDidSaveTextDocument` | ok | yes | 104 | 715,204,603 |  |
@@ -2577,7 +2577,7 @@ Proposed API or a false hit: class X when real.
 | `workspace.onWillDeleteFiles` | ok | yes | 74 | 552,496,647 |  |
 | `workspace.onWillRenameFiles` | ok | yes | 73 | 551,893,376 |  |
 | `workspace.onWillSaveNotebookDocument` | X |  | 0 | 0 |  |
-| `workspace.onWillSaveTextDocument` | ok | yes | 79 | 622,743,962 |  |
+| `workspace.onWillSaveTextDocument` | ok | yes | 79 | 622,743,962 | shardulm94.trailing-spaces |
 | `workspace.openNotebookDocument` | X |  | 12 | 94,704,857 |  |
 | `workspace.openTextDocument` | B | yes | 104 | 814,693,192 |  |
 | `workspace.registerFileSystemProvider` | B | yes | 16 | 123,646,172 |  |
