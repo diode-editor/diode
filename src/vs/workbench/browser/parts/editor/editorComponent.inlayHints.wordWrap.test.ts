@@ -55,4 +55,38 @@ describe("EditorComponent — inlay hints under word wrap", () => {
         const frame = (await frameWithHint()).replace(/\s+/g, "");
         expect(frame).toContain("compute(a_long_parameter_name:12)+tail_end");
     });
+
+    it("the file's rows follow the hints: no hint, no extra row", async () => {
+        const providers = new LanguageFeatureRegistry<InlayHintsProvider>();
+        const pane = createEditorPane({
+            inlayHintsProviders: providers,
+            file: Uri.file(ws.writeFile("a.ts", `${LINE}\nnext`)),
+        });
+        const app = TestApp.createWithContent(pane.view, SIZE);
+        pane.setWordWrap("on", 80);
+        await vi.advanceTimersByTimeAsync(SETTLE_MS);
+        app.render();
+        const rowOfNext = (): number =>
+            app.backend
+                .screenToString()
+                .split("\n")
+                .findIndex((row) => row.includes("next"));
+        const before = rowOfNext();
+
+        const registration = providers.register("*", {
+            provideInlayHints: () => ({
+                hints: [{ position: { line: 0, character: LINE.indexOf("12") }, label: HINT }],
+                dispose: () => undefined,
+            }),
+        });
+        await vi.advanceTimersByTimeAsync(SETTLE_MS);
+        app.render();
+        expect(rowOfNext()).toBeGreaterThan(before);
+
+        registration.dispose();
+        await vi.advanceTimersByTimeAsync(SETTLE_MS);
+        app.render();
+        expect(rowOfNext()).toBe(before);
+        pane.dispose();
+    });
 });

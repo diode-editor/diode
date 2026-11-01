@@ -79,3 +79,43 @@ describe("computeLineBreakOffsets — clamps and thresholds", () => {
         expect(breaks?.at(-1)).toBe(STOP_RENDERING_LINE_AFTER - 50);
     });
 });
+
+describe("computeLineBreakOffsets — with insertions", () => {
+    const at = (offset: number, text: string) => ({ offset, text });
+
+    it("a line that fits alone wraps at its whitespace once an insertion overflows it", () => {
+        expect(computeLineBreakOffsets("aaaa bbbb", 4, 10)).toBeNull();
+        expect(computeLineBreakOffsets("aaaa bbbb", 4, 10, [at(5, "xxxx")])).toEqual([5]);
+    });
+
+    it("insertions that fit change nothing", () => {
+        expect(computeLineBreakOffsets("aaaa bbbb", 4, 12, [at(5, "xxx")])).toBeNull();
+    });
+
+    it("an overflowing insertion with no whitespace takes the character before it along", () => {
+        // "abcdefg" | "h" + "xxx" + "ij"
+        expect(computeLineBreakOffsets("abcdefghij", 4, 8, [at(8, "xxx")])).toEqual([7]);
+    });
+
+    it("the columns after an insertion are counted with it: the next cut lands earlier", () => {
+        expect(computeLineBreakOffsets("abcdefghijkl", 4, 8, [at(1, "xxx")])).toEqual([5]);
+    });
+
+    it("an insertion at the line start never breaks at offset 0", () => {
+        expect(computeLineBreakOffsets("abcdef", 4, 8, [at(0, "xxxxxxxxxx")])).toEqual([1]);
+    });
+
+    it("an insertion wider than the width overflows instead of looping; the character after it moves on", () => {
+        expect(computeLineBreakOffsets("ab", 4, 8, [at(1, "x".repeat(20))])).toEqual([1]);
+    });
+
+    it("a second insertion is found past the shift of the first; the breaks stay in document offsets", () => {
+        // "axbcde" + "yy" | "yyyy" after the cut: "e" + "yyyyyy" + "f" | "ghij"
+        expect(computeLineBreakOffsets("abcdefghij", 4, 8, [at(1, "x"), at(5, "yyyyyy")])).toEqual([4, 6]);
+    });
+
+    it("a stale offset past the line end clamps to it", () => {
+        expect(computeLineBreakOffsets("ab", 4, 8, [at(50, "xx")])).toBeNull();
+        expect(computeLineBreakOffsets("abcd efgh", 4, 8, [at(50, "x")])).toEqual([5]);
+    });
+});

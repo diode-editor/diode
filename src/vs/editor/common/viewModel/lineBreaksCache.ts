@@ -3,6 +3,7 @@ import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts"
 import type { ITextDocument } from "../model/iTextDocument.ts";
 
 import { computeLineBreakOffsets } from "./lineBreaksComputer.ts";
+import { type LineInsertions, NO_LINE_INSERTIONS } from "./lineInsertions.ts";
 
 /**
  * Without the cache every projection rebuild would re-segment the whole document. Per-line value:
@@ -14,6 +15,7 @@ export class LineBreaksCache extends Disposable {
     private wrapWidth: number;
 
     private breaks: (number[] | null | undefined)[];
+    private insertions: LineInsertions = NO_LINE_INSERTIONS;
 
     public constructor(document: ITextDocument, tabSize: number, wrapWidth: number) {
         super();
@@ -36,6 +38,25 @@ export class LineBreaksCache extends Disposable {
         this.breaks = new Array<number[] | null | undefined>(this.document.lineCount);
     }
 
+    /** Drops only the lines whose insertions differ; `false` means no line does, the breaks are all still valid. */
+    public setInsertions(insertions: LineInsertions): boolean {
+        const previous = this.insertions;
+        this.insertions = insertions;
+        let changed = false;
+        for (const line of new Set([...previous.keys(), ...insertions.keys()])) {
+            const before = previous.get(line);
+            const after = insertions.get(line);
+            const same =
+                before !== undefined &&
+                before.length === after?.length &&
+                before.every((b, i) => b.offset === after[i].offset && b.text === after[i].text);
+            if (same) continue;
+            changed = true;
+            this.breaks[line] = undefined;
+        }
+        return changed;
+    }
+
     /** Desync guard, same as {@link LineWidthCache.getMaxWidth}. */
     public getBreaks(line: number): number[] | null {
         if (this.breaks.length > this.document.lineCount) {
@@ -43,7 +64,12 @@ export class LineBreaksCache extends Disposable {
         }
         let entry = this.breaks[line];
         if (entry === undefined) {
-            entry = computeLineBreakOffsets(this.document.getLineContent(line), this.tabSize, this.wrapWidth);
+            entry = computeLineBreakOffsets(
+                this.document.getLineContent(line),
+                this.tabSize,
+                this.wrapWidth,
+                this.insertions.get(line),
+            );
             this.breaks[line] = entry;
         }
         return entry;

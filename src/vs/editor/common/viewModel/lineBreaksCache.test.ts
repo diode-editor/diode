@@ -4,6 +4,7 @@ import { createDeleteEdit, createInsertEdit } from "../core/iTextEdit.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
 import { LineBreaksCache } from "./lineBreaksCache.ts";
+import type { LineInsertions } from "./lineInsertions.ts";
 
 const WIDTH = 10;
 // Lines with DISTINCT wrap layouts: a cache shift that lost its position would
@@ -113,5 +114,66 @@ describe("LineBreaksCache", () => {
 
         doc.applyEdits([createDeleteEdit(0, 0, 2, 0)]); // [ONE_BREAK]
         expect(cache.getBreaks(0)).toEqual([14]);
+    });
+});
+
+describe("LineBreaksCache — insertions", () => {
+    const insertionsOn = (line: number, offset: number, text: string): LineInsertions =>
+        new Map([[line, [{ line, offset, text }]]]);
+
+    it("a changed line recomputes with its insertions; removing them brings the old breaks back", () => {
+        const cache = new LineBreaksCache(new TextDocument("aaaa bbbb\ncccc dddd"), 4, 10);
+        expect(cache.getBreaks(0)).toBeNull();
+        expect(cache.setInsertions(insertionsOn(0, 5, "xxxx"))).toBe(true);
+        expect(cache.getBreaks(0)).toEqual([5]);
+        expect(cache.getBreaks(1)).toBeNull();
+        expect(cache.setInsertions(new Map())).toBe(true);
+        expect(cache.getBreaks(0)).toBeNull();
+        cache.dispose();
+    });
+
+    it.each([
+        ["the same", 5, "xxxx", false],
+        ["another offset", 6, "xxxx", true],
+        ["another text", 5, "yyyy", true],
+    ])("%s insertion reports a change: %s", (_name, offset, text, changed) => {
+        const cache = new LineBreaksCache(new TextDocument("aaaa bbbb"), 4, 10);
+        cache.setInsertions(insertionsOn(0, 5, "xxxx"));
+        expect(cache.setInsertions(insertionsOn(0, offset, text))).toBe(changed);
+        cache.dispose();
+    });
+
+    it("one of two insertions differing is a change, the same two are not", () => {
+        const cache = new LineBreaksCache(new TextDocument("aaaa bbbb"), 4, 10);
+        const two = (second: string): LineInsertions =>
+            new Map([
+                [
+                    0,
+                    [
+                        { line: 0, offset: 5, text: "x" },
+                        { line: 0, offset: 6, text: second },
+                    ],
+                ],
+            ]);
+        cache.setInsertions(two("y"));
+        expect(cache.setInsertions(two("y"))).toBe(false);
+        expect(cache.setInsertions(two("z"))).toBe(true);
+        cache.dispose();
+    });
+
+    it("another count on a line is a change", () => {
+        const cache = new LineBreaksCache(new TextDocument("aaaa bbbb"), 4, 10);
+        cache.setInsertions(insertionsOn(0, 5, "x"));
+        const two: LineInsertions = new Map([
+            [
+                0,
+                [
+                    { line: 0, offset: 5, text: "x" },
+                    { line: 0, offset: 6, text: "y" },
+                ],
+            ],
+        ]);
+        expect(cache.setInsertions(two)).toBe(true);
+        cache.dispose();
     });
 });

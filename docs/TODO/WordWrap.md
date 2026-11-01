@@ -14,7 +14,6 @@
 
 - [ ] **`editor.wrappingIndent`** (none | same | indent) — продолжения всегда начинаются с колонки 0. Потянет за собой сдвиг колоночного окна в рендере, хит-тестах и `viewLineStartColumn`.
 - [ ] **Wrap в дифф-редакторе** — стороны выравниваются по view-строкам через зоны, перенос развёл бы половины; `TextEditorPane.wordWrapForcedOff` форсит off (non-goal в [Diff.md](Diff.md)). Честная реализация должна синхронизировать высоты перенесённых строк зонами.
-- [ ] **Перенос не видит вставок** (`IInlineInsertion`: ghost text, цветовые квадратики) — `lineBreaksComputer.ts` считает брейки по настоящему тексту строки, поэтому вставки с хвостом могут уйти за правый край фрагмента и склиппиться (кадр не падает). Upstream считает брейки по тексту с инъекциями (`monospaceLineBreaksComputer.ts`); тот же люфт у ghost text — [InlineCompletions.md](InlineCompletions.md).
 - [ ] **Cursor affinity** — offset на границе фрагментов всегда маппится на следующий ряд; End на не-последнем фрагменте ставит каретку перед break-пробелом (`end − 1`), а не на визуальный конец ряда. VS Code решает это парой позиция+affinity.
 - [ ] **Честный `wordWrapColumn > viewportWidth`** — v1 клампит колонку к вьюпорту (режим эффективно = bounded): перенос за правым краем потребовал бы горизонтальный скролл при активном wrap, а v1 живёт инвариантом `scrollLeft ≡ 0`.
 - [ ] **Персист Alt+Z** — session-global override, не пишется в settings.json и не помнит per-resource (VS Code хранит transient state на ресурс).

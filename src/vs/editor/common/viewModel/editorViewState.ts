@@ -95,6 +95,7 @@ interface IProjectionCacheEntry {
     readonly docVersion: number;
     readonly foldsVersion: number;
     readonly zonesVersion: number;
+    readonly insertionsVersion: number;
     readonly wrapWidth: number;
     readonly tabSize: number;
     /** The collapsed folds the rows were built with: a fold recompute that keeps them is not a rebuild. */
@@ -214,6 +215,9 @@ export class EditorViewState {
     private foldsVersion = 0;
     private zonesVersion = 0;
     private lineBreaksCacheValue: LineBreaksCache | null = null;
+    /** The {@link inlineInsertions} the breaks were told about; compared by identity on every projection read. */
+    private wrappedInsertions: readonly IInlineInsertion[] | null = null;
+    private insertionsVersion = 0;
 
     /**
      * Own mutators recompute selections and folds exactly; the
@@ -2113,6 +2117,12 @@ export class EditorViewState {
 
     private buildProjection(): IViewProjection {
         const wrapWidth = this.effectiveWrapWidth() ?? -1;
+        // Stryker disable next-line ConditionalExpression: pure memoization, the same insertions report no change
+        if (wrapWidth >= 0 && this.wrappedInsertions !== this.inlineInsertions) {
+            this.wrappedInsertions = this.inlineInsertions;
+            // Stryker disable next-line UpdateOperator: the version is only compared for equality
+            if (this.wrapBreaks(wrapWidth).setInsertions(this.lineInsertions)) this.insertionsVersion++;
+        }
         const cache = this.projectionCache;
         if (
             // Stryker disable next-line ConditionalExpression: pure memoization, a rebuild gives the same rows
@@ -2120,6 +2130,7 @@ export class EditorViewState {
             cache.docVersion === this.contentRevision &&
             cache.foldsVersion === this.foldsVersion &&
             cache.zonesVersion === this.zonesVersion &&
+            cache.insertionsVersion === this.insertionsVersion &&
             cache.wrapWidth === wrapWidth &&
             cache.tabSize === this.tabSize
         ) {
@@ -2151,6 +2162,7 @@ export class EditorViewState {
             docVersion: this.contentRevision,
             foldsVersion: this.foldsVersion,
             zonesVersion: this.zonesVersion,
+            insertionsVersion: this.insertionsVersion,
             wrapWidth,
             tabSize: this.tabSize,
             hidden,
@@ -2176,6 +2188,8 @@ export class EditorViewState {
         if (this.viewZonesValue.length > 0 || cache.wrapWidth !== wrapWidth || cache.tabSize !== this.tabSize) {
             return false;
         }
+        // Stryker disable next-line ConditionalExpression: see above
+        if (cache.insertionsVersion !== this.insertionsVersion) return false;
         // Stryker disable next-line ConditionalExpression: see above
         if (pending === null) {
             // A version change without an event is a desync (as in LineBreaksCache): rebuild rather than guess.
