@@ -278,7 +278,6 @@ describe("LanguagesNamespace — no-op surface for vscode-languageclient", () =>
             "registerInlayHintsProvider",
             "registerInlineValuesProvider",
             "registerLinkedEditingRangeProvider",
-            "registerTypeHierarchyProvider",
         ]) {
             const disposable = ns[name]({}, {});
             expect(disposable, name).toBeDefined();

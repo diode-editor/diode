@@ -4,7 +4,8 @@ import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 
-import { CALL_HIERARCHY_VIEW_ID, CallHierarchyComponentDIToken } from "./callHierarchyComponent.ts";
+import { CallHierarchyComponentDIToken } from "./callHierarchyComponent.ts";
+import { HIERARCHY_VIEW_ID } from "./hierarchyComponent.ts";
 
 /**
  * Ids, titles and the key are upstream's `references-view`. A legacy terminal can't deliver the key and the chord
@@ -37,8 +38,9 @@ export const showOutgoingCallsAction: CommandAction = {
             group: "navigation",
             order: 10,
             icon: codicon("call-incoming"),
-            visible: viewMenuVisible(CALL_HIERARCHY_VIEW_ID),
-            when: "callHierarchyMode == 'incoming'",
+            visible: viewMenuVisible(HIERARCHY_VIEW_ID),
+            // The section is shared with the type tree: the mode alone would show this over types too.
+            when: "callHierarchyVisible && callHierarchyMode == 'incoming'",
         },
     ],
     run(accessor) {
@@ -56,8 +58,8 @@ export const showIncomingCallsAction: CommandAction = {
             group: "navigation",
             order: 10,
             icon: codicon("call-outgoing"),
-            visible: viewMenuVisible(CALL_HIERARCHY_VIEW_ID),
-            when: "callHierarchyMode == 'outgoing'",
+            visible: viewMenuVisible(HIERARCHY_VIEW_ID),
+            when: "callHierarchyVisible && callHierarchyMode == 'outgoing'",
         },
     ],
     run(accessor) {
@@ -76,8 +78,11 @@ export const removeCallItemAction: CommandAction = {
             group: "navigation",
             order: 20,
             icon: codicon("close"),
-            visible: viewMenuVisible(CALL_HIERARCHY_VIEW_ID),
+            visible: viewMenuVisible(HIERARCHY_VIEW_ID),
+            when: "callHierarchyVisible",
         },
+        // As upstream: otherwise the palette lists two "Dismiss" rows, and the other tree's one does nothing.
+        { menuId: MenuId.CommandPalette, when: "false" },
     ],
     run(accessor) {
         accessor.get(CallHierarchyComponentDIToken).dismiss();

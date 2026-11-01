@@ -249,6 +249,10 @@ import {
     ReferencesService,
     ReferencesServiceDIToken,
 } from "../../workbench/contrib/references/browser/referencesService.ts";
+import {
+    TypeHierarchyComponent,
+    TypeHierarchyComponentDIToken,
+} from "../../workbench/contrib/references/browser/typeHierarchyComponent.ts";
 import { RenameService, RenameServiceDIToken } from "../../workbench/contrib/rename/browser/renameService.ts";
 import { ChangesComponent, ChangesComponentDIToken } from "../../workbench/contrib/scm/browser/changesComponent.ts";
 import { ScmChangesService, ScmChangesServiceDIToken } from "../../workbench/contrib/scm/browser/changesService.ts";
@@ -536,6 +540,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(ParameterHintsServiceDIToken, ParameterHintsService);
     // Stryker disable next-line CallExpression: DI binding without a unit test; end-to-end — e2e scenario call-hierarchy
     container.bind(CallHierarchyComponentDIToken, CallHierarchyComponent);
+    // Stryker disable next-line CallExpression: DI binding without a unit test; end-to-end — e2e scenario type-hierarchy
+    container.bind(TypeHierarchyComponentDIToken, TypeHierarchyComponent);
     container.bind(ReferencesComponentDIToken, ReferencesComponent);
     container.bind(ReferencesServiceDIToken, ReferencesService);
     container.bind(RenameServiceDIToken, RenameService);

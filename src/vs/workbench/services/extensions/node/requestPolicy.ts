@@ -34,6 +34,9 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.prepareCallHierarchy": 5000,
     "languages.provideCallHierarchyIncomingCalls": 5000,
     "languages.provideCallHierarchyOutgoingCalls": 5000,
+    "languages.prepareTypeHierarchy": 5000,
+    "languages.provideTypeHierarchySupertypes": 5000,
+    "languages.provideTypeHierarchySubtypes": 5000,
 } as const satisfies Readonly<Record<string, number>>;
 
 export type TimedRequestMethod = keyof typeof DEFAULT_REQUEST_TIMEOUTS;

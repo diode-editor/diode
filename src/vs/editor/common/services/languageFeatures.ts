@@ -28,6 +28,7 @@ import type {
     DocumentSemanticTokensProvider,
 } from "../languages/iSemanticTokensSource.ts";
 import type { SignatureHelpProvider } from "../languages/iSignatureHelpSource.ts";
+import type { TypeHierarchyProvider } from "../languages/iTypeHierarchySource.ts";
 
 export interface ILanguageFeaturesService {
     readonly hoverProvider: LanguageFeatureRegistry<HoverProvider>;
@@ -52,6 +53,7 @@ export interface ILanguageFeaturesService {
     readonly inlayHintsProvider: LanguageFeatureRegistry<InlayHintsProvider>;
     readonly codeLensProvider: LanguageFeatureRegistry<CodeLensProvider>;
     readonly callHierarchyProvider: LanguageFeatureRegistry<CallHierarchyProvider>;
+    readonly typeHierarchyProvider: LanguageFeatureRegistry<TypeHierarchyProvider>;
 }
 
 // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string is only a debug label

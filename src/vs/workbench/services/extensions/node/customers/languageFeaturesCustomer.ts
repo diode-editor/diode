@@ -55,6 +55,11 @@ import type {
     ICoreSignatureHelp,
     ISignatureHelpRequest,
 } from "../../../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ITypeHierarchyItem,
+    ITypeHierarchyRequest,
+    ITypeHierarchySession,
+} from "../../../../../editor/common/languages/iTypeHierarchySource.ts";
 import type { IFoldingRegion } from "../../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type { HostRpc, IHostToSubprocess } from "../../../../api/common/extHostProtocol.ts";
@@ -494,6 +499,37 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
 
     public releaseCallHierarchy(handle: number, sessionId: number): void {
         this.rpc?.notify("languages.releaseCallHierarchy", { handle, sessionId });
+    }
+
+    /** `null` — nothing at the position, also when there is no subprocess or the extension timed out. */
+    public async prepareTypeHierarchy(
+        handle: number,
+        req: ITypeHierarchyRequest,
+        token?: ICancellationToken,
+    ): Promise<ITypeHierarchySession | null> {
+        return this.request("languages.prepareTypeHierarchy", { handle, ...positionParams(req) }, null, { token });
+    }
+
+    public async provideTypeHierarchySupertypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]> {
+        return this.request("languages.provideTypeHierarchySupertypes", { handle, sessionId, itemId }, [], { token });
+    }
+
+    public async provideTypeHierarchySubtypes(
+        handle: number,
+        sessionId: number,
+        itemId: number,
+        token?: ICancellationToken,
+    ): Promise<readonly ITypeHierarchyItem[]> {
+        return this.request("languages.provideTypeHierarchySubtypes", { handle, sessionId, itemId }, [], { token });
+    }
+
+    public releaseTypeHierarchy(handle: number, sessionId: number): void {
+        this.rpc?.notify("languages.releaseTypeHierarchy", { handle, sessionId });
     }
 
     /** `null` — the provider declined, also when there is no subprocess, the document is not synced or the extension timed out. */
