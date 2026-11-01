@@ -524,6 +524,10 @@ export class EditorComponent extends Component {
         this.editor.focus();
     }
 
+    public insertLineBreak(): void {
+        this.editor.insertLineBreak();
+    }
+
     public typeText(text: string): void {
         this.editor.typeText(text);
     }

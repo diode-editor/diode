@@ -1495,9 +1495,20 @@ export class EditorElement extends TUIElement implements IScrollable {
         });
     }
 
+    /** A line break by a command, not by typing (upstream `EnterOperation`): {@link onDidTypeNewLine} stays silent. */
+    public insertLineBreak(): void {
+        withCursorChangeSource("keyboard", () => {
+            this.pushNewLine();
+        });
+    }
+
+    private pushNewLine(): void {
+        this.pushUndo(this.viewState.insertNewLine(this.languageConfigurationSource?.()?.onEnterRules));
+    }
+
     private typeChar(char: string): void {
         if (char === "\n") {
-            this.pushUndo(this.viewState.insertNewLine(this.languageConfigurationSource?.()?.onEnterRules));
+            this.pushNewLine();
             if (!this.viewState.readOnly) this.onDidTypeNewLineEmitter.fire();
             return;
         }

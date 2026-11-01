@@ -340,6 +340,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
     }
 
     /** As if typed on the keyboard: auto-close, indent, `onEnterRules`, suggest triggers. */
+    public insertLineBreak(): void {
+        this.component.insertLineBreak();
+    }
+
     public typeText(text: string): void {
         this.component.typeText(text);
     }
