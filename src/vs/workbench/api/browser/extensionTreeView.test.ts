@@ -926,7 +926,14 @@ describe("ExtensionTreeView — a row refreshed under a new handle", () => {
     }
 
     async function expand(f: IFixture, row: IWireTreeItem): Promise<void> {
-        await f.tree.reveal({ viewId: "test.view", item: row, parentChain: [], select: true, focus: false, expand: true });
+        await f.tree.reveal({
+            viewId: "test.view",
+            item: row,
+            parentChain: [],
+            select: true,
+            focus: false,
+            expand: true,
+        });
     }
 
     it("a root row comes from the root", async () => {
