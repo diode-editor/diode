@@ -1,14 +1,22 @@
 import type { Event } from "../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
+import type { CodeLens } from "../../../editor/common/languages/iCodeLensSource.ts";
 import type { ILanguageFeaturesService } from "../../../editor/common/services/languageFeatures.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
 import type {
+    IWireCodeLens,
     IWireLanguageProviderRegistration,
     IWireSemanticTokensLegend,
+    WireCodeLensCacheId,
     WireLanguageFeatureKind,
 } from "../common/wireTypes.ts";
 
 const EMPTY_LEGEND: IWireSemanticTokensLegend = { tokenTypes: [], tokenModifiers: [] };
+
+/** Upstream `ICodeLensDto`: the core hands the lens back to resolve it, with the address on it. */
+interface IExtensionCodeLens extends CodeLens {
+    readonly cacheId: WireCodeLensCacheId;
+}
 
 interface ILiveRegistration {
     readonly source: IWireLanguageProviderRegistration;
@@ -161,6 +169,31 @@ export class LanguageFeaturesAdapter extends Disposable {
                     return hints === null ? null : { hints, dispose: () => undefined };
                 },
             }),
+        // Upstream `MainThreadCodeLensProvider`, always able to resolve: the subprocess knows whether the provider can.
+        codeLens: ({ handle, selector, hasOnDidChange }) =>
+            this.languageFeatures.codeLensProvider.register(selector, {
+                ...(hasOnDidChange === true ? { onDidChange: this.codeLensChangeEvent(handle) } : {}),
+                provideCodeLenses: async (model, token) => {
+                    const request = {
+                        uri: model.uri.toString(),
+                        languageId: model.languageId,
+                        versionId: model.document.versionId,
+                    };
+                    const list = await this.bridge.provideCodeLenses(handle, request, token);
+                    if (list === null) return null;
+                    return {
+                        lenses: list.lenses.map((lens) => this.toCoreCodeLens(handle, lens)),
+                        dispose: () => {
+                            this.bridge.releaseCodeLenses(handle, list.cacheId);
+                        },
+                    };
+                },
+                resolveCodeLens: async (_model, lens, token) => {
+                    const { cacheId } = lens as IExtensionCodeLens;
+                    const resolved = await this.bridge.resolveCodeLens(handle, cacheId, token);
+                    return resolved === null ? null : this.toCoreCodeLens(handle, resolved);
+                },
+            }),
         // Upstream `MainThreadDocumentSemanticTokensProvider`: the result id is a
         // string in the core and a number on the wire; "no previous" is 0.
         semanticTokens: ({ handle, selector, legend = EMPTY_LEGEND, hasOnDidChange }) =>
@@ -201,6 +234,23 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.bridge.onDidChangeInlayHints((changed) => {
                 if (changed === handle) listener();
             });
+    }
+
+    private codeLensChangeEvent(handle: number): Event<void> {
+        return (listener) =>
+            this.bridge.onDidChangeCodeLenses((changed) => {
+                if (changed === handle) listener();
+            });
+    }
+
+    private toCoreCodeLens(handle: number, { cacheId, range, command }: IWireCodeLens): IExtensionCodeLens {
+        return {
+            cacheId,
+            range,
+            ...(command === undefined
+                ? {}
+                : { command: { ...command, run: () => this.bridge.executeCodeLensCommand(handle, cacheId) } }),
+        };
     }
 
     private registerProxy(reg: IWireLanguageProviderRegistration): IDisposable {

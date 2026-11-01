@@ -11,7 +11,6 @@ import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
 /** No-op stubs outside the `vscode.d.ts` surface: a new `register*Provider` must go either into OWNED_MEMBERS or here. */
 const NOOP_PROVIDERS = [
-    "registerCodeLensProvider",
     "registerDocumentHighlightProvider",
     "registerDocumentLinkProvider",
     "registerDocumentSymbolProvider",

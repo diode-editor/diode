@@ -1003,11 +1003,11 @@ export class Diagnostic implements vscode.Diagnostic {
     }
 }
 
-export class CodeLens {
+export class CodeLens implements vscode.CodeLens {
     public range: Range;
-    public command?: unknown;
+    public command?: vscode.Command;
 
-    public constructor(range: Range, command?: unknown) {
+    public constructor(range: Range, command?: vscode.Command) {
         this.range = range;
         this.command = command;
     }

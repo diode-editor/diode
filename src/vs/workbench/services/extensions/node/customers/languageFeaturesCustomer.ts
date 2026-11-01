@@ -14,6 +14,7 @@ import type {
     ICodeActionRequest,
     ICoreCodeAction,
 } from "../../../../../editor/common/languages/iCodeActionSource.ts";
+import type { ICodeLensRequest } from "../../../../../editor/common/languages/iCodeLensSource.ts";
 import type { IColorInformation, IDocumentColorRequest } from "../../../../../editor/common/languages/iColorSource.ts";
 import type {
     ICompletionRequest,
@@ -55,13 +56,18 @@ import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type { HostRpc, IHostToSubprocess } from "../../../../api/common/extHostProtocol.ts";
 import type { RequestParams, RequestResult } from "../../../../api/common/rpcEndpoint.ts";
 import type {
+    IWireCodeLens,
+    IWireCodeLensList,
     IWireDocumentParams,
     IWireLanguageProviderRegistration,
     IWirePositionParams,
+    WireCodeLensCacheId,
 } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { ProviderRequestBatcher } from "../../common/providerRequestBatcher.ts";
 import {
+    parseWireCodeLens,
+    parseWireCodeLensList,
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
     parseWireProviderHandle,
@@ -76,6 +82,7 @@ const EMPTY_COMPLETION_RESULT: ICoreCompletionResult = { items: [], isIncomplete
 
 type LanguageRequestMethod =
     | Exclude<TimedRequestMethod, "workspace.willSaveTextDocument">
+    | "languages.executeCodeLensCommand"
     | "languages.provideCompletionItems"
     | "languages.provideDocumentSemanticTokens"
     | "languages.provideDocumentRangeSemanticTokens";
@@ -105,6 +112,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     public readonly onDidChangeSemanticTokens = this.onDidChangeSemanticTokensEmitter.event;
     private readonly onDidChangeInlayHintsEmitter = this.register(new Emitter<number>());
     public readonly onDidChangeInlayHints = this.onDidChangeInlayHintsEmitter.event;
+    private readonly onDidChangeCodeLensesEmitter = this.register(new Emitter<number>());
+    public readonly onDidChangeCodeLenses = this.onDidChangeCodeLensesEmitter.event;
     private rpc: HostRpc | null = null;
     private readonly inlineCompletionsBatcher = new ProviderRequestBatcher<
         IInlineCompletionRequest,
@@ -509,6 +518,39 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         return wire === null ? null : wireToCoreInlayHints(wire);
     }
 
+    /** `null` — no lenses, also when there is no subprocess, the document is not synced or the extension timed out. */
+    public async provideCodeLenses(
+        handle: number,
+        req: ICodeLensRequest,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLensList | null> {
+        const wire = await this.request(
+            "languages.provideCodeLenses",
+            { handle, uri: req.uri, languageId: req.languageId, version: req.versionId },
+            null,
+            { token },
+        );
+        return wire === null ? null : parseWireCodeLensList(wire);
+    }
+
+    public async resolveCodeLens(
+        handle: number,
+        cacheId: WireCodeLensCacheId,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLens | null> {
+        const wire = await this.request("languages.resolveCodeLens", { handle, cacheId }, null, { token });
+        return parseWireCodeLens(wire);
+    }
+
+    public releaseCodeLenses(handle: number, cacheId: number): void {
+        this.rpc?.notify("languages.releaseCodeLenses", { handle, cacheId });
+    }
+
+    /** No timeout, and the failure of the command is the caller's to show. No subprocess: nothing to run. */
+    public executeCodeLensCommand(handle: number, cacheId: WireCodeLensCacheId): Promise<void> {
+        return this.request("languages.executeCodeLensCommand", { handle, cacheId }, undefined, { rethrow: true });
+    }
+
     /**
      * The reply `resultId` is its id in the subprocess as a string (upstream
      * `MainThreadDocumentSemanticTokensProvider`). No timeout, like upstream:
@@ -606,6 +648,15 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` before the event — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (parsed !== null && this.providers.has(parsed.handle)) {
                     this.onDidChangeInlayHintsEmitter.fire(parsed.handle);
+                }
+            }),
+        );
+        store.add(
+            rpc.handleNotification("languages.didChangeCodeLenses", (params) => {
+                const parsed = parseWireProviderHandle(params);
+                // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` before the event — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
+                if (parsed !== null && this.providers.has(parsed.handle)) {
+                    this.onDidChangeCodeLensesEmitter.fire(parsed.handle);
                 }
             }),
         );

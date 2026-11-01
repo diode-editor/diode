@@ -46,6 +46,7 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
             appliedMetadata.push(metadata);
             return Promise.resolve(true);
         },
+        hasCommand: () => Promise.resolve(false),
         executeCommand: (command, ...args) => {
             executed.push({ command, args });
             return Promise.resolve(undefined);
