@@ -1,5 +1,6 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
 import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
+import { truncateEnd } from "@tuidom/core/common/textTruncation";
 import { BORDER_THICKNESS } from "@tuidom/core/dom/borderStyle";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 
@@ -93,10 +94,11 @@ export class QuickPickFrameElement extends TUIElement {
     }
 
     private renderTitle(context: RenderContext, title: string, w: number, background: number, border: number): void {
-        const label = ` ${title} `;
+        // The two caps, the border corners and the label's spaces. Cut, not dropped: the title carries the Back arrow.
+        const room = w - 6;
+        if (room <= 0) return;
+        const label = ` ${truncateEnd(title, room)} `;
         const labelWidth = new DisplayLine(label).displayWidth;
-        // The two caps plus the border corners.
-        if (labelWidth + 4 > w) return;
         const startX = Math.max(2, Math.floor((w - labelWidth) / 2));
         context.setCell(startX - 1, 0, { char: "┤", fg: border, bg: background });
         context.drawText(startX, 0, label, { fg: this.styleVar("quickPick.titleForeground"), bg: background });

@@ -203,6 +203,7 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
             await this.refreshRoot();
             return;
         }
+        const rekeyed = items.filter((item) => item.previousHandle !== undefined && this.forget(item.previousHandle));
         for (const item of items) {
             const node = this.nodes.get(item.handle);
             if (node !== undefined) node.item = item;
@@ -215,6 +216,19 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
             this.failed.clear();
             await this.tree.refresh(node);
         }
+        // Upstream `getItemsToRefresh`: the tree keys rows by handle, so a row under a new one comes from its parent.
+        for (const parentHandle of new Set(rekeyed.map((item) => item.parentHandle))) {
+            const parent = parentHandle === undefined ? undefined : this.nodes.get(parentHandle);
+            if (parent === undefined) await this.loadRoot();
+            else await this.tree.refresh(parent);
+        }
+    }
+
+    /** `false` — the host has no such row: it isn't in the tree, and is ignored as upstream. */
+    private forget(handle: string): boolean {
+        this.expanded.delete(handle);
+        this.lastChildren.delete(handle);
+        return this.nodes.delete(handle);
     }
 
     public setMessage(message: string): void {
