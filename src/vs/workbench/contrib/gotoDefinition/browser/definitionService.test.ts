@@ -161,6 +161,27 @@ describe("DefinitionService — Go to Definition", () => {
         expect(caret()).toMatchObject({ line: 1, character: 2 });
     });
 
+    it("a response after switching to another file does not jump, and the provider's token is cancelled", async () => {
+        const mainUri = Uri.file(ws.path("main.ts")).toString();
+        const defsUri = Uri.file(ws.path("defs.ts")).toString();
+        let answer: (targets: ICoreDefinitionLocation[]) => void = () => undefined;
+        let seen: ICancellationToken | undefined;
+        useDefinitions((_request, token) => {
+            seen = token;
+            return new Promise((resolve) => {
+                answer = resolve;
+            });
+        });
+
+        const reveal = service().revealDefinition();
+        h.workbench.openFile(ws.path("defs.ts"));
+        expect(seen?.isCancellationRequested).toBe(true);
+        answer([{ uri: mainUri, range: createRange(1, 6, 1, 11) }]);
+        await reveal;
+
+        expect(group().getActiveEditor()?.uri.toString()).toBe(defsUri);
+    });
+
     it("a repeated F12 supersedes the previous one: a late first response does not jump", async () => {
         const defsUri = Uri.file(ws.path("defs.ts")).toString();
         const mainUri = Uri.file(ws.path("main.ts")).toString();

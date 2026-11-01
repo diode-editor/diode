@@ -37,6 +37,7 @@
         ],
         "navigation": [
             "editor.action.revealDefinition",
+            "editor.action.goToImplementation",
             "references-view.findReferences"
         ],
         "z_commands": [

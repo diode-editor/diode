@@ -171,6 +171,39 @@ describe("ExtensionHost — references request by handle (in-process)", () => {
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
+    it("implementation by handle: the handle reaches the subprocess, nothing is sent after it stops", async () => {
+        const { host, peer } = makeHost();
+        const provide = vi.fn((_params: unknown) => Promise.resolve([REF]));
+        peer.handleRequest("languages.provideImplementation", provide);
+
+        expect(await host.provideImplementation(7, requestOf())).toEqual([CORE_REF]);
+        expect(provide.mock.calls[0]?.[0]).toMatchObject({ handle: 7, line: 0, character: 0, version: 3 });
+
+        await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
+
+        expect(await host.provideImplementation(7, requestOf())).toEqual([]);
+        expect(provide).toHaveBeenCalledTimes(1);
+    });
+
+    it("core cancellation reaches the subprocess token (provideImplementation)", async () => {
+        const { host, peer } = makeHost();
+        let seen: ICancellationToken | null = null;
+        peer.handleRequest("languages.provideImplementation", (_params, token) => {
+            seen = token;
+            return new Promise(() => undefined);
+        });
+
+        const source = new CancellationTokenSource();
+        const pending = host.provideImplementation(0, requestOf(), source.token);
+        await flushMicrotasks();
+        expect(seen!.isCancellationRequested).toBe(false);
+
+        source.cancel();
+        await flushMicrotasks();
+        expect(seen!.isCancellationRequested).toBe(true);
+        void pending;
+    });
+
     it("default timeout is 5000 ms: project-wide reference search costs more than a single jump", async () => {
         const { host, peer } = makeHost();
         const hostRpc = (host as unknown as { rpc: RpcEndpoint }).rpc;

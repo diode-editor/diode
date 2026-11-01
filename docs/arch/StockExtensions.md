@@ -75,6 +75,14 @@
   а не в безымянный `.markdownlint.json` (#931). `support: partial`: нет сниппетов комментариев `markdownlint-disable`
   (`contributes.snippets`). Смоук — MD018 в Problems, quick fix через `Ctrl+.`, конфиг в отдельной вкладке. После
   `source.fixAll` каретка сдвигается: расширение заменяет документ целиком через `editor.edit`.
+- **`shardulm94.trailing-spaces`** — прокси на сток Open VSX 0.4.4. `support: partial`: подсветка в тексте не рисуется,
+  мост `setDecorations` знает только gutter и overview ruler, поэтому команда `Highlight` и настройки цвета видимого
+  эффекта не дают (класс C эпика #912). `Delete - Modified Lines Only` сравнивает документ с файлом на диске, git не
+  использует: в репозитории и вне его поведение одно, безымянный документ чистится целиком. `trimOnSave` — will-save
+  `waitUntil`: каретка в удалённом хвосте встаёт на конец текста, undo возвращает пробелы и каретку, следующее
+  сохранение чистит снова. Сообщение «Deleting N trailing space regions» в статус-баре обрезано общим пределом
+  `MAX_ITEM_WIDTH` (24 ячейки, `extensionStatusBarAdapter.ts`), в эталоне предел — 40% ширины окна. Смоук — колонка
+  каретки в кадре и байты файла, для команды и для `trimOnSave`.
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
 
