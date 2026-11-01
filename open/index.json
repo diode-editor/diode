@@ -3880,5 +3880,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-11-01-daaf264ffdb6.json",
+    "generatedAt": "2026-11-01T04:16:14.109Z",
+    "commit": "daaf264ffdb6",
+    "binaryVersion": "nightly-daaf264",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
