@@ -14,6 +14,7 @@ import { mavenMissing, writeMavenProject } from "../../src/TestUtils/mavenFixtur
 import { startHeadlessApp } from "../helpers/appSession.ts";
 import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "../helpers/claudeIde.ts";
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
+import { findTextCell } from "../helpers/frame.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
@@ -753,6 +754,51 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 // `maven.goal.custom` with a pom path and a goal: what the Custom... input box ends up calling.
                 await app.session.executeCommand("maven.goal.custom", pom, "validate");
                 await app.session.waitForText((t) => t.includes("BUILD SUCCESS"), { timeoutMs: 180_000 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the built-in Merge Conflict, built by Eclipse Theia. A click on the lens of the first
+        // of two conflicts resolves only it, the second keeps its lens; Compare shows both sides through the
+        // content provider, whose ranges survive `JSON.stringify` only in the upstream shape of `Range.toJSON`.
+        id: "vscode.merge-conflict",
+        expectFiles: ["package.json", "dist/mergeConflictMain.js"],
+        run: async (ctx) => {
+            const file = join(ctx.root, "conflict.txt");
+            const conflict = (n: string): string =>
+                `<<<<<<< HEAD\nours ${n}\n=======\ntheirs ${n}\n>>>>>>> branch\n`;
+            writeFileSync(file, `intro\n${conflict("one")}middle\n${conflict("two")}end\n`);
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
+            try {
+                const frame = await app.session.waitForText((t) => t.includes("Accept Incoming Change"), {
+                    timeoutMs: 40_000,
+                });
+                const lens = findTextCell(frame, "Accept Incoming Change");
+                if (lens === null) throw new Error("the lens is not on screen");
+
+                await app.session.executeCommand("merge-conflict.next");
+                await app.session.executeCommand("merge-conflict.compare");
+                await app.session.waitForText((t) => t.includes("ours one") && t.includes("theirs one") && t.includes("↔"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.executeCommand("workbench.action.closeActiveEditor");
+                await app.session.waitForText((t) => !t.includes("↔"), { timeoutMs: 20_000 });
+
+                await app.session.click(lens.x, lens.y);
+                await app.session.waitForText((t) => t.includes("theirs one") && !t.includes("ours one"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.waitForText((t) => t.includes("Accept Incoming Change") && t.includes("ours two"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.key("Ctrl+S");
+                await waitUntil(
+                    () => readFileSync(file, "utf8"),
+                    (text) => text === `intro\ntheirs one\nmiddle\n${conflict("two")}end\n`,
+                    { describe: "the incoming side of the first conflict in the file", timeoutMs: 20_000 },
+                );
             } finally {
                 await app.dispose();
             }

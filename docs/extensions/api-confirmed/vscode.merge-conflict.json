@@ -1,0 +1,19 @@
+{
+    "members": [
+        "commands.executeCommand",
+        "commands.registerCommand",
+        "env.createTelemetryLogger",
+        "l10n.t",
+        "languages.registerCodeLensProvider",
+        "window.activeTextEditor",
+        "window.createTextEditorDecorationType",
+        "window.onDidChangeVisibleTextEditors",
+        "window.visibleTextEditors",
+        "workspace.getConfiguration",
+        "workspace.onDidChangeConfiguration",
+        "workspace.onDidChangeTextDocument",
+        "workspace.onDidOpenTextDocument",
+        "workspace.openTextDocument",
+        "workspace.registerTextDocumentContentProvider"
+    ]
+}

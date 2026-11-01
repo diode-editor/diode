@@ -1,3 +1,4 @@
+import "./rangeJsonShape.ts";
 import type * as vscode from "vscode";
 
 import { Uri } from "../../../base/common/uri.ts";

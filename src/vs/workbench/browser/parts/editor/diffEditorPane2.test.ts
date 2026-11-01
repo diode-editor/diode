@@ -22,6 +22,7 @@ import { ORIGINAL_RESOURCE_COMMAND } from "../../../contrib/scm/browser/commandO
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
+import { NULL_VIRTUAL_DOCUMENT_SOURCE } from "../../../services/editor/common/iVirtualDocumentSource.ts";
 import { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 import type { WorkbenchComponent } from "../../workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../../workbenchComponent.ts";
@@ -427,7 +428,10 @@ describe("DiffEditorPane2 — unit without the workbench", () => {
 
     it("refreshDiffSnapshots on a pane opened bypassing openDiffPair is a silent no-op", async () => {
         const pane = makePane("a", "b");
-        await refreshDiffSnapshots(new FileService(), pane);
+        await refreshDiffSnapshots(
+            { files: new FileService(), editors: { virtualDocumentSource: NULL_VIRTUAL_DOCUMENT_SOURCE } },
+            pane,
+        );
         expect(pane.sidePanes()[0].getText()).toBe("a");
         // Such a pane has no recipe either — a split will not reproduce it.
         expect(diffPaneRecipe(pane)).toBeUndefined();
