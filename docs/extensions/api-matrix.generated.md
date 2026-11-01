@@ -23,7 +23,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 | mark | members |
 | --- | --- |
 | test | 137 |
-| confirmed by a real extension | 37 |
+| confirmed by a real extension | 42 |
 | used by a surveyed extension | 583 |
 
 ## Gap ranking
@@ -615,9 +615,9 @@ Proposed API or a false hit: class X when real.
 | `Command.command` | ok |  | 0 | 0 |  |
 | `Command.title` | ok |  | 0 | 0 |  |
 | `Command.tooltip` | ok |  | 0 | 0 |  |
-| `commands.executeCommand` | ok | yes | 163 | 1,124,066,680 | vscjava.vscode-maven |
+| `commands.executeCommand` | ok | yes | 163 | 1,124,066,680 | vscjava.vscode-maven, vscode.merge-conflict |
 | `commands.getCommands` | ok | yes | 22 | 248,650,853 |  |
-| `commands.registerCommand` | ok | yes | 178 | 1,156,419,053 | christian-kohler.npm-intellisense, vscjava.vscode-maven |
+| `commands.registerCommand` | ok | yes | 178 | 1,156,419,053 | christian-kohler.npm-intellisense, vscjava.vscode-maven, vscode.merge-conflict |
 | `commands.registerTextEditorCommand` | ok | yes | 16 | 131,081,500 | shardulm94.trailing-spaces |
 | `Comment.author` | C |  | 0 | 0 |  |
 | `Comment.body` | C |  | 0 | 0 |  |
@@ -982,7 +982,7 @@ Proposed API or a false hit: class X when real.
 | `env.appRoot` | ok | yes | 22 | 135,779,926 |  |
 | `env.asExternalUri` | B |  | 23 | 111,109,501 |  |
 | `env.clipboard` | ok |  | 73 | 420,753,210 |  |
-| `env.createTelemetryLogger` | ok |  | 7 | 57,102,796 | vscjava.vscode-maven |
+| `env.createTelemetryLogger` | ok |  | 7 | 57,102,796 | vscjava.vscode-maven, vscode.merge-conflict |
 | `env.isAppPortable` | B |  | 0 | 0 |  |
 | `env.isNewAppInstall` | B |  | 1 | 620,681 |  |
 | `env.isTelemetryEnabled` | ok |  | 44 | 614,637,512 | vscjava.vscode-maven |
@@ -1244,7 +1244,7 @@ Proposed API or a false hit: class X when real.
 | `InputBoxValidationSeverity.Info` | B |  | 4 | 32,294,708 |  |
 | `InputBoxValidationSeverity.Warning` | B |  | 2 | 11,794,433 |  |
 | `l10n.bundle` | ok |  | 5 | 32,852,006 |  |
-| `l10n.t` | ok |  | 34 | 283,204,891 |  |
+| `l10n.t` | ok |  | 34 | 283,204,891 | vscode.merge-conflict |
 | `l10n.uri` | ok |  | 1 | 622,421 |  |
 | `LanguageConfiguration.__characterPairSupport` | ok |  | 0 | 0 |  |
 | `LanguageConfiguration.__electricCharacterSupport` | ok |  | 0 | 0 |  |
@@ -1353,7 +1353,7 @@ Proposed API or a false hit: class X when real.
 | `languages.onDidChangeDiagnostics` | ok |  | 9 | 178,729,024 |  |
 | `languages.registerCallHierarchyProvider` | C |  | 74 | 553,028,026 |  |
 | `languages.registerCodeActionsProvider` | ok | yes | 94 | 802,908,021 |  |
-| `languages.registerCodeLensProvider` | ok | yes | 94 | 721,586,993 |  |
+| `languages.registerCodeLensProvider` | ok | yes | 94 | 721,586,993 | vscode.merge-conflict |
 | `languages.registerColorProvider` | ok |  | 75 | 553,935,609 |  |
 | `languages.registerCompletionItemProvider` | ok | yes | 100 | 769,073,820 | christian-kohler.npm-intellisense |
 | `languages.registerDeclarationProvider` | B |  | 74 | 553,028,026 |  |
@@ -2492,13 +2492,13 @@ Proposed API or a false hit: class X when real.
 | `window.activeColorTheme` | ok |  | 29 | 130,368,078 |  |
 | `window.activeNotebookEditor` | X |  | 17 | 133,990,636 |  |
 | `window.activeTerminal` | ok |  | 15 | 216,575,445 |  |
-| `window.activeTextEditor` | ok | yes | 161 | 1,031,389,838 | christian-kohler.npm-intellisense |
+| `window.activeTextEditor` | ok | yes | 161 | 1,031,389,838 | christian-kohler.npm-intellisense, vscode.merge-conflict |
 | `window.createInputBox` | ok | yes | 27 | 437,973,972 |  |
 | `window.createOutputChannel` | ok |  | 144 | 1,097,202,143 | vscjava.vscode-maven |
 | `window.createQuickPick` | ok | yes | 57 | 660,652,049 |  |
 | `window.createStatusBarItem` | ok |  | 86 | 651,676,549 |  |
 | `window.createTerminal` | ok | yes | 59 | 442,493,421 | vscjava.vscode-maven |
-| `window.createTextEditorDecorationType` | C |  | 56 | 481,992,789 | shardulm94.trailing-spaces |
+| `window.createTextEditorDecorationType` | C |  | 56 | 481,992,789 | shardulm94.trailing-spaces, vscode.merge-conflict |
 | `window.createTreeView` | ok | yes | 47 | 432,182,103 | vscjava.vscode-maven |
 | `window.createWebviewPanel` | X |  | 73 | 478,100,689 |  |
 | `window.onDidChangeActiveColorTheme` | ok |  | 18 | 52,945,951 |  |
@@ -2514,7 +2514,7 @@ Proposed API or a false hit: class X when real.
 | `window.onDidChangeTextEditorViewColumn` | ok | yes | 4 | 86,704,102 |  |
 | `window.onDidChangeTextEditorVisibleRanges` | B |  | 11 | 59,943,750 |  |
 | `window.onDidChangeVisibleNotebookEditors` | X |  | 2 | 12,114,147 |  |
-| `window.onDidChangeVisibleTextEditors` | ok | yes | 43 | 497,715,134 |  |
+| `window.onDidChangeVisibleTextEditors` | ok | yes | 43 | 497,715,134 | vscode.merge-conflict |
 | `window.onDidChangeWindowState` | ok |  | 21 | 174,307,028 |  |
 | `window.onDidCloseTerminal` | ok | yes | 30 | 265,091,068 | vscjava.vscode-maven |
 | `window.onDidEndTerminalShellExecution` | B |  | 11 | 191,094,799 |  |
@@ -2543,7 +2543,7 @@ Proposed API or a false hit: class X when real.
 | `window.tabGroups` | ok | yes | 100 | 662,230,120 |  |
 | `window.terminals` | ok | yes | 23 | 355,498,590 |  |
 | `window.visibleNotebookEditors` | X |  | 6 | 24,331,125 |  |
-| `window.visibleTextEditors` | ok | yes | 69 | 596,976,815 | shardulm94.trailing-spaces |
+| `window.visibleTextEditors` | ok | yes | 69 | 596,976,815 | shardulm94.trailing-spaces, vscode.merge-conflict |
 | `window.withProgress` | B |  | 124 | 944,816,089 |  |
 | `window.withScmProgress` | C |  | 0 | 0 |  |
 | `WindowState.active` | ok |  | 0 | 0 |  |
@@ -2555,14 +2555,14 @@ Proposed API or a false hit: class X when real.
 | `workspace.encode` | B |  | 0 | 0 |  |
 | `workspace.findFiles` | ok | yes | 72 | 686,973,290 | vscjava.vscode-maven |
 | `workspace.fs` | ok | yes | 138 | 914,256,103 |  |
-| `workspace.getConfiguration` | ok |  | 176 | 1,135,915,147 | christian-kohler.npm-intellisense, shardulm94.trailing-spaces, vscjava.vscode-maven |
+| `workspace.getConfiguration` | ok |  | 176 | 1,135,915,147 | christian-kohler.npm-intellisense, shardulm94.trailing-spaces, vscjava.vscode-maven, vscode.merge-conflict |
 | `workspace.getWorkspaceFolder` | ok | yes | 119 | 982,101,425 | vscjava.vscode-maven |
 | `workspace.isTrusted` | ok |  | 34 | 345,707,834 | vscjava.vscode-maven |
 | `workspace.name` | ok |  | 12 | 183,480,674 |  |
 | `workspace.notebookDocuments` | X |  | 75 | 583,025,321 |  |
-| `workspace.onDidChangeConfiguration` | ok |  | 147 | 1,063,598,568 | shardulm94.trailing-spaces, vscjava.vscode-maven |
+| `workspace.onDidChangeConfiguration` | ok |  | 147 | 1,063,598,568 | shardulm94.trailing-spaces, vscjava.vscode-maven, vscode.merge-conflict |
 | `workspace.onDidChangeNotebookDocument` | X |  | 71 | 525,888,653 |  |
-| `workspace.onDidChangeTextDocument` | ok | yes | 118 | 907,561,438 | shardulm94.trailing-spaces, vscjava.vscode-maven |
+| `workspace.onDidChangeTextDocument` | ok | yes | 118 | 907,561,438 | shardulm94.trailing-spaces, vscjava.vscode-maven, vscode.merge-conflict |
 | `workspace.onDidChangeWorkspaceFolders` | B |  | 109 | 884,612,940 | vscjava.vscode-maven |
 | `workspace.onDidCloseNotebookDocument` | X |  | 72 | 519,617,722 |  |
 | `workspace.onDidCloseTextDocument` | ok | yes | 104 | 807,332,966 |  |
@@ -2570,7 +2570,7 @@ Proposed API or a false hit: class X when real.
 | `workspace.onDidDeleteFiles` | ok | yes | 85 | 634,317,169 |  |
 | `workspace.onDidGrantWorkspaceTrust` | ok |  | 20 | 219,502,460 | vscjava.vscode-maven |
 | `workspace.onDidOpenNotebookDocument` | X |  | 69 | 512,262,735 |  |
-| `workspace.onDidOpenTextDocument` | ok | yes | 98 | 794,779,906 | shardulm94.trailing-spaces |
+| `workspace.onDidOpenTextDocument` | ok | yes | 98 | 794,779,906 | shardulm94.trailing-spaces, vscode.merge-conflict |
 | `workspace.onDidRenameFiles` | ok | yes | 82 | 627,808,812 |  |
 | `workspace.onDidSaveNotebookDocument` | X |  | 70 | 514,036,465 |  |
 | `workspace.onDidSaveTextDocument` | ok | yes | 104 | 715,204,603 |  |
@@ -2580,11 +2580,11 @@ Proposed API or a false hit: class X when real.
 | `workspace.onWillSaveNotebookDocument` | X |  | 0 | 0 |  |
 | `workspace.onWillSaveTextDocument` | ok | yes | 79 | 622,743,962 | shardulm94.trailing-spaces |
 | `workspace.openNotebookDocument` | X |  | 12 | 94,704,857 |  |
-| `workspace.openTextDocument` | B | yes | 104 | 814,693,192 |  |
+| `workspace.openTextDocument` | B | yes | 104 | 814,693,192 | vscode.merge-conflict |
 | `workspace.registerFileSystemProvider` | B | yes | 16 | 123,646,172 |  |
 | `workspace.registerNotebookSerializer` | X |  | 6 | 9,529,994 |  |
 | `workspace.registerTaskProvider` | ok |  | 0 | 0 |  |
-| `workspace.registerTextDocumentContentProvider` | B | yes | 74 | 520,791,593 |  |
+| `workspace.registerTextDocumentContentProvider` | B | yes | 74 | 520,791,593 | vscode.merge-conflict |
 | `workspace.rootPath` | ok | yes | 16 | 122,654,834 | christian-kohler.npm-intellisense |
 | `workspace.save` | ok | yes | 4 | 68,749,046 |  |
 | `workspace.saveAll` | B | yes | 15 | 114,231,247 |  |

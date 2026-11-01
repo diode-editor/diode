@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createTestContainer } from "../../../../diode/modules/testProfile.ts";
 import {
@@ -15,10 +16,12 @@ import { InMemoryFileSystemProvider } from "../../../../platform/files/common/in
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { WorkbenchComponent } from "../../../browser/workbenchComponent.ts";
 import { WorkbenchComponentDIToken } from "../../../browser/workbenchComponent.ts";
+import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { TextFileModelServiceDIToken } from "../../../services/textfile/common/textFileModelService.ts";
 
+import { DiffSnapshotRefreshContribution } from "./diffSnapshotRefreshContribution.ts";
 import { openDiffPair } from "./openDiffPair.ts";
 
 /** The same in-memory provider, but declared read-only (like `git:` with `isReadonly`). */
@@ -147,5 +150,108 @@ describe("openDiffPair — file system provider side", () => {
 
         expect(activeDiff().snapshotSides()).toEqual(["modified"]);
         expect(container.get(TextFileModelServiceDIToken).get(right)).toBeNull();
+    });
+
+    describe("content provider side (registerTextDocumentContentProvider)", () => {
+        const current = Uri.from({ scheme: "conflict-diff", path: "/a.txt", query: '{"side":"current"}' });
+        const incoming = Uri.from({ scheme: "conflict-diff", path: "/a.txt", query: '{"side":"incoming"}' });
+        const texts = new Map<string, string>();
+
+        beforeEach(() => {
+            texts.set(current.toString(), "alpha\nours\n");
+            texts.set(incoming.toString(), "alpha\ntheirs\n");
+            editors.virtualDocumentSource = {
+                canProvide: (scheme) => scheme === current.scheme || scheme === right.scheme,
+                provide: (uri) => Promise.resolve(texts.get(uri.toString()) ?? null),
+            };
+        });
+
+        it("both sides show the provider's text, told apart by the query alone", async () => {
+            const result = await openDiffPair(container, { original: side(current), modified: side(incoming) });
+            await settle(10);
+            app.render();
+
+            expect(result).toBe("opened");
+            const screen = app.backend.screenToString();
+            expect(screen).toMatch(/2-\s+ours/u);
+            expect(screen).toMatch(/2\+\s+theirs/u);
+            expect(activeDiff().snapshotSides()).toEqual(["original", "modified"]);
+            expect(activeDiff().sidePanes()[0].readOnly).toBe(true);
+        });
+
+        it("a provider that returns nothing or fails follows the onMissing policy", async () => {
+            const refused = Uri.from({ scheme: current.scheme, path: "/refused.txt" });
+            await expect(openDiffPair(container, { original: side(refused), modified: fileSide() })).resolves.toBe(
+                "unreadable",
+            );
+
+            editors.virtualDocumentSource = {
+                canProvide: () => true,
+                provide: () => Promise.reject(new Error("provider broke")),
+            };
+            await expect(openDiffPair(container, { original: side(current), modified: fileSide() })).resolves.toBe(
+                "unreadable",
+            );
+            await expect(
+                openDiffPair(container, { original: side(current, "empty"), modified: fileSide() }),
+            ).resolves.toBe("opened");
+        });
+
+        it("a scheme with a file system provider reads from it, not from the content provider", async () => {
+            texts.set(revision.toString(), "from the content provider\n");
+            editors.virtualDocumentSource = {
+                canProvide: () => true,
+                provide: () => Promise.resolve("from the content provider\n"),
+            };
+
+            await openDiffPair(container, { original: side(revision), modified: fileSide() });
+            await settle(10);
+            app.render();
+
+            expect(app.backend.screenToString()).toMatch(/2-\s+bravo-old/u);
+        });
+
+        it("a repeat call re-asks the provider and refreshes the same tab", async () => {
+            const pair = { original: side(current), modified: side(incoming) };
+            await openDiffPair(container, pair);
+            texts.set(incoming.toString(), "alpha\nrevised\n");
+
+            await openDiffPair(container, pair);
+            await settle(10);
+            app.render();
+
+            expect(
+                editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2),
+            ).toHaveLength(1);
+            expect(app.backend.screenToString()).toMatch(/2\+\s+revised/u);
+        });
+
+        it("refreshing the snapshot sides on a file change keeps a provider side intact", async () => {
+            const contribution = new DiffSnapshotRefreshContribution(
+                container.get(EditorGroupsServiceDIToken),
+                container.get(IFileServiceDIToken),
+                editors,
+            );
+            const live = Uri.from({ scheme: "gitlive", path: "/a.txt" });
+            const changed = new Emitter<readonly Uri[]>();
+            let liveText = "alpha\nbravo-old\n";
+            container.get(IFileServiceDIToken).registerProvider(live.scheme, {
+                capabilities: FileSystemProviderCapabilities.Readonly,
+                onDidChangeFile: changed.event,
+                readFile: () => Promise.resolve(encode(liveText)),
+            });
+            await openDiffPair(container, { original: side(current), modified: side(live) });
+            texts.set(current.toString(), "alpha\nours revised\n");
+
+            liveText = "alpha\nbravo-new\n";
+            changed.fire([live]);
+            await settle(300);
+            app.render();
+            contribution.dispose();
+
+            const screen = app.backend.screenToString();
+            expect(screen).toMatch(/2\+\s+bravo-new/u);
+            expect(screen).toMatch(/2-\s+ours revised/u);
+        });
     });
 });
