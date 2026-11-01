@@ -67,6 +67,28 @@ describe("ExtensionHost — editor.action.formatDocument (subprocess)", () => {
         },
     );
 
+    it(
+        "Format Document waits for a slow formatter and applies its edits, as upstream has no time limit here",
+        { timeout: 30_000 },
+        async () => {
+            const harness = await createExtensionTestHarness({
+                initialFile: { name: "doc.txt", content: "text" },
+                extensions: [extensionFixture("test.slowFormatter", "slowFormatter.cjs")],
+            });
+            try {
+                registerFormatActions(harness);
+                await settle();
+
+                await harness.commandRegistry.execute("editor.action.formatDocument");
+                await settle();
+
+                expect(harness.group.getActiveEditor()?.getText()).toBe("formatted text");
+            } finally {
+                await harness.dispose();
+            }
+        },
+    );
+
     it("the command formats the document with the provider's edits, undo reverts in one step", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "doc.txt", content: "alpha    beta\ngamma  delta" },
