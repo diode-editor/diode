@@ -116,6 +116,17 @@ vsix», а не строка в таблице builtin-клиента. Сьют�
   `fromEnvironment` зовёт API `ms-python.python` без try/catch и роняет активацию — курируемый
   дефолт `importStrategy: "useBundled"`. Folding у Python — indentation-based ядра: сервер
   `textDocument/foldingRange` не реализует.
+- **basedpyright, inlay hints** (#939) — работают без правок ядра, включены по умолчанию:
+  `-> int` после сигнатуры, `: int` у переменной, `a=` перед позиционным аргументом. Тип сервер
+  выводит только из аннотаций: на `def f(a, b): return a + b` и `r = f(1, 2)` он сам отвечает
+  `-> Any` и не даёт подсказки у `r`, это не потеря на нашей стороне (проверено прямым запросом к
+  серверу). `editor.inlayHints.enabled` и `[python]` действуют сразу и сервер не трогают. Настройки
+  `basedpyright.analysis.inlayHints.*` доходят до сервера без перезапуска, но подсказки на экране
+  меняются со следующего запроса (правка, прокрутка за запрошенное окно): сервер не шлёт
+  `workspace/inlayHint/refresh`, а контроллер эталона на чужую настройку не перезапрашивает. Вывод
+  про эталон — по исходникам сервера и контроллера, в живом VS Code не сверялось. Code lens у
+  сервера нет: `codeLensProvider` нет в ответе на `initialize`, регистрации тоже; появление в новой
+  версии покажет `extensionHost.pythonLsp.inlayHints.test.ts`.
 - **ruff**: линт-диагностики — pull с re-pull на правку буфера; quickfix по диагностике (safe-фикс
   `isPreferred`); `source.organizeImports.ruff` / `source.fixAll.ruff` (иерархический матч kinds);
   формат документа и выделения — от нативного `ruff server`, Python не нужен. `importStrategy:
