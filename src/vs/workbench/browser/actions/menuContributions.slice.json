@@ -15,7 +15,8 @@
             "workbench.action.quickInputBack",
             "workbench.action.quickOpenWithModes",
             "type",
-            "default:type"
+            "default:type",
+            "tab"
         ]
     },
     "EditorContext": {

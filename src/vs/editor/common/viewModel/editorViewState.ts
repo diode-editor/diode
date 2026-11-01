@@ -1724,6 +1724,11 @@ export class EditorViewState {
         return this.shiftIndent(1);
     }
 
+    /** Upstream `editor.action.indentLines`: a level on every touched line, wherever the caret stands. */
+    public indentSelectedLines(): IUndoElement | undefined {
+        return this.shiftIndent(1);
+    }
+
     public outdentLines(): IUndoElement | undefined {
         return this.shiftIndent(-1);
     }

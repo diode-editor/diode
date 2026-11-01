@@ -231,6 +231,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         // Deferred call: providers live in `languages`, whose code actions run `commands`.
         executeCompletionItemProvider: (...args) => executeProviders.completionItems(...args),
         executeCodeActionProvider: (...args) => executeProviders.codeActions(...args),
+        getActiveTextEditor: () => window.activeTextEditor,
     });
     const commands = buildCommandsNamespace(
         rpc,
