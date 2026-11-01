@@ -87,6 +87,31 @@ export const editorColors = {
         defaults: { dark: "#6A6A6A", light: "#888888" },
         description: "Foreground color of the ghost text in the editor.",
     },
+    "editorInlayHint.foreground": {
+        defaults: { dark: "#969696", light: "#969696" },
+        description: "Foreground color of inline hints",
+    },
+    // Upstream `transparent(badgeBackground, .10)`: there are no color expressions here, so it is baked.
+    "editorInlayHint.background": {
+        defaults: { dark: "#4D4D4D1A", light: "#C4C4C41A" },
+        description: "Background color of inline hints",
+    },
+    "editorInlayHint.typeForeground": {
+        defaults: { dark: "editorInlayHint.foreground", light: "editorInlayHint.foreground" },
+        description: "Foreground color of inline hints for types",
+    },
+    "editorInlayHint.typeBackground": {
+        defaults: { dark: "editorInlayHint.background", light: "editorInlayHint.background" },
+        description: "Background color of inline hints for types",
+    },
+    "editorInlayHint.parameterForeground": {
+        defaults: { dark: "editorInlayHint.foreground", light: "editorInlayHint.foreground" },
+        description: "Foreground color of inline hints for parameters",
+    },
+    "editorInlayHint.parameterBackground": {
+        defaults: { dark: "editorInlayHint.background", light: "editorInlayHint.background" },
+        description: "Background color of inline hints for parameters",
+    },
     "editorGutter.background": {
         defaults: null,
         description: "Background color of the editor gutter.",

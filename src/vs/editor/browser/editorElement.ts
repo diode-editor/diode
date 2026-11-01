@@ -167,6 +167,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     public languageConfigurationSource: (() => IResolvedLanguageConfiguration | undefined) | null = null;
 
     private readonly onDidTypeEmitter = new Emitter<string>();
+    private readonly onDidChangeViewportHeightEmitter = new Emitter<void>();
+    /** The view state's height is a plain field written during layout: whoever asks by the visible lines listens here. */
+    public readonly onDidChangeViewportHeight = this.onDidChangeViewportHeightEmitter.event;
 
     /**
      * Upstream `ICodeEditor.onDidType`: fires AFTER the edit, including auto-close, typeover
@@ -606,6 +609,11 @@ export class EditorElement extends TUIElement implements IScrollable {
         const size = super.performLayout(constraints);
         const textWidth = size.width - this.gutterWidth;
         const changed = this.viewState.viewportWidth !== textWidth || this.viewState.viewportHeight !== size.height;
+        if (this.viewState.viewportHeight !== size.height) {
+            queueMicrotask(() => {
+                this.onDidChangeViewportHeightEmitter.fire();
+            });
+        }
         this.viewState.viewportWidth = textWidth;
         this.viewState.viewportHeight = size.height;
         if (changed && this.viewState.isWordWrapActive) {
@@ -965,7 +973,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                 fg: editorFg,
                 bg: decoratedBg ?? editorBg,
                 allowTokenBg: decoratedBg === undefined,
-                insertions: this.paintInsertions(insertions.get(rowLogLine), editorFg),
+                insertions: this.paintInsertions(insertions.get(rowLogLine), editorFg, editorBg),
             });
 
             // Under wrap the truncated-line badge goes on the last fragment, where the cut is.
@@ -1078,13 +1086,18 @@ export class EditorElement extends TUIElement implements IScrollable {
     private paintInsertions(
         insertions: readonly IInlineInsertion[] | undefined,
         editorFg: number,
+        editorBg: number,
     ): readonly IPaintTextLineInsertion[] {
         if (insertions === undefined) return NO_PAINT_INSERTIONS;
         return insertions.map((insertion) => ({
             offset: insertion.offset,
             length: insertion.text.length,
             fg: insertion.fg ?? (insertion.colorToken !== undefined ? this.styleVar(insertion.colorToken) : editorFg),
-            style: insertion.italic === true ? StyleFlags.Italic : StyleFlags.None,
+            // Composited once, here, like the line backgrounds: the frame paints a line in several passes.
+            bg: insertion.bgToken !== undefined ? compositeOver(this.styleVar(insertion.bgToken), editorBg) : undefined,
+            style:
+                (insertion.italic === true ? StyleFlags.Italic : StyleFlags.None) |
+                (insertion.dim === true ? StyleFlags.Dim : StyleFlags.None),
         }));
     }
 

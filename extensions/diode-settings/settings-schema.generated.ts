@@ -15,6 +15,14 @@ export interface ISettingSchemaEntry {
 
 export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {
+        key: "diode.editor.inlayHints.fontStyle",
+        type: "string",
+        default: "normal",
+        description:
+            "Text style of inlay hints. Diode stands in for `editor.inlayHints.fontSize` and `fontFamily`, which a terminal cannot honor.",
+        enum: ["normal", "italic", "dim"],
+    },
+    {
         key: "diode.icons.nerdFont",
         type: "string",
         default: "auto",
@@ -260,6 +268,26 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         default: "peek",
         description: "Controls the behavior the 'Go to Type Definition'-command when multiple target locations exist.",
         enum: ["peek", "gotoAndPeek", "goto"],
+    },
+    {
+        key: "editor.inlayHints.enabled",
+        type: "string",
+        default: "on",
+        description: "Enables the inlay hints in the editor.",
+        enum: ["on", "onUnlessPressed", "offUnlessPressed", "off"],
+    },
+    {
+        key: "editor.inlayHints.maximumLength",
+        type: "integer",
+        default: 43,
+        description:
+            "Maximum overall length of inlay hints, for a single line, before they get truncated by the editor. Set to `0` to never truncate",
+    },
+    {
+        key: "editor.inlayHints.padding",
+        type: "boolean",
+        default: false,
+        description: "Enables the padding around the inlay hints in the editor.",
     },
     {
         key: "editor.inlineSuggest.delay",

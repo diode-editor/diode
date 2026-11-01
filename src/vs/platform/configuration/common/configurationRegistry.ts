@@ -30,6 +30,8 @@ export interface IConfigurationPropertySchema {
     readonly description?: string;
     readonly enum?: readonly unknown[];
     readonly enumDescriptions?: readonly string[];
+    /** What a boolean means in a key that outgrew it (upstream option `validate`), instead of the default. */
+    readonly booleanEquivalents?: { readonly true: unknown; readonly false: unknown };
     readonly minimum?: number;
     readonly maximum?: number;
 }
