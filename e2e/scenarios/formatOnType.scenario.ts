@@ -11,6 +11,11 @@ const sampleDir = mkdtempSync(join(tmpdir(), "diode-format-on-type-"));
 const textFile = join(sampleDir, "sample.txt");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-on-type-formatting");
 
+/** Key presses, not `sendText`: that goes as a bracketed paste, which doesn't count as typing, as in VS Code. */
+async function typeKeys(editor: { sendKey(name: string): Promise<void> }, text: string): Promise<void> {
+    for (const char of text) await editor.sendKey(char);
+}
+
 export default defineScenario({
     name: "format-on-type",
     title: "Format on type: the trigger formats the line, undo takes the format back, the caret stays after the trigger",
@@ -26,11 +31,11 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForReady();
 
-        await editor.sendText("int x=1");
+        await typeKeys(editor, "int x=1");
         await editor.waitForText((t) => t.includes("int x=1"));
         await editor.capture("before-the-trigger");
 
-        await editor.sendText(";");
+        await typeKeys(editor, ";");
         await editor.waitForText((t) => t.includes("int x = 1;"));
         await editor.capture("formatted-after-the-semicolon");
 
@@ -42,7 +47,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("int x = 1;"));
 
         // The next character lands after the trigger, not inside the line.
-        await editor.sendText("y");
+        await typeKeys(editor, "y");
         await editor.waitForText((t) => t.includes("int x = 1;y"));
         await editor.capture("the-caret-stayed-after-it");
     },

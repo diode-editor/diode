@@ -87,6 +87,7 @@ export class FormatOnTypeController extends Disposable {
                     },
                     request.token,
                 )
+                // Stryker disable next-line ArrayDeclaration,ArrowFunction: a garbage answer throws out of this async call, an unhandled rejection instead of a verdict
                 .catch(() => []);
             if (request.token.isCancellationRequested || edits.length === 0) return;
             this.editor.applyExternalEdits(edits, "formatOnType");

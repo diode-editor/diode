@@ -305,4 +305,55 @@ describe("FormatOnTypeController", () => {
         pane.undo();
         expect(text()).toBe("int x = 1;");
     });
+
+    it("a batch with one edit above and one below drops the answer", async () => {
+        const { pane, text, answerWith } = setup("top\nint x=1\nbelow");
+        pane.viewState.selections = [createCursorSelection(1, 7)];
+        const answer = deferred();
+        answerWith(() => answer.promise);
+        pane.typeText(";");
+        pane.viewState.document.applyEdits([
+            { range: createRange(2, 0, 2, 0), text: "#" },
+            { range: createRange(0, 0, 0, 0), text: "#" },
+        ]);
+        answer.resolve([createTextEdit(createRange(1, 5, 1, 6), " = ")]);
+        await settle();
+        expect(text()).toBe("#top\nint x=1;\n#below");
+    });
+
+    it("the edits are applied under the label formatOnType, an empty answer not at all", async () => {
+        const { pane, answerWith } = setup();
+        const apply = vi.spyOn(pane, "applyExternalEdits");
+        pane.typeText(";");
+        await settle();
+        expect(apply).toHaveBeenCalledExactlyOnceWith(SPACED_EQUALS, "formatOnType");
+
+        apply.mockClear();
+        answerWith(() => Promise.resolve([]));
+        pane.typeText(";");
+        await settle();
+        expect(apply).not.toHaveBeenCalled();
+    });
+
+    it("an answered request is over: neither a later edit nor the disposal touches its token", async () => {
+        const { pane, controller } = setup();
+        const tokens: ICancellationToken[] = [];
+        const registry = new LanguageFeatureRegistry<OnTypeFormattingEditProvider>();
+        registry.register("*", {
+            triggerCharacters: [";"],
+            provideOnTypeFormattingEdits: (_request, token) => {
+                tokens.push(token);
+                return Promise.resolve([]);
+            },
+        });
+        controller.dispose();
+        const second = new FormatOnTypeController(pane, { providers: registry, isSettingEnabled: () => true });
+        pane.typeText(";");
+        await settle();
+
+        pane.viewState.document.applyEdits([{ range: createRange(0, 0, 0, 0), text: "#" }]);
+        expect(tokens[0].isCancellationRequested).toBe(false);
+        second.dispose();
+        expect(tokens[0].isCancellationRequested).toBe(false);
+    });
 });

@@ -128,4 +128,71 @@ describe("LanguagesNamespace — registerOnTypeFormattingEditProvider", () => {
         );
         expect(await stub.callRequest(METHOD, params({ handle: 1 }))).toEqual([]);
     });
+
+    it("a position past the first line and the second provider's handle reach the right provider", async () => {
+        const { stub, languages } = makeCtx();
+        const first = vi.fn(() => undefined);
+        const second = vi.fn<(document: vscode.TextDocument, position: vscode.Position) => unknown>(() => undefined);
+        register(languages, first as never);
+        register(languages, second as never);
+        await stub.callRequest(METHOD, params({ handle: 1, line: 1, character: 0 }));
+        expect(first).not.toHaveBeenCalled();
+        expect(second.mock.calls[0][1].line).toBe(1);
+    });
+
+    it("a request without a handle reaches no provider", async () => {
+        const { stub, languages } = makeCtx();
+        const first = vi.fn(() => undefined);
+        const second = vi.fn(() => undefined);
+        register(languages, first as never);
+        register(languages, second as never);
+        await stub.callRequest(METHOD, params({ handle: undefined }));
+        expect(first).not.toHaveBeenCalled();
+        expect(second).not.toHaveBeenCalled();
+    });
+
+    it("a document out of sync does not reach the provider", async () => {
+        const { stub, languages } = makeCtx();
+        const provide = vi.fn(() => undefined);
+        register(languages, provide as never);
+        await stub.callRequest(METHOD, params({ uri: "file:///other.java" }));
+        expect(provide).not.toHaveBeenCalled();
+    });
+
+    it("what the request leaves out gets its default", async () => {
+        const { stub, languages } = makeCtx();
+        const provide = vi.fn<
+            (
+                document: vscode.TextDocument,
+                position: vscode.Position,
+                ch: string,
+                options: vscode.FormattingOptions,
+            ) => unknown
+        >(() => undefined);
+        register(languages, provide as never);
+        await stub.callRequest(METHOD, {
+            handle: 0,
+            uri: URI,
+            languageId: "java",
+            version: 1,
+        });
+        const [, position, ch, options] = provide.mock.calls[0];
+        expect({ line: position.line, character: position.character }).toEqual({ line: 0, character: 0 });
+        expect(ch).toBe("");
+        expect(options).toEqual({ tabSize: 4, insertSpaces: true });
+    });
+
+    it("a failed provider is reported by the name of its method", async () => {
+        const { stub, languages } = makeCtx();
+        const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+        try {
+            register(languages, () => {
+                throw new Error("boom");
+            });
+            expect(await stub.callRequest(METHOD, params())).toEqual([]);
+            expect(String(error.mock.calls[0]?.[0])).toContain("provideOnTypeFormattingEdits failed");
+        } finally {
+            error.mockRestore();
+        }
+    });
 });
