@@ -55,6 +55,14 @@ describe("resolveSnippet", () => {
         expect(drawn("a$1b\nc", "  ")).toBe("a|b\n  c");
     });
 
+    it("normalizes a segment after a line break when the line has no indentation", () => {
+        expect(drawn("\n$1\tx")).toBe("\n|    x");
+    });
+
+    it("leaves whitespace alone in a segment continuing a line", () => {
+        expect(drawn("a$1\tb")).toBe("a|\tb");
+    });
+
     it("normalizes the start of the snippet without adding the line's indentation", () => {
         expect(drawn("\tx", "    ")).toBe("    x|");
     });

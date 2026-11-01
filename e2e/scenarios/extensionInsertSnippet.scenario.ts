@@ -23,7 +23,7 @@ export default defineScenario({
         await editor.waitForReady();
         await editor.sendKey("End");
         await editor.sendKey("ArrowLeft");
-        await editor.waitForText((text) => text.includes("Ln 1, Col 8"));
+        await editor.waitForText((text) => text.includes("Ln 1, Col 9"));
         await editor.capture("caret-between-brackets");
 
         await editor.sendKey("F6");

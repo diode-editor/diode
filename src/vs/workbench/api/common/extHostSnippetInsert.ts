@@ -52,15 +52,21 @@ function parseSnippetSegments(template: string): ISnippetSegment[] {
         }
         segments.push({ text });
         text = "";
+        // Stryker disable next-line StringLiteral: equivalent `join` separator, `split(…, 1)` yields one element
         segments.push({ text: placeholder ?? choices?.split(",", 1).join("") ?? "", tabStop: Number(tabStop) });
     }
     segments.push({ text: text + template.slice(last) });
     return segments;
 }
 
+/** Not `autoIndent.getLeadingWhitespace`: that module would join the code shared by the extension host role and the core. */
+function getLeadingWhitespace(line: string): string {
+    return line.slice(0, line.search(/[^ \t]|$/));
+}
+
 /** Upstream's `model.normalizeIndentation`: the leading whitespace is rewritten for the editor's tab settings. */
 function normalizeIndentation(line: string, { tabSize, insertSpaces }: ISnippetIndentation): string {
-    const leading = /^[ \t]*/.exec(line)?.[0] ?? "";
+    const leading = getLeadingWhitespace(line);
     let columns = 0;
     for (const char of leading) columns += char === "\t" ? tabSize - (columns % tabSize) : 1;
     const indent = insertSpaces
@@ -80,8 +86,7 @@ export function resolveSnippet(
     indentation: ISnippetIndentation | null,
 ): IResolvedSnippet {
     const segments = parseSnippetSegments(template);
-    const stops = segments.flatMap((segment) => (segment.tabStop === undefined ? [] : [segment.tabStop]));
-    const positive = stops.filter((stop) => stop > 0);
+    const positive = segments.flatMap(({ tabStop }) => (tabStop !== undefined && tabStop > 0 ? [tabStop] : []));
     // The caret goes to the first stop; `$0` is the last one, and without any stops the end of the text is.
     const target = positive.length > 0 ? Math.min(...positive) : 0;
 
@@ -151,7 +156,7 @@ export function buildSnippetEdits(
     let characterDelta = 0;
     for (const range of sorted) {
         const { start, end } = range;
-        const lead = /^[ \t]*/.exec(document.lineAt(start.line).text.slice(0, start.character))?.[0] ?? "";
+        const lead = getLeadingWhitespace(document.lineAt(start.line).text.slice(0, start.character));
         const resolved = resolveSnippet(template, lead, keepWhitespace ? null : indentation);
         edits.push({
             range: {
