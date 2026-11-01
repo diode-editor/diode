@@ -83,6 +83,14 @@
   из `importLinebreak` приводится к EOL документа. Escape в quick pick даёт в расширении `TypeError` (`item.label` от
   `undefined`) — в журнале это `unhandled rejection`, файл не меняется, хост жив. Смоук выбирает пункт стрелкой, а не
   набором `@types`: `@` закрывает попап, и пока tsserver не прогрелся, тот не возвращается (ядро, не расширение).
+- **`shardulm94.trailing-spaces`** — прокси на сток Open VSX 0.4.4. `support: partial`: подсветка в тексте не рисуется,
+  мост `setDecorations` знает только gutter и overview ruler, поэтому команда `Highlight` и настройки цвета видимого
+  эффекта не дают (класс C эпика #912). `Delete - Modified Lines Only` сравнивает документ с файлом на диске, git не
+  использует: в репозитории и вне его поведение одно, безымянный документ чистится целиком. `trimOnSave` — will-save
+  `waitUntil`: каретка в удалённом хвосте встаёт на конец текста, undo возвращает пробелы и каретку, следующее
+  сохранение чистит снова. Сообщение «Deleting N trailing space regions» в статус-баре обрезано общим пределом
+  `MAX_ITEM_WIDTH` (24 ячейки, `extensionStatusBarAdapter.ts`), в эталоне предел — 40% ширины окна. Смоук — колонка
+  каретки в кадре и байты файла, для команды и для `trimOnSave`.
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
 
