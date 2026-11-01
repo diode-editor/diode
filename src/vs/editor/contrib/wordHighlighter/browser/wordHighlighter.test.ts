@@ -222,6 +222,31 @@ describe("WordHighlighter", () => {
             expect(ranges(viewState)).toEqual([]);
         });
 
+        it("an edit while a provider thinks stops the walk: its null does not ask the next one", async () => {
+            const { viewState, highlighter, registry } = setup();
+            const next = answering([{ range: FOO_2 }]);
+            registry.register("*", { provideDocumentHighlights: next });
+            const { answer } = pending(registry);
+            await settle(highlighter);
+            viewState.document.applyEdits([{ range: createRange(0, 11, 0, 11), text: "!" }]);
+            answer(null);
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(next).not.toHaveBeenCalled();
+            expect(ranges(viewState)).toEqual([]);
+        });
+
+        it("trigger cancels the query in flight", async () => {
+            const { highlighter, registry } = setup();
+            const { seen } = pending(registry);
+            await settle(highlighter);
+            const first = seen.token;
+            highlighter.trigger();
+
+            expect(first?.isCancellationRequested).toBe(true);
+            expect(seen.token).not.toBe(first);
+        });
+
         it("an answer for a caret that has moved away is dropped", async () => {
             const { viewState, highlighter, registry } = setup();
             const { answer } = pending(registry);
@@ -417,6 +442,17 @@ describe("WordHighlighter", () => {
             expect(ranges(viewState)).toEqual([]);
         });
 
+        it("switched off the set goes at once; switched on it stays until the next query", async () => {
+            const { viewState, highlighter } = setup();
+            await settle(highlighter);
+
+            highlighter.enabled = true;
+            expect(ranges(viewState)).toEqual([FOO_1, FOO_2]);
+
+            highlighter.enabled = false;
+            expect(ranges(viewState)).toEqual([]);
+        });
+
         it("switched off, an armed query that fires clears whatever is left", () => {
             const { viewState, highlighter } = setup();
             highlighter.onFrame();
@@ -523,6 +559,23 @@ describe("WordHighlighter", () => {
             expect(ranges(viewState)).toEqual([]);
         });
 
+        it("the forced selection ends with a second cursor and does not return with the same selection", async () => {
+            const { viewState, highlighter, registry } = setup();
+            const provide = answering([{ range: FOO_1 }]);
+            registry.register("*", { provideDocumentHighlights: provide });
+            const selection = createSelection(0, 0, 0, 7);
+            viewState.selections = [selection];
+            highlighter.trigger();
+            await vi.advanceTimersByTimeAsync(0);
+
+            viewState.selections = [selection, createCursorSelection(0, 9)];
+            viewState.selections = [selection];
+            await settle(highlighter);
+
+            expect(provide).toHaveBeenCalledOnce();
+            expect(ranges(viewState)).toEqual([]);
+        });
+
         it("the forced selection ends with an edit", async () => {
             const { viewState, highlighter } = setup();
             const selection = createSelection(0, 0, 0, 7);
@@ -546,9 +599,10 @@ describe("WordHighlighter", () => {
             expect(provide).toHaveBeenCalledTimes(2);
         });
 
+        // The answer leaves out the caret: a stray run would not keep the set silently, it would ask again.
         it("takes over a query already armed", async () => {
             const { highlighter, registry } = setup();
-            const provide = answering([{ range: FOO_1 }]);
+            const provide = answering([{ range: FOO_2 }]);
             registry.register("*", { provideDocumentHighlights: provide });
             highlighter.onFrame();
             highlighter.trigger();
@@ -559,7 +613,7 @@ describe("WordHighlighter", () => {
 
         it("the request it replaced by a frame does not come back", async () => {
             const { highlighter, registry } = setup();
-            const provide = answering([{ range: FOO_1 }]);
+            const provide = answering([{ range: FOO_2 }]);
             registry.register("*", { provideDocumentHighlights: provide });
             // The initial request is still waiting for its frame.
             highlighter.trigger();

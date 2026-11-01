@@ -121,12 +121,38 @@ describe("LanguagesNamespace — registerDocumentHighlightProvider", () => {
         expect(await stub.callRequest(METHOD, params())).toHaveLength(1);
     });
 
-    it("a throwing provider declines and the host lives on", async () => {
+    it("a throwing provider declines, is reported and the host lives on", async () => {
         const { stub, languages } = makeCtx();
+        const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
         register(languages, () => {
             throw new Error("boom");
         });
         expect(await stub.callRequest(METHOD, params())).toBeNull();
+        expect(errors).toHaveBeenCalledWith(expect.stringContaining("provideDocumentHighlights failed: "));
+        errors.mockRestore();
+    });
+
+    it("the position comes from the request, on any line", async () => {
+        const { stub, languages } = makeCtx();
+        const provide = vi.fn<(document: vscode.TextDocument, position: vscode.Position) => unknown>(() => []);
+        register(languages, provide as never);
+        await stub.callRequest(METHOD, params({ line: 1, character: 0 }));
+
+        expect(provide.mock.calls[0][1].line).toBe(1);
+    });
+
+    it("the request goes to the provider of its handle; without a handle to none", async () => {
+        const { stub, languages } = makeCtx();
+        const first = vi.fn(() => []);
+        const second = vi.fn(() => []);
+        register(languages, first);
+        register(languages, second);
+
+        expect(await stub.callRequest(METHOD, params({ handle: undefined }))).toBeNull();
+        expect(second).not.toHaveBeenCalled();
+        expect(await stub.callRequest(METHOD, params({ handle: 1 }))).toEqual([]);
+        expect(second).toHaveBeenCalledOnce();
+        expect(first).not.toHaveBeenCalled();
     });
 
     it("an unknown handle or an unsynced document declines without calling anything", async () => {

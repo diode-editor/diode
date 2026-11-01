@@ -39,8 +39,10 @@ function sameSelection(a: ISelection, b: ISelection): boolean {
 function isWithinOneWord(viewState: EditorViewState, selection: ISelection): boolean {
     if (selection.anchor.line !== selection.active.line) return false;
     // A reload to a shorter text: the selections are remapped only after the document has changed.
+    // Stryker disable next-line BooleanLiteral: the guard only keeps getLineContent from throwing; the remap decides again
     if (selection.active.line >= viewState.document.lineCount) return false;
     const [start, end] =
+        // Stryker disable next-line EqualityOperator: with equal characters both branches give the same pair
         selection.anchor.character <= selection.active.character
             ? [selection.anchor.character, selection.active.character]
             : [selection.active.character, selection.anchor.character];
@@ -57,8 +59,10 @@ function isWithinOneWord(viewState: EditorViewState, selection: ISelection): boo
  * line, and the file shows its text first.
  */
 export class WordHighlighter extends Disposable {
-    private providers: LanguageFeatureRegistry<DocumentHighlightProvider> | null = null;
-    private target: ILanguageFeatureTarget | null = null;
+    private source: {
+        readonly registry: LanguageFeatureRegistry<DocumentHighlightProvider>;
+        readonly target: ILanguageFeatureTarget;
+    } | null = null;
     private enabledValue = true;
     /** `editor.occurrencesHighlightDelay`. */
     public delay = 0;
@@ -99,11 +103,10 @@ export class WordHighlighter extends Disposable {
     }
 
     public setProviders(
-        providers: LanguageFeatureRegistry<DocumentHighlightProvider>,
+        registry: LanguageFeatureRegistry<DocumentHighlightProvider>,
         target: ILanguageFeatureTarget,
     ): void {
-        this.providers = providers;
-        this.target = target;
+        this.source = { registry, target };
     }
 
     public get enabled(): boolean {
@@ -190,10 +193,8 @@ export class WordHighlighter extends Disposable {
     /** Upstream `_run`: a caret still inside a highlighted word keeps the set, without a request. */
     private run(): void {
         const position = this.queryPosition;
-        if (position === null) {
-            this.stop();
-            return;
-        }
+        // Whatever made it null has already stopped: a cursor move, an edit, or the switch.
+        if (position === null) return;
         if (sortedRangesContain(this.viewState.wordHighlights.ranges, position)) return;
         this.stop();
         this.startQuery(position, this.delay);
@@ -201,16 +202,18 @@ export class WordHighlighter extends Disposable {
 
     private startQuery(position: IPosition, delay: number): void {
         const renderAt = Date.now() + delay;
-        const target = this.target;
-        const providers = target === null ? [] : (this.providers?.ordered(target) ?? []);
-        // Synchronous without providers: an extra task per cursor move buys nothing.
-        if (target === null || providers.length === 0) {
-            this.renderTextual(position, renderAt);
-            return;
+        if (this.source !== null) {
+            const { registry, target } = this.source;
+            const providers = registry.ordered(target);
+            if (providers.length > 0) {
+                const request = new CancellationTokenSource();
+                this.request = request;
+                void this.askProviders(providers, target, position, renderAt, request);
+                return;
+            }
         }
-        const request = new CancellationTokenSource();
-        this.request = request;
-        void this.askProviders(providers, target, position, renderAt, request);
+        // Synchronous without providers: an extra task per cursor move buys nothing.
+        this.renderTextual(position, renderAt);
     }
 
     private async askProviders(
@@ -220,15 +223,10 @@ export class WordHighlighter extends Disposable {
         renderAt: number,
         request: CancellationTokenSource,
     ): Promise<void> {
-        const document = this.viewState.document;
-        const versionId = document.versionId;
+        const versionId = this.viewState.document.versionId;
         const highlights = await this.firstAnswer(providers, target, position, versionId, request.token);
-        // Superseded, or the text or the caret moved under the answer: the move has scheduled the next query.
-        if (
-            request.token.isCancellationRequested ||
-            document.versionId !== versionId ||
-            !positionsEqual(this.viewState.selections[0].active, position)
-        ) {
+        // Superseded (an edit cancels the request too), or the caret moved under the answer: the move has scheduled the next query.
+        if (request.token.isCancellationRequested || !positionsEqual(this.viewState.selections[0].active, position)) {
             return;
         }
         this.request = null;
