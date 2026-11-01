@@ -231,6 +231,63 @@ exports.activate = function activate(context) {
         { name: "Gamma tools", path: "example.com/gamma" },
     ];
 
+    /** One step of a wizard: a live input box with Back, as multi-step extensions build them. */
+    function askStep(prompt, value, validate) {
+        return new Promise(function (resolve) {
+            const box = vscode.window.createInputBox();
+            box.title = "New Project";
+            box.step = prompt === "Name" ? 1 : 2;
+            box.totalSteps = 2;
+            box.prompt = prompt;
+            box.value = value;
+            if (box.step > 1) box.buttons = [vscode.QuickInputButtons.Back];
+            box.onDidChangeValue(function (text) {
+                box.validationMessage = validate(text);
+            });
+            box.onDidTriggerButton(function (button) {
+                if (button === vscode.QuickInputButtons.Back) {
+                    resolve({ back: true });
+                    box.dispose();
+                }
+            });
+            box.onDidAccept(function () {
+                if (box.validationMessage) return;
+                // Resolve first: dispose fires onDidHide on a visible box, as upstream.
+                resolve({ value: box.value });
+                box.dispose();
+            });
+            box.onDidHide(function () {
+                resolve({ cancelled: true });
+                box.dispose();
+            });
+            box.show();
+        });
+    }
+
+    register("diodeProbe.wizard", async function () {
+        const answers = { name: "demo", group: "com.example" };
+        const lowercase = function (text) {
+            return /^[a-z.]*$/.test(text) ? undefined : "Lowercase only";
+        };
+        let step = 1;
+        while (step <= 2) {
+            const prompt = step === 1 ? "Name" : "Group";
+            const key = step === 1 ? "name" : "group";
+            const answer = await askStep(prompt, answers[key], lowercase);
+            if (answer.cancelled) {
+                show("Wizard: cancelled");
+                return;
+            }
+            if (answer.back) {
+                step--;
+                continue;
+            }
+            answers[key] = answer.value;
+            step++;
+        }
+        show("Wizard: " + answers.group + ":" + answers.name);
+    });
+
     register("diodeProbe.lazyPick", function () {
         return new Promise(function (resolve) {
             const quickPick = vscode.window.createQuickPick();

@@ -988,6 +988,7 @@ export function createWindowNamespace(
             return (pick as (typeof picks)[number] | undefined)?.folder;
         },
         createQuickPick: <T extends vscode.QuickPickItem>(): vscode.QuickPick<T> => quickInput.createQuickPick<T>(),
+        createInputBox: (): vscode.InputBox => quickInput.createInputBox(),
         showOpenDialog: async (options?: vscode.OpenDialogOptions): Promise<vscode.Uri[] | undefined> => {
             const result = parseWireOpenDialogResult(
                 await rpc.request("window.showOpenDialog", {

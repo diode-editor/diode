@@ -1287,6 +1287,8 @@ export interface IWireQuickPickSessionItem {
 /** Absent means "untouched", `null` means "reset to `undefined`" (upstream `_pendingUpdate`). */
 export interface IWireQuickPickUpdate {
     readonly handle: number;
+    /** Only in the first update, the one that creates the host's side: `window.createInputBox`. */
+    readonly inputBox?: boolean;
     readonly visible?: boolean;
     readonly title?: string | null;
     readonly step?: number | null;
@@ -1294,6 +1296,12 @@ export interface IWireQuickPickUpdate {
     readonly placeholder?: string | null;
     readonly prompt?: string | null;
     readonly value?: string;
+    /** `null` selects the whole value, as upstream's unset `InputBox.valueSelection`. */
+    readonly valueSelection?: readonly [number, number] | null;
+    readonly password?: boolean;
+    readonly validationMessage?: IWireValidationMessage | null;
+    /** `QuickInputButtons.Back` is among the buttons; the overlay draws no other. */
+    readonly back?: boolean;
     readonly canSelectMany?: boolean;
     readonly matchOnDescription?: boolean;
     readonly matchOnDetail?: boolean;
@@ -1315,7 +1323,8 @@ export type IWireQuickPickEvent =
     | { readonly handle: number; readonly kind: "accept" }
     | { readonly handle: number; readonly kind: "changeActive"; readonly items: readonly number[] }
     | { readonly handle: number; readonly kind: "changeSelection"; readonly items: readonly number[] }
-    | { readonly handle: number; readonly kind: "hide" };
+    | { readonly handle: number; readonly kind: "hide" }
+    | { readonly handle: number; readonly kind: "back" };
 
 export function parseWireQuickPickEvent(raw: unknown): IWireQuickPickEvent | null {
     // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the check below rejects a non-object anyway (it lacks the needed field), so replacing the operand with `false` has no observable effect
@@ -1328,6 +1337,7 @@ export function parseWireQuickPickEvent(raw: unknown): IWireQuickPickEvent | nul
             return typeof p.value === "string" ? { handle, kind: "changeValue", value: p.value } : null;
         case "accept":
         case "hide":
+        case "back":
             return { handle, kind: p.kind };
         case "changeActive":
         case "changeSelection":

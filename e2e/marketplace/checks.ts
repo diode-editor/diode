@@ -8,13 +8,9 @@ import {
     LINT_JS,
     linkEslintLibrary,
 } from "../../src/TestUtils/eslintFixture.ts";
-import {
-    ensureGopls,
-    GO_SAMPLE_DIR,
-    GO_SESSION_ENV,
-    goToolchainMissing,
-} from "../../src/TestUtils/goFixture.ts";
+import { ensureGopls, GO_SAMPLE_DIR, GO_SESSION_ENV, goToolchainMissing } from "../../src/TestUtils/goFixture.ts";
 import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
+import { mavenMissing, writeMavenProject } from "../../src/TestUtils/mavenFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
 import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "../helpers/claudeIde.ts";
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
@@ -570,6 +566,43 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await waitForContent(onSave, trimmed);
             } finally {
                 await saveApp.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Maven for Java. The MAVEN section lists the module from pom.xml, a goal
+        // runs in the terminal, and the goals that throw without a tree node stay out of the palette (`when: never`).
+        id: "vscjava.vscode-maven",
+        expectFiles: ["package.json", "dist/extension.js"],
+        requires: mavenMissing,
+        timeoutMs: 300_000,
+        run: async (ctx) => {
+            const project = join(ctx.root, "maven-project");
+            const pom = writeMavenProject(project);
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [project, pom] });
+            try {
+                await app.session.waitForText((t) => t.includes("MAVEN"), { timeoutMs: 60_000 });
+                // Not earlier: the section's collapsed state is restored during startup and would undo the expand.
+                await app.session.waitForReady();
+                await app.session.executeCommand("mavenProjects.focus");
+                await app.session.waitForText((t) => t.includes("a:b"), { timeoutMs: 60_000 });
+
+                await app.session.key("F1");
+                await app.session.waitForNode("#quickInput");
+                await app.session.sendText("Maven: ");
+                await app.session.waitForText(
+                    (t) => t.includes("Maven: New Project...") && !t.includes("Maven: clean"),
+                    {
+                        timeoutMs: 20_000,
+                    },
+                );
+                await app.session.key("Escape");
+
+                // `maven.goal.custom` with a pom path and a goal: what the Custom... input box ends up calling.
+                await app.session.executeCommand("maven.goal.custom", pom, "validate");
+                await app.session.waitForText((t) => t.includes("BUILD SUCCESS"), { timeoutMs: 180_000 });
+            } finally {
+                await app.dispose();
             }
         },
     },

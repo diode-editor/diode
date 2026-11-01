@@ -32,6 +32,7 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { createExtHostTreeViews } from "./extHostTreeViews.ts";
 import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
+import { QuickInputButtonLocation, QuickInputButtons } from "./quickInputButtons.ts";
 import { createTasksNamespace } from "./tasksNamespace.ts";
 import { createTelemetryLogger } from "./telemetryLogger.ts";
 import { createTerminalNamespace } from "./terminalNamespace.ts";
@@ -459,6 +460,8 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         BranchCoverage,
         DeclarationCoverage,
         DocumentSymbol,
+        QuickInputButtonLocation,
+        QuickInputButtons,
         QuickPickItemKind,
         NotebookCellKind,
         IndentAction,

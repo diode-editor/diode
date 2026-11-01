@@ -2686,44 +2686,34 @@
       "note": "needs a debugger"
     },
     "InputBox.buttons": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.onDidAccept": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.onDidChangeValue": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.onDidTriggerButton": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.password": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.placeholder": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.prompt": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.validationMessage": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.value": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBox.valueSelection": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "InputBoxOptions.ignoreFocusOut": {
       "class": "B",
@@ -4224,51 +4214,43 @@
       "class": "ok"
     },
     "QuickInputButton.iconPath": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickInputButton.location": {
       "class": "B",
-      "note": "#915: quick input"
+      "note": "only QuickInputButtons.Back is drawn; other buttons stay with the extension"
     },
     "QuickInputButton.toggle": {
       "class": "B",
-      "note": "#915: quick input"
+      "note": "only QuickInputButtons.Back is drawn; other buttons stay with the extension"
     },
     "QuickInputButton.tooltip": {
       "class": "B",
-      "note": "#915: quick input"
+      "note": "only QuickInputButtons.Back is drawn; other buttons stay with the extension"
     },
     "QuickInputButtonLocation": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickInputButtonLocation.Inline": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickInputButtonLocation.Input": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickInputButtonLocation.Title": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickInputButtons": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickInputButtons.Back": {
-      "class": "B",
-      "note": "#915: quick input"
+      "class": "ok"
     },
     "QuickPick.activeItems": {
       "class": "ok"
     },
     "QuickPick.buttons": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "QuickPick.canSelectMany": {
       "class": "ok"
@@ -4298,12 +4280,11 @@
       "class": "ok"
     },
     "QuickPick.onDidTriggerButton": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "QuickPick.onDidTriggerItemButton": {
       "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "note": "item buttons are not drawn: the event exists and stays silent"
     },
     "QuickPick.placeholder": {
       "class": "ok"
@@ -4349,11 +4330,11 @@
     },
     "QuickPickItemButtonEvent.button": {
       "class": "B",
-      "note": "#915: quick input"
+      "note": "item buttons are not drawn: the event exists and stays silent"
     },
     "QuickPickItemButtonEvent.item": {
       "class": "B",
-      "note": "#915: quick input"
+      "note": "item buttons are not drawn: the event exists and stays silent"
     },
     "QuickPickItemKind": {
       "class": "ok"

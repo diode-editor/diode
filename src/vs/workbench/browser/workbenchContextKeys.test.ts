@@ -103,6 +103,13 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.evaluate("workbenchState != 'empty'")).toBe(true);
     });
 
+    it("isWorkspaceTrusted agrees with workspace.isTrusted: the untrusted welcome stays hidden", () => {
+        const h = makeHarness();
+        h.service.update();
+        expect(h.contextKeys.evaluate("isWorkspaceTrusted")).toBe(true);
+        expect(h.contextKeys.evaluate("!isWorkspaceTrusted")).toBe(false);
+    });
+
     it("activeEditorGroupLocked follows a lock change without a focus change (auto-lock while opening)", () => {
         const h = makeHarness();
         h.service.update();

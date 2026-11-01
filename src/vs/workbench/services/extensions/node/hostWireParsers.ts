@@ -870,6 +870,14 @@ function optionalWireHandles(value: unknown): number[] | undefined {
     return value.filter((i): i is number => Number.isInteger(i) && i >= 0);
 }
 
+/** A `[start, end)` pair, `null` ("cleared") or a missing field ("untouched"). */
+function wireValueSelection(value: unknown): readonly [number, number] | null | undefined {
+    if (value === null) return null;
+    if (!Array.isArray(value) || value.length !== 2) return undefined;
+    const [start, end] = value as unknown[];
+    return isFiniteNumber(start) && isFiniteNumber(end) ? [start, end] : undefined;
+}
+
 /** A field of a foreign type reads as "untouched": a diff of one property must not fail the whole update. */
 export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | null {
     // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast exit; the check below filters a non-object anyway (it lacks the required field), so replacing the operand with `false` has no observable effect
@@ -878,6 +886,7 @@ export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | n
     if (!isFiniteNumber(p.handle)) return null;
     const fields: Record<string, unknown> = {
         handle: p.handle,
+        inputBox: optionalWireBoolean(p.inputBox),
         visible: optionalWireBoolean(p.visible),
         title: nullableWireString(p.title),
         step: nullableWireNumber(p.step),
@@ -885,6 +894,10 @@ export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | n
         placeholder: nullableWireString(p.placeholder),
         prompt: nullableWireString(p.prompt),
         value: optionalWireString(p.value),
+        valueSelection: wireValueSelection(p.valueSelection),
+        password: optionalWireBoolean(p.password),
+        validationMessage: "validationMessage" in p ? parseWireValidationMessage(p.validationMessage) : undefined,
+        back: optionalWireBoolean(p.back),
         canSelectMany: optionalWireBoolean(p.canSelectMany),
         matchOnDescription: optionalWireBoolean(p.matchOnDescription),
         matchOnDetail: optionalWireBoolean(p.matchOnDetail),

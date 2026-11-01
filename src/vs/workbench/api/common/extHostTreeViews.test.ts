@@ -758,6 +758,7 @@ describe("extHostTreeViews — refresh", () => {
                 items: [
                     {
                         handle: "0/0:after",
+                        previousHandle: "0/0:before",
                         label: "after",
                         collapsibleState: 0,
                         command: { id: "x.run", title: "Run" },

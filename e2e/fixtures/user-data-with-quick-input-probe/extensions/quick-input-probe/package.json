@@ -27,6 +27,7 @@
             { "command": "diodeProbe.pickEmpty", "title": "Diode Probe: Pick Empty" },
             { "command": "diodeProbe.askThenPick", "title": "Diode Probe: Ask Then Pick" },
             { "command": "diodeProbe.lazyPick", "title": "Diode Probe: Lazy Pick (createQuickPick)" },
+            { "command": "diodeProbe.wizard", "title": "Diode Probe: Wizard (createInputBox)" },
             { "command": "diodeProbe.openDialog", "title": "Diode Probe: Open File Dialog" }
         ]
     }
