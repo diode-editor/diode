@@ -16,7 +16,9 @@
             "workbench.action.quickOpenWithModes",
             "type",
             "default:type",
-            "tab"
+            "tab",
+            "references-view.removeCallItem",
+            "references-view.removeTypeItem"
         ]
     },
     "EditorContext": {

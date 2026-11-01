@@ -71,6 +71,8 @@ export const removeTypeItemAction: CommandAction = {
             visible: viewMenuVisible(HIERARCHY_VIEW_ID),
             when: "typeHierarchyVisible",
         },
+        // As upstream: otherwise the palette lists two "Dismiss" rows, and the other tree's one does nothing.
+        { menuId: MenuId.CommandPalette, when: "false" },
     ],
     run(accessor) {
         accessor.get(TypeHierarchyComponentDIToken).dismiss();

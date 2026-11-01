@@ -241,6 +241,15 @@ describe("TypeHierarchyComponent", () => {
         expect(key("typeHierarchyVisible")).toBe(false);
     });
 
+    it("Dismiss cancels what the provider is still computing for the tree", async () => {
+        const { component, provider } = setup();
+        await component.show();
+        const [, , token] = vi.mocked(provider.provideSubtypes).mock.calls[0];
+        expect(token.isCancellationRequested).toBe(false);
+        component.dismiss();
+        expect(token.isCancellationRequested).toBe(true);
+    });
+
     it("Find All References takes the panel back", async () => {
         const { component, references, provider, sections } = setup();
         await component.show();

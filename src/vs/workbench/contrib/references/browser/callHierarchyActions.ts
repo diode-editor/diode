@@ -81,6 +81,8 @@ export const removeCallItemAction: CommandAction = {
             visible: viewMenuVisible(HIERARCHY_VIEW_ID),
             when: "callHierarchyVisible",
         },
+        // As upstream: otherwise the palette lists two "Dismiss" rows, and the other tree's one does nothing.
+        { menuId: MenuId.CommandPalette, when: "false" },
     ],
     run(accessor) {
         accessor.get(CallHierarchyComponentDIToken).dismiss();
