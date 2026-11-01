@@ -147,6 +147,19 @@ describe("QuickInputExtensionAdapter: Back button", () => {
         expect(component.isOpen()).toBe(true);
     });
 
+    it("a title wider than the box is cut, and the arrow stays on screen and clickable", () => {
+        const { adapter, testApp, events, emit, frame } = setup();
+        const title = "A very long title ".repeat(10);
+        adapter.updateQuickPick({ handle: 5, inputBox: true, visible: true, title, back: true }, emit);
+
+        const lines = frame().split("\n");
+        const row = lines.findIndex((line) => line.includes("← A very long"));
+        expect(row).toBeGreaterThanOrEqual(0);
+
+        clickAt(testApp, (lines[row] ?? "").indexOf("←"), row);
+        expect(events.filter((event) => event.kind === "back")).toEqual([{ handle: 5, kind: "back" }]);
+    });
+
     it("a click elsewhere on the title is not back", () => {
         const { testApp, events, frame } = withBack();
         const lines = frame().split("\n");
