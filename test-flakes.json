@@ -2,6 +2,20 @@
     "$comment": "Known flaky tests, unit and e2e: vitest retries (retry) or skips (skip) them, see src/TestUtils/flakeTestRunner.ts. A screenshot scenario is keyed by its *.scenario.ts file and name (e2e/scenarios/suite.ts); optional platforms limits an entry to those process.platform values. Process and details: docs/TODO/TestFlakes.md.",
     "flakes": [
         {
+            "file": "e2e/scenarios/quickInputValidation.scenario.ts",
+            "test": "quick-input-validation",
+            "action": "retry",
+            "platforms": ["win32"],
+            "note": "waitUntil(screen text predicate) timed out after 10000ms on windows-latest (run 41255028793, PR #959, whose diff is inlay hints); green on ubuntu and on the rerun"
+        },
+        {
+            "file": "e2e/scenarios/extensionUntitledUri.scenario.ts",
+            "test": "extension-untitled-uri",
+            "action": "retry",
+            "platforms": ["win32"],
+            "note": "waitUntil(screen text predicate) timed out after 10000ms on windows-latest (run 41255028793, PR #959, whose diff is inlay hints); green on ubuntu and on the rerun"
+        },
+        {
             "file": "src/vs/workbench/services/extensions/node/extensionHost.typescriptLsp.projectStatus.test.ts",
             "test": "ExtensionHost — JS/TS project status from the stock typescript-language-server > a .ts file and, with allowJs, a .js file under a tsconfig show the tsconfig path",
             "action": "retry",
