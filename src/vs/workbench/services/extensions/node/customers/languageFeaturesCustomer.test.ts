@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
-import { CancellationTokenNone, CancellationTokenSource } from "../../../../../base/common/cancellation.ts";
+import {
+    CancellationTokenNone,
+    CancellationTokenSource,
+    type ICancellationToken,
+} from "../../../../../base/common/cancellation.ts";
 import type { ITextDocument } from "../../../../../editor/common/model/iTextDocument.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
@@ -310,7 +314,7 @@ describe("LanguageFeaturesCustomer — requests only for synced documents", () =
 
 const CORE_RANGE = { start: { line: 2, character: 4 }, end: { line: 2, character: 9 } };
 
-type Answer = (params: unknown) => unknown;
+type Answer = (params: unknown, token: ICancellationToken) => unknown;
 
 function setupAnswering(answers: Readonly<Record<string, Answer>>) {
     const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
@@ -633,6 +637,32 @@ describe("LanguageFeaturesCustomer — selection ranges", () => {
     });
 });
 
+/** A provider that is busy until it sees `$/cancelRequest`: the reply to a cancelled request still comes from the peer. */
+function untilCancelled(_params: unknown, token: ICancellationToken): Promise<null> {
+    return new Promise((resolve) => {
+        token.onCancellationRequested(() => {
+            resolve(null);
+        });
+    });
+}
+
+/** A minute of fake time leaves the request pending; the caller's cancel is what ends it, with the empty answer. */
+async function expectWaitsUntilCancelled(start: (token: ICancellationToken) => Promise<unknown>): Promise<void> {
+    vi.useFakeTimers();
+    try {
+        const caller = new CancellationTokenSource();
+        const settled = vi.fn();
+        const reply = start(caller.token);
+        void reply.finally(settled);
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(settled).not.toHaveBeenCalled();
+        caller.cancel();
+        expect(await reply).toBeNull();
+    } finally {
+        vi.useRealTimers();
+    }
+}
+
 describe("LanguageFeaturesCustomer — inlay hints", () => {
     const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7, range: CORE_RANGE };
     const AT = { line: 0, character: 1 };
@@ -653,26 +683,23 @@ describe("LanguageFeaturesCustomer — inlay hints", () => {
             { position: AT, label: [{ label: "name" }], kind: 2 },
         ]);
         expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7, range: CORE_RANGE }]);
-        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: 5000 });
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: undefined });
     });
 
-    it("RPC rejection, a hung request past its timeout, no spawn or an unsynced document — no hints (null)", async () => {
+    it("no deadline, as upstream: a slow server's answer still arrives, only the token ends the wait", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideInlayHints": untilCancelled });
+            return hung.customer.provideInlayHints(1, REQ, token);
+        });
+    });
+
+    it("RPC rejection, no spawn or an unsynced document — no hints (null)", async () => {
         const h = setupAnswering({
             "languages.provideInlayHints": () => {
                 throw new Error("boom");
             },
         });
         expect(await h.customer.provideInlayHints(1, REQ)).toBeNull();
-
-        vi.useFakeTimers();
-        try {
-            const hung = setupAnswering({ "languages.provideInlayHints": () => new Promise(() => undefined) });
-            const reply = hung.customer.provideInlayHints(1, REQ);
-            await vi.advanceTimersByTimeAsync(5000);
-            expect(await reply).toBeNull();
-        } finally {
-            vi.useRealTimers();
-        }
 
         const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         expect(await detached.provideInlayHints(1, REQ)).toBeNull();
@@ -711,26 +738,30 @@ describe("LanguageFeaturesCustomer — code lens", () => {
         const caller = new CancellationTokenSource();
         expect(await h.customer.provideCodeLenses(1, REQ, caller.token)).toEqual({ cacheId: 3, lenses: [LENS] });
         expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7 }]);
-        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: 5000 });
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: undefined });
     });
 
-    it("provide: RPC rejection, a hung request past its timeout, no spawn or an unsynced document — null", async () => {
+    it("provide: no deadline, as upstream — only the token ends the wait", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideCodeLenses": untilCancelled });
+            return hung.customer.provideCodeLenses(1, REQ, token);
+        });
+    });
+
+    it("resolve: no deadline, as upstream — jdt.ls counts references only after its import, only the token ends the wait", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.resolveCodeLens": untilCancelled });
+            return hung.customer.resolveCodeLens(1, [3, 0], token);
+        });
+    });
+
+    it("provide: RPC rejection, no spawn or an unsynced document — null", async () => {
         const h = setupAnswering({
             "languages.provideCodeLenses": () => {
                 throw new Error("boom");
             },
         });
         expect(await h.customer.provideCodeLenses(1, REQ)).toBeNull();
-
-        vi.useFakeTimers();
-        try {
-            const hung = setupAnswering({ "languages.provideCodeLenses": () => new Promise(() => undefined) });
-            const reply = hung.customer.provideCodeLenses(1, REQ);
-            await vi.advanceTimersByTimeAsync(5000);
-            expect(await reply).toBeNull();
-        } finally {
-            vi.useRealTimers();
-        }
 
         const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         expect(await detached.provideCodeLenses(1, REQ)).toBeNull();
@@ -751,7 +782,7 @@ describe("LanguageFeaturesCustomer — code lens", () => {
         const caller = new CancellationTokenSource();
         expect(await h.customer.resolveCodeLens(1, [3, 0], caller.token)).toEqual(LENS);
         expect(seen).toEqual([{ handle: 1, cacheId: [3, 0] }]);
-        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: 5000 });
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: undefined });
 
         const empty = setupAnswering({ "languages.resolveCodeLens": () => null });
         expect(await empty.customer.resolveCodeLens(1, [3, 0])).toBeNull();
