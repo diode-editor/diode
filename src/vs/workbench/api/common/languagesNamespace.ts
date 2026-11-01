@@ -36,6 +36,7 @@ import {
     serializeCompletionItem,
     serializeDefinitionLocation,
     serializeDocumentColors,
+    serializeDocumentHighlights,
     serializeFoldingRange,
     serializeHoverContents,
     serializeInlayHints,
@@ -77,6 +78,8 @@ import type {
     IWireCompletionParams,
     IWireDefinitionParams,
     IWireDocumentColorParams,
+    IWireDocumentHighlight,
+    IWireDocumentHighlightParams,
     IWireDocumentSemanticTokensParams,
     IWireEditorEdit,
     IWireFoldingParams,
@@ -169,6 +172,11 @@ export interface IDeclarationRegistration {
 export interface IRenameRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.RenameProvider;
+}
+
+export interface IDocumentHighlightRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.DocumentHighlightProvider;
 }
 
 export interface ISelectionRangeRegistration {
@@ -387,6 +395,7 @@ export function createLanguagesNamespace(
     const renameProviders = new Map<number, Owned<IRenameRegistration>>();
     const selectionRangeProviders = new Map<number, Owned<ISelectionRangeRegistration>>();
     const callHierarchyProviders = new Map<number, Owned<ICallHierarchyRegistration>>();
+    const documentHighlightProviders = new Map<number, Owned<IDocumentHighlightRegistration>>();
     const colorProviders = new Map<number, Owned<IColorRegistration>>();
     const inlayHintsProviders = new Map<number, Owned<IInlayHintsRegistration>>();
     const codeLensProviders = new Map<number, Owned<ICodeLensRegistration>>();
@@ -617,6 +626,27 @@ export function createLanguagesNamespace(
         const range = rangeFrom((result as { range?: unknown }).range);
         return { contents, ...(range === null ? {} : { range }) };
     });
+
+    rpc.handleRequest(
+        "languages.provideDocumentHighlights",
+        async (params, cancellation): Promise<IWireDocumentHighlight[] | null> => {
+            const p: Received<IWireDocumentHighlightParams> = params;
+            const reg = documentHighlightProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            let result: unknown;
+            try {
+                result = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideDocumentHighlights(doc, position, token),
+                );
+            } catch (err) {
+                reportProviderFailure("provideDocumentHighlights", err, reg.owner);
+            }
+            return serializeDocumentHighlights(result);
+        },
+    );
 
     rpc.handleRequest("languages.provideSelectionRanges", async (params, cancellation): Promise<IRange[][]> => {
         const p: Received<IWireSelectionRangeParams> = params;
@@ -1540,7 +1570,11 @@ export function createLanguagesNamespace(
             );
         },
 
-        registerDocumentHighlightProvider: registerNoopProvider,
+        registerDocumentHighlightProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.DocumentHighlightProvider,
+        ): vscode.Disposable =>
+            registerByHandle(documentHighlightProviders, "documentHighlight", selector, { selector, provider }),
         registerDocumentSymbolProvider: registerNoopProvider,
         registerWorkspaceSymbolProvider: registerNoopProvider,
         registerCodeLensProvider: (

@@ -84,6 +84,17 @@
   а не в безымянный `.markdownlint.json` (#931). `support: partial`: нет сниппетов комментариев `markdownlint-disable`
   (`contributes.snippets`). Смоук — MD018 в Problems, quick fix через `Ctrl+.`, конфиг в отдельной вкладке. После
   `source.fixAll` каретка сдвигается: расширение заменяет документ целиком через `editor.edit`.
+- **`yzhang.markdown-all-in-one`** — прокси на сток Open VSX 3.6.2, без языкового сервера. Гейт `engines.diode: ">=0.12.6"`:
+  расширению нужны ядровые `tab`, `editor.action.insertLineAfter` и `editor.action.insertSnippet` (#968), в 0.12.5 их нет.
+  `support: partial`. Привязки `enter`, `tab`, `ctrl+b`, `ctrl+i` ограничены языками Markdown в `when`: вне `.md` клавиши
+  ведут себя как раньше, `Ctrl+B` переключает боковую панель. Поэтому у `insertLineAfter` нет ядровой `ctrl+enter` эталона.
+  В терминале без расширенных клавиш `Ctrl+I` — тот же байт, что Tab, а `Ctrl+M` — что Enter; остаётся палитра. Линза оглавления в 3.6.2 — только
+  статус (`Table of Contents (up to date)`, `command: ''`), кнопки Update нет, обновляют `toc.update` и сохранение
+  (`toc.updateOnSave`). Подсказки файлов и якорей — за настройкой `markdown.extension.completion.enabled`, по умолчанию
+  выключена, как и в эталоне. Своего превью Markdown в Diode нет, поэтому `markdown.previewStyles`, `markdownItPlugins` и
+  `autoShowPreviewToSide` не действуют. `setDecorations` виден частично: зачёркивание есть, фона у code span нет. При
+  активации расширение пишет в stderr `"undefined" is not valid JSON`: читает `VSCODE_NLS_CONFIG`, которого у нас нет,
+  ловит ошибку и работает на английском.
 - **`christian-kohler.npm-intellisense`** — прокси на сток Open VSX 1.4.5, `support: full`, правок в ядре не понадобилось.
   Гейт `engines.diode: ">=0.12.5"` — последний тег на момент записи. Читает устаревший `workspace.rootPath`: без открытой
   папки не регистрирует ни провайдер, ни команду, как и в VS Code. Встроенный TS-клиент тоже предлагает зависимости из

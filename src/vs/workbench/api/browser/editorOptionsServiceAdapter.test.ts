@@ -276,6 +276,29 @@ describe("EditorOptionsServiceAdapter", () => {
         expect(applyExternalEdits).not.toHaveBeenCalled();
     });
 
+    // Markdown All in One, Enter on an empty `> ` line: `delete(1:1-1:2)`, then `insert(1:1, "\n> ")`.
+    it.each([
+        ["delete first", [0, 1]],
+        ["insert first", [1, 0]],
+    ])("applyActiveEditorEdits() applies an insertion at the start of a deletion, %s", (_name, order) => {
+        const applyExternalEdits = vi.fn();
+        const editor = {
+            uri: Uri.file("/a/b.md"),
+            model: { document: { lineCount: 3, getLineLength: () => 10 } },
+            applyExternalEdits,
+        };
+        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
+        const adapter = createAdapter(group, NO_BULK_EDITS);
+
+        const touching = [
+            { range: { start: { line: 1, character: 1 }, end: { line: 1, character: 2 } }, text: "" },
+            { range: { start: { line: 1, character: 1 }, end: { line: 1, character: 1 } }, text: "\n> " },
+        ];
+        const edits = order.map((index) => touching[index]);
+        expect(adapter.applyActiveEditorEdits(Uri.file("/a/b.md").toString(), edits)).toBe(true);
+        expect(applyExternalEdits).toHaveBeenCalledTimes(1);
+    });
+
     it("applyActiveEditorEdits() returns false with no active editor or an empty list", () => {
         const editor = {
             uri: Uri.file("/a/b.ts"),

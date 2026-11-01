@@ -139,6 +139,11 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.languageFeatures.selectionRangeProvider.register(selector, {
                 provideSelectionRanges: (request, token) => this.bridge.provideSelectionRanges(handle, request, token),
             }),
+        documentHighlight: ({ handle, selector }) =>
+            this.languageFeatures.documentHighlightProvider.register(selector, {
+                provideDocumentHighlights: (request, token) =>
+                    this.bridge.provideDocumentHighlights(handle, request, token),
+            }),
         color: ({ handle, selector }) =>
             this.languageFeatures.colorProvider.register(selector, {
                 provideDocumentColors: (request, token) => this.bridge.provideDocumentColors(handle, request, token),

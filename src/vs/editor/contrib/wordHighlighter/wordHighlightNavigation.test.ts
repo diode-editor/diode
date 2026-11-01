@@ -1,13 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { createCursorSelection, createSelection } from "../../common/core/iSelection.ts";
+import { createRange } from "../../common/core/iRange.ts";
+import { createCursorSelection } from "../../common/core/iSelection.ts";
+import {
+    DocumentHighlightKind,
+    textWordHighlightSet,
+    wordHighlightSetOf,
+} from "../../common/languages/iDocumentHighlightSource.ts";
 import { TextDocument } from "../../common/model/textDocument.ts";
 import { EditorViewState } from "../../common/viewModel/editorViewState.ts";
+import { computeWordOccurrences } from "../find/computeWordOccurrences.ts";
 
 import { moveToWordHighlight } from "./wordHighlightNavigation.ts";
 
+/** With the set a textual query would paint: the navigation only reads what is on the frame. */
 function makeState(text: string, line: number, character: number): EditorViewState {
-    return new EditorViewState(new TextDocument(text), [createCursorSelection(line, character)]);
+    const state = new EditorViewState(new TextDocument(text), [createCursorSelection(line, character)]);
+    state.wordHighlights = textWordHighlightSet(computeWordOccurrences(state.document, { line, character }));
+    return state;
 }
 
 /** Cursor as [line, column]; also asserts there is a single collapsed selection. */
@@ -19,6 +29,24 @@ function caret(state: EditorViewState): number[] {
 }
 
 describe("moveToWordHighlight", () => {
+    it("walks the set of a provider, whatever the kinds, skipping the same word it did not name", () => {
+        const state = new EditorViewState(new TextDocument("x x x"), [createCursorSelection(0, 0)]);
+        state.wordHighlights = wordHighlightSetOf([
+            { range: createRange(0, 0, 0, 1), kind: DocumentHighlightKind.Read },
+            { range: createRange(0, 4, 0, 5), kind: DocumentHighlightKind.Write },
+        ]);
+        moveToWordHighlight(state, 1);
+        expect(caret(state)).toEqual([0, 4]);
+        moveToWordHighlight(state, 1);
+        expect(caret(state)).toEqual([0, 0]);
+    });
+
+    it("without a set stays put, though the word occurs again", () => {
+        const state = new EditorViewState(new TextDocument("foo foo"), [createCursorSelection(0, 0)]);
+        moveToWordHighlight(state, 1);
+        expect(caret(state)).toEqual([0, 0]);
+    });
+
     // "foo bar foo\nfoo" — occurrences of foo: (0,0) (0,8) (1,0).
     const text = "foo bar foo\nfoo";
 
@@ -64,21 +92,6 @@ describe("moveToWordHighlight", () => {
         const state = makeState("foo  foo", 0, 4);
         moveToWordHighlight(state, 1);
         expect(caret(state)).toEqual([0, 4]);
-    });
-
-    it("non-empty selection is a no-op (no occurrence highlights)", () => {
-        const state = makeState(text, 0, 0);
-        state.selections = [createSelection(0, 0, 0, 3)];
-        moveToWordHighlight(state, 1);
-        expect(state.selections).toEqual([createSelection(0, 0, 0, 3)]);
-    });
-
-    it("multi-cursor is a no-op (no occurrence highlights)", () => {
-        const state = makeState(text, 0, 0);
-        const carets = [createCursorSelection(0, 1), createCursorSelection(1, 1)];
-        state.selections = carets;
-        moveToWordHighlight(state, 1);
-        expect(state.selections).toEqual(carets);
     });
 
     it("target outside the viewport: the viewport scrolls to it", () => {

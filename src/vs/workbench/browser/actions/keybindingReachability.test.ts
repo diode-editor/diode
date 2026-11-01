@@ -232,7 +232,7 @@ describe("default keybinding collisions", () => {
         "down: cursorDown / selectNextSuggestion",
         "pagedown: cursorPageDown / selectNextPageSuggestion",
         "pageup: cursorPageUp / selectPrevPageSuggestion",
-        "tab: acceptSelectedSuggestion / editor.action.indentLines",
+        "tab: acceptSelectedSuggestion / tab",
         "up: cursorUp / selectPrevSuggestion",
         // Long-standing pc layout debt, tracked in docs/TODO/MacKeybindings.md.
         "ctrl+k ctrl+f: editor.action.formatSelection / workbench.action.navigateForward",

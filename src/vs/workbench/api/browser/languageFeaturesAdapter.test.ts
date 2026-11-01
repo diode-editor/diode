@@ -96,6 +96,9 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
             Promise.resolve({ applied: newName === `ok${String(handle)}` }),
         ),
         provideSelectionRanges: vi.fn((handle: number) => Promise.resolve([[createRange(0, 0, 0, handle)]])),
+        provideDocumentHighlights: vi.fn((handle: number) =>
+            Promise.resolve(handle === 0 ? null : [{ range: createRange(0, 0, 0, handle), kind: 2 }]),
+        ),
         provideDocumentColors: vi.fn((handle: number) =>
             Promise.resolve([{ range: createRange(0, 0, 0, handle), color: { red: 1, green: 0, blue: 0, alpha: 1 } }]),
         ),
@@ -333,6 +336,31 @@ describe("LanguageFeaturesAdapter", () => {
         const token = new CancellationTokenSource().token;
         expect(await provider.provideSelectionRanges(request, token)).toEqual([[createRange(0, 0, 0, 7)]]);
         expect(bridge.provideSelectionRanges).toHaveBeenCalledWith(7, request, token);
+    });
+
+    it("documentHighlight: the provider goes to the registry and asks the bridge by its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "documentHighlight", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.documentHighlightProvider.ordered(TS);
+        const request = {
+            uri: "file:///w/a.ts",
+            languageId: "typescript",
+            versionId: 1,
+            position: { line: 0, character: 1 },
+        };
+        const token = new CancellationTokenSource().token;
+        expect(await provider.provideDocumentHighlights(request, token)).toEqual([
+            { range: createRange(0, 0, 0, 5), kind: 2 },
+        ]);
+        expect(bridge.provideDocumentHighlights).toHaveBeenCalledWith(5, request, token);
+
+        bridge.providers = [];
+        bridge.fire();
+        expect(features.documentHighlightProvider.has(TS)).toBe(false);
+        adapter.dispose();
     });
 
     it("color: a proxy in its registry calls the host with its handle and token", async () => {

@@ -1447,16 +1447,32 @@ describe("CompletionService", () => {
         expect(component.view.items.map((i) => i.label)).toEqual(["indent_style"]);
     });
 
-    it("word-based: collects words from all open editors and dedupes against providers", async () => {
+    // Upstream registers the word provider for `*`, so it sits in a later group of `orderedGroups`, and
+    // `provideSuggestionItems` stops at the first group with results. Markdown All in One, `[x](`: the popup
+    // listed the words of the document above the files, and Enter accepted a word instead of a link.
+    it("word-based: a provider with results and no range of its own hides the words", async () => {
+        const items: ICoreCompletionItem[] = [{ label: "sub/other.md", insertText: "sub/other.md" }];
+        const { service, component } = setup(items, "", 0, "Head one");
+        await service.trigger();
+        expect(component.view.items.map((i) => i.label)).toEqual(["sub/other.md"]);
+    });
+
+    it("word-based: a provider with no results falls back to the words", async () => {
+        const { service, component } = setup([], "", 0, "Head one");
+        await service.trigger();
+        expect(component.view.items.map((i) => i.label)).toEqual(["Head", "one"]);
+    });
+
+    it("word-based: collects words from all open editors without repeats", async () => {
         const fake = makeEditor("", 0, "alpha beta");
         const other = makeEditor("", 0, "beta gamma indent_style");
-        const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
+        const source = vi.fn(() => Promise.resolve(completionResult([])));
         const { service, component, body } = createService(makeGroup(fake.editor, source, [other.editor]));
         TestApp.create(body, new Size(80, 24));
         await service.trigger();
 
         const labels = component.view.items.map((i) => i.label);
-        expect(labels).toEqual(["indent_style", "indent_size", "root", "alpha", "beta", "gamma"]);
+        expect(labels).toEqual(["alpha", "beta", "gamma", "indent_style"]);
     });
 
     it("no active editor → no-op", async () => {

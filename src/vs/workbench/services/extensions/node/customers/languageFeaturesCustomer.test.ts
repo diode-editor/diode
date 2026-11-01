@@ -948,3 +948,34 @@ describe("LanguageFeaturesCustomer — document colors", () => {
         expect(await unsynced.provideDocumentColors(1, REQ)).toBeNull();
     });
 });
+
+describe("LanguageFeaturesCustomer — document highlights", () => {
+    const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7, position: { line: 2, character: 4 } };
+
+    it("the position and the token go over the wire, the reply is returned as is", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideDocumentHighlights": (params) => {
+                seen.push(params);
+                return [{ range: CORE_RANGE, kind: 2 }];
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideDocumentHighlights(1, REQ, caller.token)).toEqual([
+            { range: CORE_RANGE, kind: 2 },
+        ]);
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7, line: 2, character: 4 }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("RPC rejection or no spawn — declined", async () => {
+        const h = setupAnswering({
+            "languages.provideDocumentHighlights": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideDocumentHighlights(1, REQ)).toBeNull();
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideDocumentHighlights(1, REQ)).toBeNull();
+    });
+});

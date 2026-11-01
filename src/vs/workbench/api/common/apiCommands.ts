@@ -1,6 +1,6 @@
 import type * as vscode from "vscode";
 
-import { Position, Range, Uri } from "./vscodeTypes.ts";
+import { Position, Range, SnippetString, Uri } from "./vscodeTypes.ts";
 
 type ApiCommandHandler = (...args: unknown[]) => unknown;
 
@@ -20,6 +20,7 @@ export interface IApiCommandsDeps {
         kind: string | undefined,
         itemResolveCount: number | undefined,
     ): Promise<(vscode.CodeAction | vscode.Command)[]>;
+    getActiveTextEditor(): vscode.TextEditor | undefined;
 }
 
 /** Registered locally, never sent to the host registry (upstream's `registerCommand(false, …)`). */
@@ -29,7 +30,20 @@ export function createApiCommands(deps: IApiCommandsDeps): ReadonlyMap<string, A
         ["vscode.executeLinkProvider", (...args) => executeLinkProvider(args)],
         ["vscode.executeCompletionItemProvider", (...args) => executeCompletionItemProvider(deps, args)],
         ["vscode.executeCodeActionProvider", (...args) => executeCodeActionProvider(deps, args)],
+        ["editor.action.insertSnippet", (...args) => insertSnippet(deps, args)],
     ]);
+}
+
+/**
+ * Upstream's `InsertSnippetAction` with an inline `snippet`, on top of `TextEditor.insertSnippet`.
+ * Deviation: `langId` + `name` look up contributed snippets upstream, and we have none: nothing happens.
+ */
+async function insertSnippet(deps: IApiCommandsDeps, args: readonly unknown[]): Promise<void> {
+    const snippet = (args[0] as { readonly snippet?: unknown } | null | undefined)?.snippet;
+    const editor = deps.getActiveTextEditor();
+    if (typeof snippet !== "string" || editor === undefined) return;
+    // `insertSnippet` reads only `value`; our class does not have upstream's `append*` builders.
+    await editor.insertSnippet(new SnippetString(snippet) as unknown as vscode.SnippetString);
 }
 
 /**

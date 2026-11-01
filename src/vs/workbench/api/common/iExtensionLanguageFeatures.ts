@@ -24,6 +24,10 @@ import type {
     ICoreDefinitionLocation,
     IDefinitionRequest,
 } from "../../../editor/common/languages/iDefinitionSource.ts";
+import type {
+    IDocumentHighlight,
+    IDocumentHighlightRequest,
+} from "../../../editor/common/languages/iDocumentHighlightSource.ts";
 import type { IFoldingRequest } from "../../../editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
@@ -152,6 +156,12 @@ export interface IExtensionLanguageFeaturesBridge {
     ): Promise<readonly ICallHierarchyOutgoingCall[]>;
     /** The tree is gone: the subprocess forgets the session's original items. */
     releaseCallHierarchy(handle: number, sessionId: number): void;
+    /** `null`: the provider declined, the next one or the textual search takes over. */
+    provideDocumentHighlights(
+        handle: number,
+        request: IDocumentHighlightRequest,
+        token: ICancellationToken,
+    ): Promise<readonly IDocumentHighlight[] | null>;
     /** `null`: the provider gave no colors, the default detector may take over. */
     provideDocumentColors(
         handle: number,

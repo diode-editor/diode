@@ -81,6 +81,7 @@ export class TextEditorPaneBuilder {
                       runCommand: (command) => runCodeLensCommand(this.commands, this.notifications, command),
                   }
                 : undefined,
+            this.languageFeatures.documentHighlightProvider,
         );
         const editor = new TextEditorPane(model, component, modelOwnership);
         // The editor context menu policy listens for "contextmenu" on the pair's wrapper;
