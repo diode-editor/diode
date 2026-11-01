@@ -21,6 +21,7 @@ export interface ContextKeyTypes {
     editorHasReferenceProvider: boolean;
     editorHasRenameProvider: boolean;
     editorHasCodeActionsProvider: boolean;
+    editorHasCodeLensProvider: boolean;
     editorHasDocumentFormattingProvider: boolean;
     editorHasDocumentSelectionFormattingProvider: boolean;
     editorHasInlayHintsProvider: boolean;
@@ -143,6 +144,8 @@ export interface ContextKeyTypes {
 
     /** `"empty"` | `"folder"` (upstream also has `"workspace"`). */
     workbenchState: string;
+    /** Always `true`: no trust model, matches `workspace.isTrusted`. */
+    isWorkspaceTrusted: boolean;
 
     /** Id of the tab whose controls the header currently shows. */
     view: string;

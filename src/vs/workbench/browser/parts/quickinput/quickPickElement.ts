@@ -38,6 +38,13 @@ export class QuickPickElement extends TUIElement {
     public set title(value: string | undefined) {
         this.frame.setTitle(value);
     }
+    /** Upstream `QuickInputButtons.Back`, in the title. */
+    public get backVisible(): boolean {
+        return this.frame.backVisible;
+    }
+    public set backVisible(value: boolean) {
+        this.frame.setBackVisible(value);
+    }
     /** Overridden by {@link validationMessage}. */
     public prompt: string | undefined = undefined;
     /** Blocks Enter when severity is "error". */
@@ -61,6 +68,7 @@ export class QuickPickElement extends TUIElement {
     /** Only on user action (`Space`, click). */
     public onCheckedChange: (() => void) | null = null;
     public onCancel: (() => void) | null = null;
+    public onBack: (() => void) | null = null;
     /**
      * Only on user navigation (arrows, PageUp/Down), for live preview; doesn't fire on
      * `items =`, {@link refreshItems} or {@link setActiveIndex}.
@@ -131,6 +139,12 @@ export class QuickPickElement extends TUIElement {
 
         this.syncStructure();
         this.addEventListener("keydown", (event) => {
+            // Without a Back button the chord stays with the query line.
+            if (event.key === "ArrowLeft" && event.altKey && this.backVisible) {
+                event.preventDefault();
+                this.goBack();
+                return;
+            }
             this.handleKeyDown(event.key, event);
         });
         this.addEventListener("mousemove", (event) => {
@@ -221,6 +235,8 @@ export class QuickPickElement extends TUIElement {
         this.onAcceptMany = null;
         this.onAcceptEmpty = null;
         this.onCheckedChange = null;
+        this.onBack = null;
+        this.backVisible = false;
         this.password = false;
     }
 
@@ -293,6 +309,7 @@ export class QuickPickElement extends TUIElement {
             query: this.visibleQuery,
             activeIndex: this.selectedIndexValue,
             title: this.title,
+            ...(this.backVisible ? { back: true } : {}),
             items: this.itemsValue.map((item) => item.label),
             ...(this.canPickMany
                 ? { checked: this.itemsValue.filter((item) => this.checkedValue.has(item)).map((item) => item.label) }
@@ -474,6 +491,11 @@ export class QuickPickElement extends TUIElement {
         this.onCheckedChange?.();
     }
 
+    /** The Back button, its key and `workbench.action.quickInputBack`. */
+    public goBack(): void {
+        if (this.backVisible) this.onBack?.();
+    }
+
     /** Enter, a click and `acceptSelectedQuickOpenItem` all end here. */
     public accept(): void {
         if (this.acceptMode === "value") {
@@ -505,6 +527,12 @@ export class QuickPickElement extends TUIElement {
     /** In multi-select a click toggles the check: otherwise the first click would close the picker. */
     private handleClick(event: TUIMouseEvent): void {
         if (event.button !== "left") return;
+        const position = this.frame.globalPosition;
+        if (this.frame.isBackButtonAt(event.screenX - position.x, event.screenY - position.y)) {
+            event.preventDefault();
+            this.goBack();
+            return;
+        }
         const index = this.itemIndexFromEvent(event);
         if (index === null) return;
         event.preventDefault();

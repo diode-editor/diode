@@ -126,6 +126,13 @@ export const editorConfiguration = {
             maximum: 1000000,
             description: "Controls the max number of color decorators that can be rendered in an editor at once.",
         },
+        // `editor.codeLensFontFamily` and `editor.codeLensFontSize` are not ported: a terminal has one font.
+        "editor.codeLens": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description: "Controls whether the editor shows CodeLens.",
+        },
         // `editor.inlayHints.fontSize` and `fontFamily` are not ported: a terminal has one font.
         "editor.inlayHints.enabled": {
             scope: "language-overridable",

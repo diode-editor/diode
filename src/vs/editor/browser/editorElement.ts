@@ -17,6 +17,7 @@ import { runWhenGlobalIdle } from "../../base/common/async.ts";
 import { codicon, iconGlyph } from "../../base/common/codicons.ts";
 import { Emitter } from "../../base/common/event.ts";
 import type { IDisposable } from "../../base/common/lifecycle.ts";
+import { firstNonWhitespaceIndex } from "../../base/common/strings.ts";
 import type { IMarkerDecoration } from "../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { withCursorChangeSource } from "../common/core/cursorChangeSource.ts";
@@ -31,6 +32,7 @@ import {
 } from "../common/core/iSelection.ts";
 import { findWordRangeAt } from "../common/core/wordClassification.ts";
 import { findSurroundingPair, planAutoClose } from "../common/languages/autoClosing.ts";
+import type { CodeLensCommand, ICodeLensZone } from "../common/languages/iCodeLensSource.ts";
 import type { ISemanticTokensLegend } from "../common/languages/iSemanticTokensSource.ts";
 import {
     type ISemanticTokenStyleResolver,
@@ -170,6 +172,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     private readonly onDidChangeViewportHeightEmitter = new Emitter<void>();
     /** The view state's height is a plain field written during layout: whoever asks by the visible lines listens here. */
     public readonly onDidChangeViewportHeight = this.onDidChangeViewportHeightEmitter.event;
+    private readonly onDidClickCodeLensEmitter = new Emitter<CodeLensCommand>();
+    /** A left click on the title of a code lens. */
+    public readonly onDidClickCodeLens = this.onDidClickCodeLensEmitter.event;
 
     /**
      * Upstream `ICodeEditor.onDidType`: fires AFTER the edit, including auto-close, typeover
@@ -254,6 +259,11 @@ export class EditorElement extends TUIElement implements IScrollable {
         readonly markers: readonly IScrollBarMarker[];
     } | null = null;
     private ghostTextValue: IGhostText | null = null;
+    // Stryker disable next-line ArrayDeclaration: a garbage zone has no line, so it is never visible and has no rows
+    private codeLensZones: readonly ICodeLensZone[] = [];
+    /** The zones that have rows now, by anchor. */
+    private codeLensByAnchor: ReadonlyMap<number, ICodeLensZone> = new Map();
+    private codeLensFoldVersion = 0;
     private inlineInsertionsValue: readonly IInlineInsertion[] = NO_INLINE_INSERTIONS;
     private renderedDocLines: { first: number; last: number } | undefined;
 
@@ -262,21 +272,92 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /**
-     * The element puts the suggestion's tail (lines after the first) into its own view zones. They
-     * are mutually exclusive with the owner's zones ({@link decorations}), so ghost text exists only
-     * in the file editor and is off in diff (where `diffEditorPane2` owns the zones).
+     * The element puts the suggestion's tail (lines after the first) into its own set of view zones; other
+     * owners' zones stay. The tail takes the first rows of a merged anchor: it hangs right under its line.
      */
     public setGhostText(ghost: IGhostText | null): void {
         if (ghostTextEquals(this.ghostTextValue, ghost)) return;
-        const hadZones = (this.ghostTextValue?.lines.length ?? 1) > 1;
         this.ghostTextValue = ghost;
         const needsZones = ghost !== null && ghost.lines.length > 1;
-        // setViewZones replaces the WHOLE zone set, so leave it alone unless ghost text uses
-        // zones: foreign zones (should any appear) stay intact.
-        if (hadZones || needsZones) {
-            this.viewState.setViewZones(needsZones ? [{ afterLine: ghost.line, size: ghost.lines.length - 1 }] : []);
-        }
+        // Stryker disable ArrayDeclaration,StringLiteral: a garbage zone has no size and drops; the owner is only a distinct key
+        this.viewState.setViewZones(
+            needsZones ? [{ afterLine: ghost.line, size: ghost.lines.length - 1 }] : [],
+            "ghostText",
+        );
+        // Stryker restore ArrayDeclaration,StringLiteral
         this.syncInlineInsertions();
+    }
+
+    /** How many rows at `anchor` belong to the suggestion's tail. */
+    private ghostZoneRows(anchor: number): number {
+        const ghost = this.ghostTextValue;
+        return ghost !== null && ghost.line === anchor ? ghost.lines.length - 1 : 0;
+    }
+
+    /** One zone row above each line that has lenses and is not folded away. */
+    public setCodeLensZones(zones: readonly ICodeLensZone[]): void {
+        // Saves a repaint on each edit of a file without lenses: the sync below would set the same zones.
+        // Stryker disable next-line ConditionalExpression: see above
+        if (zones.length === 0 && this.codeLensZones.length === 0) return;
+        this.codeLensZones = zones;
+        this.syncCodeLensZones();
+        this.markDirty();
+    }
+
+    private syncCodeLensZones(): void {
+        const viewState = this.viewState;
+        this.codeLensFoldVersion = viewState.foldStateVersion;
+        const visible = this.codeLensZones.filter((zone) => viewState.isLineVisible(zone.line));
+        this.codeLensByAnchor = new Map(visible.map((zone) => [zone.line - 1, zone]));
+
+        // Upstream `StableEditorScrollState`: zones arriving above the viewport don't move the text under the
+        // user. Scrolled to the very top, the viewport stays there: a lens of the first line is shown.
+        const { scrollTop } = viewState;
+        const topLine = viewState.docLineForViewLine(scrollTop);
+        const rowsIntoTopLine = scrollTop - viewState.viewLineForPosition(topLine, 0);
+        viewState.setViewZones(
+            visible.map((zone) => ({ afterLine: zone.line - 1, size: 1 })),
+            // Stryker disable next-line StringLiteral: the owner is only a distinct key
+            "codeLens",
+        );
+        if (scrollTop > 0) {
+            viewState.scrollTop = viewState.viewLineForPosition(topLine, 0) + rowsIntoTopLine;
+        }
+    }
+
+    /** The lens zone under a row of the element; `undefined` for the rows of a document line or of another owner. */
+    private codeLensZoneAtRow(localY: number): ICodeLensZone | undefined {
+        const row = this.viewState.zoneRowForViewLine(this.viewState.scrollTop + localY);
+        if (row === null || row.offset < this.ghostZoneRows(row.anchor)) return undefined;
+        return this.codeLensByAnchor.get(row.anchor);
+    }
+
+    /** The text as painted: indented to the first non-whitespace column of its line, in spaces. */
+    private codeLensLayout(zone: ICodeLensZone): { readonly displayLine: DisplayLine; readonly indent: number } {
+        const viewState = this.viewState;
+        const content = viewState.document.getLineContent(zone.line);
+        // -1 for a line of whitespace only: no indent, as upstream.
+        const first = Math.max(firstNonWhitespaceIndex(content), 0);
+        const indent = viewState.displayLineFor(content.slice(0, first)).displayWidth;
+        return { displayLine: viewState.displayLineFor(" ".repeat(indent) + zone.text), indent };
+    }
+
+    private clickCodeLens(zone: ICodeLensZone, localX: number): void {
+        this.dragAnchor = null;
+        const { displayLine, indent } = this.codeLensLayout(zone);
+        const column = localX - this.gutterWidth + this.viewState.scrollLeft;
+        const action = zone.actions.find(
+            ({ start, end }) =>
+                column >= displayLine.offsetToColumn(indent + start) &&
+                column < displayLine.offsetToColumn(indent + end),
+        );
+        if (action !== undefined) {
+            this.onDidClickCodeLensEmitter.fire(action.command);
+            return;
+        }
+        // The separator or the empty part of the row: goes to the line, which may be just below the viewport.
+        const content = this.viewState.document.getLineContent(zone.line);
+        this.viewState.goToPosition(zone.line, Math.max(0, firstNonWhitespaceIndex(content)));
     }
 
     public get inlineInsertions(): readonly IInlineInsertion[] {
@@ -657,6 +738,12 @@ export class EditorElement extends TUIElement implements IScrollable {
         // Scroll, folding and edits away from the cursor (extension applyEdits) too: under
         // damage tracking an unmarked widget is not repainted.
         this.viewState.onDidChangeView(() => {
+            // A fold hides or shows the lenses of the lines inside it. The condition only saves work: syncing the
+            // same state again sets the same zones, a no-op.
+            // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator: see above
+            if (this.codeLensZones.length > 0 && this.codeLensFoldVersion !== this.viewState.foldStateVersion) {
+                this.syncCodeLensZones();
+            }
             this.markDirty();
         });
         this.viewState.document.onDidChangeContent((change) => {
@@ -826,11 +913,9 @@ export class EditorElement extends TUIElement implements IScrollable {
                 for (let x = 0; x < gutterW; x++) {
                     context.setCell(x, screenY, { char: " ", bg: gutBg });
                 }
-                // The editor's own zone exists only for ghost text (see setGhostText): a single zone at
-                // ghost.line of exactly lines.length - 1 rows, so mutants weakening the anchor and
-                // offset checks are unreachable.
-                // Stryker disable next-line ConditionalExpression,EqualityOperator,ArithmeticOperator: see above
-                if (ghost !== null && zoneRow.anchor === ghost.line && zoneRow.offset + 1 < ghost.lines.length) {
+                // Without a ghost there are no ghost rows: `ghost !== null` narrows the type for the branch.
+                // Stryker disable next-line ConditionalExpression: see above
+                if (ghost !== null && zoneRow.offset < this.ghostZoneRows(zoneRow.anchor)) {
                     // The extra column of a "<=" mutant is clipped by the element rectangle.
                     // Stryker disable next-line EqualityOperator: see above
                     for (let x = 0; x < contentCols; x++) {
@@ -844,6 +929,27 @@ export class EditorElement extends TUIElement implements IScrollable {
                         fg: ghostFg,
                         bg: editorBg,
                         style: StyleFlags.Italic,
+                    });
+                    continue;
+                }
+                const lens = this.codeLensByAnchor.get(zoneRow.anchor);
+                if (lens !== undefined) {
+                    const lensFg = this.styleVar("editorCodeLens.foreground");
+                    // The extra column of a "<=" mutant is clipped by the element rectangle.
+                    // Stryker disable next-line EqualityOperator: see above
+                    for (let x = 0; x < contentCols; x++) {
+                        // Stryker disable next-line StringLiteral: a cell with no char reads as a space
+                        context.setCell(gutterW + x, screenY, { char: " ", fg: lensFg, bg: editorBg });
+                    }
+                    paintPhantomText(context, {
+                        displayLine: this.codeLensLayout(lens).displayLine,
+                        screenY,
+                        gutterW,
+                        contentCols,
+                        fg: lensFg,
+                        bg: editorBg,
+                        style: StyleFlags.None,
+                        scrollLeft,
                     });
                     continue;
                 }
@@ -1340,6 +1446,12 @@ export class EditorElement extends TUIElement implements IScrollable {
             return;
         }
 
+        const lens = this.codeLensZoneAtRow(event.localY);
+        if (lens !== undefined) {
+            this.clickCodeLens(lens, event.localX);
+            return;
+        }
+
         const pos = this.docPositionAt(event.localX, event.localY);
 
         // Before the shift branches: Shift+Alt+click extends the selection, not multi-cursor.
@@ -1364,6 +1476,8 @@ export class EditorElement extends TUIElement implements IScrollable {
         if (event.button !== "left") return;
         // docPositionAt would clamp the gutter to column 0 and select the line's first word.
         if (event.localX < this.gutterWidth) return;
+        // docPositionAt would take the nearest line of the document under a zone.
+        if (this.viewState.viewLineKind(this.viewState.scrollTop + event.localY) === "zone") return;
 
         const pos = this.docPositionAt(event.localX, event.localY);
         const lineContent = this.viewState.document.getLineContent(pos.line);

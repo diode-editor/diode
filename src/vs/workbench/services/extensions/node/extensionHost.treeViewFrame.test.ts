@@ -62,7 +62,7 @@ describe("ExtensionHost — extension tree view in the frame", () => {
             app.render();
             return app.backend.screenToString();
         };
-        return { harness, frame, errors };
+        return { harness, frame, errors, app };
     }
 
     it("a rejected root reread keeps the rows the tree had, the children of an expanded package included", async () => {
@@ -100,6 +100,32 @@ describe("ExtensionHost — extension tree view in the frame", () => {
         await ext.commandRegistry.execute("test.rebuild.collapse");
         await waitUntil("the folders closed", () => !frame().includes("src"));
         expect(rows()).toEqual(["workspace", "notes"]);
+    });
+
+    it("a row without an id fired under a new label shows that label and still opens, as Maven's plugins", async () => {
+        const { harness: ext, frame, app } = await setup("test.relabel", "treeViewRelabelExtension.cjs");
+        await waitUntil("the plugin row", () => frame().includes("long-plugin"));
+
+        await ext.commandRegistry.execute("test.relabel.fire");
+        await waitUntil("the new label", () => frame().includes("short"), 3000);
+        expect(frame()).not.toContain("long-plugin");
+
+        const lines = frame().split("\n");
+        const row = lines.findIndex((line) => line.includes("short"));
+        for (const action of ["press", "release"] as const) {
+            app.backend.simulateMouse({
+                kind: "mouse",
+                button: "left",
+                x: (lines[row] ?? "").indexOf("short") + 1,
+                y: row + 1,
+                action,
+                shiftKey: false,
+                altKey: false,
+                ctrlKey: false,
+                raw: "",
+            });
+        }
+        await waitUntil("the children of the relabelled row", () => frame().includes("goal-one"), 3000);
     });
 
     it("a row fired as Expanded under the same id keeps the state it has, as upstream, with no blank rows", async () => {

@@ -164,12 +164,29 @@ describe("QuickPickElement — layout", () => {
         expect(backend.getBgAt(new Point(22, 3))).toBe(selectionBg);
     });
 
-    it("a title too long for the border is dropped — the border is drawn without it", () => {
+    it("a title too long for the border is cut with an ellipsis", () => {
         const picker = makePicker(14);
         picker.title = "Configure Keyboard Shortcuts";
         const backend = render(picker, 14);
 
-        expect(backend.getTextAt(new Point(0, 0), 14)).toBe("╭────────────╮");
+        expect(backend.getTextAt(new Point(0, 0), 14)).toBe("╭┤ Configu… ├╮");
+    });
+
+    it("a box with no room for a title draws a plain border, and no Back button to click", () => {
+        const picker = makePicker(6);
+        picker.title = "Configure";
+        picker.backVisible = true;
+        const backend = render(picker, 6);
+
+        expect(backend.getTextAt(new Point(0, 0), 6)).toBe("╭────╮");
+    });
+
+    it("Back with no owner listening does nothing", () => {
+        const picker = makePicker();
+        picker.backVisible = true;
+        expect(() => {
+            picker.goBack();
+        }).not.toThrow();
     });
 
     it("the hint follows the description on the right", () => {

@@ -270,6 +270,18 @@ describe("TextEditorConfiguration", () => {
             return vi.spyOn(TextEditorPane.prototype, "setInlayHints");
         }
 
+        it("editor.codeLens: on by default, a language override turns it off", () => {
+            const spy = vi.spyOn(TextEditorPane.prototype, "setCodeLens");
+            const ctrl = createEditorService({
+                configurationService: stubConfigurationService({ "[css]": { "editor.codeLens": false } }),
+            });
+            ctrl.openFile(writeFile("a.ts", "a"));
+            expect(spy.mock.lastCall?.[0].enabled).toBe(true);
+            ctrl.getActiveEditor()!.setLanguage("css");
+            expect(spy.mock.lastCall?.[0].enabled).toBe(false);
+            spy.mockRestore();
+        });
+
         it("defaults: on, no padding, 43, normal", () => {
             const spy = appliedOptions();
             createEditorService().openFile(writeFile("a.ts", "a"));

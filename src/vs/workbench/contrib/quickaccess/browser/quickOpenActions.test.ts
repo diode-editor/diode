@@ -112,6 +112,7 @@ describe("quick input commands, as upstream quickAccessActions.ts", () => {
             "acceptOpen",
             "focusOpen",
             "toggleOpen",
+            "backOpen",
             "navigateOpen true",
             "navigateOpen false",
             "navigateOpen true",

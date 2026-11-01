@@ -234,6 +234,62 @@ describe("registerExtensionMenus", () => {
         expect(menus.isInCommandPalette("EditorConfig.generate")).toBe(true);
     });
 
+    it("a stock extension's constantly false commandPalette items hide the command; a real condition keeps it", () => {
+        const { menus, commands } = makeRegistry();
+        const { logger, lines } = collectLog();
+        for (const id of ["maven.goal.clean", "maven.profile.select", "maven.history", "ext.mixed", "ext.free"]) {
+            commands.register(id, () => undefined, id);
+        }
+
+        registerExtensionMenus(
+            [
+                {
+                    ...extension("vscjava.vscode-maven", {
+                        menus: {
+                            commandPalette: [
+                                { command: "maven.goal.clean", when: "never" },
+                                { command: "maven.profile.select", when: "false" },
+                                { command: "maven.history", when: "someUpstreamKey" },
+                                { command: "ext.mixed", when: "false" },
+                                { command: "ext.mixed", when: "someUpstreamKey" },
+                            ],
+                        },
+                    }),
+                    isBuiltin: false,
+                },
+            ],
+            menus,
+            logger,
+        );
+
+        expect(menus.isInCommandPalette("maven.goal.clean")).toBe(false);
+        expect(menus.isInCommandPalette("maven.profile.select")).toBe(false);
+        expect(menus.isInCommandPalette("maven.history")).toBe(true);
+        expect(menus.isInCommandPalette("ext.mixed")).toBe(true);
+        expect(menus.isInCommandPalette("ext.free")).toBe(true);
+        expect(lines).toEqual(['vscjava.vscode-maven: "commandPalette" items are not applied yet']);
+    });
+
+    it("a stock extension with only constantly false commandPalette items logs nothing", () => {
+        const { menus, commands } = makeRegistry();
+        const { logger, lines } = collectLog();
+        commands.register("ext.hidden", () => undefined, "Hidden");
+
+        registerExtensionMenus(
+            [
+                {
+                    ...extension("test.ext", { menus: { commandPalette: [{ command: "ext.hidden", when: "never" }] } }),
+                    isBuiltin: false,
+                },
+            ],
+            menus,
+            logger,
+        );
+
+        expect(menus.isInCommandPalette("ext.hidden")).toBe(false);
+        expect(lines).toEqual([]);
+    });
+
     it("item without command and submenu is skipped with an explanation", () => {
         const { menus } = makeRegistry();
         const { logger, lines } = collectLog();

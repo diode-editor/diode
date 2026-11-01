@@ -1,5 +1,6 @@
 import { LanguageFeatureRegistry } from "../languageFeatureRegistry.ts";
 import type { CodeActionProvider } from "../languages/iCodeActionSource.ts";
+import type { CodeLensProvider } from "../languages/iCodeLensSource.ts";
 import type { DocumentColorProvider } from "../languages/iColorSource.ts";
 import type { CompletionItemProvider } from "../languages/iCompletionSource.ts";
 import type {
@@ -49,4 +50,5 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
         new LanguageFeatureRegistry<DocumentRangeSemanticTokensProvider>();
     public readonly colorProvider = new LanguageFeatureRegistry<DocumentColorProvider>();
     public readonly inlayHintsProvider = new LanguageFeatureRegistry<InlayHintsProvider>();
+    public readonly codeLensProvider = new LanguageFeatureRegistry<CodeLensProvider>();
 }
