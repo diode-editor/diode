@@ -90,6 +90,7 @@ function parseWireTreeItem(raw: unknown): IWireTreeItem | null {
     if (typeof row?.handle !== "string" || row.handle === "") return null;
     return {
         handle: row.handle,
+        previousHandle: optionalString(row.previousHandle),
         parentHandle: optionalString(row.parentHandle),
         label: optionalString(row.label) ?? "",
         description: typeof row.description === "string" || row.description === true ? row.description : undefined,

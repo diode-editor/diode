@@ -68,24 +68,23 @@ export function registerExtensionMenus(
         if (contributes === undefined) continue;
         const submenus = declaredSubmenus(ext.id, contributes.submenus, logger);
         for (const [menu, items] of Object.entries(contributes.menus ?? {})) {
-            // `commandPalette` of built-ins only: their `when` is written against our context keys. A stock
+            // `commandPalette` of built-ins in full: their `when` is written against our context keys. A stock
             // extension's reads upstream keys we may not set (editorconfig's `explorerResourceIsFolder`), and
-            // the filter would hide its command for good instead of showing it as before.
+            // the filter would hide its command for good instead of showing it as before. Only its constantly
+            // false items apply: they depend on no key, and upstream never shows those commands either
+            // (vscode-maven's goals take a tree node and throw without one).
+            const stockPalette = menu === COMMAND_PALETTE_MENU && !ext.isBuiltin;
             const menuId =
-                menu === COMMAND_PALETTE_MENU
-                    ? ext.isBuiltin
-                        ? MenuId.CommandPalette
-                        : undefined
-                    : (MENU_IDS[menu] ?? submenus.get(menu)?.menuId);
+                menu === COMMAND_PALETTE_MENU ? MenuId.CommandPalette : (MENU_IDS[menu] ?? submenus.get(menu)?.menuId);
             if (menuId === undefined) {
-                logger?.info(
-                    menu === COMMAND_PALETTE_MENU
-                        ? `${ext.id}: "commandPalette" items are not applied yet`
-                        : `${ext.id}: unknown menu "${menu}", items skipped`,
-                );
+                logger?.info(`${ext.id}: unknown menu "${menu}", items skipped`);
                 continue;
             }
-            for (const item of items) {
+            const applied = stockPalette ? constantlyHiddenPaletteItems(items) : items;
+            if (stockPalette && applied.length < items.length) {
+                logger?.info(`${ext.id}: "commandPalette" items are not applied yet`);
+            }
+            for (const item of applied) {
                 const contribution = toContribution(ext.id, menuId, item, submenus, icons, logger);
                 if (contribution !== null) disposables.push(menuRegistry.appendMenuItem(contribution));
             }
@@ -96,6 +95,19 @@ export function registerExtensionMenus(
             for (const disposable of disposables) disposable.dispose();
         },
     };
+}
+
+/**
+ * Items hiding a command whatever the context: `never` is the conventional unset key. A command that also has an
+ * item with a real condition stays out: applied alone, its false item would hide what upstream may show.
+ */
+function constantlyHiddenPaletteItems(
+    items: readonly IExtensionMenuItemContribution[],
+): readonly IExtensionMenuItemContribution[] {
+    const isConstantlyFalse = (item: IExtensionMenuItemContribution): boolean =>
+        item.when === "false" || item.when === "never";
+    const conditional = new Set(items.filter((item) => !isConstantlyFalse(item)).map((item) => item.command));
+    return items.filter((item) => isConstantlyFalse(item) && !conditional.has(item.command));
 }
 
 /** Extension prefix: two extensions may declare `"myext.submenu"`. */

@@ -1,16 +1,17 @@
 import type * as vscode from "vscode";
 
+import { ExtHostInputBox, toWireValidation } from "./extHostInputBox.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
+import type { ExtHostQuickInput } from "./extHostQuickInput.ts";
 import { ExtHostQuickPick } from "./extHostQuickPick.ts";
 import { type AsRelativePath, withResourceFields } from "./quickInputResource.ts";
-import { InputBoxValidationSeverity, QuickPickItemKind } from "./vscodeTypes.ts";
+import { QuickPickItemKind } from "./vscodeTypes.ts";
 import {
     type IWireQuickPickItem,
     type IWireValidationMessage,
     parseWireInputBoxResult,
     parseWireQuickPickEvent,
     parseWireQuickPickResult,
-    type WireValidationSeverity,
 } from "./wireTypes.ts";
 
 /**
@@ -26,29 +27,10 @@ export interface IQuickInputApi {
         token?: vscode.CancellationToken,
     ) => Thenable<unknown>;
     createQuickPick<T extends vscode.QuickPickItem>(): vscode.QuickPick<T>;
+    createInputBox(): vscode.InputBox;
 }
 
-export function toWireValidation(
-    outcome: string | vscode.InputBoxValidationMessage | undefined | null,
-): IWireValidationMessage | null {
-    if (outcome === undefined || outcome === null) return null;
-    if (typeof outcome === "string") {
-        // A bare string is always an error (as documented in vscode.d.ts).
-        return outcome === "" ? null : { message: outcome, severity: "error" };
-    }
-    if (typeof outcome.message !== "string" || outcome.message === "") return null;
-    return { message: outcome.message, severity: toWireSeverity(outcome.severity) };
-}
-
-/**
- * Compare NUMBERS: the extension has its own `InputBoxValidationSeverity` from its copy
- * of `vscode.d.ts`; there is no enum type shared with ours.
- */
-function toWireSeverity(severity: number | undefined): WireValidationSeverity {
-    if (severity === InputBoxValidationSeverity.Warning) return "warning";
-    if (severity === InputBoxValidationSeverity.Info) return "info";
-    return "error";
-}
+export { toWireValidation };
 
 /**
  * Our single-line row cannot show `detail` on a separate line — it takes the place of
@@ -90,11 +72,11 @@ export function createQuickInputApi(
     // validation of the first may still be in flight.
     const validators = new Map<number, ((value: string) => unknown) | undefined>();
 
-    const quickPicks = new Map<number, ExtHostQuickPick<vscode.QuickPickItem>>();
+    const quickInputs = new Map<number, ExtHostQuickInput>();
     rpc.handleNotification("window.quickPick.event", (params) => {
         const event = parseWireQuickPickEvent(params);
         if (event === null) return;
-        quickPicks.get(event.handle)?.acceptEvent(event);
+        quickInputs.get(event.handle)?.acceptEvent(event);
     });
 
     rpc.handleRequest("window.inputBox.validate", async (params): Promise<IWireValidationMessage | null> => {
@@ -121,9 +103,17 @@ export function createQuickInputApi(
         createQuickPick: <T extends vscode.QuickPickItem>(): vscode.QuickPick<T> => {
             // The counter is shared with show* calls: the host uses it to address a single overlay.
             const handle = nextHandle++;
-            const quickPick = new ExtHostQuickPick<T>(rpc, handle, () => quickPicks.delete(handle), asRelativePath);
-            quickPicks.set(handle, quickPick as unknown as ExtHostQuickPick<vscode.QuickPickItem>);
+            const quickPick = new ExtHostQuickPick<T>(rpc, handle, () => quickInputs.delete(handle), asRelativePath);
+            quickInputs.set(handle, quickPick);
             return quickPick;
+        },
+
+        createInputBox: (): vscode.InputBox => {
+            const handle = nextHandle++;
+            // Stryker disable next-line ArrowFunction: frees the entry only, a disposed box's emitters fire nothing
+            const inputBox = new ExtHostInputBox(rpc, handle, () => quickInputs.delete(handle));
+            quickInputs.set(handle, inputBox);
+            return inputBox;
         },
 
         showInputBox: async (options, token) => {
