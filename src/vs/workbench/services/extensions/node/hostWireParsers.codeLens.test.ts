@@ -36,6 +36,7 @@ describe("parseWireCodeLens", () => {
         ["an address that is not a pair", { cacheId: [1], range: RANGE }],
         ["a longer address", { cacheId: [1, 2, 3], range: RANGE }],
         ["an address of strings", { cacheId: ["1", "2"], range: RANGE }],
+        ["an address half of strings", { cacheId: [1, "2"], range: RANGE }],
         ["an address that is not an array", { cacheId: 1, range: RANGE }],
         ["no range", { cacheId: [1, 2] }],
     ])("%s is null", (_name, raw) => {

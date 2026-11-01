@@ -680,6 +680,7 @@ export function createLanguagesNamespace(
             // A reply to a cancelled request is dropped by the host, nobody would release its session.
             if (!Array.isArray(answer) || cancellation.isCancellationRequested) return null;
             const originals = (answer as (vscode.CodeLens | null | undefined)[]).slice();
+            // Stryker disable next-line UpdateOperator: any ids that differ will do
             const cacheId = nextCodeLensSession++;
             const lenses: IWireCodeLens[] = [];
             originals.forEach((lens, index) => {
@@ -688,6 +689,7 @@ export function createLanguagesNamespace(
                     console.warn(`[ext-host] ${ownerTag(reg.owner)}INVALID code lens, range is not defined`);
                     return;
                 }
+                // Stryker disable next-line OptionalChaining: a lens with a range is there
                 const command = serializeCodeLensCommand(lens?.command);
                 lenses.push({ cacheId: [cacheId, index], range, ...(command === null ? {} : { command }) });
             });
@@ -697,20 +699,25 @@ export function createLanguagesNamespace(
         },
     );
 
-    function findCodeLens(p: Partial<IWireCodeLensAddress>): vscode.CodeLens | null {
-        const [session, index] = p.cacheId ?? [-1, -1];
-        return codeLensProviders.get(p.handle ?? -1)?.sessions.get(session)?.[index] ?? null;
+    function findCodeLens(p: Partial<IWireCodeLensAddress>) {
+        if (p.cacheId === undefined) return null;
+        const [session, index] = p.cacheId;
+        const reg = codeLensProviders.get(p.handle ?? -1);
+        if (reg === undefined) return null;
+        const originals = reg.sessions.get(session);
+        if (originals === undefined) return null;
+        const lens = originals[index] ?? null;
+        if (lens === null) return null;
+        return { cacheId: p.cacheId, reg, session, index, originals, lens };
     }
 
     /** Upstream `CodeLensAdapter.resolveCodeLens`. What it answers replaces the original: the command runs from there. */
     rpc.handleRequest("languages.resolveCodeLens", async (params, cancellation): Promise<IWireCodeLens | null> => {
-        const p: Partial<IWireCodeLensAddress> = params;
-        const lens = findCodeLens(p);
-        const reg = codeLensProviders.get(p.handle ?? -1);
-        if (lens === null || reg === undefined || p.cacheId === undefined) return null;
-        const [session, index] = p.cacheId;
+        const found = findCodeLens(params);
+        if (found === null) return null;
+        const { cacheId, reg, session, index, originals, lens } = found;
         let resolved: vscode.CodeLens = lens;
-        if (typeof reg.provider.resolveCodeLens === "function" && (lens.command ?? null) === null) {
+        if ((lens.command ?? null) === null) {
             try {
                 const answer = await callWithVscodeToken(cancellation, (token) =>
                     reg.provider.resolveCodeLens?.(lens, token),
@@ -721,9 +728,8 @@ export function createLanguagesNamespace(
                 return null;
             }
         }
-        const originals = reg.sessions.get(session);
         // Cancelled, or released while the provider was thinking.
-        if (cancellation.isCancellationRequested || originals === undefined) return null;
+        if (cancellation.isCancellationRequested || !reg.sessions.has(session)) return null;
         const command = serializeCodeLensCommand(resolved.command);
         if (command === null) {
             console.error(`[ext-host] ${ownerTag(reg.owner)}INVALID code lens resolved, lacks command`);
@@ -732,7 +738,7 @@ export function createLanguagesNamespace(
         const range = rangeFrom(lens.range);
         if (range === null) return null;
         originals[index] = resolved;
-        return { cacheId: p.cacheId, range, command };
+        return { cacheId, range, command };
     });
 
     rpc.handleNotification("languages.releaseCodeLenses", (params) => {
@@ -745,7 +751,7 @@ export function createLanguagesNamespace(
      * was just replaced) has nothing to run. A failure of the command rejects: the host shows it.
      */
     rpc.handleRequest("languages.executeCodeLensCommand", async (params): Promise<undefined> => {
-        const command = findCodeLens(params)?.command ?? null;
+        const command = findCodeLens(params)?.lens.command ?? null;
         if (command === null) return undefined;
         const id = command.command;
         if (!(await codeActionDeps.hasCommand(id))) throw new Error(`command '${id}' not found`);

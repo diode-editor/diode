@@ -345,6 +345,52 @@ describe("languages.resolveCodeLens", () => {
         expect(error).toHaveBeenCalledWith("[ext-host] [pub.ext] INVALID code lens resolved, lacks command");
     });
 
+    it("the range taken away by the resolve: null", async () => {
+        const { stub, languages } = makeCtx();
+        languages.registerCodeLensProvider(
+            "typescript",
+            provider(
+                () => [lens()],
+                (item) => {
+                    item.command = { command: "run", title: "Run" };
+                    (item as { range?: unknown }).range = undefined;
+                    return item;
+                },
+            ),
+        );
+        const { lenses } = await provideList(stub);
+        expect(await stub.callRequest("languages.resolveCodeLens", address(lenses[0].cacheId))).toBeNull();
+    });
+
+    it("the provider's own array is left alone when the resolve answers a new object", async () => {
+        const { stub, languages } = makeCtx();
+        const original = lens();
+        const answer = [original];
+        languages.registerCodeLensProvider(
+            "typescript",
+            provider(
+                () => answer,
+                () => lens({ command: "run", title: "Run" }),
+            ),
+        );
+        const { lenses } = await provideList(stub);
+        await stub.callRequest("languages.resolveCodeLens", address(lenses[0].cacheId));
+        expect(answer[0]).toBe(original);
+    });
+
+    it("the slot of a dropped lens holds nothing to resolve or run", async () => {
+        vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        const { stub, languages, execute } = makeCtx();
+        languages.registerCodeLensProvider(
+            "typescript",
+            provider(() => [null, lens({ command: "run", title: "Run" })]),
+        );
+        const { cacheId } = await provideList(stub);
+        expect(await stub.callRequest("languages.resolveCodeLens", address([cacheId, 0]))).toBeNull();
+        await stub.callRequest("languages.executeCodeLensCommand", address([cacheId, 0]));
+        expect(execute).not.toHaveBeenCalled();
+    });
+
     it("a provider that cannot resolve: a lens without a command is the same error", async () => {
         const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
         const { stub, languages } = makeCtx();
@@ -354,7 +400,7 @@ describe("languages.resolveCodeLens", () => {
         );
         const { lenses } = await provideList(stub);
         expect(await stub.callRequest("languages.resolveCodeLens", address(lenses[0].cacheId))).toBeNull();
-        expect(error).toHaveBeenCalledOnce();
+        expect(error.mock.calls).toEqual([["[ext-host] INVALID code lens resolved, lacks command"]]);
     });
 
     it("a throwing resolve: null, logged with the extension", async () => {
@@ -566,5 +612,87 @@ describe("languages.executeCodeLensCommand", () => {
         await stub.callRequest("languages.executeCodeLensCommand", address([cacheId, 0], 9));
         await stub.callRequest("languages.executeCodeLensCommand", {});
         expect(execute).not.toHaveBeenCalled();
+    });
+});
+
+describe("code lens — the address picks its provider", () => {
+    const document = { uri: URI, languageId: "typescript", version: 1 };
+
+    /** The second provider has handle 1: a lost handle must not fall on it, nor a lost session id on session 1. */
+    async function twoProviders(): Promise<{
+        context: IContext;
+        list: IWireList;
+    }> {
+        const context = makeCtx();
+        context.languages.registerCodeLensProvider(
+            "typescript",
+            provider(() => []),
+        );
+        context.languages.registerCodeLensProvider(
+            "typescript",
+            provider(() => [lens({ command: "second", title: "Second" })]),
+        );
+        const list = (await context.stub.callRequest("languages.provideCodeLenses", {
+            handle: 1,
+            ...document,
+        })) as IWireList;
+        return { context, list };
+    }
+
+    it("each message reaches the provider of its handle", async () => {
+        const { context, list } = await twoProviders();
+        const { stub, execute } = context;
+        expect(list.cacheId).toBe(1);
+        const { cacheId } = list.lenses[0];
+        expect(await stub.callRequest("languages.resolveCodeLens", address(cacheId, 1))).toMatchObject({
+            command: { id: "second" },
+        });
+        await stub.callRequest("languages.executeCodeLensCommand", address(cacheId, 1));
+        expect(execute).toHaveBeenCalledWith("second");
+
+        stub.fire("languages.releaseCodeLenses", { handle: 1, cacheId: list.cacheId });
+        expect(await stub.callRequest("languages.resolveCodeLens", address(cacheId, 1))).toBeNull();
+    });
+
+    it("a message without a handle reaches nobody", async () => {
+        const { context, list } = await twoProviders();
+        const { stub, execute } = context;
+        const { cacheId } = list.lenses[0];
+        expect(await stub.callRequest("languages.provideCodeLenses", document)).toBeNull();
+        expect(await stub.callRequest("languages.resolveCodeLens", { cacheId })).toBeNull();
+        await stub.callRequest("languages.executeCodeLensCommand", { cacheId });
+        expect(execute).not.toHaveBeenCalled();
+    });
+
+    it("a release without a handle or a session frees nothing", async () => {
+        const { context, list } = await twoProviders();
+        const { stub } = context;
+        const { cacheId } = list.lenses[0];
+        stub.fire("languages.releaseCodeLenses", { cacheId: list.cacheId });
+        stub.fire("languages.releaseCodeLenses", { handle: 1 });
+        expect(await stub.callRequest("languages.resolveCodeLens", address(cacheId, 1))).not.toBeNull();
+    });
+
+    it("without the commands bridge a lens command is not found", async () => {
+        const stub = makeStubRpc();
+        const registry = new DocumentRegistry();
+        const documentSync = new DocumentSyncTracker(registry, () => undefined);
+        const { languages } = createLanguagesNamespace({
+            rpc: stub.rpc,
+            registry,
+            documentSync,
+            configStore: new WorkspaceConfigStore(),
+            disk: createNodeExtHostDisk(),
+            owner: new ExtensionOwner(),
+        });
+        documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: "a\n" });
+        languages.registerCodeLensProvider(
+            "typescript",
+            provider(() => [lens({ command: "run", title: "Run" })]),
+        );
+        const { lenses } = await provideList(stub);
+        await expect(stub.callRequest("languages.executeCodeLensCommand", address(lenses[0].cacheId))).rejects.toThrow(
+            "command 'run' not found",
+        );
     });
 });

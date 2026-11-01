@@ -25,13 +25,13 @@ export async function runCodeLensCommand(
     const fail = (message: string): void => {
         notifications?.show({ severity: "error", message, modal: false, items: [] });
     };
-    const { run } = command;
-    if (run === undefined && commands?.has(command.id) !== true) {
+    const known = commands?.has(command.id) === true ? commands : null;
+    if (command.run === undefined && known === null) {
         fail(`command '${command.id}' not found`);
         return;
     }
     try {
-        await (run === undefined ? commands?.execute(command.id, ...(command.arguments ?? [])) : run());
+        await (command.run?.() ?? known?.execute(command.id, ...(command.arguments ?? [])));
     } catch (error) {
         const message = failureMessage(error);
         if (message !== null) fail(message);

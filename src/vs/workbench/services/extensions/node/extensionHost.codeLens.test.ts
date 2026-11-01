@@ -159,6 +159,20 @@ describe("ExtensionHost — code lens providers (subprocess)", () => {
         }
     });
 
+    it("a new answer releases the old one: its lens has nothing to run any more", async () => {
+        const { harness, editor, frame } = await open(SOURCE);
+        try {
+            await waitUntil("the row", () => frame().includes(ROW));
+            const [, oldRun] = await editor.getCodeLensPicksAtLine(0);
+            await harness.commandRegistry.execute("providesCodeLens.refresh");
+            await waitUntil("the new row", () => frame().includes("3 references | Run"));
+            await oldRun.command.run?.();
+            expect(await harness.commandRegistry.execute("providesCodeLens.runs")).toEqual([]);
+        } finally {
+            await harness.dispose();
+        }
+    });
+
     it("an edit moves the row with the text, the lens of the new answer still runs", async () => {
         const { harness, editor, frame } = await open(SOURCE);
         try {
