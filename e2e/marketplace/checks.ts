@@ -586,13 +586,25 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 waitUntil(
                     () => readFileSync(file, "utf8"),
                     (text) => text === expected,
-                    { describe: `indent.py holding ${JSON.stringify(expected)}`, timeoutMs: 20_000, intervalMs: 100 },
+                    {
+                        describe: `indent.py holding ${JSON.stringify(expected)}`,
+                        timeoutMs: 20_000,
+                        intervalMs: 100,
+                        diagnose: () => `on disk: ${JSON.stringify(readFileSync(file, "utf8"))}`,
+                    },
                 ).then(() => undefined);
+            // Key by key: `sendText` is a paste, and a paste does not auto-close the bracket.
+            const typeKeys = async (text: string): Promise<void> => {
+                for (const char of text) await app.session.sendKey(char === " " ? "Space" : char);
+            };
+            // The command runs in the extension host: the next key must not overtake its edit.
+            const waitForCaret = (position: string): Promise<unknown> =>
+                app.session.waitForText((text) => text.includes(position), { timeoutMs: 20_000 });
             try {
                 await app.session.waitForReady();
-                await app.session.sendText("def f(x):");
+                await typeKeys("def f(x):");
                 await app.session.key("Enter");
-                await app.session.sendText("y");
+                await typeKeys("y");
                 // The second row of the frame, with the indent guide in the first column of the indent.
                 await app.session.waitForText((text) => /\b2\s+\S\s{3}y\s*$/m.test(text) && text.includes("Ln 2, Col 6"), {
                     timeoutMs: 20_000,
@@ -601,9 +613,13 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await waitForFile("def f(x):\n    y\n");
 
                 await app.session.key("Enter");
-                await app.session.sendText("foo(");
+                await waitForCaret("Ln 3, Col 5");
+                await typeKeys("foo(");
+                await waitForCaret("Ln 3, Col 9");
                 await app.session.key("Enter");
-                await app.session.sendText("z");
+                await waitForCaret("Ln 4, Col 9");
+                await typeKeys("z");
+                await waitForCaret("Ln 4, Col 10");
                 await app.session.key("Ctrl+S");
                 await waitForFile("def f(x):\n    y\n    foo(\n        z\n    )\n");
             } finally {

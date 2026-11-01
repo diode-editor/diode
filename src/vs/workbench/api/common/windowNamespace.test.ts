@@ -864,6 +864,10 @@ describe("WindowNamespace — editor write (#194)", () => {
             void editor.insertSnippet(snippet("x\n    y"), new Position(0, 0));
             expect(sent(stub).edits).toEqual([edit(0, 0, 0, 0, "x\n    y")]);
 
+            const defaulted = editorWithText("abcd");
+            void defaulted.editor.insertSnippet(snippet("x\n\ty"), new Position(0, 0));
+            expect(sent(defaulted.stub).edits).toEqual([edit(0, 0, 0, 0, "x\n    y")]);
+
             const tabs = editorWithText("abcd");
             tabs.editor.options = { tabSize: 2, insertSpaces: false };
             void tabs.editor.insertSnippet(snippet("x\n    y"), new Position(0, 0));

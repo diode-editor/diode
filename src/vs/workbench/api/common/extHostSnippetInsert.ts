@@ -86,6 +86,7 @@ export function resolveSnippet(
     indentation: ISnippetIndentation | null,
 ): IResolvedSnippet {
     const segments = parseSnippetSegments(template);
+    // Stryker disable next-line ConditionalExpression: equivalent, `undefined > 0` is false as well
     const positive = segments.flatMap(({ tabStop }) => (tabStop !== undefined && tabStop > 0 ? [tabStop] : []));
     // The caret goes to the first stop; `$0` is the last one, and without any stops the end of the text is.
     const target = positive.length > 0 ? Math.min(...positive) : 0;
@@ -152,6 +153,7 @@ export function buildSnippetEdits(
     const edits: IWireEditorEdit[] = [];
     const selectionsAfter: IWireSelection[] = [];
     let lineDelta = 0;
+    // Stryker disable next-line UnaryOperator: equivalent, `characterDelta` is 0 until `shiftedLine` is assigned
     let shiftedLine = -1;
     let characterDelta = 0;
     for (const range of sorted) {
