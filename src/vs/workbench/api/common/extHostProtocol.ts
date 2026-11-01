@@ -51,6 +51,10 @@ import type {
     IWireCloseGroupsParams,
     IWireCloseTabsParams,
     IWireCodeActionParams,
+    IWireCodeLens,
+    IWireCodeLensAddress,
+    IWireCodeLensList,
+    IWireCodeLensParams,
     IWireColorTheme,
     IWireCommandId,
     IWireCompletionParams,
@@ -120,6 +124,7 @@ import type {
     IWireReadFileResult,
     IWireReferenceParams,
     IWireRegisterCommandParams,
+    IWireReleaseCodeLenses,
     IWireReleaseSemanticTokens,
     IWireRenameParams,
     IWireRevealRange,
@@ -221,6 +226,9 @@ export interface IHostToSubprocess {
         ];
         readonly "languages.provideDocumentColors": readonly [IWireDocumentColorParams, IColorInformation[] | null];
         readonly "languages.provideInlayHints": readonly [IWireInlayHintsParams, IWireInlayHint[] | null];
+        readonly "languages.provideCodeLenses": readonly [IWireCodeLensParams, IWireCodeLensList | null];
+        readonly "languages.resolveCodeLens": readonly [IWireCodeLensAddress, IWireCodeLens | null];
+        readonly "languages.executeCodeLensCommand": readonly [IWireCodeLensAddress, undefined];
 
         readonly "workspace.fs.readFile": readonly [IWireUriParams, IWireReadFileResult];
         readonly "workspace.fs.stat": readonly [IWireUriParams, IWireFileStat | null];
@@ -250,6 +258,7 @@ export interface IHostToSubprocess {
     };
     readonly notifications: {
         readonly "languages.releaseDocumentSemanticTokens": IWireReleaseSemanticTokens;
+        readonly "languages.releaseCodeLenses": IWireReleaseCodeLenses;
         /** Other owners' MarkerService markers: a mirror for `languages.getDiagnostics`. */
         readonly "diagnostics.markersChanged": IWireMarkersChanged;
 
@@ -365,6 +374,7 @@ export interface ISubprocessToHost {
         readonly "languages.unregister": IWireLanguageProviderUnregistration;
         readonly "languages.didChangeSemanticTokens": IWireProviderHandle;
         readonly "languages.didChangeInlayHints": IWireProviderHandle;
+        readonly "languages.didChangeCodeLenses": IWireProviderHandle;
         /** Removed by the same `handle`. */
         readonly "languages.setLanguageConfiguration": IWireLanguageConfiguration;
         readonly "languages.unsetLanguageConfiguration": IWireProviderHandle;

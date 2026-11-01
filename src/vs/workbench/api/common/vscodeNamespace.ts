@@ -242,6 +242,8 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     const { languages, executeProviders } = createLanguagesNamespace(ctx, {
         applyEdit: (edit, metadata) => workspace.applyEdit(edit, metadata),
         executeCommand: (command, ...args) => commands.executeCommand(command, ...args),
+        // API commands are not declared to the host, the extension's own are.
+        hasCommand: async (command) => apiCommands.has(command) || (await commands.getCommands()).includes(command),
     });
 
     // The `env.initialize` seed arrives before the first activation; there are no terminal profiles, so `onDidChangeShell` never fires.

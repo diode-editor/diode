@@ -5,16 +5,23 @@ import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
 import { CancellationTokenNone } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
+import type { CodeLens, ICodeLensRequest } from "../../../editor/common/languages/iCodeLensSource.ts";
 import type { IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
 import type { IInlayHintsRequest, InlayHint } from "../../../editor/common/languages/iInlayHintsSource.ts";
 import type { ITextDocument } from "../../../editor/common/model/iTextDocument.ts";
 import { LanguageFeaturesService } from "../../../editor/common/services/languageFeaturesService.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
-import type { IWireLanguageProviderRegistration } from "../common/wireTypes.ts";
+import type {
+    IWireCodeLens,
+    IWireCodeLensList,
+    IWireLanguageProviderRegistration,
+    WireCodeLensCacheId,
+} from "../common/wireTypes.ts";
 
 import { LanguageFeaturesAdapter } from "./languageFeaturesAdapter.ts";
 
 const TS = { uri: Uri.file("/w/a.ts"), languageId: "typescript" };
+const LENS_RANGE = createRange(1, 0, 1, 3);
 const MD = { uri: Uri.file("/w/b.md"), languageId: "markdown" };
 const REQUEST: IHoverRequest = {
     uri: TS.uri.toString(),
@@ -29,11 +36,13 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
     fire(): void;
     fireSemanticTokens(handle: number): void;
     fireInlayHints(handle: number): void;
+    fireCodeLenses(handle: number): void;
     listeners: number;
 } {
     const listeners: (() => void)[] = [];
     const semanticListeners: ((handle: number) => void)[] = [];
     const inlayHintListeners: ((handle: number) => void)[] = [];
+    const codeLensListeners: ((handle: number) => void)[] = [];
     const bridge = {
         providers: [] as IWireLanguageProviderRegistration[],
         getLanguageProviders: () => bridge.providers,
@@ -128,6 +137,49 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         },
         fireInlayHints: (handle: number) => {
             for (const cb of [...inlayHintListeners]) cb(handle);
+        },
+        provideCodeLenses: vi.fn(
+            (
+                handle: number,
+                _request: ICodeLensRequest,
+                _token?: ICancellationToken,
+            ): Promise<IWireCodeLensList | null> =>
+                Promise.resolve(
+                    handle === 0
+                        ? null
+                        : {
+                              cacheId: 40,
+                              lenses: [
+                                  { cacheId: [40, 0], range: LENS_RANGE, command: { id: "run", title: "Run" } },
+                                  { cacheId: [40, 1], range: LENS_RANGE },
+                              ],
+                          },
+                ),
+        ),
+        resolveCodeLens: vi.fn(
+            (
+                _handle: number,
+                cacheId: WireCodeLensCacheId,
+                _token?: ICancellationToken,
+            ): Promise<IWireCodeLens | null> =>
+                Promise.resolve(
+                    cacheId[1] === 9 ? null : { cacheId, range: LENS_RANGE, command: { id: "late", title: "Late" } },
+                ),
+        ),
+        releaseCodeLenses: vi.fn((_handle: number, _cacheId: number): void => undefined),
+        executeCodeLensCommand: vi.fn(
+            (_handle: number, _cacheId: WireCodeLensCacheId): Promise<void> => Promise.resolve(),
+        ),
+        onDidChangeCodeLenses: (cb: (handle: number) => void) => {
+            codeLensListeners.push(cb);
+            return {
+                dispose: () => {
+                    codeLensListeners.splice(codeLensListeners.indexOf(cb), 1);
+                },
+            };
+        },
+        fireCodeLenses: (handle: number) => {
+            for (const cb of [...codeLensListeners]) cb(handle);
         },
         fire: () => {
             for (const cb of [...listeners]) cb();
@@ -357,6 +409,115 @@ describe("LanguageFeaturesAdapter", () => {
 
         const [silent] = features.inlayHintsProvider.ordered({ ...TS, languageId: "python" });
         expect(silent.onDidChangeInlayHints).toBeUndefined();
+    });
+
+    it("codeLens: the document and token go to the bridge of its handle, the lenses come with the address, nothing to run on their own", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "codeLens", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.codeLensProvider.ordered(TS);
+        const model = { ...TS, document: { versionId: 3 } as ITextDocument };
+        const token = new CancellationTokenSource().token;
+        const list = await provider.provideCodeLenses(model, token);
+
+        expect(bridge.provideCodeLenses).toHaveBeenCalledWith(
+            5,
+            { uri: TS.uri.toString(), languageId: TS.languageId, versionId: 3 },
+            token,
+        );
+        expect(list?.lenses).toEqual([
+            {
+                cacheId: [40, 0],
+                range: LENS_RANGE,
+                command: { id: "run", title: "Run", run: expect.any(Function) as () => Promise<void> },
+            },
+            { cacheId: [40, 1], range: LENS_RANGE },
+        ]);
+    });
+
+    it("codeLens: no answer from the bridge is no list", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 0, kind: "codeLens", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const [provider] = features.codeLensProvider.ordered(TS);
+        const model = { ...TS, document: { versionId: 3 } as ITextDocument };
+        expect(await provider.provideCodeLenses(model, CancellationTokenNone)).toBeNull();
+        expect(bridge.releaseCodeLenses).not.toHaveBeenCalled();
+    });
+
+    it("codeLens: disposing the list releases its session, the command runs by the address of the lens", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "codeLens", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const [provider] = features.codeLensProvider.ordered(TS);
+        const model = { ...TS, document: { versionId: 3 } as ITextDocument };
+        const list = await provider.provideCodeLenses(model, CancellationTokenNone);
+
+        await list?.lenses[0].command?.run?.();
+        expect(bridge.executeCodeLensCommand).toHaveBeenCalledWith(5, [40, 0]);
+
+        expect(bridge.releaseCodeLenses).not.toHaveBeenCalled();
+        list?.dispose();
+        expect(bridge.releaseCodeLenses).toHaveBeenCalledWith(5, 40);
+    });
+
+    it("codeLens: a resolve goes by the address of the lens, its command runs by the same address", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "codeLens", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const [provider] = features.codeLensProvider.ordered(TS);
+        const model = { ...TS, document: { versionId: 3 } as ITextDocument };
+        const list = await provider.provideCodeLenses(model, CancellationTokenNone);
+        const token = new CancellationTokenSource().token;
+        const lens = list?.lenses[1];
+        if (lens === undefined) throw new Error("no lens");
+
+        const resolved = await provider.resolveCodeLens?.(model, lens, token);
+
+        expect(bridge.resolveCodeLens).toHaveBeenCalledWith(5, [40, 1], token);
+        expect(resolved?.command?.title).toBe("Late");
+        await resolved?.command?.run?.();
+        expect(bridge.executeCodeLensCommand).toHaveBeenCalledWith(5, [40, 1]);
+    });
+
+    it("codeLens: a failed resolve is null", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "codeLens", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        const [provider] = features.codeLensProvider.ordered(TS);
+        const model = { ...TS, document: { versionId: 3 } as ITextDocument };
+        const lens = { range: LENS_RANGE, cacheId: [40, 9] } as CodeLens;
+        expect(await provider.resolveCodeLens?.(model, lens, CancellationTokenNone)).toBeNull();
+    });
+
+    it("codeLens: the change event reaches the provider of its handle; none without hasOnDidChange", () => {
+        const bridge = makeBridge();
+        bridge.providers = [
+            { handle: 1, kind: "codeLens", selector: [{ language: "typescript" }], hasOnDidChange: true },
+            { handle: 2, kind: "codeLens", selector: [{ language: "python" }] },
+        ];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.codeLensProvider.ordered(TS);
+        const listener = vi.fn();
+        const subscription = provider.onDidChange?.(listener);
+        bridge.fireCodeLenses(9);
+        expect(listener).not.toHaveBeenCalled();
+        bridge.fireCodeLenses(1);
+        expect(listener).toHaveBeenCalledOnce();
+        subscription?.dispose();
+        bridge.fireCodeLenses(1);
+        expect(listener).toHaveBeenCalledOnce();
+
+        const [silent] = features.codeLensProvider.ordered({ ...TS, languageId: "python" });
+        expect(silent.onDidChange).toBeUndefined();
     });
 
     it("signatureHelp: triggers come from registration metadata, empty without metadata", async () => {

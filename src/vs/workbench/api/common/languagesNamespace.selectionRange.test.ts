@@ -28,6 +28,7 @@ function makeCtx(): { stub: IStubRpc; languages: typeof vscode.languages } {
     const { languages } = createLanguagesNamespace(ctx, {
         applyEdit: () => Promise.resolve(true),
         executeCommand: () => Promise.resolve(undefined),
+        hasCommand: () => Promise.resolve(false),
     });
     ctx.documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: TEXT });
     return { stub, languages };

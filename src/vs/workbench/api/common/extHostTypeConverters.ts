@@ -33,6 +33,7 @@ import {
     type WorkspaceEdit,
 } from "./vscodeTypes.ts";
 import type {
+    IWireCodeLensCommand,
     IWireDocumentHighlight,
     IWireEditorEdit,
     IWireInlayHint,
@@ -643,6 +644,17 @@ export function serializeInlayHints(raw: unknown, range: IRange): IWireInlayHint
     if (!Array.isArray(raw)) return null;
     const hints = (raw as unknown[]).map((item) => inlayHintFrom(item, range)).filter((hint) => hint !== null);
     return hints.length === 0 ? null : hints;
+}
+
+/** `null` — no command to show: nothing, or no title. A command without an id is upstream's plain label. */
+export function serializeCodeLensCommand(raw: unknown): IWireCodeLensCommand | null {
+    const command = (raw ?? {}) as { command?: unknown; title?: unknown; tooltip?: unknown };
+    if (typeof command.title !== "string") return null;
+    return {
+        id: typeof command.command === "string" ? command.command : "",
+        title: command.title,
+        ...(typeof command.tooltip === "string" ? { tooltip: command.tooltip } : {}),
+    };
 }
 
 /** Edit fields are public and writable, and the host does not re-validate the will-save response. */

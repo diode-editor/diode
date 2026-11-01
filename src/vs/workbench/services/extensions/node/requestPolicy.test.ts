@@ -90,6 +90,8 @@ describe("DEFAULT_REQUEST_TIMEOUTS", () => {
             "languages.provideDocumentHighlights": 5000,
             "languages.provideDocumentColors": 5000,
             "languages.provideInlayHints": 5000,
+            "languages.provideCodeLenses": 5000,
+            "languages.resolveCodeLens": 5000,
         });
     });
 });

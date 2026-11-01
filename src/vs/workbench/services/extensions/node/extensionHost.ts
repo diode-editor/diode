@@ -13,6 +13,7 @@ import type {
     ICodeActionRequest,
     ICoreCodeAction,
 } from "../../../../editor/common/languages/iCodeActionSource.ts";
+import type { ICodeLensRequest } from "../../../../editor/common/languages/iCodeLensSource.ts";
 import type { IColorInformation, IDocumentColorRequest } from "../../../../editor/common/languages/iColorSource.ts";
 import type {
     ICompletionRequest,
@@ -104,7 +105,12 @@ import {
 import type { ILanguageStatusSink } from "../../../api/common/iLanguageStatusSink.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
 import type { IWorkspaceFoldersSink } from "../../../api/common/iWorkspaceFoldersSink.ts";
-import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
+import type {
+    IWireCodeLens,
+    IWireCodeLensList,
+    IWireLanguageProviderRegistration,
+    WireCodeLensCacheId,
+} from "../../../api/common/wireTypes.ts";
 import {
     type IWireDocumentChangedEvent,
     type IWireDocumentStateChanged,
@@ -869,6 +875,34 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
 
     public get onDidChangeInlayHints(): Event<number> {
         return this.languageFeatures.onDidChangeInlayHints;
+    }
+
+    public provideCodeLenses(
+        handle: number,
+        req: ICodeLensRequest,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLensList | null> {
+        return this.languageFeatures.provideCodeLenses(handle, req, token);
+    }
+
+    public resolveCodeLens(
+        handle: number,
+        cacheId: WireCodeLensCacheId,
+        token?: ICancellationToken,
+    ): Promise<IWireCodeLens | null> {
+        return this.languageFeatures.resolveCodeLens(handle, cacheId, token);
+    }
+
+    public releaseCodeLenses(handle: number, cacheId: number): void {
+        this.languageFeatures.releaseCodeLenses(handle, cacheId);
+    }
+
+    public executeCodeLensCommand(handle: number, cacheId: WireCodeLensCacheId): Promise<void> {
+        return this.languageFeatures.executeCodeLensCommand(handle, cacheId);
+    }
+
+    public get onDidChangeCodeLenses(): Event<number> {
+        return this.languageFeatures.onDidChangeCodeLenses;
     }
 
     public provideDocumentSemanticTokens(
