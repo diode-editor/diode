@@ -94,6 +94,9 @@ describe("LanguageFeatureContextKeys", () => {
         features.inlayHintsProvider.register({ language: "typescript" }, {} as never);
         update();
         expect(keys.evaluate("editorHasInlayHintsProvider")).toBe(true);
+        expect(keys.evaluate("editorHasCodeLensProvider")).toBe(false);
+        features.codeLensProvider.register({ language: "typescript" }, {} as never);
+        expect(keys.evaluate("editorHasCodeLensProvider")).toBe(true);
         expect(keys.evaluate("editorHasDefinitionProvider")).toBe(true);
         expect(keys.evaluate("editorHasImplementationProvider")).toBe(true);
         expect(keys.evaluate("editorHasReferenceProvider")).toBe(true);

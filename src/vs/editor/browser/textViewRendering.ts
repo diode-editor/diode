@@ -333,6 +333,8 @@ export interface IPaintPhantomTextParams {
     bg: number;
     /** Packed {@link StyleFlags}. */
     style: number;
+    /** Columns of the text cut off on the left; a wide character across the edge is not painted. */
+    scrollLeft?: number;
 }
 
 /**
@@ -340,24 +342,22 @@ export interface IPaintPhantomTextParams {
  * it is spliced into its own line as an inline insertion ({@link LineInsertions}).
  */
 export function paintPhantomText(context: RenderContext, params: IPaintPhantomTextParams): void {
-    const { displayLine, screenY, gutterW, contentCols, fg, bg, style } = params;
+    const { displayLine, screenY, gutterW, contentCols, fg, bg, style, scrollLeft = 0 } = params;
 
-    let col = 0;
+    let col = scrollLeft;
     // Cutting off past the line end is about speed: RenderContext clips to the element
     // rectangle, so boundary mutants cannot be killed.
     // Stryker disable next-line EqualityOperator: see above
     while (col < displayLine.displayWidth) {
+        const x = col - scrollLeft;
         // Stryker disable next-line ConditionalExpression,EqualityOperator: viewport clipping is about speed, setCell outside the rectangle returns silently anyway
-        if (col >= contentCols) break;
+        if (x >= contentCols) break;
         const char = displayLine.charAtColumn(col);
-        /* v8 ignore start -- defensive: col steps by slot widths from 0 and never lands on a wide character's continuation column (unlike paintTextLine, where displayCol starts at an arbitrary scrollLeft) */
-        // Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,UpdateOperator: unreachable defensive guard, see v8 ignore
+        // The continuation column of a wide character cut by the left edge.
         if (char === "") {
             col++;
             continue;
         }
-        // Stryker restore ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,UpdateOperator
-        /* v8 ignore stop */
         const slot = displayLine.graphemeAtColumn(col);
         /* v8 ignore start -- defensive: within displayWidth a slot always exists (see paintTextLine) */
         // Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,UpdateOperator: unreachable defensive guard, see v8 ignore
@@ -373,19 +373,19 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
             // Tab spaces are indistinguishable from the tail's background spaces: the fill exists for
             // fg/style that are invisible on a space; only the col step is observable, so fill mutants cannot be killed.
             // Stryker disable ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral,CallExpression: see above
-            for (let i = 0; i < width && col + i < contentCols; i++) {
-                context.setCell(gutterW + col + i, screenY, { char: " ", fg, bg, style, width: 1 });
+            for (let i = 0; i < width && x + i < contentCols; i++) {
+                context.setCell(gutterW + x + i, screenY, { char: " ", fg, bg, style, width: 1 });
             }
             // Stryker restore ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral,CallExpression
             col += width;
-        } else if (width === 2 && col + 1 >= contentCols) {
+        } else if (width === 2 && x + 1 >= contentCols) {
             // A space at the edge is indistinguishable from background (see the tab above); only
             // the fact that the wide character is NOT painted is observable.
             // Stryker disable next-line ArithmeticOperator,ObjectLiteral,StringLiteral,CallExpression: see above
-            context.setCell(gutterW + col, screenY, { char: " ", fg, bg, style, width: 1 });
+            context.setCell(gutterW + x, screenY, { char: " ", fg, bg, style, width: 1 });
             col++;
         } else {
-            context.setCell(gutterW + col, screenY, { char, fg, bg, style, width });
+            context.setCell(gutterW + x, screenY, { char, fg, bg, style, width });
             col += width;
         }
     }

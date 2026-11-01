@@ -18,6 +18,10 @@ import type { IGutterChangeDecoration } from "../../../../editor/common/model/iG
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { ICursorStateComputer } from "../../../../editor/common/viewModel/trackedSelections.ts";
+import type {
+    ICodeLensOptions,
+    ICodeLensPick,
+} from "../../../../editor/contrib/codelens/browser/codeLensController.ts";
 import type { IColorDecoratorsOptions } from "../../../../editor/contrib/colorPicker/browser/colorDetector.ts";
 import type { IInlayHintsOptions } from "../../../../editor/contrib/inlayHints/browser/inlayHintsController.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
@@ -385,6 +389,14 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public setInlayHints(options: IInlayHintsOptions): void {
         this.component.setInlayHints(options);
+    }
+
+    public setCodeLens(options: ICodeLensOptions): void {
+        this.component.setCodeLens(options);
+    }
+
+    public getCodeLensPicksAtLine(line: number): Promise<readonly ICodeLensPick[]> {
+        return this.component.getCodeLensPicksAtLine(line);
     }
 
     /**

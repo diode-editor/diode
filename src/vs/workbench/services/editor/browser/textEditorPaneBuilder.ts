@@ -13,11 +13,18 @@ import {
     type DocumentSemanticTokensFeature,
     DocumentSemanticTokensFeatureDIToken,
 } from "../../../../editor/contrib/semanticTokens/browser/documentSemanticTokens.ts";
+import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { EditorComponent, type IIndentConfiguration } from "../../../browser/parts/editor/editorComponent.ts";
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
+import {
+    type NotificationService,
+    NotificationServiceDIToken,
+} from "../../notification/browser/notificationService.ts";
 import { TextFileModel } from "../../textfile/common/textFileModel.ts";
+
+import { runCodeLensCommand } from "./codeLensCommand.ts";
 
 export const TextEditorPaneBuilderDIToken = token<TextEditorPaneBuilder>("TextEditorPaneBuilder");
 
@@ -33,6 +40,8 @@ export class TextEditorPaneBuilder {
         LanguageFeaturesServiceDIToken,
         ContextMenuControllerDIToken,
         DocumentSemanticTokensFeatureDIToken,
+        CommandRegistryDIToken,
+        NotificationServiceDIToken,
     ] as const;
 
     public constructor(
@@ -42,6 +51,8 @@ export class TextEditorPaneBuilder {
         private readonly languageFeatures: ILanguageFeaturesService,
         private readonly contextMenuController: ContextMenuController,
         private readonly semanticTokens?: DocumentSemanticTokensFeature,
+        private readonly commands?: CommandRegistry,
+        private readonly notifications?: NotificationService,
     ) {}
 
     /**
@@ -64,6 +75,12 @@ export class TextEditorPaneBuilder {
             this.languageFeatures.colorProvider,
             // Only the file editor, as ghost text: panels and virtual documents are synthetic models.
             model instanceof TextFileModel ? this.languageFeatures.inlayHintsProvider : undefined,
+            model instanceof TextFileModel
+                ? {
+                      providers: this.languageFeatures.codeLensProvider,
+                      runCommand: (command) => runCodeLensCommand(this.commands, this.notifications, command),
+                  }
+                : undefined,
         );
         const editor = new TextEditorPane(model, component, modelOwnership);
         // The editor context menu policy listens for "contextmenu" on the pair's wrapper;

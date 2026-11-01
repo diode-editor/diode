@@ -58,6 +58,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             'Code action kinds to be run on save (e.g. `{"source.fixAll": true}`). Kinds match hierarchically: `source.fixAll` also runs `source.fixAll.ruff`.',
     },
     {
+        key: "editor.codeLens",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the editor shows CodeLens.",
+    },
+    {
         key: "editor.colorDecorators",
         type: "boolean",
         default: true,

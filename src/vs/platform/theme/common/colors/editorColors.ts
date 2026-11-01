@@ -87,6 +87,10 @@ export const editorColors = {
         defaults: { dark: "#6A6A6A", light: "#888888" },
         description: "Foreground color of the ghost text in the editor.",
     },
+    "editorCodeLens.foreground": {
+        defaults: { dark: "#999999", light: "#919191" },
+        description: "Foreground color of editor CodeLens",
+    },
     "editorInlayHint.foreground": {
         defaults: { dark: "#969696", light: "#969696" },
         description: "Foreground color of inline hints",
