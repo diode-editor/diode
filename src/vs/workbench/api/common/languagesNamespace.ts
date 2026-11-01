@@ -31,6 +31,7 @@ import {
     serializeDocumentColors,
     serializeFoldingRange,
     serializeHoverContents,
+    serializeInlayHints,
     serializeInlineCompletionItem,
     serializeRenamePrepare,
     serializeSelectionRanges,
@@ -70,6 +71,8 @@ import type {
     IWireForeignMarkers,
     IWireFormattingParams,
     IWireHoverParams,
+    IWireInlayHint,
+    IWireInlayHintsParams,
     IWireInlineCompletionParams,
     IWireLanguageProviderMetadata,
     IWirePrepareRenameParams,
@@ -104,6 +107,11 @@ export interface IInlineCompletionRegistration {
 export interface IFoldingRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.FoldingRangeProvider;
+}
+
+export interface IInlayHintsRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.InlayHintsProvider;
 }
 
 export interface IDocumentSemanticTokensRegistration {
@@ -333,6 +341,7 @@ export function createLanguagesNamespace(
     const renameProviders = new Map<number, Owned<IRenameRegistration>>();
     const selectionRangeProviders = new Map<number, Owned<ISelectionRangeRegistration>>();
     const colorProviders = new Map<number, Owned<IColorRegistration>>();
+    const inlayHintsProviders = new Map<number, Owned<IInlayHintsRegistration>>();
     const semanticTokensProviders = new Map<number, Owned<IDocumentSemanticTokensRegistration>>();
     const rangeSemanticTokensProviders = new Map<number, Owned<IRangeSemanticTokensRegistration>>();
     let nextProviderHandle = 0;
@@ -579,6 +588,24 @@ export function createLanguagesNamespace(
             return serializeDocumentColors(result);
         },
     );
+
+    rpc.handleRequest("languages.provideInlayHints", async (params, cancellation): Promise<IWireInlayHint[] | null> => {
+        const p: Received<IWireInlayHintsParams, "range"> = params;
+        // The provider may have been removed while the request was in flight: "no hints".
+        const reg = inlayHintsProviders.get(p.handle ?? -1);
+        if (reg === undefined) return null;
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return null;
+        let result: unknown;
+        try {
+            result = await callWithVscodeToken(cancellation, (token) =>
+                reg.provider.provideInlayHints(doc, toVscodeRange(p.range), token),
+            );
+        } catch (err) {
+            reportProviderFailure("provideInlayHints", err, reg.owner);
+        }
+        return serializeInlayHints(result, p.range);
+    });
 
     rpc.handleRequest(
         "languages.provideSignatureHelp",
@@ -1308,7 +1335,24 @@ export function createLanguagesNamespace(
                 provider.onDidChangeSemanticTokens,
                 legend,
             ),
-        registerInlayHintsProvider: registerNoopProvider,
+        registerInlayHintsProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.InlayHintsProvider,
+        ): vscode.Disposable => {
+            const onDidChange = provider.onDidChangeInlayHints;
+            return registerByHandle(
+                inlayHintsProviders,
+                "inlayHints",
+                selector,
+                { selector, provider },
+                typeof onDidChange === "function" ? { hasOnDidChange: true } : {},
+                undefined,
+                (handle) =>
+                    onDidChange?.(() => {
+                        rpc.notify("languages.didChangeInlayHints", { handle });
+                    }),
+            );
+        },
         registerInlineValuesProvider: registerNoopProvider,
         registerInlineCompletionItemProvider: (
             selector: vscode.DocumentSelector,

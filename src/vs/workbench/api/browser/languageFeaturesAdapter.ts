@@ -127,6 +127,21 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.languageFeatures.colorProvider.register(selector, {
                 provideDocumentColors: (request, token) => this.bridge.provideDocumentColors(handle, request, token),
             }),
+        // The hints die with their answer: there is no resolve cache in the subprocess to release.
+        inlayHints: ({ handle, selector, hasOnDidChange }) =>
+            this.languageFeatures.inlayHintsProvider.register(selector, {
+                ...(hasOnDidChange === true ? { onDidChangeInlayHints: this.inlayHintsChangeEvent(handle) } : {}),
+                provideInlayHints: async (model, range, token) => {
+                    const request = {
+                        uri: model.uri.toString(),
+                        languageId: model.languageId,
+                        versionId: model.document.versionId,
+                        range,
+                    };
+                    const hints = await this.bridge.provideInlayHints(handle, request, token);
+                    return hints === null ? null : { hints, dispose: () => undefined };
+                },
+            }),
         // Upstream `MainThreadDocumentSemanticTokensProvider`: the result id is a
         // string in the core and a number on the wire; "no previous" is 0.
         semanticTokens: ({ handle, selector, legend = EMPTY_LEGEND, hasOnDidChange }) =>
@@ -158,6 +173,13 @@ export class LanguageFeaturesAdapter extends Disposable {
     private semanticTokensChangeEvent(handle: number): Event<void> {
         return (listener) =>
             this.bridge.onDidChangeSemanticTokens((changed) => {
+                if (changed === handle) listener();
+            });
+    }
+
+    private inlayHintsChangeEvent(handle: number): Event<void> {
+        return (listener) =>
+            this.bridge.onDidChangeInlayHints((changed) => {
                 if (changed === handle) listener();
             });
     }
