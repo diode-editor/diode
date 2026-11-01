@@ -97,6 +97,7 @@ describe("CallHierarchyTreeProvider", () => {
             label: "run",
             description: "src/a.ts",
             collapsible: true,
+            openable: true,
             icon: NERD_FONT_ICONS.glyph(codicon("symbol-method")),
         });
     });
@@ -109,6 +110,7 @@ describe("CallHierarchyTreeProvider", () => {
         expect(provider.getTreeItem({ item: { ...item(1, "x"), kind: 99 } })).toStrictEqual({
             label: "x",
             collapsible: true,
+            openable: true,
         });
     });
 

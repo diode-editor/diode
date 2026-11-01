@@ -8,6 +8,7 @@ import type {
     ICallHierarchyItem,
 } from "../../../../editor/common/languages/iCallHierarchySource.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
@@ -26,7 +27,7 @@ function item(itemId: number, name: string): ICallHierarchyItem {
 const ROOT = item(1, "root");
 const CALLER = item(2, "caller");
 
-async function setup() {
+async function setup(openMode = "singleClick") {
     const provider: CallHierarchyProvider = {
         prepareCallHierarchy: () => Promise.resolve({ sessionId: 40, items: [ROOT] }),
         provideIncomingCalls: (_session: number, itemId: number) =>
@@ -67,6 +68,7 @@ async function setup() {
         views.contextKeys,
         { show: () => undefined } as unknown as NotificationService,
         NERD_FONT_ICONS,
+        { get: () => openMode } as unknown as IConfigurationService,
     );
     await component.show();
     const app = TestApp.createWithContent(views.root(REFERENCES_VIEWLET_ID), new Size(50, 10));
@@ -101,7 +103,7 @@ async function setup() {
         app.render();
     };
     const selected = (): string | undefined => component.tree.getSelectedNode()?.item.name;
-    return { locate, click, selected, opened, positions };
+    return { locate, click, selected, opened, positions, tree: component.tree };
 }
 
 // Upstream's row carries a command (`calls/model.ts`, `getTreeItem`), so a click opens it though the row is expandable.
@@ -129,6 +131,28 @@ describe("CallHierarchyComponent — the mouse", () => {
             expect(opened).toContain("file:///a.ts");
         });
         expect(positions.at(-1)).toEqual([7, 3]);
+    });
+
+    it("a single click keeps the focus on the tree; a double click and Enter move it", async () => {
+        const { tree } = await setup();
+        const focus = vi.spyOn(tree, "focus");
+        const node = tree.getSelectedNode();
+        if (node === null) throw new Error("no selection");
+
+        tree.onActivate?.(node, { pinned: true, preserveFocus: false });
+        expect(focus).not.toHaveBeenCalled();
+        tree.onActivate?.(node, { pinned: false, preserveFocus: true });
+        expect(focus).toHaveBeenCalledOnce();
+    });
+
+    it("workbench.list.openMode: doubleClick: a click only selects", async () => {
+        const { locate, click, opened } = await setup("doubleClick");
+        const { x, y } = await locate("caller");
+
+        click(x, y);
+        await vi.waitFor(() => {
+            expect(opened).toEqual([]);
+        });
     });
 
     // The gesture reaches the tree: the two tests above fail on the missing jump, not on a missed click.

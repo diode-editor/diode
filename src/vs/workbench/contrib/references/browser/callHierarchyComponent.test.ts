@@ -10,6 +10,7 @@ import type {
 } from "../../../../editor/common/languages/iCallHierarchySource.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
@@ -22,6 +23,8 @@ import type { NotificationService } from "../../../services/notification/browser
 
 import { CALL_HIERARCHY_VIEW_ID, CallHierarchyComponent } from "./callHierarchyComponent.ts";
 import { REFERENCES_VIEW_ID, REFERENCES_VIEWLET_ID, ReferencesComponent } from "./referencesComponent.ts";
+
+const CONFIGURATION = { get: () => undefined } as unknown as IConfigurationService;
 
 function item(itemId: number, name: string, line = itemId): ICallHierarchyItem {
     const range = createRange(line, 0, line, name.length);
@@ -95,6 +98,7 @@ function setup(provider: CallHierarchyProvider = makeProvider(), stored = new Ma
         views.contextKeys,
         notifications,
         NERD_FONT_ICONS,
+        CONFIGURATION,
     );
     const frame = (): string =>
         renderElement(views.root(REFERENCES_VIEWLET_ID), 50, 10, { themeVars: true }).screenToString();

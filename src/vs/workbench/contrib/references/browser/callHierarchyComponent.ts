@@ -10,6 +10,8 @@ import type {
 } from "../../../../editor/common/languages/iCallHierarchySource.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -69,6 +71,7 @@ export class CallHierarchyComponent extends Disposable {
         ContextKeyServiceDIToken,
         NotificationServiceDIToken,
         ProductIconServiceDIToken,
+        IConfigurationServiceDIToken,
     ] as const;
 
     private readonly latest = new LatestRequest();
@@ -92,16 +95,22 @@ export class CallHierarchyComponent extends Disposable {
         private readonly contextKeys: ContextKeyService,
         private readonly notifications: NotificationService,
         icons: IProductIconService,
+        configuration: IConfigurationService,
     ) {
         super();
         this.direction = state.get(CALL_HIERARCHY_MODE_STATE);
         contextKeys.set("callHierarchyMode", this.direction);
 
         this.provider = new CallHierarchyTreeProvider(icons);
-        this.tree = new TreeViewElement(this.provider, { leftPadding: 1 });
+        this.tree = new TreeViewElement(this.provider, {
+            leftPadding: 1,
+            openOnSingleClick: () => configuration.get("workbench.list.openMode") !== "doubleClick",
+        });
         this.tree.id = "callHierarchyTree";
-        this.tree.onActivate = (node) => {
+        this.tree.onActivate = (node, options) => {
             this.activate(node);
+            // A single click previews the location: the keyboard stays on the tree, as in Explorer.
+            if (options.preserveFocus) this.tree.focus();
         };
         const scrollBars = new ScrollBarDecorator(this.tree);
         this.root = new HeaderBodyViewElement(this.message, scrollBars);

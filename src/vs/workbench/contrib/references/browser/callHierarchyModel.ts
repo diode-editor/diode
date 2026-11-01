@@ -140,6 +140,8 @@ export class CallHierarchyTreeProvider implements ITreeDataProvider<ICallNode> {
         return {
             label: tags?.includes(SYMBOL_TAG_DEPRECATED) === true ? `${name} (deprecated)` : name,
             collapsible: true,
+            // Upstream's row carries a command: the mouse opens it, the chevron only expands.
+            openable: true,
             ...(detail === undefined ? {} : { description: detail }),
             ...(icon === undefined ? {} : { icon: this.icons.glyph(codicon(icon)) }),
         };
