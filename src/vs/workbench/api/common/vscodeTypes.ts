@@ -1099,13 +1099,13 @@ export class SymbolInformation {
 }
 
 export class DocumentSymbol {
-    public static validate(this: void, candidate: DocumentSymbol): void {
-        if (!candidate.name) throw new Error("name must not be falsy");
-        if (!candidate.range.contains(candidate.selectionRange)) {
+    public static validate(symbol: DocumentSymbol): void {
+        if (!symbol.name) throw new Error("name must not be falsy");
+        if (!symbol.range.contains(symbol.selectionRange)) {
             throw new Error("selectionRange must be contained in fullRange");
         }
         // The types promise an array, but a JS extension may have overwritten it.
-        (candidate.children as DocumentSymbol[] | undefined)?.forEach(DocumentSymbol.validate);
+        for (const c of (symbol.children as DocumentSymbol[] | undefined) ?? []) DocumentSymbol.validate(c);
     }
 
     declare public tags?: SymbolTag[];
