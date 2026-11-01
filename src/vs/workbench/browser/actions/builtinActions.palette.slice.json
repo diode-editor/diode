@@ -169,6 +169,8 @@
     "editor.action.revealDeclaration",
     "editor.action.showHover",
     "editor.action.hideHover",
+    "editor.action.linkedEditing",
+    "cancelLinkedEditingInput",
     "editor.action.triggerParameterHints",
     "closeParameterHints",
     "showNextParameterHint",

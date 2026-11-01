@@ -19,6 +19,7 @@ import type {
 import type { HoverProvider } from "../languages/iHoverSource.ts";
 import type { InlayHintsProvider } from "../languages/iInlayHintsSource.ts";
 import type { InlineCompletionsProvider } from "../languages/iInlineCompletionSource.ts";
+import type { LinkedEditingRangeProvider } from "../languages/iLinkedEditingSource.ts";
 import type { ReferenceProvider } from "../languages/iReferenceSource.ts";
 import type { RenameProvider } from "../languages/iRenameSource.ts";
 import type { SelectionRangeProvider } from "../languages/iSelectionRangeSource.ts";
@@ -48,6 +49,7 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
     public readonly inlineCompletionsProvider = new LanguageFeatureRegistry<InlineCompletionsProvider>();
     public readonly selectionRangeProvider = new LanguageFeatureRegistry<SelectionRangeProvider>();
     public readonly documentHighlightProvider = new LanguageFeatureRegistry<DocumentHighlightProvider>();
+    public readonly linkedEditingRangeProvider = new LanguageFeatureRegistry<LinkedEditingRangeProvider>();
     public readonly documentSemanticTokensProvider = new LanguageFeatureRegistry<DocumentSemanticTokensProvider>();
     public readonly documentRangeSemanticTokensProvider =
         new LanguageFeatureRegistry<DocumentRangeSemanticTokensProvider>();

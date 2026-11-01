@@ -446,6 +446,13 @@
   нужен в рантайме: его конструирует конвертер vscode-languageclient. Слияние ответов со встроенными
   ступенями — `editor/contrib/smartSelect/smartSelect.ts` (порт `provideSelectionRanges` эталона),
   стек Expand/Shrink — `SmartSelectController`, команды — contrib `smartSelect`.
+- **Linked editing seam (LSP):** `languages.registerLinkedEditingRangeProvider` — по рецепту реестра
+  (`kind: "linkedEditingRange"`, `ILanguageFeaturesService.linkedEditingRangeProvider`, RPC
+  `languages.provideLinkedEditingRanges`, 5000 мс). Субпроцесс отдаёт `{ranges, wordPattern?, wordPatternFlags?}`
+  или `null`, если нет массива `ranges`; `RegExp` пересекает провод источником и флагами, в ядре собирается
+  заново. Ответ берётся у первого провайдера с непустыми `ranges`. Класс `vscode.LinkedEditingRanges` нужен в
+  рантайме: его конструирует конвертер vscode-languageclient. Потребитель — `LinkedEditingController`
+  ([Editor.md](Editor.md#editorcontriblinkedediting-связанная-правка-тегов)).
 - **Color seam:** `languages.registerColorProvider` — по рецепту реестра (`kind: "color"`,
   `ILanguageFeaturesService.colorProvider`, RPC `languages.provideDocumentColors`, 5000 мс; отмена по
   новой правке уходит провайдеру токеном). Субпроцесс отдаёт `IColorInformation[]`
@@ -853,7 +860,7 @@
   `LanguageConfigurationCustomer`):** по эталону `wordPattern` остаётся в субпроцессе — определение
   слова языка в `DocumentRegistry` для `getWordRangeAtPosition` (и эфемерных документов
   `openTextDocument`), а секции, которые ядро умеет из `language-configuration.json` (`comments`,
-  `brackets`, `autoClosingPairs`, `onEnterRules`), уезжают notify `languages.setLanguageConfiguration` слоем в
+  `brackets`, `autoClosingPairs`, `onEnterRules`, `wordPattern` — его читает linked editing), уезжают notify `languages.setLanguageConfiguration` слоем в
   `ILanguageConfigurationService.register` — как `register(…, priority)` эталона: секция слоя
   заменяет секцию файла, поздний слой побеждает ранний, результат слияния разворачивается тем же
   `resolveLanguageConfiguration`. Снятие — `languages.unsetLanguageConfiguration` по handle; смерть

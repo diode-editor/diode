@@ -344,6 +344,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "The size in megabytes above which a file is treated as large when `editor.largeFileOptimizations` is on: it opens read-only with tokenization, wrapping, folding, word highlighting, quick diff and extension sync turned off.",
     },
     {
+        key: "editor.linkedEditing",
+        type: "boolean",
+        default: false,
+        description:
+            "Controls whether the editor has linked editing enabled. Depending on the language, related symbols such as HTML tags, are updated while editing.",
+    },
+    {
         key: "editor.occurrencesHighlight",
         type: "string",
         default: "singleFile",

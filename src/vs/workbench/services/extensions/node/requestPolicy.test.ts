@@ -92,6 +92,7 @@ describe("DEFAULT_REQUEST_TIMEOUTS", () => {
             "languages.provideCallHierarchyIncomingCalls": 5000,
             "languages.provideCallHierarchyOutgoingCalls": 5000,
             "languages.provideDocumentHighlights": 5000,
+            "languages.provideLinkedEditingRanges": 5000,
             "languages.provideDocumentColors": 5000,
         });
     });

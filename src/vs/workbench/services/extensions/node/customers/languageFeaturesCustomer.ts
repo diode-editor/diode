@@ -37,6 +37,10 @@ import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../../../../../editor/common/languages/iInlineCompletionSource.ts";
+import type {
+    ILinkedEditingRangeRequest,
+    ILinkedEditingRanges,
+} from "../../../../../editor/common/languages/iLinkedEditingSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreRenameLocation,
@@ -515,6 +519,32 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             null,
             { token },
         );
+    }
+
+    /** `null` — the provider declined, also when there is no subprocess, the document is not synced or the extension timed out. */
+    public async provideLinkedEditingRanges(
+        handle: number,
+        req: ILinkedEditingRangeRequest,
+        token?: ICancellationToken,
+    ): Promise<ILinkedEditingRanges | null> {
+        const answer = await this.request(
+            "languages.provideLinkedEditingRanges",
+            {
+                handle,
+                uri: req.uri,
+                languageId: req.languageId,
+                version: req.versionId,
+                line: req.position.line,
+                character: req.position.character,
+            },
+            null,
+            { token },
+        );
+        if (answer === null) return null;
+        const { ranges, wordPattern, wordPatternFlags } = answer;
+        return wordPattern === undefined
+            ? { ranges }
+            : { ranges, wordPattern: new RegExp(wordPattern, wordPatternFlags) };
     }
 
     /** `null` — no colors, also when there is no subprocess, the document is not synced or the extension timed out. */

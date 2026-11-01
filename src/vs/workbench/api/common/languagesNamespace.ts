@@ -41,6 +41,7 @@ import {
     serializeHoverContents,
     serializeInlayHints,
     serializeInlineCompletionItem,
+    serializeLinkedEditingRanges,
     serializeRenamePrepare,
     serializeSelectionRanges,
     serializeSignatureHelp,
@@ -90,6 +91,8 @@ import type {
     IWireInlayHintsParams,
     IWireInlineCompletionParams,
     IWireLanguageProviderMetadata,
+    IWireLinkedEditingRangeParams,
+    IWireLinkedEditingRanges,
     IWirePrepareCallHierarchyParams,
     IWirePrepareRenameParams,
     IWireRangeSemanticTokensParams,
@@ -177,6 +180,11 @@ export interface IRenameRegistration {
 export interface IDocumentHighlightRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.DocumentHighlightProvider;
+}
+
+export interface ILinkedEditingRangeRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.LinkedEditingRangeProvider;
 }
 
 export interface ISelectionRangeRegistration {
@@ -396,6 +404,7 @@ export function createLanguagesNamespace(
     const selectionRangeProviders = new Map<number, Owned<ISelectionRangeRegistration>>();
     const callHierarchyProviders = new Map<number, Owned<ICallHierarchyRegistration>>();
     const documentHighlightProviders = new Map<number, Owned<IDocumentHighlightRegistration>>();
+    const linkedEditingRangeProviders = new Map<number, Owned<ILinkedEditingRangeRegistration>>();
     const colorProviders = new Map<number, Owned<IColorRegistration>>();
     const inlayHintsProviders = new Map<number, Owned<IInlayHintsRegistration>>();
     const codeLensProviders = new Map<number, Owned<ICodeLensRegistration>>();
@@ -645,6 +654,27 @@ export function createLanguagesNamespace(
                 reportProviderFailure("provideDocumentHighlights", err, reg.owner);
             }
             return serializeDocumentHighlights(result);
+        },
+    );
+
+    rpc.handleRequest(
+        "languages.provideLinkedEditingRanges",
+        async (params, cancellation): Promise<IWireLinkedEditingRanges | null> => {
+            const p: Received<IWireLinkedEditingRangeParams> = params;
+            const reg = linkedEditingRangeProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            let result: unknown;
+            try {
+                result = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideLinkedEditingRanges(doc, position, token),
+                );
+            } catch (err) {
+                reportProviderFailure("provideLinkedEditingRanges", err, reg.owner);
+            }
+            return serializeLinkedEditingRanges(result);
         },
     );
 
@@ -1655,7 +1685,11 @@ export function createLanguagesNamespace(
             provider: vscode.InlineCompletionItemProvider,
         ): vscode.Disposable =>
             registerByHandle(inlineCompletionProviders, "inlineCompletions", selector, { selector, provider }),
-        registerLinkedEditingRangeProvider: registerNoopProvider,
+        registerLinkedEditingRangeProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.LinkedEditingRangeProvider,
+        ): vscode.Disposable =>
+            registerByHandle(linkedEditingRangeProviders, "linkedEditingRange", selector, { selector, provider }),
         registerCallHierarchyProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.CallHierarchyProvider,

@@ -193,6 +193,13 @@ export const editorConfiguration = {
             maximum: 2000,
             description: "Controls the delay in milliseconds after which occurrences are highlighted.",
         },
+        "editor.linkedEditing": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description:
+                "Controls whether the editor has linked editing enabled. Depending on the language, related symbols such as HTML tags, are updated while editing.",
+        },
         // Our own key: VS Code draws the overview ruler inside its scrollbar and has nowhere else to put it.
         "editor.scrollbarMarkers": {
             scope: "language-overridable",

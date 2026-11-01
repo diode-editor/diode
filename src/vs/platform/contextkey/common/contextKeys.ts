@@ -29,6 +29,8 @@ export interface ContextKeyTypes {
     editorHasSelection: boolean;
     /** Upstream `ctxHasWordHighlights`: the active editor has occurrences on the frame. */
     hasWordHighlights: boolean;
+    /** Upstream `CONTEXT_ONTYPE_RENAME_INPUT_VISIBLE`: the active editor has linked ranges on the frame. */
+    LinkedEditingInputVisible: boolean;
     editorLangId: string;
     /** Upstream name of our {@link textInputFocus}, kept for extension `when` clauses. */
     editorTextFocus: boolean;

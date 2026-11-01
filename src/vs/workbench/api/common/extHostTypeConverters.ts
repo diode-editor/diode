@@ -37,6 +37,7 @@ import type {
     IWireDocumentHighlight,
     IWireEditorEdit,
     IWireInlayHint,
+    IWireLinkedEditingRanges,
     IWireSelection,
     IWireWorkspaceEditOp,
     SerializedColor,
@@ -567,6 +568,27 @@ export function serializeDocumentHighlights(raw: unknown): IWireDocumentHighligh
         result.push({ range, ...(isFiniteNumber(kind) ? { kind } : {}) });
     }
     return result;
+}
+
+/**
+ * Upstream `LinkedEditingRangeAdapter`: no `ranges` array (`undefined`, `null`, garbage) is `null`, the provider
+ * declined; an entry that is not a range is dropped.
+ */
+export function serializeLinkedEditingRanges(raw: unknown): IWireLinkedEditingRanges | null {
+    const value = raw as { ranges?: unknown; wordPattern?: unknown } | null | undefined;
+    if (!Array.isArray(value?.ranges)) return null;
+    const ranges: IRange[] = [];
+    for (const item of value.ranges as unknown[]) {
+        const range = rangeFrom(item);
+        if (range !== null) ranges.push(range);
+    }
+    const { wordPattern } = value;
+    return {
+        ranges,
+        ...(wordPattern instanceof RegExp
+            ? { wordPattern: wordPattern.source, wordPatternFlags: wordPattern.flags }
+            : {}),
+    };
 }
 
 /** A channel outside [0, 1] is clamped; not a number (NaN included) — `null`, the color is dropped. */

@@ -397,6 +397,20 @@ export interface IWireDocumentHighlight {
     readonly kind?: number;
 }
 
+/** Upstream `$provideLinkedEditingRanges`: the reply is `null` when the provider declined. */
+export interface IWireLinkedEditingRangeParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly line: number;
+    readonly character: number;
+}
+
+export interface IWireLinkedEditingRanges {
+    readonly ranges: IRange[];
+    /** `RegExp.source`. */
+    readonly wordPattern?: string;
+    /** `RegExp.flags`: `/x/i` must not lose its `i` on the way to the core. */
+    readonly wordPatternFlags?: string;
+}
+
 /** Upstream `$provideDocumentColors`: the reply is `null` when the provider gave no colors. */
 export type IWireDocumentColorParams = IWireDocumentParams & IWireProviderHandle;
 
@@ -486,6 +500,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "selectionRange",
     "callHierarchy",
     "documentHighlight",
+    "linkedEditingRange",
     "color",
     "inlayHints",
     "codeLens",

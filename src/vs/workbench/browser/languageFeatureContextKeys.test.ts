@@ -8,7 +8,12 @@ import type { IEditorService } from "../services/editor/common/editorService.ts"
 import { LanguageFeatureContextKeys } from "./languageFeatureContextKeys.ts";
 
 function editorStub(
-    options: { languageId?: string; selection?: { anchorCharacter: number }; wordHighlights?: number } = {},
+    options: {
+        languageId?: string;
+        selection?: { anchorCharacter: number };
+        wordHighlights?: number;
+        linkedEditingRanges?: number;
+    } = {},
 ): unknown {
     const anchorCharacter = options.selection?.anchorCharacter ?? 0;
     return {
@@ -16,6 +21,7 @@ function editorStub(
         languageId: options.languageId ?? "typescript",
         viewState: {
             wordHighlights: { ranges: new Array<unknown>(options.wordHighlights ?? 0) },
+            linkedEditingRanges: new Array<unknown>(options.linkedEditingRanges ?? 0),
             selections: [{ anchor: { line: 0, character: anchorCharacter }, active: { line: 0, character: 0 } }],
         },
     };
@@ -133,6 +139,20 @@ describe("LanguageFeatureContextKeys", () => {
 
         expect(closed.keys.evaluate("editorHasRenameProvider")).toBe(false);
         expect(closed.keys.evaluate("editorHasSelection")).toBe(false);
+    });
+
+    it("LinkedEditingInputVisible follows the linked ranges of the active editor", () => {
+        const none = makeKeys(editorStub());
+        none.update();
+        expect(none.keys.evaluate("LinkedEditingInputVisible")).toBe(false);
+
+        const some = makeKeys(editorStub({ linkedEditingRanges: 2 }));
+        some.update();
+        expect(some.keys.evaluate("LinkedEditingInputVisible")).toBe(true);
+
+        const closed = makeKeys(null);
+        closed.update();
+        expect(closed.keys.evaluate("LinkedEditingInputVisible")).toBe(false);
     });
 
     it("hasWordHighlights follows the set of the active editor", () => {

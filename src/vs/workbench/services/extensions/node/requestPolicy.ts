@@ -30,6 +30,7 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.provideRenameEdits": 10000,
     "languages.provideSelectionRanges": 5000,
     "languages.provideDocumentHighlights": 5000,
+    "languages.provideLinkedEditingRanges": 5000,
     "languages.provideDocumentColors": 5000,
     "languages.prepareCallHierarchy": 5000,
     "languages.provideCallHierarchyIncomingCalls": 5000,

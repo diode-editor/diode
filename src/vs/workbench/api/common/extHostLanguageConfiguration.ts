@@ -13,8 +13,8 @@ import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { DisposableImpl, IndentAction, SyntaxTokenType } from "./vscodeTypes.ts";
 
 /**
- * As upstream: `wordPattern` lives in the subprocess; `comments`/`brackets`/
- * `autoClosingPairs`/`onEnterRules` go to the host as a layer over `language-configuration.json`
+ * As upstream: `wordPattern` is kept in the subprocess for documents and, with `comments`/`brackets`/
+ * `autoClosingPairs`/`onEnterRules`, goes to the host as a layer over `language-configuration.json`
  * (dispose removes the layer but, as upstream, not the word definition); other
  * sections are accepted and ignored since the core does not support them.
  */
@@ -45,8 +45,9 @@ export function createSetLanguageConfiguration(
 }
 
 function toWireConfiguration(configuration: vscode.LanguageConfiguration): ILanguageConfiguration {
-    const { comments, brackets, autoClosingPairs, onEnterRules } = configuration;
+    const { comments, brackets, autoClosingPairs, onEnterRules, wordPattern } = configuration;
     return {
+        ...(wordPattern === undefined ? {} : { wordPattern: toWireRegExp(wordPattern) }),
         ...(comments === undefined ? {} : { comments: toWireComments(comments) }),
         ...(brackets === undefined ? {} : { brackets }),
         ...(autoClosingPairs === undefined ? {} : { autoClosingPairs: autoClosingPairs.map(toWireAutoClosingPair) }),
