@@ -33,6 +33,10 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `editorElement.performance.test.ts`, «displayLineFor caps the visible long line»: замер времени, 336 мс при пороге
+  298 в dry run Stryker, из-за этого mutation-job остался без вердикта (run 41260477522, PR #985, дифф — команда `type`).
+- [ ] Бенч `e2e/bench/hugeBudget.bench.ts`, log500m Enable Editing: `ArrowDown during the load` — медиана 32 мс при
+  бюджете 30 (run 41260477522, ubuntu-latest, PR #985, дифф — команда `type`). Не в `test-flakes.json`: это бюджет бенча.
 - [ ] e2e `quick-input-validation` и `extension-untitled-uri`, только windows-latest: `waitUntil(screen text predicate)`
   не дождался за 10 с (run 41255028793, PR #959, дифф — inlay hints); на ubuntu и при перезапуске зелёные.
 - [ ] `workbench.saveConflict.test.ts`, последний тест перед ошибкой — «saves without a prompt when the file was not
