@@ -116,6 +116,12 @@ describe("EditorViewState collapsed folds", () => {
         return state;
     }
 
+    it("a near-bottom reveal unfolds the region hiding the line", () => {
+        const state = folded();
+        state.revealRangeNearBottom({ start: { line: 3, character: 0 }, end: { line: 3, character: 1 } });
+        expect(state.getCollapsedFolds()).toEqual([]);
+    });
+
     it("reports the start lines of the collapsed regions", () => {
         expect(folded().getCollapsedFolds()).toEqual([2]);
     });

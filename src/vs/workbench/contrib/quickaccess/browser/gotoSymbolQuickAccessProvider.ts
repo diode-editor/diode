@@ -142,14 +142,12 @@ interface ISymbolMatch {
  * otherwise the first word is for the symbol and the rest for its container.
  */
 function matchSymbol(symbol: IFlatDocumentSymbol, text: string): ISymbolMatch | null {
-    const words = text.split(/\s+/);
     const whole = fuzzyMatchBest(text, symbol.name);
-    if (whole !== null || words.length === 1) {
-        return whole && { score: whole.score, nameIndices: whole.matchedIndices, containerIndices: [] };
-    }
-    const name = fuzzyMatchBest(words[0], symbol.name);
-    if (name === null || symbol.containerName === "") return null;
-    const container = fuzzyMatchPrepared(prepareQuery(words.slice(1).join(" ")), symbol.containerName);
+    if (whole !== null) return { score: whole.score, nameIndices: whole.matchedIndices, containerIndices: [] };
+    const [first, ...rest] = text.split(/\s/);
+    const name = fuzzyMatchBest(first, symbol.name);
+    if (name === null) return null;
+    const container = fuzzyMatchPrepared(prepareQuery(rest.join(" ")), symbol.containerName);
     if (container === null) return null;
     return {
         score: name.score + container.score,

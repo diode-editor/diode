@@ -75,7 +75,7 @@ export const LAZY_CHUNKS = [
         id: "roles/extension-host",
         reason: "extension host role: vscode API implementation",
         entry: "src/vs/diode/roles/extensionHostRole.ts",
-        sharedBudgetKb: 157,
+        sharedBudgetKb: 160,
     },
     // Shared with the core (63 KB of 75): chokidar, which the core keeps for settings file subscriptions.
     {

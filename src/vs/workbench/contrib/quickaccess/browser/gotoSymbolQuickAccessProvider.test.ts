@@ -295,6 +295,7 @@ describe("GotoSymbolQuickAccessProvider — rows", () => {
         const items = fixture.provider.getItems("@paint");
         expect(labels(items)).toEqual(["paint", "paintAll"]);
         expect(items[0].labelMatchRanges).toEqual([[0, 5]]);
+        expect(items[0].descriptionMatchRanges).toEqual([]);
         expect(items[0].hint).toBe("symbols (2)");
     });
 
@@ -313,6 +314,16 @@ describe("GotoSymbolQuickAccessProvider — rows", () => {
         expect(labels(items)).toEqual(["paint"]);
         expect(items[0].descriptionMatchRanges).toEqual([[0, 3]]);
         expect(labels(fixture.provider.getItems("@paint bar"))).toEqual(["No matching editor symbols"]);
+    });
+
+    it("the container's score counts: a better container match goes first", async () => {
+        const twins = makeFixture();
+        registerProvider(twins, [
+            symbol("run", SymbolKind.Method, createRange(0, 0, 0, 3), { containerName: "xfooy" }),
+            symbol("run", SymbolKind.Method, createRange(1, 0, 1, 3), { containerName: "foo" }),
+        ]);
+        await show(twins);
+        expect(twins.provider.getItems("@run foo").map((item) => item.description)).toEqual(["foo", "xfooy"]);
     });
 
     it("a symbol without a container does not match a two-word query", () => {
@@ -366,6 +377,7 @@ describe("GotoSymbolQuickAccessProvider — @: groups", () => {
         const items = fixture.provider.getItems("@:paint");
         expect(labels(items)).toEqual(["paintAll", "paint"]);
         expect(items[1].hint).toBe("methods (1)");
+        expect(labels(fixture.provider.getItems("@: paint"))).toEqual(["paintAll", "paint"]);
     });
 
     it("Null and Property share a name but not a run", async () => {
