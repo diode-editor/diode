@@ -95,6 +95,7 @@ interface IProjectionCacheEntry {
     readonly docVersion: number;
     readonly foldsVersion: number;
     readonly zonesVersion: number;
+    readonly wrapInsertionsVersion: number;
     readonly wrapWidth: number;
     readonly tabSize: number;
     /** The collapsed folds the rows were built with: a fold recompute that keeps them is not a rebuild. */
@@ -214,6 +215,9 @@ export class EditorViewState {
     private foldsVersion = 0;
     private zonesVersion = 0;
     private lineBreaksCacheValue: LineBreaksCache | null = null;
+    private inlineInsertionsValue: readonly IInlineInsertion[] = NO_INLINE_INSERTIONS;
+    /** Bumped when insertions change how a line wraps: the rows are built from them too. */
+    private wrapInsertionsVersion = 0;
 
     /**
      * Own mutators recompute selections and folds exactly; the
@@ -350,6 +354,7 @@ export class EditorViewState {
         // Stryker disable next-line ConditionalExpression: pure memoization, a cache recreated with the same params gives the same result, only slower
         this.lineBreaksCacheValue ??= new LineBreaksCache(this.document, this.tabSize, wrapWidth);
         this.lineBreaksCacheValue.setParams(this.tabSize, wrapWidth);
+        this.lineBreaksCacheValue.setInsertions(this.lineInsertions);
         return this.lineBreaksCacheValue;
     }
 
@@ -571,7 +576,16 @@ export class EditorViewState {
      * Cells of the view absent from the document (ghost text, color decorators), set by the view:
      * the cursor reveal measures the caret on the composed line, where it is drawn.
      */
-    public inlineInsertions: readonly IInlineInsertion[] = NO_INLINE_INSERTIONS;
+    public get inlineInsertions(): readonly IInlineInsertion[] {
+        return this.inlineInsertionsValue;
+    }
+
+    public set inlineInsertions(insertions: readonly IInlineInsertion[]) {
+        this.inlineInsertionsValue = insertions;
+        // Wrap off: `wrapBreaks` hands them over when it comes back on, and that rebuilds the rows anyway.
+        if (this.effectiveWrapWidth() === null) return;
+        if (this.lineBreaksCacheValue?.setInsertions(this.lineInsertions) === true) this.wrapInsertionsVersion++;
+    }
 
     /** {@link inlineInsertions} clamped into the current document, by line. */
     public get lineInsertions(): LineInsertions {
@@ -2120,6 +2134,7 @@ export class EditorViewState {
             cache.docVersion === this.contentRevision &&
             cache.foldsVersion === this.foldsVersion &&
             cache.zonesVersion === this.zonesVersion &&
+            cache.wrapInsertionsVersion === this.wrapInsertionsVersion &&
             cache.wrapWidth === wrapWidth &&
             cache.tabSize === this.tabSize
         ) {
@@ -2151,6 +2166,7 @@ export class EditorViewState {
             docVersion: this.contentRevision,
             foldsVersion: this.foldsVersion,
             zonesVersion: this.zonesVersion,
+            wrapInsertionsVersion: this.wrapInsertionsVersion,
             wrapWidth,
             tabSize: this.tabSize,
             hidden,
@@ -2176,6 +2192,7 @@ export class EditorViewState {
         if (this.viewZonesValue.length > 0 || cache.wrapWidth !== wrapWidth || cache.tabSize !== this.tabSize) {
             return false;
         }
+        if (cache.wrapInsertionsVersion !== this.wrapInsertionsVersion) return false;
         // Stryker disable next-line ConditionalExpression: see above
         if (pending === null) {
             // A version change without an event is a desync (as in LineBreaksCache): rebuild rather than guess.

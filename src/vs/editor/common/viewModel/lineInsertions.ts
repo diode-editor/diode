@@ -4,8 +4,8 @@ import type { ITextDocument } from "../model/iTextDocument.ts";
 // Counterpart of upstream `modelLineProjectionData.ts` injection math (`injectionOffsets`,
 // `translateToInputOffset`, `translateToOutputPosition`): offsets of a document line vs. offsets
 // of its COMPOSED line, the one with insertions spliced in. Deviation: upstream keeps it in the
-// line projection (so wrap sees insertions); here the view composes lines itself, and wrap is
-// computed on the document text.
+// line projection; here the view composes lines itself, and wrap measures the composed line and
+// reports document offsets (`computeComposedLineBreakOffsets`).
 
 /**
  * The frame's {@link IInlineInsertion}s by document line, built per frame by

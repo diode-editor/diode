@@ -32,10 +32,13 @@ describe("TextEditorPaneBuilder — inlay hints", () => {
         return { builder, provideInlayHints };
     }
 
-    it("a file editor asks the providers", () => {
+    it("a file editor asks the providers, once it is built: the document is not synced before that", async () => {
         const { builder, provideInlayHints } = setup();
         const pane = builder.build(new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService()));
-        expect(provideInlayHints).toHaveBeenCalledOnce();
+        expect(provideInlayHints).not.toHaveBeenCalled();
+        await vi.waitFor(() => {
+            expect(provideInlayHints).toHaveBeenCalledOnce();
+        });
         pane.dispose();
     });
 

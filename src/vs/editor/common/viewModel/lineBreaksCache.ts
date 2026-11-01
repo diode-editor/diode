@@ -1,8 +1,10 @@
 import { Disposable } from "../../../base/common/lifecycle.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
+import type { IInlineInsertion } from "../model/iInlineInsertion.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 
-import { computeLineBreakOffsets } from "./lineBreaksComputer.ts";
+import { computeComposedLineBreakOffsets, computeLineBreakOffsets } from "./lineBreaksComputer.ts";
+import { type LineInsertions, NO_LINE_INSERTIONS } from "./lineInsertions.ts";
 
 /**
  * Without the cache every projection rebuild would re-segment the whole document. Per-line value:
@@ -12,6 +14,7 @@ export class LineBreaksCache extends Disposable {
     private readonly document: ITextDocument;
     private tabSize: number;
     private wrapWidth: number;
+    private insertions: LineInsertions = NO_LINE_INSERTIONS;
 
     private breaks: (number[] | null | undefined)[];
 
@@ -36,6 +39,18 @@ export class LineBreaksCache extends Disposable {
         this.breaks = new Array<number[] | null | undefined>(this.document.lineCount);
     }
 
+    /** `true` when some line wraps by other text now: the rows built from this cache are stale. */
+    public setInsertions(insertions: LineInsertions): boolean {
+        let changed = false;
+        for (const line of new Set([...this.insertions.keys(), ...insertions.keys()])) {
+            if (sameCells(this.insertions.get(line), insertions.get(line))) continue;
+            this.breaks[line] = undefined;
+            changed = true;
+        }
+        this.insertions = insertions;
+        return changed;
+    }
+
     /** Desync guard, same as {@link LineWidthCache.getMaxWidth}. */
     public getBreaks(line: number): number[] | null {
         if (this.breaks.length > this.document.lineCount) {
@@ -43,7 +58,12 @@ export class LineBreaksCache extends Disposable {
         }
         let entry = this.breaks[line];
         if (entry === undefined) {
-            entry = computeLineBreakOffsets(this.document.getLineContent(line), this.tabSize, this.wrapWidth);
+            const content = this.document.getLineContent(line);
+            const insertions = this.insertions.get(line);
+            entry =
+                insertions === undefined
+                    ? computeLineBreakOffsets(content, this.tabSize, this.wrapWidth)
+                    : computeComposedLineBreakOffsets(content, insertions, this.tabSize, this.wrapWidth);
             this.breaks[line] = entry;
         }
         return entry;
@@ -63,4 +83,10 @@ export class LineBreaksCache extends Disposable {
             this.breaks[i] = undefined;
         }
     }
+}
+
+/** Looks do not wrap: a recolored hint keeps its rows. */
+function sameCells(a: readonly IInlineInsertion[] | undefined, b: readonly IInlineInsertion[] | undefined): boolean {
+    if (a === undefined || b === undefined) return a === b;
+    return a.length === b.length && a.every((item, i) => item.offset === b[i].offset && item.text === b[i].text);
 }

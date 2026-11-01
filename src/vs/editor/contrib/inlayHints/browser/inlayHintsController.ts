@@ -206,7 +206,9 @@ export class InlayHintsController extends Disposable {
                 }),
             );
         }
-        void this.compute();
+        // Upstream `scheduler.schedule(0)`: a pane is built before its document is synced to the extension host, and
+        // a request sent right here is answered "not synced" with nothing to ask again.
+        this.scheduler.schedule(0);
     }
 
     private scheduleCompute(): void {
