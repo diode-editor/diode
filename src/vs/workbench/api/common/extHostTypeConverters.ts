@@ -35,6 +35,7 @@ import {
 } from "./vscodeTypes.ts";
 import type {
     IWireEditorEdit,
+    IWireInlayHint,
     IWireSelection,
     IWireWorkspaceEditOp,
     SerializedColor,
@@ -656,6 +657,49 @@ export function serializeDocumentColors(raw: unknown): IColorInformation[] | nul
         if (range !== null && color !== null) colors.push({ range, color });
     }
     return colors;
+}
+
+/** Part fields other than `value` have nothing to draw them yet. `null` is a label upstream calls invalid. */
+function inlayHintLabelFrom(raw: unknown): IWireInlayHint["label"] | null {
+    if (typeof raw === "string") return raw === "" ? null : raw;
+    if (!Array.isArray(raw)) return null;
+    const parts = (raw as unknown[]).map((part) => ({ value: (part as { value?: unknown } | null)?.value }));
+    const valid = parts.filter((part): part is { value: string } => typeof part.value === "string");
+    return valid.some((part) => part.value !== "") ? valid : null;
+}
+
+function inlayHintFrom(raw: unknown, range: IRange): IWireInlayHint | null {
+    const hint = (raw ?? {}) as {
+        position?: { line?: unknown; character?: unknown };
+        label?: unknown;
+        kind?: unknown;
+        paddingLeft?: unknown;
+        paddingRight?: unknown;
+    };
+    const label = inlayHintLabelFrom(hint.label);
+    const line = hint.position?.line;
+    const character = hint.position?.character;
+    if (label === null || !isFiniteNumber(line) || !isFiniteNumber(character)) return null;
+    const position = createPosition(line, character);
+    if (comparePositions(position, range.start) < 0 || comparePositions(position, range.end) > 0) return null;
+    return {
+        position,
+        label,
+        // The host validates the kind: it drops the one hint with an unknown value.
+        ...(hint.kind === undefined || hint.kind === null ? {} : { kind: hint.kind as 1 | 2 }),
+        ...(hint.paddingLeft === true ? { paddingLeft: true } : {}),
+        ...(hint.paddingRight === true ? { paddingRight: true } : {}),
+    };
+}
+
+/**
+ * Upstream `InlayHintsAdapter.provideInlayHints` without the resolve cache: an empty label or a position outside
+ * the requested range costs that one hint (`_isValidInlayHint`). No hints at all is `null`.
+ */
+export function serializeInlayHints(raw: unknown, range: IRange): IWireInlayHint[] | null {
+    if (!Array.isArray(raw)) return null;
+    const hints = (raw as unknown[]).map((item) => inlayHintFrom(item, range)).filter((hint) => hint !== null);
+    return hints.length === 0 ? null : hints;
 }
 
 /** Edit fields are public and writable, and the host does not re-validate the will-save response. */

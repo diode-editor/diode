@@ -90,8 +90,7 @@
       "note": "registration is accepted, the provider is never called"
     },
     "languages.registerInlayHintsProvider": {
-      "class": "C",
-      "note": "registration is accepted, the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "languages.registerInlineCompletionItemProvider": {
       "class": "ok"

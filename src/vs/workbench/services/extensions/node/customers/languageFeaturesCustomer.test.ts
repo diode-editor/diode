@@ -642,6 +642,69 @@ describe("LanguageFeaturesCustomer — selection ranges", () => {
     });
 });
 
+describe("LanguageFeaturesCustomer — inlay hints", () => {
+    const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7, range: CORE_RANGE };
+    const AT = { line: 0, character: 1 };
+
+    it("the document, the range and the token go over the wire; the reply becomes core hints without the broken ones", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideInlayHints": (params) => {
+                seen.push(params);
+                return [
+                    { position: AT, label: [{ value: "name" }], kind: 2 },
+                    { position: AT, label: "broken", kind: 9 as 1 },
+                ];
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideInlayHints(1, REQ, caller.token)).toEqual([
+            { position: AT, label: [{ label: "name" }], kind: 2 },
+        ]);
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7, range: CORE_RANGE }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: 5000 });
+    });
+
+    it("RPC rejection, a hung request past its timeout, no spawn or an unsynced document — no hints (null)", async () => {
+        const h = setupAnswering({
+            "languages.provideInlayHints": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideInlayHints(1, REQ)).toBeNull();
+
+        vi.useFakeTimers();
+        try {
+            const hung = setupAnswering({ "languages.provideInlayHints": () => new Promise(() => undefined) });
+            const reply = hung.customer.provideInlayHints(1, REQ);
+            await vi.advanceTimersByTimeAsync(5000);
+            expect(await reply).toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
+
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideInlayHints(1, REQ)).toBeNull();
+        const unsynced = new LanguageFeaturesCustomer(TIMEOUTS, () => false, undefined);
+        const [a] = createInProcessChannelPair();
+        unsynced.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+        expect(await unsynced.provideInlayHints(1, REQ)).toBeNull();
+    });
+
+    it("onDidChangeInlayHints — only for a declared handle", async () => {
+        const h = setup();
+        const changed = vi.fn();
+        h.customer.onDidChangeInlayHints(changed);
+        h.peer.notify("languages.register", { handle: 4, kind: "inlayHints", selector: [] });
+        await flushMicrotasks();
+        h.peer.notify("languages.didChangeInlayHints", { handle: 4 });
+        h.peer.notify("languages.didChangeInlayHints", { handle: 8 });
+        h.peer.notify("languages.didChangeInlayHints", null);
+        await flushMicrotasks();
+        expect(changed.mock.calls).toStrictEqual([[4]]);
+    });
+});
+
 describe("LanguageFeaturesCustomer — document colors", () => {
     const REQ = { uri: SYNCED, languageId: "css", versionId: 7, document: {} as ITextDocument };
     const RED = { range: CORE_RANGE, color: { red: 1, green: 0, blue: 0, alpha: 1 } };

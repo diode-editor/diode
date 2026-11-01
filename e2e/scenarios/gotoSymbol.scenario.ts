@@ -47,9 +47,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Circle") && t.includes("symbols ("), { timeoutMs: 60_000 });
         await editor.capture("symbols");
 
-        // Two rows down is `Circle`: its line lights up, the status bar still shows the cursor on line 1.
-        await editor.sendKey("ArrowDown");
-        await editor.sendKey("ArrowDown");
+        // The last row is `s`, below the picker: its line lights up, the status bar still shows the cursor on line 1.
+        for (let i = 0; i < 6; i++) await editor.sendKey("ArrowDown");
         await editor.waitForText((t) => t.includes("Ln 1, Col 1"));
         await editor.capture("preview-line");
 

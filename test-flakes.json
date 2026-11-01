@@ -137,6 +137,12 @@
                 "win32"
             ],
             "note": "expected 1 to be 2: the second update check did not reach the registry after the clock moves (run 40034642872)"
+        },
+        {
+            "file": "src/vs/editor/browser/editorElement.performance.test.ts",
+            "test": "EditorElement — extremely long lines must not freeze > displayLineFor caps the visible long line",
+            "action": "retry",
+            "note": "wall clock: expected 335.9 to be less than 298.4 in Stryker's dry run, so the mutation job got no verdict (run 41260477522, PR #985)"
         }
     ]
 }

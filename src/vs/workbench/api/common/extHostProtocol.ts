@@ -86,6 +86,8 @@ import type {
     IWireFormattingParams,
     IWireHandleUri,
     IWireHoverParams,
+    IWireInlayHint,
+    IWireInlayHintsParams,
     IWireInlineCompletionParams,
     IWireInputBoxRequest,
     IWireInputBoxResult,
@@ -213,6 +215,7 @@ export interface IHostToSubprocess {
         readonly "languages.provideRenameEdits": readonly [IWireRenameParams, WireRenameResult];
         readonly "languages.provideSelectionRanges": readonly [IWireSelectionRangeParams, IRange[][]];
         readonly "languages.provideDocumentColors": readonly [IWireDocumentColorParams, IColorInformation[] | null];
+        readonly "languages.provideInlayHints": readonly [IWireInlayHintsParams, IWireInlayHint[] | null];
 
         readonly "workspace.fs.readFile": readonly [IWireUriParams, IWireReadFileResult];
         readonly "workspace.fs.stat": readonly [IWireUriParams, IWireFileStat | null];
@@ -356,6 +359,7 @@ export interface ISubprocessToHost {
         readonly "languages.register": IWireLanguageProviderRegistration;
         readonly "languages.unregister": IWireLanguageProviderUnregistration;
         readonly "languages.didChangeSemanticTokens": IWireProviderHandle;
+        readonly "languages.didChangeInlayHints": IWireProviderHandle;
         /** Removed by the same `handle`. */
         readonly "languages.setLanguageConfiguration": IWireLanguageConfiguration;
         readonly "languages.unsetLanguageConfiguration": IWireProviderHandle;

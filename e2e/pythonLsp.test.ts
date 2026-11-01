@@ -66,7 +66,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
                 (f) => !frameToText(f).includes("greet(name: str) -> str"),
                 { describe: "hover popup closed by Escape", timeoutMs: 30_000, intervalMs: 250 },
             );
-            expect(frameToText(frame)).toContain('reply: int = greet("world")');
+            // Not the whole call: basedpyright's parameter inlay hint may stand before the argument.
+            expect(frameToText(frame)).toContain("reply: int = greet(");
         });
 
         it("F12 jumps to the greet declaration in defs.py", { timeout: 300_000 }, async () => {
