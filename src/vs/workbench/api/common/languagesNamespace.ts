@@ -31,6 +31,7 @@ import {
     serializeDocumentColors,
     serializeFoldingRange,
     serializeHoverContents,
+    serializeInlayHints,
     serializeInlineCompletionItem,
     serializeRenamePrepare,
     serializeSelectionRanges,
@@ -70,6 +71,8 @@ import type {
     IWireForeignMarkers,
     IWireFormattingParams,
     IWireHoverParams,
+    IWireInlayHint,
+    IWireInlayHintsParams,
     IWireInlineCompletionParams,
     IWireLanguageProviderMetadata,
     IWirePrepareRenameParams,
@@ -106,6 +109,11 @@ export interface IFoldingRegistration {
     readonly provider: vscode.FoldingRangeProvider;
 }
 
+export interface IInlayHintsRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.InlayHintsProvider;
+}
+
 export interface IDocumentSemanticTokensRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly adapter: DocumentSemanticTokensAdapter;
@@ -124,6 +132,16 @@ export interface IDefinitionRegistration {
 export interface IImplementationRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.ImplementationProvider;
+}
+
+export interface ITypeDefinitionRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.TypeDefinitionProvider;
+}
+
+export interface IDeclarationRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.DeclarationProvider;
 }
 
 export interface IRenameRegistration {
@@ -322,6 +340,8 @@ export function createLanguagesNamespace(
     const hoverProviders = new Map<number, Owned<IHoverRegistration>>();
     const definitionProviders = new Map<number, Owned<IDefinitionRegistration>>();
     const implementationProviders = new Map<number, Owned<IImplementationRegistration>>();
+    const typeDefinitionProviders = new Map<number, Owned<ITypeDefinitionRegistration>>();
+    const declarationProviders = new Map<number, Owned<IDeclarationRegistration>>();
     const referenceProviders = new Map<number, Owned<IReferenceRegistration>>();
     const signatureHelpProviders = new Map<number, Owned<ISignatureHelpRegistration>>();
     const completionProviders = new Map<number, Owned<ICompletionRegistration>>();
@@ -333,6 +353,7 @@ export function createLanguagesNamespace(
     const renameProviders = new Map<number, Owned<IRenameRegistration>>();
     const selectionRangeProviders = new Map<number, Owned<ISelectionRangeRegistration>>();
     const colorProviders = new Map<number, Owned<IColorRegistration>>();
+    const inlayHintsProviders = new Map<number, Owned<IInlayHintsRegistration>>();
     const semanticTokensProviders = new Map<number, Owned<IDocumentSemanticTokensRegistration>>();
     const rangeSemanticTokensProviders = new Map<number, Owned<IRangeSemanticTokensRegistration>>();
     let nextProviderHandle = 0;
@@ -518,6 +539,26 @@ export function createLanguagesNamespace(
         ),
     );
 
+    rpc.handleRequest("languages.provideTypeDefinition", (params, cancellation) =>
+        provideLocations(
+            params,
+            cancellation,
+            typeDefinitionProviders,
+            "provideTypeDefinition",
+            ({ provider }, doc, position, token) => provider.provideTypeDefinition(doc, position, token),
+        ),
+    );
+
+    rpc.handleRequest("languages.provideDeclaration", (params, cancellation) =>
+        provideLocations(
+            params,
+            cancellation,
+            declarationProviders,
+            "provideDeclaration",
+            ({ provider }, doc, position, token) => provider.provideDeclaration(doc, position, token),
+        ),
+    );
+
     rpc.handleRequest("languages.provideHover", async (params, cancellation): Promise<ICoreHover | null> => {
         const p: Received<IWireHoverParams> = params;
         const reg = hoverProviders.get(p.handle ?? -1);
@@ -579,6 +620,24 @@ export function createLanguagesNamespace(
             return serializeDocumentColors(result);
         },
     );
+
+    rpc.handleRequest("languages.provideInlayHints", async (params, cancellation): Promise<IWireInlayHint[] | null> => {
+        const p: Received<IWireInlayHintsParams, "range"> = params;
+        // The provider may have been removed while the request was in flight: "no hints".
+        const reg = inlayHintsProviders.get(p.handle ?? -1);
+        if (reg === undefined) return null;
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return null;
+        let result: unknown;
+        try {
+            result = await callWithVscodeToken(cancellation, (token) =>
+                reg.provider.provideInlayHints(doc, toVscodeRange(p.range), token),
+            );
+        } catch (err) {
+            reportProviderFailure("provideInlayHints", err, reg.owner);
+        }
+        return serializeInlayHints(result, p.range);
+    });
 
     rpc.handleRequest(
         "languages.provideSignatureHelp",
@@ -1213,6 +1272,15 @@ export function createLanguagesNamespace(
             provider: vscode.ImplementationProvider,
         ): vscode.Disposable =>
             registerByHandle(implementationProviders, "implementation", selector, { selector, provider }),
+        registerTypeDefinitionProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.TypeDefinitionProvider,
+        ): vscode.Disposable =>
+            registerByHandle(typeDefinitionProviders, "typeDefinition", selector, { selector, provider }),
+        registerDeclarationProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.DeclarationProvider,
+        ): vscode.Disposable => registerByHandle(declarationProviders, "declaration", selector, { selector, provider }),
         registerHoverProvider: (selector: vscode.DocumentSelector, provider: vscode.HoverProvider): vscode.Disposable =>
             registerByHandle(hoverProviders, "hover", selector, { selector, provider }),
         registerReferenceProvider: (
@@ -1267,8 +1335,6 @@ export function createLanguagesNamespace(
             );
         },
 
-        registerDeclarationProvider: registerNoopProvider,
-        registerTypeDefinitionProvider: registerNoopProvider,
         registerDocumentHighlightProvider: registerNoopProvider,
         registerDocumentSymbolProvider: registerNoopProvider,
         registerWorkspaceSymbolProvider: registerNoopProvider,
@@ -1308,7 +1374,24 @@ export function createLanguagesNamespace(
                 provider.onDidChangeSemanticTokens,
                 legend,
             ),
-        registerInlayHintsProvider: registerNoopProvider,
+        registerInlayHintsProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.InlayHintsProvider,
+        ): vscode.Disposable => {
+            const onDidChange = provider.onDidChangeInlayHints;
+            return registerByHandle(
+                inlayHintsProviders,
+                "inlayHints",
+                selector,
+                { selector, provider },
+                typeof onDidChange === "function" ? { hasOnDidChange: true } : {},
+                undefined,
+                (handle) =>
+                    onDidChange?.(() => {
+                        rpc.notify("languages.didChangeInlayHints", { handle });
+                    }),
+            );
+        },
         registerInlineValuesProvider: registerNoopProvider,
         registerInlineCompletionItemProvider: (
             selector: vscode.DocumentSelector,

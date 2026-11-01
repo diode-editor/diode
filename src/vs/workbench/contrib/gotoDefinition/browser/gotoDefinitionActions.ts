@@ -55,8 +55,46 @@ export const goToImplementationAction: CommandAction = {
     },
 };
 
+// Upstream has no key for this command either (`primary: 0`).
+export const goToTypeDefinitionAction: CommandAction = {
+    id: "editor.action.goToTypeDefinition",
+    title: "Go to Type Definition",
+    enablement: "editorHasTypeDefinitionProvider",
+    menus: [
+        {
+            menuId: MenuId.EditorContext,
+            group: "navigation",
+            order: 1.4,
+            when: "editorHasTypeDefinitionProvider",
+        },
+    ],
+    run(accessor) {
+        return accessor.get(DefinitionServiceDIToken).goToTypeDefinition();
+    },
+};
+
+// Not `editor.action.goToDeclaration`: upstream keeps that id as a deprecated alias of `revealDefinition`.
+export const revealDeclarationAction: CommandAction = {
+    id: "editor.action.revealDeclaration",
+    title: "Go to Declaration",
+    enablement: "editorHasDeclarationProvider",
+    menus: [
+        {
+            menuId: MenuId.EditorContext,
+            group: "navigation",
+            order: 1.3,
+            when: "editorHasDeclarationProvider",
+        },
+    ],
+    run(accessor) {
+        return accessor.get(DefinitionServiceDIToken).revealDeclaration();
+    },
+};
+
 export const GOTO_DEFINITION_ACTIONS: readonly CommandAction[] = [
     revealDefinitionAction,
     revealDefinitionAsideAction,
     goToImplementationAction,
+    goToTypeDefinitionAction,
+    revealDeclarationAction,
 ];

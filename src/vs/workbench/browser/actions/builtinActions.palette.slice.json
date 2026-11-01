@@ -161,6 +161,8 @@
     "editor.action.revealDefinition",
     "editor.action.revealDefinitionAside",
     "editor.action.goToImplementation",
+    "editor.action.goToTypeDefinition",
+    "editor.action.revealDeclaration",
     "editor.action.showHover",
     "editor.action.hideHover",
     "editor.action.triggerParameterHints",

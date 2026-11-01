@@ -1,0 +1,14 @@
+{
+    "name": "demo-inlay-hints",
+    "displayName": "Demo Inlay Hints",
+    "description": "E2E demo extension: an inlay hints provider that shows a type after a variable name and a parameter name before an argument.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onLanguage:typescript"
+    ]
+}

@@ -13,16 +13,13 @@ import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 const NOOP_PROVIDERS = [
     "registerCallHierarchyProvider",
     "registerCodeLensProvider",
-    "registerDeclarationProvider",
     "registerDocumentHighlightProvider",
     "registerDocumentLinkProvider",
     "registerDocumentSymbolProvider",
-    "registerInlayHintsProvider",
     "registerInlineValuesProvider",
     "registerLinkedEditingRangeProvider",
     "registerOnTypeFormattingEditProvider",
     "registerSelectionRangeProvider",
-    "registerTypeDefinitionProvider",
     "registerTypeHierarchyProvider",
     "registerWorkspaceSymbolProvider",
 ];

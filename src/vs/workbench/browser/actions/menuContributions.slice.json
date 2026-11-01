@@ -35,6 +35,8 @@
         ],
         "navigation": [
             "editor.action.revealDefinition",
+            "editor.action.revealDeclaration",
+            "editor.action.goToTypeDefinition",
             "editor.action.goToImplementation",
             "references-view.findReferences"
         ],

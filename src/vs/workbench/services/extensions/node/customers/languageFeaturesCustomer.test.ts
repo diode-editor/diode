@@ -18,6 +18,8 @@ const TIMEOUTS: RequestTimeouts = {
     "languages.provideFoldingRanges": 104,
     "languages.provideDefinition": 105,
     "languages.provideImplementation": 125,
+    "languages.provideTypeDefinition": 125,
+    "languages.provideDeclaration": 125,
     "languages.provideHover": 106,
     "languages.provideReferences": 107,
     "languages.provideSignatureHelp": 108,
@@ -139,6 +141,18 @@ const REQUEST_CASES: readonly IRequestCase[] = [
         empty: [],
     },
     {
+        name: "type definition",
+        method: "languages.provideTypeDefinition",
+        call: (c, u) => c.provideTypeDefinition(1, anyRequest(u)),
+        empty: [],
+    },
+    {
+        name: "declaration",
+        method: "languages.provideDeclaration",
+        call: (c, u) => c.provideDeclaration(1, anyRequest(u)),
+        empty: [],
+    },
+    {
         name: "hover",
         method: "languages.provideHover",
         call: (c, u) => c.provideHover(1, anyRequest(u)),
@@ -189,6 +203,8 @@ const EMPTY_WIRE: Readonly<Record<string, unknown>> = {
     "languages.provideFoldingRanges": [],
     "languages.provideDefinition": [],
     "languages.provideImplementation": [],
+    "languages.provideTypeDefinition": [],
+    "languages.provideDeclaration": [],
     "languages.provideHover": null,
     "languages.provideReferences": [],
     "languages.provideSignatureHelp": null,
@@ -355,6 +371,8 @@ describe("LanguageFeaturesCustomer — subprocess reply in core form", () => {
             }),
             "languages.provideDefinition": () => [{ uri: "file:///b.ts", range: CORE_RANGE }],
             "languages.provideImplementation": () => [{ uri: "file:///i.ts", range: CORE_RANGE }],
+            "languages.provideTypeDefinition": () => [{ uri: "file:///t.ts", range: CORE_RANGE }],
+            "languages.provideDeclaration": () => [{ uri: "file:///e.ts", range: CORE_RANGE }],
             "languages.provideHover": () => ({ contents: ["**x**"], range: CORE_RANGE }),
             "languages.provideReferences": () => [{ uri: "file:///c.ts", range: CORE_RANGE }],
             "languages.provideSignatureHelp": () => ({
@@ -377,6 +395,10 @@ describe("LanguageFeaturesCustomer — subprocess reply in core form", () => {
         expect(await c.provideImplementation(1, anyRequest(SYNCED))).toEqual([
             { uri: "file:///i.ts", range: CORE_RANGE },
         ]);
+        expect(await c.provideTypeDefinition(1, anyRequest(SYNCED))).toEqual([
+            { uri: "file:///t.ts", range: CORE_RANGE },
+        ]);
+        expect(await c.provideDeclaration(1, anyRequest(SYNCED))).toEqual([{ uri: "file:///e.ts", range: CORE_RANGE }]);
         expect(await c.provideHover(1, anyRequest(SYNCED))).toEqual({ contents: ["**x**"], range: CORE_RANGE });
         expect(await c.provideReferences(1, anyRequest(SYNCED))).toEqual([{ uri: "file:///c.ts", range: CORE_RANGE }]);
         expect(await c.provideSignatureHelp(1, anyRequest(SYNCED))).toEqual({
@@ -608,6 +630,69 @@ describe("LanguageFeaturesCustomer — selection ranges", () => {
         expect(await h.customer.provideSelectionRanges(1, REQ)).toEqual([]);
         const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         expect(await detached.provideSelectionRanges(1, REQ)).toEqual([]);
+    });
+});
+
+describe("LanguageFeaturesCustomer — inlay hints", () => {
+    const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7, range: CORE_RANGE };
+    const AT = { line: 0, character: 1 };
+
+    it("the document, the range and the token go over the wire; the reply becomes core hints without the broken ones", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideInlayHints": (params) => {
+                seen.push(params);
+                return [
+                    { position: AT, label: [{ value: "name" }], kind: 2 },
+                    { position: AT, label: "broken", kind: 9 as 1 },
+                ];
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideInlayHints(1, REQ, caller.token)).toEqual([
+            { position: AT, label: [{ label: "name" }], kind: 2 },
+        ]);
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7, range: CORE_RANGE }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: 5000 });
+    });
+
+    it("RPC rejection, a hung request past its timeout, no spawn or an unsynced document — no hints (null)", async () => {
+        const h = setupAnswering({
+            "languages.provideInlayHints": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideInlayHints(1, REQ)).toBeNull();
+
+        vi.useFakeTimers();
+        try {
+            const hung = setupAnswering({ "languages.provideInlayHints": () => new Promise(() => undefined) });
+            const reply = hung.customer.provideInlayHints(1, REQ);
+            await vi.advanceTimersByTimeAsync(5000);
+            expect(await reply).toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
+
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideInlayHints(1, REQ)).toBeNull();
+        const unsynced = new LanguageFeaturesCustomer(TIMEOUTS, () => false, undefined);
+        const [a] = createInProcessChannelPair();
+        unsynced.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+        expect(await unsynced.provideInlayHints(1, REQ)).toBeNull();
+    });
+
+    it("onDidChangeInlayHints — only for a declared handle", async () => {
+        const h = setup();
+        const changed = vi.fn();
+        h.customer.onDidChangeInlayHints(changed);
+        h.peer.notify("languages.register", { handle: 4, kind: "inlayHints", selector: [] });
+        await flushMicrotasks();
+        h.peer.notify("languages.didChangeInlayHints", { handle: 4 });
+        h.peer.notify("languages.didChangeInlayHints", { handle: 8 });
+        h.peer.notify("languages.didChangeInlayHints", null);
+        await flushMicrotasks();
+        expect(changed.mock.calls).toStrictEqual([[4]]);
     });
 });
 

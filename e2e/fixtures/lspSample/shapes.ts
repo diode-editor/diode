@@ -13,3 +13,5 @@ export class Square implements Shape {
         return 4;
     }
 }
+
+export const s: Shape = new Circle();

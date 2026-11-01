@@ -106,6 +106,12 @@
             "note": "the provider fold did not appear in 20 attempts: maptz.regionfolder is late on a slow runner (runs 40006403681, 40093826414)"
         },
         {
+            "file": "src/vs/workbench/services/extensions/node/extensionHost.todoTree.test.ts",
+            "test": "ExtensionHost — stock Gruntfuggly.todo-tree > TODOS shows the workspace's tags, follows an edit, a click on a tag opens its line, the status bar counts them",
+            "action": "retry",
+            "note": "waitUntil: the cursor on FIXME's line did not happen within 10000 ms; job test on #984 (run 41256229694), the diff doesn't touch it, green on main"
+        },
+        {
             "file": "e2e/scenarios/todo-tree.scenario.ts",
             "test": "todo-tree",
             "action": "retry",
@@ -131,6 +137,12 @@
                 "win32"
             ],
             "note": "expected 1 to be 2: the second update check did not reach the registry after the clock moves (run 40034642872)"
+        },
+        {
+            "file": "src/vs/editor/browser/editorElement.performance.test.ts",
+            "test": "EditorElement — extremely long lines must not freeze > displayLineFor caps the visible long line",
+            "action": "retry",
+            "note": "wall clock: expected 335.9 to be less than 298.4 in Stryker's dry run, so the mutation job got no verdict (run 41260477522, PR #985)"
         }
     ]
 }

@@ -33,12 +33,19 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `editorElement.performance.test.ts`, «displayLineFor caps the visible long line»: замер времени, 336 мс при пороге
+  298 в dry run Stryker, из-за этого mutation-job остался без вердикта (run 41260477522, PR #985, дифф — команда `type`).
+- [ ] Бенч `e2e/bench/hugeBudget.bench.ts`, log500m Enable Editing: `ArrowDown during the load` — медиана 32 мс при
+  бюджете 30 (run 41260477522, ubuntu-latest, PR #985, дифф — команда `type`). Не в `test-flakes.json`: это бюджет бенча.
 - [ ] e2e `quick-input-validation` и `extension-untitled-uri`, только windows-latest: `waitUntil(screen text predicate)`
   не дождался за 10 с (run 41255028793, PR #959, дифф — inlay hints); на ubuntu и при перезапуске зелёные.
 - [ ] `workbench.saveConflict.test.ts`, последний тест перед ошибкой — «saves without a prompt when the file was not
   changed externally»: все тесты зелёные, но прогон красный от необработанного rejection `FileOperationError … ENOENT,
   lstat …/diode-saveconflict-*/doc.txt`, похоже, фоновая проверка файла пережила удаление временного каталога.
   Ubuntu, PR #930 (ран 41213738904), `--failed` позеленил. Не в `test-flakes.json`: повтор теста не ловит ошибку вне теста.
+- [ ] `extensionHost.todoTree.test.ts` › «TODOS shows the workspace's tags, follows an edit, a click on a tag opens
+  its line, the status bar counts them»: `waitUntil: the cursor on FIXME's line did not happen within 10000 ms` —
+  похоже на сценарий `todo-tree` ниже (курсор не доехал после клика по узлу). Ubuntu, PR #984 (ран 41256229694), дифф не задет.
 - [ ] Сценарий `todo-tree` (`e2e/scenarios/todo-tree.scenario.ts`): `waitUntil(screen text predicate) timed out
   after 10000ms` на ожидании `Ln 4, Col 1` — клик по узлу «FIXME : fixed port» дерево отрисовал, а курсор остался
   на `Ln 1, Col 1`. Ubuntu, `main` 0.12.0 (ран 40334352898, обе попытки, дифф — версия); прогоны до и после зелёные.
