@@ -3,7 +3,7 @@ import type { LanguageFeatureRegistry } from "../languageFeatureRegistry.ts";
 import type { CodeActionProvider } from "../languages/iCodeActionSource.ts";
 import type { DocumentColorProvider } from "../languages/iColorSource.ts";
 import type { CompletionItemProvider } from "../languages/iCompletionSource.ts";
-import type { DefinitionProvider } from "../languages/iDefinitionSource.ts";
+import type { DefinitionProvider, ImplementationProvider } from "../languages/iDefinitionSource.ts";
 import type { FoldingRangeProvider } from "../languages/iFoldingSource.ts";
 import type {
     DocumentFormattingEditProvider,
@@ -24,6 +24,7 @@ import type { SignatureHelpProvider } from "../languages/iSignatureHelpSource.ts
 export interface ILanguageFeaturesService {
     readonly hoverProvider: LanguageFeatureRegistry<HoverProvider>;
     readonly definitionProvider: LanguageFeatureRegistry<DefinitionProvider>;
+    readonly implementationProvider: LanguageFeatureRegistry<ImplementationProvider>;
     readonly referenceProvider: LanguageFeatureRegistry<ReferenceProvider>;
     readonly renameProvider: LanguageFeatureRegistry<RenameProvider>;
     readonly signatureHelpProvider: LanguageFeatureRegistry<SignatureHelpProvider>;

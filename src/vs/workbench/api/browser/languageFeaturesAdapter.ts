@@ -69,6 +69,10 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.languageFeatures.definitionProvider.register(selector, {
                 provideDefinition: (request, token) => this.bridge.provideDefinition(handle, request, token),
             }),
+        implementation: ({ handle, selector }) =>
+            this.languageFeatures.implementationProvider.register(selector, {
+                provideImplementation: (request, token) => this.bridge.provideImplementation(handle, request, token),
+            }),
         references: ({ handle, selector }) =>
             this.languageFeatures.referenceProvider.register(selector, {
                 provideReferences: (request, token) => this.bridge.provideReferences(handle, request, token),
