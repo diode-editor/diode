@@ -17,7 +17,12 @@ export default defineScenario({
     rows: 20,
     // Linux only: the extension host subprocess is flaky on Windows.
     skipOn: ["win32"],
-    userKeybindings: [{ key: "f6", command: "insertSnippetDemo.hang" }],
+    userKeybindings: [
+        { key: "f6", command: "insertSnippetDemo.hang" },
+        { key: "f7", command: "insertSnippetDemo.link" },
+        { key: "f8", command: "insertSnippetDemo.tab" },
+        { key: "f9", command: "insertSnippetDemo.lineBelow" },
+    ],
     async run(editor) {
         await editor.waitForText((text) => text.includes("foo()"));
         await editor.waitForReady();
@@ -33,5 +38,27 @@ export default defineScenario({
         await editor.sendKey("Ctrl+Z");
         await editor.waitForText((text) => text.includes("foo()"));
         await editor.capture("one-undo-step");
+
+        // Core commands called by an extension (#968): the hermetic gate of what yzhang.markdown-all-in-one needs.
+        await editor.sendKey("End");
+        await editor.waitForText((text) => text.includes("Ln 1, Col 10"));
+        await editor.sendKey("F8");
+        await editor.waitForText((text) => text.includes("Ln 1, Col 13"));
+        await editor.capture("core-tab");
+        await editor.sendKey("Ctrl+Z");
+        await editor.waitForText((text) => text.includes("Ln 1, Col 10"));
+
+        await editor.sendKey("Home");
+        await editor.sendKey("F9");
+        await editor.waitForText((text) => text.includes("Ln 2, Col 5"));
+        await editor.capture("core-line-below");
+        await editor.sendKey("Ctrl+Z");
+        await editor.waitForText((text) => text.includes("Ln 1,"));
+
+        await editor.sendKey("End");
+        await editor.sendKey("Shift+Home");
+        await editor.sendKey("F7");
+        await editor.waitForText((text) => text.includes("[foo()](url)") && text.includes("Ln 1, Col 11"));
+        await editor.capture("link-over-selection");
     },
 });

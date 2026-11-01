@@ -39,8 +39,31 @@ describe("resolveSnippet", () => {
         expect(drawn("\\$5 $1")).toBe("$5 |");
     });
 
-    it("leaves variables as literal text", () => {
+    it("leaves variables other than TM_SELECTED_TEXT as literal text", () => {
         expect(drawn("$TM_FILENAME")).toBe("$TM_FILENAME|");
+        expect(resolveSnippet("$TM_SELECTED_TEXTS", "", SPACES_4, "sel").text).toBe("$TM_SELECTED_TEXTS");
+    });
+
+    it("puts the selected text in place of TM_SELECTED_TEXT, in both forms", () => {
+        expect(resolveSnippet("[$TM_SELECTED_TEXT$0](url)", "", SPACES_4, "sel")).toEqual({
+            text: "[sel](url)",
+            selectionStart: 4,
+            selectionEnd: 4,
+        });
+        expect(resolveSnippet("<${TM_SELECTED_TEXT}>", "", SPACES_4, "sel").text).toBe("<sel>");
+    });
+
+    it("resolves TM_SELECTED_TEXT inside a placeholder and to nothing without a selection", () => {
+        expect(resolveSnippet("${1:$TM_SELECTED_TEXT}", "", SPACES_4, "sel")).toEqual({
+            text: "sel",
+            selectionStart: 0,
+            selectionEnd: 3,
+        });
+        expect(drawn("[$TM_SELECTED_TEXT]")).toBe("[]|");
+    });
+
+    it("does not read snippet syntax out of the selected text", () => {
+        expect(resolveSnippet("$TM_SELECTED_TEXT", "", SPACES_4, "$1 \\$").text).toBe("$1 \\$");
     });
 
     it("adds the line's indentation to every further line, not to the start", () => {

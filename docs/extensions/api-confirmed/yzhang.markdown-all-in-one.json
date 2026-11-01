@@ -1,0 +1,29 @@
+{
+    "members": [
+        "commands.executeCommand",
+        "commands.registerCommand",
+        "extensions.all",
+        "extensions.onDidChange",
+        "languages.registerCodeLensProvider",
+        "languages.registerDocumentFormattingEditProvider",
+        "languages.setLanguageConfiguration",
+        "window.activeTextEditor",
+        "window.createTextEditorDecorationType",
+        "window.onDidChangeActiveTextEditor",
+        "window.onDidChangeTextEditorSelection",
+        "window.setStatusBarMessage",
+        "window.visibleTextEditors",
+        "workspace.applyEdit",
+        "workspace.fs",
+        "workspace.getConfiguration",
+        "workspace.getWorkspaceFolder",
+        "workspace.onDidChangeConfiguration",
+        "workspace.onDidChangeTextDocument",
+        "workspace.onDidCloseTextDocument",
+        "workspace.onDidOpenTextDocument",
+        "workspace.onDidSaveTextDocument",
+        "workspace.onWillSaveTextDocument",
+        "workspace.textDocuments",
+        "workspace.workspaceFolders"
+    ]
+}
