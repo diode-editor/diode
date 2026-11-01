@@ -129,6 +129,19 @@ describe("createFormatOnSaveParticipant: editor.defaultFormatter", () => {
         }
     });
 
+    it("an answer before the deadline leaves no timer behind", async () => {
+        vi.useFakeTimers();
+        try {
+            const runs: string[] = [];
+            const settings = { "editor.formatOnSave": true };
+            await createFormatOnSaveParticipant(savingHost(settings, runs))(SNAPSHOT);
+            expect(runs).toHaveLength(1);
+            expect(vi.getTimerCount()).toBe(0);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("a named formatter that is missing is a silent no-op on save", async () => {
         const runs: string[] = [];
         const settings = { "editor.formatOnSave": true, "editor.defaultFormatter": "acme.gone" };
