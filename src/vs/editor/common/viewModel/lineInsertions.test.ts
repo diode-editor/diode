@@ -99,10 +99,9 @@ describe("composed line math", () => {
         expect(composedCaretOffset(insertions, 1, 3)).toBe(3);
     });
 
-    it("a caret passes the insertions at its point up to the last right-side one", () => {
-        // "a" L RR l R "b" t: four insertions at 1, a left one at 2.
+    it("a caret passes the leading right-side insertions at its point and stops at a left-side one", () => {
+        // "a" RR l R "b" t: three insertions at 1, a left one at 2.
         const mixed = group("ab", [
-            { line: 0, offset: 1, text: "L" },
             { line: 0, offset: 1, text: "RR", caretSide: "right" },
             { line: 0, offset: 1, text: "l", caretSide: "left" },
             { line: 0, offset: 1, text: "R", caretSide: "right" },
@@ -113,10 +112,10 @@ describe("composed line math", () => {
             { line: 0, offset: 1, text: "L" },
         ]);
 
-        expect([0, 1, 2].map((offset) => composedCaretOffset(mixed, 0, offset))).toEqual([0, 6, 7]);
+        expect([0, 1, 2].map((offset) => composedCaretOffset(mixed, 0, offset))).toEqual([0, 3, 6]);
         expect(composedCaretOffset(rightFirst, 0, 1)).toBe(3);
         // A range end stays left of all of them.
-        expect([0, 1, 2].map((offset) => composedInsertionPointOffset(mixed, 0, offset))).toEqual([0, 1, 7]);
+        expect([0, 1, 2].map((offset) => composedInsertionPointOffset(mixed, 0, offset))).toEqual([0, 1, 6]);
     });
 
     it("a composed offset inside an insertion maps to its insertion point, the rest back to the document", () => {

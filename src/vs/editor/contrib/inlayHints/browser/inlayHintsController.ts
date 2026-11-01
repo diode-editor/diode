@@ -8,6 +8,7 @@ import { Disposable, DisposableStore } from "../../../../base/common/lifecycle.t
 import { StopWatch } from "../../../../base/common/stopwatch.ts";
 import { isHighSurrogate, isLowSurrogate } from "../../../../base/common/strings.ts";
 import type { IRange } from "../../../common/core/iRange.ts";
+import { charClass, isWordChar } from "../../../common/core/wordClassification.ts";
 import type { LanguageFeatureRegistry } from "../../../common/languageFeatureRegistry.ts";
 import {
     type IInlayHintsTarget,
@@ -107,6 +108,17 @@ function colorTokensOf(kind: InlayHintKind | undefined): { readonly fg: string; 
  * viewport above and below; each hint is a collapsed tracked decoration, so it follows the text until the
  * next answer replaces it.
  */
+/**
+ * Counterpart of upstream `InlayHintAnchor.direction`. A hint leading the text after it (a parameter
+ * name before an argument) lets the block caret stand on that text's first character. A hint
+ * trailing a word (a type after a name) or ending the visible text keeps the caret left of it, so
+ * the caret stays next to what is being typed.
+ */
+function caretSideOfHint(lineContent: string, offset: number): "left" | "right" {
+    if (offset >= lineContent.length || charClass(lineContent[offset]) === 0) return "left";
+    return offset > 0 && isWordChar(lineContent[offset - 1]) ? "left" : "right";
+}
+
 export class InlayHintsController extends Disposable {
     private readonly session = this.register(new DisposableStore());
     private readonly scheduler: RunOnceScheduler;
@@ -347,7 +359,8 @@ export class InlayHintsController extends Disposable {
         offset: number,
         label: string,
     ): void {
-        const base = { line, offset, caretSide: "left", outsideRangeBackgrounds: true } as const;
+        const caretSide = caretSideOfHint(this.model.document.getLineContent(line), offset);
+        const base = { line, offset, caretSide, outsideRangeBackgrounds: true } as const;
         if (hint.paddingLeft === true) insertions.push({ ...base, text: " " });
         const { fg, bg } = colorTokensOf(hint.kind);
         const { padding, fontStyle } = this.options;
