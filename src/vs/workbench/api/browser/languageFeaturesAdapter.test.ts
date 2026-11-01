@@ -45,6 +45,9 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideDefinition: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///def${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
+        provideImplementation: vi.fn((handle: number) =>
+            Promise.resolve([{ uri: `file:///impl${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
+        ),
         provideSignatureHelp: vi.fn((handle: number) =>
             Promise.resolve({
                 signatures: [{ label: `sig ${String(handle)}`, parameters: [] }],
@@ -152,6 +155,21 @@ describe("LanguageFeaturesAdapter", () => {
             { uri: "file:///ref5.ts", range: createRange(0, 0, 0, 1) },
         ]);
         expect(bridge.provideReferences).toHaveBeenCalledWith(5, referenceRequest, token);
+    });
+
+    it("implementation: the proxy lands in its own registry and calls the host with its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 6, kind: "implementation", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+        expect(features.definitionProvider.has(TS)).toBe(false);
+
+        const [implementation] = features.implementationProvider.ordered(TS);
+        const token = new CancellationTokenSource().token;
+        expect(await implementation.provideImplementation(REQUEST, token)).toEqual([
+            { uri: "file:///impl6.ts", range: createRange(0, 0, 0, 1) },
+        ]);
+        expect(bridge.provideImplementation).toHaveBeenCalledWith(6, REQUEST, token);
     });
 
     it("rename: proxy in its registry, both methods call the host with its handle", async () => {

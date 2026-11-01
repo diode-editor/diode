@@ -79,6 +79,7 @@ describe("Workbench — Shift+F10 context menu", () => {
         const withoutProviders = h.testApp.backend.screenToString();
         expect(withoutProviders).not.toContain("Rename Symbol");
         expect(withoutProviders).not.toContain("Go to Definition");
+        expect(withoutProviders).not.toContain("Go to Implementations");
         h.testApp.sendKey("Escape");
         h.testApp.render();
 
@@ -88,6 +89,7 @@ describe("Workbench — Shift+F10 context menu", () => {
             provideRenameEdits: () => Promise.resolve({ applied: false }),
         });
         languageFeatures.definitionProvider.register("*", { provideDefinition: () => Promise.resolve([]) });
+        languageFeatures.implementationProvider.register("*", { provideImplementation: () => Promise.resolve([]) });
 
         h.workbench.focusEditor();
         h.testApp.render();
@@ -96,6 +98,7 @@ describe("Workbench — Shift+F10 context menu", () => {
         const withProviders = h.testApp.backend.screenToString();
         expect(withProviders).toContain("Rename Symbol");
         expect(withProviders).toContain("Go to Definition");
+        expect(withProviders).toContain("Go to Implementations");
     });
 
     it("anchors the editor menu at the caret", () => {
