@@ -110,6 +110,8 @@ import type {
     IWireLanguageProviderRegistration,
     IWireLanguageProviderUnregistration,
     IWireLanguageStatusItem,
+    IWireLinkedEditingRangeParams,
+    IWireLinkedEditingRanges,
     IWireMarkersChanged,
     IWireMementoUpdate,
     IWireOpenDialogRequest,
@@ -238,6 +240,10 @@ export interface IHostToSubprocess {
         readonly "languages.provideDocumentHighlights": readonly [
             IWireDocumentHighlightParams,
             IWireDocumentHighlight[] | null,
+        ];
+        readonly "languages.provideLinkedEditingRanges": readonly [
+            IWireLinkedEditingRangeParams,
+            IWireLinkedEditingRanges | null,
         ];
         readonly "languages.provideDocumentColors": readonly [IWireDocumentColorParams, IColorInformation[] | null];
         readonly "languages.provideInlayHints": readonly [IWireInlayHintsParams, IWireInlayHint[] | null];

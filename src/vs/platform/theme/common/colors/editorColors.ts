@@ -53,6 +53,12 @@ export const editorColors = {
         description:
             "Background color of a textual occurrence for a symbol. The color must not be opaque so as not to hide underlying decorations.",
     },
+    // Opaque approximations of VS Code's #f00 with alpha 0.3 composited over the editor bg. VS Code's hcLight is
+    // white; hc kinds map to dark/light here.
+    "editor.linkedEditingBackground": {
+        defaults: { dark: "#621515", light: "#FFB3B3" },
+        description: "Background color when the editor auto renames on type.",
+    },
     // For themes only: a terminal cell has no border to draw. VS Code's hc default is `activeContrastBorder`.
     "editor.wordHighlightBorder": {
         defaults: null,

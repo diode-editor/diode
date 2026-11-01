@@ -82,6 +82,7 @@ export class LanguageFeatureContextKeys extends Disposable implements IContextKe
                 selection.anchor.character === selection.active.character);
         contextKeys.set("editorHasSelection", !empty);
         contextKeys.set("hasWordHighlights", (editor?.viewState.wordHighlights.ranges.length ?? 0) > 0);
+        contextKeys.set("LinkedEditingInputVisible", (editor?.viewState.linkedEditingRanges.length ?? 0) > 0);
     }
 
     private has(feature: (typeof FEATURES)[number], target: ILanguageFeatureTarget | null): boolean {

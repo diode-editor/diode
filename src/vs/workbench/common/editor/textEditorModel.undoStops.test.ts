@@ -34,6 +34,40 @@ const insert = (
     model.applyExternalEdits([createInsertEdit(0, 0, text)], "edit", undefined, undefined, stops);
 };
 
+describe("BaseTextEditorModel — applyEditsIntoLastUndoStep", () => {
+    it("the edit joins the step on top: one undo takes back both, and the target applies it", () => {
+        const model = setup();
+        insert(model, "1");
+        const target: ITextEditTarget = {
+            cloneSelections: () => [],
+            applyEdits: vi.fn(() => undefined),
+            markDirty: vi.fn(),
+        };
+        model.applyEditsIntoLastUndoStep([createInsertEdit(0, 0, "!")], "mirror", target);
+        expect(target.applyEdits).toHaveBeenCalledTimes(1);
+        // The target applied nothing: nothing to join, and the view is still told.
+        expect(model.getText()).toBe("1x");
+        model.applyEditsIntoLastUndoStep([createInsertEdit(0, 0, "2")], "mirror");
+        expect(model.getText()).toBe("21x");
+        model.undo();
+        expect(model.getText()).toBe("x");
+    });
+
+    it("every view is marked dirty", () => {
+        const model = setup();
+        insert(model, "1");
+        const markDirty = vi.fn();
+        const headless = model.attachEditTarget({
+            cloneSelections: () => [],
+            applyEdits: () => undefined,
+            markDirty,
+        });
+        model.applyEditsIntoLastUndoStep([createInsertEdit(0, 0, "2")], "mirror");
+        expect(markDirty).toHaveBeenCalled();
+        headless.dispose();
+    });
+});
+
 describe("BaseTextEditorModel — undo stops", () => {
     it("no stop between two edits: one undo removes both", () => {
         const model = setup();

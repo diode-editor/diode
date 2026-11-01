@@ -244,6 +244,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
      * Returns the undo step to the caller instead of pushing it to the document's bucket, so a bulk
      * edit can build ONE step for the whole `workspace.applyEdit`.
      */
+    public applyEditsIntoLastUndoStep(edits: readonly ITextEdit[], label: string): void {
+        this.model.applyEditsIntoLastUndoStep(edits, label, this.component.editTarget);
+    }
+
     public applyExternalEditsDetached(edits: readonly ITextEdit[], label: string): IUndoRedoElement | null {
         return this.model.applyExternalEditsDetached(edits, label, this.component.editTarget);
     }

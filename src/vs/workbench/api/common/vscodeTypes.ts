@@ -920,6 +920,16 @@ export class DocumentHighlight implements vscode.DocumentHighlight {
     }
 }
 
+export class LinkedEditingRanges implements vscode.LinkedEditingRanges {
+    public readonly ranges: Range[];
+    public readonly wordPattern: RegExp | undefined;
+
+    public constructor(ranges: Range[], wordPattern?: RegExp) {
+        this.ranges = ranges;
+        this.wordPattern = wordPattern;
+    }
+}
+
 export enum SymbolTag {
     Deprecated = 1,
 }

@@ -33,6 +33,8 @@ export interface IResolvedLanguageConfiguration {
     readonly surroundingPairs: readonly CharacterPair[];
     readonly autoCloseBefore: string;
     readonly onEnterRules: readonly IResolvedOnEnterRule[];
+    /** `undefined`: the language has none, upstream's `getWordDefinition` falls back to the default. */
+    readonly wordPattern: RegExp | undefined;
 }
 
 export const EMPTY_LANGUAGE_CONFIGURATION: IResolvedLanguageConfiguration = {
@@ -42,6 +44,7 @@ export const EMPTY_LANGUAGE_CONFIGURATION: IResolvedLanguageConfiguration = {
     surroundingPairs: [],
     autoCloseBefore: DEFAULT_AUTO_CLOSE_BEFORE,
     onEnterRules: [],
+    wordPattern: undefined,
 };
 
 function isCharacterPair(value: CharacterPair | IAutoClosingPair | ISurroundingPair): value is CharacterPair {
@@ -109,7 +112,9 @@ export function resolveLanguageConfiguration(raw: ILanguageConfiguration): IReso
 
     const onEnterRules = mapSection(raw.onEnterRules, toOnEnterRule);
 
-    return { comments, brackets, autoClosingPairs, surroundingPairs, autoCloseBefore, onEnterRules };
+    const wordPattern = toRegExp(raw.wordPattern);
+
+    return { comments, brackets, autoClosingPairs, surroundingPairs, autoCloseBefore, onEnterRules, wordPattern };
 }
 
 function toRegExp(value: string | IRegExpDefinition | null | undefined): RegExp | undefined {

@@ -46,6 +46,10 @@ import {
     type ILanguageConfigurationService,
     NULL_LANGUAGE_CONFIGURATION_SERVICE,
 } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
+import type {
+    ILinkedEditingRangeRequest,
+    ILinkedEditingRanges,
+} from "../../../../editor/common/languages/iLinkedEditingSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreRenameLocation,
@@ -926,6 +930,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token?: ICancellationToken,
     ): Promise<readonly IDocumentHighlight[] | null> {
         return this.languageFeatures.provideDocumentHighlights(handle, req, token);
+    }
+
+    public provideLinkedEditingRanges(
+        handle: number,
+        req: ILinkedEditingRangeRequest,
+        token?: ICancellationToken,
+    ): Promise<ILinkedEditingRanges | null> {
+        return this.languageFeatures.provideLinkedEditingRanges(handle, req, token);
     }
 
     public provideDocumentColors(

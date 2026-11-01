@@ -30,6 +30,15 @@ describe("languages.setLanguageConfiguration", () => {
         }).not.toThrow();
     });
 
+    it("wordPattern goes to the host with its flags; without one the layer has no such section", () => {
+        const { setLanguageConfiguration, sent } = setup();
+        setLanguageConfiguration("go", { wordPattern: /[a-z]+/i });
+        setLanguageConfiguration("go", { comments: { lineComment: "//" } });
+        const [withPattern, without] = sent() as { params: { configuration: Record<string, unknown> } }[];
+        expect(withPattern.params.configuration).toEqual({ wordPattern: { pattern: "[a-z]+", flags: "i" } });
+        expect(without.params.configuration).not.toHaveProperty("wordPattern");
+    });
+
     it("sections the core supports go to the host as a layer in configuration file format", () => {
         const { setLanguageConfiguration, sent } = setup();
         setLanguageConfiguration("go", {

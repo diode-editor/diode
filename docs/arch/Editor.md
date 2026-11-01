@@ -173,6 +173,16 @@ Ctrl+D и родня — состояние плюс чистые функции
 
 **Фоны диапазонов — по видимой области.** Строки экрана кадр собирает один раз (`buildViewportRows`, `browser/textViewRendering.ts`: логическая строка, фрагмент под wrap, `DisplayLine` лениво) — все проходы фона и волн берут их оттуда, а не спрашивают проекцию на каждый диапазон. Отсортированные непересекающиеся наборы (вхождения, совпадения поиска) режутся двумя двоичными поисками до видимых строк (`paintSortedRangeBackgrounds`), так что цена кадра следует за экраном, а не за числом совпадений: до этого 200 тыс. вхождений `const` × строки экрана стоили сотни мс на каждую клавишу.
 
+## `editor/contrib/linkedEditing/` (связанная правка тегов)
+
+Порт `LinkedEditingContribution` эталона. `LinkedEditingController` живёт на активном редакторе (`workbench/contrib/linkedEditing/browser/linkedEditingService.ts` пересоздаёт его через `bindActiveEditor`), спрашивает `linkedEditingRangeProvider` по движению каретки (debounce `FeatureDebounce(50, 200)`, старт 75 мс) и держит диапазоны tracked-декорациями: индекс 0 — опорный, под кареткой. Правка внутри опорного синхронизируется таймером 0 мс: многострочный опорный или текст не по `wordPattern` (ответа, иначе языка, иначе `DEFAULT_WORD_REGEXP`) разрывает связку, иначе в зеркала уходит минимальная правка по общему префиксу и суффиксу.
+
+**Один шаг отмены.** Зеркальная правка идёт через `TextEditorModel.applyEditsIntoLastUndoStep` → `UndoManager.joinUndoElement` — аналог `popUndoStop` эталона: Ctrl+Z откатывает оба тега разом.
+
+**Подсветка.** Контроллер публикует диапазоны в `EditorViewState.linkedEditingRanges`; их рисует `EditorElement` цветом `editor.linkedEditingBackground` поверх вхождений, из них же считается контекст-ключ `LinkedEditingInputVisible` (Escape, `cancelLinkedEditingInput`).
+
+**Отступление от эталона.** В эталоне подписки контроллера есть только при включённой настройке, поэтому Start Linked Editing при выключенной лишь подсвечивает диапазоны. Спека #951 требует рабочую связку: подписки есть всегда, диапазоны команды зеркалят как обычно, а при выключенной настройке их просто некому запросить снова, когда они исчезли — Escape, разрыв, уход каретки.
+
 ## `editor/contrib/smartSelect/` (Expand / Shrink Selection)
 Порт `editor/contrib/smartSelect` эталона. `provideSelectionRanges` спрашивает языковые провайдеры реестра (`selectionRangeProvider`) и встроенные: слова (`wordSelections.ts` — подслово camelCase/`_`, слово `DEFAULT_WORD_REGEXP`, строка из пробелов, документ) — всегда, скобки (`bracketSelections.ts`) — только когда языковых провайдеров нет. Эталон берёт скобки у токенизатора (`model.bracketPairs`); у нас — пары `brackets` language configuration, найденные в тексте, а скобки в строках и комментариях отсекает предикат по TextMate-токенам (`tokenCodeAt.ts` поверх `standardTokenTypeAt`; строки за фронтиром токенизации и с устаревшим кэшем считаются кодом). Ответы сливаются в цепочку «каждая ступень строго шире предыдущей», с `editor.smartSelect.selectLeadingAndTrailingWhitespace` при выходе на другие строки вставляются ступени «строки без отступа» и «строки целиком». `SmartSelectController` держит стек ступеней на каретку (мультикурсор — по иерархии на каждую) и забывает его по любой посторонней смене выделения или правке. Команды и сервис — `workbench/contrib/smartSelect/browser/`.
 

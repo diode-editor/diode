@@ -146,6 +146,26 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
         expect(app.backend.getBgAt(new Point(gw + 12, 0))).toBe(editor.resolvedStyle.bg);
     });
 
+    it("linked ranges repaint by themselves, in their color and over the occurrences", () => {
+        const [read, linked] = [packRgb(10, 0, 0), packRgb(0, 10, 0)];
+        const { app, editor, viewState, gw } = createEditor("foo bar");
+        editor.setStyleVars({ "editor.wordHighlightBackground": read, "editor.linkedEditingBackground": linked });
+        viewState.wordHighlights = wordHighlightSetOf([
+            { range: createRange(0, 0, 0, 3), kind: DocumentHighlightKind.Read },
+        ]);
+        app.render();
+        const markDirty = vi.spyOn(editor, "markDirty");
+
+        viewState.linkedEditingRanges = [createRange(0, 0, 0, 3)];
+        expect(markDirty).toHaveBeenCalled();
+        app.render();
+        expect(app.backend.getBgAt(new Point(gw, 0))).toBe(linked);
+
+        viewState.linkedEditingRanges = [];
+        app.render();
+        expect(app.backend.getBgAt(new Point(gw, 0))).toBe(read);
+    });
+
     it("marks each kind on the scrollbar in its own color", () => {
         const [read, write, text] = [packRgb(10, 0, 0), packRgb(0, 10, 0), packRgb(0, 0, 10)];
         const { app, editor, viewState } = createEditor("a\nb\nc");

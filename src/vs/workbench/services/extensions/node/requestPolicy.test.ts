@@ -95,6 +95,7 @@ describe("DEFAULT_REQUEST_TIMEOUTS", () => {
             "languages.provideTypeHierarchySupertypes": 5000,
             "languages.provideTypeHierarchySubtypes": 5000,
             "languages.provideDocumentHighlights": 5000,
+            "languages.provideLinkedEditingRanges": 5000,
             "languages.provideDocumentColors": 5000,
         });
     });

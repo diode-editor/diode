@@ -172,6 +172,9 @@ export class EditorViewState {
      * about the viewport changes with it (the listeners there re-request viewport tokens, re-sync folded lenses).
      */
     public readonly onDidChangeWordHighlights = this.onDidChangeWordHighlightsEmitter.event;
+    private readonly onDidChangeLinkedEditingRangesEmitter = new Emitter<void>();
+    /** Not {@link onDidChangeView}, for the reason of {@link onDidChangeWordHighlights}. */
+    public readonly onDidChangeLinkedEditingRanges = this.onDidChangeLinkedEditingRangesEmitter.event;
     public get searchMatches(): IRange[] {
         return this.searchMatchesValue;
     }
@@ -192,6 +195,16 @@ export class EditorViewState {
         this.onDidChangeWordHighlightsEmitter.fire();
     }
 
+    /** The linked ranges on the frame, sorted; kept by `LinkedEditingController`, which tracks them through edits. */
+    public get linkedEditingRanges(): readonly IRange[] {
+        return this.linkedEditingRangesValue;
+    }
+
+    public set linkedEditingRanges(value: readonly IRange[]) {
+        this.linkedEditingRangesValue = value;
+        this.onDidChangeLinkedEditingRangesEmitter.fire();
+    }
+
     /** -1 means no active match. */
     public get currentSearchMatchIndex(): number {
         return this.currentSearchMatchIndexValue;
@@ -205,6 +218,7 @@ export class EditorViewState {
 
     private searchMatchesValue: IRange[] = [];
     private wordHighlightsValue: IWordHighlightSet = EMPTY_WORD_HIGHLIGHT_SET;
+    private linkedEditingRangesValue: readonly IRange[] = [];
     private currentSearchMatchIndexValue = -1;
     public readonly document: ITextDocument;
     public foldedRegions: IFoldingRegion[] = [];

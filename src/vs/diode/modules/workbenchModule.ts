@@ -185,6 +185,10 @@ import {
     LargeFileOptimizationsWarnerDIToken,
 } from "../../workbench/contrib/largeFile/browser/largeFileOptimizationsWarner.ts";
 import {
+    LinkedEditingService,
+    LinkedEditingServiceDIToken,
+} from "../../workbench/contrib/linkedEditing/browser/linkedEditingService.ts";
+import {
     DiagnosticsEditorSourceDIToken,
     DiagnosticsService,
     DiagnosticsServiceDIToken,
@@ -536,6 +540,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(GoToLocationsCommandContributionDIToken, GoToLocationsCommandContribution);
     container.bind(HoverComponentDIToken, HoverComponent);
     container.bind(HoverServiceDIToken, HoverService);
+    container.bind(LinkedEditingServiceDIToken, LinkedEditingService);
     container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);
     container.bind(ParameterHintsServiceDIToken, ParameterHintsService);
     // Stryker disable next-line CallExpression: DI binding without a unit test; end-to-end — e2e scenario call-hierarchy

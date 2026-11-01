@@ -728,6 +728,9 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState.onDidChangeWordHighlights(() => {
             this.markDirty();
         });
+        this.viewState.onDidChangeLinkedEditingRanges(() => {
+            this.markDirty();
+        });
         this.viewState.onDidChangeCursorPosition(() => {
             this.markDirty();
         });
@@ -1128,6 +1131,8 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.paintOccurrences(context, occurrences.text, "editor.wordHighlightTextBackground", geometry);
         this.paintOccurrences(context, occurrences.read, "editor.wordHighlightBackground", geometry);
         this.paintOccurrences(context, occurrences.write, "editor.wordHighlightStrongBackground", geometry);
+        // Over the occurrences: the same word usually carries both.
+        this.paintOccurrences(context, this.viewState.linkedEditingRanges, "editor.linkedEditingBackground", geometry);
 
         const searchMatches = this.viewState.searchMatches;
         const currentMatchIndex = this.viewState.currentSearchMatchIndex;

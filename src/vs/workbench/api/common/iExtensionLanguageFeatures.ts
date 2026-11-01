@@ -36,6 +36,10 @@ import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../../../editor/common/languages/iInlineCompletionSource.ts";
+import type {
+    ILinkedEditingRangeRequest,
+    ILinkedEditingRanges,
+} from "../../../editor/common/languages/iLinkedEditingSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreRenameLocation,
@@ -186,6 +190,12 @@ export interface IExtensionLanguageFeaturesBridge {
         request: IDocumentHighlightRequest,
         token: ICancellationToken,
     ): Promise<readonly IDocumentHighlight[] | null>;
+    /** `null`: the provider declined, the next one is asked. */
+    provideLinkedEditingRanges(
+        handle: number,
+        request: ILinkedEditingRangeRequest,
+        token: ICancellationToken,
+    ): Promise<ILinkedEditingRanges | null>;
     /** `null`: the provider gave no colors, the default detector may take over. */
     provideDocumentColors(
         handle: number,

@@ -1033,4 +1033,37 @@ describe("LanguageFeaturesCustomer — document highlights", () => {
         const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         expect(await detached.provideDocumentHighlights(1, REQ)).toBeNull();
     });
+
+    it("linked editing: the position and the token go over the wire, the pattern comes back a RegExp", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideLinkedEditingRanges": (params) => {
+                seen.push(params);
+                return { ranges: [CORE_RANGE], wordPattern: "[a-z]+", wordPatternFlags: "i" };
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideLinkedEditingRanges(1, REQ, caller.token)).toEqual({
+            ranges: [CORE_RANGE],
+            wordPattern: /[a-z]+/i,
+        });
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7, line: 2, character: 4 }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("linked editing: no pattern stays absent, so the language's applies", async () => {
+        const h = setupAnswering({ "languages.provideLinkedEditingRanges": () => ({ ranges: [CORE_RANGE] }) });
+        expect(await h.customer.provideLinkedEditingRanges(1, REQ)).toStrictEqual({ ranges: [CORE_RANGE] });
+    });
+
+    it("linked editing: RPC rejection or no spawn — declined", async () => {
+        const h = setupAnswering({
+            "languages.provideLinkedEditingRanges": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideLinkedEditingRanges(1, REQ)).toBeNull();
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideLinkedEditingRanges(1, REQ)).toBeNull();
+    });
 });
