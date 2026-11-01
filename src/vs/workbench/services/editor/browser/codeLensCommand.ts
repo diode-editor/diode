@@ -31,6 +31,7 @@ export async function runCodeLensCommand(
         return;
     }
     try {
+        // Stryker disable next-line OptionalChaining: without `run` the check above has left `known` set; the type cannot see it
         await (command.run?.() ?? known?.execute(command.id, ...(command.arguments ?? [])));
     } catch (error) {
         const message = failureMessage(error);
