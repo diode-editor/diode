@@ -9,9 +9,10 @@ import {
 } from "../../../editor/common/core/cursorChangeSource.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
-import { createRange } from "../../../editor/common/core/iRange.ts";
+import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import type { RangeRevealType } from "../../../editor/common/viewModel/editorViewState.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
@@ -74,6 +75,15 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         if (editor === null) return;
         editor.cursorStyleOverride = style;
         this.group.editorConfiguration.applyCursorStyle(editor);
+    }
+
+    public revealEditorRange(uri: string, groupId: number, range: IRange, revealType: RangeRevealType): void {
+        const editor = this.editorFor(uri, groupId);
+        if (editor === null) return;
+        const doc = editor.model.document;
+        const start = clampPositionToDocument(doc, range.start);
+        const end = clampPositionToDocument(doc, range.end);
+        editor.viewState.revealRangeByType({ start, end }, revealType);
     }
 
     public getActiveEditorFilePath(): string | null {
