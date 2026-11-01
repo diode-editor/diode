@@ -67,7 +67,8 @@ describe("loggingRequest", () => {
 });
 
 describe("DEFAULT_REQUEST_TIMEOUTS", () => {
-    // `languages.provideCompletionItems` is intentionally absent: completion waits without a deadline.
+    // Intentionally absent, they wait without a deadline as upstream: `languages.provideCompletionItems`,
+    // `languages.provideInlayHints`, `languages.provideCodeLenses`, `languages.resolveCodeLens`.
     it("per-method wire deadlines match the previous host option defaults", () => {
         expect(DEFAULT_REQUEST_TIMEOUTS).toEqual({
             "workspace.willSaveTextDocument": 1500,
@@ -89,9 +90,6 @@ describe("DEFAULT_REQUEST_TIMEOUTS", () => {
             "languages.provideSelectionRanges": 5000,
             "languages.provideDocumentHighlights": 5000,
             "languages.provideDocumentColors": 5000,
-            "languages.provideInlayHints": 5000,
-            "languages.provideCodeLenses": 5000,
-            "languages.resolveCodeLens": 5000,
         });
     });
 });

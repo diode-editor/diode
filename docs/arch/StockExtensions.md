@@ -171,7 +171,17 @@ eval-режим node, иначе расширение молча не линти
 - **Не будет (webview)**: редактор настроек форматтера (`contributes.customEditors`; регистрация —
   инертный no-op, иначе падала вся активация), markdown-превью документации, диалог Change Signature.
   Отладка, тесты, «Java Projects» — отдельные расширения Extension Pack for Java.
-- Inlay hints, code lens, outline, workspace symbols, call/type hierarchy, selection range, on-type
+- **Inlay hints и code lens работают.** Подсказки имён параметров — сразу (`literals`, дефолт
+  расширения), `java.inlayHints.parameterNames.enabled: none` убирает их на лету. Линзы —
+  `java.referencesCodeLens.enabled` и `java.implementationCodeLens`, дефолты расширения выключены; клик
+  идёт через `java.show.references`/`java.show.implementations` в `editor.action.showReferences`.
+  `0 references` на кадре есть, как в VS Code; команда у него настоящая, но едет с пустым списком, и
+  `peekLocations` молча ничего не открывает (в эталоне `muteMessage` без `noResultsMessage`). **Грабля:** линзы
+  приходят сразу, а считает их jdt.ls только после импорта проекта, десятки секунд, поэтому у
+  `resolveCodeLens` нет дедлайна, как в эталоне; с дедлайном 5 с кадр навсегда оставался с
+  `no commands` ([Extensions.md](Extensions.md)). Тесты —
+  `extensionHost.javaLsp.{inlayHints,codeLens}.test.ts`, демо — `java-lens-hints`.
+- Outline, workspace symbols, call/type hierarchy, selection range, on-type
   formatting сервер умеет — Java получит их сама по мере закрытия `register*Provider`
   ([API-COVERAGE](../public/API-COVERAGE.md)). Классов-ловушек у этого клиента не всплыло: ошибок
   конвертации в `client.outputChannel` за прогоны нет. Активация → готовность на игрушечном проекте
@@ -219,6 +229,16 @@ languageclient только при вызове провайдера, а соо�
 понадобятся вместе с провайдерами. Автодополнение по схеме AWS работает из вшитых схем без terraform
 CLI и `terraform init`; форматирование требует terraform в PATH (`Terraform (CLI) is required`) —
 окружение, а не Diode. Запись магазина гейтится `engines.diode >=0.7.3`.
+
+**Code lens.** `terraform.codelens.referenceCount: true` даёт над блоками, на которые есть ссылки, линзу
+`N references`; клик идёт через команду расширения `client.showReferences` (не `terraform.showReferences`) в
+`editor.action.showReferences` и открывает references view. Расширение читает настройку один раз, при
+старте клиента, и только тогда объявляет серверу `experimental.showReferencesCommandId`; `codeLensProvider`
+сервер объявляет всегда и без этой настройки отвечает пусто. Поэтому смена настройки на лету линзы не
+снимает — расширение предлагает «Reload VSCode window», после перезагрузки их нет. Это поведение самого
+vsix, в VS Code то же. Снять линзы без перезагрузки можно настройкой ядра `editor.codeLens: false`.
+`inlayHintProvider` `terraform-ls` не объявляет, провайдер inlay hints не регистрируется. Тесты —
+`extensionHost.terraformLsp.codeLens.test.ts`, сценарий — `terraform-code-lens.scenario.ts`.
 
 ## Форматирование: `esbenp.prettier-vscode`
 
