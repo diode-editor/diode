@@ -20,6 +20,7 @@ const TIMEOUTS: RequestTimeouts = {
     "languages.provideImplementation": 125,
     "languages.provideTypeDefinition": 125,
     "languages.provideDeclaration": 125,
+    "languages.provideDocumentSymbols": 125,
     "languages.provideHover": 106,
     "languages.provideReferences": 107,
     "languages.provideSignatureHelp": 108,
@@ -153,6 +154,12 @@ const REQUEST_CASES: readonly IRequestCase[] = [
         empty: [],
     },
     {
+        name: "document symbols",
+        method: "languages.provideDocumentSymbols",
+        call: (c, u) => c.provideDocumentSymbols(1, anyRequest(u)),
+        empty: [],
+    },
+    {
         name: "hover",
         method: "languages.provideHover",
         call: (c, u) => c.provideHover(1, anyRequest(u)),
@@ -205,6 +212,7 @@ const EMPTY_WIRE: Readonly<Record<string, unknown>> = {
     "languages.provideImplementation": [],
     "languages.provideTypeDefinition": [],
     "languages.provideDeclaration": [],
+    "languages.provideDocumentSymbols": [],
     "languages.provideHover": null,
     "languages.provideReferences": [],
     "languages.provideSignatureHelp": null,
@@ -278,6 +286,7 @@ describe("LanguageFeaturesCustomer — requests only for synced documents", () =
         ]);
         const positionless = new Set([
             "languages.provideFoldingRanges",
+            "languages.provideDocumentSymbols",
             "languages.provideFormattingEdits",
             "languages.provideCodeActions",
         ]);

@@ -6,10 +6,11 @@
 import type * as vscode from "vscode";
 
 import { comparePositions, createPosition, type IPosition } from "../../../editor/common/core/iPosition.ts";
-import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
+import { createRange, type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
 import type { IColor, IColorInformation } from "../../../editor/common/languages/iColorSource.ts";
 import type { ICoreCompletionItem } from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
+import type { ICoreDocumentSymbol } from "../../../editor/common/languages/iDocumentSymbolSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type {
     ICoreParameterInfo,
@@ -502,6 +503,79 @@ export function serializeTextEdit(edit: unknown): IWireEditorEdit | null {
     const range = rangeFrom(e.range);
     if (range === null || typeof e.newText !== "string") return null;
     return { range, text: e.newText };
+}
+
+function serializeSymbolTags(raw: unknown): number[] {
+    return Array.isArray(raw) ? raw.filter(isFiniteNumber) : [];
+}
+
+function serializeDocumentSymbol(raw: vscode.DocumentSymbol): ICoreDocumentSymbol | null {
+    const range = rangeFrom(raw.range);
+    const selectionRange = rangeFrom(raw.selectionRange);
+    if (range === null || selectionRange === null || typeof raw.name !== "string") return null;
+    return {
+        name: raw.name,
+        detail: typeof raw.detail === "string" ? raw.detail : "",
+        kind: raw.kind,
+        tags: serializeSymbolTags(raw.tags),
+        range,
+        selectionRange,
+        children: Array.isArray(raw.children) ? serializeDocumentSymbolList(raw.children) : [],
+    };
+}
+
+function serializeDocumentSymbolList(raw: readonly vscode.DocumentSymbol[]): ICoreDocumentSymbol[] {
+    return raw.flatMap((symbol) => serializeDocumentSymbol(symbol) ?? []);
+}
+
+/** Upstream `DocumentSymbolAdapter._asDocumentSymbolTree`: sorted by start, longest first, nested by containment. */
+function symbolInformationToTree(infos: readonly vscode.SymbolInformation[]): ICoreDocumentSymbol[] {
+    const elements = infos.flatMap((info): (ICoreDocumentSymbol & { children: ICoreDocumentSymbol[] })[] => {
+        const range = rangeFrom(info.location.range);
+        if (range === null) return [];
+        return [
+            {
+                name: info.name || "!!MISSING: name!!",
+                detail: "",
+                kind: info.kind,
+                tags: serializeSymbolTags(info.tags),
+                containerName: info.containerName,
+                range,
+                selectionRange: range,
+                children: [],
+            },
+        ];
+    });
+    elements.sort(
+        (a, b) => comparePositions(a.range.start, b.range.start) || comparePositions(b.range.end, a.range.end),
+    );
+    const roots: ICoreDocumentSymbol[] = [];
+    const parents: (typeof elements)[number][] = [];
+    for (const element of elements) {
+        while (parents.length > 0 && !strictlyContains(parents[parents.length - 1].range, element.range)) {
+            parents.pop();
+        }
+        (parents.at(-1)?.children ?? roots).push(element);
+        parents.push(element);
+    }
+    return roots;
+}
+
+function strictlyContains(outer: IRange, inner: IRange): boolean {
+    return (
+        comparePositions(outer.start, inner.start) <= 0 &&
+        comparePositions(inner.end, outer.end) <= 0 &&
+        !rangesEqual(outer, inner)
+    );
+}
+
+/** A `SymbolInformation[]` answer becomes a tree in the subprocess, as upstream; anything malformed answers nothing. */
+export function serializeDocumentSymbols(raw: unknown): ICoreDocumentSymbol[] {
+    if (!Array.isArray(raw) || raw.length === 0) return [];
+    const list = raw as readonly (vscode.DocumentSymbol | vscode.SymbolInformation)[];
+    return "location" in list[0]
+        ? symbolInformationToTree(list as readonly vscode.SymbolInformation[])
+        : serializeDocumentSymbolList(list as readonly vscode.DocumentSymbol[]);
 }
 
 export function serializeFoldingRange(range: vscode.FoldingRange): WireFoldingRange | null {

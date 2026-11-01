@@ -5,6 +5,7 @@ import { parseChord, parseKeybinding } from "../../../../platform/keybinding/com
 
 import {
     gotoLineAction,
+    gotoSymbolAction,
     QUICK_ACCESS_ACTIONS,
     quickOpenAction,
     showAllEditorsAction,
@@ -48,6 +49,15 @@ describe("quick open actions — prefill argument", () => {
         quickOpenAction.run(accessor, { text: "src/" });
         quickOpenAction.run(accessor, 42);
         expect(shown).toEqual(["", ""]);
+    });
+
+    it("gotoSymbol: opens `@`, with the argument after the prefix", () => {
+        const { accessor, shown } = makeAccessor();
+        gotoSymbolAction.run(accessor);
+        gotoSymbolAction.run(accessor, ":foo");
+        expect(shown).toEqual(["@", "@:foo"]);
+        expect(gotoSymbolAction.id).toBe("workbench.action.gotoSymbol");
+        expect(gotoSymbolAction.title).toBe("Go to Symbol in Editor...");
     });
 
     it("gotoLine: the argument is appended after the `:` prefix", () => {

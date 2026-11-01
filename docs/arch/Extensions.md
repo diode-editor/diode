@@ -357,6 +357,9 @@
   в субпроцессе общий (`provideLocations`), а `DefinitionService` параметризован видом запроса
   (`ISymbolNavigation`: заголовок панели, сообщения, ключи настроек, реестр). Peek-вариант
   (`editor.action.peekImplementation`) не заводим — роль Peek играет панель.
+  **Document Symbols** (`registerDocumentSymbolProvider`, RPC `languages.provideDocumentSymbols`, таймаут 5000):
+  ответ `SymbolInformation[]` становится деревом по вложенности диапазонов в субпроцессе, как в эталоне; потребитель —
+  quick access `@` ([QuickInput.md](workbench/QuickInput.md)).
   **Type Definition и Declaration** (`registerTypeDefinitionProvider`, `registerDeclarationProvider`,
   RPC `languages.provideTypeDefinition`/`provideDeclaration`, команды `editor.action.goToTypeDefinition`
   и `editor.action.revealDeclaration`, без клавиш — как в эталоне) — ещё два `ISymbolNavigation` на том же

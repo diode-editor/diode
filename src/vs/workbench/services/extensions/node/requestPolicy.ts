@@ -14,6 +14,7 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.resolveCompletionItem": 1500,
     "languages.provideInlineCompletions": 5000,
     "languages.provideFoldingRanges": 1500,
+    "languages.provideDocumentSymbols": 5000,
     "languages.provideDefinition": 5000,
     "languages.provideImplementation": 5000,
     "languages.provideTypeDefinition": 5000,

@@ -15,7 +15,6 @@ const NOOP_PROVIDERS = [
     "registerCodeLensProvider",
     "registerDocumentHighlightProvider",
     "registerDocumentLinkProvider",
-    "registerDocumentSymbolProvider",
     "registerInlayHintsProvider",
     "registerInlineValuesProvider",
     "registerLinkedEditingRangeProvider",

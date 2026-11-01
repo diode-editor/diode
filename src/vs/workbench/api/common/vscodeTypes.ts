@@ -1056,16 +1056,35 @@ export class InlayHint {
 }
 
 export class SymbolInformation {
+    public static validate(candidate: SymbolInformation): void {
+        if (!candidate.name) throw new Error("name must not be falsy");
+    }
+
     public name: string;
     public kind: SymbolKind;
+    public tags?: SymbolTag[];
     public containerName: string;
     public location: Location;
 
-    public constructor(name: string, kind: SymbolKind, containerName: string, location: Location) {
+    public constructor(name: string, kind: SymbolKind, containerName: string, location: Location);
+    public constructor(name: string, kind: SymbolKind, range: Range, uri?: Uri, containerName?: string);
+    public constructor(
+        name: string,
+        kind: SymbolKind,
+        rangeOrContainer: string | Range,
+        locationOrUri?: Location | Uri,
+        containerName?: string,
+    ) {
         this.name = name;
         this.kind = kind;
-        this.containerName = containerName;
-        this.location = location;
+        if (typeof rangeOrContainer === "string") {
+            this.containerName = rangeOrContainer;
+            this.location = locationOrUri as Location;
+        } else {
+            this.containerName = containerName ?? "";
+            this.location = new Location(locationOrUri as Uri, rangeOrContainer);
+        }
+        SymbolInformation.validate(this);
     }
 }
 

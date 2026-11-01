@@ -6,6 +6,9 @@ export interface QuickAccessItem extends QuickPickItem {
     accept?: () => void;
 }
 
+/** `accept`: the picker closes because an item was picked. Anything else (Escape, another prefix, a takeover) is `cancel`. */
+export type QuickAccessHideReason = "accept" | "cancel";
+
 /** Counterpart of vscode's `IQuickAccessProvider`. The query arrives whole, with the prefix — the provider strips it itself. */
 export interface IQuickAccessProvider {
     /** An expensive query (file search): the picker applies a leading+trailing debounce to input. */
@@ -21,5 +24,14 @@ export interface IQuickAccessProvider {
      */
     onShow?(refresh: (preserveSelection: boolean) => void): void;
 
-    onHide?(): void;
+    onHide?(reason: QuickAccessHideReason): void;
+
+    /** Where the cursor starts on a fresh list; `undefined` is the first row. Not asked on a `preserveSelection` refresh. */
+    getInitialActiveIndex?(items: readonly QuickAccessItem[], query: string): number | undefined;
+
+    /**
+     * The seam for live preview, upstream `onDidChangeActive`: fires on user navigation and whenever new items
+     * make another row active. `undefined`: the list is empty.
+     */
+    onActiveItemChanged?(item: QuickAccessItem | undefined): void;
 }

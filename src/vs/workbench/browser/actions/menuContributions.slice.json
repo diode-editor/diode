@@ -256,6 +256,9 @@
             "workbench.action.nextEditorInGroup",
             "workbench.action.openPreviousRecentlyUsedEditorInGroup",
             "workbench.action.previousEditorInGroup"
+        ],
+        "4_symbol_nav": [
+            "workbench.action.gotoSymbol"
         ]
     },
     "MenubarHelpMenu": {

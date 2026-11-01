@@ -13,6 +13,7 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { DEFAULT_ENCODING } from "../../../../editor/common/model/encoding.ts";
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
+import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
@@ -285,6 +286,14 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public get viewState(): EditorViewState {
         return this.component.viewState;
+    }
+
+    public get versionId(): number {
+        return this.model.document.versionId;
+    }
+
+    public setDecorations(decorations: IExternalDecorations): void {
+        this.component.setDecorations(decorations);
     }
 
     public getSelectedTexts(): string[] {

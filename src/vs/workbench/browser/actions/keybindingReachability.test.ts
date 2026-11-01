@@ -142,6 +142,7 @@ describe("tier gate asymmetry — user-facing contract", () => {
         "workbench.action.focusFourthEditorGroup | Ctrl+K 4 | Ctrl+4",
         "workbench.action.focusSecondEditorGroup | Ctrl+K 2 | Ctrl+2",
         "workbench.action.focusThirdEditorGroup | Ctrl+K 3 | Ctrl+3",
+        "workbench.action.gotoSymbol | Ctrl+Shift+O | Ctrl+Shift+O",
         "workbench.action.moveEditorToNextGroup | Ctrl+K Alt+Right | Ctrl+Alt+Right",
         "workbench.action.moveEditorToPreviousGroup | Ctrl+K Alt+Left | Ctrl+Alt+Left",
         "workbench.action.navigateBack | Ctrl+K Ctrl+B | Ctrl+Alt+-",

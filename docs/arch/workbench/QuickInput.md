@@ -55,8 +55,12 @@
   резолв ленивый). Провайдер (`IQuickAccessProvider`) отдаёт
   пункты (`getItems`, запрос целиком — префикс срезает сам; свой префикс
   объявляет статикой `PREFIX`, как vscode-провайдеры) и плейсхолдер, живёт
-  по хукам `onShow(refresh)`/`onHide`; пункт — `QuickAccessItem` с колбэком
+  по хукам `onShow(refresh)`/`onHide(reason)`; пункт — `QuickAccessItem` с колбэком
   `accept` (пункт без `accept` — информационный хинт, пикер не закрывает).
+  `reason` — `accept` (выбрали пункт) или `cancel` (всё остальное: Escape, смена префикса, чужой показ).
+  **Хук превью** — `onActiveItemChanged(item)`, аналог `onDidChangeActive` эталона: зовётся и на навигацию,
+  и когда новые пункты сделали активной другую строку (колбэк самого виджета — только на навигацию);
+  `getInitialActiveIndex(items, query)` задаёт стартовую строку свежего списка.
   Встроенные провайдеры: `FilesQuickAccessProvider` (`""` — дефолтный:
   фоновый индекс за портом `IFileSearchService` (`services/search/common/fileSearch.ts`;
   реализация — `search/node/fileSearchService.ts`, список файлов — `rg --files`
@@ -80,7 +84,14 @@
   `revealPane` через границу группы; fuzzy — тот же, что у файлов
   (`fuzzyMatchPrepared` + `BASENAME_BONUS`, раскладка совпадений по колонкам —
   общий `pathMatchRanges.ts`); швы `IOpenEditorsSource` → полоса групп + `EditorService` (метки) и
-  `IWorkspaceRootSource` → `ExplorerService`, оба структурно). Соседний
+  `IWorkspaceRootSource` → `ExplorerService`, оба структурно),
+  `GotoSymbolQuickAccessProvider` (`@` и `@:`, `workbench.action.gotoSymbol`, Ctrl+Shift+O, ключ
+  `inFileSymbolsPicker`; шов `IGotoSymbolEditorSource` → `EditorService`): символы запрашиваются раз на показ у
+  первого провайдера с непустым ответом и фильтруются на каждую клавишу; превью — `revealRangeInCenter` и фон строки
+  `editor.rangeHighlightBackground` без смены выделения, `cancel` возвращает `scrollTop` и выделения, `accept` ставит
+  курсор через `jumps.jump`. Отступления от эталона: у виджета нет сепараторов (имя группы — `hint` первой строки,
+  как у tasks), зачёркивания (метка `(deprecated)`), индикатора `busy` (пока ответ в пути, список пуст);
+  подсвечена строка имени символа, а не весь его диапазон. Соседний
   hold-оверлей Ctrl+Tab (`TabSwitcherComponent`) показывает тот же MRU, но
   без ввода — это разные поверхности над одной моделью.
 - **Подготовка запроса — одна на все пикеры.** Строку запроса разбирает

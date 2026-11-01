@@ -78,3 +78,23 @@ describe("EditorViewState.goToPosition", () => {
         expect(fired).toBe(1);
     });
 });
+
+describe("EditorViewState.revealRangeInCenter", () => {
+    const at = (line: number) => ({ start: { line, character: 0 }, end: { line, character: 3 } });
+
+    it("puts the line in the middle of the viewport, in either direction, and leaves the selection", () => {
+        const state = makeState(100);
+        state.revealRangeInCenter(at(50));
+        expect(state.scrollTop).toBe(45);
+        state.revealRangeInCenter(at(20));
+        expect(state.scrollTop).toBe(15);
+        expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
+    });
+
+    it("stops at the top of the document", () => {
+        const state = makeState(100);
+        state.revealRangeInCenter(at(50));
+        state.revealRangeInCenter(at(2));
+        expect(state.scrollTop).toBe(0);
+    });
+});

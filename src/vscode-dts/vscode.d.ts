@@ -6430,6 +6430,264 @@ declare module "vscode" {
 	}
 
 	/**
+	 * A symbol kind.
+	 */
+	export enum SymbolKind {
+		/**
+		 * The `File` symbol kind.
+		 */
+		File = 0,
+		/**
+		 * The `Module` symbol kind.
+		 */
+		Module = 1,
+		/**
+		 * The `Namespace` symbol kind.
+		 */
+		Namespace = 2,
+		/**
+		 * The `Package` symbol kind.
+		 */
+		Package = 3,
+		/**
+		 * The `Class` symbol kind.
+		 */
+		Class = 4,
+		/**
+		 * The `Method` symbol kind.
+		 */
+		Method = 5,
+		/**
+		 * The `Property` symbol kind.
+		 */
+		Property = 6,
+		/**
+		 * The `Field` symbol kind.
+		 */
+		Field = 7,
+		/**
+		 * The `Constructor` symbol kind.
+		 */
+		Constructor = 8,
+		/**
+		 * The `Enum` symbol kind.
+		 */
+		Enum = 9,
+		/**
+		 * The `Interface` symbol kind.
+		 */
+		Interface = 10,
+		/**
+		 * The `Function` symbol kind.
+		 */
+		Function = 11,
+		/**
+		 * The `Variable` symbol kind.
+		 */
+		Variable = 12,
+		/**
+		 * The `Constant` symbol kind.
+		 */
+		Constant = 13,
+		/**
+		 * The `String` symbol kind.
+		 */
+		String = 14,
+		/**
+		 * The `Number` symbol kind.
+		 */
+		Number = 15,
+		/**
+		 * The `Boolean` symbol kind.
+		 */
+		Boolean = 16,
+		/**
+		 * The `Array` symbol kind.
+		 */
+		Array = 17,
+		/**
+		 * The `Object` symbol kind.
+		 */
+		Object = 18,
+		/**
+		 * The `Key` symbol kind.
+		 */
+		Key = 19,
+		/**
+		 * The `Null` symbol kind.
+		 */
+		Null = 20,
+		/**
+		 * The `EnumMember` symbol kind.
+		 */
+		EnumMember = 21,
+		/**
+		 * The `Struct` symbol kind.
+		 */
+		Struct = 22,
+		/**
+		 * The `Event` symbol kind.
+		 */
+		Event = 23,
+		/**
+		 * The `Operator` symbol kind.
+		 */
+		Operator = 24,
+		/**
+		 * The `TypeParameter` symbol kind.
+		 */
+		TypeParameter = 25
+	}
+
+	/**
+	 * Symbol tags are extra annotations that tweak the rendering of a symbol.
+	 */
+	export enum SymbolTag {
+
+		/**
+		 * Render a symbol as obsolete, usually using a strike-out.
+		 */
+		Deprecated = 1
+	}
+
+	/**
+	 * Represents information about programming constructs like variables, classes,
+	 * interfaces etc.
+	 */
+	export class SymbolInformation {
+
+		/**
+		 * The name of this symbol.
+		 */
+		name: string;
+
+		/**
+		 * The name of the symbol containing this symbol.
+		 */
+		containerName: string;
+
+		/**
+		 * The kind of this symbol.
+		 */
+		kind: SymbolKind;
+
+		/**
+		 * Tags for this symbol.
+		 */
+		tags?: readonly SymbolTag[];
+
+		/**
+		 * The location of this symbol.
+		 */
+		location: Location;
+
+		/**
+		 * Creates a new symbol information object.
+		 *
+		 * @param name The name of the symbol.
+		 * @param kind The kind of the symbol.
+		 * @param containerName The name of the symbol containing the symbol.
+		 * @param location The location of the symbol.
+		 */
+		constructor(name: string, kind: SymbolKind, containerName: string, location: Location);
+
+		/**
+		 * Creates a new symbol information object.
+		 *
+		 * @deprecated Please use the constructor taking a {@link Location} object.
+		 *
+		 * @param name The name of the symbol.
+		 * @param kind The kind of the symbol.
+		 * @param range The range of the location of the symbol.
+		 * @param uri The resource of the location of symbol, defaults to the current document.
+		 * @param containerName The name of the symbol containing the symbol.
+		 */
+		constructor(name: string, kind: SymbolKind, range: Range, uri?: Uri, containerName?: string);
+	}
+
+	/**
+	 * Represents programming constructs like variables, classes, interfaces etc. that appear in a document. Document
+	 * symbols can be hierarchical and they have two ranges: one that encloses its definition and one that points to
+	 * its most interesting range, e.g. the range of an identifier.
+	 */
+	export class DocumentSymbol {
+
+		/**
+		 * The name of this symbol.
+		 */
+		name: string;
+
+		/**
+		 * More detail for this symbol, e.g. the signature of a function.
+		 */
+		detail: string;
+
+		/**
+		 * The kind of this symbol.
+		 */
+		kind: SymbolKind;
+
+		/**
+		 * Tags for this symbol.
+		 */
+		tags?: readonly SymbolTag[];
+
+		/**
+		 * The range enclosing this symbol not including leading/trailing whitespace but everything else, e.g. comments and code.
+		 */
+		range: Range;
+
+		/**
+		 * The range that should be selected and reveal when this symbol is being picked, e.g. the name of a function.
+		 * Must be contained by the {@linkcode DocumentSymbol.range range}.
+		 */
+		selectionRange: Range;
+
+		/**
+		 * Children of this symbol, e.g. properties of a class.
+		 */
+		children: DocumentSymbol[];
+
+		/**
+		 * Creates a new document symbol.
+		 *
+		 * @param name The name of the symbol.
+		 * @param detail Details for the symbol.
+		 * @param kind The kind of the symbol.
+		 * @param range The full range of the symbol.
+		 * @param selectionRange The range that should be reveal.
+		 */
+		constructor(name: string, detail: string, kind: SymbolKind, range: Range, selectionRange: Range);
+	}
+
+	/**
+	 * The document symbol provider interface defines the contract between extensions and
+	 * the [go to symbol](https://code.visualstudio.com/docs/editor/editingevolved#_go-to-symbol)-feature.
+	 */
+	export interface DocumentSymbolProvider {
+
+		/**
+		 * Provide symbol information for the given document.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param token A cancellation token.
+		 * @returns An array of document highlights or a thenable that resolves to such. The lack of a result can be
+		 * signaled by returning `undefined`, `null`, or an empty array.
+		 */
+		provideDocumentSymbols(document: TextDocument, token: CancellationToken): ProviderResult<SymbolInformation[] | DocumentSymbol[]>;
+	}
+
+	/**
+	 * Metadata about a document symbol provider.
+	 */
+	export interface DocumentSymbolProviderMetadata {
+		/**
+		 * A human-readable string that is shown when multiple outlines trees show for one document.
+		 */
+		label?: string;
+	}
+
+	/**
 	 * Value-object that contains additional information when
 	 * requesting references.
 	 */
@@ -7630,6 +7888,20 @@ declare module "vscode" {
 		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
 		 */
 		export function registerHoverProvider(selector: DocumentSelector, provider: HoverProvider): Disposable;
+
+		/**
+		 * Register a document symbol provider.
+		 *
+		 * Multiple providers can be registered for a language. In that case providers are asked in
+		 * parallel and the results are merged. A failing provider (rejected promise or exception) will
+		 * not cause a failure of the whole operation.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A document symbol provider.
+		 * @param metaData metadata about the provider
+		 * @returns A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerDocumentSymbolProvider(selector: DocumentSelector, provider: DocumentSymbolProvider, metaData?: DocumentSymbolProviderMetadata): Disposable;
 
 		/**
 		 * Register a reference provider.

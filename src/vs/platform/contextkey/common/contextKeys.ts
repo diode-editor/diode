@@ -44,6 +44,8 @@ export interface ContextKeyTypes {
     inQuickOpen: boolean;
     /** Quick Open shows the files picker (no prefix): Ctrl+P / Ctrl+E step through it. */
     inFilesPicker: boolean;
+    /** Quick Open shows the symbols of the active editor (`@`). */
+    inFileSymbolsPicker: boolean;
 
     /** "legacy" | "csi-u" | "kitty" */
     tier: string;

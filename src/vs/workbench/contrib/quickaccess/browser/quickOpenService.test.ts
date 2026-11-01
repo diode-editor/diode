@@ -13,7 +13,7 @@ import { charMask } from "../../../../base/common/fuzzySearch.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { type ServiceAccessor, token } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
     KeybindingRegistry,
     parseChord,
@@ -30,6 +30,7 @@ import type { FileSearchEntry, FileSearchResult } from "../../../services/search
 import type { FileSearchService } from "../../../services/search/node/fileSearchService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
+import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 import { QuickAccessRegistry } from "../common/quickAccessRegistry.ts";
 
 import { CommandsQuickAccessProvider, CommandsQuickAccessProviderDIToken } from "./commandsQuickAccessProvider.ts";
@@ -1240,5 +1241,162 @@ describe("QuickOpenService — recent files navigation", () => {
         service.show("");
 
         expect(view.selectedIndex).toBe(0);
+    });
+});
+
+describe("QuickOpenService — provider hooks", () => {
+    const ROWS: readonly QuickAccessItem[] = [
+        { label: "one", accept: vi.fn() },
+        { label: "two", accept: vi.fn() },
+        { label: "three", accept: vi.fn() },
+    ];
+
+    function setup(overrides: Partial<IQuickAccessProvider> = {}): {
+        service: QuickOpenService;
+        component: QuickInputComponent;
+        provider: IQuickAccessProvider;
+        onActive: ReturnType<typeof vi.fn>;
+        onHide: ReturnType<typeof vi.fn>;
+    } {
+        const onActive = vi.fn();
+        const onHide = vi.fn();
+        const provider: IQuickAccessProvider = {
+            getPlaceholder: () => "hooks",
+            getItems: () => [...ROWS],
+            onActiveItemChanged: onActive,
+            onHide,
+            ...overrides,
+        };
+        const other: IQuickAccessProvider = { getPlaceholder: () => "other", getItems: () => [] };
+        const hooksToken = token<IQuickAccessProvider>("hooks");
+        const otherToken = token<IQuickAccessProvider>("other");
+        const accessor: ServiceAccessor = {
+            get: (diToken) => (diToken === hooksToken ? provider : other) as never,
+        };
+        const registry = new QuickAccessRegistry(accessor, [
+            { prefix: "@", provider: hooksToken },
+            { prefix: "", provider: otherToken },
+        ]);
+        const component = makeComponent();
+        const body = new BodyElement();
+        TestApp.create(body, new Size(80, 24));
+        component.attachHost(body);
+        return { service: new QuickOpenService(registry, component), component, provider, onActive, onHide };
+    }
+
+    it("the active row is reported on open, on user navigation and when new items change it", () => {
+        const { service, component, onActive } = setup();
+        service.show("@");
+        expect(onActive).toHaveBeenLastCalledWith(ROWS[0]);
+
+        component.view.moveActive(1);
+        expect(onActive).toHaveBeenLastCalledWith(ROWS[1]);
+
+        component.view.setQuery("@t");
+        component.view.onQueryChange?.("@t");
+        expect(onActive).toHaveBeenLastCalledWith(ROWS[0]);
+    });
+
+    it("an empty list reports no row", () => {
+        const { service, onActive } = setup({ getItems: () => [] });
+        service.show("@");
+        expect(onActive).toHaveBeenLastCalledWith(undefined);
+    });
+
+    it("the provider picks the starting row of a fresh list, and the report follows it", () => {
+        const getInitialActiveIndex = vi.fn(() => 2);
+        const { service, component, onActive } = setup({ getInitialActiveIndex });
+        service.show("@x");
+        expect(getInitialActiveIndex).toHaveBeenCalledWith(ROWS, "@x");
+        expect(component.view.selectedIndex).toBe(2);
+        expect(onActive).toHaveBeenLastCalledWith(ROWS[2]);
+    });
+
+    it("a refresh that keeps the cursor does not ask for a starting row, but a fresh one does", () => {
+        let refresh: (preserveSelection: boolean) => void = () => undefined;
+        const getInitialActiveIndex = vi.fn<() => number | undefined>(() => undefined);
+        const { service, component } = setup({
+            getInitialActiveIndex,
+            onShow: (callback) => {
+                refresh = callback;
+            },
+        });
+        service.show("@");
+        component.view.moveActive(1);
+        getInitialActiveIndex.mockClear();
+
+        refresh(true);
+        expect(getInitialActiveIndex).not.toHaveBeenCalled();
+        expect(component.view.selectedIndex).toBe(1);
+
+        refresh(false);
+        expect(getInitialActiveIndex).toHaveBeenCalledTimes(1);
+        expect(component.view.selectedIndex).toBe(0);
+    });
+
+    it("Escape hides with `cancel`, and the next hide after an accept with `accept`", async () => {
+        const { service, component, onHide } = setup();
+        service.show("@");
+        component.view.onCancel?.();
+        expect(onHide).toHaveBeenLastCalledWith("cancel");
+
+        service.show("@");
+        component.view.onAccept?.(ROWS[0], 0);
+        await flushMicrotasks();
+        expect(onHide).toHaveBeenLastCalledWith("accept");
+        expect(ROWS[0].accept).toHaveBeenCalled();
+
+        service.show("@");
+        service.close();
+        expect(onHide).toHaveBeenLastCalledWith("cancel");
+    });
+
+    it("the hide comes before the accept, so a restore cannot undo the jump", async () => {
+        const order: string[] = [];
+        const item: QuickAccessItem = { label: "x", accept: () => order.push("accept") };
+        const { service, component } = setup({
+            getItems: () => [item],
+            onHide: (reason) => order.push(`hide:${reason}`),
+        });
+        service.show("@");
+        component.view.onAccept?.(item, 0);
+        await flushMicrotasks();
+        expect(order).toEqual(["hide:accept", "accept"]);
+    });
+
+    it("an informational row closes nothing and reports no hide", async () => {
+        const item: QuickAccessItem = { label: "hint" };
+        const { service, component, onHide } = setup({ getItems: () => [item] });
+        service.show("@");
+        component.view.onAccept?.(item, 0);
+        await flushMicrotasks();
+        expect(onHide).not.toHaveBeenCalled();
+        expect(component.isOpen()).toBe(true);
+    });
+
+    it("leaving the prefix is a `cancel` for the provider being left", () => {
+        const { service, component, onHide } = setup();
+        service.show("@");
+        component.view.setQuery("a");
+        component.view.onQueryChange?.("a");
+        expect(onHide).toHaveBeenCalledExactlyOnceWith("cancel");
+    });
+
+    it("inFileSymbolsPicker holds only while `@` is shown", () => {
+        const { service, component } = setup();
+        const keys = new ContextKeyService();
+        service.show("@");
+        service.updateContextKeys(keys);
+        expect(keys.get("inFileSymbolsPicker")).toBe(true);
+        expect(keys.get("inFilesPicker")).toBe(false);
+
+        component.view.setQuery("a");
+        component.view.onQueryChange?.("a");
+        service.updateContextKeys(keys);
+        expect(keys.get("inFileSymbolsPicker")).toBe(false);
+
+        service.close();
+        service.updateContextKeys(keys);
+        expect(keys.get("inFileSymbolsPicker")).toBe(false);
     });
 });

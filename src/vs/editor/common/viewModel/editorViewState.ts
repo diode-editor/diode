@@ -1881,6 +1881,13 @@ export class EditorViewState {
         this.revealPosition(range.start);
     }
 
+    /** Upstream `revealRangeInCenter`: a live preview must not land under the overlay that covers the top rows. */
+    public revealRangeInCenter(range: IRange): void {
+        this.revealRange(range);
+        const visualLine = this.viewLineForPosition(range.start.line, range.start.character);
+        this.scrollTop = Math.max(0, visualLine - Math.floor(this.viewportHeight / 2));
+    }
+
     /** For commands that add a selection: after normalization the new one may end up anywhere, not in `selections[0]`. */
     public revealSelection(selection: ISelection): void {
         const range = selectionToRange(selection);

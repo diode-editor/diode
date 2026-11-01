@@ -18,6 +18,10 @@ import type {
     ICoreDefinitionLocation,
     IDefinitionRequest,
 } from "../../../../../editor/common/languages/iDefinitionSource.ts";
+import type {
+    ICoreDocumentSymbol,
+    IDocumentSymbolRequest,
+} from "../../../../../editor/common/languages/iDocumentSymbolSource.ts";
 import type { IFoldingRequest } from "../../../../../editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../../editor/common/languages/iHoverSource.ts";
@@ -220,6 +224,19 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             { token },
         );
         return handles.map((_handle, index) => wireToCoreFoldingRegions(results.at(index) ?? []));
+    }
+
+    public async provideDocumentSymbols(
+        handle: number,
+        req: IDocumentSymbolRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDocumentSymbol[]> {
+        return this.request(
+            "languages.provideDocumentSymbols",
+            { handle, uri: req.uri, languageId: req.languageId, version: req.versionId },
+            [],
+            { token },
+        );
     }
 
     public async provideDefinition(

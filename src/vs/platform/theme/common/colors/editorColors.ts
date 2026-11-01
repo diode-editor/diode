@@ -81,6 +81,12 @@ export const editorColors = {
         defaults: { dark: "#EEEEEE", light: "#6C6C6C" },
         description: "Foreground color of hints in the editor.",
     },
+    // Opaque approximations of VS Code's #ffffff0b (dark) / #fdff0033 (light) over the editor bg.
+    "editor.rangeHighlightBackground": {
+        defaults: { dark: "#282828", light: "#FFFFCC" },
+        description:
+            "Background color of highlighted ranges, like by quick open and find features. The color must not be opaque so as not to hide underlying decorations.",
+    },
     // Opaque approximations of VS Code's #ffffff56 (dark) / #0007 (light)
     // composited over the editor bg, as for `editor.wordHighlightBackground`.
     "editorGhostText.foreground": {
