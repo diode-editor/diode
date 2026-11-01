@@ -15,6 +15,7 @@ import type { FoldingRangeProvider } from "../languages/iFoldingSource.ts";
 import type {
     DocumentFormattingEditProvider,
     DocumentRangeFormattingEditProvider,
+    OnTypeFormattingEditProvider,
 } from "../languages/iFormattingSource.ts";
 import type { HoverProvider } from "../languages/iHoverSource.ts";
 import type { InlayHintsProvider } from "../languages/iInlayHintsSource.ts";
@@ -45,6 +46,7 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
     public readonly documentFormattingEditProvider = new LanguageFeatureRegistry<DocumentFormattingEditProvider>();
     public readonly documentRangeFormattingEditProvider =
         new LanguageFeatureRegistry<DocumentRangeFormattingEditProvider>();
+    public readonly onTypeFormattingEditProvider = new LanguageFeatureRegistry<OnTypeFormattingEditProvider>();
     public readonly codeActionProvider = new LanguageFeatureRegistry<CodeActionProvider>();
     public readonly foldingRangeProvider = new LanguageFeatureRegistry<FoldingRangeProvider>();
     public readonly inlineCompletionsProvider = new LanguageFeatureRegistry<InlineCompletionsProvider>();

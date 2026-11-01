@@ -162,7 +162,7 @@ export const insertLineAfterAction: CommandAction = {
         viewState.selections = [...lines].map((line) =>
             createCursorSelection(line, viewState.document.getLineLength(line)),
         );
-        editor.typeText("\n");
+        editor.insertLineBreak();
     },
 };
 

@@ -49,6 +49,7 @@ export const OWNED_MEMBERS = {
         "registerCodeLensProvider",
         "registerImplementationProvider",
         "registerInlayHintsProvider",
+        "registerOnTypeFormattingEditProvider",
         "registerLinkedEditingRangeProvider",
         "registerInlineCompletionItemProvider",
         "registerReferenceProvider",

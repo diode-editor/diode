@@ -175,6 +175,10 @@ export class EditorElement extends TUIElement implements IScrollable {
      */
     public readonly onDidType = this.onDidTypeEmitter.event;
 
+    private readonly onDidTypeNewLineEmitter = new Emitter<void>();
+    /** Enter, after the edit. Apart from {@link onDidType}: a popup has no business with it, format on type has. */
+    public readonly onDidTypeNewLine = this.onDidTypeNewLineEmitter.event;
+
     public get tabSize(): number {
         return this.viewState.tabSize;
     }
@@ -1491,9 +1495,21 @@ export class EditorElement extends TUIElement implements IScrollable {
         });
     }
 
+    /** A line break by a command, not by typing (upstream `EnterOperation`): {@link onDidTypeNewLine} stays silent. */
+    public insertLineBreak(): void {
+        withCursorChangeSource("keyboard", () => {
+            this.pushNewLine();
+        });
+    }
+
+    private pushNewLine(): void {
+        this.pushUndo(this.viewState.insertNewLine(this.languageConfigurationSource?.()?.onEnterRules));
+    }
+
     private typeChar(char: string): void {
         if (char === "\n") {
-            this.pushUndo(this.viewState.insertNewLine(this.languageConfigurationSource?.()?.onEnterRules));
+            this.pushNewLine();
+            if (!this.viewState.readOnly) this.onDidTypeNewLineEmitter.fire();
             return;
         }
         if (!this.tryTypePaired(char)) this.pushUndo(this.viewState.type(char));

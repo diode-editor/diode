@@ -183,6 +183,14 @@ Ctrl+D и родня — состояние плюс чистые функции
 
 **Отступление от эталона.** В эталоне подписки контроллера есть только при включённой настройке, поэтому Start Linked Editing при выключенной лишь подсвечивает диапазоны. Спека #951 требует рабочую связку: подписки есть всегда, диапазоны команды зеркалят как обычно, а при выключенной настройке их просто некому запросить снова, когда они исчезли — Escape, разрыв, уход каретки.
 
+## `editor/contrib/format/` (format on type)
+
+Порт `FormatOnType` эталона. `FormatOnTypeController` живёт на активном редакторе (`workbench/contrib/format/browser/formatOnTypeService.ts`, `bindActiveEditor`) и на каждый набранный символ сверяет его с триггерами **первого** провайдера при включённом `editor.formatOnType` (с учётом языка, поэтому `[python]` из `configurationDefaults` расширения действует). Несколько кареток или непустое выделение — пропуск. Правка на строке каретки или выше и flush отменяют идущий запрос, правка ниже — нет.
+
+**Enter.** `\n` — триггер у Java, но `onDidType` на Enter не срабатывает: completion и parameter hints сочли бы его набором. Поэтому у `EditorElement` отдельное `onDidTypeNewLine`, его слушает только этот контроллер.
+
+**Каретка и отмена.** Правки применяются `applyExternalEdits` без `computeCursorState`: отдельный шаг отмены, каретка сдвигается вместе с правками, как `replaceMove` в `FormattingEdit.execute` эталона. `applyFormattingEdits` здесь не подходит: он оставляет ту же строку и колонку, и после `int x=1;` → `int x = 1;` следующий символ попал бы внутрь текста. `computeMoreMinimalEdits` эталона не портирован, правки применяются как пришли; `StableEditorScrollState` эталона тоже нет.
+
 ## `editor/contrib/smartSelect/` (Expand / Shrink Selection)
 Порт `editor/contrib/smartSelect` эталона. `provideSelectionRanges` спрашивает языковые провайдеры реестра (`selectionRangeProvider`) и встроенные: слова (`wordSelections.ts` — подслово camelCase/`_`, слово `DEFAULT_WORD_REGEXP`, строка из пробелов, документ) — всегда, скобки (`bracketSelections.ts`) — только когда языковых провайдеров нет. Эталон берёт скобки у токенизатора (`model.bracketPairs`); у нас — пары `brackets` language configuration, найденные в тексте, а скобки в строках и комментариях отсекает предикат по TextMate-токенам (`tokenCodeAt.ts` поверх `standardTokenTypeAt`; строки за фронтиром токенизации и с устаревшим кэшем считаются кодом). Ответы сливаются в цепочку «каждая ступень строго шире предыдущей», с `editor.smartSelect.selectLeadingAndTrailingWhitespace` при выходе на другие строки вставляются ступени «строки без отступа» и «строки целиком». `SmartSelectController` держит стек ступеней на каретку (мультикурсор — по иерархии на каждую) и забывает его по любой посторонней смене выделения или правке. Команды и сервис — `workbench/contrib/smartSelect/browser/`.
 

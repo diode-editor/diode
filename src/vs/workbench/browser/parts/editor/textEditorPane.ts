@@ -323,6 +323,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.component.onDidType(listener);
     }
 
+    public onDidTypeNewLine(listener: () => void): IDisposable {
+        return this.component.onDidTypeNewLine(listener);
+    }
+
     public getCaretAnchor(): OverlayAnchorPosition | null {
         return this.component.getCaretAnchor();
     }
@@ -336,6 +340,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
     }
 
     /** As if typed on the keyboard: auto-close, indent, `onEnterRules`, suggest triggers. */
+    public insertLineBreak(): void {
+        this.component.insertLineBreak();
+    }
+
     public typeText(text: string): void {
         this.component.typeText(text);
     }

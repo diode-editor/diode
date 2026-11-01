@@ -295,6 +295,12 @@ export const editorConfiguration = {
                 "The number of lines above which a file is treated as large when `editor.largeFileOptimizations` " +
                 "is on.",
         },
+        "editor.formatOnType": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description: "Controls whether the editor should automatically format the line after typing.",
+        },
         "editor.formatOnSave": {
             scope: "language-overridable",
             type: "boolean",

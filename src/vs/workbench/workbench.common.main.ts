@@ -160,6 +160,7 @@ import { FindComponentDIToken } from "./contrib/find/browser/findComponent.ts";
 import { FindServiceDIToken } from "./contrib/find/browser/findService.ts";
 import { FOLDING_ACTIONS } from "./contrib/folding/browser/foldingActions.ts";
 import { FORMAT_ACTIONS } from "./contrib/format/browser/formatActions.ts";
+import { FormatOnTypeServiceDIToken } from "./contrib/format/browser/formatOnTypeService.ts";
 import { GOTO_DEFINITION_ACTIONS } from "./contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
 import { GoToLocationsCommandContributionDIToken } from "./contrib/gotoDefinition/browser/goToLocationsCommandContribution.ts";
 import { HOVER_ACTIONS } from "./contrib/hover/browser/hoverActions.ts";
@@ -253,6 +254,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Stryker disable next-line ObjectLiteral,StringLiteral: the service is resolved anyway (WorkbenchContextKeys holds it) — the entry only hands over lifetime ownership
     { token: HoverServiceDIToken, phase: "blockStartup" },
     { token: LinkedEditingServiceDIToken, phase: "blockStartup" },
+    { token: FormatOnTypeServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (ParameterHintsService in the next entry holds it) — the entry only hands over lifetime ownership
     { token: ParameterHintsComponentDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: like the hover service, resolved via WorkbenchContextKeys — the entry only hands over lifetime ownership

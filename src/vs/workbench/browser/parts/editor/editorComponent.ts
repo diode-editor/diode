@@ -169,6 +169,7 @@ export class EditorComponent extends Component {
     /** On the component for the same reason. */
     private readonly onDidChangeIndentOptionsEmitter = new Emitter<void>();
     private readonly onDidTypeEmitter = new Emitter<string>();
+    private readonly onDidTypeNewLineEmitter = new Emitter<void>();
 
     public get editTarget(): ITextEditTarget {
         return this.editTargetValue;
@@ -192,10 +193,14 @@ export class EditorComponent extends Component {
 
     /** Survives `EditorElement` recreation when the file is reloaded. */
     public readonly onDidType = this.onDidTypeEmitter.event;
+    public readonly onDidTypeNewLine = this.onDidTypeNewLineEmitter.event;
 
     private attachTypeForwarding(): void {
         this.editor.onDidType((text) => {
             this.onDidTypeEmitter.fire(text);
+        });
+        this.editor.onDidTypeNewLine(() => {
+            this.onDidTypeNewLineEmitter.fire();
         });
     }
 
@@ -517,6 +522,10 @@ export class EditorComponent extends Component {
 
     public focus(): void {
         this.editor.focus();
+    }
+
+    public insertLineBreak(): void {
+        this.editor.insertLineBreak();
     }
 
     public typeText(text: string): void {

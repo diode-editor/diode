@@ -24,6 +24,7 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.provideReferences": 5000,
     "languages.provideSignatureHelp": 5000,
     "languages.provideFormattingEdits": 5000,
+    "languages.provideOnTypeFormattingEdits": 5000,
     "languages.provideCodeActions": 5000,
     "languages.applyCodeAction": 10000,
     "languages.prepareRename": 5000,

@@ -136,6 +136,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Format a file on save. A formatter must be available (an extension providing it).",
     },
     {
+        key: "editor.formatOnType",
+        type: "boolean",
+        default: false,
+        description: "Controls whether the editor should automatically format the line after typing.",
+    },
+    {
         key: "editor.gotoLocation.alternativeDeclarationCommand",
         type: "string",
         default: "editor.action.goToReferences",
