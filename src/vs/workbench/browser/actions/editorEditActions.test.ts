@@ -5,10 +5,15 @@ import { createTestActiveEditorService } from "../../../../TestUtils/testActiveE
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { createEditorPane } from "../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../base/common/uri.ts";
+import { createRange } from "../../../editor/common/core/iRange.ts";
 import { createCursorSelection, createSelection } from "../../../editor/common/core/iSelection.ts";
+import { createTextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import { LanguageFeatureRegistry } from "../../../editor/common/languageFeatureRegistry.ts";
+import type { OnTypeFormattingEditProvider } from "../../../editor/common/languages/iFormattingSource.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../editor/common/languages/tokenizationRegistry.ts";
+import { FormatOnTypeController } from "../../../editor/contrib/format/browser/formatOnType.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { registerAction } from "../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
@@ -202,6 +207,24 @@ describe("EditorEditActions — indent / outdent", () => {
         editor.viewState.readOnly = true;
         exec(insertLineAfterAction);
         expect(editor.getText()).toBe("hello");
+    });
+
+    it("insertLineAfter is not typing: a format on type provider with a newline trigger leaves the text alone", async () => {
+        const { editor, exec } = openEditor("hello\nworld");
+        const providers = new LanguageFeatureRegistry<OnTypeFormattingEditProvider>();
+        providers.register("*", {
+            triggerCharacters: ["\n"],
+            provideOnTypeFormattingEdits: () =>
+                Promise.resolve([createTextEdit(createRange(0, 0, 0, 0), "FORMATTED ")]),
+        });
+        const controller = new FormatOnTypeController(editor, { providers, isSettingEnabled: () => true });
+        editor.viewState.selections = [createCursorSelection(0, 2)];
+
+        exec(insertLineAfterAction);
+        await new Promise((resolve) => setImmediate(resolve));
+
+        expect(editor.getText()).toBe("hello\n\nworld");
+        controller.dispose();
     });
 
     it("indentLines prepends indent to every line of a multi-line selection", () => {
