@@ -16,6 +16,8 @@ export interface ContextKeyTypes {
     /** Context menu item visibility hangs on `editorHas*Provider`: without a provider the menu does not offer what cannot work. */
     editorHasDefinitionProvider: boolean;
     editorHasImplementationProvider: boolean;
+    editorHasTypeDefinitionProvider: boolean;
+    editorHasDeclarationProvider: boolean;
     editorHasReferenceProvider: boolean;
     editorHasRenameProvider: boolean;
     editorHasCodeActionsProvider: boolean;

@@ -72,7 +72,12 @@ import type { IWorkspaceFoldersSink } from "../vs/workbench/api/common/iWorkspac
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
 import { BulkEditBuffers } from "../vs/workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { WorkspaceEditService } from "../vs/workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
-import { getDefinitions, getImplementations } from "../vs/workbench/contrib/gotoDefinition/browser/goToSymbol.ts";
+import {
+    getDeclarations,
+    getDefinitions,
+    getImplementations,
+    getTypeDefinitions,
+} from "../vs/workbench/contrib/gotoDefinition/browser/goToSymbol.ts";
 import { getHovers } from "../vs/workbench/contrib/hover/browser/getHover.ts";
 import { provideInlineCompletions as provideInlineCompletionsFrom } from "../vs/workbench/contrib/inlineCompletions/browser/provideInlineCompletions.ts";
 import { provideSignatureHelp as provideSignatureHelpFrom } from "../vs/workbench/contrib/parameterHints/browser/provideSignatureHelp.ts";
@@ -435,6 +440,34 @@ export async function provideImplementations(
 ): Promise<readonly ICoreDefinitionLocation[]> {
     const model = await getImplementations(
         harness.languageFeatures.implementationProvider,
+        targetOf(request),
+        request,
+        token,
+    );
+    return model.references;
+}
+
+export async function provideTypeDefinitions(
+    harness: IExtensionHarness,
+    request: IDefinitionRequest,
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<readonly ICoreDefinitionLocation[]> {
+    const model = await getTypeDefinitions(
+        harness.languageFeatures.typeDefinitionProvider,
+        targetOf(request),
+        request,
+        token,
+    );
+    return model.references;
+}
+
+export async function provideDeclarations(
+    harness: IExtensionHarness,
+    request: IDefinitionRequest,
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<readonly ICoreDefinitionLocation[]> {
+    const model = await getDeclarations(
+        harness.languageFeatures.declarationProvider,
         targetOf(request),
         request,
         token,

@@ -76,6 +76,8 @@ describe("DEFAULT_REQUEST_TIMEOUTS", () => {
             "languages.provideFoldingRanges": 1500,
             "languages.provideDefinition": 5000,
             "languages.provideImplementation": 5000,
+            "languages.provideTypeDefinition": 5000,
+            "languages.provideDeclaration": 5000,
             "languages.provideHover": 5000,
             "languages.provideReferences": 5000,
             "languages.provideSignatureHelp": 5000,

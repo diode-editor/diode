@@ -198,6 +198,8 @@ export interface IHostToSubprocess {
         ];
         readonly "languages.provideDefinition": readonly [IWireDefinitionParams, ICoreDefinitionLocation[]];
         readonly "languages.provideImplementation": readonly [IWireDefinitionParams, ICoreDefinitionLocation[]];
+        readonly "languages.provideTypeDefinition": readonly [IWireDefinitionParams, ICoreDefinitionLocation[]];
+        readonly "languages.provideDeclaration": readonly [IWireDefinitionParams, ICoreDefinitionLocation[]];
         readonly "languages.provideHover": readonly [IWireHoverParams, ICoreHover | null];
         readonly "languages.provideReferences": readonly [IWireReferenceParams, ICoreReference[]];
         readonly "languages.provideSignatureHelp": readonly [IWireSignatureHelpParams, ICoreSignatureHelp | null];

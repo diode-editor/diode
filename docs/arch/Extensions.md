@@ -357,6 +357,10 @@
   в субпроцессе общий (`provideLocations`), а `DefinitionService` параметризован видом запроса
   (`ISymbolNavigation`: заголовок панели, сообщения, ключи настроек, реестр). Peek-вариант
   (`editor.action.peekImplementation`) не заводим — роль Peek играет панель.
+  **Type Definition и Declaration** (`registerTypeDefinitionProvider`, `registerDeclarationProvider`,
+  RPC `languages.provideTypeDefinition`/`provideDeclaration`, команды `editor.action.goToTypeDefinition`
+  и `editor.action.revealDeclaration`, без клавиш — как в эталоне) — ещё два `ISymbolNavigation` на том же
+  шве. `editor.action.goToDeclaration` в эталоне — устаревший алиас `revealDefinition`, его не заводим.
 - **Провайдер содержимого недисковых ресурсов:** `workspace.registerTextDocumentContentProvider` —
   дверь, которой в редактор попадают исходники, которых нет на диске (`jdt:`/`class:` у стокового
   `redhat.java`: класс из jar, исходник JDK, декомпиляция). Проводка — калька с провайдеров ФС:

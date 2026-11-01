@@ -14,6 +14,8 @@ export const LanguageFeatureContextKeysDIToken = token<LanguageFeatureContextKey
 const FEATURES = [
     "definitionProvider",
     "implementationProvider",
+    "typeDefinitionProvider",
+    "declarationProvider",
     "referenceProvider",
     "renameProvider",
     "codeActionProvider",
@@ -55,6 +57,8 @@ export class LanguageFeatureContextKeys extends Disposable implements IContextKe
         const target: ILanguageFeatureTarget | null = editor;
         contextKeys.set("editorHasDefinitionProvider", this.has("definitionProvider", target));
         contextKeys.set("editorHasImplementationProvider", this.has("implementationProvider", target));
+        contextKeys.set("editorHasTypeDefinitionProvider", this.has("typeDefinitionProvider", target));
+        contextKeys.set("editorHasDeclarationProvider", this.has("declarationProvider", target));
         contextKeys.set("editorHasReferenceProvider", this.has("referenceProvider", target));
         contextKeys.set("editorHasRenameProvider", this.has("renameProvider", target));
         contextKeys.set("editorHasCodeActionsProvider", this.has("codeActionProvider", target));
