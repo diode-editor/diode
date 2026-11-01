@@ -264,7 +264,6 @@ describe("LanguagesNamespace — no-op surface for vscode-languageclient", () =>
         const ns = languages as unknown as Record<string, (...args: unknown[]) => { dispose(): void }>;
         for (const name of [
             "registerDeclarationProvider",
-            "registerImplementationProvider",
             "registerTypeDefinitionProvider",
             "registerDocumentHighlightProvider",
             "registerDocumentSymbolProvider",

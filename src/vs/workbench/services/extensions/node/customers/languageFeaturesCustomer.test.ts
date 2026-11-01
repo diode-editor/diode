@@ -17,6 +17,7 @@ const TIMEOUTS: RequestTimeouts = {
     "languages.provideInlineCompletions": 103,
     "languages.provideFoldingRanges": 104,
     "languages.provideDefinition": 105,
+    "languages.provideImplementation": 125,
     "languages.provideHover": 106,
     "languages.provideReferences": 107,
     "languages.provideSignatureHelp": 108,
@@ -132,6 +133,12 @@ const REQUEST_CASES: readonly IRequestCase[] = [
         empty: [],
     },
     {
+        name: "implementation",
+        method: "languages.provideImplementation",
+        call: (c, u) => c.provideImplementation(1, anyRequest(u)),
+        empty: [],
+    },
+    {
         name: "hover",
         method: "languages.provideHover",
         call: (c, u) => c.provideHover(1, anyRequest(u)),
@@ -181,6 +188,7 @@ const EMPTY_WIRE: Readonly<Record<string, unknown>> = {
     "languages.provideInlineCompletions": [],
     "languages.provideFoldingRanges": [],
     "languages.provideDefinition": [],
+    "languages.provideImplementation": [],
     "languages.provideHover": null,
     "languages.provideReferences": [],
     "languages.provideSignatureHelp": null,
@@ -346,6 +354,7 @@ describe("LanguageFeaturesCustomer — subprocess reply in core form", () => {
                 additionalEdits: [{ range: CORE_RANGE, text: "import x\n" }],
             }),
             "languages.provideDefinition": () => [{ uri: "file:///b.ts", range: CORE_RANGE }],
+            "languages.provideImplementation": () => [{ uri: "file:///i.ts", range: CORE_RANGE }],
             "languages.provideHover": () => ({ contents: ["**x**"], range: CORE_RANGE }),
             "languages.provideReferences": () => [{ uri: "file:///c.ts", range: CORE_RANGE }],
             "languages.provideSignatureHelp": () => ({
@@ -365,6 +374,9 @@ describe("LanguageFeaturesCustomer — subprocess reply in core form", () => {
             additionalEdits: [{ range: CORE_RANGE, text: "import x\n" }],
         });
         expect(await c.provideDefinition(1, anyRequest(SYNCED))).toEqual([{ uri: "file:///b.ts", range: CORE_RANGE }]);
+        expect(await c.provideImplementation(1, anyRequest(SYNCED))).toEqual([
+            { uri: "file:///i.ts", range: CORE_RANGE },
+        ]);
         expect(await c.provideHover(1, anyRequest(SYNCED))).toEqual({ contents: ["**x**"], range: CORE_RANGE });
         expect(await c.provideReferences(1, anyRequest(SYNCED))).toEqual([{ uri: "file:///c.ts", range: CORE_RANGE }]);
         expect(await c.provideSignatureHelp(1, anyRequest(SYNCED))).toEqual({
