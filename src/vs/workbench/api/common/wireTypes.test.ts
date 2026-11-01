@@ -73,6 +73,19 @@ describe("WireTypes — parseWireEditorLayout", () => {
         expect(parsed?.groups[0].tabs[0]).toEqual(layoutTab());
     });
 
+    it("picks up the resolved indentation of a text tab", () => {
+        const tab = parseWireEditorLayout(layoutOf(layoutTab({ tabSize: 2, insertSpaces: false })))?.groups[0].tabs[0];
+        expect(tab?.tabSize).toBe(2);
+        expect(tab?.insertSpaces).toBe(false);
+    });
+
+    it("a broken indentation is omitted", () => {
+        const tab = parseWireEditorLayout(layoutOf(layoutTab({ tabSize: "2", insertSpaces: 1 })))?.groups[0].tabs[0];
+        expect(tab).toBeDefined();
+        expect(tab).not.toHaveProperty("tabSize");
+        expect(tab).not.toHaveProperty("insertSpaces");
+    });
+
     it("broken selections inside selections are dropped one by one (drop+skip)", () => {
         const parsed = parseWireEditorLayout(
             layoutOf(

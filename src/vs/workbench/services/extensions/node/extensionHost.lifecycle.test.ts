@@ -101,6 +101,9 @@ class FakeEditorOptions implements IEditorOptionsService {
     public setEditorCursorStyle(): void {
         /* no-op */
     }
+    public revealEditorRange(): void {
+        /* no-op */
+    }
     public getActiveEditorFilePath(): string | null {
         return this.filePath;
     }
