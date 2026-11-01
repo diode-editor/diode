@@ -2,6 +2,7 @@ import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { TUIPasteEvent } from "@tuidom/core/dom/events/tuiPasteEvent";
 import { describe, expect, it } from "vitest";
 
+import { currentCursorChangeSource } from "../common/core/cursorChangeSource.ts";
 import { createCursorSelection, createSelection } from "../common/core/iSelection.ts";
 import {
     EMPTY_LANGUAGE_CONFIGURATION,
@@ -140,5 +141,20 @@ describe("EditorElement.onDidTypeNewLine", () => {
         editor.onDidTypeNewLine(() => fired++);
         press(editor, ";");
         expect(fired).toBe(0);
+    });
+});
+
+describe("EditorElement.insertLineBreak", () => {
+    it("inserts the line as the keyboard's, without a typing event", () => {
+        const { editor, viewState, typed } = makeEditor("a");
+        let newLines = 0;
+        editor.onDidTypeNewLine(() => newLines++);
+        const sources: unknown[] = [];
+        viewState.onDidChangeCursorPosition(() => sources.push(currentCursorChangeSource()));
+        editor.insertLineBreak();
+        expect(viewState.document.getText()).toBe("a\n");
+        expect(newLines).toBe(0);
+        expect(typed).toEqual([]);
+        expect(sources).toContain("keyboard");
     });
 });

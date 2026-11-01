@@ -74,6 +74,7 @@ export class FormatOnTypeController extends Disposable {
             }
         });
         try {
+            // Stryker disable ArrayDeclaration,ArrowFunction: a garbage answer throws out of this async call, an unhandled rejection instead of a verdict
             const edits = await provider
                 .provideOnTypeFormattingEdits(
                     {
@@ -87,8 +88,8 @@ export class FormatOnTypeController extends Disposable {
                     },
                     request.token,
                 )
-                // Stryker disable next-line ArrayDeclaration,ArrowFunction: a garbage answer throws out of this async call, an unhandled rejection instead of a verdict
                 .catch(() => []);
+            // Stryker restore ArrayDeclaration,ArrowFunction
             if (request.token.isCancellationRequested || edits.length === 0) return;
             this.editor.applyExternalEdits(edits, "formatOnType");
         } finally {
