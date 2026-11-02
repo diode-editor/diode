@@ -3,15 +3,31 @@ import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { TextFileModel } from "./textFileModel.ts";
 import type { ITextFileModelReference } from "./textFileModelRegistry.ts";
 
-interface IBoundReference {
-    readonly reference: ITextFileModelReference;
-    readonly length: number;
-    timer: ReturnType<typeof setTimeout>;
-}
-
 const MAX_AGE_MS = 3 * 60 * 1000;
 const MAX_TOTAL_LENGTH = 80 * 1024 * 1024;
 const MAX_COUNT = 50;
+
+/** A held reference with its age timer; the timer is re-armed while the model is dirty. */
+class BoundReference {
+    public timer: ReturnType<typeof setTimeout>;
+
+    public constructor(
+        public readonly reference: ITextFileModelReference,
+        public readonly length: number,
+        private readonly expire: (entry: BoundReference) => void,
+    ) {
+        this.timer = this.arm();
+    }
+
+    public arm(): ReturnType<typeof setTimeout> {
+        const timer = setTimeout(() => {
+            this.expire(this);
+        }, MAX_AGE_MS);
+        // Stryker disable next-line CallExpression: only lets the process exit while the timer waits
+        timer.unref();
+        return timer;
+    }
+}
 
 /**
  * Upstream `BoundModelReferenceCollection` (`mainThreadDocuments.ts`): keeps documents opened by extensions alive
@@ -19,7 +35,7 @@ const MAX_COUNT = 50;
  * refuses to dispose it, and here its edits exist nowhere else.
  */
 export class BoundModelReferences extends Disposable {
-    private readonly entries = new Map<TextFileModel, IBoundReference>();
+    private readonly entries = new Map<TextFileModel, BoundReference>();
     private totalLength = 0;
 
     /** `onChange` runs whenever {@link models} shrinks by itself, on expiry or eviction. */
@@ -48,7 +64,12 @@ export class BoundModelReferences extends Disposable {
             return;
         }
         const length = model.document.getValueLength();
-        this.entries.set(model, { reference, length, timer: this.startTimer(model) });
+        this.entries.set(
+            model,
+            new BoundReference(reference, length, (entry) => {
+                this.expire(entry);
+            }),
+        );
         this.totalLength += length;
         this.evict();
     }
@@ -58,21 +79,11 @@ export class BoundModelReferences extends Disposable {
         this.drop(model);
     }
 
-    private startTimer(model: TextFileModel): ReturnType<typeof setTimeout> {
-        const timer = setTimeout(() => {
-            this.expire(model);
-        }, MAX_AGE_MS);
-        // Stryker disable next-line CallExpression: only lets the process exit while the timer waits
-        timer.unref();
-        return timer;
-    }
-
-    private expire(model: TextFileModel): void {
-        const entry = this.entries.get(model);
-        // Stryker disable next-line ConditionalExpression: letting a model go clears its timer, so an entry is always there
-        if (entry === undefined) return;
+    /** Letting a model go clears its timer: an expiring entry is still held. */
+    private expire(entry: BoundReference): void {
+        const { model } = entry.reference;
         if (model.isModified) {
-            entry.timer = this.startTimer(model);
+            entry.timer = entry.arm();
             return;
         }
         this.drop(model);

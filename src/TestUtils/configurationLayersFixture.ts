@@ -4,6 +4,7 @@ import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { ConfigurationRegistry } from "../vs/platform/configuration/common/configurationRegistry.ts";
 import type { IFileWatcher } from "../vs/platform/files/common/iFileWatcher.ts";
 import type { ILogger } from "../vs/platform/log/common/iLogger.ts";
+import { NULL_LOGGER } from "../vs/platform/log/common/nullLogService.ts";
 
 export class FakeFileWatcher implements IFileWatcher {
     private readonly handlers = new Map<string, () => void>();
@@ -43,13 +44,16 @@ export function testRegistry(): ConfigurationRegistry {
     return registry;
 }
 
-export function makeLogger(): ILogger & { warn: Mock<ILogger["warn"]>; error: Mock<ILogger["error"]> } {
+/** The null logger with `info`, `warn` and `error` observable. */
+export function makeLogger(): ILogger & {
+    info: Mock<ILogger["info"]>;
+    warn: Mock<ILogger["warn"]>;
+    error: Mock<ILogger["error"]>;
+} {
     return {
-        trace: vi.fn(),
-        debug: vi.fn(),
-        info: vi.fn(),
+        ...NULL_LOGGER,
+        info: vi.fn<ILogger["info"]>(),
         warn: vi.fn<ILogger["warn"]>(),
         error: vi.fn<ILogger["error"]>(),
-        isEnabled: () => true,
     };
 }

@@ -1,3 +1,4 @@
+import { DisplayLine } from "@tuidom/core/common/displayLine";
 import type { RenderContext } from "@tuidom/core/dom/tuiElement";
 import { describe, expect, it } from "vitest";
 
@@ -6,7 +7,12 @@ import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import { NO_LINE_INSERTIONS } from "../common/viewModel/lineInsertions.ts";
 
-import { buildViewportRows, type ITextViewportGeometry, paintSortedRangeBackgrounds } from "./textViewRendering.ts";
+import {
+    buildViewportRows,
+    type ITextViewportGeometry,
+    paintPhantomText,
+    paintSortedRangeBackgrounds,
+} from "./textViewRendering.ts";
 
 const LINES = 1000;
 const BG = 7;
@@ -69,6 +75,30 @@ describe("buildViewportRows", () => {
 
     it("stops at the end of the file", () => {
         expect(geometry(LINES - 2, 5).rows.map((row) => row.logLine)).toEqual([LINES - 2, LINES - 1]);
+    });
+});
+
+describe("paintPhantomText", () => {
+    it("a wide character cut by the left edge is not painted, the text after it is", () => {
+        const cells: [number, string][] = [];
+        const context = {
+            setCell: (x: number, _y: number, cell: { char: string }) => {
+                cells.push([x, cell.char]);
+            },
+        } as unknown as RenderContext;
+
+        paintPhantomText(context, {
+            displayLine: new DisplayLine("\u65e5x", 4), // "ri" (sun), 2 columns wide
+            screenY: 0,
+            gutterW: 2,
+            contentCols: 10,
+            fg: 1,
+            bg: 2,
+            style: 0,
+            scrollLeft: 1,
+        });
+
+        expect(cells).toEqual([[3, "x"]]);
     });
 });
 

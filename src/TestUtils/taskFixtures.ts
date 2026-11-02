@@ -1,3 +1,5 @@
+import { expect } from "vitest";
+
 import { Uri } from "../vs/base/common/uri.ts";
 import type { IWorkspaceFolder } from "../vs/platform/workspace/common/iWorkspaceContextService.ts";
 import { contributedTaskId, createTaskIdentifier } from "../vs/workbench/api/common/taskIdentity.ts";
@@ -40,10 +42,11 @@ export function makeTask(options: ITaskFixtureOptions = {}): ITask {
     };
     const extension = options.extension;
     // Key computed as upstream does: commands taking a definition argument find the task by it.
+    // Without a schema nothing is reported; a report would mean a broken fixture.
     const keyed =
         extension === undefined
             ? undefined
-            : createTaskIdentifier({ type: extension.type, ...options.definition }, undefined, () => undefined);
+            : createTaskIdentifier({ type: extension.type, ...options.definition }, undefined, expect.unreachable);
     const id =
         keyed === undefined || extension === undefined
             ? `$core.${label}`

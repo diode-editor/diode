@@ -47,6 +47,15 @@ describe("UriHandlersCustomer", () => {
         expect(customer.has("pub.ext")).toBe(false);
     });
 
+    it("a structurally foreign unregistration is ignored: the handler stays", async () => {
+        const { customer, peer } = setup();
+        peer.notify("window.registerUriHandler", { extensionId: "pub.ext" });
+        peer.notify("window.unregisterUriHandler", { extensionId: "" });
+        peer.notify("window.unregisterUriHandler", null);
+        await flushMicrotasks();
+        expect(customer.has("pub.ext")).toBe(true);
+    });
+
     it("handle sends the URI as a window.handleUri request and awaits the reply", async () => {
         const { customer, peer } = setup();
         let release!: () => void;

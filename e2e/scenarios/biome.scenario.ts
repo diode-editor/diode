@@ -2,7 +2,7 @@ import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../../src/TestUtils/biomeFixture.ts";
+import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../helpers/biomeFixture.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";

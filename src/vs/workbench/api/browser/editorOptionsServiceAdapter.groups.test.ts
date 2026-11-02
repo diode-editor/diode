@@ -208,6 +208,21 @@ describe("EditorOptionsServiceAdapter: addressing by group", () => {
         subscription.dispose();
     });
 
+    it("[api:window.onDidChangeTextEditorSelection] several changes of an inactive editor in one tick are one notification with the last selection", async () => {
+        service.openFile(ws.path("a.ts"));
+        service.splitActiveGroup();
+        const inactive = editorAt(0, 0);
+        const seen: IActiveEditorSelections[] = [];
+        const subscription = adapter.onActiveEditorSelectionChanged((event) => seen.push(event));
+
+        inactive.viewState.selections = [createSelection(1, 0, 1, 1)];
+        inactive.viewState.selections = [createSelection(1, 0, 1, 2)];
+        await Promise.resolve();
+
+        expect(seen.map((event) => event.selections[0].activeCharacter)).toEqual([2]);
+        subscription.dispose();
+    });
+
     it("setActiveEditorSelections: unknown groupId or foreign uri is a no-op", () => {
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;

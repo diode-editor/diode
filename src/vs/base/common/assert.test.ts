@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { assert, assertFn, checkAdjacentItems } from "./assert.ts";
+import { assert, assertFn, assertReturnsDefined, checkAdjacentItems } from "./assert.ts";
 import { BugIndicatingError, setUnexpectedErrorHandler } from "./errors.ts";
 
 /** Deviation from upstream: `assertFn` doesn't throw but goes to the error handler, otherwise the TUI wouldn't survive an edge-case diff. */
@@ -38,6 +38,21 @@ describe("assert", () => {
         expect(() => {
             assert(false, error);
         }).toThrow(error);
+    });
+});
+
+describe("assertReturnsDefined", () => {
+    it("returns a defined value as is, falsy ones included", () => {
+        const range = { start: 1 };
+        expect(assertReturnsDefined(range)).toBe(range);
+        expect(assertReturnsDefined(0)).toBe(0);
+        expect(assertReturnsDefined("")).toBe("");
+    });
+
+    it("throws BugIndicatingError on null and on undefined", () => {
+        expect(() => assertReturnsDefined(null)).toThrow(BugIndicatingError);
+        expect(() => assertReturnsDefined(null)).toThrow(/Assertion Failed: Argument is `undefined` or `null`\./);
+        expect(() => assertReturnsDefined(undefined)).toThrow(BugIndicatingError);
     });
 });
 

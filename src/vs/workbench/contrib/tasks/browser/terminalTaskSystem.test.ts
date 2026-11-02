@@ -185,6 +185,10 @@ describe("TerminalTaskSystem — running a shell task", () => {
         expect(() => h.system.run(makeTask({ command: { name: "${input:x}" } }), h.context())).toThrow(
             TaskVariableError,
         );
+        // The default variables of the harness know no settings.
+        expect(() =>
+            h.system.run(makeTask({ command: { name: "echo ${config:editor.tabSize}" } }), h.context()),
+        ).toThrow("setting 'editor.tabSize' not found");
         expect(h.factoryCalls).toStrictEqual([]);
         expect(h.events).toStrictEqual([]);
         h.dispose();

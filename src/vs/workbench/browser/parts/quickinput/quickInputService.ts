@@ -336,18 +336,14 @@ export class QuickInputService {
         this.settle(undefined);
     }
 
-    /** Quick Open rebinds the widget callbacks back to itself when it opens. */
+    /**
+     * Quick Open rebinds the widget callbacks back to itself when it opens. `onAcceptValue` is not rebound here:
+     * every owner sets `acceptMode` itself, and only `inputBox` (which binds its own handler) accepts the text.
+     */
     private takeOwnership(): void {
         const view = this.component.view;
         view.onCancel = () => {
             this.settle(undefined);
-        };
-        view.onAcceptValue = (value) => {
-            // Deferred close (as in QuickOpenService): returning focus synchronously mid-keypress
-            // would hand the rest of the same Enter to the editor.
-            queueMicrotask(() => {
-                this.settle(value);
-            });
         };
         this.component.onDidClose = () => {
             this.settle(undefined);

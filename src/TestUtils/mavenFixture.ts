@@ -50,9 +50,16 @@ export function writeMavenProject(root: string): string {
     return pom;
 }
 
-/** Goals need Maven from the machine, like `go` for golang.go; the runners have it. */
-export function mavenMissing(): string | undefined {
-    const probe = spawnSync("mvn", ["-v"], { shell: process.platform === "win32", stdio: "ignore" });
+/**
+ * Goals need Maven from the machine, like `go` for golang.go; the runners have it. `mvn` is looked
+ * up on the given environment's `PATH` (the parameters serve the hermetic tests, the e2e check takes
+ * the defaults); a probe that is not there or exits non-zero is "missing" alike.
+ */
+export function mavenMissing(
+    env: NodeJS.ProcessEnv = process.env,
+    platform: NodeJS.Platform = process.platform,
+): string | undefined {
+    const probe = spawnSync("mvn", ["-v"], { env, shell: platform === "win32", stdio: "ignore" });
     return probe.status === 0 ? undefined : "mvn not found in PATH — Maven for Java goals skipped";
 }
 

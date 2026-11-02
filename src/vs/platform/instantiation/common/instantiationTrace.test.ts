@@ -52,6 +52,18 @@ describe("InstantiationTracer", () => {
         ]);
     });
 
+    it("a prepareStackTrace hook that yields no stack leaves the requester unknown", () => {
+        const prepare = Error.prepareStackTrace;
+        Error.prepareStackTrace = () => undefined;
+        try {
+            const tracer = new InstantiationTracer();
+            tracer.trace("Only", () => 0);
+            expect(tracer.getEntries()[0].requester).toBe("?");
+        } finally {
+            Error.prepareStackTrace = prepare;
+        }
+    });
+
     it("consecutive top-level creations do not nest into each other", () => {
         const tracer = new InstantiationTracer();
         tracer.trace("First", () => {

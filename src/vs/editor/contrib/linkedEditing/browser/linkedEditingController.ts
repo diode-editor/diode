@@ -1,3 +1,4 @@
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
@@ -279,9 +280,9 @@ export class LinkedEditingController extends Disposable {
         const document = this.editor.viewState.document;
         const ranges: IRange[] = [];
         for (const id of this.decorationIds) {
-            const range = document.getDecorationRange(id);
-            // Stryker disable next-line ConditionalExpression: only this class removes its ids, null guards a foreign one
-            if (range !== null) ranges.push(range);
+            // Only this class removes its ids.
+            const range = assertReturnsDefined(document.getDecorationRange(id));
+            ranges.push(range);
         }
         return ranges;
     }

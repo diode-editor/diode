@@ -286,6 +286,21 @@ describe("LanguageStatusContribution — the segment on the frame", () => {
         expect(statusRow()).not.toContain(NERD.bracket);
     });
 
+    it("typing in the list filters the rows, nothing runs", async () => {
+        sink.update(wireItem(1, { text: "Ruff", command: { command: "test.ext.run", title: "Run" } }));
+        sink.update(wireItem(2, { text: "Pyright", command: { command: "test.ext.run", title: "Run" } }));
+        clickOnRow(statusRow().indexOf(NERD.bracket));
+        expect(h.testApp.backend.screenToString()).toContain("Pyright");
+
+        for (const ch of "ruf") h.testApp.sendKey(ch);
+        h.testApp.render();
+
+        const screen = h.testApp.backend.screenToString();
+        expect(screen).toContain("Ruff");
+        expect(screen).not.toContain("Pyright");
+        expect(runs).toStrictEqual([]);
+    });
+
     it("Escape closes the list without running anything", async () => {
         sink.update(wireItem(1, { command: { command: "test.ext.run", title: "Run" } }));
         clickOnRow(statusRow().indexOf(NERD.bracket));

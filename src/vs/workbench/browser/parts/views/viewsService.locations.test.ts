@@ -190,6 +190,7 @@ describe("ViewsService — moving a whole container (moveViewContainerToLocation
         const h = workbench();
         h.service.moveViewContainerToLocation(TERMINAL, "panel");
         h.service.moveViewContainerToLocation("ghost", "panel");
+        h.service.resetViewContainerLocation("ghost");
         expect(customizations(h)).toBeUndefined();
     });
 });
@@ -240,7 +241,13 @@ describe("ViewsService — persisting moves (views.customizations)", () => {
                     VIEWS_CUSTOMIZATIONS_STATE.key,
                     {
                         viewContainerLocations: { [SEARCH]: "nowhere", ghost: "panel" },
-                        viewLocations: { ghost: OUTPUT, extensions: OUTPUT, search: "unknown.container" },
+                        viewLocations: {
+                            ghost: OUTPUT,
+                            extensions: OUTPUT,
+                            search: "unknown.container",
+                            // A generated container id whose location part is garbage.
+                            output: "workbench.views.service.nowhere.0000",
+                        },
                     },
                 ],
             ]),
@@ -248,6 +255,19 @@ describe("ViewsService — persisting moves (views.customizations)", () => {
         expect(h.service.getViewContainerLocation(SEARCH)).toBe("sidebar");
         expect(h.service.getViewContainerByViewId("extensions")).toBe(STORE);
         expect(h.service.getViewContainerByViewId("search")).toBe(SEARCH);
+        expect(h.service.getViewContainerByViewId("output")).toBe(OUTPUT);
+        expect(h.service.getViewContainerLocation("workbench.views.service.nowhere.0000")).toBeNull();
+    });
+
+    it("a stale entry that points a view to its own container (a default that moved) changes nothing", () => {
+        const h = workbench(
+            new Map([
+                [VIEWS_CUSTOMIZATIONS_STATE.key, { viewContainerLocations: {}, viewLocations: { terminal: TERMINAL } }],
+            ]),
+        );
+        expect(h.service.getViewContainerByViewId("terminal")).toBe(TERMINAL);
+        expect(h.service.getContainerViews(TERMINAL).map((v) => v.id)).toEqual(["terminal"]);
+        expect(tabs(h, "panel")).toEqual(["OUTPUT", "TERMINAL"]);
     });
 
     it("restoring moves does not rewrite storage", () => {

@@ -338,6 +338,19 @@ describe("TaskService — running", () => {
         h.dispose();
     });
 
+    it("without HOME, ${userHome} is USERPROFILE", async () => {
+        const h = buildTaskServiceHarness();
+        vi.stubEnv("HOME", undefined);
+        vi.stubEnv("USERPROFILE", "/Users/someone");
+        void h.service.run(makeTask({ command: { name: "echo ${userHome}" } }));
+        await vi.waitFor(() => {
+            expect(h.terminals.getInstances()).toHaveLength(1);
+        });
+        vi.unstubAllEnvs();
+        expect(h.terminals.getInstances()[0].launch.shellArgs).toStrictEqual(["-c", "echo /Users/someone"]);
+        h.dispose();
+    });
+
     it("config and env are available to variables", async () => {
         const h = buildTaskServiceHarness({ settings: { "task.autoDetect": "on" } });
         vi.stubEnv("DIODE_TASK_VAR", "env-value");
@@ -628,6 +641,26 @@ describe("TaskService — rerun and restart", () => {
             ["-c", "echo gone"],
             ["-c", "echo p"],
         ]);
+        h.dispose();
+    });
+
+    it("restart: a task whose variables no longer resolve is reported, the restart does not reject", async () => {
+        const h = buildTaskServiceHarness({ tasksJson: tasksJsonOf([{ label: "a", type: "shell", command: "old" }]) });
+        const [task] = await h.service.getWorkspaceTasks();
+        void h.service.run(task);
+        await vi.waitFor(() => {
+            expect(h.sessions).toHaveLength(1);
+        });
+        h.setTasksJson(tasksJsonOf([{ label: "a", type: "shell", command: "${input:x}" }]));
+        await h.service.restart(task);
+        await vi.waitFor(() => {
+            expect(h.notifications.passive()).toHaveLength(1);
+        });
+        expect(h.notifications.passive()[0]).toMatchObject({
+            severity: "error",
+            message: expect.stringContaining("${input:x}") as string,
+        });
+        expect(h.sessions).toHaveLength(1);
         h.dispose();
     });
 

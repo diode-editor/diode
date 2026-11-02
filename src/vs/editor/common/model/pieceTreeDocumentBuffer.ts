@@ -1,3 +1,4 @@
+import { assertReturnsDefined } from "../../../base/common/assert.ts";
 import { UTF8_BOM_CHARACTER } from "../../../base/common/strings.ts";
 import { EndOfLine, eolToSequence } from "../core/endOfLine.ts";
 import type { IRange } from "../core/iRange.ts";
@@ -84,8 +85,8 @@ export class PieceTreeDocumentBuffer implements IDocumentBuffer {
         );
         // Inverse edits are in coordinates of the ALREADY APPLIED document, in document
         // order; buffer text carries its EOL, outward it is LF.
-        // Stryker disable next-line ArrayDeclaration: with computeUndoEdits the buffer always returns an array
-        const reverseEdits = result.reverseEdits ?? [];
+        // The buffer computes them: computeUndoEdits above is true.
+        const reverseEdits = assertReturnsDefined(result.reverseEdits);
         return reverseEdits.map((op) => createTextEdit(fromBufferRange(op.range), toLf(op.text)));
     }
 

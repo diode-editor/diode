@@ -69,18 +69,25 @@ export async function configureTaskCommand(accessor: ServiceAccessor): Promise<v
                   | undefined);
     if (entry === undefined || uri === undefined) return;
     if (entry.task !== undefined) {
-        await (isConfiguredTask(entry.task)
-            ? openConfig(context, uri, text, entry.task)
-            : customize(context, uri, entry.task));
+        const { configIndex } = entry.task;
+        await (configIndex === undefined
+            ? customize(context, uri, entry.task)
+            : openConfig(context, uri, text, configIndex));
     } else {
         // An entry without a task is only "Create/Open tasks.json file".
         await openTaskFile(context, uri);
     }
 }
 
-async function openConfig(context: IConfigureContext, uri: Uri, text: string | undefined, task: ITask): Promise<void> {
-    // Stryker disable next-line StringLiteral,UnaryOperator: equivalent: configured task has text and index; fallbacks are for types
-    await openAtEntry(context, uri, text ?? "", task.configIndex ?? -1);
+/** No text: the file went away between the two reads, and no entry is found in any text. */
+async function openConfig(
+    context: IConfigureContext,
+    uri: Uri,
+    text: string | undefined,
+    index: number,
+): Promise<void> {
+    // Stryker disable next-line StringLiteral: equivalent: no text has the entry, whatever stands in for it
+    await openAtEntry(context, uri, text ?? "", index);
 }
 
 async function customize(context: IConfigureContext, uri: Uri, task: ITask): Promise<void> {

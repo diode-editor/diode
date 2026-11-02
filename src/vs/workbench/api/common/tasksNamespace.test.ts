@@ -219,13 +219,16 @@ describe("tasks.fetchTasks", () => {
             }),
             wireTask({ id: "n", execution: {} }),
             wireTask({ id: "u", execution: undefined }),
+            wireTask({ id: "s", execution: { command: "sh" } }),
         ];
-        const [p, c, n, u] = await s.ns.fetchTasks();
+        const [p, c, n, u, bare] = await s.ns.fetchTasks();
         expect(p.execution).toBeInstanceOf(ProcessExecution);
         expect((p.execution as ProcessExecution).args).toStrictEqual(["a"]);
         expect(p.group).toBe(TaskGroup.Build);
         expect((c.execution as ShellExecution).command).toStrictEqual({ value: "x", quoting: 1 });
         expect((c.execution as ShellExecution).args).toStrictEqual(["y"]);
+        expect((bare.execution as ShellExecution).command).toBe("sh");
+        expect((bare.execution as ShellExecution).args).toStrictEqual([]);
         expect([c.group?.id, (c.group as TaskGroup | undefined)?.label]).toStrictEqual(["lint", "lint"]);
         expect([n.execution, u.execution]).toStrictEqual([undefined, undefined]);
     });
@@ -308,6 +311,32 @@ describe("tasks.executeTask", () => {
         await settle();
         await expect(s.ns.executeTask(task)).rejects.toThrow("Task not found");
         expect(s.ns.taskExecutions).toHaveLength(1);
+    });
+
+    it("a task literal that is not our Task class has no handle: it executes by its wire form", async () => {
+        const s = setup();
+        const task = {
+            name: "lit",
+            definition: { type: "demo" },
+            scope: TaskScope.Workspace,
+            source: "demo",
+            isBackground: false,
+            execution: new ShellExecution("make"),
+            presentationOptions: {},
+            problemMatchers: [],
+            runOptions: {},
+        } as unknown as vscode.Task;
+
+        const result = await s.ns.executeTask(task);
+
+        expect(result.task).toBe(task);
+        const [request] = s.requested("tasks.execute") as { task: IWireTask }[];
+        expect(request.task).toMatchObject({
+            name: "lit",
+            execution: { commandLine: "make" },
+            hasDefinedMatchers: false,
+        });
+        expect(request.task.id).toBeUndefined();
     });
 
     it("no execution and no id is rejected without a request; invalid definition yields the 'execute only' key", async () => {
