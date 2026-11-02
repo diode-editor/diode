@@ -30,6 +30,15 @@ describe("stripMarkdown — plain text for the TUI popup", () => {
         expect(stripMarkdown("escaped \\*symbol\\*")).toBe("escaped *symbol*");
     });
 
+    it("code keeps its emphasis characters: Tailwind's CSS hover", () => {
+        expect(stripMarkdown("```css\n.p-4 {\n  padding: calc(var(--spacing) * 4) /* 1rem = 16px */;\n}\n```")).toBe(
+            ".p-4 {\n  padding: calc(var(--spacing) * 4) /* 1rem = 16px */;\n}",
+        );
+        expect(stripMarkdown("`a * b * c` and *x*")).toBe("a * b * c and x");
+        expect(stripMarkdown("`snake_case_ish_` [x](y)")).toBe("snake_case_ish_ x");
+        expect(stripMarkdown("`a \\* b`")).toBe("a * b");
+    });
+
     it("`_italic_` is stripped only at a word boundary — snake_case is left alone", () => {
         // terraform-ls marks the type like this: "`var.region` _string_".
         expect(stripMarkdown("`var.region`\n_string_")).toBe("var.region\nstring");
