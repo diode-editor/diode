@@ -40,6 +40,8 @@ export interface OnTypeFormattingEditProvider {
 
 /** upstream `languages.DocumentFormattingEditProvider`. */
 export interface DocumentFormattingEditProvider {
+    /** What `editor.defaultFormatter` names. */
+    readonly extensionId?: string;
     provideDocumentFormattingEdits(
         request: IFormattingRequest,
         token: ICancellationToken,
@@ -51,6 +53,8 @@ export interface DocumentFormattingEditProvider {
  * formatter over the full range when there is no document formatter.
  */
 export interface DocumentRangeFormattingEditProvider {
+    /** What `editor.defaultFormatter` names. */
+    readonly extensionId?: string;
     provideDocumentRangeFormattingEdits(
         request: IFormattingRequest & { readonly range: IRange },
         token: ICancellationToken,

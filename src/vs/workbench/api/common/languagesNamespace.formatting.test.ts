@@ -340,3 +340,23 @@ describe("LanguagesNamespace — formatting providers", () => {
         expect(seen).toEqual([{ tabSize: 4, insertSpaces: true }]);
     });
 });
+
+describe("languages.register carries the registering extension", () => {
+    it("[api:languages.registerDocumentFormattingEditProvider] [api:languages.registerDocumentRangeFormattingEditProvider] sends the owner's id", () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        ctx.owner.runAs("acme.fmt", () => {
+            languages.registerDocumentFormattingEditProvider("*", { provideDocumentFormattingEdits: () => [] });
+            languages.registerDocumentRangeFormattingEditProvider("*", {
+                provideDocumentRangeFormattingEdits: () => [],
+            });
+        });
+        const sent = stub.notifies
+            .filter((n) => n.method === "languages.register")
+            .map((n) => n.params as { kind: string; extensionId?: string });
+        expect(sent.map(({ kind, extensionId }) => [kind, extensionId])).toEqual([
+            ["formatting", "acme.fmt"],
+            ["rangeFormatting", "acme.fmt"],
+        ]);
+    });
+});

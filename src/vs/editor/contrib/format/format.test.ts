@@ -98,6 +98,69 @@ describe("format: formatter selection from registries", () => {
         expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN)).toEqual([]);
     });
 
+    describe("editor.defaultFormatter", () => {
+        function twoFormatters(): LanguageFeaturesService {
+            const features = new LanguageFeaturesService();
+            for (const extensionId of ["acme.first", "Acme.Second"]) {
+                features.documentFormattingEditProvider.register("*", {
+                    extensionId,
+                    provideDocumentFormattingEdits: () => Promise.resolve([edit(`document ${extensionId}`)]),
+                });
+                features.documentRangeFormattingEditProvider.register("*", {
+                    extensionId,
+                    provideDocumentRangeFormattingEdits: () => Promise.resolve([edit(`range ${extensionId}`)]),
+                });
+            }
+            return features;
+        }
+        const ranged = { ...REQUEST, range: createRange(0, 0, 0, 1) };
+
+        it.each([
+            ["acme.first", "acme.first"],
+            ["acme.second", "Acme.Second"],
+        ])("picks %s wherever it stands in the order, ignoring case", async (id, name) => {
+            const features = twoFormatters();
+            expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN, id)).toEqual([edit(`document ${name}`)]);
+            expect(await formatRange(features, TS, ranged, TOKEN, id)).toEqual([edit(`range ${name}`)]);
+        });
+
+        it("a provider without an extension is skipped, not matched and not a failure", async () => {
+            const features = twoFormatters();
+            features.documentFormattingEditProvider.register("*", {
+                provideDocumentFormattingEdits: () => Promise.resolve([edit("nobody")]),
+            });
+            expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN, "acme.first")).toEqual([
+                edit("document acme.first"),
+            ]);
+        });
+
+        it("nothing configured: the first provider formats, null and an empty id alike", async () => {
+            const features = twoFormatters();
+            const [first] = features.documentFormattingEditProvider.ordered(TS);
+            const expected = await first.provideDocumentFormattingEdits(REQUEST, TOKEN);
+            for (const id of [undefined, null, ""]) {
+                expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN, id)).toEqual(expected);
+            }
+        });
+
+        it("a configured extension that is not there means no formatter, never another one", async () => {
+            const features = twoFormatters();
+            expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN, "acme.gone")).toBeNull();
+            expect(await formatRange(features, TS, ranged, TOKEN, "acme.gone")).toBeNull();
+        });
+
+        it("the named extension with only a range provider formats the document over the full range", async () => {
+            const features = twoFormatters();
+            features.documentRangeFormattingEditProvider.register("*", {
+                extensionId: "acme.rangeonly",
+                provideDocumentRangeFormattingEdits: () => Promise.resolve([edit("synthetic")]),
+            });
+            expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN, "acme.rangeonly")).toEqual([
+                edit("synthetic"),
+            ]);
+        });
+    });
+
     it("documentRange spans (0,0) to the end of the last line, empty text gives an empty range", () => {
         expect(documentRange("a\nbc\n\ndef")).toEqual(createRange(0, 0, 3, 3));
         expect(documentRange("x\n")).toEqual(createRange(0, 0, 1, 0));

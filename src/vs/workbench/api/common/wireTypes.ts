@@ -545,6 +545,8 @@ export interface IWireLanguageProviderMetadata {
 }
 
 export interface IWireLanguageProviderRegistration extends IWireLanguageProviderMetadata {
+    /** The registering extension: `editor.defaultFormatter` names it. */
+    readonly extensionId?: string;
     readonly handle: number;
     readonly kind: WireLanguageFeatureKind;
     readonly selector: readonly IWireLanguageFilter[];

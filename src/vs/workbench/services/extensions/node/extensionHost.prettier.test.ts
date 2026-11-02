@@ -13,6 +13,7 @@ import {
     PRETTIER_ID,
     PRETTIER_LANGUAGE_SERVICE,
 } from "../../../../../TestUtils/prettierFixture.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 import {
@@ -20,6 +21,7 @@ import {
     LanguageFeaturesServiceDIToken,
 } from "../../../../editor/common/services/languageFeatures.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { formatDocumentAction, formatSelectionAction } from "../../../contrib/format/browser/formatActions.ts";
@@ -46,6 +48,7 @@ function registerFormatActions(harness: {
     const accessor = new Container();
     accessor.bind(EditorServiceDIToken, () => harness.group as never);
     accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
+    accessor.bind(IConfigurationServiceDIToken, () => createTestConfigurationService());
     accessor.bind(StatusBarServiceDIToken, () => statusBar);
     const keybindings = new KeybindingRegistry();
     registerAction(harness.commandRegistry, keybindings, accessor, formatDocumentAction);

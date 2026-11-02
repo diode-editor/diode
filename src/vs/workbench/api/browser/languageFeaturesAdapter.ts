@@ -105,13 +105,15 @@ export class LanguageFeaturesAdapter extends Disposable {
                 provideCompletionItems: (request, token) => this.bridge.provideCompletionItems(handle, request, token),
                 resolveCompletionItem: (id) => this.bridge.resolveCompletionItem(id),
             }),
-        formatting: ({ handle, selector }) =>
+        formatting: ({ handle, selector, extensionId }) =>
             this.languageFeatures.documentFormattingEditProvider.register(selector, {
+                extensionId,
                 provideDocumentFormattingEdits: (request, token) =>
                     this.bridge.provideFormattingEdits(handle, request, token),
             }),
-        rangeFormatting: ({ handle, selector }) =>
+        rangeFormatting: ({ handle, selector, extensionId }) =>
             this.languageFeatures.documentRangeFormattingEditProvider.register(selector, {
+                extensionId,
                 provideDocumentRangeFormattingEdits: (request, token) =>
                     this.bridge.provideFormattingEdits(handle, request, token),
             }),
