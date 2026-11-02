@@ -1,6 +1,7 @@
-import { execFileSync, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+
+import { writeNpmProject } from "./npmProject.ts";
 
 /** The extension has no binary: the Biome server comes from `node_modules` of the project. */
 
@@ -25,21 +26,10 @@ export const BIOME_SETTINGS = {
     "editor.codeActionsOnSave": { "source.organizeImports.biome": "explicit" },
 };
 
-export function npmMissing(): string | undefined {
-    const found = spawnSync("npm", ["--version"], { stdio: "ignore", shell: process.platform === "win32" });
-    return found.status === 0 ? undefined : "npm not found in PATH: the Biome package cannot be installed";
-}
-
-/** Version is not pinned, as with stock vsix. Returns the path of the sample file. */
+/** Returns the path of the sample file. */
 export function writeBiomeProject(projectRoot: string): string {
-    fs.mkdirSync(projectRoot, { recursive: true });
-    fs.writeFileSync(path.join(projectRoot, "package.json"), '{ "private": true, "type": "module" }\n');
+    writeNpmProject(projectRoot, "@biomejs/biome");
     fs.writeFileSync(path.join(projectRoot, "biome.json"), BIOME_JSON);
-    execFileSync("npm", ["install", "@biomejs/biome", "--no-audit", "--no-fund", "--loglevel=error"], {
-        cwd: projectRoot,
-        stdio: "pipe",
-        timeout: 180_000,
-    });
     const file = path.join(projectRoot, "sample.js");
     fs.writeFileSync(file, SAMPLE_JS);
     return file;

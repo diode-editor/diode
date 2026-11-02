@@ -58,8 +58,9 @@ function stripHeadings(value: string): string {
 }
 
 /** CommonMark raw HTML (§6.6) whitespace: spaces or tabs with at most one line ending (a tag wraps inside a paragraph). */
-const HTML_SPACE = String.raw`(?:[ \t]+\n?[ \t]*|\n[ \t]*)`;
-const HTML_OPTIONAL_SPACE = String.raw`[ \t]*\n?[ \t]*`;
+// Unambiguous (a run of spaces matches one way only), so a long run with no `>` doesn't backtrack.
+const HTML_OPTIONAL_SPACE = String.raw`[ \t]*(?:\n[ \t]*)?`;
+const HTML_SPACE = String.raw`(?=[ \t\n])${HTML_OPTIONAL_SPACE}`;
 const HTML_ATTRIBUTE = String.raw`${HTML_SPACE}[A-Za-z_:][\w.:-]*(?:${HTML_OPTIONAL_SPACE}=${HTML_OPTIONAL_SPACE}(?:[^"'=<>\x60\s]+|'[^']*'|"[^"]*"))?`;
 /** An open tag (`/>` included), a closing tag or a comment; `a < b`, `<https://…>` and `<user@host>` are not tags. */
 const HTML_TAG = new RegExp(
@@ -89,7 +90,7 @@ function decodeEntities(value: string): string {
             if (numeric === undefined) return NAMED_ENTITIES[name] ?? all;
             // `0x41` and `041` are both numbers to Number().
             const code = Number("0" + numeric);
-            return code === 0 || code > 0x10ffff ? "�" : String.fromCodePoint(code);
+            return code === 0 || code > 0x10ffff ? "\uFFFD" : String.fromCodePoint(code);
         },
     );
 }
@@ -119,7 +120,8 @@ function hideInline(value: string, hide: (text: string) => string): string {
                 index += run.length;
             } else {
                 const content = value.slice(index + run.length, match.index);
-                result += hide(/^ [\s\S]*\S[\s\S]* $/.test(content) ? content.slice(1, -1) : content);
+                const padded = content.startsWith(" ") && content.endsWith(" ") && content.trim() !== "";
+                result += hide(padded ? content.slice(1, -1) : content);
                 index = match.index + run.length;
             }
         } else {
@@ -139,23 +141,20 @@ export function stripMarkdown(value: string): string {
         hidden.push(text);
         return "\u0000" + String(hidden.length - 1) + "\u0000";
     };
-    const code = hideInline(
-        value.replace(/```[^\n]*\n([\s\S]*?)\n?```/g, (_all, content: string) => hide(content)),
-        hide,
-    );
+    const fenced = value.replace(/```[^\n]*\n([\s\S]*?)\n?```/g, (_all, content: string) => hide(content));
+    const markup = stripHeadings(hideInline(fenced, hide))
+        // Tags go, the text between them stays: upstream drops them without supportHtml and sanitizes them with it.
+        .replace(HTML_TAG, "")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/__([^_]+)__/g, "$1")
+        .replace(/\*([^*]+)\*/g, "$1")
+        // `_italic_` only at a word boundary, as in CommonMark: inside
+        // `aws_instance` or `snake_case` underscores stay.
+        .replace(/(^|[^\p{L}\p{N}_])_([^_\s](?:[^_]*[^_\s])?)_(?![\p{L}\p{N}_])/gu, "$1$2")
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
+    // Entities after the tags: `&lt;span&gt;` stays the text `<span>`, as upstream.
     return (
-        decodeEntities(
-            stripHeadings(code)
-                // Tags go, the text between them stays: upstream drops them without supportHtml and sanitizes them with it.
-                .replace(HTML_TAG, "")
-                .replace(/\*\*([^*]+)\*\*/g, "$1")
-                .replace(/__([^_]+)__/g, "$1")
-                .replace(/\*([^*]+)\*/g, "$1")
-                // `_italic_` only at a word boundary, as in CommonMark: inside
-                // `aws_instance` or `snake_case` underscores stay.
-                .replace(/(^|[^\p{L}\p{N}_])_([^_\s](?:[^_]*[^_\s])?)_(?![\p{L}\p{N}_])/gu, "$1$2")
-                .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1"),
-        )
+        decodeEntities(markup)
             // eslint-disable-next-line no-control-regex -- \u0000 is the very marker used above to hide code and escaped characters
             .replace(/\u0000(\d+)\u0000/g, (_all, index: string) => hidden[Number(index)])
             .trim()
