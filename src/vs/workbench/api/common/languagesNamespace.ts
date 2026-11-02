@@ -3,6 +3,7 @@ import type * as vscode from "vscode";
 import { CancellationTokenNone, type ICancellationToken } from "../../../base/common/cancellation.ts";
 import { describeRejection } from "../../../base/common/describeRejection.ts";
 import { CancellationError, isCancellationError } from "../../../base/common/errorSerialization.ts";
+import { LRUCache } from "../../../base/common/map.ts";
 import type { IRange } from "../../../editor/common/core/iRange.ts";
 import type {
     ICallHierarchyIncomingCall,
@@ -53,6 +54,8 @@ import {
     serializeSelectionRanges,
     serializeSignatureHelp,
     serializeTextEdit,
+    serializeWorkspaceSymbol,
+    serializeWorkspaceSymbolLocation,
     toVscodeDiagnostic,
     toVscodeRange,
     toVscodeSignatureHelp,
@@ -119,6 +122,7 @@ import type {
     IWireSelectionRangeParams,
     IWireSignatureHelpParams,
     IWireTypeHierarchyParams,
+    IWireWorkspaceSymbol,
     Received,
     WireCodeAction,
     WireFoldingRange,
@@ -149,6 +153,12 @@ export interface IFoldingRegistration {
 export interface IDocumentSymbolRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.DocumentSymbolProvider;
+}
+
+/** Originals by answer, per provider as `codeActionCache`: all providers answer one query, a shared depth would evict. */
+interface IWorkspaceSymbolRegistration {
+    readonly provider: vscode.WorkspaceSymbolProvider;
+    readonly cache: LRUCache<number, readonly vscode.SymbolInformation[]>;
 }
 
 export interface IInlayHintsRegistration {
@@ -282,6 +292,7 @@ interface ICachedCompletion extends IRegistrationOwner {
 }
 
 const COMPLETION_CACHE_DEPTH = 2;
+const WORKSPACE_SYMBOL_CACHE_DEPTH = 2;
 
 function parseWireMarkersChanged(raw: unknown): IWireForeignMarkers[] {
     const entries = (raw as { entries?: unknown } | null)?.entries;
@@ -434,6 +445,19 @@ function serializeTextEdits(result: unknown): IWireEditorEdit[] {
     return edits;
 }
 
+/** `id` is the index in the answer, so a dropped symbol does not shift the addresses of the others. */
+function serializeWorkspaceSymbols(
+    result: readonly vscode.SymbolInformation[],
+    owner: string | undefined,
+): IWireWorkspaceSymbol[] {
+    return result.flatMap((raw, id) => {
+        const symbol = serializeWorkspaceSymbol(raw);
+        if (symbol !== null) return [{ ...symbol, id }];
+        console.warn(`[ext-host] ${ownerTag(owner)}INVALID SymbolInformation, it has no name or location`);
+        return [];
+    });
+}
+
 export function createLanguagesNamespace(
     ctx: IVscodeHostContext,
     codeActionDeps: ICodeActionDeps = NULL_CODE_ACTION_DEPS,
@@ -458,6 +482,8 @@ export function createLanguagesNamespace(
     const codeActionProviders = new Map<number, Owned<ICodeActionRegistration>>();
     const foldingProviders = new Map<number, Owned<IFoldingRegistration>>();
     const documentSymbolProviders = new Map<number, Owned<IDocumentSymbolRegistration>>();
+    const workspaceSymbolProviders = new Map<number, Owned<IWorkspaceSymbolRegistration>>();
+    let nextWorkspaceSymbolCacheId = 1;
     const inlineCompletionProviders = new Map<number, Owned<IInlineCompletionRegistration>>();
     const renameProviders = new Map<number, Owned<IRenameRegistration>>();
     const selectionRangeProviders = new Map<number, Owned<ISelectionRangeRegistration>>();
@@ -1569,6 +1595,44 @@ export function createLanguagesNamespace(
         }
     });
 
+    rpc.handleRequest("languages.provideWorkspaceSymbols", async (params, cancellation) => {
+        const empty = { cacheId: 0, symbols: [] };
+        const reg = workspaceSymbolProviders.get(params.handle);
+        if (reg === undefined) return empty;
+        try {
+            const result = await callWithVscodeToken(cancellation, (token) =>
+                reg.provider.provideWorkspaceSymbols(params.query, token),
+            );
+            if (!Array.isArray(result) || result.length === 0) return empty;
+            // Stryker disable next-line UpdateOperator: only that the ids differ matters, descending ones differ too
+            const cacheId = nextWorkspaceSymbolCacheId++;
+            // Only a provider that resolves ever reads it; the others would pin their whole answers.
+            if (reg.provider.resolveWorkspaceSymbol !== undefined) reg.cache.set(cacheId, result);
+            return { cacheId, symbols: serializeWorkspaceSymbols(result, reg.owner) };
+        } catch (err) {
+            reportProviderFailure("provideWorkspaceSymbols", err, reg.owner);
+            return empty;
+        }
+    });
+
+    rpc.handleRequest("languages.resolveWorkspaceSymbol", async (params, cancellation) => {
+        const reg = workspaceSymbolProviders.get(params.handle);
+        if (reg === undefined) return null;
+        const original = reg.cache.get(params.cacheId)?.[params.id];
+        if (original === undefined) return null;
+        try {
+            const resolved = await callWithVscodeToken(cancellation, (token) =>
+                // Stryker disable next-line OptionalChaining: the cache only holds answers of a provider that has the method
+                reg.provider.resolveWorkspaceSymbol?.(original, token),
+            );
+            const location = serializeWorkspaceSymbolLocation(resolved?.location);
+            return location === null ? null : { location };
+        } catch (err) {
+            reportProviderFailure("resolveWorkspaceSymbol", err, reg.owner);
+            return null;
+        }
+    });
+
     rpc.handleRequest(
         "languages.provideDocumentSemanticTokens",
         async (params, cancellation): Promise<WireSemanticTokensResult | null> => {
@@ -1837,7 +1901,21 @@ export function createLanguagesNamespace(
             provider: vscode.DocumentHighlightProvider,
         ): vscode.Disposable =>
             registerByHandle(documentHighlightProviders, "documentHighlight", selector, { selector, provider }),
-        registerWorkspaceSymbolProvider: registerNoopProvider,
+        registerWorkspaceSymbolProvider: (provider: vscode.WorkspaceSymbolProvider): vscode.Disposable => {
+            const handle = nextProviderHandle++;
+            workspaceSymbolProviders.set(handle, {
+                provider,
+                cache: new LRUCache(WORKSPACE_SYMBOL_CACHE_DEPTH),
+                owner: ctx.owner.current,
+            });
+            rpc.notify("languages.registerWorkspaceSymbol", {
+                handle,
+                supportsResolve: typeof provider.resolveWorkspaceSymbol === "function",
+            });
+            return new DisposableImpl(() => {
+                if (workspaceSymbolProviders.delete(handle)) rpc.notify("languages.unregister", { handle });
+            });
+        },
         registerCodeLensProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.CodeLensProvider,

@@ -70,6 +70,7 @@ import type {
     ITypeHierarchyRequest,
     ITypeHierarchySession,
 } from "../../../editor/common/languages/iTypeHierarchySource.ts";
+import type { ICoreWorkspaceSymbolLocation } from "../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 import type { IFoldingRegion } from "../../../editor/contrib/folding/iFoldingRegion.ts";
 
 import type {
@@ -77,6 +78,8 @@ import type {
     IWireCodeLensList,
     IWireDocumentLinkList,
     IWireLanguageProviderRegistration,
+    IWireWorkspaceSymbolProviderRegistration,
+    IWireWorkspaceSymbols,
     WireCodeLensCacheId,
 } from "./wireTypes.ts";
 
@@ -86,6 +89,7 @@ import type {
  */
 export interface IExtensionLanguageFeaturesBridge {
     getLanguageProviders(): readonly IWireLanguageProviderRegistration[];
+    getWorkspaceSymbolProviders(): readonly IWireWorkspaceSymbolProviderRegistration[];
     /** Including when the subprocess dies. */
     onLanguageProvidersChanged(cb: () => void): IDisposable;
     provideHover(handle: number, request: IHoverRequest, token: ICancellationToken): Promise<ICoreHover | undefined>;
@@ -147,6 +151,13 @@ export interface IExtensionLanguageFeaturesBridge {
         request: IDocumentSymbolRequest,
         token: ICancellationToken,
     ): Promise<readonly ICoreDocumentSymbol[]>;
+    provideWorkspaceSymbols(handle: number, query: string, token: ICancellationToken): Promise<IWireWorkspaceSymbols>;
+    resolveWorkspaceSymbol(
+        handle: number,
+        cacheId: number,
+        id: number,
+        token: ICancellationToken,
+    ): Promise<ICoreWorkspaceSymbolLocation | null>;
     provideFoldingRanges(
         handle: number,
         request: IFoldingRequest,

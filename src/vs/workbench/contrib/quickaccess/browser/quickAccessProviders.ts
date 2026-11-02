@@ -11,6 +11,10 @@ import {
     OpenEditorsQuickAccessProvider,
     OpenEditorsQuickAccessProviderDIToken,
 } from "./openEditorsQuickAccessProvider.ts";
+import {
+    WorkspaceSymbolsQuickAccessProvider,
+    WorkspaceSymbolsQuickAccessProviderDIToken,
+} from "./workspaceSymbolsQuickAccessProvider.ts";
 
 /** Entry order doesn't matter: the registry picks by the longest matching prefix. */
 export const QUICK_ACCESS_PROVIDERS: readonly IQuickAccessProviderDescriptor[] = [
@@ -19,4 +23,5 @@ export const QUICK_ACCESS_PROVIDERS: readonly IQuickAccessProviderDescriptor[] =
     { prefix: GotoLineQuickAccessProvider.PREFIX, provider: GotoLineQuickAccessProviderDIToken },
     { prefix: GotoSymbolQuickAccessProvider.PREFIX, provider: GotoSymbolQuickAccessProviderDIToken },
     { prefix: OpenEditorsQuickAccessProvider.PREFIX, provider: OpenEditorsQuickAccessProviderDIToken },
+    { prefix: WorkspaceSymbolsQuickAccessProvider.PREFIX, provider: WorkspaceSymbolsQuickAccessProviderDIToken },
 ];

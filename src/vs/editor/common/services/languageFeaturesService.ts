@@ -1,3 +1,4 @@
+import { GlobalFeatureRegistry } from "../globalFeatureRegistry.ts";
 import { LanguageFeatureRegistry } from "../languageFeatureRegistry.ts";
 import type { CallHierarchyProvider } from "../languages/iCallHierarchySource.ts";
 import type { CodeActionProvider } from "../languages/iCodeActionSource.ts";
@@ -32,6 +33,7 @@ import type {
 } from "../languages/iSemanticTokensSource.ts";
 import type { SignatureHelpProvider } from "../languages/iSignatureHelpSource.ts";
 import type { TypeHierarchyProvider } from "../languages/iTypeHierarchySource.ts";
+import type { WorkspaceSymbolProvider } from "../languages/iWorkspaceSymbolSource.ts";
 
 import type { ILanguageFeaturesService } from "./languageFeatures.ts";
 
@@ -52,6 +54,7 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
     public readonly codeActionProvider = new LanguageFeatureRegistry<CodeActionProvider>();
     public readonly foldingRangeProvider = new LanguageFeatureRegistry<FoldingRangeProvider>();
     public readonly documentSymbolProvider = new LanguageFeatureRegistry<DocumentSymbolProvider>();
+    public readonly workspaceSymbolProvider = new GlobalFeatureRegistry<WorkspaceSymbolProvider>();
     public readonly inlineCompletionsProvider = new LanguageFeatureRegistry<InlineCompletionsProvider>();
     public readonly selectionRangeProvider = new LanguageFeatureRegistry<SelectionRangeProvider>();
     public readonly documentHighlightProvider = new LanguageFeatureRegistry<DocumentHighlightProvider>();

@@ -151,6 +151,7 @@ function makeQuickAccessRegistry(deps: {
                 { getHistory: () => deps.history, removeMissing: () => Promise.resolve(false) },
                 createTestConfigurationService(),
                 workspaceWithRoot("/root"),
+                { search: () => undefined, cancelSearch: () => undefined },
             ),
         ],
         [
@@ -1276,6 +1277,7 @@ describe("QuickOpenService — provider hooks", () => {
         };
         const registry = new QuickAccessRegistry(accessor, [
             { prefix: "@", provider: hooksToken },
+            { prefix: "#", provider: otherToken },
             { prefix: "", provider: otherToken },
         ]);
         const component = makeComponent();
@@ -1284,6 +1286,26 @@ describe("QuickOpenService — provider hooks", () => {
         component.attachHost(body);
         return { service: new QuickOpenService(registry, component), component, provider, onActive, onHide };
     }
+
+    it("the default filter follows the prefix and is selected: typing replaces it", () => {
+        const getItems = vi.fn(() => []);
+        const { service, component } = setup({ getDefaultFilterValue: () => "word", getItems });
+        const select = vi.spyOn(component.view, "setQuerySelection");
+        service.show("@");
+        expect(select).toHaveBeenCalledWith(1, 5);
+        expect(component.view.getQuery()).toBe("@word");
+        expect(getItems).toHaveBeenLastCalledWith("@word");
+    });
+
+    it("a query given to show keeps its own value, no filter leaves the bare prefix", () => {
+        const given = setup({ getDefaultFilterValue: () => "word" });
+        given.service.show("@mine");
+        expect(given.component.view.getQuery()).toBe("@mine");
+
+        const none = setup({ getDefaultFilterValue: () => undefined });
+        none.service.show("@");
+        expect(none.component.view.getQuery()).toBe("@");
+    });
 
     it("the active row is reported on open, on user navigation and when new items change it", () => {
         const { service, component, onActive } = setup();
@@ -1395,6 +1417,39 @@ describe("QuickOpenService — provider hooks", () => {
         component.view.setQuery("a");
         component.view.onQueryChange?.("a");
         expect(onHide).toHaveBeenCalledExactlyOnceWith("cancel");
+    });
+
+    it("inWorkspaceSymbolsPicker holds only while `#` is shown", () => {
+        const { service } = setup();
+        const keys = new ContextKeyService();
+        service.show("#");
+        service.updateContextKeys(keys);
+        expect(keys.get("inWorkspaceSymbolsPicker")).toBe(true);
+
+        service.close();
+        service.updateContextKeys(keys);
+        expect(keys.get("inWorkspaceSymbolsPicker")).toBe(false);
+    });
+
+    it("inWorkspaceSymbolsPicker turns on when `#` is typed into the files picker", () => {
+        const { service, component } = setup();
+        const keys = new ContextKeyService();
+        service.show("");
+        component.view.setQuery("#");
+        component.view.onQueryChange?.("#");
+        service.updateContextKeys(keys);
+        expect(component.isOpen()).toBe(true);
+        expect(keys.get("inWorkspaceSymbolsPicker")).toBe(true);
+    });
+
+    it("inWorkspaceSymbolsPicker turns off when `#` is replaced by `@`", () => {
+        const { service, component } = setup();
+        const keys = new ContextKeyService();
+        service.show("#");
+        component.view.setQuery("@");
+        component.view.onQueryChange?.("@");
+        service.updateContextKeys(keys);
+        expect(keys.get("inWorkspaceSymbolsPicker")).toBe(false);
     });
 
     it("inFileSymbolsPicker holds only while `@` is shown", () => {
