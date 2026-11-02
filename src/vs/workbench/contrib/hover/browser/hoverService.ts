@@ -1,11 +1,15 @@
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
+import { rangeContainsPosition } from "../../../../editor/common/core/iRange.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import { markerOriginLabel } from "../../../../platform/markers/common/iMarker.ts";
+import type { MarkerService } from "../../../../platform/markers/common/markerService.ts";
+import { MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
 import { bindActiveEditor } from "../../../services/editor/browser/activeEditorBinding.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
@@ -126,6 +130,7 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         EditorServiceDIToken,
         FocusTrackerDIToken,
         LanguageFeaturesServiceDIToken,
+        MarkerServiceDIToken,
     ] as const;
 
     private readonly latest = new LatestRequest();
@@ -135,6 +140,7 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         private readonly group: IEditorService,
         focusTracker: FocusTracker,
         private readonly languageFeatures: ILanguageFeaturesService,
+        private readonly markers: MarkerService,
     ) {
         super();
         this.register(
@@ -181,7 +187,14 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         );
         if (ticket.isStale()) return;
 
-        const blocks = hovers.flatMap((hover) => hoverBlocks(hover.contents)).filter((block) => block !== "");
+        // Upstream `MarkerHoverParticipant`: its ordinal puts the diagnostics above the providers' answers.
+        const markerBlocks = this.markers
+            .read({ resource: editor.uri.toString() })
+            .filter((marker) => rangeContainsPosition(marker.range, caret))
+            .map((marker) => `${marker.message} ${markerOriginLabel(marker)}`);
+        const blocks = [...markerBlocks, ...hovers.flatMap((hover) => hoverBlocks(hover.contents))].filter(
+            (block) => block !== "",
+        );
         if (blocks.length === 0) return;
 
         // The cursor may have moved during the await, so take the current anchor.

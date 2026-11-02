@@ -21,7 +21,7 @@ Panel + дерево Problems) — см. [arch/Editor.md](../arch/Editor.md) (Ed
   (иначе реальные VS Code-настройки, ещё не реализованные в Diode, помечаются как неизвестные).
 
 ### [ ] 4. Прочие потребители
-Метки в gutter/overview ruler, навигация по маркерам (F8/Shift+F8), hover с сообщением.
+Метки в gutter/overview ruler, навигация по маркерам (F8/Shift+F8).
 Счётчик ошибок/варнингов — contribution к `StatusBarService` (нужен минорный апгрейд `StatusBarItem` —
 клик/цвет per-item); отдельный контекст-ключ `problemsFocus` (сейчас дерево Problems под `listFocus`).
 

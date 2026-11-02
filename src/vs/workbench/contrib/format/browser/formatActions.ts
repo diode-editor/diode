@@ -79,7 +79,7 @@ async function runFormat(accessor: ServiceAccessor, useSelection: boolean, label
 }
 
 /** An empty selection means the whole cursor line (as in VS Code). */
-export function selectionRange(
+function selectionRange(
     selection: { anchor: { line: number; character: number }; active: { line: number; character: number } } | undefined,
     text: string,
 ): IRange {
