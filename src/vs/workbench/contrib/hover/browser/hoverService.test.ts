@@ -80,6 +80,8 @@ describe("stripMarkdown — plain text for the TUI popup", () => {
         expect(stripMarkdown("# Title #####")).toBe("Title");
         expect(stripMarkdown("# C# language")).toBe("C# language");
         expect(stripMarkdown("# Tag #1")).toBe("Tag #1");
+        expect(stripMarkdown("a\n### ###\nb")).toBe("a\n\nb");
+        expect(stripMarkdown("# Spaced ##  \nb")).toBe("Spaced\nb");
     });
 
     it("not a heading: seven `#`s, no space after them, indent 4, an escaped `#`", () => {

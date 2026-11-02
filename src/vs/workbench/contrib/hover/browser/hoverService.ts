@@ -28,6 +28,8 @@ const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 /** An ATX heading's opening `#`s (CommonMark: up to 3 spaces of indent, 1 to 6 `#`, then a space or the line end). */
 const ATX_HEADING = /^ {0,3}#{1,6}(?:[ \t]+|$)/;
+/** The optional closing `#`s: preceded by a space (or alone), so `C#` keeps its `#`. */
+const ATX_CLOSING = /(?:^|[ \t]+)#+[ \t]*$/;
 
 /** The closing fence is of the opener's kind and no shorter. */
 function closesFence(opener: string | undefined, fence: string): boolean {
@@ -50,7 +52,7 @@ function stripHeadings(value: string): string {
                 fence = opener;
                 return line;
             }
-            return line.replace(ATX_HEADING, "");
+            return ATX_HEADING.test(line) ? line.replace(ATX_HEADING, "").replace(ATX_CLOSING, "") : line;
         })
         .join("\n");
 }
