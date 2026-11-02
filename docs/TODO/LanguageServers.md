@@ -40,6 +40,9 @@ API (no-op провайдеры и наивные стабы) — [API-COVERAGE]
 
 ## Java
 
+- [ ] **`#` на redhat.java.** Хвост #956, не проверено, потому что шов приходит с #947: `#` находит класс из другого
+  файла, с `java.symbols.includeSourceMethodDeclarations: true` ещё и методы. Добавить в
+  `extensionHost.javaLsp.symbols.test.ts` после влития #947.
 - [ ] **Остальные дедлайны на проводе.** В эталоне у запросов к провайдерам дедлайнов нет, у нас остались 5 с в
   `DEFAULT_REQUEST_TIMEOUTS` (definition, references, type definition, declaration, hover и другие). У Implementations
   и иерархий их сняли в #956: на занятом jdt.ls истёкший дедлайн давал пустой результат. Для остальных эффект не
