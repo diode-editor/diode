@@ -37,7 +37,7 @@ export const DEFAULT_COLOR_DECORATORS_OPTIONS: IColorDecoratorsOptions = {
 export const COLOR_DECORATOR_TEXT = "■ ";
 
 /** Translucent colors stay translucent: the frame blends them over the cell's background, as the browser does. */
-function packColor(color: IColor): number {
+export function packColor(color: IColor): number {
     return packRgba(
         Math.round(color.red * 255),
         Math.round(color.green * 255),
