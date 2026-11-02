@@ -25,6 +25,12 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 /** An ATX heading's opening `#`s (CommonMark: up to 3 spaces of indent, 1 to 6 `#`, then a space or the line end). */
 const ATX_HEADING = /^ {0,3}#{1,6}(?:[ \t]+|$)/;
 
+/** The closing fence is of the opener's kind and no shorter. */
+function closesFence(opener: string | undefined, fence: string): boolean {
+    // Stryker disable next-line MethodExpression: a fence is one character repeated, so startsWith ≡ endsWith
+    return opener?.startsWith(fence[0]) === true && opener.length >= fence.length;
+}
+
 /** `#### Person` from the YAML server is the text `Person`; a `# comment` inside a fenced block stays. */
 function stripHeadings(value: string): string {
     let fence: string | null = null;
@@ -33,7 +39,7 @@ function stripHeadings(value: string): string {
         .map((line) => {
             const opener = FENCE.exec(line)?.[1];
             if (fence !== null) {
-                if (opener?.startsWith(fence[0]) === true && opener.length >= fence.length) fence = null;
+                if (closesFence(opener, fence)) fence = null;
                 return line;
             }
             if (opener !== undefined) {
@@ -85,8 +91,7 @@ export function splitMarkdownSections(value: string): string[] {
         const opener = FENCE.exec(line)?.[1];
         const ruler = THEMATIC_BREAK.exec(line)?.[1];
         if (fence !== null) {
-            // Stryker disable next-line MethodExpression: a fence is one character repeated, so startsWith ≡ endsWith
-            if (opener?.startsWith(fence[0]) === true && opener.length >= fence.length) fence = null;
+            if (closesFence(opener, fence)) fence = null;
             current.push(line);
             paragraph = false;
         } else if (opener !== undefined) {
