@@ -11,7 +11,7 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 // second HTML file had no square until the first keystroke, and the extension was never asked for colors.
 
 const here = fileURLToPath(new URL(".", import.meta.url));
-const userData = resolve(here, "fixtures", "user-data-with-color-provider");
+const userData = resolve(here, "fixtures", "user-data-with-plain-colors");
 
 const describeLinuxOnly = process.platform === "linux" ? describe : describe.skip;
 
