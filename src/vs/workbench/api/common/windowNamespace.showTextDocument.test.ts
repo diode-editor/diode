@@ -182,7 +182,11 @@ describe("WindowNamespace — showTextDocument (overload normalization)", () => 
 describe("window.showWorkspaceFolderPick", () => {
     const folder = (name: string): vscode.WorkspaceFolder => ({ uri: Uri.file(`/ws/${name}`), name, index: 0 });
 
-    function pick(folders: readonly vscode.WorkspaceFolder[] | undefined, chosenIndex: number | null) {
+    function pick(
+        folders: readonly vscode.WorkspaceFolder[] | undefined,
+        chosenIndex: number | null,
+        withFolders = true,
+    ) {
         const stub = makeStubRpc();
         stub.responder = (method) =>
             method === "window.showQuickPick" ? { indices: chosenIndex === null ? null : [chosenIndex] } : undefined;
@@ -195,7 +199,13 @@ describe("window.showWorkspaceFolderPick", () => {
             disk: createNodeExtHostDisk(),
             owner: new ExtensionOwner(),
         };
-        const window = createWindowNamespace(ctx, undefined, undefined, undefined, () => folders);
+        const window = createWindowNamespace(
+            ctx,
+            undefined,
+            undefined,
+            undefined,
+            withFolders ? () => folders : undefined,
+        );
         return { stub, window };
     }
 
@@ -206,6 +216,10 @@ describe("window.showWorkspaceFolderPick", () => {
             await expect(window.showWorkspaceFolderPick()).resolves.toBeUndefined();
             expect(stub.requests).toEqual([]);
         }
+        // A window built without a folders getter at all (the default): the same.
+        const { stub, window } = pick(undefined, 0, false);
+        await expect(window.showWorkspaceFolderPick()).resolves.toBeUndefined();
+        expect(stub.requests).toEqual([]);
     });
 
     it("[api:window.showWorkspaceFolderPick] one folder is still offered, as upstream, with its parent as the description", async () => {

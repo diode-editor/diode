@@ -105,6 +105,18 @@ describe("FileSearchService — indexing", () => {
             expect(service.isIndexed).toBe(true);
         });
 
+        it("rg that cannot be started (no binary to spawn) leaves the index empty; `ready` still settles", async () => {
+            ws.writeFile("alpha.ts", "");
+            const broken = new FileSearchService(config, "");
+            try {
+                await broken.activate(ws.dir);
+                expect(broken.isIndexed).toBe(false);
+                expect(broken.search("")).toEqual([]);
+            } finally {
+                broken.dispose();
+            }
+        });
+
         it("empty directory yields no results", async () => {
             await service.activate(ws.dir);
             expect(service.search("")).toHaveLength(0);

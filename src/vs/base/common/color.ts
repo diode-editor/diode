@@ -86,7 +86,7 @@ function parseHexDigit(charCode: number): number {
     return Number.isNaN(digit) ? 0 : digit;
 }
 
-/** `#RGB`, `#RGBA`, `#RRGGBB` or `#RRGGBBAA`; anything else is `null`. */
+/** `#RGB`, `#RGBA`, `#RRGGBB` or `#RRGGBBAA`; any other shape is `null`, a digit outside `0-9a-f` counts as 0 (upstream). */
 export function parseHex(hex: string): RGBA | null {
     if (!hex.startsWith("#")) return null;
     const digit = (index: number): number => parseHexDigit(hex.charCodeAt(index));

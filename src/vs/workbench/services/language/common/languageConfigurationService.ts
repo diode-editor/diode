@@ -38,10 +38,14 @@ export class LanguageConfigurationService implements ILanguageConfigurationServi
     ) {}
 
     public get(languageId: string): IResolvedLanguageConfiguration | undefined {
+        const file = this.files.get(languageId);
+        return file === undefined ? undefined : this.resolve(languageId, file);
+    }
+
+    /** The file is loaded (`null` — the language has none): layers merge over it, cached until a layer moves. */
+    private resolve(languageId: string, file: ILanguageConfiguration | null): IResolvedLanguageConfiguration {
         const cached = this.resolved.get(languageId);
         if (cached !== undefined) return cached;
-        const file = this.files.get(languageId);
-        if (file === undefined) return undefined;
         const layers = this.layers.get(languageId) ?? [];
         const configuration =
             file === null && layers.length === 0
@@ -77,9 +81,9 @@ export class LanguageConfigurationService implements ILanguageConfigurationServi
         let flight = this.flights.get(languageId);
         if (flight === undefined) {
             flight = this.load(languageId).then((file) => {
-                // A layer may arrive before the file; get() merges them (no cache before the file).
+                // A layer may arrive before the file; resolve() merges them (no cache before the file).
                 this.files.set(languageId, file);
-                return this.get(languageId) ?? EMPTY_LANGUAGE_CONFIGURATION;
+                return this.resolve(languageId, file);
             });
             this.flights.set(languageId, flight);
         }

@@ -133,6 +133,40 @@ describe("TerminalTaskSystem — problem matchers", () => {
         h.dispose();
     });
 
+    it("applyTo openDocuments: only a file open in an editor gets markers", async () => {
+        const h = buildTerminalTaskSystemHarness();
+        h.openResources.add(A);
+        const openOnly: IProblemMatcher = {
+            owner: "open",
+            applyTo: "openDocuments",
+            fileLocation: "absolute",
+            pattern: { regexp: /^(\S+):(\d+) (.*)$/, file: 1, line: 2, message: 3 },
+        };
+        const result = h.system.run(lint({ problemMatchers: [openOnly] }), h.context());
+        h.sessions[0].emitLines("/ws/src/a.ts:1 open", "/ws/src/b.ts:1 closed");
+        h.sessions[0].emitExit(1);
+        await result.promise;
+        expect(messages(h, "open")).toStrictEqual(["/ws/src/a.ts: open"]);
+        h.dispose();
+    });
+
+    it("autoDetect: a name not found under the folder is taken as absolute", async () => {
+        const h = buildTerminalTaskSystemHarness();
+        const auto: IProblemMatcher = {
+            owner: "auto",
+            applyTo: "allDocuments",
+            fileLocation: "autoDetect",
+            filePrefix: "${workspaceFolder}",
+            pattern: { regexp: /^(\S+):(\d+) (.*)$/, file: 1, line: 2, message: 3 },
+        };
+        const result = h.system.run(lint({ problemMatchers: [auto] }), h.context());
+        h.sessions[0].emitLines("/abs/x.ts:1 m");
+        h.sessions[0].emitExit(1);
+        await result.promise;
+        expect(messages(h, "auto")).toStrictEqual(["/abs/x.ts: m"]);
+        h.dispose();
+    });
+
     it("search include/exclude get task variables", async () => {
         const h = buildTerminalTaskSystemHarness();
         const searching: IProblemMatcher = {

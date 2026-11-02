@@ -103,6 +103,8 @@ describe("templates and a new file", () => {
         expect(applyTaskTemplate("", others.content, tabs)).toBe(others.content);
         expect(applyTaskTemplate(" \n", others.content, tabs)).toBe(others.content);
         expect(applyTaskTemplate('{\n    "x": 1\n}', others.content, spaces4)).toContain('\n    "version": "2.0.0",\n');
+        // A template that is not an object has no keys to move.
+        expect(applyTaskTemplate('{ "x": 1 }', "[]", spaces4)).toBe('{ "x": 1 }');
         const merged = applyTaskTemplate('{ "version": "1.0.0", "x": 1 }', others.content, spaces4);
         expect(JSON.parse(merged)).toStrictEqual({
             version: "2.0.0",

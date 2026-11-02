@@ -92,6 +92,21 @@ describe("TextFileModel — untitled under a named resource", () => {
             expect(model.isDirtyForExtensions).toBe(false);
             model.dispose();
         });
+
+        it("a Save As whose write fails keeps the untitled resource: nothing was written", async () => {
+            const files = diskFileService();
+            files.writeFile = () => Promise.reject(new Error("EACCES: permission denied"));
+            const model = new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), files);
+            model.setUntitledResource(Uri.parse("untitled:/some/page.md"), { associated: true });
+
+            await expect(model.saveAs(ws.path("denied.txt"))).rejects.toThrow("EACCES");
+
+            expect(model.uri.toString()).toBe("untitled:/some/page.md");
+            // Still the associated resource: dirty with no edits, as before the attempt.
+            expect(model.isModified).toBe(true);
+            expect(fs.existsSync(ws.path("denied.txt"))).toBe(false);
+            model.dispose();
+        });
     });
 
     it("the number of an automatic name is the path of its uri", () => {

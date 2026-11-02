@@ -1,5 +1,6 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
 
+import { assert } from "../../../base/common/assert.ts";
 import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { IMarkerDecoration } from "../../../platform/markers/common/iMarker.ts";
@@ -365,9 +366,9 @@ export class EditorViewState {
         const result: IMarkerDecoration[] = [];
         for (const { id, severity } of this.markerDecorationIds) {
             const range = this.document.getDecorationRange(id);
-            // Only the view itself removes its decorations, so null only guards against a foreign id.
-            // Stryker disable next-line ConditionalExpression: see above, nobody outside removes its ids
-            if (range !== null) result.push({ range, severity });
+            // Only the view itself removes its decorations.
+            assert(range !== null);
+            result.push({ range, severity });
         }
         return result;
     }

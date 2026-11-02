@@ -1121,10 +1121,11 @@ export class ViewsService implements IContextKeyContributor {
         );
     }
 
-    /** Only the differences from defaults — like upstream `saveViewCustomizations`. */
+    /**
+     * Only the differences from defaults — like upstream `saveViewCustomizations`. Restoring and resetting
+     * moves don't come here (they skip didChangeLocations).
+     */
     private saveCustomizations(): void {
-        // Stryker disable next-line ConditionalExpression: restoring and resetting moves don't come here (they skip didChangeLocations) — a guard against a subscriber that moves a view from onDidChangeLocations
-        if (this.applyingCustomizations) return;
         const viewContainerLocations: Record<string, string> = {};
         const viewLocations: Record<string, string> = {};
         for (const [id, entry] of this.containers) {
@@ -1190,9 +1191,9 @@ export class ViewsService implements IContextKeyContributor {
         const entry = this.containerOrThrow(containerId);
         const paneView = entry.paneView;
         if (paneView === null) return;
+        // A built container always has a visible section (ensureVisibleView).
         const visible = this.visibleViews(entry);
-        const target = visible.find((v) => !paneView.isCollapsed(v.id)) ?? visible.at(0);
-        if (target === undefined) return;
+        const target = visible.find((v) => !paneView.isCollapsed(v.id)) ?? visible[0];
         // If the empty state is on screen, focus goes there: the way out of "no folder opened"
         // is a single Enter on the welcome button, not Tabbing out of an invisible input.
         const body = this.bodyOf(target);
@@ -1617,8 +1618,8 @@ function isLegacyCollapsedList(stored: StoredCollapsed): stored is readonly stri
  * Container" stub), so it carries its first view's title.
  */
 function containerTitle(entry: ContainerEntry): string {
-    // Stryker disable next-line OptionalChaining,StringLiteral: an emptied generated container is removed right away (syncPresence) — its title is never asked for without views
-    if (entry.generated) return entry.views.at(0)?.title ?? "";
+    // An emptied generated container is removed right away (syncPresence): its title is never asked for without views.
+    if (entry.generated) return entry.views[0].title;
     return attached(entry).descriptor.title;
 }
 

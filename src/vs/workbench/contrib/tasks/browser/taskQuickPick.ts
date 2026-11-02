@@ -61,21 +61,23 @@ async function pickFromLevels(
     type: string | undefined,
     configured?: IConfiguredTasks,
 ): Promise<ITask | null | undefined> {
+    const pickLevel = async (level: string | undefined): Promise<IRunTaskEntry | undefined> =>
+        pick(
+            quickInput,
+            level === undefined ? await firstLevel(service, icons, configured) : await secondLevel(service, level),
+        );
     let level: string | undefined = type;
-    for (;;) {
-        const entry =
-            level === undefined
-                ? await pick(quickInput, await firstLevel(service, icons, configured))
-                : await pick(quickInput, await secondLevel(service, level));
-        if (entry === undefined) return undefined;
+    // Escape leaves the picker.
+    for (let entry = await pickLevel(level); entry !== undefined; entry = await pickLevel(level)) {
         if (entry.task !== undefined) return entry.task;
         if (entry.configuring !== undefined) return service.resolveConfiguringTask(entry.configuring);
         if (entry.configure === true) return null;
         if (entry.goBack === true) level = undefined;
         else if (entry.showAll === true) level = SHOW_ALL_TASKS;
-        else if (entry.type !== undefined) level = entry.type;
-        else return undefined;
+        // What is left is a type row of the first level.
+        else level = entry.type;
     }
+    return undefined;
 }
 
 async function pick(
@@ -90,7 +92,9 @@ async function firstLevel(
     icons: IProductIconService,
     configured?: IConfiguredTasks,
 ): Promise<IRunTaskEntry[]> {
-    const { tasks, configuring } = configured ?? (await configuredTasks(service));
+    // Awaited either way: v8 counts the code after an `await` per resumption, a skipped one would leave the
+    // branches below under-counted.
+    const { tasks, configuring } = await (configured ?? configuredTasks(service));
     const configuredEntries: IRunTaskEntry[] = [
         ...service.taskEntries(tasks),
         ...configuring.map((entry) => ({ label: entry._label, configuring: entry })),

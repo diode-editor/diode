@@ -353,6 +353,34 @@ describe("TextFileModel — a large file streams into memory", () => {
         expect(model.document.getLineContent(24_000)).toBe("appended line");
         expect(model.isModified).toBe(false);
     });
+
+    it("the watcher's event arrives while the file streams in: it waits for the switch, which takes the tail", async () => {
+        const watcher = new FakeFileWatcher();
+        const opener = gatedAfterFirst();
+        const model = new TextFileModel(LOG_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService());
+        models.push(model);
+        model.largeFileOptions = () => ON_DISK;
+        model.randomAccessFiles = opener;
+        model.fileWatcher = watcher;
+        const path = ws.path("growing.log");
+        fs.writeFileSync(path, bigLog());
+        model.openFile(Uri.file(path));
+
+        const enabled = model.enableEditing();
+        await waitForPendingRead(opener.opened[1]);
+        fs.appendFileSync(path, "appended line\n");
+        watcher.fire(path);
+        // Still streaming: no conflict, no reload and no second stream on top of this one.
+        expect(model.memoryLoading).not.toBeNull();
+        expect(model.hasDiskConflict).toBe(false);
+        expect(model.isOnDisk).toBe(true);
+        expect(opener.opened).toHaveLength(2);
+
+        opener.opened[1].release();
+        expect(await enabled).toBeNull();
+        expect(model.document.getLineContent(24_000)).toBe("appended line");
+        expect(model.isModified).toBe(false);
+    });
 });
 
 describe("TextFileModel — a reload of a large file in memory streams", () => {

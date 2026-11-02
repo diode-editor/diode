@@ -1,3 +1,4 @@
+import { assert } from "../../../base/common/assert.ts";
 import { Emitter, type Event } from "../../../base/common/event.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
@@ -175,8 +176,8 @@ export class UndoRedoService {
         const state = this.workspaceElements.get(element);
         if (state === undefined) return;
         const participant = state.participants.get(context);
-        // Stryker disable next-line ConditionalExpression: a step sits in a bucket only while the bucket is its participant (pushWorkspaceElement/adopt add both at once, leave removes both), so the participant always exists here
-        if (participant === undefined) return;
+        // A step sits in a bucket only while the bucket is its participant (pushWorkspaceElement/adopt add both at once, leave removes both).
+        assert(participant !== undefined);
         state.participants.delete(context);
         if (!participant.owner) return;
         if (stacks === this.undoStacks) {
@@ -201,8 +202,10 @@ export class UndoRedoService {
         for (const context of state.participants.keys()) {
             const redo = this.stack(this.redoStacks, context);
             const index = redo.indexOf(element);
-            // Stryker disable next-line ConditionalExpression: a step leaves redo only here and from all participants at once, so it is always in a participant's redo; the guard protects against `splice(-1)`, which would remove another step
-            if (index >= 0) redo.splice(index, 1);
+            // A step leaves redo only here and from all participants at once, so it is in every participant's redo;
+            // `splice(-1)` would remove another step.
+            assert(index >= 0);
+            redo.splice(index, 1);
         }
     }
 

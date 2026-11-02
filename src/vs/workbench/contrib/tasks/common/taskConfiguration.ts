@@ -118,6 +118,11 @@ function optionsFrom(value: unknown, problems: string[]): ICommandOptions | unde
 }
 
 /** The source's `cwd` and shell override the target; environments combine (source on top). */
+function mergeOptions(target: ICommandOptions, source: ICommandOptions | undefined): ICommandOptions;
+function mergeOptions(
+    target: ICommandOptions | undefined,
+    source: ICommandOptions | undefined,
+): ICommandOptions | undefined;
 function mergeOptions(
     target: ICommandOptions | undefined,
     source: ICommandOptions | undefined,
@@ -381,9 +386,10 @@ function customizationFrom(
     const section = external[platform];
     const os: Json = isObject(section) ? section : {};
     // Merging with empty options drops unset env/shell (as a task does with the default options).
-    const options =
-        mergeOptions(mergeOptions({}, optionsFrom(external.options, problems)), optionsFrom(os.options, problems)) ??
-        {};
+    const options = mergeOptions(
+        mergeOptions({}, optionsFrom(external.options, problems)),
+        optionsFrom(os.options, problems),
+    );
     const presentation = { ...presentationFrom(external.presentation), ...presentationFrom(os.presentation) };
     const name = label ?? String(external.type);
     if (external.dependsOn !== undefined) {
@@ -474,8 +480,7 @@ function taskFrom(
             runtime,
             name: parts.command,
             args: parts.args ?? [],
-            // Stryker disable next-line ConditionalExpression: equivalent: merging with default options never gives undefined; the check is for types
-            ...(options !== undefined ? { options } : {}),
+            options,
             presentation,
         },
         isBackground: external.isBackground === true || external.isWatching === true,

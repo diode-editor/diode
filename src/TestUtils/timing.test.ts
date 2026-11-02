@@ -1,6 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { flushMicrotasks, settle } from "./timing.ts";
+import { flushMicrotasks, settle, waitUntil } from "./timing.ts";
+
+describe("waitUntil", () => {
+    it("resolves once the probe holds", async () => {
+        let polls = 0;
+        await waitUntil("three polls", () => ++polls === 3, 2000);
+        expect(polls).toBe(3);
+    });
+
+    it("rejects with what did not happen after the timeout", async () => {
+        await expect(waitUntil("the moon to land", () => false, 50)).rejects.toThrow(
+            "waitUntil: the moon to land did not happen within 50 ms",
+        );
+    });
+});
 
 describe("flushMicrotasks", () => {
     it("flushes a chain of three microtask turns (default)", async () => {

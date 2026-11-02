@@ -213,6 +213,14 @@ describe("profileExtensions", () => {
             );
         });
 
+        it("a stale entry with several versions on disk points to the highest one, silently", () => {
+            onDisk("acme.tools", "1.0.0");
+            onDisk("acme.tools", "1.1.0");
+            writeProfileExtensions(defaultFile, [entry("acme.tools", "0.9.0")]);
+
+            expect(referencedExtensionDirs(extensionsDir, [defaultFile])).toEqual(new Set(["acme.tools-1.1.0"]));
+        });
+
         it("a marked directory a profile points to is still referenced (cleanup unmarks it)", () => {
             onDisk("acme.tools");
             markObsolete(extensionsDir, ["acme.tools-1.0.0"]);
@@ -448,6 +456,7 @@ describe("profileExtensions", () => {
             ["2.0.0-rc.1", "2.0.0", -1],
             ["2.0.0-rc.2", "2.0.0-rc.1", 1],
             ["1.0", "1.0.1", -1],
+            ["1.0.1", "1.0", 1],
             ["1.0.0+build.5", "1.0.0", 0],
             ["1.0.1+build", "1.0.0", 1],
             ["2.0.0-zz", "2.0.0", -1],
@@ -483,6 +492,23 @@ describe("profileExtensions", () => {
             expect(readProfileExtensions(workFile)).toEqual([
                 entry("acme.tools", "1.0.0"),
                 entry("acme.base", "2.0.0"),
+                entry("acme.core", "1.0.0"),
+            ]);
+        });
+
+        it("a stale dependency entry (no such version on disk) is kept, and the highest version's dependencies come", () => {
+            const tools = onDisk("acme.tools", "1.0.0", ["acme.base"]);
+            onDisk("acme.base", "1.0.0");
+            onDisk("acme.base", "2.0.0", ["acme.core"]);
+            onDisk("acme.core");
+            const stale = entry("acme.base", "0.9.0");
+            writeProfileExtensions(workFile, [stale]);
+
+            profile(workFile).add([{ id: "acme.tools", dir: tools }]);
+
+            expect(readProfileExtensions(workFile)).toEqual([
+                stale,
+                entry("acme.tools", "1.0.0"),
                 entry("acme.core", "1.0.0"),
             ]);
         });

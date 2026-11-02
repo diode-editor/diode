@@ -89,6 +89,7 @@ describe("Configure Task — picker", () => {
         const h = build({ tasksJson: text });
         await configureTaskAction.run(h.accessor);
         expect(h.picks).toHaveLength(0);
+        expect(h.lastPickLabels()).toStrictEqual([]);
         expect(h.openUri.mock.calls[0][0].fsPath).toBe("/ws/.diode/tasks.json");
         expect(h.opened()?.goToPosition).toHaveBeenCalledWith(3, 8);
         expect(h.opened()?.revealRange).toHaveBeenCalledWith({
@@ -159,6 +160,19 @@ describe("Configure Task — opening at the entry", () => {
                 value: new TextEncoder().encode(tasksJsonOf([{ label: "a", command: "x" }])),
             } as IFileContent),
         );
+        h.answerPicks("b");
+        await configureTaskAction.run(h.accessor);
+        expect(h.openUri).toHaveBeenCalledTimes(1);
+        expect(h.opened()?.goToPosition).not.toHaveBeenCalled();
+        h.dispose();
+    });
+
+    it("file deleted between reads — the file opens, the cursor stays", async () => {
+        const h = build({ tasksJson: twoTasks });
+        h.readFile.mockImplementationOnce(() =>
+            Promise.resolve({ value: new TextEncoder().encode(twoTasks) } as IFileContent),
+        );
+        h.readFile.mockImplementationOnce(() => Promise.reject(new Error("ENOENT")));
         h.answerPicks("b");
         await configureTaskAction.run(h.accessor);
         expect(h.openUri).toHaveBeenCalledTimes(1);
@@ -361,6 +375,17 @@ describe("Configure Task — templates", () => {
         expect((await h.service.getWorkspaceTasks())[0].command.options?.cwd).toBe("sub");
         expect((await h.service.getWorkspaceTasks()).map((t) => t._label)).toStrictEqual(["verify", "test"]);
         expect(h.openUri).toHaveBeenCalledTimes(1);
+        h.dispose();
+    });
+
+    it("Open: a file without tasks that has unsaved edits — upstream error, nothing is written or opened", async () => {
+        const h = build({ tasksJson: '{\n    "version": "2.0.0"\n}' });
+        h.openTasksJsonModel(true);
+        h.answerPicks(OPEN_TASKS_JSON, "maven");
+        await configureTaskAction.run(h.accessor);
+        expect(h.writeFile).not.toHaveBeenCalled();
+        expect(h.openUri).not.toHaveBeenCalled();
+        expect(h.notifications.passive()).toStrictEqual([expect.objectContaining({ severity: "error" })]);
         h.dispose();
     });
 

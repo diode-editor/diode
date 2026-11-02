@@ -148,6 +148,10 @@ function main() {
         // `Stryker disable` markers about unreachable code only goes down.
         if (!run("stryker-disable ratchet", process.execPath, ["scripts/check-stryker-disable.mjs"])) failed.push("ratchet");
     }
+    if (!opts.skip.has("ratchet") && files.includes("vitest.config.ts")) {
+        // The coverage gate stays at 100: the thresholds are not lowered to green a partial run.
+        if (!run("coverage thresholds", process.execPath, ["scripts/check-coverage-thresholds.mjs"])) failed.push("ratchet");
+    }
 
     if (!opts.skip.has("test")) {
         let args;
@@ -163,10 +167,9 @@ function main() {
         }
         if (args && opts.coverage) {
             const sources = files.filter((f) => !TEST_RE.test(f));
-            // The 100% ratchet with autoUpdate on a subset of tests goes red and rewrites vitest.config.ts.
+            // The 100% gate on a subset of tests goes red: zero the thresholds for this run only.
             args.push(
                 "--coverage",
-                "--coverage.thresholds.autoUpdate=false",
                 "--coverage.thresholds.statements=0",
                 "--coverage.thresholds.branches=0",
                 "--coverage.thresholds.functions=0",
