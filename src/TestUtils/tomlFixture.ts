@@ -14,7 +14,8 @@ const TOML_ID = "tamasfe.even-better-toml";
 
 export const TOML_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
-    getLanguageIdForResource: (filePath) => (filePath.endsWith(".toml") ? "toml" : undefined),
+    // The harness opens only `.toml` files.
+    getLanguageIdForResource: () => "toml",
 };
 
 /** Local, so the schema features do not depend on the catalog: the stock 0.21.2 cannot read today's schemastore one. */

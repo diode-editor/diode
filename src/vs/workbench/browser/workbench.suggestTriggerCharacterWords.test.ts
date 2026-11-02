@@ -54,6 +54,18 @@ describe("Workbench: a trigger character whose provider has nothing", () => {
         expect(h.testApp.backend.screenToString().match(/package/g)).toHaveLength(1);
     });
 
+    it("a provider without the trigger character is not asked on it", async () => {
+        h.container.get(LanguageFeaturesServiceDIToken).completionProvider.register("*", {
+            triggerCharacters: [],
+            provideCompletionItems: () => Promise.resolve({ items: [{ label: "zebra" }], isIncomplete: false }),
+        });
+
+        await typeSlowly("#");
+
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).not.toContain("zebra");
+    });
+
     it("Enter after a word that matches nothing breaks the line and keeps the word", async () => {
         await typeSlowly("#dep");
 
