@@ -33,7 +33,8 @@ const START_ORDER: Readonly<Record<ViewContainerLocation, number>> = {
  * Built-in containers a `views` key may name. Our ids equal upstream's keys; `debug` and `remote`
  * don't exist here, so their views fall back to Explorer, as upstream does for an unknown key.
  */
-const BUILTIN_CONTAINERS: ReadonlySet<string> = new Set(["explorer", "scm"]);
+/** `references-view` is an extension's container upstream, native here: `vscode.references-view` adds its tree to it. */
+const BUILTIN_CONTAINERS: ReadonlySet<string> = new Set(["explorer", "scm", "references-view"]);
 const DEFAULT_CONTAINER = "explorer";
 
 /** Upstream `showCollapsed`: a foreign view in these containers starts collapsed. */
@@ -256,6 +257,8 @@ function registerViews(
                 host.views.registerView(descriptor);
             }
             registerFocusCommand(host, disposables, id, () => {
+                // `setContext` right before `.focus`: the change event is coalesced, and upstream has the view anyway.
+                syncConditionalViews(conditional, host);
                 host.views.openView(id, true);
             });
         });

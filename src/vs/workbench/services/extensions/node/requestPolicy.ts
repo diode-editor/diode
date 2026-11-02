@@ -13,8 +13,10 @@ import type { RequestFn } from "./hostRequests.ts";
  * Formatting is absent as upstream too: a large file takes a formatter longer than any deadline here, an edit cancels
  * the request, and format on save cancels it at the save participant's deadline.
  * Navigation the user asked for (definition and its kin, references, both hierarchies) is absent as upstream: on a big
- * project tsserver searches longer than any deadline here, and an expired one read as "nothing found". Only the caller
- * cancels: go-to on a cursor move, an edit or a new request, references and the hierarchies on a new request or a clear.
+ * project tsserver searches longer than any deadline here, jdt.ls takes longer than 5 s while it is busy, and an expired
+ * one read as "nothing found". Only the caller cancels: go-to on a cursor move, an edit or a new request, references and
+ * the hierarchies on a new request or a clear. On type formatting too: a key is pressed once, nothing asks again, and
+ * the next edit cancels the request.
  */
 export const DEFAULT_REQUEST_TIMEOUTS = {
     "workspace.willSaveTextDocument": 1500,
@@ -27,7 +29,6 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.resolveWorkspaceSymbol": 10000,
     "languages.provideHover": 5000,
     "languages.provideSignatureHelp": 5000,
-    "languages.provideOnTypeFormattingEdits": 5000,
     "languages.provideCodeActions": 5000,
     "languages.applyCodeAction": 10000,
     "languages.prepareRename": 5000,

@@ -10,6 +10,7 @@ export interface IGotoLineEditor {
     readonly primaryCursorLine: number;
     readonly primaryCursorColumn: number;
     goToPosition(line: number, column?: number): void;
+    focusEditor(): void;
 }
 
 /** Read lazily: a `file:line` accept takes the editor only after the file has opened. */
@@ -72,4 +73,6 @@ export function navigateActiveEditor(source: IGotoLineEditorSource, line: number
     const editor = source.getActiveEditor();
     if (editor === null) return;
     editor.goToPosition(line - 1, column !== undefined ? column - 1 : 0);
+    // Upstream `gotoLocation`: the picker gives the focus back to where it was opened from, a panel for one.
+    editor.focusEditor();
 }

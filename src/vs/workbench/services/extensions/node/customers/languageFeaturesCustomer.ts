@@ -115,18 +115,19 @@ type LanguageRequestMethod =
     | "languages.provideCompletionItems"
     | "languages.provideFormattingEdits"
     | "languages.provideDefinition"
-    | "languages.provideImplementation"
     | "languages.provideTypeDefinition"
     | "languages.provideDeclaration"
     | "languages.provideReferences"
+    | "languages.provideDocumentSemanticTokens"
+    | "languages.provideDocumentRangeSemanticTokens"
+    | "languages.provideImplementation"
+    | "languages.provideOnTypeFormattingEdits"
     | "languages.prepareCallHierarchy"
     | "languages.provideCallHierarchyIncomingCalls"
     | "languages.provideCallHierarchyOutgoingCalls"
     | "languages.prepareTypeHierarchy"
     | "languages.provideTypeHierarchySupertypes"
-    | "languages.provideTypeHierarchySubtypes"
-    | "languages.provideDocumentSemanticTokens"
-    | "languages.provideDocumentRangeSemanticTokens";
+    | "languages.provideTypeHierarchySubtypes";
 
 type LanguageResult<K extends LanguageRequestMethod> = RequestResult<IHostToSubprocess, K>;
 
@@ -563,7 +564,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
-    /** `null` — nothing at the position, also when there is no subprocess or the extension timed out. */
+    /** `null` — nothing at the position, also when there is no subprocess or the token cancelled it. */
     public async prepareCallHierarchy(
         handle: number,
         req: ICallHierarchyRequest,
@@ -598,7 +599,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         this.rpc?.notify("languages.releaseCallHierarchy", { handle, sessionId });
     }
 
-    /** `null` — nothing at the position, also when there is no subprocess or the extension timed out. */
+    /** `null` — nothing at the position, also when there is no subprocess or the token cancelled it. */
     public async prepareTypeHierarchy(
         handle: number,
         req: ITypeHierarchyRequest,
