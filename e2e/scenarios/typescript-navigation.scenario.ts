@@ -21,6 +21,8 @@ export default defineScenario({
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
         "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
         "editor.linkedEditing": true,
+        // Occurrences of `div` paint both tags too: off, the color of the tags is the linked ranges only.
+        "editor.occurrencesHighlight": "off",
     },
     cols: 100,
     rows: 24,
