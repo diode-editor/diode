@@ -144,11 +144,10 @@ interface ISymbolMatch {
 function matchSymbol(symbol: IFlatDocumentSymbol, text: string): ISymbolMatch | null {
     const whole = fuzzyMatchBest(text, symbol.name);
     if (whole !== null) return { score: whole.score, nameIndices: whole.matchedIndices, containerIndices: [] };
-    // A single word falls through to the same failed match; `prepareQuery` drops the empty words.
-    const words = text.split(/\s/);
-    const name = fuzzyMatchBest(words[0], symbol.name);
+    const [first, ...rest] = text.split(/\s/);
+    const name = fuzzyMatchBest(first, symbol.name);
     if (name === null) return null;
-    const container = fuzzyMatchPrepared(prepareQuery(words.slice(1).join(" ")), symbol.containerName);
+    const container = fuzzyMatchPrepared(prepareQuery(rest.join(" ")), symbol.containerName);
     if (container === null) return null;
     return {
         score: name.score + container.score,

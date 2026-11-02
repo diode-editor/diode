@@ -4,7 +4,9 @@ import { beforeAll, describe, it } from "vitest";
 
 import type { HeadlessApp } from "./helpers/appSession.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
+import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
+import { waitUntil } from "./helpers/waitFor.ts";
 
 const require_ = createRequire(import.meta.url);
 
@@ -65,8 +67,15 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")("
         });
         const { session } = app;
         await session.waitForText((text) => text.includes("export class Folded"));
-        await session.executeCommand("editor.fold");
-        await session.waitForText((text) => !text.includes("inside(): number"));
+        // Fold regions are computed after a delay; until then the command has nothing to fold.
+        await waitUntil(
+            async () => {
+                await session.executeCommand("editor.fold");
+                return frameToText(await session.captureFrame());
+            },
+            (text) => !text.includes("inside(): number"),
+            { timeoutMs: 30_000, intervalMs: 250, describe: "the class folded" },
+        );
 
         await openSymbols(app);
         await session.text("inside");

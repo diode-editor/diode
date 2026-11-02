@@ -565,7 +565,7 @@ function symbolInformationToTree(infos: readonly vscode.SymbolInformation[]): IC
     return roots;
 }
 
-/** Elements are sorted by start, so `outer` never starts after `inner`. */
+/** The elements are sorted by start, so `inner` never starts before `outer`. */
 function strictlyContains(outer: IRange, inner: IRange): boolean {
     return comparePositions(inner.end, outer.end) <= 0 && !rangesEqual(outer, inner);
 }

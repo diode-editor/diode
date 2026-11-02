@@ -95,6 +95,21 @@ describe("LanguagesNamespace — languages.provideDocumentSymbols", () => {
         ]);
     });
 
+    it("the handle picks the provider; a request without one asks nobody", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const first = vi.fn(() => []);
+        const second = vi.fn(() => []);
+        languages.registerDocumentSymbolProvider({ language: "typescript" }, { provideDocumentSymbols: first });
+        languages.registerDocumentSymbolProvider({ language: "typescript" }, { provideDocumentSymbols: second });
+
+        await stub.callRequest("languages.provideDocumentSymbols", { ...params(), handle: undefined });
+        expect(second).not.toHaveBeenCalled();
+        await stub.callRequest("languages.provideDocumentSymbols", params(1));
+        expect(second).toHaveBeenCalledTimes(1);
+        expect(first).not.toHaveBeenCalled();
+    });
+
     it("an unknown handle or an unsynced document answers empty without asking", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
@@ -179,24 +194,21 @@ describe("serializeDocumentSymbols", () => {
         ).toEqual([]);
     });
 
-    it("an entry missing either range is dropped", () => {
-        const range = new Range(0, 0, 0, 1);
-        expect(
-            serializeDocumentSymbols([
-                { name: "no range", selectionRange: range },
-                { name: "no selection range", range },
-            ]),
-        ).toEqual([]);
+    it.each([
+        ["range", { selectionRange: new Range(0, 0, 0, 1) }],
+        ["selectionRange", { range: new Range(0, 0, 0, 1) }],
+    ])("a symbol without its %s is dropped", (_missing, ranges) => {
+        expect(serializeDocumentSymbols([{ name: "n", ...ranges }])).toEqual([]);
     });
 
-    it("a symbol ending where its parent ends is still nested", () => {
+    it("a symbol ending where its parent ends is its child", () => {
         const roots = serializeDocumentSymbols([
             info("outer", SymbolKind.Class, new Range(0, 0, 5, 0)),
             info("tail", SymbolKind.Method, new Range(2, 0, 5, 0)),
         ]);
         expect(roots.map((symbol) => symbol.name)).toEqual(["outer"]);
-        expect(roots[0].detail).toBe("");
         expect(roots[0].children.map((symbol) => symbol.name)).toEqual(["tail"]);
+        expect(roots[0].detail).toBe("");
     });
 
     it("SymbolInformation nests by strict containment, whatever the input order", () => {
