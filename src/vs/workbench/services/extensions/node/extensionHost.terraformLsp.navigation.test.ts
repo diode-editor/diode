@@ -18,7 +18,7 @@ import {
     type IInstalledTerraform,
     installTerraform,
     TF_LANGUAGE_SERVICE,
-    tfSampleFiles,
+    TF_SAMPLE_DIR,
 } from "../../../../../TestUtils/terraformFixture.ts";
 import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -42,7 +42,6 @@ interface ITfSession {
     readonly editor: TfEditor;
     /** The position of `needle` in `main.tf`, `offset` characters into it. */
     at(needle: string, offset?: number): IDefinitionRequest;
-    clientCrashes(): readonly string[];
 }
 
 async function withMainTf(run: (session: ITfSession) => Promise<void>): Promise<void> {
@@ -54,10 +53,7 @@ async function withMainTf(run: (session: ITfSession) => Promise<void>): Promise<
         extensions: [installed.registration],
     });
     try {
-        for (const [name, text] of Object.entries(tfSampleFiles())) {
-            fs.mkdirSync(path.dirname(path.join(harness.tmpDir, name)), { recursive: true });
-            harness.writeFile(name, text);
-        }
+        fs.cpSync(TF_SAMPLE_DIR, harness.tmpDir, { recursive: true });
         const mainPath = path.join(harness.tmpDir, "main.tf");
         harness.group.openFile(mainPath);
         const editor = harness.group.getActiveEditor();
@@ -86,12 +82,8 @@ async function withMainTf(run: (session: ITfSession) => Promise<void>): Promise<
                 ? true
                 : null;
         });
-        await run({
-            harness,
-            editor,
-            at,
-            clientCrashes: () => output.filter((line) => CLIENT_CRASH_PATTERNS.test(line)),
-        });
+        await run({ harness, editor, at });
+        expect(output.filter((line) => CLIENT_CRASH_PATTERNS.test(line))).toEqual([]);
     } finally {
         await harness.dispose();
     }
@@ -117,7 +109,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — navigation and symbols o
     });
 
     it("Declaration on var.region goes to the `variable` block, and answers exactly as Definition", TIMEOUT, () =>
-        withMainTf(async ({ harness, at, clientCrashes }) => {
+        withMainTf(async ({ harness, at }) => {
             const request = at("var.region", 6);
             const block = at('variable "region"');
 
@@ -127,7 +119,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — navigation and symbols o
             ]);
             // terraform-ls serves both requests with one handler. The difference between them would be a new behavior.
             await expect(provideDefinitions(harness, request)).resolves.toEqual(declarations);
-            expect(clientCrashes()).toEqual([]);
         }),
     );
 
@@ -144,14 +135,15 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — navigation and symbols o
                 start: { line: label.line, character: label.character },
                 end: { line: label.line, character: label.character + '"aws"'.length },
             });
-            expect(links[0].url).toMatch(/^https:\/\/registry\.terraform\.io\/providers\/hashicorp\/aws\/[^/]+\/docs\?/);
+            expect(links[0].url).toMatch(
+                /^https:\/\/registry\.terraform\.io\/providers\/hashicorp\/aws\/[^/]+\/docs\?/,
+            );
             expect(links[0].tooltip).toBe("hashicorp/aws Documentation");
-            expect(session.clientCrashes()).toEqual([]);
         }),
     );
 
     it("`@`: the blocks of the file, an attribute names its block as the container", TIMEOUT, () =>
-        withMainTf(async ({ harness, at, clientCrashes }) => {
+        withMainTf(async ({ harness, at }) => {
             const symbols = await provideDocumentSymbols(harness, at("terraform {"));
 
             expect(symbols.map((symbol) => symbol.name)).toEqual([
@@ -163,7 +155,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — navigation and symbols o
             expect(flattenDocumentSymbols(symbols)).toContainEqual(
                 expect.objectContaining({ name: "default", containerName: 'variable "region"' }),
             );
-            expect(clientCrashes()).toEqual([]);
         }),
     );
 
@@ -194,23 +185,17 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — navigation and symbols o
             const features = harness.languageFeatures;
             // Registered dynamically along with the rest, so the ones below had their chance by now.
             expect(features.declarationProvider.has(editor)).toBe(true);
-            expect({
-                implementation: features.implementationProvider.has(editor),
-                typeDefinition: features.typeDefinitionProvider.has(editor),
-                documentHighlight: features.documentHighlightProvider.has(editor),
-                linkedEditing: features.linkedEditingRangeProvider.has(editor),
-                onTypeFormatting: features.onTypeFormattingEditProvider.has(editor),
-                callHierarchy: features.callHierarchyProvider.has(editor),
-                typeHierarchy: features.typeHierarchyProvider.has(editor),
-            }).toEqual({
-                implementation: false,
-                typeDefinition: false,
-                documentHighlight: false,
-                linkedEditing: false,
-                onTypeFormatting: false,
-                callHierarchy: false,
-                typeHierarchy: false,
-            });
+            const absent = {
+                implementation: features.implementationProvider,
+                typeDefinition: features.typeDefinitionProvider,
+                documentHighlight: features.documentHighlightProvider,
+                linkedEditing: features.linkedEditingRangeProvider,
+                onTypeFormatting: features.onTypeFormattingEditProvider,
+                callHierarchy: features.callHierarchyProvider,
+                typeHierarchy: features.typeHierarchyProvider,
+            };
+            const offered = Object.entries(absent).filter(([, registry]) => registry.has(editor));
+            expect(offered.map(([name]) => name)).toEqual([]);
         }),
     );
 });

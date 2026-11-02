@@ -46,18 +46,7 @@ export const MAIN_TF = [
     "",
 ].join("\n");
 
-const TF_SAMPLE_DIR = path.resolve(import.meta.dirname, "..", "..", "e2e", "fixtures", "tfSample");
-
-/** The files of `e2e/fixtures/tfSample`: relative path to text. */
-export function tfSampleFiles(): Record<string, string> {
-    const files: Record<string, string> = {};
-    for (const entry of fs.readdirSync(TF_SAMPLE_DIR, { recursive: true, withFileTypes: true })) {
-        if (!entry.isFile()) continue;
-        const full = path.join(entry.parentPath, entry.name);
-        files[path.relative(TF_SAMPLE_DIR, full).split(path.sep).join("/")] = fs.readFileSync(full, "utf-8");
-    }
-    return files;
-}
+export const TF_SAMPLE_DIR = path.resolve(import.meta.dirname, "..", "..", "e2e", "fixtures", "tfSample");
 
 export interface IInstalledTerraform {
     readonly registration: IExtensionRegistration;
