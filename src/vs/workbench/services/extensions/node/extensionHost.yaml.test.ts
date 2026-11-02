@@ -38,9 +38,13 @@ import { stripMarkdown } from "../../../contrib/hover/browser/hoverService.ts";
 
 let installed: IInstalledYaml;
 
-const PERSON_YAML = ["# yaml-language-server: $schema=./person.schema.json", "name: Ada", "role: g", "extra: 1", ""].join(
-    "\n",
-);
+const PERSON_YAML = [
+    "# yaml-language-server: $schema=./person.schema.json",
+    "name: Ada",
+    "role: g",
+    "extra: 1",
+    "",
+].join("\n");
 
 const ANCHORS_YAML = [
     "base: &base",
@@ -157,7 +161,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock redhat.vscode-yaml
 
                 const symbols = await provideDocumentSymbols(harness, at(harness, uri, 0, 0));
                 expect(symbols.map((symbol) => symbol.name)).toEqual(["base", "other", "ref", "z"]);
-                expect(symbols[0].children?.map((symbol) => symbol.name)).toEqual(["x"]);
+                expect(symbols[0].children.map((symbol) => symbol.name)).toEqual(["x"]);
 
                 // F12 on `*base` lands on the anchored node.
                 const definitions = await provideDefinitions(harness, at(harness, uri, 3, 7));
@@ -174,11 +178,15 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock redhat.vscode-yaml
                     { uri, languageId: "yaml", versionId: document.versionId, document },
                     CancellationTokenNone,
                 );
-                expect(links.map((link) => [link.range, link.url])).toEqual([
-                    [createRange(5, 9, 5, 15), `${uri}#2,3`],
-                ]);
+                expect(links.map((link) => [link.range, link.url])).toEqual([[createRange(5, 9, 5, 15), `${uri}#2,3`]]);
 
-                const edits = await formatDocumentFor(harness, at(harness, uri, 0, 0));
+                const edits = await formatDocumentFor(harness, {
+                    uri,
+                    languageId: "yaml",
+                    versionId: documentVersion(harness, uri),
+                    tabSize: 2,
+                    insertSpaces: true,
+                });
                 expect(edits?.map((edit) => edit.text).join("")).toContain("z: [1, 2, 3]\n");
 
                 await expect(provideRename(harness, at(harness, uri, 3, 7), "core")).resolves.toEqual({
@@ -206,11 +214,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock redhat.vscode-yaml
                 editor.viewState.selections = [createCursorSelection(0, 4)];
                 editor.typeText("\n");
                 // One indent level by the editor's tab size (4 here; 2 in the app through the `[yaml]` defaults).
-                await waitUntil(
-                    "the indent",
-                    () => editor.viewState.document.getLineContent(1) === "    ",
-                    20_000,
-                );
+                await waitUntil("the indent", () => editor.viewState.document.getLineContent(1) === "    ", 20_000);
                 expect(editor.viewState.selections[0].active).toEqual({ line: 1, character: 4 });
             } finally {
                 controller.dispose();
@@ -220,32 +224,36 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock redhat.vscode-yaml
         }
     });
 
-    it("the server has no inlay hints, implementations, hierarchies or linked editing", { timeout: 240_000 }, async () => {
-        const { harness, open } = await startYaml();
-        try {
-            const uri = await open("plain.yaml", "a: 1\n");
-            const target = { uri: Uri.parse(uri), languageId: "yaml" };
-            const features = harness.languageFeatures;
-            // The providers it does register, so the absent ones are not a timing artefact.
-            expect(features.documentSymbolProvider.has(target)).toBe(true);
-            expect(features.codeLensProvider.has(target)).toBe(true);
-            expect({
-                inlayHints: features.inlayHintsProvider.has(target),
-                implementation: features.implementationProvider.has(target),
-                callHierarchy: features.callHierarchyProvider.has(target),
-                typeHierarchy: features.typeHierarchyProvider.has(target),
-                linkedEditing: features.linkedEditingRangeProvider.has(target),
-            }).toEqual({
-                inlayHints: false,
-                implementation: false,
-                callHierarchy: false,
-                typeHierarchy: false,
-                linkedEditing: false,
-            });
-        } finally {
-            await harness.dispose();
-        }
-    });
+    it(
+        "the server has no inlay hints, implementations, hierarchies or linked editing",
+        { timeout: 240_000 },
+        async () => {
+            const { harness, open } = await startYaml();
+            try {
+                const uri = await open("plain.yaml", "a: 1\n");
+                const target = { uri: Uri.parse(uri), languageId: "yaml" };
+                const features = harness.languageFeatures;
+                // The providers it does register, so the absent ones are not a timing artefact.
+                expect(features.documentSymbolProvider.has(target)).toBe(true);
+                expect(features.codeLensProvider.has(target)).toBe(true);
+                expect({
+                    inlayHints: features.inlayHintsProvider.has(target),
+                    implementation: features.implementationProvider.has(target),
+                    callHierarchy: features.callHierarchyProvider.has(target),
+                    typeHierarchy: features.typeHierarchyProvider.has(target),
+                    linkedEditing: features.linkedEditingRangeProvider.has(target),
+                }).toEqual({
+                    inlayHints: false,
+                    implementation: false,
+                    callHierarchy: false,
+                    typeHierarchy: false,
+                    linkedEditing: false,
+                });
+            } finally {
+                await harness.dispose();
+            }
+        },
+    );
 
     it(
         "an unreachable schema URL: the document is still checked as YAML, nothing crashes",

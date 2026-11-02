@@ -39,8 +39,7 @@ export interface IInstalledYaml {
 
 export async function installYaml(): Promise<IInstalledYaml> {
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-vsix-"));
-    const vsixPath = process.env.YAML_VSIX ?? (await fetchStockVsix(YAML_ID)).vsixPath;
-    const { id, version } = await installVsix(vsixPath, extensionsDir);
+    const { id, version } = await installVsix((await fetchStockVsix(YAML_ID)).vsixPath, extensionsDir);
     return {
         registration: await registrationFromInstalled(extensionsDir, id, version),
         dispose: (): void => {
