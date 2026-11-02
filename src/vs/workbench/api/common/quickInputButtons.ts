@@ -13,8 +13,4 @@ export enum QuickInputButtonLocation {
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- vscode.d.ts declares it as a class
 export class QuickInputButtons {
     public static readonly Back: vscode.QuickInputButton = { iconPath: new ThemeIcon("arrow-left") };
-
-    private constructor() {
-        // Upstream: a holder of predefined buttons, never instantiated.
-    }
 }
