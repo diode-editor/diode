@@ -11,6 +11,7 @@ import type { QuickAccessRegistry } from "../common/quickAccessRegistry.ts";
 import { QuickAccessRegistryDIToken } from "../common/quickAccessRegistry.ts";
 
 import { GotoSymbolQuickAccessProvider } from "./gotoSymbolQuickAccessProvider.ts";
+import { WorkspaceSymbolsQuickAccessProvider } from "./workspaceSymbolsQuickAccessProvider.ts";
 
 const SEARCH_DEBOUNCE_MS = 16;
 
@@ -87,7 +88,12 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
         };
 
         view.setQuery(prefix);
-        this.activateProviderFor(prefix);
+        const provider = this.activateProviderFor(prefix);
+        const filter = prefix === this.currentPrefix ? provider.getDefaultFilterValue?.() : undefined;
+        if (filter !== undefined) {
+            view.setQuery(prefix + filter);
+            view.setQuerySelection(prefix.length, prefix.length + filter.length);
+        }
         this.updateItems(view.getQuery());
         if (options.activateSecond === true) view.setActiveIndex(1);
 
@@ -114,6 +120,10 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
         contextKeys.set(
             "inFileSymbolsPicker",
             this.isOpen() && this.currentPrefix === GotoSymbolQuickAccessProvider.PREFIX,
+        );
+        contextKeys.set(
+            "inWorkspaceSymbolsPicker",
+            this.isOpen() && this.currentPrefix === WorkspaceSymbolsQuickAccessProvider.PREFIX,
         );
     }
 

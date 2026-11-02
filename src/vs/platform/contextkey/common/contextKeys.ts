@@ -53,6 +53,8 @@ export interface ContextKeyTypes {
     inFilesPicker: boolean;
     /** Quick Open shows the symbols of the active editor (`@`). */
     inFileSymbolsPicker: boolean;
+    /** Quick Open shows the symbols of the workspace (`#`). */
+    inWorkspaceSymbolsPicker: boolean;
 
     /** "legacy" | "csi-u" | "kitty" */
     tier: string;

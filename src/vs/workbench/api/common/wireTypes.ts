@@ -8,6 +8,10 @@ import type {
     ICoreSignatureHelp,
     SignatureHelpTriggerKind,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ICoreWorkspaceSymbol,
+    ICoreWorkspaceSymbolLocation,
+} from "../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 import type { IConfigurationData } from "../../../platform/configuration/common/iConfigurationService.ts";
 import type { ILanguageConfiguration } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
 import type {
@@ -346,6 +350,35 @@ export interface WireFoldingRange {
 export type IWireFoldingParams = IWireDocumentParams & IWireProviderHandles;
 
 export type IWireDocumentSymbolParams = IWireDocumentParams & IWireProviderHandle;
+
+/** No selector: a workspace symbol provider has no document to score against. */
+export interface IWireWorkspaceSymbolProviderRegistration {
+    readonly handle: number;
+    readonly supportsResolve: boolean;
+}
+
+export interface IWireWorkspaceSymbolsParams extends IWireProviderHandle {
+    readonly query: string;
+}
+
+/** `id` is the index in the provider's answer, the address of the original on resolve. */
+export interface IWireWorkspaceSymbol extends ICoreWorkspaceSymbol {
+    readonly id: number;
+}
+
+export interface IWireWorkspaceSymbols {
+    readonly cacheId: number;
+    readonly symbols: readonly IWireWorkspaceSymbol[];
+}
+
+export interface IWireResolveWorkspaceSymbolParams extends IWireProviderHandle {
+    readonly cacheId: number;
+    readonly id: number;
+}
+
+export interface IWireResolvedWorkspaceSymbol {
+    readonly location: ICoreWorkspaceSymbolLocation;
+}
 
 /** Sent as registration metadata — the core styles tokens without RPC. */
 export interface IWireSemanticTokensLegend {
