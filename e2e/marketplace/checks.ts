@@ -14,6 +14,7 @@ import { ensureGopls, GO_SAMPLE_DIR, GO_SESSION_ENV, goToolchainMissing } from "
 import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
 import { mavenMissing, writeMavenProject } from "../../src/TestUtils/mavenFixture.ts";
 import { SVELTE_ID, SVELTE_SAMPLE_DIR } from "../../src/TestUtils/svelteFixture.ts";
+import { YAML_ID, YAML_SETTINGS } from "../../src/TestUtils/yamlFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
 import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../helpers/biomeFixture.ts";
 import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "../helpers/claudeIde.ts";
@@ -919,6 +920,56 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 "languages.registerLinkedEditingRangeProvider",
                 "languages.registerOnTypeFormattingEditProvider",
             ]);
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock YAML by Red Hat. A workflow file gets its schema from the schemastore.org
+        // catalog; `editor.quickSuggestions` with `strings: true` comes from the extension's `[yaml]` defaults, and a
+        // plain scalar is a string token, so without them `shell: b` would open nothing.
+        id: YAML_ID,
+        expectFiles: ["package.json", "dist/extension.js", "dist/languageserver.js"],
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "project");
+            const file = join(projectRoot, ".github", "workflows", "ci.yml");
+            mkdirSync(dirname(file), { recursive: true });
+            writeFileSync(
+                file,
+                "name: CI\nname: again\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n",
+            );
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [projectRoot, file],
+                settings: YAML_SETTINGS,
+            });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl under the duplicate key", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                await app.session.waitForText((text) => text.trimEnd().endsWith("GitHub Workflow"), {
+                    timeoutMs: 30_000,
+                });
+
+                await app.session.key("Ctrl+End");
+                await app.session.text("        shell: ");
+                await app.session.key("b");
+                await app.session.waitForText((text) => text.includes("bash"), { timeoutMs: 20_000 });
+                await app.session.key("Escape");
+
+                await app.session.key("Enter");
+                await app.session.text("        # ");
+                await app.session.key("b");
+                // The quick suggest delay is 10 ms; a popup in a comment would be up long before this.
+                await new Promise((resolve) => setTimeout(resolve, 1_000));
+                await app.session.waitForIdle();
+                if ((await app.session.node("#suggestWidget")) !== null) {
+                    throw new Error("suggestions opened in a YAML comment");
+                }
+            } finally {
+                await app.dispose();
+            }
         },
     },
     {
