@@ -11,6 +11,7 @@ import {
 import { ensureGopls, GO_SAMPLE_DIR, GO_SESSION_ENV, goToolchainMissing } from "../../src/TestUtils/goFixture.ts";
 import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
 import { mavenMissing, writeMavenProject } from "../../src/TestUtils/mavenFixture.ts";
+import { TOML_SCHEMA, TOML_WITH_SCHEMA } from "../../src/TestUtils/tomlFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
 import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../helpers/biomeFixture.ts";
 import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "../helpers/claudeIde.ts";
@@ -873,6 +874,68 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 "languages.registerDocumentSymbolProvider",
             ]) {
                 if (registered.includes(absent)) throw new Error(`Biome now registers ${absent}: update the entry`);
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Even Better TOML, its taplo server is WASM inside the extension. The
+        // schema is local: 0.21.2 rejects the `$schema` of today's schemastore catalog, so it is not in the check.
+        id: "tamasfe.even-better-toml",
+        expectFiles: ["package.json", "dist/extension.js", "dist/server.js"],
+        timeoutMs: 180_000,
+        run: async (ctx) => {
+            const project = join(ctx.root, "project");
+            mkdirSync(project, { recursive: true });
+            writeFileSync(join(project, "schema.json"), TOML_SCHEMA);
+            const file = join(project, "sample.toml");
+            writeFileSync(file, `${TOML_WITH_SCHEMA}\n[dep\n`);
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [project, file] });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl on the unclosed table header", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                await app.session.key("Ctrl+End");
+                await app.session.key("Backspace");
+                await app.session.key("Backspace");
+                await app.session.key("Backspace");
+                await app.session.key("Backspace");
+                await app.session.key("Backspace");
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.every((cell) => (cell.style & 8) === 0),
+                    { describe: "the squiggle gone with the broken header", timeoutMs: 30_000, intervalMs: 500 },
+                );
+                await app.session.executeCommand("editor.action.formatDocument");
+                await app.session.waitForText((text) => text.includes('name = "demo"'), { timeoutMs: 20_000 });
+
+                await app.session.executeCommand("workbench.action.gotoSymbol");
+                await app.session.waitForText((text) => text.includes("symbols (2)"), { timeoutMs: 20_000 });
+                await app.session.key("Escape");
+
+                await app.session.key("Ctrl+a");
+                await app.session.executeCommand("evenBetterToml.copyAsJson");
+                await app.session.waitForText((text) => text.includes("JSON copied!"), { timeoutMs: 20_000 });
+            } finally {
+                await app.dispose();
+            }
+            const registered = readFileSync(process.env.DIODE_API_TRACE ?? "", "utf8")
+                .split("\n")
+                .filter((line) => line !== "")
+                .map((line) => JSON.parse(line) as { extension: string; kind: string; member: string })
+                .filter((row) => row.extension === "tamasfe.even-better-toml" && row.kind === "registered")
+                .map((row) => row.member);
+            for (const absent of [
+                "languages.registerInlayHintsProvider",
+                "languages.registerCodeLensProvider",
+                "languages.registerImplementationProvider",
+                "languages.registerCallHierarchyProvider",
+                "languages.registerTypeHierarchyProvider",
+                "languages.registerLinkedEditingRangeProvider",
+                "languages.registerOnTypeFormattingEditProvider",
+            ]) {
+                if (registered.includes(absent)) throw new Error(`taplo now registers ${absent}: update the entry`);
             }
         },
     },
