@@ -2,6 +2,8 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { StyleFlags } from "@tuidom/core/common/styleFlags";
+
 import {
     ensureEslintLibrary,
     ESLINT_FLAT_CONFIG,
@@ -916,6 +918,103 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 "languages.registerLinkedEditingRangeProvider",
                 "languages.registerOnTypeFormattingEditProvider",
             ]);
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock ShellCheck on its bundled WebAssembly runtime, no external tool. `Apply fix`
+        // is offered only when the requested range lies inside the diagnostic, so it needs the exact selection.
+        id: "timonwong.shellcheck",
+        expectFiles: ["package.json", "dist/extension.js", "node_modules/@vscode-shellcheck/shellcheck-wasm/dist/shellcheck.wasm"],
+        run: async (ctx) => {
+            const file = join(ctx.root, "script.sh");
+            writeFileSync(file, "#!/bin/bash\necho $1\n");
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [file],
+                settings: { "shellcheck.runtime": "wasm" },
+                // Keeps a browser from opening where the run happens to have a display.
+                env: { DISPLAY: "", WAYLAND_DISPLAY: "" },
+            });
+            const { session } = app;
+            try {
+                await waitUntil(
+                    () => session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl squiggle from ShellCheck", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                // Toasts come one at a time: the What's New one would hold back the toast of the link below.
+                await session.waitForText((t) => t.includes("has new features"), { timeoutMs: 20_000 });
+                await session.executeCommand("notifications.clearAll");
+                await session.executeCommand("workbench.actions.view.problems");
+                await session.waitForText((t) => t.includes("shellcheck(SC2086)"), { timeoutMs: 20_000 });
+                await session.executeCommand("workbench.action.focusActiveEditorGroup");
+
+                await session.key("Ctrl+Home");
+                await session.key("ArrowDown");
+                await session.key("End");
+                await session.key("ArrowLeft");
+                await session.executeCommand("editor.action.showHover");
+                await session.waitForNode("#hoverWidget");
+                await session.key("Escape");
+
+                await session.key("Ctrl+.");
+                await session.waitForText((t) => t.includes("Apply fix for SC2086"), { timeoutMs: 20_000 });
+                await session.key("Enter");
+                await session.waitForText((t) => t.includes('echo "$1"') && !t.includes("shellcheck(SC2086)"), {
+                    timeoutMs: 20_000,
+                });
+
+                // Linted while typing. The caret ends up past the diagnostic: the quick fix comes from along the line.
+                await session.key("Ctrl+End");
+                await session.text("rm $2");
+                await session.waitForText((t) => t.includes("shellcheck(SC2086)  [Ln 3, Col 4]"), { timeoutMs: 20_000 });
+                await session.key("End");
+                await session.key("Ctrl+.");
+                await session.waitForText((t) => t.includes("Disable SC2086 for this line"), { timeoutMs: 20_000 });
+                await session.key("ArrowDown");
+                await session.key("ArrowDown");
+                await session.key("Enter");
+                await session.waitForText(
+                    (t) => t.includes("# shellcheck disable=SC2086") && !t.includes("shellcheck(SC2086)"),
+                    { timeoutMs: 20_000 },
+                );
+
+                // Links arrive after the text: Open Link before them finds nothing.
+                await waitUntil(
+                    () => session.captureFrame(),
+                    (frame) => {
+                        const at = findTextCell(frame, "SC2086");
+                        return at !== null && (frame.cells[at.y * frame.cols + at.x].style & StyleFlags.Underline) !== 0;
+                    },
+                    { describe: "the underline of the wiki link", timeoutMs: 20_000, intervalMs: 100 },
+                );
+                await session.key("ArrowUp");
+                await session.key("End");
+                await session.key("ArrowLeft");
+                await session.executeCommand("editor.action.openLink");
+                await session.waitForText((t) => t.includes("https://www.shellcheck.net/wiki/SC2086"), {
+                    timeoutMs: 20_000,
+                });
+                await session.executeCommand("notifications.clearAll");
+
+                await session.key("F1");
+                await session.waitForNode("#quickInput");
+                await session.text("ShellCheck: Use the Experimental");
+                await session.waitForText((t) => t.includes("Use the Experimental WebAssembly Runtime"), {
+                    timeoutMs: 20_000,
+                });
+                await session.key("Enter");
+                await session.waitForText((t) => t.includes("Switch ShellCheck to the experimental"), {
+                    timeoutMs: 20_000,
+                });
+                await session.key("Enter");
+                await session.waitForText((t) => !t.includes("Switch ShellCheck to the experimental"), {
+                    timeoutMs: 20_000,
+                });
+            } finally {
+                await app.dispose();
+            }
         },
     },
     {

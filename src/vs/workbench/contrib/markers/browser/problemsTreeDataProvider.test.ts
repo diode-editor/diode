@@ -109,6 +109,16 @@ describe("ProblemsTreeDataProvider", () => {
         }
     });
 
+    it("puts the origin of a marker between the message and Ln/Col, like upstream", () => {
+        const labelOf = (origin: Pick<IMarker, "source" | "code">): string | undefined => {
+            const p = provider([{ ...marker("/a.sh", MarkerSeverity.Info, 1, "Quote it", 5), ...origin }]);
+            return p.getTreeItem(p.getChildren(p.getChildren()[0])[0]).label;
+        };
+        expect(labelOf({ source: "shellcheck", code: "SC2086" })).toBe("Quote it  shellcheck(SC2086)  [Ln 2, Col 6]");
+        expect(labelOf({ source: "ts" })).toBe("Quote it  ts  [Ln 2, Col 6]");
+        expect(labelOf({ code: "E1" })).toBe("Quote it  E1  [Ln 2, Col 6]");
+    });
+
     it("builds stable keys for files and markers", () => {
         const p = provider([marker("/a.json", MarkerSeverity.Error, 0, "x")]);
         const [file] = p.getChildren();

@@ -27,7 +27,7 @@ interface ILinkOccurrence {
 }
 
 /**
- * Port of upstream `LinkDetector`, without the mouse: asks the providers on open and on a language, provider or
+ * Port of upstream `LinkDetector`, without the mouse: asks the providers on open, on a language, provider or
  * `editor.links` change at once, after an edit with a debounce. Each link is a tracked document decoration: until the
  * next answer its underline follows the text, and a link whose text is gone is dropped.
  */
@@ -72,7 +72,9 @@ export class LinkDetector extends Disposable {
                 this.updateDecorations([]);
             },
         });
-        this.update();
+        // An editor is built before its document reaches the extension host, and a request sent now would be answered
+        // "not synced" with nothing to ask again: `schedule(0)`, as in InlayHintsController.
+        if (enabled) this.computeScheduler.schedule(0);
     }
 
     /** `editor.links`: turning it off removes the underlines at once, turning it on asks again. */

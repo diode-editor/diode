@@ -44,7 +44,7 @@
   `themes/mocha.json`, тема есть в пикере.
 - **`golang.go`** (сайт#19) — universal, гейт `engines.diode: ">=0.9.2"` (до #657 активация падала на
   `vscode.debug`). `support: partial`: отладчика нет (`debug test` — тост), Testing view нет,
-  welcome/pprof — webview; code lens и inlay hints работают; требование Go toolchain — пунктом в `limits` и в readme (решение человека,
+  welcome/pprof — webview; code lens, inlay hints, навигация, ссылки импортов, `@`, `#` и обе иерархии работают; требование Go toolchain — пунктом в `limits` и в readme (решение человека,
   как JDK у `redhat.java`). gopls в vsix нет — расширение ставит его само `go install`; смоук кладёт
   заранее собранный gopls в GOBIN (в CI — `.github/actions/go-tools`), без Go кейс пропускается
   (`requires` у чека). Open VSX пишет id как `golang/Go` — см. открытый пункт про регистр id в
@@ -134,6 +134,7 @@
   каретки в кадре и байты файла, для команды и для `trimOnSave`.
 - **`vscode.merge-conflict`** (#969) — прокси на сборку встроенного расширения VS Code от Eclipse Theia, Open VSX 1.95.3. Гейт `engines.diode: ">=0.12.6"`: нужны линзы (#936/#937), `revealRange` (#963) и правки этой задачи. `support: partial`: блоки current и incoming не закрашены, мост `setDecorations` знает только gutter и overview ruler (класс C эпика #912). `Compare` держится на двух правках ядра: сторона `vscode.diff` читается и из провайдера содержимого, не только из файлового сервиса (порядок как в `TextModelResolverService`: сначала провайдер ФС), а `Range.toJSON` отдаёт эталонную пару `[start, end]` — расширение кладёт `JSON.stringify` диапазонов в query и разбирает обратно как массив. `merge-conflict.next` при переходе вверх ставит конфликт верхней строкой, линза над ним остаётся за краем: прокрутка на строку вверх её показывает. Смоук — линза в кадре, `Compare` с обеими сторонами, клик `Accept Incoming`, байты файла.
 - **`vscjava.vscode-maven`** (#977) — прокси на сток Open VSX 0.45.3. Гейт `engines.diode: ">=0.12.6"`: нужны `window.createInputBox` и кнопка Back (`New Project`), константно ложные `commandPalette` и ключ `isWorkspaceTrusted`. Плагины в дереве приходят со строки без `id`, а после `mvn help:describe` расширение переименовывает строку: handle такой строки строится из подписи и меняется, поэтому `treeView.refresh` несёт `previousHandle`, и воркбенч перечитывает родителя (как `getItemsToRefresh` эталона). `support: partial`: `Debug` в меню цели плагина отладчик не запускает (тост расширения `Debugger for Java is required`), сниппеты `pom.xml` вставляются без табстопов и поправки отступа (класс C эпика #912), пункт в меню чужого вида `javaProject.maven` не показывается. Нужен `mvn` из PATH или `maven.executable.path`: без него тост `Maven executable not found in PATH`, битый явный путь расширение передаёт в терминал как есть. `maven.goal.custom` и `maven.project.effectivePom` без аргумента не показывают ничего или падают, и в эталоне тоже: у них `when: never`, зовут их из дерева или через `maven.goal.execute` → `Custom ...`. Quick fix `Add a dependency` появляется, только когда каретка внутри `<dependencies>`, а не на самом теге. Генерация архетипа задаёт вопросы в терминале (`Define value for property`), фокус туда не переходит, как в эталоне. Смоук — `a:b` в секции, чистая от `when: never` палитра и `BUILD SUCCESS` цели, без `mvn` кейс пропускается (`requires`).
+- **`timonwong.shellcheck`** (#970) — прокси на сток Open VSX 0.48.4. Гейт `engines.diode: ">=0.12.8"`: нужны ссылки в редакторе (#953) и правки этой задачи из коммитов после тега 0.12.7. `shellcheck.runtime: "auto"` на десктопе — это `native`, сам на wasm не падает: без бинаря расширение пишет `The shellcheck program was not found`, кнопка `Try experimental WebAssembly` тоста переключает настройку. При первом запуске этот тост стоит в очереди за `What's New` (тосты идут по одному), редактор живёт. `Apply fix` расширение отдаёт, только если запрошенный диапазон лежит внутри диагностики, поэтому `Ctrl+.` шлёт точное выделение, как `CodeActionOracle`, а если под кареткой исправлений нет, они добираются запросом `only: quickfix` с конца ближайшего маркера строки (`includeNearbyQuickFixes` эталона, но он спрашивает у всех маркеров, и настройки у нас нет). `support: partial`: нет сниппетов и walkthrough — кнопка `See What's New` только пишет в лог `command "workbench.action.openWalkthrough" not found`. С `shellcheck.markdownDiagnostics` hover показывает сырой HTML: рендерера markdown нет, а `supportHtml` до UI не доходит; настройка выключена по умолчанию, обычный hover даёт тот же текст. `Show wiki` и ссылка в `# shellcheck disable=` идут через внешний открыватель: браузер, а без графической сессии тост с адресом. Клика по коду в Problems нет: `Diagnostic.code.target` до панели не доезжает. Hover открывается командой (`Ctrl+K Ctrl+U`), наведения мышью в редакторе нет. Смоук — wasm, без внешнего инструмента: undercurl, код в Problems, hover, `Apply fix`, диагностика при наборе, `Disable`, ссылка, модальный диалог.
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
 
@@ -160,6 +161,27 @@ vsix», а не строка в таблице builtin-клиента. Сьют�
   про эталон — по исходникам сервера и контроллера, в живом VS Code не сверялось. Code lens у
   сервера нет: `codeLensProvider` нет в ответе на `initialize`, регистрации тоже; появление в новой
   версии покажет `extensionHost.pythonLsp.inlayHints.test.ts`.
+- **basedpyright, навигация** (#955) — из правок ядра понадобился только фокус: принятый Go to Line и Go to Symbol ведут в редактор, как
+  `gotoLocation` эталона, а не обратно в панель. Ответы сервера закреплены в
+  `extensionHost.pythonLsp.navigation.test.ts`, и у них есть нормы, которые легко принять за потерю на
+  нашей стороне:
+  - Implementations на методе базового класса отдаёт **и сам метод**: база и два наследника — три строки.
+    На вызове через базовый тип ответ тот же.
+  - Declaration на импортированном имени **не ведёт на строку `import`**: сервер проходит импорт насквозь,
+    как и definition. Различаются они только при стабе рядом: definition идёт в `.py`, declaration — в `.pyi`.
+  - F12 на вызове перегруженной функции даёт одну цель (реализацию); все `@overload` и реализация — на
+    имени объявления. Панель Definitions даёт ещё переменная с двумя присваиваниями.
+  - Подсветка различает чтение и запись; у call hierarchy вызывающий с верхнего уровня файла — псевдоэлемент
+    `(module) main.py`.
+  - `#` находит символы и в неоткрытых файлах: сервер индексирует папку воркспейса сам.
+  - Linked editing, document links и type hierarchy сервер не отдаёт: провайдеров нет, это закреплено тестом.
+- **basedpyright, format on type** (#955) — `{` в строке ставит `f` перед кавычкой; триггер у сервера один,
+  `{`. Включает манифест: `configurationDefaults` `[python] editor.formatOnType: true` доходит до нашего
+  `editor.formatOnType`, в живом приложении проверено. Выключатели: `basedpyright.analysis.autoFormatStrings`
+  действует на стороне сервера и без перезапуска (он перестаёт предлагать правку),
+  `editor.formatOnType: false` в `[python]` — у нас, до запроса. Грабля для тестов: незакрытый `print(f"{`
+  оставляет токенайзер сервера внутри f-строки, и `"{` на следующих строках правку уже не получает; тест
+  очищает буфер перед каждым набором.
 - **ruff**: линт-диагностики — pull с re-pull на правку буфера; quickfix по диагностике (safe-фикс
   `isPreferred`); `source.organizeImports.ruff` / `source.fixAll.ruff` (иерархический матч kinds);
   формат документа и выделения — от нативного `ruff server`, Python не нужен. `importStrategy:
@@ -256,10 +278,18 @@ eval-режим node, иначе расширение молча не линти
   (иначе `null`, и смена настройки до сервера не доходит). `workspace/inlayHint/refresh` gopls не шлёт
   вовсе: новое значение видно со следующего запроса (правка, прокрутка за окно, открытие файла) — так
   же и в VS Code. `go.enableCodeLens` расширение применяет сразу, своим `onDidChangeCodeLenses`.
+- **Навигация и символы** (тесты `extensionHost.goLsp.{navigation,links,symbols,hierarchy}.test.ts`,
+  сценарий `go-navigation`, gopls v0.24.0). Работают без правок ядра: Implementations (на методе
+  интерфейса — методы типов, на интерфейсе — типы), Type Definition, подсветка чтения/записи, `@`, `#`, call и
+  type hierarchy. На `#` gopls отвечает и символами рантайма (`heldLockInfo` на запрос `Hello`), поэтому
+  `matchSymbol` поднимает префикс и полное совпадение имени выше разрозненного совпадения. Middleware `provideTypeDefinition` при непустом выделении, содержащем позицию,
+  добавляет в запрос `range`, и gopls отвечает типом выделенного выражения: `pair.Second` даёт `Polite`,
+  хотя на той же позиции без выделения — `Pair`. Ссылка импорта — только на путь в кавычках, ведёт на
+  pkg.go.dev; `gopls: {"ui.navigation.importShortcut": "Definition"}` её убирает. Declaration, linked
+  editing и format on type gopls не предлагает — провайдеры не регистрируются, тест это фиксирует.
 - **Решения человека:** отладчик не делаем (`vscode.debug` — null-объект); фичи, которых ядро ещё не
-  умеет (outline, Go to Implementation, call hierarchy, Testing view, деревья `go.explorer`/package
-  outline, when-фильтр палитры), ради Go отдельно не делаем — заработают сами с ядром. Welcome-страница
-  и pprof — webview, не будет.
+  умеет (outline, Testing view, деревья `go.explorer`/package outline, when-фильтр палитры), ради Go
+  отдельно не делаем — заработают сами с ядром. Welcome-страница и pprof — webview, не будет.
 - Спайк заново: `PATH=<go>/bin:$PATH npm run -s drive -- start --seed e2e/fixtures/goSample --install
   golang.go --open main.go`, лог — `drive -- output extensions.golang.go.go`.
 
@@ -278,10 +308,10 @@ eval-режим node, иначе расширение молча не линти
 4. Конструкторы панелей до старта LS — `authentication.*` и `createTreeView`/`registerTreeDataProvider`
    (null-объекты — [Extensions.md](Extensions.md)).
 
-Классы-значения, которые бандл использует, но в рантайме их нет (`DocumentSymbol`,
-`CallHierarchy*Call`, `InlineValue*`, …; `SelectionRange` и `Color*` уже есть), для активации не нужны — их зовут конвертеры
-languageclient только при вызове провайдера, а соответствующие `register*Provider` у нас no-op;
-понадобятся вместе с провайдерами. Автодополнение по схеме AWS работает из вшитых схем без terraform
+Классы-значения `DocumentSymbol` и `CallHierarchy*Call` теперь есть в рантайме вместе со швами их
+провайдеров: `@` проходит через конвертер languageclient и не оставляет ошибок клиента в OUTPUT.
+`InlineValue*` в рантайме по-прежнему нет: активации это не мешает, конвертеры зовут их только при вызове
+провайдера, а `registerInlineValuesProvider` у нас no-op. Автодополнение по схеме AWS работает из вшитых схем без terraform
 CLI и `terraform init`; форматирование требует terraform в PATH (`Terraform (CLI) is required`) —
 окружение, а не Diode. Запись магазина гейтится `engines.diode >=0.7.3`.
 
@@ -294,6 +324,25 @@ CLI и `terraform init`; форматирование требует terraform �
 vsix, в VS Code то же. Снять линзы без перезагрузки можно настройкой ядра `editor.codeLens: false`.
 `inlayHintProvider` `terraform-ls` не объявляет, провайдер inlay hints не регистрируется. Тесты —
 `extensionHost.terraformLsp.codeLens.test.ts`, сценарий — `terraform-code-lens.scenario.ts`.
+
+**Навигация и символы** (terraform-ls 0.39; тест `extensionHost.terraformLsp.navigation.test.ts`, сценарий
+`terraform-symbols`). Правка ядра одна: `LinkDetector` спрашивал провайдеров прямо из конструктора, раньше
+синхронизации документа, и файл, открытый после регистрации провайдера, оставался без ссылок до первой правки.
+
+- **Declaration = Definition.** На `var.region` оба запроса дают один и тот же блок `variable "region"`;
+  прямой опрос сервера показал одинаковые ответы и с `linkSupport`, и без него. Различие было бы новым
+  поведением сервера — тест это заметит.
+- **Ссылки — только на метку блока `provider`**, ведут на `registry.terraform.io/providers/<адрес>/<версия>/docs`.
+  На метке `resource` ссылки нет: так отвечает сам сервер, ответ проверен в обход расширения.
+- **`@`** — блоки верхнего уровня с именами вида `resource "aws_instance" "web"` (`SymbolKind.Class`),
+  атрибуты вложены; `containerName` у верхних блоков пуст, у атрибута это имя его блока.
+- **`#`** находит блоки открытого каталога (в том числе из неоткрытого файла) и вызванных модулей; другие
+  каталоги рабочей области сервер обнаруживает, но не разбирает, и в `#` их нет. Поэтому
+  `indexing.ignorePaths` на выдачу `#` не влияет: настройка доходит до обходчика (в логе сервера
+  `skipping walk due to dir being excluded`), а каталог вызванного модуля индексируется и из игнора.
+- **Нет на сервере:** implementation, type definition, document highlight, linked editing, format on type,
+  call и type hierarchy. Провайдеры не регистрируются, пунктов в контекстном меню `.tf` нет; тест фиксирует
+  матрицу, чтобы обновление сервера её заметило.
 
 ## Форматирование: `esbenp.prettier-vscode`
 

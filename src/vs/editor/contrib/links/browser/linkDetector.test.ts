@@ -88,6 +88,13 @@ describe("LinkDetector", () => {
         expect(ranges()).toEqual([createRange(0, 2, 0, 6)]);
     });
 
+    it("does not ask while being built: the document has not reached the extension host yet", async () => {
+        const { calls } = fixture("a link b");
+        expect(calls()).toBe(0);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(calls()).toBe(1);
+    });
+
     it("the underline follows the text at once, before the next answer", async () => {
         const { document, ranges, calls } = fixture("a link b");
         await vi.advanceTimersByTimeAsync(0);
@@ -191,6 +198,7 @@ describe("LinkDetector", () => {
                 (ranges) => seen.push(ranges),
             ),
         );
+        await vi.advanceTimersByTimeAsync(0);
         language.fire(undefined);
         await vi.advanceTimersByTimeAsync(0);
         resolveFirst([{ range: createRange(0, 2, 0, 4), url: "first" }]);

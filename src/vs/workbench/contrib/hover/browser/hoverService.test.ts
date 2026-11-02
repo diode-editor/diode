@@ -15,6 +15,8 @@ import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
+import { MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 
@@ -174,6 +176,91 @@ describe("HoverService — showing and closing the popup", () => {
 
         service().close();
         expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true]);
+    });
+
+    describe("diagnostics under the caret (upstream MarkerHoverParticipant)", () => {
+        const mark = (startCharacter: number, endCharacter: number, extra = {}): void => {
+            const uri = group().getActiveEditor()?.uri.toString() ?? "";
+            h.container.get(MarkerServiceDIToken).changeOne("shellcheck", uri, [
+                {
+                    severity: MarkerSeverity.Info,
+                    range: createRange(0, startCharacter, 0, endCharacter),
+                    message: "Double quote it.",
+                    ...extra,
+                },
+            ]);
+        };
+
+        it("with no provider at all the popup reaches the frame: message and source(code)", async () => {
+            mark(0, 5, { source: "shellcheck", code: "SC2086" });
+
+            await service().showHover();
+            h.testApp.render();
+
+            expect(h.testApp.backend.screenToString()).toContain("Double quote it. shellcheck(SC2086)");
+        });
+
+        describe("in a terminal narrower than the popup", () => {
+            // 66 characters: one row at the popup's full width, two rows in a 50-column terminal.
+            const message = "Iterating over ls output is fragile. Use globs.";
+
+            beforeEach(() => {
+                h.dispose();
+                h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(50, 20) });
+                h.workbench.openFile(ws.path("main.ts"));
+                h.workbench.focusEditor();
+            });
+
+            it("a diagnostic keeps the end of its message and its code in the frame", async () => {
+                mark(0, 5, { message, source: "shellcheck", code: "SC2045" });
+
+                await service().showHover();
+                h.testApp.render();
+
+                const frame = h.testApp.backend.screenToString();
+                expect(frame).toContain("globs.");
+                expect(frame).toContain("shellcheck(SC2045)");
+            });
+
+            it("a provider's answer keeps its end in the frame", async () => {
+                useHovers(hoverOf(["Iterating over ls output is fragile. Use globs. shellcheck(SC2045)"]));
+
+                await service().showHover();
+                h.testApp.render();
+
+                expect(h.testApp.backend.screenToString()).toContain("shellcheck(SC2045)");
+            });
+        });
+
+        it("a bare message has no trailing origin", async () => {
+            mark(0, 5);
+
+            await service().showHover();
+
+            expect(component().view.linesFor(30)).toEqual(["Double quote it."]);
+        });
+
+        it("goes above the answers of the providers", async () => {
+            useHovers(hoverOf(["from provider"]));
+            mark(0, 5);
+
+            await service().showHover();
+
+            expect(component().view.linesFor(20)).toEqual(["Double quote it.", "─".repeat(20), "from provider"]);
+        });
+
+        it("a marker away from the caret stays out, as does one of another file", async () => {
+            mark(3, 5);
+            h.container
+                .get(MarkerServiceDIToken)
+                .changeOne("other", "file:///elsewhere.ts", [
+                    { severity: MarkerSeverity.Info, range: createRange(0, 0, 0, 5), message: "elsewhere" },
+                ]);
+
+            await service().showHover();
+
+            expect(service().isOpen()).toBe(false);
+        });
     });
 
     it("several providers: one block each, separated by a line", async () => {
