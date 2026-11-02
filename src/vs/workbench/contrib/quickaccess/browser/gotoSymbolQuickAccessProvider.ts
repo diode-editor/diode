@@ -58,6 +58,7 @@ export interface IGotoSymbolEditor extends ILanguageFeatureTarget {
     readonly viewState: IGotoSymbolViewState;
     readonly versionId: number;
     setDecorations(decorations: IExternalDecorations): void;
+    focusEditor(): void;
 }
 
 export interface IGotoSymbolEditorSource {
@@ -354,6 +355,7 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
             accept: () => {
                 this.jumps.jump(() => {
                     editor?.viewState.goToPosition(start.line, start.character);
+                    editor?.focusEditor();
                 });
             },
         };

@@ -84,6 +84,7 @@ function makeFixture(activeEditor = true, cursor = createCursorSelection(6, 2)):
         setDecorations: (value) => {
             decorations.push(value);
         },
+        focusEditor: vi.fn(),
     };
     const jump = vi.fn((navigate: () => unknown) => navigate());
     const provider = new GotoSymbolQuickAccessProvider(
