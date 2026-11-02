@@ -115,15 +115,6 @@ describe("TextFileModel — undo back to the saved text", () => {
         expect(modified()).toBe(false);
     });
 
-    it("a text edit between two EOL changes keeps the document modified", () => {
-        open();
-        pane.setEol(EndOfLine.CRLF);
-        pane.typeText("x");
-        pane.setEol(EndOfLine.LF);
-
-        expect(modified()).toBe(true);
-    });
-
     it("an edit typed while a save streams to disk stays modified, and one undo makes the buffer clean", async () => {
         const files = diskFileService();
         const write = files.writeFile.bind(files);

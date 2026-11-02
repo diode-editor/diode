@@ -727,7 +727,7 @@ export class TextFileModel extends BaseTextEditorModel {
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
         // The snapshot is the saved state: edits typed while the bytes stream to disk stay unsaved.
-        const savedVersion = this.doc.alternativeVersionId;
+        const savedAlternativeVersion = this.doc.alternativeVersionId;
         const savedEol = this.doc.eol;
         let written: IFileStat;
         try {
@@ -745,7 +745,7 @@ export class TextFileModel extends BaseTextEditorModel {
             return "conflict";
         }
         if (filePath !== null) this.diskStat = { mtimeMs: written.mtime, size: written.size };
-        this.markSaved(savedVersion, savedEol);
+        this.markSaved(savedAlternativeVersion, savedEol);
         this.setDiskConflict(false);
         this.setOrphaned(false);
         this.fireSaved();
@@ -818,7 +818,7 @@ export class TextFileModel extends BaseTextEditorModel {
         this.providedWatch = null;
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
-        const savedVersion = this.doc.alternativeVersionId;
+        const savedAlternativeVersion = this.doc.alternativeVersionId;
         const savedEol = this.doc.eol;
         const bytes = encodeStream(this.doc.createSnapshot(), this.encodingValue);
         let written: IFileStat;
@@ -833,7 +833,7 @@ export class TextFileModel extends BaseTextEditorModel {
         this.markedDirtyForExtensions = false;
         this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.doc.setLanguage(this.resolveLanguageId(newPath));
-        this.markSaved(savedVersion, savedEol);
+        this.markSaved(savedAlternativeVersion, savedEol);
         this.setDiskConflict(false);
         this.setOrphaned(false);
         this.startWatchingFile(newPath);
