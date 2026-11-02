@@ -10,10 +10,7 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
 /** No-op stubs outside the `vscode.d.ts` surface: a new `register*Provider` must go either into OWNED_MEMBERS or here. */
-const NOOP_PROVIDERS = [
-    "registerInlineValuesProvider",
-    "registerSelectionRangeProvider",
-];
+const NOOP_PROVIDERS = ["registerInlineValuesProvider", "registerSelectionRangeProvider"];
 
 function build(): ReturnType<typeof buildVscodeNamespace> & { stub: ReturnType<typeof makeStubRpc> } {
     const stub = makeStubRpc();
