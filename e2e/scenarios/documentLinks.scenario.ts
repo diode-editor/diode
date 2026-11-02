@@ -50,6 +50,7 @@ export default defineScenario({
     userKeybindings: [{ key: "ctrl+alt+o", command: "editor.action.openLink" }],
     async prepare() {
         writeFileSync(textFile, `see ${URL} for more\nread DOCS here\nno link on this line\n`);
+        writeFileSync(join(sampleDir, "second.txt"), "DOCS in the second file\n");
     },
     async run(editor) {
         await editor.waitForReady();
@@ -71,5 +72,15 @@ export default defineScenario({
         await editor.click(docs.x + 1, docs.y, { ctrlKey: true });
         await editor.waitForText((t) => t.includes(RESOLVED));
         await editor.capture("ctrl-click-resolved-the-providers-link");
+
+        // A file opened when the provider is already there: no edit, the provider has to be asked on open.
+        await editor.sendKey("Ctrl+P");
+        await editor.waitForNode("#quickInput");
+        await editor.sendText("second.txt");
+        await editor.waitForText((t) => t.includes("second.txt"));
+        await editor.sendKey("Enter");
+        await editor.waitForText((t) => t.includes("in the second file"));
+        await waitForUnderline(editor, "DOCS");
+        await editor.capture("second-file-has-the-providers-link");
     },
 });

@@ -46,6 +46,8 @@ export const MAIN_TF = [
     "",
 ].join("\n");
 
+export const TF_SAMPLE_DIR = path.resolve(import.meta.dirname, "..", "..", "e2e", "fixtures", "tfSample");
+
 export interface IInstalledTerraform {
     readonly registration: IExtensionRegistration;
     dispose(): void;

@@ -285,10 +285,10 @@ eval-режим node, иначе расширение молча не линти
 4. Конструкторы панелей до старта LS — `authentication.*` и `createTreeView`/`registerTreeDataProvider`
    (null-объекты — [Extensions.md](Extensions.md)).
 
-Классы-значения, которые бандл использует, но в рантайме их нет (`DocumentSymbol`,
-`CallHierarchy*Call`, `InlineValue*`, …; `SelectionRange` и `Color*` уже есть), для активации не нужны — их зовут конвертеры
-languageclient только при вызове провайдера, а соответствующие `register*Provider` у нас no-op;
-понадобятся вместе с провайдерами. Автодополнение по схеме AWS работает из вшитых схем без terraform
+Классы-значения `DocumentSymbol` и `CallHierarchy*Call` теперь есть в рантайме вместе со швами их
+провайдеров: `@` проходит через конвертер languageclient и не оставляет ошибок клиента в OUTPUT.
+`InlineValue*` в рантайме по-прежнему нет: активации это не мешает, конвертеры зовут их только при вызове
+провайдера, а `registerInlineValuesProvider` у нас no-op. Автодополнение по схеме AWS работает из вшитых схем без terraform
 CLI и `terraform init`; форматирование требует terraform в PATH (`Terraform (CLI) is required`) —
 окружение, а не Diode. Запись магазина гейтится `engines.diode >=0.7.3`.
 
@@ -301,6 +301,25 @@ CLI и `terraform init`; форматирование требует terraform �
 vsix, в VS Code то же. Снять линзы без перезагрузки можно настройкой ядра `editor.codeLens: false`.
 `inlayHintProvider` `terraform-ls` не объявляет, провайдер inlay hints не регистрируется. Тесты —
 `extensionHost.terraformLsp.codeLens.test.ts`, сценарий — `terraform-code-lens.scenario.ts`.
+
+**Навигация и символы** (terraform-ls 0.39; тест `extensionHost.terraformLsp.navigation.test.ts`, сценарий
+`terraform-symbols`). Правка ядра одна: `LinkDetector` спрашивал провайдеров прямо из конструктора, раньше
+синхронизации документа, и файл, открытый после регистрации провайдера, оставался без ссылок до первой правки.
+
+- **Declaration = Definition.** На `var.region` оба запроса дают один и тот же блок `variable "region"`;
+  прямой опрос сервера показал одинаковые ответы и с `linkSupport`, и без него. Различие было бы новым
+  поведением сервера — тест это заметит.
+- **Ссылки — только на метку блока `provider`**, ведут на `registry.terraform.io/providers/<адрес>/<версия>/docs`.
+  На метке `resource` ссылки нет: так отвечает сам сервер, ответ проверен в обход расширения.
+- **`@`** — блоки верхнего уровня с именами вида `resource "aws_instance" "web"` (`SymbolKind.Class`),
+  атрибуты вложены; `containerName` у верхних блоков пуст, у атрибута это имя его блока.
+- **`#`** находит блоки открытого каталога (в том числе из неоткрытого файла) и вызванных модулей; другие
+  каталоги рабочей области сервер обнаруживает, но не разбирает, и в `#` их нет. Поэтому
+  `indexing.ignorePaths` на выдачу `#` не влияет: настройка доходит до обходчика (в логе сервера
+  `skipping walk due to dir being excluded`), а каталог вызванного модуля индексируется и из игнора.
+- **Нет на сервере:** implementation, type definition, document highlight, linked editing, format on type,
+  call и type hierarchy. Провайдеры не регистрируются, пунктов в контекстном меню `.tf` нет; тест фиксирует
+  матрицу, чтобы обновление сервера её заметило.
 
 ## Форматирование: `esbenp.prettier-vscode`
 
