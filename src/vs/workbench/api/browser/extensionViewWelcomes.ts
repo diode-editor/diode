@@ -1,6 +1,7 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
 import { equals } from "../../../base/common/arrays.ts";
+import { assertReturnsDefined } from "../../../base/common/assert.ts";
 import type { Event } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
@@ -126,8 +127,8 @@ export class ExtensionViewWelcomes {
     /** Upstream `openerService.open(href, { allowCommands: true })`: commands, and web links outside. */
     private open(target: IViewWelcomeTarget): void {
         if ("command" in target) {
-            // Stryker disable next-line ArrayDeclaration: targets here come from `targetOf`, which always sets `args`
-            this.commands.execute(target.command, ...(target.args ?? []));
+            // Targets here come from `targetOf`, which always sets `args`.
+            this.commands.execute(target.command, ...assertReturnsDefined(target.args));
             return;
         }
         if (/^https?:/i.test(target.url)) void this.opener.open(target.url);

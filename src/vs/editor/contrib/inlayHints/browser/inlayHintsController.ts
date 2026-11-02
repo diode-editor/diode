@@ -1,5 +1,6 @@
 import { segmentGraphemes } from "@tuidom/core/common/segmentGraphemes";
 
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
@@ -334,9 +335,8 @@ export class InlayHintsController extends Disposable {
         let line = -1;
         let lineLength = 0;
         for (const decorator of this.decorators) {
-            const range = this.model.document.getDecorationRange(decorator.id);
-            // Stryker disable next-line ConditionalExpression: our ids live until we remove them; `null` is only for the type
-            if (range === null) continue;
+            // Our ids live until we remove them.
+            const range = assertReturnsDefined(this.model.document.getDecorationRange(decorator.id));
             if (range.start.line !== line) {
                 line = range.start.line;
                 lineLength = 0;

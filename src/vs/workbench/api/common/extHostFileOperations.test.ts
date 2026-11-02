@@ -68,6 +68,19 @@ describe("ExtHostFileOperations", () => {
         expect(log).toEqual([`rename ${OLD} ${NEW}`, `create ${NEW}`, `create ${NEW}`, `delete ${OLD}`]);
     });
 
+    it("a move pair without a source (the wire allows one, the host never sends it) still reaches the listener, with the target as both uris", async () => {
+        const { host, operations } = setup();
+        const log: string[] = [];
+        operations.onDidRenameFiles((e) =>
+            log.push(`rename ${e.files[0].oldUri.toString()} ${e.files[0].newUri.toString()}`),
+        );
+
+        host.notify("workspace.didRunFileOperation", { operation: "move", files: [{ target: NEW }] });
+        await flush();
+
+        expect(log).toEqual([`rename ${NEW} ${NEW}`]);
+    });
+
     it("[api:workspace.onWillRenameFiles] [api:workspace.onWillCreateFiles] [api:workspace.onWillDeleteFiles] maps the operation to its will event with all the files", async () => {
         const { host, operations } = setup();
         const log: string[] = [];

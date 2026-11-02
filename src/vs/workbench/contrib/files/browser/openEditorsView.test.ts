@@ -196,6 +196,16 @@ describe("OpenEditorsView", () => {
         expect(await texts()).toEqual(["a.ts src", "b.ts", "c.ts src/lib"]);
     });
 
+    it("the component's view is the scrolling list the section mounts", async () => {
+        open(groups.activeGroup, "a.ts");
+        show();
+        await screen();
+
+        expect(view.view.id).toBe("openEditorsView");
+        expect(app.querySelector("#openEditorsView")).toBe(view.view);
+        expect(view.view.querySelector("#openEditorsList")).toBe(list());
+    });
+
     it("a modified editor keeps ● at the row's end; saving it removes the dot", async () => {
         const [a] = open(groups.activeGroup, "a.ts", "b.ts");
         show();

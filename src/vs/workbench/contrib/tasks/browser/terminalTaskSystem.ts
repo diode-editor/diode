@@ -12,6 +12,7 @@ import type { ViewsService } from "../../../browser/parts/views/viewsService.ts"
 import { PROBLEMS_VIEW_ID } from "../../markers/browser/problemsComponent.ts";
 import type { TerminalEditorService } from "../../terminal/browser/terminalEditorService.ts";
 import {
+    type ITerminalCreateOptions,
     type ITerminalInstance,
     TERMINAL_VIEW_ID,
     type TerminalExitReason,
@@ -97,18 +98,42 @@ interface IActiveTask {
     readonly problems: IProblemCollection | undefined;
 }
 
-interface ILaunch {
-    readonly kind: TerminalKind;
+interface ILaunchBase {
     readonly name: string;
-    readonly shellPath?: string;
-    readonly shellArgs?: readonly string[];
-    readonly cwd?: string;
-    readonly env?: Readonly<Record<string, string>>;
     readonly message?: string;
     readonly waitOnExit: TerminalWaitOnExit;
     readonly resolvedDefinition: Readonly<Record<string, unknown>>;
     /** Resolved, with task variables substituted in `filePrefix`. */
     readonly matchers: readonly IProblemMatcher[];
+}
+
+/** The extension host runs the process in a pty of its own. */
+interface ICustomLaunch extends ILaunchBase {
+    readonly kind: "custom";
+}
+
+interface IProcessLaunch extends ILaunchBase {
+    readonly kind: "process";
+    readonly shellPath: string;
+    readonly shellArgs: readonly string[];
+    readonly cwd?: string;
+    readonly env?: Readonly<Record<string, string>>;
+}
+
+type ILaunch = ICustomLaunch | IProcessLaunch;
+
+/** `TerminalService` reads an undefined-valued key as absent; the spreads are for types only. */
+function processOptionsOf(
+    launch: IProcessLaunch,
+): Pick<ITerminalCreateOptions, "shellPath" | "shellArgs" | "cwd" | "env"> {
+    return {
+        shellPath: launch.shellPath,
+        shellArgs: launch.shellArgs,
+        // Stryker disable ConditionalExpression: equivalent, see above
+        ...(launch.cwd !== undefined ? { cwd: launch.cwd } : {}),
+        ...(launch.env !== undefined ? { env: launch.env } : {}),
+        // Stryker restore ConditionalExpression
+    };
 }
 
 /** Where task problems go; `warn` writes to the `Tasks` log. */
@@ -320,14 +345,9 @@ export class TerminalTaskSystem extends Disposable {
             // An idle terminal is always relaunched: a removed one is already forgotten (`forgetTerminal`).
             const relaunched = this.terminalService.relaunchInstance(reuse.id, {
                 name: launch.name,
-                // Stryker disable ConditionalExpression: TerminalService reads an undefined-valued key as absent;
-                // the spreads are for types only
-                ...(launch.shellPath !== undefined ? { shellPath: launch.shellPath } : {}),
-                ...(launch.shellArgs !== undefined ? { shellArgs: launch.shellArgs } : {}),
-                ...(launch.cwd !== undefined ? { cwd: launch.cwd } : {}),
-                ...(launch.env !== undefined ? { env: launch.env } : {}),
+                ...(launch.kind === "process" ? processOptionsOf(launch) : {}),
+                // Stryker disable next-line ConditionalExpression: equivalent, see `processOptionsOf`
                 ...(launch.message !== undefined ? { message: launch.message } : {}),
-                // Stryker restore ConditionalExpression
                 waitOnExit: launch.waitOnExit,
                 clear,
             });
@@ -383,14 +403,9 @@ export class TerminalTaskSystem extends Disposable {
         }
         return this.terminalService.createInstance({
             name: launch.name,
-            // Stryker disable ConditionalExpression: TerminalService reads an undefined-valued key as absent;
-            // the spreads are for types only
-            ...(launch.shellPath !== undefined ? { shellPath: launch.shellPath } : {}),
-            ...(launch.shellArgs !== undefined ? { shellArgs: launch.shellArgs } : {}),
-            ...(launch.cwd !== undefined ? { cwd: launch.cwd } : {}),
-            ...(launch.env !== undefined ? { env: launch.env } : {}),
+            ...processOptionsOf(launch),
+            // Stryker disable next-line ConditionalExpression: equivalent, see `processOptionsOf`
             ...(launch.message !== undefined ? { message: launch.message } : {}),
-            // Stryker restore ConditionalExpression
             waitOnExit: launch.waitOnExit,
         });
     }
@@ -433,7 +448,8 @@ export class TerminalTaskSystem extends Disposable {
         const { task, terminalId } = active;
         const { reveal, revealProblems } = task.command.presentation;
         const foundProblems = collector !== undefined && collector.numberOfMatches > 0;
-        const foundErrors = foundProblems && (collector.maxMarkerSeverity ?? 0) >= MarkerSeverity.Error;
+        // Error is the highest severity: "at least an error" is "an error".
+        const foundErrors = foundProblems && collector.maxMarkerSeverity === MarkerSeverity.Error;
         if (revealProblems === "onProblem" && foundProblems) {
             this.views.openView(PROBLEMS_VIEW_ID);
         } else if (reason === undefined && reveal === "silent" && (exitCode !== 0 || foundErrors)) {
@@ -504,7 +520,8 @@ export class TerminalTaskSystem extends Disposable {
         const options = command.options ?? {};
         const cwd = this.cwdOf(task, options.cwd === undefined ? undefined : resolve(options.cwd));
         const env = options.env === undefined ? undefined : resolveRecord(options.env, resolve);
-        const commandName = resolveCommandString(command.name ?? "", resolve);
+        const unresolvedCommand = command.name ?? "";
+        const commandName = resolveCommandString(unresolvedCommand, resolve);
         const args = (command.args ?? []).map((arg) => resolveCommandString(arg, resolve));
         const base = {
             kind: "process" as const,
@@ -534,8 +551,7 @@ export class TerminalTaskSystem extends Disposable {
             shell.executable,
             options.shell,
             commandName,
-            // Stryker disable next-line StringLiteral: equivalent: without a command the resolved string is empty, and any source with spaces leaves it as is
-            command.name ?? "",
+            unresolvedCommand,
             args,
         );
         return {

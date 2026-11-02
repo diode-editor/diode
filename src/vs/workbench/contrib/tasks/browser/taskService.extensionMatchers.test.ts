@@ -110,6 +110,23 @@ describe("TaskService — matchers contributed by extensions", () => {
         h.dispose();
     });
 
+    it("a broken contributed pattern is reported under its extension's id", () => {
+        const h = buildTaskServiceHarness({ matcherExtensions: null });
+        const pattern = { name: "p", regexp: "(" };
+        h.registerMatchers([
+            {
+                id: "pub.broken",
+                manifest: { contributes: { problemPatterns: [pattern] } } as unknown as IExtensionManifest,
+            },
+        ]);
+        expect(h.matcherProblems).toStrictEqual([
+            "pub.broken: Error: The string ( is not a valid regular expression.\n",
+            "pub.broken: Invalid problem pattern. The pattern will be ignored.",
+            `pub.broken: ${JSON.stringify(pattern, undefined, 4)}`,
+        ]);
+        h.dispose();
+    });
+
     it("a task run before the extensions' matchers are registered waits for them", async () => {
         const h = buildTaskServiceHarness({
             matcherExtensions: null,

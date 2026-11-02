@@ -45,8 +45,8 @@ class DocumentColorComputerTarget implements IDocumentColorComputerTarget {
         return { line: this.from + low, character: offset - this.lineStarts[low] };
     }
 
-    public findMatches(regex: RegExp): RegExpMatchArray[] {
-        const matches: RegExpMatchArray[] = [];
+    public findMatches(regex: RegExp): RegExpExecArray[] {
+        const matches: RegExpExecArray[] = [];
         for (let i = 0; i < this.lineStarts.length; i++) {
             for (const match of this.document.getLineContent(this.from + i).matchAll(regex)) {
                 match.index += this.lineStarts[i];

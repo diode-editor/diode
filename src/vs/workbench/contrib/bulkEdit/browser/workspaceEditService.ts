@@ -39,6 +39,12 @@ import {
 import type { BulkEdit, ResourceFileEdit, WorkspaceFileEdit } from "../common/workspaceEdit.ts";
 import { isResourceFileEdit } from "../common/workspaceEdit.ts";
 
+/** What a file operation did, for the "did" event, and the pair its undo reports (upstream's reversed operation). */
+interface IAppliedFile {
+    readonly pair: IFileOperationPair;
+    readonly reversed: IFileOperationPair;
+}
+
 interface ReversibleOp {
     undo(): void | Promise<void>;
     redo(): void | Promise<void>;
@@ -294,12 +300,12 @@ export class WorkspaceEditService {
         if (planned.length > 0) await this.runParticipants(operation, planned, step);
 
         const members: ReversibleOp[] = [];
-        const done: IFileOperationPair[] = [];
+        const done: IAppliedFile[] = [];
         await this.oneAtATime(async () => {
             for (const edit of group) {
                 try {
-                    const pair = await this.applyOne(edit, members, step.resources, step.willDelete);
-                    if (pair !== null) done.push(pair);
+                    const applied = await this.applyOne(edit, members, step.resources, step.willDelete);
+                    if (applied !== null) done.push(applied);
                 } catch (error) {
                     // A failure of one entry doesn't abort the rest (as in pasteFiles).
                     if (step.tolerant) continue;
@@ -310,7 +316,12 @@ export class WorkspaceEditService {
             }
         });
         if (members.length > 0) step.ops.push(this.reportingOp(operation, done, members));
-        if (done.length > 0) this.fileOperationParticipant.didRun(operation, done);
+        if (done.length > 0) {
+            this.fileOperationParticipant.didRun(
+                operation,
+                done.map((applied) => applied.pair),
+            );
+        }
     }
 
     /**
@@ -326,16 +337,18 @@ export class WorkspaceEditService {
     /** Undo and redo run the group as one and report it: upstream's reversed operation also fires "did". */
     private reportingOp(
         operation: FileOperationKind,
-        files: readonly IFileOperationPair[],
+        done: readonly IAppliedFile[],
         members: readonly ReversibleOp[],
     ): ReversibleOp {
-        const reversed = reverseOperation(operation, files);
+        const files = done.map((applied) => applied.pair);
+        const reversed = done.map((applied) => applied.reversed);
+        const reversedOperation = reverseOperation(operation);
         return {
             // One kind in a group: all of its members ask, or none does.
             confirmBeforeUndo: members[0].confirmBeforeUndo,
             undo: async () => {
                 for (let i = members.length - 1; i >= 0; i--) await members[i].undo();
-                this.fileOperationParticipant.didRun(reversed.operation, reversed.files);
+                this.fileOperationParticipant.didRun(reversedOperation, reversed);
             },
             redo: async () => {
                 for (const op of members) await op.redo();
@@ -524,7 +537,7 @@ export class WorkspaceEditService {
         ops: ReversibleOp[],
         resources: string[],
         willDelete?: (target: string) => void,
-    ): Promise<IFileOperationPair | null> {
+    ): Promise<IAppliedFile | null> {
         const files = this.files;
         // Guard against a value that bypassed the types (kind is typed as string on purpose,
         // so the check isn't considered "always true" and stays meaningful at runtime).
@@ -547,7 +560,7 @@ export class WorkspaceEditService {
                     current = await moveInto(files, current, toDir);
                 },
             });
-            return moved ? pairOf(current, from) : null;
+            return moved ? { pair: pairOf(current, from), reversed: pairOf(from, current) } : null;
         } else if (edit.kind === "rename") {
             // `to` is an exact path, not a directory. Only `overwrite` may replace what is there, the overwritten
             // contents are restored on undo. Without it, a target taken since validation (participants may have run
@@ -571,7 +584,7 @@ export class WorkspaceEditService {
                     current = to;
                 },
             });
-            return pairOf(to, from);
+            return { pair: pairOf(to, from), reversed: pairOf(from, to) };
         } else if (edit.kind === "copy") {
             const from = edit.from;
             const toDir = edit.to;
@@ -585,7 +598,8 @@ export class WorkspaceEditService {
                     created = await copyInto(files, from, toDir);
                 },
             });
-            return pairOf(firstCopy, from);
+            // Undoing a copy deletes the copy.
+            return { pair: pairOf(firstCopy, from), reversed: pairOf(firstCopy) };
         } else if (edit.kind === "delete") {
             const from = edit.from;
             resources.push(from);
@@ -612,7 +626,7 @@ export class WorkspaceEditService {
                 willDelete?.(from);
                 await removeIfExists(files, from);
             }
-            return pairOf(from);
+            return { pair: pairOf(from), reversed: pairOf(from) };
         } else {
             const to = edit.to;
             // Collision with an explicit name is an error (per-edit try/catch → no-op); the prompt's validation guards against it.
@@ -643,7 +657,7 @@ export class WorkspaceEditService {
                 },
                 redo: doCreate,
             });
-            return pairOf(to);
+            return { pair: pairOf(to), reversed: pairOf(to) };
         }
     }
 }
@@ -693,19 +707,10 @@ function fileGroupAt(plan: readonly PlanEntry[], start: number): ResourceFileEdi
     return groupFileEdits(entries)[0];
 }
 
-/** Upstream's undo of a create is a delete, and so on. */
-function reverseOperation(
-    operation: FileOperationKind,
-    files: readonly IFileOperationPair[],
-): { readonly operation: FileOperationKind; readonly files: readonly IFileOperationPair[] } {
-    if (operation === "move") {
-        return {
-            operation,
-            files: files.map((pair) => ({ source: pair.target, target: pair.source ?? pair.target })),
-        };
-    }
-    const targets = files.map((pair) => ({ target: pair.target }));
-    return { operation: operation === "delete" ? "create" : "delete", files: targets };
+/** Upstream's undo of a create is a delete, and so on; the pairs come with the operation ({@link IAppliedFile}). */
+function reverseOperation(operation: FileOperationKind): FileOperationKind {
+    if (operation === "move") return "move";
+    return operation === "delete" ? "create" : "delete";
 }
 
 /**

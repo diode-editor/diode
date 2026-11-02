@@ -84,6 +84,8 @@ function fakeActions(
         uninstall?: IExtensionOperationResult;
         /** `Error` rejects. */
         pick?: string | undefined | Error;
+        /** Rejects with the value as is — a registry layer that throws something other than an `Error`. */
+        pickRejectsWith?: unknown;
         setAutoUpdate?: IExtensionOperationResult;
     } = {},
 ): IExtensionPageActions & { calls: string[]; setAutoUpdateSetting: (enabled: boolean) => void } {
@@ -108,6 +110,8 @@ function fakeActions(
         },
         pickVersion: (id) => {
             calls.push(`pick:${id}`);
+            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the point of the test: the registry layer rejects with a non-Error value
+            if (results.pickRejectsWith !== undefined) return Promise.reject(results.pickRejectsWith);
             return results.pick instanceof Error ? Promise.reject(results.pick) : Promise.resolve(results.pick);
         },
         uninstall: (id) => {
@@ -457,6 +461,17 @@ describe("ExtensionEditorPane", () => {
 
             expect(headerLines(pane)).toContain("registry offline");
             expect(actions.calls).toEqual(["pick:acme.tools"]);
+        });
+
+        it("a failure that is not an Error is shown as its text", async () => {
+            const { service } = fakeService([entry()]);
+            const actions = fakeActions({ pickRejectsWith: "registry offline" });
+            const pane = new ExtensionEditorPane(service, actions, entry(), META, null);
+            mount(pane);
+
+            await press(pane, "installAnotherVersion");
+
+            expect(headerLines(pane)).toContain("registry offline");
         });
 
         it("US-1.13: a failed install of the picked version stays on the page, nothing to reload", async () => {

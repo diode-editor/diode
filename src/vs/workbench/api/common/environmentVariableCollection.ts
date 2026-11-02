@@ -70,12 +70,12 @@ function toWireScope(scope: vscode.EnvironmentVariableScope | undefined): IEnvir
         : { workspaceFolder: { uri: folder.uri.toString(), name: folder.name, index: folder.index } };
 }
 
-/** Like upstream's `convertMutator`. */
+/** Like upstream's `convertMutator`. A copy of the options: the extension must not edit the stored mutator. */
 function toApiMutator(mutator: IEnvironmentVariableMutator): vscode.EnvironmentVariableMutator {
     return {
         type: mutator.type as unknown as vscode.EnvironmentVariableMutatorType,
         value: mutator.value,
-        options: mutator.options ?? {},
+        options: { ...mutator.options },
     };
 }
 

@@ -2,7 +2,6 @@
     "src/vs/base/node/isSea.ts": 1,
     "src/vs/diode/workbenchStartup.ts": 1,
     "src/vs/editor/browser/textViewRendering.ts": 2,
-    "src/vs/editor/common/model/diskTextBuffer.ts": 1,
     "src/vs/editor/common/model/encoding.ts": 1,
     "src/vs/editor/common/model/encodingStream.ts": 1,
     "src/vs/editor/common/model/textDocument.ts": 1,
@@ -12,13 +11,11 @@
     "src/vs/editor/contrib/colorPicker/browser/colorDetector.ts": 1,
     "src/vs/editor/contrib/comment/lineComments.ts": 1,
     "src/vs/editor/contrib/find/backgroundFind.ts": 1,
-    "src/vs/editor/contrib/inlayHints/browser/inlayHintsController.ts": 1,
     "src/vs/editor/contrib/smartSelect/wordSelections.ts": 1,
     "src/vs/platform/commands/common/commandRegistry.ts": 1,
     "src/vs/platform/configuration/common/inMemoryConfigurationService.ts": 1,
     "src/vs/platform/extensionManagement/node/extensionInstaller.ts": 1,
     "src/vs/platform/files/node/chokidarFileWatcher.ts": 1,
-    "src/vs/platform/userDataProfile/node/userDataProfilesService.ts": 1,
     "src/vs/workbench/api/browser/extensionTreeView.ts": 1,
     "src/vs/workbench/api/browser/notificationExtensionAdapter.ts": 1,
     "src/vs/workbench/api/common/taskIdentity.ts": 1,
@@ -45,7 +42,6 @@
     "src/vs/workbench/contrib/search/browser/searchComponent.ts": 1,
     "src/vs/workbench/contrib/suggest/browser/completionService.ts": 2,
     "src/vs/workbench/contrib/tasks/browser/taskService.ts": 1,
-    "src/vs/workbench/contrib/tasks/common/problemMatcher.ts": 1,
     "src/vs/workbench/contrib/terminal/browser/terminalEditorService.ts": 2,
     "src/vs/workbench/contrib/terminal/browser/terminalPanelComponent.ts": 1,
     "src/vs/workbench/services/editor/browser/editorCloseHandler.ts": 1,
@@ -62,5 +58,5 @@
     "src/vs/workbench/services/history/browser/historyService.ts": 2,
     "src/vs/workbench/services/keybinding/node/keybindingsEditorService.ts": 1,
     "src/vs/workbench/services/keybinding/node/keybindingsFileEditor.ts": 2,
-    "src/vs/workbench/services/textfile/common/textFileModel.ts": 5
+    "src/vs/workbench/services/textfile/common/textFileModel.ts": 1
 }

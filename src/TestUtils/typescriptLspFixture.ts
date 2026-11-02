@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { assertReturnsDefined } from "../vs/base/common/assert.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import {
@@ -24,7 +25,6 @@ const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 const LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".js") ? "javascript" : "typescript"),
-    getLanguageDisplayName: () => undefined,
 };
 
 type ContributedManifest = IExtensionRegistration["manifest"] & {
@@ -89,8 +89,7 @@ export async function openInTypescriptLsp(
     });
     harness.writeFile("tsconfig.json", JSON.stringify({ compilerOptions: { strict: true, allowJs: true } }));
     harness.group.openFile(harness.writeFile(fileName, source));
-    const editor = harness.group.getActiveEditor();
-    if (editor === null) throw new Error("no active editor");
+    const editor = assertReturnsDefined(harness.group.getActiveEditor());
     await harness.host.activateByEvent(fileName.endsWith(".js") ? "onLanguage:javascript" : "onLanguage:typescript");
     const frame = (): string => {
         harness.app.render();

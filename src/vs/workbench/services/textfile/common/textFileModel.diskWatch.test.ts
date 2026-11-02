@@ -174,6 +174,26 @@ describe("TextFileModel — external change detection", () => {
             controller.dispose();
         });
 
+        it("a rewrite that keeps the mtime but changes the size is a change too: a clean buffer reloads", () => {
+            const watcher = new FakeFileWatcher();
+            const controller = createEditorPane();
+            controller.model.fileWatcher = watcher;
+            // Whole seconds: utimes restores them exactly, so only the size tells the rewrite apart (the save
+            // path would still catch it by the write's etag, the watcher has only the stat).
+            const fixed = new Date(2020, 0, 1);
+            const fp = writeFile("size.txt", "v1 and some more\n");
+            fs.utimesSync(fp, fixed, fixed);
+            controller.openFile(Uri.file(fp));
+
+            fs.writeFileSync(fp, "v2\n", "utf-8");
+            fs.utimesSync(fp, fixed, fixed);
+            watcher.fire(fp);
+
+            expect(controller.getText()).toBe("v2\n");
+            expect(controller.hasDiskConflict).toBe(false);
+            controller.dispose();
+        });
+
         it("ignores its own writes (no spurious reload/conflict)", async () => {
             const watcher = new FakeFileWatcher();
             const controller = createEditorPane();

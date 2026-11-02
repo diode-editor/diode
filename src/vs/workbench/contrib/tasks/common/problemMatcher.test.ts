@@ -6,6 +6,7 @@ import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 
 import {
     createLineMatcher,
+    endOfLine,
     getBuiltinProblemMatcher,
     getResource,
     type IProblemMatch,
@@ -697,6 +698,23 @@ describe("line matchers — edges", () => {
 
     it("a single-line matcher never loops", () => {
         expect(createLineMatcher(simple(), NO_FILES).next("/a:1:2 m")).toBeNull();
+    });
+
+    it("a loop line that matches but captures no location ends the loop", async () => {
+        const matcher = simple({
+            pattern: [
+                { regexp: /^F (.*)$/, kind: "location", file: 1 },
+                { regexp: /^L (\d+)? ?(.*)$/, line: 1, message: 2, loop: true },
+            ],
+        });
+        expect(await matchLines(matcher, ["F /a", "L 1 one", "L  two", "L 3 three"])).toStrictEqual([
+            { resource: "/a", severity: MarkerSeverity.Error, range: [0, 0, 0, WHOLE_LINE], message: "one" },
+        ]);
+    });
+
+    it("multi-line messages are joined with the platform's line break", () => {
+        expect(endOfLine("win32")).toBe("\r\n");
+        expect(endOfLine("linux")).toBe("\n");
     });
 });
 

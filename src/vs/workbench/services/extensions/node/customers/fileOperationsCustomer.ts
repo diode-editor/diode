@@ -21,10 +21,6 @@ export class FileOperationsCustomer implements IExtensionHostCustomer {
 
     public constructor(private readonly logger: ILogger | undefined) {}
 
-    public pushInitialState(): void {
-        /* the subprocess starts without listeners */
-    }
-
     /** A timeout or an RPC failure is "no edits": the operation goes on. */
     public async willRunFileOperation(params: IWireFileOperationParams): Promise<readonly IWireWorkspaceEditOp[]> {
         const live = this.live;
