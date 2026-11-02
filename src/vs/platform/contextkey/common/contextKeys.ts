@@ -35,6 +35,18 @@ export interface ContextKeyTypes {
     editorLangId: string;
     /** Upstream name of our {@link textInputFocus}, kept for extension `when` clauses. */
     editorTextFocus: boolean;
+    /**
+     * Upstream `ResourceContextKey` of the editor group: the active editor's resource while the focus is in the
+     * editor area, unset elsewhere. Extension keybindings and editor menus gate on them (`resourceLangId == cpp`).
+     */
+    resource: string;
+    resourceScheme: string;
+    resourceFilename: string;
+    resourceDirname: string;
+    resourcePath: string;
+    resourceLangId: string;
+    resourceExtname: string;
+    resourceSet: boolean;
 
     listFocus: boolean;
 

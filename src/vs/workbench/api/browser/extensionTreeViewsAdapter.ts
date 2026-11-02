@@ -160,6 +160,10 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
     public async reveal(request: IWireTreeViewReveal): Promise<void> {
         const registered = this.trees.get(request.viewId);
         if (registered === undefined) return;
+        // Context key changes reach the views' `when` a microtask later. Upstream applies them at once, so a
+        // `setContext` sent just before the reveal (clangd's AST view) has shown the view by now; one turn
+        // lets the queued flush run first.
+        await Promise.resolve();
         // A view that is not registered right now (its `when` is false) is not opened; showing a section reaches
         // the tree through the view events.
         this.services.views.openView(request.viewId, request.focus);

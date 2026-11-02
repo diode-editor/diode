@@ -134,6 +134,7 @@ import { WindowTitleContributionDIToken } from "./browser/parts/titlebar/windowT
 import { ViewProgressContributionDIToken } from "./browser/parts/views/viewProgressContribution.ts";
 import { ViewsServiceDIToken } from "./browser/parts/views/viewsService.ts";
 import { ViewTitleActionsContributionDIToken } from "./browser/parts/views/viewTitleActionsContribution.ts";
+import { ResourceContextKeysDIToken } from "./browser/resourceContextKeys.ts";
 import { SetContextCommandContributionDIToken } from "./browser/setContextCommandContribution.ts";
 import { UndoRefusalNotificationContributionDIToken } from "./browser/undoRefusalNotificationContribution.ts";
 import type { IWorkbenchContributionRegistration } from "./common/iWorkbenchContribution.ts";
@@ -525,6 +526,7 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     TabSwitcherComponentDIToken,
     QuickOpenServiceDIToken,
     LanguageFeatureContextKeysDIToken,
+    ResourceContextKeysDIToken,
     // Not keys, but the active input field for editing commands — in the same poll.
     InputWidgetServiceDIToken,
 ];
