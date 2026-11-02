@@ -43,6 +43,7 @@ import {
     serializeDocumentColors,
     serializeDocumentHighlights,
     serializeDocumentLinks,
+    serializeDocumentSymbols,
     serializeFoldingRange,
     serializeHoverContents,
     serializeInlayHints,
@@ -91,6 +92,7 @@ import type {
     IWireDocumentLinkList,
     IWireDocumentLinksParams,
     IWireDocumentSemanticTokensParams,
+    IWireDocumentSymbolParams,
     IWireEditorEdit,
     IWireFoldingParams,
     IWireForeignMarkers,
@@ -142,6 +144,11 @@ export interface IInlineCompletionRegistration {
 export interface IFoldingRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.FoldingRangeProvider;
+}
+
+export interface IDocumentSymbolRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.DocumentSymbolProvider;
 }
 
 export interface IInlayHintsRegistration {
@@ -442,6 +449,7 @@ export function createLanguagesNamespace(
     const documentLinkProviders = new Map<number, Owned<IDocumentLinkRegistration>>();
     const codeActionProviders = new Map<number, Owned<ICodeActionRegistration>>();
     const foldingProviders = new Map<number, Owned<IFoldingRegistration>>();
+    const documentSymbolProviders = new Map<number, Owned<IDocumentSymbolRegistration>>();
     const inlineCompletionProviders = new Map<number, Owned<IInlineCompletionRegistration>>();
     const renameProviders = new Map<number, Owned<IRenameRegistration>>();
     const selectionRangeProviders = new Map<number, Owned<ISelectionRangeRegistration>>();
@@ -1550,6 +1558,23 @@ export function createLanguagesNamespace(
         return results;
     });
 
+    rpc.handleRequest("languages.provideDocumentSymbols", async (params, cancellation) => {
+        const p: Received<IWireDocumentSymbolParams> = params;
+        const reg = documentSymbolProviders.get(p.handle ?? -1);
+        if (reg === undefined) return [];
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return [];
+        try {
+            const result = await callWithVscodeToken(cancellation, (token) =>
+                reg.provider.provideDocumentSymbols(doc, token),
+            );
+            return serializeDocumentSymbols(result);
+        } catch (err) {
+            reportProviderFailure("provideDocumentSymbols", err, reg.owner);
+            return [];
+        }
+    });
+
     rpc.handleRequest(
         "languages.provideDocumentSemanticTokens",
         async (params, cancellation): Promise<WireSemanticTokensResult | null> => {
@@ -1735,6 +1760,12 @@ export function createLanguagesNamespace(
             selector: vscode.DocumentSelector,
             provider: vscode.FoldingRangeProvider,
         ): vscode.Disposable => registerByHandle(foldingProviders, "folding", selector, { selector, provider }),
+        // Metadata (the outline label) is accepted and ignored: there is no outline yet.
+        registerDocumentSymbolProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.DocumentSymbolProvider,
+        ): vscode.Disposable =>
+            registerByHandle(documentSymbolProviders, "documentSymbol", selector, { selector, provider }),
         registerDefinitionProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.DefinitionProvider,
@@ -1812,7 +1843,6 @@ export function createLanguagesNamespace(
             provider: vscode.DocumentHighlightProvider,
         ): vscode.Disposable =>
             registerByHandle(documentHighlightProviders, "documentHighlight", selector, { selector, provider }),
-        registerDocumentSymbolProvider: registerNoopProvider,
         registerWorkspaceSymbolProvider: registerNoopProvider,
         registerCodeLensProvider: (
             selector: vscode.DocumentSelector,

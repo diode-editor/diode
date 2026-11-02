@@ -373,6 +373,7 @@ describe("Workbench — menu bar wiring", () => {
             "Next Used Editor",
             "Alternate Editor",
             "Previous Used Editor",
+            "Go to Symbol in Editor...",
         ]);
     });
 

@@ -11,6 +11,7 @@ import type {
     ICoreResolvedCompletion,
 } from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
+import type { ICoreDocumentSymbol } from "../../../editor/common/languages/iDocumentSymbolSource.ts";
 import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
@@ -85,6 +86,7 @@ import type {
     IWireDocumentLinksParams,
     IWireDocumentSemanticTokensParams,
     IWireDocumentStateChanged,
+    IWireDocumentSymbolParams,
     IWireDocumentSyncSnapshot,
     IWireEditorLayout,
     IWireEnvInitialize,
@@ -220,6 +222,7 @@ export interface IHostToSubprocess {
             ICoreInlineCompletionItem[][],
         ];
         readonly "languages.provideFoldingRanges": readonly [IWireFoldingParams, WireFoldingRange[][]];
+        readonly "languages.provideDocumentSymbols": readonly [IWireDocumentSymbolParams, ICoreDocumentSymbol[]];
         readonly "languages.provideDocumentSemanticTokens": readonly [
             IWireDocumentSemanticTokensParams,
             WireSemanticTokensResult | null,

@@ -106,3 +106,21 @@ describe("codicon", () => {
         expect(codicon("definitely-not-a-codicon")).toEqual({ nerdFont: "", unicode: "" });
     });
 });
+
+describe("Unicode fallback for symbol kinds", () => {
+    it.each([
+        "symbol-namespace",
+        "symbol-package",
+        "symbol-string",
+        "symbol-number",
+        "symbol-boolean",
+        "symbol-array",
+        "symbol-object",
+        "symbol-key",
+        "symbol-null",
+    ])("%s draws a one-cell glyph, not an empty string", (name) => {
+        const glyph = iconGlyph(codicon(name), false);
+        expect(glyph).not.toBe("");
+        expect(getCharDisplayWidth(glyph.codePointAt(0) ?? 0)).toBe(1);
+    });
+});
