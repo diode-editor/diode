@@ -57,7 +57,7 @@ describe("Workbench: a trigger character whose provider has nothing", () => {
     it("a provider without the trigger character is not asked on it", async () => {
         h.container.get(LanguageFeaturesServiceDIToken).completionProvider.register("*", {
             triggerCharacters: [],
-            provideCompletionItems: () => Promise.resolve({ items: [{ label: "zebra" }], isIncomplete: false }),
+            provideCompletionItems: () => Promise.resolve({ items: [{ label: "zebra", insertText: "zebra" }], isIncomplete: false }),
         });
 
         await typeSlowly("#");
