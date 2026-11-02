@@ -201,8 +201,8 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
     private state: SymbolsState = { phase: "noEditor" };
     private editor: IGotoSymbolEditor | null = null;
     private restore: (() => void) | null = null;
-    /** A preview unfolds only the region of the symbol it shows, not every one it passed. */
-    private folds: readonly number[] = [];
+    /** A preview unfolds only the region of the symbol it shows, not every one it passed. Set along with `editor`. */
+    private folds!: readonly number[];
     private cursor: IPosition | null = null;
     private request: CancellationTokenSource | null = null;
     private registryListener: IDisposable | null = null;
