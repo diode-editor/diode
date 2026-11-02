@@ -23,6 +23,40 @@ import { HoverComponentDIToken } from "./hoverComponent.ts";
 // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string inside is only a debug label
 export const HoverServiceDIToken = token<HoverService>("HoverService");
 
+const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
+/** A fenced-block fence: inside it `---` is content (YAML), not a separator. */
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+/** An ATX heading's opening `#`s (CommonMark: up to 3 spaces of indent, 1 to 6 `#`, then a space or the line end). */
+const ATX_HEADING = /^ {0,3}#{1,6}(?:[ \t]+|$)/;
+/** The optional closing `#`s: preceded by a space (or alone), so `C#` keeps its `#`. */
+const ATX_CLOSING = /(?:^|[ \t]+)#+[ \t]*$/;
+
+/** The closing fence is of the opener's kind and no shorter. */
+function closesFence(opener: string | undefined, fence: string): boolean {
+    // Stryker disable next-line MethodExpression: a fence is one character repeated, so startsWith ≡ endsWith
+    return opener?.startsWith(fence[0]) === true && opener.length >= fence.length;
+}
+
+/** `#### Person` from the YAML server is the text `Person`; a `# comment` inside a fenced block stays. */
+function stripHeadings(value: string): string {
+    let fence: string | null = null;
+    return value
+        .split("\n")
+        .map((line) => {
+            const opener = FENCE.exec(line)?.[1];
+            if (fence !== null) {
+                if (closesFence(opener, fence)) fence = null;
+                return line;
+            }
+            if (opener !== undefined) {
+                fence = opener;
+                return line;
+            }
+            return ATX_HEADING.test(line) ? line.replace(ATX_HEADING, "").replace(ATX_CLOSING, "") : line;
+        })
+        .join("\n");
+}
+
 /** There's no markdown renderer (docs/arch/Extensions.md#lsp-и-стоковые-клиенты), so the popup gets plain text. */
 export function stripMarkdown(value: string): string {
     // Code is hidden FIRST: inside it emphasis characters and backslashes are text, as in CommonMark
@@ -36,7 +70,7 @@ export function stripMarkdown(value: string): string {
         return "\u0000" + String(hiddenText.length - 1) + "\u0000";
     };
     return (
-        value
+        stripHeadings(value)
             .replace(/```[^\n]*\n([\s\S]*?)\n?```/g, hide)
             .replace(/(?<!\\)`([^`]+)`/g, hide)
             .replace(/\\([\\`*_{}[\]()#+\-.!])/g, hide)
@@ -53,10 +87,6 @@ export function stripMarkdown(value: string): string {
     );
 }
 
-const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
-/** A fenced-block fence: inside it `---` is content (YAML), not a separator. */
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
-
 /**
  * Empty sections are kept: they show the separator was at the edge. `---` right below a paragraph
  * line is a setext heading underline (CommonMark), not a separator.
@@ -70,8 +100,7 @@ export function splitMarkdownSections(value: string): string[] {
         const opener = FENCE.exec(line)?.[1];
         const ruler = THEMATIC_BREAK.exec(line)?.[1];
         if (fence !== null) {
-            // Stryker disable next-line MethodExpression: a fence is one character repeated, so startsWith ≡ endsWith
-            if (opener?.startsWith(fence[0]) === true && opener.length >= fence.length) fence = null;
+            if (closesFence(opener, fence)) fence = null;
             current.push(line);
             paragraph = false;
         } else if (opener !== undefined) {
