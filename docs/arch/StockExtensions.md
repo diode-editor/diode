@@ -130,7 +130,8 @@
 
 - **Работает:** Go to Implementations (панель при нескольких, переход при одном), Go to Type Definition, F12 с
   несколькими целями (панель `Definitions` и `editor.gotoLocation.multipleDefinitions: goto`), подсветка вхождений
-  двумя цветами, linked editing JSX-тегов в `.tsx`, `@` и `@:` с containerName, call hierarchy в обе стороны.
+  двумя цветами, linked editing JSX-тегов в `.tsx`, `@` и `@:` с containerName, `#` по файлам проекта, call hierarchy
+  в обе стороны.
 - **Сервер не отдаёт, провайдера нет:** declaration, on-type formatting, document links, type hierarchy. Пунктов
   `Go to Declaration` и `Show Type Hierarchy` в контекстном меню `.ts` нет.
 - **Подсветка вхождений идёт мимо LSP.** Сервер отображает `writtenReference` в Read, а Write отдаёт только для

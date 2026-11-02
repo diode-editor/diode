@@ -7,6 +7,7 @@ import {
     type ITypescriptLspFixture,
     openInTypescriptLsp,
 } from "../../../../../TestUtils/typescriptLspFixture.ts";
+import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 
 const SHAPES_TS = `export class Circle {
     radius = 1;
@@ -21,7 +22,22 @@ describe("ExtensionHost — symbols from the stock typescript-language-server", 
     beforeAll(async () => {
         await buildTypescriptLspExtension();
         fixture = await openInTypescriptLsp("shapes.ts", SHAPES_TS);
+        fixture.harness.writeFile("other.ts", "export function farewell(): void {}\n");
     }, 180_000);
+
+    it("#: a symbol from a file that is not open", { timeout: 120_000 }, async () => {
+        const providers = fixture.harness.languageFeatures.workspaceSymbolProvider;
+        const found = await until("the workspace symbol", async () => {
+            // Comes up after the first probes.
+            const provider = providers.all().at(0);
+            if (provider === undefined) return null;
+            const symbols = await provider.provideWorkspaceSymbols("farewell", CancellationTokenNone);
+            return symbols.length > 0 ? symbols : null;
+        });
+
+        expect(found.map((symbol) => symbol.name)).toEqual(["farewell"]);
+        expect(found[0].location.uri.endsWith("/other.ts")).toBe(true);
+    });
 
     afterAll(async () => {
         await fixture.harness.dispose();
