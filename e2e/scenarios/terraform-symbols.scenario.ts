@@ -71,5 +71,16 @@ export default defineScenario({
         await editor.sendKey("Ctrl+Alt+D");
         await editor.waitForText((t) => t.includes("Ln 9,"), { timeoutMs: 60_000 });
         await editor.capture("declaration");
+
+        await editor.sendKey("Ctrl+T");
+        await editor.waitForNode("#quickInput");
+        await editor.sendText("shared");
+        await editor.waitForText((t) => t.includes('resource "aws_vpc" "shared"') && t.includes("network.tf"), {
+            timeoutMs: 60_000,
+        });
+        await editor.capture("workspace-symbol");
+        await editor.sendKey("Enter");
+        await editor.waitForText((t) => t.includes("cidr_block = var.cidr"), { timeoutMs: 30_000 });
+        await editor.capture("resource-in-another-file");
     },
 });

@@ -24,8 +24,10 @@ import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import type { ILink } from "../../../../editor/common/languages/iLinkSource.ts";
+import type { ICoreWorkspaceSymbol } from "../../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 import { getLinks } from "../../../../editor/contrib/links/browser/getLinks.ts";
 import { flattenDocumentSymbols } from "../../../contrib/quickaccess/browser/gotoSymbolQuickAccessProvider.ts";
+import { getWorkspaceSymbols } from "../../../contrib/quickaccess/browser/workspaceSymbolsQuickAccessProvider.ts";
 
 // The features of the navigation wave that terraform-ls 0.39 has, and a matrix of those it has not: a server update
 // that adds one fails here. Opening a link, down to the toast of a session without a browser, is in the
@@ -44,7 +46,11 @@ interface ITfSession {
     at(needle: string, offset?: number): IDefinitionRequest;
 }
 
-async function withMainTf(run: (session: ITfSession) => Promise<void>): Promise<void> {
+/** `beforeServer` runs before the activation: the walker and the settings of the client are read at its start. */
+async function withMainTf(
+    run: (session: ITfSession) => Promise<void>,
+    beforeServer?: (harness: IExtensionHarness) => Promise<void> | void,
+): Promise<void> {
     const output: string[] = [];
     const harness = await createExtensionTestHarness({
         languageService: TF_LANGUAGE_SERVICE,
@@ -54,6 +60,7 @@ async function withMainTf(run: (session: ITfSession) => Promise<void>): Promise<
     });
     try {
         fs.cpSync(TF_SAMPLE_DIR, harness.tmpDir, { recursive: true });
+        await beforeServer?.(harness);
         const mainPath = path.join(harness.tmpDir, "main.tf");
         harness.group.openFile(mainPath);
         const editor = harness.group.getActiveEditor();
@@ -97,6 +104,18 @@ function askLinks({ harness, editor }: ITfSession): Promise<readonly ILink[]> {
         { uri: editor.uri.toString(), languageId: editor.languageId, versionId: document.versionId, document },
         CancellationTokenNone,
     );
+}
+
+/** Indexing runs after the first answers: asks until the symbol is there. */
+function askWorkspaceSymbols(harness: IExtensionHarness, query: string): Promise<readonly ICoreWorkspaceSymbol[]> {
+    return until(`the workspace symbol ${query}`, async () => {
+        const items = await getWorkspaceSymbols(
+            harness.languageFeatures.workspaceSymbolProvider,
+            query,
+            CancellationTokenNone,
+        );
+        return items.length > 0 ? items.map((item) => item.symbol) : null;
+    });
 }
 
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — navigation and symbols of stock hashicorp.terraform", () => {
@@ -178,6 +197,65 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — navigation and symbols o
                 'module "net"',
             ]);
         }),
+    );
+
+    it("`#` finds a resource of a file that is not open, and one of a called module", TIMEOUT, () =>
+        withMainTf(async ({ harness }) => {
+            const shared = await askWorkspaceSymbols(harness, "shared");
+            expect(shared).toEqual([
+                expect.objectContaining({
+                    name: 'resource "aws_vpc" "shared"',
+                    location: expect.objectContaining({
+                        uri: Uri.file(path.join(harness.tmpDir, "network.tf")).toString(),
+                    }),
+                }),
+            ]);
+            const called = await askWorkspaceSymbols(harness, "module_subnet");
+            expect(called.map((symbol) => symbol.name)).toEqual(['resource "aws_subnet" "module_subnet"']);
+        }),
+    );
+
+    it(
+        "`indexing.ignorePaths` reaches the server's walker; a module call indexes the directory all the same",
+        TIMEOUT,
+        () =>
+            withMainTf(
+                async ({ harness }) => {
+                    const log = path.join(harness.tmpDir, "terraform-ls.log");
+                    await until("the walker skipping the directory", () => {
+                        const text = fs.existsSync(log) ? fs.readFileSync(log, "utf-8") : "";
+                        const excluded = `dir being excluded: ${path.join(harness.tmpDir, "modules")}`;
+                        return Promise.resolve(text.includes(excluded) ? true : null);
+                    });
+                    await askWorkspaceSymbols(harness, "module_subnet");
+                },
+                async ({ extensionConfiguration, tmpDir }) => {
+                    // Absolute paths only.
+                    await extensionConfiguration.updateValue("terraform.languageServer.indexing.ignorePaths", [
+                        path.join(tmpDir, "modules"),
+                    ]);
+                    await extensionConfiguration.updateValue("terraform.languageServer.args", [
+                        "serve",
+                        "-log-file",
+                        path.join(tmpDir, "terraform-ls.log"),
+                    ]);
+                },
+            ),
+    );
+
+    it("`#` does not reach a directory nothing calls, even without `indexing.ignorePaths`", TIMEOUT, () =>
+        withMainTf(
+            async ({ harness }) => {
+                await askWorkspaceSymbols(harness, "module_subnet");
+                const features = harness.languageFeatures.workspaceSymbolProvider;
+                const legacy = await getWorkspaceSymbols(features, "legacy_subnet", CancellationTokenNone);
+                expect(legacy).toEqual([]);
+            },
+            (harness) => {
+                fs.mkdirSync(path.join(harness.tmpDir, "legacy"));
+                harness.writeFile("legacy/main.tf", 'resource "aws_subnet" "legacy_subnet" {}\n');
+            },
+        ),
     );
 
     it("the seven features terraform-ls does not offer register nothing", TIMEOUT, () =>
