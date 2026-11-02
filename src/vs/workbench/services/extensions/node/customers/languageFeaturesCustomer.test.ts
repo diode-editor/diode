@@ -799,7 +799,8 @@ describe("LanguageFeaturesCustomer — no deadline on what a busy jdt.ls takes o
         });
     });
 
-    it("on type formatting: only the token ends the wait, as upstream", async () => {
+    // The first `;` after the import takes jdt.ls about 6 s: with a deadline the format is lost, the second `;` formats.
+    it("format on type: only the token ends the wait, as upstream", async () => {
         await expectWaitsUntilCancelled((token) => {
             const hung = setupAnswering({ "languages.provideOnTypeFormattingEdits": untilCancelled });
             return hung.customer.provideOnTypeFormattingEdits(

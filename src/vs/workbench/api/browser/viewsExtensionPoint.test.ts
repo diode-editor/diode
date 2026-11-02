@@ -445,6 +445,21 @@ describe("registerExtensionViews — `when`", () => {
         expect(h.shownViewlets.length).toBe(shownBefore);
     });
 
+    it("`.focus` right after `setContext`, before the coalesced event: the view is there and opens", () => {
+        const { h } = setup([GATED]);
+        h.contextKeys.setRaw("go.hasProfiles", true);
+        h.commands.execute("go.profiles.focus");
+        expect(h.service.getViewContainerByViewId("go.profiles")).toBe("workbench.view.extension.go");
+        expect(h.shownViewlets.at(-1)?.id).toBe("workbench.view.extension.go");
+    });
+
+    it("a view of the `references-view` container lands there, not in Explorer", () => {
+        const { h } = setup([
+            extension("vscode.references-view", { views: { "references-view": [{ id: "tree", name: "Results" }] } }),
+        ]);
+        expect(h.service.getViewContainerByViewId("tree")).toBe("references-view");
+    });
+
     it("the view comes and goes with its context keys, and its container with it", async () => {
         const { h } = setup([GATED]);
         h.contextKeys.setRaw("go.showExplorer", true);
