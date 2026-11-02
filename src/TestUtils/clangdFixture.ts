@@ -29,9 +29,9 @@ export const CPP_LANGUAGE_SERVICE: ILanguageService = {
 };
 
 /** The machine's `clangd`: the first `PATH` entry that has one. */
-export function findClangd(env: NodeJS.ProcessEnv = process.env): string | undefined {
+export function findClangd(): string | undefined {
     const name = process.platform === "win32" ? "clangd.exe" : "clangd";
-    for (const dir of (env.PATH ?? "").split(path.delimiter)) {
+    for (const dir of (process.env.PATH ?? "").split(path.delimiter)) {
         if (dir === "") continue;
         const candidate = path.join(dir, name);
         if (fs.existsSync(candidate)) return candidate;
@@ -39,8 +39,8 @@ export function findClangd(env: NodeJS.ProcessEnv = process.env): string | undef
     return undefined;
 }
 
-export function clangdMissing(env: NodeJS.ProcessEnv = process.env): string | undefined {
-    return findClangd(env) === undefined
+export function clangdMissing(): string | undefined {
+    return findClangd() === undefined
         ? "clangd not found in PATH — vscode-clangd suites skipped (CI installs it with apt)"
         : undefined;
 }

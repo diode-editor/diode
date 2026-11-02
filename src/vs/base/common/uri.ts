@@ -9,3 +9,6 @@ import { URI, Utils } from "vscode-uri";
 export const Uri = Object.assign(URI, { joinPath: Utils.joinPath });
 
 export type Uri = URI;
+
+/** Path helpers on a `Uri` (upstream `resources.basename`/`dirname`/`extname`), posix-style on `uri.path`. */
+export const UriUtils = { basename: Utils.basename, dirname: Utils.dirname, extname: Utils.extname };

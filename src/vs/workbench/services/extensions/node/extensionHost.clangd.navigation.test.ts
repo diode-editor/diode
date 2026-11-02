@@ -1,8 +1,12 @@
 import { expect, it } from "vitest";
 
 import { until } from "../../../../../TestUtils/basedpyrightFixture.ts";
-import { writeCompileCommands } from "../../../../../TestUtils/clangdFixture.ts";
-import { describeStockClangd, type IClangdSession } from "../../../../../TestUtils/clangdSession.ts";
+import {
+    describeStockClangd,
+    type IClangdSession,
+    targets,
+    WITH_INDEX,
+} from "../../../../../TestUtils/clangdSession.ts";
 import {
     provideDeclarations,
     provideDocumentSymbols,
@@ -11,7 +15,6 @@ import {
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
-import type { ICoreDefinitionLocation } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import { DEFAULT_INLAY_HINTS_OPTIONS } from "../../../../editor/contrib/inlayHints/browser/inlayHintsController.ts";
 import { getLinks } from "../../../../editor/contrib/links/browser/getLinks.ts";
 import { getWorkspaceSymbols } from "../../../contrib/quickaccess/browser/workspaceSymbolsQuickAccessProvider.ts";
@@ -21,16 +24,6 @@ import { getWorkspaceSymbols } from "../../../contrib/quickaccess/browser/worksp
 // indexes only the open files, and the index lands after the first answers.
 
 const TIMEOUT = { timeout: 240_000 };
-
-const WITH_INDEX = {
-    beforeServer: (dir: string) => {
-        writeCompileCommands(dir, dir);
-    },
-};
-
-function targets(found: readonly ICoreDefinitionLocation[]): [string, number][] {
-    return found.map((target) => [target.uri, target.range.start.line]);
-}
 
 function askLinks({ harness, editor }: IClangdSession) {
     const document = editor.viewState.document;
@@ -103,15 +96,15 @@ describeStockClangd("ExtensionHost — navigation of stock vscode-clangd", (with
                 });
                 expect(targets(implementations)).toEqual([[uriOf("shape.h"), 9]]);
 
-                const workspace = await until("`#` for total", async () => {
+                // The open header's declaration answers first; once shape.cpp is indexed, the definition replaces it.
+                const workspace = await until("`#` for total at its definition", async () => {
                     const items = await getWorkspaceSymbols(
                         harness.languageFeatures.workspaceSymbolProvider,
                         "total",
                         CancellationTokenNone,
                     );
-                    return items.length > 0 ? items : null;
+                    return items.some((item) => item.symbol.location.uri === uriOf("shape.cpp")) ? items : null;
                 });
-                // clangd answers with the definition, a file that is not open.
                 expect(workspace.map((item) => [item.symbol.name, item.symbol.location.uri])).toEqual([
                     ["total", uriOf("shape.cpp")],
                 ]);

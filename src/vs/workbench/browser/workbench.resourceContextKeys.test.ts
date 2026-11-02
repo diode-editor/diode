@@ -1,21 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
+import { CPP_LANGUAGE_SERVICE } from "../../../TestUtils/clangdFixture.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
-import {
-    type ILanguageService,
-    LanguageServiceDIToken,
-    NULL_LANGUAGE_SERVICE,
-} from "../../editor/common/languages/iLanguageService.ts";
+import { LanguageServiceDIToken } from "../../editor/common/languages/iLanguageService.ts";
 import { KeybindingRegistryDIToken, parseKeybinding } from "../../platform/keybinding/common/keybindingRegistry.ts";
 
 // The binding shape of the stock clangd's `clangd.switchheadersource` (Alt+O). It went unanswered: nothing set
 // `resourceLangId`, so the when clause was false in every editor.
-
-const CPP_LANGUAGE_SERVICE: ILanguageService = {
-    ...NULL_LANGUAGE_SERVICE,
-    getLanguageIdForResource: (filePath) => (filePath.endsWith(".cpp") ? "cpp" : undefined),
-};
 
 describe("Workbench — resource* when keys", () => {
     let ws: ITempWorkspace;

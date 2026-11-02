@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { afterAll, beforeAll, describe } from "vitest";
 
 import { Uri } from "../vs/base/common/uri.ts";
-import type { IDefinitionRequest } from "../vs/editor/common/languages/iDefinitionSource.ts";
+import type { ICoreDefinitionLocation, IDefinitionRequest } from "../vs/editor/common/languages/iDefinitionSource.ts";
 import type { WireMarker } from "../vs/workbench/api/common/wireTypes.ts";
 
 import { CLIENT_CRASH_PATTERNS, until } from "./basedpyrightFixture.ts";
@@ -15,6 +15,7 @@ import {
     findClangd,
     type IInstalledClangd,
     installClangd,
+    writeCompileCommands,
 } from "./clangdFixture.ts";
 import {
     createExtensionTestHarness,
@@ -45,6 +46,18 @@ export interface IClangdSessionOptions {
     readonly settings?: Readonly<Record<string, unknown>>;
     /** Runs after the sample is copied, before the server starts: a compilation database goes here. */
     readonly beforeServer?: (dir: string) => void;
+}
+
+/** With a compilation database clangd indexes the whole sample in the background, not only the open files. */
+export const WITH_INDEX: IClangdSessionOptions = {
+    beforeServer: (dir) => {
+        writeCompileCommands(dir, dir);
+    },
+};
+
+/** `[uri, line]` of each target: what a navigation answer is compared by. */
+export function targets(found: readonly ICoreDefinitionLocation[]): [string, number][] {
+    return found.map((target) => [target.uri, target.range.start.line]);
 }
 
 /** Runs against a fresh copy of `cppSample`, with clangd already answering about the open file. */

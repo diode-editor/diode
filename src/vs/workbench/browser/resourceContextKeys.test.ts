@@ -4,7 +4,7 @@ import { Uri } from "../../base/common/uri.ts";
 import { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { IEditorService } from "../services/editor/common/editorService.ts";
 
-import { ResourceContextKeys } from "./resourceContextKeys.ts";
+import { RESOURCE_CONTEXT_KEYS, ResourceContextKeys } from "./resourceContextKeys.ts";
 
 function setup(editor: { uri: Uri; languageId: string } | null): {
     keys: ContextKeyService;
@@ -56,16 +56,7 @@ describe("ResourceContextKeys", () => {
 
         update(false);
 
-        for (const key of [
-            "resource",
-            "resourceScheme",
-            "resourceFilename",
-            "resourceDirname",
-            "resourcePath",
-            "resourceLangId",
-            "resourceExtname",
-            "resourceSet",
-        ] as const) {
+        for (const key of RESOURCE_CONTEXT_KEYS) {
             expect(keys.get(key), key).toBeUndefined();
         }
         expect(keys.evaluate("resourceLangId == cpp")).toBe(false);

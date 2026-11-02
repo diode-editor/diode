@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 
 import { until } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import { writeCompileCommands } from "../../../../../TestUtils/clangdFixture.ts";
-import { describeStockClangd } from "../../../../../TestUtils/clangdSession.ts";
+import { describeStockClangd, targets, WITH_INDEX } from "../../../../../TestUtils/clangdSession.ts";
 import {
     provideCompletions,
     provideDefinitions,
@@ -61,36 +61,27 @@ describeStockClangd("ExtensionHost — stock vscode-clangd", (withCppFile) => {
     );
 
     it("with the background index F12 goes to the definition in shape.cpp, references reach every file", TIMEOUT, () =>
-        withCppFile(
-            async ({ harness, at, uriOf, clientCrashes }) => {
-                // Only the declaration in shape.h is known until the background index has read shape.cpp.
-                const definitions = await until("the definition of total in shape.cpp", async () => {
-                    const found = await provideDefinitions(harness, at("total(square", 1));
-                    return found.some((target) => target.uri === uriOf("shape.cpp")) ? found : null;
-                });
-                expect(definitions.map((target) => [target.uri, target.range.start.line])).toEqual([
-                    [uriOf("shape.cpp"), 4],
-                ]);
+        withCppFile(async ({ harness, at, uriOf, clientCrashes }) => {
+            // Only the declaration in shape.h is known until the background index has read shape.cpp.
+            const definitions = await until("the definition of total in shape.cpp", async () => {
+                const found = await provideDefinitions(harness, at("total(square", 1));
+                return found.some((target) => target.uri === uriOf("shape.cpp")) ? found : null;
+            });
+            expect(targets(definitions)).toEqual([[uriOf("shape.cpp"), 4]]);
 
-                const references = await provideReferences(harness, {
-                    ...at("total(square", 1),
-                    includeDeclaration: true,
-                });
-                expect(references.map((reference) => [reference.uri, reference.range.start.line]).sort()).toEqual(
-                    [
-                        [uriOf("main.cpp"), 6],
-                        [uriOf("shape.cpp"), 4],
-                        [uriOf("shape.h"), 13],
-                    ].sort(),
-                );
-                expect(clientCrashes()).toEqual([]);
-            },
-            {
-                beforeServer: (dir) => {
-                    writeCompileCommands(dir, dir);
-                },
-            },
-        ),
+            const references = await provideReferences(harness, {
+                ...at("total(square", 1),
+                includeDeclaration: true,
+            });
+            expect(references.map((reference) => [reference.uri, reference.range.start.line]).sort()).toEqual(
+                [
+                    [uriOf("main.cpp"), 6],
+                    [uriOf("shape.cpp"), 4],
+                    [uriOf("shape.h"), 13],
+                ].sort(),
+            );
+            expect(clientCrashes()).toEqual([]);
+        }, WITH_INDEX),
     );
 
     it("rename of a local edits every use in the file", TIMEOUT, () =>
@@ -134,12 +125,7 @@ describeStockClangd("ExtensionHost — stock vscode-clangd", (withCppFile) => {
                 const hovers = await provideHovers(harness, at("SHAPE_SCALE;", 1));
                 expect(hovers.flatMap((hover) => hover.contents).join("\n")).toContain("#define SHAPE_SCALE 3");
             },
-            {
-                file: "scale.cpp",
-                beforeServer: (dir) => {
-                    writeCompileCommands(dir, dir);
-                },
-            },
+            { ...WITH_INDEX, file: "scale.cpp" },
         ),
     );
 

@@ -1,6 +1,4 @@
-import { Utils } from "vscode-uri";
-
-import type { Uri } from "../../base/common/uri.ts";
+import { type Uri, UriUtils } from "../../base/common/uri.ts";
 import type { IContextKeyContributor } from "../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
@@ -9,7 +7,8 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 
 export const ResourceContextKeysDIToken = token<ResourceContextKeys>("ResourceContextKeys");
 
-const KEYS = [
+/** The upstream family, in the order upstream binds it. */
+export const RESOURCE_CONTEXT_KEYS = [
     "resource",
     "resourceScheme",
     "resourceFilename",
@@ -33,17 +32,17 @@ export class ResourceContextKeys implements IContextKeyContributor {
     public updateContextKeys(contextKeys: ContextKeyService): void {
         const editor = contextKeys.get("editorAreaFocus") === true ? this.editors.getActiveEditor() : null;
         if (editor === null) {
-            for (const key of KEYS) contextKeys.reset(key);
+            for (const key of RESOURCE_CONTEXT_KEYS) contextKeys.reset(key);
             return;
         }
         const uri = editor.uri;
         contextKeys.set("resource", uri.toString());
         contextKeys.set("resourceScheme", uri.scheme);
-        contextKeys.set("resourceFilename", Utils.basename(uri));
-        contextKeys.set("resourceDirname", toPath(Utils.dirname(uri)));
+        contextKeys.set("resourceFilename", UriUtils.basename(uri));
+        contextKeys.set("resourceDirname", toPath(UriUtils.dirname(uri)));
         contextKeys.set("resourcePath", toPath(uri));
         contextKeys.set("resourceLangId", editor.languageId);
-        contextKeys.set("resourceExtname", Utils.extname(uri));
+        contextKeys.set("resourceExtname", UriUtils.extname(uri));
         contextKeys.set("resourceSet", true);
     }
 }

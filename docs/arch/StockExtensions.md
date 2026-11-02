@@ -123,8 +123,8 @@
 - **`llvm-vs-code-extensions.vscode-clangd`** (#976, сайт#43) — прокси на сток Open VSX 0.6.0, universal. Гейт
   `engines.diode: ">=0.12.8"`: нужны ключи `resource*` (без них `Alt+O`, `Shift+Alt+T` и пункты меню редактора с
   `resourceLangId == cpp` молчали) и `reveal` сразу после `setContext` (`Show AST` ставит `clangd.ast.hasData` и зовёт
-  `reveal(null)`, не дожидаясь ключа; у нас `when` видов пересчитывается микрозадачей позже, и секция оставалась
-  закрытой). Бинаря в расширении нет: `clangd` из PATH или `clangd.path`, без него тост с кнопкой Install, загрузка —
+  `reveal(null)`, не дожидаясь ключа; изменения ключей у нас расходились микрозадачей позже, `when` вида ещё был
+  ложен, и секция оставалась закрытой — теперь `setContext` рассылает изменение сразу, как эталон). Бинаря в расширении нет: `clangd` из PATH или `clangd.path`, без него тост с кнопкой Install, загрузка —
   `clangd_<версия>` в globalStorage, расширение само пишет `clangd.path` и делает `clangd.restart` (на linux/arm64 сборки
   нет: «No clangd 23.1.0 binary available»). Без `compile_commands.json` у clangd нет фонового индекса: F12 на функцию из
   другого файла ведёт на объявление в заголовке, `#`, Implementations, входящие вызовы и подтипы видят только открытые
