@@ -38,7 +38,9 @@ export async function withPythonFiles(
         configurationService: configuration,
         outputSink: {
             append: (_channel, _label, _level, value) => output.push(value),
+            /* v8 ignore start -- test helper: the server's channel is read here, nothing asks to reveal it */
             show: () => undefined,
+            /* v8 ignore stop */
         },
         extensions: [installed.registration],
     });
@@ -56,7 +58,9 @@ export async function withPythonFiles(
             output,
             activeEditor: () => {
                 const editor = harness.group.getActiveEditor();
+                /* v8 ignore start -- test helper: `main.py` is open before `run` starts */
                 if (editor === null) throw new Error("no active editor");
+                /* v8 ignore stop */
                 return editor;
             },
             frame,
