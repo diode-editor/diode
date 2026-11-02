@@ -596,8 +596,12 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                     (text) => text.includes("left-pad") && text.includes("@types/only-npm-intellisense"),
                     { timeoutMs: 60_000 },
                 );
-                // By arrow, not by typing `@types`: `@` closes the popup, and it may not reopen while tsserver warms up.
-                await app.session.key("ArrowDown");
+                // Typed, not pasted: `@` is a tsserver trigger character, and its retrigger keeps npm-intellisense's items.
+                for (const char of "@types") await app.session.key(char);
+                await app.session.waitForText(
+                    (text) => !text.includes("left-pad") && text.includes("@types/only-npm-intellisense"),
+                    { timeoutMs: 20_000 },
+                );
                 await app.session.key("Enter");
                 // The pasted `(` has no auto-closed pair; the quote does.
                 await app.session.waitForText((text) => text.includes('require("@types/only-npm-intellisense"'), {
