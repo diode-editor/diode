@@ -17,6 +17,10 @@ import type { ILanguageFeatureTarget } from "../vs/editor/common/languageFeature
 import type { ICodeActionRequest, ICoreCodeAction } from "../vs/editor/common/languages/iCodeActionSource.ts";
 import type { ICompletionRequest, ICoreCompletionResult } from "../vs/editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation, IDefinitionRequest } from "../vs/editor/common/languages/iDefinitionSource.ts";
+import type {
+    ICoreDocumentSymbol,
+    IDocumentSymbolRequest,
+} from "../vs/editor/common/languages/iDocumentSymbolSource.ts";
 import type { IFoldingRequest } from "../vs/editor/common/languages/iFoldingSource.ts";
 import type { IFormattingRequest } from "../vs/editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../vs/editor/common/languages/iHoverSource.ts";
@@ -81,6 +85,7 @@ import {
 import { getHovers } from "../vs/workbench/contrib/hover/browser/getHover.ts";
 import { provideInlineCompletions as provideInlineCompletionsFrom } from "../vs/workbench/contrib/inlineCompletions/browser/provideInlineCompletions.ts";
 import { provideSignatureHelp as provideSignatureHelpFrom } from "../vs/workbench/contrib/parameterHints/browser/provideSignatureHelp.ts";
+import { getDocumentSymbols } from "../vs/workbench/contrib/quickaccess/browser/gotoSymbolQuickAccessProvider.ts";
 import { getReferences } from "../vs/workbench/contrib/references/browser/getReferences.ts";
 import type { IPreparedRename } from "../vs/workbench/contrib/rename/browser/renameSymbol.ts";
 import { prepareRename, renameSymbol } from "../vs/workbench/contrib/rename/browser/renameSymbol.ts";
@@ -451,6 +456,14 @@ export async function provideImplementations(
         token,
     );
     return model.references;
+}
+
+export function provideDocumentSymbols(
+    harness: IExtensionHarness,
+    request: IDocumentSymbolRequest,
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<readonly ICoreDocumentSymbol[]> {
+    return getDocumentSymbols(harness.languageFeatures.documentSymbolProvider, targetOf(request), request, token);
 }
 
 export async function provideTypeDefinitions(

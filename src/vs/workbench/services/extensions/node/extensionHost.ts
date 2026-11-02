@@ -34,6 +34,10 @@ import type {
     IDocumentHighlight,
     IDocumentHighlightRequest,
 } from "../../../../editor/common/languages/iDocumentHighlightSource.ts";
+import type {
+    ICoreDocumentSymbol,
+    IDocumentSymbolRequest,
+} from "../../../../editor/common/languages/iDocumentSymbolSource.ts";
 import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type {
     IFormattingRequest,
@@ -849,6 +853,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token: ICancellationToken = CancellationTokenNone,
     ): Promise<readonly ICoreInlineCompletionItem[]> {
         return this.languageFeatures.provideInlineCompletions(handle, req, token);
+    }
+
+    public provideDocumentSymbols(
+        handle: number,
+        req: IDocumentSymbolRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly ICoreDocumentSymbol[]> {
+        return this.languageFeatures.provideDocumentSymbols(handle, req, token);
     }
 
     public provideFoldingRanges(

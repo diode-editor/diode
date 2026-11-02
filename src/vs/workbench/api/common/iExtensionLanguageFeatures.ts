@@ -28,6 +28,10 @@ import type {
     IDocumentHighlight,
     IDocumentHighlightRequest,
 } from "../../../editor/common/languages/iDocumentHighlightSource.ts";
+import type {
+    ICoreDocumentSymbol,
+    IDocumentSymbolRequest,
+} from "../../../editor/common/languages/iDocumentSymbolSource.ts";
 import type { IFoldingRequest } from "../../../editor/common/languages/iFoldingSource.ts";
 import type {
     IFormattingRequest,
@@ -136,6 +140,11 @@ export interface IExtensionLanguageFeaturesBridge {
         token: ICancellationToken,
     ): Promise<readonly ICoreCodeAction[]>;
     applyCodeAction(id: string, options?: IApplyCodeActionOptions): Promise<boolean>;
+    provideDocumentSymbols(
+        handle: number,
+        request: IDocumentSymbolRequest,
+        token: ICancellationToken,
+    ): Promise<readonly ICoreDocumentSymbol[]>;
     provideFoldingRanges(
         handle: number,
         request: IFoldingRequest,

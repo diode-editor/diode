@@ -67,6 +67,19 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideDeclaration: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///decl${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
+        provideDocumentSymbols: vi.fn((handle: number) =>
+            Promise.resolve([
+                {
+                    name: `symbol${String(handle)}`,
+                    detail: "",
+                    kind: 5,
+                    tags: [],
+                    range: createRange(0, 0, 0, 1),
+                    selectionRange: createRange(0, 0, 0, 1),
+                    children: [],
+                },
+            ]),
+        ),
         provideSignatureHelp: vi.fn((handle: number) =>
             Promise.resolve({
                 signatures: [{ label: `sig ${String(handle)}`, parameters: [] }],
@@ -336,6 +349,21 @@ describe("LanguageFeaturesAdapter", () => {
         ]);
         expect(bridge.provideTypeDefinition).toHaveBeenCalledWith(7, REQUEST, token);
         expect(bridge.provideDeclaration).toHaveBeenCalledWith(8, REQUEST, token);
+    });
+
+    it("document symbols: proxy in its registry, calls the host with its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 9, kind: "documentSymbol", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.documentSymbolProvider.ordered(TS);
+        const token = new CancellationTokenSource().token;
+        const request = { uri: REQUEST.uri, languageId: REQUEST.languageId, versionId: REQUEST.versionId };
+        expect((await provider.provideDocumentSymbols(request, token)).map((symbol) => symbol.name)).toEqual([
+            "symbol9",
+        ]);
+        expect(bridge.provideDocumentSymbols).toHaveBeenCalledWith(9, request, token);
     });
 
     it("rename: proxy in its registry, both methods call the host with its handle", async () => {

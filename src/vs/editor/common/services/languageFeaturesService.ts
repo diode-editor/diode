@@ -11,6 +11,7 @@ import type {
     TypeDefinitionProvider,
 } from "../languages/iDefinitionSource.ts";
 import type { DocumentHighlightProvider } from "../languages/iDocumentHighlightSource.ts";
+import type { DocumentSymbolProvider } from "../languages/iDocumentSymbolSource.ts";
 import type { FoldingRangeProvider } from "../languages/iFoldingSource.ts";
 import type {
     DocumentFormattingEditProvider,
@@ -49,6 +50,7 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
     public readonly onTypeFormattingEditProvider = new LanguageFeatureRegistry<OnTypeFormattingEditProvider>();
     public readonly codeActionProvider = new LanguageFeatureRegistry<CodeActionProvider>();
     public readonly foldingRangeProvider = new LanguageFeatureRegistry<FoldingRangeProvider>();
+    public readonly documentSymbolProvider = new LanguageFeatureRegistry<DocumentSymbolProvider>();
     public readonly inlineCompletionsProvider = new LanguageFeatureRegistry<InlineCompletionsProvider>();
     public readonly selectionRangeProvider = new LanguageFeatureRegistry<SelectionRangeProvider>();
     public readonly documentHighlightProvider = new LanguageFeatureRegistry<DocumentHighlightProvider>();

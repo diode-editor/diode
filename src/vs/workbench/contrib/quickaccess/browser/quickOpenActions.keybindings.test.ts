@@ -29,6 +29,19 @@ function commandFor(event: KeyboardEventLike, ...args: Parameters<typeof context
 }
 
 describe("quick open keybindings", () => {
+    it("Ctrl+Shift+O goes to the symbols of the editor; in the terminal it stays the link picker", () => {
+        const ctrlShiftO = key({ key: "O", ctrl: true, shift: true });
+        const editor = { textInputFocus: true, editorAreaFocus: true };
+        expect(commandFor(ctrlShiftO, PC_KITTY, editor)).toBe("workbench.action.gotoSymbol");
+        expect(commandFor(key({ key: "O", meta: true, shift: true }), MAC_CMD, editor)).toBe(
+            "workbench.action.gotoSymbol",
+        );
+        expect(commandFor(ctrlShiftO, PC_LEGACY, editor)).not.toBe("workbench.action.gotoSymbol");
+        expect(commandFor(ctrlShiftO, PC_KITTY, { terminalFocus: true, terminalHasBeenCreated: true })).toBe(
+            "workbench.action.terminal.openDetectedLink",
+        );
+    });
+
     it("Ctrl+P and Ctrl+E open Quick Open on Linux/Windows, from the editor and from the terminal", () => {
         const focuses: Readonly<Record<string, boolean>>[] = [
             { textInputFocus: true, editorAreaFocus: true },
