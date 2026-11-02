@@ -21,13 +21,8 @@ const TIMEOUTS: RequestTimeouts = {
     "languages.resolveCompletionItem": 102,
     "languages.provideInlineCompletions": 103,
     "languages.provideFoldingRanges": 104,
-    "languages.provideDefinition": 105,
-    "languages.provideImplementation": 125,
-    "languages.provideTypeDefinition": 125,
-    "languages.provideDeclaration": 125,
     "languages.provideDocumentSymbols": 125,
     "languages.provideHover": 106,
-    "languages.provideReferences": 107,
     "languages.provideSignatureHelp": 108,
     "languages.provideCodeActions": 110,
     "languages.applyCodeAction": 111,
@@ -320,7 +315,6 @@ describe("LanguageFeaturesCustomer — requests only for synced documents", () =
         );
         expect(seen).toContainEqual(["languages.provideCompletionItems", undefined]);
         expect(seen).toContainEqual(["languages.provideFormattingEdits", undefined]);
-        expect(seen.filter(([, timeoutMs]) => timeoutMs === undefined)).toHaveLength(2);
     });
 });
 

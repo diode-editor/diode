@@ -335,7 +335,9 @@
   debounce `didChange`, синхронизацию по жизненному циклу моделей вместо вкладок, `reason` Undo/Redo
   в событии изменения.
 - **Definition-провайдер seam (LSP):** `languages.registerDefinitionProvider` — калька с completion
-  (`languages.provideDefinition` RPC, таймаут 5000 мс — холодный language server). Реестр —
+  (`languages.provideDefinition` RPC, без таймаута, как в эталоне: поиск по большому проекту дольше любого
+  дедлайна, а истёкший выглядел бы как «ничего не найдено»; отменяет вызывающий — движение каретки, правка, новый
+  запрос; то же у implementation, type definition, declaration, references и обеих иерархий). Реестр —
   `ILanguageFeaturesService.definitionProvider` (тип
   `editor/common/languages/iDefinitionSource.ts`); UI — contrib `gotoDefinition`
   (`DefinitionService` + F12 `editor.action.revealDefinition`), кросс-файловая навигация паттерном
@@ -422,7 +424,7 @@
   без захвата фокуса, `stripMarkdown` в плоский текст, закрытие по Escape/правке/каретке/фокусу;
   ключ `editorHoverVisible`).
 - **References-провайдер seam (LSP):** `languages.registerReferenceProvider` — та же калька
-  (`languages.provideReferences` RPC, таймаут 5000 мс; в параметрах LSP-контекст
+  (`languages.provideReferences` RPC, без таймаута; в параметрах LSP-контекст
   `includeDeclaration`). Ядро спрашивает все подошедшие провайдеры и склеивает ответы в порядке
   реестра (`ICoreReference {uri, range}`, сериализатор общий с definition). Реестр —
   `ILanguageFeaturesService.referenceProvider` (тип `editor/common/languages/iReferenceSource.ts`);

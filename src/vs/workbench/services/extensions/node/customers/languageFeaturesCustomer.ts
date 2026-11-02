@@ -110,6 +110,17 @@ type LanguageRequestMethod =
     | "languages.provideInlayHints"
     | "languages.provideCompletionItems"
     | "languages.provideFormattingEdits"
+    | "languages.provideDefinition"
+    | "languages.provideImplementation"
+    | "languages.provideTypeDefinition"
+    | "languages.provideDeclaration"
+    | "languages.provideReferences"
+    | "languages.prepareCallHierarchy"
+    | "languages.provideCallHierarchyIncomingCalls"
+    | "languages.provideCallHierarchyOutgoingCalls"
+    | "languages.prepareTypeHierarchy"
+    | "languages.provideTypeHierarchySupertypes"
+    | "languages.provideTypeHierarchySubtypes"
     | "languages.provideDocumentSemanticTokens"
     | "languages.provideDocumentRangeSemanticTokens";
 

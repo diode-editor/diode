@@ -12,6 +12,9 @@ import type { RequestFn } from "./hostRequests.ts";
  * with its import (jdt.ls) would leave "no commands" on the frame for good; an edit cancels them through the token.
  * Formatting is absent as upstream too: a large file takes a formatter longer than any deadline here, an edit cancels
  * the request, and format on save cancels it at the save participant's deadline.
+ * Navigation the user asked for (definition and its kin, references, both hierarchies) is absent as upstream: on a big
+ * project tsserver searches longer than any deadline here, and an expired one read as "nothing found". Only the caller
+ * cancels: go-to on a cursor move, an edit or a new request, references and the hierarchies on a new request or a clear.
  */
 export const DEFAULT_REQUEST_TIMEOUTS = {
     "workspace.willSaveTextDocument": 1500,
@@ -19,12 +22,7 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.provideInlineCompletions": 5000,
     "languages.provideFoldingRanges": 1500,
     "languages.provideDocumentSymbols": 5000,
-    "languages.provideDefinition": 5000,
-    "languages.provideImplementation": 5000,
-    "languages.provideTypeDefinition": 5000,
-    "languages.provideDeclaration": 5000,
     "languages.provideHover": 5000,
-    "languages.provideReferences": 5000,
     "languages.provideSignatureHelp": 5000,
     "languages.provideOnTypeFormattingEdits": 5000,
     "languages.provideCodeActions": 5000,
@@ -37,12 +35,6 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.provideDocumentColors": 5000,
     "languages.provideDocumentLinks": 5000,
     "languages.resolveDocumentLink": 5000,
-    "languages.prepareCallHierarchy": 5000,
-    "languages.provideCallHierarchyIncomingCalls": 5000,
-    "languages.provideCallHierarchyOutgoingCalls": 5000,
-    "languages.prepareTypeHierarchy": 5000,
-    "languages.provideTypeHierarchySupertypes": 5000,
-    "languages.provideTypeHierarchySubtypes": 5000,
 } as const satisfies Readonly<Record<string, number>>;
 
 export type TimedRequestMethod = keyof typeof DEFAULT_REQUEST_TIMEOUTS;
