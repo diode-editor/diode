@@ -17,7 +17,8 @@ export const YAML_SETTINGS = { "redhat.telemetry.enabled": false } as const;
 
 export const YAML_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
-    getLanguageIdForResource: (filePath) => (/\.ya?ml$/.test(filePath) ? "yaml" : undefined),
+    // The suite opens only YAML documents (the schema next to them is read by the server, not opened).
+    getLanguageIdForResource: () => "yaml",
 };
 
 /** A schema next to the document: the modeline resolves it without the network. */
