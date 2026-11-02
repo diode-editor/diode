@@ -57,7 +57,7 @@ registration but are not called yet.
 | --- | :-: | --- |
 | `createDiagnosticCollection` | 🟡 | squiggles and the Problems panel; `relatedInformation` is not shown; markers of a dead extension host stay until it restarts |
 | `getDiagnostics`, `onDidChangeDiagnostics` | ✅ | all collections of the extension host plus the editor's own markers (settings, tasks); the event coalesces changes over 50 ms. Deviations: editor markers that existed before the extension host started arrive as an initial batch; removal of an editor marker is reported even when the resource still has markers of its own |
-| `registerCompletionItemProvider` | ✅ | trigger characters, resolve (documentation, auto-import) |
+| `registerCompletionItemProvider` | ✅ | trigger characters, resolve (documentation, auto-import); a `Color` item whose label, detail or documentation edge is a color shows a square of it in place of the icon |
 | `registerDefinitionProvider` | ✅ | |
 | `registerImplementationProvider` | ✅ | Go to Implementations (Ctrl+F12): one target is a jump, several go to the References panel per `editor.gotoLocation.multipleImplementations` |
 | `registerTypeDefinitionProvider` | ✅ | Go to Type Definition (Command Palette, editor context menu, no default key): one target is a jump, several go to the References panel per `editor.gotoLocation.multipleTypeDefinitions` |
