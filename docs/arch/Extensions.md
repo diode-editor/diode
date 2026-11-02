@@ -1120,8 +1120,8 @@
   Code в наши `MenuId` и кладёт пункты в `MenuRegistry.appendMenuItem`. Правила разбора и список
   поддержанных точек — в [workbench/Menus.md](workbench/Menus.md); неизвестная точка, пункт без
   команды и ссылка на необъявленное подменю — строка в лог и пропуск пункта, а не падение
-  расширения. Пункты смотрят на upstream-имена контекст-ключей (`editorLangId`, `editorTextFocus`),
-  поэтому они выставляются рядом с нашими.
+  расширения. Пункты смотрят на upstream-имена контекст-ключей (`editorLangId`, `editorTextFocus`,
+  `resourceLangId` и прочие `resource*`), поэтому они выставляются рядом с нашими.
 - **`contributes.keybindings` (#194):** декларативный contributor
   `extensionKeybindingContributor.ts` (не через host) собирает манифестные биндинги всех расширений
   в слой extension `KeybindingRegistry` (`setExtensionKeybindings`): бинд расширения сильнее
