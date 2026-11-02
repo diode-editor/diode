@@ -30,6 +30,7 @@ export default defineConfig({
         "src/TestUtils/perfFixtures.ts", // fixtures for benches only (shim)
         "src/vs/workbench/api/common/testStubRpc.ts", // test RpcEndpoint stub for namespace unit tests
         "src/TestUtils/basedpyrightFixture.ts", // pythonLsp* suite harness: the until() timeout branch is reachable only in a red run
+        "src/TestUtils/javaHarness.ts", // javaLsp* suite harness: skipped without a JDK, and its guards are reachable only in a red run
         "src/TestUtils/stockVsix.ts", // downloads a vsix from the marketplace (error branches, network/broken registry, are reachable only in a red run)
         "src/TestUtils/eslintFixture.ts", // eslintLsp* suite harness: npm install of the library is reachable only on a cold cache (network), the rename race only in a parallel run
         "src/**/*.stories.ts",

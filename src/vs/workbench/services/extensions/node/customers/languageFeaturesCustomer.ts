@@ -111,7 +111,14 @@ type LanguageRequestMethod =
     | "languages.provideCompletionItems"
     | "languages.provideFormattingEdits"
     | "languages.provideDocumentSemanticTokens"
-    | "languages.provideDocumentRangeSemanticTokens";
+    | "languages.provideDocumentRangeSemanticTokens"
+    | "languages.provideImplementation"
+    | "languages.prepareCallHierarchy"
+    | "languages.provideCallHierarchyIncomingCalls"
+    | "languages.provideCallHierarchyOutgoingCalls"
+    | "languages.prepareTypeHierarchy"
+    | "languages.provideTypeHierarchySupertypes"
+    | "languages.provideTypeHierarchySubtypes";
 
 type LanguageResult<K extends LanguageRequestMethod> = RequestResult<IHostToSubprocess, K>;
 
@@ -517,7 +524,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
-    /** `null` — nothing at the position, also when there is no subprocess or the extension timed out. */
+    /** `null` — nothing at the position, also when there is no subprocess or the token cancelled it. */
     public async prepareCallHierarchy(
         handle: number,
         req: ICallHierarchyRequest,
@@ -552,7 +559,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         this.rpc?.notify("languages.releaseCallHierarchy", { handle, sessionId });
     }
 
-    /** `null` — nothing at the position, also when there is no subprocess or the extension timed out. */
+    /** `null` — nothing at the position, also when there is no subprocess or the token cancelled it. */
     public async prepareTypeHierarchy(
         handle: number,
         req: ITypeHierarchyRequest,
