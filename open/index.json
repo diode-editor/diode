@@ -4480,5 +4480,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-11-02-e187fad55cdb.json",
+    "generatedAt": "2026-11-02T13:44:08.640Z",
+    "commit": "e187fad55cdb",
+    "binaryVersion": "nightly-e187fad",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
