@@ -11,9 +11,10 @@ import { fetchStockVsix } from "./stockVsix.ts";
 
 export const SVELTE_ID = "svelte.svelte-vscode";
 
+/** The sessions open only `.svelte` files: the server reads `util.ts` and the tsconfig from the disk itself. */
 export const SVELTE_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
-    getLanguageIdForResource: (filePath) => (filePath.endsWith(".svelte") ? "svelte" : undefined),
+    getLanguageIdForResource: () => "svelte",
 };
 
 /** `App.svelte` (an unknown name in the markup, a component, a call into `util.ts`), `Button.svelte`, `util.ts`. */
