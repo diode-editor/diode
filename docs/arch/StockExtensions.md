@@ -110,6 +110,20 @@
   Триггер format on type у сервера — `}`, а не `;` и не Enter. Inlay hints, линзы, навигацию и символы сервер не даёт, смоук
   проверяет это по журналу. У команд форматирования лимита времени нет, как в эталоне; format on save обрывается на
   дедлайне участника сохранения (5 с), и большой файл сохраняется без форматирования. Смоук ставит пакет в каталог проекта через `npm` и без него пропускается.
+- **`tamasfe.even-better-toml`** — прокси на сток Open VSX 0.21.2, сервер taplo в WASM внутри расширения. Гейт
+  `engines.diode: ">=0.12.8"`: нужны ссылки из #1012 и замена текста в поле rename, обе правки вышли после тега 0.12.7.
+  `support: partial`: схемы из каталога schemastore не подхватываются. Причина проверена: 0.21.2 сравнивает `$schema`
+  каталога с `https://json.schemastore.org/schema-catalog.json`, а живой каталог отдаёт `https://www.schemastore.org/…`;
+  тот же каталог с одним исправленным значением `Cargo.toml` получает схему. В коде taplo адрес поправлен после 0.21.2,
+  новой версии в Open VSX нет. Работают `#:schema` и `evenBetterToml.schema.associations`. Сообщение в OUTPUT
+  `did not match any variant of untagged enum SchemaCatalog` — про это, а не про нас. Ссылки сервер отдаёт только при
+  `evenBetterToml.schema.links: true` и только для ключей, у которых в схеме есть `x-taplo.links`. При синтаксической
+  ошибке сервер не проверяет дубликаты ключей, поэтому `conflicting keys` видно только в файле без синтаксических ошибок.
+  Статус-бар остаётся `no schema selected` до первой правки файла: текст меняется только по уведомлению
+  `taplo/didChangeSchemaAssociation`, а расширение подписывается на него после `client.start()`. Подсказки и hover при этом
+  уже работают. В пикере `TOML: Select Schema` схема из `associations` видна дважды: список отдаёт сервер, причину не
+  разбирали, выбор пункта работает. Inlay hints, линзы, implementation, иерархии, linked editing и format on type сервер не
+  даёт: это фиксируют `extensionHost.toml.test.ts` и смоук по журналу.
 - **`shardulm94.trailing-spaces`** — прокси на сток Open VSX 0.4.4. `support: partial`: подсветка в тексте не рисуется,
   мост `setDecorations` знает только gutter и overview ruler, поэтому команда `Highlight` и настройки цвета видимого
   эффекта не дают (класс C эпика #912). `Delete - Modified Lines Only` сравнивает документ с файлом на диске, git не

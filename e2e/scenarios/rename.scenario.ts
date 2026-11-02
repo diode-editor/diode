@@ -34,8 +34,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Rename") && t.includes(OLD_NAME));
         await editor.capture("prompt");
 
-        // The cursor is seeded at the end of the pre-filled name.
-        for (let i = 0; i < OLD_NAME.length; i++) await editor.sendKey("Backspace");
+        // The stem is selected on open; this name changes the extension too.
+        await editor.sendKey("Ctrl+a");
         await editor.sendText(NEW_NAME);
         await editor.waitForText((t) => t.includes("Rename") && t.includes(NEW_NAME));
         await editor.sendKey("Enter");

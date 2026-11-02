@@ -106,6 +106,7 @@ describe("window.showInputBox (shim)", () => {
             prompt: "What should we call you",
             placeHolder: "name",
             value: "seed",
+            valueSelection: [1, 3],
         });
         expect(result).toBe("Ada");
         expect(lastRequest(stub, "window.showInputBox")).toMatchObject({
@@ -113,6 +114,7 @@ describe("window.showInputBox (shim)", () => {
             prompt: "What should we call you",
             placeHolder: "name",
             value: "seed",
+            valueSelection: [1, 3],
             validates: false,
         });
     });

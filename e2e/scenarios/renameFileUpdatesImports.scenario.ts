@@ -57,7 +57,7 @@ export default defineScenario({
         await clickOn(OLD_NAME);
         await editor.sendKey("F2");
         await editor.waitForText((t) => t.includes("Rename") && t.includes(OLD_NAME));
-        for (let i = 0; i < OLD_NAME.length; i++) await editor.sendKey("Backspace");
+        await editor.sendKey("Ctrl+a");
         await editor.sendText(NEW_NAME);
         await editor.waitForText((t) => t.includes("Rename") && t.includes(NEW_NAME));
         await editor.sendKey("Enter");
