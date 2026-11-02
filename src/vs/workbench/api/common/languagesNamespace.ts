@@ -119,12 +119,10 @@ import type {
     IWireReleaseTypeHierarchy,
     IWireRenameParams,
     IWireResolveDocumentLinkParams,
-    IWireResolveWorkspaceSymbolParams,
     IWireSelectionRangeParams,
     IWireSignatureHelpParams,
     IWireTypeHierarchyParams,
     IWireWorkspaceSymbol,
-    IWireWorkspaceSymbolsParams,
     Received,
     WireCodeAction,
     WireFoldingRange,
@@ -1598,15 +1596,15 @@ export function createLanguagesNamespace(
     });
 
     rpc.handleRequest("languages.provideWorkspaceSymbols", async (params, cancellation) => {
-        const p: Partial<IWireWorkspaceSymbolsParams> = params;
         const empty = { cacheId: 0, symbols: [] };
-        const reg = workspaceSymbolProviders.get(p.handle ?? -1);
+        const reg = workspaceSymbolProviders.get(params.handle);
         if (reg === undefined) return empty;
         try {
             const result = await callWithVscodeToken(cancellation, (token) =>
-                reg.provider.provideWorkspaceSymbols(p.query ?? "", token),
+                reg.provider.provideWorkspaceSymbols(params.query, token),
             );
             if (!Array.isArray(result) || result.length === 0) return empty;
+            // Stryker disable next-line UpdateOperator: only that the ids differ matters, descending ones differ too
             const cacheId = nextWorkspaceSymbolCacheId++;
             // Only a provider that resolves ever reads it; the others would pin their whole answers.
             if (reg.provider.resolveWorkspaceSymbol !== undefined) reg.cache.set(cacheId, result);
@@ -1618,12 +1616,13 @@ export function createLanguagesNamespace(
     });
 
     rpc.handleRequest("languages.resolveWorkspaceSymbol", async (params, cancellation) => {
-        const p: Partial<IWireResolveWorkspaceSymbolParams> = params;
-        const reg = workspaceSymbolProviders.get(p.handle ?? -1);
-        const original = reg?.cache.get(p.cacheId ?? -1)?.[p.id ?? -1];
-        if (reg === undefined || original === undefined) return null;
+        const reg = workspaceSymbolProviders.get(params.handle);
+        if (reg === undefined) return null;
+        const original = reg.cache.get(params.cacheId)?.[params.id];
+        if (original === undefined) return null;
         try {
             const resolved = await callWithVscodeToken(cancellation, (token) =>
+                // Stryker disable next-line OptionalChaining: the cache only holds answers of a provider that has the method
                 reg.provider.resolveWorkspaceSymbol?.(original, token),
             );
             const location = serializeWorkspaceSymbolLocation(resolved?.location);

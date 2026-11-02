@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
+import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type {
@@ -86,6 +87,12 @@ async function settle(): Promise<void> {
 const labels = (items: readonly QuickAccessItem[]): string[] => items.map((item) => item.label);
 
 describe("WorkspaceSymbolsQuickAccessProvider", () => {
+    it("says what to type and asks the picker to debounce the input", () => {
+        const { provider } = setup();
+        expect(provider.getPlaceholder()).toBe("Type the name of a symbol to open.");
+        expect(provider.debounceQuery).toBe(true);
+    });
+
     beforeEach(() => {
         vi.useFakeTimers();
     });
@@ -169,10 +176,11 @@ describe("WorkspaceSymbolsQuickAccessProvider", () => {
             const { provider, features, refresh } = setup();
             const source = answering([symbol("foo")]);
             features.workspaceSymbolProvider.register(source);
+            refresh.mockClear();
 
             expect(provider.getItems("#foo")).toEqual([]);
             await settle();
-            expect(refresh).toHaveBeenCalledWith(false);
+            expect(refresh).toHaveBeenCalledExactlyOnceWith(false);
             expect(labels(provider.getItems("#foo"))).toEqual(["foo"]);
             await settle();
 
@@ -299,14 +307,16 @@ describe("WorkspaceSymbolsQuickAccessProvider", () => {
         it("sorted by score, then name ignoring case, then the kind's icon", async () => {
             const rows = await rowsFor([
                 symbol("zeta"),
-                symbol("Alpha", { kind: SymbolKind.Variable }),
-                symbol("alpha", { kind: SymbolKind.Class }),
+                symbol("alpha", { kind: SymbolKind.Variable }),
+                symbol("Alpha", { kind: SymbolKind.Class }),
                 symbol("beta"),
             ]);
-            expect(rows.map((row) => row.label)).toEqual(["alpha", "Alpha", "beta", "zeta"]);
+            expect(rows.map((row) => row.label)).toEqual(["Alpha", "alpha", "beta", "zeta"]);
 
-            const scored = await rowsFor([symbol("xxfoo"), symbol("foo")], "#foo");
-            expect(labels(scored)).toEqual(["foo", "xxfoo"]);
+            // By name `afoo` would go first: the score decides, whichever way the answer came.
+            const scored = ["foo", "afoo"].map((name) => symbol(name));
+            expect(labels(await rowsFor(scored, "#foo"))).toEqual(["foo", "afoo"]);
+            expect(labels(await rowsFor([...scored].reverse(), "#foo"))).toEqual(["foo", "afoo"]);
         });
     });
 
@@ -358,6 +368,34 @@ describe("WorkspaceSymbolsQuickAccessProvider", () => {
     });
 
     describe("accept", () => {
+        // A failure of the open goes here: nothing but the failing case below may reach it.
+        const unexpected = vi.fn<(error: unknown) => void>();
+
+        beforeEach(() => {
+            unexpected.mockClear();
+            setUnexpectedErrorHandler(unexpected);
+        });
+
+        afterEach(() => {
+            setUnexpectedErrorHandler((error) => {
+                console.error(error);
+            });
+            expect(unexpected).not.toHaveBeenCalled();
+        });
+
+        it("a failing open is reported, not left as an unhandled rejection", async () => {
+            const { provider, features, openUri } = setup({});
+            openUri.mockImplementation(() => Promise.reject(new Error("boom")));
+            features.workspaceSymbolProvider.register(answering([symbol("foo")]));
+            provider.getItems("#");
+            await settle();
+            provider.getItems("#")[0].accept?.();
+            await flushMicrotasks();
+
+            expect(unexpected).toHaveBeenCalledTimes(1);
+            unexpected.mockClear();
+        });
+
         async function accept(source: WorkspaceSymbolProvider, editorUri = "/w/src/a.ts") {
             const fixture = setup({});
             fixture.features.workspaceSymbolProvider.register(source);
@@ -406,6 +444,16 @@ describe("WorkspaceSymbolsQuickAccessProvider", () => {
             );
             expect(openUri).toHaveBeenCalledTimes(1);
             expect(editor?.goToPosition).not.toHaveBeenCalled();
+        });
+
+        it("nothing is active after the open: no failure", async () => {
+            const { provider, features, openUri } = setup(null);
+            features.workspaceSymbolProvider.register(answering([symbol("foo")]));
+            provider.getItems("#");
+            await settle();
+            provider.getItems("#")[0].accept?.();
+            await flushMicrotasks();
+            expect(openUri).toHaveBeenCalledTimes(1);
         });
 
         it("the file failed to open: the editor that stayed active is not moved", async () => {
@@ -458,12 +506,48 @@ describe("getWorkspaceSymbols", () => {
         expect(items).toHaveLength(6);
     });
 
+    /** Whichever way the sort happens to compare them. */
+    async function bothWays(a: ICoreWorkspaceSymbol, b: ICoreWorkspaceSymbol): Promise<ICoreWorkspaceSymbol[][]> {
+        const forward = await run([a], [b]);
+        const backward = await run([b], [a]);
+        return [forward, backward].map((items) => items.map((item) => item.symbol));
+    }
+
+    const located = (range: ReturnType<typeof createRange>) =>
+        symbol("a", { location: { uri: "file:///a.ts", range } });
+
     it("ranges that only touch do not intersect", async () => {
-        const items = await run(
-            [symbol("a", { location: { uri: "file:///a.ts", range: createRange(1, 0, 1, 5) } })],
-            [symbol("a", { location: { uri: "file:///a.ts", range: createRange(1, 5, 1, 9) } })],
-        );
-        expect(items).toHaveLength(2);
+        const answers = await bothWays(located(createRange(1, 0, 1, 5)), located(createRange(1, 5, 1, 9)));
+        for (const answer of answers) expect(answer).toHaveLength(2);
+    });
+
+    it("overlapping ranges that differ are the same symbol", async () => {
+        const answers = await bothWays(located(createRange(1, 0, 1, 5)), located(createRange(1, 2, 1, 7)));
+        for (const answer of answers) expect(answer).toHaveLength(1);
+    });
+
+    it("an empty range at the start of another is another symbol", async () => {
+        const answers = await bothWays(located(createRange(1, 0, 1, 0)), located(createRange(1, 0, 1, 5)));
+        for (const answer of answers) expect(answer).toHaveLength(2);
+    });
+
+    it("with a range and without one, from the same kind of provider, is one symbol", async () => {
+        const partial = symbol("a", { location: { uri: "file:///a.ts" } });
+        const answers = await bothWays(partial, located(createRange(1, 0, 1, 5)));
+        for (const answer of answers) expect(answer).toHaveLength(1);
+    });
+
+    it("the order is by name, kind, uri, then range, whichever way they came", async () => {
+        const ordered = [
+            symbol("a", { kind: SymbolKind.Class, location: at(1) }),
+            symbol("a", { kind: SymbolKind.Class, location: at(2) }),
+            symbol("a", { kind: SymbolKind.Class, location: { uri: "file:///b.ts", range: range(1) } }),
+            symbol("a", { kind: SymbolKind.Function, location: at(1) }),
+            symbol("b", { location: at(1) }),
+        ];
+        const names = async (input: readonly ICoreWorkspaceSymbol[]) => (await run(input)).map((item) => item.symbol);
+        expect(await names(ordered)).toEqual(ordered);
+        expect(await names([...ordered].reverse())).toEqual(ordered);
     });
 
     it("without a range, with and without resolve stay two symbols, the one that can resolve first", async () => {
@@ -475,7 +559,12 @@ describe("getWorkspaceSymbols", () => {
         features.workspaceSymbolProvider.register(resolving);
 
         const items = await getWorkspaceSymbols(features.workspaceSymbolProvider, "q", token);
-
         expect(items.map((item) => item.provider)).toEqual([resolving, plain]);
+
+        const reversed = new LanguageFeaturesService();
+        reversed.workspaceSymbolProvider.register(resolving);
+        reversed.workspaceSymbolProvider.register(plain);
+        const other = await getWorkspaceSymbols(reversed.workspaceSymbolProvider, "q", token);
+        expect(other.map((item) => item.provider)).toEqual([resolving, plain]);
     });
 });

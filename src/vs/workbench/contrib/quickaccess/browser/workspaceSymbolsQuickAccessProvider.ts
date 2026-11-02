@@ -2,6 +2,7 @@ import * as nodePath from "node:path";
 
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { CancellationTokenNone, LatestRequest } from "../../../../base/common/cancellation.ts";
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { comparePositions } from "../../../../editor/common/core/iPosition.ts";
@@ -116,14 +117,14 @@ export interface ISymbolPickOptions {
 
 interface IRankedSymbol {
     readonly item: IWorkspaceSymbolItem;
-    readonly match: ISymbolMatch | null;
+    readonly match: ISymbolMatch;
     readonly containerLabel: string;
 }
 
 /** Upstream `compareSymbols`: by score, by name, by the kind's icon. */
 function compareRanked(a: IRankedSymbol, b: IRankedSymbol): number {
     return (
-        (b.match?.score ?? 0) - (a.match?.score ?? 0) ||
+        b.match.score - a.match.score ||
         a.item.symbol.name.toLowerCase().localeCompare(b.item.symbol.name.toLowerCase()) ||
         symbolKindCodicon(a.item.symbol.kind).localeCompare(symbolKindCodicon(b.item.symbol.kind))
     );
@@ -153,7 +154,7 @@ export class WorkspaceSymbolsQuickAccessProvider implements IQuickAccessProvider
     private readonly registryListener = new MutableDisposable();
     private requestedFilter: string | null = null;
     private rows: readonly QuickAccessItem[] = [];
-    private refresh: (preserveSelection: boolean) => void = () => undefined;
+    private refresh!: (preserveSelection: boolean) => void;
 
     public constructor(
         private readonly languageFeatures: Pick<ILanguageFeaturesService, "workspaceSymbolProvider">,
@@ -220,9 +221,7 @@ export class WorkspaceSymbolsQuickAccessProvider implements IQuickAccessProvider
         const ticket = this.latest.start();
         this.searchTimer = setTimeout(() => {
             void this.getSymbolPicks(filter, options, ticket.token).then((rows) => {
-                if (ticket.isStale()) return;
-                ticket.done();
-                onResults(rows);
+                if (!ticket.isStale()) onResults(rows);
             });
         }, TYPING_SEARCH_DELAY_MS);
     }
@@ -250,7 +249,6 @@ export class WorkspaceSymbolsQuickAccessProvider implements IQuickAccessProvider
             if (options.skipLocal === true && !GLOBAL_SYMBOL_KINDS.has(symbol.kind) && containerName !== "") return [];
             const path = this.pathOf(Uri.parse(symbol.location.uri));
             const containerLabel = containerName === "" ? path : `${containerName} • ${path}`;
-            if (filter === "") return [{ item, match: null, containerLabel }];
             const match = matchSymbol(symbol.name, containerLabel, filter);
             return match === null ? [] : [{ item, match, containerLabel }];
         });
@@ -273,14 +271,14 @@ export class WorkspaceSymbolsQuickAccessProvider implements IQuickAccessProvider
             label: deprecated ? `${symbol.name} (deprecated)` : symbol.name,
             description: containerLabel,
             // As upstream: a deprecated row has no highlights.
-            ...(match !== null && !deprecated
+            ...(!deprecated
                 ? {
                       labelMatchRanges: toMatchRanges(match.nameIndices),
                       descriptionMatchRanges: toMatchRanges(match.containerIndices),
                   }
                 : {}),
             accept: () => {
-                void this.open(item);
+                this.open(item).catch(onUnexpectedError);
             },
         };
     }

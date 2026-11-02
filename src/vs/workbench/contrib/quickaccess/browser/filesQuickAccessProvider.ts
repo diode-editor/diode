@@ -70,7 +70,7 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
     public readonly debounceQuery = true;
 
     private readonly indexSubscription = new MutableDisposable();
-    private refresh: (preserveSelection: boolean) => void = () => undefined;
+    private refresh!: (preserveSelection: boolean) => void;
     private symbolFilter = "";
     private symbolRows: readonly QuickAccessItem[] = [];
 

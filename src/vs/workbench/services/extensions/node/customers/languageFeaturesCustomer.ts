@@ -836,6 +836,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         store.add(
             rpc.handleNotification("languages.registerWorkspaceSymbol", (params) => {
                 const registration = parseWireWorkspaceSymbolProviderRegistration(params);
+                // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` before the event — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (registration === null) return;
                 this.workspaceSymbolProviders.set(registration.handle, registration);
                 this.onProvidersChangedEmitter.fire();

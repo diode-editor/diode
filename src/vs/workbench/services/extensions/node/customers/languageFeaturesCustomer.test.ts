@@ -1233,8 +1233,10 @@ describe("LanguageFeaturesCustomer — workspace symbols", () => {
         let answer: { location: typeof location } | null = { location };
         const h = setupAnswering({ "languages.resolveWorkspaceSymbol": () => answer });
 
-        expect(await h.customer.resolveWorkspaceSymbol(1, 2, 3)).toEqual(location);
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.resolveWorkspaceSymbol(1, 2, 3, caller.token)).toEqual(location);
         expect(h.sent.mock.calls.at(-1)?.[1]).toEqual({ handle: 1, cacheId: 2, id: 3 });
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
 
         answer = null;
         expect(await h.customer.resolveWorkspaceSymbol(1, 2, 3)).toBeNull();
