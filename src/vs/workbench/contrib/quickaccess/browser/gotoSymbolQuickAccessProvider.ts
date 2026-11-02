@@ -58,6 +58,7 @@ export interface IGotoSymbolEditor extends ILanguageFeatureTarget {
     readonly viewState: IGotoSymbolViewState;
     readonly versionId: number;
     setDecorations(decorations: IExternalDecorations): void;
+    focusEditor(): void;
 }
 
 export interface IGotoSymbolEditorSource {
@@ -131,23 +132,41 @@ function parseQuery(query: string): IParsedQuery {
     return { original, scoped, text: scoped ? original.slice(SCOPE_PREFIX.length).trim() : original };
 }
 
-interface ISymbolMatch {
+export interface ISymbolMatch {
     readonly score: number;
     readonly nameIndices: readonly number[];
     readonly containerIndices: readonly number[];
+}
+
+/** Above what a word start pays a scattered match: `hello` is worth more in `Hello` and `HelloWorld` than in `heldLockInfo`. */
+const NAME_PREFIX_BONUS = 100;
+/** Upstream `boostFullMatch`: the whole name beats the same query as a prefix of a longer one. */
+const FULL_NAME_BONUS = 100;
+
+function wholeNameBonus(symbolName: string, text: string): number {
+    const name = symbolName.toLowerCase();
+    const query = text.toLowerCase();
+    if (!name.startsWith(query)) return 0;
+    return name.length === query.length ? NAME_PREFIX_BONUS + FULL_NAME_BONUS : NAME_PREFIX_BONUS;
 }
 
 /**
  * Upstream `doGetSymbolPicks`: the whole query may match the name ("change log" for a markdown heading);
  * otherwise the first word is for the symbol and the rest for its container.
  */
-function matchSymbol(symbol: IFlatDocumentSymbol, text: string): ISymbolMatch | null {
-    const whole = fuzzyMatchBest(text, symbol.name);
-    if (whole !== null) return { score: whole.score, nameIndices: whole.matchedIndices, containerIndices: [] };
+export function matchSymbol(symbolName: string, containerName: string, text: string): ISymbolMatch | null {
+    const whole = fuzzyMatchBest(text, symbolName);
+    if (whole !== null) {
+        return {
+            score: whole.score + wholeNameBonus(symbolName, text),
+            nameIndices: whole.matchedIndices,
+            containerIndices: [],
+        };
+    }
     const [first, ...rest] = text.split(/\s/);
-    const name = fuzzyMatchBest(first, symbol.name);
+    const name = fuzzyMatchBest(first, symbolName);
     if (name === null) return null;
-    const container = fuzzyMatchPrepared(prepareQuery(rest.join(" ")), symbol.containerName);
+    const container = fuzzyMatchPrepared(prepareQuery(rest.join(" ")), containerName);
     if (container === null) return null;
     return {
         score: name.score + container.score,
@@ -322,7 +341,7 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
     private buildItems(symbols: readonly IFlatDocumentSymbol[], query: IParsedQuery): QuickAccessItem[] {
         const ranked = symbols.flatMap((symbol): IRankedSymbol[] => {
             if (query.text === "") return [{ symbol, match: null }];
-            const match = matchSymbol(symbol, query.text);
+            const match = matchSymbol(symbol.name, symbol.containerName, query.text);
             return match === null ? [] : [{ symbol, match }];
         });
         if (ranked.length === 0) {
@@ -354,6 +373,7 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
             accept: () => {
                 this.jumps.jump(() => {
                     editor?.viewState.goToPosition(start.line, start.character);
+                    editor?.focusEditor();
                 });
             },
         };

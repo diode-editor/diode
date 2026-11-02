@@ -53,6 +53,12 @@ export const searchConfiguration = {
                 "Controls whether to use `.gitignore` and `.ignore` files in parent directories when searching for files. Requires `#search.useIgnoreFiles#` to be enabled.",
         },
         // Verbatim from upstream (`search.contribution.ts`); window scope, as there.
+        "search.quickOpen.includeSymbols": {
+            scope: "window",
+            type: "boolean",
+            default: false,
+            description: "Whether to include results from a global symbol search in the file results for Quick Open.",
+        },
         "search.quickOpen.includeHistory": {
             scope: "window",
             type: "boolean",

@@ -899,6 +899,13 @@
             "mac-cmd (kitty) #2": "alt+meta+tab",
             "mac-cmd (kitty) #3": "alt+meta+tab"
         },
+        "workbench.action.showAllSymbols": {
+            "*": "ctrl+t",
+            "mac-cmd (kitty) #0": "meta+t",
+            "mac-cmd (kitty) #1": "meta+t",
+            "mac-cmd (kitty) #2": "meta+t",
+            "mac-cmd (kitty) #3": "meta+t"
+        },
         "workbench.action.showCommands": {
             "*": "ctrl+shift+p",
             "pc legacy #0": "f1",
