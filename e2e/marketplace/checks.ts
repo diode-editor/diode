@@ -11,7 +11,7 @@ import {
 import { ensureGopls, GO_SAMPLE_DIR, GO_SESSION_ENV, goToolchainMissing } from "../../src/TestUtils/goFixture.ts";
 import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
 import { mavenMissing, writeMavenProject } from "../../src/TestUtils/mavenFixture.ts";
-import { TOML_SCHEMA, TOML_WITH_SCHEMA } from "../../src/TestUtils/tomlFixture.ts";
+import { TOML_BROKEN_TAIL_LENGTH, writeTomlProject } from "../../src/TestUtils/tomlFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
 import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../helpers/biomeFixture.ts";
 import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "../helpers/claudeIde.ts";
@@ -19,6 +19,8 @@ import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
 import { findTextCell } from "../helpers/frame.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
+
+import { expectNotRegistered } from "./apiJournal.ts";
 
 /**
  * A check exercises the extension's real functionality and inspects editor state, not the mere fact
@@ -859,22 +861,14 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
             } finally {
                 await app.dispose();
             }
-            // After dispose: the journal flushes on a timer. These features are not in the server, not missing here.
-            const registered = readFileSync(process.env.DIODE_API_TRACE ?? "", "utf8")
-                .split("\n")
-                .filter((line) => line !== "")
-                .map((line) => JSON.parse(line) as { extension: string; kind: string; member: string })
-                .filter((row) => row.extension === "biomejs.biome" && row.kind === "registered")
-                .map((row) => row.member);
-            for (const absent of [
+            // These features are not in the server, not missing here.
+            expectNotRegistered("biomejs.biome", [
                 "languages.registerInlayHintsProvider",
                 "languages.registerCodeLensProvider",
                 "languages.registerDefinitionProvider",
                 "languages.registerReferenceProvider",
                 "languages.registerDocumentSymbolProvider",
-            ]) {
-                if (registered.includes(absent)) throw new Error(`Biome now registers ${absent}: update the entry`);
-            }
+            ]);
         },
     },
     {
@@ -885,10 +879,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         timeoutMs: 180_000,
         run: async (ctx) => {
             const project = join(ctx.root, "project");
-            mkdirSync(project, { recursive: true });
-            writeFileSync(join(project, "schema.json"), TOML_SCHEMA);
-            const file = join(project, "sample.toml");
-            writeFileSync(file, `${TOML_WITH_SCHEMA}\n[dep\n`);
+            const file = writeTomlProject(project);
             const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [project, file] });
             try {
                 await waitUntil(
@@ -897,11 +888,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                     { describe: "undercurl on the unclosed table header", timeoutMs: 60_000, intervalMs: 500 },
                 );
                 await app.session.key("Ctrl+End");
-                await app.session.key("Backspace");
-                await app.session.key("Backspace");
-                await app.session.key("Backspace");
-                await app.session.key("Backspace");
-                await app.session.key("Backspace");
+                for (let i = 0; i < TOML_BROKEN_TAIL_LENGTH; i++) await app.session.key("Backspace");
                 await waitUntil(
                     () => app.session.captureFrame(),
                     (frame) => frame.cells.every((cell) => (cell.style & 8) === 0),
@@ -920,13 +907,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
             } finally {
                 await app.dispose();
             }
-            const registered = readFileSync(process.env.DIODE_API_TRACE ?? "", "utf8")
-                .split("\n")
-                .filter((line) => line !== "")
-                .map((line) => JSON.parse(line) as { extension: string; kind: string; member: string })
-                .filter((row) => row.extension === "tamasfe.even-better-toml" && row.kind === "registered")
-                .map((row) => row.member);
-            for (const absent of [
+            expectNotRegistered("tamasfe.even-better-toml", [
                 "languages.registerInlayHintsProvider",
                 "languages.registerCodeLensProvider",
                 "languages.registerImplementationProvider",
@@ -934,9 +915,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 "languages.registerTypeHierarchyProvider",
                 "languages.registerLinkedEditingRangeProvider",
                 "languages.registerOnTypeFormattingEditProvider",
-            ]) {
-                if (registered.includes(absent)) throw new Error(`taplo now registers ${absent}: update the entry`);
-            }
+            ]);
         },
     },
     {

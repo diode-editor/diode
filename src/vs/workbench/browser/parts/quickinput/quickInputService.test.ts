@@ -61,6 +61,14 @@ describe("QuickInputService.input", () => {
         await expect(result).resolves.toBe("x.txt");
     });
 
+    it("valueSelection counts string offsets: an emoji before the end does not widen it", async () => {
+        const { service, testApp } = createService();
+        const result = service.input({ value: "😀a.txt", valueSelection: [0, 3] });
+        testApp.sendKey("x");
+        testApp.sendKey("Enter");
+        await expect(result).resolves.toBe("x.txt");
+    });
+
     it("resolves with the typed value on Enter", async () => {
         const { service, testApp } = createService();
         const result = service.input({});

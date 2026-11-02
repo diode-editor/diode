@@ -5,7 +5,6 @@ import {
     createExtensionTestHarness,
     documentVersion,
     formatDocumentFor,
-    type IExtensionHarness,
     provideCompletions,
     provideDocumentSymbols,
     provideHovers,
@@ -26,14 +25,15 @@ import { getLinks } from "../../../../editor/contrib/links/browser/getLinks.ts";
 
 let installed: IInstalledToml;
 
-async function openSample(
-    configuration: Readonly<Record<string, unknown>> = {},
-): Promise<{ harness: IExtensionHarness; uri: string; versionId: number; languageId: string }> {
+async function openSample() {
     const harness = await createExtensionTestHarness({
         languageService: TOML_LANGUAGE_SERVICE,
         activateEvents: [],
         extensions: [installed.registration],
-        configuration,
+        configuration: {
+            "evenBetterToml.schema.links": true,
+            "evenBetterToml.formatter.indentEntries": true,
+        },
     });
     harness.writeFile("schema.json", TOML_SCHEMA);
     const file = harness.writeFile("sample.toml", TOML_WITH_SCHEMA);
@@ -43,7 +43,7 @@ async function openSample(
     if (editor === null) throw new Error("no active editor");
     await waitUntil("the taplo providers", () => harness.languageFeatures.documentSymbolProvider.has(editor), 60_000);
     const uri = Uri.file(file).toString();
-    return { harness, uri, languageId: "toml", versionId: documentVersion(harness, uri) };
+    return { harness, editor, uri, languageId: "toml", versionId: documentVersion(harness, uri) };
 }
 
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock Even Better TOML from the marketplace", () => {
@@ -56,13 +56,10 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock Even Better TOML f
     });
 
     it(
-        "symbols, format with evenBetterToml.formatter.*, hover, completion, links and rename",
+        "symbols, format with evenBetterToml.formatter.*, hover, completion, links, rename, no providers the server lacks",
         { timeout: 180_000 },
         async () => {
-            const { harness, ...request } = await openSample({
-                "evenBetterToml.schema.links": true,
-                "evenBetterToml.formatter.indentEntries": true,
-            });
+            const { harness, editor, ...request } = await openSample();
             try {
                 const symbols = await provideDocumentSymbols(harness, request);
                 expect(symbols.map((symbol) => [symbol.name, symbol.children.map((child) => child.name)])).toEqual([
@@ -86,8 +83,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock Even Better TOML f
                 const completions = await provideCompletions(harness, { ...request, line: 3, character: 0 });
                 expect(JSON.stringify(completions)).toContain("homepage");
 
-                const editor = harness.group.getActiveEditor();
-                if (editor === null) throw new Error("no active editor");
                 const links = await getLinks(
                     harness.languageFeatures.documentLinkProvider,
                     editor,
@@ -99,37 +94,21 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock Even Better TOML f
                 const rename = await provideRename(harness, position, "title");
                 expect(rename).toMatchObject({ applied: true });
                 expect(editor.getText()).toContain('title   =   "demo"');
+
+                const features = harness.languageFeatures;
+                const absent = {
+                    inlayHints: features.inlayHintsProvider,
+                    codeLens: features.codeLensProvider,
+                    implementation: features.implementationProvider,
+                    callHierarchy: features.callHierarchyProvider,
+                    typeHierarchy: features.typeHierarchyProvider,
+                    linkedEditing: features.linkedEditingRangeProvider,
+                    onTypeFormatting: features.onTypeFormattingEditProvider,
+                };
+                expect(Object.entries(absent).filter(([, registry]) => registry.has(editor))).toEqual([]);
             } finally {
                 await harness.dispose();
             }
         },
     );
-
-    it("features the server does not have stay unregistered", { timeout: 120_000 }, async () => {
-        const { harness } = await openSample();
-        try {
-            const editor = harness.group.getActiveEditor();
-            if (editor === null) throw new Error("no active editor");
-            const features = harness.languageFeatures;
-            expect({
-                inlayHints: features.inlayHintsProvider.has(editor),
-                codeLens: features.codeLensProvider.has(editor),
-                implementation: features.implementationProvider.has(editor),
-                callHierarchy: features.callHierarchyProvider.has(editor),
-                typeHierarchy: features.typeHierarchyProvider.has(editor),
-                linkedEditing: features.linkedEditingRangeProvider.has(editor),
-                onTypeFormatting: features.onTypeFormattingEditProvider.has(editor),
-            }).toEqual({
-                inlayHints: false,
-                codeLens: false,
-                implementation: false,
-                callHierarchy: false,
-                typeHierarchy: false,
-                linkedEditing: false,
-                onTypeFormatting: false,
-            });
-        } finally {
-            await harness.dispose();
-        }
-    });
 });

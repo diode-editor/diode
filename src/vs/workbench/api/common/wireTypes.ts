@@ -1286,6 +1286,7 @@ export interface IWireInputBoxRequest {
     readonly prompt?: string;
     readonly placeHolder?: string;
     readonly value?: string;
+    readonly valueSelection?: readonly [number, number];
     readonly password: boolean;
     /** Without the flag the host skips the `window.inputBox.validate` round-trip. */
     readonly validates: boolean;

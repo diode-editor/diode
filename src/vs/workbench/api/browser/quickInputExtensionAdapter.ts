@@ -64,6 +64,7 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
                 placeholder: renderLabel(request.placeHolder),
                 // `value` is not a label: the user edits it and it goes back to the extension.
                 value: request.value,
+                valueSelection: request.valueSelection,
                 password: request.password,
                 validateInput,
             });

@@ -24,6 +24,7 @@ describe("parseWireInputBoxRequest", () => {
                 prompt: "How should we address you",
                 placeHolder: "name",
                 value: "Ada",
+                valueSelection: [0, 2],
                 password: true,
                 validates: true,
             }),
@@ -33,6 +34,7 @@ describe("parseWireInputBoxRequest", () => {
             prompt: "How should we address you",
             placeHolder: "name",
             value: "Ada",
+            valueSelection: [0, 2],
             password: true,
             validates: true,
         });

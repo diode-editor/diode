@@ -131,6 +131,7 @@ export function createQuickInputApi(
                         prompt: options?.prompt,
                         placeHolder: options?.placeHolder,
                         value: options?.value,
+                        valueSelection: options?.valueSelection,
                         password: options?.password === true,
                         validates: validate !== undefined,
                     }),

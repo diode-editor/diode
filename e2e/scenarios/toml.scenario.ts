@@ -1,8 +1,8 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { TOML_SCHEMA, TOML_WITH_SCHEMA } from "../../src/TestUtils/tomlFixture.ts";
+import { TOML_BROKEN_TAIL_LENGTH, writeTomlProject } from "../../src/TestUtils/tomlFixture.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
@@ -25,9 +25,7 @@ export default defineScenario({
     skipOn: ["win32", "darwin"],
     prepare() {
         rmSync(projectRoot, { recursive: true, force: true });
-        mkdirSync(projectRoot, { recursive: true });
-        writeFileSync(join(projectRoot, "schema.json"), TOML_SCHEMA);
-        writeFileSync(sample, `${TOML_WITH_SCHEMA}\n[dep\n`);
+        writeTomlProject(projectRoot);
         return Promise.resolve();
     },
     async run(editor) {
@@ -39,7 +37,7 @@ export default defineScenario({
         await editor.capture("diagnostics");
 
         await editor.sendKey("Ctrl+End");
-        for (let i = 0; i < 5; i++) await editor.sendKey("Backspace");
+        for (let i = 0; i < TOML_BROKEN_TAIL_LENGTH; i++) await editor.sendKey("Backspace");
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.every((cell) => (cell.style & 8) === 0),

@@ -247,7 +247,6 @@ export class FileOperationsService {
     public async runRename(filePath: string): Promise<void> {
         const parentDir = path.dirname(filePath);
         const oldName = path.basename(filePath);
-        const lastDot = oldName.lastIndexOf(".");
 
         const name = await this.inputPrompt.input({
             title: "Rename",
@@ -255,7 +254,7 @@ export class FileOperationsService {
             value: oldName,
             // Upstream explorer rename: the extension stays out of the selection. Upstream also selects a whole
             // folder name; here the prompt opens synchronously, without a stat, so a dotted folder is treated like a file.
-            valueSelection: [0, lastDot > 0 ? lastDot : oldName.length],
+            valueSelection: [0, path.parse(oldName).name.length],
             validateInput: async (value) => {
                 const trimmed = value.trim();
                 if (trimmed === "") return "Please enter a name";
