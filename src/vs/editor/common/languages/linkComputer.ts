@@ -44,6 +44,7 @@ const EDGES: readonly (readonly [State, string, State])[] = [
 ];
 
 function edgeKey(state: State, charCode: number): number {
+    // Stryker disable next-line ArithmeticOperator: the key is only ever compared with one made here; a minus is as one-to-one
     return state * 0x10000 + charCode;
 }
 
