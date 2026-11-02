@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 
+import { frameLine } from "../helpers/frame.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
@@ -76,7 +77,25 @@ export default defineScenario({
         await editor.sendKey("Ctrl+End");
         await editor.sendKey("ArrowUp");
         for (let i = 0; i < "export const tag = <d".length; i++) await editor.sendKey("ArrowRight");
-        await editor.waitForReady();
+        // Typing before the ranges arrive edits one tag: the caret walks until both tags have the color.
+        await waitUntil(
+            async () => {
+                const frame = await editor.captureFrame();
+                for (let y = 0; y < frame.rows; y++) {
+                    const x = frameLine(frame, y).indexOf("<div></div>");
+                    if (x < 0) continue;
+                    const [plain, open, close] = [0, 1, 7].map(
+                        (offset) => frame.cells[y * frame.cols + x + offset]?.bg,
+                    );
+                    if (open !== plain && close === open) return true;
+                }
+                await editor.sendKey("ArrowRight");
+                await editor.sendKey("ArrowLeft");
+                return false;
+            },
+            (linked) => linked,
+            { describe: "the linked tag ranges", timeoutMs: 60_000, intervalMs: 100 },
+        );
         await editor.sendText("x");
         await editor.waitForText((t) => t.includes("<dxiv></dxiv>"), { timeoutMs: 60_000 });
         await editor.capture("linked-tag");
