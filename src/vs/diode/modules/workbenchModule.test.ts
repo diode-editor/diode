@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { IBulkEditBuffersDIToken } from "../../workbench/contrib/bulkEdit/common/iBulkEditBuffers.ts";
+import { GotoSymbolQuickAccessProviderDIToken } from "../../workbench/contrib/quickaccess/browser/gotoSymbolQuickAccessProvider.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { ExternalOpenerDIToken } from "../../workbench/services/externalOpener/common/iExternalOpener.ts";
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
@@ -59,6 +60,26 @@ describe("workbenchModule — env.openExternal", () => {
 
         await expect(opener.open("file:///etc/passwd")).resolves.toBe(false);
         expect(container.get(NotificationServiceDIToken).passive()).toEqual([]);
+    });
+});
+
+describe("workbenchModule — Go to Symbol", () => {
+    it("the provider sees the active tab of the real editor service", () => {
+        const { container } = createTestContainer();
+        const provider = container.get(GotoSymbolQuickAccessProviderDIToken);
+        const noop = (): void => undefined;
+        const noEditor = "To go to a symbol, first open a text editor with symbol information.";
+
+        provider.onShow(noop);
+        expect(provider.getItems("@").map((item) => item.label)).toEqual([noEditor]);
+        provider.onHide("cancel");
+
+        const file = path.join(tmpDir, "open.ts");
+        fs.writeFileSync(file, "const a = 1;\n");
+        container.get(EditorServiceDIToken).openFile(file);
+        provider.onShow(noop);
+        expect(provider.getItems("@").map((item) => item.label)).not.toEqual([noEditor]);
+        provider.onHide("cancel");
     });
 });
 

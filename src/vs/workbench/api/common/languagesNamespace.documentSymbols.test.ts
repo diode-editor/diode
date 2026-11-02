@@ -108,6 +108,20 @@ describe("LanguagesNamespace — languages.provideDocumentSymbols", () => {
         expect(provideDocumentSymbols).not.toHaveBeenCalled();
     });
 
+    it("the handle picks the provider; without one nobody is asked", async () => {
+        const { ctx, stub } = makeCtx();
+        const { languages } = createLanguagesNamespace(ctx);
+        const asked = [vi.fn(() => []), vi.fn(() => [])];
+        for (const provideDocumentSymbols of asked) {
+            languages.registerDocumentSymbolProvider({ language: "typescript" }, { provideDocumentSymbols });
+        }
+
+        await stub.callRequest("languages.provideDocumentSymbols", { ...params(), handle: undefined });
+        expect(asked.map((fn) => fn.mock.calls.length)).toEqual([0, 0]);
+        await stub.callRequest("languages.provideDocumentSymbols", params(1));
+        expect(asked.map((fn) => fn.mock.calls.length)).toEqual([0, 1]);
+    });
+
     it("a throwing provider answers empty and is reported", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
@@ -122,7 +136,7 @@ describe("LanguagesNamespace — languages.provideDocumentSymbols", () => {
         );
 
         expect(await stub.callRequest("languages.provideDocumentSymbols", params())).toEqual([]);
-        expect(errors.mock.calls.flat().join(" ")).toContain("provideDocumentSymbols");
+        expect(errors.mock.calls.flat().join(" ")).toContain("provideDocumentSymbols failed: ");
         errors.mockRestore();
     });
 });
@@ -163,6 +177,26 @@ describe("serializeDocumentSymbols", () => {
                 { name: 1, range: new Range(0, 0, 0, 1), selectionRange: new Range(0, 0, 0, 1) },
             ]),
         ).toEqual([]);
+    });
+
+    it("an entry missing either range is dropped", () => {
+        const range = new Range(0, 0, 0, 1);
+        expect(
+            serializeDocumentSymbols([
+                { name: "no range", selectionRange: range },
+                { name: "no selection range", range },
+            ]),
+        ).toEqual([]);
+    });
+
+    it("a symbol ending where its parent ends is still nested", () => {
+        const roots = serializeDocumentSymbols([
+            info("outer", SymbolKind.Class, new Range(0, 0, 5, 0)),
+            info("tail", SymbolKind.Method, new Range(2, 0, 5, 0)),
+        ]);
+        expect(roots.map((symbol) => symbol.name)).toEqual(["outer"]);
+        expect(roots[0].detail).toBe("");
+        expect(roots[0].children.map((symbol) => symbol.name)).toEqual(["tail"]);
     });
 
     it("SymbolInformation nests by strict containment, whatever the input order", () => {

@@ -1013,6 +1013,16 @@ describe("LanguageFeaturesCustomer — document colors", () => {
     });
 });
 
+describe("LanguageFeaturesCustomer — document symbols", () => {
+    it("the caller's token goes over the wire", async () => {
+        const h = setupAnswering({ "languages.provideDocumentSymbols": () => [] });
+        const caller = new CancellationTokenSource();
+        const request = { uri: SYNCED, languageId: "typescript", versionId: 7 };
+        await h.customer.provideDocumentSymbols(1, request, caller.token);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+});
+
 describe("LanguageFeaturesCustomer — document highlights", () => {
     const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7, position: { line: 2, character: 4 } };
 

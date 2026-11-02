@@ -149,6 +149,25 @@ describe("GotoSymbolQuickAccessProvider — messages", () => {
         expect(makeFixture().provider.getPlaceholder()).toBe("Type the name of a symbol to go to.");
     });
 
+    it("before the first show: the no-editor row", () => {
+        expect(labels(makeFixture().provider.getItems("@"))).toEqual([
+            "To go to a symbol, first open a text editor with symbol information.",
+        ]);
+    });
+
+    it("a late provider reloads once and refreshes without keeping the selection", () => {
+        const fixture = makeFixture();
+        fixture.provider.onShow(fixture.refresh);
+        const pending: DocumentSymbolProvider = {
+            provideDocumentSymbols: vi.fn(() => new Promise<never>(() => undefined)),
+        };
+        fixture.features.documentSymbolProvider.register({ language: "typescript" }, pending);
+        expect(fixture.refresh).toHaveBeenCalledExactlyOnceWith(false);
+
+        fixture.features.documentSymbolProvider.register({ language: "typescript" }, pending);
+        expect(fixture.refresh).toHaveBeenCalledTimes(1);
+    });
+
     it("no editor: a single informational row", async () => {
         const fixture = makeFixture(false);
         await show(fixture);
@@ -296,6 +315,28 @@ describe("GotoSymbolQuickAccessProvider — rows", () => {
         expect(labels(items)).toEqual(["paint", "paintAll"]);
         expect(items[0].labelMatchRanges).toEqual([[0, 5]]);
         expect(items[0].hint).toBe("symbols (2)");
+        expect(items[0].description).toBe("Foo");
+        expect(items[0].descriptionMatchRanges).toEqual([]);
+    });
+
+    it("the better match goes first, wherever it stands in the document", async () => {
+        const later = makeFixture();
+        registerProvider(later, [
+            symbol("xpxaxixnxt", SymbolKind.Function, createRange(1, 0, 1, 10)),
+            symbol("paint", SymbolKind.Function, createRange(5, 0, 5, 5)),
+        ]);
+        await show(later);
+        expect(labels(later.provider.getItems("@paint"))).toEqual(["paint", "xpxaxixnxt"]);
+    });
+
+    it("two words: a better container adds to the score", async () => {
+        const twins = makeFixture();
+        registerProvider(twins, [
+            symbol("paint", SymbolKind.Method, createRange(1, 0, 1, 5), { containerName: "xfxoxo" }),
+            symbol("paint", SymbolKind.Method, createRange(5, 0, 5, 5), { containerName: "foo" }),
+        ]);
+        await show(twins);
+        expect(twins.provider.getItems("@paint foo").map((item) => item.description)).toEqual(["foo", "xfxoxo"]);
     });
 
     it("equal scores keep document order", async () => {
@@ -312,6 +353,8 @@ describe("GotoSymbolQuickAccessProvider — rows", () => {
         const items = fixture.provider.getItems("@paint foo");
         expect(labels(items)).toEqual(["paint"]);
         expect(items[0].descriptionMatchRanges).toEqual([[0, 3]]);
+        expect(fixture.provider.getItems("@paint   foo")[0].descriptionMatchRanges).toEqual([[0, 3]]);
+        expect(labels(fixture.provider.getItems("@paint oo f"))).toEqual(["paint"]);
         expect(labels(fixture.provider.getItems("@paint bar"))).toEqual(["No matching editor symbols"]);
     });
 
@@ -365,6 +408,7 @@ describe("GotoSymbolQuickAccessProvider — @: groups", () => {
 
         const items = fixture.provider.getItems("@:paint");
         expect(labels(items)).toEqual(["paintAll", "paint"]);
+        expect(labels(fixture.provider.getItems("@: paint"))).toEqual(["paintAll", "paint"]);
         expect(items[1].hint).toBe("methods (1)");
     });
 
@@ -402,12 +446,19 @@ describe("GotoSymbolQuickAccessProvider — starting row", () => {
         const typed = makeFixture();
         registerProvider(typed);
         await show(typed);
-        expect(typed.provider.getInitialActiveIndex(typed.provider.getItems("@p"), "@p")).toBeUndefined();
+        expect(typed.provider.getInitialActiveIndex(typed.provider.getItems("@o"), "@o")).toBeUndefined();
 
         const outside = makeFixture(true, createCursorSelection(15, 0));
         registerProvider(outside);
         await show(outside);
         expect(outside.provider.getInitialActiveIndex(outside.provider.getItems("@"), "@")).toBeUndefined();
+    });
+
+    it("the very first row can be the starting one", async () => {
+        const fixture = makeFixture(true, createCursorSelection(4, 0));
+        registerProvider(fixture);
+        await show(fixture);
+        expect(fixture.provider.getInitialActiveIndex(fixture.provider.getItems("@"), "@")).toBe(0);
     });
 
     it("no editor: nothing to enclose", async () => {
@@ -487,6 +538,12 @@ describe("GotoSymbolQuickAccessProvider — preview and return", () => {
         items[3].accept?.();
         expect(fixture.jump).toHaveBeenCalledTimes(1);
         expect(fixture.goToPosition).toHaveBeenCalledWith(20, 9);
+    });
+
+    it("a row built after the hide has no editor to move", () => {
+        fixture.provider.onHide("cancel");
+        fixture.provider.getItems("@")[0].accept?.();
+        expect(fixture.goToPosition).not.toHaveBeenCalled();
     });
 
     it("after hide a late active row previews nothing, and a repeated hide restores nothing", () => {

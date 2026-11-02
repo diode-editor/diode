@@ -91,6 +91,13 @@ describe("EditorViewState.revealRangeNearBottom", () => {
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
+    it("unfolds the region the line is in", () => {
+        const state = makeState(100);
+        state.setFoldingRegions([{ startLine: 48, endLine: 55, isCollapsed: true }] as never);
+        state.revealRangeNearBottom(at(50));
+        expect(state.getCollapsedFolds()).toEqual([]);
+    });
+
     it("stops at the top of the document", () => {
         const state = makeState(100);
         state.revealRangeNearBottom(at(50));

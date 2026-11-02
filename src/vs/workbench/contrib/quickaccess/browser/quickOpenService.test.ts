@@ -1297,6 +1297,20 @@ describe("QuickOpenService — provider hooks", () => {
         expect(onActive).toHaveBeenLastCalledWith(ROWS[0]);
     });
 
+    it("no provider after the close: a late active row and a repeated close are ignored", () => {
+        const { service, component, onActive, onHide } = setup();
+        service.show("@");
+        component.hide();
+        onActive.mockClear();
+        onHide.mockClear();
+
+        component.view.onActiveItemChanged?.(ROWS[0], 0);
+        component.onDidClose?.();
+
+        expect(onActive).not.toHaveBeenCalled();
+        expect(onHide).not.toHaveBeenCalled();
+    });
+
     it("an empty list reports no row", () => {
         const { service, onActive } = setup({ getItems: () => [] });
         service.show("@");

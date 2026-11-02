@@ -142,13 +142,12 @@ interface ISymbolMatch {
  * otherwise the first word is for the symbol and the rest for its container.
  */
 function matchSymbol(symbol: IFlatDocumentSymbol, text: string): ISymbolMatch | null {
-    const words = text.split(/\s+/);
     const whole = fuzzyMatchBest(text, symbol.name);
-    if (whole !== null || words.length === 1) {
-        return whole && { score: whole.score, nameIndices: whole.matchedIndices, containerIndices: [] };
-    }
+    if (whole !== null) return { score: whole.score, nameIndices: whole.matchedIndices, containerIndices: [] };
+    // A single word falls through to the same failed match; `prepareQuery` drops the empty words.
+    const words = text.split(/\s/);
     const name = fuzzyMatchBest(words[0], symbol.name);
-    if (name === null || symbol.containerName === "") return null;
+    if (name === null) return null;
     const container = fuzzyMatchPrepared(prepareQuery(words.slice(1).join(" ")), symbol.containerName);
     if (container === null) return null;
     return {
@@ -164,12 +163,12 @@ interface IGotoSymbolItem extends QuickAccessItem {
 
 interface IRankedSymbol {
     readonly symbol: IFlatDocumentSymbol;
-    readonly documentIndex: number;
     readonly match: ISymbolMatch | null;
 }
 
+/** `ranked` is in document order and the sort is stable, so equal scores keep it. */
 function compareByScore(a: IRankedSymbol, b: IRankedSymbol): number {
-    return (b.match?.score ?? 0) - (a.match?.score ?? 0) || a.documentIndex - b.documentIndex;
+    return (b.match?.score ?? 0) - (a.match?.score ?? 0);
 }
 
 function compareByKindAndScore(a: IRankedSymbol, b: IRankedSymbol): number {
@@ -204,7 +203,7 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
     private editor: IGotoSymbolEditor | null = null;
     private restore: (() => void) | null = null;
     /** A preview unfolds only the region of the symbol it shows, not every one it passed. */
-    private restoreFolds: (() => void) | null = null;
+    private folds: readonly number[] = [];
     private cursor: IPosition | null = null;
     private request: CancellationTokenSource | null = null;
     private registryListener: IDisposable | null = null;
@@ -230,12 +229,8 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
         const { viewState } = editor;
         const scrollTop = viewState.scrollTop;
         const selections = [...viewState.selections];
-        const folds = viewState.getCollapsedFolds();
-        this.restoreFolds = () => {
-            viewState.restoreCollapsedFolds(folds);
-        };
+        this.folds = viewState.getCollapsedFolds();
         this.restore = () => {
-            viewState.restoreCollapsedFolds(folds);
             viewState.selections = selections;
             viewState.scrollTop = scrollTop;
         };
@@ -261,9 +256,9 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
         this.request?.cancel();
         this.request = null;
         this.editor?.setDecorations(EMPTY_EXTERNAL_DECORATIONS);
-        (reason === "cancel" ? this.restore : this.restoreFolds)?.();
+        this.editor?.viewState.restoreCollapsedFolds(this.folds);
+        if (reason === "cancel") this.restore?.();
         this.restore = null;
-        this.restoreFolds = null;
         this.editor = null;
     }
 
@@ -296,7 +291,7 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
     public onActiveItemChanged(item: QuickAccessItem | undefined): void {
         if (!isSymbolItem(item) || this.editor === null) return;
         const { selectionRange } = item.symbol;
-        this.restoreFolds?.();
+        this.editor.viewState.restoreCollapsedFolds(this.folds);
         this.editor.viewState.revealRangeNearBottom(selectionRange);
         const line = selectionRange.start.line;
         this.editor.setDecorations({
@@ -326,10 +321,10 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
     }
 
     private buildItems(symbols: readonly IFlatDocumentSymbol[], query: IParsedQuery): QuickAccessItem[] {
-        const ranked = symbols.flatMap((symbol, documentIndex): IRankedSymbol[] => {
-            if (query.text === "") return [{ symbol, documentIndex, match: null }];
+        const ranked = symbols.flatMap((symbol): IRankedSymbol[] => {
+            if (query.text === "") return [{ symbol, match: null }];
             const match = matchSymbol(symbol, query.text);
-            return match === null ? [] : [{ symbol, documentIndex, match }];
+            return match === null ? [] : [{ symbol, match }];
         });
         if (ranked.length === 0) {
             return [{ label: query.original === "" ? NO_SYMBOLS : NO_MATCHING_SYMBOLS }];
@@ -348,6 +343,7 @@ export class GotoSymbolQuickAccessProvider implements IQuickAccessProvider {
             icon: this.icons.codicon(symbolKindCodicon(symbol.kind)),
             label: symbol.deprecated ? `${symbol.name} (deprecated)` : symbol.name,
             ...(symbol.containerName !== "" ? { description: symbol.containerName } : {}),
+            // Stryker disable next-line ConditionalExpression: an absent key and an undefined one read the same
             ...(hint !== undefined ? { hint } : {}),
             // As upstream: a deprecated row has no highlights.
             ...(match !== null && !symbol.deprecated

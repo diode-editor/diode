@@ -565,12 +565,9 @@ function symbolInformationToTree(infos: readonly vscode.SymbolInformation[]): IC
     return roots;
 }
 
+/** Elements are sorted by start, so `outer` never starts after `inner`. */
 function strictlyContains(outer: IRange, inner: IRange): boolean {
-    return (
-        comparePositions(outer.start, inner.start) <= 0 &&
-        comparePositions(inner.end, outer.end) <= 0 &&
-        !rangesEqual(outer, inner)
-    );
+    return comparePositions(inner.end, outer.end) <= 0 && !rangesEqual(outer, inner);
 }
 
 /** A `SymbolInformation[]` answer becomes a tree in the subprocess, as upstream; anything malformed answers nothing. */
