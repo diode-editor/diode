@@ -78,5 +78,15 @@ export default defineScenario({
             timeoutMs: 60_000,
         });
         await editor.capture("implementations");
+
+        // gopls also answers with runtime symbols like `heldLockInfo`: Enter takes the first row, the exact name.
+        await editor.sendKey("Ctrl+P");
+        await editor.waitForNode("#quickInput");
+        await editor.sendText("#Hello");
+        await editor.waitForText((t) => t.includes("greet/greet.go"), { timeoutMs: 60_000 });
+        await editor.capture("workspace-symbols");
+        await editor.sendKey("Enter");
+        await editor.waitForText((t) => t.includes("strings.ToUpper(name)"), { timeoutMs: 30_000 });
+        await editor.capture("workspace-symbol-opened");
     },
 });

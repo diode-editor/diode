@@ -44,7 +44,7 @@
   `themes/mocha.json`, тема есть в пикере.
 - **`golang.go`** (сайт#19) — universal, гейт `engines.diode: ">=0.9.2"` (до #657 активация падала на
   `vscode.debug`). `support: partial`: отладчика нет (`debug test` — тост), Testing view нет,
-  welcome/pprof — webview; code lens, inlay hints, навигация, ссылки импортов, `@` и обе иерархии работают; требование Go toolchain — пунктом в `limits` и в readme (решение человека,
+  welcome/pprof — webview; code lens, inlay hints, навигация, ссылки импортов, `@`, `#` и обе иерархии работают; требование Go toolchain — пунктом в `limits` и в readme (решение человека,
   как JDK у `redhat.java`). gopls в vsix нет — расширение ставит его само `go install`; смоук кладёт
   заранее собранный gopls в GOBIN (в CI — `.github/actions/go-tools`), без Go кейс пропускается
   (`requires` у чека). Open VSX пишет id как `golang/Go` — см. открытый пункт про регистр id в
@@ -244,8 +244,9 @@ eval-режим node, иначе расширение молча не линти
   же и в VS Code. `go.enableCodeLens` расширение применяет сразу, своим `onDidChangeCodeLenses`.
 - **Навигация и символы** (тесты `extensionHost.goLsp.{navigation,links,symbols,hierarchy}.test.ts`,
   сценарий `go-navigation`, gopls v0.24.0). Работают без правок ядра: Implementations (на методе
-  интерфейса — методы типов, на интерфейсе — типы), Type Definition, подсветка чтения/записи, `@`, call и
-  type hierarchy. Middleware `provideTypeDefinition` при непустом выделении, содержащем позицию,
+  интерфейса — методы типов, на интерфейсе — типы), Type Definition, подсветка чтения/записи, `@`, `#`, call и
+  type hierarchy. На `#` gopls отвечает и символами рантайма (`heldLockInfo` на запрос `Hello`), поэтому
+  `matchSymbol` поднимает префикс и полное совпадение имени выше разрозненного совпадения. Middleware `provideTypeDefinition` при непустом выделении, содержащем позицию,
   добавляет в запрос `range`, и gopls отвечает типом выделенного выражения: `pair.Second` даёт `Polite`,
   хотя на той же позиции без выделения — `Pair`. Ссылка импорта — только на путь в кавычках, ведёт на
   pkg.go.dev; `gopls: {"ui.navigation.importShortcut": "Definition"}` её убирает. Declaration, linked
