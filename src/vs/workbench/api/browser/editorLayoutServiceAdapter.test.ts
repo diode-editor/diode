@@ -254,6 +254,25 @@ describe("EditorLayoutServiceAdapter", () => {
         await slow;
     });
 
+    it("[api:window.showTextDocument] while a non-disk document Beside loads, the editor it is opened from stays active", async () => {
+        // svelte.showCompiledCodeToSide asks for the content of its preview by window.activeTextEditor: an empty
+        // active group in the meantime left it with "no svelte file selected". Upstream activates the group with the
+        // editor already in it.
+        const uriA = Uri.file(ws.path("a.ts")).toString();
+        service.openFile(ws.path("a.ts"));
+        const source = slowSource();
+
+        const shown = adapter.showTextDocument({ uri: "slow://host/doc", viewColumn: -2 });
+        await Promise.resolve();
+        expect(service.getActiveEditor()?.uri.toString()).toBe(uriA);
+
+        source.finish("compiled");
+        const result = await shown;
+        expect(result.viewColumn).toBe(2);
+        expect(service.editorGroups.activeGroup.id).toBe(result.groupId);
+        expect(service.getActiveEditor()?.uri.toString()).toBe("slow://host/doc");
+    });
+
     it("[api:window.showTextDocument] in one group a slow open does not take the tab of a newer call", async () => {
         const uriB = Uri.file(ws.path("b.ts")).toString();
         const source = slowSource();
