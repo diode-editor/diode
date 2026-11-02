@@ -88,11 +88,6 @@ class WelcomeLinkElement extends TUIElement {
         event.preventDefault();
         this.activate();
     }
-
-    /** The parent has painted the label under it. */
-    public override render(): void {
-        // Nothing of its own: the parent paints the label.
-    }
 }
 
 /**

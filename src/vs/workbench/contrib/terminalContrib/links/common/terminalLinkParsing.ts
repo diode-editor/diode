@@ -169,12 +169,7 @@ export function detectLinkSuffixes(line: string): ILinkSuffix[] {
     const results: ILinkSuffix[] = [];
     linkSuffixRegex.value.lastIndex = 0;
     while ((match = linkSuffixRegex.value.exec(line)) !== null) {
-        const suffix = toLinkSuffix(match);
-        // Stryker disable next-line ConditionalExpression,BlockStatement: a match is never turned into null.
-        if (suffix === null) {
-            break;
-        }
-        results.push(suffix);
+        results.push(toLinkSuffix(match));
     }
     return results;
 }
@@ -184,14 +179,12 @@ export function detectLinkSuffixes(line: string): ILinkSuffix[] {
  * @param link The link to parse.
  */
 export function getLinkSuffix(link: string): ILinkSuffix | null {
-    return toLinkSuffix(linkSuffixRegexEol.value.exec(link));
+    const match = linkSuffixRegexEol.value.exec(link);
+    return match === null ? null : toLinkSuffix(match);
 }
 
-export function toLinkSuffix(match: RegExpExecArray | null): ILinkSuffix | null {
-    if (match === null) {
-        return null;
-    }
-    // diode: the suffix regexes always have groups; upstream also checks `match.length < 1`, never true.
+// diode: takes the match itself (upstream takes `null` too and returns it); upstream also checks `match.length < 1`, never true.
+export function toLinkSuffix(match: RegExpExecArray): ILinkSuffix {
     const groups = match.groups ?? {};
     return {
         row: parseIntOptional(groups.row0 || groups.row1 || groups.row2),

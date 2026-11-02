@@ -37,6 +37,7 @@
     "valid-layers-check": "node scripts/check-layers.mjs",
     "cyrillic-check": "node scripts/check-cyrillic.mjs",
     "stryker-disable-check": "node scripts/check-stryker-disable.mjs",
+    "coverage-thresholds-check": "node scripts/check-coverage-thresholds.mjs",
     "lazy-chunks-check": "node scripts/check-lazy-chunks.mjs",
     "snapshot-check": "node scripts/check-snapshot.mjs",
     "api-matrix": "node scripts/api-matrix.mjs",

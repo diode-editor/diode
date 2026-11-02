@@ -1617,6 +1617,46 @@ describe("CompletionService", () => {
         expect(source).toHaveBeenCalled();
     });
 
+    it("a response that opens the popup while a quick suggest is scheduled: the scheduled one stays quiet", async () => {
+        const { service, fake, source } = setup(ITEMS);
+        setSetting(service, "editor.quickSuggestionsDelay", 20);
+        let respond: (result: ICoreCompletionResult) => void = () => undefined;
+        source.mockImplementationOnce(
+            () =>
+                new Promise<ICoreCompletionResult>((resolve) => {
+                    respond = resolve;
+                }),
+        );
+
+        const explicit = service.trigger(); // the request is in flight, the popup is closed
+        fake.type("inde", 4); // continues the word: the request stays, a quick suggest is scheduled
+        respond(completionResult(ITEMS));
+        await explicit;
+        expect(service.isOpen()).toBe(true);
+
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        expect(source).toHaveBeenCalledTimes(1);
+        expect(service.isOpen()).toBe(true);
+    });
+
+    it("the editor replaced without an event before the timer fires: no request for the old one", async () => {
+        const fake = makeEditor("ind", 3);
+        const other = makeEditor("x", 1);
+        const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
+        let active = fake.editor;
+        const group = { ...makeGroup(fake.editor, source), getActiveEditor: () => active };
+        const { service, body } = createService(group);
+        TestApp.create(body, new Size(80, 24));
+        setSetting(service, "editor.quickSuggestionsDelay", 20);
+
+        fake.type("inde", 4);
+        active = other.editor;
+        await new Promise((resolve) => setTimeout(resolve, 60));
+
+        expect(source).not.toHaveBeenCalled();
+        expect(service.isOpen()).toBe(false);
+    });
+
     it("pure cursor movement does NOT open the popup", async () => {
         const { service, fake, source } = setup(ITEMS);
         fake.move(0, 2); // no content change

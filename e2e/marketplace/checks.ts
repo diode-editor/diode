@@ -2,7 +2,6 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../../src/TestUtils/biomeFixture.ts";
 import {
     ensureEslintLibrary,
     ESLINT_FLAT_CONFIG,
@@ -13,6 +12,7 @@ import { ensureGopls, GO_SAMPLE_DIR, GO_SESSION_ENV, goToolchainMissing } from "
 import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
 import { mavenMissing, writeMavenProject } from "../../src/TestUtils/mavenFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
+import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../helpers/biomeFixture.ts";
 import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "../helpers/claudeIde.ts";
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
 import { findTextCell } from "../helpers/frame.ts";

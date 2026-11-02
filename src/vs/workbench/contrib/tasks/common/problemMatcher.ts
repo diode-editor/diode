@@ -463,7 +463,7 @@ abstract class AbstractLineMatcher {
     private appendMessage(data: IProblemData, pattern: IProblemPattern, matches: RegExpExecArray): void {
         const value = captureOf(matches, pattern.message)?.trim();
         if (value === undefined) return;
-        data.message = data.message === undefined ? value : `${data.message}${endOfLine()}${value}`;
+        data.message = data.message === undefined ? value : `${data.message}${endOfLine(process.platform)}${value}`;
     }
 
     protected getMarkerMatch(data: IProblemData): IProblemMatch | undefined {
@@ -503,9 +503,9 @@ abstract class AbstractLineMatcher {
     }
 }
 
-function endOfLine(): string {
-    // Stryker disable next-line all: the Windows line break is not reachable on the platforms the gate runs on
-    return process.platform === "win32" ? "\r\n" : "\n";
+/** Upstream's `endOfLine`, by the platform the editor runs on. */
+export function endOfLine(platform: string): string {
+    return platform === "win32" ? "\r\n" : "\n";
 }
 
 /** A group the pattern doesn't have, or one that didn't participate, captures nothing. */
@@ -697,9 +697,12 @@ function createSinglePattern(value: Json, setDefaults: boolean, report: ProblemR
     return result;
 }
 
-function validatePattern(values: readonly IProblemPattern[], report: ProblemReporter): boolean {
-    // Stryker disable next-line StringLiteral: equivalent: both callers set the first kind before validating
-    const locationKind = values[0].kind ?? "location";
+/** `locationKind`: the first pattern's, set by the caller. */
+function validatePattern(
+    locationKind: ProblemLocationKind,
+    values: readonly IProblemPattern[],
+    report: ProblemReporter,
+): boolean {
     if (values.slice(1).some((pattern) => pattern.kind !== undefined)) {
         report("The problem pattern is invalid. The kind property must be provided only in the first element");
     }
@@ -737,7 +740,8 @@ export function parseProblemPattern(
         const result = createSinglePattern(value, true, report);
         if (result === undefined) return undefined;
         result.kind ??= "location";
-        return validatePattern([result], report) ? result : undefined;
+        // Always valid: the defaults give it a file, a message and (unless a location or kind file) a line.
+        return result;
     }
     report("The problem pattern is missing a regular expression.");
     return undefined;
@@ -758,8 +762,8 @@ function createMultiLinePattern(values: readonly Json[], report: ProblemReporter
         report("The problem pattern is invalid. It must contain at least one pattern.");
         return undefined;
     }
-    result[0].kind ??= "location";
-    return validatePattern(result, report) ? result : undefined;
+    const kind = (result[0].kind ??= "location");
+    return validatePattern(kind, result, report) ? result : undefined;
 }
 
 /** `"$name"` of a named pattern, or an inline pattern. */

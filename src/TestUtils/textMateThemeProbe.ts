@@ -2,6 +2,7 @@
  * Tokens carry no scopes — the theme is matched by the grammar, hence a probe: a `scopes[0]`
  * grammar with a single rule whose `name` is the remaining scopes, space-separated (a stack).
  */
+import { assert } from "../vs/base/common/assert.ts";
 import { createDevAssetAccess } from "../vs/base/node/assets/createDefaultAssetAccess.ts";
 import { ColorMapTokenStyleResolver } from "../vs/editor/common/languages/colorMapTokenStyleResolver.ts";
 import type { ResolvedTokenStyle } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
@@ -22,7 +23,8 @@ export async function resolveScopesStyle(
         const textMateTheme = createTextMateTheme(theme);
         loader.setTheme(textMateTheme);
         const support = await loader.loadSupport(root);
-        if (support === null) throw new Error(`probe grammar ${root} not loaded`);
+        // The loader was given the root scope: it answers `null` only for a scope it does not know.
+        assert(support !== null, `probe grammar ${root} not loaded`);
         const { tokens } = support.tokenizeEncoded("x", true, support.getInitialState());
         return new ColorMapTokenStyleResolver({ getColorMap: () => textMateTheme.colorMap }).resolve(tokens[1]);
     } finally {

@@ -353,6 +353,23 @@ describe("BulkEditBuffers — models without a tab", () => {
         expect(log).toEqual(["undo first", "undo second"]);
     });
 
+    it("redo on a reopened model that changes nothing keeps the previous step for undo", () => {
+        const log: string[] = [];
+        // The file came back with the edit already in it: the replay is no step of its own.
+        const second = model(log, "second", { applyExternalEditsDetached: vi.fn(() => null) });
+        const { buffers, registry } = setup(model(log, "first"), second);
+        const element = bufferOf(buffers).applyEdits(edits, "label");
+        if (element === null) throw new Error("no step");
+
+        void element.undo();
+        registry.current = null;
+        void element.redo();
+        expect(second.applyExternalEditsDetached).toHaveBeenCalledExactlyOnceWith(edits, "label");
+
+        void element.undo();
+        expect(log).toEqual(["undo first", "undo first"]);
+    });
+
     it("redo with a live model is the model's own step", () => {
         const log: string[] = [];
         const { buffers, editors } = setup(model(log, "first"));

@@ -218,10 +218,11 @@ export abstract class BaseTextEditorModel extends Disposable {
         };
     }
 
-    /** A model without a view (`openTextDocument` without a tab) has nobody to track selections. */
-    private readonly headlessEditTarget: ITextEditTarget = {
-        // Stryker disable next-line ArrowFunction,ArrayDeclaration: selections are read from a view, and this is none
-        cloneSelections: () => [createSelection(0, 0, 0, 0)],
+    /**
+     * A model without a view (`openTextDocument` without a tab) has nobody to track selections: it only applies
+     * edits (`markDirty` is broadcast to the attached views, selections are read from them).
+     */
+    private readonly headlessEditTarget: Pick<ITextEditTarget, "applyEdits"> = {
         applyEdits: (edits, label) => {
             const versionBefore = this.doc.versionId;
             const { appliedVersion, inverseEdits } = this.doc.applyEdits(edits);
@@ -236,7 +237,6 @@ export abstract class BaseTextEditorModel extends Disposable {
                 afterSelections: selections,
             };
         },
-        markDirty: () => undefined,
     };
 
     public get undoManager(): UndoManager {

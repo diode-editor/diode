@@ -1,4 +1,5 @@
 import { spliceInChunks } from "../../../base/common/arrays.ts";
+import { assertReturnsDefined } from "../../../base/common/assert.ts";
 import type { Event } from "../../../base/common/event.ts";
 import { Emitter } from "../../../base/common/event.ts";
 import { Disposable } from "../../../base/common/lifecycle.ts";
@@ -201,9 +202,8 @@ export class DocumentTokenStore extends Disposable {
         for (const block of tokens) {
             for (let lineNumber = block.startLineNumber; lineNumber <= block.endLineNumber; lineNumber++) {
                 // Upstream yields ArrayBuffer and null only after an edit inside the block, never from the builder.
-                const tokens = block.getLineTokens(lineNumber);
-                // Stryker disable next-line ConditionalExpression: the builder never yields null (see above)
-                this.cachedTokens[lineNumber - 1] = tokens === null ? undefined : toUint32Array(tokens);
+                const tokens = assertReturnsDefined(block.getLineTokens(lineNumber));
+                this.cachedTokens[lineNumber - 1] = toUint32Array(tokens);
             }
             changes.push({ fromLine: block.startLineNumber - 1, toLine: block.endLineNumber - 1 });
         }

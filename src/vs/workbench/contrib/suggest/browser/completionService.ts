@@ -1,6 +1,7 @@
 import type { CompletionDetailsContent } from "@tuidom/elements/completionlist/completionDetailsElement";
 import type { CompletionListItem } from "@tuidom/elements/completionlist/completionListElement";
 
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
@@ -123,11 +124,11 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     // lives in pendingAutoSuggest (their delays differ).
     private readonly autoSuggest = this.register(
         new RunOnceScheduler(() => {
-            this.pendingAutoSuggest();
+            assertReturnsDefined(this.pendingAutoSuggest)();
         }, 0),
     );
-    // Stryker disable next-line ArrowFunction: the stub is never called before the first scheduleAuto — the scheduler fires only after it
-    private pendingAutoSuggest: () => void = () => undefined;
+    // `null` until the first scheduleAuto; the scheduler fires only after it.
+    private pendingAutoSuggest: (() => void) | null = null;
     private readonly latest = new LatestRequest();
     // The server filtered the list by the prefix — further typing must re-request, not narrow locally.
     private isIncomplete = false;
@@ -519,10 +520,9 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * if it appears, the popup is not needed.
      */
     private doQuickSuggest(editor: TextEditorPane): void {
-        // Stryker disable next-line ConditionalExpression: scheduling happens only with the popup closed anyway; the guard covers opening between scheduling and firing
+        // Scheduling happens only with the popup closed; a response in flight may have opened it since.
         if (this.isOpen()) return;
         // Guards against a silent editor change with no event (with an event, close cancels the schedule).
-        // Stryker disable next-line ConditionalExpression: a silent change between scheduling and firing can't be reproduced in tests, and trigger() takes the active editor anyway
         if (this.group.getActiveEditor() !== editor) return;
         // A selection and multi-cursor are cut off by trigger() and by the wait's finish.
         const caret = editor.viewState.selections[0].active;

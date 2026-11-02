@@ -142,9 +142,9 @@ export function profileIdFromName(name: string, taken: readonly string[]): strin
         .replace(/[^A-Za-z0-9._-]+/g, "-")
         .slice(0, MAX_PROFILE_ID_LENGTH)
         .replace(/^-+|-+$/g, "");
+    // `base` always matches PROFILE_ID_PATTERN: the slug is made of the pattern's characters, and the
+    // only strings of those the pattern rejects (empty, `.`, `..`) became `profile` above.
     const base = /^\.*$/.test(slug) ? "profile" : WINDOWS_DEVICE_NAMES.test(slug) ? `profile-${slug}` : slug;
-    // Stryker disable next-line all: invariant guard; by construction the slug always matches the pattern
-    if (!PROFILE_ID_PATTERN.test(base)) throw new Error(`Cannot derive a profile id from "${name}"`);
     const occupied = new Set([...taken, RESERVED_PROFILE_ID].map((id) => id.toLowerCase()));
     if (!occupied.has(base.toLowerCase())) return base;
     for (let i = 2; ; i += 1) {
@@ -182,11 +182,17 @@ export async function resolveActiveProfile(
 ): Promise<IUserDataProfile> {
     const forced = input.forceProfile?.trim();
     if (forced !== undefined && forced.length > 0) {
-        const profile = profiles.profiles.find((p) => p.name === forced) ?? (await profiles.createNamedProfile(forced));
+        const profile = await forcedProfile(profiles, forced);
         if (input.workspace !== undefined) await profiles.setProfileForWorkspace(input.workspace, profile);
         return profile;
     }
     return profileForWorkspace(profiles, input.workspace);
+}
+
+/** The profile named in `--profile`, created empty when there is none. */
+function forcedProfile(profiles: IUserDataProfilesService, name: string): Promise<IUserDataProfile> {
+    const existing = profiles.profiles.find((p) => p.name === name);
+    return existing === undefined ? profiles.createNamedProfile(name) : Promise.resolve(existing);
 }
 
 /**

@@ -73,6 +73,12 @@ describe("ViewsService — view on screen (isViewShown / closeView)", () => {
         h.service.closeView("ghost");
         expect(h.hiddenViewlets).toEqual([SEARCH]);
     });
+
+    it("closeView of a viewlet that is not the shown one leaves the sidebar alone", () => {
+        const { h } = scene();
+        h.service.closeView("search");
+        expect(h.hiddenViewlets).toEqual([]);
+    });
 });
 
 describe("ViewsService — openView without activation", () => {

@@ -556,6 +556,25 @@ describe("WorkspaceEditService.applyWorkspaceEdit — open buffers", async () =>
         expect(undoRedo.peekUndo("buffer:untitled:Untitled-1")?.resources).toEqual([]);
     });
 
+    it("an untitled buffer's edit followed by a file operation: the projection keys it by resource", async () => {
+        const open = new Map<string, IFakeBuffer>();
+        open.set("untitled:Untitled-1", { text: "draft\n", applied: [], step: null });
+        const created = path.join(tmpDir, "new.ts");
+        const { service } = makeService(makeBuffers(open));
+
+        const applied = await service.applyWorkspaceEdit(
+            [
+                { resource: "untitled:Untitled-1", edits: [replaceFirstLine("head\n")] },
+                { kind: "create", to: created, contents: "" },
+            ],
+            "Edit",
+        );
+
+        expect(applied).toBe(true);
+        expect(open.get("untitled:Untitled-1")?.text).toBe("head\ndraft\n");
+        expect(fs.existsSync(created)).toBe(true);
+    });
+
     it("the history step lists the buffer's path when it has one", async () => {
         const open = new Map<string, IFakeBuffer>();
         const file = write("a.ts", "disk\n");
@@ -1296,5 +1315,57 @@ describe("WorkspaceEditService.applyWorkspaceEdit — file operations", async ()
             expect(read(from)).toBe("from");
             expect(read(to)).toBe("to");
         });
+    });
+});
+
+describe("WorkspaceEditService — a buffer that changes while file participants run", () => {
+    /** The participant of the create runs between the plan and the text edit: the buffer is looked up again at apply time. */
+    function participantThat(service: WorkspaceEditService, willRun: () => void): void {
+        service.fileOperationParticipant = {
+            willRun: () => {
+                willRun();
+                return Promise.resolve(null);
+            },
+            didRun: () => undefined,
+        };
+    }
+
+    it("a buffer turned read-only refuses the whole edit: the file operation is rolled back", async () => {
+        const a = path.join(tmpDir, "a.ts");
+        fs.writeFileSync(a, "x\n");
+        const created = path.join(tmpDir, "new.ts");
+        const open = new Map<string, IFakeBuffer>([[resourceOf(a), { text: "x\n", applied: [], step: null }]]);
+        const readOnly = new Set<string>();
+        const { service } = makeService(makeBuffers(open, readOnly));
+        participantThat(service, () => readOnly.add(resourceOf(a)));
+
+        const applied = await service.applyWorkspaceEdit(
+            [{ kind: "create", to: created, contents: "" }, textEdit(a, replaceFirstLine("head\n"))],
+            "Edit",
+        );
+
+        expect(applied).toBe(false);
+        expect(fs.existsSync(created)).toBe(false);
+        expect(open.get(resourceOf(a))?.applied).toEqual([]);
+    });
+
+    it("an untitled buffer that closed has no disk to fall back to: the edit is refused", async () => {
+        const created = path.join(tmpDir, "new.ts");
+        const open = new Map<string, IFakeBuffer>([
+            ["untitled:Untitled-1", { text: "draft\n", applied: [], step: null }],
+        ]);
+        const { service } = makeService(makeBuffers(open));
+        participantThat(service, () => open.delete("untitled:Untitled-1"));
+
+        const applied = await service.applyWorkspaceEdit(
+            [
+                { kind: "create", to: created, contents: "" },
+                { resource: "untitled:Untitled-1", edits: [replaceFirstLine("head\n")] },
+            ],
+            "Edit",
+        );
+
+        expect(applied).toBe(false);
+        expect(fs.existsSync(created)).toBe(false);
     });
 });
