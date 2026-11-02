@@ -1,4 +1,4 @@
-import { assert } from "../../../../base/common/assert.ts";
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
@@ -305,12 +305,12 @@ export class ModelSemanticColoring extends Disposable {
         );
         request
             .then(
-                (res) => {
+                (response) => {
                     this.debounce.update(this.model.uri.toString(), Date.now() - started);
                     this.currentRequest = null;
                     contentChangeListener.dispose();
                     // null only when there are no providers, and fetchNow doesn't ask without them (registry.has above).
-                    assert(res !== null);
+                    const res = assertReturnsDefined(response);
                     this.setDocumentSemanticTokens(res.provider, res.tokens, pendingChanges);
                 },
                 (err: unknown) => {

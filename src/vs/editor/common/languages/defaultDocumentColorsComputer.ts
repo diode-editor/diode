@@ -1,4 +1,4 @@
-import { assert } from "../../../base/common/assert.ts";
+import { assertReturnsDefined } from "../../../base/common/assert.ts";
 import { HSLA, parseHex } from "../../../base/common/color.ts";
 import type { IPosition } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";
@@ -43,9 +43,8 @@ function findRange(model: IDocumentColorComputerTarget, match: RegExpExecArray):
 }
 
 function findHexColorInformation(range: IRange, hexValue: string): IColorInformation {
-    const parsedHexColor = parseHex(hexValue);
     // The regular expression only lets 3, 4, 6 or 8 hex digits through.
-    assert(parsedHexColor !== null);
+    const parsedHexColor = assertReturnsDefined(parseHex(hexValue));
     return {
         range: range,
         color: toIColor(parsedHexColor.r, parsedHexColor.g, parsedHexColor.b, parsedHexColor.a),

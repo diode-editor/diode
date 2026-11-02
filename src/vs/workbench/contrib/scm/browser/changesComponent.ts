@@ -3,6 +3,7 @@ import { VFlexElement, vflexFill, vflexFit } from "@tuidom/elements/layout/vFlex
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { listRowId } from "../../../../base/common/listRowId.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -255,8 +256,8 @@ export class ChangesComponent extends Component {
         if (cursor === null) return undefined;
         const cursorId = listRowId(cursor);
         // Every list row has its meta, rebuild() registers both together.
-        const meta = this.rowMeta.get(cursorId);
-        if (meta?.kind !== "file") {
+        const meta = assertReturnsDefined(this.rowMeta.get(cursorId));
+        if (meta.kind !== "file") {
             this.list.toggleCollapsed(cursorId);
             return undefined;
         }

@@ -524,6 +524,7 @@ export class TextFileModel extends BaseTextEditorModel {
             builder.acceptChunk(decoder.end());
             if (this.doc.versionId !== version) {
                 this.setDiskConflict(true);
+                // Stryker disable next-line StringLiteral: a document on disk is read-only, so only a streamed reload meets an edit, and it reads the outcome as null or not
                 return "cancelled";
             }
             const factory = builder.finish();
@@ -652,14 +653,12 @@ export class TextFileModel extends BaseTextEditorModel {
         this.applyDecoded(filePath, decodeStreamByBOM(this.readDiskChunks(filePath)));
     }
 
-    /** Above the size threshold, with the means to stream: the opener of the document on disk, otherwise `null`. */
+    /** Above the size threshold: the opener of the document on disk; `null` — a small file, or no means to stream. */
     private streamsOnReload(filePath: string): IRandomAccessFileOpener | null {
-        const opener = this.randomAccessFiles;
-        if (opener === null) return null;
         const stat = this.readDiskStat(filePath);
         const large =
             stat !== null && isTooLargeForTokenization(stat.size, 0, this.largeFileOptions(this.doc.languageId));
-        return large ? opener : null;
+        return large ? this.randomAccessFiles : null;
     }
 
     /**

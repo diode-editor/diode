@@ -1,6 +1,7 @@
 import type { CompletionDetailsContent } from "@tuidom/elements/completionlist/completionDetailsElement";
 import type { CompletionListItem } from "@tuidom/elements/completionlist/completionListElement";
 
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
@@ -123,7 +124,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     // lives in pendingAutoSuggest (their delays differ).
     private readonly autoSuggest = this.register(
         new RunOnceScheduler(() => {
-            this.pendingAutoSuggest?.();
+            assertReturnsDefined(this.pendingAutoSuggest)();
         }, 0),
     );
     // `null` until the first scheduleAuto; the scheduler fires only after it.

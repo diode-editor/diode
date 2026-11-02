@@ -1,6 +1,6 @@
 import { DisplayLine } from "@tuidom/core/common/displayLine";
 
-import { assert } from "../../../base/common/assert.ts";
+import { assertReturnsDefined } from "../../../base/common/assert.ts";
 import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { IMarkerDecoration } from "../../../platform/markers/common/iMarker.ts";
@@ -365,9 +365,8 @@ export class EditorViewState {
     public getMarkerDecorations(): IMarkerDecoration[] {
         const result: IMarkerDecoration[] = [];
         for (const { id, severity } of this.markerDecorationIds) {
-            const range = this.document.getDecorationRange(id);
             // Only the view itself removes its decorations.
-            assert(range !== null);
+            const range = assertReturnsDefined(this.document.getDecorationRange(id));
             result.push({ range, severity });
         }
         return result;

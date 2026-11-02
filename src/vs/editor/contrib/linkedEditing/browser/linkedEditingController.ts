@@ -1,4 +1,4 @@
-import { assert } from "../../../../base/common/assert.ts";
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
@@ -280,9 +280,8 @@ export class LinkedEditingController extends Disposable {
         const document = this.editor.viewState.document;
         const ranges: IRange[] = [];
         for (const id of this.decorationIds) {
-            const range = document.getDecorationRange(id);
             // Only this class removes its ids.
-            assert(range !== null);
+            const range = assertReturnsDefined(document.getDecorationRange(id));
             ranges.push(range);
         }
         return ranges;

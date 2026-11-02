@@ -1,5 +1,5 @@
 import { spliceInChunks } from "../../../base/common/arrays.ts";
-import { assert } from "../../../base/common/assert.ts";
+import { assertReturnsDefined } from "../../../base/common/assert.ts";
 import type { Event } from "../../../base/common/event.ts";
 import { Emitter } from "../../../base/common/event.ts";
 import { Disposable } from "../../../base/common/lifecycle.ts";
@@ -201,9 +201,8 @@ export class DocumentTokenStore extends Disposable {
         const changes: ITokensChangedEvent[] = [];
         for (const block of tokens) {
             for (let lineNumber = block.startLineNumber; lineNumber <= block.endLineNumber; lineNumber++) {
-                const tokens = block.getLineTokens(lineNumber);
                 // Upstream yields ArrayBuffer and null only after an edit inside the block, never from the builder.
-                assert(tokens !== null);
+                const tokens = assertReturnsDefined(block.getLineTokens(lineNumber));
                 this.cachedTokens[lineNumber - 1] = toUint32Array(tokens);
             }
             changes.push({ fromLine: block.startLineNumber - 1, toLine: block.endLineNumber - 1 });

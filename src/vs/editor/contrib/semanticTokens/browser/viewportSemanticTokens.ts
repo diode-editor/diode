@@ -1,4 +1,4 @@
-import { assert } from "../../../../base/common/assert.ts";
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
@@ -120,13 +120,13 @@ export class ViewportSemanticTokens extends Disposable {
             },
             cancellation.token,
         )
-            .then((result) => {
+            .then((response) => {
                 this.debounce.update(this.model.uri.toString(), Date.now() - started);
                 this.outstandingRequests = this.outstandingRequests.filter((request) => request !== cancellation);
                 if (cancellation.token.isCancellationRequested) return;
                 // null only without providers, and registry.has was checked in the same tick; a document
                 // edit cancels the request, so a response for an old version returned above.
-                assert(result !== null);
+                const result = assertReturnsDefined(response);
                 if (result.tokens == null) return;
                 this.tokens.setPartial(
                     startLine,

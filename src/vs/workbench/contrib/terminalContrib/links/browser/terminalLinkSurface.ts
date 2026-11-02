@@ -1,6 +1,7 @@
 import type { ITerminalSurface, TerminalCell, TerminalMouseEventData } from "@tuidom/core/common/iTerminalSurface";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
+import { assertReturnsDefined } from "../../../../../base/common/assert.ts";
 import { onUnexpectedError } from "../../../../../base/common/errors.ts";
 import { Emitter } from "../../../../../base/common/event.ts";
 import { combinedDisposable, type IDisposable } from "../../../../../base/common/lifecycle.ts";
@@ -71,10 +72,10 @@ export class TerminalLinkSurface implements ITerminalSurface {
         if (!this.session.readCell(x, y, out)) return false;
         const hovered = this.hovered;
         const revealed = this.revealed;
-        const buffer = this.session.buffer;
-        // Stryker disable next-line ConditionalExpression: a shortcut for the usual cell with no link to underline (the checks below are false then anyway); both links come from a lookup over the buffer, which stays
-        if (buffer === undefined || (hovered === undefined && revealed === undefined)) return true;
-        const row = buffer.viewportY + y;
+        // Stryker disable next-line ConditionalExpression: a shortcut for the usual cell with no link to underline; the checks below are false then anyway
+        if (hovered === undefined && revealed === undefined) return true;
+        // Both links come from a lookup over the buffer, which stays.
+        const row = assertReturnsDefined(this.session.buffer).viewportY + y;
         if (
             (hovered !== undefined && isInLink(hovered, x, row)) ||
             (revealed !== undefined && isInLink(revealed, x, row))
