@@ -1,12 +1,16 @@
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { Event } from "../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
 import type { CodeLens } from "../../../editor/common/languages/iCodeLensSource.ts";
+import type { ICoreWorkspaceSymbol } from "../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 import type { ILanguageFeaturesService } from "../../../editor/common/services/languageFeatures.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
 import type {
     IWireCodeLens,
     IWireLanguageProviderRegistration,
     IWireSemanticTokensLegend,
+    IWireWorkspaceSymbol,
+    IWireWorkspaceSymbolProviderRegistration,
     WireCodeLensCacheId,
     WireLanguageFeatureKind,
 } from "../common/wireTypes.ts";
@@ -18,8 +22,13 @@ interface IExtensionCodeLens extends CodeLens {
     readonly cacheId: WireCodeLensCacheId;
 }
 
-interface ILiveRegistration {
-    readonly source: IWireLanguageProviderRegistration;
+/** The core hands the symbol back to resolve it, with the address on it. */
+interface IExtensionWorkspaceSymbol extends IWireWorkspaceSymbol {
+    readonly cacheId: number;
+}
+
+interface ILiveRegistration<T> {
+    readonly source: T;
     readonly disposable: IDisposable;
 }
 
@@ -28,7 +37,11 @@ interface ILiveRegistration {
  * deltas: the adapter may appear after the first registrations, and subprocess death is one event.
  */
 export class LanguageFeaturesAdapter extends Disposable {
-    private readonly registrations = new Map<number, ILiveRegistration>();
+    private readonly registrations = new Map<number, ILiveRegistration<IWireLanguageProviderRegistration>>();
+    private readonly workspaceSymbolRegistrations = new Map<
+        number,
+        ILiveRegistration<IWireWorkspaceSymbolProviderRegistration>
+    >();
 
     public constructor(
         private readonly bridge: IExtensionLanguageFeaturesBridge,
@@ -43,6 +56,7 @@ export class LanguageFeaturesAdapter extends Disposable {
         this.register({
             dispose: () => {
                 for (const live of this.registrations.values()) live.disposable.dispose();
+                for (const live of this.workspaceSymbolRegistrations.values()) live.disposable.dispose();
             },
         });
         // The subprocess may have declared providers before the adapter was created.
@@ -50,20 +64,30 @@ export class LanguageFeaturesAdapter extends Disposable {
     }
 
     private sync(): void {
-        const wanted = new Map(this.bridge.getLanguageProviders().map((reg) => [reg.handle, reg]));
+        syncRegistrations(this.registrations, this.bridge.getLanguageProviders(), (reg) => this.registerProxy(reg));
+        syncRegistrations(this.workspaceSymbolRegistrations, this.bridge.getWorkspaceSymbolProviders(), (reg) =>
+            this.registerWorkspaceSymbolProxy(reg),
+        );
+    }
 
-        for (const [handle, live] of this.registrations) {
-            // The same handle with a different registration (the subprocess restarted and
-            // hands out handles anew): drop the old proxy and install a new one.
-            if (wanted.get(handle) === live.source) continue;
-            live.disposable.dispose();
-            this.registrations.delete(handle);
-        }
-
-        for (const [handle, reg] of wanted) {
-            if (this.registrations.has(handle)) continue;
-            this.registrations.set(handle, { source: reg, disposable: this.registerProxy(reg) });
-        }
+    private registerWorkspaceSymbolProxy({
+        handle,
+        supportsResolve,
+    }: IWireWorkspaceSymbolProviderRegistration): IDisposable {
+        return this.languageFeatures.workspaceSymbolProvider.register({
+            provideWorkspaceSymbols: async (query, token) => {
+                const { cacheId, symbols } = await this.bridge.provideWorkspaceSymbols(handle, query, token);
+                return symbols.map((symbol): IExtensionWorkspaceSymbol => ({ ...symbol, cacheId }));
+            },
+            ...(supportsResolve
+                ? {
+                      resolveWorkspaceSymbol: (symbol: ICoreWorkspaceSymbol, token: ICancellationToken) => {
+                          const { cacheId, id } = symbol as IExtensionWorkspaceSymbol;
+                          return this.bridge.resolveWorkspaceSymbol(handle, cacheId, id, token);
+                      },
+                  }
+                : {}),
+        });
     }
 
     private readonly proxyFactories: Readonly<
@@ -304,5 +328,26 @@ export class LanguageFeaturesAdapter extends Disposable {
 
     private registerProxy(reg: IWireLanguageProviderRegistration): IDisposable {
         return this.proxyFactories[reg.kind](reg);
+    }
+}
+
+function syncRegistrations<T extends { readonly handle: number }>(
+    registrations: Map<number, ILiveRegistration<T>>,
+    providers: readonly T[],
+    register: (registration: T) => IDisposable,
+): void {
+    const wanted = new Map(providers.map((reg) => [reg.handle, reg]));
+
+    for (const [handle, live] of registrations) {
+        // The same handle with a different registration (the subprocess restarted and
+        // hands out handles anew): drop the old proxy and install a new one.
+        if (wanted.get(handle) === live.source) continue;
+        live.disposable.dispose();
+        registrations.delete(handle);
+    }
+
+    for (const [handle, reg] of wanted) {
+        if (registrations.has(handle)) continue;
+        registrations.set(handle, { source: reg, disposable: register(reg) });
     }
 }

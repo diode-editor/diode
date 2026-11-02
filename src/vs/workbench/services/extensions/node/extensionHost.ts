@@ -80,6 +80,7 @@ import type {
     ITypeHierarchyRequest,
     ITypeHierarchySession,
 } from "../../../../editor/common/languages/iTypeHierarchySource.ts";
+import type { ICoreWorkspaceSymbolLocation } from "../../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { IClipboard } from "../../../../platform/clipboard/common/iClipboard.ts";
 import type { ConfigurationScope } from "../../../../platform/configuration/common/configurationRegistry.ts";
@@ -133,6 +134,8 @@ import type {
     IWireCodeLensList,
     IWireDocumentLinkList,
     IWireLanguageProviderRegistration,
+    IWireWorkspaceSymbolProviderRegistration,
+    IWireWorkspaceSymbols,
     WireCodeLensCacheId,
 } from "../../../api/common/wireTypes.ts";
 import {
@@ -865,6 +868,23 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.languageFeatures.provideDocumentSymbols(handle, req, token);
     }
 
+    public provideWorkspaceSymbols(
+        handle: number,
+        query: string,
+        token?: ICancellationToken,
+    ): Promise<IWireWorkspaceSymbols> {
+        return this.languageFeatures.provideWorkspaceSymbols(handle, query, token);
+    }
+
+    public resolveWorkspaceSymbol(
+        handle: number,
+        cacheId: number,
+        id: number,
+        token?: ICancellationToken,
+    ): Promise<ICoreWorkspaceSymbolLocation | null> {
+        return this.languageFeatures.resolveWorkspaceSymbol(handle, cacheId, id, token);
+    }
+
     public provideFoldingRanges(
         handle: number,
         req: IFoldingRequest,
@@ -1141,6 +1161,10 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
 
     public getLanguageProviders(): readonly IWireLanguageProviderRegistration[] {
         return this.languageFeatures.getProviders();
+    }
+
+    public getWorkspaceSymbolProviders(): readonly IWireWorkspaceSymbolProviderRegistration[] {
+        return this.languageFeatures.getWorkspaceSymbolProviders();
     }
 
     public get onLanguageProvidersChanged(): Event<void> {
