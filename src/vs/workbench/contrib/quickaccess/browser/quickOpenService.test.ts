@@ -1430,6 +1430,27 @@ describe("QuickOpenService — provider hooks", () => {
         expect(keys.get("inWorkspaceSymbolsPicker")).toBe(false);
     });
 
+    it("inWorkspaceSymbolsPicker turns on when `#` is typed into the files picker", () => {
+        const { service, component } = setup();
+        const keys = new ContextKeyService();
+        service.show("");
+        component.view.setQuery("#");
+        component.view.onQueryChange?.("#");
+        service.updateContextKeys(keys);
+        expect(component.isOpen()).toBe(true);
+        expect(keys.get("inWorkspaceSymbolsPicker")).toBe(true);
+    });
+
+    it("inWorkspaceSymbolsPicker turns off when `#` is replaced by `@`", () => {
+        const { service, component } = setup();
+        const keys = new ContextKeyService();
+        service.show("#");
+        component.view.setQuery("@");
+        component.view.onQueryChange?.("@");
+        service.updateContextKeys(keys);
+        expect(keys.get("inWorkspaceSymbolsPicker")).toBe(false);
+    });
+
     it("inFileSymbolsPicker holds only while `@` is shown", () => {
         const { service, component } = setup();
         const keys = new ContextKeyService();
