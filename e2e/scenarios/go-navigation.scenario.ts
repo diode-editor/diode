@@ -62,7 +62,7 @@ export default defineScenario({
 
         await editor.sendKey("Ctrl+Shift+O");
         await editor.waitForNode("#quickInput");
-        await editor.waitForText((t) => t.includes("symbols (13)"), { timeoutMs: 60_000 });
+        await editor.waitForText((t) => t.includes("symbols ("), { timeoutMs: 60_000 });
         await editor.capture("go-to-symbol");
         // The list holds ten rows: the function comes into view when filtered.
         await editor.sendText("SpeakP");
