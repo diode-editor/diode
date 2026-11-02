@@ -727,7 +727,7 @@ export class TextFileModel extends BaseTextEditorModel {
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
         // The snapshot is the saved state: edits typed while the bytes stream to disk stay unsaved.
-        const savedVersion = this.doc.versionId;
+        const savedVersion = this.doc.alternativeVersionId;
         const savedEol = this.doc.eol;
         let written: IFileStat;
         try {
@@ -818,7 +818,7 @@ export class TextFileModel extends BaseTextEditorModel {
         this.providedWatch = null;
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
-        const savedVersion = this.doc.versionId;
+        const savedVersion = this.doc.alternativeVersionId;
         const savedEol = this.doc.eol;
         const bytes = encodeStream(this.doc.createSnapshot(), this.encodingValue);
         let written: IFileStat;

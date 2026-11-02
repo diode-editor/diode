@@ -40,6 +40,9 @@ export class TextDocument implements ITextDocument {
     private readonly onDidChangeEolEmitter = new Emitter<void>();
     public readonly onDidChangeEol = this.onDidChangeEolEmitter.event;
     private innerVersionId = 0;
+    private alternativeVersionIdValue = 0;
+    /** {@link alternativeVersionId} as of `innerVersionId - 1`: what an undo element pushed right after the bump started from. */
+    private alternativeVersionIdBeforeBump = 0;
     private languageIdValue: string;
     private readonly decorations = new TrackedDecorations();
 
@@ -50,6 +53,19 @@ export class TextDocument implements ITextDocument {
 
     public get versionId(): number {
         return this.innerVersionId;
+    }
+
+    /**
+     * Upstream's `getAlternativeVersionId`: equals {@link versionId} after an edit or {@link setText}, and undo/redo
+     * set it back to the value of the state they restore — text equal to the saved one has the saved version.
+     * {@link setEol} leaves it: the EOL is a separate "modified" axis (`BaseTextEditorModel.isModified`).
+     */
+    public get alternativeVersionId(): number {
+        return this.alternativeVersionIdValue;
+    }
+
+    public alternativeVersionIdAt(versionId: number): number {
+        return versionId === this.innerVersionId ? this.alternativeVersionIdValue : this.alternativeVersionIdBeforeBump;
     }
 
     public get eol(): EndOfLine {
@@ -118,7 +134,7 @@ export class TextDocument implements ITextDocument {
         this.assertWritable("setEol");
         this.buffer.setEol(eol);
         // As upstream `setEOL`: extensions see a new version of the text, `getText` differs.
-        this.innerVersionId++;
+        this.bumpVersion(this.alternativeVersionIdValue);
         this.onDidChangeEolEmitter.fire();
     }
 
@@ -126,7 +142,7 @@ export class TextDocument implements ITextDocument {
     public setText(text: TextSource): void {
         const oldEndLine = this.lineCount - 1;
         const eolBefore = this.eol;
-        this.innerVersionId++;
+        this.bumpVersion();
         this.buffer.dispose();
         this.attachBuffer(createDocumentBuffer(text));
         this.decorations.acceptFlush(this);
@@ -176,8 +192,12 @@ export class TextDocument implements ITextDocument {
         return this.applyEditsAs(edits);
     }
 
-    public applyUndoRedoEdits(edits: readonly ITextEdit[], origin: "undo" | "redo"): IApplyEditsResult {
-        return this.applyEditsAs(edits, origin);
+    public applyUndoRedoEdits(
+        edits: readonly ITextEdit[],
+        origin: "undo" | "redo",
+        alternativeVersionId: number,
+    ): IApplyEditsResult {
+        return this.applyEditsAs(edits, origin, alternativeVersionId);
     }
 
     /**
@@ -191,7 +211,12 @@ export class TextDocument implements ITextDocument {
         this.applyEditsAs([{ range: { start: end, end }, text }], "append");
     }
 
-    private applyEditsAs(edits: readonly ITextEdit[], origin?: "append" | "undo" | "redo"): IApplyEditsResult {
+    /** `alternativeVersionId` — of the state undo/redo restores; set before the events, listeners read it. */
+    private applyEditsAs(
+        edits: readonly ITextEdit[],
+        origin?: "append" | "undo" | "redo",
+        alternativeVersionId?: number,
+    ): IApplyEditsResult {
         if (edits.length === 0) {
             return { appliedVersion: this.innerVersionId, inverseEdits: [] };
         }
@@ -206,7 +231,7 @@ export class TextDocument implements ITextDocument {
             }
         }
 
-        this.innerVersionId++;
+        this.bumpVersion(alternativeVersionId);
 
         // Reversed docOrder, not a descending sort: a stable sort would leave edits with
         // IDENTICAL ranges (two inserts at one point, i.e. inverses of adjacent deletes)
@@ -251,6 +276,13 @@ export class TextDocument implements ITextDocument {
         });
 
         return { appliedVersion: this.innerVersionId, inverseEdits };
+    }
+
+    /** Without `alternativeVersionId` the text changed into a new state: the alternative version follows. */
+    private bumpVersion(alternativeVersionId?: number): void {
+        this.alternativeVersionIdBeforeBump = this.alternativeVersionIdValue;
+        this.innerVersionId++;
+        this.alternativeVersionIdValue = alternativeVersionId ?? this.innerVersionId;
     }
 
     /**
