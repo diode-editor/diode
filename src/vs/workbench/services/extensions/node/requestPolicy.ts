@@ -10,6 +10,8 @@ import type { RequestFn } from "./hostRequests.ts";
  * the core opens the popup with buffer words, and a slow language server would be left without its items.
  * Inlay hints and code lens are absent too, as upstream: nothing asks again after an empty answer, so a server busy
  * with its import (jdt.ls) would leave "no commands" on the frame for good; an edit cancels them through the token.
+ * Document colors and links are absent for the same reason: Tailwind's server answers the first request only once its
+ * project is built, and a cancelled one left the file without squares and links until an edit.
  * Formatting is absent as upstream too: a large file takes a formatter longer than any deadline here, an edit cancels
  * the request, and format on save cancels it at the save participant's deadline.
  */
@@ -37,8 +39,6 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.provideSelectionRanges": 5000,
     "languages.provideDocumentHighlights": 5000,
     "languages.provideLinkedEditingRanges": 5000,
-    "languages.provideDocumentColors": 5000,
-    "languages.provideDocumentLinks": 5000,
     "languages.resolveDocumentLink": 5000,
     "languages.prepareCallHierarchy": 5000,
     "languages.provideCallHierarchyIncomingCalls": 5000,

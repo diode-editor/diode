@@ -108,7 +108,9 @@ export class ColorDetector extends Disposable {
                 this.removeAllDecorations();
             },
         });
-        this.updateColors();
+        // An editor is built before its document reaches the extension host, and a request sent now would be answered
+        // "not synced" with nothing to ask again: the first one goes on `schedule(0)`, as in LinkDetector.
+        this.updateColors(true);
     }
 
     /** A change of the limit or of the default detector's mode asks again; turning off removes the squares. */
@@ -125,7 +127,7 @@ export class ColorDetector extends Disposable {
         this.updateColors();
     }
 
-    private updateColors(): void {
+    private updateColors(deferred = false): void {
         this.stop();
         if (!this.options.enabled) {
             this.removeAllDecorations();
@@ -140,7 +142,8 @@ export class ColorDetector extends Disposable {
                 }
             }),
         );
-        void this.beginCompute();
+        if (deferred) this.computeScheduler.schedule(0);
+        else void this.beginCompute();
     }
 
     private async beginCompute(): Promise<void> {
