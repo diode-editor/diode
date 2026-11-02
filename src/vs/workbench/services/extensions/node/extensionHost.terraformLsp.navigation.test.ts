@@ -202,13 +202,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — navigation and symbols o
     it("`#` finds a resource of a file that is not open, and one of a called module", TIMEOUT, () =>
         withMainTf(async ({ harness }) => {
             const shared = await askWorkspaceSymbols(harness, "shared");
-            expect(shared).toEqual([
-                expect.objectContaining({
-                    name: 'resource "aws_vpc" "shared"',
-                    location: expect.objectContaining({
-                        uri: Uri.file(path.join(harness.tmpDir, "network.tf")).toString(),
-                    }),
-                }),
+            expect(shared.map((symbol) => [symbol.name, symbol.location.uri])).toEqual([
+                ['resource "aws_vpc" "shared"', Uri.file(path.join(harness.tmpDir, "network.tf")).toString()],
             ]);
             const called = await askWorkspaceSymbols(harness, "module_subnet");
             expect(called.map((symbol) => symbol.name)).toEqual(['resource "aws_subnet" "module_subnet"']);
