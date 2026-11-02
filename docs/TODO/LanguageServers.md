@@ -40,6 +40,10 @@ API (no-op провайдеры и наивные стабы) — [API-COVERAGE]
 
 ## Java
 
+- [ ] **Остальные дедлайны на проводе.** В эталоне у запросов к провайдерам дедлайнов нет, у нас остались 5 с в
+  `DEFAULT_REQUEST_TIMEOUTS` (definition, references, type definition, declaration, hover и другие). У Implementations
+  и иерархий их сняли в #956: на занятом jdt.ls истёкший дедлайн давал пустой результат. Для остальных эффект не
+  замерялся: замерить на занятом сервере и снять там, где он теряет ответ.
 - [ ] **Снять курируемый дефолт `java.jdt.ls.lombokSupport.enabled: false`** из
   `curatedConfigInjection`, как только связка lombok/JDT перестанет ломать компиляцию
   ([arch/StockExtensions.md](../arch/StockExtensions.md#java-redhatjava-eclipse-jdt-ls)).

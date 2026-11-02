@@ -22,7 +22,6 @@ const TIMEOUTS: RequestTimeouts = {
     "languages.provideInlineCompletions": 103,
     "languages.provideFoldingRanges": 104,
     "languages.provideDefinition": 105,
-    "languages.provideImplementation": 125,
     "languages.provideTypeDefinition": 125,
     "languages.provideDeclaration": 125,
     "languages.provideDocumentSymbols": 125,
@@ -322,7 +321,8 @@ describe("LanguageFeaturesCustomer — requests only for synced documents", () =
         );
         expect(seen).toContainEqual(["languages.provideCompletionItems", undefined]);
         expect(seen).toContainEqual(["languages.provideFormattingEdits", undefined]);
-        expect(seen.filter(([, timeoutMs]) => timeoutMs === undefined)).toHaveLength(2);
+        expect(seen).toContainEqual(["languages.provideImplementation", undefined]);
+        expect(seen.filter(([, timeoutMs]) => timeoutMs === undefined)).toHaveLength(3);
     });
 });
 
@@ -790,6 +790,67 @@ async function expectWaitsUntilCancelled(start: (token: ICancellationToken) => P
         vi.useRealTimers();
     }
 }
+
+describe("LanguageFeaturesCustomer — no deadline on what a busy jdt.ls takes over 5 s to answer", () => {
+    const AT = { uri: SYNCED, languageId: "java", versionId: 7, line: 0, character: 1 };
+
+    it("implementations: only the token ends the wait, as upstream", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideImplementation": untilCancelled });
+            return hung.customer.provideImplementation(1, AT, token);
+        });
+    });
+
+    // The first `;` after the import takes jdt.ls about 6 s: with a deadline the format is lost, the second `;` formats.
+    it("format on type: only the token ends the wait, as upstream", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideOnTypeFormattingEdits": untilCancelled });
+            return hung.customer.provideOnTypeFormattingEdits(
+                1,
+                {
+                    uri: SYNCED,
+                    languageId: "java",
+                    versionId: 7,
+                    position: { line: 0, character: 1 },
+                    ch: ";",
+                    tabSize: 4,
+                    insertSpaces: true,
+                },
+                token,
+            );
+        });
+    });
+
+    it("call hierarchy: prepare, incoming and outgoing wait only for the token, as upstream", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.prepareCallHierarchy": untilCancelled });
+            return hung.customer.prepareCallHierarchy(1, AT, token);
+        });
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideCallHierarchyIncomingCalls": untilCancelled });
+            return hung.customer.provideCallHierarchyIncomingCalls(1, 2, 3, token);
+        });
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideCallHierarchyOutgoingCalls": untilCancelled });
+            return hung.customer.provideCallHierarchyOutgoingCalls(1, 2, 3, token);
+        });
+    });
+
+    it("type hierarchy: prepare, supertypes and subtypes wait only for the token, as upstream", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.prepareTypeHierarchy": untilCancelled });
+            return hung.customer.prepareTypeHierarchy(1, AT, token);
+        });
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideTypeHierarchySupertypes": untilCancelled });
+            return hung.customer.provideTypeHierarchySupertypes(1, 2, 3, token);
+        });
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideTypeHierarchySubtypes": untilCancelled });
+            return hung.customer.provideTypeHierarchySubtypes(1, 2, 3, token);
+        });
+    });
+});
 
 describe("LanguageFeaturesCustomer — inlay hints", () => {
     const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7, range: CORE_RANGE };

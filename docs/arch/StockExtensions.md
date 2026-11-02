@@ -133,6 +133,7 @@
   применяется (общая строка «not applied yet»): `Types: Show Base Classes` видна в палитре и вне C++. Сьюты
   `extensionHost.clangd*` и CI-шаги ставят `clangd` из apt; без него — пропуск (`clangdMissing`). Смоук — undercurl на
   `int x = "s";`, сценарий `clangd` — подсказки, `Alt+O`, дерево типа и AST.
+- **`timonwong.shellcheck`** (#970) — прокси на сток Open VSX 0.48.4. Гейт `engines.diode: ">=0.12.8"`: нужны ссылки в редакторе (#953) и правки этой задачи из коммитов после тега 0.12.7. `shellcheck.runtime: "auto"` на десктопе — это `native`, сам на wasm не падает: без бинаря расширение пишет `The shellcheck program was not found`, кнопка `Try experimental WebAssembly` тоста переключает настройку. При первом запуске этот тост стоит в очереди за `What's New` (тосты идут по одному), редактор живёт. `Apply fix` расширение отдаёт, только если запрошенный диапазон лежит внутри диагностики, поэтому `Ctrl+.` шлёт точное выделение, как `CodeActionOracle`, а если под кареткой исправлений нет, они добираются запросом `only: quickfix` с конца ближайшего маркера строки (`includeNearbyQuickFixes` эталона, но он спрашивает у всех маркеров, и настройки у нас нет). `support: partial`: нет сниппетов и walkthrough — кнопка `See What's New` только пишет в лог `command "workbench.action.openWalkthrough" not found`. С `shellcheck.markdownDiagnostics` hover показывает сырой HTML: рендерера markdown нет, а `supportHtml` до UI не доходит; настройка выключена по умолчанию, обычный hover даёт тот же текст. `Show wiki` и ссылка в `# shellcheck disable=` идут через внешний открыватель: браузер, а без графической сессии тост с адресом. Клика по коду в Problems нет: `Diagnostic.code.target` до панели не доезжает. Hover открывается командой (`Ctrl+K Ctrl+U`), наведения мышью в редакторе нет. Смоук — wasm, без внешнего инструмента: undercurl, код в Problems, hover, `Apply fix`, диагностика при наборе, `Disable`, ссылка, модальный диалог.
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
 
@@ -245,11 +246,29 @@ eval-режим node, иначе расширение молча не линти
   `resolveCodeLens` нет дедлайна, как в эталоне; с дедлайном 5 с кадр навсегда оставался с
   `no commands` ([Extensions.md](Extensions.md)). Тесты —
   `extensionHost.javaLsp.{inlayHints,codeLens}.test.ts`, демо — `java-lens-hints`.
-- Outline, workspace symbols, call/type hierarchy, selection range, on-type
-  formatting сервер умеет — Java получит их сама по мере закрытия `register*Provider`
-  ([API-COVERAGE](../public/API-COVERAGE.md)). Классов-ловушек у этого клиента не всплыло: ошибок
-  конвертации в `client.outputChannel` за прогоны нет. Активация → готовность на игрушечном проекте
-  с тёплыми кэшами ≈ 19 с.
+- **Навигация и символы** (#956) работают без правок ядра, проверено на сервере из vsix 1.56.0.
+  Implementations, Type Definition, Declaration: у JDT declaration переопределения — метод интерфейса,
+  definition — само переопределение. Подсветка вхождений различает запись и чтение, объявление поля
+  сервер считает записью. `@` отдаёт пакет, класс, поля и методы по одному разу: свой document symbol
+  провайдер расширения поверх клиентского дублей не даёт, берётся первый непустой ответ. `#` отвечает только из
+  standard-сервера и находит классы из неоткрытых файлов. Методы из исходников он отдаёт только при
+  `java.symbols.includeSourceMethodDeclarations: true`, и сервер называет их без скобок: `measure`.
+- **Обе иерархии** (#956): call hierarchy incoming/outgoing и type hierarchy subtypes/supertypes, Java —
+  единственный стоковый сервер с обеими. Отвечает только standard-сервер. Сразу после импорта jdt.ls отвечает дольше 5 с, поэтому у
+  Implementations и обеих иерархий нет дедлайна на проводе, как в эталоне: с дедлайном панель оставалась
+  пустой. Имена в ответе сервера с сигнатурой: `render() : double`.
+- **`Java: Show Type Hierarchy`** (#956) показывает дерево через API `vscode.references-view` (`setInput`): без этого
+  расширения команда молчала. Рядом работает и нативный `references-view.showTypeHierarchy`. Кнопки заголовка расширения
+  привязаны к `view == references-view.tree`, поэтому этот id отдан его дереву.
+- **Format on type** (#956): `;`, Enter и `}` форматируют блок при `editor.formatOnType: true`. Эта настройка
+  выключена по умолчанию, как в эталоне, и манифест расширения её не включает: из коробки Java не
+  форматирует при наборе. `java.format.onType.enabled: false` снимает регистрацию провайдера. Дедлайна на проводе нет, как в эталоне:
+  клавиша нажимается один раз, потерянный ответ никто не перезапросит, а следующая правка отменяет запрос.
+- **Linked editing и document links** сервер не предоставляет, провайдеров нет. Ссылки в Java-файлах
+  находит только детектор ядра.
+- Классов-ловушек у этого клиента не всплыло: ошибок конвертации в `client.outputChannel` за прогоны
+  нет. Активация → готовность на игрушечном проекте с тёплыми кэшами ≈ 19 с. Тесты —
+  `extensionHost.javaLsp.{navigation,hierarchy,symbols,formatOnType}.test.ts`, демо — `java-hierarchy`.
 
 ## Go: `golang.go` (gopls)
 

@@ -1,0 +1,30 @@
+{
+    "members": [
+        "commands.registerCommand",
+        "commands.registerTextEditorCommand",
+        "l10n.t",
+        "languages.createDiagnosticCollection",
+        "languages.match",
+        "languages.registerCodeActionsProvider",
+        "languages.registerDocumentLinkProvider",
+        "languages.registerHoverProvider",
+        "window.activeTextEditor",
+        "window.createOutputChannel",
+        "window.createStatusBarItem",
+        "window.onDidChangeActiveTextEditor",
+        "window.showInformationMessage",
+        "window.showWarningMessage",
+        "workspace.applyEdit",
+        "workspace.fs",
+        "workspace.getConfiguration",
+        "workspace.getWorkspaceFolder",
+        "workspace.onDidChangeConfiguration",
+        "workspace.onDidChangeTextDocument",
+        "workspace.onDidChangeWorkspaceFolders",
+        "workspace.onDidCloseTextDocument",
+        "workspace.onDidOpenTextDocument",
+        "workspace.onDidSaveTextDocument",
+        "workspace.textDocuments",
+        "workspace.workspaceFolders"
+    ]
+}

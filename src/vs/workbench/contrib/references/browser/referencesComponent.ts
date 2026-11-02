@@ -29,7 +29,7 @@ export const ReferencesComponentDIToken = token<ReferencesComponent>("References
 
 /** Same id as in VS Code. */
 export const REFERENCES_VIEWLET_ID = "references-view";
-export const REFERENCES_VIEW_ID = "references-view.tree";
+export const REFERENCES_VIEW_ID = "references-view.list";
 
 export interface IReferencesRevealEditor {
     goToPosition(line: number, column?: number): void;
@@ -139,6 +139,12 @@ export class ReferencesComponent extends Component {
             focus: () => {
                 this.focus();
             },
+        });
+        // The tree of `vscode.references-view` takes the container: an empty list next to it is half a panel of nothing.
+        contextKeys.onDidChange(() => {
+            if (!this.searched && contextKeys.evaluate("reference-list.isActive")) {
+                viewsService.setViewVisible(REFERENCES_VIEW_ID, false);
+            }
         });
     }
 

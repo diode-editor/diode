@@ -44,6 +44,9 @@ export default defineScenario({
 
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
+        // Onto `bad`: Quick Fix asks at the caret, and the chat panel's quick fixes are everywhere, so the line isn't
+        // searched for the diagnostic (upstream leaves AI actions out of that check; we have no `isAI`).
+        for (let i = 0; i < 7; i++) await editor.sendKey("ArrowRight");
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+Q");
         await editor.waitForText((t) => t.includes("Fix with Supermaven") && t.includes("Fix with Chat Panel"), {
