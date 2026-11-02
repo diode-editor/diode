@@ -13,7 +13,7 @@ const { workers } = planWorkers();
  * Real JVMs (redhat.java, ~1 GB+ each): two pairs at once on 7.6 GB peaked at 6.3 GB with
  * timeouts, hence after the rest and one at a time. A new JVM consumer goes here too.
  */
-const HEAVY = ["e2e/marketplace/marketplace.test.ts", "e2e/scenarios-heavy.test.ts"];
+const HEAVY = ["e2e/javaHierarchyCommands.test.ts", "e2e/marketplace/marketplace.test.ts", "e2e/scenarios-heavy.test.ts"];
 
 const shared = {
     testTimeout: 60_000,

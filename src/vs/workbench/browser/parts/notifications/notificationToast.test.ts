@@ -116,28 +116,33 @@ describe("NotificationToast — what the frame shows", () => {
         ]);
     });
 
-    it("buttons wider than the toast wrap to the next row instead of clipping the close button", () => {
-        // The question of svelte.svelte-vscode: the three answers and the close button take 48 columns of 46.
-        const box = boxLines(renderToast({ message: "Enable it?", items: ["Enable", "Later", "Do not show again"] }));
+    it("buttons that don't fit one row flow onto the next, the close button stays visible", () => {
+        // ShellCheck's answer when the program is missing.
+        const box = boxLines(
+            renderToast({
+                severity: "error",
+                message: "Not found",
+                items: ["OK", "Installation Guide", "Try experimental WebAssembly"],
+            }),
+        );
         expect(box.slice(3)).toEqual([
-            "│  Enable it?                                      │",
+            "│  Not found                                       │",
             "│                                                  │",
-            "│      [ Enable ] [ Later ] [ Do not show again ]  │",
-            "│                                           [ × ]  │",
+            "│                   [ OK ] [ Installation Guide ]  │",
+            "│          [ Try experimental WebAssembly ] [ × ]  │",
             "│  F6 — reply                                      │",
             "╰──────────────────────────────────────────────────╯",
         ]);
     });
 
-    it("a row exactly as wide as the text keeps the close button; one column more wraps it", () => {
-        // A 36-character label makes a 40-column button: with the gap and "[ × ]", 46 columns.
-        const fits = boxLines(renderToast({ items: ["a".repeat(36)] }));
-        expect(fits[5]).toBe(`│  [ ${"a".repeat(36)} ] [ × ]  │`);
-        // A button wider than the row is not preceded by an empty one.
-        expect(boxLines(renderToast({ items: ["a".repeat(50)] }))[5]).toMatch(/^│ *\[ a+/u);
-        const wraps = boxLines(renderToast({ items: ["a".repeat(37)] }));
-        expect(wraps.slice(5, 7)).toEqual([
-            `│       [ ${"a".repeat(37)} ]  │`,
+    it("a row filled to the last column stays one row, one column more moves the last button down", () => {
+        const buttonRows = (lastItem: string): string[] =>
+            boxLines(renderToast({ message: "m", items: ["12345678", "12345678", lastItem] })).filter((row) =>
+                row.includes("[ "),
+            );
+        expect(buttonRows("1234567890")).toEqual(["│  [ 12345678 ] [ 12345678 ] [ 1234567890 ] [ × ]  │"]);
+        expect(buttonRows("12345678901")).toEqual([
+            "│       [ 12345678 ] [ 12345678 ] [ 12345678901 ]  │",
             "│                                           [ × ]  │",
         ]);
     });

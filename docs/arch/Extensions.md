@@ -424,7 +424,9 @@
   (`languages.provideHover` RPC, таймаут 5000 мс). Ядро спрашивает все подошедшие провайдеры и
   склеивает непустые ответы в порядке реестра (`ICoreHover {contents, range?}`, contents — блоки
   сырого markdown; `MarkedString {language, value}` сериализуется fenced-блоком). Реестр —
-  `ILanguageFeaturesService.hoverProvider` (тип `editor/common/languages/iHoverSource.ts`); UI —
+  `ILanguageFeaturesService.hoverProvider` (тип `editor/common/languages/iHoverSource.ts`); над ответами
+  провайдеров — диагностики под кареткой из `MarkerService` (`message source(code)`, эталонный
+  `MarkerHoverParticipant`); UI —
   contrib `hover` (пара `HoverService`/`HoverComponent` по образцу suggest: overlay-сессия у каретки
   без захвата фокуса, `stripMarkdown` в плоский текст, закрытие по Escape/правке/каретке/фокусу;
   ключ `editorHoverVisible`).
@@ -564,8 +566,9 @@
   `providedCodeActionKinds` из метаданных регистрации, `provideCodeActions`/`applyCodeAction`; выбор
   и склейка — `editor/contrib/codeAction`); потребители — source-команды
   `editor.action.organizeImports` / `fixAll` (полный диапазон + `only`, выбор `isPreferred` ??
-  первого) и `editor.action.quickFix` (Ctrl+., чорд Ctrl+K Ctrl+Q; строка каретки/выделение без
-  `only`, меню на `QuickInputService.quickPick`) в
+  первого) и `editor.action.quickFix` (Ctrl+., чорд Ctrl+K Ctrl+Q; точное выделение без `only`; нет
+  quickfix под кареткой — запрос `only: quickfix` с конца ближайшего маркера строки, как
+  `includeNearbyQuickFixes` эталона, но эталон спрашивает у всех маркеров: хост держит два ответа на провайдер; меню на `QuickInputService.quickPick`) в
   `contrib/codeAction/browser/codeActionActions.ts`; notices в статус-баре. Сборка зависимостей —
   ассемблер `buildVscodeNamespace` передаёт `workspace.applyEdit` / `commands.executeCommand` в
   `createLanguagesNamespace` (commands строится ДО languages).
@@ -1347,7 +1350,7 @@
     поднимается без него, с предупреждением в лог (`isBuiltinVSCodeExtension`). У эталона они часть
     продукта и есть всегда, а у нас многих нет (`git` — это `diode.git`), и поставить их неоткуда:
     строгий вариант молча выключил стоковый Supermaven (`extensionDependencies: ["vscode.git"]`).
-    Встроенные `vscode.*`, которые у нас есть (`vscode.git-base`), — декларативные языковые паки
+    Единственный встроенный `vscode.*` с кодом — `vscode.references-view` ([Views.md](workbench/Views.md)). Остальные, которые у нас есть (`vscode.git-base`), — декларативные языковые паки
     (следующий пункт): скрипт импорта вырезает из манифеста `main` вместе с кодом, иначе хост читал бы
     отсутствующую точку входа и писал `failed to register (builtin)` на каждом старте;
   - расширение **без кода** (декларативный языковой пак, тема) регистрации в хосте не имеет, но зависимость на него удовлетворена: `ExtensionService.start()` сообщает хосту такие id (`registerDeclarativeExtension`), как `_isResolvedExtension` эталона;

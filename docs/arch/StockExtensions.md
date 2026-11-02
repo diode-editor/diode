@@ -44,7 +44,7 @@
   `themes/mocha.json`, тема есть в пикере.
 - **`golang.go`** (сайт#19) — universal, гейт `engines.diode: ">=0.9.2"` (до #657 активация падала на
   `vscode.debug`). `support: partial`: отладчика нет (`debug test` — тост), Testing view нет,
-  welcome/pprof — webview; code lens и inlay hints работают; требование Go toolchain — пунктом в `limits` и в readme (решение человека,
+  welcome/pprof — webview; code lens, inlay hints, навигация, ссылки импортов, `@`, `#` и обе иерархии работают; требование Go toolchain — пунктом в `limits` и в readme (решение человека,
   как JDK у `redhat.java`). gopls в vsix нет — расширение ставит его само `go install`; смоук кладёт
   заранее собранный gopls в GOBIN (в CI — `.github/actions/go-tools`), без Go кейс пропускается
   (`requires` у чека). Open VSX пишет id как `golang/Go` — см. открытый пункт про регистр id в
@@ -122,7 +122,7 @@
 - **`vscjava.vscode-maven`** (#977) — прокси на сток Open VSX 0.45.3. Гейт `engines.diode: ">=0.12.6"`: нужны `window.createInputBox` и кнопка Back (`New Project`), константно ложные `commandPalette` и ключ `isWorkspaceTrusted`. Плагины в дереве приходят со строки без `id`, а после `mvn help:describe` расширение переименовывает строку: handle такой строки строится из подписи и меняется, поэтому `treeView.refresh` несёт `previousHandle`, и воркбенч перечитывает родителя (как `getItemsToRefresh` эталона). `support: partial`: `Debug` в меню цели плагина отладчик не запускает (тост расширения `Debugger for Java is required`), сниппеты `pom.xml` вставляются без табстопов и поправки отступа (класс C эпика #912), пункт в меню чужого вида `javaProject.maven` не показывается. Нужен `mvn` из PATH или `maven.executable.path`: без него тост `Maven executable not found in PATH`, битый явный путь расширение передаёт в терминал как есть. `maven.goal.custom` и `maven.project.effectivePom` без аргумента не показывают ничего или падают, и в эталоне тоже: у них `when: never`, зовут их из дерева или через `maven.goal.execute` → `Custom ...`. Quick fix `Add a dependency` появляется, только когда каретка внутри `<dependencies>`, а не на самом теге. Генерация архетипа задаёт вопросы в терминале (`Define value for property`), фокус туда не переходит, как в эталоне. Смоук — `a:b` в секции, чистая от `when: never` палитра и `BUILD SUCCESS` цели, без `mvn` кейс пропускается (`requires`).
 - **`svelte.svelte-vscode`** (#975) — прокси на сток Open VSX 110.3.2; сервер, компилятор Svelte и TypeScript лежат в
   vsix, ставить ничего не надо. Гейт `engines.diode: ">=0.12.8"`: символы документа (#989) и рабочей области (#1014) и
-  перенос кнопок тоста из этой задачи — после тега 0.12.7. Inlay hints и линза ссылок идут по настройкам TypeScript
+  `showTextDocument` рядом из этой задачи — после тега 0.12.7. Inlay hints и линза ссылок идут по настройкам TypeScript
   (`typescript.inlayHints.*`, `typescript.referencesCodeLens.enabled`): своих ключей для них манифест не объявляет, сервер
   читает чужие, как в VS Code. `support: partial`: TS-плагин (`contributes.typescriptServerPlugins`) не грузится, `.ts` не
   видит пропсы компонентов и rename объявления из `.ts` до `.svelte` не доходит. Вопрос «включить TS-плагин?» приходит
@@ -133,9 +133,12 @@
   ссылки: `on:click={increment}` — не вызов. Type hierarchy, on-type и ссылок документа у сервера нет, тест это фиксирует.
   `Extract Component` создаёт файл и пишет текст в его модель без вкладки: файл грязный до сохранения, выход спрашивает
   про него, как в эталоне; в корне проводника он появляется только после refresh — известная дыра «корень дерева
-  Explorer не наблюдается» ([FileTreePerformance](../TODO/FileTreePerformance.md)). Тост с тремя ответами не влезал в 46
-  колонок и обрезал крестик — ряд кнопок теперь переносится. Смоук — undercurl, `Enable` и настройка в файле,
+  Explorer не наблюдается» ([FileTreePerformance](../TODO/FileTreePerformance.md)). `Show Compiled Code` открывает превью рядом
+  и просит у провайдера содержимого текст по `window.activeTextEditor`: новая пустая группа становилась активной до
+  открытия, и превью писало «no svelte file selected»; теперь, как в эталоне, группа добавляется без активации, а
+  активирует её открытие. Смоук — undercurl, `Enable` и настройка в файле,
   `Show Compiled Code`, рестарт сервера и undercurl встроенного TypeScript в `.ts` после ответа.
+- **`timonwong.shellcheck`** (#970) — прокси на сток Open VSX 0.48.4. Гейт `engines.diode: ">=0.12.8"`: нужны ссылки в редакторе (#953) и правки этой задачи из коммитов после тега 0.12.7. `shellcheck.runtime: "auto"` на десктопе — это `native`, сам на wasm не падает: без бинаря расширение пишет `The shellcheck program was not found`, кнопка `Try experimental WebAssembly` тоста переключает настройку. При первом запуске этот тост стоит в очереди за `What's New` (тосты идут по одному), редактор живёт. `Apply fix` расширение отдаёт, только если запрошенный диапазон лежит внутри диагностики, поэтому `Ctrl+.` шлёт точное выделение, как `CodeActionOracle`, а если под кареткой исправлений нет, они добираются запросом `only: quickfix` с конца ближайшего маркера строки (`includeNearbyQuickFixes` эталона, но он спрашивает у всех маркеров, и настройки у нас нет). `support: partial`: нет сниппетов и walkthrough — кнопка `See What's New` только пишет в лог `command "workbench.action.openWalkthrough" not found`. С `shellcheck.markdownDiagnostics` hover показывает сырой HTML: рендерера markdown нет, а `supportHtml` до UI не доходит; настройка выключена по умолчанию, обычный hover даёт тот же текст. `Show wiki` и ссылка в `# shellcheck disable=` идут через внешний открыватель: браузер, а без графической сессии тост с адресом. Клика по коду в Problems нет: `Diagnostic.code.target` до панели не доезжает. Hover открывается командой (`Ctrl+K Ctrl+U`), наведения мышью в редакторе нет. Смоук — wasm, без внешнего инструмента: undercurl, код в Problems, hover, `Apply fix`, диагностика при наборе, `Disable`, ссылка, модальный диалог.
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
 
@@ -248,11 +251,29 @@ eval-режим node, иначе расширение молча не линти
   `resolveCodeLens` нет дедлайна, как в эталоне; с дедлайном 5 с кадр навсегда оставался с
   `no commands` ([Extensions.md](Extensions.md)). Тесты —
   `extensionHost.javaLsp.{inlayHints,codeLens}.test.ts`, демо — `java-lens-hints`.
-- Outline, workspace symbols, call/type hierarchy, selection range, on-type
-  formatting сервер умеет — Java получит их сама по мере закрытия `register*Provider`
-  ([API-COVERAGE](../public/API-COVERAGE.md)). Классов-ловушек у этого клиента не всплыло: ошибок
-  конвертации в `client.outputChannel` за прогоны нет. Активация → готовность на игрушечном проекте
-  с тёплыми кэшами ≈ 19 с.
+- **Навигация и символы** (#956) работают без правок ядра, проверено на сервере из vsix 1.56.0.
+  Implementations, Type Definition, Declaration: у JDT declaration переопределения — метод интерфейса,
+  definition — само переопределение. Подсветка вхождений различает запись и чтение, объявление поля
+  сервер считает записью. `@` отдаёт пакет, класс, поля и методы по одному разу: свой document symbol
+  провайдер расширения поверх клиентского дублей не даёт, берётся первый непустой ответ. `#` отвечает только из
+  standard-сервера и находит классы из неоткрытых файлов. Методы из исходников он отдаёт только при
+  `java.symbols.includeSourceMethodDeclarations: true`, и сервер называет их без скобок: `measure`.
+- **Обе иерархии** (#956): call hierarchy incoming/outgoing и type hierarchy subtypes/supertypes, Java —
+  единственный стоковый сервер с обеими. Отвечает только standard-сервер. Сразу после импорта jdt.ls отвечает дольше 5 с, поэтому у
+  Implementations и обеих иерархий нет дедлайна на проводе, как в эталоне: с дедлайном панель оставалась
+  пустой. Имена в ответе сервера с сигнатурой: `render() : double`.
+- **`Java: Show Type Hierarchy`** (#956) показывает дерево через API `vscode.references-view` (`setInput`): без этого
+  расширения команда молчала. Рядом работает и нативный `references-view.showTypeHierarchy`. Кнопки заголовка расширения
+  привязаны к `view == references-view.tree`, поэтому этот id отдан его дереву.
+- **Format on type** (#956): `;`, Enter и `}` форматируют блок при `editor.formatOnType: true`. Эта настройка
+  выключена по умолчанию, как в эталоне, и манифест расширения её не включает: из коробки Java не
+  форматирует при наборе. `java.format.onType.enabled: false` снимает регистрацию провайдера. Дедлайна на проводе нет, как в эталоне:
+  клавиша нажимается один раз, потерянный ответ никто не перезапросит, а следующая правка отменяет запрос.
+- **Linked editing и document links** сервер не предоставляет, провайдеров нет. Ссылки в Java-файлах
+  находит только детектор ядра.
+- Классов-ловушек у этого клиента не всплыло: ошибок конвертации в `client.outputChannel` за прогоны
+  нет. Активация → готовность на игрушечном проекте с тёплыми кэшами ≈ 19 с. Тесты —
+  `extensionHost.javaLsp.{navigation,hierarchy,symbols,formatOnType}.test.ts`, демо — `java-hierarchy`.
 
 ## Go: `golang.go` (gopls)
 
@@ -279,10 +300,18 @@ eval-режим node, иначе расширение молча не линти
   (иначе `null`, и смена настройки до сервера не доходит). `workspace/inlayHint/refresh` gopls не шлёт
   вовсе: новое значение видно со следующего запроса (правка, прокрутка за окно, открытие файла) — так
   же и в VS Code. `go.enableCodeLens` расширение применяет сразу, своим `onDidChangeCodeLenses`.
+- **Навигация и символы** (тесты `extensionHost.goLsp.{navigation,links,symbols,hierarchy}.test.ts`,
+  сценарий `go-navigation`, gopls v0.24.0). Работают без правок ядра: Implementations (на методе
+  интерфейса — методы типов, на интерфейсе — типы), Type Definition, подсветка чтения/записи, `@`, `#`, call и
+  type hierarchy. На `#` gopls отвечает и символами рантайма (`heldLockInfo` на запрос `Hello`), поэтому
+  `matchSymbol` поднимает префикс и полное совпадение имени выше разрозненного совпадения. Middleware `provideTypeDefinition` при непустом выделении, содержащем позицию,
+  добавляет в запрос `range`, и gopls отвечает типом выделенного выражения: `pair.Second` даёт `Polite`,
+  хотя на той же позиции без выделения — `Pair`. Ссылка импорта — только на путь в кавычках, ведёт на
+  pkg.go.dev; `gopls: {"ui.navigation.importShortcut": "Definition"}` её убирает. Declaration, linked
+  editing и format on type gopls не предлагает — провайдеры не регистрируются, тест это фиксирует.
 - **Решения человека:** отладчик не делаем (`vscode.debug` — null-объект); фичи, которых ядро ещё не
-  умеет (outline, Go to Implementation, call hierarchy, Testing view, деревья `go.explorer`/package
-  outline, when-фильтр палитры), ради Go отдельно не делаем — заработают сами с ядром. Welcome-страница
-  и pprof — webview, не будет.
+  умеет (outline, Testing view, деревья `go.explorer`/package outline, when-фильтр палитры), ради Go
+  отдельно не делаем — заработают сами с ядром. Welcome-страница и pprof — webview, не будет.
 - Спайк заново: `PATH=<go>/bin:$PATH npm run -s drive -- start --seed e2e/fixtures/goSample --install
   golang.go --open main.go`, лог — `drive -- output extensions.golang.go.go`.
 
