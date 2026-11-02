@@ -14,6 +14,11 @@ import type { RequestFn } from "./hostRequests.ts";
  * project is built, and a cancelled one left the file without squares and links until an edit.
  * Formatting is absent as upstream too: a large file takes a formatter longer than any deadline here, an edit cancels
  * the request, and format on save cancels it at the save participant's deadline.
+ * Navigation the user asked for (definition and its kin, references, both hierarchies) is absent as upstream: on a big
+ * project tsserver searches longer than any deadline here, jdt.ls takes longer than 5 s while it is busy, and an expired
+ * one read as "nothing found". Only the caller cancels: go-to on a cursor move, an edit or a new request, references and
+ * the hierarchies on a new request or a clear. On type formatting too: a key is pressed once, nothing asks again, and
+ * the next edit cancels the request.
  */
 export const DEFAULT_REQUEST_TIMEOUTS = {
     "workspace.willSaveTextDocument": 1500,
@@ -24,14 +29,8 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     // Deliberately above the positional 5000: a project-wide search on JDT or gopls takes longer.
     "languages.provideWorkspaceSymbols": 10000,
     "languages.resolveWorkspaceSymbol": 10000,
-    "languages.provideDefinition": 5000,
-    "languages.provideImplementation": 5000,
-    "languages.provideTypeDefinition": 5000,
-    "languages.provideDeclaration": 5000,
     "languages.provideHover": 5000,
-    "languages.provideReferences": 5000,
     "languages.provideSignatureHelp": 5000,
-    "languages.provideOnTypeFormattingEdits": 5000,
     "languages.provideCodeActions": 5000,
     "languages.applyCodeAction": 10000,
     "languages.prepareRename": 5000,
@@ -40,12 +39,6 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.provideDocumentHighlights": 5000,
     "languages.provideLinkedEditingRanges": 5000,
     "languages.resolveDocumentLink": 5000,
-    "languages.prepareCallHierarchy": 5000,
-    "languages.provideCallHierarchyIncomingCalls": 5000,
-    "languages.provideCallHierarchyOutgoingCalls": 5000,
-    "languages.prepareTypeHierarchy": 5000,
-    "languages.provideTypeHierarchySupertypes": 5000,
-    "languages.provideTypeHierarchySubtypes": 5000,
 } as const satisfies Readonly<Record<string, number>>;
 
 export type TimedRequestMethod = keyof typeof DEFAULT_REQUEST_TIMEOUTS;

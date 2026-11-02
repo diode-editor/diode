@@ -23,7 +23,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 | mark | members |
 | --- | --- |
 | test | 151 |
-| confirmed by a real extension | 71 |
+| confirmed by a real extension | 75 |
 | used by a surveyed extension | 583 |
 
 ## Gap ranking
@@ -618,7 +618,7 @@ Proposed API or a false hit: class X when real.
 | `commands.executeCommand` | ok | yes | 163 | 1,124,066,680 | bradlc.vscode-tailwindcss, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `commands.getCommands` | ok | yes | 22 | 248,650,853 |  |
 | `commands.registerCommand` | ok | yes | 178 | 1,156,419,053 | biomejs.biome, bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
-| `commands.registerTextEditorCommand` | ok | yes | 16 | 131,081,500 | shardulm94.trailing-spaces, timonwong.shellcheck |
+| `commands.registerTextEditorCommand` | ok | yes | 16 | 131,081,500 | shardulm94.trailing-spaces, tamasfe.even-better-toml, timonwong.shellcheck |
 | `Comment.author` | C |  | 0 | 0 |  |
 | `Comment.body` | C |  | 0 | 0 |  |
 | `Comment.contextValue` | C |  | 0 | 0 |  |
@@ -978,15 +978,15 @@ Proposed API or a false hit: class X when real.
 | `EnterAction.indentAction` | ok |  | 0 | 0 |  |
 | `EnterAction.removeText` | ok |  | 0 | 0 |  |
 | `env.appHost` | ok |  | 19 | 129,890,756 |  |
-| `env.appName` | ok | yes | 105 | 904,185,553 | biomejs.biome, bradlc.vscode-tailwindcss |
+| `env.appName` | ok | yes | 105 | 904,185,553 | biomejs.biome, bradlc.vscode-tailwindcss, tamasfe.even-better-toml |
 | `env.appRoot` | ok | yes | 22 | 135,779,926 |  |
 | `env.asExternalUri` | B |  | 23 | 111,109,501 |  |
-| `env.clipboard` | ok |  | 73 | 420,753,210 |  |
+| `env.clipboard` | ok |  | 73 | 420,753,210 | tamasfe.even-better-toml |
 | `env.createTelemetryLogger` | ok |  | 7 | 57,102,796 | vscjava.vscode-maven, vscode.merge-conflict |
 | `env.isAppPortable` | B |  | 0 | 0 |  |
 | `env.isNewAppInstall` | B |  | 1 | 620,681 |  |
 | `env.isTelemetryEnabled` | ok |  | 44 | 614,637,512 | vscjava.vscode-maven |
-| `env.language` | ok | yes | 97 | 734,577,323 | biomejs.biome |
+| `env.language` | ok | yes | 97 | 734,577,323 | biomejs.biome, tamasfe.even-better-toml |
 | `env.logLevel` | B |  | 6 | 18,596,305 |  |
 | `env.machineId` | ok | yes | 52 | 614,169,069 |  |
 | `env.onDidChangeLogLevel` | B |  | 3 | 4,961,951 |  |
@@ -1057,7 +1057,7 @@ Proposed API or a false hit: class X when real.
 | `ExtensionMode.Development` | ok |  | 32 | 181,246,978 |  |
 | `ExtensionMode.Production` | ok |  | 16 | 164,094,591 |  |
 | `ExtensionMode.Test` | ok |  | 11 | 167,367,351 |  |
-| `extensions.all` | ok |  | 37 | 404,886,820 | yzhang.markdown-all-in-one |
+| `extensions.all` | ok |  | 37 | 404,886,820 | tamasfe.even-better-toml, yzhang.markdown-all-in-one |
 | `extensions.getExtension` | ok |  | 123 | 1,093,430,445 | vscjava.vscode-maven |
 | `extensions.onDidChange` | ok |  | 29 | 427,027,306 | yzhang.markdown-all-in-one |
 | `ExtensionTerminalOptions.color` | ok |  | 0 | 0 |  |
@@ -1345,11 +1345,11 @@ Proposed API or a false hit: class X when real.
 | `LanguageModelToolResultPart.content` | C |  | 0 | 0 |  |
 | `LanguageModelToolTokenizationOptions.countTokens` | C |  | 0 | 0 |  |
 | `LanguageModelToolTokenizationOptions.tokenBudget` | C |  | 0 | 0 |  |
-| `languages.createDiagnosticCollection` | ok | yes | 95 | 755,041,819 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck, vscjava.vscode-maven |
+| `languages.createDiagnosticCollection` | ok | yes | 95 | 755,041,819 | biomejs.biome, bradlc.vscode-tailwindcss, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven |
 | `languages.createLanguageStatusItem` | ok |  | 23 | 250,760,797 |  |
 | `languages.getDiagnostics` | ok | yes | 22 | 217,055,681 |  |
 | `languages.getLanguages` | ok | yes | 2 | 13,406,554 |  |
-| `languages.match` | ok |  | 79 | 568,236,171 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck |
+| `languages.match` | ok |  | 79 | 568,236,171 | biomejs.biome, bradlc.vscode-tailwindcss, tamasfe.even-better-toml, timonwong.shellcheck |
 | `languages.onDidChangeDiagnostics` | ok |  | 9 | 178,729,024 |  |
 | `languages.registerCallHierarchyProvider` | C | yes | 74 | 553,028,026 |  |
 | `languages.registerCodeActionsProvider` | ok | yes | 94 | 802,908,021 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck |
@@ -1359,16 +1359,16 @@ Proposed API or a false hit: class X when real.
 | `languages.registerDeclarationProvider` | B |  | 74 | 553,028,026 |  |
 | `languages.registerDefinitionProvider` | ok |  | 81 | 588,318,046 |  |
 | `languages.registerDocumentDropEditProvider` | C |  | 4 | 18,090,004 |  |
-| `languages.registerDocumentFormattingEditProvider` | ok | yes | 82 | 631,700,018 | biomejs.biome, yzhang.markdown-all-in-one |
+| `languages.registerDocumentFormattingEditProvider` | ok | yes | 82 | 631,700,018 | biomejs.biome, tamasfe.even-better-toml, yzhang.markdown-all-in-one |
 | `languages.registerDocumentHighlightProvider` | B |  | 75 | 554,284,024 |  |
-| `languages.registerDocumentLinkProvider` | ok |  | 80 | 589,936,169 | bradlc.vscode-tailwindcss, timonwong.shellcheck |
+| `languages.registerDocumentLinkProvider` | ok |  | 80 | 589,936,169 | bradlc.vscode-tailwindcss, tamasfe.even-better-toml, timonwong.shellcheck |
 | `languages.registerDocumentPasteEditProvider` | B |  | 3 | 54,970,403 |  |
 | `languages.registerDocumentRangeFormattingEditProvider` | ok | yes | 81 | 570,534,477 |  |
 | `languages.registerDocumentRangeSemanticTokensProvider` | ok |  | 75 | 556,420,423 |  |
-| `languages.registerDocumentSemanticTokensProvider` | ok |  | 74 | 553,028,026 |  |
-| `languages.registerDocumentSymbolProvider` | B |  | 81 | 563,742,221 |  |
+| `languages.registerDocumentSemanticTokensProvider` | ok |  | 74 | 553,028,026 | tamasfe.even-better-toml |
+| `languages.registerDocumentSymbolProvider` | B |  | 81 | 563,742,221 | tamasfe.even-better-toml |
 | `languages.registerEvaluatableExpressionProvider` | C |  | 0 | 0 |  |
-| `languages.registerFoldingRangeProvider` | ok |  | 78 | 556,745,707 |  |
+| `languages.registerFoldingRangeProvider` | ok |  | 78 | 556,745,707 | tamasfe.even-better-toml |
 | `languages.registerHoverProvider` | ok |  | 94 | 698,785,264 | bradlc.vscode-tailwindcss, timonwong.shellcheck |
 | `languages.registerImplementationProvider` | B |  | 74 | 553,028,026 |  |
 | `languages.registerInlayHintsProvider` | ok | yes | 71 | 558,951,383 |  |
@@ -2492,11 +2492,11 @@ Proposed API or a false hit: class X when real.
 | `window.activeColorTheme` | ok |  | 29 | 130,368,078 |  |
 | `window.activeNotebookEditor` | X |  | 17 | 133,990,636 |  |
 | `window.activeTerminal` | ok |  | 15 | 216,575,445 |  |
-| `window.activeTextEditor` | ok | yes | 161 | 1,031,389,838 | biomejs.biome, bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, timonwong.shellcheck, vscode.merge-conflict, yzhang.markdown-all-in-one |
+| `window.activeTextEditor` | ok | yes | 161 | 1,031,389,838 | biomejs.biome, bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, tamasfe.even-better-toml, timonwong.shellcheck, vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `window.createInputBox` | ok | yes | 27 | 437,973,972 |  |
-| `window.createOutputChannel` | ok |  | 144 | 1,097,202,143 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck, vscjava.vscode-maven |
+| `window.createOutputChannel` | ok |  | 144 | 1,097,202,143 | biomejs.biome, bradlc.vscode-tailwindcss, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven |
 | `window.createQuickPick` | ok | yes | 57 | 660,652,049 |  |
-| `window.createStatusBarItem` | ok |  | 86 | 651,676,549 | biomejs.biome, timonwong.shellcheck |
+| `window.createStatusBarItem` | ok |  | 86 | 651,676,549 | biomejs.biome, tamasfe.even-better-toml, timonwong.shellcheck |
 | `window.createTerminal` | ok | yes | 59 | 442,493,421 | vscjava.vscode-maven |
 | `window.createTextEditorDecorationType` | C |  | 56 | 481,992,789 | bradlc.vscode-tailwindcss, shardulm94.trailing-spaces, vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `window.createTreeView` | ok | yes | 47 | 432,182,103 | vscjava.vscode-maven |
@@ -2504,7 +2504,7 @@ Proposed API or a false hit: class X when real.
 | `window.onDidChangeActiveColorTheme` | ok |  | 18 | 52,945,951 |  |
 | `window.onDidChangeActiveNotebookEditor` | X |  | 7 | 30,867,966 |  |
 | `window.onDidChangeActiveTerminal` | ok |  | 7 | 77,966,493 |  |
-| `window.onDidChangeActiveTextEditor` | ok |  | 125 | 831,039,923 | biomejs.biome, bradlc.vscode-tailwindcss, shardulm94.trailing-spaces, timonwong.shellcheck, yzhang.markdown-all-in-one |
+| `window.onDidChangeActiveTextEditor` | ok |  | 125 | 831,039,923 | biomejs.biome, bradlc.vscode-tailwindcss, shardulm94.trailing-spaces, tamasfe.even-better-toml, timonwong.shellcheck, yzhang.markdown-all-in-one |
 | `window.onDidChangeNotebookEditorSelection` | X |  | 3 | 10,746,297 |  |
 | `window.onDidChangeNotebookEditorVisibleRanges` | X |  | 0 | 0 |  |
 | `window.onDidChangeTerminalShellIntegration` | B |  | 9 | 210,306,892 |  |
@@ -2530,7 +2530,7 @@ Proposed API or a false hit: class X when real.
 | `window.registerWebviewViewProvider` | X |  | 43 | 174,711,816 |  |
 | `window.setStatusBarMessage` | ok |  | 17 | 172,825,375 | shardulm94.trailing-spaces, yzhang.markdown-all-in-one |
 | `window.showErrorMessage` | ok |  | 161 | 1,110,059,497 |  |
-| `window.showInformationMessage` | ok |  | 162 | 1,070,330,218 | timonwong.shellcheck |
+| `window.showInformationMessage` | ok |  | 162 | 1,070,330,218 | tamasfe.even-better-toml, timonwong.shellcheck |
 | `window.showInputBox` | ok | yes | 107 | 812,444,919 |  |
 | `window.showNotebookDocument` | X |  | 7 | 82,892,295 |  |
 | `window.showOpenDialog` | ok |  | 66 | 674,520,913 |  |
@@ -2554,26 +2554,26 @@ Proposed API or a false hit: class X when real.
 | `workspace.decode` | B |  | 1 | 18,726,545 |  |
 | `workspace.encode` | B |  | 0 | 0 |  |
 | `workspace.findFiles` | ok | yes | 72 | 686,973,290 | bradlc.vscode-tailwindcss, vscjava.vscode-maven |
-| `workspace.fs` | ok | yes | 138 | 914,256,103 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck, yzhang.markdown-all-in-one |
-| `workspace.getConfiguration` | ok |  | 176 | 1,135,915,147 | biomejs.biome, bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, shardulm94.trailing-spaces, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
+| `workspace.fs` | ok | yes | 138 | 914,256,103 | biomejs.biome, bradlc.vscode-tailwindcss, tamasfe.even-better-toml, timonwong.shellcheck, yzhang.markdown-all-in-one |
+| `workspace.getConfiguration` | ok |  | 176 | 1,135,915,147 | biomejs.biome, bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, shardulm94.trailing-spaces, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `workspace.getWorkspaceFolder` | ok | yes | 119 | 982,101,425 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck, vscjava.vscode-maven, yzhang.markdown-all-in-one |
 | `workspace.isTrusted` | ok |  | 34 | 345,707,834 | vscjava.vscode-maven |
 | `workspace.name` | ok |  | 12 | 183,480,674 |  |
 | `workspace.notebookDocuments` | X |  | 75 | 583,025,321 |  |
-| `workspace.onDidChangeConfiguration` | ok |  | 147 | 1,063,598,568 | biomejs.biome, bradlc.vscode-tailwindcss, shardulm94.trailing-spaces, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
+| `workspace.onDidChangeConfiguration` | ok |  | 147 | 1,063,598,568 | biomejs.biome, bradlc.vscode-tailwindcss, shardulm94.trailing-spaces, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `workspace.onDidChangeNotebookDocument` | X |  | 71 | 525,888,653 |  |
-| `workspace.onDidChangeTextDocument` | ok | yes | 118 | 907,561,438 | biomejs.biome, bradlc.vscode-tailwindcss, shardulm94.trailing-spaces, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
-| `workspace.onDidChangeWorkspaceFolders` | B |  | 109 | 884,612,940 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck, vscjava.vscode-maven |
+| `workspace.onDidChangeTextDocument` | ok | yes | 118 | 907,561,438 | biomejs.biome, bradlc.vscode-tailwindcss, shardulm94.trailing-spaces, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
+| `workspace.onDidChangeWorkspaceFolders` | B |  | 109 | 884,612,940 | biomejs.biome, bradlc.vscode-tailwindcss, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven |
 | `workspace.onDidCloseNotebookDocument` | X |  | 72 | 519,617,722 |  |
-| `workspace.onDidCloseTextDocument` | ok | yes | 104 | 807,332,966 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck, yzhang.markdown-all-in-one |
+| `workspace.onDidCloseTextDocument` | ok | yes | 104 | 807,332,966 | biomejs.biome, bradlc.vscode-tailwindcss, tamasfe.even-better-toml, timonwong.shellcheck, yzhang.markdown-all-in-one |
 | `workspace.onDidCreateFiles` | ok | yes | 81 | 583,742,693 |  |
 | `workspace.onDidDeleteFiles` | ok | yes | 85 | 634,317,169 |  |
 | `workspace.onDidGrantWorkspaceTrust` | ok |  | 20 | 219,502,460 | vscjava.vscode-maven |
 | `workspace.onDidOpenNotebookDocument` | X |  | 69 | 512,262,735 |  |
-| `workspace.onDidOpenTextDocument` | ok | yes | 98 | 794,779,906 | biomejs.biome, bradlc.vscode-tailwindcss, shardulm94.trailing-spaces, timonwong.shellcheck, vscode.merge-conflict, yzhang.markdown-all-in-one |
+| `workspace.onDidOpenTextDocument` | ok | yes | 98 | 794,779,906 | biomejs.biome, bradlc.vscode-tailwindcss, shardulm94.trailing-spaces, tamasfe.even-better-toml, timonwong.shellcheck, vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `workspace.onDidRenameFiles` | ok | yes | 82 | 627,808,812 |  |
 | `workspace.onDidSaveNotebookDocument` | X |  | 70 | 514,036,465 |  |
-| `workspace.onDidSaveTextDocument` | ok | yes | 104 | 715,204,603 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck, yzhang.markdown-all-in-one |
+| `workspace.onDidSaveTextDocument` | ok | yes | 104 | 715,204,603 | biomejs.biome, bradlc.vscode-tailwindcss, tamasfe.even-better-toml, timonwong.shellcheck, yzhang.markdown-all-in-one |
 | `workspace.onWillCreateFiles` | ok | yes | 73 | 551,893,376 |  |
 | `workspace.onWillDeleteFiles` | ok | yes | 74 | 552,496,647 |  |
 | `workspace.onWillRenameFiles` | ok | yes | 73 | 551,893,376 |  |
@@ -2589,10 +2589,10 @@ Proposed API or a false hit: class X when real.
 | `workspace.save` | ok | yes | 4 | 68,749,046 |  |
 | `workspace.saveAll` | B | yes | 15 | 114,231,247 |  |
 | `workspace.saveAs` | B |  | 0 | 0 |  |
-| `workspace.textDocuments` | ok | yes | 104 | 766,706,967 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck, yzhang.markdown-all-in-one |
+| `workspace.textDocuments` | ok | yes | 104 | 766,706,967 | biomejs.biome, bradlc.vscode-tailwindcss, tamasfe.even-better-toml, timonwong.shellcheck, yzhang.markdown-all-in-one |
 | `workspace.updateWorkspaceFolders` | B |  | 17 | 188,453,820 |  |
 | `workspace.workspaceFile` | ok | yes | 20 | 270,512,450 | bradlc.vscode-tailwindcss |
-| `workspace.workspaceFolders` | ok | yes | 142 | 1,022,232,086 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck, vscjava.vscode-maven, yzhang.markdown-all-in-one |
+| `workspace.workspaceFolders` | ok | yes | 142 | 1,022,232,086 | biomejs.biome, bradlc.vscode-tailwindcss, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven, yzhang.markdown-all-in-one |
 | `WorkspaceConfiguration.get` | ok |  | 0 | 0 |  |
 | `WorkspaceConfiguration.has` | ok |  | 0 | 0 |  |
 | `WorkspaceConfiguration.inspect` | ok |  | 0 | 0 |  |

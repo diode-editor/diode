@@ -80,7 +80,7 @@ describe("type hierarchy actions", () => {
         for (const action of [showSupertypesAction, showSubtypesAction, removeTypeItemAction]) {
             const visible = titleMenu(action).visible;
             expect(visible?.({ view: HIERARCHY_VIEW_ID })).toBe(true);
-            expect(visible?.({ view: "references-view.tree" })).toBe(false);
+            expect(visible?.({ view: "references-view.list" })).toBe(false);
             expect(action.when).toBe("typeHierarchyVisible");
         }
         expect(titleMenu(removeTypeItemAction).icon).toEqual(codicon("close"));

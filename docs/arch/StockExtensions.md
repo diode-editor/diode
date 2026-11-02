@@ -112,9 +112,13 @@
   дедлайне участника сохранения (5 с), и большой файл сохраняется без форматирования. Смоук ставит пакет в каталог проекта через `npm` и без него пропускается.
 - **`bradlc.vscode-tailwindcss`** (#974) — прокси на сток Open VSX 0.16.0. Сервер — отдельный процесс, `tailwindcss` берётся
   из проекта (v3 и v4), а стартует сервер, только если в воркспейсе есть конфиг v3 или CSS с импортом Tailwind: в проекте без
-  него расширение молчит, как в VS Code. Гейт `engines.diode: ">=0.12.8"`: две правки ядра после тега 0.12.7. Hover отдаёт CSS
-  блоком кода, а `stripMarkdown` срезал `*` внутри кода как курсив (`calc(var(--spacing) * 4) /* … */` терял звёздочки) — код
-  теперь прячется до правил разметки. Пункт подсказки вида Color рисует квадратик своего цвета вместо значка, как `colorspan`
+  него расширение молчит, как в VS Code. Гейт `engines.diode: ">=0.12.8"`: правки ядра после тега 0.12.7. Первый запрос
+  цветов и ссылок сервер держит до сборки проекта — дольше 5 с, поэтому у цветов и ссылок дедлайна больше нет, как в эталоне;
+  `ColorDetector` спрашивает провайдеры тиком позже, когда документ уже у хоста (иначе файл, открытый по ходу сессии,
+  оставался без квадратиков до правки). Hover отдаёт CSS
+  блоком кода, а `stripMarkdown` срезал внутри кода `*` как курсив и `\` как экранирование (`calc(var(--spacing) * 4)`,
+  селектор `.bg-\[\#ff0000\]`) — код теперь прячется до разметки и экранирований, как в CommonMark, а попап сохраняет
+  отступ строк кода. Пункт подсказки вида Color рисует квадратик своего цвета вместо значка, как `colorspan`
   эталона: цвет берётся эталонным `ColorExtractor` из label, detail или края documentation (у Tailwind — `"#fe9a00"`), поле
   `color` у пункта — tuidom 0.30.0. `support: partial`: квадратик перед именованным цветом в тексте (`bg-red-500`) расширение
   рисует само через `setDecorations` со вставкой `before` и цветом в `renderOptions` диапазона — мост этого не знает (класс C,
@@ -123,6 +127,20 @@
   сервера (пробел, `-`, `"`, `:`), с дефолтом `strings: off`, как в эталоне. Смоук — undercurl конфликта `p-4`/`p-6`, квадратик
   у `bg-[#ff0000]`, CSS в hover, quick fix, квадратик в подсказке `text-amber-`, `tailwindCSS.sortSelection`, линза
   `Generates 11 classes` в CSS v4; пакет ставится через `npm`, без него кейс пропускается.
+- **`tamasfe.even-better-toml`** — прокси на сток Open VSX 0.21.2, сервер taplo в WASM внутри расширения. Гейт
+  `engines.diode: ">=0.12.8"`: нужны ссылки из #1012 и замена текста в поле rename, обе правки вышли после тега 0.12.7.
+  `support: partial`: схемы из каталога schemastore не подхватываются. Причина проверена: 0.21.2 сравнивает `$schema`
+  каталога с `https://json.schemastore.org/schema-catalog.json`, а живой каталог отдаёт `https://www.schemastore.org/…`;
+  тот же каталог с одним исправленным значением `Cargo.toml` получает схему. В коде taplo адрес поправлен после 0.21.2,
+  новой версии в Open VSX нет. Работают `#:schema` и `evenBetterToml.schema.associations`. Сообщение в OUTPUT
+  `did not match any variant of untagged enum SchemaCatalog` — про это, а не про нас. Ссылки сервер отдаёт только при
+  `evenBetterToml.schema.links: true` и только для ключей, у которых в схеме есть `x-taplo.links`. При синтаксической
+  ошибке сервер не проверяет дубликаты ключей, поэтому `conflicting keys` видно только в файле без синтаксических ошибок.
+  Статус-бар остаётся `no schema selected` до первой правки файла: текст меняется только по уведомлению
+  `taplo/didChangeSchemaAssociation`, а расширение подписывается на него после `client.start()`. Подсказки и hover при этом
+  уже работают. В пикере `TOML: Select Schema` схема из `associations` видна дважды: список отдаёт сервер, причину не
+  разбирали, выбор пункта работает. Inlay hints, линзы, implementation, иерархии, linked editing и format on type сервер не
+  даёт: это фиксируют `extensionHost.toml.test.ts` и смоук по журналу.
 - **`shardulm94.trailing-spaces`** — прокси на сток Open VSX 0.4.4. `support: partial`: подсветка в тексте не рисуется,
   мост `setDecorations` знает только gutter и overview ruler, поэтому команда `Highlight` и настройки цвета видимого
   эффекта не дают (класс C эпика #912). `Delete - Modified Lines Only` сравнивает документ с файлом на диске, git не
@@ -136,6 +154,28 @@
 - **`timonwong.shellcheck`** (#970) — прокси на сток Open VSX 0.48.4. Гейт `engines.diode: ">=0.12.8"`: нужны ссылки в редакторе (#953) и правки этой задачи из коммитов после тега 0.12.7. `shellcheck.runtime: "auto"` на десктопе — это `native`, сам на wasm не падает: без бинаря расширение пишет `The shellcheck program was not found`, кнопка `Try experimental WebAssembly` тоста переключает настройку. При первом запуске этот тост стоит в очереди за `What's New` (тосты идут по одному), редактор живёт. `Apply fix` расширение отдаёт, только если запрошенный диапазон лежит внутри диагностики, поэтому `Ctrl+.` шлёт точное выделение, как `CodeActionOracle`, а если под кареткой исправлений нет, они добираются запросом `only: quickfix` с конца ближайшего маркера строки (`includeNearbyQuickFixes` эталона, но он спрашивает у всех маркеров, и настройки у нас нет). `support: partial`: нет сниппетов и walkthrough — кнопка `See What's New` только пишет в лог `command "workbench.action.openWalkthrough" not found`. С `shellcheck.markdownDiagnostics` hover показывает сырой HTML: рендерера markdown нет, а `supportHtml` до UI не доходит; настройка выключена по умолчанию, обычный hover даёт тот же текст. `Show wiki` и ссылка в `# shellcheck disable=` идут через внешний открыватель: браузер, а без графической сессии тост с адресом. Клика по коду в Problems нет: `Diagnostic.code.target` до панели не доезжает. Hover открывается командой (`Ctrl+K Ctrl+U`), наведения мышью в редакторе нет. Смоук — wasm, без внешнего инструмента: undercurl, код в Problems, hover, `Apply fix`, диагностика при наборе, `Disable`, ссылка, модальный диалог.
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
+
+## TypeScript: встроенный `diode-lsp-typescript` (typescript-language-server)
+
+Не из магазина: builtin, сервер вшит в поставку ([Extensions.md](Extensions.md)). Тесты —
+`extensionHost.typescriptLsp.{navigation,symbols}.test.ts`, демо — `typescript-navigation`.
+
+- **Работает:** Go to Implementations (панель при нескольких, переход при одном), Go to Type Definition, F12 с
+  несколькими целями (панель `Definitions` и `editor.gotoLocation.multipleDefinitions: goto`), подсветка вхождений
+  двумя цветами, linked editing JSX-тегов в `.tsx`, `@` и `@:` с containerName, `#` по файлам проекта, call hierarchy
+  в обе стороны.
+- **Сервер не отдаёт, провайдера нет:** declaration, on-type formatting, document links, type hierarchy. Пунктов
+  `Go to Declaration` и `Show Type Hierarchy` в контекстном меню `.ts` нет.
+- **Подсветка вхождений идёт мимо LSP.** Сервер отображает `writtenReference` в Read, а Write отдаёт только для
+  `definition`, которого `documentHighlights` не присылает: всё пришло бы цветом чтения. Middleware
+  `provideDocumentHighlights` спрашивает tsserver через `typescript.tsserverRequest` и различает виды, как
+  `convertDocumentHighlight` эталона (`lib/documentHighlights.ts`). Нет ответа — обычный запрос. `export { x }` и
+  параметр tsserver считает записью: это его решение, в VS Code так же.
+- **F12 на вызове перегрузки — одна цель:** tsserver называет разрешённую перегрузку. Три цели — на импорте или на
+  объявлении.
+- **Большой проект.** Поиск реализаций популярного метода (`IDisposable.dispose` в этом репозитории) идёт дольше
+  5 с; дедлайн выдавал это за пустой ответ, поэтому у навигации его нет. Индикатора прогресса, как у эталона
+  (`progressService.showWhile`), пока нет: до ответа кадр не меняется.
 
 ## Python: `detachhead.basedpyright` и `charliermarsh.ruff`
 
@@ -246,11 +286,29 @@ eval-режим node, иначе расширение молча не линти
   `resolveCodeLens` нет дедлайна, как в эталоне; с дедлайном 5 с кадр навсегда оставался с
   `no commands` ([Extensions.md](Extensions.md)). Тесты —
   `extensionHost.javaLsp.{inlayHints,codeLens}.test.ts`, демо — `java-lens-hints`.
-- Outline, workspace symbols, call/type hierarchy, selection range, on-type
-  formatting сервер умеет — Java получит их сама по мере закрытия `register*Provider`
-  ([API-COVERAGE](../public/API-COVERAGE.md)). Классов-ловушек у этого клиента не всплыло: ошибок
-  конвертации в `client.outputChannel` за прогоны нет. Активация → готовность на игрушечном проекте
-  с тёплыми кэшами ≈ 19 с.
+- **Навигация и символы** (#956) работают без правок ядра, проверено на сервере из vsix 1.56.0.
+  Implementations, Type Definition, Declaration: у JDT declaration переопределения — метод интерфейса,
+  definition — само переопределение. Подсветка вхождений различает запись и чтение, объявление поля
+  сервер считает записью. `@` отдаёт пакет, класс, поля и методы по одному разу: свой document symbol
+  провайдер расширения поверх клиентского дублей не даёт, берётся первый непустой ответ. `#` отвечает только из
+  standard-сервера и находит классы из неоткрытых файлов. Методы из исходников он отдаёт только при
+  `java.symbols.includeSourceMethodDeclarations: true`, и сервер называет их без скобок: `measure`.
+- **Обе иерархии** (#956): call hierarchy incoming/outgoing и type hierarchy subtypes/supertypes, Java —
+  единственный стоковый сервер с обеими. Отвечает только standard-сервер. Сразу после импорта jdt.ls отвечает дольше 5 с, поэтому у
+  Implementations и обеих иерархий нет дедлайна на проводе, как в эталоне: с дедлайном панель оставалась
+  пустой. Имена в ответе сервера с сигнатурой: `render() : double`.
+- **`Java: Show Type Hierarchy`** (#956) показывает дерево через API `vscode.references-view` (`setInput`): без этого
+  расширения команда молчала. Рядом работает и нативный `references-view.showTypeHierarchy`. Кнопки заголовка расширения
+  привязаны к `view == references-view.tree`, поэтому этот id отдан его дереву.
+- **Format on type** (#956): `;`, Enter и `}` форматируют блок при `editor.formatOnType: true`. Эта настройка
+  выключена по умолчанию, как в эталоне, и манифест расширения её не включает: из коробки Java не
+  форматирует при наборе. `java.format.onType.enabled: false` снимает регистрацию провайдера. Дедлайна на проводе нет, как в эталоне:
+  клавиша нажимается один раз, потерянный ответ никто не перезапросит, а следующая правка отменяет запрос.
+- **Linked editing и document links** сервер не предоставляет, провайдеров нет. Ссылки в Java-файлах
+  находит только детектор ядра.
+- Классов-ловушек у этого клиента не всплыло: ошибок конвертации в `client.outputChannel` за прогоны
+  нет. Активация → готовность на игрушечном проекте с тёплыми кэшами ≈ 19 с. Тесты —
+  `extensionHost.javaLsp.{navigation,hierarchy,symbols,formatOnType}.test.ts`, демо — `java-hierarchy`.
 
 ## Go: `golang.go` (gopls)
 

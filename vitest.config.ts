@@ -30,6 +30,7 @@ export default defineConfig({
         "src/TestUtils/perfFixtures.ts", // fixtures for benches only (shim)
         "src/vs/workbench/api/common/testStubRpc.ts", // test RpcEndpoint stub for namespace unit tests
         "src/TestUtils/basedpyrightFixture.ts", // pythonLsp* suite harness: the until() timeout branch is reachable only in a red run
+        "src/TestUtils/javaHarness.ts", // javaLsp* suite harness: skipped without a JDK, and its guards are reachable only in a red run
         "src/TestUtils/stockVsix.ts", // downloads a vsix from the marketplace (error branches, network/broken registry, are reachable only in a red run)
         "src/TestUtils/eslintFixture.ts", // eslintLsp* suite harness: npm install of the library is reachable only on a cold cache (network), the rename race only in a parallel run
         "src/TestUtils/goLspSession.ts", // goLsp* suite harness: its guards are reachable only in a red run, the skip only without Go
@@ -121,6 +122,7 @@ export default defineConfig({
         "src/vs/platform/files/node/treeWatcherMain.testEntry.ts", // child-process entry of the same suite, runs only in a fork
         "extensions/git/main.ts", // extension entry (subprocess IO/glue); logic is in git/lib/* (units), e2e covers integration
         "extensions/diode-lsp-typescript/main.ts", // extension entry (spawns languageclient); resolution logic is in lib/* (units), integration: the stock server in extensionHost.typescriptLsp.test
+        "extensions/references-view/main.ts", // extension entry (loaded in a subprocess); behavior: e2e/javaHierarchyCommands.test.ts
         "extensions/diode-settings/main.ts", // extension entry (loaded in a subprocess); behavior: ExtensionHost.SettingsCompletion.test.ts + e2e
         "src/**/*.generated.ts", // generated data files (e.g. settings-schema.generated.ts), run in a subprocess
         "src/vs/workbench/api/common/vscodeNamespace.ts", // RPC wiring in a subprocess

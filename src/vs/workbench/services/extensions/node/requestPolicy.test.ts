@@ -68,36 +68,24 @@ describe("loggingRequest", () => {
 
 describe("DEFAULT_REQUEST_TIMEOUTS", () => {
     // Intentionally absent, they wait without a deadline as upstream: `languages.provideCompletionItems`,
-    // `languages.provideInlayHints`, `languages.provideCodeLenses`, `languages.resolveCodeLens`,
-    // `languages.provideDocumentColors`, `languages.provideDocumentLinks`.
+    // `languages.provideInlayHints`, `languages.provideCodeLenses`, `languages.resolveCodeLens`, on type formatting, the
+    // navigation the user asked for: definition and its kin, references, call and type hierarchy; document colors and links.
     it("per-method wire deadlines match the previous host option defaults", () => {
         expect(DEFAULT_REQUEST_TIMEOUTS).toEqual({
             "workspace.willSaveTextDocument": 1500,
             "languages.resolveCompletionItem": 1500,
             "languages.provideInlineCompletions": 5000,
             "languages.provideFoldingRanges": 1500,
-            "languages.provideDefinition": 5000,
-            "languages.provideImplementation": 5000,
             "languages.provideDocumentSymbols": 5000,
             "languages.provideWorkspaceSymbols": 10000,
             "languages.resolveWorkspaceSymbol": 10000,
-            "languages.provideTypeDefinition": 5000,
-            "languages.provideDeclaration": 5000,
             "languages.provideHover": 5000,
-            "languages.provideReferences": 5000,
             "languages.provideSignatureHelp": 5000,
-            "languages.provideOnTypeFormattingEdits": 5000,
             "languages.provideCodeActions": 5000,
             "languages.applyCodeAction": 10000,
             "languages.prepareRename": 5000,
             "languages.provideRenameEdits": 10000,
             "languages.provideSelectionRanges": 5000,
-            "languages.prepareCallHierarchy": 5000,
-            "languages.provideCallHierarchyIncomingCalls": 5000,
-            "languages.provideCallHierarchyOutgoingCalls": 5000,
-            "languages.prepareTypeHierarchy": 5000,
-            "languages.provideTypeHierarchySupertypes": 5000,
-            "languages.provideTypeHierarchySubtypes": 5000,
             "languages.provideDocumentHighlights": 5000,
             "languages.provideLinkedEditingRanges": 5000,
             "languages.resolveDocumentLink": 5000,

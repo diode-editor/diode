@@ -27,7 +27,10 @@ import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
 import { findTextCell, frameLine } from "../helpers/frame.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
+import { TOML_BROKEN_TAIL_LENGTH, writeTomlProject } from "../helpers/tomlProject.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
+
+import { expectNotRegistered } from "./apiJournal.ts";
 
 /**
  * A check exercises the extension's real functionality and inspects editor state, not the mere fact
@@ -868,22 +871,61 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
             } finally {
                 await app.dispose();
             }
-            // After dispose: the journal flushes on a timer. These features are not in the server, not missing here.
-            const registered = readFileSync(process.env.DIODE_API_TRACE ?? "", "utf8")
-                .split("\n")
-                .filter((line) => line !== "")
-                .map((line) => JSON.parse(line) as { extension: string; kind: string; member: string })
-                .filter((row) => row.extension === "biomejs.biome" && row.kind === "registered")
-                .map((row) => row.member);
-            for (const absent of [
+            // These features are not in the server, not missing here.
+            expectNotRegistered("biomejs.biome", [
                 "languages.registerInlayHintsProvider",
                 "languages.registerCodeLensProvider",
                 "languages.registerDefinitionProvider",
                 "languages.registerReferenceProvider",
                 "languages.registerDocumentSymbolProvider",
-            ]) {
-                if (registered.includes(absent)) throw new Error(`Biome now registers ${absent}: update the entry`);
+            ]);
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Even Better TOML, its taplo server is WASM inside the extension. The
+        // schema is local: 0.21.2 rejects the `$schema` of today's schemastore catalog, so it is not in the check.
+        id: "tamasfe.even-better-toml",
+        expectFiles: ["package.json", "dist/extension.js", "dist/server.js"],
+        timeoutMs: 180_000,
+        run: async (ctx) => {
+            const project = join(ctx.root, "project");
+            const file = writeTomlProject(project);
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [project, file] });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl on the unclosed table header", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                await app.session.key("Ctrl+End");
+                for (let i = 0; i < TOML_BROKEN_TAIL_LENGTH; i++) await app.session.key("Backspace");
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.every((cell) => (cell.style & 8) === 0),
+                    { describe: "the squiggle gone with the broken header", timeoutMs: 30_000, intervalMs: 500 },
+                );
+                await app.session.executeCommand("editor.action.formatDocument");
+                await app.session.waitForText((text) => text.includes('name = "demo"'), { timeoutMs: 20_000 });
+
+                await app.session.executeCommand("workbench.action.gotoSymbol");
+                await app.session.waitForText((text) => text.includes("symbols (2)"), { timeoutMs: 20_000 });
+                await app.session.key("Escape");
+
+                await app.session.key("Ctrl+a");
+                await app.session.executeCommand("evenBetterToml.copyAsJson");
+                await app.session.waitForText((text) => text.includes("JSON copied!"), { timeoutMs: 20_000 });
+            } finally {
+                await app.dispose();
             }
+            expectNotRegistered("tamasfe.even-better-toml", [
+                "languages.registerInlayHintsProvider",
+                "languages.registerCodeLensProvider",
+                "languages.registerImplementationProvider",
+                "languages.registerCallHierarchyProvider",
+                "languages.registerTypeHierarchyProvider",
+                "languages.registerLinkedEditingRangeProvider",
+                "languages.registerOnTypeFormattingEditProvider",
+            ]);
         },
     },
     {
