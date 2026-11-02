@@ -59,6 +59,7 @@ function makeGotoLineEditor(lineCount = 100, cursorLine = 4, cursorColumn = 2): 
         primaryCursorLine: cursorLine,
         primaryCursorColumn: cursorColumn,
         goToPosition: vi.fn<(line: number, column?: number) => void>(),
+        focusEditor: vi.fn(),
     };
 }
 

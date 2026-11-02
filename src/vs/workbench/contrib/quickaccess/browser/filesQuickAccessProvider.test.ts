@@ -59,7 +59,13 @@ function setup(
     commands.register("workbench.openFile", (absolutePath: unknown) => {
         opened.push(String(absolutePath));
     });
-    const editor = { lineCount: 100, primaryCursorLine: 0, primaryCursorColumn: 0, goToPosition: vi.fn() };
+    const editor = {
+        lineCount: 100,
+        primaryCursorLine: 0,
+        primaryCursorColumn: 0,
+        goToPosition: vi.fn(),
+        focusEditor: vi.fn(),
+    };
     const jumps: string[] = [];
     const recorder: IJumpRecorder = {
         jump: (navigate) => {
