@@ -22,6 +22,7 @@ const CLANGD_LIKE = {
         name: "clangd-like",
         publisher: "llvm",
         version: "0.0.1",
+        engines: { vscode: "*" },
         contributes: { views: { explorer: [{ id: "clangd.ast", name: "AST", when: "clangd.ast.hasData" }] } },
     },
     location: "UserExtensions/llvm.clangd-like/",
