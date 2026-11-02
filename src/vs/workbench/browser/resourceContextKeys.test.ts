@@ -50,6 +50,17 @@ describe("ResourceContextKeys", () => {
         expect(keys.get("resourceDirname")).toBe("/w/src");
     });
 
+    it("a file path is the fs path, not the uri path: a drive letter loses its leading slash", () => {
+        const uri = Uri.file("C:/w/src/shape.h");
+        const { keys, update } = setup({ uri, languageId: "cpp" });
+
+        update(true);
+
+        expect(uri.path).toBe("/C:/w/src/shape.h");
+        expect(keys.get("resourcePath")).toBe(uri.fsPath);
+        expect(keys.get("resourceDirname")).toBe(Uri.file("C:/w/src").fsPath);
+    });
+
     it("the focus leaving the editor area unsets the keys: a sidebar menu does not see the editor's file", () => {
         const { keys, update } = setup({ uri: Uri.file("/w/a.cpp"), languageId: "cpp" });
         update(true);
