@@ -15,6 +15,7 @@
         "ctrl+pagedown: workbench.action.terminal.focusNext [terminalFocus && !terminalEditorFocus] > workbench.action.nextEditor [(editorAreaFocus) && (!(macKeys >= 1))]",
         "ctrl+pageup: workbench.action.terminal.focusPrevious [terminalFocus && !terminalEditorFocus] > workbench.action.previousEditor [(editorAreaFocus) && (!(macKeys >= 1))]",
         "ctrl+shift+e: workbench.action.quickOpenNavigatePreviousInFilePicker [(inFilesPicker && inputWidgetFocus) && ((tier != 'legacy') && (!(macKeys >= 1)))] > workbench.view.explorer [(tier != 'legacy') && (!(macKeys >= 3))]",
+        "ctrl+shift+o: workbench.action.terminal.openDetectedLink [(terminalHasBeenCreated) && (terminalFocus && (tier == 'kitty' || tier == 'csi-u'))] > workbench.action.gotoSymbol [(tier != 'legacy') && (!(macKeys >= 3))]",
         "ctrl+shift+p: workbench.action.quickOpenNavigatePreviousInFilePicker [((inFilesPicker && inputWidgetFocus) && (tier != 'legacy')) && (!(macKeys >= 3))] > workbench.action.showCommands [!(macKeys >= 3)]",
         "ctrl+space: toggleSuggestionDetails [suggestWidgetVisible] > editor.action.triggerSuggest [textInputFocus]",
         "ctrl+up: workbench.action.previousEditorInGroup [(editorAreaFocus && editorTabsMultiple) && (tabSwitcherVisible)] > scrollLineUp [(textViewFocus) && (!(macKeys >= 1))]",
@@ -747,6 +748,13 @@
             "mac-cmd (kitty) #3": "meta+3"
         },
         "workbench.action.gotoLine": "ctrl+g",
+        "workbench.action.gotoSymbol": {
+            "*": "ctrl+shift+o",
+            "mac-cmd (kitty) #0": "shift+meta+o",
+            "mac-cmd (kitty) #1": "shift+meta+o",
+            "mac-cmd (kitty) #2": "shift+meta+o",
+            "mac-cmd (kitty) #3": "shift+meta+o"
+        },
         "workbench.action.keepEditor": "ctrl+k enter",
         "workbench.action.moveEditorToNextGroup": {
             "*": "ctrl+alt+right",

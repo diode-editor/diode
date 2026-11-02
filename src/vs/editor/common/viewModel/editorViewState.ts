@@ -103,6 +103,9 @@ interface IProjectionCacheEntry {
     readonly hidden: readonly IHiddenRange[];
 }
 
+/** Rows left under a line revealed near the bottom of the viewport. */
+const REVEAL_NEAR_BOTTOM_CONTEXT = 2;
+
 export class EditorViewState {
     private scrollLeftValue = 0;
     private scrollTopValue = 0;
@@ -1975,6 +1978,35 @@ export class EditorViewState {
         this.ensureLineVisible(range.start.line);
         this.ensureLineVisible(range.end.line);
         this.revealPosition(range.start);
+    }
+
+    /**
+     * Instead of upstream's `revealRangeInCenter`: a terminal picker covers the top and the middle of the
+     * editor, up to row 17 of 24, so a live preview goes to the free rows below it, with some context under it.
+     */
+    public revealRangeNearBottom(range: IRange): void {
+        this.revealRange(range);
+        const visualLine = this.viewLineForPosition(range.start.line, range.start.character);
+        const below = Math.min(REVEAL_NEAR_BOTTOM_CONTEXT, Math.floor((this.viewportHeight - 1) / 2));
+        this.scrollTop = Math.max(0, visualLine - (this.viewportHeight - 1 - below));
+    }
+
+    /** The start lines of the collapsed regions, for {@link restoreCollapsedFolds}. */
+    public getCollapsedFolds(): readonly number[] {
+        return this.foldedRegions.filter((region) => region.isCollapsed).map((region) => region.startLine);
+    }
+
+    /** Puts back what a preview unfolded. Nothing changes, nothing is rebuilt: it runs on every arrow key. */
+    public restoreCollapsedFolds(startLines: readonly number[]): void {
+        const collapsed = new Set(startLines);
+        let changed = false;
+        for (const region of this.foldedRegions) {
+            const isCollapsed = collapsed.has(region.startLine);
+            if (region.isCollapsed === isCollapsed) continue;
+            region.isCollapsed = isCollapsed;
+            changed = true;
+        }
+        if (changed) this.bumpFoldsVersion();
     }
 
     /**

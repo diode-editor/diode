@@ -230,6 +230,11 @@ import {
     GotoLineQuickAccessProviderDIToken,
 } from "../../workbench/contrib/quickaccess/browser/gotoLineQuickAccessProvider.ts";
 import {
+    GotoSymbolEditorSourceDIToken,
+    GotoSymbolQuickAccessProvider,
+    GotoSymbolQuickAccessProviderDIToken,
+} from "../../workbench/contrib/quickaccess/browser/gotoSymbolQuickAccessProvider.ts";
+import {
     OpenEditorsQuickAccessProvider,
     OpenEditorsQuickAccessProviderDIToken,
     OpenEditorsSourceDIToken,
@@ -493,6 +498,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(QuickInputServiceDIToken, QuickInputService);
     container.bind(FileSearchServiceDIToken, FileSearchService);
     container.bind(GotoLineEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(GotoSymbolEditorSourceDIToken, () => container.get(EditorServiceDIToken));
     container.bind(OpenEditorsSourceDIToken, () => {
         const editors = container.get(EditorServiceDIToken);
         const groups = container.get(EditorGroupsServiceDIToken);
@@ -507,6 +513,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(FilesQuickAccessProviderDIToken, FilesQuickAccessProvider);
     container.bind(CommandsQuickAccessProviderDIToken, CommandsQuickAccessProvider);
     container.bind(GotoLineQuickAccessProviderDIToken, GotoLineQuickAccessProvider);
+    container.bind(GotoSymbolQuickAccessProviderDIToken, GotoSymbolQuickAccessProvider);
     container.bind(OpenEditorsQuickAccessProviderDIToken, OpenEditorsQuickAccessProvider);
     container.bind(QuickAccessProvidersDIToken, () => QUICK_ACCESS_PROVIDERS);
     container.bind(QuickAccessRegistryDIToken, QuickAccessRegistry);

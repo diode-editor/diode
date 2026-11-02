@@ -59,6 +59,7 @@
     "workbench.action.showCommands",
     "workbench.action.showAllEditors",
     "workbench.action.gotoLine",
+    "workbench.action.gotoSymbol",
     "workbench.action.selectTheme",
     "workbench.profiles.actions.switchProfile",
     "workbench.profiles.actions.createProfile",

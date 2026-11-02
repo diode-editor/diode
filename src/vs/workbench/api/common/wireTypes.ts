@@ -345,6 +345,8 @@ export interface WireFoldingRange {
 
 export type IWireFoldingParams = IWireDocumentParams & IWireProviderHandles;
 
+export type IWireDocumentSymbolParams = IWireDocumentParams & IWireProviderHandle;
+
 /** Sent as registration metadata — the core styles tokens without RPC. */
 export interface IWireSemanticTokensLegend {
     readonly tokenTypes: readonly string[];
@@ -505,6 +507,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "onTypeFormatting",
     "codeActions",
     "folding",
+    "documentSymbol",
     "inlineCompletions",
     "rename",
     "selectionRange",

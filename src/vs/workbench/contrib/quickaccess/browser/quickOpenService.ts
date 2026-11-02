@@ -6,9 +6,11 @@ import type { QuickInputComponent } from "../../../browser/parts/quickinput/quic
 import { QuickInputComponentDIToken } from "../../../browser/parts/quickinput/quickInputComponent.ts";
 import type { QuickPickElement } from "../../../browser/parts/quickinput/quickPickElement.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
-import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
+import type { IQuickAccessProvider, QuickAccessHideReason, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 import type { QuickAccessRegistry } from "../common/quickAccessRegistry.ts";
 import { QuickAccessRegistryDIToken } from "../common/quickAccessRegistry.ts";
+
+import { GotoSymbolQuickAccessProvider } from "./gotoSymbolQuickAccessProvider.ts";
 
 const SEARCH_DEBOUNCE_MS = 16;
 
@@ -32,6 +34,8 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
     private currentPrefix = "";
     /** QuickInputService may have taken over the shared widget's session. */
     private active = false;
+    /** How the next close of the widget is reported to the provider. */
+    private hideReason: QuickAccessHideReason = "cancel";
 
     private searchTimer: ReturnType<typeof setTimeout> | null = null;
     private pendingQuery: string | null = null;
@@ -66,7 +70,9 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
         view.prompt = undefined;
         view.validationMessage = null;
         view.onAcceptValue = null;
-        view.onActiveItemChanged = null;
+        view.onActiveItemChanged = (item) => {
+            this.currentProvider?.onActiveItemChanged?.(item);
+        };
         view.onQueryChange = (query) => {
             this.handleQueryChange(query);
         };
@@ -105,6 +111,10 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
     public updateContextKeys(contextKeys: ContextKeyService): void {
         contextKeys.set("inQuickOpen", this.component.isOpen());
         contextKeys.set("inFilesPicker", this.isOpen() && this.currentPrefix === "");
+        contextKeys.set(
+            "inFileSymbolsPicker",
+            this.isOpen() && this.currentPrefix === GotoSymbolQuickAccessProvider.PREFIX,
+        );
     }
 
     public close(): void {
@@ -128,7 +138,8 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
     private handleDidClose(): void {
         this.active = false;
         this.cancelPendingSearch();
-        this.currentProvider?.onHide?.();
+        this.currentProvider?.onHide?.(this.hideReason);
+        this.hideReason = "cancel";
         this.currentProvider = null;
     }
 
@@ -137,7 +148,7 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
         this.currentPrefix = prefix;
         if (provider === this.currentProvider) return provider;
 
-        this.currentProvider?.onHide?.();
+        this.currentProvider?.onHide?.("cancel");
         this.currentProvider = provider;
         provider.onShow?.((preserveSelection) => {
             // A live source update is ignored if the provider is no longer
@@ -194,6 +205,7 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
 
         queueMicrotask(() => {
             if (accept === undefined) return;
+            this.hideReason = "accept";
             this.close();
             accept();
         });
@@ -209,6 +221,9 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
             this.view.refreshItems(items);
         } else {
             this.view.items = items;
+            const initial = provider.getInitialActiveIndex?.(items, query);
+            if (initial !== undefined) this.view.setActiveIndex(initial);
         }
+        provider.onActiveItemChanged?.(this.view.items[this.view.selectedIndex]);
     }
 }

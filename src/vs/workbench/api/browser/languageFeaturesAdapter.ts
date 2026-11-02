@@ -133,6 +133,10 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.languageFeatures.foldingRangeProvider.register(selector, {
                 provideFoldingRanges: (request, token) => this.bridge.provideFoldingRanges(handle, request, token),
             }),
+        documentSymbol: ({ handle, selector }) =>
+            this.languageFeatures.documentSymbolProvider.register(selector, {
+                provideDocumentSymbols: (request, token) => this.bridge.provideDocumentSymbols(handle, request, token),
+            }),
         inlineCompletions: ({ handle, selector }) =>
             this.languageFeatures.inlineCompletionsProvider.register(selector, {
                 provideInlineCompletions: (request, token) =>

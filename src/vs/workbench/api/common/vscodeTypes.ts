@@ -1103,16 +1103,27 @@ export class InlayHint implements vscode.InlayHint {
 }
 
 export class SymbolInformation {
-    public name: string;
-    public kind: SymbolKind;
+    public tags?: SymbolTag[];
     public containerName: string;
     public location: Location;
 
-    public constructor(name: string, kind: SymbolKind, containerName: string, location: Location) {
-        this.name = name;
-        this.kind = kind;
-        this.containerName = containerName;
-        this.location = location;
+    public constructor(name: string, kind: SymbolKind, containerName: string, location: Location);
+    public constructor(name: string, kind: SymbolKind, range: Range, uri?: Uri, containerName?: string);
+    public constructor(
+        public name: string,
+        public kind: SymbolKind,
+        rangeOrContainer: string | Range,
+        locationOrUri?: Location | Uri,
+        containerName = "",
+    ) {
+        if (!name) throw new Error("name must not be falsy");
+        if (typeof rangeOrContainer === "string") {
+            this.containerName = rangeOrContainer;
+            this.location = locationOrUri as Location;
+        } else {
+            this.containerName = containerName;
+            this.location = new Location(locationOrUri as Uri, rangeOrContainer);
+        }
     }
 }
 

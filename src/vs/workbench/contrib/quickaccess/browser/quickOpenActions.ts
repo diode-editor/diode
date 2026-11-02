@@ -6,6 +6,7 @@ import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quic
 
 import { CommandsQuickAccessProvider } from "./commandsQuickAccessProvider.ts";
 import { GotoLineQuickAccessProvider } from "./gotoLineQuickAccessProvider.ts";
+import { GotoSymbolQuickAccessProvider } from "./gotoSymbolQuickAccessProvider.ts";
 import { OpenEditorsQuickAccessProvider } from "./openEditorsQuickAccessProvider.ts";
 import { QuickOpenServiceDIToken } from "./quickOpenService.ts";
 
@@ -191,6 +192,17 @@ export const gotoLineAction: CommandAction = {
     },
 };
 
+/** Shift+Ctrl does not reach the editor from a legacy terminal, Ctrl+Shift+O is Ctrl+O (Open File): there it is Ctrl+P, then `@`. */
+export const gotoSymbolAction: CommandAction = {
+    id: "workbench.action.gotoSymbol",
+    title: "Go to Symbol in Editor...",
+    menus: [{ menuId: MenuId.MenubarGoMenu, group: "4_symbol_nav", order: 1 }],
+    keybinding: { keys: parseKeybinding("mod+shift+o"), when: "tier != 'legacy'" },
+    run(accessor, ...args) {
+        accessor.get(QuickOpenServiceDIToken).show(GotoSymbolQuickAccessProvider.PREFIX + prefillOf(args));
+    },
+};
+
 export const showCommandsAction: CommandAction = {
     id: "workbench.action.showCommands",
     title: "Show All Commands",
@@ -240,4 +252,5 @@ export const QUICK_ACCESS_ACTIONS: readonly CommandAction[] = [
     showCommandsAction,
     showAllEditorsAction,
     gotoLineAction,
+    gotoSymbolAction,
 ];
