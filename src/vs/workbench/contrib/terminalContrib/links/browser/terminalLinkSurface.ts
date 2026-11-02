@@ -71,16 +71,15 @@ export class TerminalLinkSurface implements ITerminalSurface {
         if (!this.session.readCell(x, y, out)) return false;
         const hovered = this.hovered;
         const revealed = this.revealed;
-        // Stryker disable next-line ConditionalExpression: a shortcut for the usual cell with no link to underline; the checks inside are false then anyway
-        if (hovered !== undefined || revealed !== undefined) {
-            // Stryker disable next-line OptionalChaining: both links come from a lookup over the buffer, which stays.
-            const row = (this.session.buffer?.viewportY ?? 0) + y;
-            if (
-                (hovered !== undefined && isInLink(hovered, x, row)) ||
-                (revealed !== undefined && isInLink(revealed, x, row))
-            ) {
-                out.style |= StyleFlags.Underline;
-            }
+        const buffer = this.session.buffer;
+        // Stryker disable next-line ConditionalExpression: a shortcut for the usual cell with no link to underline (the checks below are false then anyway); both links come from a lookup over the buffer, which stays
+        if (buffer === undefined || (hovered === undefined && revealed === undefined)) return true;
+        const row = buffer.viewportY + y;
+        if (
+            (hovered !== undefined && isInLink(hovered, x, row)) ||
+            (revealed !== undefined && isInLink(revealed, x, row))
+        ) {
+            out.style |= StyleFlags.Underline;
         }
         return true;
     }

@@ -227,11 +227,11 @@ export class FindService extends Disposable implements IContextKeyContributor {
         if (startedNewSession && !this.startDetachedSession(group, widget)) return;
         // The walk has not found the match to go to yet: the report that brings it selects it (QA 4.3). A
         // finished walk without matches leaves the request unanswered, as an empty list did before.
+        // Past this point the list is non-empty: a kept session has matches, a new one has its current index.
         if (startedNewSession && session.currentIndex < 0) {
             session.pendingSelect = direction;
             return;
         }
-        if (session.matches.length === 0) return;
 
         // The first press goes to the nearest match from the cursor (picked by
         // recompute), subsequent ones step. Backward steps right away: the nearest "forward"

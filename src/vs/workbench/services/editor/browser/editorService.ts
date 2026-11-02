@@ -173,7 +173,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
 
     /** The service owns the model until the first {@link openUri} hands it to a tab. */
     private readonly untitledWithoutEditor = new Map<string, TextFileModel>();
-    private readonly untitledTabCounts = new WeakMap<TextFileModel, number>();
+    private readonly untitledTabCounts = new WeakMap<TextFileModel, { tabs: number }>();
     /** What extensions last heard as the active editor. */
     private activeEditorUri: string | null = null;
 
@@ -1007,13 +1007,18 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
 
     /** Tabs of one untitled document in different groups share the model: it dies with the last of them. */
     private referenceUntitled(model: TextFileModel): ITextFileModelReference {
-        this.untitledTabCounts.set(model, (this.untitledTabCounts.get(model) ?? 0) + 1);
+        let count = this.untitledTabCounts.get(model);
+        if (count === undefined) {
+            count = { tabs: 0 };
+            this.untitledTabCounts.set(model, count);
+        }
+        const tabs = count;
+        tabs.tabs++;
         return {
             model,
             dispose: () => {
-                const left = (this.untitledTabCounts.get(model) ?? 1) - 1;
-                this.untitledTabCounts.set(model, left);
-                if (left === 0) model.dispose();
+                tabs.tabs--;
+                if (tabs.tabs === 0) model.dispose();
             },
         };
     }

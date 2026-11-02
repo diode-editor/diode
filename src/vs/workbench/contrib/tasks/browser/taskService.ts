@@ -98,6 +98,10 @@ export interface IWorkspaceTaskConfiguration {
 
 const NO_WORKSPACE_TASKS: IWorkspaceTaskConfiguration = { tasks: [], configuring: [] };
 
+function messageOf(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
 /** Installs the extension host bridge; `undefined` means providers of all types. */
 export type TaskProviderActivator = (type: string | undefined) => Promise<void>;
 
@@ -393,7 +397,7 @@ export class TaskService extends Disposable {
             }
             return tasks ?? [];
         } catch (error) {
-            this.logger.warn(`Error: ${error instanceof Error ? error.message : String(error)}`);
+            this.logger.warn(`Error: ${messageOf(error)}`);
             return [];
         }
     }
@@ -438,8 +442,9 @@ export class TaskService extends Disposable {
             this.handleError(error);
             return;
         }
+        // The task promise only resolves (a closed terminal is a summary without a code), so nothing to catch.
         if (result !== undefined) {
-            void this.handleExecuteResult(result).catch(() => undefined);
+            void this.handleExecuteResult(result);
             return;
         }
         // A running task always leaves a "last" one; we get here only when nothing is running.
@@ -623,7 +628,7 @@ export class TaskService extends Disposable {
     }
 
     private handleError(error: unknown): void {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = messageOf(error);
         this.logger.error(message);
         this.notifications.show({ severity: "error", message, modal: false, items: [] });
     }

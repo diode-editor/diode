@@ -254,10 +254,9 @@ export class ChangesComponent extends Component {
         const cursor = this.list.getCursorElement();
         if (cursor === null) return undefined;
         const cursorId = listRowId(cursor);
+        // Every list row has its meta, rebuild() registers both together.
         const meta = this.rowMeta.get(cursorId);
-        // Stryker disable next-line ConditionalExpression: every list row has its meta, rebuild() registers both together
-        if (meta === undefined) return undefined;
-        if (meta.kind !== "file") {
+        if (meta?.kind !== "file") {
             this.list.toggleCollapsed(cursorId);
             return undefined;
         }

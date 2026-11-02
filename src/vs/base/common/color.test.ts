@@ -63,4 +63,9 @@ describe("parseHex", () => {
             expect(parseHex(hex)).toBeNull();
         },
     );
+
+    it("a digit outside 0-9a-f counts as 0, as upstream", () => {
+        expect(channels(parseHex("#gg80zz"))).toEqual([0, 128, 0, 1]);
+        expect(channels(parseHex("#8g8"))).toEqual([136, 0, 136, 1]);
+    });
 });

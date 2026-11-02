@@ -1,6 +1,7 @@
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
+import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import type { TreeIndentGuides } from "@tuidom/elements/tree/treeViewElement";
 import { describe, expect, it } from "vitest";
 
@@ -345,6 +346,34 @@ describe("ExtensionTreeView — loading", () => {
         await f.settle();
         expect(labels(f)).toEqual(["pkg", "child", "grand", "other", "leaf"]);
         expect(source.requests.slice(before)).toEqual(["q"]);
+    });
+
+    it("after a failed root reread a row never opened before opens empty without asking; the next reread asks", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 1 })],
+            p: [item("p/c", "child", { parentHandle: "p" })],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        expect(labels(f)).toEqual(["pkg"]);
+
+        source.fail = new Error("root down");
+        await f.tree.refresh(undefined);
+        await f.settle();
+        const before = source.requests.length;
+        f.tree.focus();
+        f.app.sendKey("Enter");
+        await f.settle();
+        // The subprocess dropped the subtree: asking would answer with nothing anyway.
+        expect(source.requests.slice(before)).toEqual([]);
+        expect(labels(f)).toEqual(["pkg"]);
+
+        source.fail = null;
+        await f.tree.refresh(undefined);
+        await f.settle();
+        expect(source.requests.slice(before)).toEqual([undefined, "p"]);
+        expect(labels(f)).toEqual(["pkg", "child"]);
     });
 
     it("a failure before any answer leaves the section empty; a non-Error reason is logged as text", async () => {
@@ -864,6 +893,54 @@ describe("ExtensionTreeView — message, reveal, replacement", () => {
         expect(labels(f)).toEqual(["pkg", "child", "grand"]);
     });
 
+    it("reveal with levels under a row whose request fails stops at that row and logs it", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 1 })],
+            p: [item("p/c", "child", { parentHandle: "p", collapsibleState: 1 })],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        const getChildren = source.getChildren;
+        source.getChildren = (handle) => (handle === "p" ? Promise.reject(new Error("pkg down")) : getChildren(handle));
+        await f.tree.reveal({
+            viewId: "test.view",
+            item: item("p", "pkg", { collapsibleState: 1 }),
+            parentChain: [],
+            select: true,
+            focus: false,
+            expand: 2,
+        });
+        await f.settle();
+        expect(labels(f)).toEqual(["pkg"]);
+        expect(f.logged).toEqual(['tree view "test.view": pkg down']);
+    });
+
+    it("the old source's late answer is dropped also when the new one has not answered yet", async () => {
+        const pending: ((items: IWireTreeItem[]) => void)[] = [];
+        const slowSource = (): IFakeSource => {
+            const source = fakeSource({});
+            source.getChildren = () =>
+                new Promise((resolve) => {
+                    pending.push(resolve);
+                });
+            return source;
+        };
+        const f = mount(slowSource());
+        f.tree.setVisible(true);
+        await f.settle();
+        f.tree.setSource(slowSource(), { canSelectMany: false });
+        await f.settle();
+        expect(pending).toHaveLength(2);
+        const [releaseOld, releaseNew] = pending;
+        releaseOld([item("o", "old provider")]);
+        await f.settle();
+        expect(f.lines()).toEqual([]);
+        releaseNew([item("n", "new provider")]);
+        await f.settle();
+        expect(f.lines()).toEqual(["   new provider"]);
+    });
+
     it("a new source answers after setSource; the old one's late answer is dropped", async () => {
         let release: (items: IWireTreeItem[]) => void = () => undefined;
         const slow = fakeSource({});
@@ -1100,6 +1177,64 @@ describe("ExtensionTreeView — row menus", () => {
         entries = [copy];
         f.tree.treeElement.onInlineAction?.(node, 0);
         expect(executed).toEqual(["ext.copy"]);
+    });
+
+    it("a submenu's items run with the row, whether its list is eager or lazy", async () => {
+        const executed: [string, readonly unknown[]][] = [];
+        const shown: MenuEntry[][] = [];
+        const f = mount(fakeSource({ "": [item("a", "alpha")] }), {
+            host: {
+                itemMenu: () => [
+                    {
+                        group: "navigation",
+                        entries: [
+                            { type: "submenu", label: "Eager", entries: [copy] },
+                            {
+                                type: "submenu",
+                                label: "Lazy",
+                                entries: () => [{ label: "Copy Name", id: "ext.lazy", disabled: false }],
+                            },
+                        ],
+                    },
+                ],
+                showContextMenu: (_owner, _anchor, entries) => shown.push(entries),
+                executeCommand: (id, args) => executed.push([id, args]),
+            },
+        });
+        f.tree.setVisible(true);
+        await f.settle();
+        f.tree.focus();
+        f.app.sendKey("Shift+F10");
+        const rowArg = { $treeViewId: "test.view", $treeItemHandle: "a" };
+        for (const label of ["Eager", "Lazy"]) {
+            const submenu = shown[0]?.find((entry) => entry.type === "submenu" && entry.label === label);
+            if (submenu?.type !== "submenu" || typeof submenu.entries === "function")
+                throw new Error(`${label}: unbound`);
+            const [child] = submenu.entries;
+            if (child.type === "separator" || child.type === "submenu") throw new Error(`${label}: no item`);
+            child.onSelect?.();
+        }
+        expect(executed).toEqual([
+            ["ext.copy", [rowArg]],
+            ["ext.lazy", [rowArg]],
+        ]);
+    });
+
+    it("a menu command that fails with a plain value reports it as text", async () => {
+        const f = mount(fakeSource({ "": [item("a", "alpha")] }), {
+            host: {
+                itemMenu: () => [{ group: "inline", entries: [copy] }],
+                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the point of the test: a command may reject with anything
+                executeCommand: () => Promise.reject("plain"),
+            },
+        });
+        f.tree.setVisible(true);
+        await f.settle();
+        const node = f.tree.treeElement.getSelectedNode();
+        if (node === null) throw new Error("no row");
+        f.tree.treeElement.onInlineAction?.(node, 0);
+        await f.settle();
+        expect(f.errors).toEqual(["plain"]);
     });
 
     it("an inline item whose glyph is missing from the font set shows its title", async () => {

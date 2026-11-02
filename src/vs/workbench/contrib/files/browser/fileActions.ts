@@ -75,9 +75,8 @@ async function runOpenWorkspace(accessor: ServiceAccessor): Promise<void> {
             await loadWorkspaceFile(filePath, reader);
             return null;
         } catch (err) {
-            // Stryker disable next-line ConditionalExpression: loadWorkspaceFile throws no other failures (read and stat are caught inside) — the check guards against a future foreign failure rather than branching behavior
-            if (err instanceof WorkspaceFileError) return err.message;
-            throw err;
+            // loadWorkspaceFile fails only with WorkspaceFileError (read and stat are caught inside): its message is the verdict.
+            return (err as WorkspaceFileError).message;
         }
     };
 

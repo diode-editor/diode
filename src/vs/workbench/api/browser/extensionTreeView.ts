@@ -344,7 +344,7 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
         // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent — a separator given `onSelect` below is still a separator to the popup
         if (entry.type === "separator") return entry;
         if (entry.type === "submenu") {
-            // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral: the registry resolves submenus eagerly, a lazy list never comes here
+            // The engine's submenu may be lazy; the registry's is eager, both bind their items.
             const entries = typeof entry.entries === "function" ? entry.entries() : entry.entries;
             return { ...entry, entries: entries.map((child) => this.bindEntry(child, args)) };
         }

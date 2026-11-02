@@ -169,9 +169,8 @@ export class ConfigurationRegistry {
         for (const [key, schema] of this.properties) {
             if (schema.default !== undefined) defaults.set(key, schema.default);
         }
-        for (const [key, property] of this.extensionProperties) {
-            if (property.default !== undefined) defaults.set(key, property.default);
-        }
+        // An extension key always has a default: registerExtensionConfiguration reads the type's when the manifest has none.
+        for (const [key, property] of this.extensionProperties) defaults.set(key, property.default);
         for (const [key, value] of this.defaultOverrides) defaults.set(key, value);
         const tree: Record<string, unknown> = {};
         for (const [key, value] of defaults) {

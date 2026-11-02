@@ -24,7 +24,6 @@ const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 const LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".js") ? "javascript" : "typescript"),
-    getLanguageDisplayName: () => undefined,
 };
 
 type ContributedManifest = IExtensionRegistration["manifest"] & {

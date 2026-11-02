@@ -67,6 +67,16 @@ describe("LanguagesNamespace — registerDocumentHighlightProvider", () => {
         expect({ line: position.line, character: position.character }).toEqual({ line: 0, character: 4 });
     });
 
+    it("a request without a position asks at the start of the document", async () => {
+        const { stub, languages } = makeCtx();
+        const provide = vi.fn<(document: vscode.TextDocument, position: vscode.Position) => unknown>(() => []);
+        register(languages, provide as never);
+        await stub.callRequest(METHOD, params({ line: undefined, character: undefined }));
+
+        const [, position] = provide.mock.calls[0];
+        expect({ line: position.line, character: position.character }).toEqual({ line: 0, character: 0 });
+    });
+
     it("ranges and kinds go over the wire; the class defaults to Text", async () => {
         const { stub, languages } = makeCtx();
         register(languages, () => [

@@ -406,6 +406,16 @@ describe("QuickInputExtensionAdapter: object picker", () => {
         ]);
     });
 
+    it("a null valueSelection on a quick pick leaves the value unselected: typing appends", () => {
+        const { adapter, component, testApp, emit } = objectPick();
+        adapter.updateQuickPick(
+            { handle: 5, visible: true, value: "abcd", valueSelection: null, items: [{ handle: 0, label: "Alpha" }] },
+            emit,
+        );
+        testApp.sendKey("X");
+        expect(component.view.getQuery()).toBe("abcdX");
+    });
+
     it("user actions are sent as events with the extension's item handles", () => {
         const { adapter, testApp, events, emit } = objectPick();
         adapter.updateQuickPick(

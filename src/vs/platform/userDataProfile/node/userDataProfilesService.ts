@@ -17,11 +17,13 @@ import {
     PROFILE_ASSOCIATIONS_STATE,
     profileIdFromName,
     type ProfileWorkspaceKey,
-    type StoredProfileAssociations,
     type StoredUserDataProfile,
     toUserDataProfile,
     USER_DATA_PROFILES_STATE,
 } from "../common/userDataProfile.ts";
+
+/** Default first, as {@link UserDataProfilesService.load} builds it. */
+type LoadedProfiles = readonly [IUserDataProfile, ...IUserDataProfile[]];
 
 /**
  * The profile directory is removed immediately on removal, not on the next start as upstream:
@@ -34,7 +36,7 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
     private readonly defaultProfileExtensionsResource: string | undefined;
     private readonly state: IStateStore;
     private readonly logger: ILogger;
-    private cache: IUserDataProfile[] | undefined;
+    private cache: LoadedProfiles | undefined;
     private readonly onDidChangeProfilesEmitter = this.register(new Emitter<DidChangeProfilesEvent>());
     public readonly onDidChangeProfiles = this.onDidChangeProfilesEmitter.event;
 
@@ -55,11 +57,14 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
     }
 
     public get defaultProfile(): IUserDataProfile {
-        // Stryker disable next-line OptionalChaining,ConditionalExpression: the first element is always Default (load builds it so), `?? ` is only for the type
-        return this.profiles[0] ?? createDefaultProfile(this.defaultProfileHome, this.defaultProfileExtensionsResource);
+        return this.loaded[0];
     }
 
     public get profiles(): readonly IUserDataProfile[] {
+        return this.loaded;
+    }
+
+    private get loaded(): LoadedProfiles {
         this.cache ??= this.load();
         return this.cache;
     }
@@ -115,10 +120,9 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         this.saveProfiles(this.namedProfiles().filter((p) => p.id !== existing.id));
         // Associations with the removed profile go away with it.
         const associations = this.state.get(PROFILE_ASSOCIATIONS_STATE);
-        const workspaces = Object.fromEntries(
-            Object.entries(associations.workspaces ?? {}).filter(([, id]) => id !== existing.id),
+        this.saveAssociations(
+            Object.fromEntries(Object.entries(associations.workspaces ?? {}).filter(([, id]) => id !== existing.id)),
         );
-        this.saveAssociations({ ...associations, workspaces });
         // Only our own directory, a direct child of `profiles/`, is removed. An entry with
         // a foreign path (absolute, hand-written) leaves the registry but the directory stays.
         if (path.dirname(existing.location) === this.profilesHome) {
@@ -177,8 +181,8 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         return added;
     }
 
-    private load(): IUserDataProfile[] {
-        const profiles: IUserDataProfile[] = [
+    private load(): LoadedProfiles {
+        const profiles: [IUserDataProfile, ...IUserDataProfile[]] = [
             createDefaultProfile(this.defaultProfileHome, this.defaultProfileExtensionsResource),
         ];
         for (const stored of this.state.get(USER_DATA_PROFILES_STATE)) {
@@ -227,17 +231,15 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
     }
 
     private saveAssociation(workspace: ProfileWorkspaceKey, profile: IUserDataProfile): void {
-        const associations = this.state.get(PROFILE_ASSOCIATIONS_STATE);
-        const workspaces = { ...associations.workspaces };
+        const workspaces = { ...this.state.get(PROFILE_ASSOCIATIONS_STATE).workspaces };
         // An association with Default is the absence of an entry (upstream writes Default's id;
         // resolution is the same and the file is shorter, see docs/arch/Configuration.md, profile deviations).
         if (profile.isDefault) Reflect.deleteProperty(workspaces, workspace);
         else workspaces[workspace] = profile.id;
-        this.saveAssociations({ ...associations, workspaces });
+        this.saveAssociations(workspaces);
     }
 
-    private saveAssociations(associations: StoredProfileAssociations): void {
-        const workspaces = associations.workspaces ?? {};
+    private saveAssociations(workspaces: Readonly<Record<string, string>>): void {
         if (Object.keys(workspaces).length === 0) {
             this.state.remove(PROFILE_ASSOCIATIONS_STATE);
         } else {

@@ -51,6 +51,11 @@ describe("ExplorerService — compact row segments", () => {
         expect(service.nodePath(PLAIN_DIR)).toBe("/w/docs");
     });
 
+    it("a segment index past the chain (stale after a refresh) falls back to the row's last folder", () => {
+        const { service } = serviceWith({ cursor: CHAIN, segment: 99 });
+        expect(service.nodePath(CHAIN)).toBe("/w/src/main/java");
+    });
+
     it("without a view the compact row path is its last folder", () => {
         const service = new ExplorerService(
             new InMemoryFileClipboard(),

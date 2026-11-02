@@ -69,6 +69,8 @@ function harness(
     options: {
         pickAnswers?: (string | undefined)[];
         version?: string | undefined | Error;
+        /** The version picker rejects with the value as is — a registry layer that throws something other than an `Error`. */
+        versionRejectsWith?: unknown;
         install?: IExtensionInstallResult;
         catalogError?: string;
     } = {},
@@ -110,6 +112,8 @@ function harness(
         uninstall: () => Promise.resolve({ ok: true }),
         pickVersion: (id) => {
             calls.push(`pickVersion:${id}`);
+            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the point of the test: the registry layer rejects with a non-Error value
+            if (options.versionRejectsWith !== undefined) return Promise.reject(options.versionRejectsWith);
             const version = options.version;
             return version instanceof Error ? Promise.reject(version) : Promise.resolve(version);
         },
@@ -349,5 +353,12 @@ describe("ExtensionVersionContribution", () => {
             { severity: "error", message: "registry offline", modal: false, items: [] },
             { severity: "error", message: "sha256 mismatch", modal: false, items: [] },
         ]);
+    });
+
+    it("a registry failure that is not an Error is notified as its text", async () => {
+        const h = harness([entry("acme.demo")], { versionRejectsWith: "registry offline" });
+        contribution(h);
+        await h.commands.execute(INSTALL_ANOTHER_VERSION_COMMAND_ID, "acme.demo");
+        expect(h.messages).toEqual([{ severity: "error", message: "registry offline", modal: false, items: [] }]);
     });
 });

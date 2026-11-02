@@ -1,3 +1,4 @@
+import { assert } from "../../../base/common/assert.ts";
 import { HSLA, parseHex } from "../../../base/common/color.ts";
 import type { IPosition } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";
@@ -11,7 +12,8 @@ import type { IColor, IColorInformation } from "./iColorSource.ts";
 /** Upstream's target without `getValue`, which the computer never calls. */
 export interface IDocumentColorComputerTarget {
     positionAt(offset: number): IPosition;
-    findMatches(regex: RegExp): RegExpMatchArray[];
+    /** `RegExpExecArray`, not `RegExpMatchArray`: a match of `matchAll` always has its index. */
+    findMatches(regex: RegExp): RegExpExecArray[];
 }
 
 function parseCaptureGroups(captureGroups: IterableIterator<string>): number[] {
@@ -35,27 +37,15 @@ function toIColor(r: number, g: number, b: number, a: number): IColor {
     };
 }
 
-function findRange(model: IDocumentColorComputerTarget, match: RegExpMatchArray): IRange | undefined {
-    const index = match.index;
-    const length = match[0].length;
-    // Stryker disable next-line ConditionalExpression,BlockStatement: matchAll always sets the index; the check narrows the type
-    if (index === undefined) {
-        return;
-    }
-    const start = model.positionAt(index);
-    return { start, end: { line: start.line, character: start.character + length } };
+function findRange(model: IDocumentColorComputerTarget, match: RegExpExecArray): IRange {
+    const start = model.positionAt(match.index);
+    return { start, end: { line: start.line, character: start.character + match[0].length } };
 }
 
-function findHexColorInformation(range: IRange | undefined, hexValue: string): IColorInformation | undefined {
-    // Stryker disable next-line ConditionalExpression,BlockStatement: findRange never returns undefined, see there
-    if (!range) {
-        return;
-    }
+function findHexColorInformation(range: IRange, hexValue: string): IColorInformation {
     const parsedHexColor = parseHex(hexValue);
-    // Stryker disable next-line ConditionalExpression,BlockStatement: the regular expression only lets 3, 4, 6 or 8 hex digits through
-    if (!parsedHexColor) {
-        return;
-    }
+    // The regular expression only lets 3, 4, 6 or 8 hex digits through.
+    assert(parsedHexColor !== null);
     return {
         range: range,
         color: toIColor(parsedHexColor.r, parsedHexColor.g, parsedHexColor.b, parsedHexColor.a),
@@ -63,11 +53,11 @@ function findHexColorInformation(range: IRange | undefined, hexValue: string): I
 }
 
 function findRGBColorInformation(
-    range: IRange | undefined,
-    matches: RegExpMatchArray[],
+    range: IRange,
+    matches: RegExpExecArray[],
     isAlpha: boolean,
 ): IColorInformation | undefined {
-    if (!range || matches.length !== 1) {
+    if (matches.length !== 1) {
         return;
     }
     const match = matches[0];
@@ -80,11 +70,11 @@ function findRGBColorInformation(
 }
 
 function findHSLColorInformation(
-    range: IRange | undefined,
-    matches: RegExpMatchArray[],
+    range: IRange,
+    matches: RegExpExecArray[],
     isAlpha: boolean,
 ): IColorInformation | undefined {
-    if (!range || matches.length !== 1) {
+    if (matches.length !== 1) {
         return;
     }
     const match = matches[0];
@@ -99,7 +89,7 @@ function findHSLColorInformation(
     };
 }
 
-function findMatches(model: IDocumentColorComputerTarget | string, regex: RegExp): RegExpMatchArray[] {
+function findMatches(model: IDocumentColorComputerTarget | string, regex: RegExp): RegExpExecArray[] {
     if (typeof model === "string") {
         return [...model.matchAll(regex)];
     } else {
@@ -127,10 +117,6 @@ function computeColors(model: IDocumentColorComputerTarget): IColorInformation[]
             );
             const colorScheme = initialCaptureGroups[1];
             const colorParameters = initialCaptureGroups[2];
-            // Stryker disable next-line ConditionalExpression,BlockStatement: every alternative of the regular expression captures non-empty parameters
-            if (!colorParameters) {
-                continue;
-            }
             let colorInformation;
             if (colorScheme === "rgb") {
                 // Supports both comma-separated (rgb(255, 0, 0)) and CSS Level 4 space-separated syntax (rgb(255 0 0))

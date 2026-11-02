@@ -15,7 +15,6 @@ export const TERRAFORM_ID = "hashicorp.terraform";
 export const TF_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".tf") ? "terraform" : undefined),
-    getLanguageDisplayName: () => undefined,
 };
 
 /**

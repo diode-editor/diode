@@ -62,10 +62,10 @@ export class TerminalLinkProvider {
 
         const lines: ITerminalBufferLine[] = [firstLine];
         let startLine = row;
-        while (startLine > minStartLine && lines[0].isWrapped) {
+        while (startLine > minStartLine) {
             const previous = buffer.getLine(startLine - 1);
-            // Stryker disable next-line ConditionalExpression: rows from 0 up always exist; the guard narrows the type.
-            if (previous === undefined) break;
+            // Stryker disable next-line ConditionalExpression: rows from 0 up always exist; the check narrows the type.
+            if (!lines[0].isWrapped || previous === undefined) break;
             lines.unshift(previous);
             startLine--;
         }

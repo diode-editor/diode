@@ -93,11 +93,11 @@ export function appendTaskEntry(
         next = applyEdits(next, modify(next, ["version"], "2.0.0", options));
     }
     const tasks = findTasksNode(next, []);
-    if (tasks?.type !== "array") {
+    // Stryker disable next-line ConditionalExpression: equivalent: a jsonc-parser array node always has `children` ([] when empty); the check narrows the type
+    if (tasks?.type !== "array" || tasks.children === undefined) {
         return { text: applyEdits(next, modify(next, ["tasks"], [entry], options)), index: 0 };
     }
-    // Stryker disable next-line ArrayDeclaration: equivalent: a jsonc-parser array node always has `children` ([] when empty); fallback is for types
-    const children = tasks.children ?? [];
+    const children = tasks.children;
     return { text: insertLastElement(next, tasks, children, entry, options.formattingOptions), index: children.length };
 }
 

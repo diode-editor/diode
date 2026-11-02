@@ -132,6 +132,17 @@ describe("Move Focused View", () => {
         expect(errors).toEqual([expect.objectContaining({ message: "The currently focused view is not movable." })]);
     });
 
+    it("a movable view whose container was never built — the same error, no pick", async () => {
+        const { h, accessor, errors, contextKeys, picks } = scene();
+        // Registered after the workbench attached its containers: nothing builds it.
+        h.service.registerContainer({ id: "late", title: "LATE", location: "panel", order: 9 });
+        h.service.registerView(testView("lateView", "late", 0, { canMoveView: true }));
+        contextKeys.set("focusedView", "lateView");
+        await moveFocusedViewAction.run(accessor);
+        expect(errors).toEqual([expect.objectContaining({ message: "The currently focused view is not movable." })]);
+        expect(picks).toEqual([]);
+    });
+
     it("locations: new entries, then other containers by group, excluding its own and non-accepting ones", async () => {
         const { accessor, contextKeys, picks } = scene();
         contextKeys.set("focusedView", "log");

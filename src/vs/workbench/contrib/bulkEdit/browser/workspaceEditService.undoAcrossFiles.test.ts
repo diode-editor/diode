@@ -14,7 +14,7 @@ import { TrashService } from "../../../../platform/files/node/trashService.ts";
 import { type IUndoRefusal, UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import type { TextFileModelService } from "../../../services/textfile/common/textFileModelService.ts";
-import type { BulkEdit } from "../common/workspaceEdit.ts";
+import type { BulkEdit, BulkEditOperation } from "../common/workspaceEdit.ts";
 
 import { BulkEditBuffers } from "./bulkEditBuffers.ts";
 import { WorkspaceEditService } from "./workspaceEditService.ts";
@@ -227,6 +227,24 @@ describe("WorkspaceEditService — files.refactoring.autoSave", () => {
         );
 
         expect(a.isModified).toBe(false);
+    });
+
+    it.each<[string, (h: IHarness) => BulkEditOperation]>([
+        ["rename", (h) => ({ kind: "rename", from: h.file("b.ts"), to: h.file("c.ts") })],
+        ["delete", (h) => ({ kind: "delete", from: h.file("b.ts") })],
+    ])("a %s of another file is a second resource too: the edited buffer is saved", async (_kind, operation) => {
+        const h = harness();
+        const a = h.open("a.ts", SOURCE);
+        fs.writeFileSync(h.file("b.ts"), USER);
+
+        await h.service.applyWorkspaceEdit(
+            [operation(h), { resource: resource(h.file("a.ts")), edits: [insertHead("x")] }],
+            "Move to a new file",
+            { respectAutoSaveConfig: true },
+        );
+
+        expect(a.isModified).toBe(false);
+        expect(fs.existsSync(h.file("b.ts"))).toBe(false);
     });
 
     it("does not save: single resource, edit is not a refactoring, setting is off", async () => {

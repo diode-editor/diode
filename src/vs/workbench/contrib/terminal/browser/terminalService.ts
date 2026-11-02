@@ -293,12 +293,10 @@ export class TerminalService extends Disposable implements IContextKeyContributo
                 session.onExit((code) => {
                     this.handleProcessExit(instance, code);
                 }),
-                // A key after exit closes only a waiting terminal: for other exited
-                // processes the instance is already removed by now.
+                // A key after exit closes only a waiting terminal. The session flags its exit before
+                // it delivers `onExit` (the emulator's write queue, or the emulator still loading), so a
+                // key in that window finds a non-waiting instance whose exit is still on its way.
                 session.onDidInputAfterExit(() => {
-                    // An exited non-waiting instance is removed on exit along with this subscription;
-                    // the check is a safeguard.
-                    // Stryker disable next-line ConditionalExpression: equivalent — see above
                     if (instance.waiting) this.removeInstance(instance, "user");
                 }),
             ],
