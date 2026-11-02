@@ -16,6 +16,10 @@ export interface IApplyEditsResult {
 export interface ITextDocument {
     readonly lineCount: number;
     readonly versionId: number;
+    /** Upstream's alternative version: undo/redo bring back the value of the state they restore (`TextDocument`). */
+    readonly alternativeVersionId: number;
+    /** At the current `versionId` or the one before the last bump — where an undo element just pushed started. */
+    alternativeVersionIdAt(versionId: number): number;
     readonly languageId: string;
 
     /** Only for {@link serialize}: lines are stored LF-canonical. */
@@ -30,7 +34,7 @@ export interface ITextDocument {
     getTextInRange(range: IRange): string;
 
     serialize(): string;
-    /** Changes neither lines nor `versionId`. */
+    /** Changes no lines; bumps `versionId` but not `alternativeVersionId`. */
     setEol(eol: EndOfLine): void;
 
     applyEdits(edits: readonly ITextEdit[]): IApplyEditsResult;
@@ -45,8 +49,15 @@ export interface ITextDocument {
     /** Leaves `versionId` alone: a language change does not make the document dirty. */
     setLanguage(languageId: string): void;
 
-    /** {@link applyEdits} of the undo stack: the batch's event says where it came from. */
-    applyUndoRedoEdits(edits: readonly ITextEdit[], origin: "undo" | "redo"): IApplyEditsResult;
+    /**
+     * {@link applyEdits} of the undo stack: the batch's event says where it came from, and `alternativeVersionId`
+     * is the restored state's, set before the events.
+     */
+    applyUndoRedoEdits(
+        edits: readonly ITextEdit[],
+        origin: "undo" | "redo",
+        alternativeVersionId: number,
+    ): IApplyEditsResult;
 
     /** Several changes from one `applyEdits` fire one by one, in document order. */
     onDidChangeContent(listener: (change: IDocumentContentChange) => void): IDisposable;
