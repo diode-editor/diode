@@ -1,11 +1,16 @@
-import { resolve } from "node:path";
+import { cpSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
+import { SVELTE_SAMPLE_DIR } from "../../src/TestUtils/svelteFixture.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
-import { defineScenario, repoRoot } from "./framework.ts";
+import { defineScenario } from "./framework.ts";
 
-const sampleDir = resolve(repoRoot, "e2e", "fixtures", "svelteSample");
-const appFile = resolve(sampleDir, "App.svelte");
+// Out of the repository: inside it the server takes in the types of diode's own node_modules, and the props of a
+// component drop out of completion. A real project has its own node_modules.
+const sampleDir = join(tmpdir(), "diode-scenario-svelte");
+const appFile = join(sampleDir, "App.svelte");
 
 /** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
@@ -26,6 +31,11 @@ export default defineScenario({
     },
     // Extension host scenarios run a subprocess and a language server — Linux only.
     skipOn: ["win32", "darwin"],
+    prepare() {
+        rmSync(sampleDir, { recursive: true, force: true });
+        cpSync(SVELTE_SAMPLE_DIR, sampleDir, { recursive: true });
+        return Promise.resolve();
+    },
     async run(editor) {
         await editor.waitForText((t) => t.includes("unknownVar"));
         await waitUntil(
@@ -36,9 +46,9 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("let count : number = 0;"), { timeoutMs: 60_000 });
         await editor.capture("diagnostics and inlay hints");
 
-        // `<Button label="Add" … />`, line 14: Ctrl+Space after `<Button ` offers its props and events.
+        // `<Button label="Add" on:click={increment} />`, line 14: Ctrl+Space before `/>` offers its props and events.
         await editor.sendKey("Ctrl+G");
-        await editor.sendText("14:13");
+        await editor.sendText("14:46");
         await editor.sendKey("Enter");
         await editor.sendKey("Ctrl+Space");
         await editor.waitForText((t) => t.includes("on:click") && t.includes("label: string"), { timeoutMs: 60_000 });
