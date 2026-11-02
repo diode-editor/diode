@@ -11,13 +11,13 @@ import {
 import { ensureGopls, GO_SAMPLE_DIR, GO_SESSION_ENV, goToolchainMissing } from "../../src/TestUtils/goFixture.ts";
 import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
 import { mavenMissing, writeMavenProject } from "../../src/TestUtils/mavenFixture.ts";
-import { TOML_BROKEN_TAIL_LENGTH, writeTomlProject } from "../../src/TestUtils/tomlFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
 import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../helpers/biomeFixture.ts";
 import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "../helpers/claudeIde.ts";
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
 import { findTextCell } from "../helpers/frame.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
+import { TOML_BROKEN_TAIL_LENGTH, writeTomlProject } from "../helpers/tomlProject.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { expectNotRegistered } from "./apiJournal.ts";

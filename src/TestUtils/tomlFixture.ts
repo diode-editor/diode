@@ -11,8 +11,6 @@ import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
 import { fetchStockVsix } from "./stockVsix.ts";
 
 const TOML_ID = "tamasfe.even-better-toml";
-const BROKEN_TAIL = "\n[dep\n";
-export const TOML_BROKEN_TAIL_LENGTH = BROKEN_TAIL.length - 1;
 
 export const TOML_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
@@ -39,15 +37,6 @@ export const TOML_SCHEMA = JSON.stringify({
 });
 
 export const TOML_WITH_SCHEMA = '#:schema ./schema.json\n[package]\nname   =   "demo"\n';
-
-/** A project whose file ends in a broken table header: {@link TOML_BROKEN_TAIL_LENGTH} Backspaces from the end remove it. */
-export function writeTomlProject(dir: string): string {
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, "schema.json"), TOML_SCHEMA);
-    const file = path.join(dir, "sample.toml");
-    fs.writeFileSync(file, `${TOML_WITH_SCHEMA}${BROKEN_TAIL}`);
-    return file;
-}
 
 export interface IInstalledToml {
     readonly registration: IExtensionRegistration;

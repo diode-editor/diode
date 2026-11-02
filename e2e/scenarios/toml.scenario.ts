@@ -2,7 +2,7 @@ import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { TOML_BROKEN_TAIL_LENGTH, writeTomlProject } from "../../src/TestUtils/tomlFixture.ts";
+import { TOML_BROKEN_TAIL_LENGTH, writeTomlProject } from "../helpers/tomlProject.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";

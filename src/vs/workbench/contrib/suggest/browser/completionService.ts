@@ -205,7 +205,9 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // Upstream `providerFilter`: a trigger character asks only the providers that declare it.
         const providers = this.languageFeatures.completionProvider
             .ordered(editor)
-            .filter((provider) => triggerCharacter === undefined || provider.triggerCharacters.includes(triggerCharacter));
+            .filter(
+                (provider) => triggerCharacter === undefined || provider.triggerCharacters.includes(triggerCharacter),
+            );
         const ticket = this.latest.start();
         this.requestCaret = active;
         // No response deadline (like upstream): a language server on a cold start takes seconds, and an
@@ -255,7 +257,9 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // `provideSuggestionItems` stops at the first group with results: words only when no provider has any.
         // It declares no trigger characters, so `providerFilter` leaves it out of a trigger character request.
         const items =
-            extensionItems.length > 0 || triggerCharacter !== undefined ? extensionItems : this.wordItems(editor, prefix);
+            extensionItems.length > 0 || triggerCharacter !== undefined
+                ? extensionItems
+                : this.wordItems(editor, prefix);
         if (items.length === 0) return;
 
         const anchor = editor.getCaretAnchor();
