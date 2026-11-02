@@ -808,6 +808,7 @@ export function parseWireInputBoxRequest(raw: unknown): IWireInputBoxRequest | n
         prompt: optionalWireString(p.prompt),
         placeHolder: optionalWireString(p.placeHolder),
         value: optionalWireString(p.value),
+        valueSelection: wireValueSelection(p.valueSelection) ?? undefined,
         password: p.password === true,
         validates: p.validates === true,
     };
