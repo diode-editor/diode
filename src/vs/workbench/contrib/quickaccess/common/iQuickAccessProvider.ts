@@ -18,6 +18,9 @@ export interface IQuickAccessProvider {
 
     getItems(query: string): QuickAccessItem[];
 
+    /** Upstream `defaultFilterValue`: what follows the prefix when the picker opens with nothing else; selected, so typing replaces it. */
+    getDefaultFilterValue?(): string | undefined;
+
     /**
      * `refresh` re-reads the items of the current query — for live sources (the index grows in the
      * background); `preserveSelection` keeps the list cursor.

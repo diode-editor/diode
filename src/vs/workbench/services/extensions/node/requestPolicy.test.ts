@@ -77,6 +77,8 @@ describe("DEFAULT_REQUEST_TIMEOUTS", () => {
             "languages.provideFoldingRanges": 1500,
             "languages.provideDefinition": 5000,
             "languages.provideDocumentSymbols": 5000,
+            "languages.provideWorkspaceSymbols": 10000,
+            "languages.resolveWorkspaceSymbol": 10000,
             "languages.provideTypeDefinition": 5000,
             "languages.provideDeclaration": 5000,
             "languages.provideHover": 5000,
