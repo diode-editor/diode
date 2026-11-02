@@ -23,6 +23,11 @@ import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracke
 import { HoverComponentDIToken } from "./hoverComponent.ts";
 import { HoverServiceDIToken, splitMarkdownSections, stripMarkdown } from "./hoverService.ts";
 
+/** What ShellCheck 0.48.4 sends with `shellcheck.markdownDiagnostics` (src/markdown-diagnostics.ts). */
+const SHELLCHECK_HEADER =
+    '<span style="color:var(--vscode-editorWarning-foreground);"><span class="codicon codicon-warning"></span> <strong>Warning</strong></span> <span style="color:var(--vscode-descriptionForeground);">(SC2086)</span> <a href="https://www.shellcheck.net/wiki/SC2086" title="Open ShellCheck rule documentation"><span class="codicon codicon-link-external"></span></a> <span class="codicon codicon-none"></span>';
+const SHELLCHECK_HOVER = SHELLCHECK_HEADER + "\n\nDouble quote to prevent globbing and word splitting\\.";
+
 describe("stripMarkdown — plain text for the TUI popup", () => {
     it("strips code fences, inline code, bold/italic and links", () => {
         expect(stripMarkdown("```ts\nconst a: number\n```")).toBe("const a: number");
@@ -94,6 +99,92 @@ describe("stripMarkdown — plain text for the TUI popup", () => {
         expect(stripMarkdown("```yaml\n# comment\n```\n# After")).toBe("# comment\nAfter");
         expect(stripMarkdown("~~~~\n# a\n~~~\n# b\n~~~~\n# c")).toBe("~~~~\n# a\n~~~\n# b\n~~~~\nc");
         expect(stripMarkdown("```\n# a\n~~~\n# b\n```\n# c")).toBe("# a\n~~~\n# b\nc");
+    });
+
+    it("the ShellCheck `markdownDiagnostics` header loses its tags, the text between them stays", () => {
+        expect(stripMarkdown(SHELLCHECK_HEADER).replace(/ +/g, " ")).toBe("Warning (SC2086)");
+        expect(stripMarkdown(SHELLCHECK_HOVER)).toMatch(
+            /^Warning \(SC2086\) *\n\nDouble quote to prevent globbing and word splitting\.$/,
+        );
+        expect(stripMarkdown("Fix\\:  \n&nbsp;&nbsp;`` echo `date` ``  \n&nbsp;`$1`")).toBe(
+            "Fix:  \n  echo `date`  \n $1",
+        );
+    });
+
+    it("tags of every CommonMark form go: attributes, self-closing, wrapped onto the next line, comments", () => {
+        expect(stripMarkdown("<strong>Warning</strong>")).toBe("Warning");
+        expect(stripMarkdown('a<a href="x" title=\'y\' data-z=w hidden><span class="c"></span></a>b')).toBe("ab");
+        expect(stripMarkdown('a<br/>b<br />c<hr\n  class="x"\n>d</p\n>e')).toBe("abcde");
+        expect(stripMarkdown("a<!-- note -->b<!---->c<!-->d<!--->e")).toBe("abcde");
+        expect(stripMarkdown("a<!-- multi\nline -->b")).toBe("ab");
+        expect(stripMarkdown('<x-tag a:b_c.d-e = "1">t</x-tag>')).toBe("t");
+    });
+
+    it("not tags stay as they are", () => {
+        for (const text of [
+            "a < b",
+            "x <3",
+            "<>",
+            "< span>",
+            "<1abc>",
+            "->",
+            "a <- b",
+            "<https://example.com>",
+            "<user@host>",
+            '<a href="x>',
+            "<a b='c>",
+            "<span\n\nclass=x>",
+            "<a\tb=c=d>",
+            "<?php ?>",
+            "<!X >",
+            "<![CDATA[x]]>",
+            "</ a>",
+            "<-x>",
+            "<a/ >",
+        ]) {
+            expect(stripMarkdown(text)).toBe(text);
+        }
+    });
+
+    it("code is untouchable: tags, entities and escapes inside it stay", () => {
+        expect(stripMarkdown("`Array<string>`")).toBe("Array<string>");
+        expect(stripMarkdown("```typescript\nconst a: Array<string>\n```")).toBe("const a: Array<string>");
+        expect(stripMarkdown("`<span>` and `&amp;` and `\\*`")).toBe("<span> and &amp; and \\*");
+        expect(stripMarkdown("```\n**bold** &lt;\n```")).toBe("**bold** &lt;");
+        expect(stripMarkdown("\\<span\\>")).toBe("<span>");
+    });
+
+    it("a backslash escapes any ASCII punctuation, and nothing else", () => {
+        expect(stripMarkdown("splitting\\. Don\\'t \\$var \\: \\\" \\/ \\@ \\~ \\` \\\\")).toBe(
+            "splitting. Don't $var : \" / @ ~ ` \\",
+        );
+        expect(stripMarkdown("\\a \\1 \\ \\")).toBe("\\a \\1 \\ \\");
+        expect(stripMarkdown("\\`not code`")).toBe("`not code`");
+    });
+
+    it("a code span of N backticks closes with a run of the same length; one space each side is trimmed", () => {
+        expect(stripMarkdown("``a `b` c``")).toBe("a `b` c");
+        expect(stripMarkdown("`` `x` ``")).toBe("`x`");
+        expect(stripMarkdown("x`  a  `y")).toBe("x a y");
+        expect(stripMarkdown("x`   `y")).toBe("x   y");
+        expect(stripMarkdown("x` a`y")).toBe("x ay");
+        expect(stripMarkdown("`a``b`")).toBe("a``b");
+        expect(stripMarkdown("``a`b```c``")).toBe("a`b```c");
+        expect(stripMarkdown("``a`b```c")).toBe("``a`b```c");
+        expect(stripMarkdown("a ` b")).toBe("a ` b");
+        expect(stripMarkdown("``a` <b>x</b>")).toBe("``a` x");
+    });
+
+    it("entities are decoded outside code, after the tags are gone", () => {
+        expect(stripMarkdown("&lt;span&gt; &amp; &quot;q&quot; &apos;a&#39; x&nbsp;&nbsp;y")).toBe(
+            "<span> & \"q\" 'a' x  y",
+        );
+        expect(stripMarkdown("&#65;&#x42;&#X43; &#0; &#x110000; &#9999999;")).toBe("ABC � � �");
+        expect(stripMarkdown("&#x10FFFF;")).toBe("\u{10ffff}");
+        expect(stripMarkdown("&foo; &AMP; &#12345678; &#x1234567; &; &#;")).toBe(
+            "&foo; &AMP; &#12345678; &#x1234567; &; &#;",
+        );
+        expect(stripMarkdown("&#42;not italic&#42;")).toBe("*not italic*");
     });
 });
 
@@ -258,6 +349,26 @@ describe("HoverService — showing and closing the popup", () => {
 
                 expect(h.testApp.backend.screenToString()).toContain("shellcheck(SC2045)");
             });
+        });
+
+        it("ShellCheck's markdownDiagnostics block reaches the frame as text below the diagnostic", async () => {
+            mark(0, 5, { source: "shellcheck", code: "SC2086" });
+            useHovers(hoverOf([SHELLCHECK_HOVER]));
+
+            await service().showHover();
+            h.testApp.render();
+
+            const rows = h.testApp.backend
+                .screenToString()
+                .split("\n")
+                .map((row) => row.trim());
+            const header = rows.findIndex((row) => row.includes("Warning (SC2086)"));
+            expect(header).toBeGreaterThan(
+                rows.findIndex((row) => row.includes("Double quote it. shellcheck(SC2086)")),
+            );
+            expect(rows[header + 2]).toContain("Double quote to prevent globbing and word splitting.");
+            const frame = rows.join("\n");
+            for (const raw of ["<", ">", "codicon", "&nbsp;", "\\."]) expect(frame).not.toContain(raw);
         });
 
         it("a bare message has no trailing origin", async () => {
