@@ -9,6 +9,7 @@ import { GotoLineQuickAccessProvider } from "./gotoLineQuickAccessProvider.ts";
 import { GotoSymbolQuickAccessProvider } from "./gotoSymbolQuickAccessProvider.ts";
 import { OpenEditorsQuickAccessProvider } from "./openEditorsQuickAccessProvider.ts";
 import { QuickOpenServiceDIToken } from "./quickOpenService.ts";
+import { WorkspaceSymbolsQuickAccessProvider } from "./workspaceSymbolsQuickAccessProvider.ts";
 
 /** A non-string is ignored, as in VS Code. */
 function prefillOf(args: readonly unknown[]): string {
@@ -203,6 +204,17 @@ export const gotoSymbolAction: CommandAction = {
     },
 };
 
+/** As upstream, no argument: an empty query is filled from the active editor (`getDefaultFilterValue`). */
+export const showAllSymbolsAction: CommandAction = {
+    id: "workbench.action.showAllSymbols",
+    title: "Go to Symbol in Workspace...",
+    menus: [{ menuId: MenuId.MenubarGoMenu, group: "3_global_nav", order: 2 }],
+    keybinding: parseKeybinding("mod+t"),
+    run(accessor) {
+        accessor.get(QuickOpenServiceDIToken).show(WorkspaceSymbolsQuickAccessProvider.PREFIX);
+    },
+};
+
 export const showCommandsAction: CommandAction = {
     id: "workbench.action.showCommands",
     title: "Show All Commands",
@@ -253,4 +265,5 @@ export const QUICK_ACCESS_ACTIONS: readonly CommandAction[] = [
     showAllEditorsAction,
     gotoLineAction,
     gotoSymbolAction,
+    showAllSymbolsAction,
 ];

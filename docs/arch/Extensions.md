@@ -360,6 +360,13 @@
   **Document Symbols** (`registerDocumentSymbolProvider`, RPC `languages.provideDocumentSymbols`, таймаут 5000):
   ответ `SymbolInformation[]` становится деревом по вложенности диапазонов в субпроцессе, как в эталоне; потребитель —
   quick access `@` ([QuickInput.md](workbench/QuickInput.md)).
+  **Workspace Symbols** (`registerWorkspaceSymbolProvider`, RPC `languages.provideWorkspaceSymbols` и
+  `languages.resolveWorkspaceSymbol`, таймаут 10000: поиск по проекту на JDT и gopls дольше позиционных 5000):
+  селектора нет, поэтому регистрация — своё сообщение `languages.registerWorkspaceSymbol {handle, supportsResolve}`,
+  снимается общим `languages.unregister`, а в ядре лежит в `GlobalFeatureRegistry` (`all()`, без оценки документа).
+  Оригиналы ответа — в кэше субпроцесса, глубина 2 **на провайдер**: на один запрос отвечают все провайдеры, общая
+  глубина вытесняла бы чужие ответы (тот же урок, что у `codeActionCache`). `id` символа — индекс в ответе, выброшенный
+  символ (нет имени или `location`, предупреждение в OUTPUT) адреса не сдвигает. Потребитель — quick access `#`.
   **Type Definition и Declaration** (`registerTypeDefinitionProvider`, `registerDeclarationProvider`,
   RPC `languages.provideTypeDefinition`/`provideDeclaration`, команды `editor.action.goToTypeDefinition`
   и `editor.action.revealDeclaration`, без клавиш — как в эталоне) — ещё два `ISymbolNavigation` на том же

@@ -783,6 +783,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Whether to include results from recently opened files in the file results for Quick Open.",
     },
     {
+        key: "search.quickOpen.includeSymbols",
+        type: "boolean",
+        default: false,
+        description: "Whether to include results from a global symbol search in the file results for Quick Open.",
+    },
+    {
         key: "search.useGlobalIgnoreFiles",
         type: "boolean",
         default: false,
