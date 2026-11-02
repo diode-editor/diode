@@ -278,12 +278,12 @@ export class QuickPickElement extends TUIElement {
         return this.inputElement.inputState.value;
     }
 
-    /** `[start, end)` in graphemes; the cursor goes to `end`. Typing next replaces the selection. */
+    /** `[start, end)` in string offsets, as upstream; the cursor goes to `end`. Typing next replaces the selection. */
     public setQuerySelection(start: number, end: number): void {
         const state = this.inputElement.inputState;
-        const length = new DisplayLine(state.value).slots.length;
-        const to = Math.max(0, Math.min(length, end));
-        const from = Math.max(0, Math.min(to, start));
+        const slots = new DisplayLine(state.value).slots;
+        const to = slots.filter((slot) => slot.offset < end).length;
+        const from = Math.min(to, slots.filter((slot) => slot.offset < start).length);
         state.moveCursorToStart();
         for (let i = 0; i < from; i++) state.moveCursorRight();
         for (let i = from; i < to; i++) state.selectRight();

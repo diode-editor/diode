@@ -43,6 +43,7 @@ export interface IExplorerInputPrompt {
         title?: string;
         placeholder?: string;
         value?: string;
+        valueSelection?: readonly [number, number];
         validateInput?: (value: string) => string | null | Promise<string | null>;
     }): Promise<string | undefined>;
 }
@@ -251,6 +252,9 @@ export class FileOperationsService {
             title: "Rename",
             placeholder: "Enter new name",
             value: oldName,
+            // Upstream explorer rename: the extension stays out of the selection. Upstream also selects a whole
+            // folder name; here the prompt opens synchronously, without a stat, so a dotted folder is treated like a file.
+            valueSelection: [0, path.parse(oldName).name.length],
             validateInput: async (value) => {
                 const trimmed = value.trim();
                 if (trimmed === "") return "Please enter a name";

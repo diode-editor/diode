@@ -20,8 +20,9 @@ export interface InputBoxOptions {
     title?: string;
     prompt?: string;
     placeholder?: string;
-    /** The cursor is placed at the end. */
     value?: string;
+    /** Upstream `valueSelection`, `[start, end)`; unset selects the whole value, so typing replaces it. */
+    valueSelection?: readonly [number, number];
     /** Masked only on screen and in the inspector; `validateInput` and the result get the real value. */
     password?: boolean;
     /** Responses that are stale by the time they arrive are dropped, so the message always matches the current text. */
@@ -144,6 +145,8 @@ export class QuickInputService {
             };
 
             view.setQuery(opts.value ?? "");
+            const [selectionStart, selectionEnd] = opts.valueSelection ?? [0, view.getQuery().length];
+            view.setQuerySelection(selectionStart, selectionEnd);
             runValidation(view.getQuery());
 
             this.component.show();
