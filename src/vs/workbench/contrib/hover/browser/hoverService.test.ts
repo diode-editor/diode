@@ -200,6 +200,38 @@ describe("HoverService — showing and closing the popup", () => {
             expect(h.testApp.backend.screenToString()).toContain("Double quote it. shellcheck(SC2086)");
         });
 
+        describe("in a terminal narrower than the popup", () => {
+            // 66 characters: one row at the popup's full width, two rows in a 50-column terminal.
+            const message = "Iterating over ls output is fragile. Use globs.";
+
+            beforeEach(() => {
+                h.dispose();
+                h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(50, 20) });
+                h.workbench.openFile(ws.path("main.ts"));
+                h.workbench.focusEditor();
+            });
+
+            it("a diagnostic keeps the end of its message and its code in the frame", async () => {
+                mark(0, 5, { message, source: "shellcheck", code: "SC2045" });
+
+                await service().showHover();
+                h.testApp.render();
+
+                const frame = h.testApp.backend.screenToString();
+                expect(frame).toContain("globs.");
+                expect(frame).toContain("shellcheck(SC2045)");
+            });
+
+            it("a provider's answer keeps its end in the frame", async () => {
+                useHovers(hoverOf(["Iterating over ls output is fragile. Use globs. shellcheck(SC2045)"]));
+
+                await service().showHover();
+                h.testApp.render();
+
+                expect(h.testApp.backend.screenToString()).toContain("shellcheck(SC2045)");
+            });
+        });
+
         it("a bare message has no trailing origin", async () => {
             mark(0, 5);
 
