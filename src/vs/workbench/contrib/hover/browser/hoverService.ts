@@ -59,18 +59,21 @@ function stripHeadings(value: string): string {
 
 /** There's no markdown renderer (docs/arch/Extensions.md#lsp-и-стоковые-клиенты), so the popup gets plain text. */
 export function stripMarkdown(value: string): string {
-    // Escaped characters are hidden FIRST (the stripSnippetPlaceholders trick):
+    // Code is hidden FIRST: inside it emphasis characters and backslashes are text, as in CommonMark
+    // (`calc(x * 4) /* … */`, Tailwind's selector `.bg-\[\#ff0000\]`). An escaped backtick opens no code.
+    // Escaped characters are hidden right after (the stripSnippetPlaceholders trick):
     // otherwise `\*text\*` would be parsed along the way as "italic".
-    // Stryker disable next-line ArrayDeclaration: the hidden-chars accumulator; the seed is overwritten by the first entry, and without escaped characters it's never read
-    const escaped: string[] = [];
-    const hidden = value.replace(/\\([\\`*_{}[\]()#+\-.!])/g, (_all, char: string) => {
-        escaped.push(char);
-        return "\u0000" + String(escaped.length - 1) + "\u0000";
-    });
+    // Stryker disable next-line ArrayDeclaration: the hidden-text accumulator; the seed is overwritten by the first entry, and without escapes or code it's never read
+    const hiddenText: string[] = [];
+    const hide = (_all: string, text: string): string => {
+        hiddenText.push(text);
+        return "\u0000" + String(hiddenText.length - 1) + "\u0000";
+    };
     return (
-        stripHeadings(hidden)
-            .replace(/```[^\n]*\n([\s\S]*?)\n?```/g, "$1")
-            .replace(/`([^`]+)`/g, "$1")
+        stripHeadings(value)
+            .replace(/```[^\n]*\n([\s\S]*?)\n?```/g, hide)
+            .replace(/(?<!\\)`([^`]+)`/g, hide)
+            .replace(/\\([\\`*_{}[\]()#+\-.!])/g, hide)
             .replace(/\*\*([^*]+)\*\*/g, "$1")
             .replace(/__([^_]+)__/g, "$1")
             .replace(/\*([^*]+)\*/g, "$1")
@@ -78,8 +81,8 @@ export function stripMarkdown(value: string): string {
             // `aws_instance` or `snake_case` underscores stay.
             .replace(/(^|[^\p{L}\p{N}_])_([^_\s](?:[^_]*[^_\s])?)_(?![\p{L}\p{N}_])/gu, "$1$2")
             .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-            // eslint-disable-next-line no-control-regex -- \u0000 is the very marker used above to hide escaped characters
-            .replace(/\u0000(\d+)\u0000/g, (_all, index: string) => escaped[Number(index)])
+            // eslint-disable-next-line no-control-regex -- \u0000 is the very marker used above to hide text
+            .replace(/\u0000(\d+)\u0000/g, (_all, index: string) => hiddenText[Number(index)])
             .trim()
     );
 }

@@ -1043,27 +1043,17 @@ describe("LanguageFeaturesCustomer — document colors", () => {
         const caller = new CancellationTokenSource();
         expect(await h.customer.provideDocumentColors(1, REQ, caller.token)).toEqual([RED]);
         expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "css", version: 7 }]);
-        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: 5000 });
+        // No deadline, as upstream: Tailwind's server answers only once its project is built, and nothing asks again.
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: undefined });
     });
 
-    it("RPC rejection, a hung request past its timeout, no spawn or an unsynced document — no colors (null)", async () => {
+    it("RPC rejection, no spawn or an unsynced document — no colors (null)", async () => {
         const h = setupAnswering({
             "languages.provideDocumentColors": () => {
                 throw new Error("boom");
             },
         });
         expect(await h.customer.provideDocumentColors(1, REQ)).toBeNull();
-
-        // A hung extension holds the detector at most for the timeout.
-        vi.useFakeTimers();
-        try {
-            const hung = setupAnswering({ "languages.provideDocumentColors": () => new Promise(() => undefined) });
-            const reply = hung.customer.provideDocumentColors(1, REQ);
-            await vi.advanceTimersByTimeAsync(5000);
-            expect(await reply).toBeNull();
-        } finally {
-            vi.useRealTimers();
-        }
 
         const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         expect(await detached.provideDocumentColors(1, REQ)).toBeNull();

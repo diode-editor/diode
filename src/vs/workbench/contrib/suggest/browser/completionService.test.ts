@@ -1,4 +1,5 @@
-import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
+import { packRgb } from "@tuidom/core/common/colorUtils";
+import { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it, vi } from "vitest";
@@ -1422,6 +1423,27 @@ describe("CompletionService", () => {
                 expect(service.isOpen()).toBe(false);
             }
         });
+    });
+
+    it("a color item shows a square of its color in place of the kind icon (Tailwind's classes)", async () => {
+        const { service, testApp } = setup(
+            [
+                { label: "text-amber-500", insertText: "text-amber-500", kind: 15, documentation: "#fe9a00" },
+                { label: "text-inherit", insertText: "text-inherit", kind: 15, documentation: "inherit" },
+            ],
+            "text-",
+            5,
+        );
+        await service.trigger();
+        testApp.render();
+
+        const rows = testApp.backend.screenToString().split("\n");
+        const y = rows.findIndex((row) => row.includes("text-amber-500"));
+        const x = rows[y].indexOf("\u25A0");
+        expect(x).toBeGreaterThan(0);
+        expect(testApp.backend.getFgAt(new Point(x, y))).toBe(packRgb(0xfe, 0x9a, 0x00));
+        expect(rows[y + 1]).toContain("text-inherit");
+        expect(rows[y + 1]).not.toContain("\u25A0");
     });
 
     it("word-based: without a source suggests words from the document", async () => {

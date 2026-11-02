@@ -5,7 +5,7 @@ import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { typeText } from "../../../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
-import { settle } from "../../../../../TestUtils/timing.ts";
+import { settle, waitUntil } from "../../../../../TestUtils/timing.ts";
 import { Event } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createTestContainer } from "../../../../diode/modules/testProfile.ts";
@@ -726,19 +726,19 @@ describe("Workbench — diff v2", () => {
         container
             .get(CommandRegistryDIToken)
             .execute("workbench.openFile", ws.writeFile("c.css", "a { color: #fff; }"));
-        await settle(20);
-        app.render();
-        expect(app.backend.screenToString()).toContain("a { color: ■ #fff; }");
+        // The first request goes a tick after the editor is built, then the detector scans in idle slices.
+        const frameHas = (...texts: string[]): boolean => {
+            app.render();
+            const screen = app.backend.screenToString();
+            return texts.every((text) => screen.includes(text));
+        };
+        await waitUntil("the square in the file tab", () => frameHas("a { color: ■ #fff; }"));
 
         await openDiffPair(container, {
             original: { text: "left: #123", label: "L", identity: "l" },
             modified: { text: "right: #456", label: "R", identity: "r" },
         });
-        await settle(20);
-        app.render();
-        const screen = app.backend.screenToString();
-        expect(screen).toContain("left: ■ #123");
-        expect(screen).toContain("right: ■ #456");
+        await waitUntil("the squares on both diff sides", () => frameHas("left: ■ #123", "right: ■ #456"));
     });
 
     it("US-31: a side without a resource (Clipboard) does not match; dispose clears the pending timer", async () => {
