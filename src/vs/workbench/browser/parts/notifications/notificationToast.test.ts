@@ -116,6 +116,29 @@ describe("NotificationToast — what the frame shows", () => {
         ]);
     });
 
+    it("buttons wider than the toast wrap to the next row instead of clipping the close button", () => {
+        // The question of svelte.svelte-vscode: the three answers and the close button take 48 columns of 46.
+        const box = boxLines(renderToast({ message: "Enable it?", items: ["Enable", "Later", "Do not show again"] }));
+        expect(box.slice(3)).toEqual([
+            "│  Enable it?                                      │",
+            "│                                                  │",
+            "│      [ Enable ] [ Later ] [ Do not show again ]  │",
+            "│                                           [ × ]  │",
+            "│  F6 — reply                                      │",
+            "╰──────────────────────────────────────────────────╯",
+        ]);
+    });
+
+    it("a row exactly as wide as the text keeps the close button; one column more wraps it", () => {
+        // A 36-character label makes a 40-column button: with the gap and "[ × ]", 46 columns.
+        const fits = boxLines(renderToast({ items: ["a".repeat(36)] }));
+        expect(fits[5]).toBe(`│  [ ${"a".repeat(36)} ] [ × ]  │`);
+        // A button wider than the row is not preceded by an empty one.
+        expect(boxLines(renderToast({ items: ["a".repeat(50)] }))[5]).toMatch(/^│ *\[ a+/u);
+        const wraps = boxLines(renderToast({ items: ["a".repeat(37)] }));
+        expect(wraps.slice(5, 7)).toEqual([`│       [ ${"a".repeat(37)} ]  │`, "│                                           [ × ]  │"]);
+    });
+
     it("the title uses the severity accent, not the text color", () => {
         const { testApp } = mount({ severity: "error" });
         testApp.render();

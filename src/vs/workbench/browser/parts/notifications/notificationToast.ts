@@ -99,7 +99,9 @@ export class NotificationToast extends DialogComponent {
 
         // Stryker disable next-line StringLiteral: row width spec — an empty string gives the same layout, the frame does not change
         stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
-        stack.addChild(buildButtonRow(buttons), { width: "stretch", height: 1 });
+        for (const row of packButtonRows(buttons)) {
+            stack.addChild(buildButtonRow(row), { width: "stretch", height: 1 });
+        }
         if (answerButtons.length > 0) {
             const hint = new TextLabelElement(this.unfocusedHint);
             hint.style = { fg: TOAST_STYLES.descriptionFg };
@@ -165,6 +167,30 @@ export function toastLines(message: string): string[] {
     const lines = wrapText(message, TOAST_TEXT_WIDTH);
     if (lines.length <= TOAST_MAX_LINES) return lines;
     return [...lines.slice(0, TOAST_MAX_LINES - 1), "…"];
+}
+
+/**
+ * Rows of buttons that fit the text width, the close button last: a row wider than the toast would cut it off.
+ * A single button wider than the row keeps a row of its own.
+ */
+function packButtonRows(buttons: readonly ButtonElement[]): ButtonElement[][] {
+    const rows: ButtonElement[][] = [];
+    let row: ButtonElement[] = [];
+    let width = 0;
+    for (const button of buttons) {
+        const buttonWidth = button.getMaxIntrinsicWidth(1);
+        const widthWithGap = row.length === 0 ? buttonWidth : width + 1 + buttonWidth;
+        if (row.length > 0 && widthWithGap > TOAST_TEXT_WIDTH) {
+            rows.push(row);
+            row = [button];
+            width = buttonWidth;
+        } else {
+            row.push(button);
+            width = widthWithGap;
+        }
+    }
+    rows.push(row);
+    return rows;
 }
 
 function buildButtonRow(buttons: readonly ButtonElement[]): HFlexElement {
