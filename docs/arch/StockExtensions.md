@@ -110,6 +110,23 @@
   Триггер format on type у сервера — `}`, а не `;` и не Enter. Inlay hints, линзы, навигацию и символы сервер не даёт, смоук
   проверяет это по журналу. У команд форматирования лимита времени нет, как в эталоне; format on save обрывается на
   дедлайне участника сохранения (5 с), и большой файл сохраняется без форматирования. Смоук ставит пакет в каталог проекта через `npm` и без него пропускается.
+- **`bradlc.vscode-tailwindcss`** (#974) — прокси на сток Open VSX 0.16.0. Сервер — отдельный процесс, `tailwindcss` берётся
+  из проекта (v3 и v4), а стартует сервер, только если в воркспейсе есть конфиг v3 или CSS с импортом Tailwind: в проекте без
+  него расширение молчит, как в VS Code. Гейт `engines.diode: ">=0.12.8"`: правки ядра после тега 0.12.7. Первый запрос
+  цветов и ссылок сервер держит до сборки проекта — дольше 5 с, поэтому у цветов и ссылок дедлайна больше нет, как в эталоне;
+  `ColorDetector` спрашивает провайдеры тиком позже, когда документ уже у хоста (иначе файл, открытый по ходу сессии,
+  оставался без квадратиков до правки). Hover отдаёт CSS
+  блоком кода, а `stripMarkdown` срезал внутри кода `*` как курсив и `\` как экранирование (`calc(var(--spacing) * 4)`,
+  селектор `.bg-\[\#ff0000\]`) — код теперь прячется до разметки и экранирований, как в CommonMark, а попап сохраняет
+  отступ строк кода. Пункт подсказки вида Color рисует квадратик своего цвета вместо значка, как `colorspan`
+  эталона: цвет берётся эталонным `ColorExtractor` из label, detail или края documentation (у Tailwind — `"#fe9a00"`), поле
+  `color` у пункта — tuidom 0.30.0. `support: partial`: квадратик перед именованным цветом в тексте (`bg-red-500`) расширение
+  рисует само через `setDecorations` со вставкой `before` и цветом в `renderOptions` диапазона — мост этого не знает (класс C,
+  #1023); через `registerColorProvider` идут только произвольные значения (`bg-[#ff0000]`), у них квадратик есть.
+  `editor.quickSuggestions.strings` расширение не просит и не трогает: подсказки в `class="` открываются по триггерным символам
+  сервера (пробел, `-`, `"`, `:`), с дефолтом `strings: off`, как в эталоне. Смоук — undercurl конфликта `p-4`/`p-6`, квадратик
+  у `bg-[#ff0000]`, CSS в hover, quick fix, квадратик в подсказке `text-amber-`, `tailwindCSS.sortSelection`, линза
+  `Generates 11 classes` в CSS v4; пакет ставится через `npm`, без него кейс пропускается.
 - **`tamasfe.even-better-toml`** — прокси на сток Open VSX 0.21.2, сервер taplo в WASM внутри расширения. Гейт
   `engines.diode: ">=0.12.8"`: нужны ссылки из #1012 и замена текста в поле rename, обе правки вышли после тега 0.12.7.
   `support: partial`: схемы из каталога schemastore не подхватываются. Причина проверена: 0.21.2 сравнивает `$schema`
@@ -134,6 +151,34 @@
   каретки в кадре и байты файла, для команды и для `trimOnSave`.
 - **`vscode.merge-conflict`** (#969) — прокси на сборку встроенного расширения VS Code от Eclipse Theia, Open VSX 1.95.3. Гейт `engines.diode: ">=0.12.6"`: нужны линзы (#936/#937), `revealRange` (#963) и правки этой задачи. `support: partial`: блоки current и incoming не закрашены, мост `setDecorations` знает только gutter и overview ruler (класс C эпика #912). `Compare` держится на двух правках ядра: сторона `vscode.diff` читается и из провайдера содержимого, не только из файлового сервиса (порядок как в `TextModelResolverService`: сначала провайдер ФС), а `Range.toJSON` отдаёт эталонную пару `[start, end]` — расширение кладёт `JSON.stringify` диапазонов в query и разбирает обратно как массив. `merge-conflict.next` при переходе вверх ставит конфликт верхней строкой, линза над ним остаётся за краем: прокрутка на строку вверх её показывает. Смоук — линза в кадре, `Compare` с обеими сторонами, клик `Accept Incoming`, байты файла.
 - **`vscjava.vscode-maven`** (#977) — прокси на сток Open VSX 0.45.3. Гейт `engines.diode: ">=0.12.6"`: нужны `window.createInputBox` и кнопка Back (`New Project`), константно ложные `commandPalette` и ключ `isWorkspaceTrusted`. Плагины в дереве приходят со строки без `id`, а после `mvn help:describe` расширение переименовывает строку: handle такой строки строится из подписи и меняется, поэтому `treeView.refresh` несёт `previousHandle`, и воркбенч перечитывает родителя (как `getItemsToRefresh` эталона). `support: partial`: `Debug` в меню цели плагина отладчик не запускает (тост расширения `Debugger for Java is required`), сниппеты `pom.xml` вставляются без табстопов и поправки отступа (класс C эпика #912), пункт в меню чужого вида `javaProject.maven` не показывается. Нужен `mvn` из PATH или `maven.executable.path`: без него тост `Maven executable not found in PATH`, битый явный путь расширение передаёт в терминал как есть. `maven.goal.custom` и `maven.project.effectivePom` без аргумента не показывают ничего или падают, и в эталоне тоже: у них `when: never`, зовут их из дерева или через `maven.goal.execute` → `Custom ...`. Quick fix `Add a dependency` появляется, только когда каретка внутри `<dependencies>`, а не на самом теге. Генерация архетипа задаёт вопросы в терминале (`Define value for property`), фокус туда не переходит, как в эталоне. Смоук — `a:b` в секции, чистая от `when: never` палитра и `BUILD SUCCESS` цели, без `mvn` кейс пропускается (`requires`).
+- **`llvm-vs-code-extensions.vscode-clangd`** (#976, сайт#43) — прокси на сток Open VSX 0.6.0, universal. Гейт
+  `engines.diode: ">=0.12.8"`: нужны ключи `resource*` (без них `Alt+O`, `Shift+Alt+T` и пункты меню редактора с
+  `resourceLangId == cpp` молчали) и `reveal` сразу после `setContext` (`Show AST` ставит `clangd.ast.hasData` и зовёт
+  `reveal(null)`, не дожидаясь ключа; изменения ключей у нас расходились микрозадачей позже, `when` вида ещё был
+  ложен, и секция оставалась закрытой — теперь `setContext` рассылает изменение сразу, как эталон). Бинаря в расширении нет: `clangd` из PATH или `clangd.path`, без него тост с кнопкой Install, загрузка —
+  `clangd_<версия>` в globalStorage, расширение само пишет `clangd.path` и делает `clangd.restart` (на linux/arm64 сборки
+  нет: «No clangd 23.1.0 binary available»). Без `compile_commands.json` у clangd нет фонового индекса: F12 на функцию из
+  другого файла ведёт на объявление в заголовке, `#`, Implementations, входящие вызовы и подтипы видят только открытые
+  файлы — в сьютах они идут с базой компиляции. `#` отдаёт определение, а не объявление. `support: partial`: неактивные
+  ветки препроцессора не приглушены (`setDecorations` с прозрачностью, класс C эпика #912). `commandPalette` у стока не
+  применяется (общая строка «not applied yet»): `Types: Show Base Classes` видна в палитре и вне C++. Сьюты
+  `extensionHost.clangd*` и CI-шаги ставят `clangd` из apt; без него — пропуск (`clangdMissing`). Смоук — undercurl на
+  `int x = "s";`, сценарий `clangd` — подсказки, `Alt+O`, дерево типа и AST.
+- **`redhat.vscode-yaml`** (#972, сайт#40) — прокси на сток Open VSX 2.0.0, сервер `yaml-language-server` в бандле. Open VSX
+  отдаёт «latest» `2.1.2026102308`, но это pre-release (`preRelease: true`), реестр его не берёт. Гейт
+  `engines.diode: ">=0.12.8"`: ссылки (#1012) и `@` (#989) влиты после тега 0.12.7. `support: partial`. Схема — из
+  модлайна `# yaml-language-server: $schema=...` (относительный путь работает без сети), `yaml.schemas` или каталога
+  schemastore.org (`.github/workflows/*.yml` → `GitHub Workflow` в статус-баре, клик — пикер схем, линза над первой
+  строкой открывает схему через провайдер содержимого). Без сети схема по URL пропускается, YAML-проверки (`Map keys
+  must be unique`) остаются. Сервер отдаёт символы, F12 и rename по якорям, ссылки на `$ref: "#/…"`, quick fix `Delete
+  unused anchor`, on-type на Enter (отступ после `key:` и `- `, нужен `editor.formatOnType`); inlay hints,
+  implementation, иерархий и linked editing у него нет — это фиксирует `extensionHost.yaml.test.ts`. `configurationDefaults`
+  `[yaml]` дают `strings: true` в `editor.quickSuggestions`: plain-скаляр (`shell: b`) — строковый токен грамматики, и
+  без этой настройки попап бы не открылся; в комментарии он молчит. В кавычках (`shell: "b`) авто-подсказок нет, как и в
+  эталоне: диапазон пункта у сервера начинается с кавычки, а `"b` с меткой `bash` фильтр не сводит. Hover сервера
+  начинается с `#### <заголовок схемы>` — `stripMarkdown` снимает ATX-заголовки вне fenced-блоков. Пределы в `limits`:
+  hover без markdown-рендера, URL схемы из модлайна обрезан в статус-баре общим `MAX_ITEM_WIDTH` (24 ячейки). При старте
+  расширение спрашивает про телеметрию Red Hat тостом: смоук, сьют и сценарий ставят `redhat.telemetry.enabled: false`.
 - **`svelte.svelte-vscode`** (#975) — прокси на сток Open VSX 110.3.2; сервер, компилятор Svelte и TypeScript лежат в
   vsix, ставить ничего не надо. Гейт `engines.diode: ">=0.12.8"`: символы документа (#989) и рабочей области (#1014) и
   `showTextDocument` рядом из этой задачи — после тега 0.12.7. Inlay hints и линза ссылок идут по настройкам TypeScript

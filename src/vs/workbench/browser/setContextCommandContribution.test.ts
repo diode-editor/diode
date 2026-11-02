@@ -23,6 +23,16 @@ describe("SetContextCommandContribution", () => {
         expect(contextKeys.evaluate("supermaven.hasJumped")).toBe(true);
     });
 
+    it("listeners see the change before the command returns, as upstream's context fires at once", () => {
+        const { commands, contextKeys } = setup();
+        const changes: string[][] = [];
+        contextKeys.onDidChange((keys) => changes.push([...keys]));
+
+        commands.execute("setContext", "clangd.ast.hasData", true);
+
+        expect(changes).toEqual([["clangd.ast.hasData"]]);
+    });
+
     it("a repeated call overwrites the value", () => {
         const { commands, contextKeys } = setup();
 

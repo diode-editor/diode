@@ -34,6 +34,8 @@ export default defineConfig({
         "src/TestUtils/stockVsix.ts", // downloads a vsix from the marketplace (error branches, network/broken registry, are reachable only in a red run)
         "src/TestUtils/eslintFixture.ts", // eslintLsp* suite harness: npm install of the library is reachable only on a cold cache (network), the rename race only in a parallel run
         "src/TestUtils/goLspSession.ts", // goLsp* suite harness: its guards are reachable only in a red run, the skip only without Go
+        "src/TestUtils/clangdSession.ts", // clangd* suite harness: its guards are reachable only in a red run, the skip only without clangd
+        "src/TestUtils/clangdFixture.ts", // clangd* suite fixture: the PATH miss is reachable only without clangd, the .exe name only on Windows
         "src/**/*.stories.ts",
         "src/demos/**",
         "src/vs/diode/main.ts",

@@ -23,20 +23,57 @@ import { HoverComponentDIToken } from "./hoverComponent.ts";
 // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string inside is only a debug label
 export const HoverServiceDIToken = token<HoverService>("HoverService");
 
+const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
+/** A fenced-block fence: inside it `---` is content (YAML), not a separator. */
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+/** An ATX heading's opening `#`s (CommonMark: up to 3 spaces of indent, 1 to 6 `#`, then a space or the line end). */
+const ATX_HEADING = /^ {0,3}#{1,6}(?:[ \t]+|$)/;
+/** The optional closing `#`s: preceded by a space (or alone), so `C#` keeps its `#`. */
+const ATX_CLOSING = /(?:^|[ \t]+)#+[ \t]*$/;
+
+/** The closing fence is of the opener's kind and no shorter. */
+function closesFence(opener: string | undefined, fence: string): boolean {
+    // Stryker disable next-line MethodExpression: a fence is one character repeated, so startsWith ≡ endsWith
+    return opener?.startsWith(fence[0]) === true && opener.length >= fence.length;
+}
+
+/** `#### Person` from the YAML server is the text `Person`; a `# comment` inside a fenced block stays. */
+function stripHeadings(value: string): string {
+    let fence: string | null = null;
+    return value
+        .split("\n")
+        .map((line) => {
+            const opener = FENCE.exec(line)?.[1];
+            if (fence !== null) {
+                if (closesFence(opener, fence)) fence = null;
+                return line;
+            }
+            if (opener !== undefined) {
+                fence = opener;
+                return line;
+            }
+            return ATX_HEADING.test(line) ? line.replace(ATX_HEADING, "").replace(ATX_CLOSING, "") : line;
+        })
+        .join("\n");
+}
+
 /** There's no markdown renderer (docs/arch/Extensions.md#lsp-и-стоковые-клиенты), so the popup gets plain text. */
 export function stripMarkdown(value: string): string {
-    // Escaped characters are hidden FIRST (the stripSnippetPlaceholders trick):
+    // Code is hidden FIRST: inside it emphasis characters and backslashes are text, as in CommonMark
+    // (`calc(x * 4) /* … */`, Tailwind's selector `.bg-\[\#ff0000\]`). An escaped backtick opens no code.
+    // Escaped characters are hidden right after (the stripSnippetPlaceholders trick):
     // otherwise `\*text\*` would be parsed along the way as "italic".
-    // Stryker disable next-line ArrayDeclaration: the hidden-chars accumulator; the seed is overwritten by the first entry, and without escaped characters it's never read
-    const escaped: string[] = [];
-    const hidden = value.replace(/\\([\\`*_{}[\]()#+\-.!])/g, (_all, char: string) => {
-        escaped.push(char);
-        return "\u0000" + String(escaped.length - 1) + "\u0000";
-    });
+    // Stryker disable next-line ArrayDeclaration: the hidden-text accumulator; the seed is overwritten by the first entry, and without escapes or code it's never read
+    const hiddenText: string[] = [];
+    const hide = (_all: string, text: string): string => {
+        hiddenText.push(text);
+        return "\u0000" + String(hiddenText.length - 1) + "\u0000";
+    };
     return (
-        hidden
-            .replace(/```[^\n]*\n([\s\S]*?)\n?```/g, "$1")
-            .replace(/`([^`]+)`/g, "$1")
+        stripHeadings(value)
+            .replace(/```[^\n]*\n([\s\S]*?)\n?```/g, hide)
+            .replace(/(?<!\\)`([^`]+)`/g, hide)
+            .replace(/\\([\\`*_{}[\]()#+\-.!])/g, hide)
             .replace(/\*\*([^*]+)\*\*/g, "$1")
             .replace(/__([^_]+)__/g, "$1")
             .replace(/\*([^*]+)\*/g, "$1")
@@ -44,15 +81,11 @@ export function stripMarkdown(value: string): string {
             // `aws_instance` or `snake_case` underscores stay.
             .replace(/(^|[^\p{L}\p{N}_])_([^_\s](?:[^_]*[^_\s])?)_(?![\p{L}\p{N}_])/gu, "$1$2")
             .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-            // eslint-disable-next-line no-control-regex -- \u0000 is the very marker used above to hide escaped characters
-            .replace(/\u0000(\d+)\u0000/g, (_all, index: string) => escaped[Number(index)])
+            // eslint-disable-next-line no-control-regex -- \u0000 is the very marker used above to hide text
+            .replace(/\u0000(\d+)\u0000/g, (_all, index: string) => hiddenText[Number(index)])
             .trim()
     );
 }
-
-const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
-/** A fenced-block fence: inside it `---` is content (YAML), not a separator. */
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /**
  * Empty sections are kept: they show the separator was at the edge. `---` right below a paragraph
@@ -67,8 +100,7 @@ export function splitMarkdownSections(value: string): string[] {
         const opener = FENCE.exec(line)?.[1];
         const ruler = THEMATIC_BREAK.exec(line)?.[1];
         if (fence !== null) {
-            // Stryker disable next-line MethodExpression: a fence is one character repeated, so startsWith ≡ endsWith
-            if (opener?.startsWith(fence[0]) === true && opener.length >= fence.length) fence = null;
+            if (closesFence(opener, fence)) fence = null;
             current.push(line);
             paragraph = false;
         } else if (opener !== undefined) {

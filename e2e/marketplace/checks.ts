@@ -10,15 +10,25 @@ import {
     LINT_JS,
     linkEslintLibrary,
 } from "../../src/TestUtils/eslintFixture.ts";
+import { CLANGD_ID, clangdMissing, CPP_SAMPLE_DIR } from "../../src/TestUtils/clangdFixture.ts";
 import { ensureGopls, GO_SAMPLE_DIR, GO_SESSION_ENV, goToolchainMissing } from "../../src/TestUtils/goFixture.ts";
 import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
 import { mavenMissing, writeMavenProject } from "../../src/TestUtils/mavenFixture.ts";
 import { SVELTE_ID, SVELTE_SAMPLE_DIR } from "../../src/TestUtils/svelteFixture.ts";
+import { YAML_ID, YAML_SETTINGS } from "../../src/TestUtils/yamlFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
-import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../helpers/biomeFixture.ts";
+import { BIOME_SETTINGS, writeBiomeProject } from "../helpers/biomeFixture.ts";
 import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "../helpers/claudeIde.ts";
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
-import { findTextCell } from "../helpers/frame.ts";
+import { findTextCell, frameLine } from "../helpers/frame.ts";
+import { npmMissing } from "../helpers/npmProject.ts";
+import {
+    TAILWIND_CLASSES,
+    TAILWIND_CLASSES_COLUMN,
+    TAILWIND_EMPTY_CLASS_COLUMN,
+    TAILWIND_P4_COLUMN,
+    writeTailwindProject,
+} from "../helpers/tailwindFixture.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
 import { TOML_BROKEN_TAIL_LENGTH, writeTomlProject } from "../helpers/tomlProject.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
@@ -922,6 +932,119 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
+        // kind: "proxy-openvsx": the stock Tailwind CSS IntelliSense. Its server loads `tailwindcss` from the project
+        // and starts only when a CSS file imports it.
+        id: "bradlc.vscode-tailwindcss",
+        expectFiles: ["package.json", "dist/extension.js"],
+        requires: npmMissing,
+        timeoutMs: 300_000,
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "project");
+            const html = writeTailwindProject(projectRoot);
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [projectRoot, html] });
+            const caretAt = async (line: number, column: number): Promise<void> => {
+                await app.session.key("Ctrl+Home");
+                for (let i = 0; i < line; i++) await app.session.key("ArrowDown");
+                for (let i = 0; i < column; i++) await app.session.key("ArrowRight");
+            };
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl of the p-4/p-6 conflict", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                // The color provider's square before an arbitrary color.
+                await app.session.waitForText((text) => text.includes("■ bg-[#ff0000]"), { timeoutMs: 20_000 });
+
+                await caretAt(0, TAILWIND_P4_COLUMN);
+                await app.session.executeCommand("editor.action.showHover");
+                await app.session.waitForText((text) => text.includes("calc(var(--spacing) * 4)"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.key("Escape");
+                await app.session.key("Ctrl+.");
+                await app.session.waitForText((text) => text.includes("Delete 'p-6'"), { timeoutMs: 20_000 });
+                await app.session.key("Escape");
+
+                await caretAt(1, TAILWIND_EMPTY_CLASS_COLUMN);
+                // Typed, not pasted: a paste opens no suggestions.
+                for (const char of "text-amber-") await app.session.key(char);
+                const frame = await app.session.waitForText((text) => text.includes("text-amber-500"), {
+                    timeoutMs: 20_000,
+                });
+                // A color item draws a square of its color in place of the kind icon.
+                const item = findTextCell(frame, "text-amber-500");
+                if (item === null || !frameLine(frame, item.y).slice(0, item.x).includes("■")) {
+                    throw new Error("no color square in the completion row");
+                }
+                await app.session.key("Escape");
+
+                await caretAt(0, TAILWIND_CLASSES_COLUMN);
+                for (let i = 0; i < TAILWIND_CLASSES.length; i++) await app.session.key("Shift+ArrowRight");
+                await app.session.executeCommand("tailwindCSS.sortSelection");
+                await app.session.waitForText((text) => text.includes('"flex ■ bg-[#ff0000] p-4 p-6"'), {
+                    timeoutMs: 20_000,
+                });
+
+                await app.session.executeCommand("workbench.action.quickOpen", "app.css");
+                await app.session.key("Enter");
+                await app.session.waitForText((text) => text.includes("Generates 11 classes"), { timeoutMs: 30_000 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock YAML by Red Hat. A workflow file gets its schema from the schemastore.org
+        // catalog; `editor.quickSuggestions` with `strings: true` comes from the extension's `[yaml]` defaults, and a
+        // plain scalar is a string token, so without them `shell: b` would open nothing.
+        id: YAML_ID,
+        expectFiles: ["package.json", "dist/extension.js", "dist/languageserver.js"],
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "project");
+            const file = join(projectRoot, ".github", "workflows", "ci.yml");
+            mkdirSync(dirname(file), { recursive: true });
+            writeFileSync(
+                file,
+                "name: CI\nname: again\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n",
+            );
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [projectRoot, file],
+                settings: YAML_SETTINGS,
+            });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl under the duplicate key", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                await app.session.waitForText((text) => text.trimEnd().endsWith("GitHub Workflow"), {
+                    timeoutMs: 30_000,
+                });
+
+                await app.session.key("Ctrl+End");
+                await app.session.text("        shell: ");
+                await app.session.key("b");
+                await app.session.waitForText((text) => text.includes("bash"), { timeoutMs: 20_000 });
+                await app.session.key("Escape");
+
+                await app.session.key("Enter");
+                await app.session.text("        # ");
+                await app.session.key("b");
+                // The quick suggest delay is 10 ms; a popup in a comment would be up long before this.
+                await new Promise((resolve) => setTimeout(resolve, 1_000));
+                await app.session.waitForIdle();
+                if ((await app.session.node("#suggestWidget")) !== null) {
+                    throw new Error("suggestions opened in a YAML comment");
+                }
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
         // kind: "proxy-openvsx": the stock Svelte for VS Code with the bundled server, compiler and TypeScript. An
         // unknown name in the markup is a squiggle; the question about its TypeScript plugin answers Enable, which
         // only saves the setting (Diode has no `vscode.typescript-language-features` to configure), and the built-in
@@ -1067,6 +1190,33 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await session.waitForText((t) => !t.includes("Switch ShellCheck to the experimental"), {
                     timeoutMs: 20_000,
                 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock clangd. The server is the machine's clangd (CI installs it with apt): the
+        // extension's own download is ~50 MB and has no linux/arm64 build. The undercurl is clangd's, diode has no C++
+        // diagnostics of its own.
+        id: CLANGD_ID,
+        expectFiles: ["package.json", "out/bundle.js"],
+        requires: clangdMissing,
+        timeoutMs: 300_000,
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "cppproj");
+            cpSync(CPP_SAMPLE_DIR, projectRoot, { recursive: true });
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [projectRoot, join(projectRoot, "main.cpp")],
+            });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: 'undercurl under int x = "s" from clangd', timeoutMs: 120_000, intervalMs: 500 },
+                );
             } finally {
                 await app.dispose();
             }

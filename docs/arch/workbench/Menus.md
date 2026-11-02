@@ -80,7 +80,12 @@ Format Selection, Refactor…, Source Action…) → `1_quickfix` (Quick Fix) �
 контексте активного редактора, а не фокуса: палитра забирает фокус, и наш `editorLangId` от
 фокуса был бы пуст, поэтому палитра подставляет язык активного редактора.
 `when` расширений смотрят на upstream-имена ключей, поэтому рядом с нашими
-выставляются `editorTextFocus` и `editorLangId`. Иконка пункта — иконка его
+выставляются `editorTextFocus` и `editorLangId`, а семейство `resource*` эталонного `ResourceContextKey`
+(`resource`, `resourceScheme`, `resourceFilename`, `resourceDirname`, `resourcePath`, `resourceLangId`,
+`resourceExtname`, `resourceSet`) — `ResourceContextKeys` (`workbench/browser/resourceContextKeys.ts`): ресурс
+активного редактора, пока фокус в области редакторов, вне её ключи сняты. У эталона они живут в контексте группы
+редакторов и видны так же — изнутри группы; `isFileSystemResource` не выставляется. Без них `Alt+O` и
+`Shift+Alt+T` стокового clangd (`resourceLangId == cpp && editorTextFocus`) молчали. Иконка пункта — иконка его
 команды из `contributes.commands` любого расширения (как `MenuItemAction`
 эталона): строка ровно `"$(имя)"` или `"$(имя~модификатор)"` известного
 codicon'а (`ThemeIcon.fromString`) становится глифом, модификатор не рисуется;

@@ -40,6 +40,7 @@ import type { FocusTracker } from "../../../services/focus/browser/focusTracker.
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 
 import { collectWordCompletions } from "./collectWordCompletions.ts";
+import { completionItemColor } from "./completionItemColor.ts";
 import { type ICompletionsFromProviders, provideCompletions } from "./provideCompletions.ts";
 import {
     type IQuickSuggestionsOptions,
@@ -852,6 +853,7 @@ function detailsContent(core: ICoreCompletionItem, resolved?: ICoreResolvedCompl
 }
 
 function toListItem(core: ICoreCompletionItem): CompletionListItem {
+    let color: { readonly value: number | undefined } | undefined;
     return {
         label: core.label,
         ...(core.detail !== undefined ? { detail: core.detail } : {}),
@@ -860,5 +862,11 @@ function toListItem(core: ICoreCompletionItem): CompletionListItem {
         ...(core.filterText !== undefined ? { filterText: core.filterText } : {}),
         ...(core.sortText !== undefined ? { sortText: core.sortText } : {}),
         data: core,
+        // Parsed when its row is drawn, and once, as upstream parses in `renderElement`: Tailwind answers with
+        // thousands of color items, and parsing them all costs tens of milliseconds per answer.
+        get color() {
+            color ??= { value: completionItemColor(core) };
+            return color.value;
+        },
     };
 }

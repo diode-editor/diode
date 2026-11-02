@@ -32,6 +32,16 @@ describe("stripMarkdown — plain text for the TUI popup", () => {
         expect(stripMarkdown("escaped \\*symbol\\*")).toBe("escaped *symbol*");
     });
 
+    it("code keeps its emphasis characters: Tailwind's CSS hover", () => {
+        expect(stripMarkdown("```css\n.p-4 {\n  padding: calc(var(--spacing) * 4) /* 1rem = 16px */;\n}\n```")).toBe(
+            ".p-4 {\n  padding: calc(var(--spacing) * 4) /* 1rem = 16px */;\n}",
+        );
+        expect(stripMarkdown("`a * b * c` and *x*")).toBe("a * b * c and x");
+        expect(stripMarkdown("`snake_case_ish_` [x](y)")).toBe("snake_case_ish_ x");
+        expect(stripMarkdown("`a \\* b`")).toBe("a \\* b");
+        expect(stripMarkdown("\\`not code\\` and \\*x\\*")).toBe("`not code` and *x*");
+    });
+
     it("`_italic_` is stripped only at a word boundary — snake_case is left alone", () => {
         // terraform-ls marks the type like this: "`var.region` _string_".
         expect(stripMarkdown("`var.region`\n_string_")).toBe("var.region\nstring");
@@ -66,6 +76,34 @@ describe("stripMarkdown — plain text for the TUI popup", () => {
         // The hiding index is two-digit: the restore regex must read `\d+`, not `\d`.
         const source = Array.from({ length: 12 }, (_, i) => `\\*${String(i)}\\*`).join(" ");
         expect(stripMarkdown(source)).toBe("*0* *1* *2* *3* *4* *5* *6* *7* *8* *9* *10* *11*");
+    });
+
+    it("an ATX heading loses its `#`s: the YAML server's hover starts with `#### <schema title>`", () => {
+        expect(stripMarkdown("#### Person\n\nFull name")).toBe("Person\n\nFull name");
+        expect(stripMarkdown("intro\n   # Indented\n##\tTab\n###### Six")).toBe("intro\nIndented\nTab\nSix");
+        expect(stripMarkdown("intro\n#\nend")).toBe("intro\n\nend");
+    });
+
+    it("an ATX heading loses its closing `#` sequence too, a `#` inside the text stays", () => {
+        // JSON Schema `markdownDescription: "## Name ##"` showed `Name ##` in the YAML hover
+        expect(stripMarkdown("## Name ##\nPet name")).toBe("Name\nPet name");
+        expect(stripMarkdown("# Title #####")).toBe("Title");
+        expect(stripMarkdown("# C# language")).toBe("C# language");
+        expect(stripMarkdown("# Tag #1")).toBe("Tag #1");
+        expect(stripMarkdown("a\n### ###\nb")).toBe("a\n\nb");
+        expect(stripMarkdown("# Spaced ##  \nb")).toBe("Spaced\nb");
+    });
+
+    it("not a heading: seven `#`s, no space after them, indent 4, an escaped `#`", () => {
+        expect(stripMarkdown("####### seven\n#tag\n    # code\n\\# literal")).toBe(
+            "####### seven\n#tag\n    # code\n# literal",
+        );
+    });
+
+    it("a `#` comment inside a fenced block stays, and headings after the block are stripped again", () => {
+        expect(stripMarkdown("```yaml\n# comment\n```\n# After")).toBe("# comment\nAfter");
+        expect(stripMarkdown("~~~~\n# a\n~~~\n# b\n~~~~\n# c")).toBe("~~~~\n# a\n~~~\n# b\n~~~~\nc");
+        expect(stripMarkdown("```\n# a\n~~~\n# b\n```\n# c")).toBe("# a\n~~~\n# b\nc");
     });
 });
 
@@ -308,6 +346,28 @@ describe("HoverService — showing and closing the popup", () => {
         expect(rows[at + 2]).toContain("│ Hello greets.");
         expect(rows[at + 3]).toMatch(/│ ─{20,} │/u);
         expect(rows[at + 4]).toContain("│ greet.Hello on pkg.go.dev");
+    });
+
+    /** Tailwind CSS IntelliSense's hover on `bg-[#ff0000]`, verbatim from the extension host. */
+    const TAILWIND_ARBITRARY_HOVER = "\n```css\n.bg-\\[\\#ff0000\\] {\n    background-color: #ff0000;\n}\n```\n";
+
+    it("a backslash inside a code block reaches the frame: Tailwind's escaped selector", async () => {
+        // CommonMark has no escapes inside code: upstream shows `.bg-\[\#ff0000\]`, the selector as CSS has it.
+        useHovers(hoverOf([TAILWIND_ARBITRARY_HOVER]));
+
+        await service().showHover();
+        h.testApp.render();
+
+        expect(h.testApp.backend.screenToString()).toContain("│ .bg-\\[\\#ff0000\\] {");
+    });
+
+    it("a code block keeps its indentation in the frame: Tailwind's CSS declaration", async () => {
+        useHovers(hoverOf([TAILWIND_ARBITRARY_HOVER]));
+
+        await service().showHover();
+        h.testApp.render();
+
+        expect(h.testApp.backend.screenToString()).toContain("│     background-color: #ff0000;");
     });
 
     it("an empty result, empty after stripping, or no providers — the popup doesn't open", async () => {
