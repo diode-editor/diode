@@ -319,6 +319,28 @@ describe("HoverService — showing and closing the popup", () => {
         expect(rows[at + 4]).toContain("│ greet.Hello on pkg.go.dev");
     });
 
+    /** Tailwind CSS IntelliSense's hover on `bg-[#ff0000]`, verbatim from the extension host. */
+    const TAILWIND_ARBITRARY_HOVER = "\n```css\n.bg-\\[\\#ff0000\\] {\n    background-color: #ff0000;\n}\n```\n";
+
+    it("a backslash inside a code block reaches the frame: Tailwind's escaped selector", async () => {
+        // CommonMark has no escapes inside code: upstream shows `.bg-\[\#ff0000\]`, the selector as CSS has it.
+        useHovers(hoverOf([TAILWIND_ARBITRARY_HOVER]));
+
+        await service().showHover();
+        h.testApp.render();
+
+        expect(h.testApp.backend.screenToString()).toContain("│ .bg-\\[\\#ff0000\\] {");
+    });
+
+    it("a code block keeps its indentation in the frame: Tailwind's CSS declaration", async () => {
+        useHovers(hoverOf([TAILWIND_ARBITRARY_HOVER]));
+
+        await service().showHover();
+        h.testApp.render();
+
+        expect(h.testApp.backend.screenToString()).toContain("│     background-color: #ff0000;");
+    });
+
     it("an empty result, empty after stripping, or no providers — the popup doesn't open", async () => {
         // No providers.
         await service().showHover();
