@@ -895,6 +895,70 @@ describe("CompletionService", () => {
         expect(component.view.items).toHaveLength(2);
     });
 
+    it("typing past a provider boundary inside a core word (`d.` → `d.t`) keeps the popup", async () => {
+        // WORD_CHAR includes `.`: the core word runs across the provider boundary at the dot, yet the text
+        // before the boundary is unchanged.
+        const items: ICoreCompletionItem[] = [
+            {
+                label: "toISOString",
+                insertText: ".toISOString",
+                filterText: ".toISOString",
+                range: { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } },
+            },
+        ];
+        const { service, component, fake } = setup(items, "d.", 2, "d.");
+        await service.trigger();
+
+        fake.type("d.t", 3);
+
+        expect(service.isOpen()).toBe(true);
+        expect(component.view.items.map((i) => i.label)).toEqual(["toISOString"]);
+    });
+
+    it("a re-request with no items leaves the open popup as it was", async () => {
+        const fake = makeEditor("ind", 3, "ind");
+        const source = vi
+            .fn<() => Promise<ICoreCompletionResult>>()
+            .mockResolvedValueOnce(completionResult(ITEMS))
+            .mockResolvedValue(completionResult([]));
+        const { service, component, body } = createService(makeGroup(fake.editor, source), undefined, {
+            "editor.wordBasedSuggestions": "off",
+        });
+        TestApp.create(body, new Size(80, 24));
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        await service.trigger();
+
+        expect(service.isOpen()).toBe(true);
+        expect(component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
+    });
+
+    it("a retrigger whose asked providers answer nothing and no items left to reuse closes the popup", async () => {
+        const fake = makeEditor("d", 1, "d");
+        const source = vi.fn((request: ICompletionRequest) =>
+            Promise.resolve(
+                completionResult(request.triggerCharacter === "-" ? [] : [{ label: "d-x", insertText: "d-x" }]),
+            ),
+        );
+        const group = makeGroup(fake.editor, source);
+        (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["-"];
+        const { service, body } = createService(group);
+        TestApp.create(body, new Size(80, 24));
+        await service.trigger();
+        expect(service.isOpen()).toBe(true);
+
+        fake.type("d-", 2);
+        expect(service.isOpen()).toBe(true);
+        await flushTimers();
+
+        expect(source).toHaveBeenLastCalledWith(
+            expect.objectContaining({ triggerKind: CompletionTriggerKind.TriggerCharacter, triggerCharacter: "-" }),
+            expect.anything(),
+        );
+        expect(service.isOpen()).toBe(false);
+    });
+
     it("server filterText/sortText and a shared range reach the widget", async () => {
         // The tsserver response shape after a dot: a common range for all items, the label
         // without the dot, filtering and sorting by their own fields.
@@ -2484,26 +2548,29 @@ describe('CompletionService — typing past the trigger (npm-intellisense in `re
         };
         return Promise.resolve(
             completionResult([
-                { label: "left-pad", insertText: "left-pad", range },
-                { label: "@types/foo", insertText: "@types/foo", range },
+                { id: "left-pad", label: "left-pad", insertText: "left-pad", range },
+                { id: "@types/foo", label: "@types/foo", insertText: "@types/foo", range },
             ]),
         );
     }
 
-    function npmSetup(ts?: Source) {
+    type Resolve = (id: string) => Promise<ICoreResolvedCompletion | null>;
+
+    function npmSetup(ts?: Source, npmResolve?: Resolve, tsResolve?: Resolve) {
         const fake = makeEditor(HEAD, HEAD.length);
         const npm = vi.fn(npmSource);
         const languageFeatures = new LanguageFeaturesService();
         languageFeatures.completionProvider.register("*", {
             triggerCharacters: ['"', "'", "/"],
             provideCompletionItems: npm,
+            ...(npmResolve !== undefined ? { resolveCompletionItem: npmResolve } : {}),
         });
-        const tsSource = vi.fn<Source>(ts ?? (() => Promise.resolve(completionResult([]))));
         if (ts !== undefined) {
             // tsserver declares `@` for JSDoc; its module items carry no range of their own here.
             languageFeatures.completionProvider.register("*", {
                 triggerCharacters: ['"', "@", "."],
-                provideCompletionItems: tsSource,
+                provideCompletionItems: ts,
+                ...(tsResolve !== undefined ? { resolveCompletionItem: tsResolve } : {}),
             });
         }
         const { service, component, body } = createService(
@@ -2514,7 +2581,7 @@ describe('CompletionService — typing past the trigger (npm-intellisense in `re
         );
         TestApp.create(body, new Size(80, 24));
         const labels = (): string[] => component.view.items.map((item) => item.label);
-        return { service, fake, npm, tsSource, labels };
+        return { service, fake, npm, labels };
     }
 
     const TS_LEFT_PAD: Source = () =>
@@ -2547,7 +2614,9 @@ describe('CompletionService — typing past the trigger (npm-intellisense in `re
     });
 
     it("with a warm TypeScript provider: `@` asks only it and keeps npm-intellisense's items", async () => {
-        const { service, fake, npm, tsSource, labels } = npmSetup(TS_LEFT_PAD);
+        const tsSource = vi.fn(TS_LEFT_PAD);
+        const npmResolve = vi.fn(() => Promise.resolve(null));
+        const { service, fake, npm, labels } = npmSetup(tsSource, npmResolve);
         await typeQuote(fake);
         expect(labels()).toEqual(["left-pad", "left-pad", "@types/foo"]);
 
@@ -2564,6 +2633,9 @@ describe('CompletionService — typing past the trigger (npm-intellisense in `re
 
         fake.type(`${HEAD}"@types`, QUOTE_END + 6);
         service.acceptSelected();
+        // A reused item still resolves through its own provider.
+        expect(npmResolve).toHaveBeenCalledWith("@types/foo");
+        await flushTimers();
         const [edits] = fake.applyExternalEdits.mock.calls[0];
         // The reused range was moved to the retrigger cursor: accept counts `types` from there, no `s` tail.
         expect(edits[0].range).toEqual({
@@ -2574,12 +2646,16 @@ describe('CompletionService — typing past the trigger (npm-intellisense in `re
 
     it("with a cold TypeScript provider: the npm-intellisense list stays on screen, filtered, until the response", async () => {
         let answer: ((result: ICoreCompletionResult) => void) | null = null;
-        const { service, fake, labels } = npmSetup((request) =>
-            request.triggerCharacter === "@"
-                ? new Promise((resolve) => {
-                      answer = resolve;
-                  })
-                : Promise.resolve(completionResult([])),
+        const tsResolve = vi.fn(() => Promise.resolve(null));
+        const { service, fake, labels } = npmSetup(
+            (request) =>
+                request.triggerCharacter === "@"
+                    ? new Promise((resolve) => {
+                          answer = resolve;
+                      })
+                    : Promise.resolve(completionResult([])),
+            undefined,
+            tsResolve,
         );
         await typeQuote(fake);
 
@@ -2594,12 +2670,17 @@ describe('CompletionService — typing past the trigger (npm-intellisense in `re
         // The late response is poured in, filtered by everything typed since the quote.
         assertReturnsDefined<(result: ICoreCompletionResult) => void>(answer)(
             completionResult([
-                { label: "@typescript/x", insertText: "@typescript/x" },
+                { id: "@typescript/x", label: "@typescript/x", insertText: "@typescript/x" },
                 { label: "left-pad", insertText: "left-pad" },
             ]),
         );
         await flushTimers();
         expect(labels()).toEqual(["@types/foo", "@typescript/x"]);
+
+        // The poured-in item resolves through the provider that answered the retrigger.
+        service.selectNext();
+        service.acceptSelected();
+        expect(tsResolve).toHaveBeenCalledWith("@typescript/x");
     });
 
     it("the prefix boundary stays at the original trigger even if the retrigger response has another range", async () => {
@@ -2631,41 +2712,12 @@ describe('CompletionService — typing past the trigger (npm-intellisense in `re
         expect(labels()).toEqual(["@param"]);
     });
 
-    it("a retrigger whose asked providers answer nothing and no items left to reuse closes the popup", async () => {
-        const fake = makeEditor("d", 1, "d");
-        const source = vi.fn((request: ICompletionRequest) =>
-            Promise.resolve(
-                completionResult(request.triggerCharacter === "-" ? [] : [{ label: "d-x", insertText: "d-x" }]),
-            ),
-        );
-        const group = makeGroup(fake.editor, source);
-        (group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["-"];
-        const { service, body } = createService(group);
-        TestApp.create(body, new Size(80, 24));
-        await service.trigger();
-        expect(service.isOpen()).toBe(true);
-
-        fake.type("d-", 2);
-        expect(service.isOpen()).toBe(true);
-        await flushTimers();
-
-        expect(source).toHaveBeenLastCalledWith(
-            expect.objectContaining({ triggerKind: CompletionTriggerKind.TriggerCharacter, triggerCharacter: "-" }),
-            expect.anything(),
-        );
-        expect(service.isOpen()).toBe(false);
-    });
-
     it("a provider without a range: a non-word character typed after the boundary filters too", async () => {
-        const fake = makeEditor(`${HEAD}"`, QUOTE_END);
         const items: ICoreCompletionItem[] = [
             { label: "left-pad", insertText: "left-pad" },
             { label: "@types/foo", insertText: "@types/foo" },
         ];
-        const { service, component, body } = createService(
-            makeGroup(fake.editor, () => Promise.resolve(completionResult(items))),
-        );
-        TestApp.create(body, new Size(80, 24));
+        const { service, component, fake } = setup(items, `${HEAD}"`, QUOTE_END);
         await service.trigger();
 
         fake.type(`${HEAD}"@`, QUOTE_END + 1);

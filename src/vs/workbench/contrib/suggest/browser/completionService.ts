@@ -89,9 +89,7 @@ export interface IInlineSuggestionsState {
 /** What a retrigger keeps from the open popup. */
 interface IReusedItems {
     readonly items: readonly ICoreCompletionItem[];
-    readonly providerOf: ReadonlyMap<ICoreCompletionItem, CompletionItemProvider>;
-    readonly prefixStart: number;
-    readonly prefixFromProvider: boolean;
+    readonly providerOf: Map<ICoreCompletionItem, CompletionItemProvider>;
 }
 
 const EMPTY_RESULT: ICompletionsFromProviders = { items: [], isIncomplete: false, providerOf: new Map() };
@@ -119,8 +117,10 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     private readonly waitForInline = this.register(new MutableDisposable<DisposableStore>());
     private activeEditor: TextEditorPane | null = null;
     private prefixRange: IRange | null = null;
-    // The provider set the prefix boundary — don't recompute it on further typing (refilterOpen).
-    private prefixFromProvider = false;
+    // The line text before the prefix boundary: an edit there (`a ind` → `aind`) makes the prefix something
+    // the user did not type (refilterOpen).
+    // Stryker disable next-line StringLiteral: the value is not read before the first trigger() — refilterOpen runs only with the popup open, and trigger() opens it and sets the field
+    private lineHead = "";
     // The popup was opened by something other than an explicit command (typing, trigger character).
     // Stryker disable next-line BooleanLiteral: the value is not read before the first trigger() — refilterOpen runs only with the popup open, and trigger() opens it and sets the field
     private autoSession = false;
@@ -265,10 +265,12 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // The provider sets the prefix boundary: after `d.` its `range` starts past the dot, while our
         // wordStart (WORD_CHAR includes `.` and `-` for settings.json) would give the prefix `d.`.
         // A retrigger keeps the original boundary: upstream filters every item from its own `editStart`,
-        // our widget has one filter per list, and the reused items were anchored there.
-        const providerStart = reused === null ? commonPrefixStart(extensionItems, active) : null;
-        const prefixFromProvider = reused?.prefixFromProvider ?? providerStart !== null;
-        const prefixStart = reused?.prefixStart ?? providerStart ?? wordStart(caretLine, caret.character);
+        // our widget has one filter per list, and the reused items were anchored there. The popup survived the
+        // wait (the ticket is fresh), so its boundary is still set.
+        const prefixStart =
+            reused !== null
+                ? assertReturnsDefined(this.prefixRange).start.character
+                : (commonPrefixStart(extensionItems, active) ?? wordStart(caretLine, caret.character));
         const prefix = caretLine.slice(prefixStart, caret.character);
 
         // Upstream's word provider is registered for `*`, in the last group of `orderedGroups`, and
@@ -291,11 +293,16 @@ export class CompletionService extends Disposable implements IContextKeyContribu
 
         this.activeEditor = editor;
         this.prefixRange = createRange(caret.line, prefixStart, caret.line, caret.character);
-        this.prefixFromProvider = prefixFromProvider;
+        this.lineHead = caretLine.slice(0, prefixStart);
         // Snapshot of the request cursor, not the current one: accept counts the characters typed since from it (resolveAcceptRange).
         this.triggerCaret = { line: active.line, character: active.character };
         this.isIncomplete = result.isIncomplete;
-        this.providerOf = new Map([...(reused?.providerOf ?? []), ...result.providerOf]);
+        if (reused === null) {
+            this.providerOf = result.providerOf;
+        } else {
+            for (const [item, provider] of result.providerOf) reused.providerOf.set(item, provider);
+            this.providerOf = reused.providerOf;
+        }
         this.autoSession = auto;
 
         const view = this.component.view;
@@ -324,7 +331,6 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         this.component.close();
         this.activeEditor = null;
         this.prefixRange = null;
-        this.prefixFromProvider = false;
         this.triggerCaret = null;
         this.isIncomplete = false;
         this.latest.cancel();
@@ -481,11 +487,10 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             this.close();
             return;
         }
-        // An edit left of the cursor glued a word onto the boundary (`a ind` → `aind`): the prefix is no longer
-        // what the user typed. Not for a provider boundary: it lies where the core sees no word boundary
-        // (a settings.json key quote, a tsserver dot).
+        // An edit left of the boundary (`a ind` → `aind`): the prefix is no longer what the user typed. Like
+        // upstream `_onNewContext`, which cancels when the line start changes.
         const prefixStart = prefixRange.start.character;
-        if (!this.prefixFromProvider && wordStart(line, active.character) < prefixStart) {
+        if (line.slice(0, prefixStart) !== this.lineHead) {
             this.close();
             return;
         }
@@ -703,12 +708,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             items.push(moved);
             providerOf.set(moved, provider);
         }
-        return {
-            items,
-            providerOf,
-            prefixStart: assertReturnsDefined(this.prefixRange).start.character,
-            prefixFromProvider: this.prefixFromProvider,
-        };
+        return { items, providerOf };
     }
 
     private accept(item: CompletionListItem): void {
