@@ -147,6 +147,21 @@
   применяется (общая строка «not applied yet»): `Types: Show Base Classes` видна в палитре и вне C++. Сьюты
   `extensionHost.clangd*` и CI-шаги ставят `clangd` из apt; без него — пропуск (`clangdMissing`). Смоук — undercurl на
   `int x = "s";`, сценарий `clangd` — подсказки, `Alt+O`, дерево типа и AST.
+- **`redhat.vscode-yaml`** (#972, сайт#40) — прокси на сток Open VSX 2.0.0, сервер `yaml-language-server` в бандле. Open VSX
+  отдаёт «latest» `2.1.2026102308`, но это pre-release (`preRelease: true`), реестр его не берёт. Гейт
+  `engines.diode: ">=0.12.8"`: ссылки (#1012) и `@` (#989) влиты после тега 0.12.7. `support: partial`. Схема — из
+  модлайна `# yaml-language-server: $schema=...` (относительный путь работает без сети), `yaml.schemas` или каталога
+  schemastore.org (`.github/workflows/*.yml` → `GitHub Workflow` в статус-баре, клик — пикер схем, линза над первой
+  строкой открывает схему через провайдер содержимого). Без сети схема по URL пропускается, YAML-проверки (`Map keys
+  must be unique`) остаются. Сервер отдаёт символы, F12 и rename по якорям, ссылки на `$ref: "#/…"`, quick fix `Delete
+  unused anchor`, on-type на Enter (отступ после `key:` и `- `, нужен `editor.formatOnType`); inlay hints,
+  implementation, иерархий и linked editing у него нет — это фиксирует `extensionHost.yaml.test.ts`. `configurationDefaults`
+  `[yaml]` дают `strings: true` в `editor.quickSuggestions`: plain-скаляр (`shell: b`) — строковый токен грамматики, и
+  без этой настройки попап бы не открылся; в комментарии он молчит. В кавычках (`shell: "b`) авто-подсказок нет, как и в
+  эталоне: диапазон пункта у сервера начинается с кавычки, а `"b` с меткой `bash` фильтр не сводит. Hover сервера
+  начинается с `#### <заголовок схемы>` — `stripMarkdown` снимает ATX-заголовки вне fenced-блоков. Пределы в `limits`:
+  hover без markdown-рендера, URL схемы из модлайна обрезан в статус-баре общим `MAX_ITEM_WIDTH` (24 ячейки). При старте
+  расширение спрашивает про телеметрию Red Hat тостом: смоук, сьют и сценарий ставят `redhat.telemetry.enabled: false`.
 - **`svelte.svelte-vscode`** (#975) — прокси на сток Open VSX 110.3.2; сервер, компилятор Svelte и TypeScript лежат в
   vsix, ставить ничего не надо. Гейт `engines.diode: ">=0.12.8"`: символы документа (#989) и рабочей области (#1014) и
   `showTextDocument` рядом из этой задачи — после тега 0.12.7. Inlay hints и линза ссылок идут по настройкам TypeScript
