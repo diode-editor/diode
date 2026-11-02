@@ -116,6 +116,37 @@ describe("NotificationToast — what the frame shows", () => {
         ]);
     });
 
+    it("buttons that don't fit one row flow onto the next, the close button stays visible", () => {
+        // ShellCheck's answer when the program is missing.
+        const box = boxLines(
+            renderToast({
+                severity: "error",
+                message: "Not found",
+                items: ["OK", "Installation Guide", "Try experimental WebAssembly"],
+            }),
+        );
+        expect(box.slice(3)).toEqual([
+            "│  Not found                                       │",
+            "│                                                  │",
+            "│                   [ OK ] [ Installation Guide ]  │",
+            "│          [ Try experimental WebAssembly ] [ × ]  │",
+            "│  F6 — reply                                      │",
+            "╰──────────────────────────────────────────────────╯",
+        ]);
+    });
+
+    it("a row filled to the last column stays one row, one column more moves the last button down", () => {
+        const buttonRows = (lastItem: string): string[] =>
+            boxLines(renderToast({ message: "m", items: ["12345678", "12345678", lastItem] })).filter((row) =>
+                row.includes("[ "),
+            );
+        expect(buttonRows("1234567890")).toEqual(["│  [ 12345678 ] [ 12345678 ] [ 1234567890 ] [ × ]  │"]);
+        expect(buttonRows("12345678901")).toEqual([
+            "│       [ 12345678 ] [ 12345678 ] [ 12345678901 ]  │",
+            "│                                           [ × ]  │",
+        ]);
+    });
+
     it("the title uses the severity accent, not the text color", () => {
         const { testApp } = mount({ severity: "error" });
         testApp.render();

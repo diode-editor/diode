@@ -424,7 +424,9 @@
   (`languages.provideHover` RPC, таймаут 5000 мс). Ядро спрашивает все подошедшие провайдеры и
   склеивает непустые ответы в порядке реестра (`ICoreHover {contents, range?}`, contents — блоки
   сырого markdown; `MarkedString {language, value}` сериализуется fenced-блоком). Реестр —
-  `ILanguageFeaturesService.hoverProvider` (тип `editor/common/languages/iHoverSource.ts`); UI —
+  `ILanguageFeaturesService.hoverProvider` (тип `editor/common/languages/iHoverSource.ts`); над ответами
+  провайдеров — диагностики под кареткой из `MarkerService` (`message source(code)`, эталонный
+  `MarkerHoverParticipant`); UI —
   contrib `hover` (пара `HoverService`/`HoverComponent` по образцу suggest: overlay-сессия у каретки
   без захвата фокуса, `stripMarkdown` в плоский текст, закрытие по Escape/правке/каретке/фокусу;
   ключ `editorHoverVisible`).
@@ -564,8 +566,9 @@
   `providedCodeActionKinds` из метаданных регистрации, `provideCodeActions`/`applyCodeAction`; выбор
   и склейка — `editor/contrib/codeAction`); потребители — source-команды
   `editor.action.organizeImports` / `fixAll` (полный диапазон + `only`, выбор `isPreferred` ??
-  первого) и `editor.action.quickFix` (Ctrl+., чорд Ctrl+K Ctrl+Q; строка каретки/выделение без
-  `only`, меню на `QuickInputService.quickPick`) в
+  первого) и `editor.action.quickFix` (Ctrl+., чорд Ctrl+K Ctrl+Q; точное выделение без `only`; нет
+  quickfix под кареткой — запрос `only: quickfix` с конца ближайшего маркера строки, как
+  `includeNearbyQuickFixes` эталона, но эталон спрашивает у всех маркеров: хост держит два ответа на провайдер; меню на `QuickInputService.quickPick`) в
   `contrib/codeAction/browser/codeActionActions.ts`; notices в статус-баре. Сборка зависимостей —
   ассемблер `buildVscodeNamespace` передаёт `workspace.applyEdit` / `commands.executeCommand` в
   `createLanguagesNamespace` (commands строится ДО languages).

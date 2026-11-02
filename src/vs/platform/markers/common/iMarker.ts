@@ -17,6 +17,12 @@ export interface IMarkerData {
     readonly source?: string;
 }
 
+/** Upstream marker hover: `source(code)`, or whichever of the two is there. */
+export function markerOriginLabel({ source, code }: IMarkerData): string {
+    if (source !== undefined && code !== undefined) return `${source}(${code})`;
+    return source ?? code ?? "";
+}
+
 export interface IMarker extends IMarkerData {
     readonly owner: string;
     /** The resource as `uri.toString()`, not a disk path (can be `untitled:`, `git:`, …). */
