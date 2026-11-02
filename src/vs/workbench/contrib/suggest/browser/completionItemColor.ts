@@ -14,10 +14,11 @@ const REGEX_STRICT = new RegExp(`^${REGEX_RELAXED.source}$`, "i");
 /** Upstream `ColorExtractor.extract` of `suggestWidgetRenderer.ts`: the whole label or detail, or a color at an edge of the documentation. */
 function colorText(item: ICoreCompletionItem): string | undefined {
     if (REGEX_STRICT.test(item.label)) return item.label;
-    if (item.detail !== undefined && REGEX_STRICT.test(item.detail)) return item.detail;
-    if (item.documentation === undefined) return undefined;
-    const match = REGEX_RELAXED.exec(item.documentation);
-    if (match !== null && (match.index === 0 || match.index + match[0].length === item.documentation.length)) {
+    // `undefined` turns into the text "undefined", which holds no color.
+    if (REGEX_STRICT.test(String(item.detail))) return item.detail;
+    const documentation = String(item.documentation);
+    const match = REGEX_RELAXED.exec(documentation);
+    if (match !== null && (match.index === 0 || match.index + match[0].length === documentation.length)) {
         return match[0];
     }
     return undefined;
@@ -32,6 +33,7 @@ export function completionItemColor(item: ICoreCompletionItem): number | undefin
     const text = colorText(item);
     if (text === undefined) return undefined;
     const parsed = computeDefaultDocumentColors({
+        // Stryker disable next-line ObjectLiteral: the range of the parsed color is never read, only its color
         positionAt: (offset) => ({ line: 0, character: offset }),
         findMatches: (regex) => [...text.matchAll(regex)],
     }).at(0);
