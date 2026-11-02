@@ -36,7 +36,7 @@ function makeCtx(): { stub: IStubRpc; languages: typeof vscode.languages; sync: 
     ctx.documentSync.open({ uri: URI, languageId: "go", version: 1, text: "import x\n" });
     ctx.documentSync.open({ uri: OTHER_URI, languageId: "go", version: 1, text: "other\n" });
     const sync = (version: number): void => {
-        ctx.documentSync.open({ uri: URI, languageId: "go", version, text: "import x\n" });
+        ctx.documentSync.open({ uri: URI, languageId: "go", version, text: `import x // ${String(version)}\n` });
     };
     return { stub, languages, sync };
 }
