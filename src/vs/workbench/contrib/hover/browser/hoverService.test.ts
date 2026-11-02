@@ -72,6 +72,14 @@ describe("stripMarkdown — plain text for the TUI popup", () => {
         expect(stripMarkdown("intro\n#\nend")).toBe("intro\n\nend");
     });
 
+    it("an ATX heading loses its closing `#` sequence too, a `#` inside the text stays", () => {
+        // JSON Schema `markdownDescription: "## Name ##"` showed `Name ##` in the YAML hover
+        expect(stripMarkdown("## Name ##\nPet name")).toBe("Name\nPet name");
+        expect(stripMarkdown("# Title #####")).toBe("Title");
+        expect(stripMarkdown("# C# language")).toBe("C# language");
+        expect(stripMarkdown("# Tag #1")).toBe("Tag #1");
+    });
+
     it("not a heading: seven `#`s, no space after them, indent 4, an escaped `#`", () => {
         expect(stripMarkdown("####### seven\n#tag\n    # code\n\\# literal")).toBe(
             "####### seven\n#tag\n    # code\n# literal",
