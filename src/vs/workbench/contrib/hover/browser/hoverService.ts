@@ -164,7 +164,7 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         const markerBlocks = this.markers
             .read({ resource: editor.uri.toString() })
             .filter((marker) => rangeContainsPosition(marker.range, caret))
-            .map((marker) => [marker.message, markerOriginLabel(marker)].filter((part) => part !== "").join(" "));
+            .map((marker) => `${marker.message} ${markerOriginLabel(marker)}`);
         const blocks = [...markerBlocks, ...hovers.flatMap((hover) => hoverBlocks(hover.contents))].filter(
             (block) => block !== "",
         );

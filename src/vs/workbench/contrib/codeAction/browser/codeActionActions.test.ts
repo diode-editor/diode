@@ -379,6 +379,32 @@ describe("editor.action.organizeImports / fixAll", () => {
             expect(setup.pickCalls[0].items.map((item) => item.label)).toContain("Fix");
         });
 
+        it.each([
+            ["left", [onLine(1, 3, 4), onLine(1, 7, 8)]],
+            ["right", [onLine(1, 7, 8), onLine(1, 3, 4)]],
+        ])("the nearest marker wins whichever comes first (listed %s first)", async (_name, markers) => {
+            const setup = makeSetup(
+                fixesAt({
+                    4: { id: "1", title: "Near", kind: "quickfix" },
+                    8: { id: "2", title: "Far", kind: "quickfix" },
+                }),
+                { selection: caret(5), markers },
+            );
+
+            await quickFixAction.run(setup.accessor);
+
+            expect(setup.requests[1].range).toEqual(createRange(1, 4, 1, 4));
+        });
+
+        it("a marker of another file on the same line is not asked about", async () => {
+            const setup = makeSetup(fixesAt({}), { selection: caret(7) });
+            setup.accessor.get(MarkerServiceDIToken).changeOne("test", "file:///proj/other.py", [onLine(1, 0, 2)]);
+
+            await quickFixAction.run(setup.accessor);
+
+            expect(setup.requests).toHaveLength(1);
+        });
+
         it("no marker on the line: nothing more is asked", async () => {
             const setup = makeSetup(fixesAt({}), { selection: caret(7), markers: [onLine(0, 0, 2)] });
 

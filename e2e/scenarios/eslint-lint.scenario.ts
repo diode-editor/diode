@@ -54,6 +54,8 @@ export default defineScenario({
             { describe: "undercurl squiggle from eslint", timeoutMs: 30_000, intervalMs: 500 },
         );
         await editor.capture("diagnostics");
+        // On the doubled `;`: Quick Fix asks at the caret, and at the line start it is `no-unused-vars` that is nearest.
+        await editor.sendKey("End");
 
         // The menu is filled by a single request with a 5 s timeout: if it hits a busy server, it stays empty forever
         // (an observed flake), so the menu is reopened rather than awaited.
