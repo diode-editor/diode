@@ -115,6 +115,14 @@ describe("LanguagesNamespace — registerDocumentLinkProvider", () => {
         expect(resolve.mock.calls[0][0]).toBe(good);
     });
 
+    it("a null target is no target: the entry stays", async () => {
+        const { stub, languages } = makeCtx();
+        const odd = Object.assign(link(), { target: null });
+        languages.registerDocumentLinkProvider("go", { provideDocumentLinks: () => [odd] as never });
+        const list = (await stub.callRequest(PROVIDE, params())) as { links: unknown[] };
+        expect(list.links).toEqual([{ id: 0, range: WIRE_RANGE }]);
+    });
+
     it("a target goes over the wire as a url: what it needs literally is not encoded", async () => {
         const { stub, languages } = makeCtx();
         const target = "https://a.b/x@v1?k=v&l=a,b#frag";
@@ -148,7 +156,17 @@ describe("LanguagesNamespace — registerDocumentLinkProvider", () => {
                 throw new Error("boom");
             },
         });
+        const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
         expect(await stub.callRequest(PROVIDE, params())).toMatchObject({ links: [] });
+        expect(error.mock.calls[0][0]).toContain("provideDocumentLinks failed: ");
+        error.mockRestore();
+    });
+
+    it("a request without a handle asks nobody, whichever providers exist", async () => {
+        const { stub, languages } = makeCtx();
+        languages.registerDocumentLinkProvider("go", { provideDocumentLinks: () => [] });
+        languages.registerDocumentLinkProvider("go", { provideDocumentLinks: () => [] });
+        expect(await stub.callRequest(PROVIDE, params({ handle: undefined }))).toBeNull();
     });
 
     it("an unknown provider or an unsynced document is null", async () => {
@@ -208,6 +226,44 @@ describe("LanguagesNamespace — registerDocumentLinkProvider", () => {
             expect(await stub.callRequest(RESOLVE, { handle: 0, cacheId: 999, id: 0 })).toBeNull();
             expect(await stub.callRequest(RESOLVE, { handle: 0, cacheId, id: 5 })).toBeNull();
             expect(await stub.callRequest(RESOLVE, null)).toBeNull();
+        });
+
+        it("a provider without the method: the target the link already has", async () => {
+            const { stub, languages } = makeCtx();
+            languages.registerDocumentLinkProvider("go", { provideDocumentLinks: () => [link("https://own/")] });
+            const { cacheId } = (await stub.callRequest(PROVIDE, params())) as IList;
+            expect(await stub.callRequest(RESOLVE, { handle: 0, cacheId, id: 0 })).toBe("https://own/");
+        });
+
+        it("a failure is reported under the method's name", async () => {
+            const { stub, languages } = makeCtx();
+            withResolve(languages, () => {
+                throw new Error("boom");
+            });
+            const { cacheId } = (await stub.callRequest(PROVIDE, params())) as IList;
+            const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+            await stub.callRequest(RESOLVE, { handle: 0, cacheId, id: 0 });
+            expect(error.mock.calls[0][0]).toContain("resolveDocumentLink failed: ");
+            error.mockRestore();
+        });
+
+        it("a field left out names nothing; the id finds its own entry", async () => {
+            const { stub, languages } = makeCtx();
+            const twoLinks = {
+                provideDocumentLinks: () => [link(), link()],
+                resolveDocumentLink: () => link("https://resolved/"),
+            };
+            languages.registerDocumentLinkProvider("go", twoLinks);
+            languages.registerDocumentLinkProvider("go", twoLinks);
+            const first = (await stub.callRequest(PROVIDE, params({ handle: 0 }))) as IList;
+            const second = (await stub.callRequest(PROVIDE, params({ handle: 1 }))) as IList;
+
+            expect(await stub.callRequest(RESOLVE, { handle: 0, cacheId: first.cacheId, id: 1 })).toBe(
+                "https://resolved/",
+            );
+            expect(await stub.callRequest(RESOLVE, { cacheId: second.cacheId, id: 0 })).toBeNull();
+            expect(await stub.callRequest(RESOLVE, { handle: 0, id: 0 })).toBeNull();
+            expect(await stub.callRequest(RESOLVE, { handle: 0, cacheId: first.cacheId })).toBeNull();
         });
 
         it("the lists of one version all stay: every split of a document holds its own", async () => {

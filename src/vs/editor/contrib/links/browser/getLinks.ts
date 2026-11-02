@@ -20,6 +20,7 @@ export function unionLinks(oldLinks: readonly ILink[], newLinks: readonly ILink[
         const newLink = newLinks[newIndex];
         if (intersectOrTouch(oldLink.range, newLink.range)) {
             oldIndex++;
+            // Stryker disable next-line EqualityOperator: links that do not meet never start at the same position
         } else if (comparePositions(oldLink.range.start, newLink.range.start) < 0) {
             result.push(oldLink);
             oldIndex++;

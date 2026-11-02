@@ -246,9 +246,17 @@ export interface IFormattingRegistration {
     readonly provider: vscode.DocumentFormattingEditProvider;
 }
 
+interface IDocumentLinkList {
+    readonly uri: string | undefined;
+    readonly version: number | undefined;
+    readonly items: readonly unknown[];
+}
+
 export interface IDocumentLinkRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.DocumentLinkProvider;
+    /** By `cacheId`; goes with the provider. */
+    readonly lists: Map<number, IDocumentLinkList>;
 }
 
 export interface IOnTypeFormattingRegistration {
@@ -514,38 +522,23 @@ export function createLanguagesNamespace(
 
     // `resolveDocumentLink` gets THE SAME object the provider returned. Depth is in versions of the document, per
     // provider: every split holds its own list of the same version, and a depth in lists would lose the first split's.
-    const documentLinkCache = new Map<
-        number,
-        {
-            readonly handle: number;
-            readonly uri: string | undefined;
-            readonly version: number | undefined;
-            readonly items: readonly unknown[];
-        }
-    >();
-
     function rememberDocumentLinks(
-        handle: number,
+        lists: Map<number, IDocumentLinkList>,
         uri: string | undefined,
         version: number | undefined,
         items: readonly unknown[],
     ): number {
+        // Stryker disable next-line UpdateOperator: any id that differs from the others will do
         const cacheId = nextCacheId++;
-        documentLinkCache.set(cacheId, { handle, uri, version, items });
-        const own = [...documentLinkCache].filter(([, bucket]) => bucket.handle === handle && bucket.uri === uri);
+        lists.set(cacheId, { uri, version, items });
+        const own = [...lists].filter(([, list]) => list.uri === uri);
         // Insertion order is version order: an older one never asks after a newer one has.
-        const versions = [...new Set(own.map(([, bucket]) => bucket.version))];
+        const versions = [...new Set(own.map(([, list]) => list.version))];
         const stale = new Set(versions.slice(0, -COMPLETION_CACHE_DEPTH));
-        for (const [key, bucket] of own) {
-            if (stale.has(bucket.version)) documentLinkCache.delete(key);
+        for (const [key, list] of own) {
+            if (stale.has(list.version)) lists.delete(key);
         }
         return cacheId;
-    }
-
-    function forgetDocumentLinks(handle: number): void {
-        for (const [key, bucket] of documentLinkCache) {
-            if (bucket.handle === handle) documentLinkCache.delete(key);
-        }
     }
 
     // The action applied must be THE SAME object the provider returned (in the client it is a
@@ -958,15 +951,16 @@ export function createLanguagesNamespace(
                 reportProviderFailure("provideDocumentLinks", err, reg.owner);
             }
             const { links, valid } = serializeDocumentLinks(result);
-            return { cacheId: rememberDocumentLinks(handle, p.uri, p.version, valid), links };
+            return { cacheId: rememberDocumentLinks(reg.lists, p.uri, p.version, valid), links };
         },
     );
 
     rpc.handleRequest("languages.resolveDocumentLink", async (params, cancellation): Promise<string | null> => {
         const p = (params as Partial<IWireResolveDocumentLinkParams> | null | undefined) ?? {};
         const reg = documentLinkProviders.get(p.handle ?? -1);
-        const item = documentLinkCache.get(p.cacheId ?? -1)?.items[p.id ?? -1];
-        if (reg === undefined || item === undefined) return null;
+        if (reg === undefined) return null;
+        const item = reg.lists.get(p.cacheId ?? -1)?.items[p.id ?? -1];
+        if (item === undefined) return null;
         try {
             const resolved: unknown = await callWithVscodeToken(cancellation, (token) =>
                 reg.provider.resolveDocumentLink?.(item as vscode.DocumentLink, token),
@@ -1871,9 +1865,8 @@ export function createLanguagesNamespace(
                 documentLinkProviders,
                 "documentLink",
                 selector,
-                { selector, provider },
+                { selector, provider, lists: new Map() },
                 { hasResolve: typeof provider.resolveDocumentLink === "function" },
-                forgetDocumentLinks,
             ),
         registerColorProvider: (
             selector: vscode.DocumentSelector,

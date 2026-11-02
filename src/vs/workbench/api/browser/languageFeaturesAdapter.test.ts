@@ -258,6 +258,9 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.resolveDocumentLink).toHaveBeenCalledWith(3, 7, 1, token);
 
         expect((await ask("c"))?.[1].resolve).toBeUndefined();
+
+        vi.spyOn(bridge, "provideDocumentLinks").mockResolvedValueOnce(null);
+        await expect(ask("c")).resolves.toBeUndefined();
         adapter.dispose();
     });
 

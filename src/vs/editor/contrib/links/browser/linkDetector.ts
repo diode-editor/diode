@@ -92,8 +92,9 @@ export class LinkDetector extends Disposable {
             const range = this.liveRange(decorationId);
             if (range === null) continue;
             if (comparePositions(range.start, position) > 0) break;
-            if (positionsEqual(range.end, position)) endingHere = link;
-            else if (comparePositions(position, range.end) < 0) return link;
+            const toEnd = comparePositions(position, range.end);
+            if (toEnd < 0) return link;
+            if (toEnd === 0) endingHere = link;
         }
         return endingHere;
     }
@@ -142,6 +143,7 @@ export class LinkDetector extends Disposable {
             sorted.map((link) => ({
                 range: link.range,
                 options: {
+                    // Stryker disable next-line StringLiteral: a name for debugging, nothing reads it
                     description: "detected-link",
                     stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
                 },

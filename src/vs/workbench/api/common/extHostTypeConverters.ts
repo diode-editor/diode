@@ -708,6 +708,7 @@ export function serializeDocumentLinks(raw: unknown): {
 } {
     const links: IWireDocumentLink[] = [];
     const valid: unknown[] = [];
+    // Stryker disable next-line ArrayDeclaration: an element that is no link is dropped just as there being none
     for (const item of Array.isArray(raw) ? (raw as unknown[]) : []) {
         const link = (item ?? {}) as { range?: unknown; target?: unknown; tooltip?: unknown };
         const range = rangeFrom(link.range);
@@ -729,7 +730,7 @@ export function serializeDocumentLinks(raw: unknown): {
  * href: `toString()` alone would encode the `=`, `&` and `@` a url needs as they are.
  */
 export function documentLinkTarget(raw: unknown): string | null {
-    const target = (raw as { target?: unknown } | null | undefined)?.target;
+    const target = (raw as { target?: unknown }).target;
     return Uri.isUri(target) ? encodeURI(target.toString(true)) : null;
 }
 

@@ -7,6 +7,8 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import type { EditorElement } from "../../../../editor/browser/editorElement.ts";
+import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
 import { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type { ILink, LinkProvider } from "../../../../editor/common/languages/iLinkSource.ts";
@@ -139,6 +141,15 @@ describe("EditorComponent — document links", () => {
         pane.onDidClickLink((link) => clicked.push(link));
         ctrlClick(pane, ON_LINK);
         expect(clicked.map((link) => link.url)).toEqual(["https://a.b/c"]);
+    });
+
+    it("a click on an underline the detector no longer knows gives nothing", async () => {
+        const { pane } = await open();
+        const clicked: ILink[] = [];
+        pane.onDidClickLink((link) => clicked.push(link));
+        (pane.component.view.getChild() as unknown as EditorElement).setDocumentLinks([createRange(0, 0, 0, 3)]);
+        ctrlClick(pane, GUTTER + 1);
+        expect(clicked).toEqual([]);
     });
 
     it("the link at the end of each selection; a selection off a link adds nothing", async () => {

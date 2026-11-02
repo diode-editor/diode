@@ -23,6 +23,7 @@ interface IFixture {
     readonly ranges: () => readonly IRange[];
     readonly detector: LinkDetector;
     readonly calls: () => number;
+    readonly publishes: () => number;
 }
 
 let nextFile = 0;
@@ -60,11 +61,21 @@ describe("LinkDetector", () => {
         );
         registry.register("*", { provideLinks: provide });
         let ranges: readonly IRange[] = [];
+        let publishes = 0;
         const detector = new LinkDetector(model, registry, enabled, (next) => {
             ranges = next;
+            publishes++;
         });
         toDispose.push(detector);
-        return { document, language, registry, ranges: () => ranges, detector, calls: () => provide.mock.calls.length };
+        return {
+            document,
+            language,
+            registry,
+            ranges: () => ranges,
+            detector,
+            calls: () => provide.mock.calls.length,
+            publishes: () => publishes,
+        };
     }
 
     function edit(document: TextDocument, line: number, character: number, text: string): void {
@@ -99,6 +110,33 @@ describe("LinkDetector", () => {
         await vi.advanceTimersByTimeAsync(0);
         document.applyEdits([createTextEdit(createRange(0, 2, 0, 6), "")]);
         expect(ranges()).toEqual([]);
+    });
+
+    it("a link the document no longer knows is dropped", async () => {
+        const { document, ranges } = fixture("a link b");
+        await vi.advanceTimersByTimeAsync(0);
+        vi.spyOn(document, "getDecorationRange").mockReturnValue(null);
+        edit(document, 0, 0, "x");
+        expect(ranges()).toEqual([]);
+    });
+
+    it("an edit publishes nothing while there are no links, before the first answer and after it", async () => {
+        const { document, publishes } = fixture("plain", true, () => []);
+        edit(document, 0, 0, "x");
+        expect(publishes()).toBe(0);
+        await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+        const answered = publishes();
+        edit(document, 0, 0, "y");
+        expect(publishes()).toBe(answered);
+    });
+
+    it("the next answer replaces the decorations of the previous one", async () => {
+        const { document, language } = fixture("a link b");
+        await vi.advanceTimersByTimeAsync(0);
+        const delta = vi.spyOn(document, "deltaDecorations");
+        language.fire(undefined);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(delta.mock.calls[0][0]).toEqual([expect.any(String)]);
     });
 
     it("an edit asks again after the debounce, and each edit restarts it", async () => {
@@ -200,6 +238,13 @@ describe("LinkDetector", () => {
         expect(ranges()).toEqual([]);
         await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 5);
         expect(calls()).toBe(1);
+    });
+
+    it("dispose in flight drops the answer", async () => {
+        const { detector, ranges } = fixture("a link b");
+        detector.dispose();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(ranges()).toEqual([]);
     });
 
     describe("getLinkAt", () => {

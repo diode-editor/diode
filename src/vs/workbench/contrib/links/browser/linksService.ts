@@ -32,10 +32,8 @@ const POSITION_FRAGMENT = /^L?(\d+)(?:,(\d+))?/;
  */
 function resolveRelativeFile(target: Uri, documentUri: Uri): Uri {
     if (target.scheme !== "file" || documentUri.scheme !== "file") return target;
-    const relative =
-        target.authority === "." ? target.path : target.path.startsWith("/./") ? target.path.slice(2) : null;
-    if (relative === null) return target;
-    return Uri.joinPath(documentUri, "..", `.${relative}`).with({ fragment: target.fragment });
+    if (target.authority !== "." && !target.path.startsWith("/./")) return target;
+    return Uri.joinPath(documentUri, "..", `.${target.path}`).with({ fragment: target.fragment });
 }
 
 export const LinksServiceDIToken = token<LinksService>("LinksService");
@@ -99,6 +97,7 @@ export class LinksService extends Disposable {
         }
         if (uri.scheme === "command") {
             const { command, args } = targetOf(uri.toString()) as { command: string; args: unknown[] };
+            // Stryker disable next-line StringLiteral: only a lens shows its title
             await runCodeLensCommand(this.commands, this.notifications, { id: command, title: "", arguments: args });
             return;
         }

@@ -211,6 +211,12 @@ describe("linkComputer", () => {
         assertLink("{http://a.b/{c}}", " http://a.b/{c}");
     });
 
+    it("a closing bracket is cut only for the same bracket before the link", () => {
+        assertLink("x http://a.b/(c)", "  http://a.b/(c)");
+        assertLink("x http://a.b/[c]", "  http://a.b/[c]");
+        assertLink("x http://a.b/{c}", "  http://a.b/{c}");
+    });
+
     it("an unopened closing bracket ends the link", () => {
         assertLink("http://a.b)c", "http://a.b");
         assertLink("http://a.b]c", "http://a.b");

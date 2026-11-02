@@ -2,6 +2,7 @@ import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import { RenderContext } from "@tuidom/core/dom/tuiElement";
 import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
@@ -91,6 +92,20 @@ describe("EditorElement — document links", () => {
             vi.restoreAllMocks();
         });
 
+        it("a cell clipped away is left alone", () => {
+            const { app, editor, gw } = setup();
+            const getCell = vi.spyOn(RenderContext.prototype, "getCell").mockReturnValue(null);
+            const setCell = vi.spyOn(RenderContext.prototype, "setCell");
+            editor.markDirty();
+            app.render();
+            const painted = setCell.mock.calls.filter(
+                ([x, y, cell]) => x === gw + 3 && y === 0 && cell.style !== undefined && cell.fg === undefined,
+            );
+            getCell.mockRestore();
+            setCell.mockRestore();
+            expect(painted).toEqual([]);
+        });
+
         it("a squiggle over a link wins", () => {
             const { app, editor, gw } = setup();
             editor.setStyleVars({ "editorError.foreground": packRgb(1, 1, 1) });
@@ -166,6 +181,25 @@ describe("EditorElement — document links", () => {
             expect(clicks).not.toHaveBeenCalled();
         });
 
+        it("the cell before a link is not on it, its first cell is", () => {
+            const { viewState, gw, clicks, send } = setup();
+            send("mousedown", gw + 1, 0, { ctrl: true });
+            send("mouseup", gw + 1, 0);
+            expect(clicks).not.toHaveBeenCalled();
+            expect(viewState.selections).toEqual([createCursorSelection(0, 1)]);
+            send("mousedown", gw + 2, 0, { ctrl: true });
+            send("mouseup", gw + 2, 0);
+            expect(clicks.mock.calls).toEqual([[LINK.start]]);
+        });
+
+        it("the first text cell is on a link starting at column 0", () => {
+            const { editor, gw, clicks, send } = setup();
+            editor.setDocumentLinks([createRange(0, 0, 0, 4)]);
+            send("mousedown", gw, 0, { ctrl: true });
+            send("mouseup", gw, 0);
+            expect(clicks).toHaveBeenCalledOnce();
+        });
+
         it("the gutter is not on a link starting at column 0", () => {
             const { editor, clicks, send } = setup();
             editor.setDocumentLinks([createRange(0, 0, 0, 4)]);
@@ -177,8 +211,10 @@ describe("EditorElement — document links", () => {
         it("the space below the document is not on the last line's link", () => {
             const { editor, gw, clicks, send } = setup();
             editor.setDocumentLinks([createRange(1, 0, 1, 6)]);
-            send("mousedown", gw + 2, 4, { ctrl: true });
-            send("mouseup", gw + 2, 4);
+            for (const row of [2, 4]) {
+                send("mousedown", gw + 2, row, { ctrl: true });
+                send("mouseup", gw + 2, row);
+            }
             expect(clicks).not.toHaveBeenCalled();
         });
 
@@ -218,6 +254,14 @@ describe("EditorElement — document links", () => {
             expect(fgAt(gw + 2)).toBe(ACTIVE_FG);
             expect(fgAt(gw + 1)).toBe(plain);
             expect(fgAt(gw, 1)).toBe(plain);
+        });
+
+        it("a move that stays on the same link does not repaint", () => {
+            const { editor, gw, send } = setup();
+            send("mousemove", gw + 3, 0, { ctrl: true });
+            const markDirty = vi.spyOn(editor, "markDirty");
+            send("mousemove", gw + 4, 0, { ctrl: true });
+            expect(markDirty).not.toHaveBeenCalled();
         });
 
         it("goes when Ctrl is off the move, the pointer moves off, or leaves", () => {

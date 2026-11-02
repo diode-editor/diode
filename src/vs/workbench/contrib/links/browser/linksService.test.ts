@@ -13,12 +13,17 @@ const DOC = Uri.file("/work/dir/doc.md");
 const range = createRange(0, 0, 0, 1);
 
 function setup(
-    options: { readonly opened?: boolean; readonly knownCommand?: boolean; readonly active?: boolean } = {},
+    options: {
+        readonly opened?: boolean;
+        readonly knownCommand?: boolean;
+        readonly active?: boolean;
+        readonly document?: Uri;
+    } = {},
 ) {
     const clicked = new Emitter<ILink>();
     const links: ILink[] = [];
     const goToPosition = vi.fn();
-    let activeUri = DOC;
+    let activeUri = options.document ?? DOC;
     const editor = {
         get uri() {
             return activeUri;
@@ -165,6 +170,16 @@ describe("LinksService", () => {
         const { click, openUri } = setup();
         await click({ range, url: "file:///.hidden/file.txt" });
         expect(openUri.mock.calls[0][0].toString()).toBe("file:///.hidden/file.txt");
+    });
+
+    it("only a file is relative, and only to a file", async () => {
+        const inAFile = setup();
+        await inAFile.click({ range, url: "foo://./x" });
+        expect(inAFile.openUri.mock.calls[0][0].toString()).toBe("foo://./x");
+
+        const inUntitled = setup({ document: Uri.from({ scheme: "untitled", path: "/doc" }) });
+        await inUntitled.click({ range, url: "file://./x" });
+        expect(inUntitled.openUri.mock.calls[0][0].toString()).toBe("file://./x");
     });
 
     it("another scheme goes to the editor as it is", async () => {

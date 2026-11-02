@@ -68,24 +68,21 @@ for (const char of FORCE_TERMINATION_CHARACTERS) classifier.set(char.charCodeAt(
 for (const char of CANNOT_END_WITH_CHARACTERS) classifier.set(char.charCodeAt(0), CharacterClass.CannotEndIn);
 
 function createLink(line: string, lineNumber: number, linkBeginIndex: number, linkEndIndex: number): ILink {
-    // Do not allow to end link in certain characters...
+    // Do not allow to end link in certain characters; the slashes of the scheme stop this at the latest.
     let lastIncludedCharIndex = linkEndIndex - 1;
-    do {
-        if (classifier.get(line.charCodeAt(lastIncludedCharIndex)) !== CharacterClass.CannotEndIn) break;
+    while (classifier.get(line.charCodeAt(lastIncludedCharIndex)) === CharacterClass.CannotEndIn) {
         lastIncludedCharIndex--;
-    } while (lastIncludedCharIndex > linkBeginIndex);
+    }
 
-    // Handle links enclosed in parens, square brackets and curlys.
-    if (linkBeginIndex > 0) {
-        const charCodeBeforeLink = line.charCodeAt(linkBeginIndex - 1) as CharCode;
-        const lastCharCodeInLink = line.charCodeAt(lastIncludedCharIndex) as CharCode;
-        if (
-            (charCodeBeforeLink === CharCode.OpenParen && lastCharCodeInLink === CharCode.CloseParen) ||
-            (charCodeBeforeLink === CharCode.OpenSquareBracket && lastCharCodeInLink === CharCode.CloseSquareBracket) ||
-            (charCodeBeforeLink === CharCode.OpenCurlyBrace && lastCharCodeInLink === CharCode.CloseCurlyBrace)
-        ) {
-            lastIncludedCharIndex--;
-        }
+    // Handle links enclosed in parens, square brackets and curlys. At the line's start the char before is NaN.
+    const charCodeBeforeLink = line.charCodeAt(linkBeginIndex - 1) as CharCode;
+    const lastCharCodeInLink = line.charCodeAt(lastIncludedCharIndex) as CharCode;
+    if (
+        (charCodeBeforeLink === CharCode.OpenParen && lastCharCodeInLink === CharCode.CloseParen) ||
+        (charCodeBeforeLink === CharCode.OpenSquareBracket && lastCharCodeInLink === CharCode.CloseSquareBracket) ||
+        (charCodeBeforeLink === CharCode.OpenCurlyBrace && lastCharCodeInLink === CharCode.CloseCurlyBrace)
+    ) {
+        lastIncludedCharIndex--;
     }
 
     return {
@@ -106,7 +103,7 @@ export function computeLinks(model: ILinkComputerTarget, from = 0, to = model.li
     const result: ILink[] = [];
     for (let i = from; i < to; i++) {
         const line = model.getLineContent(i);
-        // Stryker disable next-line ConditionalExpression,BlockStatement: a shortcut for the usual line; the automaton finds nothing in it anyway
+        // Stryker disable next-line ConditionalExpression,BlockStatement,StringLiteral: a shortcut for the usual line; the automaton finds nothing in it anyway
         if (!line.includes("://")) continue;
         const len = line.length;
 
@@ -153,17 +150,13 @@ export function computeLinks(model: ILinkComputerTarget, from = 0, to = model.li
                     case CharCode.SingleQuote:
                     case CharCode.DoubleQuote:
                     case CharCode.BackTick:
-                        if (linkBeginChCode === chCode) {
-                            chClass = CharacterClass.ForceTermination;
-                        } else if (
-                            linkBeginChCode === CharCode.SingleQuote ||
-                            linkBeginChCode === CharCode.DoubleQuote ||
-                            linkBeginChCode === CharCode.BackTick
-                        ) {
-                            chClass = CharacterClass.None;
-                        } else {
-                            chClass = CharacterClass.ForceTermination;
-                        }
+                        chClass =
+                            linkBeginChCode !== chCode &&
+                            (linkBeginChCode === CharCode.SingleQuote ||
+                                linkBeginChCode === CharCode.DoubleQuote ||
+                                linkBeginChCode === CharCode.BackTick)
+                                ? CharacterClass.None
+                                : CharacterClass.ForceTermination;
                         break;
                     case CharCode.Asterisk:
                         // `*` terminates a link if the link began with `*`.
@@ -186,7 +179,7 @@ export function computeLinks(model: ILinkComputerTarget, from = 0, to = model.li
                 }
             } else if (state === State.End) {
                 // The authority part may be an IPv6 address, which contains [ and ].
-                const chClass = chCode === CharCode.OpenSquareBracket ? CharacterClass.None : classifier.get(chCode);
+                const chClass = classifier.get(chCode);
                 if (chCode === CharCode.OpenSquareBracket) hasOpenSquareBracket = true;
 
                 if (chClass === CharacterClass.ForceTermination) {
