@@ -114,7 +114,6 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         const show = { group: target, uri };
         if (focus) this.latestFocusedShow = show;
 
-        this.groups.focusGroup(target.id, { focus: false });
         // Upstream `isUntitledWithAssociatedResource`: `Untitled-N` is a name, anything else a path to save to.
         if (uri.scheme === "untitled") {
             // Stryker disable next-line Regex: the pattern is not anchored, `\d` and `\d+` match the same names
