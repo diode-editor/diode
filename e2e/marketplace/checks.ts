@@ -10,6 +10,7 @@ import {
     LINT_JS,
     linkEslintLibrary,
 } from "../../src/TestUtils/eslintFixture.ts";
+import { CLANGD_ID, clangdMissing, CPP_SAMPLE_DIR } from "../../src/TestUtils/clangdFixture.ts";
 import { ensureGopls, GO_SAMPLE_DIR, GO_SESSION_ENV, goToolchainMissing } from "../../src/TestUtils/goFixture.ts";
 import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
 import { mavenMissing, writeMavenProject } from "../../src/TestUtils/mavenFixture.ts";
@@ -1118,6 +1119,33 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await session.waitForText((t) => !t.includes("Switch ShellCheck to the experimental"), {
                     timeoutMs: 20_000,
                 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock clangd. The server is the machine's clangd (CI installs it with apt): the
+        // extension's own download is ~50 MB and has no linux/arm64 build. The undercurl is clangd's, diode has no C++
+        // diagnostics of its own.
+        id: CLANGD_ID,
+        expectFiles: ["package.json", "out/bundle.js"],
+        requires: clangdMissing,
+        timeoutMs: 300_000,
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "cppproj");
+            cpSync(CPP_SAMPLE_DIR, projectRoot, { recursive: true });
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [projectRoot, join(projectRoot, "main.cpp")],
+            });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: 'undercurl under int x = "s" from clangd', timeoutMs: 120_000, intervalMs: 500 },
+                );
             } finally {
                 await app.dispose();
             }
