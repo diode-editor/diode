@@ -147,9 +147,49 @@
   применяется (общая строка «not applied yet»): `Types: Show Base Classes` видна в палитре и вне C++. Сьюты
   `extensionHost.clangd*` и CI-шаги ставят `clangd` из apt; без него — пропуск (`clangdMissing`). Смоук — undercurl на
   `int x = "s";`, сценарий `clangd` — подсказки, `Alt+O`, дерево типа и AST.
+- **`svelte.svelte-vscode`** (#975) — прокси на сток Open VSX 110.3.2; сервер, компилятор Svelte и TypeScript лежат в
+  vsix, ставить ничего не надо. Гейт `engines.diode: ">=0.12.8"`: символы документа (#989) и рабочей области (#1014) и
+  `showTextDocument` рядом из этой задачи — после тега 0.12.7. Inlay hints и линза ссылок идут по настройкам TypeScript
+  (`typescript.inlayHints.*`, `typescript.referencesCodeLens.enabled`): своих ключей для них манифест не объявляет, сервер
+  читает чужие, как в VS Code. `support: partial`: TS-плагин (`contributes.typescriptServerPlugins`) не грузится, `.ts` не
+  видит пропсы компонентов и rename объявления из `.ts` до `.svelte` не доходит. Вопрос «включить TS-плагин?» приходит
+  при первом открытом `.svelte`; `Enable` только пишет `svelte.enable-ts-plugin`: `_typescript.configurePlugin`
+  расширение зовёт лишь при наличии `vscode.typescript-language-features`, а его в Diode нет, встроенный TypeScript не
+  задет. Сниппеты (`contributes.snippets`) не предлагаются. Rename из разметки переименовывает импорт через алиас
+  (`greet as salute`): сервер всегда просит у TS префикс и суффикс, в VS Code так же. Call hierarchy видит вызовы, а не
+  ссылки: `on:click={increment}` — не вызов. Type hierarchy, on-type и ссылок документа у сервера нет, тест это фиксирует.
+  `Extract Component` создаёт файл и пишет текст в его модель без вкладки: файл грязный до сохранения, выход спрашивает
+  про него, как в эталоне; в корне проводника он появляется только после refresh — известная дыра «корень дерева
+  Explorer не наблюдается» ([FileTreePerformance](../TODO/FileTreePerformance.md)). `Show Compiled Code` открывает превью рядом
+  и просит у провайдера содержимого текст по `window.activeTextEditor`: новая пустая группа становилась активной до
+  открытия, и превью писало «no svelte file selected»; теперь, как в эталоне, группа добавляется без активации, а
+  активирует её открытие. Смоук — undercurl, `Enable` и настройка в файле,
+  `Show Compiled Code`, рестарт сервера и undercurl встроенного TypeScript в `.ts` после ответа.
 - **`timonwong.shellcheck`** (#970) — прокси на сток Open VSX 0.48.4. Гейт `engines.diode: ">=0.12.8"`: нужны ссылки в редакторе (#953) и правки этой задачи из коммитов после тега 0.12.7. `shellcheck.runtime: "auto"` на десктопе — это `native`, сам на wasm не падает: без бинаря расширение пишет `The shellcheck program was not found`, кнопка `Try experimental WebAssembly` тоста переключает настройку. При первом запуске этот тост стоит в очереди за `What's New` (тосты идут по одному), редактор живёт. `Apply fix` расширение отдаёт, только если запрошенный диапазон лежит внутри диагностики, поэтому `Ctrl+.` шлёт точное выделение, как `CodeActionOracle`, а если под кареткой исправлений нет, они добираются запросом `only: quickfix` с конца ближайшего маркера строки (`includeNearbyQuickFixes` эталона, но он спрашивает у всех маркеров, и настройки у нас нет). `support: partial`: нет сниппетов и walkthrough — кнопка `See What's New` только пишет в лог `command "workbench.action.openWalkthrough" not found`. С `shellcheck.markdownDiagnostics` hover показывает сырой HTML: рендерера markdown нет, а `supportHtml` до UI не доходит; настройка выключена по умолчанию, обычный hover даёт тот же текст. `Show wiki` и ссылка в `# shellcheck disable=` идут через внешний открыватель: браузер, а без графической сессии тост с адресом. Клика по коду в Problems нет: `Diagnostic.code.target` до панели не доезжает. Hover открывается командой (`Ctrl+K Ctrl+U`), наведения мышью в редакторе нет. Смоук — wasm, без внешнего инструмента: undercurl, код в Problems, hover, `Apply fix`, диагностика при наборе, `Disable`, ссылка, модальный диалог.
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
+
+## TypeScript: встроенный `diode-lsp-typescript` (typescript-language-server)
+
+Не из магазина: builtin, сервер вшит в поставку ([Extensions.md](Extensions.md)). Тесты —
+`extensionHost.typescriptLsp.{navigation,symbols}.test.ts`, демо — `typescript-navigation`.
+
+- **Работает:** Go to Implementations (панель при нескольких, переход при одном), Go to Type Definition, F12 с
+  несколькими целями (панель `Definitions` и `editor.gotoLocation.multipleDefinitions: goto`), подсветка вхождений
+  двумя цветами, linked editing JSX-тегов в `.tsx`, `@` и `@:` с containerName, `#` по файлам проекта, call hierarchy
+  в обе стороны.
+- **Сервер не отдаёт, провайдера нет:** declaration, on-type formatting, document links, type hierarchy. Пунктов
+  `Go to Declaration` и `Show Type Hierarchy` в контекстном меню `.ts` нет.
+- **Подсветка вхождений идёт мимо LSP.** Сервер отображает `writtenReference` в Read, а Write отдаёт только для
+  `definition`, которого `documentHighlights` не присылает: всё пришло бы цветом чтения. Middleware
+  `provideDocumentHighlights` спрашивает tsserver через `typescript.tsserverRequest` и различает виды, как
+  `convertDocumentHighlight` эталона (`lib/documentHighlights.ts`). Нет ответа — обычный запрос. `export { x }` и
+  параметр tsserver считает записью: это его решение, в VS Code так же.
+- **F12 на вызове перегрузки — одна цель:** tsserver называет разрешённую перегрузку. Три цели — на импорте или на
+  объявлении.
+- **Большой проект.** Поиск реализаций популярного метода (`IDisposable.dispose` в этом репозитории) идёт дольше
+  5 с; дедлайн выдавал это за пустой ответ, поэтому у навигации его нет. Индикатора прогресса, как у эталона
+  (`progressService.showWhile`), пока нет: до ответа кадр не меняется.
 
 ## Python: `detachhead.basedpyright` и `charliermarsh.ruff`
 
