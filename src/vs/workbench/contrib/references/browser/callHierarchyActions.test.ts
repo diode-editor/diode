@@ -66,7 +66,7 @@ describe("call hierarchy actions", () => {
         for (const action of [showOutgoingCallsAction, showIncomingCallsAction, removeCallItemAction]) {
             const visible = titleMenu(action).visible;
             expect(visible?.({ view: HIERARCHY_VIEW_ID })).toBe(true);
-            expect(visible?.({ view: "references-view.tree" })).toBe(false);
+            expect(visible?.({ view: "references-view.list" })).toBe(false);
             expect(action.when).toBe("callHierarchyVisible");
         }
     });
