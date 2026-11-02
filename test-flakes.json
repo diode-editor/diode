@@ -26,6 +26,12 @@
             "note": "status not yet tsconfig.json when read (expected { …(9) } to match object { label: 'tsconfig.json' }); broke the mutation dry run on #885 (run 40405134308), diff is indent guides"
         },
         {
+            "file": "src/vs/workbench/browser/workbench.workspaceSymbols.accept.test.ts",
+            "test": "Workbench — workspace symbols, accept and races > a large answer renders and Enter takes the first row",
+            "action": "retry",
+            "note": "20000 symbols under coverage timed out at 5 s on #1015 (run 41405396154); 1.1 s locally with and without that PR's matchSymbol change"
+        },
+        {
             "file": "src/vs/workbench/browser/parts/editor/editorComponent.diskReload.test.ts",
             "test": "EditorComponent — the document on disk reloaded after an external change > the in-memory reload is the reference: the cursor lands on the new last line",
             "action": "retry",
