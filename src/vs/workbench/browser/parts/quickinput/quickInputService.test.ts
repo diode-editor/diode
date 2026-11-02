@@ -45,6 +45,30 @@ describe("QuickInputService.input", () => {
         await expect(result).resolves.toBe("hello.txt");
     });
 
+    it("typing replaces the seeded value: an unset valueSelection selects all of it, as upstream", async () => {
+        const { service, testApp } = createService();
+        const result = service.input({ value: "name" });
+        testApp.sendKey("x");
+        testApp.sendKey("Enter");
+        await expect(result).resolves.toBe("x");
+    });
+
+    it("valueSelection replaces only the given part of the seeded value", async () => {
+        const { service, testApp } = createService();
+        const result = service.input({ value: "notes.txt", valueSelection: [0, 5] });
+        testApp.sendKey("x");
+        testApp.sendKey("Enter");
+        await expect(result).resolves.toBe("x.txt");
+    });
+
+    it("valueSelection counts string offsets: an emoji before the end does not widen it", async () => {
+        const { service, testApp } = createService();
+        const result = service.input({ value: "😀a.txt", valueSelection: [0, 3] });
+        testApp.sendKey("x");
+        testApp.sendKey("Enter");
+        await expect(result).resolves.toBe("x.txt");
+    });
+
     it("resolves with the typed value on Enter", async () => {
         const { service, testApp } = createService();
         const result = service.input({});
