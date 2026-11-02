@@ -53,6 +53,12 @@ describe.skipIf(MARKETPLACE_OFFLINE || JDK_MISSING)("ExtensionHost — stock red
 
         beforeAll(async () => {
             suite = await open({});
+            // A typed character finds the provider or is lost: the registration has its own pace, also after the wait above.
+            await waitUntil(
+                "the on type provider",
+                () => suite.harness.languageFeatures.onTypeFormattingEditProvider.has(suite.editorOf(TYPING)),
+                120_000,
+            );
         }, 400_000);
 
         afterAll(async () => {

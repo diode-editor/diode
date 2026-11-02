@@ -13,7 +13,8 @@ import type { RequestFn } from "./hostRequests.ts";
  * Formatting is absent as upstream too: a large file takes a formatter longer than any deadline here, an edit cancels
  * the request, and format on save cancels it at the save participant's deadline.
  * Implementations and both hierarchies are absent as upstream: jdt.ls takes longer than 5 s while it is busy, the empty
- * answer would leave an empty result on the frame, and the token cancels the request.
+ * answer would leave an empty result on the frame, and the token cancels the request. On type formatting too: a key is
+ * pressed once, nothing asks again, and the next edit cancels the request.
  */
 export const DEFAULT_REQUEST_TIMEOUTS = {
     "workspace.willSaveTextDocument": 1500,
@@ -27,7 +28,6 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.provideHover": 5000,
     "languages.provideReferences": 5000,
     "languages.provideSignatureHelp": 5000,
-    "languages.provideOnTypeFormattingEdits": 5000,
     "languages.provideCodeActions": 5000,
     "languages.applyCodeAction": 10000,
     "languages.prepareRename": 5000,

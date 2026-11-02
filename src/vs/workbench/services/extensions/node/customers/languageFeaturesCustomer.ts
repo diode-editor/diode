@@ -113,6 +113,7 @@ type LanguageRequestMethod =
     | "languages.provideDocumentSemanticTokens"
     | "languages.provideDocumentRangeSemanticTokens"
     | "languages.provideImplementation"
+    | "languages.provideOnTypeFormattingEdits"
     | "languages.prepareCallHierarchy"
     | "languages.provideCallHierarchyIncomingCalls"
     | "languages.provideCallHierarchyOutgoingCalls"

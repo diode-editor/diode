@@ -799,6 +799,25 @@ describe("LanguageFeaturesCustomer — no deadline on what a busy jdt.ls takes o
         });
     });
 
+    it("on type formatting: only the token ends the wait, as upstream", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideOnTypeFormattingEdits": untilCancelled });
+            return hung.customer.provideOnTypeFormattingEdits(
+                1,
+                {
+                    uri: SYNCED,
+                    languageId: "java",
+                    versionId: 7,
+                    position: { line: 0, character: 1 },
+                    ch: ";",
+                    tabSize: 4,
+                    insertSpaces: true,
+                },
+                token,
+            );
+        });
+    });
+
     it("call hierarchy: prepare, incoming and outgoing wait only for the token, as upstream", async () => {
         await expectWaitsUntilCancelled((token) => {
             const hung = setupAnswering({ "languages.prepareCallHierarchy": untilCancelled });

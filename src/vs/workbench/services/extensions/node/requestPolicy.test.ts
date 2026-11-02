@@ -68,7 +68,7 @@ describe("loggingRequest", () => {
 
 describe("DEFAULT_REQUEST_TIMEOUTS", () => {
     // Intentionally absent, they wait without a deadline as upstream: `languages.provideCompletionItems`,
-    // `languages.provideInlayHints`, `languages.provideCodeLenses`, `languages.resolveCodeLens`, `languages.provideImplementation`, both hierarchies.
+    // `languages.provideInlayHints`, `languages.provideCodeLenses`, `languages.resolveCodeLens`, `languages.provideImplementation`, on type formatting, both hierarchies.
     it("per-method wire deadlines match the previous host option defaults", () => {
         expect(DEFAULT_REQUEST_TIMEOUTS).toEqual({
             "workspace.willSaveTextDocument": 1500,
@@ -82,7 +82,6 @@ describe("DEFAULT_REQUEST_TIMEOUTS", () => {
             "languages.provideHover": 5000,
             "languages.provideReferences": 5000,
             "languages.provideSignatureHelp": 5000,
-            "languages.provideOnTypeFormattingEdits": 5000,
             "languages.provideCodeActions": 5000,
             "languages.applyCodeAction": 10000,
             "languages.prepareRename": 5000,
