@@ -3,7 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { until } from "../../../../../TestUtils/basedpyrightFixture.ts";
 import { documentVersion, provideDocumentSymbols } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
-import { type IInstalledSvelte, installSvelte, withSvelteFiles } from "../../../../../TestUtils/svelteFixture.ts";
+import { type IInstalledSvelte, installSvelte } from "../../../../../TestUtils/svelteFixture.ts";
+import { withSvelteFiles } from "../../../../../TestUtils/svelteSession.ts";
 import { waitUntil } from "../../../../../TestUtils/timing.ts";
 import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -94,7 +95,9 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — features of stock svelte
         withSvelteFiles(installed, async (session) => {
             const editor = session.activeEditor();
             const count = session.at("App.svelte", "let count", 4);
-            await waitUntil("the provider", () => session.harness.languageFeatures.documentHighlightProvider.has(editor));
+            await waitUntil("the provider", () =>
+                session.harness.languageFeatures.documentHighlightProvider.has(editor),
+            );
             editor.viewState.selections = [createCursorSelection(count.line, count.character + 1)];
             await waitUntil("the highlights", () => editor.viewState.wordHighlights.write.length > 0, 60_000);
             const { read, write } = editor.viewState.wordHighlights;
@@ -139,7 +142,10 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — features of stock svelte
                 editor.viewState.selections = [createCursorSelection(main.line, main.character + 4)];
                 await waitUntil("the linked ranges", () => editor.viewState.linkedEditingRanges.length === 2, 60_000);
                 editor.pushUndo(editor.viewState.type("x"));
-                await waitUntil("the mirror", () => editor.getText().includes("<mainx>") && editor.getText().includes("</mainx>"));
+                await waitUntil(
+                    "the mirror",
+                    () => editor.getText().includes("<mainx>") && editor.getText().includes("</mainx>"),
+                );
             } finally {
                 controller.dispose();
             }

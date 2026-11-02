@@ -136,7 +136,10 @@ describe("NotificationToast — what the frame shows", () => {
         // A button wider than the row is not preceded by an empty one.
         expect(boxLines(renderToast({ items: ["a".repeat(50)] }))[5]).toMatch(/^│ *\[ a+/u);
         const wraps = boxLines(renderToast({ items: ["a".repeat(37)] }));
-        expect(wraps.slice(5, 7)).toEqual([`│       [ ${"a".repeat(37)} ]  │`, "│                                           [ × ]  │"]);
+        expect(wraps.slice(5, 7)).toEqual([
+            `│       [ ${"a".repeat(37)} ]  │`,
+            "│                                           [ × ]  │",
+        ]);
     });
 
     it("the title uses the severity accent, not the text color", () => {

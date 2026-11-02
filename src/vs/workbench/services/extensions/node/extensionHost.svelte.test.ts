@@ -13,13 +13,8 @@ import {
     provideTypeDefinitions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
-import {
-    type IInstalledSvelte,
-    installSvelte,
-    type ISvelteSession,
-    SVELTE_FILES,
-    withSvelteFiles,
-} from "../../../../../TestUtils/svelteFixture.ts";
+import { type IInstalledSvelte, installSvelte, svelteSampleFiles } from "../../../../../TestUtils/svelteFixture.ts";
+import { type ISvelteSession, withSvelteFiles } from "../../../../../TestUtils/svelteSession.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 
 // The language features of stock svelte.svelte-vscode in a `.svelte` file, across to `.ts`. Inlay hints, lenses,
@@ -44,7 +39,6 @@ function targets(locations: readonly { uri: string; range: { start: { line: numb
         }),
     );
 }
-
 
 function openFile(session: ISvelteSession, name: string): void {
     session.harness.group.openFile(path.join(session.harness.tmpDir, name));
@@ -75,7 +69,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock svelte.svelte-vsco
             async (session) => {
                 const { harness } = session;
                 const editor = session.activeEditor();
-                const line = APP_LINES.indexOf("</main>");
+                const line = editor.getText().split("\n").indexOf("</main>");
                 editor.viewState.applyEdits([{ range: createRange(line, 0, line, 0), text: "    <Car\n" }], "test");
                 const uri = session.uriOf("App.svelte");
                 const item = await until("the Card item", async () => {
@@ -98,7 +92,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock svelte.svelte-vsco
                 );
             },
             {},
-            { ...SVELTE_FILES, "Card.svelte": "<div>card</div>\n" },
+            { ...svelteSampleFiles(), "Card.svelte": "<div>card</div>\n" },
         ),
     );
 
@@ -148,10 +142,10 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock svelte.svelte-vsco
             openFile(session, "Button.svelte");
             const result = await provideRename(harness, session.at("Button.svelte", "label: string"), "caption");
             expect(result).toEqual({ applied: true });
-            const app = harness.group.getEditors().find((editor) => editor.uri.toString() === session.uriOf("App.svelte"));
+            const app = harness.group
+                .getEditors()
+                .find((editor) => editor.uri.toString() === session.uriOf("App.svelte"));
             expect(app?.getText()).toContain('<Button caption="Add" on:click={increment} />');
         }),
     );
 });
-
-const APP_LINES = SVELTE_FILES["App.svelte"].split("\n");
