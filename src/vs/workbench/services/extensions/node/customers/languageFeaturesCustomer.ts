@@ -114,6 +114,8 @@ type LanguageRequestMethod =
     | "languages.provideInlayHints"
     | "languages.provideCompletionItems"
     | "languages.provideFormattingEdits"
+    | "languages.provideDocumentColors"
+    | "languages.provideDocumentLinks"
     | "languages.provideDefinition"
     | "languages.provideTypeDefinition"
     | "languages.provideDeclaration"
