@@ -34,6 +34,7 @@ export const OWNED_MEMBERS = {
         "createLanguageStatusItem",
         "registerCodeActionsProvider",
         "registerColorProvider",
+        "registerDocumentLinkProvider",
         "registerCompletionItemProvider",
         "registerDeclarationProvider",
         "registerDefinitionProvider",

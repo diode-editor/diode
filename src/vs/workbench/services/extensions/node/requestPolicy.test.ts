@@ -98,6 +98,8 @@ describe("DEFAULT_REQUEST_TIMEOUTS", () => {
             "languages.provideDocumentHighlights": 5000,
             "languages.provideLinkedEditingRanges": 5000,
             "languages.provideDocumentColors": 5000,
+            "languages.provideDocumentLinks": 5000,
+            "languages.resolveDocumentLink": 5000,
         });
     });
 });

@@ -5,6 +5,7 @@
  */
 import type * as vscode from "vscode";
 
+import { Uri } from "../../../base/common/uri.ts";
 import { comparePositions, createPosition, type IPosition } from "../../../editor/common/core/iPosition.ts";
 import { createRange, type IRange, rangesEqual } from "../../../editor/common/core/iRange.ts";
 import type { IColor, IColorInformation } from "../../../editor/common/languages/iColorSource.ts";
@@ -36,6 +37,7 @@ import {
 import type {
     IWireCodeLensCommand,
     IWireDocumentHighlight,
+    IWireDocumentLink,
     IWireEditorEdit,
     IWireInlayHint,
     IWireLinkedEditingRanges,
@@ -694,6 +696,42 @@ export function serializeDocumentColors(raw: unknown): IColorInformation[] | nul
         if (range !== null && color !== null) colors.push({ range, color });
     }
     return colors;
+}
+
+/**
+ * Upstream `DocumentLink.from`, except that a broken entry is dropped, not the whole answer. The result lines up
+ * with `valid`, the provider's own objects, for `resolveDocumentLink`.
+ */
+export function serializeDocumentLinks(raw: unknown): {
+    readonly links: IWireDocumentLink[];
+    readonly valid: readonly unknown[];
+} {
+    const links: IWireDocumentLink[] = [];
+    const valid: unknown[] = [];
+    // Stryker disable next-line ArrayDeclaration: an element that is no link is dropped just as there being none
+    for (const item of Array.isArray(raw) ? (raw as unknown[]) : []) {
+        const link = (item ?? {}) as { range?: unknown; target?: unknown; tooltip?: unknown };
+        const range = rangeFrom(link.range);
+        if (range === null) continue;
+        if (link.target !== undefined && link.target !== null && !Uri.isUri(link.target)) continue;
+        links.push({
+            id: valid.length,
+            range,
+            target: documentLinkTarget(item) ?? undefined,
+            tooltip: typeof link.tooltip === "string" ? link.tooltip : undefined,
+        });
+        valid.push(item);
+    }
+    return { links, valid };
+}
+
+/**
+ * `null` — no target yet, or a `resolveDocumentLink` that did not give one. As upstream's opener turns a URI into an
+ * href: `toString()` alone would encode the `=`, `&` and `@` a url needs as they are.
+ */
+export function documentLinkTarget(raw: unknown): string | null {
+    const target = (raw as { target?: unknown }).target;
+    return Uri.isUri(target) ? encodeURI(target.toString(true)) : null;
 }
 
 /** Part fields other than `value` have nothing to draw them yet. `null` is a label upstream calls invalid. */

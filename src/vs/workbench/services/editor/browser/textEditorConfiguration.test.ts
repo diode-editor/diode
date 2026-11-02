@@ -161,6 +161,22 @@ describe("TextEditorConfiguration", () => {
             }
         });
 
+        it("editor.links reaches the editor by language; default on", () => {
+            const spy = vi.spyOn(TextEditorPane.prototype, "setLinksEnabled");
+            try {
+                const ctrl = createEditorService({
+                    configurationService: stubConfigurationService({ "[markdown]": { "editor.links": false } }),
+                });
+                ctrl.openFile(writeFile("links.txt", "x"));
+                expect(spy).toHaveBeenLastCalledWith(true);
+
+                ctrl.getActiveEditor()!.setLanguage("markdown");
+                expect(spy).toHaveBeenLastCalledWith(false);
+            } finally {
+                spy.mockRestore();
+            }
+        });
+
         it("color decorator settings reach the editor by language, the limit floored; defaults: on, auto, 500", () => {
             const spy = vi.spyOn(TextEditorPane.prototype, "setColorDecorators");
             try {

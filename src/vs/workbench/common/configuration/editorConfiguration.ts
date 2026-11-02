@@ -295,6 +295,12 @@ export const editorConfiguration = {
                 "The number of lines above which a file is treated as large when `editor.largeFileOptimizations` " +
                 "is on.",
         },
+        "editor.links": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description: "Controls whether the editor should detect links and make them clickable.",
+        },
         "editor.formatOnType": {
             scope: "language-overridable",
             type: "boolean",
