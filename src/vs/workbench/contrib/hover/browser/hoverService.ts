@@ -19,6 +19,32 @@ import { HoverComponentDIToken } from "./hoverComponent.ts";
 // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string inside is only a debug label
 export const HoverServiceDIToken = token<HoverService>("HoverService");
 
+const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
+/** A fenced-block fence: inside it `---` is content (YAML), not a separator. */
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+/** An ATX heading's opening `#`s (CommonMark: up to 3 spaces of indent, 1 to 6 `#`, then a space or the line end). */
+const ATX_HEADING = /^ {0,3}#{1,6}(?:[ \t]+|$)/;
+
+/** `#### Person` from the YAML server is the text `Person`; a `# comment` inside a fenced block stays. */
+function stripHeadings(value: string): string {
+    let fence: string | null = null;
+    return value
+        .split("\n")
+        .map((line) => {
+            const opener = FENCE.exec(line)?.[1];
+            if (fence !== null) {
+                if (opener?.startsWith(fence[0]) === true && opener.length >= fence.length) fence = null;
+                return line;
+            }
+            if (opener !== undefined) {
+                fence = opener;
+                return line;
+            }
+            return line.replace(ATX_HEADING, "");
+        })
+        .join("\n");
+}
+
 /** There's no markdown renderer (docs/arch/Extensions.md#lsp-и-стоковые-клиенты), so the popup gets plain text. */
 export function stripMarkdown(value: string): string {
     // Escaped characters are hidden FIRST (the stripSnippetPlaceholders trick):
@@ -30,7 +56,7 @@ export function stripMarkdown(value: string): string {
         return "\u0000" + String(escaped.length - 1) + "\u0000";
     });
     return (
-        hidden
+        stripHeadings(hidden)
             .replace(/```[^\n]*\n([\s\S]*?)\n?```/g, "$1")
             .replace(/`([^`]+)`/g, "$1")
             .replace(/\*\*([^*]+)\*\*/g, "$1")
@@ -45,10 +71,6 @@ export function stripMarkdown(value: string): string {
             .trim()
     );
 }
-
-const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
-/** A fenced-block fence: inside it `---` is content (YAML), not a separator. */
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /**
  * Empty sections are kept: they show the separator was at the edge. `---` right below a paragraph

@@ -65,6 +65,24 @@ describe("stripMarkdown — plain text for the TUI popup", () => {
         const source = Array.from({ length: 12 }, (_, i) => `\\*${String(i)}\\*`).join(" ");
         expect(stripMarkdown(source)).toBe("*0* *1* *2* *3* *4* *5* *6* *7* *8* *9* *10* *11*");
     });
+
+    it("an ATX heading loses its `#`s: the YAML server's hover starts with `#### <schema title>`", () => {
+        expect(stripMarkdown("#### Person\n\nFull name")).toBe("Person\n\nFull name");
+        expect(stripMarkdown("intro\n   # Indented\n##\tTab\n###### Six")).toBe("intro\nIndented\nTab\nSix");
+        expect(stripMarkdown("intro\n#\nend")).toBe("intro\n\nend");
+    });
+
+    it("not a heading: seven `#`s, no space after them, indent 4, an escaped `#`", () => {
+        expect(stripMarkdown("####### seven\n#tag\n    # code\n\\# literal")).toBe(
+            "####### seven\n#tag\n    # code\n# literal",
+        );
+    });
+
+    it("a `#` comment inside a fenced block stays, and headings after the block are stripped again", () => {
+        expect(stripMarkdown("```yaml\n# comment\n```\n# After")).toBe("# comment\nAfter");
+        expect(stripMarkdown("~~~~\n# a\n~~~\n# b\n~~~~\n# c")).toBe("~~~~\n# a\n~~~\n# b\n~~~~\nc");
+        expect(stripMarkdown("```\n# a\n~~~\n# b\n```\n# c")).toBe("# a\n~~~\n# b\nc");
+    });
 });
 
 describe("splitMarkdownSections — sections by thematic break", () => {
