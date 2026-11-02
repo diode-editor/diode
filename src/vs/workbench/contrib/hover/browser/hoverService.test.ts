@@ -177,6 +177,7 @@ describe("stripMarkdown — plain text for the TUI popup", () => {
         expect(stripMarkdown("x`  a  `y")).toBe("x a y");
         expect(stripMarkdown("x`   `y")).toBe("x   y");
         expect(stripMarkdown("x` a`y")).toBe("x ay");
+        expect(stripMarkdown("x`a `y")).toBe("xa y");
         expect(stripMarkdown("`a``b`")).toBe("a``b");
         expect(stripMarkdown("``a`b```c``")).toBe("a`b```c");
         expect(stripMarkdown("``a`b```c")).toBe("``a`b```c");
