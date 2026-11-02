@@ -6,6 +6,7 @@ import {
     CancellationTokenSource,
     type ICancellationToken,
 } from "../../../../../base/common/cancellation.ts";
+import type { ILinkRequest } from "../../../../../editor/common/languages/iLinkSource.ts";
 import type { ITextDocument } from "../../../../../editor/common/model/iTextDocument.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
@@ -219,6 +220,8 @@ const EMPTY_WIRE: Readonly<Record<string, unknown>> = {
 };
 
 const SYNCED = "file:///synced.ts";
+/** The customer reads no text: only the identity of the document goes over the wire. */
+const LINK_REQ = { uri: SYNCED, languageId: "typescript", versionId: 7 } as ILinkRequest;
 const UNSYNCED = "file:///unsynced.ts";
 
 function setupWithSync() {
@@ -1059,6 +1062,51 @@ describe("LanguageFeaturesCustomer — document highlights", () => {
                 insertSpaces: false,
             },
         ]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("document links: the document and the token go over the wire, the list comes back", async () => {
+        const seen: unknown[] = [];
+        const list = { cacheId: 3, links: [{ id: 0, range: CORE_RANGE, target: "https://a.b/" }] };
+        const h = setupAnswering({
+            "languages.provideDocumentLinks": (params) => {
+                seen.push(params);
+                return list;
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideDocumentLinks(1, LINK_REQ, caller.token)).toEqual(list);
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7 }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("document links: RPC rejection or no spawn — no list, no target", async () => {
+        const h = setupAnswering({
+            "languages.provideDocumentLinks": () => {
+                throw new Error("boom");
+            },
+            "languages.resolveDocumentLink": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideDocumentLinks(1, LINK_REQ)).toBeNull();
+        expect(await h.customer.resolveDocumentLink(1, 3, 0)).toBeNull();
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideDocumentLinks(1, LINK_REQ)).toBeNull();
+        expect(await detached.resolveDocumentLink(1, 3, 0)).toBeNull();
+    });
+
+    it("resolve document link: the ids and the token go over the wire, the target comes back", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.resolveDocumentLink": (params) => {
+                seen.push(params);
+                return "https://resolved/";
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.resolveDocumentLink(1, 3, 2, caller.token)).toBe("https://resolved/");
+        expect(seen).toEqual([{ handle: 1, cacheId: 3, id: 2 }]);
         expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
     });
 

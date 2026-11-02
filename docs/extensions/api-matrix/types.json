@@ -1804,28 +1804,22 @@
       "note": "the provider is never called"
     },
     "DocumentLink": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "DocumentLink.range": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "DocumentLink.target": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "DocumentLink.tooltip": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "DocumentLinkProvider.provideDocumentLinks": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "DocumentLinkProvider.resolveDocumentLink": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "DocumentPasteEdit": {
       "class": "B",

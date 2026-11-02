@@ -65,6 +65,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "editor.occurrencesHighlightDelay": "language-overridable",
     "editor.linkedEditing": "language-overridable",
     "editor.formatOnType": "language-overridable",
+    "editor.links": "language-overridable",
     "editor.scrollbarMarkers": "language-overridable",
     "editor.semanticHighlighting.enabled": "language-overridable",
     "editor.smartSelect.selectLeadingAndTrailingWhitespace": "language-overridable",

@@ -171,6 +171,7 @@
     "editor.action.hideHover",
     "editor.action.linkedEditing",
     "cancelLinkedEditingInput",
+    "editor.action.openLink",
     "editor.action.triggerParameterHints",
     "closeParameterHints",
     "showNextParameterHint",

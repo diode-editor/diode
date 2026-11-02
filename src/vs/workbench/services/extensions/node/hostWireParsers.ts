@@ -220,6 +220,7 @@ export function parseWireLanguageProviderRegistration(raw: unknown): IWireLangua
             : {}),
         ...readWireLegend(obj.legend),
         ...(obj.hasOnDidChange === true ? { hasOnDidChange: true } : {}),
+        ...(obj.hasResolve === true ? { hasResolve: true } : {}),
         ...(typeof obj.extensionId === "string" ? { extensionId: obj.extensionId } : {}),
     };
 }

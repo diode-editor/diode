@@ -20,6 +20,7 @@ import type { FoldingRangeProvider } from "../../../../editor/common/languages/i
 import type { InlayHintsProvider } from "../../../../editor/common/languages/iInlayHintsSource.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
+import type { ILink, LinkProvider } from "../../../../editor/common/languages/iLinkSource.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
@@ -55,6 +56,7 @@ import {
     type IInlayHintsOptions,
     InlayHintsController,
 } from "../../../../editor/contrib/inlayHints/browser/inlayHintsController.ts";
+import { LinkDetector } from "../../../../editor/contrib/links/browser/linkDetector.ts";
 import type { DocumentSemanticTokensFeature } from "../../../../editor/contrib/semanticTokens/browser/documentSemanticTokens.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
@@ -160,6 +162,14 @@ export class EditorComponent extends Component {
     /** `null` without providers and in the large-file mode, like {@link colorDetector}. */
     private codeLensController: CodeLensController | null = null;
     private codeLensOptions: ICodeLensOptions = DEFAULT_CODE_LENS_OPTIONS;
+    /** Absent everywhere but the file editor, like {@link inlayHintsProviders}. */
+    private readonly linkProviders: LanguageFeatureRegistry<LinkProvider> | undefined;
+    /** `null` without providers and in the large-file mode, like {@link colorDetector}. */
+    private linkDetector: LinkDetector | null = null;
+    private linksEnabled = true;
+    private readonly onDidClickLinkEmitter = new Emitter<ILink>();
+    /** Ctrl+click on a link. */
+    public readonly onDidClickLink = this.onDidClickLinkEmitter.event;
     /** Two owners, each replacing only its own set; at one offset the squares go first. */
     private colorInsertions: readonly IInlineInsertion[] = [];
     // Stryker disable next-line ArrayDeclaration: an entry without a line belongs to no line and is never painted
@@ -223,6 +233,7 @@ export class EditorComponent extends Component {
         inlayHintsProviders?: LanguageFeatureRegistry<InlayHintsProvider>,
         codeLens?: ICodeLensFeature,
         documentHighlightProviders?: LanguageFeatureRegistry<DocumentHighlightProvider>,
+        linkProviders?: LanguageFeatureRegistry<LinkProvider>,
     ) {
         super();
         this.foldingProviders = foldingProviders;
@@ -239,6 +250,7 @@ export class EditorComponent extends Component {
         this.colorProviders = colorProviders;
         this.inlayHintsProviders = inlayHintsProviders;
         this.codeLens = codeLens;
+        this.linkProviders = linkProviders;
         this.editor = new EditorElement(this.editorViewState);
         if (documentHighlightProviders !== undefined) {
             this.editor.wordHighlighter.setProviders(documentHighlightProviders, model);
@@ -260,6 +272,7 @@ export class EditorComponent extends Component {
         this.attachColorDetectorUnlessTooLarge();
         this.attachInlayHintsUnlessTooLarge();
         this.attachCodeLensUnlessTooLarge();
+        this.attachLinkDetectorUnlessTooLarge();
         this.applyOccurrenceHighlight();
 
         // The closures read component fields, so they survive EditorElement
@@ -309,6 +322,7 @@ export class EditorComponent extends Component {
                 this.attachColorDetectorUnlessTooLarge();
                 this.attachInlayHintsUnlessTooLarge();
                 this.attachCodeLensUnlessTooLarge();
+                this.attachLinkDetectorUnlessTooLarge();
                 this.applyOccurrenceHighlight();
                 this.applyWordWrap();
                 this.scheduleFoldingRecompute();
@@ -412,6 +426,37 @@ export class EditorComponent extends Component {
                 void feature.runCommand(command);
             }),
         );
+    }
+
+    private attachLinkDetectorUnlessTooLarge(): void {
+        if (this.linkProviders === undefined || this.tooLarge) return;
+        const detector = this.register(
+            new LinkDetector(this.model, this.linkProviders, this.linksEnabled, (ranges) => {
+                this.editor.setDocumentLinks(ranges);
+            }),
+        );
+        this.linkDetector = detector;
+        this.register(
+            this.editor.onDidClickDocumentLink((position) => {
+                const link = detector.getLinkAt(position);
+                if (link !== null) this.onDidClickLinkEmitter.fire(link);
+            }),
+        );
+    }
+
+    /** `editor.links`. */
+    public setLinksEnabled(enabled: boolean): void {
+        this.linksEnabled = enabled;
+        this.linkDetector?.setEnabled(enabled);
+    }
+
+    /** Upstream `OpenLinkAction`: the link at the end of each selection, where there is one. */
+    public getLinksAtSelections(): readonly ILink[] {
+        const detector = this.linkDetector;
+        if (detector === null) return [];
+        return this.editorViewState.selections
+            .map((selection) => detector.getLinkAt(selection.active))
+            .filter((link) => link !== null);
     }
 
     private visibleRangeViewport(): ICodeLensViewport {

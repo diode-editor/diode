@@ -16,6 +16,16 @@ describe("hostWireParsers — parseWireLanguageProviderRegistration", () => {
         expect(parseWireLanguageProviderRegistration(raw)).toStrictEqual(raw);
     });
 
+    it("hasResolve: only a true one is kept", () => {
+        const base = { handle: 1, kind: "documentLink", selector: [] };
+        expect(parseWireLanguageProviderRegistration({ ...base, hasResolve: true })).toEqual({
+            ...base,
+            hasResolve: true,
+        });
+        expect(parseWireLanguageProviderRegistration({ ...base, hasResolve: false })).toEqual(base);
+        expect(parseWireLanguageProviderRegistration({ ...base, hasResolve: "yes" })).toEqual(base);
+    });
+
     it("trigger characters: non-empty strings only; a non-array leaves no field", () => {
         const parsed = parseWireLanguageProviderRegistration({
             handle: 1,

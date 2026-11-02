@@ -44,6 +44,7 @@ import type {
     ILinkedEditingRangeRequest,
     ILinkedEditingRanges,
 } from "../../../../../editor/common/languages/iLinkedEditingSource.ts";
+import type { ILinkRequest } from "../../../../../editor/common/languages/iLinkSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreRenameLocation,
@@ -74,6 +75,7 @@ import type { RequestParams, RequestResult } from "../../../../api/common/rpcEnd
 import type {
     IWireCodeLens,
     IWireCodeLensList,
+    IWireDocumentLinkList,
     IWireDocumentParams,
     IWireLanguageProviderRegistration,
     IWirePositionParams,
@@ -609,6 +611,30 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         return wordPattern === undefined
             ? { ranges }
             : { ranges, wordPattern: new RegExp(wordPattern, wordPatternFlags) };
+    }
+
+    /** `null` — no links, also when there is no subprocess, the document is not synced or the extension timed out. */
+    public async provideDocumentLinks(
+        handle: number,
+        req: ILinkRequest,
+        token?: ICancellationToken,
+    ): Promise<IWireDocumentLinkList | null> {
+        return this.request(
+            "languages.provideDocumentLinks",
+            { handle, uri: req.uri, languageId: req.languageId, version: req.versionId },
+            null,
+            { token },
+        );
+    }
+
+    /** `null` — no target, also when the link was evicted from the subprocess's cache or the extension timed out. */
+    public async resolveDocumentLink(
+        handle: number,
+        cacheId: number,
+        id: number,
+        token?: ICancellationToken,
+    ): Promise<string | null> {
+        return this.request("languages.resolveDocumentLink", { handle, cacheId, id }, null, { token });
     }
 
     /** `null` — no colors, also when there is no subprocess, the document is not synced or the extension timed out. */
