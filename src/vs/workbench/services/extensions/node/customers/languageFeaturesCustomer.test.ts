@@ -799,6 +799,26 @@ describe("LanguageFeaturesCustomer — no deadline on what a busy jdt.ls takes o
         });
     });
 
+    // The first `;` after the import takes jdt.ls about 6 s: with a deadline the format is lost, the second `;` formats.
+    it("format on type: only the token ends the wait, as upstream", async () => {
+        await expectWaitsUntilCancelled((token) => {
+            const hung = setupAnswering({ "languages.provideOnTypeFormattingEdits": untilCancelled });
+            return hung.customer.provideOnTypeFormattingEdits(
+                1,
+                {
+                    uri: SYNCED,
+                    languageId: "java",
+                    versionId: 7,
+                    position: { line: 0, character: 1 },
+                    ch: ";",
+                    tabSize: 4,
+                    insertSpaces: true,
+                },
+                token,
+            );
+        });
+    });
+
     it("call hierarchy: prepare, incoming and outgoing wait only for the token, as upstream", async () => {
         await expectWaitsUntilCancelled((token) => {
             const hung = setupAnswering({ "languages.prepareCallHierarchy": untilCancelled });
