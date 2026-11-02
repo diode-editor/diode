@@ -62,6 +62,7 @@ interface IWorkspaceSymbolItem {
 
 function compareStrings(a: string, b: string): number {
     if (a === b) return 0;
+    // Stryker disable next-line EqualityOperator: equal strings have returned above, `<=` reads the same
     return a < b ? -1 : 1;
 }
 
@@ -71,7 +72,7 @@ function rangesIntersect(a: IRange, b: IRange): boolean {
 }
 
 /** Upstream's order inside `getWorkspaceSymbols`; zero means the same symbol. */
-function compareItems(a: IWorkspaceSymbolItem, b: IWorkspaceSymbolItem): number {
+export function compareItems(a: IWorkspaceSymbolItem, b: IWorkspaceSymbolItem): number {
     const first = a.symbol;
     const second = b.symbol;
     let result = compareStrings(first.name, second.name) || first.kind - second.kind;

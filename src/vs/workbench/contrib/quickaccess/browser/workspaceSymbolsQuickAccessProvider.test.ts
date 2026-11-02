@@ -14,7 +14,11 @@ import { LanguageFeaturesService } from "../../../../editor/common/services/lang
 import { NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import type { QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 
-import { getWorkspaceSymbols, WorkspaceSymbolsQuickAccessProvider } from "./workspaceSymbolsQuickAccessProvider.ts";
+import {
+    compareItems,
+    getWorkspaceSymbols,
+    WorkspaceSymbolsQuickAccessProvider,
+} from "./workspaceSymbolsQuickAccessProvider.ts";
 
 const DELAY = 200;
 
@@ -313,6 +317,15 @@ describe("WorkspaceSymbolsQuickAccessProvider", () => {
             ]);
             expect(rows.map((row) => row.label)).toEqual(["Alpha", "alpha", "beta", "zeta"]);
 
+            const tied = await rowsFor([
+                symbol("alpha", { kind: SymbolKind.Class }),
+                symbol("Alpha", { kind: SymbolKind.Variable }),
+            ]);
+            expect(tied.map((row) => row.icon)).toEqual([
+                NERD_FONT_ICONS.codicon("symbol-class"),
+                NERD_FONT_ICONS.codicon("symbol-variable"),
+            ]);
+
             // By name `afoo` would go first: the score decides, whichever way the answer came.
             const scored = ["foo", "afoo"].map((name) => symbol(name));
             expect(labels(await rowsFor(scored, "#foo"))).toEqual(["foo", "afoo"]);
@@ -535,6 +548,28 @@ describe("getWorkspaceSymbols", () => {
         const partial = symbol("a", { location: { uri: "file:///a.ts" } });
         const answers = await bothWays(partial, located(createRange(1, 0, 1, 5)));
         for (const answer of answers) expect(answer).toHaveLength(1);
+    });
+
+    describe("compareItems is antisymmetric, which the sort alone does not show", () => {
+        const plain = answering([]);
+        const item = (range: ReturnType<typeof createRange>) => ({ symbol: located(range), provider: plain });
+
+        it.each([
+            ["separate", createRange(1, 0, 1, 5), createRange(2, 0, 2, 5)],
+            ["touching", createRange(1, 0, 1, 5), createRange(1, 5, 1, 9)],
+        ])("%s ranges: the earlier goes first, asked either way", (_name, earlier, later) => {
+            expect(compareItems(item(earlier), item(later))).toBeLessThan(0);
+            expect(compareItems(item(later), item(earlier))).toBeGreaterThan(0);
+        });
+
+        it("no range: the one that can resolve goes first, asked either way", () => {
+            const partial = symbol("a", { location: { uri: "file:///a.ts" } });
+            const resolving: WorkspaceSymbolProvider = { ...plain, resolveWorkspaceSymbol: vi.fn() };
+            const withResolve = { symbol: partial, provider: resolving };
+            const withoutResolve = { symbol: partial, provider: plain };
+            expect(compareItems(withResolve, withoutResolve)).toBeLessThan(0);
+            expect(compareItems(withoutResolve, withResolve)).toBeGreaterThan(0);
+        });
     });
 
     it("the order is by name, kind, uri, then range, whichever way they came", async () => {
