@@ -33,6 +33,9 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `workbench.workspaceSymbols.accept.test.ts`, «a large answer renders and Enter takes the first row»: 20000
+  символов под покрытием упёрлись в таймаут 5 с (run 41405396154, PR #1015); локально 1,1 с и с правкой
+  `matchSymbol` этого PR, и без неё.
 - [ ] `extensionHost.typescriptLsp.projectStatus.test.ts`, «No jsconfig → Configure JSConfig…»: метка статуса уже
   `jsconfig.json`, а команда ещё `_typescript.createOrOpenConfig`; проверка команды идёт без ожидания, сразу после
   ожидания метки (run 41297584473, PR #1000, дифф — только тесты terraform).

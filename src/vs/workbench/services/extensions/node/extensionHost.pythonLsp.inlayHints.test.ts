@@ -1,19 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
-    CLIENT_CRASH_PATTERNS,
     type IInstalledBasedpyright,
     installBasedpyright,
-    PY_LANGUAGE_SERVICE,
     until,
 } from "../../../../../TestUtils/basedpyrightFixture.ts";
-import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
-import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
+import { type IPythonSession, withPythonFiles } from "../../../../../TestUtils/pythonSession.ts";
 import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
-import type { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 
 // The server infers a return type only from annotated parameters: this sample has all three kinds of hints.
 const ANNOTATED_PY = "def f(a: int, b: int):\n    return a + b\n\nr = f(1, 2)\n";
@@ -34,54 +30,12 @@ function serverStarts(output: readonly string[]): number {
     return output.filter((line) => line.includes("language server") && line.includes("starting")).length;
 }
 
-interface IOpened {
-    readonly harness: IExtensionHarness;
-    readonly configuration: InMemoryConfigurationService;
-    readonly output: readonly string[];
-    frame(): string;
-    frameHas(...texts: readonly string[]): Promise<void>;
-}
-
-async function withPython(
+function withPython(
     source: string,
-    run: (opened: IOpened) => Promise<void>,
+    run: (session: IPythonSession) => Promise<void>,
     settings: Readonly<Record<string, unknown>> = {},
 ): Promise<void> {
-    const output: string[] = [];
-    const configuration = createTestConfigurationService(settings);
-    const harness = await createExtensionTestHarness({
-        languageService: PY_LANGUAGE_SERVICE,
-        activateEvents: [],
-        // The core reads `editor.inlayHints.*` from it; the extension has its own service with the manifest's schema.
-        configurationService: configuration,
-        outputSink: {
-            append: (_channel, _label, _level, value) => output.push(value),
-            show: () => undefined,
-        },
-        extensions: [installed.registration],
-    });
-    try {
-        harness.group.openFile(harness.writeFile("main.py", source));
-        await harness.host.activateByEvent("onLanguage:python");
-        const frame = (): string => {
-            harness.app.render();
-            return harness.app.backend.screenToString();
-        };
-        await run({
-            harness,
-            configuration,
-            output,
-            frame,
-            frameHas: async (...texts) => {
-                await until(texts.join(" + "), () =>
-                    Promise.resolve(texts.every((text) => frame().includes(text)) ? true : null),
-                );
-            },
-        });
-        expect(output.filter((line) => CLIENT_CRASH_PATTERNS.test(line))).toEqual([]);
-    } finally {
-        await harness.dispose();
-    }
+    return withPythonFiles(installed, { "main.py": source }, run, settings);
 }
 
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — inlay hints from the stock basedpyright", () => {

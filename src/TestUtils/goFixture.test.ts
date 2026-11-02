@@ -28,7 +28,13 @@ describe("goFixture — language service", () => {
 describe("goFixture — sample project", () => {
     it("lists every file of the sample by its root-relative path with forward slashes", () => {
         const files = goSampleFiles();
-        expect(Object.keys(files).sort()).toEqual(["go.mod", "greet/greet.go", "greet/greet_test.go", "main.go"]);
+        expect(Object.keys(files).sort()).toEqual([
+            "go.mod",
+            "greet/greet.go",
+            "greet/greet_test.go",
+            "greet/greeter.go",
+            "main.go",
+        ]);
         expect(files["main.go"]).toBe(fs.readFileSync(path.join(GO_SAMPLE_DIR, "main.go"), "utf-8"));
     });
 });
