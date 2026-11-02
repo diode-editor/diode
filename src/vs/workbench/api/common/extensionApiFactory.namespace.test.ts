@@ -14,7 +14,6 @@ const NOOP_PROVIDERS = [
     "registerDocumentLinkProvider",
     "registerInlineValuesProvider",
     "registerSelectionRangeProvider",
-    "registerWorkspaceSymbolProvider",
 ];
 
 function build(): ReturnType<typeof buildVscodeNamespace> & { stub: ReturnType<typeof makeStubRpc> } {

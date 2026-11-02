@@ -106,6 +106,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "search.exclude": "resource",
     "search.quickOpen.history.filterSortOrder": "window",
     "search.quickOpen.includeHistory": "window",
+    "search.quickOpen.includeSymbols": "window",
     "search.useIgnoreFiles": "resource",
     "search.useGlobalIgnoreFiles": "resource",
     "search.useParentIgnoreFiles": "resource",

@@ -15,6 +15,7 @@ import type {
     IWireCodeLens,
     IWireCodeLensList,
     IWireLanguageProviderRegistration,
+    IWireWorkspaceSymbolProviderRegistration,
     WireCodeLensCacheId,
 } from "../common/wireTypes.ts";
 
@@ -33,6 +34,7 @@ const REQUEST: IHoverRequest = {
 
 function makeBridge(): IExtensionLanguageFeaturesBridge & {
     providers: IWireLanguageProviderRegistration[];
+    workspaceSymbolProviders: IWireWorkspaceSymbolProviderRegistration[];
     fire(): void;
     fireSemanticTokens(handle: number): void;
     fireInlayHints(handle: number): void;
@@ -66,6 +68,25 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         ),
         provideDeclaration: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///decl${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
+        ),
+        workspaceSymbolProviders: [] as IWireWorkspaceSymbolProviderRegistration[],
+        getWorkspaceSymbolProviders: () => bridge.workspaceSymbolProviders,
+        provideWorkspaceSymbols: vi.fn((handle: number, query: string) =>
+            Promise.resolve({
+                cacheId: 7,
+                symbols: [
+                    {
+                        id: 3,
+                        name: `${query}${String(handle)}`,
+                        kind: 5,
+                        tags: [],
+                        location: { uri: "file:///w.ts" },
+                    },
+                ],
+            }),
+        ),
+        resolveWorkspaceSymbol: vi.fn(() =>
+            Promise.resolve({ uri: "file:///resolved.ts", range: createRange(1, 0, 1, 1) }),
         ),
         provideDocumentSymbols: vi.fn((handle: number) =>
             Promise.resolve([
@@ -913,5 +934,48 @@ describe("LanguageFeaturesAdapter", () => {
 
         expect(features.hoverProvider.has(TS)).toBe(false);
         expect(bridge.listeners).toBe(0);
+    });
+});
+
+describe("LanguageFeaturesAdapter — workspace symbols", () => {
+    function setup(supportsResolve: boolean) {
+        const bridge = makeBridge();
+        bridge.workspaceSymbolProviders = [{ handle: 4, supportsResolve }];
+        const features = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, features);
+        return { bridge, features, adapter, registry: features.workspaceSymbolProvider };
+    }
+
+    it("a provider appears without a selector and answers through its handle", async () => {
+        const { bridge, registry } = setup(false);
+        const [provider] = registry.all();
+        const symbols = await provider.provideWorkspaceSymbols("q", CancellationTokenNone);
+        expect(symbols[0].name).toBe("q4");
+        expect(bridge.provideWorkspaceSymbols).toHaveBeenCalledWith(4, "q", CancellationTokenNone);
+    });
+
+    it("resolve exists only if the provider can; it sends the symbol's address back", async () => {
+        expect(setup(false).registry.all()[0].resolveWorkspaceSymbol).toBeUndefined();
+
+        const { bridge, registry } = setup(true);
+        const [provider] = registry.all();
+        const [symbol] = await provider.provideWorkspaceSymbols("q", CancellationTokenNone);
+        const location = await provider.resolveWorkspaceSymbol?.(symbol, CancellationTokenNone);
+
+        expect(bridge.resolveWorkspaceSymbol).toHaveBeenCalledWith(4, 7, 3, CancellationTokenNone);
+        expect(location?.uri).toBe("file:///resolved.ts");
+    });
+
+    it("follows the bridge: an unregistered provider goes, dispose takes the rest", () => {
+        const { bridge, registry, adapter } = setup(false);
+        bridge.workspaceSymbolProviders = [];
+        bridge.fire();
+        expect(registry.all()).toEqual([]);
+
+        bridge.workspaceSymbolProviders = [{ handle: 5, supportsResolve: false }];
+        bridge.fire();
+        expect(registry.all()).toHaveLength(1);
+        adapter.dispose();
+        expect(registry.all()).toEqual([]);
     });
 });

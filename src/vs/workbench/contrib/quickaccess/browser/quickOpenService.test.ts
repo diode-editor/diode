@@ -150,6 +150,7 @@ function makeQuickAccessRegistry(deps: {
                 { getHistory: () => deps.history, removeMissing: () => Promise.resolve(false) },
                 createTestConfigurationService(),
                 workspaceWithRoot("/root"),
+                { search: () => undefined, cancelSearch: () => undefined },
             ),
         ],
         [
@@ -1283,6 +1284,26 @@ describe("QuickOpenService — provider hooks", () => {
         component.attachHost(body);
         return { service: new QuickOpenService(registry, component), component, provider, onActive, onHide };
     }
+
+    it("the default filter follows the prefix and is selected: typing replaces it", () => {
+        const getItems = vi.fn(() => []);
+        const { service, component } = setup({ getDefaultFilterValue: () => "word", getItems });
+        const select = vi.spyOn(component.view, "setQuerySelection");
+        service.show("@");
+        expect(select).toHaveBeenCalledWith(1, 5);
+        expect(component.view.getQuery()).toBe("@word");
+        expect(getItems).toHaveBeenLastCalledWith("@word");
+    });
+
+    it("a query given to show keeps its own value, no filter leaves the bare prefix", () => {
+        const given = setup({ getDefaultFilterValue: () => "word" });
+        given.service.show("@mine");
+        expect(given.component.view.getQuery()).toBe("@mine");
+
+        const none = setup({ getDefaultFilterValue: () => undefined });
+        none.service.show("@");
+        expect(none.component.view.getQuery()).toBe("@");
+    });
 
     it("the active row is reported on open, on user navigation and when new items change it", () => {
         const { service, component, onActive } = setup();

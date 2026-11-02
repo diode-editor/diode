@@ -17,6 +17,10 @@ import type {
     ICoreSignature,
     ICoreSignatureHelp,
 } from "../../../editor/common/languages/iSignatureHelpSource.ts";
+import type {
+    ICoreWorkspaceSymbol,
+    ICoreWorkspaceSymbolLocation,
+} from "../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import {
@@ -577,6 +581,30 @@ export function serializeDocumentSymbols(raw: unknown): ICoreDocumentSymbol[] {
     return "location" in list[0]
         ? symbolInformationToTree(list as readonly vscode.SymbolInformation[])
         : serializeDocumentSymbolList(list as readonly vscode.DocumentSymbol[]);
+}
+
+/** A partial location has no range: the provider fills it in on resolve. */
+export function serializeWorkspaceSymbolLocation(raw: unknown): ICoreWorkspaceSymbolLocation | null {
+    const location = raw as { uri?: unknown; range?: unknown } | null | undefined;
+    if (location?.uri == null) return null;
+    const range = rangeFrom(location.range);
+    return { uri: uriText(location.uri), ...(range === null ? {} : { range }) };
+}
+
+/** `null` for what upstream calls an INVALID SymbolInformation: no name; here also no location to open. */
+export function serializeWorkspaceSymbol(
+    raw: vscode.SymbolInformation | null | undefined,
+): ICoreWorkspaceSymbol | null {
+    if (!raw?.name) return null;
+    const location = serializeWorkspaceSymbolLocation(raw.location);
+    if (location === null) return null;
+    return {
+        name: raw.name,
+        kind: raw.kind,
+        tags: serializeSymbolTags(raw.tags),
+        ...(raw.containerName ? { containerName: raw.containerName } : {}),
+        location,
+    };
 }
 
 export function serializeFoldingRange(range: vscode.FoldingRange): WireFoldingRange | null {

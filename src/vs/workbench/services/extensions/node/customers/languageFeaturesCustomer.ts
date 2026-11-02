@@ -71,6 +71,7 @@ import type {
     ITypeHierarchyRequest,
     ITypeHierarchySession,
 } from "../../../../../editor/common/languages/iTypeHierarchySource.ts";
+import type { ICoreWorkspaceSymbolLocation } from "../../../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 import type { IFoldingRegion } from "../../../../../editor/contrib/folding/iFoldingRegion.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type { HostRpc, IHostToSubprocess } from "../../../../api/common/extHostProtocol.ts";
@@ -81,6 +82,8 @@ import type {
     IWireDocumentParams,
     IWireLanguageProviderRegistration,
     IWirePositionParams,
+    IWireWorkspaceSymbolProviderRegistration,
+    IWireWorkspaceSymbols,
     WireCodeLensCacheId,
 } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
@@ -91,6 +94,7 @@ import {
     parseWireLanguageProviderRegistration,
     parseWireLanguageProviderUnregistration,
     parseWireProviderHandle,
+    parseWireWorkspaceSymbolProviderRegistration,
     wireToCoreFoldingRegions,
     wireToCoreInlayHints,
     wireToCoreRenameLocation,
@@ -129,6 +133,7 @@ interface ILanguageRequestOptions<K extends LanguageRequestMethod> {
 /** The provider registry lives for one spawn: providers die with the subprocess. */
 export class LanguageFeaturesCustomer extends Disposable implements IExtensionHostCustomer {
     private readonly providers = new Map<number, IWireLanguageProviderRegistration>();
+    private readonly workspaceSymbolProviders = new Map<number, IWireWorkspaceSymbolProviderRegistration>();
     private readonly onProvidersChangedEmitter = this.register(new Emitter<void>());
 
     public readonly onProvidersChanged = this.onProvidersChangedEmitter.event;
@@ -276,6 +281,36 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             [],
             { token },
         );
+    }
+
+    public getWorkspaceSymbolProviders(): readonly IWireWorkspaceSymbolProviderRegistration[] {
+        return [...this.workspaceSymbolProviders.values()];
+    }
+
+    public provideWorkspaceSymbols(
+        handle: number,
+        query: string,
+        token?: ICancellationToken,
+    ): Promise<IWireWorkspaceSymbols> {
+        return this.request(
+            "languages.provideWorkspaceSymbols",
+            { handle, query },
+            { cacheId: 0, symbols: [] },
+            { token },
+        );
+    }
+
+    /** `null`: the provider gave nothing, or the request failed; the symbol's own location stands. */
+    public async resolveWorkspaceSymbol(
+        handle: number,
+        cacheId: number,
+        id: number,
+        token?: ICancellationToken,
+    ): Promise<ICoreWorkspaceSymbolLocation | null> {
+        const resolved = await this.request("languages.resolveWorkspaceSymbol", { handle, cacheId, id }, null, {
+            token,
+        });
+        return resolved?.location ?? null;
     }
 
     public async provideDefinition(
@@ -773,6 +808,14 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             }),
         );
         store.add(
+            rpc.handleNotification("languages.registerWorkspaceSymbol", (params) => {
+                const registration = parseWireWorkspaceSymbolProviderRegistration(params);
+                if (registration === null) return;
+                this.workspaceSymbolProviders.set(registration.handle, registration);
+                this.onProvidersChangedEmitter.fire();
+            }),
+        );
+        store.add(
             rpc.handleNotification("languages.didChangeSemanticTokens", (params) => {
                 const parsed = parseWireProviderHandle(params);
                 // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` before the event — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
@@ -803,15 +846,18 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             rpc.handleNotification("languages.unregister", (params) => {
                 const unregistration = parseWireLanguageProviderUnregistration(params);
                 // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` before the event — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
-                if (unregistration === null || !this.providers.delete(unregistration.handle)) return;
+                if (unregistration === null) return;
+                const removed = this.providers.delete(unregistration.handle);
+                if (!this.workspaceSymbolProviders.delete(unregistration.handle) && !removed) return;
                 this.onProvidersChangedEmitter.fire();
             }),
         );
         store.add({
             dispose: () => {
                 this.rpc = null;
-                if (this.providers.size === 0) return;
+                if (this.providers.size === 0 && this.workspaceSymbolProviders.size === 0) return;
                 this.providers.clear();
+                this.workspaceSymbolProviders.clear();
                 this.onProvidersChangedEmitter.fire();
             },
         });

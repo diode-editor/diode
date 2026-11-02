@@ -77,6 +77,7 @@ import {
     type IWireValidationMessage,
     type IWireWatcherCreate,
     type IWireWorkspaceEditOp,
+    type IWireWorkspaceSymbolProviderRegistration,
     parseRange,
     parseWireEnvironmentDescriptions,
     parseWireEnvironmentVariableEntries,
@@ -196,6 +197,14 @@ export function parseWireLanguageConfiguration(raw: unknown): IWireLanguageConfi
     if (!isWireHandle(p?.handle) || typeof p.languageId !== "string") return null;
     if (typeof configuration !== "object" || configuration === null || Array.isArray(configuration)) return null;
     return { handle: p.handle, languageId: p.languageId, configuration };
+}
+
+export function parseWireWorkspaceSymbolProviderRegistration(
+    raw: unknown,
+): IWireWorkspaceSymbolProviderRegistration | null {
+    const p = raw as Partial<Record<keyof IWireWorkspaceSymbolProviderRegistration, unknown>> | null | undefined;
+    if (!isWireHandle(p?.handle) || typeof p.supportsResolve !== "boolean") return null;
+    return { handle: p.handle, supportsResolve: p.supportsResolve };
 }
 
 export function parseWireLanguageProviderRegistration(raw: unknown): IWireLanguageProviderRegistration | null {

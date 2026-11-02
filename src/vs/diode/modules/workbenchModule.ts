@@ -245,6 +245,10 @@ import {
     QuickOpenServiceDIToken,
 } from "../../workbench/contrib/quickaccess/browser/quickOpenService.ts";
 import {
+    WorkspaceSymbolsQuickAccessProvider,
+    WorkspaceSymbolsQuickAccessProviderDIToken,
+} from "../../workbench/contrib/quickaccess/browser/workspaceSymbolsQuickAccessProvider.ts";
+import {
     QuickAccessProvidersDIToken,
     QuickAccessRegistry,
     QuickAccessRegistryDIToken,
@@ -515,6 +519,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(GotoLineQuickAccessProviderDIToken, GotoLineQuickAccessProvider);
     container.bind(GotoSymbolQuickAccessProviderDIToken, GotoSymbolQuickAccessProvider);
     container.bind(OpenEditorsQuickAccessProviderDIToken, OpenEditorsQuickAccessProvider);
+    container.bind(WorkspaceSymbolsQuickAccessProviderDIToken, WorkspaceSymbolsQuickAccessProvider);
     container.bind(QuickAccessProvidersDIToken, () => QUICK_ACCESS_PROVIDERS);
     container.bind(QuickAccessRegistryDIToken, QuickAccessRegistry);
     container.bind(QuickOpenServiceDIToken, QuickOpenService);

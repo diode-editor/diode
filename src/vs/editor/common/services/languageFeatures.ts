@@ -1,4 +1,5 @@
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
+import type { GlobalFeatureRegistry } from "../globalFeatureRegistry.ts";
 import type { LanguageFeatureRegistry } from "../languageFeatureRegistry.ts";
 import type { CallHierarchyProvider } from "../languages/iCallHierarchySource.ts";
 import type { CodeActionProvider } from "../languages/iCodeActionSource.ts";
@@ -32,6 +33,7 @@ import type {
 } from "../languages/iSemanticTokensSource.ts";
 import type { SignatureHelpProvider } from "../languages/iSignatureHelpSource.ts";
 import type { TypeHierarchyProvider } from "../languages/iTypeHierarchySource.ts";
+import type { WorkspaceSymbolProvider } from "../languages/iWorkspaceSymbolSource.ts";
 
 export interface ILanguageFeaturesService {
     readonly hoverProvider: LanguageFeatureRegistry<HoverProvider>;
@@ -49,6 +51,7 @@ export interface ILanguageFeaturesService {
     readonly codeActionProvider: LanguageFeatureRegistry<CodeActionProvider>;
     readonly foldingRangeProvider: LanguageFeatureRegistry<FoldingRangeProvider>;
     readonly documentSymbolProvider: LanguageFeatureRegistry<DocumentSymbolProvider>;
+    readonly workspaceSymbolProvider: GlobalFeatureRegistry<WorkspaceSymbolProvider>;
     readonly inlineCompletionsProvider: LanguageFeatureRegistry<InlineCompletionsProvider>;
     readonly selectionRangeProvider: LanguageFeatureRegistry<SelectionRangeProvider>;
     readonly documentHighlightProvider: LanguageFeatureRegistry<DocumentHighlightProvider>;

@@ -29,6 +29,10 @@ import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAcce
 import type { IGotoLineEditorSource } from "./gotoLineQuickAccessProvider.ts";
 import { GotoLineEditorSourceDIToken, navigateActiveEditor } from "./gotoLineQuickAccessProvider.ts";
 import { splitPathMatchRanges } from "./pathMatchRanges.ts";
+import type { WorkspaceSymbolsQuickAccessProvider } from "./workspaceSymbolsQuickAccessProvider.ts";
+import { WorkspaceSymbolsQuickAccessProviderDIToken } from "./workspaceSymbolsQuickAccessProvider.ts";
+
+const FILE_AND_SYMBOL_RESULTS = "file and symbol results";
 
 export const FilesQuickAccessProviderDIToken = token<FilesQuickAccessProvider>("FilesQuickAccessProvider");
 
@@ -59,12 +63,16 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
         EditorHistoryServiceDIToken,
         IConfigurationServiceDIToken,
         IWorkspaceContextServiceDIToken,
+        WorkspaceSymbolsQuickAccessProviderDIToken,
         ProductIconServiceDIToken,
     ] as const;
 
     public readonly debounceQuery = true;
 
     private readonly indexSubscription = new MutableDisposable();
+    private refresh: (preserveSelection: boolean) => void = () => undefined;
+    private symbolFilter = "";
+    private symbolRows: readonly QuickAccessItem[] = [];
 
     public constructor(
         private readonly fileSearch: IFileSearchService,
@@ -74,6 +82,7 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
         private readonly history: IEditorHistory,
         private readonly configuration: Pick<IConfigurationService, "get">,
         private readonly workspace: Pick<IWorkspaceContextService, "getWorkspaceFolder">,
+        private readonly symbols: Pick<WorkspaceSymbolsQuickAccessProvider, "search" | "cancelSearch">,
         private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {}
 
@@ -82,6 +91,7 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
     }
 
     public onShow(refresh: (preserveSelection: boolean) => void): void {
+        this.refresh = refresh;
         // The list is shown at once; a file found gone a moment later drops out of it.
         void this.history.removeMissing().then((removed) => {
             if (removed) refresh(true);
@@ -95,6 +105,9 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
 
     public onHide(): void {
         this.indexSubscription.clear();
+        this.symbols.cancelSearch();
+        this.symbolFilter = "";
+        this.symbolRows = [];
     }
 
     /**
@@ -115,7 +128,33 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
             : [];
         const shown = new Set(history.map((match) => match.entry.absolutePath));
         const results = this.fileSearch.search(filePart, 50).filter((r) => !shown.has(r.entry.absolutePath));
-        return [...history.map((match) => this.buildHistoryItem(match, goto)), ...this.buildFileItems(results, goto)];
+        const historyItems = history.map((match) => this.buildHistoryItem(match, goto));
+        const fileItems = this.buildFileItems(results, goto);
+        if (!this.configuration.get("search.quickOpen.includeSymbols")) return [...historyItems, ...fileItems];
+        // A `:line` says the query is about files, as upstream.
+        this.requestSymbols(goto === null ? filePart : "");
+        // Upstream's separator above the files and symbols; the widget has none, a group name is a `hint`.
+        // Files first, not merged by score: two scorers, and rows arriving late would move the ones already shown.
+        const group = [...fileItems, ...this.symbolRows];
+        return [
+            ...historyItems,
+            ...group.map((item, index) => (index === 0 ? { ...item, hint: FILE_AND_SYMBOL_RESULTS } : item)),
+        ];
+    }
+
+    /** The answer for the same filter stands; rows for another one go at once. */
+    private requestSymbols(filter: string): void {
+        if (filter === this.symbolFilter) return;
+        this.symbolFilter = filter;
+        this.symbolRows = [];
+        if (filter === "") {
+            this.symbols.cancelSearch();
+            return;
+        }
+        this.symbols.search(filter, { skipLocal: true }, (rows) => {
+            this.symbolRows = rows;
+            this.refresh(true);
+        });
     }
 
     /** By name only unless the query has a path separator, as upstream (`labelOnlyEditorHistoryPickAccessor`). */

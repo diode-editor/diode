@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseWireLanguageProviderRegistration, parseWireLanguageProviderUnregistration } from "./hostWireParsers.ts";
+import {
+    parseWireLanguageProviderRegistration,
+    parseWireLanguageProviderUnregistration,
+    parseWireWorkspaceSymbolProviderRegistration,
+} from "./hostWireParsers.ts";
 
 describe("hostWireParsers — parseWireLanguageProviderRegistration", () => {
     it("a valid registration passes as is", () => {
@@ -130,5 +134,24 @@ describe("hostWireParsers — semantic tokens registration", () => {
                 }),
             ).toStrictEqual({ handle: 5, kind: "rangeSemanticTokens", selector: [] });
         }
+    });
+});
+
+describe("hostWireParsers — parseWireWorkspaceSymbolProviderRegistration", () => {
+    it("takes the handle and whether it resolves, nothing else", () => {
+        expect(parseWireWorkspaceSymbolProviderRegistration({ handle: 2, supportsResolve: true, x: 1 })).toStrictEqual({
+            handle: 2,
+            supportsResolve: true,
+        });
+    });
+
+    it.each([
+        ["null", null],
+        ["undefined", undefined],
+        ["a handle of the wrong type", { handle: "1", supportsResolve: true }],
+        ["no flag", { handle: 1 }],
+        ["a flag of the wrong type", { handle: 1, supportsResolve: "yes" }],
+    ])("%s is rejected", (_name, raw) => {
+        expect(parseWireWorkspaceSymbolProviderRegistration(raw)).toBeNull();
     });
 });

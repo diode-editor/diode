@@ -19,6 +19,9 @@ export const DEFAULT_REQUEST_TIMEOUTS = {
     "languages.provideInlineCompletions": 5000,
     "languages.provideFoldingRanges": 1500,
     "languages.provideDocumentSymbols": 5000,
+    // Deliberately above the positional 5000: a project-wide search on JDT or gopls takes longer.
+    "languages.provideWorkspaceSymbols": 10000,
+    "languages.resolveWorkspaceSymbol": 10000,
     "languages.provideDefinition": 5000,
     "languages.provideImplementation": 5000,
     "languages.provideTypeDefinition": 5000,

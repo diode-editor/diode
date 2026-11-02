@@ -60,6 +60,7 @@
     "workbench.action.showAllEditors",
     "workbench.action.gotoLine",
     "workbench.action.gotoSymbol",
+    "workbench.action.showAllSymbols",
     "workbench.action.selectTheme",
     "workbench.profiles.actions.switchProfile",
     "workbench.profiles.actions.createProfile",
