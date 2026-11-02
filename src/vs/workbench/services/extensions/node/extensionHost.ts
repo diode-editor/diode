@@ -57,6 +57,7 @@ import type {
     ILinkedEditingRangeRequest,
     ILinkedEditingRanges,
 } from "../../../../editor/common/languages/iLinkedEditingSource.ts";
+import type { ILinkRequest } from "../../../../editor/common/languages/iLinkSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreRenameLocation,
@@ -131,6 +132,7 @@ import type { IWorkspaceFoldersSink } from "../../../api/common/iWorkspaceFolder
 import type {
     IWireCodeLens,
     IWireCodeLensList,
+    IWireDocumentLinkList,
     IWireLanguageProviderRegistration,
     IWireWorkspaceSymbolProviderRegistration,
     IWireWorkspaceSymbols,
@@ -973,6 +975,23 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token?: ICancellationToken,
     ): Promise<ILinkedEditingRanges | null> {
         return this.languageFeatures.provideLinkedEditingRanges(handle, req, token);
+    }
+
+    public provideDocumentLinks(
+        handle: number,
+        req: ILinkRequest,
+        token?: ICancellationToken,
+    ): Promise<IWireDocumentLinkList | null> {
+        return this.languageFeatures.provideDocumentLinks(handle, req, token);
+    }
+
+    public resolveDocumentLink(
+        handle: number,
+        cacheId: number,
+        id: number,
+        token?: ICancellationToken,
+    ): Promise<string | null> {
+        return this.languageFeatures.resolveDocumentLink(handle, cacheId, id, token);
     }
 
     public provideDocumentColors(

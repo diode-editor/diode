@@ -47,6 +47,7 @@ import type {
     ILinkedEditingRangeRequest,
     ILinkedEditingRanges,
 } from "../../../editor/common/languages/iLinkedEditingSource.ts";
+import type { ILinkRequest } from "../../../editor/common/languages/iLinkSource.ts";
 import type { ICoreReference, IReferenceRequest } from "../../../editor/common/languages/iReferenceSource.ts";
 import type {
     ICoreRenameLocation,
@@ -75,6 +76,7 @@ import type { IFoldingRegion } from "../../../editor/contrib/folding/iFoldingReg
 import type {
     IWireCodeLens,
     IWireCodeLensList,
+    IWireDocumentLinkList,
     IWireLanguageProviderRegistration,
     IWireWorkspaceSymbolProviderRegistration,
     IWireWorkspaceSymbols,
@@ -224,6 +226,12 @@ export interface IExtensionLanguageFeaturesBridge {
         request: ILinkedEditingRangeRequest,
         token: ICancellationToken,
     ): Promise<ILinkedEditingRanges | null>;
+    provideDocumentLinks(
+        handle: number,
+        request: ILinkRequest,
+        token: ICancellationToken,
+    ): Promise<IWireDocumentLinkList | null>;
+    resolveDocumentLink(handle: number, cacheId: number, id: number, token: ICancellationToken): Promise<string | null>;
     /** `null`: the provider gave no colors, the default detector may take over. */
     provideDocumentColors(
         handle: number,

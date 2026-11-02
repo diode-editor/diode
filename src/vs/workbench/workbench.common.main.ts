@@ -178,6 +178,8 @@ import { LargeFileOptimizationsWarnerDIToken } from "./contrib/largeFile/browser
 import { LINES_OPERATIONS_ACTIONS } from "./contrib/linesOperations/browser/linesOperationsActions.ts";
 import { LINKED_EDITING_ACTIONS } from "./contrib/linkedEditing/browser/linkedEditingActions.ts";
 import { LinkedEditingServiceDIToken } from "./contrib/linkedEditing/browser/linkedEditingService.ts";
+import { LINKS_ACTIONS } from "./contrib/links/browser/linksActions.ts";
+import { LinksServiceDIToken } from "./contrib/links/browser/linksService.ts";
 import { DiagnosticsServiceDIToken } from "./contrib/markers/browser/diagnosticsService.ts";
 import { ProblemsComponentDIToken } from "./contrib/markers/browser/problemsComponent.ts";
 import { MULTI_CURSOR_ACTIONS } from "./contrib/multicursor/browser/multiCursorActions.ts";
@@ -254,6 +256,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Stryker disable next-line ObjectLiteral,StringLiteral: the service is resolved anyway (WorkbenchContextKeys holds it) — the entry only hands over lifetime ownership
     { token: HoverServiceDIToken, phase: "blockStartup" },
     { token: LinkedEditingServiceDIToken, phase: "blockStartup" },
+    { token: LinksServiceDIToken, phase: "blockStartup" },
     { token: FormatOnTypeServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (ParameterHintsService in the next entry holds it) — the entry only hands over lifetime ownership
     { token: ParameterHintsComponentDIToken, phase: "blockStartup" },
@@ -417,6 +420,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...GOTO_DEFINITION_ACTIONS,
     ...HOVER_ACTIONS,
     ...LINKED_EDITING_ACTIONS,
+    ...LINKS_ACTIONS,
     ...PARAMETER_HINTS_ACTIONS,
     ...FORMAT_ACTIONS,
     ...CODE_ACTION_ACTIONS,

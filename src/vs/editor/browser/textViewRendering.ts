@@ -186,15 +186,23 @@ export function paintSortedRangeBackgrounds(
     geo: ITextViewportGeometry,
     skipIndex = -1,
 ): void {
+    forEachVisibleSortedRange(ranges, geo, (range, i) => {
+        if (i !== skipIndex) paintRangeBackground(context, range, bg, geo);
+    });
+}
+
+/** Ranges sorted by position and not overlapping, cut down to the visible lines. */
+export function forEachVisibleSortedRange(
+    ranges: readonly IRange[],
+    geo: ITextViewportGeometry,
+    visit: (range: IRange, index: number) => void,
+): void {
     const rows = geo.rows;
     if (rows.length === 0) return;
     const firstLine = rows[0].logLine;
     const lastLine = rows[rows.length - 1].logLine;
     const first = findFirstIdxMonotonousOrArrLen(ranges, (range) => range.end.line >= firstLine);
-    for (let i = first; i < ranges.length && ranges[i].start.line <= lastLine; i++) {
-        if (i === skipIndex) continue;
-        paintRangeBackground(context, ranges[i], bg, geo);
-    }
+    for (let i = first; i < ranges.length && ranges[i].start.line <= lastLine; i++) visit(ranges[i], i);
 }
 
 export interface IPaintTextLineParams {

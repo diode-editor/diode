@@ -53,6 +53,11 @@ export const editorColors = {
         description:
             "Background color of a textual occurrence for a symbol. The color must not be opaque so as not to hide underlying decorations.",
     },
+    // VS Code's hcDark is cyan and its hcLight #292929; hc kinds map to dark/light here.
+    "editorLink.activeForeground": {
+        defaults: { dark: "#4E94CE", light: "#0000FF" },
+        description: "Color of active links.",
+    },
     // Opaque approximations of VS Code's #f00 with alpha 0.3 composited over the editor bg. VS Code's hcLight is
     // white; hc kinds map to dark/light here.
     "editor.linkedEditingBackground": {
