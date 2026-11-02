@@ -99,7 +99,9 @@ export class NotificationToast extends DialogComponent {
 
         // Stryker disable next-line StringLiteral: row width spec — an empty string gives the same layout, the frame does not change
         stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
-        stack.addChild(buildButtonRow(buttons), { width: "stretch", height: 1 });
+        for (const row of splitIntoRows(buttons)) {
+            stack.addChild(buildButtonRow(row), { width: "stretch", height: 1 });
+        }
         if (answerButtons.length > 0) {
             const hint = new TextLabelElement(this.unfocusedHint);
             hint.style = { fg: TOAST_STYLES.descriptionFg };
@@ -165,6 +167,23 @@ export function toastLines(message: string): string[] {
     const lines = wrapText(message, TOAST_TEXT_WIDTH);
     if (lines.length <= TOAST_MAX_LINES) return lines;
     return [...lines.slice(0, TOAST_MAX_LINES - 1), "…"];
+}
+
+/** A row wider than the toast would squeeze its last buttons to nothing, the close button first. */
+function splitIntoRows(buttons: readonly ButtonElement[]): ButtonElement[][] {
+    const rows: ButtonElement[][] = [];
+    let free = 0;
+    for (const button of buttons) {
+        const width = button.getMaxIntrinsicWidth(1);
+        if (width + 1 > free) {
+            rows.push([button]);
+            free = TOAST_TEXT_WIDTH - width;
+        } else {
+            rows[rows.length - 1].push(button);
+            free -= width + 1;
+        }
+    }
+    return rows;
 }
 
 function buildButtonRow(buttons: readonly ButtonElement[]): HFlexElement {
