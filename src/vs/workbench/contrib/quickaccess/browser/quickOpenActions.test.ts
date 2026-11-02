@@ -9,6 +9,7 @@ import {
     QUICK_ACCESS_ACTIONS,
     quickOpenAction,
     showAllEditorsAction,
+    showAllSymbolsAction,
     showCommandsAction,
 } from "./quickOpenActions.ts";
 import type { QuickOpenService } from "./quickOpenService.ts";
@@ -49,6 +50,14 @@ describe("quick open actions — prefill argument", () => {
         quickOpenAction.run(accessor, { text: "src/" });
         quickOpenAction.run(accessor, 42);
         expect(shown).toEqual(["", ""]);
+    });
+
+    it("showAllSymbols: opens `#`", () => {
+        const { accessor, shown } = makeAccessor();
+        showAllSymbolsAction.run(accessor);
+        expect(shown).toEqual(["#"]);
+        expect(showAllSymbolsAction.id).toBe("workbench.action.showAllSymbols");
+        expect(showAllSymbolsAction.title).toBe("Go to Symbol in Workspace...");
     });
 
     it("gotoSymbol: opens `@`, with the argument after the prefix", () => {
