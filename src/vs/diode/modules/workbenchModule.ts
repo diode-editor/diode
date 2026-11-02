@@ -102,6 +102,7 @@ import {
     ViewTitleActionsContribution,
     ViewTitleActionsContributionDIToken,
 } from "../../workbench/browser/parts/views/viewTitleActionsContribution.ts";
+import { ResourceContextKeys, ResourceContextKeysDIToken } from "../../workbench/browser/resourceContextKeys.ts";
 import {
     SetContextCommandContribution,
     SetContextCommandContributionDIToken,
@@ -498,6 +499,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(SearchComponentDIToken, SearchComponent);
     container.bind(FileOperationsServiceDIToken, FileOperationsService);
     container.bind(LanguageFeatureContextKeysDIToken, LanguageFeatureContextKeys);
+    container.bind(ResourceContextKeysDIToken, ResourceContextKeys);
     container.bind(InputWidgetServiceDIToken, InputWidgetService);
     container.bind(QuickInputComponentDIToken, QuickInputComponent);
     container.bind(QuickInputServiceDIToken, QuickInputService);

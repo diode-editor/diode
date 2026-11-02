@@ -124,6 +124,23 @@ describe("ContextKeyService", () => {
             expect(listener.mock.calls[0][0]).toEqual(new Set(["textInputFocus", "listFocus", "activeOutputChannel"]));
         });
 
+        it("flush fires the pending change at once, and the queued tick then has nothing to fire", async () => {
+            const ctx = new ContextKeyService();
+            const listener = vi.fn();
+            ctx.onDidChange(listener);
+
+            ctx.flush();
+            expect(listener).not.toHaveBeenCalled();
+
+            ctx.setRaw("ext.ready", true);
+            ctx.flush();
+            expect(listener).toHaveBeenCalledTimes(1);
+            expect(listener.mock.calls[0][0]).toEqual(new Set(["ext.ready"]));
+
+            await Promise.resolve();
+            expect(listener).toHaveBeenCalledTimes(1);
+        });
+
         it("writing the same value is not an event", async () => {
             const ctx = new ContextKeyService();
             ctx.set("textInputFocus", true);
