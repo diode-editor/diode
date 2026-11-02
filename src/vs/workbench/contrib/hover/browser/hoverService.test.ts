@@ -38,7 +38,8 @@ describe("stripMarkdown — plain text for the TUI popup", () => {
         );
         expect(stripMarkdown("`a * b * c` and *x*")).toBe("a * b * c and x");
         expect(stripMarkdown("`snake_case_ish_` [x](y)")).toBe("snake_case_ish_ x");
-        expect(stripMarkdown("`a \\* b`")).toBe("a * b");
+        expect(stripMarkdown("`a \\* b`")).toBe("a \\* b");
+        expect(stripMarkdown("\\`not code\\` and \\*x\\*")).toBe("`not code` and *x*");
     });
 
     it("`_italic_` is stripped only at a word boundary — snake_case is left alone", () => {
