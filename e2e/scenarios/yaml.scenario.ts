@@ -80,7 +80,7 @@ export default defineScenario({
         await editor.sendKey("Escape");
 
         await runFromPalette("Go to Symbol in Editor");
-        await editor.waitForText((t) => t.includes("symbols ("), { timeoutMs: 20_000 });
+        await editor.waitForText((t) => /runs-on +build/.test(t), { timeoutMs: 20_000 });
         await editor.capture("go-to-symbol");
         await editor.sendKey("Escape");
     },
