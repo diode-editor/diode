@@ -63,13 +63,13 @@ registration but are not called yet.
 | `registerTypeDefinitionProvider` | ✅ | Go to Type Definition (Command Palette, editor context menu, no default key): one target is a jump, several go to the References panel per `editor.gotoLocation.multipleTypeDefinitions` |
 | `registerDeclarationProvider` | ✅ | Go to Declaration (Command Palette, editor context menu, no default key): one target is a jump, several go to the References panel per `editor.gotoLocation.multipleDeclarations` |
 | `registerDocumentSymbolProvider` | ✅ | Go to Symbol in Editor (Ctrl+Shift+O, `@` and `@:` in Quick Open) with live preview; the first provider with a non-empty answer wins, `metaData` is accepted and ignored; no Outline view or breadcrumbs yet |
-| `registerHoverProvider` | ✅ | multiple providers are concatenated |
+| `registerHoverProvider` | ✅ | multiple providers are concatenated, below the diagnostics under the caret; `supportHtml` is not rendered |
 | `registerReferenceProvider` | ✅ | |
 | `registerRenameProvider` | ✅ | `prepareRename` (both response forms), edits across all affected files as one undo step; the new name is asked for in an input box, there is no inline rename widget |
 | `registerSignatureHelpProvider` | ✅ | both registration overloads |
 | `registerDocumentFormattingEditProvider` | ✅ | `editor.defaultFormatter` picks the provider; without it the first one formats instead of asking, and there is no Format Document With picker |
 | `registerDocumentRangeFormattingEditProvider` | ✅ | the multi-range `provideDocumentRangesFormattingEdits` is not active |
-| `registerCodeActionsProvider` | ✅ | quickfix, organize imports, fix all; `CodeAction.disabled` as in VS Code (hidden from Quick Fix, auto-apply names the reason); there is no lightbulb indicator |
+| `registerCodeActionsProvider` | ✅ | quickfix, organize imports, fix all; `CodeAction.disabled` as in VS Code (hidden from Quick Fix, auto-apply names the reason); Quick Fix asks with the exact selection and, with no quick fix there, at the nearest diagnostic on the line; there is no lightbulb indicator |
 | `registerFoldingRangeProvider` | ✅ | |
 | `registerSelectionRangeProvider` | ✅ | Expand/Shrink Selection; provider steps are merged with the built-in ones (word, subword, line, document); `vscode.executeSelectionRangeProvider` is not exposed |
 | `registerColorProvider` | ✅ | a square of the color before every range the provider returns, as for the built-in color detector; `editor.defaultColorDecorators`: in `auto` an answer with colors silences the built-in detector, an empty answer or a failure leaves the document to it (VS Code silences it by the mere registration); `always` shows both. A channel outside 0..1 is clamped, a NaN color is dropped. No color picker; `provideColorPresentations` is not called |

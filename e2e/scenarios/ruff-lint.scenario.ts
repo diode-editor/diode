@@ -32,6 +32,8 @@ export default defineScenario({
         );
         await editor.capture("diagnostics");
 
+        // On `sys`: Quick Fix asks at the caret, and at the line start only the import block's I001 is there.
+        await editor.sendKey("End");
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+Q");
         await editor.waitForText((t) => t.includes("Remove unused import"), { timeoutMs: 60_000 });

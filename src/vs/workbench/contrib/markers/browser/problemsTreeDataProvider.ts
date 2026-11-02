@@ -6,7 +6,7 @@ import type { ITreeDataProvider, ITreeItem } from "@tuidom/elements/tree/iTreeDa
 import { codicon, type IProductIcon } from "../../../../base/common/codicons.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IMarker } from "../../../../platform/markers/common/iMarker.ts";
-import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
+import { markerOriginLabel, MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 import { type IProductIconService, NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 
 /** `path.basename` must not be applied to a uri resource: on `untitled:Untitled-1` it gives a wrong answer. */
@@ -74,7 +74,13 @@ export class ProblemsTreeDataProvider implements ITreeDataProvider<ProblemNode> 
         }
         const start = element.marker.range.start;
         return {
-            label: `${element.marker.message}  [Ln ${start.line + 1}, Col ${start.character + 1}]`,
+            label: [
+                element.marker.message,
+                markerOriginLabel(element.marker),
+                `[Ln ${start.line + 1}, Col ${start.character + 1}]`,
+            ]
+                .filter((part) => part !== "")
+                .join("  "),
             collapsible: false,
             icon: this.icons.glyph(SEVERITY_ICON[element.marker.severity]),
             iconColor: this.colorFor(element.marker.severity),

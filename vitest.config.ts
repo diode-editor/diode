@@ -32,6 +32,7 @@ export default defineConfig({
         "src/TestUtils/basedpyrightFixture.ts", // pythonLsp* suite harness: the until() timeout branch is reachable only in a red run
         "src/TestUtils/stockVsix.ts", // downloads a vsix from the marketplace (error branches, network/broken registry, are reachable only in a red run)
         "src/TestUtils/eslintFixture.ts", // eslintLsp* suite harness: npm install of the library is reachable only on a cold cache (network), the rename race only in a parallel run
+        "src/TestUtils/goLspSession.ts", // goLsp* suite harness: its guards are reachable only in a red run, the skip only without Go
         "src/**/*.stories.ts",
         "src/demos/**",
         "src/vs/diode/main.ts",

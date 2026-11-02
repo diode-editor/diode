@@ -87,7 +87,14 @@ export class HoverElement extends TUIElement {
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {
-        const size = constraints.constrain(this.boxSize);
+        // A narrower screen wraps the text onto more rows: the height comes from the width really given.
+        const width = Math.min(this.boxSize.width, constraints.maxWidth);
+        const wrappedSize = hoverBoxSize(
+            this.isEmpty ? null : hoverTextWidthIn(width),
+            (textWidth) => this.linesFor(textWidth).length,
+            this.maxHeight,
+        );
+        const size = constraints.constrain(wrappedSize);
         super.performLayout(BoxConstraints.tight(size));
         return size;
     }
