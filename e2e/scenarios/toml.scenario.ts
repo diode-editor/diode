@@ -55,12 +55,16 @@ export default defineScenario({
         await editor.sendKey("Ctrl+Home");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
-        await editor.executeCommand("editor.action.showHover");
+        await editor.sendKey("F1");
+        await editor.waitForNode("#quickInput");
+        await editor.sendText("Show Hover");
+        await editor.waitForText((t) => t.includes("Show Hover"), { timeoutMs: 20_000 });
+        await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("The package name from the schema"), { timeoutMs: 20_000 });
         await editor.capture("schema-hover");
         await editor.sendKey("Escape");
 
-        await editor.executeCommand("workbench.action.gotoSymbol");
+        await editor.sendKey("Ctrl+Shift+o");
         await editor.waitForText((t) => t.includes("symbols (2)"), { timeoutMs: 20_000 });
         await editor.capture("symbols");
         await editor.sendKey("Escape");
