@@ -9,7 +9,6 @@ import type { IExtensionRegistration } from "../vs/workbench/services/extensions
 import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
 import { fetchStockVsix } from "./stockVsix.ts";
 
-/** The language server, the Svelte compiler and TypeScript are bundled: nothing else to install. */
 export const SVELTE_ID = "svelte.svelte-vscode";
 
 export const SVELTE_LANGUAGE_SERVICE: ILanguageService = {
@@ -33,6 +32,7 @@ export interface IInstalledSvelte {
     dispose(): void;
 }
 
+/** The language server, the Svelte compiler and TypeScript are bundled: nothing else to install. */
 export async function installSvelte(): Promise<IInstalledSvelte> {
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-vsix-"));
     const { id, version } = await installVsix((await fetchStockVsix(SVELTE_ID)).vsixPath, extensionsDir);

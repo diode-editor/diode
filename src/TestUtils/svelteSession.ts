@@ -12,9 +12,8 @@ import {
     provideHovers,
 } from "./ExtensionTestHarness.ts";
 import { type IInstalledSvelte, SVELTE_LANGUAGE_SERVICE, svelteSampleFiles } from "./svelteFixture.ts";
-import { createTestConfigurationService } from "./testConfigurationService.ts";
 
-export interface ISveltePosition {
+interface ISveltePosition {
     readonly uri: string;
     readonly languageId: string;
     readonly versionId: number;
@@ -43,11 +42,9 @@ export async function withSvelteFiles(
     files: Readonly<Record<string, string>> = svelteSampleFiles(),
 ): Promise<void> {
     const output: string[] = [];
-    const configuration = createTestConfigurationService({});
     const harness = await createExtensionTestHarness({
         languageService: SVELTE_LANGUAGE_SERVICE,
         activateEvents: [],
-        configurationService: configuration,
         configuration: settings,
         outputSink: {
             append: (_channel, _label, _level, value) => output.push(value),

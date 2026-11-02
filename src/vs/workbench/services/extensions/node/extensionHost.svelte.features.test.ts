@@ -7,7 +7,6 @@ import { type IInstalledSvelte, installSvelte } from "../../../../../TestUtils/s
 import { withSvelteFiles } from "../../../../../TestUtils/svelteSession.ts";
 import { waitUntil } from "../../../../../TestUtils/timing.ts";
 import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
-import { Uri } from "../../../../base/common/uri.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
 import { FeatureDebounce } from "../../../../editor/common/services/languageFeatureDebounce.ts";
 import { DEFAULT_CODE_LENS_OPTIONS } from "../../../../editor/contrib/codelens/browser/codeLensController.ts";
@@ -78,7 +77,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — features of stock svelte
     );
 
     it("workspace symbols find an interface in a .ts file", TIMEOUT, () =>
-        withSvelteFiles(installed, async ({ harness }) => {
+        withSvelteFiles(installed, async (session) => {
+            const { harness } = session;
             const symbol = await until("the workspace symbol", async () => {
                 const found = await getWorkspaceSymbols(
                     harness.languageFeatures.workspaceSymbolProvider,
@@ -87,7 +87,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — features of stock svelte
                 );
                 return found.map((item) => item.symbol).find(({ name }) => name === "User") ?? null;
             });
-            expect(symbol.location.uri).toBe(Uri.file(`${harness.tmpDir}/util.ts`).toString());
+            expect(symbol.location.uri).toBe(session.uriOf("util.ts"));
         }),
     );
 

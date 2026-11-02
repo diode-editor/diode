@@ -14,7 +14,7 @@ import {
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { type IInstalledSvelte, installSvelte, svelteSampleFiles } from "../../../../../TestUtils/svelteFixture.ts";
-import { type ISvelteSession, withSvelteFiles } from "../../../../../TestUtils/svelteSession.ts";
+import { withSvelteFiles } from "../../../../../TestUtils/svelteSession.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 
 // The language features of stock svelte.svelte-vscode in a `.svelte` file, across to `.ts`. Inlay hints, lenses,
@@ -38,10 +38,6 @@ function targets(locations: readonly { uri: string; range: { start: { line: numb
             character: range.start.character,
         }),
     );
-}
-
-function openFile(session: ISvelteSession, name: string): void {
-    session.harness.group.openFile(path.join(session.harness.tmpDir, name));
 }
 
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock svelte.svelte-vscode", () => {
@@ -139,7 +135,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock svelte.svelte-vsco
     it("rename of a prop in Button.svelte renames the attribute in App.svelte", TIMEOUT, () =>
         withSvelteFiles(installed, async (session) => {
             const { harness } = session;
-            openFile(session, "Button.svelte");
+            harness.group.openFile(path.join(harness.tmpDir, "Button.svelte"));
             const result = await provideRename(harness, session.at("Button.svelte", "label: string"), "caption");
             expect(result).toEqual({ applied: true });
             const app = harness.group
