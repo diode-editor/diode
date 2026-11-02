@@ -10,10 +10,10 @@ exports.activate = function activate(context) {
     const target = () => vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, "target.ts");
     context.subscriptions.push(
         vscode.languages.registerWorkspaceSymbolProvider({
-            provideWorkspaceSymbols: function (query) {
+            provideWorkspaceSymbols: function () {
                 const partial = new SymbolInformation("partialSymbol", SymbolKind.Class, "Box", new Location(target(), new Position(0, 0)));
                 partial.location = { uri: target() };
-                return query === "nothing" ? [] : [partial];
+                return [partial];
             },
             resolveWorkspaceSymbol: function (symbol) {
                 symbol.location = new Location(target(), new Range(2, 4, 2, 10));

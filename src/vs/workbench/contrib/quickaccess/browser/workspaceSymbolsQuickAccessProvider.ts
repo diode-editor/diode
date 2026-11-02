@@ -2,7 +2,7 @@ import * as nodePath from "node:path";
 
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { CancellationTokenNone, LatestRequest } from "../../../../base/common/cancellation.ts";
-import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { comparePositions } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
@@ -54,7 +54,7 @@ export const WorkspaceSymbolsQuickAccessProviderDIToken = token<WorkspaceSymbols
     "WorkspaceSymbolsQuickAccessProvider",
 );
 
-export interface IWorkspaceSymbolItem {
+interface IWorkspaceSymbolItem {
     readonly symbol: ICoreWorkspaceSymbol;
     readonly provider: WorkspaceSymbolProvider;
 }
@@ -150,8 +150,8 @@ export class WorkspaceSymbolsQuickAccessProvider implements IQuickAccessProvider
 
     private readonly latest = new LatestRequest();
     private searchTimer: ReturnType<typeof setTimeout> | undefined;
-    private registryListener: IDisposable | null = null;
-    private requestedQuery: string | null = null;
+    private readonly registryListener = new MutableDisposable();
+    private requestedFilter: string | null = null;
     private rows: readonly QuickAccessItem[] = [];
     private refresh: (preserveSelection: boolean) => void = () => undefined;
 
@@ -176,7 +176,7 @@ export class WorkspaceSymbolsQuickAccessProvider implements IQuickAccessProvider
         const selected = viewState.getSelectedText();
         if (selected.includes("\n")) return undefined;
         if (selected !== "") return selected;
-        const line = editor.getLinesContent()[viewState.primaryCursorLine];
+        const line = editor.model.document.getLineContent(viewState.primaryCursorLine);
         const word = findWordRangeAt(line, viewState.primaryCursorColumn);
         return word === null ? undefined : line.slice(word.start, word.end);
     }
@@ -184,25 +184,24 @@ export class WorkspaceSymbolsQuickAccessProvider implements IQuickAccessProvider
     public onShow(refresh: (preserveSelection: boolean) => void): void {
         this.refresh = refresh;
         // The picker may have opened before the extension registered.
-        this.registryListener = this.languageFeatures.workspaceSymbolProvider.onDidChange(() => {
-            this.requestedQuery = null;
+        this.registryListener.value = this.languageFeatures.workspaceSymbolProvider.onDidChange(() => {
+            this.requestedFilter = null;
             refresh(false);
         });
     }
 
     public onHide(): void {
         this.cancelSearch();
-        this.registryListener?.dispose();
-        this.registryListener = null;
-        this.requestedQuery = null;
+        this.registryListener.clear();
+        this.requestedFilter = null;
         this.rows = [];
     }
 
     public getItems(query: string): QuickAccessItem[] {
         if (this.languageFeatures.workspaceSymbolProvider.all().length === 0) return [{ label: NO_PROVIDERS }];
-        if (query !== this.requestedQuery) {
-            this.requestedQuery = query;
-            const filter = query.slice(WorkspaceSymbolsQuickAccessProvider.PREFIX.length).trim();
+        const filter = query.slice(WorkspaceSymbolsQuickAccessProvider.PREFIX.length).trim();
+        if (filter !== this.requestedFilter) {
+            this.requestedFilter = filter;
             this.search(filter, {}, (rows) => {
                 this.rows = rows.length === 0 && filter !== "" ? [{ label: NO_MATCHING_SYMBOLS }] : rows;
                 this.refresh(false);

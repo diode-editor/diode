@@ -49,7 +49,7 @@ function setup(editorOptions: IEditorOptions | null = {}) {
                       primaryCursorLine: 0,
                       primaryCursorColumn: editorOptions.column ?? 0,
                   },
-                  getLinesContent: () => [editorOptions.line ?? ""],
+                  model: { document: { getLineContent: () => editorOptions.line ?? "" } },
                   goToPosition: vi.fn(),
                   revealRange: vi.fn(),
               };
@@ -174,6 +174,19 @@ describe("WorkspaceSymbolsQuickAccessProvider", () => {
             await settle();
             expect(refresh).toHaveBeenCalledWith(false);
             expect(labels(provider.getItems("#foo"))).toEqual(["foo"]);
+            await settle();
+
+            expect(source.provideWorkspaceSymbols).toHaveBeenCalledTimes(1);
+        });
+
+        it("trailing spaces are the same filter: no new request", async () => {
+            const { provider, features } = setup();
+            const source = answering([symbol("foo")]);
+            features.workspaceSymbolProvider.register(source);
+
+            provider.getItems("#foo");
+            await settle();
+            provider.getItems("#foo ");
             await settle();
 
             expect(source.provideWorkspaceSymbols).toHaveBeenCalledTimes(1);

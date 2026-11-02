@@ -306,10 +306,15 @@ describe("FilesQuickAccessProvider — search.quickOpen.includeSymbols", () => {
         expect(items.map((item) => item.label)).toEqual(["foo.ts"]);
     });
 
-    it("an empty query: only the history, no request", () => {
-        const { provider, search } = symbolSetup();
+    it("an empty query: only the history, no request; clearing the box cancels what was asked", () => {
+        const { provider, search, cancelSearch } = symbolSetup();
         provider.getItems("");
         expect(search).not.toHaveBeenCalled();
+        expect(cancelSearch).not.toHaveBeenCalled();
+
+        provider.getItems("foo");
+        provider.getItems("");
+        expect(cancelSearch).toHaveBeenCalledTimes(1);
     });
 
     it("closing cancels and forgets the rows", () => {

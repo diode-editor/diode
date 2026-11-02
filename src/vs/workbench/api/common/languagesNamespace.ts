@@ -3,6 +3,7 @@ import type * as vscode from "vscode";
 import { CancellationTokenNone, type ICancellationToken } from "../../../base/common/cancellation.ts";
 import { describeRejection } from "../../../base/common/describeRejection.ts";
 import { CancellationError, isCancellationError } from "../../../base/common/errorSerialization.ts";
+import { LRUCache } from "../../../base/common/map.ts";
 import type { IRange } from "../../../editor/common/core/iRange.ts";
 import type {
     ICallHierarchyIncomingCall,
@@ -154,7 +155,7 @@ export interface IDocumentSymbolRegistration {
 /** Originals by answer, per provider as `codeActionCache`: all providers answer one query, a shared depth would evict. */
 interface IWorkspaceSymbolRegistration {
     readonly provider: vscode.WorkspaceSymbolProvider;
-    readonly cache: Map<number, readonly vscode.SymbolInformation[]>;
+    readonly cache: LRUCache<number, readonly vscode.SymbolInformation[]>;
 }
 
 export interface IInlayHintsRegistration {
@@ -1528,8 +1529,8 @@ export function createLanguagesNamespace(
             );
             if (!Array.isArray(result) || result.length === 0) return empty;
             const cacheId = nextWorkspaceSymbolCacheId++;
-            reg.cache.set(cacheId, result);
-            for (const key of [...reg.cache.keys()].slice(0, -WORKSPACE_SYMBOL_CACHE_DEPTH)) reg.cache.delete(key);
+            // Only a provider that resolves ever reads it; the others would pin their whole answers.
+            if (reg.provider.resolveWorkspaceSymbol !== undefined) reg.cache.set(cacheId, result);
             return { cacheId, symbols: serializeWorkspaceSymbols(result, reg.owner) };
         } catch (err) {
             reportProviderFailure("provideWorkspaceSymbols", err, reg.owner);
@@ -1824,7 +1825,11 @@ export function createLanguagesNamespace(
             registerByHandle(documentHighlightProviders, "documentHighlight", selector, { selector, provider }),
         registerWorkspaceSymbolProvider: (provider: vscode.WorkspaceSymbolProvider): vscode.Disposable => {
             const handle = nextProviderHandle++;
-            workspaceSymbolProviders.set(handle, { provider, cache: new Map(), owner: ctx.owner.current });
+            workspaceSymbolProviders.set(handle, {
+                provider,
+                cache: new LRUCache(WORKSPACE_SYMBOL_CACHE_DEPTH),
+                owner: ctx.owner.current,
+            });
             rpc.notify("languages.registerWorkspaceSymbol", {
                 handle,
                 supportsResolve: typeof provider.resolveWorkspaceSymbol === "function",

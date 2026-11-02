@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
+import { LRUCache } from "../../../base/common/map.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
@@ -222,6 +223,16 @@ describe("LanguagesNamespace — registerWorkspaceSymbolProvider", () => {
             await provide(1, "z");
 
             expect(await resolve(0, mine.cacheId, 0)).not.toBeNull();
+        });
+
+        it("a provider that cannot resolve keeps nothing: its answers are not pinned in memory", async () => {
+            const remembered = vi.spyOn(LRUCache.prototype, "set");
+            const { languages, provide } = setup();
+            languages.registerWorkspaceSymbolProvider(provider([info("foo")]));
+
+            await provide(0, "");
+
+            expect(remembered).not.toHaveBeenCalled();
         });
 
         it("a cache id of one provider means nothing to another", async () => {

@@ -9,6 +9,7 @@ import type {
     IWireCodeLens,
     IWireLanguageProviderRegistration,
     IWireSemanticTokensLegend,
+    IWireWorkspaceSymbol,
     IWireWorkspaceSymbolProviderRegistration,
     WireCodeLensCacheId,
     WireLanguageFeatureKind,
@@ -22,9 +23,8 @@ interface IExtensionCodeLens extends CodeLens {
 }
 
 /** The core hands the symbol back to resolve it, with the address on it. */
-interface IExtensionWorkspaceSymbol extends ICoreWorkspaceSymbol {
+interface IExtensionWorkspaceSymbol extends IWireWorkspaceSymbol {
     readonly cacheId: number;
-    readonly id: number;
 }
 
 interface ILiveRegistration<T> {

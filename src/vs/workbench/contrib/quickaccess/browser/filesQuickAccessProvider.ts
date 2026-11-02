@@ -118,6 +118,7 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
         const { filePart, goto } = splitFileQuery(query);
         const filter = prepareQuery(filePart);
         if (filter.terms.length === 0) {
+            this.requestSymbols("");
             return this.historyEntries().map((entry) =>
                 this.buildHistoryItem({ entry, score: 0, matchedIndices: [] }, goto),
             );

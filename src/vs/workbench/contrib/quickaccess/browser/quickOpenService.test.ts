@@ -1276,6 +1276,7 @@ describe("QuickOpenService — provider hooks", () => {
         };
         const registry = new QuickAccessRegistry(accessor, [
             { prefix: "@", provider: hooksToken },
+            { prefix: "#", provider: otherToken },
             { prefix: "", provider: otherToken },
         ]);
         const component = makeComponent();
@@ -1415,6 +1416,18 @@ describe("QuickOpenService — provider hooks", () => {
         component.view.setQuery("a");
         component.view.onQueryChange?.("a");
         expect(onHide).toHaveBeenCalledExactlyOnceWith("cancel");
+    });
+
+    it("inWorkspaceSymbolsPicker holds only while `#` is shown", () => {
+        const { service } = setup();
+        const keys = new ContextKeyService();
+        service.show("#");
+        service.updateContextKeys(keys);
+        expect(keys.get("inWorkspaceSymbolsPicker")).toBe(true);
+
+        service.close();
+        service.updateContextKeys(keys);
+        expect(keys.get("inWorkspaceSymbolsPicker")).toBe(false);
     });
 
     it("inFileSymbolsPicker holds only while `@` is shown", () => {

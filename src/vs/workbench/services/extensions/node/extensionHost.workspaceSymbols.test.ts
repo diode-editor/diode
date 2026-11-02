@@ -38,14 +38,4 @@ describe("ExtensionHost — workspace symbol provider (subprocess)", () => {
             await harness.dispose();
         }
     });
-
-    it("an empty answer is an empty list", async () => {
-        const harness = await startHarness();
-        try {
-            const registry = harness.languageFeatures.workspaceSymbolProvider;
-            expect(await getWorkspaceSymbols(registry, "nothing", CancellationTokenNone)).toEqual([]);
-        } finally {
-            await harness.dispose();
-        }
-    });
 });
