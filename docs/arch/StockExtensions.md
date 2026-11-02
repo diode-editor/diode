@@ -282,7 +282,8 @@ vsix, в VS Code то же. Снять линзы без перезагрузк�
 `extensionHost.terraformLsp.codeLens.test.ts`, сценарий — `terraform-code-lens.scenario.ts`.
 
 **Навигация и символы** (terraform-ls 0.39; тест `extensionHost.terraformLsp.navigation.test.ts`, сценарий
-`terraform-symbols`). Работают без правок ядра.
+`terraform-symbols`). Правка ядра одна: `LinkDetector` спрашивал провайдеров прямо из конструктора, раньше
+синхронизации документа, и файл, открытый после регистрации провайдера, оставался без ссылок до первой правки.
 
 - **Declaration = Definition.** На `var.region` оба запроса дают один и тот же блок `variable "region"`;
   прямой опрос сервера показал одинаковые ответы и с `linkSupport`, и без него. Различие было бы новым
