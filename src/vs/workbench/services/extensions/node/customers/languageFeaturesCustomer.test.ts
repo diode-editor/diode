@@ -22,6 +22,8 @@ const TIMEOUTS: RequestTimeouts = {
     "languages.provideInlineCompletions": 103,
     "languages.provideFoldingRanges": 104,
     "languages.provideDocumentSymbols": 125,
+    "languages.provideWorkspaceSymbols": 126,
+    "languages.resolveWorkspaceSymbol": 127,
     "languages.provideHover": 106,
     "languages.provideSignatureHelp": 108,
     "languages.provideCodeActions": 110,
@@ -328,9 +330,9 @@ function setupAnswering(answers: Readonly<Record<string, Answer>>) {
     const peer = new RpcEndpoint(b);
     const hostRpc: HostRpc = new RpcEndpoint(a);
     const sent = vi.spyOn(hostRpc, "request");
-    customer.attach({ rpc: hostRpc, logger: undefined });
+    const attachment = customer.attach({ rpc: hostRpc, logger: undefined });
     for (const [method, answer] of Object.entries(answers)) peer.handleRequest(method, answer);
-    return { customer, sent };
+    return { customer, sent, peer, attachment };
 }
 
 function answerAll(answer: Answer): Record<string, Answer> {
@@ -1166,5 +1168,77 @@ describe("LanguageFeaturesCustomer — document highlights", () => {
         expect(await h.customer.provideLinkedEditingRanges(1, REQ)).toBeNull();
         const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         expect(await detached.provideLinkedEditingRanges(1, REQ)).toBeNull();
+    });
+});
+
+describe("LanguageFeaturesCustomer — workspace symbols", () => {
+    it("registration, an unknown one and unregister; each change is announced", async () => {
+        const h = setupAnswering({});
+        const changed = vi.fn();
+        h.customer.onProvidersChanged(changed);
+
+        h.peer.notify("languages.registerWorkspaceSymbol", { handle: 3, supportsResolve: true });
+        await flushMicrotasks();
+        expect(h.customer.getWorkspaceSymbolProviders()).toEqual([{ handle: 3, supportsResolve: true }]);
+        expect(changed).toHaveBeenCalledTimes(1);
+
+        h.peer.notify("languages.registerWorkspaceSymbol", { handle: "bad" });
+        await flushMicrotasks();
+        expect(h.customer.getWorkspaceSymbolProviders()).toHaveLength(1);
+        expect(changed).toHaveBeenCalledTimes(1);
+
+        h.peer.notify("languages.unregister", { handle: 99 });
+        await flushMicrotasks();
+        expect(changed).toHaveBeenCalledTimes(1);
+
+        h.peer.notify("languages.unregister", { handle: 3 });
+        await flushMicrotasks();
+        expect(h.customer.getWorkspaceSymbolProviders()).toEqual([]);
+        expect(changed).toHaveBeenCalledTimes(2);
+    });
+
+    it("the host going away takes the providers, and says so even when only these were there", async () => {
+        const h = setupAnswering({});
+        const changed = vi.fn();
+        h.peer.notify("languages.registerWorkspaceSymbol", { handle: 3, supportsResolve: false });
+        await flushMicrotasks();
+        h.customer.onProvidersChanged(changed);
+
+        h.attachment.dispose();
+
+        expect(h.customer.getWorkspaceSymbolProviders()).toEqual([]);
+        expect(changed).toHaveBeenCalledTimes(1);
+    });
+
+    it("the query, the handle and the caller's token go over the wire", async () => {
+        const answer = { cacheId: 2, symbols: [] };
+        const h = setupAnswering({ "languages.provideWorkspaceSymbols": () => answer });
+        const caller = new CancellationTokenSource();
+
+        expect(await h.customer.provideWorkspaceSymbols(1, "foo", caller.token)).toEqual(answer);
+
+        const call = h.sent.mock.calls.at(-1);
+        expect(call?.[1]).toEqual({ handle: 1, query: "foo" });
+        expect(call?.[2]).toMatchObject({ token: caller.token, timeoutMs: 126 });
+    });
+
+    it("resolve answers the location; a null answer stays null", async () => {
+        const location = { uri: "file:///a.ts" };
+        let answer: { location: typeof location } | null = { location };
+        const h = setupAnswering({ "languages.resolveWorkspaceSymbol": () => answer });
+
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.resolveWorkspaceSymbol(1, 2, 3, caller.token)).toEqual(location);
+        expect(h.sent.mock.calls.at(-1)?.[1]).toEqual({ handle: 1, cacheId: 2, id: 3 });
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+
+        answer = null;
+        expect(await h.customer.resolveWorkspaceSymbol(1, 2, 3)).toBeNull();
+    });
+
+    it("no host: an empty list, no location", async () => {
+        const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await customer.provideWorkspaceSymbols(1, "foo")).toEqual({ cacheId: 0, symbols: [] });
+        expect(await customer.resolveWorkspaceSymbol(1, 2, 3)).toBeNull();
     });
 });

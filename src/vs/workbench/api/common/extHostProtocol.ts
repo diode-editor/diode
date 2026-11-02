@@ -149,6 +149,8 @@ import type {
     IWireReleaseTypeHierarchy,
     IWireRenameParams,
     IWireResolveDocumentLinkParams,
+    IWireResolvedWorkspaceSymbol,
+    IWireResolveWorkspaceSymbolParams,
     IWireRevealRange,
     IWireSaveAllParams,
     IWireSaveDialogRequest,
@@ -196,6 +198,9 @@ import type {
     IWireWillSaveParams,
     IWireWorkspaceEditOp,
     IWireWorkspaceInitialize,
+    IWireWorkspaceSymbolProviderRegistration,
+    IWireWorkspaceSymbols,
+    IWireWorkspaceSymbolsParams,
     IWireWriteFileParams,
     WireCodeAction,
     WireFoldingRange,
@@ -223,6 +228,11 @@ export interface IHostToSubprocess {
         ];
         readonly "languages.provideFoldingRanges": readonly [IWireFoldingParams, WireFoldingRange[][]];
         readonly "languages.provideDocumentSymbols": readonly [IWireDocumentSymbolParams, ICoreDocumentSymbol[]];
+        readonly "languages.provideWorkspaceSymbols": readonly [IWireWorkspaceSymbolsParams, IWireWorkspaceSymbols];
+        readonly "languages.resolveWorkspaceSymbol": readonly [
+            IWireResolveWorkspaceSymbolParams,
+            IWireResolvedWorkspaceSymbol | null,
+        ];
         readonly "languages.provideDocumentSemanticTokens": readonly [
             IWireDocumentSemanticTokensParams,
             WireSemanticTokensResult | null,
@@ -422,6 +432,7 @@ export interface ISubprocessToHost {
     };
     readonly notifications: {
         readonly "languages.register": IWireLanguageProviderRegistration;
+        readonly "languages.registerWorkspaceSymbol": IWireWorkspaceSymbolProviderRegistration;
         readonly "languages.unregister": IWireLanguageProviderUnregistration;
         readonly "languages.didChangeSemanticTokens": IWireProviderHandle;
         readonly "languages.didChangeInlayHints": IWireProviderHandle;
