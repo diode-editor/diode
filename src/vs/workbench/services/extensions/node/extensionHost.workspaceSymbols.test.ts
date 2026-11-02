@@ -13,7 +13,7 @@ import { getWorkspaceSymbols } from "../../../contrib/quickaccess/browser/worksp
 function startHarness(): Promise<IExtensionHarness> {
     return createExtensionTestHarness({
         initialFile: { name: "target.ts", content: "line\n".repeat(5) },
-        extensions: [extensionFixture("test.providesWorkspaceSymbols", "providesWorkspaceSymbols.cjs")],
+        extensions: [extensionFixture("test.resolvesSymbols", "resolvesSymbols.cjs")],
     });
 }
 
