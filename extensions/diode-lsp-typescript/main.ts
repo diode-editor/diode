@@ -12,6 +12,7 @@ import {
     type ServerOptions,
 } from "vscode-languageclient/node";
 
+import { highlightsFromTsserver } from "./lib/documentHighlights.ts";
 import { needsNoopOrganizeImports } from "./lib/organizeImports.ts";
 import { configFileFromProjectInfo, JS_TS_LANGUAGE_IDS } from "./lib/projectConfig.ts";
 import {
@@ -116,6 +117,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             synchronize: { configurationSection: SYNCHRONIZED_SECTIONS },
             middleware: {
                 provideCodeActions: withNoopOrganizeImports,
+                provideDocumentHighlights: async (document, position, token, next) => {
+                    const highlights = await tsserverDocumentHighlights(clientRef.current, document, position, token);
+                    return highlights ?? next(document, position, token);
+                },
                 // tsserver notices a new or deleted config by polling it (2 s) and loads the project in the
                 // background; the server reports that load as "Initializing JS/TS language features…". Its end is
                 // the moment the project of the active file may have changed without an editor switch.
@@ -211,6 +216,48 @@ function projectStatusHost(clientRef: { readonly current?: LanguageClient }): IP
         showInformationMessage: (message, ...items) => vscode.window.showInformationMessage(message, ...items),
         showWarningMessage: (message) => void vscode.window.showWarningMessage(message),
     };
+}
+
+/** The server drops the token of `workspace/executeCommand`: a superseded request still runs in tsserver, over one file. */
+async function tsserverDocumentHighlights(
+    client: LanguageClient | undefined,
+    document: vscode.TextDocument,
+    position: vscode.Position,
+    token: vscode.CancellationToken,
+): Promise<vscode.DocumentHighlight[] | undefined> {
+    if (client === undefined) return undefined;
+    try {
+        const response: unknown = await client.sendRequest(
+            ExecuteCommandRequest.type,
+            {
+                command: "typescript.tsserverRequest",
+                arguments: [
+                    "documentHighlights",
+                    {
+                        file: document.uri.fsPath,
+                        line: position.line + 1,
+                        offset: position.character + 1,
+                        filesToSearch: [document.uri.fsPath],
+                    },
+                ],
+            },
+            token,
+        );
+        return highlightsFromTsserver(response)?.map(
+            (highlight) =>
+                new vscode.DocumentHighlight(
+                    new vscode.Range(
+                        highlight.startLine,
+                        highlight.startCharacter,
+                        highlight.endLine,
+                        highlight.endCharacter,
+                    ),
+                    highlight.isWrite ? vscode.DocumentHighlightKind.Write : vscode.DocumentHighlightKind.Read,
+                ),
+        );
+    } catch {
+        return undefined;
+    }
 }
 
 /** An empty edit applies with no changes and no undo step; see `lib/organizeImports.ts` for why. */

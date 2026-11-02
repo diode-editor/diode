@@ -138,6 +138,28 @@
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
 
+## TypeScript: встроенный `diode-lsp-typescript` (typescript-language-server)
+
+Не из магазина: builtin, сервер вшит в поставку ([Extensions.md](Extensions.md)). Тесты —
+`extensionHost.typescriptLsp.{navigation,symbols}.test.ts`, демо — `typescript-navigation`.
+
+- **Работает:** Go to Implementations (панель при нескольких, переход при одном), Go to Type Definition, F12 с
+  несколькими целями (панель `Definitions` и `editor.gotoLocation.multipleDefinitions: goto`), подсветка вхождений
+  двумя цветами, linked editing JSX-тегов в `.tsx`, `@` и `@:` с containerName, `#` по файлам проекта, call hierarchy
+  в обе стороны.
+- **Сервер не отдаёт, провайдера нет:** declaration, on-type formatting, document links, type hierarchy. Пунктов
+  `Go to Declaration` и `Show Type Hierarchy` в контекстном меню `.ts` нет.
+- **Подсветка вхождений идёт мимо LSP.** Сервер отображает `writtenReference` в Read, а Write отдаёт только для
+  `definition`, которого `documentHighlights` не присылает: всё пришло бы цветом чтения. Middleware
+  `provideDocumentHighlights` спрашивает tsserver через `typescript.tsserverRequest` и различает виды, как
+  `convertDocumentHighlight` эталона (`lib/documentHighlights.ts`). Нет ответа — обычный запрос. `export { x }` и
+  параметр tsserver считает записью: это его решение, в VS Code так же.
+- **F12 на вызове перегрузки — одна цель:** tsserver называет разрешённую перегрузку. Три цели — на импорте или на
+  объявлении.
+- **Большой проект.** Поиск реализаций популярного метода (`IDisposable.dispose` в этом репозитории) идёт дольше
+  5 с; дедлайн выдавал это за пустой ответ, поэтому у навигации его нет. Индикатора прогресса, как у эталона
+  (`progressService.showWhile`), пока нет: до ответа кадр не меняется.
+
 ## Python: `detachhead.basedpyright` и `charliermarsh.ruff`
 
 Оба — настоящие vsix с open-vsx как есть, ни строчки нашего кода расширения; маршрут «сторонний

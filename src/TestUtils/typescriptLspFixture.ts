@@ -24,7 +24,10 @@ const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 
 const LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
-    getLanguageIdForResource: (filePath) => (filePath.endsWith(".js") ? "javascript" : "typescript"),
+    getLanguageIdForResource: (filePath) => {
+        if (filePath.endsWith(".tsx")) return "typescriptreact";
+        return filePath.endsWith(".js") ? "javascript" : "typescript";
+    },
 };
 
 type ContributedManifest = IExtensionRegistration["manifest"] & {
@@ -87,7 +90,10 @@ export async function openInTypescriptLsp(
             },
         ],
     });
-    harness.writeFile("tsconfig.json", JSON.stringify({ compilerOptions: { strict: true, allowJs: true } }));
+    harness.writeFile(
+        "tsconfig.json",
+        JSON.stringify({ compilerOptions: { strict: true, allowJs: true, jsx: "preserve" } }),
+    );
     harness.group.openFile(harness.writeFile(fileName, source));
     const editor = assertReturnsDefined(harness.group.getActiveEditor());
     await harness.host.activateByEvent(fileName.endsWith(".js") ? "onLanguage:javascript" : "onLanguage:typescript");
