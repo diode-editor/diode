@@ -36,8 +36,16 @@ API расширений VS Code и LSP, к ним — без конверсий
   (`\r\n`, если им кончается больше половины строк), он же — `eol` документа и буфера. Смешанные
   EOL, как и раньше, не сохраняются; одиночный `\r` — перевод строки (раньше оставался символом в
   строке). Наружу всё LF-канонично: `getText`, `getTextInRange`, правки и обратные правки — с
-  `\n`, `serialize` — с `eol`. `setEol` переписывает буфер (`setEOL` эталона, O(n)), `versionId`
-  не трогает.
+  `\n`, `serialize` — с `eol`. `setEol` переписывает буфер (`setEOL` эталона, O(n)) и бампает `versionId`
+  (расширения видят новую версию текста), но не `alternativeVersionId`.
+- **Две версии, как `_versionId`/`_alternativeVersionId` эталона.** `versionId` только растёт — его
+  видят расширения (`TextDocument.version`) и seam-запросы. `alternativeVersionId` — версия *состояния
+  текста*: правка и `setText` ставят её равной новому `versionId`, а undo/redo (`UndoManager.moveElement`,
+  через `applyUndoRedoEdits`) возвращают значение состояния, которое восстанавливают, ещё до событий
+  правки. Элемент undo-стека помнит альтернативные версии до и после — берёт их у документа при
+  `push`/`join` (`alternativeVersionIdAt(versionBefore)`: элемент кладут сразу после его правки).
+  По ней `BaseTextEditorModel.isModified` узнаёт текст, равный сохранённому (#1010); наружу из
+  `editor/common/model` и `workbench/common/editor` она не выходит.
 - **Правка приводится к документу** (`validateRange` эталона): края — в пределах строк, `\r\n` и
   `\r` в тексте — `\n` (иначе события и зеркало, режущие по `\n`, разошлись бы с буфером).
   Пересекающиеся правки — отказ `Overlapping ranges are not allowed!` до любых изменений.

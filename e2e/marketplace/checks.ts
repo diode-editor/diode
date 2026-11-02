@@ -17,10 +17,18 @@ import { mavenMissing, writeMavenProject } from "../../src/TestUtils/mavenFixtur
 import { SVELTE_ID, SVELTE_SAMPLE_DIR } from "../../src/TestUtils/svelteFixture.ts";
 import { YAML_ID, YAML_SETTINGS } from "../../src/TestUtils/yamlFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
-import { BIOME_SETTINGS, npmMissing, writeBiomeProject } from "../helpers/biomeFixture.ts";
+import { BIOME_SETTINGS, writeBiomeProject } from "../helpers/biomeFixture.ts";
 import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "../helpers/claudeIde.ts";
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
-import { findTextCell } from "../helpers/frame.ts";
+import { findTextCell, frameLine } from "../helpers/frame.ts";
+import { npmMissing } from "../helpers/npmProject.ts";
+import {
+    TAILWIND_CLASSES,
+    TAILWIND_CLASSES_COLUMN,
+    TAILWIND_EMPTY_CLASS_COLUMN,
+    TAILWIND_P4_COLUMN,
+    writeTailwindProject,
+} from "../helpers/tailwindFixture.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
 import { TOML_BROKEN_TAIL_LENGTH, writeTomlProject } from "../helpers/tomlProject.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
@@ -925,6 +933,69 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 "languages.registerLinkedEditingRangeProvider",
                 "languages.registerOnTypeFormattingEditProvider",
             ]);
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Tailwind CSS IntelliSense. Its server loads `tailwindcss` from the project
+        // and starts only when a CSS file imports it.
+        id: "bradlc.vscode-tailwindcss",
+        expectFiles: ["package.json", "dist/extension.js"],
+        requires: npmMissing,
+        timeoutMs: 300_000,
+        run: async (ctx) => {
+            const projectRoot = join(ctx.root, "project");
+            const html = writeTailwindProject(projectRoot);
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [projectRoot, html] });
+            const caretAt = async (line: number, column: number): Promise<void> => {
+                await app.session.key("Ctrl+Home");
+                for (let i = 0; i < line; i++) await app.session.key("ArrowDown");
+                for (let i = 0; i < column; i++) await app.session.key("ArrowRight");
+            };
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
+                    { describe: "undercurl of the p-4/p-6 conflict", timeoutMs: 60_000, intervalMs: 500 },
+                );
+                // The color provider's square before an arbitrary color.
+                await app.session.waitForText((text) => text.includes("■ bg-[#ff0000]"), { timeoutMs: 20_000 });
+
+                await caretAt(0, TAILWIND_P4_COLUMN);
+                await app.session.executeCommand("editor.action.showHover");
+                await app.session.waitForText((text) => text.includes("calc(var(--spacing) * 4)"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.key("Escape");
+                await app.session.key("Ctrl+.");
+                await app.session.waitForText((text) => text.includes("Delete 'p-6'"), { timeoutMs: 20_000 });
+                await app.session.key("Escape");
+
+                await caretAt(1, TAILWIND_EMPTY_CLASS_COLUMN);
+                // Typed, not pasted: a paste opens no suggestions.
+                for (const char of "text-amber-") await app.session.key(char);
+                const frame = await app.session.waitForText((text) => text.includes("text-amber-500"), {
+                    timeoutMs: 20_000,
+                });
+                // A color item draws a square of its color in place of the kind icon.
+                const item = findTextCell(frame, "text-amber-500");
+                if (item === null || !frameLine(frame, item.y).slice(0, item.x).includes("■")) {
+                    throw new Error("no color square in the completion row");
+                }
+                await app.session.key("Escape");
+
+                await caretAt(0, TAILWIND_CLASSES_COLUMN);
+                for (let i = 0; i < TAILWIND_CLASSES.length; i++) await app.session.key("Shift+ArrowRight");
+                await app.session.executeCommand("tailwindCSS.sortSelection");
+                await app.session.waitForText((text) => text.includes('"flex ■ bg-[#ff0000] p-4 p-6"'), {
+                    timeoutMs: 20_000,
+                });
+
+                await app.session.executeCommand("workbench.action.quickOpen", "app.css");
+                await app.session.key("Enter");
+                await app.session.waitForText((text) => text.includes("Generates 11 classes"), { timeoutMs: 30_000 });
+            } finally {
+                await app.dispose();
+            }
         },
     },
     {

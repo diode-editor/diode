@@ -32,6 +32,16 @@ describe("stripMarkdown — plain text for the TUI popup", () => {
         expect(stripMarkdown("escaped \\*symbol\\*")).toBe("escaped *symbol*");
     });
 
+    it("code keeps its emphasis characters: Tailwind's CSS hover", () => {
+        expect(stripMarkdown("```css\n.p-4 {\n  padding: calc(var(--spacing) * 4) /* 1rem = 16px */;\n}\n```")).toBe(
+            ".p-4 {\n  padding: calc(var(--spacing) * 4) /* 1rem = 16px */;\n}",
+        );
+        expect(stripMarkdown("`a * b * c` and *x*")).toBe("a * b * c and x");
+        expect(stripMarkdown("`snake_case_ish_` [x](y)")).toBe("snake_case_ish_ x");
+        expect(stripMarkdown("`a \\* b`")).toBe("a \\* b");
+        expect(stripMarkdown("\\`not code\\` and \\*x\\*")).toBe("`not code` and *x*");
+    });
+
     it("`_italic_` is stripped only at a word boundary — snake_case is left alone", () => {
         // terraform-ls marks the type like this: "`var.region` _string_".
         expect(stripMarkdown("`var.region`\n_string_")).toBe("var.region\nstring");
@@ -336,6 +346,28 @@ describe("HoverService — showing and closing the popup", () => {
         expect(rows[at + 2]).toContain("│ Hello greets.");
         expect(rows[at + 3]).toMatch(/│ ─{20,} │/u);
         expect(rows[at + 4]).toContain("│ greet.Hello on pkg.go.dev");
+    });
+
+    /** Tailwind CSS IntelliSense's hover on `bg-[#ff0000]`, verbatim from the extension host. */
+    const TAILWIND_ARBITRARY_HOVER = "\n```css\n.bg-\\[\\#ff0000\\] {\n    background-color: #ff0000;\n}\n```\n";
+
+    it("a backslash inside a code block reaches the frame: Tailwind's escaped selector", async () => {
+        // CommonMark has no escapes inside code: upstream shows `.bg-\[\#ff0000\]`, the selector as CSS has it.
+        useHovers(hoverOf([TAILWIND_ARBITRARY_HOVER]));
+
+        await service().showHover();
+        h.testApp.render();
+
+        expect(h.testApp.backend.screenToString()).toContain("│ .bg-\\[\\#ff0000\\] {");
+    });
+
+    it("a code block keeps its indentation in the frame: Tailwind's CSS declaration", async () => {
+        useHovers(hoverOf([TAILWIND_ARBITRARY_HOVER]));
+
+        await service().showHover();
+        h.testApp.render();
+
+        expect(h.testApp.backend.screenToString()).toContain("│     background-color: #ff0000;");
     });
 
     it("an empty result, empty after stripping, or no providers — the popup doesn't open", async () => {

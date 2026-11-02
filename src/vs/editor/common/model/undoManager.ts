@@ -9,6 +9,9 @@ interface MutableUndoElement {
     label: string;
     versionBefore: number;
     versionAfter: number;
+    /** The document's `alternativeVersionId` before and after the element: undo/redo restore it, not the guard. */
+    alternativeVersionBefore: number;
+    alternativeVersionAfter: number;
     forwardEdits: readonly ITextEdit[];
     backwardEdits: readonly ITextEdit[];
     beforeSelections: readonly ISelection[];
@@ -59,7 +62,7 @@ export class UndoManager {
     }
 
     public pushUndoElement(element: IUndoElement): void {
-        this.undoStack.push({ ...element, token: {} });
+        this.undoStack.push(this.track(element, {}));
         this.redoStack.length = 0;
         this.onDidPush?.(element);
     }
@@ -74,8 +77,18 @@ export class UndoManager {
             this.pushUndoElement(element);
             return;
         }
-        this.undoStack.push({ ...element, token: top.token });
+        this.undoStack.push(this.track(element, top.token));
         this.redoStack.length = 0;
+    }
+
+    /** Pushed right after its edits: the document is at `versionAfter`, `versionBefore` is at most one bump back. */
+    private track(element: IUndoElement, token: UndoStepToken): MutableUndoElement {
+        return {
+            ...element,
+            alternativeVersionBefore: this.doc.alternativeVersionIdAt(element.versionBefore),
+            alternativeVersionAfter: this.doc.alternativeVersionId,
+            token,
+        };
     }
 
     public peekUndoStep(): UndoStepToken | undefined {
@@ -133,7 +146,11 @@ export class UndoManager {
         // Stryker disable next-line OptionalChaining: the caller has just seen this element at the top of `from`
         if (this.doc.versionId !== element?.versionAfter) return false;
 
-        const { inverseEdits } = this.doc.applyUndoRedoEdits(element.backwardEdits, origin);
+        const { inverseEdits } = this.doc.applyUndoRedoEdits(
+            element.backwardEdits,
+            origin,
+            element.alternativeVersionBefore,
+        );
         view?.restoreSelections(element.beforeSelections);
         if (element.eolBefore !== undefined) {
             this.doc.setEol(element.eolBefore);
@@ -145,6 +162,8 @@ export class UndoManager {
             label: element.label,
             versionBefore: element.versionAfter,
             versionAfter: appliedVersion,
+            alternativeVersionBefore: element.alternativeVersionAfter,
+            alternativeVersionAfter: element.alternativeVersionBefore,
             forwardEdits: element.backwardEdits,
             backwardEdits: inverseEdits,
             beforeSelections: element.afterSelections,
