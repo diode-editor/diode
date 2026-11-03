@@ -1,19 +1,19 @@
 import { Emitter } from "../../../../base/common/event.ts";
 import { DisposableStore } from "../../../../base/common/lifecycle.ts";
-import { type IRange, rangeContainsRange } from "../../../common/core/iRange.ts";
+import { rangeContainsRange } from "../../../common/core/iRange.ts";
 import { createCursorSelection, selectionToRange } from "../../../common/core/iSelection.ts";
 import { hasOverlappingEdits, type ITextEdit } from "../../../common/core/iTextEdit.ts";
-import { getLeadingWhitespace } from "../../../common/languages/autoIndent.ts";
 import type { ITextDocument } from "../../../common/model/iTextDocument.ts";
 import type { EditorViewState } from "../../../common/viewModel/editorViewState.ts";
 import type { ICursorStateComputer } from "../../../common/viewModel/trackedSelections.ts";
 
-import type { Choice } from "./snippetParser.ts";
 import {
     createSnippetInsert,
+    type ISnippetActiveChoice,
     type ISnippetDocument,
     type ISnippetEdit,
     type ISnippetSessionDocument,
+    leadingWhitespaceBefore,
     SnippetSession,
 } from "./snippetSession.ts";
 
@@ -94,7 +94,7 @@ export class SnippetController2 {
      * Upstream `SnippetSession.activeChoice`: the session is on a choice. Deviation: only with the primary selection
      * in it; upstream keeps a choice a click has left for another tab stop of the session.
      */
-    public get activeChoice(): { readonly choice: Choice; readonly range: IRange } | undefined {
+    public get activeChoice(): ISnippetActiveChoice | undefined {
         const active = this.session?.activeChoice;
         if (active === undefined) return undefined;
         return rangeContainsRange(active.range, selectionToRange(this.editor.viewState.selections[0]))
@@ -120,7 +120,7 @@ export class SnippetController2 {
         editor.focusEditor();
         const { start } = edits[0].range;
         const indentation = {
-            lineLeadingWhitespace: getLeadingWhitespace(document.getLineContent(start.line).slice(0, start.character)),
+            lineLeadingWhitespace: leadingWhitespaceBefore(document, start),
             tabSize: viewState.tabSize,
             insertSpaces: viewState.insertSpaces,
         };

@@ -65,6 +65,22 @@ function normalizeIndentation(
     return indent + line.slice(leading.length);
 }
 
+/** The leading whitespace of `position`'s line up to it. */
+export function leadingWhitespaceBefore(document: ISnippetDocument, position: IPosition): string {
+    return getLeadingWhitespace(document.getLineContent(position.line).slice(0, position.character));
+}
+
+/** Every line after the first gets `lineLeadingWhitespace`, normalized for the tab settings. */
+function indentFollowingLines(
+    lines: string[],
+    lineLeadingWhitespace: string,
+    options: Pick<ISnippetInsertOptions, "tabSize" | "insertSpaces">,
+): void {
+    for (let i = 1; i < lines.length; i++) {
+        lines[i] = normalizeIndentation(lineLeadingWhitespace + lines[i], options);
+    }
+}
+
 /**
  * Upstream `SnippetSession.adjustWhitespace` over the markers of one edit: the snippet start is only normalized,
  * every further line and a text that follows a line break get the leading whitespace of the line at `position`.
@@ -76,9 +92,7 @@ function adjustWhitespace(
     fragment: ReadonlySet<Marker>,
     options: ISnippetInsertOptions,
 ): void {
-    const lineLeadingWhitespace = getLeadingWhitespace(
-        document.getLineContent(position.line).slice(0, position.character),
-    );
+    const lineLeadingWhitespace = leadingWhitespaceBefore(document, position);
     let snippetText: string | undefined;
     snippet.walk((marker) => {
         if (!(marker instanceof Text) || marker.parent instanceof Choice || !fragment.has(marker)) return true;
@@ -94,9 +108,7 @@ function adjustWhitespace(
                     lines[0] = normalizeIndentation(lineLeadingWhitespace + lines[0], options);
                 }
             }
-            for (let i = 1; i < lines.length; i++) {
-                lines[i] = normalizeIndentation(lineLeadingWhitespace + lines[i], options);
-            }
+            indentFollowingLines(lines, lineLeadingWhitespace, options);
         }
         marker.parent.replace(marker, [new Text(lines.join(EOL))]);
         snippetText = undefined;
@@ -149,9 +161,7 @@ class SelectionBasedVariableResolver implements VariableResolver {
     private selectedText(variable: Variable): string | undefined {
         const value = this.document.getTextInRange(this.range);
         if (value === "") return undefined;
-        const lineLeadingWhitespace = getLeadingWhitespace(
-            this.document.getLineContent(this.range.start.line).slice(0, this.range.start.character),
-        );
+        const lineLeadingWhitespace = leadingWhitespaceBefore(this.document, this.range.start);
         let variableLeadingWhitespace = lineLeadingWhitespace;
         this.snippet.walk((marker) => {
             if (marker === variable) return false;
@@ -225,6 +235,12 @@ export type ISnippetSessionDocument = Pick<
     ITextDocument,
     "deltaDecorations" | "getDecorationRange" | "changeDecorationOptions" | "getTextInRange"
 >;
+
+/** Upstream `OneSnippet.activeChoice`. */
+export interface ISnippetActiveChoice {
+    readonly choice: Choice;
+    readonly range: IRange;
+}
 
 /** What {@link SnippetSession.placeholderTransformEdits} indents a multi-line result with. */
 export interface ISnippetSessionIndentation {
@@ -306,9 +322,7 @@ export class SnippetSession {
             if (transform === undefined) continue;
             const range = this.rangeOf(placeholder);
             const lines = splitLines(transform.resolve(this.document.getTextInRange(range)));
-            for (let i = 1; i < lines.length; i++) {
-                lines[i] = normalizeIndentation(this.indentation.lineLeadingWhitespace + lines[i], this.indentation);
-            }
+            indentFollowingLines(lines, this.indentation.lineLeadingWhitespace, this.indentation);
             edits.push(createTextEdit(range, lines.join(EOL)));
         }
         return edits;
@@ -318,7 +332,7 @@ export class SnippetSession {
      * Upstream `OneSnippet.activeChoice`: the choice of the current group's first placeholder, and where that
      * placeholder is now. Only after the first {@link move}.
      */
-    public get activeChoice(): { readonly choice: Choice; readonly range: IRange } | undefined {
+    public get activeChoice(): ISnippetActiveChoice | undefined {
         const [placeholder] = this.groups[this.groupIndex];
         const { choice } = placeholder;
         return choice === undefined ? undefined : { choice, range: this.rangeOf(placeholder) };

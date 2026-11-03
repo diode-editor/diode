@@ -1,4 +1,5 @@
 import { Disposable, MutableDisposable, toDisposable } from "../../../../base/common/lifecycle.ts";
+import { positionsEqual } from "../../../../editor/common/core/iPosition.ts";
 import type {
     CompletionItemProvider,
     ICompletionRequest,
@@ -54,17 +55,14 @@ class SnippetChoiceCompletions extends Disposable {
      * one asked, so an open popup is the choice's.
      */
     private update(): void {
-        const active = this.controller.activeChoice;
-        if (active === undefined) {
-            if (this.currentChoice === undefined) return;
-            this.currentChoice = undefined;
+        const choice = this.controller.activeChoice?.choice;
+        if (choice === this.currentChoice) return;
+        this.currentChoice = choice;
+        if (choice === undefined) {
             this.registration.clear();
             this.completion.close();
             return;
         }
-        const { choice } = active;
-        if (this.currentChoice === choice) return;
-        this.currentChoice = choice;
         const { editor } = this;
         this.registration.value ??= this.languageFeatures.completionProvider.register(
             { language: editor.languageId, scheme: editor.uri.scheme, pattern: editor.uri.fsPath, exclusive: true },
@@ -80,10 +78,10 @@ class SnippetChoiceCompletions extends Disposable {
      * The options in their order; while the text is one of them, every option's filter text starts with it, so the
      * filter hides none. Upstream answers only at the primary caret.
      */
-    private items({ line, character }: ICompletionRequest): ICoreCompletionItem[] {
+    private items(request: ICompletionRequest): ICoreCompletionItem[] {
         const active = this.controller.activeChoice;
         const caret = this.editor.viewState.selections[0].active;
-        if (active === undefined || caret.line !== line || caret.character !== character) return [];
+        if (active === undefined || !positionsEqual(caret, request)) return [];
         const { choice, range } = active;
         const word = this.editor.viewState.document.getTextInRange(range);
         const isAnyOfOptions = choice.options.some((option) => option.value === word);
