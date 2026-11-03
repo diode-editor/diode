@@ -298,16 +298,8 @@ describe("EditorCustomer — subprocess requests", () => {
         const h = setup();
         h.attachTo();
         const params = { uri: "file:///a.ts", groupId: 2, version: 4, template: "x", ranges: [RANGE] };
-        for (const junk of [
-            { uri: 1 },
-            { template: 1 },
-            { version: "4" },
-            { ranges: "x" },
-            { ranges: [RANGE, "x"] },
-        ]) {
-            await expect(h.peer.request("editor.insertSnippet", { ...params, ...junk } as never)).resolves.toBe(
-                false,
-            );
+        for (const junk of [{ uri: 1 }, { template: 1 }, { version: "4" }, { ranges: "x" }, { ranges: [RANGE, "x"] }]) {
+            await expect(h.peer.request("editor.insertSnippet", { ...params, ...junk } as never)).resolves.toBe(false);
         }
         expect(h.editorOptions.insertSnippet).not.toHaveBeenCalled();
     });

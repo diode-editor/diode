@@ -300,9 +300,7 @@ describe("EditorOptionsServiceAdapter", () => {
             const readOnly = snippetEditor("ab", { readOnly: true });
             expect(readOnly.adapter.insertSnippet(URI, undefined, "x", [at(0, 0)], { version: 0 })).toBe(false);
             const other = snippetEditor("ab");
-            expect(other.adapter.insertSnippet("file:///c.ts", undefined, "x", [at(0, 0)], { version: 0 })).toBe(
-                false,
-            );
+            expect(other.adapter.insertSnippet("file:///c.ts", undefined, "x", [at(0, 0)], { version: 0 })).toBe(false);
             const overlapping = snippetEditor("abcd");
             const ranges = [
                 { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },

@@ -5,6 +5,7 @@ import { createSelection, type ISelection } from "../../../common/core/iSelectio
 import { createTextEdit, type ITextEdit } from "../../../common/core/iTextEdit.ts";
 import { DEFAULT_WORD_REGEXP, getWordAtText } from "../../../common/core/wordHelper.ts";
 import { getLeadingWhitespace } from "../../../common/languages/autoIndent.ts";
+
 import {
     Choice,
     type Marker,
@@ -234,7 +235,7 @@ export function createSnippetInsert(
         return { edits, selections };
     }
     // Upstream `OneSnippet.move(true)` from the start: every placeholder of the first group, `$0` sorting last.
-    const first = [...placeholders].sort(Placeholder.compareByIndex)[0].index;
+    const first = [...placeholders].sort((a, b) => Placeholder.compareByIndex(a, b))[0].index;
     const selections = placeholders
         .filter((placeholder) => placeholder.index === first)
         .map((placeholder) => {
@@ -245,4 +246,3 @@ export function createSnippetInsert(
         });
     return { edits, selections };
 }
-

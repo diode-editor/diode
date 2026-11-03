@@ -241,7 +241,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         );
         if (edits.length === 0 || hasOverlappingEdits(edits)) return false;
         editor.focusEditor();
-        editor.applyExternalEdits(edits, "snippet", () => selections, options);
+        editor.applyExternalEdits(edits, "snippet", () => [...selections], options);
         // Upstream `SnippetSession.insert` reveals the primary selection.
         const [primary] = editor.viewState.selections;
         editor.viewState.revealRangeByType({ start: primary.active, end: primary.active }, "default");

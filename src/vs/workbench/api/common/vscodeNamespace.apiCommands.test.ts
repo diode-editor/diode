@@ -7,7 +7,7 @@ import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 import { Uri } from "./vscodeTypes.ts";
 
 describe("vscode.commands: built-in editor.action.insertSnippet", () => {
-    it("[api:commands.executeCommand] edits the active editor, with the selected text in the snippet", async () => {
+    it("[api:commands.executeCommand] sends the snippet for the active editor's selection to the core", async () => {
         const stub = makeStubRpc();
         stub.responder = () => true;
         const { namespace } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk());
@@ -27,13 +27,12 @@ describe("vscode.commands: built-in editor.action.insertSnippet", () => {
             snippet: "[$TM_SELECTED_TEXT$0](url)",
         });
 
-        const edit = stub.requests.find((request) => request.method === "editor.applyEdit");
-        expect(edit?.params).toMatchObject({
+        const insert = stub.requests.find((request) => request.method === "editor.insertSnippet");
+        expect(insert?.params).toMatchObject({
             uri,
             version: 3,
-            edits: [
-                { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, text: "[word](url)" },
-            ],
+            template: "[$TM_SELECTED_TEXT$0](url)",
+            ranges: [{ start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }],
         });
     });
 });

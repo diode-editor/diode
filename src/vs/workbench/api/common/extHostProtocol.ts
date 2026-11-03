@@ -53,7 +53,6 @@ import type {
 import type {
     IWireActivateExtensionParams,
     IWireApplyEditParams,
-    IWireInsertSnippetParams,
     IWireApplyWorkspaceEditParams,
     IWireCallHierarchyCallsParams,
     IWireChangedFiles,
@@ -111,6 +110,7 @@ import type {
     IWireInputBoxRequest,
     IWireInputBoxResult,
     IWireInputBoxValidate,
+    IWireInsertSnippetParams,
     IWireLanguageConfiguration,
     IWireLanguageProviderRegistration,
     IWireLanguageProviderUnregistration,

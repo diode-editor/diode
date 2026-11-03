@@ -788,14 +788,14 @@ describe("WindowNamespace — editor write (#194)", () => {
             expect(sent(second.stub).ranges).toEqual([range(0, 1, 2, 3)]);
         });
 
-        it("takes a range clamped to the document, and positions and ranges in their order", () => {
+        it("takes a range clamped to the document, and a list in its order", () => {
             const { stub, editor } = editorWithText("abcd\nefgh");
             void editor.insertSnippet(snippet("X"), new Range(0, 1, 9, 9));
             expect(sent(stub).ranges).toEqual([range(0, 1, 1, 4)]);
 
             const list = editorWithText("abcd\nefgh");
-            void list.editor.insertSnippet(snippet("X"), [new Position(1, 2), new Range(0, 0, 0, 1)]);
-            expect(sent(list.stub).ranges).toEqual([range(1, 2, 1, 2), range(0, 0, 0, 1)]);
+            void list.editor.insertSnippet(snippet("X"), [new Position(1, 2), new Position(0, 1)]);
+            expect(sent(list.stub).ranges).toEqual([range(1, 2, 1, 2), range(0, 1, 0, 1)]);
         });
 
         it("keepWhitespace and undo stops go through only when they change the default", () => {

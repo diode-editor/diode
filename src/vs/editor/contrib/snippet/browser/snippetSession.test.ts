@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { positionsEqual } from "../../../common/core/iPosition.ts";
 import { createRange, type IRange } from "../../../common/core/iRange.ts";
 import { TextDocument } from "../../../common/model/textDocument.ts";
+
 import { createSnippetInsert, type ISnippetInsertOptions } from "./snippetSession.ts";
 
 const SPACES: ISnippetInsertOptions = { adjustWhitespace: true, tabSize: 4, insertSpaces: true };
@@ -156,11 +157,13 @@ describe("createSnippetInsert: variables", () => {
 
     it("line, word and cursor variables are read at the range's end", () => {
         expect(
-            insert("one\nfoo bar", [at(1, 5), at(0, 0)], "$TM_LINE_INDEX/$TM_LINE_NUMBER/$CURSOR_INDEX/$CURSOR_NUMBER "),
+            insert(
+                "one\nfoo bar",
+                [at(1, 5), at(0, 0)],
+                "$TM_LINE_INDEX/$TM_LINE_NUMBER/$CURSOR_INDEX/$CURSOR_NUMBER ",
+            ),
         ).toBe("0/1/1/2 |one\nfoo b1/2/0/1 |ar");
-        expect(insert("foo bar", [at(0, 5)], "[$TM_CURRENT_WORD|$TM_CURRENT_LINE]")).toBe(
-            "foo b[bar|foo bar]|ar",
-        );
+        expect(insert("foo bar", [at(0, 5)], "[$TM_CURRENT_WORD|$TM_CURRENT_LINE]")).toBe("foo b[bar|foo bar]|ar");
     });
 
     it("no word at the position: TM_CURRENT_WORD is empty", () => {

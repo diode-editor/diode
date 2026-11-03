@@ -11,6 +11,10 @@ exports.activate = function activate(context) {
         vscode.commands.registerCommand("insertSnippetDemo.link", () =>
             vscode.commands.executeCommand("editor.action.insertSnippet", { snippet: "[$TM_SELECTED_TEXT$0](url)" }),
         ),
+        // Upstream's grammar, parsed in the core (#1031): a variable transform and a nested placeholder.
+        vscode.commands.registerTextEditorCommand("insertSnippetDemo.upcase", (editor) =>
+            editor.insertSnippet(new vscode.SnippetString("${TM_SELECTED_TEXT/(.*)/${1:/upcase}/} ${1:${2:nested} placeholder}")),
+        ),
         vscode.commands.registerCommand("insertSnippetDemo.tab", () => vscode.commands.executeCommand("tab")),
         vscode.commands.registerCommand("insertSnippetDemo.lineBelow", () =>
             vscode.commands.executeCommand("editor.action.insertLineAfter"),
