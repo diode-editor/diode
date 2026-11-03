@@ -341,29 +341,33 @@ function matchesBinding(event: KeyboardEventLike, binding: Keybinding): boolean 
     // Punctuation falls back only for a non-Latin character with Ctrl, Cmd or Alt (Ctrl+Shift+Cyrillic
     // "ha" → Ctrl+Shift+[): a Latin character always decides by itself, whatever the layout.
     const nonLatin = event.key.charCodeAt(0) >= 0x80;
-    const punctuationCode = PUNCTUATION_CODES[binding.key];
+    const ctrlOrMeta = event.ctrlKey || event.metaKey;
+    const punctuationCode = PUNCTUATION_CODES.get(binding.key);
     const physicalFallback =
         punctuationCode === undefined
-            ? event.ctrlKey || event.metaKey || (event.altKey && nonLatin)
-            : nonLatin && (event.ctrlKey || event.metaKey || event.altKey);
+            ? ctrlOrMeta || (event.altKey && nonLatin)
+            : nonLatin && (ctrlOrMeta || event.altKey);
     // No guards for multi-char keys or a missing code: `Key${"ENTER"}` is never a real code.
     return physicalFallback && event.code === (punctuationCode ?? `Key${binding.key.toUpperCase()}`);
 }
 
-/** Physical key codes (`KeyboardEvent.code`) of the punctuation keys a binding can name. */
-const PUNCTUATION_CODES: Partial<Record<string, string>> = {
-    "[": "BracketLeft",
-    "]": "BracketRight",
-    ";": "Semicolon",
-    "'": "Quote",
-    ",": "Comma",
-    ".": "Period",
-    "/": "Slash",
-    "\\": "Backslash",
-    "`": "Backquote",
-    "-": "Minus",
-    "=": "Equal",
-};
+/**
+ * Physical key codes (`KeyboardEvent.code`) of the punctuation keys a binding can name — the same table the
+ * engine's `inferCode` puts on the event. A Map: a binding key like "constructor" must not hit the prototype.
+ */
+const PUNCTUATION_CODES: ReadonlyMap<string, string> = new Map([
+    ["[", "BracketLeft"],
+    ["]", "BracketRight"],
+    [";", "Semicolon"],
+    ["'", "Quote"],
+    [",", "Comma"],
+    [".", "Period"],
+    ["/", "Slash"],
+    ["\\", "Backslash"],
+    ["`", "Backquote"],
+    ["-", "Minus"],
+    ["=", "Equal"],
+]);
 
 export class KeybindingRegistry implements IDisposable {
     private entries: KeybindingEntry[] = [];
