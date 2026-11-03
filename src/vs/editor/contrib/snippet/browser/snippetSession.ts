@@ -114,11 +114,8 @@ function adjustWhitespace(
                 lines[i] = normalizeIndentation(lineLeadingWhitespace + lines[i], options);
             }
         }
-        const value = lines.join(EOL);
-        if (value !== marker.value) {
-            marker.parent.replace(marker, [new Text(value)]);
-            snippetText = undefined;
-        }
+        marker.parent.replace(marker, [new Text(lines.join(EOL))]);
+        snippetText = undefined;
         return true;
     });
 }
@@ -131,6 +128,7 @@ function adjustWhitespace(
 class SelectionBasedVariableResolver implements VariableResolver {
     public constructor(
         private readonly document: ISnippetDocument,
+        private readonly snippet: TextmateSnippet,
         private readonly range: IRange,
         private readonly index: number,
     ) {}
@@ -156,9 +154,8 @@ class SelectionBasedVariableResolver implements VariableResolver {
                 return String(this.index);
             case "CURSOR_NUMBER":
                 return String(this.index + 1);
-            default:
-                return undefined;
         }
+        return undefined;
     }
 
     /**
@@ -168,23 +165,22 @@ class SelectionBasedVariableResolver implements VariableResolver {
     private selectedText(variable: Variable): string | undefined {
         const value = this.document.getTextInRange(this.range);
         if (value === "") return undefined;
-        const { snippet } = variable;
-        if (this.range.start.line === this.range.end.line || snippet === undefined) return value;
         const lineLeadingWhitespace = getLeadingWhitespace(
             this.document.getLineContent(this.range.start.line).slice(0, this.range.start.character),
         );
         let variableLeadingWhitespace = lineLeadingWhitespace;
-        snippet.walk((marker) => {
+        this.snippet.walk((marker) => {
             if (marker === variable) return false;
             if (marker instanceof Text) {
-                variableLeadingWhitespace = getLeadingWhitespace(splitLines(marker.value).pop() ?? "");
+                const lines = splitLines(marker.value);
+                variableLeadingWhitespace = getLeadingWhitespace(lines[lines.length - 1]);
             }
             return true;
         });
         const extra = variableLeadingWhitespace.slice(
             commonPrefixLength(variableLeadingWhitespace, lineLeadingWhitespace),
         );
-        return value.replace(/(\r\n|\r|\n)(.*)/g, (_match, newline: string, rest: string) => newline + extra + rest);
+        return value.replace(/\r\n|\r|\n/g, (newline) => newline + extra);
     }
 }
 
@@ -196,9 +192,9 @@ function positionAfter(start: IPosition, text: string): IPosition {
 }
 
 /**
- * `snippetEdits` is not empty. One snippet over all edits, as upstream: the text between the edits goes in as text markers, so a placeholder's
- * offset in the snippet is its offset from the first edit's start in the new text, and a tab stop that repeats in
- * every edit is one group, selected in each.
+ * `snippetEdits` is not empty. One snippet over all edits, as upstream: the text between the edits goes in as text
+ * markers, so a placeholder's offset in the snippet is its offset from the first edit's start in the new text, and a
+ * tab stop that repeats in every edit is one group, selected in each.
  */
 export function createSnippetInsert(
     document: ISnippetDocument,
@@ -220,16 +216,17 @@ export function createSnippetInsert(
             snippet.appendChild(gap);
             offset += gap.value.length;
         }
-        const resolvedBefore = new Set<Variable>();
+        // Upstream #206121: only this edit's variables, and the ones backfilled into earlier placeholders.
+        const before = new Set<Marker>();
         snippet.walk((marker) => {
-            if (marker instanceof Variable) resolvedBefore.add(marker);
+            before.add(marker);
             return true;
         });
         const fragment = parser.parseFragment(template, snippet);
         adjustWhitespace(document, range.start, snippet, new Set(fragment), options);
-        const resolver = new SelectionBasedVariableResolver(document, range, index);
+        const resolver = new SelectionBasedVariableResolver(document, snippet, range, index);
         snippet.walk((marker) => {
-            if (marker instanceof Variable && !resolvedBefore.has(marker)) marker.resolve(resolver);
+            if (marker instanceof Variable && !before.has(marker)) marker.resolve(resolver);
             return true;
         });
         const text = snippet.toString();
@@ -237,19 +234,20 @@ export function createSnippetInsert(
         offset = text.length;
         ends.push(offset);
     });
-    parser.ensureFinalTabstop(snippet, false, true);
 
     const start = indexed[0].edit.range.start;
     const text = snippet.toString();
     const at = (snippetOffset: number): IPosition => positionAfter(start, text.slice(0, snippetOffset));
     const { placeholders } = snippet;
     // Upstream `OneSnippet.move(true)` from the start: every placeholder of the first group, `$0` sorting last;
-    // without placeholders, a caret at the end of every edit.
+    // without placeholders, a caret at the end of every edit. Upstream's `ensureFinalTabstop` adds a `$0` that only
+    // the session (#1032) reaches.
     let spans: (readonly [number, number])[];
     if (placeholders.length === 0) {
         spans = ends.map((end) => [end, end] as const);
     } else {
-        const first = placeholders.reduce((a, b) => (Placeholder.compareByIndex(b, a) < 0 ? b : a)).index;
+        const positive = placeholders.map((placeholder) => placeholder.index).filter((index) => index > 0);
+        const first = positive.length > 0 ? Math.min(...positive) : 0;
         spans = placeholders
             .filter((placeholder) => placeholder.index === first)
             .map((placeholder) => {

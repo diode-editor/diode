@@ -100,6 +100,19 @@ describe("createSnippetInsert: whitespace (upstream adjustWhitespace)", () => {
         expect(insert("", [at(0, 0)], "\n  \tx")).toBe("\n    x|");
     });
 
+    it("the line's indentation counts only up to the insert position", () => {
+        expect(insert("    abcd", [at(0, 2)], "x\ny")).toBe("  x\n  y|  abcd");
+    });
+
+    it("a text after a line break inside a choice is indented too", () => {
+        expect(insert("  ", [at(0, 2)], "${1|a\n|}b")).toBe("  [a\n]  b");
+        expect(insert("  ", [at(0, 2)], "${1|a\r|}b")).toBe("  [a\n]  b");
+    });
+
+    it("a later edit's leading text joins the text between the edits and is not adjusted, as upstream", () => {
+        expect(insert("a\nb", [at(0, 1), at(1, 0)], "\tx")).toBe("a    x|\n\tx|b");
+    });
+
     it("tabs when insertSpaces is off", () => {
         expect(insert("    x", [at(0, 5)], "a\n  b", { ...SPACES, insertSpaces: false })).toBe("    xa\n\t  b|");
     });
@@ -151,6 +164,12 @@ describe("createSnippetInsert: variables", () => {
         );
     });
 
+    it("a selection starting inside the indentation, with a placeholder before the variable", () => {
+        expect(insert("    a\n    b", [createRange(0, 1, 1, 5)], "$1{\n\t$TM_SELECTED_TEXT\n}")).toBe(
+            " |{\n       a\n       b\n }",
+        );
+    });
+
     it("a selection on one line is taken as it is", () => {
         expect(insert("\ta\tb", [createRange(0, 1, 0, 4)], "<$TM_SELECTED_TEXT>")).toBe("\t<a\tb>|");
     });
@@ -172,6 +191,10 @@ describe("createSnippetInsert: variables", () => {
 
     it("a variable with no resolver yet is its default or empty, as an unknown one", () => {
         expect(insert("", [at(0, 0)], "[$TM_FILENAME|${TM_FILENAME:x}|$FOO|${FOO:y}]")).toBe("[|x||y]|");
+    });
+
+    it("a later edit does not resolve the variables of an earlier one again", () => {
+        expect(insert("a\nbbb", [at(0, 1), at(1, 3)], "$TM_CURRENT_LINE${1:p}")).toBe("aa[p]\nbbbbbb[p]");
     });
 
     it("a placeholder backfilled into another edit gets that edit's variables", () => {
