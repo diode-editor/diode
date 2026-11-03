@@ -60,8 +60,9 @@ ready to implement ──start-task──▶ in progress ──PR влит (Clos
 - Очередь: открытые issues с `ready to implement` без `in progress`/`returned` и без открытых
   блокеров; `bug` первыми, потом старые. Берётся одна задача за тик, если `verdict.canStart`
   (задач меньше 3, load5 < nproc/2, свободной памяти > 30 %).
-- Блокеры: нативные зависимости GitHub (`…/issues/<N>/dependencies/blocked_by`) и строка
-  `Blocked by #A, #B` в теле issue. Пока хотя бы один блокер открыт, задача лежит в `blocked`;
+- Блокеры: нативные зависимости GitHub (`…/issues/<N>/dependencies/blocked_by`) и
+  отдельная строка `Blocked by #A, #B` в теле issue (та же фраза внутри текста и ссылка issue на
+  саму себя не считаются). Пока хотя бы один блокер открыт, задача лежит в `blocked`;
   закрылся — попадает в очередь сама. Так ставится цепочка из 3–5 последовательных задач.
   Спеку и цепочку готовит человек со скиллом [`spec`](../../.claude/skills/spec/SKILL.md).
 - Захват: комментарий `claim: <host> <ISO>` + `session: task-<N>`; перечитать — чужой более
