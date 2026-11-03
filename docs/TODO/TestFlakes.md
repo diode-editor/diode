@@ -35,7 +35,7 @@
 
 - [ ] `workbench.workspaceSymbols.accept.test.ts`, «a large answer renders and Enter takes the first row»: 20000
   символов под покрытием упёрлись в таймаут 5 с (run 41405396154, PR #1015); локально 1,1 с и с правкой
-  `matchSymbol` этого PR, и без неё. Повторилось в run 41408127273, PR #1017, дифф — redhat.java и references-view.
+  `matchSymbol` этого PR, и без неё. Повторилось в run 41408127273, PR #1017, дифф — redhat.java и references-view. И в run 41578220575 (PR #1042, дифф — сниппеты) все повторы подряд; на `main` тот же тест под покрытием идёт 4,7 с при таймауте 5 с (run 41570204078) — тест на грани, а не случайный флак.
 - [ ] `extensionHost.typescriptLsp.projectStatus.test.ts`, «No jsconfig → Configure JSConfig…»: метка статуса уже
   `jsconfig.json`, а команда ещё `_typescript.createOrOpenConfig`; проверка команды идёт без ожидания, сразу после
   ожидания метки (run 41297584473, PR #1000, дифф — только тесты terraform).
