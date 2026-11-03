@@ -10,15 +10,7 @@ import { getLeadingWhitespace } from "../../../common/languages/autoIndent.ts";
 import type { ITextDocument } from "../../../common/model/iTextDocument.ts";
 import { TrackedRangeStickiness } from "../../../common/model/trackedDecorations.ts";
 
-import {
-    Choice,
-    type Marker,
-    Placeholder,
-    SnippetParser,
-    Text,
-    TextmateSnippet,
-    Variable,
-} from "./snippetParser.ts";
+import { Choice, type Marker, Placeholder, SnippetParser, Text, TextmateSnippet, Variable } from "./snippetParser.ts";
 import {
     ClipboardBasedVariableResolver,
     CommentBasedVariableResolver,

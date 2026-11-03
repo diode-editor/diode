@@ -326,11 +326,17 @@ describe("EditorOptionsServiceAdapter", () => {
 
         it("another version, a read-only or missing editor, no ranges and overlapping ranges change nothing", async () => {
             const stale = snippetEditor("ab");
-            await expect(stale.adapter.insertSnippet(URI, undefined, "x", [at(0, 0)], { version: 1 })).resolves.toBe(false);
+            await expect(stale.adapter.insertSnippet(URI, undefined, "x", [at(0, 0)], { version: 1 })).resolves.toBe(
+                false,
+            );
             const readOnly = snippetEditor("ab", { readOnly: true });
-            await expect(readOnly.adapter.insertSnippet(URI, undefined, "x", [at(0, 0)], { version: 0 })).resolves.toBe(false);
+            await expect(readOnly.adapter.insertSnippet(URI, undefined, "x", [at(0, 0)], { version: 0 })).resolves.toBe(
+                false,
+            );
             const other = snippetEditor("ab");
-            await expect(other.adapter.insertSnippet("file:///c.ts", undefined, "x", [at(0, 0)], { version: 0 })).resolves.toBe(false);
+            await expect(
+                other.adapter.insertSnippet("file:///c.ts", undefined, "x", [at(0, 0)], { version: 0 }),
+            ).resolves.toBe(false);
             const none = snippetEditor("ab");
             await expect(none.adapter.insertSnippet(URI, undefined, "x", [], { version: 0 })).resolves.toBe(false);
             const overlapping = snippetEditor("abcd");
@@ -338,7 +344,9 @@ describe("EditorOptionsServiceAdapter", () => {
                 { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
                 { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } },
             ];
-            await expect(overlapping.adapter.insertSnippet(URI, undefined, "x", ranges, { version: 0 })).resolves.toBe(false);
+            await expect(overlapping.adapter.insertSnippet(URI, undefined, "x", ranges, { version: 0 })).resolves.toBe(
+                false,
+            );
             for (const { editor, document } of [stale, readOnly, other, none, overlapping]) {
                 expect(editor.applyExternalEdits).not.toHaveBeenCalled();
                 expect(editor.focusEditor).not.toHaveBeenCalled();
@@ -348,13 +356,17 @@ describe("EditorOptionsServiceAdapter", () => {
 
         it("resolves the variables of the file, its language's comments and the workspace", async () => {
             const comments = { lineComment: "//", blockComment: ["/*", "*/"] as const };
-            const { adapter, document } = snippetEditor("", {}, {
-                languageConfigurations: {
-                    get: () => ({ ...EMPTY_LANGUAGE_CONFIGURATION, comments }),
-                    ensureLoaded: () => Promise.reject(new Error("loaded already")),
+            const { adapter, document } = snippetEditor(
+                "",
+                {},
+                {
+                    languageConfigurations: {
+                        get: () => ({ ...EMPTY_LANGUAGE_CONFIGURATION, comments }),
+                        ensureLoaded: () => Promise.reject(new Error("loaded already")),
+                    },
+                    workspace: workspaceOf("/a"),
                 },
-                workspace: workspaceOf("/a"),
-            });
+            );
             await adapter.insertSnippet(
                 URI,
                 undefined,
@@ -366,13 +378,17 @@ describe("EditorOptionsServiceAdapter", () => {
         });
 
         it("waits for a language configuration that is not loaded yet", async () => {
-            const { adapter, document } = snippetEditor("", {}, {
-                languageConfigurations: {
-                    get: () => undefined,
-                    ensureLoaded: () =>
-                        Promise.resolve({ ...EMPTY_LANGUAGE_CONFIGURATION, comments: { lineComment: "#" } }),
+            const { adapter, document } = snippetEditor(
+                "",
+                {},
+                {
+                    languageConfigurations: {
+                        get: () => undefined,
+                        ensureLoaded: () =>
+                            Promise.resolve({ ...EMPTY_LANGUAGE_CONFIGURATION, comments: { lineComment: "#" } }),
+                    },
                 },
-            });
+            );
             await expect(
                 adapter.insertSnippet(URI, undefined, "$LINE_COMMENT", [at(0, 0)], { version: 0 }),
             ).resolves.toBe(true);

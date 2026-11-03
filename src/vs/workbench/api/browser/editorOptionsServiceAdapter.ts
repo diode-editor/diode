@@ -12,11 +12,11 @@ import { clampPositionToDocument } from "../../../editor/common/core/iPosition.t
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
-import type { RangeRevealType } from "../../../editor/common/viewModel/editorViewState.ts";
 import {
     type ILanguageConfigurationService,
     NULL_LANGUAGE_CONFIGURATION_SERVICE,
 } from "../../../editor/common/languages/iLanguageConfigurationService.ts";
+import type { RangeRevealType } from "../../../editor/common/viewModel/editorViewState.ts";
 import { SnippetController2 } from "../../../editor/contrib/snippet/browser/snippetController2.ts";
 import { SnippetParser } from "../../../editor/contrib/snippet/browser/snippetParser.ts";
 import type { IClipboard } from "../../../platform/clipboard/common/iClipboard.ts";
@@ -264,7 +264,10 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
                 readClipboard?.readText(),
                 loadedConfiguration ?? languageConfigurations.ensureLoaded(document.languageId),
             ]);
-            if (document.versionId !== versionBefore || !sameSelections(editor.viewState.selections, selectionsBefore)) {
+            if (
+                document.versionId !== versionBefore ||
+                !sameSelections(editor.viewState.selections, selectionsBefore)
+            ) {
                 return false;
             }
         }

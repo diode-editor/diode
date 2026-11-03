@@ -255,7 +255,9 @@ export class WorkspaceBasedVariableResolver implements VariableResolver {
         const configuration = workspace?.configuration?.fsPath;
         switch (variable.name) {
             case "WORKSPACE_NAME":
-                return configuration === undefined ? path.basename(folder.uri.fsPath) : workspaceFileLabel(configuration);
+                return configuration === undefined
+                    ? path.basename(folder.uri.fsPath)
+                    : workspaceFileLabel(configuration);
             case "WORKSPACE_FOLDER":
                 return configuration === undefined ? folder.uri.fsPath : path.dirname(configuration);
         }

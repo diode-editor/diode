@@ -30,9 +30,9 @@ function folderWorkspace(folder: string): WorkspaceContextService {
 
 describe("ModelBasedVariableResolver (upstream `editor variables, file/dir`)", () => {
     it("the file name, its directory and its path", () => {
-        expect(
-            resolve(file("/foo/files/text.txt"), "$TM_FILENAME|$TM_DIRECTORY|$TM_DIRECTORY_BASE|$TM_FILEPATH"),
-        ).toBe("text.txt|/foo/files|files|/foo/files/text.txt");
+        expect(resolve(file("/foo/files/text.txt"), "$TM_FILENAME|$TM_DIRECTORY|$TM_DIRECTORY_BASE|$TM_FILEPATH")).toBe(
+            "text.txt|/foo/files|files|/foo/files/text.txt",
+        );
     });
 
     it("TM_FILENAME_BASE drops the last extension only, and keeps a leading dot (#32737)", () => {
@@ -45,27 +45,30 @@ describe("ModelBasedVariableResolver (upstream `editor variables, file/dir`)", (
 
     it("a resource without a directory, as an untitled document: no directory, the path is its name", () => {
         const untitled = new ModelBasedVariableResolver(Uri.parse("untitled:Untitled-1"), undefined);
-        expect(
-            resolve(untitled, "$TM_FILENAME|$TM_FILENAME_BASE|$TM_DIRECTORY|$TM_DIRECTORY_BASE|$TM_FILEPATH"),
-        ).toBe("Untitled-1|Untitled-1|||Untitled-1");
+        expect(resolve(untitled, "$TM_FILENAME|$TM_FILENAME_BASE|$TM_DIRECTORY|$TM_DIRECTORY_BASE|$TM_FILEPATH")).toBe(
+            "Untitled-1|Untitled-1|||Untitled-1",
+        );
     });
 
     it("RELATIVE_FILEPATH is relative to the workspace folder, the full path outside it (#114208)", () => {
         const workspace = folderWorkspace("/foo");
-        expect(resolve(new ModelBasedVariableResolver(Uri.file("/foo/files/text.txt"), workspace), "$RELATIVE_FILEPATH")).toBe(
-            "files/text.txt",
-        );
-        expect(resolve(new ModelBasedVariableResolver(Uri.file("/bar/text.txt"), workspace), "$RELATIVE_FILEPATH")).toBe(
-            "/bar/text.txt",
-        );
+        expect(
+            resolve(new ModelBasedVariableResolver(Uri.file("/foo/files/text.txt"), workspace), "$RELATIVE_FILEPATH"),
+        ).toBe("files/text.txt");
+        expect(
+            resolve(new ModelBasedVariableResolver(Uri.file("/bar/text.txt"), workspace), "$RELATIVE_FILEPATH"),
+        ).toBe("/bar/text.txt");
         expect(resolve(file("/bar/text.txt"), "$RELATIVE_FILEPATH")).toBe("/bar/text.txt");
     });
 
     it("transforms apply to the value; other variables are not its", () => {
         expect(resolve(file("/foo/main.ts"), "${TM_FILENAME/(.*)\\..+$/$1/}")).toBe("main");
-        expect(resolve(file("/foo/CapitalCase"), "${TM_FILENAME_BASE/([A-Z][a-z]+)([A-Z][a-z]+$)?/${1:/downcase}-${2:/downcase}/g}")).toBe(
-            "capital-case",
-        );
+        expect(
+            resolve(
+                file("/foo/CapitalCase"),
+                "${TM_FILENAME_BASE/([A-Z][a-z]+)([A-Z][a-z]+$)?/${1:/downcase}-${2:/downcase}/g}",
+            ),
+        ).toBe("capital-case");
         expect(resolve(file("/foo/a"), "${CLIPBOARD:none}")).toBe("none");
     });
 });
@@ -162,9 +165,7 @@ describe("TimeBasedVariableResolver", () => {
     it("unix time in seconds and milliseconds, of one moment for the whole resolver", () => {
         const resolver = at(new Date(1_700_000_000_999));
         vi.advanceTimersByTime(5000);
-        expect(resolve(resolver, "$CURRENT_SECONDS_UNIX $CURRENT_MILLISECONDS_UNIX")).toBe(
-            "1700000000 1700000000999",
-        );
+        expect(resolve(resolver, "$CURRENT_SECONDS_UNIX $CURRENT_MILLISECONDS_UNIX")).toBe("1700000000 1700000000999");
     });
 
     it("the time zone: its offset as ±HH:MM, west of Greenwich negative, and its IANA name", () => {
@@ -183,9 +184,12 @@ describe("TimeBasedVariableResolver", () => {
 
 describe("WorkspaceBasedVariableResolver", () => {
     it("a folder: its name and path", () => {
-        expect(resolve(new WorkspaceBasedVariableResolver(folderWorkspace("/work/proj")), "$WORKSPACE_NAME|$WORKSPACE_FOLDER")).toBe(
-            "proj|/work/proj",
-        );
+        expect(
+            resolve(
+                new WorkspaceBasedVariableResolver(folderWorkspace("/work/proj")),
+                "$WORKSPACE_NAME|$WORKSPACE_FOLDER",
+            ),
+        ).toBe("proj|/work/proj");
     });
 
     it("a workspace file: its name without the extension and its directory", () => {
