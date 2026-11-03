@@ -31,8 +31,10 @@ export class SnippetService extends Disposable implements IContextKeyContributor
 
     public updateContextKeys(contextKeys: ContextKeyService): void {
         const controller = this.controller();
-        contextKeys.set("inSnippetMode", controller?.isInSnippet ?? false);
-        contextKeys.set("hasNextTabstop", controller?.hasNextTabstop ?? false);
+        const inSnippet = controller?.isInSnippet ?? false;
+        contextKeys.set("inSnippetMode", inSnippet);
+        // A live session always has a next tab stop: it ends on reaching its last group.
+        contextKeys.set("hasNextTabstop", inSnippet);
         contextKeys.set("hasPrevTabstop", controller?.hasPrevTabstop ?? false);
     }
 

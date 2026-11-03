@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { createPosition } from "./iPosition.ts";
-import { createRange, rangeContainsPosition, rangesEqual } from "./iRange.ts";
+import {
+    compareRangesUsingStarts,
+    createRange,
+    rangeContainsPosition,
+    rangeContainsRange,
+    rangesEqual,
+} from "./iRange.ts";
 
 describe("rangesEqual", () => {
     it("equal ranges", () => {
@@ -41,5 +47,27 @@ describe("rangeContainsPosition", () => {
         const collapsed = createRange(1, 2, 1, 2);
         expect(rangeContainsPosition(collapsed, createPosition(1, 2))).toBe(true);
         expect(rangeContainsPosition(collapsed, createPosition(1, 3))).toBe(false);
+    });
+});
+
+describe("rangeContainsRange", () => {
+    const outer = createRange(1, 2, 3, 4);
+
+    it("the edges are included", () => {
+        expect(rangeContainsRange(outer, outer)).toBe(true);
+        expect(rangeContainsRange(outer, createRange(2, 0, 2, 1))).toBe(true);
+    });
+
+    it("a range sticking out at either end is not contained", () => {
+        expect(rangeContainsRange(outer, createRange(1, 1, 2, 0))).toBe(false);
+        expect(rangeContainsRange(outer, createRange(2, 0, 3, 5))).toBe(false);
+    });
+});
+
+describe("compareRangesUsingStarts", () => {
+    it("by start, then by end", () => {
+        expect(compareRangesUsingStarts(createRange(0, 1, 0, 2), createRange(0, 2, 0, 2))).toBeLessThan(0);
+        expect(compareRangesUsingStarts(createRange(0, 1, 0, 3), createRange(0, 1, 0, 2))).toBeGreaterThan(0);
+        expect(compareRangesUsingStarts(createRange(0, 1, 0, 2), createRange(0, 1, 0, 2))).toBe(0);
     });
 });

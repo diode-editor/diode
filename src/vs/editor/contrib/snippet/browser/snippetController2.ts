@@ -75,11 +75,6 @@ export class SnippetController2 {
         return this.session !== null;
     }
 
-    /** A live session always has one: it ends on reaching its last group. */
-    public get hasNextTabstop(): boolean {
-        return this.session !== null;
-    }
-
     public get hasPrevTabstop(): boolean {
         return this.session !== null && !this.session.isAtFirstPlaceholder;
     }
@@ -92,7 +87,7 @@ export class SnippetController2 {
         const { editor } = this;
         const { viewState } = editor;
         const document = editor.model.document;
-        const { edits, snippet, start } = createSnippetInsert(document, snippetEdits, {
+        const { edits, snippet } = createSnippetInsert(document, snippetEdits, {
             adjustWhitespace: options.keepWhitespace !== true,
             tabSize: viewState.tabSize,
             insertSpaces: viewState.insertSpaces,
@@ -108,7 +103,7 @@ export class SnippetController2 {
                 if (snippet.placeholders.length === 0) {
                     return inverseEdits.map(({ range: { end } }) => createCursorSelection(end.line, end.character));
                 }
-                this.session = new SnippetSession(document, snippet, start);
+                this.session = new SnippetSession(document, snippet, edits[0].range.start);
                 return this.session.move(true);
             },
             options,

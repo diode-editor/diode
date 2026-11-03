@@ -1,7 +1,8 @@
+import { groupAdjacentBy } from "../../../../base/common/arrays.ts";
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { commonPrefixLength, splitLines } from "../../../../base/common/strings.ts";
-import { comparePositions, type IPosition } from "../../../common/core/iPosition.ts";
-import type { IRange } from "../../../common/core/iRange.ts";
+import { comparePositions, type IPosition, positionsEqual } from "../../../common/core/iPosition.ts";
+import { compareRangesUsingStarts, type IRange, rangeContainsRange } from "../../../common/core/iRange.ts";
 import { createSelection, type ISelection, selectionToRange } from "../../../common/core/iSelection.ts";
 import { createTextEdit, type ITextEdit } from "../../../common/core/iTextEdit.ts";
 import { countEOL } from "../../../common/core/misc/eolCounter.ts";
@@ -44,10 +45,8 @@ export interface ISnippetInsertOptions {
 export interface ISnippetInsert {
     /** In document order, against the text before the insert. */
     readonly edits: readonly ITextEdit[];
-    /** The inserted text from {@link start}, the gaps between the edits included. */
+    /** The inserted text from the first edit's start, which the insert does not move; the gaps between the edits included. */
     readonly snippet: TextmateSnippet;
-    /** Where the first edit starts, before and after the insert. */
-    readonly start: IPosition;
 }
 
 const EOL = "\n";
@@ -215,23 +214,14 @@ export function createSnippetInsert(
     });
     // Upstream `createEditsAndSnippetsFromEdits`: a snippet with placeholders and no `$0` ends in one.
     parser.ensureFinalTabstop(snippet, false, true);
-    return { edits, snippet, start: indexed[0].edit.range.start };
+    return { edits, snippet };
 }
 
 /** What a session reads and decorates of the document. */
-export type ISnippetSessionDocument = Pick<ITextDocument, "deltaDecorations" | "getDecorationRange">;
-
-function isEmptyRange({ start, end }: IRange): boolean {
-    return comparePositions(start, end) === 0;
-}
-
-function containsRange(outer: IRange, inner: IRange): boolean {
-    return comparePositions(outer.start, inner.start) <= 0 && comparePositions(inner.end, outer.end) <= 0;
-}
-
-function compareRangesUsingStarts(a: IRange, b: IRange): number {
-    return comparePositions(a.start, b.start) || comparePositions(a.end, b.end);
-}
+export type ISnippetSessionDocument = Pick<
+    ITextDocument,
+    "deltaDecorations" | "getDecorationRange" | "changeDecorationOptions"
+>;
 
 const ACTIVE = {
     description: "snippet-placeholder-active",
@@ -239,25 +229,14 @@ const ACTIVE = {
 };
 const INACTIVE = { description: "snippet-placeholder", stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges };
 
-/** Upstream `groupBy(placeholders, Placeholder.compareByIndex)`: by index, `$0` last, document order inside. */
-function groupByIndex(placeholders: readonly Placeholder[]): Placeholder[][] {
-    const groups: Placeholder[][] = [];
-    for (const placeholder of [...placeholders].sort((a, b) => Placeholder.compareByIndex(a, b))) {
-        const last = groups.at(-1);
-        if (last?.[0].index === placeholder.index) last.push(placeholder);
-        else groups.push([placeholder]);
-    }
-    return groups;
-}
-
 /**
  * Port of upstream `OneSnippet` with the parts of `SnippetSession` it needs: an insert from edits is always one
  * snippet over all of them. A placeholder is a tracked decoration; the active group's placeholders (and the ones
  * enclosing them) grow when typing at their edges, the rest never do. Mirrors are no mechanism of their own: `move`
- * gives a selection per placeholder of the group, and the editor's carets type into each. Upstream changes a live
- * decoration's stickiness; the document has no such call, so the decorations are put again where they are.
+ * gives a selection per placeholder of the group, and the editor's carets type into each.
  */
 export class SnippetSession {
+    /** Upstream `groupBy(placeholders, Placeholder.compareByIndex)`: by index, `$0` last, document order inside. */
     private readonly groups: Placeholder[][];
     private groupIndex = -1;
     private readonly decorations = new Map<Placeholder, string>();
@@ -268,7 +247,12 @@ export class SnippetSession {
         private readonly snippet: TextmateSnippet,
         start: IPosition,
     ) {
-        this.groups = groupByIndex(snippet.placeholders);
+        this.groups = [
+            ...groupAdjacentBy(
+                [...snippet.placeholders].sort((a, b) => Placeholder.compareByIndex(a, b)),
+                (a, b) => a.index === b.index,
+            ),
+        ];
         const text = snippet.toString();
         const at = (snippetOffset: number): IPosition => positionAfter(start, text.slice(0, snippetOffset));
         const { placeholders } = snippet;
@@ -290,10 +274,6 @@ export class SnippetSession {
         this.decorations.clear();
     }
 
-    public get hasPlaceholder(): boolean {
-        return this.groups.length > 0;
-    }
-
     public get isAtFirstPlaceholder(): boolean {
         return this.groupIndex <= 0;
     }
@@ -303,15 +283,15 @@ export class SnippetSession {
     }
 
     /**
-     * Upstream `OneSnippet.move`: `true` the next group, `false` the previous one, `undefined` the current one again.
-     * A group whose placeholders were all deleted by the user is skipped.
+     * Upstream `OneSnippet.move`: to the next group or the previous one; a group whose placeholders were all deleted
+     * by the user is skipped.
      */
-    public move(fwd: boolean | undefined): ISelection[] {
+    public move(fwd: boolean): ISelection[] {
         let couldSkipThisPlaceholder = false;
-        if (fwd === true && this.groupIndex < this.groups.length - 1) {
+        if (fwd && this.groupIndex < this.groups.length - 1) {
             this.groupIndex += 1;
             couldSkipThisPlaceholder = true;
-        } else if (fwd === false && this.groupIndex > 0) {
+        } else if (!fwd && this.groupIndex > 0) {
             this.groupIndex -= 1;
             couldSkipThisPlaceholder = true;
         }
@@ -325,15 +305,9 @@ export class SnippetSession {
             if (!placeholder.isFinalTabstop) active.add(placeholder);
             for (const enclosing of this.snippet.enclosingPlaceholders(placeholder)) active.add(enclosing);
         }
-        const placeholders = [...this.decorations.keys()];
-        const ids = this.document.deltaDecorations(
-            [...this.decorations.values()],
-            placeholders.map((placeholder) => ({
-                range: this.rangeOf(placeholder),
-                options: active.has(placeholder) ? ACTIVE : INACTIVE,
-            })),
-        );
-        placeholders.forEach((placeholder, i) => this.decorations.set(placeholder, ids[i]));
+        for (const [placeholder, id] of this.decorations) {
+            this.document.changeDecorationOptions(id, active.has(placeholder) ? ACTIVE : INACTIVE);
+        }
         return couldSkipThisPlaceholder ? this.move(fwd) : selections;
     }
 
@@ -342,9 +316,10 @@ export class SnippetSession {
      * range is empty now.
      */
     private hasPlaceholderBeenCollapsed(placeholder: Placeholder): boolean {
-        return [placeholder, ...this.snippet.enclosingPlaceholders(placeholder)].some(
-            (marker) => isEmptyRange(this.rangeOf(marker)) && marker.toString().length > 0,
-        );
+        return [placeholder, ...this.snippet.enclosingPlaceholders(placeholder)].some((marker) => {
+            const { start, end } = this.rangeOf(marker);
+            return positionsEqual(start, end) && marker.toString().length > 0;
+        });
     }
 
     /**
@@ -356,7 +331,7 @@ export class SnippetSession {
         return this.groups.some((group) => {
             if (group[0].isFinalTabstop || group.length !== sorted.length) return false;
             const ranges = group.map((placeholder) => this.rangeOf(placeholder)).sort(compareRangesUsingStarts);
-            return ranges.every((range, i) => containsRange(range, sorted[i]));
+            return ranges.every((range, i) => rangeContainsRange(range, sorted[i]));
         });
     }
 
@@ -372,7 +347,7 @@ export class SnippetSession {
         const outer: IRange[] = [];
         for (const range of ranges) {
             const last = outer.at(-1);
-            if (last === undefined || !containsRange(last, range)) outer.push(range);
+            if (last === undefined || !rangeContainsRange(last, range)) outer.push(range);
         }
         return outer;
     }

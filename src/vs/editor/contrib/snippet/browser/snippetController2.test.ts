@@ -44,9 +44,9 @@ function setup(text: string, template: string, ranges: readonly IRange[] = [at(0
     };
 }
 
-/** Whether the session is on: the three keys of the workbench. */
-function keys({ controller }: IHarness): readonly [boolean, boolean, boolean] {
-    return [controller.isInSnippet, controller.hasNextTabstop, controller.hasPrevTabstop];
+/** Whether the session is on, and whether it has a previous tab stop. */
+function keys({ controller }: IHarness): readonly [boolean, boolean] {
+    return [controller.isInSnippet, controller.hasPrevTabstop];
 }
 
 afterEach(() => {
@@ -67,13 +67,13 @@ describe("SnippetController2: the session", () => {
     it("a snippet with placeholders starts on the first one; Tab and Shift+Tab walk the groups", () => {
         const h = setup("", "${1:a} ${2:b} ${3:c}");
         expect(h.frame()).toBe("[a] b c");
-        expect(keys(h)).toEqual([true, true, false]);
+        expect(keys(h)).toEqual([true, false]);
         h.controller.next();
         expect(h.frame()).toBe("a [b] c");
-        expect(keys(h)).toEqual([true, true, true]);
+        expect(keys(h)).toEqual([true, true]);
         h.controller.prev();
         expect(h.frame()).toBe("[a] b c");
-        expect(keys(h)).toEqual([true, true, false]);
+        expect(keys(h)).toEqual([true, false]);
     });
 
     it("Shift+Tab on the first tab stop stays there", () => {
@@ -91,7 +91,7 @@ describe("SnippetController2: the session", () => {
         expect(h.controller.isInSnippet).toBe(true);
         h.controller.next();
         expect(h.frame()).toBe("a = a;|");
-        expect(keys(h)).toEqual([false, false, false]);
+        expect(keys(h)).toEqual([false, false]);
         expect(h.pane.viewState.snippetTabstopRanges).toEqual([]);
     });
 
@@ -109,7 +109,7 @@ describe("SnippetController2: the session", () => {
     ])("%s starts no session", (_name, template, frame) => {
         const h = setup("", template);
         expect(h.frame()).toBe(frame);
-        expect(keys(h)).toEqual([false, false, false]);
+        expect(keys(h)).toEqual([false, false]);
         expect(h.pane.viewState.snippetTabstopRanges).toEqual([]);
     });
 
@@ -161,7 +161,7 @@ describe("SnippetController2: the session", () => {
         const h = setup("", "${1:x} = $1");
         h.controller.cancel(true);
         expect(h.frame()).toBe("[x] = x");
-        expect(keys(h)).toEqual([false, false, false]);
+        expect(keys(h)).toEqual([false, false]);
         expect(h.pane.viewState.snippetTabstopRanges).toEqual([]);
     });
 
@@ -212,7 +212,7 @@ describe("SnippetController2: the session", () => {
     it("replacing the whole text ends the session without a trace", () => {
         const h = setup("", "${1:a} ${2:b}");
         h.pane.viewState.document.setText("new");
-        expect(keys(h)).toEqual([false, false, false]);
+        expect(keys(h)).toEqual([false, false]);
         expect(h.pane.viewState.snippetTabstopRanges).toEqual([]);
     });
 
