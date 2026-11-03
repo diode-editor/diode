@@ -387,6 +387,7 @@ function readLabelDetails(item: vscode.CompletionItem): { detail?: string; descr
  * (`keepWhitespace`), so that `${1:name}` and the escapes of `SnippetString.appendText` do not end up there.
  */
 export function stripSnippetPlaceholders(value: string): string {
+    // Stryker disable next-line StringLiteral: equivalent, with `keepWhitespace` (null) `resolveSnippet` never reads the line's leading whitespace
     return resolveSnippet(value, "", null).text;
 }
 
