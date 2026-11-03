@@ -38,6 +38,8 @@ export interface ContextKeyTypes {
     hasNextTabstop: boolean;
     /** Upstream `SnippetController2.HasPrevTabstop`: the session is past its first tab stop. */
     hasPrevTabstop: boolean;
+    /** Upstream `SnippetController2.InSnippetChoice`: the session's current tab stop is a choice. */
+    inSnippetChoice: boolean;
     editorLangId: string;
     /** Upstream name of our {@link textInputFocus}, kept for extension `when` clauses. */
     editorTextFocus: boolean;
