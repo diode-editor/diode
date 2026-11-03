@@ -69,6 +69,7 @@
         "shift+escape: workbench.action.closeQuickOpen [inQuickOpen && inputWidgetFocus] > cancelLinkedEditingInput [(editorTextFocus) && (LinkedEditingInputVisible)]",
         "shift+f4: references-view.prev [hasReferenceResult] > search.action.focusPreviousSearchResult [hasSearchResult]",
         "shift+meta+p: workbench.action.quickOpenNavigatePreviousInFilePicker [((inFilesPicker && inputWidgetFocus) && (tier != 'legacy')) && (macKeys >= 3)] > workbench.action.showCommands [macKeys >= 3]",
+        "shift+tab: jumpToPrevSnippetPlaceholder [((textInputFocus) && (inSnippetMode && hasPrevTabstop)) && (inSnippetChoice)] > editor.action.outdentLines [textInputFocus && !editorReadonly]",
         "shift+tab: jumpToPrevSnippetPlaceholder [(textInputFocus) && (inSnippetMode && hasPrevTabstop)] > editor.action.outdentLines [textInputFocus && !editorReadonly]",
         "tab: acceptSelectedSuggestion [suggestWidgetVisible] > jumpToNextSnippetPlaceholder [(textInputFocus) && (inSnippetMode && hasNextTabstop)]",
         "tab: acceptSelectedSuggestion [suggestWidgetVisible] > tab [textInputFocus && !editorReadonly]",

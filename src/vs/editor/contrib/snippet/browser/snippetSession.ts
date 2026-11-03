@@ -62,7 +62,10 @@ export interface ISnippetInsert {
 const EOL = "\n";
 
 /** Upstream `normalizeIndentation` (`core/misc/indentation.ts`): the leading whitespace for the tab settings. */
-function normalizeIndentation(line: string, { tabSize, insertSpaces }: ISnippetInsertOptions): string {
+function normalizeIndentation(
+    line: string,
+    { tabSize, insertSpaces }: Pick<ISnippetInsertOptions, "tabSize" | "insertSpaces">,
+): string {
     const leading = getLeadingWhitespace(line);
     let columns = 0;
     for (const char of leading) columns += char === "\t" ? tabSize - (columns % tabSize) : 1;
@@ -70,6 +73,22 @@ function normalizeIndentation(line: string, { tabSize, insertSpaces }: ISnippetI
         ? " ".repeat(columns)
         : "\t".repeat(Math.floor(columns / tabSize)) + " ".repeat(columns % tabSize);
     return indent + line.slice(leading.length);
+}
+
+/** The leading whitespace of `position`'s line up to it. */
+export function leadingWhitespaceBefore(document: ISnippetDocument, position: IPosition): string {
+    return getLeadingWhitespace(document.getLineContent(position.line).slice(0, position.character));
+}
+
+/** Every line after the first gets `lineLeadingWhitespace`, normalized for the tab settings. */
+function indentFollowingLines(
+    lines: string[],
+    lineLeadingWhitespace: string,
+    options: Pick<ISnippetInsertOptions, "tabSize" | "insertSpaces">,
+): void {
+    for (let i = 1; i < lines.length; i++) {
+        lines[i] = normalizeIndentation(lineLeadingWhitespace + lines[i], options);
+    }
 }
 
 /**
@@ -83,9 +102,7 @@ function adjustWhitespace(
     fragment: ReadonlySet<Marker>,
     options: ISnippetInsertOptions,
 ): void {
-    const lineLeadingWhitespace = getLeadingWhitespace(
-        document.getLineContent(position.line).slice(0, position.character),
-    );
+    const lineLeadingWhitespace = leadingWhitespaceBefore(document, position);
     let snippetText: string | undefined;
     snippet.walk((marker) => {
         if (!(marker instanceof Text) || marker.parent instanceof Choice || !fragment.has(marker)) return true;
@@ -101,9 +118,7 @@ function adjustWhitespace(
                     lines[0] = normalizeIndentation(lineLeadingWhitespace + lines[0], options);
                 }
             }
-            for (let i = 1; i < lines.length; i++) {
-                lines[i] = normalizeIndentation(lineLeadingWhitespace + lines[i], options);
-            }
+            indentFollowingLines(lines, lineLeadingWhitespace, options);
         }
         marker.parent.replace(marker, [new Text(lines.join(EOL))]);
         snippetText = undefined;
@@ -180,8 +195,22 @@ export function createSnippetInsert(
 /** What a session reads and decorates of the document. */
 export type ISnippetSessionDocument = Pick<
     ITextDocument,
-    "deltaDecorations" | "getDecorationRange" | "changeDecorationOptions"
+    "deltaDecorations" | "getDecorationRange" | "changeDecorationOptions" | "getTextInRange"
 >;
+
+/** Upstream `OneSnippet.activeChoice`. */
+export interface ISnippetActiveChoice {
+    readonly choice: Choice;
+    readonly range: IRange;
+}
+
+/** What {@link SnippetSession.placeholderTransformEdits} indents a multi-line result with. */
+export interface ISnippetSessionIndentation {
+    /** The leading whitespace of the line the snippet starts on. */
+    readonly lineLeadingWhitespace: string;
+    readonly tabSize: number;
+    readonly insertSpaces: boolean;
+}
 
 const ACTIVE = {
     description: "snippet-placeholder-active",
@@ -206,6 +235,7 @@ export class SnippetSession {
         private readonly document: ISnippetSessionDocument,
         private readonly snippet: TextmateSnippet,
         start: IPosition,
+        private readonly indentation: ISnippetSessionIndentation,
     ) {
         this.groups = [
             ...groupAdjacentBy(
@@ -243,7 +273,35 @@ export class SnippetSession {
     }
 
     /**
-     * Upstream `OneSnippet.move`: to the next group or the previous one; a group whose placeholders were all deleted
+     * Upstream `OneSnippet.move`, its first half: the edits that leave the current group, its placeholders with a
+     * transform replaced by the transform of their text. Further lines of a result get the indentation of the
+     * snippet's line. Only after the first {@link move}.
+     */
+    public placeholderTransformEdits(): ITextEdit[] {
+        const edits: ITextEdit[] = [];
+        for (const placeholder of this.groups[this.groupIndex]) {
+            const { transform } = placeholder;
+            if (transform === undefined) continue;
+            const range = this.rangeOf(placeholder);
+            const lines = splitLines(transform.resolve(this.document.getTextInRange(range)));
+            indentFollowingLines(lines, this.indentation.lineLeadingWhitespace, this.indentation);
+            edits.push(createTextEdit(range, lines.join(EOL)));
+        }
+        return edits;
+    }
+
+    /**
+     * Upstream `OneSnippet.activeChoice`: the choice of the current group's first placeholder, and where that
+     * placeholder is now. Only after the first {@link move}.
+     */
+    public get activeChoice(): ISnippetActiveChoice | undefined {
+        const [placeholder] = this.groups[this.groupIndex];
+        const { choice } = placeholder;
+        return choice === undefined ? undefined : { choice, range: this.rangeOf(placeholder) };
+    }
+
+    /**
+     * Upstream `OneSnippet.move`, its second half: to the next group or the previous one; a group whose placeholders were all deleted
      * by the user is skipped.
      */
     public move(fwd: boolean): ISelection[] {

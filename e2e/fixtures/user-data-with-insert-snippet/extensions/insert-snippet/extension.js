@@ -19,6 +19,10 @@ exports.activate = function activate(context) {
         vscode.commands.registerTextEditorCommand("insertSnippetDemo.assign", (editor) =>
             editor.insertSnippet(new vscode.SnippetString("${1:name} = $1;$0")),
         ),
+        // A choice and a transformed mirror (#1033): the popup offers get/set, the field name loses its underscore.
+        vscode.commands.registerTextEditorCommand("insertSnippetDemo.accessor", (editor) =>
+            editor.insertSnippet(new vscode.SnippetString("${1|get,set|} ${2:_name}() { return this.${2/^_(.*)/$1/}; }$0")),
+        ),
         vscode.commands.registerCommand("insertSnippetDemo.tab", () => vscode.commands.executeCommand("tab")),
         vscode.commands.registerCommand("insertSnippetDemo.lineBelow", () =>
             vscode.commands.executeCommand("editor.action.insertLineAfter"),

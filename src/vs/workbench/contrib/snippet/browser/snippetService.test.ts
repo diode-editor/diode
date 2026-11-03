@@ -3,10 +3,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { drawSelections, snippetPane } from "../../../../../TestUtils/snippetPane.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
+import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import { SnippetController2 } from "../../../../editor/contrib/snippet/browser/snippetController2.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import type { CompletionService } from "../../suggest/browser/completionService.ts";
 
 import {
     acceptSnippetAction,
@@ -26,7 +28,7 @@ function setup() {
         getActiveEditor: () => current,
         onActiveEditorChanged: active.event,
     } as unknown as IEditorService;
-    const service = new SnippetService(group);
+    const service = new SnippetService(group, new LanguageFeaturesService(), {} as unknown as CompletionService);
     const contextKeys = new ContextKeyService();
     const accessor = { get: () => service } as unknown as Parameters<typeof acceptSnippetAction.run>[0];
     disposers.push(() => {

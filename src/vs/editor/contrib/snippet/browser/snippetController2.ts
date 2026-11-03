@@ -1,5 +1,7 @@
+import { Emitter } from "../../../../base/common/event.ts";
 import { DisposableStore } from "../../../../base/common/lifecycle.ts";
-import { createCursorSelection } from "../../../common/core/iSelection.ts";
+import { rangeContainsRange } from "../../../common/core/iRange.ts";
+import { createCursorSelection, selectionToRange } from "../../../common/core/iSelection.ts";
 import { hasOverlappingEdits, type ITextEdit } from "../../../common/core/iTextEdit.ts";
 import type { ITextDocument } from "../../../common/model/iTextDocument.ts";
 import type { EditorViewState } from "../../../common/viewModel/editorViewState.ts";
@@ -7,9 +9,11 @@ import type { ICursorStateComputer } from "../../../common/viewModel/trackedSele
 
 import {
     createSnippetInsert,
+    type ISnippetActiveChoice,
     type ISnippetDocument,
     type ISnippetEdit,
     type ISnippetSessionDocument,
+    leadingWhitespaceBefore,
     SnippetSession,
 } from "./snippetSession.ts";
 import type { ISnippetVariableSources } from "./snippetVariables.ts";
@@ -70,6 +74,13 @@ export class SnippetController2 {
     private readonly sessionStore = new DisposableStore();
     /** Upstream `_modelVersionId`: an undo back to it takes the snippet away. Read only while there is a session. */
     private versionBeforeInsert = 0;
+    private readonly onDidUpdateStateEmitter = new Emitter<void>();
+
+    /**
+     * After the insert, every selection change in a session and the session's end: where upstream `_updateState`
+     * and `cancel` set the context keys.
+     */
+    public readonly onDidUpdateState = this.onDidUpdateStateEmitter.event;
 
     private constructor(private readonly editor: ISnippetEditor) {}
 
@@ -79,6 +90,18 @@ export class SnippetController2 {
 
     public get hasPrevTabstop(): boolean {
         return this.session !== null && !this.session.isAtFirstPlaceholder;
+    }
+
+    /**
+     * Upstream `SnippetSession.activeChoice`: the session is on a choice. Deviation: only with the primary selection
+     * in it; upstream keeps a choice a click has left for another tab stop of the session.
+     */
+    public get activeChoice(): ISnippetActiveChoice | undefined {
+        const active = this.session?.activeChoice;
+        if (active === undefined) return undefined;
+        return rangeContainsRange(active.range, selectionToRange(this.editor.viewState.selections[0]))
+            ? active
+            : undefined;
     }
 
     /**
@@ -98,6 +121,12 @@ export class SnippetController2 {
         if (hasOverlappingEdits(edits)) return false;
         this.cancel();
         editor.focusEditor();
+        const { start } = edits[0].range;
+        const indentation = {
+            lineLeadingWhitespace: leadingWhitespaceBefore(document, start),
+            tabSize: viewState.tabSize,
+            insertSpaces: viewState.insertSpaces,
+        };
         this.versionBeforeInsert = document.alternativeVersionId;
         editor.applyExternalEdits(
             edits,
@@ -106,7 +135,7 @@ export class SnippetController2 {
                 if (snippet.placeholders.length === 0) {
                     return inverseEdits.map(({ range: { end } }) => createCursorSelection(end.line, end.character));
                 }
-                this.session = new SnippetSession(document, snippet, edits[0].range.start);
+                this.session = new SnippetSession(document, snippet, start, indentation);
                 return this.session.move(true);
             },
             options,
@@ -144,6 +173,7 @@ export class SnippetController2 {
             return;
         }
         this.publishTabstops(session);
+        this.onDidUpdateStateEmitter.fire();
     }
 
     /** `jumpToNextSnippetPlaceholder`. */
@@ -156,13 +186,23 @@ export class SnippetController2 {
         this.move(false);
     }
 
+    /**
+     * Upstream `OneSnippet.move`: the transforms of the group left behind are their own undo step, and the selections
+     * of the next group come with it, so the state is updated once, on the new group.
+     */
     private move(fwd: boolean): void {
-        if (this.session === null) return;
-        const selections = this.session.move(fwd);
-        const { viewState } = this.editor;
-        viewState.selections = selections;
+        const { session, editor } = this;
+        if (session === null) return;
+        const { viewState } = editor;
+        const edits = session.placeholderTransformEdits();
+        if (edits.length === 0) {
+            viewState.selections = session.move(fwd);
+        } else {
+            // Stryker disable next-line StringLiteral: the label of an undo step is shown nowhere
+            editor.applyExternalEdits(edits, "snippet.placeholderTransform", () => session.move(fwd), {});
+        }
         // The selection change has updated the state: on the last group the session is over.
-        const { active } = selections[0];
+        const { active } = viewState.selections[0];
         viewState.revealRangeByType({ start: active, end: active }, "centerIfOutsideViewport");
     }
 
@@ -181,6 +221,7 @@ export class SnippetController2 {
         const { viewState } = this.editor;
         viewState.snippetTabstopRanges = [];
         if (resetSelection) viewState.selections = [viewState.selections[0]];
+        this.onDidUpdateStateEmitter.fire();
     }
 
     private publishTabstops(session: SnippetSession): void {
