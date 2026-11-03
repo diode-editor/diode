@@ -2748,3 +2748,144 @@ describe('CompletionService — typing past the trigger (npm-intellisense in `re
         expect(component.view.items.map((item) => item.label)).toEqual(["@types/foo"]);
     });
 });
+
+describe("CompletionService — retrigger edges", () => {
+    const HEAD = "const x = require(";
+    const QUOTE_END = HEAD.length + 1;
+
+    function npmItems(end: number): ICoreCompletionItem[] {
+        const range = { start: { line: 0, character: QUOTE_END }, end: { line: 0, character: end } };
+        return [
+            { id: "left-pad", label: "left-pad", insertText: "left-pad", range },
+            { id: "@types/foo", label: "@types/foo", insertText: "@types/foo", range },
+        ];
+    }
+
+    /** npm-intellisense answers at once; the `@` provider (TypeScript) answers when the test says so. */
+    function edgeSetup() {
+        const fake = makeEditor(HEAD, HEAD.length);
+        const pendingTs: ((result: ICoreCompletionResult) => void)[] = [];
+        const languageFeatures = new LanguageFeaturesService();
+        languageFeatures.completionProvider.register("*", {
+            triggerCharacters: ['"', "'", "/"],
+            provideCompletionItems: (request: ICompletionRequest) =>
+                Promise.resolve(completionResult(npmItems(request.character))),
+        });
+        const ts = vi.fn((request: ICompletionRequest) =>
+            request.triggerCharacter === "@"
+                ? new Promise<ICoreCompletionResult>((resolve) => {
+                      pendingTs.push(resolve);
+                  })
+                : Promise.resolve(completionResult([])),
+        );
+        languageFeatures.completionProvider.register("*", {
+            triggerCharacters: ['"', "@"],
+            provideCompletionItems: ts,
+        });
+        const { service, component, body } = createService(
+            makeGroup(fake.editor, undefined),
+            undefined,
+            {},
+            languageFeatures,
+        );
+        TestApp.create(body, new Size(80, 24));
+        const labels = (): string[] => component.view.items.map((item) => item.label);
+        return { service, fake, ts, pendingTs, labels };
+    }
+
+    async function openAtQuote(fake: FakeEditor): Promise<void> {
+        fake.type(`${HEAD}"`, QUOTE_END);
+        await flushTimers();
+    }
+
+    it("Escape while the `@` retrigger is in flight: the late response does not bring the popup back", async () => {
+        const { service, fake, pendingTs } = edgeSetup();
+        await openAtQuote(fake);
+        fake.type(`${HEAD}"@`, QUOTE_END + 1);
+        await flushTimers();
+        expect(service.isOpen()).toBe(true);
+
+        service.hide();
+        pendingTs[0](completionResult([{ label: "@param", insertText: "@param" }]));
+        await flushTimers();
+
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("the caret moves to another line while the `@` retrigger is in flight: the late response does not reopen", async () => {
+        const { service, fake, pendingTs } = edgeSetup();
+        await openAtQuote(fake);
+        fake.type(`${HEAD}"@`, QUOTE_END + 1);
+        await flushTimers();
+
+        fake.move(3, 0);
+        pendingTs[0](completionResult([{ label: "@param", insertText: "@param" }]));
+        await flushTimers();
+
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("Backspace over the quote while the `@` retrigger is in flight closes the popup for good", async () => {
+        const { service, fake, pendingTs } = edgeSetup();
+        await openAtQuote(fake);
+        fake.type(`${HEAD}"@`, QUOTE_END + 1);
+        await flushTimers();
+
+        fake.edit(`${HEAD}"`, QUOTE_END);
+        fake.edit(HEAD, HEAD.length);
+        pendingTs[0](completionResult([{ label: "@param", insertText: "@param" }]));
+        await flushTimers();
+
+        expect(service.isOpen()).toBe(false);
+    });
+
+    it("a second `@` retrigger overtakes the first: the stale first response is not merged in", async () => {
+        const { service, fake, pendingTs, labels } = edgeSetup();
+        await openAtQuote(fake);
+        fake.type(`${HEAD}"@`, QUOTE_END + 1);
+        await flushTimers();
+        fake.type(`${HEAD}"@@`, QUOTE_END + 2);
+        await flushTimers();
+        expect(pendingTs).toHaveLength(2);
+
+        pendingTs[1](completionResult([{ label: "@@fresh", insertText: "@@fresh" }]));
+        await flushTimers();
+        pendingTs[0](completionResult([{ label: "@@stale", insertText: "@@stale" }]));
+        await flushTimers();
+
+        expect(service.isOpen()).toBe(true);
+        expect(labels()).not.toContain("@@stale");
+        expect(labels()).toContain("@@fresh");
+    });
+
+    it("Backspace over `@` after the retrigger answered widens the list back to `left-pad`", async () => {
+        const { service, fake, pendingTs, labels } = edgeSetup();
+        await openAtQuote(fake);
+        fake.type(`${HEAD}"@`, QUOTE_END + 1);
+        await flushTimers();
+        pendingTs[0](completionResult([]));
+        await flushTimers();
+        expect(labels()).toEqual(["@types/foo"]);
+
+        fake.edit(`${HEAD}"`, QUOTE_END);
+
+        expect(service.isOpen()).toBe(true);
+        expect(labels()).toEqual(["left-pad", "@types/foo"]);
+    });
+
+    it("accepting a reused item right after `@` (response still pending) replaces `@`, leaving no tail", async () => {
+        const { service, fake } = edgeSetup();
+        await openAtQuote(fake);
+        fake.type(`${HEAD}"@`, QUOTE_END + 1);
+        await flushTimers();
+
+        service.acceptSelected();
+        await flushTimers();
+
+        const [edits] = fake.applyExternalEdits.mock.calls[0];
+        expect(edits[0]).toEqual({
+            range: { start: { line: 0, character: QUOTE_END }, end: { line: 0, character: QUOTE_END + 1 } },
+            text: "@types/foo",
+        });
+    });
+});
