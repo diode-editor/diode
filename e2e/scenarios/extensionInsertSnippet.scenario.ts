@@ -4,7 +4,7 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 // `TextEditor.insertSnippet` (#967): an extension's Enter between brackets, the shape of KevinRose.vsc-python-indent.
 // The snippet opens a hanging indent with the caret inside, and undo takes it back in one step; a variable transform
-// and a nested placeholder are parsed in the core (#1031).
+// and a nested placeholder are parsed in the core (#1031); the file name and the clipboard fill snippet variables (#1034).
 
 const textFile = resolve(repoRoot, "e2e", "fixtures", "insert-snippet.txt");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-insert-snippet");
@@ -24,6 +24,7 @@ export default defineScenario({
         { key: "f8", command: "insertSnippetDemo.tab" },
         { key: "f9", command: "insertSnippetDemo.lineBelow" },
         { key: "f10", command: "insertSnippetDemo.upcase" },
+        { key: "f11", command: "insertSnippetDemo.header" },
     ],
     async run(editor) {
         await editor.waitForText((text) => text.includes("foo()"));
@@ -71,5 +72,17 @@ export default defineScenario({
         await editor.sendKey("F10");
         await editor.waitForText((text) => text.includes("FOO() nested placeholder"));
         await editor.capture("selection-upper-cased");
+
+        // #1034: copied in Diode, then `${LINE_COMMENT:#} $TM_FILENAME, $CLIPBOARD` (plain text has no comment token).
+        await editor.sendKey("Escape");
+        await editor.sendKey("Ctrl+Z");
+        await editor.waitForText((text) => text.includes("    foo()") && !text.includes("FOO()"));
+        await editor.sendKey("End");
+        await editor.sendKey("Shift+Home");
+        await editor.sendKey("Ctrl+C");
+        await editor.sendKey("End");
+        await editor.sendKey("F11");
+        await editor.waitForText((text) => text.includes("foo()# insert-snippet.txt, foo()"));
+        await editor.capture("snippet-variables");
     },
 });

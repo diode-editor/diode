@@ -107,8 +107,8 @@ class FakeEditorOptions implements IEditorOptionsService {
     public applyActiveEditorEdits(): boolean {
         return false;
     }
-    public insertSnippet(): boolean {
-        return false;
+    public insertSnippet(): Promise<boolean> {
+        return Promise.resolve(false);
     }
     public applyWorkspaceEdit(): Promise<boolean> {
         return Promise.resolve(false);
