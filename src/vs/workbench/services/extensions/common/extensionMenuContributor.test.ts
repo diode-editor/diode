@@ -129,6 +129,24 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual(["First", "Second"]);
     });
 
+    it("an item without `group` goes to the last section, after `navigation` (as VS Code)", () => {
+        const { menus, commands } = makeRegistry();
+        commands.register("ext.ungrouped", () => undefined, "Ungrouped");
+        commands.register("ext.nav", () => undefined, "Nav");
+        registerExtensionMenus(
+            [
+                extension("test.ext", {
+                    menus: {
+                        "editor/context": [{ command: "ext.ungrouped" }, { command: "ext.nav", group: "navigation" }],
+                    },
+                }),
+            ],
+            menus,
+        );
+
+        expect(labels(menus, MenuId.EditorContext)).toEqual(["Nav", "─", "Ungrouped"]);
+    });
+
     it("different menu points go to their own registries", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.editor", () => undefined, "In Editor");
