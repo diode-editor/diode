@@ -25,7 +25,7 @@ describe("snippetText", () => {
 
     it("nested placeholders leave their text; a mirror takes the text of its placeholder", () => {
         expect(snippetText("${1:a\\$b ${2:${3:deep}}!}")).toBe("a$b deep!");
-        expect(snippetText("$1 ${1:x}")).toBe("x x");
+        expect(snippetText("$1 ${1:x} ${1}")).toBe("x x x");
         // The first placeholder with text gives the mirror its text, not a later one.
         expect(snippetText("${1:x} ${1:y} $1").endsWith(" x")).toBe(true);
         expect(snippetText("${2:${1:in}} $1")).toBe("in in");
