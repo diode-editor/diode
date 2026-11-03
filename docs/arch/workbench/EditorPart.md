@@ -16,7 +16,9 @@
   сторона диффа) — `appendContent`/`replaceContent`, без save/encoding/watch/dirty.
 - `services/textfile/common/textFileModel.ts` — per-file модель (аналог
   `ITextFileEditorModel`) поверх `BaseTextEditorModel`: файл с диска либо
-  untitled — dirty-статус против диска (`isModified` = versionId + EOL-ось),
+  untitled — dirty-статус против диска (`isModified` = `alternativeVersionId` документа против сохранённой + EOL-ось:
+  undo до сохранённого текста снимает ●, redo возвращает; streamed save помечает сохранённой
+  альтернативную версию снимка),
   ось encoding, запись на диск (`save`/`saveAs`/`saveWithEncoding` +
   `TextFileSaveParticipant`), перечитка (`revertToDisk`/`reopenWithEncoding`) и
   слежение за файлом на диске

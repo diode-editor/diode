@@ -74,7 +74,7 @@ export abstract class BaseTextEditorModel extends Disposable {
      */
     private tooLargeForTokenization = false;
     protected uriValue: Uri;
-    protected savedVersionId = 0;
+    protected savedAlternativeVersionId = 0;
     protected savedEol: EndOfLine;
     protected readonly languageService: ILanguageService;
     private readonly undoRedoService: UndoRedoService;
@@ -170,7 +170,7 @@ export abstract class BaseTextEditorModel extends Disposable {
 
     public get isModified(): boolean {
         if (this.loadingFromDisk) return false;
-        return this.doc.versionId !== this.savedVersionId || this.doc.eol !== this.savedEol;
+        return this.doc.alternativeVersionId !== this.savedAlternativeVersionId || this.doc.eol !== this.savedEol;
     }
 
     /** What extensions read as `TextDocument.isDirty`; only an untitled buffer can differ from {@link isModified}. */
@@ -281,11 +281,11 @@ export abstract class BaseTextEditorModel extends Disposable {
     }
 
     /**
-     * A streamed save passes the version and EOL its snapshot was taken at: edits typed while the bytes were being
+     * A streamed save passes the alternative version and EOL its snapshot was taken at: edits typed while the bytes were being
      * written are not in the file and keep the buffer modified.
      */
-    protected markSaved(versionId = this.doc.versionId, eol = this.doc.eol): void {
-        this.savedVersionId = versionId;
+    protected markSaved(alternativeVersionId = this.doc.alternativeVersionId, eol = this.doc.eol): void {
+        this.savedAlternativeVersionId = alternativeVersionId;
         this.savedEol = eol;
         this.onDidMarkSavedEmitter.fire();
     }
@@ -481,9 +481,6 @@ export abstract class BaseTextEditorModel extends Disposable {
         );
         this.register(
             this.doc.onDidChangeEol(() => {
-                // A version of its own, but not a text edit: "modified" has a separate EOL axis, and setting the EOL
-                // back leaves the document clean.
-                if (this.doc.versionId - 1 === this.savedVersionId) this.savedVersionId = this.doc.versionId;
                 if (!this.replacingText) this.onDidChangeEolEmitter.fire();
             }),
         );
