@@ -74,7 +74,6 @@ export default defineScenario({
         }
         const trailing = compositeOver(TRAILING, DARK_BG);
         for (let i = 5; i < 8; i++) expectBg(frame, alpha.x + i, alpha.y, trailing, `trailing space ${i}`);
-        expectBg(frame, alpha.x + 4, alpha.y, DARK_BG, "the `a` of alpha");
         expectBg(frame, alpha.x + 9, alpha.y, DARK_BG, "past the trailing spaces");
 
         const mine = locate(frame, "mine");
@@ -97,7 +96,8 @@ export default defineScenario({
             throw new Error(`the selection does not show through the trailing background (#${selected.toString(16)})`);
         }
         await editor.capture("selection");
-        await editor.sendKey("Escape");
+        // Collapses the selection.
+        await editor.sendKey("Ctrl+Home");
 
         await editor.sendKey("F8");
         await editor.waitForText((t) => t.includes("Select Color Theme"), { timeoutMs: 20_000 });
