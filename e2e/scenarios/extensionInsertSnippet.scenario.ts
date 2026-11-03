@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // `TextEditor.insertSnippet` (#967): an extension's Enter between brackets, the shape of KevinRose.vsc-python-indent.
-// The snippet opens a hanging indent with the caret inside, and undo takes it back in one step.
+// The snippet opens a hanging indent with the caret inside, and undo takes it back in one step; a variable transform
+// and a nested placeholder are parsed in the core (#1031).
 
 const textFile = resolve(repoRoot, "e2e", "fixtures", "insert-snippet.txt");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-insert-snippet");
@@ -22,6 +23,7 @@ export default defineScenario({
         { key: "f7", command: "insertSnippetDemo.link" },
         { key: "f8", command: "insertSnippetDemo.tab" },
         { key: "f9", command: "insertSnippetDemo.lineBelow" },
+        { key: "f10", command: "insertSnippetDemo.upcase" },
     ],
     async run(editor) {
         await editor.waitForText((text) => text.includes("foo()"));
@@ -60,5 +62,14 @@ export default defineScenario({
         await editor.sendKey("F7");
         await editor.waitForText((text) => text.includes("[foo()](url)") && text.includes("Ln 1, Col 11"));
         await editor.capture("link-over-selection");
+        await editor.sendKey("Ctrl+Z");
+        await editor.waitForText((text) => text.includes("    foo()") && !text.includes("[foo()]"));
+
+        // #1031: upstream's grammar, parsed in the core; the outer placeholder comes out selected.
+        await editor.sendKey("End");
+        await editor.sendKey("Shift+Home");
+        await editor.sendKey("F10");
+        await editor.waitForText((text) => text.includes("FOO() nested placeholder"));
+        await editor.capture("selection-upper-cased");
     },
 });

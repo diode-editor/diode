@@ -104,17 +104,52 @@ export class EditorCustomer implements IExtensionHostCustomer {
                     setEndOfLine?: unknown;
                     undoStopBefore?: unknown;
                     undoStopAfter?: unknown;
-                    selectionsAfter?: unknown;
                 } = params;
                 if (typeof p.uri !== "string") return false;
-                const selectionsAfter = parseWireSelections(p.selectionsAfter);
                 return this.editorOptions.applyActiveEditorEdits(p.uri, parseWireEditorEdits(p.edits), {
                     ...(typeof p.version === "number" ? { version: p.version } : {}),
                     ...(p.setEndOfLine === 1 || p.setEndOfLine === 2 ? { setEndOfLine: p.setEndOfLine } : {}),
                     ...(p.undoStopBefore === false ? { undoStopBefore: false } : {}),
                     ...(p.undoStopAfter === false ? { undoStopAfter: false } : {}),
-                    ...(selectionsAfter.length > 0 ? { selectionsAfter } : {}),
                 });
+            }),
+        );
+        store.add(
+            rpc.handleRequest("editor.insertSnippet", (params): boolean => {
+                const p: {
+                    uri?: unknown;
+                    groupId?: unknown;
+                    version?: unknown;
+                    template?: unknown;
+                    ranges?: unknown;
+                    undoStopBefore?: unknown;
+                    undoStopAfter?: unknown;
+                    keepWhitespace?: unknown;
+                } = params;
+                if (
+                    typeof p.uri !== "string" ||
+                    typeof p.template !== "string" ||
+                    typeof p.version !== "number" ||
+                    !Array.isArray(p.ranges)
+                ) {
+                    return false;
+                }
+                const raw: readonly unknown[] = p.ranges;
+                const ranges = raw.map(parseRange).filter((range) => range !== null);
+                // A junk range is an honest `false`, not an insert at the others.
+                if (ranges.length !== raw.length) return false;
+                return this.editorOptions.insertSnippet(
+                    p.uri,
+                    typeof p.groupId === "number" ? p.groupId : undefined,
+                    p.template,
+                    ranges,
+                    {
+                        version: p.version,
+                        ...(p.undoStopBefore === false ? { undoStopBefore: false } : {}),
+                        ...(p.undoStopAfter === false ? { undoStopAfter: false } : {}),
+                        ...(p.keepWhitespace === true ? { keepWhitespace: true } : {}),
+                    },
+                );
             }),
         );
         // Garbage in params is an honest `false`, not a partial edit.

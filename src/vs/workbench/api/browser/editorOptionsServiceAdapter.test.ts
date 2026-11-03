@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
+import { createSelection } from "../../../editor/common/core/iSelection.ts";
+import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import { TextDocument } from "../../../editor/common/model/textDocument.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
 import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
@@ -229,33 +232,89 @@ describe("EditorOptionsServiceAdapter", () => {
         );
     });
 
-    it("applyActiveEditorEdits() hands selectionsAfter over as the edit's cursor state, not as undo stops", () => {
-        const applyExternalEdits = vi.fn();
-        const editor = {
-            uri: Uri.file("/a/b.ts"),
-            model: { document: { lineCount: 3, getLineLength: () => 10 } },
-            applyExternalEdits,
-        };
-        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
-        const adapter = createAdapter(group, NO_BULK_EDITS);
-
-        const edit = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "hi" };
-        const selectionsAfter = [{ anchorLine: 0, anchorCharacter: 1, activeLine: 2, activeCharacter: 3 }];
-        adapter.applyActiveEditorEdits(Uri.file("/a/b.ts").toString(), [edit], {
-            selectionsAfter,
-            undoStopAfter: false,
+    describe("insertSnippet()", () => {
+        const URI = Uri.file("/a/b.ts").toString();
+        const at = (line: number, character: number) => ({
+            start: { line, character },
+            end: { line, character },
         });
 
-        const [, , computeCursorState, undoStops] = applyExternalEdits.mock.calls[0] as [
-            unknown,
-            unknown,
-            () => unknown,
-            unknown,
-        ];
-        expect(undoStops).toEqual({ undoStopAfter: false });
-        expect(computeCursorState()).toEqual([
-            { anchor: { line: 0, character: 1 }, active: { line: 2, character: 3 }, idealColumn: undefined },
-        ]);
+        function snippetEditor(text: string, overrides: Record<string, unknown> = {}) {
+            const document = new TextDocument(text);
+            const viewState = {
+                tabSize: 4,
+                insertSpaces: true,
+                selections: [] as unknown[],
+                revealRangeByType: vi.fn(),
+            };
+            const applyExternalEdits = vi.fn(
+                (edits: readonly ITextEdit[], _label: string, cursor: () => unknown[], _stops: unknown) => {
+                    document.applyEdits(edits);
+                    viewState.selections = cursor();
+                },
+            );
+            const editor = {
+                uri: Uri.file("/a/b.ts"),
+                readOnly: false,
+                model: { document },
+                viewState,
+                applyExternalEdits,
+                focusEditor: vi.fn(),
+                ...overrides,
+            };
+            const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
+            return { adapter: createAdapter(group, NO_BULK_EDITS), editor, document, viewState };
+        }
+
+        it("parses the template with the editor's tab settings, puts the caret on the first tab stop and reveals it", () => {
+            const { adapter, editor, document, viewState } = snippetEditor("  foo");
+            viewState.insertSpaces = false;
+            viewState.tabSize = 2;
+            expect(
+                adapter.insertSnippet(URI, undefined, "(\n  ${1:${2:a}b}\n)", [at(0, 5)], {
+                    version: document.versionId,
+                    undoStopAfter: false,
+                }),
+            ).toBe(true);
+            expect(document.getText()).toBe("  foo(\n\t\tab\n\t)");
+            expect(viewState.selections).toEqual([createSelection(1, 2, 1, 4)]);
+            expect(editor.applyExternalEdits.mock.calls[0][1]).toBe("snippet");
+            expect(editor.applyExternalEdits.mock.calls[0][3]).toMatchObject({ undoStopAfter: false });
+            expect(editor.focusEditor).toHaveBeenCalledOnce();
+            expect(viewState.revealRangeByType).toHaveBeenCalledExactlyOnceWith(
+                { start: { line: 1, character: 4 }, end: { line: 1, character: 4 } },
+                "default",
+            );
+        });
+
+        it("keepWhitespace leaves the template's whitespace alone; ranges are clamped to the document", () => {
+            const { adapter, document } = snippetEditor("  ab");
+            const range = { start: { line: 0, character: 3 }, end: { line: 0, character: 9 } };
+            adapter.insertSnippet(URI, undefined, "x\n\ty", [range], { version: 0, keepWhitespace: true });
+            expect(document.getText()).toBe("  ax\n\ty");
+        });
+
+        it("another version, a read-only or missing editor, no ranges and overlapping ranges change nothing", () => {
+            const stale = snippetEditor("ab");
+            expect(stale.adapter.insertSnippet(URI, undefined, "x", [at(0, 0)], { version: 1 })).toBe(false);
+            const readOnly = snippetEditor("ab", { readOnly: true });
+            expect(readOnly.adapter.insertSnippet(URI, undefined, "x", [at(0, 0)], { version: 0 })).toBe(false);
+            const other = snippetEditor("ab");
+            expect(other.adapter.insertSnippet("file:///c.ts", undefined, "x", [at(0, 0)], { version: 0 })).toBe(false);
+            const none = snippetEditor("ab");
+            expect(none.adapter.insertSnippet(URI, undefined, "x", [], { version: 0 })).toBe(false);
+            const overlapping = snippetEditor("abcd");
+            const ranges = [
+                { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+                { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } },
+            ];
+            expect(overlapping.adapter.insertSnippet(URI, undefined, "x", ranges, { version: 0 })).toBe(false);
+            for (const { editor, document } of [stale, readOnly, other, none, overlapping]) {
+                expect(editor.applyExternalEdits).not.toHaveBeenCalled();
+                expect(editor.focusEditor).not.toHaveBeenCalled();
+                expect(document.versionId).toBe(0);
+            }
+        });
     });
 
     it("applyActiveEditorEdits() returns false on overlapping edits, document untouched", () => {

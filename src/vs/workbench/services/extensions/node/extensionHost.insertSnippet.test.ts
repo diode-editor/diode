@@ -157,6 +157,50 @@ describe("ExtensionHost — TextEditor.insertSnippet", () => {
         expect(text()).toBe("aXd\n");
     });
 
+    it("[api:TextEditor.insertSnippet] the core transforms the selected text; the frame shows the result", async () => {
+        const { h, editor, text, frame } = await setup("x abc y\n");
+        editor.viewState.selections = [
+            { anchor: { line: 0, character: 2 }, active: { line: 0, character: 5 }, idealColumn: undefined },
+        ];
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.insert", "${TM_SELECTED_TEXT/(.*)/${1:/upcase}/}");
+        await settle();
+
+        expect(text()).toBe("x ABC y\n");
+        expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 5 });
+        expect(frame()).toContain("x ABC y");
+    });
+
+    it("[api:TextEditor.insertSnippet] variables resolve at the caret, an unresolved one is its default or empty", async () => {
+        const { h, text, putCaret } = await setup("a\nbc\n");
+        putCaret(1, 1);
+        await settle();
+
+        await h.commandRegistry.execute(
+            "test.snippet.insert",
+            "[$TM_LINE_NUMBER|$TM_CURRENT_LINE|$TM_FILENAME|${TM_FILENAME:f}|$FOO]",
+        );
+        await settle();
+
+        expect(text()).toBe("a\nb[2|bc||f|]c\n");
+    });
+
+    it("[api:TextEditor.insertSnippet] a choice puts in its first option, selected inside the nested placeholder", async () => {
+        const { h, editor, text, putCaret } = await setup("\n");
+        putCaret(0, 0);
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.insert", "${2:${1|one,two|} out} $0");
+        await settle();
+
+        expect(text()).toBe("one out \n");
+        expect(editor.viewState.selections[0]).toMatchObject({
+            anchor: { line: 0, character: 0 },
+            active: { line: 0, character: 3 },
+        });
+    });
+
     it("[api:TextEditor.insertSnippet] a closed editor rejects with upstream's message", async () => {
         const { h } = await setup("a\n");
         await settle();

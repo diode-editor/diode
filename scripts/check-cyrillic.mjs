@@ -27,12 +27,16 @@ export const inScope = (file) => PUBLIC_PAGE.test(file) || !OUT_OF_SCOPE.some((r
 
 export const hasCyrillic = (line) => CYRILLIC.test(line.replace(DOC_ANCHOR, ".md"));
 
-export function cyrillicLines(text) {
-    if (text.includes("\0")) return 0;
+/**
+ * A vendored copy of upstream (`//@diode:vendored`, `code-tokens.mjs`'s `isVendored`) is verbatim: its test data may
+ * hold any script. A parameter, not an import: `check-pr-title.mjs` runs where TypeScript is not installed.
+ */
+export function cyrillicLines(text, isVendored = () => false) {
+    if (text.includes("\0") || isVendored(text)) return 0;
     return text.split("\n").filter(hasCyrillic).length;
 }
 
-export function scan() {
+export function scan(isVendored) {
     const files = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { encoding: "utf8", maxBuffer: 1 << 28 })
         .split("\0")
         .filter((f) => f && inScope(f));
@@ -44,15 +48,15 @@ export function scan() {
         } catch {
             continue; // deleted in the working tree but still in the index
         }
-        const count = cyrillicLines(text);
+        const count = cyrillicLines(text, isVendored);
         if (count > 0) counts[f] = count;
     }
     return counts;
 }
 
-function main() {
+function main(isVendored) {
     const baseline = JSON.parse(readFileSync(BASELINE, "utf8"));
-    const counts = scan();
+    const counts = scan(isVendored);
     if (process.argv.includes("--update")) {
         const next = lowered(baseline, counts);
         writeFileSync(BASELINE, `${JSON.stringify(next, null, 4)}\n`);
@@ -71,4 +75,7 @@ function main() {
     return over.length === 0 ? 0 : 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) process.exit(main());
+if (import.meta.url === `file://${process.argv[1]}`) {
+    const { isVendored } = await import("./code-tokens.mjs");
+    process.exit(main(isVendored));
+}

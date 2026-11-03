@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { cyrillicLines, hasCyrillic, inScope } from "./check-cyrillic.mjs";
+import { isVendored } from "./code-tokens.mjs";
 
 // Escapes, not literals: this file is itself under the ratchet.
 const RU = "\u043f\u0440\u0438\u0432\u0435\u0442"; // "privet"
@@ -14,6 +15,14 @@ test("cyrillicLines: counts lines, not characters", () => {
 
 test("cyrillicLines: binary file counts as zero", () => {
     assert.equal(cyrillicLines(`${RU}\0${RU}`), 0);
+});
+
+test("cyrillicLines: a vendored copy of upstream counts as zero", () => {
+    const header = "/* MIT */\n//@diode:vendored microsoft/vscode@1.0.0 a.ts\n";
+    assert.equal(cyrillicLines(`${header}const s = '${RU}';\n`, isVendored), 0);
+    // The banner counts only in the header, not further down; without the predicate nothing is vendored.
+    assert.equal(cyrillicLines(`const s = '${RU}';\n//@diode:vendored microsoft/vscode@1.0.0 a.ts\n`, isVendored), 1);
+    assert.equal(cyrillicLines(`${header}const s = '${RU}';\n`), 1);
 });
 
 test("hasCyrillic: a Russian anchor of a doc link is not Russian text", () => {

@@ -110,6 +110,7 @@ import type {
     IWireInputBoxRequest,
     IWireInputBoxResult,
     IWireInputBoxValidate,
+    IWireInsertSnippetParams,
     IWireLanguageConfiguration,
     IWireLanguageProviderRegistration,
     IWireLanguageProviderUnregistration,
@@ -388,6 +389,8 @@ export interface ISubprocessToHost {
         /** The handler exists but no sender yet: the subprocess reads options from its own proxy. */
         readonly "editor.getOptions": readonly [undefined, IEditorOptionsState | null];
         readonly "editor.applyEdit": readonly [IWireApplyEditParams, boolean];
+        /** `false`: another version, a read-only or closed editor, overlapping ranges; nothing changed then. */
+        readonly "editor.insertSnippet": readonly [IWireInsertSnippetParams, boolean];
         readonly "editor.showTextDocument": readonly [IWireShowTextDocumentParams, IWireShowTextDocumentResult];
         readonly "editor.closeTabs": readonly [IWireCloseTabsParams, boolean];
         readonly "editor.closeGroups": readonly [IWireCloseGroupsParams, boolean];

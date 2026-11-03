@@ -181,6 +181,8 @@ describe("Workbench — workspace symbols, accept and races", () => {
         expect(await settle()).toContain("No workspace symbol providers");
     });
 
+    // 20 000 symbols through the quick pick: ~2 s plain, ~4.7 s under coverage instrumentation on main and on CI
+    // (run 41570204078), so the default 5 s left no headroom and slower runners failed it on every retry.
     it("a large answer renders and Enter takes the first row", async () => {
         const many = Array.from({ length: 20000 }, (_, i) => symbol(`sym${String(i).padStart(5, "0")}`, i % 50));
         registry().register({ provideWorkspaceSymbols: () => Promise.resolve(many) });
@@ -189,5 +191,5 @@ describe("Workbench — workspace symbols, accept and races", () => {
         h.testApp.sendKey("Enter");
         await settle();
         expect(h.activeEditor().uri.fsPath).toBe(ws.path("src/deep.txt"));
-    });
+    }, 15_000);
 });

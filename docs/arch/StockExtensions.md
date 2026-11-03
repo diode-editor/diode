@@ -26,10 +26,10 @@
 - **`KevinRose.vsc-python-indent`** (#967) — universal, Enter в `.py` идёт через
   `pythonIndent.newlineAndIndent`. Enter между скобками (`foo(|)`, висячий отступ) зовёт
   `insertSnippet` без `await`, с пустым edit builder: без этого метода перевод строки терялся.
-  `insertSnippet` у нас — текст с отступами эталона и каретка на первой позиции, без сниппет-сессии,
-  поэтому Tab при `pythonIndent.useTabOnHangingIndent` не перепрыгивает скобку (строка в `limits`).
-  Каретка едет в самом `editor.applyEdit` (`selectionsAfter`): следующая клавиша приходит раньше
-  ответа расширения. Смоук — набор посимвольно, файл на диске после `def f(x):` и `foo(`.
+  `insertSnippet` разбирает шаблон в ядре (`editor/contrib/snippet`, #1031) и ставит каретку на первую
+  позицию, но сниппет-сессии ещё нет (#1032), поэтому Tab при `pythonIndent.useTabOnHangingIndent` не
+  перепрыгивает скобку (строка в `limits`). Каретка едет в том же запросе `editor.insertSnippet`, что и
+  правка: следующая клавиша приходит раньше ответа расширения. Смоук — набор посимвольно, файл на диске после `def f(x):` и `foo(`.
   Клавиша, обогнавшая ответ на Enter, сделала бы правку устаревшей и потеряла бы перевод строки
   (проверка версии как в эталоне), поэтому клавиши ждут ответа → [Extensions.md](Extensions.md).
 - **`dbaeumer.vscode-eslint`** — universal. Расширение НЕ бандлит линтер: eslintServer резолвит

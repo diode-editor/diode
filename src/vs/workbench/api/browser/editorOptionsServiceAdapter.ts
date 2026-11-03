@@ -13,6 +13,7 @@ import { createRange, type IRange } from "../../../editor/common/core/iRange.ts"
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { RangeRevealType } from "../../../editor/common/viewModel/editorViewState.ts";
+import { insertSnippet } from "../../../editor/contrib/snippet/browser/snippetSession.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
@@ -196,7 +197,6 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
             setEndOfLine?: EndOfLine;
             undoStopBefore?: boolean;
             undoStopAfter?: boolean;
-            selectionsAfter?: readonly IWireSelection[];
         } = {},
     ): boolean {
         // The edit targets the document (the model is shared): any tab of the resource in any group will do.
@@ -211,17 +211,30 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         // Overlapping edits would apply to already consumed text: reject the whole batch,
         // like `Overlapping ranges are not allowed` in vscode.
         if (textEdits === null) return false;
-        const { selectionsAfter, ...undoStops } = options;
-        const computeCursorState =
-            selectionsAfter === undefined
-                ? undefined
-                : () =>
-                      selectionsAfter.map((sel) =>
-                          createSelection(sel.anchorLine, sel.anchorCharacter, sel.activeLine, sel.activeCharacter),
-                      );
-        if (textEdits.length > 0) editor.applyExternalEdits(textEdits, "extension edit", computeCursorState, undoStops);
+        if (textEdits.length > 0) editor.applyExternalEdits(textEdits, "extension edit", undefined, options);
         if (options.setEndOfLine !== undefined) editor.setEol(options.setEndOfLine);
         return true;
+    }
+
+    public insertSnippet(
+        uri: string,
+        groupId: number | undefined,
+        template: string,
+        ranges: readonly IRange[],
+        options: { version: number; undoStopBefore?: boolean; undoStopAfter?: boolean; keepWhitespace?: boolean },
+    ): boolean {
+        const editor = this.editorFor(uri, groupId);
+        if (editor === null || editor.readOnly || ranges.length === 0) return false;
+        const document = editor.model.document;
+        if (options.version !== document.versionId) return false;
+        return insertSnippet(
+            editor,
+            ranges.map(({ start, end }) => ({
+                range: { start: clampPositionToDocument(document, start), end: clampPositionToDocument(document, end) },
+                template,
+            })),
+            options,
+        );
     }
 
     public async applyWorkspaceEdit(
