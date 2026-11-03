@@ -59,6 +59,9 @@ describe("ModelBasedVariableResolver (upstream `editor variables, file/dir`)", (
             resolve(new ModelBasedVariableResolver(Uri.file("/bar/text.txt"), workspace), "$RELATIVE_FILEPATH"),
         ).toBe("/bar/text.txt");
         expect(resolve(file("/bar/text.txt"), "$RELATIVE_FILEPATH")).toBe("/bar/text.txt");
+        expect(resolve(new ModelBasedVariableResolver(Uri.file("/foo/a.ts"), workspace), "$TM_FILEPATH")).toBe(
+            "/foo/a.ts",
+        );
     });
 
     it("transforms apply to the value; other variables are not its", () => {
@@ -104,7 +107,12 @@ describe("CommentBasedVariableResolver", () => {
     it("a token the language lacks, or a language without comments, falls to the default", () => {
         const lineOnly = new CommentBasedVariableResolver({ lineComment: "#" });
         expect(resolve(lineOnly, "$LINE_COMMENT|${BLOCK_COMMENT_START:a}|${BLOCK_COMMENT_END:b}")).toBe("#|a|b");
-        expect(resolve(new CommentBasedVariableResolver(undefined), "<${LINE_COMMENT:x}>")).toBe("<x>");
+        expect(
+            resolve(
+                new CommentBasedVariableResolver(undefined),
+                "<${LINE_COMMENT:x}|${BLOCK_COMMENT_START:y}|${BLOCK_COMMENT_END:z}>",
+            ),
+        ).toBe("<x|y|z>");
     });
 });
 
@@ -126,6 +134,9 @@ describe("TimeBasedVariableResolver", () => {
                 "$CURRENT_YEAR $CURRENT_YEAR_SHORT-$CURRENT_MONTH-$CURRENT_DATE $CURRENT_HOUR:$CURRENT_MINUTE:$CURRENT_SECOND.$CURRENT_MILLISECOND",
             ),
         ).toBe("2026 26-02-03 04:05:06.007");
+        const farFuture = new Date(2026, 0, 1);
+        farFuture.setFullYear(12345);
+        expect(resolve(at(farFuture), "$CURRENT_YEAR_SHORT")).toBe("45");
     });
 
     it("English day and month names, full and short", () => {

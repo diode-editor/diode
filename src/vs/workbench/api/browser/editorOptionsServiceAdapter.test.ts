@@ -404,6 +404,14 @@ describe("EditorOptionsServiceAdapter", () => {
             expect(document.getText()).toBe("<abc>");
         });
 
+        it("without a clipboard CLIPBOARD is its default", async () => {
+            const { adapter, document } = snippetEditor("");
+            await expect(
+                adapter.insertSnippet(URI, undefined, "${CLIPBOARD:none}", [at(0, 0)], { version: 0 }),
+            ).resolves.toBe(true);
+            expect(document.getText()).toBe("none");
+        });
+
         it("an edit or a selection change while the clipboard is read is false, and nothing goes in", async () => {
             const edited = snippetEditor("", {}, { clipboard: { readText: () => Promise.resolve("abc") } });
             const editing = edited.adapter.insertSnippet(URI, undefined, "$CLIPBOARD", [at(0, 0)], { version: 0 });

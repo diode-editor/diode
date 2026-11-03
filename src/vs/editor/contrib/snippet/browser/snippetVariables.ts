@@ -256,10 +256,10 @@ export class WorkspaceBasedVariableResolver implements VariableResolver {
     public resolve(variable: Variable): string | undefined {
         const { name } = variable;
         if (name !== "WORKSPACE_NAME" && name !== "WORKSPACE_FOLDER") return undefined;
-        const workspace = this.workspace?.getWorkspace();
-        const folder = workspace?.folders.at(0);
+        const { folders, configuration: file } = this.workspace?.getWorkspace() ?? { folders: [] };
+        const folder = folders.at(0);
         if (folder === undefined) return undefined;
-        const configuration = workspace?.configuration?.fsPath;
+        const configuration = file?.fsPath;
         if (name === "WORKSPACE_NAME") {
             return configuration === undefined ? path.basename(folder.uri.fsPath) : workspaceFileLabel(configuration);
         }
