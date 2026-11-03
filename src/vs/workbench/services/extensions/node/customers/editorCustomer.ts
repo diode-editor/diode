@@ -115,7 +115,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
             }),
         );
         store.add(
-            rpc.handleRequest("editor.insertSnippet", (params): boolean => {
+            rpc.handleRequest("editor.insertSnippet", async (params): Promise<boolean> => {
                 const p: {
                     uri?: unknown;
                     groupId?: unknown;

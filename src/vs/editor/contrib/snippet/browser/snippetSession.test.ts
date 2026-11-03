@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { drawSelections, snippetPane } from "../../../../../TestUtils/snippetPane.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import { createRange, type IRange } from "../../../common/core/iRange.ts";
 
 import { SnippetController2 } from "./snippetController2.ts";
+import type { ISnippetVariableSources } from "./snippetVariables.ts";
 
 const at = (line: number, character: number): IRange => createRange(line, character, line, character);
 
@@ -12,7 +14,7 @@ function insert(
     text: string,
     ranges: readonly IRange[],
     template: string,
-    options: { insertSpaces?: boolean; keepWhitespace?: boolean } = {},
+    options: { insertSpaces?: boolean; keepWhitespace?: boolean; variables?: ISnippetVariableSources } = {},
 ): string {
     const pane = snippetPane(text, options);
     SnippetController2.get(pane).apply(
@@ -173,8 +175,24 @@ describe("createSnippetInsert: variables", () => {
         expect(insert("a  b", [at(0, 2)], "<$TM_CURRENT_WORD>")).toBe("a <>| b");
     });
 
-    it("a variable with no resolver yet is its default or empty, as an unknown one", () => {
+    it("a variable without its source is its default or empty, as an unknown one", () => {
         expect(insert("", [at(0, 0)], "[$TM_FILENAME|${TM_FILENAME:x}|$FOO|${FOO:y}]")).toBe("[|x||y]|");
+    });
+
+    it("the sources resolve the file, clipboard and comment variables", () => {
+        const variables = {
+            resource: Uri.file("/w/main.ts"),
+            clipboardText: "abc",
+            comments: { lineComment: "//" },
+        };
+        expect(insert("", [at(0, 0)], "$LINE_COMMENT $TM_FILENAME, $CLIPBOARD", { variables })).toBe(
+            "// main.ts, abc|",
+        );
+    });
+
+    it("a clipboard line per edit spreads over the edits in their given order", () => {
+        const variables = { clipboardText: "one\ntwo" };
+        expect(insert("a\nb", [at(1, 1), at(0, 1)], "<$CLIPBOARD>", { variables })).toBe("a<two>|\nb<one>|");
     });
 
     it("a later edit does not resolve the variables of an earlier one again", () => {

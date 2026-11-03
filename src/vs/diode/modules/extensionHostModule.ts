@@ -231,6 +231,11 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             group,
             container.get(EditorGroupsServiceDIToken),
             container.get(WorkspaceEditServiceDIToken),
+            {
+                clipboard: container.get(ClipboardDIToken),
+                languageConfigurations: container.get(LanguageConfigurationServiceDIToken),
+                workspace: container.get(IWorkspaceContextServiceDIToken),
+            },
         );
         const commandAdapter = new CommandServiceAdapter(container.get(CommandRegistryDIToken));
         const logService = container.get(ILogServiceDIToken);

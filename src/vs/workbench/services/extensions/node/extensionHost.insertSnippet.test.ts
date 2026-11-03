@@ -173,18 +173,33 @@ describe("ExtensionHost — TextEditor.insertSnippet", () => {
         expect(frame()).toContain("x ABC y");
     });
 
-    it("[api:TextEditor.insertSnippet] variables resolve at the caret, an unresolved one is its default or empty", async () => {
+    it("[api:TextEditor.insertSnippet] variables resolve at the caret, an unknown one is its default or empty", async () => {
         const { h, text, putCaret } = await setup("a\nbc\n");
         putCaret(1, 1);
         await settle();
 
         await h.commandRegistry.execute(
             "test.snippet.insert",
-            "[$TM_LINE_NUMBER|$TM_CURRENT_LINE|$TM_FILENAME|${TM_FILENAME:f}|$FOO]",
+            "[$TM_LINE_NUMBER|$TM_CURRENT_LINE|$TM_FILENAME_BASE|${FOO:f}|$FOO]",
         );
         await settle();
 
-        expect(text()).toBe("a\nb[2|bc||f|]c\n");
+        expect(text()).toBe("a\nb[2|bc|main|f|]c\n");
+    });
+
+    it("[api:TextEditor.insertSnippet] the file name, the clipboard after env.clipboard.writeText and the year", async () => {
+        const { h, text, frame } = await setup("");
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.copy", "abc");
+        await expect(
+            h.commandRegistry.execute("test.snippet.insert", "// $TM_FILENAME, $CURRENT_YEAR, $CLIPBOARD"),
+        ).resolves.toBe(true);
+        await settle();
+
+        const expected = `// main.txt, ${new Date().getFullYear()}, abc`;
+        expect(text()).toBe(expected);
+        expect(frame()).toContain(expected);
     });
 
     it("[api:TextEditor.insertSnippet] a choice puts in its first option, selected inside the nested placeholder", async () => {

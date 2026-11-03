@@ -37,6 +37,7 @@ exports.activate = function activate(context) {
         vscode.commands.registerCommand("test.snippet.literal", (text) =>
             vscode.window.activeTextEditor.insertSnippet(new vscode.SnippetString().appendText(text)),
         ),
+        vscode.commands.registerCommand("test.snippet.copy", (text) => vscode.env.clipboard.writeText(text)),
         vscode.commands.registerCommand("test.snippet.hold", () => {
             held = vscode.window.activeTextEditor;
         }),

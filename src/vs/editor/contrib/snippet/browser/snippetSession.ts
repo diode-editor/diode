@@ -1,12 +1,11 @@
 import { groupAdjacentBy } from "../../../../base/common/arrays.ts";
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
-import { commonPrefixLength, splitLines } from "../../../../base/common/strings.ts";
+import { splitLines } from "../../../../base/common/strings.ts";
 import { comparePositions, type IPosition, positionsEqual } from "../../../common/core/iPosition.ts";
 import { type IRange, rangeContainsRange } from "../../../common/core/iRange.ts";
 import { createSelection, type ISelection, selectionToRange } from "../../../common/core/iSelection.ts";
 import { createTextEdit, type ITextEdit } from "../../../common/core/iTextEdit.ts";
 import { countEOL } from "../../../common/core/misc/eolCounter.ts";
-import { DEFAULT_WORD_REGEXP, getWordAtText } from "../../../common/core/wordHelper.ts";
 import { getLeadingWhitespace } from "../../../common/languages/autoIndent.ts";
 import type { ITextDocument } from "../../../common/model/iTextDocument.ts";
 import { TrackedRangeStickiness } from "../../../common/model/trackedDecorations.ts";
@@ -19,8 +18,18 @@ import {
     Text,
     TextmateSnippet,
     Variable,
-    type VariableResolver,
 } from "./snippetParser.ts";
+import {
+    ClipboardBasedVariableResolver,
+    CommentBasedVariableResolver,
+    CompositeSnippetVariableResolver,
+    type ISnippetVariableSources,
+    ModelBasedVariableResolver,
+    RandomBasedVariableResolver,
+    SelectionBasedVariableResolver,
+    TimeBasedVariableResolver,
+    WorkspaceBasedVariableResolver,
+} from "./snippetVariables.ts";
 
 /**
  * Port of upstream `SnippetSession` for a list of edits (`createEditsAndSnippetsFromEdits`, as
@@ -40,6 +49,7 @@ export interface ISnippetInsertOptions {
     readonly adjustWhitespace: boolean;
     readonly tabSize: number;
     readonly insertSpaces: boolean;
+    readonly variables?: ISnippetVariableSources;
 }
 
 export interface ISnippetInsert {
@@ -101,70 +111,6 @@ function adjustWhitespace(
     });
 }
 
-/**
- * Upstream `SelectionBasedVariableResolver` for an edit's range (a left-to-right selection: its position is the
- * range end), without the overtyping capturer. The other resolvers come with #1034: a variable they would resolve
- * keeps its default, or is empty.
- */
-class SelectionBasedVariableResolver implements VariableResolver {
-    public constructor(
-        private readonly document: ISnippetDocument,
-        private readonly snippet: TextmateSnippet,
-        private readonly range: IRange,
-        private readonly index: number,
-    ) {}
-
-    public resolve(variable: Variable): string | undefined {
-        const { line, character } = this.range.end;
-        switch (variable.name) {
-            case "SELECTION":
-            case "TM_SELECTED_TEXT":
-                return this.selectedText(variable);
-            case "TM_CURRENT_LINE":
-                return this.document.getLineContent(line);
-            case "TM_CURRENT_WORD": {
-                const text = this.document.getLineContent(line);
-                const word = getWordAtText(character, DEFAULT_WORD_REGEXP, text);
-                return word === null ? undefined : text.slice(word.start, word.end);
-            }
-            case "TM_LINE_INDEX":
-                return String(line);
-            case "TM_LINE_NUMBER":
-                return String(line + 1);
-            case "CURSOR_INDEX":
-                return String(this.index);
-            case "CURSOR_NUMBER":
-                return String(this.index + 1);
-        }
-        return undefined;
-    }
-
-    /**
-     * A multi-line selection gets the indentation the variable has in the snippet on top of the indentation of the
-     * selection's first line.
-     */
-    private selectedText(variable: Variable): string | undefined {
-        const value = this.document.getTextInRange(this.range);
-        if (value === "") return undefined;
-        const lineLeadingWhitespace = getLeadingWhitespace(
-            this.document.getLineContent(this.range.start.line).slice(0, this.range.start.character),
-        );
-        let variableLeadingWhitespace = lineLeadingWhitespace;
-        this.snippet.walk((marker) => {
-            if (marker === variable) return false;
-            if (marker instanceof Text) {
-                const lines = splitLines(marker.value);
-                variableLeadingWhitespace = getLeadingWhitespace(lines[lines.length - 1]);
-            }
-            return true;
-        });
-        const extra = variableLeadingWhitespace.slice(
-            commonPrefixLength(variableLeadingWhitespace, lineLeadingWhitespace),
-        );
-        return value.replace(/\r\n|\r|\n/g, (newline) => newline + extra);
-    }
-}
-
 function positionAfter(start: IPosition, text: string): IPosition {
     const [lineBreaks, , lastLineLength] = countEOL(text);
     return lineBreaks === 0
@@ -188,6 +134,12 @@ export function createSnippetInsert(
     const parser = new SnippetParser();
     const snippet = new TextmateSnippet();
     const edits: ITextEdit[] = [];
+    // Upstream: one model, time, workspace and random resolver for all edits, in its order.
+    const { resource, clipboardText, comments, workspace } = options.variables ?? {};
+    const modelBased = resource === undefined ? [] : [new ModelBasedVariableResolver(resource, workspace)];
+    const timeBased = new TimeBasedVariableResolver();
+    const workspaceBased = new WorkspaceBasedVariableResolver(workspace);
+    const randomBased = new RandomBasedVariableResolver();
     let offset = 0;
     indexed.forEach(({ edit: { range, template }, index }, i) => {
         if (i > 0) {
@@ -203,7 +155,15 @@ export function createSnippetInsert(
         });
         const fragment = parser.parseFragment(template, snippet);
         adjustWhitespace(document, range.start, snippet, new Set(fragment), options);
-        const resolver = new SelectionBasedVariableResolver(document, snippet, range, index);
+        const resolver = new CompositeSnippetVariableResolver([
+            ...modelBased,
+            new ClipboardBasedVariableResolver(clipboardText, index, indexed.length),
+            new SelectionBasedVariableResolver(document, snippet, range, index),
+            new CommentBasedVariableResolver(comments),
+            timeBased,
+            workspaceBased,
+            randomBased,
+        ]);
         snippet.walk((marker) => {
             if (marker instanceof Variable && !before.has(marker)) marker.resolve(resolver);
             return true;

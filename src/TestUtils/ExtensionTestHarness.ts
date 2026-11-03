@@ -28,7 +28,10 @@ import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../vs/editor/common/languages/iInlineCompletionSource.ts";
-import type { ILanguageConfigurationService } from "../vs/editor/common/languages/iLanguageConfigurationService.ts";
+import {
+    type ILanguageConfigurationService,
+    NULL_LANGUAGE_CONFIGURATION_SERVICE,
+} from "../vs/editor/common/languages/iLanguageConfigurationService.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import type { ICoreReference, IReferenceRequest } from "../vs/editor/common/languages/iReferenceSource.ts";
@@ -42,6 +45,8 @@ import { getCodeActions } from "../vs/editor/contrib/codeAction/codeAction.ts";
 import type { IFoldingRegion } from "../vs/editor/contrib/folding/iFoldingRegion.ts";
 import { provideFoldingRanges } from "../vs/editor/contrib/folding/syntaxRangeProvider.ts";
 import { documentRange, formatDocument, formatRange } from "../vs/editor/contrib/format/format.ts";
+import type { IClipboard } from "../vs/platform/clipboard/common/iClipboard.ts";
+import { InMemoryClipboard } from "../vs/platform/clipboard/common/inMemoryClipboard.ts";
 import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
 import { ConfigurationRegistry } from "../vs/platform/configuration/common/configurationRegistry.ts";
 import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
@@ -53,6 +58,7 @@ import type { ILogger } from "../vs/platform/log/common/iLogger.ts";
 import { NULL_LOG_SERVICE } from "../vs/platform/log/common/nullLogService.ts";
 import type { IEnvironmentVariableCollectionStore } from "../vs/platform/terminal/common/environmentVariable.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
+import { WorkspaceContextService } from "../vs/platform/workspace/common/workspaceContextService.ts";
 import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServiceAdapter.ts";
 import { openDocumentSyncSources } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
 import { EditorLayoutServiceAdapter } from "../vs/workbench/api/browser/editorLayoutServiceAdapter.ts";
@@ -221,6 +227,8 @@ export interface IExtensionHarnessOptions {
     readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
     /** What the editors read pairs and `onEnterRules` from; pass the same service as {@link languageConfigurations}. */
     readonly editorLanguageConfigurations?: ILanguageConfigurationService;
+    /** `env.clipboard` and `$CLIPBOARD` of a snippet; in-memory by default. */
+    readonly clipboard?: IClipboard;
 }
 
 export interface IExtensionHarness {
@@ -285,12 +293,21 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         new BulkEditBuffers(group, group.textFileModels),
         files,
     );
-    const adapter = new EditorOptionsServiceAdapter(group, group.editorGroups, workspaceEditService);
     const commandRegistry = options.commandRegistry ?? new CommandRegistry();
     const commandAdapter = new CommandServiceAdapter(commandRegistry);
-    const folders = (options.workspaceFolders ?? [tmpDir]).map((folder, index) =>
+    const folderOptions = options.workspaceFolders ?? [tmpDir];
+    const folders = folderOptions.map((folder, index) =>
         typeof folder === "string" ? { uri: Uri.file(folder).toString(), name: path.basename(folder), index } : folder,
     );
+    const workspaceContext = new WorkspaceContextService();
+    const [firstFolder] = folderOptions;
+    if (typeof firstFolder === "string") workspaceContext.setWorkspaceFolder(firstFolder);
+    const clipboard = options.clipboard ?? new InMemoryClipboard();
+    const adapter = new EditorOptionsServiceAdapter(group, group.editorGroups, workspaceEditService, {
+        clipboard,
+        languageConfigurations: options.editorLanguageConfigurations ?? NULL_LANGUAGE_CONFIGURATION_SERVICE,
+        workspace: workspaceContext,
+    });
     const configurationRegistry = new ConfigurationRegistry();
     new ExtensionConfigurationContributor(options.extensions ?? [], configurationRegistry, (ext) =>
         curatedConfigInjection(ext.id),
@@ -326,6 +343,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const host = new ExtensionHost(adapter, commandAdapter, {
         spawnArgs: subprocessSpawnArgsForTests(),
         configuration,
+        clipboard,
         storageHomes,
         ...(options.logger !== undefined ? { logger: options.logger } : {}),
         ...(options.stderrLogger !== undefined ? { stderrLogger: options.stderrLogger } : {}),
