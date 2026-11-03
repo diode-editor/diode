@@ -1110,7 +1110,8 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 root: ctx.root,
                 keepRoot: true,
                 open: [file],
-                settings: { "shellcheck.runtime": "wasm" },
+                // The provider's hover is HTML (supportHtml): it reaches the frame as text below the diagnostic.
+                settings: { "shellcheck.runtime": "wasm", "shellcheck.markdownDiagnostics": true },
                 // Keeps a browser from opening where the run happens to have a display.
                 env: { DISPLAY: "", WAYLAND_DISPLAY: "" },
             });
@@ -1134,6 +1135,9 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await session.key("ArrowLeft");
                 await session.executeCommand("editor.action.showHover");
                 await session.waitForNode("#hoverWidget");
+                // ShellCheck rates SC2086 as info: the header of its block is `Information (SC2086)`.
+                const tagless = (t: string): boolean => t.includes("Information (SC2086)") && !/<span|codicon/.test(t);
+                await session.waitForText(tagless, { timeoutMs: 20_000 });
                 await session.key("Escape");
 
                 await session.key("Ctrl+.");

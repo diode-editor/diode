@@ -57,32 +57,107 @@ function stripHeadings(value: string): string {
         .join("\n");
 }
 
+/** CommonMark raw HTML (§6.6) whitespace: spaces or tabs with at most one line ending (a tag wraps inside a paragraph). */
+// Unambiguous (a run of spaces matches one way only), so a long run with no `>` doesn't backtrack.
+const HTML_OPTIONAL_SPACE = String.raw`[ \t]*(?:\n[ \t]*)?`;
+const HTML_SPACE = String.raw`(?=[ \t\n])${HTML_OPTIONAL_SPACE}`;
+const HTML_ATTRIBUTE = String.raw`${HTML_SPACE}[A-Za-z_:][\w.:-]*(?:${HTML_OPTIONAL_SPACE}=${HTML_OPTIONAL_SPACE}(?:[^"'=<>\x60\s]+|'[^']*'|"[^"]*"))?`;
+/** An open tag (`/>` included), a closing tag or a comment; `a < b`, `<https://…>` and `<user@host>` are not tags. */
+const HTML_TAG = new RegExp(
+    [
+        String.raw`<[A-Za-z][A-Za-z0-9-]*(?:${HTML_ATTRIBUTE})*${HTML_OPTIONAL_SPACE}\/?>`,
+        String.raw`<\/[A-Za-z][A-Za-z0-9-]*${HTML_OPTIONAL_SPACE}>`,
+        String.raw`<!--(?:-?>|[\s\S]*?-->)`,
+    ].join("|"),
+    "g",
+);
+const NAMED_ENTITIES: Readonly<Record<string, string>> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    // A plain space, not U+00A0: the same indent in the terminal, and the popup still wraps there.
+    nbsp: " ",
+};
+
+/** `&amp;`, `&#39;`, `&#x41;`; an unknown name stays as is, an invalid code point is U+FFFD (CommonMark). */
+function decodeEntities(value: string): string {
+    return value.replace(
+        /&(?:#(\d{1,7}|[xX][\da-fA-F]{1,6})|([A-Za-z]+));/g,
+        // `name` is read only when `numeric` didn't match, and then it did.
+        (all, numeric: string | undefined, name: string) => {
+            if (numeric === undefined) return NAMED_ENTITIES[name] ?? all;
+            // `0x41` and `041` are both numbers to Number().
+            const code = Number("0" + numeric);
+            return code === 0 || code > 0x10ffff ? "\uFFFD" : String.fromCodePoint(code);
+        },
+    );
+}
+
+/**
+ * Hides backslash escapes (any ASCII punctuation) and code spans of N backticks (CommonMark §6.1)
+ * through `hide`: nothing after this sees their contents.
+ */
+function hideInline(value: string, hide: (text: string) => string): string {
+    let result = "";
+    let index = 0;
+    while (index < value.length) {
+        const char = value[index];
+        // At the end of the value `value[index + 1]` is undefined, and "undefined" has no punctuation.
+        if (char === "\\" && /[!-/:-@[-`{-~]/.test(value[index + 1])) {
+            result += hide(value[index + 1]);
+            index += 2;
+        } else if (char === "`") {
+            let end = index;
+            while (value[end] === "`") end += 1;
+            const run = value.slice(index, end);
+            const close = new RegExp(String.raw`(?<!\x60)${run}(?!\x60)`, "g");
+            close.lastIndex = index + run.length;
+            const match = close.exec(value);
+            if (match === null) {
+                result += run;
+                index += run.length;
+            } else {
+                const content = value.slice(index + run.length, match.index);
+                const padded = content.startsWith(" ") && content.endsWith(" ") && content.trim() !== "";
+                result += hide(padded ? content.slice(1, -1) : content);
+                index = match.index + run.length;
+            }
+        } else {
+            result += char;
+            index += 1;
+        }
+    }
+    return result;
+}
+
 /** There's no markdown renderer (docs/arch/Extensions.md#lsp-и-стоковые-клиенты), so the popup gets plain text. */
 export function stripMarkdown(value: string): string {
-    // Code is hidden FIRST: inside it emphasis characters and backslashes are text, as in CommonMark
-    // (`calc(x * 4) /* … */`, Tailwind's selector `.bg-\[\#ff0000\]`). An escaped backtick opens no code.
-    // Escaped characters are hidden right after (the stripSnippetPlaceholders trick):
-    // otherwise `\*text\*` would be parsed along the way as "italic".
-    // Stryker disable next-line ArrayDeclaration: the hidden-text accumulator; the seed is overwritten by the first entry, and without escapes or code it's never read
-    const hiddenText: string[] = [];
-    const hide = (_all: string, text: string): string => {
-        hiddenText.push(text);
-        return "\u0000" + String(hiddenText.length - 1) + "\u0000";
+    // Code and escaped characters are hidden FIRST (the stripSnippetPlaceholders trick): otherwise
+    // `\*text\*` would be parsed along the way as "italic" and `Array<string>` in code as a tag.
+    // Stryker disable next-line ArrayDeclaration: the hidden-text accumulator; an index is taken after its push, so a seed entry is never read
+    const hidden: string[] = [];
+    const hide = (text: string): string => {
+        hidden.push(text);
+        return "\u0000" + String(hidden.length - 1) + "\u0000";
     };
+    const fenced = value.replace(/```[^\n]*\n([\s\S]*?)\n?```/g, (_all, content: string) => hide(content));
+    const markup = stripHeadings(hideInline(fenced, hide))
+        // Tags go, the text between them stays: upstream drops them without supportHtml and sanitizes them with it.
+        .replace(HTML_TAG, "")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/__([^_]+)__/g, "$1")
+        .replace(/\*([^*]+)\*/g, "$1")
+        // `_italic_` only at a word boundary, as in CommonMark: inside
+        // `aws_instance` or `snake_case` underscores stay.
+        .replace(/(^|[^\p{L}\p{N}_])_([^_\s](?:[^_]*[^_\s])?)_(?![\p{L}\p{N}_])/gu, "$1$2")
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
+    // Entities after the tags: `&lt;span&gt;` stays the text `<span>`, as upstream.
     return (
-        stripHeadings(value)
-            .replace(/```[^\n]*\n([\s\S]*?)\n?```/g, hide)
-            .replace(/(?<!\\)`([^`]+)`/g, hide)
-            .replace(/\\([\\`*_{}[\]()#+\-.!])/g, hide)
-            .replace(/\*\*([^*]+)\*\*/g, "$1")
-            .replace(/__([^_]+)__/g, "$1")
-            .replace(/\*([^*]+)\*/g, "$1")
-            // `_italic_` only at a word boundary, as in CommonMark: inside
-            // `aws_instance` or `snake_case` underscores stay.
-            .replace(/(^|[^\p{L}\p{N}_])_([^_\s](?:[^_]*[^_\s])?)_(?![\p{L}\p{N}_])/gu, "$1$2")
-            .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-            // eslint-disable-next-line no-control-regex -- \u0000 is the very marker used above to hide text
-            .replace(/\u0000(\d+)\u0000/g, (_all, index: string) => hiddenText[Number(index)])
+        decodeEntities(markup)
+            // eslint-disable-next-line no-control-regex -- \u0000 is the very marker used above to hide code and escaped characters
+            .replace(/\u0000(\d+)\u0000/g, (_all, index: string) => hidden[Number(index)])
             .trim()
     );
 }
