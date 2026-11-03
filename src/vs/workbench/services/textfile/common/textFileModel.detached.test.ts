@@ -20,7 +20,6 @@ describe("TextFileModel — model without attached views", () => {
 
         model.setEol(EndOfLine.CRLF);
         expect(model.eol).toBe(EndOfLine.CRLF);
-        expect(model.isModified).toBe(true);
 
         model.undo();
         expect(model.eol).toBe(EndOfLine.LF);

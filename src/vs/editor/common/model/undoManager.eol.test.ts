@@ -48,6 +48,23 @@ describe("UndoManager EOL changes", () => {
         expect(doc.eol).toBe(EndOfLine.CRLF);
     });
 
+    it("undo of an eol change restores the alternative version before it, redo the one after", () => {
+        const { doc, viewState, undoManager } = setup("a\nb");
+        const versionBefore = doc.versionId;
+        doc.setEol(EndOfLine.CRLF);
+        undoManager.pushUndoElement({
+            ...eolElement(doc, viewState, EndOfLine.LF, EndOfLine.CRLF),
+            versionBefore,
+        });
+        const afterChange = doc.alternativeVersionId;
+        expect(afterChange).not.toBe(0);
+
+        undoManager.undo(viewState);
+        expect(doc.alternativeVersionId).toBe(0);
+        undoManager.redo(viewState);
+        expect(doc.alternativeVersionId).toBe(afterChange);
+    });
+
     it("does not change line content; each change of the ending is a version", () => {
         const { doc, viewState, undoManager } = setup("a\nb");
         const versionBefore = doc.versionId;
