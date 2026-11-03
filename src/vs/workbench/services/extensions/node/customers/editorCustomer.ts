@@ -126,13 +126,18 @@ export class EditorCustomer implements IExtensionHostCustomer {
                     undoStopAfter?: unknown;
                     keepWhitespace?: unknown;
                 } = params;
-                if (typeof p.uri !== "string" || typeof p.template !== "string" || typeof p.version !== "number") {
+                if (
+                    typeof p.uri !== "string" ||
+                    typeof p.template !== "string" ||
+                    typeof p.version !== "number" ||
+                    !Array.isArray(p.ranges)
+                ) {
                     return false;
                 }
-                const raw: readonly unknown[] = Array.isArray(p.ranges) ? p.ranges : [];
+                const raw: readonly unknown[] = p.ranges;
                 const ranges = raw.map(parseRange).filter((range) => range !== null);
                 // A junk range is an honest `false`, not an insert at the others.
-                if (ranges.length === 0 || ranges.length !== raw.length) return false;
+                if (ranges.length !== raw.length) return false;
                 return this.editorOptions.insertSnippet(
                     p.uri,
                     typeof p.groupId === "number" ? p.groupId : undefined,

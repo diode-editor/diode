@@ -178,7 +178,7 @@ function positionAfter(start: IPosition, text: string): IPosition {
 }
 
 /**
- * One snippet over all edits, as upstream: the text between the edits goes in as text markers, so a placeholder's
+ * `snippetEdits` is not empty. One snippet over all edits, as upstream: the text between the edits goes in as text markers, so a placeholder's
  * offset in the snippet is its offset from the first edit's start in the new text, and a tab stop that repeats in
  * every edit is one group, selected in each.
  */
@@ -220,7 +220,6 @@ export function createSnippetInsert(
         ends.push(offset);
     });
     parser.ensureFinalTabstop(snippet, false, true);
-    if (indexed.length === 0) return { edits, selections: [] };
 
     const start = indexed[0].edit.range.start;
     const text = snippet.toString();

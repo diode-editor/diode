@@ -78,7 +78,7 @@ export interface IEditorOptionsService {
     /**
      * Upstream `MainThreadTextEditor.insertSnippet`: the template is parsed here, an edit per range, the caret on the
      * first tab stop and revealed. `false`, with nothing changed: another version, a read-only or missing editor,
-     * overlapping ranges.
+     * no ranges or overlapping ones.
      */
     insertSnippet(
         uri: string,

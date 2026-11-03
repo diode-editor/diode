@@ -224,7 +224,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         options: { version: number; undoStopBefore?: boolean; undoStopAfter?: boolean; keepWhitespace?: boolean },
     ): boolean {
         const editor = this.editorFor(uri, groupId);
-        if (editor === null || editor.readOnly) return false;
+        if (editor === null || editor.readOnly || ranges.length === 0) return false;
         const document = editor.model.document;
         if (options.version !== document.versionId) return false;
         const { edits, selections } = createSnippetInsert(
@@ -239,7 +239,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
                 insertSpaces: editor.viewState.insertSpaces,
             },
         );
-        if (edits.length === 0 || hasOverlappingEdits(edits)) return false;
+        if (hasOverlappingEdits(edits)) return false;
         editor.focusEditor();
         editor.applyExternalEdits(edits, "snippet", () => [...selections], options);
         // Upstream `SnippetSession.insert` reveals the primary selection.

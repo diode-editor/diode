@@ -294,20 +294,22 @@ describe("EditorOptionsServiceAdapter", () => {
             expect(document.getText()).toBe("  ax\n\ty");
         });
 
-        it("another version, a read-only or missing editor and overlapping ranges change nothing", () => {
+        it("another version, a read-only or missing editor, no ranges and overlapping ranges change nothing", () => {
             const stale = snippetEditor("ab");
             expect(stale.adapter.insertSnippet(URI, undefined, "x", [at(0, 0)], { version: 1 })).toBe(false);
             const readOnly = snippetEditor("ab", { readOnly: true });
             expect(readOnly.adapter.insertSnippet(URI, undefined, "x", [at(0, 0)], { version: 0 })).toBe(false);
             const other = snippetEditor("ab");
             expect(other.adapter.insertSnippet("file:///c.ts", undefined, "x", [at(0, 0)], { version: 0 })).toBe(false);
+            const none = snippetEditor("ab");
+            expect(none.adapter.insertSnippet(URI, undefined, "x", [], { version: 0 })).toBe(false);
             const overlapping = snippetEditor("abcd");
             const ranges = [
                 { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
                 { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } },
             ];
             expect(overlapping.adapter.insertSnippet(URI, undefined, "x", ranges, { version: 0 })).toBe(false);
-            for (const { editor, document } of [stale, readOnly, other, overlapping]) {
+            for (const { editor, document } of [stale, readOnly, other, none, overlapping]) {
                 expect(editor.applyExternalEdits).not.toHaveBeenCalled();
                 expect(editor.focusEditor).not.toHaveBeenCalled();
                 expect(document.versionId).toBe(0);
