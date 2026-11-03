@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
+import type { IExtensionTextDecoration } from "../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../editor/common/model/iGutterChangeDecoration.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
@@ -17,10 +18,13 @@ import { ThemeColorResolverAdapter } from "./themeColorResolverAdapter.ts";
 
 function fakeEditor(uri: Uri) {
     const received: (readonly IGutterChangeDecoration[])[] = [];
+    const receivedText: (readonly IExtensionTextDecoration[])[] = [];
     return {
         uri,
         setExtensionGutterChangeDecorations: (d: readonly IGutterChangeDecoration[]) => received.push(d),
+        setExtensionTextDecorations: (d: readonly IExtensionTextDecoration[]) => receivedText.push(d),
         received,
+        receivedText,
     };
 }
 
@@ -41,6 +45,19 @@ describe("EditorDecorationsServiceAdapter", () => {
 
         expect(match.received).toEqual([decos]);
         expect(other.received).toEqual([]);
+    });
+
+    it("pushes text decorations to editors of the matching resource, apart from the gutter bars", () => {
+        const match = fakeEditor(Uri.file("/proj/a.ts"));
+        const other = fakeEditor(Uri.file("/proj/b.ts"));
+        const adapter = new EditorDecorationsServiceAdapter(fakeGroup([match, other]));
+        const decos = [{ range: createRange(1, 0, 1, 3), bg: 0x123456, isWholeLine: false }];
+
+        adapter.setExtensionTextDecorations(Uri.file("/proj/a.ts").toString(), decos);
+
+        expect(match.receivedText).toEqual([decos]);
+        expect(match.received).toEqual([]);
+        expect(other.receivedText).toEqual([]);
     });
 
     it("compares resources, not raw strings: Uri provides canonicalization", () => {

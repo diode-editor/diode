@@ -1,0 +1,22 @@
+{
+    "name": "text-decorations",
+    "displayName": "Text Decorations",
+    "description": "E2E demo extension: decoration types shaped like Trailing Spaces (a translucent CSS background), merge-conflict (a whole-line ThemeColor background) and a type with light/dark branches and a text color.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "command": "text-decorations.toggle",
+                "title": "Text Decorations: Toggle"
+            }
+        ]
+    }
+}

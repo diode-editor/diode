@@ -24,6 +24,7 @@ import type { ILink, LinkProvider } from "../../../../editor/common/languages/iL
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
+import type { IExtensionTextDecoration } from "../../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
@@ -721,6 +722,12 @@ export class EditorComponent extends Component {
     public setExtensionGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
         this.extensionGutterChanges = decorations;
         this.applyGutterChanges();
+    }
+
+    /** Backgrounds and text colors of extension decoration types (`createTextEditorDecorationType`). */
+    public setExtensionTextDecorations(decorations: readonly IExtensionTextDecoration[]): void {
+        this.editor.extensionTextDecorations = decorations;
+        this.editor.markDirty();
     }
 
     private applyGutterChanges(): void {

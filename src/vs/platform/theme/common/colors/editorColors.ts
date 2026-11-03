@@ -298,4 +298,36 @@ export const editorColors = {
         defaults: { dark: "#2AAAFF", light: "#0066BF" },
         description: "Foreground color of the active item in the parameter hint.",
     },
+    // Inline merge conflicts (vscode.merge-conflict paints them through extension decorations). Upstream
+    // derives them with `transparent()`; the alpha stays, the engine composites it over the text.
+    "merge.currentHeaderBackground": {
+        defaults: { dark: "#40C8AE80", light: "#40C8AE80" },
+        description:
+            "Current header background in inline merge-conflicts. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "merge.currentContentBackground": {
+        defaults: { dark: "#40C8AE33", light: "#40C8AE33" },
+        description:
+            "Current content background in inline merge-conflicts. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "merge.incomingHeaderBackground": {
+        defaults: { dark: "#40A6FF80", light: "#40A6FF80" },
+        description:
+            "Incoming header background in inline merge-conflicts. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "merge.incomingContentBackground": {
+        defaults: { dark: "#40A6FF33", light: "#40A6FF33" },
+        description:
+            "Incoming content background in inline merge-conflicts. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "merge.commonHeaderBackground": {
+        defaults: { dark: "#60606066", light: "#60606066" },
+        description:
+            "Common ancestor header background in inline merge-conflicts. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "merge.commonContentBackground": {
+        defaults: { dark: "#60606029", light: "#60606029" },
+        description:
+            "Common ancestor content background in inline merge-conflicts. The color must not be opaque so as not to hide underlying decorations.",
+    },
 } as const satisfies ColorContribution;

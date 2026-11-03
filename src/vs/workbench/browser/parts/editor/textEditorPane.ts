@@ -15,6 +15,7 @@ import type { ILink } from "../../../../editor/common/languages/iLinkSource.ts";
 import { DEFAULT_ENCODING } from "../../../../editor/common/model/encoding.ts";
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
 import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
+import type { IExtensionTextDecoration } from "../../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
@@ -467,6 +468,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public setExtensionGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
         this.component.setExtensionGutterChangeDecorations(decorations);
+    }
+
+    public setExtensionTextDecorations(decorations: readonly IExtensionTextDecoration[]): void {
+        this.component.setExtensionTextDecorations(decorations);
     }
 
     public setGhostText(ghost: IGhostText | null): void {

@@ -1,7 +1,9 @@
+import { packRgb, packRgba, TRANSPARENT_COLOR } from "@tuidom/core/common/colorUtils";
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
+import type { IExtensionTextDecoration } from "../../../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../../editor/common/model/iGutterChangeDecoration.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
@@ -12,7 +14,11 @@ import { DecorationsCustomer } from "./decorationsCustomer.ts";
 const MOD = 0x1b81a8;
 const ADD = 0x487e02;
 const FILE = 0x112233;
+const MERGE = packRgba(0x40, 0xc8, 0xae, 0x33);
+const FG = packRgb(0xcc, 0xcc, 0xcc);
 const COLORS: Record<string, number> = {
+    "merge.currentContentBackground": MERGE,
+    "editor.foreground": FG,
     "editorGutter.modifiedBackground": MOD,
     "editorGutter.addedBackground": ADD,
     "gitDecoration.modifiedResourceForeground": FILE,
@@ -21,11 +27,15 @@ const COLORS: Record<string, number> = {
 /** `rpcLogger.warn` catches notification handler exceptions — RpcEndpoint swallows them. */
 function setup(colors: Record<string, number> = COLORS) {
     const editorCalls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[] = [];
+    const textCalls: { uri: string; decorations: readonly IExtensionTextDecoration[] }[] = [];
     const fileCalls: { path: string; color?: number; badge?: string }[][] = [];
     const themeListeners: (() => void)[] = [];
     let kind = ColorThemeKind.Dark;
     const customer = new DecorationsCustomer(
-        { setGutterChangeDecorations: (uri, decorations) => editorCalls.push({ uri, decorations }) },
+        {
+            setGutterChangeDecorations: (uri, decorations) => editorCalls.push({ uri, decorations }),
+            setExtensionTextDecorations: (uri, decorations) => textCalls.push({ uri, decorations }),
+        },
         { setFileDecorations: (entries) => fileCalls.push([...entries]) },
         {
             resolve: (id) => colors[id],
@@ -62,6 +72,7 @@ function setup(colors: Record<string, number> = COLORS) {
             for (const cb of themeListeners) cb();
         },
         editorCallsFor: (file: string) => editorCalls.filter((c) => c.uri === Uri.file(file).toString()),
+        textFor: (file: string) => textCalls.filter((c) => c.uri === Uri.file(file).toString()).at(-1)?.decorations,
     };
 }
 
@@ -246,5 +257,144 @@ describe("DecorationsCustomer — theme", () => {
         await flushMicrotasks(10);
 
         expect(h.themes).toEqual([{ kind: ColorThemeKind.Dark }]);
+    });
+});
+
+const span = (line: number, from: number, to: number) => ({
+    start: { line, character: from },
+    end: { line, character: to },
+});
+const A_TS = Uri.file("/a.ts").toString();
+
+describe("DecorationsCustomer — text decorations", () => {
+    async function typed(options: unknown, ranges: unknown[] = [span(0, 5, 8)]) {
+        const h = setup();
+        h.peer.notify("window.createTextEditorDecorationType", { key: 1, options });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges });
+        await flushMicrotasks(10);
+        return h;
+    }
+
+    it("[api:window.createTextEditorDecorationType] a CSS string background is parsed into packed RGBA, alpha kept", async () => {
+        const h = await typed({
+            borderRadius: "3px",
+            borderWidth: "1px",
+            borderStyle: "solid",
+            backgroundColor: "rgba(255,0,0,0.3)",
+            borderColor: "rgba(255,100,100,0.15)",
+        });
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            { range: span(0, 5, 8), bg: packRgba(255, 0, 0, 77), isWholeLine: false },
+        ]);
+        // No overviewRulerColor — no gutter bars.
+        expect(h.editorCallsFor("/a.ts").at(-1)?.decorations).toStrictEqual([]);
+    });
+
+    it("[api:window.createTextEditorDecorationType] a ThemeColor resolves through the theme; isWholeLine and color travel along", async () => {
+        const h = await typed({
+            isWholeLine: true,
+            backgroundColor: { $themeColor: "merge.currentContentBackground" },
+            color: { $themeColor: "editor.foreground" },
+        });
+        expect(h.textFor("/a.ts")).toStrictEqual([{ range: span(0, 5, 8), bg: MERGE, fg: FG, isWholeLine: true }]);
+    });
+
+    it("a type that is both a gutter bar and a background feeds both channels", async () => {
+        const h = await typed({
+            overviewRulerColor: { $themeColor: "editorGutter.addedBackground" },
+            backgroundColor: "#102030",
+        });
+        expect(h.editorCallsFor("/a.ts").at(-1)?.decorations).toStrictEqual([{ range: span(0, 5, 8), color: ADD }]);
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            { range: span(0, 5, 8), bg: packRgb(0x10, 0x20, 0x30), isWholeLine: false },
+        ]);
+    });
+
+    it("garbage colors and unknown theme ids are no color, the other fields of the type live on", async () => {
+        const h = await typed({
+            backgroundColor: "rgba(1,2)",
+            color: "#ggg",
+            light: { backgroundColor: "кирпичный" },
+            dark: { backgroundColor: { $themeColor: "no.such.color" }, color: "green" },
+        });
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            { range: span(0, 5, 8), fg: packRgb(0, 128, 0), isWholeLine: false },
+        ]);
+        expect(h.rpcLogger.warn).not.toHaveBeenCalled();
+    });
+
+    it("a type without background and color paints no text, and neither does a non-object branch", async () => {
+        const h = await typed({ isWholeLine: true, light: "red", dark: 5, borderColor: "red" });
+        expect(h.textFor("/a.ts")).toStrictEqual([]);
+    });
+
+    it("transparent goes through as a color that paints nothing", async () => {
+        const h = await typed({ backgroundColor: "transparent" });
+        expect(h.textFor("/a.ts")).toStrictEqual([{ range: span(0, 5, 8), bg: TRANSPARENT_COLOR, isWholeLine: false }]);
+    });
+
+    it("the branch of the current theme kind wins over the base field, a missing branch field falls back to it", async () => {
+        const h = await typed({
+            backgroundColor: "#000001",
+            color: "#000002",
+            light: { backgroundColor: "#ffff01" },
+            dark: { backgroundColor: "#330001", color: { $themeColor: "editor.foreground" } },
+        });
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            { range: span(0, 5, 8), bg: packRgb(0x33, 0, 1), fg: FG, isWholeLine: false },
+        ]);
+
+        h.changeTheme(ColorThemeKind.Light);
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            { range: span(0, 5, 8), bg: packRgb(0xff, 0xff, 1), fg: packRgb(0, 0, 2), isWholeLine: false },
+        ]);
+        h.changeTheme(ColorThemeKind.HighContrastLight);
+        expect(h.textFor("/a.ts")?.[0].bg).toBe(packRgb(0xff, 0xff, 1));
+        h.changeTheme(ColorThemeKind.HighContrast);
+        expect(h.textFor("/a.ts")?.[0].bg).toBe(packRgb(0x33, 0, 1));
+    });
+
+    it("[api:TextEditor.setDecorations] types paint in creation order whatever order their sets came in; ranges keep theirs", async () => {
+        const h = setup();
+        h.peer.notify("window.createTextEditorDecorationType", { key: 1, options: { backgroundColor: "#000001" } });
+        h.peer.notify("window.createTextEditorDecorationType", { key: 2, options: { backgroundColor: "#000002" } });
+        h.peer.notify("editor.setDecorations", { key: 2, uri: A_TS, ranges: [span(3, 0, 1), span(1, 0, 1)] });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [span(2, 0, 1)] });
+        await flushMicrotasks(10);
+
+        expect(h.textFor("/a.ts")?.map((d) => [d.bg, d.range.start.line])).toStrictEqual([
+            [packRgb(0, 0, 1), 2],
+            [packRgb(0, 0, 2), 3],
+            [packRgb(0, 0, 2), 1],
+        ]);
+    });
+
+    it("the spawn going away clears its text and gutter decorations in the editors", async () => {
+        const h = await typed({
+            backgroundColor: "red",
+            overviewRulerColor: { $themeColor: "editorGutter.addedBackground" },
+        });
+        expect(h.textFor("/a.ts")).toHaveLength(1);
+
+        h.attached.dispose();
+
+        expect(h.textFor("/a.ts")).toStrictEqual([]);
+        expect(h.editorCallsFor("/a.ts").at(-1)?.decorations).toStrictEqual([]);
+    });
+
+    it("[api:TextEditor.setDecorations] a repeated set replaces the type's set, an empty one and dispose remove it", async () => {
+        const h = await typed({ backgroundColor: "red" });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [span(4, 0, 2)] });
+        await flushMicrotasks(10);
+        expect(h.textFor("/a.ts")?.map((d) => d.range)).toStrictEqual([span(4, 0, 2)]);
+
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [] });
+        await flushMicrotasks(10);
+        expect(h.textFor("/a.ts")).toStrictEqual([]);
+
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [span(4, 0, 2)] });
+        h.peer.notify("window.disposeTextEditorDecorationType", { key: 1 });
+        await flushMicrotasks(10);
+        expect(h.textFor("/a.ts")).toStrictEqual([]);
     });
 });

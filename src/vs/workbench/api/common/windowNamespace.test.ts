@@ -395,6 +395,30 @@ describe("WindowNamespace", () => {
         });
     });
 
+    it("[api:window.createTextEditorDecorationType] options carry the light and dark branches with their colors, and nothing else", () => {
+        const { stub, window } = makeCtx();
+        window.createTextEditorDecorationType({
+            backgroundColor: "rgba(255,0,0,0.3)",
+            color: new ThemeColor("editor.foreground"),
+            borderColor: "rgba(255,100,100,0.15)",
+            borderStyle: "solid",
+            before: { contentText: "x" },
+            light: { backgroundColor: "#ffffff", overviewRulerColor: new ThemeColor("merge.border"), border: "1px" },
+            dark: { color: "#000000" },
+        });
+        expect(stub.notifies.at(-1)?.params).toStrictEqual({
+            key: 1,
+            options: {
+                backgroundColor: "rgba(255,0,0,0.3)",
+                color: { $themeColor: "editor.foreground" },
+                light: { backgroundColor: "#ffffff", overviewRulerColor: { $themeColor: "merge.border" } },
+                dark: { color: "#000000" },
+            },
+        });
+        window.createTextEditorDecorationType({ light: null, dark: "nope" } as never);
+        expect(stub.notifies.at(-1)?.params).toStrictEqual({ key: 2, options: {} });
+    });
+
     it("editor.setDecorations sends notify with the active editor fileName and nested ranges", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/proj/a.ts").toString() });

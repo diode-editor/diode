@@ -44,6 +44,7 @@ import { NULL_TOKEN_STYLE_RESOLVER } from "../common/languages/iTokenStyleResolv
 import type { IResolvedLanguageConfiguration } from "../common/languages/languageConfiguration.ts";
 import type { IExternalDecorations, IViewZoneDecoration } from "../common/model/iEditorDecoration.ts";
 import { EMPTY_EXTERNAL_DECORATIONS } from "../common/model/iEditorDecoration.ts";
+import type { IExtensionTextDecoration } from "../common/model/iExtensionTextDecoration.ts";
 import type { IGhostText } from "../common/model/iGhostText.ts";
 import { ghostTextEquals } from "../common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecoration.ts";
@@ -72,6 +73,7 @@ import {
     forEachRangeCell,
     forEachVisibleSortedRange,
     paintCarets,
+    paintExtensionTextDecorations,
     paintPhantomText,
     paintRangeBackground,
     paintSortedRangeBackgrounds,
@@ -102,6 +104,7 @@ const enum ScrollBarMarkerPriority {
     Error = 6,
 }
 const NO_GUTTER_CHANGE_DECORATIONS: readonly IGutterChangeDecoration[] = [];
+const NO_EXTENSION_TEXT_DECORATIONS: readonly IExtensionTextDecoration[] = [];
 const NO_PAINT_INSERTIONS: readonly IPaintTextLineInsertion[] = [];
 // In a cell grid VS Code's thin dirty-diff border becomes a bold vertical bar centered in the
 // cell; modified is dashed (VS Code uses hatching).
@@ -220,6 +223,8 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public gutterChangeDecorations: readonly IGutterChangeDecoration[] = NO_GUTTER_CHANGE_DECORATIONS;
+    /** Painted over the selection, under the current find match: upstream's decorations layer lies above selections. */
+    public extensionTextDecorations: readonly IExtensionTextDecoration[] = NO_EXTENSION_TEXT_DECORATIONS;
     public decorations: IExternalDecorations = EMPTY_EXTERNAL_DECORATIONS;
 
     private lineWidthCache: LineWidthCache | null = null;
@@ -1173,6 +1178,8 @@ export class EditorElement extends TUIElement implements IScrollable {
             if (isSelectionCollapsed(sel)) continue;
             paintRangeBackground(context, selectionToRange(sel), selectionBg, geometry);
         }
+
+        paintExtensionTextDecorations(context, this.extensionTextDecorations, geometry);
 
         if (currentMatchIndex >= 0 && currentMatchIndex < searchMatches.length) {
             paintRangeBackground(context, searchMatches[currentMatchIndex], FIND_MATCH_CURRENT_BG, geometry);

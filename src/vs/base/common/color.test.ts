@@ -1,6 +1,7 @@
+import { packRgb, packRgba, TRANSPARENT_COLOR } from "@tuidom/core/common/colorUtils";
 import { describe, expect, it } from "vitest";
 
-import { HSLA, parseHex, RGBA } from "./color.ts";
+import { HSLA, parseCssColor, parseHex, RGBA } from "./color.ts";
 
 function channels(rgba: RGBA | null): [number, number, number, number] | null {
     return rgba === null ? null : [rgba.r, rgba.g, rgba.b, rgba.a];
@@ -67,5 +68,61 @@ describe("parseHex", () => {
     it("a digit outside 0-9a-f counts as 0, as upstream", () => {
         expect(channels(parseHex("#gg80zz"))).toEqual([0, 128, 0, 1]);
         expect(channels(parseHex("#8g8"))).toEqual([136, 0, 136, 1]);
+    });
+});
+
+describe("parseCssColor", () => {
+    it.each([
+        ["#ff8000", packRgb(255, 128, 0)],
+        ["#FF800080", packRgba(255, 128, 0, 128)],
+        ["#f80", packRgb(255, 136, 0)],
+        ["#f808", packRgba(255, 136, 0, 136)],
+        ["#000000ff", packRgb(0, 0, 0)],
+        ["rgb(1, 2, 3)", packRgb(1, 2, 3)],
+        ["rgb(1,2,3)", packRgb(1, 2, 3)],
+        ["RGB( 1 , 2 , 3 )", packRgb(1, 2, 3)],
+        ["rgba(255,0,0,0.3)", packRgba(255, 0, 0, 77)],
+        ["rgba(255, 100, 100, 0.15)", packRgba(255, 100, 100, 38)],
+        ["rgba(255, 0, 0, 1)", packRgb(255, 0, 0)],
+        ["rgba(255, 0, 0, .5)", packRgba(255, 0, 0, 128)],
+        ["rgba(10, 20, 30, 0)", TRANSPARENT_COLOR],
+        ["transparent", TRANSPARENT_COLOR],
+        ["red", packRgb(255, 0, 0)],
+        ["rebeccapurple", packRgb(102, 51, 153)],
+        ["yellowgreen", packRgb(154, 205, 50)],
+        ["aliceblue", packRgb(240, 248, 255)],
+    ])("%s", (css, packed) => {
+        expect(parseCssColor(css)).toBe(packed);
+    });
+
+    it("fractional channels are rounded like a browser does (Tailwind sends floats)", () => {
+        expect(parseCssColor("rgba(239.00000000000003, 68, 68, 1)")).toBe(packRgb(239, 68, 68));
+        expect(parseCssColor("rgb(10.5, 0.4, 1e2)")).toBe(packRgb(11, 0, 100));
+    });
+
+    it("channels are clamped into [0, 255], alpha into [0, 1]", () => {
+        expect(parseCssColor("rgb(-5, 300, +7)")).toBe(packRgb(0, 255, 7));
+        expect(parseCssColor("rgba(1, 2, 3, 2)")).toBe(packRgb(1, 2, 3));
+        expect(parseCssColor("rgba(1, 2, 3, -1)")).toBe(TRANSPARENT_COLOR);
+    });
+
+    it.each([
+        "",
+        "#ggg",
+        "#ff80f",
+        "#12345",
+        "rgba(1,2)",
+        "rgb(1, 2, 3, 4)",
+        "rgba(1, 2, 3)",
+        "rgb(a, b, c)",
+        "rgb(1, 2, 3",
+        "xrgb(1, 2, 3)",
+        "rgb(1, 2, 3)x",
+        "кирпичный",
+        "Red",
+        "constructor",
+        "hsl(0, 100%, 50%)",
+    ])("%j is not a color, without an exception", (css) => {
+        expect(parseCssColor(css)).toBeNull();
     });
 });

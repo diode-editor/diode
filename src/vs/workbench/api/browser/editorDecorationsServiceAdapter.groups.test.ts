@@ -59,4 +59,20 @@ describe("EditorDecorationsServiceAdapter — all groups", () => {
 
         expect(pushed).toHaveBeenCalledWith(decorations);
     });
+
+    it("[api:TextEditor.setDecorations] text decorations reach the file's tabs in both splits", () => {
+        service.openFile(ws.path("a.ts"));
+        service.splitActiveGroup();
+        const panes = service.getEditors();
+        expect(panes).toHaveLength(2);
+        const pushed = panes.map((pane) => vi.spyOn(pane, "setExtensionTextDecorations"));
+        const decorations = [{ range: createRange(0, 1, 0, 3), bg: 0x123456, isWholeLine: false }];
+
+        new EditorDecorationsServiceAdapter(service).setExtensionTextDecorations(
+            Uri.file(ws.path("a.ts")).toString(),
+            decorations,
+        );
+
+        for (const spy of pushed) expect(spy).toHaveBeenCalledWith(decorations);
+    });
 });

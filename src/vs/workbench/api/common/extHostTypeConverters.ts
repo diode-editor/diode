@@ -50,6 +50,7 @@ import type {
     IWireWorkspaceEditOp,
     SerializedColor,
     SerializedDecorationRenderOptions,
+    SerializedThemableDecorationRenderOptions,
     WireFoldingRange,
     WireMarker,
     WireRenamePrepare,
@@ -128,29 +129,43 @@ export function serializeColor(value: unknown): SerializedColor | undefined {
     return undefined;
 }
 
-export function serializeDecorationRenderOptions(options: unknown): SerializedDecorationRenderOptions {
-    const o = (typeof options === "object" && options !== null ? options : {}) as {
-        isWholeLine?: unknown;
-        overviewRulerLane?: unknown;
-        backgroundColor?: unknown;
-        color?: unknown;
-        overviewRulerColor?: unknown;
-    };
+function serializeThemableDecorationRenderOptions(o: {
+    backgroundColor?: unknown;
+    color?: unknown;
+    overviewRulerColor?: unknown;
+}): SerializedThemableDecorationRenderOptions {
     const result: {
-        isWholeLine?: boolean;
-        overviewRulerLane?: number;
         backgroundColor?: SerializedColor;
         color?: SerializedColor;
         overviewRulerColor?: SerializedColor;
     } = {};
-    if (typeof o.isWholeLine === "boolean") result.isWholeLine = o.isWholeLine;
-    if (typeof o.overviewRulerLane === "number") result.overviewRulerLane = o.overviewRulerLane;
     const bg = serializeColor(o.backgroundColor);
     if (bg !== undefined) result.backgroundColor = bg;
     const color = serializeColor(o.color);
     if (color !== undefined) result.color = color;
     const overview = serializeColor(o.overviewRulerColor);
     if (overview !== undefined) result.overviewRulerColor = overview;
+    return result;
+}
+
+function asObject(value: unknown): Record<string, unknown> | undefined {
+    return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
+}
+
+export function serializeDecorationRenderOptions(options: unknown): SerializedDecorationRenderOptions {
+    const o = asObject(options) ?? {};
+    const result: {
+        isWholeLine?: boolean;
+        overviewRulerLane?: number;
+        light?: SerializedThemableDecorationRenderOptions;
+        dark?: SerializedThemableDecorationRenderOptions;
+    } & SerializedThemableDecorationRenderOptions = serializeThemableDecorationRenderOptions(o);
+    if (typeof o.isWholeLine === "boolean") result.isWholeLine = o.isWholeLine;
+    if (typeof o.overviewRulerLane === "number") result.overviewRulerLane = o.overviewRulerLane;
+    const light = asObject(o.light);
+    if (light !== undefined) result.light = serializeThemableDecorationRenderOptions(light);
+    const dark = asObject(o.dark);
+    if (dark !== undefined) result.dark = serializeThemableDecorationRenderOptions(dark);
     return result;
 }
 
