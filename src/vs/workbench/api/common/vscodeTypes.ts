@@ -697,7 +697,6 @@ function escapeText(value: string): string {
 /** Upstream's `extHostTypes/snippetString.ts`: builders escape snippet syntax and number tabstops from 1. */
 export class SnippetString {
     public static isSnippetString(thing: unknown): thing is SnippetString {
-        if (thing instanceof SnippetString) return true;
         if (thing === null || typeof thing !== "object") return false;
         return typeof (thing as { value?: unknown }).value === "string";
     }
