@@ -24,7 +24,7 @@ import type {
 } from "../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
-import { resolveSnippet } from "./extHostSnippetInsert.ts";
+import { snippetText } from "./extHostSnippetInsert.ts";
 import {
     Diagnostic,
     EndOfLine,
@@ -387,8 +387,7 @@ function readLabelDetails(item: vscode.CompletionItem): { detail?: string; descr
  * (`keepWhitespace`), so that `${1:name}` and the escapes of `SnippetString.appendText` do not end up there.
  */
 export function stripSnippetPlaceholders(value: string): string {
-    // Stryker disable next-line StringLiteral: equivalent, with `keepWhitespace` (null) `resolveSnippet` never reads the line's leading whitespace
-    return resolveSnippet(value, "", null).text;
+    return snippetText(value);
 }
 
 function readInsertText(item: vscode.CompletionItem, label: string): string {

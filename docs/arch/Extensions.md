@@ -1425,7 +1425,9 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
   сразу в списке: они едут в пункте (`ICoreCompletionItem.additionalEdits`), и accept применяет их без
   resolve — как «sync additional edits» в `suggestController` эталона.
 - **Сниппет-сессий нет** (цепочка #991): в подсказках и `SnippetTextEdit` `SnippetString` — только транспорт,
-  плейсхолдеры вырезаются (`stripSnippetPlaceholders`), чтобы `${1:name}` не попал в буфер.
+  плейсхолдеры вырезаются (`stripSnippetPlaceholders` → `snippetText` в `extHostSnippetInsert.ts`: урезанное
+  прочтение той же грамматики — табстопы, плейсхолдеры, choice, экранирование; вендорённый парсер ядра лежит в
+  `browser` и общему коду субпроцесса недоступен), чтобы `${1:name}` не попал в буфер; перевод на парсер ядра — #1035.
   `TextEditor.insertSnippet` идёт как в эталоне (`$tryInsertSnippet`): субпроцесс шаблон не разбирает, а шлёт
   `snippet.value` и диапазоны `where` (`snippetRanges` в `extHostSnippetInsert.ts`, `validateRange` документа)
   запросом `editor.insertSnippet` `{uri, groupId, version, template, ranges, undoStopBefore?, undoStopAfter?,
