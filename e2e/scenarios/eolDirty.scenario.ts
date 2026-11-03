@@ -24,12 +24,14 @@ async function expectTabDirty(editor: ScenarioDriver, dirty: boolean): Promise<v
     if (row.includes("●") !== dirty) throw new Error(`tab row "${row}": expected ${dirty ? "●" : "no ●"}`);
 }
 
-async function convertTo(editor: ScenarioDriver, eol: "LF" | "CRLF"): Promise<void> {
-    const title = `End of Line: Convert to ${eol} `;
+/** "End of Line: Toggle LF / CRLF" from the palette; the status bar then shows `eol`. */
+async function toggleTo(editor: ScenarioDriver, eol: "LF" | "CRLF"): Promise<void> {
+    const title = "End of Line: Toggle LF / CRLF";
     await editor.sendKey("F1");
     await editor.waitForNode("#quickInput");
     await editor.sendText(title);
-    await editor.waitForText((t) => t.includes(title));
+    // The title twice: the input and the list row. Enter before the list is filtered runs another command.
+    await editor.waitForText((t) => t.split(title).length > 2);
     await editor.sendKey("Enter");
     // The status bar segment: `  LF  ` is not a part of `  CRLF  `.
     await editor.waitForText((t) => t.includes(`  ${eol}  `));
@@ -45,10 +47,10 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("alpha"));
         await expectTabDirty(editor, false);
 
-        await convertTo(editor, "CRLF");
+        await toggleTo(editor, "CRLF");
         await expectTabDirty(editor, true);
 
-        await convertTo(editor, "LF");
+        await toggleTo(editor, "LF");
         await expectTabDirty(editor, true);
         await editor.capture("eol-there-and-back");
 
