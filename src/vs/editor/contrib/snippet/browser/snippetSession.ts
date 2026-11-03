@@ -15,7 +15,9 @@ import {
     ClipboardBasedVariableResolver,
     CommentBasedVariableResolver,
     CompositeSnippetVariableResolver,
+    type ISnippetDocument,
     type ISnippetVariableSources,
+    leadingWhitespaceBefore,
     ModelBasedVariableResolver,
     RandomBasedVariableResolver,
     SelectionBasedVariableResolver,
@@ -27,9 +29,6 @@ import {
  * Port of upstream `SnippetSession` for a list of edits (`createEditsAndSnippetsFromEdits`, as
  * `MainThreadTextEditor.insertSnippet` calls it): the text of every edit, then the tab stops of the inserted snippet.
  */
-
-/** What the insert reads of the document; lines are LF-canonical, as `ITextDocument` stores them. */
-export type ISnippetDocument = Pick<ITextDocument, "getLineContent" | "getTextInRange">;
 
 export interface ISnippetEdit {
     readonly range: IRange;
@@ -65,11 +64,6 @@ function normalizeIndentation(
         ? " ".repeat(columns)
         : "\t".repeat(Math.floor(columns / tabSize)) + " ".repeat(columns % tabSize);
     return indent + line.slice(leading.length);
-}
-
-/** The leading whitespace of `position`'s line up to it. */
-export function leadingWhitespaceBefore(document: ISnippetDocument, position: IPosition): string {
-    return getLeadingWhitespace(document.getLineContent(position.line).slice(0, position.character));
 }
 
 /** Every line after the first gets `lineLeadingWhitespace`, normalized for the tab settings. */
@@ -141,9 +135,10 @@ export function createSnippetInsert(
     const parser = new SnippetParser();
     const snippet = new TextmateSnippet();
     const edits: ITextEdit[] = [];
-    // Upstream: one model, time, workspace and random resolver for all edits, in its order.
+    // One resolver for all edits where the value does not depend on the edit; upstream's order.
     const { resource, clipboardText, comments, workspace } = options.variables ?? {};
     const modelBased = resource === undefined ? [] : [new ModelBasedVariableResolver(resource, workspace)];
+    const commentBased = new CommentBasedVariableResolver(comments);
     const timeBased = new TimeBasedVariableResolver();
     const workspaceBased = new WorkspaceBasedVariableResolver(workspace);
     const randomBased = new RandomBasedVariableResolver();
@@ -166,7 +161,7 @@ export function createSnippetInsert(
             ...modelBased,
             new ClipboardBasedVariableResolver(clipboardText, index, indexed.length),
             new SelectionBasedVariableResolver(document, snippet, range, index),
-            new CommentBasedVariableResolver(comments),
+            commentBased,
             timeBased,
             workspaceBased,
             randomBased,

@@ -253,16 +253,15 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         const document = editor.model.document;
         const { clipboard, languageConfigurations, workspace } = this.snippetVariables;
         // Upstream reads the clipboard only for a template that needs it, and gives up if the editor changed meanwhile.
-        const readClipboard = SnippetParser.guessNeedsClipboard(template) ? clipboard : undefined;
-        const loadedConfiguration = languageConfigurations.get(document.languageId);
+        const needsClipboard = clipboard !== undefined && SnippetParser.guessNeedsClipboard(template);
         let clipboardText: string | undefined;
-        let configuration = loadedConfiguration;
-        if (readClipboard !== undefined || configuration === undefined) {
+        let configuration = languageConfigurations.get(document.languageId);
+        if (needsClipboard || configuration === undefined) {
             const versionBefore = document.versionId;
             const selectionsBefore = editor.viewState.selections;
             [clipboardText, configuration] = await Promise.all([
-                readClipboard?.readText(),
-                loadedConfiguration ?? languageConfigurations.ensureLoaded(document.languageId),
+                needsClipboard ? clipboard.readText() : undefined,
+                configuration ?? languageConfigurations.ensureLoaded(document.languageId),
             ]);
             if (
                 document.versionId !== versionBefore ||

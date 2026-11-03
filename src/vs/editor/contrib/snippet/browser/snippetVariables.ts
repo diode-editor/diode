@@ -6,6 +6,7 @@ import { generateUuid } from "../../../../base/common/uuid.ts";
 import type { ICommentRule } from "../../../../platform/extensions/common/iLanguageConfiguration.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { workspaceFileLabel } from "../../../../platform/workspace/common/workspaceFile.ts";
+import type { IPosition } from "../../../common/core/iPosition.ts";
 import type { IRange } from "../../../common/core/iRange.ts";
 import { DEFAULT_WORD_REGEXP, getWordAtText } from "../../../common/core/wordHelper.ts";
 import { getLeadingWhitespace } from "../../../common/languages/autoIndent.ts";
@@ -30,7 +31,13 @@ export interface ISnippetVariableSources {
     readonly workspace?: Pick<IWorkspaceContextService, "getWorkspace" | "getWorkspaceFolder">;
 }
 
-export type ISnippetVariableDocument = Pick<ITextDocument, "getLineContent" | "getTextInRange">;
+/** What the insert reads of the document; lines are LF-canonical, as `ITextDocument` stores them. */
+export type ISnippetDocument = Pick<ITextDocument, "getLineContent" | "getTextInRange">;
+
+/** The leading whitespace of `position`'s line up to it. */
+export function leadingWhitespaceBefore(document: ISnippetDocument, position: IPosition): string {
+    return getLeadingWhitespace(document.getLineContent(position.line).slice(0, position.character));
+}
 
 /** The first resolver with a value wins. */
 export class CompositeSnippetVariableResolver implements VariableResolver {
@@ -51,7 +58,7 @@ export class CompositeSnippetVariableResolver implements VariableResolver {
  */
 export class SelectionBasedVariableResolver implements VariableResolver {
     public constructor(
-        private readonly document: ISnippetVariableDocument,
+        private readonly document: ISnippetDocument,
         private readonly snippet: TextmateSnippet,
         private readonly range: IRange,
         private readonly index: number,
@@ -89,9 +96,7 @@ export class SelectionBasedVariableResolver implements VariableResolver {
     private selectedText(variable: Variable): string | undefined {
         const value = this.document.getTextInRange(this.range);
         if (value === "") return undefined;
-        const lineLeadingWhitespace = getLeadingWhitespace(
-            this.document.getLineContent(this.range.start.line).slice(0, this.range.start.character),
-        );
+        const lineLeadingWhitespace = leadingWhitespaceBefore(this.document, this.range.start);
         let variableLeadingWhitespace = lineLeadingWhitespace;
         this.snippet.walk((marker) => {
             if (marker === variable) return false;
@@ -157,7 +162,7 @@ export class ClipboardBasedVariableResolver implements VariableResolver {
 
     public resolve(variable: Variable): string | undefined {
         if (variable.name !== "CLIPBOARD" || !this.clipboardText) return undefined;
-        const lines = this.clipboardText.split(/\r\n|\n|\r/).filter((line) => line.trim() !== "");
+        const lines = splitLines(this.clipboardText).filter((line) => line.trim() !== "");
         return lines.length === this.count ? lines[this.index] : this.clipboardText;
     }
 }
@@ -249,19 +254,16 @@ export class WorkspaceBasedVariableResolver implements VariableResolver {
     public constructor(private readonly workspace: ISnippetVariableSources["workspace"]) {}
 
     public resolve(variable: Variable): string | undefined {
+        const { name } = variable;
+        if (name !== "WORKSPACE_NAME" && name !== "WORKSPACE_FOLDER") return undefined;
         const workspace = this.workspace?.getWorkspace();
         const folder = workspace?.folders.at(0);
         if (folder === undefined) return undefined;
         const configuration = workspace?.configuration?.fsPath;
-        switch (variable.name) {
-            case "WORKSPACE_NAME":
-                return configuration === undefined
-                    ? path.basename(folder.uri.fsPath)
-                    : workspaceFileLabel(configuration);
-            case "WORKSPACE_FOLDER":
-                return configuration === undefined ? folder.uri.fsPath : path.dirname(configuration);
+        if (name === "WORKSPACE_NAME") {
+            return configuration === undefined ? path.basename(folder.uri.fsPath) : workspaceFileLabel(configuration);
         }
-        return undefined;
+        return configuration === undefined ? folder.uri.fsPath : path.dirname(configuration);
     }
 }
 

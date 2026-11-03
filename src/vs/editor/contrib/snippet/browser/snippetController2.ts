@@ -10,13 +10,11 @@ import type { ICursorStateComputer } from "../../../common/viewModel/trackedSele
 import {
     createSnippetInsert,
     type ISnippetActiveChoice,
-    type ISnippetDocument,
     type ISnippetEdit,
     type ISnippetSessionDocument,
-    leadingWhitespaceBefore,
     SnippetSession,
 } from "./snippetSession.ts";
-import type { ISnippetVariableSources } from "./snippetVariables.ts";
+import { type ISnippetDocument, type ISnippetVariableSources, leadingWhitespaceBefore } from "./snippetVariables.ts";
 
 /** What the controller needs of a text editor pane. */
 export interface ISnippetEditor {
