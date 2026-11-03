@@ -4660,5 +4660,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-11-03-92ee1ba188e1.json",
+    "generatedAt": "2026-11-03T23:05:47.109Z",
+    "commit": "92ee1ba188e1",
+    "binaryVersion": "nightly-92ee1ba",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
