@@ -163,6 +163,18 @@ function isOutsideRangeBackgrounds(geo: ITextViewportGeometry, row: TextViewport
     return false;
 }
 
+/** Only the patched colors: the glyph and the rest of the cell are kept. */
+function paintRangeColors(
+    context: RenderContext,
+    range: IRange,
+    patch: { bg: number } | { fg: number },
+    geo: ITextViewportGeometry,
+): void {
+    forEachRangeCell(range, geo, (screenX, screenY, column, row) => {
+        if (!isOutsideRangeBackgrounds(geo, row, column)) context.setCell(screenX, screenY, patch);
+    });
+}
+
 /** Only `bg`: the glyph and fg under the highlight are kept. */
 export function paintRangeBackground(
     context: RenderContext,
@@ -170,16 +182,7 @@ export function paintRangeBackground(
     bg: number,
     geo: ITextViewportGeometry,
 ): void {
-    forEachRangeCell(range, geo, (screenX, screenY, column, row) => {
-        if (!isOutsideRangeBackgrounds(geo, row, column)) context.setCell(screenX, screenY, { bg });
-    });
-}
-
-/** Only `fg`: the glyph, background and style are kept. */
-function paintRangeForeground(context: RenderContext, range: IRange, fg: number, geo: ITextViewportGeometry): void {
-    forEachRangeCell(range, geo, (screenX, screenY, column, row) => {
-        if (!isOutsideRangeBackgrounds(geo, row, column)) context.setCell(screenX, screenY, { fg });
-    });
+    paintRangeColors(context, range, { bg }, geo);
 }
 
 /**
@@ -208,7 +211,7 @@ export function paintExtensionTextDecorations(
                   end: { line: range.end.line, character: Number.MAX_SAFE_INTEGER },
               }
             : range;
-        paintRangeForeground(context, fgRange, fg, geo);
+        paintRangeColors(context, fgRange, { fg }, geo);
     }
 }
 
