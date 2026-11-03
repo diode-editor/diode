@@ -28,11 +28,7 @@ function setup() {
         getActiveEditor: () => current,
         onActiveEditorChanged: active.event,
     } as unknown as IEditorService;
-    const service = new SnippetService(
-        group,
-        new LanguageFeaturesService(),
-        {} as unknown as CompletionService,
-    );
+    const service = new SnippetService(group, new LanguageFeaturesService(), {} as unknown as CompletionService);
     const contextKeys = new ContextKeyService();
     const accessor = { get: () => service } as unknown as Parameters<typeof acceptSnippetAction.run>[0];
     disposers.push(() => {

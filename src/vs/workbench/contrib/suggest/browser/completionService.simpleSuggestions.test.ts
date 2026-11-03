@@ -3,11 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { drawSelections } from "../../../../../TestUtils/snippetPane.ts";
 import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
 import { createCursorSelection, createSelection } from "../../../../editor/common/core/iSelection.ts";
-import type { CompletionItemProvider, ICoreCompletionItem } from "../../../../editor/common/languages/iCompletionSource.ts";
+import type {
+    CompletionItemProvider,
+    ICoreCompletionItem,
+} from "../../../../editor/common/languages/iCompletionSource.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
-import { createSuggestApp, disposeSuggestApp, type SuggestContext } from "../../../browser/workbench.suggest.testUtils.ts";
+import {
+    createSuggestApp,
+    disposeSuggestApp,
+    type SuggestContext,
+} from "../../../browser/workbench.suggest.testUtils.ts";
 import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
 import { CompletionServiceDIToken } from "./completionService.ts";

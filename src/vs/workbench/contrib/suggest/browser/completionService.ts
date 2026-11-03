@@ -913,6 +913,7 @@ function rangesAroundCarets(
     range: IRange,
 ): IRange[] {
     const [{ active: caret }, ...others] = selections;
+    if (others.length === 0) return [range];
     const before = caret.character - range.start.character;
     const after = range.end.character - caret.character;
     const text = document.getTextInRange(range);

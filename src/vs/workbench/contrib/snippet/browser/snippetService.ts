@@ -105,7 +105,11 @@ class SnippetChoiceCompletions extends Disposable {
  * another one took over.
  */
 export class SnippetService extends Disposable implements IContextKeyContributor {
-    public static dependencies = [EditorServiceDIToken, LanguageFeaturesServiceDIToken, CompletionServiceDIToken] as const;
+    public static dependencies = [
+        EditorServiceDIToken,
+        LanguageFeaturesServiceDIToken,
+        CompletionServiceDIToken,
+    ] as const;
 
     public constructor(
         private readonly group: IEditorService,
