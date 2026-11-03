@@ -30,7 +30,9 @@ shortTitle → title» фиксируется при деривации). Явн
 
 **Реестр (данные).** `MenuRegistry.getMenuItems(menuId, context?)`: фильтр по
 `when` (`ContextKeyService.evaluate`) и по `visible(context)`, сортировка групп —
-**`navigation` первой** (спец-группа vscode), дальше по строке; внутри — order;
+**`navigation` первой** (спец-группа vscode), дальше по строке, **безымянная
+группа (`""`, пункт без `group`) — последней**, как «falsy groups come last» в
+`_compareMenuItems`; внутри — order, при равенстве — порядок регистрации;
 авто-разделители **между непустыми группами** (скрытый пункт схлопывает группу
 без лишнего сепаратора), маппинг в `MenuEntry`:
 - **label** — `title` пункта, иначе `CommandRegistry.getTitle(command)`, иначе id;

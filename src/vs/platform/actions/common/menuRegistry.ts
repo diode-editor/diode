@@ -70,10 +70,12 @@ export function joinMenuGroups(groups: readonly IMenuEntryGroup[]): MenuEntry[] 
 export type SubmenuResolver = (submenu: ISubmenuEntry) => MenuSubmenuEntry | null;
 
 /**
- * `navigation` always comes first, as in VS Code `_compareMenuItems`. Keys are unique
- * within a menu, so there is no equality branch.
+ * As in VS Code `_compareMenuItems`: the unnamed group (`""`) comes last, `navigation`
+ * first. Keys are unique within a menu, so there is no equality branch.
  */
 function compareGroups(a: string, b: string): number {
+    if (a === "") return 1;
+    if (b === "") return -1;
     if (a === "navigation") return -1;
     if (b === "navigation") return 1;
     return a < b ? -1 : 1;

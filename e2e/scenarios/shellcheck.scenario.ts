@@ -25,7 +25,8 @@ export default defineScenario({
     rows: 22,
     // Extension host scenarios run a subprocess: Linux only.
     skipOn: ["win32", "darwin"],
-    settings: { "shellcheck.runtime": "wasm" },
+    // The hover's second block is the extension's own HTML (supportHtml), shown as text.
+    settings: { "shellcheck.runtime": "wasm", "shellcheck.markdownDiagnostics": true },
     userKeybindings: [
         { key: "ctrl+alt+n", command: "notifications.clearAll" },
         { key: "ctrl+alt+m", command: "workbench.actions.view.problems" },
@@ -61,6 +62,10 @@ export default defineScenario({
         await editor.sendKey("ArrowLeft");
         await editor.sendKey("Ctrl+Alt+h");
         await editor.waitForNode("#hoverWidget");
+        // ShellCheck rates SC2086 as info: the header of its block is `Information (SC2086)`.
+        await editor.waitForText((t) => t.includes("Information (SC2086)") && !/<span|codicon/.test(t), {
+            timeoutMs: 20_000,
+        });
         await editor.capture("hover-on-the-diagnostic");
         await editor.sendKey("Escape");
 
