@@ -66,8 +66,8 @@ export class SnippetController2 {
     private session: SnippetSession | null = null;
     /** What the session listens to. */
     private readonly sessionStore = new DisposableStore();
-    /** Upstream `_modelVersionId`: an undo back to it takes the snippet away. */
-    private versionBeforeInsert = -1;
+    /** Upstream `_modelVersionId`: an undo back to it takes the snippet away. Read only while there is a session. */
+    private versionBeforeInsert = 0;
 
     private constructor(private readonly editor: ISnippetEditor) {}
 

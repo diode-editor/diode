@@ -12,6 +12,7 @@ import {
     acceptSnippetAction,
     jumpToNextSnippetPlaceholderAction,
     jumpToPrevSnippetPlaceholderAction,
+    leaveSnippetAction,
 } from "./snippetActions.ts";
 import { SnippetService } from "./snippetService.ts";
 
@@ -78,7 +79,14 @@ describe("SnippetService", () => {
         h.insert("${1:a} ${2:b}");
         h.deactivate();
         expect(h.keys()).toEqual([false, false, false]);
-        jumpToNextSnippetPlaceholderAction.run(h.accessor);
+        for (const action of [
+            jumpToNextSnippetPlaceholderAction,
+            jumpToPrevSnippetPlaceholderAction,
+            leaveSnippetAction,
+            acceptSnippetAction,
+        ]) {
+            action.run(h.accessor);
+        }
         expect(SnippetController2.get(h.pane).isInSnippet).toBe(false);
         expect(h.pane.viewState.snippetTabstopRanges).toEqual([]);
     });

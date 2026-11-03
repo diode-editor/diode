@@ -2,7 +2,7 @@ import { groupAdjacentBy } from "../../../../base/common/arrays.ts";
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { commonPrefixLength, splitLines } from "../../../../base/common/strings.ts";
 import { comparePositions, type IPosition, positionsEqual } from "../../../common/core/iPosition.ts";
-import { compareRangesUsingStarts, type IRange, rangeContainsRange } from "../../../common/core/iRange.ts";
+import { type IRange, rangeContainsRange } from "../../../common/core/iRange.ts";
 import { createSelection, type ISelection, selectionToRange } from "../../../common/core/iSelection.ts";
 import { createTextEdit, type ITextEdit } from "../../../common/core/iTextEdit.ts";
 import { countEOL } from "../../../common/core/misc/eolCounter.ts";
@@ -257,6 +257,7 @@ export class SnippetSession {
         const at = (snippetOffset: number): IPosition => positionAfter(start, text.slice(0, snippetOffset));
         const { placeholders } = snippet;
         const ids = document.deltaDecorations(
+            // Stryker disable next-line ArrayDeclaration: equivalent, an unknown id to remove is ignored
             [],
             placeholders.map((placeholder) => {
                 const from = snippet.offset(placeholder);
@@ -271,7 +272,6 @@ export class SnippetSession {
 
     public dispose(): void {
         this.document.deltaDecorations([...this.decorations.values()], []);
-        this.decorations.clear();
     }
 
     public get isAtFirstPlaceholder(): boolean {
@@ -301,8 +301,8 @@ export class SnippetSession {
             couldSkipThisPlaceholder &&= this.hasPlaceholderBeenCollapsed(placeholder);
             const { start, end } = this.rangeOf(placeholder);
             selections.push(createSelection(start.line, start.character, end.line, end.character));
-            // Upstream's final tab stop never grows; the session ends on it anyway.
-            if (!placeholder.isFinalTabstop) active.add(placeholder);
+            // Upstream keeps the final tab stop from growing; the session ends on it, so that never shows.
+            active.add(placeholder);
             for (const enclosing of this.snippet.enclosingPlaceholders(placeholder)) active.add(enclosing);
         }
         for (const [placeholder, id] of this.decorations) {
@@ -324,26 +324,28 @@ export class SnippetSession {
 
     /**
      * Upstream `SnippetSession.isSelectionWithinPlaceholders` for one snippet: some group other than `$0` has as many
-     * placeholders as there are selections, each containing its selection.
+     * placeholders as there are selections, each containing its selection. Both are in document order already: the
+     * editor sorts its selections, and a group keeps the order of the snippet, which tracked ranges never change.
      */
     public isSelectionWithinPlaceholders(selections: readonly ISelection[]): boolean {
-        const sorted = selections.map((selection) => selectionToRange(selection)).sort(compareRangesUsingStarts);
-        return this.groups.some((group) => {
-            if (group[0].isFinalTabstop || group.length !== sorted.length) return false;
-            const ranges = group.map((placeholder) => this.rangeOf(placeholder)).sort(compareRangesUsingStarts);
-            return ranges.every((range, i) => rangeContainsRange(range, sorted[i]));
-        });
+        return this.groups.some(
+            (group) =>
+                !group[0].isFinalTabstop &&
+                group.length === selections.length &&
+                group.every((placeholder, i) =>
+                    rangeContainsRange(this.rangeOf(placeholder), selectionToRange(selections[i])),
+                ),
+        );
     }
 
     /**
-     * Where the tab stops are now, `$0` left out, for the frame: sorted, a placeholder inside another one left out,
-     * so none overlap.
+     * Where the tab stops are now, `$0` left out, for the frame: a placeholder inside another one left out, so none
+     * overlap. Sorted as the snippet walks them, an enclosing placeholder before the ones it holds.
      */
     public tabstopRanges(): IRange[] {
         const ranges = [...this.decorations.keys()]
             .filter((placeholder) => !placeholder.isFinalTabstop)
-            .map((placeholder) => this.rangeOf(placeholder))
-            .sort((a, b) => comparePositions(a.start, b.start) || comparePositions(b.end, a.end));
+            .map((placeholder) => this.rangeOf(placeholder));
         const outer: IRange[] = [];
         for (const range of ranges) {
             const last = outer.at(-1);

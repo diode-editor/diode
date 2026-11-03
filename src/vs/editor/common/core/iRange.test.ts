@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPosition } from "./iPosition.ts";
-import {
-    compareRangesUsingStarts,
-    createRange,
-    rangeContainsPosition,
-    rangeContainsRange,
-    rangesEqual,
-} from "./iRange.ts";
+import { createRange, rangeContainsPosition, rangeContainsRange, rangesEqual } from "./iRange.ts";
 
 describe("rangesEqual", () => {
     it("equal ranges", () => {
@@ -61,13 +55,5 @@ describe("rangeContainsRange", () => {
     it("a range sticking out at either end is not contained", () => {
         expect(rangeContainsRange(outer, createRange(1, 1, 2, 0))).toBe(false);
         expect(rangeContainsRange(outer, createRange(2, 0, 3, 5))).toBe(false);
-    });
-});
-
-describe("compareRangesUsingStarts", () => {
-    it("by start, then by end", () => {
-        expect(compareRangesUsingStarts(createRange(0, 1, 0, 2), createRange(0, 2, 0, 2))).toBeLessThan(0);
-        expect(compareRangesUsingStarts(createRange(0, 1, 0, 3), createRange(0, 1, 0, 2))).toBeGreaterThan(0);
-        expect(compareRangesUsingStarts(createRange(0, 1, 0, 2), createRange(0, 1, 0, 2))).toBe(0);
     });
 });

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { drawSelections, snippetPane } from "../../../../../TestUtils/snippetPane.ts";
 import type { TextEditorPane } from "../../../../workbench/browser/parts/editor/textEditorPane.ts";
@@ -17,6 +17,8 @@ const panes: TextEditorPane<TextFileModel>[] = [];
 interface IHarness {
     readonly pane: TextEditorPane<TextFileModel>;
     readonly controller: SnippetController2;
+    /** What `apply` returned. */
+    readonly applied: boolean;
     /** The text with the selections drawn: `[` anchor, `]` active, `|` a caret. */
     frame(): string;
     type(text: string): void;
@@ -27,13 +29,14 @@ function setup(text: string, template: string, ranges: readonly IRange[] = [at(0
     const pane = snippetPane(text);
     panes.push(pane);
     const controller = SnippetController2.get(pane);
-    controller.apply(
+    const applied = controller.apply(
         ranges.map((range) => ({ range, template })),
         {},
     );
     return {
         pane,
         controller,
+        applied,
         frame: () => drawSelections(pane),
         type: (typed) => {
             pane.pushUndo(pane.viewState.type(typed));
@@ -108,6 +111,7 @@ describe("SnippetController2: the session", () => {
         ["only `$0`, in the middle", "a$0b", "a|b"],
     ])("%s starts no session", (_name, template, frame) => {
         const h = setup("", template);
+        expect(h.applied).toBe(true);
         expect(h.frame()).toBe(frame);
         expect(keys(h)).toEqual([false, false]);
         expect(h.pane.viewState.snippetTabstopRanges).toEqual([]);
@@ -121,6 +125,15 @@ describe("SnippetController2: the session", () => {
         expect(h.frame()).toBe("xy[b]");
         h.controller.prev();
         expect(h.frame()).toBe("[xy]b");
+    });
+
+    it("an enclosing placeholder grows at its edge with the nested one", () => {
+        const h = setup("", "${1:${2}c}!");
+        h.controller.next();
+        expect(h.frame()).toBe("|c!");
+        h.type("XY");
+        h.controller.prev();
+        expect(h.frame()).toBe("[XYc]!");
     });
 
     it("an enclosing placeholder grows with the nested one, and Shift+Tab selects it whole", () => {
@@ -142,6 +155,43 @@ describe("SnippetController2: the session", () => {
         expect(h.frame()).toBe("[a]  c");
         h.controller.next();
         expect(h.frame()).toBe("a  [c]");
+    });
+
+    it("Shift+Tab skips a deleted group too", () => {
+        const h = setup("", "${1:a} ${2:b} ${3:c}");
+        h.controller.next();
+        h.deleteLeft();
+        h.controller.next();
+        expect(h.frame()).toBe("a  [c]");
+        h.controller.prev();
+        expect(h.frame()).toBe("[a]  c");
+    });
+
+    it("a deleted nested group is skipped although its enclosing placeholder still has text", () => {
+        const h = setup("", "${1:a ${2:b} c} ${3:d}");
+        h.controller.next();
+        h.deleteLeft();
+        h.controller.prev();
+        expect(h.frame()).toBe("[a  c] d");
+        h.controller.next();
+        expect(h.frame()).toBe("a  c [d]");
+    });
+
+    it("a group whose placeholder holds `$0` is skipped once deleted, and the walk stops at `$0`", () => {
+        const h = setup("", "${1:x$0}!");
+        h.deleteLeft();
+        expect(h.frame()).toBe("|!");
+        h.controller.next();
+        expect(h.frame()).toBe("|!");
+        expect(h.controller.isInSnippet).toBe(false);
+    });
+
+    it("Shift+Tab on a deleted first tab stop stays there", () => {
+        const h = setup("", "${1:a} ${2:b}");
+        h.deleteLeft();
+        h.controller.prev();
+        expect(h.frame()).toBe("| b");
+        expect(h.controller.isInSnippet).toBe(true);
     });
 
     it("an authored empty tab stop is not skipped", () => {
@@ -183,6 +233,26 @@ describe("SnippetController2: the session", () => {
         expect(h.controller.isInSnippet).toBe(false);
     });
 
+    it("every caret of a group must be in its own mirror", () => {
+        const h = setup("", "${1:a} x ${1:a}");
+        h.pane.viewState.selections = [createCursorSelection(0, 1), createCursorSelection(0, 2)];
+        expect(h.controller.isInSnippet).toBe(false);
+    });
+
+    it("leaving takes the tab stops off the document; a later edit brings no highlight back", () => {
+        const pane = snippetPane("");
+        panes.push(pane);
+        const { document } = pane.viewState;
+        const delta = vi.spyOn(document, "deltaDecorations");
+        const controller = SnippetController2.get(pane);
+        controller.apply([{ range: at(0, 0), template: "${1:a} ${2:b}" }], {});
+        const ids = delta.mock.results[0].value as string[];
+        controller.cancel(true);
+        expect(ids.map((id) => document.getDecorationRange(id))).toEqual([null, null, null]);
+        pane.pushUndo(pane.viewState.type("q"));
+        expect(pane.viewState.snippetTabstopRanges).toEqual([]);
+    });
+
     it("a caret on `$0` is outside the tab stops", () => {
         const h = setup("", "${1:a} $0 ${2:b}");
         h.pane.viewState.selections = [createCursorSelection(0, 2)];
@@ -198,6 +268,25 @@ describe("SnippetController2: the session", () => {
         h.pane.undo();
         expect(h.controller.isInSnippet).toBe(false);
         expect(h.pane.viewState.document.getText()).toBe("x");
+    });
+
+    it("undo of the insert ends the session even with the caret back inside the collapsed tab stop", () => {
+        const pane = snippetPane("x");
+        panes.push(pane);
+        pane.viewState.selections = [createCursorSelection(0, 1)];
+        const controller = SnippetController2.get(pane);
+        controller.apply([{ range: at(0, 1), template: "${1:a} ${2:b}" }], {});
+        pane.undo();
+        expect(drawSelections(pane)).toBe("x|");
+        expect(controller.isInSnippet).toBe(false);
+    });
+
+    it("an edit from another view in another tab stop moves its range on the frame", () => {
+        const h = setup("", "${1:ab} ${2:cd}");
+        // Straight into the document, as from another view of it: this view's carets do not move.
+        h.pane.viewState.document.applyEdits([{ range: at(0, 4), text: "ZZ" }]);
+        expect(h.frame()).toBe("[ab] cZZd");
+        expect(h.pane.viewState.snippetTabstopRanges).toEqual([createRange(0, 0, 0, 2), createRange(0, 3, 0, 7)]);
     });
 
     it("an edit from elsewhere inside a placeholder keeps the session, the ranges ride along", () => {
@@ -230,6 +319,15 @@ describe("SnippetController2: the session", () => {
         expect(h.frame()).toBe("1a-Q|\n2a-Q|");
         h.pane.viewState.selections = [h.pane.viewState.selections[1]];
         expect(h.controller.isInSnippet).toBe(false);
+    });
+
+    it("plain text inserted during a session ends it", () => {
+        const h = setup("", "${1:a} ${2:b}");
+        h.pane.viewState.selections = [createCursorSelection(0, 1)];
+        h.controller.apply([{ range: at(0, 1), template: "x" }], {});
+        expect(h.frame()).toBe("ax| b");
+        expect(h.controller.isInSnippet).toBe(false);
+        expect(h.pane.viewState.snippetTabstopRanges).toEqual([]);
     });
 
     it("a snippet inserted during a session ends it and starts its own", () => {

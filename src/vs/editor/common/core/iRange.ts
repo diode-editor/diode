@@ -27,8 +27,3 @@ export function rangeContainsPosition(range: IRange, position: IPosition): boole
 export function rangeContainsRange(outer: IRange, inner: IRange): boolean {
     return comparePositions(outer.start, inner.start) <= 0 && comparePositions(inner.end, outer.end) <= 0;
 }
-
-/** Upstream `Range.compareRangesUsingStarts`: by start, then by end. */
-export function compareRangesUsingStarts(a: IRange, b: IRange): number {
-    return comparePositions(a.start, b.start) || comparePositions(a.end, b.end);
-}
