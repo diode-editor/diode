@@ -195,6 +195,77 @@ describe("KeybindingRegistry", () => {
             expect(result).toBeUndefined();
         });
 
+        it("matches ctrl+shift+[ by code for Cyrillic ha (Russian layout, physical BracketLeft)", () => {
+            const registry = new KeybindingRegistry();
+            registry.register(kb("ctrl+shift+["), "editor.fold");
+
+            const result = resolve(
+                registry,
+                makeEvent({ key: "Х", code: "BracketLeft", ctrlKey: true, shiftKey: true }),
+            );
+
+            expect(result).toBe("editor.fold");
+        });
+
+        it.each([
+            ["]", "ъ", "BracketRight"],
+            [";", "ж", "Semicolon"],
+            ["'", "э", "Quote"],
+            [",", "б", "Comma"],
+            [".", "ю", "Period"],
+            ["/", "ё", "Slash"],
+            ["\\", "ё", "Backslash"],
+            ["`", "ё", "Backquote"],
+            ["-", "ё", "Minus"],
+            ["=", "ё", "Equal"],
+        ])("matches ctrl+%s by code for a non-Latin key on %s's physical key", (bound, key, code) => {
+            const registry = new KeybindingRegistry();
+            registry.register(kb(`ctrl+${bound}`), "cmd");
+
+            expect(resolve(registry, makeEvent({ key, code, ctrlKey: true }))).toBe("cmd");
+        });
+
+        it("matches meta+[ and alt+[ by code for a non-Latin key", () => {
+            const registry = new KeybindingRegistry();
+            registry.register(kb("meta+["), "meta");
+            registry.register(kb("alt+["), "alt");
+
+            expect(resolve(registry, makeEvent({ key: "х", code: "BracketLeft", metaKey: true }))).toBe("meta");
+            expect(resolve(registry, makeEvent({ key: "х", code: "BracketLeft", altKey: true }))).toBe("alt");
+            // The boundary: U+0080 is already outside ASCII, so it falls back too.
+            expect(resolve(registry, makeEvent({ key: "\u0080", code: "BracketLeft", altKey: true }))).toBe("alt");
+        });
+
+        it("does NOT code-fallback a punctuation binding for a Latin character (it decides by itself)", () => {
+            const registry = new KeybindingRegistry();
+            registry.register(kb("ctrl+/"), "comment");
+
+            // Russian layout prints "." on the physical Slash key: Ctrl+. is not Ctrl+/.
+            expect(resolve(registry, makeEvent({ key: ".", code: "Slash", ctrlKey: true }))).toBeUndefined();
+            expect(resolve(registry, makeEvent({ key: "\u007f", code: "Slash", ctrlKey: true }))).toBeUndefined();
+        });
+
+        it("does NOT code-fallback a punctuation binding without Ctrl, Cmd or Alt", () => {
+            const registry = new KeybindingRegistry();
+            registry.register(kb("shift+["), "cmd");
+
+            expect(resolve(registry, makeEvent({ key: "Х", code: "BracketLeft", shiftKey: true }))).toBeUndefined();
+        });
+
+        it("does NOT code-fallback a punctuation binding to a different physical key", () => {
+            const registry = new KeybindingRegistry();
+            registry.register(kb("ctrl+["), "cmd");
+
+            expect(resolve(registry, makeEvent({ key: "ъ", code: "BracketRight", ctrlKey: true }))).toBeUndefined();
+        });
+
+        it("does NOT match a punctuation binding to a letter code (ctrl+[ vs Cyrillic on KeyA)", () => {
+            const registry = new KeybindingRegistry();
+            registry.register(kb("ctrl+["), "cmd");
+
+            expect(resolve(registry, makeEvent({ key: "ф", code: "Key[", ctrlKey: true }))).toBeUndefined();
+        });
+
         it("does NOT code-fallback when modifiers do not match", () => {
             const registry = new KeybindingRegistry();
             registry.register(kb("ctrl+s"), "save");

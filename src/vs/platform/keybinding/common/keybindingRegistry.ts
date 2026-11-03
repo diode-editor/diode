@@ -334,14 +334,36 @@ function matchesBinding(event: KeyboardEventLike, binding: Keybinding): boolean 
 
     if (event.key.toLowerCase() === binding.key.toLowerCase()) return true;
 
-    // Layout-independent fallback: for single-letter shortcuts match by physical key code.
-    // This makes e.g. Ctrl+S work even when the Russian layout is active. With Alt only a
+    // Layout-independent fallback, as VS Code's `keyboard.dispatch: code`: match by physical key code.
+    // For letters this makes e.g. Ctrl+S work even when the Russian layout is active. With Alt only a
     // non-Latin key falls back (Alt + Cyrillic "a" → Alt+F): a Latin key decides by itself, so AZERTY Alt+a
     // (physical Q) stays Alt+A — the same rule as the menu bar mnemonics.
-    const physicalFallback = event.ctrlKey || event.metaKey || (event.altKey && event.key.charCodeAt(0) >= 0x80);
+    // Punctuation falls back only for a non-Latin character with Ctrl, Cmd or Alt (Ctrl+Shift+Cyrillic
+    // "ha" → Ctrl+Shift+[): a Latin character always decides by itself, whatever the layout.
+    const nonLatin = event.key.charCodeAt(0) >= 0x80;
+    const punctuationCode = PUNCTUATION_CODES[binding.key];
+    const physicalFallback =
+        punctuationCode === undefined
+            ? event.ctrlKey || event.metaKey || (event.altKey && nonLatin)
+            : nonLatin && (event.ctrlKey || event.metaKey || event.altKey);
     // No guards for multi-char keys or a missing code: `Key${"ENTER"}` is never a real code.
-    return physicalFallback && event.code === `Key${binding.key.toUpperCase()}`;
+    return physicalFallback && event.code === (punctuationCode ?? `Key${binding.key.toUpperCase()}`);
 }
+
+/** Physical key codes (`KeyboardEvent.code`) of the punctuation keys a binding can name. */
+const PUNCTUATION_CODES: Partial<Record<string, string>> = {
+    "[": "BracketLeft",
+    "]": "BracketRight",
+    ";": "Semicolon",
+    "'": "Quote",
+    ",": "Comma",
+    ".": "Period",
+    "/": "Slash",
+    "\\": "Backslash",
+    "`": "Backquote",
+    "-": "Minus",
+    "=": "Equal",
+};
 
 export class KeybindingRegistry implements IDisposable {
     private entries: KeybindingEntry[] = [];
