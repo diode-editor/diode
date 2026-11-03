@@ -13,6 +13,7 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createCursorSelection, isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
+import { DEFAULT_WORD_REGEXP, getWordAtText } from "../../../../editor/common/core/wordHelper.ts";
 import type {
     CompletionItemProvider,
     ICoreCompletionItem,
@@ -86,6 +87,12 @@ export interface IInlineSuggestionsState {
     readonly onDidChange: Event<void>;
 }
 
+/** What a retrigger keeps from the open popup. */
+interface IReusedItems {
+    readonly items: readonly ICoreCompletionItem[];
+    readonly providerOf: Map<ICoreCompletionItem, CompletionItemProvider>;
+}
+
 const EMPTY_RESULT: ICompletionsFromProviders = { items: [], isIncomplete: false, providerOf: new Map() };
 
 export class CompletionService extends Disposable implements IContextKeyContributor {
@@ -111,8 +118,10 @@ export class CompletionService extends Disposable implements IContextKeyContribu
     private readonly waitForInline = this.register(new MutableDisposable<DisposableStore>());
     private activeEditor: TextEditorPane | null = null;
     private prefixRange: IRange | null = null;
-    // The provider set the prefix boundary — don't recompute it on further typing (refilterOpen).
-    private prefixFromProvider = false;
+    // The line text before the prefix boundary: an edit there (`a ind` → `aind`) makes the prefix something
+    // the user did not type (refilterOpen).
+    // Stryker disable next-line StringLiteral: the value is not read before the first trigger() — refilterOpen runs only with the popup open, and trigger() opens it and sets the field
+    private lineHead = "";
     // The popup was opened by something other than an explicit command (typing, trigger character).
     // Stryker disable next-line BooleanLiteral: the value is not read before the first trigger() — refilterOpen runs only with the popup open, and trigger() opens it and sets the field
     private autoSession = false;
@@ -192,7 +201,12 @@ export class CompletionService extends Disposable implements IContextKeyContribu
      * `auto` — quick suggest: like upstream, the popup is not shown if nothing matches the typed text,
      * and closes once further typing filters the list down to nothing.
      */
-    public async trigger(triggerCharacter?: string, auto = false): Promise<void> {
+    public trigger(triggerCharacter?: string, auto = false): Promise<void> {
+        return this.request(triggerCharacter, auto, false);
+    }
+
+    /** `retrigger` — the popup is open: keep the items of the providers not asked now, and the prefix boundary. */
+    private async request(triggerCharacter: string | undefined, auto: boolean, retrigger: boolean): Promise<void> {
         this.cancelAutoSuggest();
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
@@ -209,6 +223,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             .filter(
                 (provider) => triggerCharacter === undefined || provider.triggerCharacters.includes(triggerCharacter),
             );
+        const reused = retrigger ? this.reusableItems(providers, active) : null;
         const ticket = this.latest.start();
         this.requestCaret = active;
         // No response deadline (like upstream): a language server on a cold start takes seconds, and an
@@ -250,29 +265,45 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         const extensionItems = result.items;
         // The provider sets the prefix boundary: after `d.` its `range` starts past the dot, while our
         // wordStart (WORD_CHAR includes `.` and `-` for settings.json) would give the prefix `d.`.
-        const providerStart = commonPrefixStart(extensionItems, active);
-        const prefixStart = providerStart ?? wordStart(caretLine, caret.character);
+        // A retrigger keeps the original boundary: upstream filters every item from its own `editStart`,
+        // our widget has one filter per list, and the reused items were anchored there. The popup survived the
+        // wait (the ticket is fresh), so its boundary is still set.
+        const prefixStart =
+            reused !== null
+                ? assertReturnsDefined(this.prefixRange).start.character
+                : (commonPrefixStart(extensionItems, active) ?? wordStart(caretLine, caret.character));
         const prefix = caretLine.slice(prefixStart, caret.character);
 
         // Upstream's word provider is registered for `*`, in the last group of `orderedGroups`, and
         // `provideSuggestionItems` stops at the first group with results: words only when no provider has any.
         // It declares no trigger characters, so `providerFilter` leaves it out of a trigger character request.
         const items =
-            extensionItems.length > 0 || triggerCharacter !== undefined
-                ? extensionItems
-                : this.wordItems(editor, prefix);
-        if (items.length === 0) return;
+            reused !== null
+                ? [...reused.items, ...extensionItems]
+                : extensionItems.length > 0 || triggerCharacter !== undefined
+                  ? extensionItems
+                  : this.wordItems(editor, prefix);
+        if (items.length === 0) {
+            // A retrigger left nothing: the old list was all from the providers asked again.
+            if (reused !== null) this.close();
+            return;
+        }
 
         const anchor = editor.getCaretAnchor();
         if (anchor === null) return;
 
         this.activeEditor = editor;
         this.prefixRange = createRange(caret.line, prefixStart, caret.line, caret.character);
-        this.prefixFromProvider = providerStart !== null;
+        this.lineHead = caretLine.slice(0, prefixStart);
         // Snapshot of the request cursor, not the current one: accept counts the characters typed since from it (resolveAcceptRange).
         this.triggerCaret = { line: active.line, character: active.character };
         this.isIncomplete = result.isIncomplete;
-        this.providerOf = result.providerOf;
+        if (reused === null) {
+            this.providerOf = result.providerOf;
+        } else {
+            for (const [item, provider] of result.providerOf) reused.providerOf.set(item, provider);
+            this.providerOf = reused.providerOf;
+        }
         this.autoSession = auto;
 
         const view = this.component.view;
@@ -301,7 +332,6 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         this.component.close();
         this.activeEditor = null;
         this.prefixRange = null;
-        this.prefixFromProvider = false;
         this.triggerCaret = null;
         this.isIncomplete = false;
         this.latest.cancel();
@@ -410,17 +440,19 @@ export class CompletionService extends Disposable implements IContextKeyContribu
 
     /**
      * A typing event, not "the line grew": accept, undo and paste don't count. Arrives AFTER the
-     * cursor event of the same edit. A trigger character reopens the list even with the popup open.
+     * cursor event of the same edit, so an open popup has already been filtered by the character.
      */
     private onDidType(editor: TextEditorPane, text: string): void {
         if (this.isTriggerCharacterCase(editor, text)) {
             if (!this.canShowSuggestWithInline(editor.languageId)) return;
-            if (this.isOpen()) this.component.close();
             // The in-flight response is about the word before the character.
             this.latest.cancel();
+            // Upstream `providerItemsToReuse`: only the providers declaring the character are asked, the others'
+            // items stay — and stay on screen until the response (`retrigger`).
+            const retrigger = this.isOpen();
             // On the next tick, outside the edit stack (upstream — immediately). Not `auto`: our prefix
             // also captures the character (`d.`), and without a provider range nothing would match it.
-            this.scheduleAuto(() => void this.trigger(text), 0);
+            this.scheduleAuto(() => void this.request(text, false, retrigger), 0);
         } else if (!this.isOpen()) {
             this.scheduleQuickSuggest(editor);
         }
@@ -456,19 +488,10 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             this.close();
             return;
         }
-        // Further typing must continue the word: otherwise `refineFilter` kept the last non-empty list,
-        // `acceptSelectedSuggestion` took Enter, and `cons{` + Enter gave `console`.
-        const trigger = this.triggerCaret;
-        // Unreachable with the popup open, like prefixRange above; the check narrows the type.
-        // Stryker disable next-line ConditionalExpression: unreachable branch, see above
-        if (trigger !== null && !isWordRun(line.slice(trigger.character, active.character))) {
-            this.close();
-            return;
-        }
-        // Don't recompute the provider boundary: it lies where the core sees no word boundary
-        // (a settings.json key quote, a tsserver dot), and recomputing closed the popup on the first character.
-        const prefixStart = this.prefixFromProvider ? prefixRange.start.character : wordStart(line, active.character);
-        if (prefixStart !== prefixRange.start.character) {
+        // An edit left of the boundary (`a ind` → `aind`): the prefix is no longer what the user typed. Like
+        // upstream `_onNewContext`, which cancels when the line start changes.
+        const prefixStart = prefixRange.start.character;
+        if (line.slice(0, prefixStart) !== this.lineHead) {
             this.close();
             return;
         }
@@ -477,17 +500,23 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             this.close();
             return;
         }
+        // Like upstream `CompletionModel`: the list is filtered by everything typed since the boundary, word
+        // characters or not (`require("@` keeps `@types/foo`), and closes only when nothing matched. An explicit
+        // popup keeps the last non-empty list, unless the cursor is off a word: `cons{` + Enter gave `console`
+        // (upstream `_onNewContext`: `leadingWord.word.length === 0` → cancel).
         const prefix = line.slice(prefixStart, active.character);
         const view = this.component.view;
-        if (this.autoSession && !this.isIncomplete) {
-            // An auto popup filtered down to nothing closes; an explicit one keeps the last non-empty list.
+        const keepLastNonEmpty =
+            (!this.autoSession || this.isIncomplete) &&
+            getWordAtText(active.character, DEFAULT_WORD_REGEXP, line) !== null;
+        if (keepLastNonEmpty) {
+            view.refineFilter(prefix);
+        } else {
             view.setFilter(prefix);
             if (view.items.length === 0) {
                 this.close();
                 return;
             }
-        } else {
-            view.refineFilter(prefix);
         }
         this.prefixRange = createRange(prefixRange.start.line, prefixStart, active.line, active.character);
         this.component.setAnchor(anchor);
@@ -658,29 +687,29 @@ export class CompletionService extends Disposable implements IContextKeyContribu
 
     /**
      * `core.range` is a snapshot at trigger time, while further typing is filtered locally: the range end
-     * lags behind the cursor, and accept would leave a tail (`"editor.tabSize"di`). We shift the end by the
-     * number of characters typed since — hence only for a single-line range.
+     * lags behind the cursor, and accept would leave a tail (`"editor.tabSize"di`).
      */
     private resolveAcceptRange(core: ICoreCompletionItem, prefixRange: IRange, caret: IPosition): IRange {
-        const providerRange = core.range;
-        if (providerRange === undefined) return prefixRange;
+        if (core.range === undefined) return prefixRange;
+        return followCaret(core.range, assertReturnsDefined(this.triggerCaret), caret);
+    }
 
-        const trigger = this.triggerCaret;
-        /* v8 ignore start -- defensive: while the popup is open, triggerCaret is set
-           (trigger() sets it, close() clears it), and moving the cursor to another line
-           closes the popup via refilterOpen — so accept is never reached */
-        if (caret.line !== trigger?.line) return providerRange;
-        /* v8 ignore stop */
-        if (providerRange.end.line !== trigger.line) return providerRange;
-
-        const delta = caret.character - trigger.character;
-        if (delta === 0) return providerRange;
-        return createRange(
-            providerRange.start.line,
-            providerRange.start.character,
-            providerRange.end.line,
-            providerRange.end.character + delta,
-        );
+    /**
+     * The items of the providers not in `asked`, with their ranges moved to the new request cursor: after the
+     * retrigger, accept counts the typed characters from it. Buffer words are not in `providerOf` and are not
+     * kept: they never contain the non-word trigger character, so the filter has already hidden them.
+     */
+    private reusableItems(asked: readonly CompletionItemProvider[], caret: IPosition): IReusedItems {
+        const from = assertReturnsDefined(this.triggerCaret);
+        const items: ICoreCompletionItem[] = [];
+        const providerOf = new Map<ICoreCompletionItem, CompletionItemProvider>();
+        for (const [item, provider] of this.providerOf) {
+            if (asked.includes(provider)) continue;
+            const moved = item.range === undefined ? item : { ...item, range: followCaret(item.range, from, caret) };
+            items.push(moved);
+            providerOf.set(moved, provider);
+        }
+        return { items, providerOf };
     }
 
     private accept(item: CompletionListItem): void {
@@ -824,6 +853,20 @@ function wordStart(line: string, character: number): number {
     let start = Math.min(character, line.length);
     while (start > 0 && WORD_CHAR.test(line[start - 1])) start--;
     return start;
+}
+
+/**
+ * Moves the end of a `range` snapshotted at `from` by the characters typed up to `to` — only for a range ending
+ * on the cursor line.
+ */
+function followCaret(range: IRange, from: IPosition, to: IPosition): IRange {
+    if (range.end.line !== from.line) return range;
+    return createRange(
+        range.start.line,
+        range.start.character,
+        range.end.line,
+        range.end.character + to.character - from.character,
+    );
 }
 
 /** The items' common `range.start.character`; `null` — no ranges, or they differ. */
