@@ -64,7 +64,9 @@ describe("Workbench — Preferences commands", () => {
             const terminalSegment = statusSegments(view).find((segment) => segment.side === "left");
             expect(terminalSegment).toBeDefined();
             clickSegment(view, terminalSegment!.text);
-            await vi.waitFor(() => expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile)));
+            await vi.waitFor(() => {
+                expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
+            });
             h.testApp.render();
             expect(h.testApp.backend.screenToString()).toContain("settings.json");
         });
