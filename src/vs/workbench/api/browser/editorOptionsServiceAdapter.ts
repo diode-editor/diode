@@ -12,8 +12,15 @@ import { clampPositionToDocument } from "../../../editor/common/core/iPosition.t
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import {
+    type ILanguageConfigurationService,
+    NULL_LANGUAGE_CONFIGURATION_SERVICE,
+} from "../../../editor/common/languages/iLanguageConfigurationService.ts";
 import type { RangeRevealType } from "../../../editor/common/viewModel/editorViewState.ts";
 import { SnippetController2 } from "../../../editor/contrib/snippet/browser/snippetController2.ts";
+import { SnippetParser } from "../../../editor/contrib/snippet/browser/snippetParser.ts";
+import type { IClipboard } from "../../../platform/clipboard/common/iClipboard.ts";
+import type { IWorkspaceContextService } from "../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
@@ -34,6 +41,19 @@ import {
     selectionChangeKindOf,
 } from "../common/wireTypes.ts";
 
+/** What `insertSnippet` resolves the snippet variables from. */
+export interface ISnippetVariableServices {
+    readonly clipboard: Pick<IClipboard, "readText"> | undefined;
+    readonly languageConfigurations: Pick<ILanguageConfigurationService, "get" | "ensureLoaded">;
+    readonly workspace: Pick<IWorkspaceContextService, "getWorkspace" | "getWorkspaceFolder"> | undefined;
+}
+
+const NO_SNIPPET_VARIABLE_SERVICES: ISnippetVariableServices = {
+    clipboard: undefined,
+    languageConfigurations: NULL_LANGUAGE_CONFIGURATION_SERVICE,
+    workspace: undefined,
+};
+
 export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private readonly group: IEditorService;
     private readonly groups: IEditorGroupsService;
@@ -50,7 +70,12 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
      */
     private pendingSelectionSource: CursorChangeSource | undefined;
 
-    public constructor(group: IEditorService, groups: IEditorGroupsService, workspaceEdits: IBulkEditService) {
+    public constructor(
+        group: IEditorService,
+        groups: IEditorGroupsService,
+        workspaceEdits: IBulkEditService,
+        private readonly snippetVariables: ISnippetVariableServices = NO_SNIPPET_VARIABLE_SERVICES,
+    ) {
         this.group = group;
         this.groups = groups;
         this.workspaceEdits = workspaceEdits;
@@ -216,23 +241,40 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         return true;
     }
 
-    public insertSnippet(
+    public async insertSnippet(
         uri: string,
         groupId: number | undefined,
         template: string,
         ranges: readonly IRange[],
         options: { version: number; undoStopBefore?: boolean; undoStopAfter?: boolean; keepWhitespace?: boolean },
-    ): boolean {
+    ): Promise<boolean> {
         const editor = this.editorFor(uri, groupId);
         if (editor === null || editor.readOnly || ranges.length === 0) return false;
         const document = editor.model.document;
+        const { clipboard, languageConfigurations, workspace } = this.snippetVariables;
+        // Upstream reads the clipboard only for a template that needs it, and gives up if the editor changed meanwhile:
+        // an edit fails the version check below, a moved selection this one.
+        const needsClipboard = clipboard !== undefined && SnippetParser.guessNeedsClipboard(template);
+        let clipboardText: string | undefined;
+        let configuration = languageConfigurations.get(document.languageId);
+        if (needsClipboard || configuration === undefined) {
+            const selectionsBefore = editor.viewState.selections;
+            [clipboardText, configuration] = await Promise.all([
+                needsClipboard ? clipboard.readText() : undefined,
+                configuration ?? languageConfigurations.ensureLoaded(document.languageId),
+            ]);
+            if (!sameSelections(editor.viewState.selections, selectionsBefore)) return false;
+        }
         if (options.version !== document.versionId) return false;
         return SnippetController2.get(editor).apply(
             ranges.map(({ start, end }) => ({
                 range: { start: clampPositionToDocument(document, start), end: clampPositionToDocument(document, end) },
                 template,
             })),
-            options,
+            {
+                ...options,
+                variables: { resource: editor.uri, clipboardText, comments: configuration.comments, workspace },
+            },
         );
     }
 

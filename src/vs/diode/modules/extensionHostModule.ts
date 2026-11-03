@@ -231,6 +231,12 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             group,
             container.get(EditorGroupsServiceDIToken),
             container.get(WorkspaceEditServiceDIToken),
+            // Stryker disable next-line ObjectLiteral: production module wiring — the variables are covered by EditorOptionsServiceAdapter unit tests and the harness; end-to-end — e2e scenario extension-insert-snippet
+            {
+                clipboard: container.get(ClipboardDIToken),
+                languageConfigurations: container.get(LanguageConfigurationServiceDIToken),
+                workspace: container.get(IWorkspaceContextServiceDIToken),
+            },
         );
         const commandAdapter = new CommandServiceAdapter(container.get(CommandRegistryDIToken));
         const logService = container.get(ILogServiceDIToken);

@@ -41,7 +41,7 @@ function setup() {
         onActiveEditorSelectionChanged: (cb: (s: IActiveEditorSelections) => void) => selection.event(cb),
         setActiveEditorSelections: vi.fn(),
         applyActiveEditorEdits: vi.fn(() => true),
-        insertSnippet: vi.fn(() => true),
+        insertSnippet: vi.fn(() => Promise.resolve(true)),
         applyWorkspaceEdit: vi.fn(() => Promise.resolve(true)),
         saveAll: vi.fn(() => Promise.resolve(true)),
         save: vi.fn((uri: string) => Promise.resolve(uri === "file:///open.go" ? uri : null)),
@@ -290,7 +290,7 @@ describe("EditorCustomer — subprocess requests", () => {
             [RANGE],
             { version: 4 },
         ]);
-        vi.mocked(h.editorOptions.insertSnippet).mockReturnValueOnce(false);
+        vi.mocked(h.editorOptions.insertSnippet).mockResolvedValueOnce(false);
         await expect(h.peer.request("editor.insertSnippet", params)).resolves.toBe(false);
     });
 
