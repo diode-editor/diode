@@ -17,6 +17,10 @@
             "type",
             "default:type",
             "tab",
+            "jumpToNextSnippetPlaceholder",
+            "jumpToPrevSnippetPlaceholder",
+            "leaveSnippet",
+            "acceptSnippet",
             "references-view.removeCallItem",
             "references-view.removeTypeItem"
         ]

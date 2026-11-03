@@ -258,6 +258,13 @@ describe("SnippetController2: the session", () => {
         expect(h.controller.isInSnippet).toBe(true);
     });
 
+    it("Tab centers a tab stop that is out of the viewport", () => {
+        const h = setup("", `\${1:a}${"\n".repeat(50)}\${2:b}${"\n".repeat(50)}`);
+        h.pane.viewState.viewportHeight = 10;
+        h.controller.next();
+        expect(h.pane.viewState.scrollTop).toBe(45);
+    });
+
     it("accept goes on to the end", () => {
         const h = setup("", "${1:a} ${2:b} $0!");
         h.controller.finish();

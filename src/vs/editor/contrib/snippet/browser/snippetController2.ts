@@ -116,11 +116,12 @@ export class SnippetController2 {
         const [primary] = viewState.selections;
         viewState.revealRangeByType({ start: primary.active, end: primary.active }, "default");
         this.updateState();
-        if (this.session === null) return true;
+        const { session } = this;
+        if (session === null) return true;
         this.sessionStore.add(
             document.onDidChangeModelContent((event) => {
                 if (event.isFlush) this.cancel();
-                else this.publishTabstops();
+                else this.publishTabstops(session);
             }),
         );
         this.sessionStore.add(
@@ -144,7 +145,7 @@ export class SnippetController2 {
             this.cancel();
             return;
         }
-        this.publishTabstops();
+        this.publishTabstops(session);
     }
 
     /** `jumpToNextSnippetPlaceholder`. */
@@ -162,9 +163,9 @@ export class SnippetController2 {
         const selections = this.session.move(fwd);
         const { viewState } = this.editor;
         viewState.selections = selections;
+        // The selection change has updated the state: on the last group the session is over.
         const { active } = selections[0];
         viewState.revealRangeByType({ start: active, end: active }, "centerIfOutsideViewport");
-        this.updateState();
     }
 
     /** `acceptSnippet`: on to the end. */
@@ -184,7 +185,7 @@ export class SnippetController2 {
         if (resetSelection) viewState.selections = [viewState.selections[0]];
     }
 
-    private publishTabstops(): void {
-        this.editor.viewState.snippetTabstopRanges = this.session?.tabstopRanges() ?? [];
+    private publishTabstops(session: SnippetSession): void {
+        this.editor.viewState.snippetTabstopRanges = session.tabstopRanges();
     }
 }

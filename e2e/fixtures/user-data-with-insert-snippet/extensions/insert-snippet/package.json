@@ -1,7 +1,7 @@
 {
     "name": "insert-snippet",
     "displayName": "Insert Snippet",
-    "description": "E2E demo extension: opens a hanging indent with TextEditor.insertSnippet, as KevinRose.vsc-python-indent does, transforms the selection with a snippet variable, and calls the core edit commands yzhang.markdown-all-in-one relies on.",
+    "description": "E2E demo extension: opens a hanging indent with TextEditor.insertSnippet, as KevinRose.vsc-python-indent does, transforms the selection with a snippet variable, walks a snippet session, and calls the core edit commands yzhang.markdown-all-in-one relies on.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",
@@ -21,6 +21,10 @@
             {
                 "command": "insertSnippetDemo.upcase",
                 "title": "Insert Snippet: Upper-Case the Selection"
+            },
+            {
+                "command": "insertSnippetDemo.assign",
+                "title": "Insert Snippet: Assignment With a Mirror"
             },
             {
                 "command": "insertSnippetDemo.tab",
