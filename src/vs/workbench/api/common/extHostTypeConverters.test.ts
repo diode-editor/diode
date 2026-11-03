@@ -105,6 +105,13 @@ describe("stripSnippetPlaceholders", () => {
         expect(stripSnippetPlaceholders("cost: \\$5")).toBe("cost: $5");
     });
 
+    it("the escapes of SnippetString builders come out as plain characters, inside placeholders and choices too", () => {
+        expect(stripSnippetPlaceholders("f() {$0\\}")).toBe("f() {}");
+        expect(stripSnippetPlaceholders("C:\\\\Users\\\\")).toBe("C:\\Users\\");
+        expect(stripSnippetPlaceholders("${1:a\\}\\\\b}")).toBe("a}\\b");
+        expect(stripSnippetPlaceholders("${1|a\\,b\\|c\\\\,d|}")).toBe("a,b|c\\");
+    });
+
     it("multi-digit tabstop indices are parsed whole", () => {
         expect(stripSnippetPlaceholders("f(${10:x})")).toBe("f(x)");
         expect(stripSnippetPlaceholders("f(${12})")).toBe("f()");

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 import { createApiCommands, type IApiCommandsDeps } from "./apiCommands.ts";
-import { Position, Range, Selection, Uri } from "./vscodeTypes.ts";
+import { Position, Range, Selection, SnippetString, Uri } from "./vscodeTypes.ts";
 
 function setup(): { open: (...args: unknown[]) => Promise<unknown>; deps: IApiCommandsDeps } {
     const deps: IApiCommandsDeps = {
@@ -126,7 +126,7 @@ describe("apiCommands — editor.action.insertSnippet", () => {
         await expect(call({ snippet: "[$TM_SELECTED_TEXT$0](url)" })).resolves.toBeUndefined();
 
         expect(insertSnippet).toHaveBeenCalledTimes(1);
-        expect(insertSnippet.mock.calls[0]).toEqual([expect.objectContaining({ value: "[$TM_SELECTED_TEXT$0](url)" })]);
+        expect(insertSnippet.mock.calls[0]).toStrictEqual([new SnippetString("[$TM_SELECTED_TEXT$0](url)")]);
     });
 
     it("does nothing without an inline snippet: a lookup by langId and name has no contributed snippets", async () => {

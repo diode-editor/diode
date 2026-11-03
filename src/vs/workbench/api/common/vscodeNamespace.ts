@@ -330,11 +330,9 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         CompletionItem,
         CompletionList,
         CompletionTriggerKind,
-        // Cast here and in the three classes below that hold SnippetString in fields: our
-        // SnippetString has only `appendText` without escaping, no d.ts builders.
-        SnippetString: SnippetString as unknown as typeof vscode.SnippetString,
-        InlineCompletionItem: InlineCompletionItem as unknown as typeof vscode.InlineCompletionItem,
-        InlineCompletionList: InlineCompletionList as unknown as typeof vscode.InlineCompletionList,
+        SnippetString,
+        InlineCompletionItem,
+        InlineCompletionList,
         InlineCompletionTriggerKind,
         EndOfLine,
         TextDocumentSaveReason,

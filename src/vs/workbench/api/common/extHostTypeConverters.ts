@@ -24,6 +24,7 @@ import type {
 } from "../../../editor/common/languages/iWorkspaceSymbolSource.ts";
 
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { resolveSnippet } from "./extHostSnippetInsert.ts";
 import {
     Diagnostic,
     EndOfLine,
@@ -382,27 +383,12 @@ function readLabelDetails(item: vscode.CompletionItem): { detail?: string; descr
 }
 
 /**
- * There are no snippet sessions: this is a safeguard so that `${1:name}` does not end up
- * in the buffer, not snippet support.
+ * There are no snippet sessions: the text `insertSnippet` would put in the buffer, with the template as is
+ * (`keepWhitespace`), so that `${1:name}` and the escapes of `SnippetString.appendText` do not end up there.
  */
 export function stripSnippetPlaceholders(value: string): string {
-    // The escaped `\$` is hidden FIRST: otherwise `\$5` parses as the placeholder
-    // `$5`, leaving an orphaned backslash behind.
-    const ESCAPED_DOLLAR = "\u0000";
-    return (
-        value
-            .replace(/\\\$/g, ESCAPED_DOLLAR)
-            // `split(",", 1).join("")` instead of `[0]`: yields the first choice without an
-            // "array might be empty" branch (it never is, and covering it would need a test).
-            .replace(/\$\{(\d+)\|([^|]*)\|\}/g, (_all, _index: string, choices: string) =>
-                // Stryker disable next-line StringLiteral: equivalent `join` separator — `split(…, 1)` always yields exactly one element, nothing to join; mutating the `split` separator is covered by the "${1|foo,bar|}" test
-                choices.split(",", 1).join(""),
-            )
-            .replace(/\$\{\d+:([^}]*)\}/g, "$1")
-            .replace(/\$\{\d+\}/g, "")
-            .replace(/\$\d+/g, "")
-            .replaceAll(ESCAPED_DOLLAR, "$")
-    );
+    // Stryker disable next-line StringLiteral: equivalent, with `keepWhitespace` (null) `resolveSnippet` never reads the line's leading whitespace
+    return resolveSnippet(value, "", null).text;
 }
 
 function readInsertText(item: vscode.CompletionItem, label: string): string {
