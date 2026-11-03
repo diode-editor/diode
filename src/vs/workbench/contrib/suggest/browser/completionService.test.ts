@@ -2666,6 +2666,18 @@ describe('CompletionService — typing past the trigger (npm-intellisense in `re
         });
     });
 
+    it("an npm-intellisense trigger character keeps TypeScript's items without a range as they are", async () => {
+        const { fake, labels } = npmSetup(() =>
+            Promise.resolve(completionResult([{ label: "left-pad/lib", insertText: "left-pad/lib" }])),
+        );
+        await typeQuote(fake);
+        fake.type(`${HEAD}"left-pad/`, QUOTE_END + 9);
+        await flushTimers();
+
+        // npm-intellisense was asked again (`/`), TypeScript's item was reused untouched.
+        expect(labels()).toEqual(["left-pad/lib"]);
+    });
+
     it("with a cold TypeScript provider: the npm-intellisense list stays on screen, filtered, until the response", async () => {
         let answer: ((result: ICoreCompletionResult) => void) | null = null;
         const tsResolve = vi.fn(() => Promise.resolve(null));
