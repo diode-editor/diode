@@ -23,9 +23,9 @@ exports.activate = function activate(context) {
         vscode.commands.registerTextEditorCommand("insertSnippetDemo.accessor", (editor) =>
             editor.insertSnippet(new vscode.SnippetString("${1|get,set|} ${2:_name}() { return this.${2/^_(.*)/$1/}; }$0")),
         ),
-        // Snippet variables (#1034): the file, the date, the clipboard and the language's comment.
+        // Snippet variables (#1034): the file name, the clipboard and the language's comment, with defaults.
         vscode.commands.registerTextEditorCommand("insertSnippetDemo.header", (editor) =>
-            editor.insertSnippet(new vscode.SnippetString("$LINE_COMMENT $TM_FILENAME, $CURRENT_YEAR, $CLIPBOARD")),
+            editor.insertSnippet(new vscode.SnippetString("${LINE_COMMENT:#} $TM_FILENAME, $CLIPBOARD")),
         ),
         vscode.commands.registerCommand("insertSnippetDemo.tab", () => vscode.commands.executeCommand("tab")),
         vscode.commands.registerCommand("insertSnippetDemo.lineBelow", () =>
