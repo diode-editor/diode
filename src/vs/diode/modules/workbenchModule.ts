@@ -309,6 +309,7 @@ import {
     SmartSelectService,
     SmartSelectServiceDIToken,
 } from "../../workbench/contrib/smartSelect/browser/smartSelectService.ts";
+import { SnippetService, SnippetServiceDIToken } from "../../workbench/contrib/snippet/browser/snippetService.ts";
 import {
     CompletionService,
     CompletionServiceDIToken,
@@ -560,6 +561,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(HoverComponentDIToken, HoverComponent);
     container.bind(HoverServiceDIToken, HoverService);
     container.bind(LinkedEditingServiceDIToken, LinkedEditingService);
+    container.bind(SnippetServiceDIToken, SnippetService);
     container.bind(LinksServiceDIToken, LinksService);
     container.bind(FormatOnTypeServiceDIToken, FormatOnTypeService);
     container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);

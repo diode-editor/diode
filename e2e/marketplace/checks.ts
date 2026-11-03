@@ -697,7 +697,10 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         run: async (ctx) => {
             const file = join(ctx.root, "indent.py");
             writeFileSync(file, "\n");
-            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file],
+                // The snippet of a hanging indent gets a tab stop after the bracket (#1032).
+                settings: { "pythonIndent.useTabOnHangingIndent": true },
+            });
             const waitForFile = (expected: string): Promise<void> =>
                 waitUntil(
                     () => readFileSync(file, "utf8"),
@@ -736,6 +739,9 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await waitForCaret("Ln 4, Col 9");
                 await typeKeys("z");
                 await waitForCaret("Ln 4, Col 10");
+                // The snippet session: Tab leaves the hanging indent for the closing bracket, the snippet's end.
+                await app.session.key("Tab");
+                await waitForCaret("Ln 5, Col 5");
                 await app.session.key("Ctrl+S");
                 await waitForFile("def f(x):\n    y\n    foo(\n        z\n    )\n");
             } finally {

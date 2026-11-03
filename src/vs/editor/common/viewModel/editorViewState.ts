@@ -179,6 +179,9 @@ export class EditorViewState {
     private readonly onDidChangeLinkedEditingRangesEmitter = new Emitter<void>();
     /** Not {@link onDidChangeView}, for the reason of {@link onDidChangeWordHighlights}. */
     public readonly onDidChangeLinkedEditingRanges = this.onDidChangeLinkedEditingRangesEmitter.event;
+    private readonly onDidChangeSnippetTabstopRangesEmitter = new Emitter<void>();
+    /** Not {@link onDidChangeView}, for the reason of {@link onDidChangeWordHighlights}. */
+    public readonly onDidChangeSnippetTabstopRanges = this.onDidChangeSnippetTabstopRangesEmitter.event;
     public get searchMatches(): IRange[] {
         return this.searchMatchesValue;
     }
@@ -209,6 +212,19 @@ export class EditorViewState {
         this.onDidChangeLinkedEditingRangesEmitter.fire();
     }
 
+    /**
+     * The tab stops of the snippet session on the frame, `$0` left out, sorted and not overlapping; kept by
+     * `SnippetController2`, which tracks them through edits.
+     */
+    public get snippetTabstopRanges(): readonly IRange[] {
+        return this.snippetTabstopRangesValue;
+    }
+
+    public set snippetTabstopRanges(value: readonly IRange[]) {
+        this.snippetTabstopRangesValue = value;
+        this.onDidChangeSnippetTabstopRangesEmitter.fire();
+    }
+
     /** -1 means no active match. */
     public get currentSearchMatchIndex(): number {
         return this.currentSearchMatchIndexValue;
@@ -223,6 +239,7 @@ export class EditorViewState {
     private searchMatchesValue: IRange[] = [];
     private wordHighlightsValue: IWordHighlightSet = EMPTY_WORD_HIGHLIGHT_SET;
     private linkedEditingRangesValue: readonly IRange[] = [];
+    private snippetTabstopRangesValue: readonly IRange[] = [];
     private currentSearchMatchIndexValue = -1;
     public readonly document: ITextDocument;
     public foldedRegions: IFoldingRegion[] = [];

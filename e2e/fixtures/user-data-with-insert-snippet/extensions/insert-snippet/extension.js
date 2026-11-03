@@ -15,6 +15,10 @@ exports.activate = function activate(context) {
         vscode.commands.registerTextEditorCommand("insertSnippetDemo.upcase", (editor) =>
             editor.insertSnippet(new vscode.SnippetString("${TM_SELECTED_TEXT/(.*)/${1:/upcase}/} ${1:${2:nested} placeholder}")),
         ),
+        // A snippet session (#1032): a tab stop with a mirror, then the final one.
+        vscode.commands.registerTextEditorCommand("insertSnippetDemo.assign", (editor) =>
+            editor.insertSnippet(new vscode.SnippetString("${1:name} = $1;$0")),
+        ),
         vscode.commands.registerCommand("insertSnippetDemo.tab", () => vscode.commands.executeCommand("tab")),
         vscode.commands.registerCommand("insertSnippetDemo.lineBelow", () =>
             vscode.commands.executeCommand("editor.action.insertLineAfter"),

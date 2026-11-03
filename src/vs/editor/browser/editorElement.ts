@@ -747,6 +747,9 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState.onDidChangeLinkedEditingRanges(() => {
             this.markDirty();
         });
+        this.viewState.onDidChangeSnippetTabstopRanges(() => {
+            this.markDirty();
+        });
         this.viewState.onDidChangeCursorPosition(() => {
             this.markDirty();
         });
@@ -1152,6 +1155,13 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.paintOccurrences(context, occurrences.write, "editor.wordHighlightStrongBackground", geometry);
         // Over the occurrences: the same word usually carries both.
         this.paintOccurrences(context, this.viewState.linkedEditingRanges, "editor.linkedEditingBackground", geometry);
+        // Upstream tells the active tab stop by its border, which a cell has none of: one background for all.
+        this.paintOccurrences(
+            context,
+            this.viewState.snippetTabstopRanges,
+            "editor.snippetTabstopHighlightBackground",
+            geometry,
+        );
 
         const searchMatches = this.viewState.searchMatches;
         const currentMatchIndex = this.viewState.currentSearchMatchIndex;

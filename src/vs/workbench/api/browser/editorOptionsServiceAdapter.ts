@@ -13,7 +13,7 @@ import { createRange, type IRange } from "../../../editor/common/core/iRange.ts"
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { RangeRevealType } from "../../../editor/common/viewModel/editorViewState.ts";
-import { insertSnippet } from "../../../editor/contrib/snippet/browser/snippetSession.ts";
+import { SnippetController2 } from "../../../editor/contrib/snippet/browser/snippetController2.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
@@ -227,8 +227,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         if (editor === null || editor.readOnly || ranges.length === 0) return false;
         const document = editor.model.document;
         if (options.version !== document.versionId) return false;
-        return insertSnippet(
-            editor,
+        return SnippetController2.get(editor).apply(
             ranges.map(({ start, end }) => ({
                 range: { start: clampPositionToDocument(document, start), end: clampPositionToDocument(document, end) },
                 template,

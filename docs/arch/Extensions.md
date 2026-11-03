@@ -1424,7 +1424,7 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
   молчащий сервер не морозит правку. Сервер без `resolveProvider` (gopls) шлёт `additionalTextEdits`
   сразу в списке: они едут в пункте (`ICoreCompletionItem.additionalEdits`), и accept применяет их без
   resolve — как «sync additional edits» в `suggestController` эталона.
-- **Сниппет-сессий нет** (цепочка #991): в подсказках и `SnippetTextEdit` `SnippetString` — только транспорт,
+- **Сниппет-сессия — только у `insertSnippet`** (цепочка #991): в подсказках и `SnippetTextEdit` `SnippetString` — только транспорт,
   плейсхолдеры вырезаются (`stripSnippetPlaceholders` → `snippetText` в `extHostSnippetInsert.ts`: урезанное
   прочтение той же грамматики — табстопы, плейсхолдеры, choice, экранирование; вендорённый парсер ядра лежит в
   `browser` и общему коду субпроцесса недоступен), чтобы `${1:name}` не попал в буфер; перевод на парсер ядра — #1035.
@@ -1434,7 +1434,8 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
   keepWhitespace?}`. Хост (`IEditorOptionsService.insertSnippet`) разбирает шаблон парсером эталона
   (`editor/contrib/snippet`, [Editor.md](Editor.md#editorcontribsnippet-сниппеты)), применяет правки одним
   шагом undo вместе с кареткой на первой позиции и раскрывает её; чужая версия, read-only или закрытый
-  редактор, перекрытые диапазоны — `false` без правки. Tab по позициям не ходит (#1032).
+  редактор, перекрытые диапазоны — `false` без правки. Дальше редактор в сниппет-сессии: Tab/Shift+Tab по
+  позициям, набор во все зеркала, `$0` и Esc завершают (#1032, [Editor.md](Editor.md#editorcontribsnippet-сниппеты)).
   `editor.action.insertSnippet {snippet}` идёт тем же путём через `TextEditor.insertSnippet`.
 - **Клавиши ждут текстовую команду расширения** (отступление от эталона). `registerTextEditorCommand`
   помечает регистрацию `textEditor: true`; пока прокси не получил ответ, `attachKeyboardInputHold`

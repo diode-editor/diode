@@ -246,11 +246,17 @@ describe("EditorOptionsServiceAdapter", () => {
                 insertSpaces: true,
                 selections: [] as unknown[],
                 revealRangeByType: vi.fn(),
+                snippetTabstopRanges: [] as unknown[],
+                onDidChangeCursorPosition: () => ({ dispose: () => undefined }),
             };
             const applyExternalEdits = vi.fn(
-                (edits: readonly ITextEdit[], _label: string, cursor: () => unknown[], _stops: unknown) => {
-                    document.applyEdits(edits);
-                    viewState.selections = cursor();
+                (
+                    edits: readonly ITextEdit[],
+                    _label: string,
+                    cursor: (inverseEdits: readonly ITextEdit[]) => unknown[],
+                    _stops: unknown,
+                ) => {
+                    viewState.selections = cursor(document.applyEdits(edits).inverseEdits);
                 },
             );
             const editor = {

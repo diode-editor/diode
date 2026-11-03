@@ -5,7 +5,7 @@ import type { ITextEdit } from "../core/iTextEdit.ts";
 
 import type { IDocumentContentChange, IModelContentChangedEvent } from "./iDocumentContentChange.ts";
 import type { IDocumentLanguageChange } from "./iDocumentLanguageChange.ts";
-import type { IModelDeltaDecoration } from "./trackedDecorations.ts";
+import type { IModelDecorationOptions, IModelDeltaDecoration } from "./trackedDecorations.ts";
 
 export interface IApplyEditsResult {
     readonly appliedVersion: number;
@@ -48,6 +48,8 @@ export interface ITextDocument {
      */
     deltaDecorations(oldIds: readonly string[], newDecorations: readonly IModelDeltaDecoration[]): string[];
     getDecorationRange(id: string): IRange | null;
+    /** Upstream's `changeDecorationOptions`: the range and the id stay. */
+    changeDecorationOptions(id: string, options: IModelDecorationOptions): void;
 
     /** Leaves `versionId` alone: a language change does not make the document dirty. */
     setLanguage(languageId: string): void;

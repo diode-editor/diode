@@ -265,3 +265,31 @@ describe("TrackedDecorations: lifecycle", () => {
         ).toEqual(toRange(SECOND));
     });
 });
+
+describe("changeDecorationOptions", () => {
+    it("changes how the decoration grows, keeping its id and range", () => {
+        const { doc, id } = documentWithDecoration([0, 3, 0, 8]);
+        doc.applyEdits([createTextEdit(createRange(0, 8, 0, 8), "x")]);
+        expect(doc.getDecorationRange(id)).toEqual(toRange([0, 3, 0, 8]));
+        doc.changeDecorationOptions(id, {
+            description: "grow",
+            stickiness: TrackedRangeStickiness.AlwaysGrowsWhenTypingAtEdges,
+        });
+        doc.applyEdits([createTextEdit(createRange(0, 8, 0, 8), "y")]);
+        expect(doc.getDecorationRange(id)).toEqual(toRange([0, 3, 0, 9]));
+    });
+
+    it("without a stickiness it grows at the edges, as a new one would", () => {
+        const { doc, id } = documentWithDecoration([0, 3, 0, 8]);
+        doc.changeDecorationOptions(id, { description: "default" });
+        doc.applyEdits([createTextEdit(createRange(0, 3, 0, 3), "x")]);
+        expect(doc.getDecorationRange(id)).toEqual(toRange([0, 3, 0, 9]));
+    });
+
+    it("an unknown id changes nothing", () => {
+        const { doc, id } = documentWithDecoration([0, 3, 0, 8]);
+        doc.changeDecorationOptions("nope", { description: "x" });
+        expect(doc.getDecorationRange(id)).toEqual(toRange([0, 3, 0, 8]));
+        expect(doc.getDecorationRange("nope")).toBeNull();
+    });
+});

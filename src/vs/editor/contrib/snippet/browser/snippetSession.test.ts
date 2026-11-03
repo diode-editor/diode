@@ -1,44 +1,28 @@
 import { describe, expect, it } from "vitest";
 
-import { positionsEqual } from "../../../common/core/iPosition.ts";
+import { drawSelections, snippetPane } from "../../../../../TestUtils/snippetPane.ts";
 import { createRange, type IRange } from "../../../common/core/iRange.ts";
-import { TextDocument } from "../../../common/model/textDocument.ts";
 
-import { createSnippetInsert, type ISnippetInsertOptions } from "./snippetSession.ts";
-
-const SPACES: ISnippetInsertOptions = { adjustWhitespace: true, tabSize: 4, insertSpaces: true };
+import { SnippetController2 } from "./snippetController2.ts";
 
 const at = (line: number, character: number): IRange => createRange(line, character, line, character);
 
-/** Applies the insert and draws each selection: `[` anchor, `]` active, `|` a caret. */
+/** Inserts on a real pane, four spaces per indent, and draws the selections. */
 function insert(
     text: string,
     ranges: readonly IRange[],
     template: string,
-    options: ISnippetInsertOptions = SPACES,
+    options: { insertSpaces?: boolean; keepWhitespace?: boolean } = {},
 ): string {
-    const document = new TextDocument(text);
-    const result = createSnippetInsert(
-        document,
+    const pane = snippetPane(text, options);
+    SnippetController2.get(pane).apply(
         ranges.map((range) => ({ range, template })),
         options,
     );
-    document.applyEdits(result.edits);
-    const lines = document.getText().split("\n");
-    const marks = result.selections.flatMap(({ anchor, active }) =>
-        positionsEqual(anchor, active)
-            ? [{ ...active, mark: "|" }]
-            : [
-                  { ...anchor, mark: "[" },
-                  { ...active, mark: "]" },
-              ],
-    );
-    marks
-        .sort((a, b) => b.line - a.line || b.character - a.character)
-        .forEach(({ line, character, mark }) => {
-            lines[line] = lines[line].slice(0, character) + mark + lines[line].slice(character);
-        });
-    return lines.join("\n");
+    const drawn = drawSelections(pane);
+    SnippetController2.get(pane).cancel();
+    pane.dispose();
+    return drawn;
 }
 
 describe("createSnippetInsert: text and first caret", () => {
@@ -114,7 +98,7 @@ describe("createSnippetInsert: whitespace (upstream adjustWhitespace)", () => {
     });
 
     it("tabs when insertSpaces is off", () => {
-        expect(insert("    x", [at(0, 5)], "a\n  b", { ...SPACES, insertSpaces: false })).toBe("    xa\n\t  b|");
+        expect(insert("    x", [at(0, 5)], "a\n  b", { insertSpaces: false })).toBe("    xa\n\t  b|");
     });
 
     it("a text right after a line break in another marker is indented too, outside the placeholder", () => {
@@ -122,11 +106,11 @@ describe("createSnippetInsert: whitespace (upstream adjustWhitespace)", () => {
     });
 
     it("keepWhitespace inserts the lines as they are", () => {
-        expect(insert("    x", [at(0, 5)], "a\n\tb", { ...SPACES, adjustWhitespace: false })).toBe("    xa\n\tb|");
+        expect(insert("    x", [at(0, 5)], "a\n\tb", { keepWhitespace: true })).toBe("    xa\n\tb|");
     });
 
     it("a CRLF in the template becomes the document's line break", () => {
-        expect(insert("", [at(0, 0)], "a\r\nb", { ...SPACES, adjustWhitespace: false })).toBe("a\nb|");
+        expect(insert("", [at(0, 0)], "a\r\nb", { keepWhitespace: true })).toBe("a\nb|");
     });
 });
 

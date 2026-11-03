@@ -12,7 +12,7 @@ import type { IDocumentContentChange, IModelContentChangedEvent } from "./iDocum
 import type { IDocumentLanguageChange } from "./iDocumentLanguageChange.ts";
 import type { IApplyEditsResult, ITextDocument } from "./iTextDocument.ts";
 import { PieceTreeDocumentBuffer, toLf } from "./pieceTreeDocumentBuffer.ts";
-import { type IModelDeltaDecoration, TrackedDecorations } from "./trackedDecorations.ts";
+import { type IModelDecorationOptions, type IModelDeltaDecoration, TrackedDecorations } from "./trackedDecorations.ts";
 
 export {
     createTextBufferFactoryBuilder,
@@ -179,6 +179,10 @@ export class TextDocument implements ITextDocument {
 
     public deltaDecorations(oldIds: readonly string[], newDecorations: readonly IModelDeltaDecoration[]): string[] {
         return this.decorations.delta(oldIds, newDecorations, this);
+    }
+
+    public changeDecorationOptions(id: string, options: IModelDecorationOptions): void {
+        this.decorations.changeOptions(id, options);
     }
 
     public getDecorationRange(id: string): IRange | null {
