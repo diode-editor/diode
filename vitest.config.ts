@@ -71,6 +71,8 @@ export default defineConfig({
         "src/vs/editor/common/model/textModelSearch.ts",
         "src/vs/editor/common/core/{textChange,wordCharacterClassifier,characterClassifier}.ts",
         "src/vs/base/common/uint.ts",
+        // Snippet grammar: gate is the upstream parser test next to it (contrib/snippet/test/browser/).
+        "src/vs/editor/contrib/snippet/browser/snippetParser.ts",
         "**/__fixtures__/**", // test DATA (foreign sources), not executable code
 
         // --- Pure types: nothing to execute ---

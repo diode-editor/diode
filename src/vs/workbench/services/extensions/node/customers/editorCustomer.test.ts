@@ -41,6 +41,7 @@ function setup() {
         onActiveEditorSelectionChanged: (cb: (s: IActiveEditorSelections) => void) => selection.event(cb),
         setActiveEditorSelections: vi.fn(),
         applyActiveEditorEdits: vi.fn(() => true),
+        insertSnippet: vi.fn(() => true),
         applyWorkspaceEdit: vi.fn(() => Promise.resolve(true)),
         saveAll: vi.fn(() => Promise.resolve(true)),
         save: vi.fn((uri: string) => Promise.resolve(uri === "file:///open.go" ? uri : null)),
@@ -254,17 +255,61 @@ describe("EditorCustomer — subprocess requests", () => {
         await expect(options({ setEndOfLine: 2 })).resolves.toStrictEqual({ setEndOfLine: 2 });
     });
 
-    it("editor.applyEdit: selectionsAfter reaches the core, junk and an empty list stay out", async () => {
+    it("editor.insertSnippet: the template, the ranges and the options reach the core, its verdict comes back", async () => {
         const h = setup();
         h.attachTo();
-        const options = async (selectionsAfter: unknown): Promise<unknown> => {
-            await h.peer.request("editor.applyEdit", { uri: "file:///a.ts", edits: [], selectionsAfter });
-            return vi.mocked(h.editorOptions.applyActiveEditorEdits).mock.lastCall?.[2];
-        };
-        const selection = { anchorLine: 1, anchorCharacter: 2, activeLine: 3, activeCharacter: 4 };
-        await expect(options([selection])).resolves.toStrictEqual({ selectionsAfter: [selection] });
-        await expect(options([])).resolves.toStrictEqual({});
-        await expect(options("x")).resolves.toStrictEqual({});
+        const params = { uri: "file:///a.ts", groupId: 2, version: 4, template: "${1:x}", ranges: [RANGE] };
+        await expect(h.peer.request("editor.insertSnippet", params)).resolves.toBe(true);
+        expect(h.editorOptions.insertSnippet).toHaveBeenLastCalledWith("file:///a.ts", 2, "${1:x}", [RANGE], {
+            version: 4,
+        });
+        await h.peer.request("editor.insertSnippet", {
+            ...params,
+            undoStopBefore: false,
+            undoStopAfter: false,
+            keepWhitespace: true,
+        });
+        expect(vi.mocked(h.editorOptions.insertSnippet).mock.lastCall?.[4]).toStrictEqual({
+            version: 4,
+            undoStopBefore: false,
+            undoStopAfter: false,
+            keepWhitespace: true,
+        });
+        // Only a switch away from the default goes through; no group is the active editor.
+        await h.peer.request("editor.insertSnippet", {
+            ...params,
+            groupId: "2",
+            undoStopBefore: true,
+            undoStopAfter: "no",
+            keepWhitespace: false,
+        });
+        expect(vi.mocked(h.editorOptions.insertSnippet).mock.lastCall).toStrictEqual([
+            "file:///a.ts",
+            undefined,
+            "${1:x}",
+            [RANGE],
+            { version: 4 },
+        ]);
+        vi.mocked(h.editorOptions.insertSnippet).mockReturnValueOnce(false);
+        await expect(h.peer.request("editor.insertSnippet", params)).resolves.toBe(false);
+    });
+
+    it("editor.insertSnippet: junk is false without reaching the core", async () => {
+        const h = setup();
+        h.attachTo();
+        const params = { uri: "file:///a.ts", groupId: 2, version: 4, template: "x", ranges: [RANGE] };
+        for (const junk of [
+            { uri: 1 },
+            { template: 1 },
+            { version: "4" },
+            { ranges: "x" },
+            { ranges: [RANGE, "x"] },
+        ]) {
+            await expect(h.peer.request("editor.insertSnippet", { ...params, ...junk } as never)).resolves.toBe(
+                false,
+            );
+        }
+        expect(h.editorOptions.insertSnippet).not.toHaveBeenCalled();
     });
 
     it("workspace.applyEdit: junk — false without the port; a valid set — the port verdict", async () => {

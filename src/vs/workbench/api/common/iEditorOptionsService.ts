@@ -73,7 +73,23 @@ export interface IEditorOptionsService {
             setEndOfLine?: 1 | 2;
             undoStopBefore?: boolean;
             undoStopAfter?: boolean;
-            selectionsAfter?: readonly IWireSelection[];
+        },
+    ): boolean;
+    /**
+     * Upstream `MainThreadTextEditor.insertSnippet`: the template is parsed here, an edit per range, the caret on the
+     * first tab stop and revealed. `false`, with nothing changed: another version, a read-only or missing editor,
+     * overlapping ranges.
+     */
+    insertSnippet(
+        uri: string,
+        groupId: number | undefined,
+        template: string,
+        ranges: readonly IRange[],
+        options: {
+            version: number;
+            undoStopBefore?: boolean;
+            undoStopAfter?: boolean;
+            keepWhitespace?: boolean;
         },
     ): boolean;
     /**

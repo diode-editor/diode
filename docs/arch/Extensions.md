@@ -1424,10 +1424,16 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
   молчащий сервер не морозит правку. Сервер без `resolveProvider` (gopls) шлёт `additionalTextEdits`
   сразу в списке: они едут в пункте (`ICoreCompletionItem.additionalEdits`), и accept применяет их без
   resolve — как «sync additional edits» в `suggestController` эталона.
-- **Сниппет-сессий нет** (осознанно): `SnippetString` — только транспорт, плейсхолдеры
-  вырезаются (`stripSnippetPlaceholders`), чтобы `${1:name}` не попал в буфер. `TextEditor.insertSnippet`
-  (`extHostSnippetInsert.ts`) вставляет текст с отступами эталона и ставит каретку на первую позицию,
-  но Tab по позициям не ходит.
+- **Сниппет-сессий нет** (цепочка #991): в подсказках и `SnippetTextEdit` `SnippetString` — только транспорт,
+  плейсхолдеры вырезаются (`stripSnippetPlaceholders`), чтобы `${1:name}` не попал в буфер.
+  `TextEditor.insertSnippet` идёт как в эталоне (`$tryInsertSnippet`): субпроцесс шаблон не разбирает, а шлёт
+  `snippet.value` и диапазоны `where` (`snippetRanges` в `extHostSnippetInsert.ts`, `validateRange` документа)
+  запросом `editor.insertSnippet` `{uri, groupId, version, template, ranges, undoStopBefore?, undoStopAfter?,
+  keepWhitespace?}`. Хост (`IEditorOptionsService.insertSnippet`) разбирает шаблон парсером эталона
+  (`editor/contrib/snippet`, [Editor.md](Editor.md#editorcontribsnippet-сниппеты)), применяет правки одним
+  шагом undo вместе с кареткой на первой позиции и раскрывает её; чужая версия, read-only или закрытый
+  редактор, перекрытые диапазоны — `false` без правки. Tab по позициям не ходит (#1032).
+  `editor.action.insertSnippet {snippet}` идёт тем же путём через `TextEditor.insertSnippet`.
 - **Клавиши ждут текстовую команду расширения** (отступление от эталона). `registerTextEditorCommand`
   помечает регистрацию `textEditor: true`; пока прокси не получил ответ, `attachKeyboardInputHold`
   (`keyboardInputHold.ts`) держит клавиши в capture на корне и затем прогоняет их в порядке нажатия. Иначе

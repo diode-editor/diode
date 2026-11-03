@@ -999,8 +999,23 @@ export interface IWireApplyEditParams {
     readonly setEndOfLine?: 1 | 2;
     readonly undoStopBefore?: boolean;
     readonly undoStopAfter?: boolean;
-    /** The selections after the edit, applied with it: `insertSnippet` must not leave a window for a typed key. */
-    readonly selectionsAfter?: readonly IWireSelection[];
+}
+
+/**
+ * Upstream `$tryInsertSnippet`: the core parses the template and makes an edit per range; the text and the first
+ * caret land in one call, so a key typed right after it reaches the moved caret.
+ */
+export interface IWireInsertSnippetParams {
+    readonly uri: string;
+    /** A `TextEditor` is addressed by the group + document pair. */
+    readonly groupId: number;
+    /** The template was built against this text; another version is refused. */
+    readonly version: number;
+    readonly template: string;
+    readonly ranges: readonly IRange[];
+    readonly undoStopBefore?: boolean;
+    readonly undoStopAfter?: boolean;
+    readonly keepWhitespace?: boolean;
 }
 
 export interface IWireSetSelectionParams {

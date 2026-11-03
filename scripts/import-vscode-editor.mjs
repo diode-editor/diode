@@ -93,6 +93,11 @@ const FILES = [
     // the vendored tree. The path is upstream's (`editor/test/...`), not
     // colocated: the mirrored layout keeps relative imports verbatim.
     "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
+
+    // Snippet grammar (`snippet.md`): depends on `CharCode` alone. The session and the controller are ported
+    // (`snippetSession.ts` next to it), they need upstream's `ICodeEditor`/`ITextModel`.
+    "src/vs/editor/contrib/snippet/browser/snippetParser.ts",
+    "src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts",
 ];
 
 /** Fixture corpus, copied as is, without the transform. */
@@ -121,6 +126,8 @@ const SPARSE_PATHS = [
     "/src/vs/editor/common/model/textModelSearch.ts",
     "/src/vs/base/common/uint.ts",
     "/src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
+    "/src/vs/editor/contrib/snippet/browser/snippetParser.ts",
+    "/src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts",
     FIXTURES_FROM,
 ];
 
@@ -197,6 +204,9 @@ const PRELUDES = {
     "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts": [
         "import { suite, test } from '../../../../../../TestUtils/mochaCompat.ts';",
     ],
+    "src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts": [
+        "import { suite, test } from '../../../../../../TestUtils/mochaCompat.ts';",
+    ],
 };
 
 /**
@@ -228,6 +238,8 @@ const TYPE_ONLY = new Set([
     "SerializedLineReplacement",
     "ITokenPresentation",
     "IViewLineTokens",
+    // snippetParser
+    "VariableResolver",
     // from our shims in base/common
     "Comparator",
     "IEquatable",
