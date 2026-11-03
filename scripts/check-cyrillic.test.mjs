@@ -16,6 +16,13 @@ test("cyrillicLines: binary file counts as zero", () => {
     assert.equal(cyrillicLines(`${RU}\0${RU}`), 0);
 });
 
+test("cyrillicLines: a vendored copy of upstream counts as zero", () => {
+    const header = "/* MIT */\n//@diode:vendored microsoft/vscode@1.0.0 a.ts\n";
+    assert.equal(cyrillicLines(`${header}const s = '${RU}';\n`), 0);
+    // The banner counts only in the header, not further down.
+    assert.equal(cyrillicLines(`const s = '${RU}';\n//@diode:vendored microsoft/vscode@1.0.0 a.ts\n`), 1);
+});
+
 test("hasCyrillic: a Russian anchor of a doc link is not Russian text", () => {
     assert.equal(hasCyrillic(`// see docs/STYLE.md#${ANCHOR}-x2.`), false);
     assert.equal(hasCyrillic(`// see docs/STYLE.md#${ANCHOR} ${RU}`), true);

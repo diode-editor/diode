@@ -13,6 +13,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
+import { isVendored } from "./code-tokens.mjs";
 import { compare, lowered } from "./ratchet.mjs";
 
 const BASELINE = "scripts/cyrillic-baseline.json";
@@ -27,8 +28,9 @@ export const inScope = (file) => PUBLIC_PAGE.test(file) || !OUT_OF_SCOPE.some((r
 
 export const hasCyrillic = (line) => CYRILLIC.test(line.replace(DOC_ANCHOR, ".md"));
 
+/** A vendored copy of upstream (`//@diode:vendored`) is verbatim: its test data may hold any script. */
 export function cyrillicLines(text) {
-    if (text.includes("\0")) return 0;
+    if (text.includes("\0") || isVendored(text)) return 0;
     return text.split("\n").filter(hasCyrillic).length;
 }
 

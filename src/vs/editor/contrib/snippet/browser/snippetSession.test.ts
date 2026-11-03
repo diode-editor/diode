@@ -194,7 +194,7 @@ describe("createSnippetInsert: variables", () => {
     });
 
     it("a later edit does not resolve the variables of an earlier one again", () => {
-        expect(insert("a\nbbb", [at(0, 1), at(1, 3)], "$TM_CURRENT_LINE${1:p}")).toBe("aa[p]\nbbbbbb[p]");
+        expect(insert("a\nbbb", [at(0, 1), at(1, 3)], "<$TM_CURRENT_LINE>${1:p}")).toBe("a<a>[p]\nbbb<bbb>[p]");
     });
 
     it("a placeholder backfilled into another edit gets that edit's variables", () => {
