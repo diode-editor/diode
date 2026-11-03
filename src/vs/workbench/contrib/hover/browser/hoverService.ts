@@ -134,7 +134,7 @@ function hideInline(value: string, hide: (text: string) => string): string {
 
 /** There's no markdown renderer (docs/arch/Extensions.md#lsp-и-стоковые-клиенты), so the popup gets plain text. */
 export function stripMarkdown(value: string): string {
-    // Code and escaped characters are hidden FIRST (the stripSnippetPlaceholders trick): otherwise
+    // Code and escaped characters are hidden FIRST: otherwise
     // `\*text\*` would be parsed along the way as "italic" and `Array<string>` in code as a tag.
     // Stryker disable next-line ArrayDeclaration: the hidden-text accumulator; an index is taken after its push, so a seed entry is never read
     const hidden: string[] = [];
