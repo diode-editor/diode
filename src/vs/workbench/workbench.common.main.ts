@@ -169,8 +169,6 @@ import { HoverComponentDIToken } from "./contrib/hover/browser/hoverComponent.ts
 import { HoverServiceDIToken } from "./contrib/hover/browser/hoverService.ts";
 import { INLINE_COMPLETIONS_ACTIONS } from "./contrib/inlineCompletions/browser/inlineCompletionsActions.ts";
 import { InlineCompletionsServiceDIToken } from "./contrib/inlineCompletions/browser/inlineCompletionsService.ts";
-import { KEYBOARD_DOCTOR_ACTIONS } from "./contrib/keyboardDoctor/browser/keyboardDoctorActions.ts";
-import { KeyboardDoctorComponentDIToken } from "./contrib/keyboardDoctor/browser/keyboardDoctorComponent.ts";
 import { LanguageStatusContributionDIToken } from "./contrib/languageStatus/browser/languageStatus.ts";
 import { LARGE_FILE_ACTIONS } from "./contrib/largeFile/browser/largeFileActions.ts";
 import { LargeFileFollowStatusDIToken } from "./contrib/largeFile/browser/largeFileFollowStatus.ts";
@@ -289,7 +287,6 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Stryker disable next-line ObjectLiteral,StringLiteral: without the entry the recorder resolves lazily on the first recording command — the entry only hands over lifetime ownership
     { token: KeybindingRecorderComponentDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: same — the doctor resolves lazily on the launch command
-    { token: KeyboardDoctorComponentDIToken, phase: "blockStartup" },
     // `vscode.diff`: the extension host calls it by id — the command is needed before extensions start.
     { token: VscodeDiffCommandContributionDIToken, phase: "blockStartup" },
 
@@ -358,7 +355,6 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...OPEN_EDITORS_ACTIONS,
     ...LARGE_FILE_ACTIONS,
     ...PREFERENCES_ACTIONS,
-    ...KEYBOARD_DOCTOR_ACTIONS,
     showAboutDialogAction,
     reloadWindowAction,
     quitAction,

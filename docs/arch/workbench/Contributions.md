@@ -25,7 +25,7 @@ dispose реестра сматывает все contribution'ы. Четыре �
   фич-компоненты и их сервисы: Explorer, Search, магазин, References, Quick Open,
   пары suggest/hover/parameterHints, inline completions, find, диагностики,
   Problems, Output, Source Control (команды, на которые публикует git-расширение,
-  обязаны существовать до его активации), терминал, рекордер и Keyboard Doctor.
+  обязаны существовать до его активации), терминал и рекордер.
   Порядок вкладок и вьюлетов от порядка записей не зависит (`order` контейнеров),
   порядок overlay-сессий suggest/hover/parameterHints — зависит.
 - `ready` и `eventually` — фазы жизненного цикла (`LifecyclePhase` из

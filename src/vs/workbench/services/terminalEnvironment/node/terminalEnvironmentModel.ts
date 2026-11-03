@@ -56,7 +56,7 @@ export type OsName = "mac" | "linux" | "windows";
 const OS_NAMES: readonly OsName[] = ["mac", "linux", "windows"];
 
 /**
- * Provenance of the answer, for the status bar and Keyboard Doctor:
+ * Provenance of the answer, for the status bar:
  *  - setting:  `keyboard.platform` — the user is always right;
  *  - env:      `LC_DIODE_PLATFORM` from the emulator config (LC_* passes through ssh);
  *  - terminal: the terminal itself identified as a Mac one (`LC_TERMINAL`, XTVERSION);

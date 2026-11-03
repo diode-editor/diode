@@ -218,8 +218,7 @@ capture/bubble-листенеры и подключает хук-шов `hasKeyb
 одной точкой перехода пушит владелец: терминальное окружение
 (tier/os/cap_*/mode_*/macKeys) — `TerminalEnvContextKeysContribution` по
 `onDidChange` сервиса окружения (маппинг `applyTerminalEnvContextKeys` из
-`services/terminalEnvironment/common/terminalEnvContextKeys.ts` общий с
-Keyboard Doctor), `panelVisible` — `LayoutService` по видимости
+`services/terminalEnvironment/common/terminalEnvContextKeys.ts`), `panelVisible` — `LayoutService` по видимости
 `PanelService`. Замыкает на себя хук
 `KeybindingDispatcher.updateContextKeys`; `handleFocusChange` (capture
 focus/blur листенеры вешает владелец дерева) сбрасывает незавершённый чорд,

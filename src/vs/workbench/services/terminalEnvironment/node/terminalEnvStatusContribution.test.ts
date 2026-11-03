@@ -31,21 +31,21 @@ describe("TerminalEnvStatusContribution", () => {
         const statusBar = new StatusBarService(NULL_STATE_SERVICE);
         const env = new TerminalEnvironmentService(new MockTerminalBackend(), createTestConfigurationService());
         const commands = new CommandRegistry();
-        const executed: string[] = [];
-        commands.register("diode.keyboardDoctor", () => {
-            executed.push("diode.keyboardDoctor");
+        const executed: unknown[][] = [];
+        commands.register("workbench.action.openSettingsJson", (...args: unknown[]) => {
+            executed.push(args);
         });
         new TerminalEnvStatusContribution(statusBar, env, commands);
         const entry = () => statusBar.entries().find((e) => e.id === "status.terminalEnvironment");
         return { env, executed, click: () => entry()?.onClick?.(), text: () => entry()?.text ?? "" };
     }
 
-    it("pc: only tier and modes; a click opens Keyboard Doctor", () => {
+    it("pc: only tier and modes; a click opens settings.json at terminal.tier", () => {
         delete process.env.LC_DIODE_PLATFORM;
         const { text, click, executed } = segment();
         expect(text()).toBe("legacy");
         click();
-        expect(executed).toEqual(["diode.keyboardDoctor"]);
+        expect(executed).toEqual([[{ revealSetting: { key: "terminal.tier" } }]]);
     });
 
     it("mac: the mac ladder rung next to tier, updated on onDidChange", () => {

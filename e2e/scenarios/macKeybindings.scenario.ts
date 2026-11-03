@@ -8,7 +8,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "mac-keybindings",
-    title: "Mac layout: Cmd/Option/Ctrl keybindings on the mac-cmd rung and Keyboard Doctor",
+    title: "Mac layout: Cmd/Option/Ctrl keybindings on the mac-cmd rung",
     open: [repoRoot, sampleFile],
     settings: {
         "keyboard.platform": "mac",
@@ -17,7 +17,6 @@ export default defineScenario({
         // the e2e environment disables it only for scenarios without their own settings (appSession.ts).
         "diode.lsp.typescript.enabled": false,
     },
-    userKeybindings: [{ key: "f6", command: "diode.keyboardDoctor" }],
     cols: 110,
     rows: 26,
     async run(editor) {
@@ -55,9 +54,5 @@ export default defineScenario({
         await editor.capture("cmd-palette-labels");
         await editor.sendKey("Escape");
         await editor.waitForText((t) => !t.includes("File: Save"));
-
-        await editor.sendKey("F6");
-        await editor.waitForText((t) => t.includes("Keyboard Doctor") && t.includes("rung: mac-cmd"));
-        await editor.capture("keyboard-doctor");
     },
 });

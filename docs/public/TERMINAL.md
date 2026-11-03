@@ -63,11 +63,9 @@ it. Terminal by terminal:
   Terminal.app "Use Option as Meta key". Cmd shortcuts the terminal keeps for itself (`Cmd+T`,
   `Cmd+N`, `Cmd+P`, ...) need unmapping in the terminal to reach Diode.
 
-**Diode: Keyboard Doctor** (command palette, or click the left status bar segment) walks through
-the keys, shows what arrived, and ends with the recipe for your terminal.
-
 If detection gets it wrong, `terminal.tier` forces a level (`auto`, `legacy`, `csi-u`, `kitty`),
-and `terminal.capabilities` forces single capabilities on or off.
+and `terminal.capabilities` forces single capabilities on or off. A click on the left status bar
+segment opens your `settings.json`.
 
 ## Clipboard
 

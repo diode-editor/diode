@@ -69,14 +69,13 @@
   без приёма fresh «Ctrl+Alt вместо Ctrl+Shift»; переменная — `LC_DIODE_PLATFORM`; мост Cmd →
   F-клавиши/PUA — отдельной задачей.
 
-## Keyboard Doctor
+## Сегмент окружения в статус-баре
 
-`workbench/contrib/keyboardDoctor/`, команда «Diode: Keyboard Doctor» (её же открывает клик по
-сегменту окружения в статус-баре). По каждому нажатию пишет байты → токены → событие → бинд →
-вердикт; отчёт открывается безымянным документом и копируется в буфер. Рецепты под опознанный
-эмулятор — `emulatorRecipes` в модели доктора. Маппинг окружения в контекст-ключи общий с
-воркбенчем (`applyTerminalEnvContextKeys`). Для разработчика то же по слоям показывает демо
-`src/demos/keyDiagnosticsDemo.ts` (включает те же режимы, что бэкенд).
+`TerminalEnvStatusContribution` показывает tier, мак-рунг и моды; клик открывает пользовательский
+`settings.json` (`workbench.action.openSettingsJson` с `revealSetting: terminal.tier` — аргумент
+принимается, Settings UI нет). Для разработчика путь клавиши по слоям показывает демо
+`src/demos/keyDiagnosticsDemo.ts` (включает те же режимы, что бэкенд). Мастер настройки клавиатуры —
+будущая задача (заменит удалённого в #1047 доктора).
 
 ## Где теряется клавиша: tmux, kitty, iTerm2
 
