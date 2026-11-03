@@ -64,6 +64,27 @@ export const editorColors = {
         defaults: { dark: "#621515", light: "#FFB3B3" },
         description: "Background color when the editor auto renames on type.",
     },
+    // Opaque approximations of VS Code's rgba(124,124,124,0.3) (dark) / rgba(10,50,100,0.2) (light) composited over
+    // the editor bg; its hc kinds take the same values.
+    "editor.snippetTabstopHighlightBackground": {
+        defaults: { dark: "#3A3A3A", light: "#CED6E0" },
+        description: "Highlight background color of a snippet tabstop.",
+    },
+    // The borders and the final tab stop's background are for themes only: a cell has no border, the background is
+    // `null` in VS Code too.
+    "editor.snippetTabstopHighlightBorder": {
+        defaults: null,
+        description: "Highlight border color of a snippet tabstop.",
+    },
+    "editor.snippetFinalTabstopHighlightBackground": {
+        defaults: null,
+        description: "Highlight background color of the final tabstop of a snippet.",
+    },
+    // VS Code's light is rgba(10,50,100,0.5), composited over white here; its hcLight #292929 maps to light.
+    "editor.snippetFinalTabstopHighlightBorder": {
+        defaults: { dark: "#525252", light: "#8599B2" },
+        description: "Highlight border color of the final tabstop of a snippet.",
+    },
     // For themes only: a terminal cell has no border to draw. VS Code's hc default is `activeContrastBorder`.
     "editor.wordHighlightBorder": {
         defaults: null,

@@ -32,6 +32,12 @@ export interface ContextKeyTypes {
     hasWordHighlights: boolean;
     /** Upstream `CONTEXT_ONTYPE_RENAME_INPUT_VISIBLE`: the active editor has linked ranges on the frame. */
     LinkedEditingInputVisible: boolean;
+    /** Upstream `SnippetController2.InSnippetMode`: the active editor has a snippet session. */
+    inSnippetMode: boolean;
+    /** Upstream `SnippetController2.HasNextTabstop`. */
+    hasNextTabstop: boolean;
+    /** Upstream `SnippetController2.HasPrevTabstop`: the session is past its first tab stop. */
+    hasPrevTabstop: boolean;
     editorLangId: string;
     /** Upstream name of our {@link textInputFocus}, kept for extension `when` clauses. */
     editorTextFocus: boolean;

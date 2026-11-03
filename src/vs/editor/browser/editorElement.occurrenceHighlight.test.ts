@@ -166,6 +166,29 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
         expect(app.backend.getBgAt(new Point(gw, 0))).toBe(read);
     });
 
+    it("snippet tab stops repaint by themselves, in their color, under the selection", () => {
+        const [tabstop, selection] = [packRgb(0, 0, 10), packRgb(0, 10, 10)];
+        const { app, editor, viewState, gw } = createEditor("ab = ab");
+        editor.setStyleVars({
+            "editor.snippetTabstopHighlightBackground": tabstop,
+            "editor.selectionBackground": selection,
+        });
+        viewState.selections = [createSelection(0, 0, 0, 2)];
+        app.render();
+        const markDirty = vi.spyOn(editor, "markDirty");
+
+        viewState.snippetTabstopRanges = [createRange(0, 0, 0, 2), createRange(0, 5, 0, 7)];
+        expect(markDirty).toHaveBeenCalled();
+        app.render();
+        expect(app.backend.getBgAt(new Point(gw, 0))).toBe(selection);
+        expect(app.backend.getBgAt(new Point(gw + 5, 0))).toBe(tabstop);
+        expect(app.backend.getBgAt(new Point(gw + 3, 0))).not.toBe(tabstop);
+
+        viewState.snippetTabstopRanges = [];
+        app.render();
+        expect(app.backend.getBgAt(new Point(gw + 5, 0))).not.toBe(tabstop);
+    });
+
     it("marks each kind on the scrollbar in its own color", () => {
         const [read, write, text] = [packRgb(10, 0, 0), packRgb(0, 10, 0), packRgb(0, 0, 10)];
         const { app, editor, viewState } = createEditor("a\nb\nc");

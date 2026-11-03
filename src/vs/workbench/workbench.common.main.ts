@@ -211,6 +211,8 @@ import { ScmStatusBarContributionDIToken } from "./contrib/scm/browser/scmStatus
 import { SEARCH_ACTIONS } from "./contrib/search/browser/searchActions.ts";
 import { SearchComponentDIToken } from "./contrib/search/browser/searchComponent.ts";
 import { SMART_SELECT_ACTIONS } from "./contrib/smartSelect/browser/smartSelectActions.ts";
+import { SNIPPET_ACTIONS } from "./contrib/snippet/browser/snippetActions.ts";
+import { SnippetServiceDIToken } from "./contrib/snippet/browser/snippetService.ts";
 import { CompletionServiceDIToken } from "./contrib/suggest/browser/completionService.ts";
 import { SUGGEST_ACTIONS } from "./contrib/suggest/browser/suggestActions.ts";
 import { SuggestComponentDIToken } from "./contrib/suggest/browser/suggestComponent.ts";
@@ -257,6 +259,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Stryker disable next-line ObjectLiteral,StringLiteral: the service is resolved anyway (WorkbenchContextKeys holds it) — the entry only hands over lifetime ownership
     { token: HoverServiceDIToken, phase: "blockStartup" },
     { token: LinkedEditingServiceDIToken, phase: "blockStartup" },
+    // Stryker disable next-line ObjectLiteral,StringLiteral: the service is resolved anyway (WorkbenchContextKeys holds it) — the entry only hands over lifetime ownership
+    { token: SnippetServiceDIToken, phase: "blockStartup" },
     { token: LinksServiceDIToken, phase: "blockStartup" },
     { token: FormatOnTypeServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (ParameterHintsService in the next entry holds it) — the entry only hands over lifetime ownership
@@ -421,6 +425,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...GOTO_DEFINITION_ACTIONS,
     ...HOVER_ACTIONS,
     ...LINKED_EDITING_ACTIONS,
+    ...SNIPPET_ACTIONS,
     ...LINKS_ACTIONS,
     ...PARAMETER_HINTS_ACTIONS,
     ...FORMAT_ACTIONS,
@@ -526,6 +531,7 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     TabSwitcherComponentDIToken,
     QuickOpenServiceDIToken,
     LanguageFeatureContextKeysDIToken,
+    SnippetServiceDIToken,
     ResourceContextKeysDIToken,
     // Not keys, but the active input field for editing commands — in the same poll.
     InputWidgetServiceDIToken,

@@ -6,9 +6,10 @@ import {
     type IExtensionHarness,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
+import { SnippetController2 } from "../../../../editor/contrib/snippet/browser/snippetController2.ts";
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 
-/** `TextEditor.insertSnippet` (#967) through the real subprocess: no session, text and caret only. */
+/** `TextEditor.insertSnippet` (#967) through the real subprocess: the text, the caret and the session after it. */
 describe("ExtensionHost — TextEditor.insertSnippet", () => {
     let harness: IExtensionHarness | undefined;
 
@@ -199,6 +200,54 @@ describe("ExtensionHost — TextEditor.insertSnippet", () => {
             anchor: { line: 0, character: 0 },
             active: { line: 0, character: 3 },
         });
+    });
+
+    it("[api:TextEditor.insertSnippet] the session: typing fills the mirrors, Tab walks to `$0` and ends it", async () => {
+        const { h, editor, text, frame } = await setup("\n");
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.insert", "${1:name} = $1;$0");
+        await settle();
+        const session = SnippetController2.get(editor);
+        expect(session.isInSnippet).toBe(true);
+        expect(editor.viewState.snippetTabstopRanges).toHaveLength(2);
+
+        editor.pushUndo(editor.viewState.type("a"));
+        expect(text()).toBe("a = a;\n");
+        session.next();
+        expect(editor.viewState.selections.map((selection) => selection.active)).toEqual([{ line: 0, character: 6 }]);
+        expect(session.isInSnippet).toBe(false);
+        expect(frame()).toContain("a = a;");
+    });
+
+    it("[api:TextEditor.insertSnippet] two locations are one session: Tab moves both carets, undo of the insert ends it", async () => {
+        const { h, editor, text } = await setup("x\ny\n");
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.insert", "(${1:a}, ${2:b})", [
+            [0, 1],
+            [1, 1],
+        ]);
+        await settle();
+        const session = SnippetController2.get(editor);
+        session.next();
+        expect(editor.viewState.selections.map(({ anchor, active }) => [anchor, active])).toEqual([
+            [
+                { line: 0, character: 5 },
+                { line: 0, character: 6 },
+            ],
+            [
+                { line: 1, character: 5 },
+                { line: 1, character: 6 },
+            ],
+        ]);
+        session.prev();
+        expect(session.hasPrevTabstop).toBe(false);
+
+        editor.undo();
+        await settle();
+        expect(text()).toBe("x\ny\n");
+        expect(session.isInSnippet).toBe(false);
     });
 
     it("[api:TextEditor.insertSnippet] a closed editor rejects with upstream's message", async () => {
