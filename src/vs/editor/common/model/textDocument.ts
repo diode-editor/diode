@@ -58,7 +58,7 @@ export class TextDocument implements ITextDocument {
     /**
      * Upstream's `getAlternativeVersionId`: equals {@link versionId} after an edit or {@link setText}, and undo/redo
      * set it back to the value of the state they restore — text equal to the saved one has the saved version.
-     * {@link setEol} leaves it: the EOL is a separate "modified" axis (`BaseTextEditorModel.isModified`).
+     * {@link setEol} is an edit too, as upstream `setEOL` (`_increaseVersionId`).
      */
     public get alternativeVersionId(): number {
         return this.alternativeVersionIdValue;
@@ -129,12 +129,13 @@ export class TextDocument implements ITextDocument {
         return this.buffer.getLinesContent();
     }
 
-    public setEol(eol: EndOfLine): void {
+    /** `alternativeVersionId` — of the state undo/redo restores, as in {@link applyUndoRedoEdits}. */
+    public setEol(eol: EndOfLine, alternativeVersionId?: number): void {
         if (eol === this.eol) return;
         this.assertWritable("setEol");
         this.buffer.setEol(eol);
         // As upstream `setEOL`: extensions see a new version of the text, `getText` differs.
-        this.bumpVersion(this.alternativeVersionIdValue);
+        this.bumpVersion(alternativeVersionId);
         this.onDidChangeEolEmitter.fire();
     }
 
