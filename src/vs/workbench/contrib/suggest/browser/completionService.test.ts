@@ -2667,7 +2667,7 @@ describe('CompletionService — typing past the trigger (npm-intellisense in `re
     });
 
     it("an npm-intellisense trigger character keeps TypeScript's items without a range as they are", async () => {
-        const { fake, labels } = npmSetup(() =>
+        const { fake, npm, labels } = npmSetup(() =>
             Promise.resolve(completionResult([{ label: "left-pad/lib", insertText: "left-pad/lib" }])),
         );
         await typeQuote(fake);
@@ -2675,6 +2675,10 @@ describe('CompletionService — typing past the trigger (npm-intellisense in `re
         await flushTimers();
 
         // npm-intellisense was asked again (`/`), TypeScript's item was reused untouched.
+        expect(npm).toHaveBeenLastCalledWith(
+            expect.objectContaining({ triggerKind: CompletionTriggerKind.TriggerCharacter, triggerCharacter: "/" }),
+            expect.anything(),
+        );
         expect(labels()).toEqual(["left-pad/lib"]);
     });
 

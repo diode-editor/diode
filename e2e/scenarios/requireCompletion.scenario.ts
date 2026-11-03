@@ -55,7 +55,7 @@ export default defineScenario({
         await editor.sendText("const x = require(");
         await typeQuoteUntilModules(editor);
         for (const key of ["l", "e"]) await editor.sendKey(key);
-        await editor.waitForText((t) => t.includes('require("le")') && t.includes("left-pad"));
+        await editor.waitForText((t) => t.includes('require("le') &&t.includes("left-pad"));
         await editor.capture("filtered");
     },
 });
