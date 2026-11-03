@@ -286,7 +286,6 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: TaskServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: without the entry the recorder resolves lazily on the first recording command — the entry only hands over lifetime ownership
     { token: KeybindingRecorderComponentDIToken, phase: "blockStartup" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: same — the doctor resolves lazily on the launch command
     // `vscode.diff`: the extension host calls it by id — the command is needed before extensions start.
     { token: VscodeDiffCommandContributionDIToken, phase: "blockStartup" },
 
