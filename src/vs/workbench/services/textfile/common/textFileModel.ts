@@ -307,8 +307,7 @@ export class TextFileModel extends BaseTextEditorModel {
     public override get isModified(): boolean {
         if (this.hasAssociatedResource) return true;
         // Upstream `onModelContentChanged`: an untitled buffer that became empty never shows a dirty indicator.
-        if (this.uriValue.scheme === "untitled" && this.doc.getValueLength() === 0)
-            return this.doc.eol !== this.savedEol;
+        if (this.uriValue.scheme === "untitled" && this.doc.getValueLength() === 0) return false;
         return super.isModified;
     }
 
@@ -728,7 +727,6 @@ export class TextFileModel extends BaseTextEditorModel {
         if (participation !== null) await participation;
         // The snapshot is the saved state: edits typed while the bytes stream to disk stay unsaved.
         const savedAlternativeVersion = this.doc.alternativeVersionId;
-        const savedEol = this.doc.eol;
         let written: IFileStat;
         try {
             // Streamed: the encoded snapshot goes to the file a megabyte at a time, no buffer of the whole file (A4).
@@ -745,7 +743,7 @@ export class TextFileModel extends BaseTextEditorModel {
             return "conflict";
         }
         if (filePath !== null) this.diskStat = { mtimeMs: written.mtime, size: written.size };
-        this.markSaved(savedAlternativeVersion, savedEol);
+        this.markSaved(savedAlternativeVersion);
         this.setDiskConflict(false);
         this.setOrphaned(false);
         this.fireSaved();
@@ -819,7 +817,6 @@ export class TextFileModel extends BaseTextEditorModel {
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
         const savedAlternativeVersion = this.doc.alternativeVersionId;
-        const savedEol = this.doc.eol;
         const bytes = encodeStream(this.doc.createSnapshot(), this.encodingValue);
         let written: IFileStat;
         try {
@@ -833,7 +830,7 @@ export class TextFileModel extends BaseTextEditorModel {
         this.markedDirtyForExtensions = false;
         this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.doc.setLanguage(this.resolveLanguageId(newPath));
-        this.markSaved(savedAlternativeVersion, savedEol);
+        this.markSaved(savedAlternativeVersion);
         this.setDiskConflict(false);
         this.setOrphaned(false);
         this.startWatchingFile(newPath);

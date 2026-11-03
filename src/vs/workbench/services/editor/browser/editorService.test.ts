@@ -536,7 +536,7 @@ describe("EditorService", () => {
             const ctrl = createEditorService();
             const file = writeFile("a.ts", "a\nb");
             ctrl.newUntitled();
-            ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
+            ctrl.getActiveEditor()!.typeText("x");
             ctrl.openFile(file);
             ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
 

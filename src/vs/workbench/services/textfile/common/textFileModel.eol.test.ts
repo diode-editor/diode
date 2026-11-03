@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -82,14 +83,103 @@ describe("TextFileModel EOL", () => {
         expect(ctrl.isModified).toBe(true);
     });
 
-    it("setting the line ending back on a clean document leaves it clean", () => {
+    // Issue #1029: an EOL change is an edit like any other (upstream `setEOL`), so a manual change back is one more
+    // edit; only undo returns to the saved state.
+    it("setting the line ending back by hand on a clean document leaves it modified; a save writes the bytes", async () => {
         const filePath = writeFile("lf.txt", "a\nb");
         const ctrl = createEditorPane();
         ctrl.openFile(Uri.file(filePath));
 
         ctrl.setEol(EndOfLine.CRLF);
         ctrl.setEol(EndOfLine.LF);
+        expect(ctrl.isModified).toBe(true);
 
+        await ctrl.save();
+        expect(ctrl.isModified).toBe(false);
+        expect(fs.readFileSync(filePath, "utf-8")).toBe("a\nb");
+    });
+
+    it("redo of an eol change makes the document modified again", () => {
+        const ctrl = createEditorPane();
+        ctrl.openFile(Uri.file(writeFile("lf.txt", "a\nb")));
+
+        ctrl.setEol(EndOfLine.CRLF);
+        ctrl.undo();
+        ctrl.redo();
+
+        expect(ctrl.eol).toBe(EndOfLine.CRLF);
+        expect(ctrl.isModified).toBe(true);
+    });
+
+    it("an eol change, an edit and the eol back: modified; three undos: clean", () => {
+        const ctrl = createEditorPane();
+        ctrl.openFile(Uri.file(writeFile("lf.txt", "a\nb")));
+
+        ctrl.setEol(EndOfLine.CRLF);
+        ctrl.applyExternalEdits([createInsertEdit(0, 0, "x")], "edit");
+        ctrl.setEol(EndOfLine.LF);
+        expect(ctrl.isModified).toBe(true);
+
+        ctrl.undo();
+        expect(ctrl.isModified).toBe(true);
+        ctrl.undo();
+        expect(ctrl.isModified).toBe(true);
+        ctrl.undo();
+        expect(ctrl.getText()).toBe("a\nb");
+        expect(ctrl.isModified).toBe(false);
+    });
+
+    it("an eol change after a save: its undo returns to the saved text with the old sequence and is clean", async () => {
+        const ctrl = createEditorPane();
+        ctrl.openFile(Uri.file(writeFile("lf.txt", "a\nb")));
+        ctrl.applyExternalEdits([createInsertEdit(0, 0, "x")], "edit");
+        await ctrl.save();
+
+        ctrl.setEol(EndOfLine.CRLF);
+        expect(ctrl.isModified).toBe(true);
+        ctrl.undo();
+
+        expect(ctrl.eol).toBe(EndOfLine.LF);
+        expect(ctrl.getText()).toBe("xa\nb");
+        expect(ctrl.isModified).toBe(false);
+    });
+
+    it("an eol change while a save streams to disk is not in the file: modified, and its undo is clean", async () => {
+        const files = diskFileService();
+        const write = files.writeFile.bind(files);
+        let duringWrite = (): void => undefined;
+        files.writeFile = (resource, value, options) => {
+            duringWrite();
+            return write(resource, value, options);
+        };
+        const filePath = writeFile("lf.txt", "a\nb");
+        const ctrl = createEditorPane({ files });
+        ctrl.openFile(Uri.file(filePath));
+        ctrl.applyExternalEdits([createInsertEdit(0, 0, "x")], "edit");
+        duringWrite = () => {
+            ctrl.setEol(EndOfLine.CRLF);
+        };
+
+        expect(await ctrl.save()).toBe("saved");
+        expect(fs.readFileSync(filePath, "utf-8")).toBe("xa\nb");
+        expect(ctrl.isModified).toBe(true);
+
+        ctrl.undo();
+        expect(ctrl.isModified).toBe(false);
+    });
+
+    it("a reload from disk with another sequence is clean and reports the eol change", () => {
+        const filePath = writeFile("lf.txt", "a\nb");
+        const ctrl = createEditorPane();
+        ctrl.openFile(Uri.file(filePath));
+        let fired = 0;
+        ctrl.onDidChangeEol(() => fired++);
+
+        fs.writeFileSync(filePath, "a\r\nb");
+        ctrl.model.revertToDisk();
+
+        expect(ctrl.eol).toBe(EndOfLine.CRLF);
+        expect(fired).toBe(1);
         expect(ctrl.isModified).toBe(false);
     });
 
