@@ -59,6 +59,26 @@ export function nowIso() {
     return new Date().toISOString();
 }
 
+/**
+ * Blockers named in an issue body: every line that is nothing but `Blocked by #A, #B` (an
+ * optional colon, bullet or bold markers allowed). The phrase inside prose does not count, so a
+ * decision note like "order: #981 first, #1023 Blocked by #981" written into #981 itself does
+ * not block it. The issue's own number is dropped and returned in `self` for the caller to log.
+ */
+export function bodyBlockers(body, selfNumber) {
+    const numbers = new Set();
+    let self = false;
+    const line = /^[\s>*_-]*blocked by:?[\s*_]*((?:#\d+[,\s]*)+)[\s*_.]*$/gim;
+    for (const m of (body ?? "").matchAll(line)) {
+        for (const ref of m[1].matchAll(/#(\d+)/g)) {
+            const n = Number(ref[1]);
+            if (n === selfNumber) self = true;
+            else numbers.add(n);
+        }
+    }
+    return { numbers: [...numbers], self };
+}
+
 /** `--flag value` / `--flag=value` / `--flag` (true); positional words go to `_`; `--` ends parsing (rest in `rest`). */
 export function parseFlags(argv) {
     const out = { _: [], rest: [] };

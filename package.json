@@ -29,7 +29,7 @@
     "bench:services": "tsx e2e/bench/startupServices.ts",
     "test:mutation": "node scripts/mutation-diff.mjs --ignoreStatic --incremental",
     "ci:run": "node scripts/ci-run.mjs",
-    "test:scripts": "node --test scripts/*.test.mjs .claude/hooks/*.test.mjs e2e/api-conformance/*.test.mjs",
+    "test:scripts": "node --test scripts/*.test.mjs scripts/agent-loop/*.test.mjs .claude/hooks/*.test.mjs e2e/api-conformance/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ extensions/ tools/",
     "lint:fix": "eslint src/ extensions/ tools/ --fix",
