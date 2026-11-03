@@ -5,6 +5,7 @@ import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils
 import { typeText } from "../../../../../TestUtils/domQueries.ts";
 import { drawSelections } from "../../../../../TestUtils/snippetPane.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
+import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { SnippetController2 } from "../../../../editor/contrib/snippet/browser/snippetController2.ts";
@@ -112,6 +113,47 @@ describe("Snippet session — a choice", () => {
         h.testApp.sendKey("Enter");
         await settle();
         expect(drawSelections(pane)).toBe("set |");
+    });
+
+    it("back on a choice whose text is no option, the options are filtered by it", async () => {
+        await insert("${1|get,set|} ${2:x}");
+        h.testApp.sendKey("Escape");
+        typeText(h.testApp, "s");
+        h.testApp.sendKey("Tab");
+        h.testApp.sendKey("Shift+Tab");
+        await settle();
+        expect(drawSelections(pane)).toBe("[s] x");
+        expect(popup()).toEqual(["set"]);
+    });
+
+    it("a choice left before the popup came up opens none", async () => {
+        const { document } = pane.viewState;
+        SnippetController2.get(pane).apply(
+            [
+                {
+                    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+                    template: "${1|a,b|} ${2:x}",
+                },
+            ],
+            {},
+        );
+        expect(document.getText()).toBe("a x");
+        SnippetController2.get(pane).next();
+        await settle();
+        expect(popup()).toBeNull();
+    });
+
+    it("the choice's provider answers only at the primary caret on the choice", async () => {
+        await insert("${1|get,set|} ${2:x}");
+        const [choiceProvider] = h.container.get(LanguageFeaturesServiceDIToken).completionProvider.ordered(pane);
+        const request = { uri: pane.uri.toString(), languageId: pane.languageId, versionId: 0 };
+        const ask = async (line: number, character: number) =>
+            (await choiceProvider.provideCompletionItems({ ...request, line, character }, CancellationTokenNone)).items;
+        expect((await ask(0, 3)).map((item) => item.label)).toEqual(["get", "set"]);
+        expect(await ask(0, 2)).toEqual([]);
+        h.testApp.sendKey("Escape");
+        h.testApp.sendKey("Tab");
+        expect(await ask(0, 5)).toEqual([]);
     });
 
     it("Shift+Tab with the popup open goes back to the previous tab stop and closes it", async () => {

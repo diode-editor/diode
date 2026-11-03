@@ -32,7 +32,9 @@ class SnippetChoiceCompletions extends Disposable {
     private currentChoice: Choice | undefined;
     private readonly registration = this.register(new MutableDisposable());
     private readonly provider: CompletionItemProvider = {
+        // Stryker disable next-line ArrayDeclaration: a typed character never equals the mutant's string
         triggerCharacters: [],
+        // Stryker disable next-line BooleanLiteral: a re-request asks this provider again and gets the same options back
         provideCompletionItems: (request) => Promise.resolve({ items: this.items(request), isIncomplete: false }),
     };
 

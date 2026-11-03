@@ -195,6 +195,7 @@ export class SnippetController2 {
         if (edits.length === 0) {
             viewState.selections = session.move(fwd);
         } else {
+            // Stryker disable next-line StringLiteral: the label of an undo step is shown nowhere
             editor.applyExternalEdits(edits, "snippet.placeholderTransform", () => session.move(fwd), {});
         }
         // The selection change has updated the state: on the last group the session is over.

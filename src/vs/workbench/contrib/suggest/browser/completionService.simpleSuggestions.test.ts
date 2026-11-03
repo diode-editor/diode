@@ -84,6 +84,18 @@ describe("CompletionService.showSimpleSuggestions", () => {
         expect(drawSelections(pane())).toBe("X|\nbarX|\nX|");
     });
 
+    it("the text replaced around a caret is what the item replaces before and after the primary one", async () => {
+        pane().viewState.document.setText("a foo b\nbar\nc foo d");
+        pane().viewState.selections = [
+            createCursorSelection(0, 3),
+            createCursorSelection(1, 3),
+            createCursorSelection(2, 3),
+        ];
+        await show(provider([item("X", createRange(0, 2, 0, 5))]));
+        ctx.testApp.sendKey("Enter");
+        expect(drawSelections(pane())).toBe("a X| b\nbarX|\nc X| d");
+    });
+
     it("the item's command runs after the insert", async () => {
         const execute = vi.spyOn(ctx.harness.container.get(CommandRegistryDIToken), "execute");
         pane().viewState.selections = [createSelection(0, 0, 0, 3)];
