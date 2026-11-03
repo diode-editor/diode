@@ -1,10 +1,14 @@
-import { commonPrefixLength } from "../../../../base/common/strings.ts";
+import { commonPrefixLength, splitLines } from "../../../../base/common/strings.ts";
 import { comparePositions, type IPosition } from "../../../common/core/iPosition.ts";
 import type { IRange } from "../../../common/core/iRange.ts";
 import { createSelection, type ISelection } from "../../../common/core/iSelection.ts";
-import { createTextEdit, type ITextEdit } from "../../../common/core/iTextEdit.ts";
+import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../common/core/iTextEdit.ts";
+import { countEOL } from "../../../common/core/misc/eolCounter.ts";
 import { DEFAULT_WORD_REGEXP, getWordAtText } from "../../../common/core/wordHelper.ts";
 import { getLeadingWhitespace } from "../../../common/languages/autoIndent.ts";
+import type { ITextDocument } from "../../../common/model/iTextDocument.ts";
+import type { EditorViewState } from "../../../common/viewModel/editorViewState.ts";
+import type { ICursorStateComputer } from "../../../common/viewModel/trackedSelections.ts";
 
 import {
     Choice,
@@ -24,9 +28,25 @@ import {
  */
 
 /** What the insert reads of the document; lines are LF-canonical, as `ITextDocument` stores them. */
-export interface ISnippetDocument {
-    getLineContent(lineIndex: number): string;
-    getTextInRange(range: IRange): string;
+export type ISnippetDocument = Pick<ITextDocument, "getLineContent" | "getTextInRange">;
+
+/** What the insert needs of a text editor pane. */
+export interface ISnippetEditor {
+    readonly model: { readonly document: ISnippetDocument };
+    readonly viewState: Pick<EditorViewState, "tabSize" | "insertSpaces" | "selections" | "revealRangeByType">;
+    focusEditor(): void;
+    applyExternalEdits(
+        edits: readonly ITextEdit[],
+        label: string,
+        computeCursorState: ICursorStateComputer,
+        undoStops: { readonly undoStopBefore?: boolean; readonly undoStopAfter?: boolean },
+    ): void;
+}
+
+export interface ISnippetApplyOptions {
+    readonly keepWhitespace?: boolean;
+    readonly undoStopBefore?: boolean;
+    readonly undoStopAfter?: boolean;
 }
 
 export interface ISnippetEdit {
@@ -49,7 +69,6 @@ export interface ISnippetInsert {
 }
 
 const EOL = "\n";
-const LINE_BREAK = /\r\n|\r|\n/;
 
 /** Upstream `normalizeIndentation` (`core/misc/indentation.ts`): the leading whitespace for the tab settings. */
 function normalizeIndentation(line: string, { tabSize, insertSpaces }: ISnippetInsertOptions): string {
@@ -79,7 +98,7 @@ function adjustWhitespace(
     let snippetText: string | undefined;
     snippet.walk((marker) => {
         if (!(marker instanceof Text) || marker.parent instanceof Choice || !fragment.has(marker)) return true;
-        const lines = marker.value.split(LINE_BREAK);
+        const lines = splitLines(marker.value);
         if (options.adjustWhitespace) {
             const offset = snippet.offset(marker);
             if (offset === 0) {
@@ -158,7 +177,7 @@ class SelectionBasedVariableResolver implements VariableResolver {
         snippet.walk((marker) => {
             if (marker === variable) return false;
             if (marker instanceof Text) {
-                variableLeadingWhitespace = getLeadingWhitespace(marker.value.split(LINE_BREAK).pop() ?? "");
+                variableLeadingWhitespace = getLeadingWhitespace(splitLines(marker.value).pop() ?? "");
             }
             return true;
         });
@@ -170,11 +189,10 @@ class SelectionBasedVariableResolver implements VariableResolver {
 }
 
 function positionAfter(start: IPosition, text: string): IPosition {
-    const lines = text.split(LINE_BREAK);
-    const last = lines[lines.length - 1];
-    return lines.length === 1
-        ? { line: start.line, character: start.character + last.length }
-        : { line: start.line + lines.length - 1, character: last.length };
+    const [lineBreaks, , lastLineLength] = countEOL(text);
+    return lineBreaks === 0
+        ? { line: start.line, character: start.character + lastLineLength }
+        : { line: start.line + lineBreaks, character: lastLineLength };
 }
 
 /**
@@ -224,24 +242,48 @@ export function createSnippetInsert(
     const start = indexed[0].edit.range.start;
     const text = snippet.toString();
     const at = (snippetOffset: number): IPosition => positionAfter(start, text.slice(0, snippetOffset));
-    const placeholders = snippet.placeholders;
+    const { placeholders } = snippet;
+    // Upstream `OneSnippet.move(true)` from the start: every placeholder of the first group, `$0` sorting last;
+    // without placeholders, a caret at the end of every edit.
+    let spans: (readonly [number, number])[];
     if (placeholders.length === 0) {
-        // Upstream: a caret at the end of every edit.
-        const selections = ends.map((end) => {
-            const position = at(end);
-            return createSelection(position.line, position.character, position.line, position.character);
-        });
-        return { edits, selections };
+        spans = ends.map((end) => [end, end] as const);
+    } else {
+        const first = placeholders.reduce((a, b) => (Placeholder.compareByIndex(b, a) < 0 ? b : a)).index;
+        spans = placeholders
+            .filter((placeholder) => placeholder.index === first)
+            .map((placeholder) => {
+                const from = snippet.offset(placeholder);
+                return [from, from + snippet.fullLen(placeholder)] as const;
+            });
     }
-    // Upstream `OneSnippet.move(true)` from the start: every placeholder of the first group, `$0` sorting last.
-    const first = [...placeholders].sort((a, b) => Placeholder.compareByIndex(a, b))[0].index;
-    const selections = placeholders
-        .filter((placeholder) => placeholder.index === first)
-        .map((placeholder) => {
-            const from = snippet.offset(placeholder);
-            const anchor = at(from);
-            const active = at(from + snippet.fullLen(placeholder));
-            return createSelection(anchor.line, anchor.character, active.line, active.character);
-        });
+    const selections = spans.map(([from, to]) => {
+        const anchor = at(from);
+        const active = at(to);
+        return createSelection(anchor.line, anchor.character, active.line, active.character);
+    });
     return { edits, selections };
+}
+
+/**
+ * Upstream `SnippetController2.apply` → `SnippetSession.insert`: the edits and the first caret as one step, the caret
+ * revealed. `false`, with nothing changed, for overlapping ranges.
+ */
+export function insertSnippet(
+    editor: ISnippetEditor,
+    snippetEdits: readonly ISnippetEdit[],
+    options: ISnippetApplyOptions,
+): boolean {
+    const { viewState } = editor;
+    const { edits, selections } = createSnippetInsert(editor.model.document, snippetEdits, {
+        adjustWhitespace: options.keepWhitespace !== true,
+        tabSize: viewState.tabSize,
+        insertSpaces: viewState.insertSpaces,
+    });
+    if (hasOverlappingEdits(edits)) return false;
+    editor.focusEditor();
+    editor.applyExternalEdits(edits, "snippet", () => [...selections], options);
+    const [primary] = viewState.selections;
+    viewState.revealRangeByType({ start: primary.active, end: primary.active }, "default");
+    return true;
 }

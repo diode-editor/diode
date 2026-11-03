@@ -13,7 +13,7 @@ import { createRange, type IRange } from "../../../editor/common/core/iRange.ts"
 import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import { createTextEdit, hasOverlappingEdits, type ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { RangeRevealType } from "../../../editor/common/viewModel/editorViewState.ts";
-import { createSnippetInsert } from "../../../editor/contrib/snippet/browser/snippetSession.ts";
+import { insertSnippet } from "../../../editor/contrib/snippet/browser/snippetSession.ts";
 import { DiffEditorPane2 } from "../../browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditService.ts";
@@ -227,25 +227,14 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         if (editor === null || editor.readOnly || ranges.length === 0) return false;
         const document = editor.model.document;
         if (options.version !== document.versionId) return false;
-        const { edits, selections } = createSnippetInsert(
-            document,
+        return insertSnippet(
+            editor,
             ranges.map(({ start, end }) => ({
                 range: { start: clampPositionToDocument(document, start), end: clampPositionToDocument(document, end) },
                 template,
             })),
-            {
-                adjustWhitespace: options.keepWhitespace !== true,
-                tabSize: editor.viewState.tabSize,
-                insertSpaces: editor.viewState.insertSpaces,
-            },
+            options,
         );
-        if (hasOverlappingEdits(edits)) return false;
-        editor.focusEditor();
-        editor.applyExternalEdits(edits, "snippet", () => [...selections], options);
-        // Upstream `SnippetSession.insert` reveals the primary selection.
-        const [primary] = editor.viewState.selections;
-        editor.viewState.revealRangeByType({ start: primary.active, end: primary.active }, "default");
-        return true;
     }
 
     public async applyWorkspaceEdit(
