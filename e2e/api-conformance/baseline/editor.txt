@@ -2,6 +2,7 @@ vscode API - editors editor contents are correctly read (large file)
 vscode API - editors editor contents are correctly read (small file)
 vscode API - editors extEditor.selection can be empty #18075
 vscode API - editors insert snippet
+vscode API - editors insert snippet with clipboard variables
 vscode API - editors insert snippet with replacement, avoid adjusting indentation
 vscode API - editors insert snippet with replacement, editor selection
 vscode API - editors insert snippet with replacement, selection as argument
