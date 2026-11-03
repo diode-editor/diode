@@ -99,6 +99,25 @@
 - Не сделано: режим `inline` (попап просто не открывает), провайдерский `suppressSuggestions`,
   `snippetsPreventQuickSuggestions`, retrigger при переходе к новому слову (`_onNewContext`).
 
+### Choice сниппета: эксклюзивный провайдер
+
+`CompletionService.showSimpleSuggestions(provider)` — аналог `showSimpleSuggestions` эталона: попап только с
+пунктами этого провайдера, без слов буфера и **при выделении и нескольких каретках** (обычный запрос их
+отсекает). Accept заменяет текст вокруг первичной каретки, а у остальных — тот же текст вокруг каждой
+(`createEditsAndSnippetsFromSelections` эталона); где там другой текст — заменяется выделение этой каретки.
+Каретки встают в конец каждой вставки.
+
+Потребитель — choice сниппет-сессии (`SnippetChoiceCompletions` в `workbench/contrib/snippet/browser/snippetService.ts`,
+порт `_handleChoice` и провайдера из `snippetController2.ts` эталона). Пока сессия на choice, в реестре
+`completionProvider` стоит провайдер с селектором `language + scheme + pattern` документа и `exclusive: true` —
+остальные провайдеры языка не спрашиваются, ни явным Ctrl+Space, ни набором; ушла с choice — провайдер снят.
+Пункты: `kind: Value`, `label = insertText` = вариант, `sortText` `a`, `aa`, … (авторский порядок), `range` —
+плейсхолдер, `command: jumpToNextSnippetPlaceholder`; пока текст плейсхолдера — один из вариантов, `filterText`
+`<текст>_<вариант>`, чтобы фильтр по выделенному тексту не прятал остальные. Отвечает только на позиции первичной
+каретки. Приход на новый choice открывает попап в микротаске после смены выделения; уход закрывает его (пока
+провайдер эксклюзивен, открытый попап — его). Shift+Tab на choice — `jumpToPrevSnippetPlaceholder` с весом
+`EditorContrib + 91`, выше Shift+Tab suggest эталона (`acceptAlternativeSelectedSuggestion`, у нас его нет).
+
 ## Подсказка параметров
 
 Попап сигнатуры у каретки — contrib `parameterHints`: `ParameterHintsService`

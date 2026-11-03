@@ -202,6 +202,23 @@ describe("ExtensionHost — TextEditor.insertSnippet", () => {
         });
     });
 
+    it("[api:TextEditor.insertSnippet] the session is on the choice; a transform applies on Tab and shows on the frame", async () => {
+        const { h, editor, text, frame } = await setup("\n");
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.insert", "${1|get,set|} ${2/^_(.*)/$1/} $0");
+        await settle();
+        const session = SnippetController2.get(editor);
+        expect(session.activeChoice?.choice.options.map((option) => option.value)).toEqual(["get", "set"]);
+
+        session.next();
+        expect(session.activeChoice).toBeUndefined();
+        editor.pushUndo(editor.viewState.type("_prop"));
+        session.next();
+        expect(text()).toBe("get prop \n");
+        expect(frame()).toContain("get prop");
+    });
+
     it("[api:TextEditor.insertSnippet] the session: typing fills the mirrors, Tab walks to `$0` and ends it", async () => {
         const { h, editor, text, frame } = await setup("\n");
         await settle();

@@ -10,7 +10,12 @@ import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
-import { createCursorSelection, isSelectionCollapsed } from "../../../../editor/common/core/iSelection.ts";
+import {
+    createCursorSelection,
+    type ISelection,
+    isSelectionCollapsed,
+    selectionToRange,
+} from "../../../../editor/common/core/iSelection.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { DEFAULT_WORD_REGEXP, getWordAtText } from "../../../../editor/common/core/wordHelper.ts";
@@ -21,6 +26,7 @@ import type {
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { type StandardTokenType, standardTokenTypeAt } from "../../../../editor/common/languages/standardTokenType.ts";
+import type { ITextDocument } from "../../../../editor/common/model/iTextDocument.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -205,24 +211,43 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         return this.request(triggerCharacter, auto, false);
     }
 
+    /**
+     * Upstream `showSimpleSuggestions`: the popup with the items of `provider` alone, no buffer words, at the primary
+     * caret even with a selection or several carets (a snippet choice and its mirrors): accept replaces the same text
+     * around each caret.
+     */
+    public showSimpleSuggestions(provider: CompletionItemProvider): Promise<void> {
+        return this.request(undefined, false, false, provider);
+    }
+
     /** `retrigger` — the popup is open: keep the items of the providers not asked now, and the prefix boundary. */
-    private async request(triggerCharacter: string | undefined, auto: boolean, retrigger: boolean): Promise<void> {
+    private async request(
+        triggerCharacter: string | undefined,
+        auto: boolean,
+        retrigger: boolean,
+        onlyFrom?: CompletionItemProvider,
+    ): Promise<void> {
         this.cancelAutoSuggest();
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
 
-        // Multi-cursor is unsupported: accept would insert the edit past the other cursors and collapse them.
+        // Multi-cursor and a selection are left to `showSimpleSuggestions`: the user's other carets may sit in other
+        // words, which accept would overwrite.
         const selections = editor.viewState.selections;
-        if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) return;
+        if (onlyFrom === undefined && (selections.length !== 1 || !isSelectionCollapsed(selections[0]))) return;
 
         const active = selections[0].active;
 
         // Upstream `providerFilter`: a trigger character asks only the providers that declare it.
-        const providers = this.languageFeatures.completionProvider
-            .ordered(editor)
-            .filter(
-                (provider) => triggerCharacter === undefined || provider.triggerCharacters.includes(triggerCharacter),
-            );
+        const providers =
+            onlyFrom !== undefined
+                ? [onlyFrom]
+                : this.languageFeatures.completionProvider
+                      .ordered(editor)
+                      .filter(
+                          (provider) =>
+                              triggerCharacter === undefined || provider.triggerCharacters.includes(triggerCharacter),
+                      );
         const reused = retrigger ? this.reusableItems(providers, active) : null;
         const ticket = this.latest.start();
         this.requestCaret = active;
@@ -280,7 +305,7 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         const items =
             reused !== null
                 ? [...reused.items, ...extensionItems]
-                : extensionItems.length > 0 || triggerCharacter !== undefined
+                : extensionItems.length > 0 || triggerCharacter !== undefined || onlyFrom !== undefined
                   ? extensionItems
                   : this.wordItems(editor, prefix);
         if (items.length === 0) {
@@ -721,7 +746,12 @@ export class CompletionService extends Disposable implements IContextKeyContribu
             return;
         }
         // Read the cursor BEFORE close() — resolveAcceptRange compares it with triggerCaret.
-        const range = this.resolveAcceptRange(core, prefixRange, editor.viewState.selections[0].active);
+        const { selections } = editor.viewState;
+        const ranges = rangesAroundCarets(
+            editor.viewState.document,
+            selections,
+            this.resolveAcceptRange(core, prefixRange, selections[0].active),
+        );
         this.close();
 
         const id = core.id;
@@ -729,31 +759,34 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         // Edits that came in the list itself (gopls) apply right away — upstream doesn't wait
         // for resolve in this case (`suggestController`, "sync additional edits").
         if (core.additionalEdits !== undefined || id === undefined || resolve === undefined) {
-            this.applyAccept(editor, range, core, core.additionalEdits ?? []);
+            this.applyAccept(editor, ranges, core, core.additionalEdits ?? []);
             return;
         }
         // The server returns auto-import edits only on resolve, and the details panel is usually hidden.
         // Wait briefly: insertion must not hang on a silent server.
         void this.resolveItem(id, resolve, ACCEPT_RESOLVE_TIMEOUT_MS).then((resolved) => {
-            this.applyAccept(editor, range, core, resolved?.additionalEdits ?? []);
+            this.applyAccept(editor, ranges, core, resolved?.additionalEdits ?? []);
         });
     }
 
     /**
-     * The insertion and its companion edits are one transaction (one Undo). The cursor lands at the end of
-     * the main insertion, like upstream: `additionalTextEdits` only shift cursors.
+     * The insertion and its companion edits are one transaction (one Undo). A caret lands at the end of each
+     * insertion, like upstream: `additionalTextEdits` only shift cursors.
      */
     private applyAccept(
         editor: TextEditorPane,
-        range: IRange,
+        ranges: readonly IRange[],
         core: ICoreCompletionItem,
         additionalEdits: readonly ITextEdit[],
     ): void {
         // The edit below synchronously calls onCaretChanged — don't let it auto-reopen the popup.
         editor.applyExternalEdits(
-            [createTextEdit(range, core.insertText), ...additionalEdits],
+            [...ranges.map((range) => createTextEdit(range, core.insertText)), ...additionalEdits],
             "Accept Completion",
-            ([inserted]) => [createCursorSelection(inserted.range.end.line, inserted.range.end.character)],
+            (inverse) =>
+                inverse
+                    .slice(0, ranges.length)
+                    .map(({ range: { end } }) => createCursorSelection(end.line, end.character)),
         );
 
         const command = core.command;
@@ -867,6 +900,31 @@ function followCaret(range: IRange, from: IPosition, to: IPosition): IRange {
         range.end.line,
         range.end.character + to.character - from.character,
     );
+}
+
+/**
+ * Upstream `SnippetSession.createEditsAndSnippetsFromSelections` for an item accepted with several carets (only
+ * `showSimpleSuggestions` opens the popup with them): what the item replaces around the primary caret is replaced
+ * around every other one, and where the text there differs, that caret's selection is.
+ */
+function rangesAroundCarets(
+    document: Pick<ITextDocument, "getTextInRange">,
+    selections: readonly ISelection[],
+    range: IRange,
+): IRange[] {
+    const [{ active: caret }, ...others] = selections;
+    if (others.length === 0) return [range];
+    const before = caret.character - range.start.character;
+    const after = range.end.character - caret.character;
+    const text = document.getTextInRange(range);
+    return [
+        range,
+        ...others.map((selection) => {
+            const { line, character } = selection.active;
+            const around = createRange(line, character - before, line, character + after);
+            return document.getTextInRange(around) === text ? around : selectionToRange(selection);
+        }),
+    ];
 }
 
 /** The items' common `range.start.character`; `null` — no ranges, or they differ. */

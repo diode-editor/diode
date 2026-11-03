@@ -29,6 +29,10 @@ export const jumpToPrevSnippetPlaceholderAction: CommandAction = {
     title: "Go to Previous Snippet Placeholder",
     weight: SNIPPET_WEIGHT,
     keybinding: parseKeybinding("shift+tab"),
+    // Upstream #236489: on a choice, above the suggest widget's own Shift+Tab (`acceptAlternativeSelectedSuggestion`).
+    keybindings: [
+        { keys: parseKeybinding("shift+tab"), when: "inSnippetChoice", weight: KeybindingWeight.EditorContrib + 91 },
+    ],
     when: "textInputFocus",
     enablement: "inSnippetMode && hasPrevTabstop",
     menus: HIDDEN,

@@ -8,6 +8,8 @@ import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
 // A snippet session (#1032): `${1:name} = $1;$0` from an extension's `TextEditor.insertSnippet`. Both tab stops are
 // highlighted, typing goes into the mirror too, Tab goes to `$0` and ends the session, and the next Tab indents.
+// Then a choice with a transformed mirror (#1033): the popup offers `get` and `set`, Enter puts one in and goes on to
+// the field, and Tab strips the field's underscore in the mirror.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-snippet-session-"));
 const textFile = join(sampleDir, "sample.txt");
@@ -25,14 +27,17 @@ async function backgrounds(editor: ScenarioDriver, prefix: string, offsets: read
 
 export default defineScenario({
     name: "snippet-session",
-    title: "Snippet session: the tab stops highlighted, typing fills the mirror, Tab to the end",
+    title: "Snippet session: the tab stops highlighted, typing fills the mirror, Tab to the end, a choice and a transform",
     seedUserData: userData,
     open: [sampleDir, textFile],
     cols: 80,
     rows: 14,
     // The extension host subprocess is flaky on Windows.
     skipOn: ["win32"],
-    userKeybindings: [{ key: "f5", command: "insertSnippetDemo.assign" }],
+    userKeybindings: [
+        { key: "f5", command: "insertSnippetDemo.assign" },
+        { key: "f6", command: "insertSnippetDemo.accessor" },
+    ],
     async prepare() {
         writeFileSync(textFile, "let \n");
     },
@@ -60,5 +65,21 @@ export default defineScenario({
         await editor.sendKey("Tab");
         await editor.waitForText((text) => text.includes("Ln 1, Col 21"));
         await editor.capture("tab-indents-again");
+
+        await editor.sendKey("Enter");
+        await editor.sendKey("F6");
+        await editor.waitForText((text) => text.includes("get _name() { return this._name; }") && text.includes("╭"));
+        await editor.capture("choice-popup");
+
+        await editor.sendKey("ArrowDown");
+        await editor.sendKey("Enter");
+        await editor.waitForText((text) => text.includes("set _name()") && !text.includes("╭"));
+        await editor.sendText("_count");
+        await editor.waitForText((text) => text.includes("set _count() { return this._count; }"));
+        await editor.capture("choice-picked-field-typed");
+
+        await editor.sendKey("Tab");
+        await editor.waitForText((text) => text.includes("set _count() { return this.count; }"));
+        await editor.capture("mirror-transformed");
     },
 });
