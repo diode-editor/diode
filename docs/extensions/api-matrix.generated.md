@@ -14,15 +14,15 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1095 |
+| ok | 1101 |
 | A | 4 |
 | B | 286 |
-| C | 596 |
+| C | 590 |
 | X | 234 |
 
 | mark | members |
 | --- | --- |
-| test | 151 |
+| test | 157 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -35,7 +35,7 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `window.withProgress` | B | 124 | 944,816,089 | cancellation token never fires, location is ignored |
 | `workspace.onDidChangeWorkspaceFolders` | B | 109 | 884,612,940 | never fires |
 | `workspace.openTextDocument` | B | 104 | 814,693,192 | A file is a live model without a tab; an explicit encoding decodes a separate read until the encodings cluster. untitled: uris as upstream, except that a relative or host uri has no path to write to: Ctrl+S asks through Save As, TextDocument.save gives false. |
-| `SnippetString` | C | 95 | 736,241,729 | text and caret only; snippet mode needs a snippet session |
+| `SnippetString` | C | 95 | 736,241,729 | builders as in VS Code; snippet mode needs a snippet session |
 | `SymbolKind.Property` | B | 81 | 684,369,652 | the provider is never called |
 | `SymbolInformation` | B | 84 | 635,989,694 | the provider is never called |
 | `DocumentSymbol` | B | 81 | 617,847,778 | the provider is never called |
@@ -1830,13 +1830,13 @@ Proposed API or a false hit: class X when real.
 | `SignatureInformation.documentation` | ok |  | 0 | 0 |  |
 | `SignatureInformation.label` | ok |  | 0 | 0 |  |
 | `SignatureInformation.parameters` | ok |  | 0 | 0 |  |
-| `SnippetString` | C |  | 95 | 736,241,729 |  |
-| `SnippetString.appendChoice` | C |  | 0 | 0 |  |
-| `SnippetString.appendPlaceholder` | C |  | 0 | 0 |  |
-| `SnippetString.appendTabstop` | C |  | 0 | 0 |  |
-| `SnippetString.appendText` | C |  | 0 | 0 |  |
-| `SnippetString.appendVariable` | C |  | 0 | 0 |  |
-| `SnippetString.value` | C |  | 0 | 0 |  |
+| `SnippetString` | C | yes | 95 | 736,241,729 |  |
+| `SnippetString.appendChoice` | ok | yes | 0 | 0 |  |
+| `SnippetString.appendPlaceholder` | ok | yes | 0 | 0 |  |
+| `SnippetString.appendTabstop` | ok | yes | 0 | 0 |  |
+| `SnippetString.appendText` | ok | yes | 0 | 0 |  |
+| `SnippetString.appendVariable` | ok | yes | 0 | 0 |  |
+| `SnippetString.value` | ok |  | 0 | 0 |  |
 | `SnippetTextEdit` | C |  | 29 | 313,879,605 |  |
 | `SnippetTextEdit.insert` | C |  | 0 | 0 |  |
 | `SnippetTextEdit.keepWhitespace` | C |  | 0 | 0 |  |

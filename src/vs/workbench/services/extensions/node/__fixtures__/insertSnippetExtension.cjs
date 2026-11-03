@@ -28,6 +28,15 @@ exports.activate = function activate(context) {
         vscode.commands.registerCommand("test.snippet.insert", (template, location, options) =>
             vscode.window.activeTextEditor.insertSnippet(new vscode.SnippetString(template), toLocation(location), options),
         ),
+        // Upstream's own `SnippetString` example, built with the builders (#1030).
+        vscode.commands.registerCommand("test.snippet.build", () =>
+            vscode.window.activeTextEditor.insertSnippet(
+                new vscode.SnippetString().appendText("This is a ").appendTabstop().appendPlaceholder("placeholder").appendText(" snippet"),
+            ),
+        ),
+        vscode.commands.registerCommand("test.snippet.literal", (text) =>
+            vscode.window.activeTextEditor.insertSnippet(new vscode.SnippetString().appendText(text)),
+        ),
         vscode.commands.registerCommand("test.snippet.hold", () => {
             held = vscode.window.activeTextEditor;
         }),

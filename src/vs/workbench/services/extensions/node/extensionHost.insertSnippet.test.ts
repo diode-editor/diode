@@ -83,6 +83,32 @@ describe("ExtensionHost — TextEditor.insertSnippet", () => {
         });
     });
 
+    // As upstream, the caret lands on `$1`, the empty tabstop before the placeholder (which is `$2`).
+    it("[api:SnippetString.appendPlaceholder] [api:SnippetString.appendTabstop] a snippet from the builders goes in with the caret on its first tabstop", async () => {
+        const { h, editor, text, frame } = await setup("");
+        await settle();
+
+        await expect(h.commandRegistry.execute("test.snippet.build")).resolves.toBe(true);
+        await settle();
+
+        expect(text()).toBe("This is a placeholder snippet");
+        expect(editor.viewState.selections[0]).toMatchObject({
+            anchor: { line: 0, character: 10 },
+            active: { line: 0, character: 10 },
+        });
+        expect(frame()).toContain("This is a placeholder snippet");
+    });
+
+    it("[api:SnippetString.appendText] text from appendText goes in literally, snippet syntax and all", async () => {
+        const { h, text } = await setup("");
+        await settle();
+
+        await h.commandRegistry.execute("test.snippet.literal", "a $1 } \\ ${2:b}");
+        await settle();
+
+        expect(text()).toBe("a $1 } \\ ${2:b}");
+    });
+
     it("[api:TextEditor.insertSnippet] several locations get a caret each, on one line and across lines", async () => {
         const { h, editor, text } = await setup("ab\ncd\n");
         await settle();

@@ -326,13 +326,6 @@ describe("vscodeTypes — LSP value classes", () => {
         expect(empty.isIncomplete).toBe(false);
     });
 
-    it("SnippetString: stores the value, appendText concatenates and returns this", () => {
-        const snippet = new SnippetString("foo(");
-        expect(snippet.appendText("$1)")).toBe(snippet);
-        expect(snippet.value).toBe("foo($1)");
-        expect(new SnippetString().value).toBe("");
-    });
-
     it("enums match VS Code numeric values", () => {
         expect(CompletionTriggerKind.Invoke).toBe(0);
         expect(CompletionTriggerKind.TriggerCharacter).toBe(1);

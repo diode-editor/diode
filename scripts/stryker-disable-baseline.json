@@ -40,7 +40,7 @@
     "src/vs/workbench/contrib/references/browser/hierarchyComponent.ts": 1,
     "src/vs/workbench/contrib/references/browser/referencesComponent.ts": 1,
     "src/vs/workbench/contrib/search/browser/searchComponent.ts": 1,
-    "src/vs/workbench/contrib/suggest/browser/completionService.ts": 2,
+    "src/vs/workbench/contrib/suggest/browser/completionService.ts": 1,
     "src/vs/workbench/contrib/tasks/browser/taskService.ts": 1,
     "src/vs/workbench/contrib/terminal/browser/terminalEditorService.ts": 2,
     "src/vs/workbench/contrib/terminal/browser/terminalPanelComponent.ts": 1,
