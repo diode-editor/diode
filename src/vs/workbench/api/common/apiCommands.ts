@@ -42,8 +42,7 @@ async function insertSnippet(deps: IApiCommandsDeps, args: readonly unknown[]): 
     const snippet = (args[0] as { readonly snippet?: unknown } | null | undefined)?.snippet;
     const editor = deps.getActiveTextEditor();
     if (typeof snippet !== "string" || editor === undefined) return;
-    // `insertSnippet` reads only `value`; our class does not have upstream's `append*` builders.
-    await editor.insertSnippet(new SnippetString(snippet) as unknown as vscode.SnippetString);
+    await editor.insertSnippet(new SnippetString(snippet));
 }
 
 /**

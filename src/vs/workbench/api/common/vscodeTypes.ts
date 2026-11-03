@@ -665,15 +665,81 @@ export class InlineCompletionList {
     }
 }
 
+/**
+ * The next tabstop number of each snippet, kept off the instance: a private member would make the class nominal,
+ * and the `vscode.SnippetString` an extension hands back (inside a `SnippetTextEdit`, say) would not fit it.
+ */
+const nextTabstops = new WeakMap<SnippetString, number>();
+
+function nextTabstop(snippet: SnippetString): number {
+    return nextTabstops.get(snippet) ?? 1;
+}
+
+function takeTabstop(snippet: SnippetString): number {
+    const number = nextTabstop(snippet);
+    nextTabstops.set(snippet, number + 1);
+    return number;
+}
+
+/** The nested snippet shares the outer one's tabstop counter. */
+function buildNested(outer: SnippetString, build: (snippet: SnippetString) => unknown): string {
+    const nested = new SnippetString();
+    nextTabstops.set(nested, nextTabstop(outer));
+    build(nested);
+    nextTabstops.set(outer, nextTabstop(nested));
+    return nested.value;
+}
+
+function escapeText(value: string): string {
+    return value.replace(/\$|}|\\/g, "\\$&");
+}
+
+/** Upstream's `extHostTypes/snippetString.ts`: builders escape snippet syntax and number tabstops from 1. */
 export class SnippetString {
+    public static isSnippetString(thing: unknown): thing is SnippetString {
+        if (thing instanceof SnippetString) return true;
+        if (thing === null || typeof thing !== "object") return false;
+        return typeof (thing as { value?: unknown }).value === "string";
+    }
+
     public value: string;
 
-    public constructor(value = "") {
-        this.value = value;
+    public constructor(value?: string) {
+        this.value = value ?? "";
     }
 
     public appendText(value: string): this {
-        this.value += value;
+        this.value += escapeText(value);
+        return this;
+    }
+
+    public appendTabstop(number: number = takeTabstop(this)): this {
+        this.value += `$${number}`;
+        return this;
+    }
+
+    public appendPlaceholder(
+        value: string | ((snippet: SnippetString) => unknown),
+        number: number = takeTabstop(this),
+    ): this {
+        const text = typeof value === "function" ? buildNested(this, value) : escapeText(value);
+        this.value += `\${${number}:${text}}`;
+        return this;
+    }
+
+    public appendChoice(values: readonly string[], number: number = takeTabstop(this)): this {
+        const choices = values.map((choice) => choice.replace(/[|\\,]/g, "\\$&")).join(",");
+        this.value += `\${${number}|${choices}|}`;
+        return this;
+    }
+
+    /** Unlike `appendText`, a string default escapes only `$` and `}`, as upstream does. */
+    public appendVariable(name: string, defaultValue?: string | ((snippet: SnippetString) => unknown)): this {
+        const text =
+            typeof defaultValue === "function"
+                ? buildNested(this, defaultValue)
+                : defaultValue?.replace(/\$|}/g, "\\$&");
+        this.value += text ? `\${${name}:${text}}` : `\${${name}}`;
         return this;
     }
 }

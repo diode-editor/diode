@@ -4652,31 +4652,31 @@
     },
     "SnippetString": {
       "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "note": "builders as in VS Code; snippet mode needs a snippet session"
     },
     "SnippetString.appendChoice": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "ok",
+      "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
     },
     "SnippetString.appendPlaceholder": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "ok",
+      "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
     },
     "SnippetString.appendTabstop": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "ok",
+      "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
     },
     "SnippetString.appendText": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "ok",
+      "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
     },
     "SnippetString.appendVariable": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "ok",
+      "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
     },
     "SnippetString.value": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "ok",
+      "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
     },
     "SnippetTextEdit": {
       "class": "C",
