@@ -5,7 +5,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 
 // Russian layout with extended keys (Kitty / tmux `extended-keys`): the key arrives as the Cyrillic
-// character, and only its code says which physical key was pressed. `Х` sits on BracketLeft.
+// character, and only its code says which physical key was pressed. Cyrillic "Ha" sits on BracketLeft.
 const CTRL_SHIFT_HA_CSI_U = "\x1b[1093;6u";
 // tmux `extended-keys-format xterm` (the default on 3.5+, the only format on 3.4): modifyOtherKeys.
 const CTRL_SHIFT_HA_XTERM = "\x1b[27;6;1093~";

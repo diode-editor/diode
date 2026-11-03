@@ -24,7 +24,7 @@ export default defineScenario({
 
         // Line 0 is a comment, alpha's region is lines 1..3.
         await editor.sendKey("ArrowDown");
-        await editor.sendKey("Ctrl+Shift+Х"); // Cyrillic capital Ha
+        await editor.sendKey("Ctrl+Shift+\u0425"); // Cyrillic capital Ha
         await editor.waitForText((t) => !t.includes("const doubled"));
         await editor.capture("folded");
     },
