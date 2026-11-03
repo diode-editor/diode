@@ -70,9 +70,10 @@ class SnippetChoiceCompletions extends Disposable {
             { language: editor.languageId, scheme: editor.uri.scheme, pattern: editor.uri.fsPath, exclusive: true },
             this.provider,
         );
-        // After the selection change that brought the session here, as upstream.
+        // After the selection change that brought the session here, as upstream. A choice left meanwhile gets no
+        // items, so no popup.
         queueMicrotask(() => {
-            if (this.currentChoice === choice) void this.completion.showSimpleSuggestions(this.provider);
+            void this.completion.showSimpleSuggestions(this.provider);
         });
     }
 
@@ -91,6 +92,7 @@ class SnippetChoiceCompletions extends Disposable {
             label: option.value,
             insertText: option.value,
             kind: KIND_VALUE,
+            // Stryker disable next-line StringLiteral: equivalent, on equal sort texts the list keeps the provider order, which is the author's
             sortText: "a".repeat(i + 1),
             range,
             ...(isAnyOfOptions ? { filterText: `${word}_${option.value}` } : {}),

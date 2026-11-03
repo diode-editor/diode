@@ -79,6 +79,11 @@ describe("Snippet session — a choice", () => {
         expect(second).toMatch(/│.*set.*│/);
     });
 
+    it("the options keep the author's order, not the alphabet's", async () => {
+        await insert("${1|zeta,alpha,mid|}");
+        expect(popup()).toEqual(["zeta", "alpha", "mid"]);
+    });
+
     it("Down and Enter put the option in and go on to the next tab stop", async () => {
         await insert("${1|get,set|} $2");
         h.testApp.sendKey("ArrowDown");
@@ -203,6 +208,7 @@ describe("Snippet session — a choice", () => {
             },
         });
         await insert("${1|get,set|} $2");
+        pane.viewState.selections = [createCursorSelection(0, 3)];
         await h.container.get(CompletionServiceDIToken).trigger();
         expect(popup()).toEqual(["get", "set"]);
         expect(asked).toEqual([]);
