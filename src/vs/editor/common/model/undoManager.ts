@@ -153,7 +153,7 @@ export class UndoManager {
         );
         view?.restoreSelections(element.beforeSelections);
         if (element.eolBefore !== undefined) {
-            this.doc.setEol(element.eolBefore);
+            this.doc.setEol(element.eolBefore, element.alternativeVersionBefore);
         }
         // After the EOL: restoring it is a version too.
         const appliedVersion = this.doc.versionId;

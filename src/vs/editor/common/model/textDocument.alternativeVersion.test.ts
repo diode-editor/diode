@@ -22,7 +22,7 @@ function typed(doc: TextDocument, undo: UndoManager, text: string): void {
 }
 
 describe("TextDocument — alternative version", () => {
-    it("an edit and setText move it to the new version; setEol and a language change do not", () => {
+    it("an edit, setEol and setText move it to the new version; a language change does not", () => {
         const doc = new TextDocument("a");
         expect(doc.alternativeVersionId).toBe(0);
 
@@ -30,9 +30,10 @@ describe("TextDocument — alternative version", () => {
         expect(doc.alternativeVersionId).toBe(doc.versionId);
 
         doc.setEol(EndOfLine.CRLF);
+        expect(doc.alternativeVersionId).toBe(2);
         doc.setLanguage("typescript");
         expect(doc.versionId).toBe(2);
-        expect(doc.alternativeVersionId).toBe(1);
+        expect(doc.alternativeVersionId).toBe(2);
 
         doc.setText("b");
         expect(doc.alternativeVersionId).toBe(3);
@@ -43,12 +44,12 @@ describe("TextDocument — alternative version", () => {
         doc.applyEdits([createInsertEdit(0, 0, "x")]);
         doc.setEol(EndOfLine.CRLF);
 
-        expect(doc.alternativeVersionIdAt(doc.versionId)).toBe(1);
+        expect(doc.alternativeVersionIdAt(doc.versionId)).toBe(2);
         expect(doc.alternativeVersionIdAt(doc.versionId - 1)).toBe(1);
 
         doc.applyEdits([createInsertEdit(0, 0, "y")]);
         expect(doc.alternativeVersionIdAt(doc.versionId)).toBe(3);
-        expect(doc.alternativeVersionIdAt(doc.versionId - 1)).toBe(1);
+        expect(doc.alternativeVersionIdAt(doc.versionId - 1)).toBe(2);
     });
 
     it("undo restores the value of the state before the step, redo the one after; versionId only grows", () => {

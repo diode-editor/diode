@@ -34,8 +34,11 @@ export interface ITextDocument {
     getTextInRange(range: IRange): string;
 
     serialize(): string;
-    /** Changes no lines; bumps `versionId` but not `alternativeVersionId`. */
-    setEol(eol: EndOfLine): void;
+    /**
+     * Changes no lines; bumps `versionId`, and `alternativeVersionId` follows it unless undo/redo passes the value
+     * of the state it restores.
+     */
+    setEol(eol: EndOfLine, alternativeVersionId?: number): void;
 
     applyEdits(edits: readonly ITextEdit[]): IApplyEditsResult;
 

@@ -132,12 +132,12 @@ describe("BaseTextEditorModel — dirty state", () => {
         expect(seen).toEqual([true]);
     });
 
-    it("a clean document's line ending there and back is clean", () => {
+    it("a clean document's line ending there and back is modified: each change is an edit", () => {
         const model = setup();
         model.setEol(EndOfLine.CRLF);
         expect(model.isModified).toBe(true);
         model.setEol(EndOfLine.LF);
-        expect(model.isModified).toBe(false);
+        expect(model.isModified).toBe(true);
     });
 
     it("a dirty document's line ending there and back stays dirty", () => {

@@ -75,7 +75,6 @@ export abstract class BaseTextEditorModel extends Disposable {
     private tooLargeForTokenization = false;
     protected uriValue: Uri;
     protected savedAlternativeVersionId = 0;
-    protected savedEol: EndOfLine;
     protected readonly languageService: ILanguageService;
     private readonly undoRedoService: UndoRedoService;
     /** The first one is the default target for programmatic paths with no acting view (a save participant). */
@@ -155,7 +154,6 @@ export abstract class BaseTextEditorModel extends Disposable {
         this.uriValue = uri;
 
         this.doc = new TextDocument("");
-        this.savedEol = this.doc.eol;
         this.bindDocumentListeners();
         this.undoManagerValue = this.createUndoManager();
 
@@ -170,7 +168,7 @@ export abstract class BaseTextEditorModel extends Disposable {
 
     public get isModified(): boolean {
         if (this.loadingFromDisk) return false;
-        return this.doc.alternativeVersionId !== this.savedAlternativeVersionId || this.doc.eol !== this.savedEol;
+        return this.doc.alternativeVersionId !== this.savedAlternativeVersionId;
     }
 
     /** What extensions read as `TextDocument.isDirty`; only an untitled buffer can differ from {@link isModified}. */
@@ -281,12 +279,12 @@ export abstract class BaseTextEditorModel extends Disposable {
     }
 
     /**
-     * A streamed save passes the alternative version and EOL its snapshot was taken at: edits typed while the bytes were being
-     * written are not in the file and keep the buffer modified.
+     * A streamed save passes the alternative version its snapshot was taken at (the snapshot serializes with the EOL of
+     * that moment): edits and EOL changes made while the bytes were being written are not in the file and keep the
+     * buffer modified.
      */
-    protected markSaved(alternativeVersionId = this.doc.alternativeVersionId, eol = this.doc.eol): void {
+    protected markSaved(alternativeVersionId = this.doc.alternativeVersionId): void {
         this.savedAlternativeVersionId = alternativeVersionId;
-        this.savedEol = eol;
         this.onDidMarkSavedEmitter.fire();
     }
 
@@ -352,7 +350,7 @@ export abstract class BaseTextEditorModel extends Disposable {
         };
     }
 
-    /** EOL is a "modified" axis separate from content ({@link isModified}). */
+    /** An edit like any other, as upstream `pushEOL`: it makes the buffer modified, undo takes it back. */
     public setEol(eol: EndOfLine, target?: ITextEditTarget): void {
         const previous = this.doc.eol;
         if (previous === eol) return;
