@@ -33,6 +33,9 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] Сценарий `typescript-navigation`: `waitUntil(the linked tag ranges) timed out after 60000ms` — в `tag.tsx`
+  подсветка связанных тегов не пришла за минуту. Ubuntu: `main` e082b0a6 (run 41632750011) и PR #1045 дважды подряд
+  (run 41649556011 и его `--failed`), дифф — переменные сниппетов; на той же базе PR #1045 при 29c0db1b зелёный.
 - [ ] `workbench.workspaceSymbols.accept.test.ts`, «a large answer renders and Enter takes the first row»: 20000
   символов под покрытием упёрлись в таймаут 5 с (run 41405396154, PR #1015); локально 1,1 с и с правкой
   `matchSymbol` этого PR, и без неё. Повторилось в run 41408127273, PR #1017, дифф — redhat.java и references-view. И в run 41578220575 (PR #1042, дифф — сниппеты) все повторы подряд; на `main` тот же тест под покрытием идёт 4,7 с при таймауте 5 с (run 41570204078) — тест на грани, а не случайный флак. Дан явный таймаут 15 с в PR #1042 (замер на `main` и на ветке
