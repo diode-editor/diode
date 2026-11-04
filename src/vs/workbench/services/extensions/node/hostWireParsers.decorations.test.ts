@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseDecorationRanges, parseWireFileDecorations, themeColorIdOf } from "./hostWireParsers.ts";
+import { parseDecorationOptions, parseWireFileDecorations, themeColorIdOf } from "./hostWireParsers.ts";
 
 describe("hostWireParsers — decorations serialization (Chunk 4)", () => {
     describe("themeColorIdOf", () => {
@@ -16,24 +16,33 @@ describe("hostWireParsers — decorations serialization (Chunk 4)", () => {
         });
     });
 
-    describe("parseDecorationRanges", () => {
-        it("valid nested ranges → IRange[]", () => {
-            expect(
-                parseDecorationRanges([{ start: { line: 1, character: 2 }, end: { line: 3, character: 4 } }]),
-            ).toEqual([{ start: { line: 1, character: 2 }, end: { line: 3, character: 4 } }]);
+    describe("parseDecorationOptions", () => {
+        const RANGE = { start: { line: 1, character: 2 }, end: { line: 3, character: 4 } };
+        it("[api:TextEditor.setDecorations] { range, renderOptions } → IWireDecorationOptions[]", () => {
+            const renderOptions = { before: { contentText: "x" } };
+            expect(parseDecorationOptions([{ range: RANGE, renderOptions }, { range: RANGE }])).toStrictEqual([
+                { range: RANGE, renderOptions },
+                { range: RANGE },
+            ]);
+        });
+        it("a non-object renderOptions is dropped, the range lives", () => {
+            expect(parseDecorationOptions([{ range: RANGE, renderOptions: "red" }])).toStrictEqual([{ range: RANGE }]);
+            expect(parseDecorationOptions([{ range: RANGE, renderOptions: null }])).toStrictEqual([{ range: RANGE }]);
         });
         it("invalid elements are dropped (drop+skip)", () => {
             expect(
-                parseDecorationRanges([
-                    { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
-                    { start: { line: 0 } },
+                parseDecorationOptions([
+                    { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } } },
+                    { range: { start: { line: 0 } } },
+                    // A bare range is not the wire shape.
+                    RANGE,
                     "nope",
                     null,
                 ]),
             ).toHaveLength(1);
         });
         it("non-array → []", () => {
-            expect(parseDecorationRanges(undefined)).toEqual([]);
+            expect(parseDecorationOptions(undefined)).toEqual([]);
         });
     });
 

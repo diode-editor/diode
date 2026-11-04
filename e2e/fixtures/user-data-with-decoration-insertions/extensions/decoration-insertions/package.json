@@ -1,0 +1,22 @@
+{
+    "name": "decoration-insertions",
+    "displayName": "Decoration Insertions",
+    "description": "E2E demo extension: before/after decorations shaped like Tailwind CSS IntelliSense (a color swatch per range) and GitLens/Error Lens (an after text in its own color and italic, overridden per range).",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "command": "decoration-insertions.toggle",
+                "title": "Decoration Insertions: Toggle"
+            }
+        ]
+    }
+}

@@ -24,7 +24,7 @@ import type { ILink, LinkProvider } from "../../../../editor/common/languages/iL
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
-import type { IExtensionTextDecoration } from "../../../../editor/common/model/iExtensionTextDecoration.ts";
+import type { IExtensionTextDecorationSet } from "../../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
@@ -63,6 +63,8 @@ import type { IMarkerDecoration } from "../../../../platform/markers/common/iMar
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import type { BaseTextEditorModel, ITextEditTarget } from "../../../common/editor/textEditorModel.ts";
 import { Component } from "../../component.ts";
+
+import { ExtensionTextDecorations } from "./extensionTextDecorations.ts";
 
 // On a shared start line the provider region wins (it is more precise); sorted by
 // startLine because the folding model and the gutter expect that.
@@ -171,10 +173,20 @@ export class EditorComponent extends Component {
     private readonly onDidClickLinkEmitter = new Emitter<ILink>();
     /** Ctrl+click on a link. */
     public readonly onDidClickLink = this.onDidClickLinkEmitter.event;
-    /** Two owners, each replacing only its own set; at one offset the squares go first. */
+    /**
+     * Three owners, each replacing only its own set; at one offset the squares go first, then inlay hints, then
+     * extension decorations (upstream: the order of the decorations).
+     */
     private colorInsertions: readonly IInlineInsertion[] = [];
     // Stryker disable next-line ArrayDeclaration: an entry without a line belongs to no line and is never painted
     private inlayHintInsertions: readonly IInlineInsertion[] = [];
+    // Stryker disable next-line ArrayDeclaration: an entry without a line belongs to no line and is never painted
+    private extensionInsertions: readonly IInlineInsertion[] = [];
+    /**
+     * Created on the first set: most editors never get one. Unlike the providers' features, it is not switched off
+     * in the large-file mode — the extension has already computed the ranges, and upstream draws them.
+     */
+    private extensionTextDecorations: ExtensionTextDecorations | null = null;
     /** Not on the view state: it is recreated on reload from disk, and the extension host subscriber must survive that. */
     private readonly onDidChangeSelectionEmitter = new Emitter<void>();
     /** On the component for the same reason. */
@@ -503,7 +515,11 @@ export class EditorComponent extends Component {
     }
 
     private publishInsertions(): void {
-        this.editor.setInlineInsertions([...this.colorInsertions, ...this.inlayHintInsertions]);
+        this.editor.setInlineInsertions([
+            ...this.colorInsertions,
+            ...this.inlayHintInsertions,
+            ...this.extensionInsertions,
+        ]);
     }
 
     /** `editor.colorDecorators`, `editor.defaultColorDecorators`, `editor.colorDecoratorsLimit`. */
@@ -724,10 +740,22 @@ export class EditorComponent extends Component {
         this.applyGutterChanges();
     }
 
-    /** Backgrounds and text colors of extension decoration types (`createTextEditorDecorationType`). */
-    public setExtensionTextDecorations(decorations: readonly IExtensionTextDecoration[]): void {
-        this.editor.extensionTextDecorations = decorations;
-        this.editor.markDirty();
+    /** Backgrounds, text colors and `before`/`after` cells of an extension decoration type (`createTextEditorDecorationType`). */
+    public setExtensionTextDecorations(set: IExtensionTextDecorationSet): void {
+        this.extensionTextDecorations ??= this.register(
+            new ExtensionTextDecorations(this.model.document, (paint, insertions) => {
+                this.editor.extensionTextDecorations = paint;
+                // A paint-only type (no before/after) would otherwise regroup every insertion of the editor per keystroke.
+                // Stryker disable next-line ConditionalExpression,BlockStatement: performance only — publishing no insertions again draws the same frame
+                if (insertions.length === 0 && this.extensionInsertions.length === 0) {
+                    this.editor.markDirty();
+                    return;
+                }
+                this.extensionInsertions = insertions;
+                this.publishInsertions();
+            }),
+        );
+        this.extensionTextDecorations.set(set);
     }
 
     private applyGutterChanges(): void {

@@ -12,13 +12,17 @@ const APP_CSS = `@import "tailwindcss";
 
 /**
  * The class list of line 1: `p-4` and `p-6` conflict, and an arbitrary color goes through the color provider
- * (named ones are `setDecorations` text decorations, not drawn).
+ * (a named one goes as a `before` decoration with the color in `renderOptions` — line 3).
  */
 export const TAILWIND_CLASSES = "flex p-4 p-6 bg-[#ff0000]";
+
+/** A named color: its square is a `setDecorations` swatch, not a color provider's. */
+export const TAILWIND_NAMED_COLOR_CLASS = "bg-red-500";
 
 /** Line 2: an empty class list to type into. */
 const INDEX_HTML = `<div class="${TAILWIND_CLASSES}">hi</div>
 <p class=""></p>
+<span class="${TAILWIND_NAMED_COLOR_CLASS}"></span>
 `;
 
 /** The class list of line 1 starts after this many characters. */

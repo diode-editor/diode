@@ -9,6 +9,7 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { TextEditorRevealType } from "./textEditorRevealType.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
+    DecorationRangeBehavior,
     EventEmitter,
     FileDecoration,
     OverviewRulerLane,
@@ -402,7 +403,6 @@ describe("WindowNamespace", () => {
             color: new ThemeColor("editor.foreground"),
             borderColor: "rgba(255,100,100,0.15)",
             borderStyle: "solid",
-            before: { contentText: "x" },
             light: { backgroundColor: "#ffffff", overviewRulerColor: new ThemeColor("merge.border"), border: "1px" },
             dark: { color: "#000000" },
         });
@@ -419,6 +419,79 @@ describe("WindowNamespace", () => {
         expect(stub.notifies.at(-1)?.params).toStrictEqual({ key: 2, options: {} });
     });
 
+    it("[api:window.createTextEditorDecorationType] before/after carry their text, colors and font style, also in the branches; rangeBehavior goes along", () => {
+        const { stub, window } = makeCtx();
+        // The shape Tailwind CSS IntelliSense creates, plus a GitLens-like `after`.
+        window.createTextEditorDecorationType({
+            rangeBehavior: DecorationRangeBehavior.ClosedClosed,
+            before: {
+                width: "0.8em",
+                height: "0.8em",
+                contentText: " ",
+                border: "0.1em solid",
+                margin: "0.1em 0.2em 0",
+            },
+            after: {
+                contentText: "  You, 2 days ago",
+                color: new ThemeColor("editorCodeLens.foreground"),
+                backgroundColor: "#102030",
+                fontStyle: "italic",
+                fontWeight: "bold",
+                textDecoration: "underline",
+            },
+            dark: { before: { borderColor: "#eeeeee" } },
+            light: { before: { borderColor: "#000000" }, after: "nope" as never },
+        });
+        expect(stub.notifies.at(-1)?.params).toStrictEqual({
+            key: 1,
+            options: {
+                rangeBehavior: DecorationRangeBehavior.ClosedClosed,
+                before: { contentText: " " },
+                after: {
+                    contentText: "  You, 2 days ago",
+                    color: { $themeColor: "editorCodeLens.foreground" },
+                    backgroundColor: "#102030",
+                    fontStyle: "italic",
+                },
+                dark: { before: { borderColor: "#eeeeee" } },
+                light: { before: { borderColor: "#000000" } },
+            },
+        });
+    });
+
+    it("[api:TextEditor.setDecorations] renderOptions of a range carry before/after and their branches; a bare Range goes without", () => {
+        const { stub, window } = makeCtx();
+        stub.fire("editor.activeEditorChanged", { uri: Uri.file("/proj/a.ts").toString() });
+        const type = window.createTextEditorDecorationType({});
+        window.activeTextEditor!.setDecorations(type, [
+            {
+                range: new Range(0, 7, 0, 17),
+                hoverMessage: "ignored",
+                renderOptions: {
+                    before: { backgroundColor: "rgba(239.00000000000003, 68, 68, 1)", width: "1em" },
+                    after: { contentText: "!", color: new ThemeColor("errorForeground") },
+                    dark: { after: { fontStyle: "normal" } },
+                    light: { before: { borderColor: "#000000" } },
+                },
+            },
+            { range: new Range(1, 0, 1, 1), renderOptions: "nope" as never },
+            { range: new Range(2, 0, 2, 1) },
+        ]);
+        expect((stub.notifies.at(-1)!.params as { ranges: unknown }).ranges).toStrictEqual([
+            {
+                range: { start: { line: 0, character: 7 }, end: { line: 0, character: 17 } },
+                renderOptions: {
+                    before: { backgroundColor: "rgba(239.00000000000003, 68, 68, 1)" },
+                    after: { contentText: "!", color: { $themeColor: "errorForeground" } },
+                    dark: { after: { fontStyle: "normal" } },
+                    light: { before: { borderColor: "#000000" } },
+                },
+            },
+            { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 1 } } },
+            { range: { start: { line: 2, character: 0 }, end: { line: 2, character: 1 } } },
+        ]);
+    });
+
     it("editor.setDecorations sends notify with the active editor fileName and nested ranges", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/proj/a.ts").toString() });
@@ -432,8 +505,8 @@ describe("WindowNamespace", () => {
                 key: 1,
                 uri: Uri.file("/proj/a.ts").toString(),
                 ranges: [
-                    { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } },
-                    { start: { line: 4, character: 2 }, end: { line: 4, character: 5 } },
+                    { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } } },
+                    { range: { start: { line: 4, character: 2 }, end: { line: 4, character: 5 } } },
                 ],
                 groupId: 1,
             },
@@ -446,7 +519,7 @@ describe("WindowNamespace", () => {
         const type = window.createTextEditorDecorationType({});
         window.activeTextEditor!.setDecorations(type, [{ range: new Range(2, 0, 2, 3) }] as never);
         expect((stub.notifies.at(-1)!.params as { ranges: unknown }).ranges).toEqual([
-            { start: { line: 2, character: 0 }, end: { line: 2, character: 3 } },
+            { range: { start: { line: 2, character: 0 }, end: { line: 2, character: 3 } } },
         ]);
     });
 
@@ -460,7 +533,7 @@ describe("WindowNamespace", () => {
             { start: { line: 3, character: 1 }, end: { line: 2, character: 0 } },
         ] as never);
         expect((stub.notifies.at(-1)!.params as { ranges: unknown }).ranges).toEqual([
-            { start: { line: 2, character: 0 }, end: { line: 3, character: 1 } },
+            { range: { start: { line: 2, character: 0 }, end: { line: 3, character: 1 } } },
         ]);
     });
 

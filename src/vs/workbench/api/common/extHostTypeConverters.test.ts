@@ -242,11 +242,11 @@ describe("toWireEditRange", () => {
 describe("normalizeDecorationRanges", () => {
     it("bare Range and DecorationOptions with .range; a reversed duck-typed one is flipped", () => {
         expect(normalizeDecorationRanges([new Range(0, 1, 0, 2), REVERSED as unknown as vscode.Range])).toStrictEqual([
-            RANGE,
-            RANGE,
+            { range: RANGE },
+            { range: RANGE },
         ]);
         expect(normalizeDecorationRanges([{ range: FOREIGN } as unknown as vscode.DecorationOptions])).toStrictEqual([
-            RANGE,
+            { range: RANGE },
         ]);
     });
 
@@ -257,7 +257,31 @@ describe("normalizeDecorationRanges", () => {
             { range: undefined },
             new Range(0, 1, 0, 2),
         ] as unknown as readonly vscode.Range[];
-        expect(normalizeDecorationRanges(items)).toStrictEqual([RANGE]);
+        expect(normalizeDecorationRanges(items)).toStrictEqual([{ range: RANGE }]);
+    });
+
+    it("renderOptions: missing and malformed fields have no key, the branches keep only before/after", () => {
+        expect(
+            normalizeDecorationRanges([
+                {
+                    range: new Range(0, 1, 0, 2),
+                    renderOptions: {
+                        before: { contentText: 1, color: null, backgroundColor: { nope: 1 }, fontStyle: 2 },
+                        after: "nope",
+                        light: { before: { borderColor: "#000" }, backgroundColor: "red" },
+                        dark: 5,
+                    },
+                },
+            ] as unknown as readonly vscode.DecorationOptions[]),
+        ).toStrictEqual([{ range: RANGE, renderOptions: { before: {}, light: { before: { borderColor: "#000" } } } }]);
+    });
+
+    it("renderOptions without branches carry only their own attachments", () => {
+        expect(
+            normalizeDecorationRanges([
+                { range: new Range(0, 1, 0, 2), renderOptions: { after: { contentText: "x", color: "#f00" } } },
+            ]),
+        ).toStrictEqual([{ range: RANGE, renderOptions: { after: { contentText: "x", color: "#f00" } } }]);
     });
 });
 

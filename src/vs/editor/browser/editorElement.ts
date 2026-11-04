@@ -1253,11 +1253,16 @@ export class EditorElement extends TUIElement implements IScrollable {
             length: insertion.text.length,
             fg: insertion.fg ?? (insertion.colorToken !== undefined ? this.styleVar(insertion.colorToken) : editorFg),
             // Composited once, here, like the line backgrounds: the frame paints a line in several passes.
-            bg: insertion.bgToken !== undefined ? compositeOver(this.styleVar(insertion.bgToken), editorBg) : undefined,
+            bg: this.insertionBg(insertion, editorBg),
             style:
                 (insertion.italic === true ? StyleFlags.Italic : StyleFlags.None) |
                 (insertion.dim === true ? StyleFlags.Dim : StyleFlags.None),
         }));
+    }
+
+    private insertionBg(insertion: IInlineInsertion, editorBg: number): number | undefined {
+        if (insertion.bg !== undefined) return compositeOver(insertion.bg, editorBg);
+        return insertion.bgToken !== undefined ? compositeOver(this.styleVar(insertion.bgToken), editorBg) : undefined;
     }
 
     /**
