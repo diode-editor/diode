@@ -1,5 +1,6 @@
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 
 import { CommandActionsDIToken, registerAction } from "../../platform/actions/common/commandAction.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
@@ -214,8 +215,6 @@ export class WorkbenchComponent extends Component {
         };
 
         this.dialogService.attachHost(this.view);
-        this.view.setContent(this.workbenchLayout);
-        this.view.setStatusBar(this.statusBarComponent.view);
         this.workbenchContextKeys.attachView(this.view);
 
         quickInputComponent.attachHost(this.view);
@@ -230,7 +229,13 @@ export class WorkbenchComponent extends Component {
         this.register(accessor.get(KeybindingsEditorServiceDIToken)).applyUserKeybindings(userKeybindings);
 
         const menuBarComponent = this.register(accessor.get(MenuBarComponentDIToken));
-        this.view.setMenuBar(menuBarComponent.view);
+        // The chrome rows are the workbench's, not the root's (upstream `layout.ts` puts the title
+        // and status bars into the workbench grid): the layout fills what the bars leave.
+        const chrome = new VFlexElement();
+        chrome.addChild(menuBarComponent.view, { height: vflexFixed(1), width: "fill" });
+        chrome.addChild(this.workbenchLayout, { height: vflexFill(), width: "fill" });
+        chrome.addChild(this.statusBarComponent.view, { height: vflexFixed(1), width: "fill" });
+        this.view.setContent(chrome);
 
         // The single "theme → root var scope" point (N3).
         this.register(

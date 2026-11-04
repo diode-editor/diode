@@ -1,7 +1,9 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import type { HFlexLayoutStyle } from "@tuidom/elements/layout/hFlexElement";
+import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { describe, expect, it } from "vitest";
 
@@ -75,8 +77,12 @@ function setup(): MenuHarness {
     harness.statusBarService.addEntry({ id: "hint", text: "chord", alignment: "left", priority: 1 });
     harness.statusBarService.addEntry({ id: "omega", name: "Omega", text: "Omega", alignment: "right", priority: 1 });
 
+    // The bar sits on the bottom row, as in the workbench chrome.
+    const rows = new VFlexElement();
+    rows.addChild(new TUIElement(), { height: vflexFill(), width: "fill" });
+    rows.addChild(harness.component.view, { height: vflexFixed(1), width: "fill" });
     const body = new BodyElement();
-    body.setStatusBar(harness.component.view);
+    body.setContent(rows);
     const app = TestApp.create(body, SCREEN);
     app.render();
 
