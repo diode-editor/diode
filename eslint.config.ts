@@ -34,6 +34,7 @@ export default tseslint.config(
             "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
             "src/vs/editor/contrib/snippet/browser/snippetParser.ts",
             "src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts",
+            "extensions/merge-conflict/src/**",
             // Corpus test DATA: foreign sources, not our code.
             "**/__fixtures__/**",
         ],
