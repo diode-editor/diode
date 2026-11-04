@@ -264,8 +264,8 @@ describe("KeybindingRegistry — chords in a non-Latin layout", () => {
         registry.register(parseChord("ctrl+k g"), "chord");
 
         // Russian layout: Ctrl+Cyrillic "el" is Ctrl+K, then Cyrillic "ghe" sits on the physical G.
-        expect(registry.resolveKey(makeEvent({ key: "л", code: "KeyK", ctrlKey: true })).kind).toBe("chord");
-        expect(registry.resolveKey(makeEvent({ key: "п", code: "KeyG" }))).toEqual({
+        expect(registry.resolveKey(makeEvent({ key: "\u043b", code: "KeyK", ctrlKey: true })).kind).toBe("chord");
+        expect(registry.resolveKey(makeEvent({ key: "\u043f", code: "KeyG" }))).toEqual({
             kind: "command",
             commandId: "chord",
         });
@@ -276,7 +276,7 @@ describe("KeybindingRegistry — chords in a non-Latin layout", () => {
         registry.register(parseChord("ctrl+k ["), "chord");
 
         registry.resolveKey(makeEvent({ key: "k", ctrlKey: true }));
-        expect(registry.resolveKey(makeEvent({ key: "х", code: "BracketLeft" }))).toEqual({
+        expect(registry.resolveKey(makeEvent({ key: "\u0445", code: "BracketLeft" }))).toEqual({
             kind: "command",
             commandId: "chord",
         });
@@ -294,15 +294,15 @@ describe("KeybindingRegistry — chords in a non-Latin layout", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("g g"), "chord");
 
-        expect(registry.resolveKey(makeEvent({ key: "п", code: "KeyG" }))).toEqual({ kind: "none" });
+        expect(registry.resolveKey(makeEvent({ key: "\u043f", code: "KeyG" }))).toEqual({ kind: "none" });
     });
 
     it("the pending chord shows the bound parts for a Cyrillic continuation", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+k g x"), "deep");
 
-        registry.resolveKey(makeEvent({ key: "л", code: "KeyK", ctrlKey: true }));
-        registry.resolveKey(makeEvent({ key: "п", code: "KeyG" }));
+        registry.resolveKey(makeEvent({ key: "\u043b", code: "KeyK", ctrlKey: true }));
+        registry.resolveKey(makeEvent({ key: "\u043f", code: "KeyG" }));
         expect(formatKeybinding(registry.getPendingChord())).toBe("Ctrl+K G");
     });
 });

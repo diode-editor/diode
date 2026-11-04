@@ -355,6 +355,11 @@ function matchesBinding(event: KeyboardEventLike, binding: Keybinding, continuat
     return physicalFallback && event.code === (punctuationCode ?? `Key${binding.key.toUpperCase()}`);
 }
 
+/** The pressed parts match the start of `chord`; parts after the first are chord continuations. */
+function chordStartsWith(chord: KeybindingChord, seq: readonly KeyboardEventLike[]): boolean {
+    return seq.every((event, i) => matchesBinding(event, chord[i], i > 0));
+}
+
 /**
  * Physical key codes (`KeyboardEvent.code`) of the punctuation keys a binding can name — the same table the
  * engine's `inferCode` puts on the event. A Map: a binding key like "constructor" must not hit the prototype.
@@ -521,13 +526,8 @@ export class KeybindingRegistry implements IDisposable {
             return contextKeys.evaluate(entry.when);
         };
 
-        const prefixMatches = (entry: KeybindingEntry): boolean => {
-            if (entry.chord.length < seq.length) return false;
-            for (let i = 0; i < seq.length; i++) {
-                if (!matchesBinding(seq[i], entry.chord[i], i > 0)) return false;
-            }
-            return true;
-        };
+        const prefixMatches = (entry: KeybindingEntry): boolean =>
+            entry.chord.length >= seq.length && chordStartsWith(entry.chord, seq);
 
         let hasLongerCandidate = false;
         // From the end, strongest first: it wins on a complete match.
@@ -591,14 +591,7 @@ export class KeybindingRegistry implements IDisposable {
             const entry = entries[i];
             if (entry.chord.length <= seq.length) continue;
             if (entry.when && !contextKeys?.evaluate(entry.when)) continue;
-            let matches = true;
-            for (let j = 0; j < seq.length; j++) {
-                if (!matchesBinding(seq[j], entry.chord[j], j > 0)) {
-                    matches = false;
-                    break;
-                }
-            }
-            if (matches) return entry.chord.slice(0, seq.length);
+            if (chordStartsWith(entry.chord, seq)) return entry.chord.slice(0, seq.length);
         }
         return seq.map((e) => ({
             key: e.key,

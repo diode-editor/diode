@@ -80,9 +80,10 @@ ssh forwards `LC_*` variables by default. The `keyboard.platform` setting overri
 ## Non-Latin layouts
 
 As in VS Code, shortcuts follow the physical key, so they work with a Russian (or another
-non-Latin) layout switched on: Ctrl+С saves like Ctrl+S, Ctrl+Shift+Х folds like Ctrl+Shift+[,
-and the second key of a chord counts too: Ctrl+Л then Ь is Ctrl+K M. A Latin layout (AZERTY and
-the like) is matched by the character it types.
+non-Latin) layout switched on: Ctrl with the Cyrillic letter on the S key saves like Ctrl+S, and
+Ctrl+Shift with the letter on the `[` key folds like Ctrl+Shift+[. The second key of a chord counts
+too: Ctrl+K then the Cyrillic letter on the M key is Ctrl+K M. A Latin layout (AZERTY and the like)
+is matched by the character it types.
 
 ## Keys your terminal takes for itself
 

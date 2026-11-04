@@ -61,7 +61,7 @@ describe("Workbench — non-Latin layout keys reach punctuation bindings by phys
 
         h.testApp.backend.sendRaw(ESCAPE_CSI_U);
         h.testApp.backend.sendRaw("\x1b[1083;5u"); // Ctrl+Cyrillic El, the physical K
-        h.testApp.backend.sendRaw("ь"); // Cyrillic soft sign, the physical M, no modifier
+        h.testApp.backend.sendRaw("\u044c"); // Cyrillic soft sign, the physical M, no modifier
 
         await vi.waitFor(() => {
             expect(h.testApp.backend.screenToString()).toContain("PROBLEMS");
