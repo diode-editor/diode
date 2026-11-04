@@ -1,4 +1,4 @@
-import type { IExtensionTextDecoration } from "../../../editor/common/model/iExtensionTextDecoration.ts";
+import type { IExtensionTextDecorationSet } from "../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../editor/common/model/iGutterChangeDecoration.ts";
 
 /**
@@ -8,7 +8,7 @@ import type { IGutterChangeDecoration } from "../../../editor/common/model/iGutt
  */
 export interface IEditorDecorationsService {
     setGutterChangeDecorations(uri: string, decorations: readonly IGutterChangeDecoration[]): void;
-    setExtensionTextDecorations(uri: string, decorations: readonly IExtensionTextDecoration[]): void;
+    setExtensionTextDecorations(uri: string, set: IExtensionTextDecorationSet): void;
 }
 
 export const NULL_EDITOR_DECORATIONS_SERVICE: IEditorDecorationsService = {

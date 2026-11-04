@@ -73,7 +73,7 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `TypeHierarchyItem` | C | 70 | 512,751,679 | the provider is never called; needs new graphics |
 | `languages.registerTypeHierarchyProvider` | C | 69 | 512,262,735 | registration is accepted, the provider is never called; needs new graphics |
 | `workspace.onDidOpenNotebookDocument` | X | 69 | 512,262,735 | notebook |
-| `window.createTextEditorDecorationType` | C | 56 | 481,992,789 | background, text color, isWholeLine, light/dark branches and gutter bars are drawn; border, outline, font styles, opacity and before/after are not (#1023) |
+| `window.createTextEditorDecorationType` | C | 56 | 481,992,789 | background, text color, isWholeLine, light/dark branches, gutter bars and before/after (a color swatch or text with its color, background and italic) are drawn, ranges follow edits by rangeBehavior; border, outline, sizes, margins, font weight, text decoration, opacity, gutterIconPath and contentIconPath are not |
 | `window.createWebviewPanel` | X | 73 | 478,100,689 | webview |
 | `debug.startDebugging` | C | 35 | 443,917,951 | needs a debugger |
 | `debug.onDidTerminateDebugSession` | C | 27 | 402,897,992 | needs a debugger |

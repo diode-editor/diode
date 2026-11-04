@@ -41,6 +41,7 @@ import {
 } from "./vscodeTypes.ts";
 import type {
     IWireCodeLensCommand,
+    IWireDecorationOptions,
     IWireDocumentHighlight,
     IWireDocumentLink,
     IWireEditorEdit,
@@ -49,7 +50,10 @@ import type {
     IWireSelection,
     IWireWorkspaceEditOp,
     SerializedColor,
+    SerializedDecorationAttachmentRenderOptions,
+    SerializedDecorationInstanceRenderOptions,
     SerializedDecorationRenderOptions,
+    SerializedThemableDecorationInstanceRenderOptions,
     SerializedThemableDecorationRenderOptions,
     WireFoldingRange,
     WireMarker,
@@ -89,13 +93,26 @@ export function toVscodeRange(range: IRange): Range {
     return new Range(range.start.line, range.start.character, range.end.line, range.end.character);
 }
 
-/** A broken range is dropped, just as the host's decoration parsing would drop it. */
+/**
+ * A broken range is dropped, just as the host's decoration parsing would drop it; a bare `Range` goes without
+ * `renderOptions`, `hoverMessage` stays behind.
+ */
 export function normalizeDecorationRanges(
     rangesOrOptions: readonly vscode.Range[] | readonly vscode.DecorationOptions[],
-): IRange[] {
-    return rangesOrOptions.flatMap((item) => {
-        const range = rangeFrom("range" in item ? item.range : item);
-        return range === null ? [] : [range];
+): IWireDecorationOptions[] {
+    return rangesOrOptions.flatMap((item): IWireDecorationOptions[] => {
+        if (!("range" in item)) {
+            const range = rangeFrom(item);
+            return range === null ? [] : [{ range }];
+        }
+        const range = rangeFrom(item.range);
+        if (range === null) return [];
+        const renderOptions = asObject(item.renderOptions);
+        return [
+            renderOptions === undefined
+                ? { range }
+                : { range, renderOptions: serializeInstanceRenderOptions(renderOptions) },
+        ];
     });
 }
 
@@ -129,16 +146,14 @@ export function serializeColor(value: unknown): SerializedColor | undefined {
     return undefined;
 }
 
-function serializeThemableDecorationRenderOptions(o: {
-    backgroundColor?: unknown;
-    color?: unknown;
-    overviewRulerColor?: unknown;
-}): SerializedThemableDecorationRenderOptions {
+function serializeThemableDecorationRenderOptions(
+    o: Record<string, unknown>,
+): SerializedThemableDecorationRenderOptions {
     const result: {
         backgroundColor?: SerializedColor;
         color?: SerializedColor;
         overviewRulerColor?: SerializedColor;
-    } = {};
+    } & SerializedThemableDecorationInstanceRenderOptions = serializeThemableInstanceRenderOptions(o);
     const bg = serializeColor(o.backgroundColor);
     if (bg !== undefined) result.backgroundColor = bg;
     const color = serializeColor(o.color);
@@ -152,15 +167,63 @@ function asObject(value: unknown): Record<string, unknown> | undefined {
     return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
 }
 
+/** Only what a cell can draw: the text, its colors and italic (`borderColor` colors a swatch). */
+function serializeAttachment(o: Record<string, unknown>): SerializedDecorationAttachmentRenderOptions {
+    const result: {
+        contentText?: string;
+        color?: SerializedColor;
+        backgroundColor?: SerializedColor;
+        borderColor?: SerializedColor;
+        fontStyle?: string;
+    } = {};
+    if (typeof o.contentText === "string") result.contentText = o.contentText;
+    const color = serializeColor(o.color);
+    if (color !== undefined) result.color = color;
+    const bg = serializeColor(o.backgroundColor);
+    if (bg !== undefined) result.backgroundColor = bg;
+    const border = serializeColor(o.borderColor);
+    if (border !== undefined) result.borderColor = border;
+    if (typeof o.fontStyle === "string") result.fontStyle = o.fontStyle;
+    return result;
+}
+
+function serializeThemableInstanceRenderOptions(
+    o: Record<string, unknown>,
+): SerializedThemableDecorationInstanceRenderOptions {
+    const result: {
+        before?: SerializedDecorationAttachmentRenderOptions;
+        after?: SerializedDecorationAttachmentRenderOptions;
+    } = {};
+    const before = asObject(o.before);
+    if (before !== undefined) result.before = serializeAttachment(before);
+    const after = asObject(o.after);
+    if (after !== undefined) result.after = serializeAttachment(after);
+    return result;
+}
+
+function serializeInstanceRenderOptions(o: Record<string, unknown>): SerializedDecorationInstanceRenderOptions {
+    const result: {
+        light?: SerializedThemableDecorationInstanceRenderOptions;
+        dark?: SerializedThemableDecorationInstanceRenderOptions;
+    } & SerializedThemableDecorationInstanceRenderOptions = serializeThemableInstanceRenderOptions(o);
+    const light = asObject(o.light);
+    if (light !== undefined) result.light = serializeThemableInstanceRenderOptions(light);
+    const dark = asObject(o.dark);
+    if (dark !== undefined) result.dark = serializeThemableInstanceRenderOptions(dark);
+    return result;
+}
+
 export function serializeDecorationRenderOptions(options: unknown): SerializedDecorationRenderOptions {
     const o = asObject(options) ?? {};
     const result: {
         isWholeLine?: boolean;
+        rangeBehavior?: number;
         overviewRulerLane?: number;
         light?: SerializedThemableDecorationRenderOptions;
         dark?: SerializedThemableDecorationRenderOptions;
     } & SerializedThemableDecorationRenderOptions = serializeThemableDecorationRenderOptions(o);
     if (typeof o.isWholeLine === "boolean") result.isWholeLine = o.isWholeLine;
+    if (typeof o.rangeBehavior === "number") result.rangeBehavior = o.rangeBehavior;
     if (typeof o.overviewRulerLane === "number") result.overviewRulerLane = o.overviewRulerLane;
     const light = asObject(o.light);
     if (light !== undefined) result.light = serializeThemableDecorationRenderOptions(light);

@@ -115,7 +115,7 @@ function colorTokensOf(kind: InlayHintKind | undefined): { readonly fg: string; 
  * trailing a word (a type after a name) or ending the visible text keeps the caret left of it, so
  * the caret stays next to what is being typed.
  */
-function hintLeadsText(lineContent: string, offset: number): boolean {
+export function hintLeadsText(lineContent: string, offset: number): boolean {
     if (offset >= lineContent.length || charClass(lineContent[offset]) === 0) return false;
     return offset === 0 || !isWordChar(lineContent[offset - 1]);
 }

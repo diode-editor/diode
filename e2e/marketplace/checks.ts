@@ -21,12 +21,13 @@ import { startHeadlessApp } from "../helpers/appSession.ts";
 import { BIOME_SETTINGS, writeBiomeProject } from "../helpers/biomeFixture.ts";
 import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "../helpers/claudeIde.ts";
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
-import { findTextCell, frameLine } from "../helpers/frame.ts";
+import { findTextCell, frameLine, frameToText } from "../helpers/frame.ts";
 import { npmMissing } from "../helpers/npmProject.ts";
 import {
     TAILWIND_CLASSES,
     TAILWIND_CLASSES_COLUMN,
     TAILWIND_EMPTY_CLASS_COLUMN,
+    TAILWIND_NAMED_COLOR_CLASS,
     TAILWIND_P4_COLUMN,
     writeTailwindProject,
 } from "../helpers/tailwindFixture.ts";
@@ -663,8 +664,10 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                     return { spaces: [at(4), at(5)], editorBg: at(12) };
                 };
                 const highlighted = compositeOver(packRgba(255, 0, 0, 77), packRgb(0x1f, 0x1f, 0x1f));
-                await waitUntil(trailingBgs, ({ spaces, editorBg }) =>
-                    editorBg === packRgb(0x1f, 0x1f, 0x1f) && spaces.every((bg) => bg === highlighted),
+                await waitUntil(
+                    trailingBgs,
+                    ({ spaces, editorBg }) =>
+                        editorBg === packRgb(0x1f, 0x1f, 0x1f) && spaces.every((bg) => bg === highlighted),
                     { describe: "the trailing spaces of beta highlighted", timeoutMs: 20_000, intervalMs: 100 },
                 );
                 await commandApp.session.executeCommand("trailing-spaces.deleteTrailingSpaces");
@@ -715,7 +718,10 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         run: async (ctx) => {
             const file = join(ctx.root, "indent.py");
             writeFileSync(file, "\n");
-            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file],
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [file],
                 // The snippet of a hanging indent gets a tab stop after the bracket (#1032).
                 settings: { "pythonIndent.useTabOnHangingIndent": true },
             });
@@ -743,9 +749,12 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await app.session.key("Enter");
                 await typeKeys("y");
                 // The second row of the frame, with the indent guide in the first column of the indent.
-                await app.session.waitForText((text) => /\b2\s+\S\s{3}y\s*$/m.test(text) && text.includes("Ln 2, Col 6"), {
-                    timeoutMs: 20_000,
-                });
+                await app.session.waitForText(
+                    (text) => /\b2\s+\S\s{3}y\s*$/m.test(text) && text.includes("Ln 2, Col 6"),
+                    {
+                        timeoutMs: 20_000,
+                    },
+                );
                 await app.session.key("Ctrl+S");
                 await waitForFile("def f(x):\n    y\n");
 
@@ -812,8 +821,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         expectFiles: ["package.json", "dist/mergeConflictMain.js"],
         run: async (ctx) => {
             const file = join(ctx.root, "conflict.txt");
-            const conflict = (n: string): string =>
-                `<<<<<<< HEAD\nours ${n}\n=======\ntheirs ${n}\n>>>>>>> branch\n`;
+            const conflict = (n: string): string => `<<<<<<< HEAD\nours ${n}\n=======\ntheirs ${n}\n>>>>>>> branch\n`;
             writeFileSync(file, `intro\n${conflict("one")}middle\n${conflict("two")}end\n`);
             const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
             try {
@@ -825,9 +833,12 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
 
                 await app.session.executeCommand("merge-conflict.next");
                 await app.session.executeCommand("merge-conflict.compare");
-                await app.session.waitForText((t) => t.includes("ours one") && t.includes("theirs one") && t.includes("↔"), {
-                    timeoutMs: 20_000,
-                });
+                await app.session.waitForText(
+                    (t) => t.includes("ours one") && t.includes("theirs one") && t.includes("↔"),
+                    {
+                        timeoutMs: 20_000,
+                    },
+                );
                 await app.session.executeCommand("workbench.action.closeActiveEditor");
                 await app.session.waitForText((t) => !t.includes("↔"), { timeoutMs: 20_000 });
 
@@ -983,6 +994,18 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 );
                 // The color provider's square before an arbitrary color.
                 await app.session.waitForText((text) => text.includes("■ bg-[#ff0000]"), { timeoutMs: 20_000 });
+                // A named color: the extension's `before` decoration with the color per range, in that color.
+                const named = await app.session.waitForText(
+                    (text) => text.includes(`■ ${TAILWIND_NAMED_COLOR_CLASS}`),
+                    { timeoutMs: 20_000 },
+                );
+                const square = findTextCell(named, `■ ${TAILWIND_NAMED_COLOR_CLASS}`);
+                // red-500 of the v4 palette, oklch(63.7% 0.237 25.331), as the server converts it.
+                if (square === null || named.cells[square.y * named.cols + square.x].fg !== 0xfb2c36) {
+                    throw new Error("the square before bg-red-500 is not red-500");
+                }
+                // The arbitrary color keeps the provider's square only: the extension decorates named colors.
+                if (frameToText(named).includes("■ ■")) throw new Error("a color got two squares");
 
                 await caretAt(0, TAILWIND_P4_COLUMN);
                 await app.session.executeCommand("editor.action.showHover");
@@ -1130,7 +1153,11 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         // kind: "proxy-openvsx": the stock ShellCheck on its bundled WebAssembly runtime, no external tool. `Apply fix`
         // is offered only when the requested range lies inside the diagnostic, so it needs the exact selection.
         id: "timonwong.shellcheck",
-        expectFiles: ["package.json", "dist/extension.js", "node_modules/@vscode-shellcheck/shellcheck-wasm/dist/shellcheck.wasm"],
+        expectFiles: [
+            "package.json",
+            "dist/extension.js",
+            "node_modules/@vscode-shellcheck/shellcheck-wasm/dist/shellcheck.wasm",
+        ],
         run: async (ctx) => {
             const file = join(ctx.root, "script.sh");
             writeFileSync(file, "#!/bin/bash\necho $1\n");
@@ -1178,7 +1205,9 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 // Linted while typing. The caret ends up past the diagnostic: the quick fix comes from along the line.
                 await session.key("Ctrl+End");
                 await session.text("rm $2");
-                await session.waitForText((t) => t.includes("shellcheck(SC2086)  [Ln 3, Col 4]"), { timeoutMs: 20_000 });
+                await session.waitForText((t) => t.includes("shellcheck(SC2086)  [Ln 3, Col 4]"), {
+                    timeoutMs: 20_000,
+                });
                 await session.key("End");
                 await session.key("Ctrl+.");
                 await session.waitForText((t) => t.includes("Disable SC2086 for this line"), { timeoutMs: 20_000 });
@@ -1195,7 +1224,9 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                     () => session.captureFrame(),
                     (frame) => {
                         const at = findTextCell(frame, "SC2086");
-                        return at !== null && (frame.cells[at.y * frame.cols + at.x].style & StyleFlags.Underline) !== 0;
+                        return (
+                            at !== null && (frame.cells[at.y * frame.cols + at.x].style & StyleFlags.Underline) !== 0
+                        );
                     },
                     { describe: "the underline of the wiki link", timeoutMs: 20_000, intervalMs: 100 },
                 );

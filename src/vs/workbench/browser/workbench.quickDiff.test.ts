@@ -150,7 +150,8 @@ describe("Workbench: live quick diff gutter", () => {
         const attached = decorations.attach({ rpc: new RpcEndpoint(hostSide), logger: undefined });
         const uri = Uri.file(filePath).toString();
         const extensionBars = (line: number | null): void => {
-            const ranges = line === null ? [] : [{ start: { line, character: 0 }, end: { line, character: 0 } }];
+            const ranges =
+                line === null ? [] : [{ range: { start: { line, character: 0 }, end: { line, character: 0 } } }];
             extension.notify("editor.setDecorations", { key: 1, uri, ranges });
         };
         extension.notify("window.createTextEditorDecorationType", {
