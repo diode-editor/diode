@@ -10,6 +10,8 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "folding.ts");
 
 export default defineScenario({
     name: "fold-russian-layout",
+    // Ctrl+Shift and Shift+Alt shortcuts need an extended tier, which only an explicit setting turns on (#1049).
+    settings: { "terminal.tier": "csi-u" },
     title: "Ctrl+Shift+Cyrillic Ha folds like Ctrl+Shift+[ in the Russian layout",
     open: [repoRoot, sampleFile],
     cols: 100,

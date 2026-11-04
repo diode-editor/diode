@@ -18,6 +18,8 @@ export default defineScenario({
     title: "Built-in TypeScript: Implementations with two classes and with one, callers of a function, a linked JSX tag",
     open: [sampleDir, mainFile],
     settings: {
+        // Ctrl+Shift and Shift+Alt shortcuts need an extended tier, which only an explicit setting turns on (#1049).
+        "terminal.tier": "csi-u",
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
         "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
         "editor.linkedEditing": true,

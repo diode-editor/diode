@@ -967,7 +967,8 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         key: "terminal.tier",
         type: "string",
         default: "auto",
-        description: 'Tier override: "auto" detects the terminal capabilities tier.',
+        description:
+            'Keyboard protocol tier. "auto" keeps legacy keys and only shows in the status bar when the terminal can do more; "csi-u" and "kitty" turn the extended protocol on. Applies after restart.',
         enum: ["auto", "legacy", "csi-u", "kitty"],
     },
     {

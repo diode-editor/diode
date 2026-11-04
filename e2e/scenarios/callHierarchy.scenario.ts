@@ -28,6 +28,8 @@ function update() {
 
 export default defineScenario({
     name: "call-hierarchy",
+    // Ctrl+Shift and Shift+Alt shortcuts need an extended tier, which only an explicit setting turns on (#1049).
+    settings: { "terminal.tier": "csi-u" },
     title: "Call hierarchy: callers of a function in the References panel, the direction switch, Enter jumps",
     seedUserData: userData,
     open: [sampleDir, tsFile],

@@ -1158,8 +1158,26 @@ export interface ISerializedThemeColor {
 
 export type SerializedColor = string | ISerializedThemeColor;
 
+/**
+ * The fields of `ThemableDecorationAttachmentRenderOptions` the host projects: the text, its colors and italic.
+ * `borderColor` only colors a swatch; sizes, margins, borders and icons have nothing to draw with in a cell.
+ */
+export interface SerializedDecorationAttachmentRenderOptions {
+    readonly contentText?: string;
+    readonly color?: SerializedColor;
+    readonly backgroundColor?: SerializedColor;
+    readonly borderColor?: SerializedColor;
+    readonly fontStyle?: string;
+}
+
+/** Upstream `ThemableDecorationInstanceRenderOptions`. */
+export interface SerializedThemableDecorationInstanceRenderOptions {
+    readonly before?: SerializedDecorationAttachmentRenderOptions;
+    readonly after?: SerializedDecorationAttachmentRenderOptions;
+}
+
 /** The fields of `ThemableDecorationRenderOptions` the host projects. */
-export interface SerializedThemableDecorationRenderOptions {
+export interface SerializedThemableDecorationRenderOptions extends SerializedThemableDecorationInstanceRenderOptions {
     readonly backgroundColor?: SerializedColor;
     readonly color?: SerializedColor;
     readonly overviewRulerColor?: SerializedColor;
@@ -1167,13 +1185,28 @@ export interface SerializedThemableDecorationRenderOptions {
 
 /**
  * Only the fields the host projects: `overviewRulerColor` makes the type a "gutter change-bar",
- * `backgroundColor`/`color` paint the text; borders, outlines and font styles have nothing to draw with in a cell.
+ * `backgroundColor`/`color` paint the text, `before`/`after` draw cells at its edges; borders, outlines and font
+ * styles of the text have nothing to draw with in a cell.
  */
 export interface SerializedDecorationRenderOptions extends SerializedThemableDecorationRenderOptions {
     readonly isWholeLine?: boolean;
+    /** `vscode.DecorationRangeBehavior`. */
+    readonly rangeBehavior?: number;
     readonly overviewRulerLane?: number;
     readonly light?: SerializedThemableDecorationRenderOptions;
     readonly dark?: SerializedThemableDecorationRenderOptions;
+}
+
+/** Upstream `DecorationInstanceRenderOptions`. */
+export interface SerializedDecorationInstanceRenderOptions extends SerializedThemableDecorationInstanceRenderOptions {
+    readonly light?: SerializedThemableDecorationInstanceRenderOptions;
+    readonly dark?: SerializedThemableDecorationInstanceRenderOptions;
+}
+
+/** `vscode.DecorationOptions` without `hoverMessage`; a bare `Range` goes without `renderOptions`. */
+export interface IWireDecorationOptions {
+    readonly range: IRange;
+    readonly renderOptions?: SerializedDecorationInstanceRenderOptions;
 }
 
 export interface IWireCreateDecorationType {
@@ -1184,7 +1217,7 @@ export interface IWireCreateDecorationType {
 export interface IWireSetDecorations {
     readonly key: number;
     readonly uri: string;
-    readonly ranges: readonly IRange[];
+    readonly ranges: readonly IWireDecorationOptions[];
     /** The host currently decorates the resource in all groups and ignores this field. */
     readonly groupId: number;
 }

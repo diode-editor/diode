@@ -44,9 +44,17 @@ The setting applies at once, no restart needed.
 ## Keys
 
 The Ctrl+Shift shortcuts, `Ctrl+Tab`, `Ctrl+Enter` and ``Ctrl+` `` need an extended keyboard
-protocol. Diode asks for both the kitty keyboard protocol and xterm's `modifyOtherKeys` at startup
-and uses whichever the terminal answers with; see [Keyboard](KEYBOARD.md) for what works without
-it. Terminal by terminal:
+protocol. By default Diode keeps the terminal in its legacy key encoding, so the same keys work
+in every terminal, in tmux and over ssh; see [Keyboard](KEYBOARD.md) for what works that way.
+When the terminal can do more, the left status bar segment says so: `legacy · kitty available`,
+or `legacy · tmux · csi-u available` inside tmux. To turn the extended protocol on, set
+`terminal.tier` to `kitty` or `csi-u` and restart Diode: it then asks for both the kitty keyboard
+protocol and xterm's `modifyOtherKeys` at startup. The tier never changes mid-session.
+
+The one exception is a Mac outside tmux: when the terminal answers the kitty protocol query,
+Diode turns the protocol on by itself so that the Cmd shortcuts reach it.
+
+Terminal by terminal, for the extended protocol:
 
 - **kitty**, **ghostty**, **foot**, **Alacritty**: nothing to configure. In kitty, `Ctrl+Shift+<key>`
   is also kitty's own shortcut prefix; the shortcuts you use in Diode may need to be unmapped in
@@ -63,9 +71,10 @@ it. Terminal by terminal:
   Terminal.app "Use Option as Meta key". Cmd shortcuts the terminal keeps for itself (`Cmd+T`,
   `Cmd+N`, `Cmd+P`, ...) need unmapping in the terminal to reach Diode.
 
-If detection gets it wrong, `terminal.tier` forces a level (`auto`, `legacy`, `csi-u`, `kitty`),
-and `terminal.capabilities` forces single capabilities on or off. A click on the left status bar
-segment opens your `settings.json`.
+`terminal.tier` picks the level (`auto`, `legacy`, `csi-u`, `kitty`), and
+`terminal.capabilities` forces single capabilities on or off (`"extended-keys": true` with `auto`
+also turns the protocol on). Both apply after a restart. A click on the left status bar segment
+opens your `settings.json`.
 
 ## Clipboard
 

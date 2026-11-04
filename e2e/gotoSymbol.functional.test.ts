@@ -11,6 +11,8 @@ import { waitUntil } from "./helpers/waitFor.ts";
 const require_ = createRequire(import.meta.url);
 
 const LSP_SETTINGS = {
+    // Ctrl+Shift+O needs an extended tier, which only an explicit setting turns on (#1049).
+    "terminal.tier": "csi-u",
     "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
     "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
 };

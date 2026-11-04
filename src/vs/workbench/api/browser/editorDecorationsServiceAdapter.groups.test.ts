@@ -66,7 +66,10 @@ describe("EditorDecorationsServiceAdapter — all groups", () => {
         const panes = service.getEditors();
         expect(panes).toHaveLength(2);
         const pushed = panes.map((pane) => vi.spyOn(pane, "setExtensionTextDecorations"));
-        const decorations = [{ range: createRange(0, 1, 0, 3), bg: 0x123456, isWholeLine: false }];
+        const decorations = {
+            key: 1,
+            decorations: [{ range: createRange(0, 1, 0, 3), bg: 0x123456, isWholeLine: false }],
+        };
 
         new EditorDecorationsServiceAdapter(service).setExtensionTextDecorations(
             Uri.file(ws.path("a.ts")).toString(),

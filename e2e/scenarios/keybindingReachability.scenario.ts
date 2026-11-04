@@ -3,14 +3,15 @@ import { resolve } from "node:path";
 import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Keybinding reachability without extended keys (ssh + tmux, #376). The key frame is F1 after tier promotion: F1 was
-// bound under `when: "tier == 'legacy'"`, a promoted tier dropped it, and Ctrl+Shift+P never made it through tmux.
+// Keybinding reachability without extended keys (ssh + tmux, #376): the Explorer chord and F1 work, the palette shows
+// the labels a legacy terminal can type. A CSI-u key that slips through (tmux `extended-keys always`) no longer
+// promotes the tier (#1049).
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "keybinding-reachability",
-    title: "Keybindings work on any terminal: Explorer chord, honest labels, F1 after a tier upgrade",
+    title: "Keybindings work on any terminal: Explorer chord, honest labels, the tier stays legacy",
     open: [repoRoot, sampleFile],
     settings: {
         // On the Windows runner the builtin TS server fails to start, and its error toast covered the palette.
@@ -43,14 +44,11 @@ export default defineScenario({
         await editor.sendKey("Escape");
         await editor.waitForText((t) => !t.includes("Format Document"));
 
-        // Ctrl+Shift+E arrives in CSI-u form, which promotes the tier to csi-u.
+        // Ctrl+Shift+E arrives in CSI-u form; the tier stays legacy and F1 keeps the legacy labels.
         await editor.sendKey("Ctrl+Shift+E");
-        await editor.waitForText((t) => t.includes("csi-u"));
-        await editor.capture("tier-promoted");
-
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput");
-        await editor.waitForText((t) => t.includes("File: Save As...") && t.includes("Ctrl+Shift+S"));
-        await editor.capture("f1-after-tier-promotion");
+        await editor.waitForText((t) => t.includes("File: Save As...") && t.includes("Ctrl+K Alt+S") && t.includes("legacy"));
+        await editor.capture("f1-after-csi-u-key");
     },
 });

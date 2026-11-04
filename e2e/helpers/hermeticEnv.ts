@@ -25,11 +25,16 @@ const TERMINAL_IDENTITY_VARS = [
  * Identity is pinned LAST: some callers spread a whole `process.env` into `extra`, and
  * sanitizing before the merge would resurrect host markers.
  */
-export function hermeticSpawnEnv(extra?: Readonly<Record<string, string>>): Record<string, string> {
+export function hermeticSpawnEnv(
+    extra?: Readonly<Record<string, string>>,
+    /** A terminal the test plays on purpose (e.g. `TMUX`): set after the sanitizing, so it survives it. */
+    terminalIdentity?: Readonly<Record<string, string>>,
+): Record<string, string> {
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
     Object.assign(env, extra ?? {});
     for (const key of TERMINAL_IDENTITY_VARS) delete env[key];
     env.TERM = "xterm-256color";
+    Object.assign(env, terminalIdentity ?? {});
     return env;
 }

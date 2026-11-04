@@ -13,10 +13,6 @@ describe("StatusBarComponent — indentation indicator", () => {
         delete process.env.SSH_CLIENT;
         delete process.env.SSH_TTY;
         delete process.env.COLORTERM;
-        delete process.env.KITTY_WINDOW_ID;
-        delete process.env.GHOSTTY_RESOURCES_DIR;
-        delete process.env.WEZTERM_PANE;
-        delete process.env.ALACRITTY_WINDOW_ID;
         delete process.env.TERM_PROGRAM;
         process.env.TERM = "xterm-256color";
     });

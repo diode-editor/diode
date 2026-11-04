@@ -48,6 +48,16 @@ describe("hermeticSpawnEnv", () => {
         expect(env.PATH).toBe(process.env.PATH);
     });
 
+    it("an explicit terminal identity is set after the sanitizing", () => {
+        pollute({ KITTY_WINDOW_ID: "7" });
+
+        const env = hermeticSpawnEnv({ KITTY_WINDOW_ID: "8" }, { TMUX: "/tmp/fake,1,0" });
+
+        expect(env.TMUX).toBe("/tmp/fake,1,0");
+        expect(env.KITTY_WINDOW_ID).toBeUndefined();
+        expect(env.TERM).toBe("xterm-256color");
+    });
+
     it("keeps caller overrides but sanitizes them last", () => {
         pollute({ TERM: "tmux-256color" });
 

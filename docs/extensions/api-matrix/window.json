@@ -30,7 +30,7 @@
     },
     "window.createTextEditorDecorationType": {
       "class": "C",
-      "note": "background, text color, isWholeLine, light/dark branches and gutter bars are drawn; border, outline, font styles, opacity and before/after are not (#1023)"
+      "note": "background, text color, isWholeLine, light/dark branches, gutter bars and before/after (a color swatch or text with its color, background and italic) are drawn, ranges follow edits by rangeBehavior; border, outline, sizes, margins, font weight, text decoration, opacity, gutterIconPath and contentIconPath are not"
     },
     "window.createTreeView": {
       "class": "ok"

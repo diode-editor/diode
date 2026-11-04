@@ -1,4 +1,5 @@
 import type { ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
+import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBackend";
 import { isInsideTmux, isSsh } from "@tuidom/terminal-backend/terminalEnv";
 
 import { Emitter } from "../../../../base/common/event.ts";
@@ -14,7 +15,6 @@ import {
     type Capability,
     type CapabilitySet,
     detectBaseModes,
-    detectExtendedKeysHint,
     detectKittyGraphicsHint,
     detectTruecolor,
     emptyCapabilities,
@@ -26,24 +26,56 @@ import {
     resolveOs,
     resolveTier,
     type Tier,
-    TIER_ORDER,
 } from "./terminalEnvironmentModel.ts";
 import { queryTmuxClient, type TmuxClientInfo } from "./tmuxClientProbe.ts";
 
 export const TerminalEnvironmentServiceDIToken = token<TerminalEnvironmentService>("TerminalEnvironmentService");
 
 /**
- * Detection is synchronous at construction (env vars), so startup never blocks; `detect()`
- * then fires a keyboard-protocol probe nothing waits on. Config can force any value.
+ * The keyboard protocols (Kitty push + modifyOtherKeys) are on from startup only by an explicit
+ * setting: `terminal.tier` `csi-u`/`kitty`, or `auto` with `terminal.capabilities["extended-keys"]: true`.
+ * `main.ts` asks this before creating the backend; the answer holds for the whole session.
+ */
+export function extendedKeysAtStartup(config: IConfigurationService): boolean {
+    return protocolsRequested(config.get("terminal.tier"), capabilityOverrides(config));
+}
+
+/** The configuration service already replaced an out-of-enum tier with the default ("auto"). */
+type TierSetting = "auto" | Tier;
+type CapabilityOverrides = Partial<Record<Capability, unknown>>;
+
+function protocolsRequested(tier: TierSetting, overrides: CapabilityOverrides): boolean {
+    if (tier === "csi-u" || tier === "kitty") return true;
+    return tier === "auto" && overrides["extended-keys"] === true;
+}
+
+/** Turns the keyboard protocols on in the real terminal; headless and mock backends have none to switch. */
+export function extendedKeysSwitch(backend: ITerminalBackend): () => void {
+    return () => {
+        if (backend instanceof NodeTerminalBackend) backend.enableExtendedKeys();
+    };
+}
+
+function capabilityOverrides(config: IConfigurationService): CapabilityOverrides {
+    return config.get<CapabilityOverrides>("terminal.capabilities") ?? {};
+}
+
+/**
+ * The tier is fixed at construction and does not change during the session (#1049): the
+ * same keys in kitty, tmux and ssh. The one exception is a Mac keyboard outside tmux with
+ * `auto`: once the terminal answers the `CSI ? u` probe, the Kitty protocol is turned on
+ * for Cmd ({@link detect}). Otherwise the probes only learn what is *available*
+ * ({@link availableTier}) for the status bar. Config can force any value.
  */
 export class TerminalEnvironmentService extends Disposable {
     public static dependencies = [TerminalBackendDIToken, IConfigurationServiceDIToken] as const;
 
     private readonly backend: ITerminalBackend;
-    private readonly config: IConfigurationService;
 
     private capabilities: CapabilitySet = emptyCapabilities();
-    private tierValue: Tier = "legacy";
+    /** Settings read once: the protocols are not switched mid-session. */
+    private readonly tierSetting: TierSetting;
+    private readonly overrides: CapabilityOverrides;
     private osSignals: OsSignals;
     private resolvedOs: ResolvedOs;
 
@@ -55,39 +87,49 @@ export class TerminalEnvironmentService extends Disposable {
     private readonly onDidChangeEmitter = this.register(new Emitter<void>());
     private probeStarted = false;
     private tmuxQueried = false;
+    private available: Tier | undefined;
 
     public constructor(
         backend: ITerminalBackend,
         config: IConfigurationService,
         private readonly queryTmux: () => Promise<TmuxClientInfo> = queryTmuxClient,
+        private readonly enableExtendedKeys: () => void = extendedKeysSwitch(backend),
     ) {
         super();
         this.backend = backend;
-        this.config = config;
+        this.tierSetting = config.get("terminal.tier");
+        this.overrides = capabilityOverrides(config);
         this.baseModes = detectBaseModes();
-        this.osSignals = initialOsSignals(this.config.get("keyboard.platform"));
+        this.osSignals = initialOsSignals(config.get("keyboard.platform"));
         this.resolvedOs = resolveOs(this.osSignals);
 
-        this.capabilities["extended-keys"] = detectExtendedKeysHint();
         this.capabilities.truecolor = detectTruecolor();
         this.capabilities["kitty-graphics"] = detectKittyGraphicsHint();
         this.capabilities["mouse-sgr"] = true; // backend enables SGR mouse unconditionally
         // OSC52 is usually available, but default tmux blocks it unless `set-clipboard on`.
         this.capabilities.osc52 = !this.baseModes.has("tmux");
 
-        const forced = this.config.get<Record<string, boolean>>("terminal.modes");
+        const forced = config.get<Record<string, boolean>>("terminal.modes");
         if (forced) {
             for (const [name, on] of Object.entries(forced)) this.forcedModes.set(name, on);
         }
-        const custom = this.config.get<Record<string, unknown>>("terminal.customModes");
+        const custom = config.get<Record<string, unknown>>("terminal.customModes");
         this.customModeNames = custom ? Object.keys(custom) : [];
 
         this.applyCapabilityOverrides();
-        this.tierValue = this.resolveTierWithOverride();
+        this.capabilities["extended-keys"] = protocolsRequested(this.tierSetting, this.overrides);
+    }
+
+    /**
+     * The tier the terminal could do while the protocols are off: `kitty` once a terminal outside
+     * tmux answered `CSI ? u`, `csi-u` when tmux passes extended keys. `undefined` — nothing to offer.
+     */
+    public get availableTier(): Tier | undefined {
+        return this.available;
     }
 
     public get tier(): Tier {
-        return this.tierValue;
+        return this.tierSetting === "auto" ? resolveTier(this.capabilities) : this.tierSetting;
     }
 
     /** The keyboard's OS (not the process's) — see {@link resolveOs}. */
@@ -134,26 +176,45 @@ export class TerminalEnvironmentService extends Disposable {
     }
 
     /**
-     * The probe only upgrades: a non-reply over a slow link must not lose an env-detected
-     * capability. Under tmux XTVERSION is not sent — tmux itself would reply; {@link detectTmuxClient} provides the name.
+     * Fires the probes nothing waits on; not under tmux: XTVERSION would be answered by tmux itself
+     * ({@link detectTmuxClient} provides the name) and `CSI ? u` not at all.
      */
     public detect(): void {
-        if (this.probeStarted) return;
+        if (this.probeStarted || this.baseModes.has("tmux")) return;
         this.probeStarted = true;
-        if (!this.baseModes.has("tmux")) {
-            this.backend.probeTerminalVersion((name) => {
-                this.noteTerminalName(name);
-            });
-        }
-        this.backend.probeKeyboardProtocol((supported) => {
-            if (!supported || this.capabilities["extended-keys"]) return; // upgrade-only, skip no-op
-            this.capabilities["extended-keys"] = true;
-            this.applyCapabilityOverrides(); // a config-forced value still wins
-            const tier = this.resolveTierWithOverride();
-            if (tier === this.tierValue) return;
-            this.tierValue = tier;
-            this.emitChange();
+        this.backend.probeTerminalVersion((name) => {
+            this.noteTerminalName(name);
         });
+        // XTVERSION goes first and replies come in order, so a Mac terminal name is known by now.
+        this.backend.probeKeyboardProtocol((supported) => {
+            if (!supported) return;
+            if (this.capabilities["extended-keys"]) this.noteCmdReachable();
+            else if (this.isMacException()) this.enableForMac();
+            else this.noteAvailable("kitty");
+        });
+    }
+
+    /** `auto`, a Mac keyboard and no explicit word on extended keys. */
+    private isMacException(): boolean {
+        return this.tierSetting === "auto" && this.os === "mac" && this.overrides["extended-keys"] === undefined;
+    }
+
+    private enableForMac(): void {
+        this.enableExtendedKeys();
+        this.capabilities["extended-keys"] = true;
+        this.noteCmdReachable();
+    }
+
+    /** The Kitty protocol is on outside tmux: Cmd gets through unless the config says otherwise. */
+    private noteCmdReachable(): void {
+        const forced = this.overrides.super;
+        this.capabilities.super = typeof forced === "boolean" ? forced : true;
+        this.emitChange();
+    }
+
+    private noteAvailable(tier: Tier): void {
+        this.available = tier;
+        this.emitChange();
     }
 
     /**
@@ -166,33 +227,8 @@ export class TerminalEnvironmentService extends Disposable {
         void this.queryTmux().then((info) => {
             this.noteOsSignals({ envPlatform: info.envPlatform, lcTerminal: info.lcTerminal });
             this.noteTerminalName(info.termType);
+            if (info.extendedKeys && !this.capabilities["extended-keys"]) this.noteAvailable("csi-u");
         });
-    }
-
-    /**
-     * The only reliable signal behind tmux, which masks $TERM and drops the `CSI ? u` probe:
-     * a key arriving in CSI-u form proves support. Upgrade-only, like {@link detect}.
-     */
-    public noteExtendedKeysObserved(): void {
-        if (this.capabilities["extended-keys"]) return;
-        this.capabilities["extended-keys"] = true;
-        this.applyCapabilityOverrides(); // a config-forced value still wins
-        const tier = this.resolveTierWithOverride();
-        if (tier === this.tierValue) return;
-        this.tierValue = tier;
-        this.emitChange();
-    }
-
-    /** Seeing super also proves extended keys (only the Kitty protocol encodes it). Upgrade-only. */
-    public noteSuperObserved(): void {
-        const rungBefore = this.macKeysRung;
-        const tierBefore = this.tierValue;
-        this.capabilities.super = true;
-        this.capabilities["extended-keys"] = true;
-        this.applyCapabilityOverrides(); // a config-forced value still wins
-        this.tierValue = this.resolveTierWithOverride();
-        if (this.macKeysRung === rungBefore && this.tierValue === tierBefore) return;
-        this.emitChange();
     }
 
     /** Flips the OS only towards mac and never over an explicit answer (see {@link canUpgradeToMac}). */
@@ -215,20 +251,11 @@ export class TerminalEnvironmentService extends Disposable {
     }
 
     private applyCapabilityOverrides(): void {
-        const overrides = this.config.get<Partial<Record<Capability, boolean>>>("terminal.capabilities");
-        if (!overrides) return;
-        for (const [cap, on] of Object.entries(overrides)) {
+        for (const [cap, on] of Object.entries(this.overrides)) {
             if (cap in this.capabilities && typeof on === "boolean") {
                 this.capabilities[cap as Capability] = on;
             }
         }
-    }
-
-    private resolveTierWithOverride(): Tier {
-        // The configuration service already replaced an out-of-enum value with the default ("auto").
-        const forced = this.config.get("terminal.tier");
-        if (forced !== "auto") return forced;
-        return resolveTier(this.capabilities);
     }
 
     public setMode(name: string, active: boolean): void {
