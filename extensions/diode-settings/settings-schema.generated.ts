@@ -682,56 +682,63 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         key: "javascript.inlayHints.functionLikeReturnTypes.enabled",
         type: "boolean",
         default: false,
-        description: "%configuration.inlayHints.functionLikeReturnTypes.enabled%",
+        description:
+            "Enable/disable inlay hints for implicit return types on function signatures:\n```typescript\n\nfunction foo() /* :number */ {\n\treturn Date.now();\n} \n \n```",
     },
     {
         key: "javascript.inlayHints.parameterNames.enabled",
         type: "string",
         default: "none",
-        description: "%configuration.inlayHints.parameterNames.enabled%",
+        description:
+            "Enable/disable inlay hints for parameter names:\n```typescript\n\nparseInt(/* str: */ '123', /* radix: */ 8)\n \n```",
         enum: ["none", "literals", "all"],
     },
     {
         key: "javascript.inlayHints.parameterNames.suppressWhenArgumentMatchesName",
         type: "boolean",
         default: true,
-        description: "%configuration.inlayHints.parameterNames.suppressWhenArgumentMatchesName%",
+        description: "Suppress parameter name hints on arguments whose text is identical to the parameter name.",
     },
     {
         key: "javascript.inlayHints.parameterTypes.enabled",
         type: "boolean",
         default: false,
-        description: "%configuration.inlayHints.parameterTypes.enabled%",
+        description:
+            "Enable/disable inlay hints for implicit parameter types:\n```typescript\n\nel.addEventListener('click', e /* :MouseEvent */ => ...)\n \n```",
     },
     {
         key: "javascript.inlayHints.propertyDeclarationTypes.enabled",
         type: "boolean",
         default: false,
-        description: "%configuration.inlayHints.propertyDeclarationTypes.enabled%",
+        description:
+            "Enable/disable inlay hints for implicit types on property declarations:\n```typescript\n\nclass Foo {\n\tprop /* :number */ = Date.now();\n}\n \n```",
     },
     {
         key: "javascript.inlayHints.variableTypes.enabled",
         type: "boolean",
         default: false,
-        description: "%configuration.inlayHints.variableTypes.enabled%",
+        description:
+            "Enable/disable inlay hints for implicit variable types:\n```typescript\n\nconst foo /* :number */ = Date.now();\n \n```",
     },
     {
         key: "javascript.inlayHints.variableTypes.suppressWhenTypeMatchesName",
         type: "boolean",
         default: true,
-        description: "%configuration.inlayHints.variableTypes.suppressWhenTypeMatchesName%",
+        description: "Suppress type hints on variables whose name is identical to the type name.",
     },
     {
         key: "javascript.referencesCodeLens.enabled",
         type: "boolean",
         default: false,
-        description: "%configuration.referencesCodeLens.enabled%",
+        description:
+            "Enable/disable references CodeLens in JavaScript and TypeScript files. This CodeLens shows the number of references for classes and exported functions and allows you to peek or navigate to them.",
     },
     {
         key: "javascript.referencesCodeLens.showOnAllFunctions",
         type: "boolean",
         default: false,
-        description: "%configuration.referencesCodeLens.showOnAllFunctions%",
+        description:
+            "Enable/disable the [references CodeLens](#js/ts.referencesCodeLens.enabled) on all functions in JavaScript and TypeScript files.",
     },
     {
         key: "keyboard.platform",
@@ -740,6 +747,31 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description:
             'Keyboard platform: "auto" detects it (LC_DIODE_PLATFORM, the terminal, the local OS); set it when detection guesses wrong, e.g. over ssh from a Mac.',
         enum: ["auto", "mac", "linux", "windows"],
+    },
+    {
+        key: "merge-conflict.autoNavigateNextConflict.enabled",
+        type: "boolean",
+        default: false,
+        description: "Whether to automatically navigate to the next merge conflict after resolving a merge conflict.",
+    },
+    {
+        key: "merge-conflict.codeLens.enabled",
+        type: "boolean",
+        default: true,
+        description: "Create a CodeLens for merge conflict blocks within editor.",
+    },
+    {
+        key: "merge-conflict.decorators.enabled",
+        type: "boolean",
+        default: true,
+        description: "Create decorators for merge conflict blocks within editor.",
+    },
+    {
+        key: "merge-conflict.diffViewPosition",
+        type: "string",
+        default: "Current",
+        description: "Controls where the diff view should be opened when comparing changes in merge conflicts.",
+        enum: ["Current", "Beside", "Below"],
     },
     {
         key: "scm.graph.pageSize",
@@ -975,74 +1007,84 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         key: "typescript.implementationsCodeLens.enabled",
         type: "boolean",
         default: false,
-        description: "%configuration.implementationsCodeLens.enabled%",
+        description:
+            "Enable/disable implementations CodeLens in TypeScript files. This CodeLens shows the implementers of TypeScript interfaces.",
     },
     {
         key: "typescript.implementationsCodeLens.showOnInterfaceMethods",
         type: "boolean",
         default: false,
-        description: "%configuration.implementationsCodeLens.showOnInterfaceMethods%",
+        description:
+            "Enable/disable [implementations CodeLens](#js/ts.implementationsCodeLens.enabled) on TypeScript interface methods.",
     },
     {
         key: "typescript.inlayHints.enumMemberValues.enabled",
         type: "boolean",
         default: false,
-        description: "%configuration.inlayHints.enumMemberValues.enabled%",
+        description:
+            "Enable/disable inlay hints for member values in enum declarations:\n```typescript\n\nenum MyValue {\n\tA /* = 0 */;\n\tB /* = 1 */;\n}\n \n```",
     },
     {
         key: "typescript.inlayHints.functionLikeReturnTypes.enabled",
         type: "boolean",
         default: false,
-        description: "%configuration.inlayHints.functionLikeReturnTypes.enabled%",
+        description:
+            "Enable/disable inlay hints for implicit return types on function signatures:\n```typescript\n\nfunction foo() /* :number */ {\n\treturn Date.now();\n} \n \n```",
     },
     {
         key: "typescript.inlayHints.parameterNames.enabled",
         type: "string",
         default: "none",
-        description: "%configuration.inlayHints.parameterNames.enabled%",
+        description:
+            "Enable/disable inlay hints for parameter names:\n```typescript\n\nparseInt(/* str: */ '123', /* radix: */ 8)\n \n```",
         enum: ["none", "literals", "all"],
     },
     {
         key: "typescript.inlayHints.parameterNames.suppressWhenArgumentMatchesName",
         type: "boolean",
         default: true,
-        description: "%configuration.inlayHints.parameterNames.suppressWhenArgumentMatchesName%",
+        description: "Suppress parameter name hints on arguments whose text is identical to the parameter name.",
     },
     {
         key: "typescript.inlayHints.parameterTypes.enabled",
         type: "boolean",
         default: false,
-        description: "%configuration.inlayHints.parameterTypes.enabled%",
+        description:
+            "Enable/disable inlay hints for implicit parameter types:\n```typescript\n\nel.addEventListener('click', e /* :MouseEvent */ => ...)\n \n```",
     },
     {
         key: "typescript.inlayHints.propertyDeclarationTypes.enabled",
         type: "boolean",
         default: false,
-        description: "%configuration.inlayHints.propertyDeclarationTypes.enabled%",
+        description:
+            "Enable/disable inlay hints for implicit types on property declarations:\n```typescript\n\nclass Foo {\n\tprop /* :number */ = Date.now();\n}\n \n```",
     },
     {
         key: "typescript.inlayHints.variableTypes.enabled",
         type: "boolean",
         default: false,
-        description: "%configuration.inlayHints.variableTypes.enabled%",
+        description:
+            "Enable/disable inlay hints for implicit variable types:\n```typescript\n\nconst foo /* :number */ = Date.now();\n \n```",
     },
     {
         key: "typescript.inlayHints.variableTypes.suppressWhenTypeMatchesName",
         type: "boolean",
         default: true,
-        description: "%configuration.inlayHints.variableTypes.suppressWhenTypeMatchesName%",
+        description: "Suppress type hints on variables whose name is identical to the type name.",
     },
     {
         key: "typescript.referencesCodeLens.enabled",
         type: "boolean",
         default: false,
-        description: "%configuration.referencesCodeLens.enabled%",
+        description:
+            "Enable/disable references CodeLens in JavaScript and TypeScript files. This CodeLens shows the number of references for classes and exported functions and allows you to peek or navigate to them.",
     },
     {
         key: "typescript.referencesCodeLens.showOnAllFunctions",
         type: "boolean",
         default: false,
-        description: "%configuration.referencesCodeLens.showOnAllFunctions%",
+        description:
+            "Enable/disable the [references CodeLens](#js/ts.referencesCodeLens.enabled) on all functions in JavaScript and TypeScript files.",
     },
     {
         key: "window.autoDetectColorScheme",
