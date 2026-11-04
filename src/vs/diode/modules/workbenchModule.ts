@@ -108,6 +108,10 @@ import {
     SetContextCommandContributionDIToken,
 } from "../../workbench/browser/setContextCommandContribution.ts";
 import {
+    TerminalRestartNotificationContribution,
+    TerminalRestartNotificationContributionDIToken,
+} from "../../workbench/browser/terminalRestartNotificationContribution.ts";
+import {
     UndoRefusalNotificationContribution,
     UndoRefusalNotificationContributionDIToken,
 } from "../../workbench/browser/undoRefusalNotificationContribution.ts";
@@ -473,6 +477,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(NotificationServiceDIToken, NotificationService);
     container.bind(NotificationsComponentDIToken, NotificationsComponent);
     container.bind(OpenFailureNotificationContributionDIToken, OpenFailureNotificationContribution);
+    container.bind(TerminalRestartNotificationContributionDIToken, TerminalRestartNotificationContribution);
     container.bind(LargeFileOptimizationsWarnerDIToken, LargeFileOptimizationsWarner);
     container.bind(LargeFileIndexingStatusDIToken, LargeFileIndexingStatus);
     container.bind(LanguageStatusServiceDIToken, LanguageStatusService);

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService, EXTENDED_TIER_SETTINGS } from "../../../TestUtils/testConfigurationService.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 
 // Russian layout with extended keys (Kitty / tmux `extended-keys`): the key arrives as the Cyrillic
@@ -28,7 +29,10 @@ describe("Workbench — non-Latin layout keys reach punctuation bindings by phys
     });
 
     async function open(): Promise<{ h: IAppHarness; editor: EditorElement }> {
-        const h = createAppTestHarness({ openFile: ws.writeFile("block.txt", BLOCK) });
+        const h = createAppTestHarness({
+            openFile: ws.writeFile("block.txt", BLOCK),
+            configurationService: createTestConfigurationService(EXTENDED_TIER_SETTINGS),
+        });
         h.workbench.focusEditor();
         const editor = h.testApp.querySelector("EditorElement") as EditorElement;
         // The workbench computes folding regions after a debounce, not on open.

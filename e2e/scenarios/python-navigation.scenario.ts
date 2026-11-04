@@ -36,6 +36,8 @@ function readsDifferFromWrites(frame: GridSnapshot): boolean {
 
 export default defineScenario({
     name: "python-navigation",
+    // Ctrl+Shift and Shift+Alt shortcuts need an extended tier, which only an explicit setting turns on (#1049).
+    settings: { "terminal.tier": "csi-u" },
     title: "Stock basedpyright: implementations, overloads, occurrences, symbols, callers, f-string on type",
     open: [sampleDir, shapesFile],
     installVsix: ["detachhead.basedpyright"],

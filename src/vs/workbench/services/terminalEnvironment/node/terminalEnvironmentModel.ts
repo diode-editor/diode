@@ -34,16 +34,10 @@ export function emptyCapabilities(): CapabilitySet {
 }
 
 export type Tier = "legacy" | "csi-u" | "kitty";
-export const TIER_ORDER: readonly Tier[] = ["legacy", "csi-u", "kitty"];
-
 export function resolveTier(caps: CapabilitySet): Tier {
     if (caps["extended-keys"] && caps["kitty-graphics"]) return "kitty";
     if (caps["extended-keys"]) return "csi-u";
     return "legacy";
-}
-
-export function tierAtLeast(a: Tier, b: Tier): boolean {
-    return TIER_ORDER.indexOf(a) >= TIER_ORDER.indexOf(b);
 }
 
 /**
@@ -160,9 +154,6 @@ export function detectBaseModes(env: NodeJS.ProcessEnv = process.env): Set<Built
 
 const TRUECOLOR_TERM_HINTS = ["truecolor", "24bit"];
 const KITTY_TERM_HINTS = ["kitty", "ghostty", "wezterm"];
-const EXTENDED_KEYS_TERM_HINTS = ["kitty", "ghostty", "wezterm", "foot", "rio", "alacritty"];
-/** Env flags set by those terminals (survive even when $TERM is masked, e.g. inside tmux). */
-const EXTENDED_KEYS_ENV_FLAGS = ["KITTY_WINDOW_ID", "GHOSTTY_RESOURCES_DIR", "WEZTERM_PANE", "ALACRITTY_WINDOW_ID"];
 
 function termHaystack(env: NodeJS.ProcessEnv): string {
     return `${env.TERM ?? ""} ${env.TERM_PROGRAM ?? ""}`.toLowerCase();
@@ -177,18 +168,4 @@ export function detectTruecolor(env: NodeJS.ProcessEnv = process.env): boolean {
 export function detectKittyGraphicsHint(env: NodeJS.ProcessEnv = process.env): boolean {
     const haystack = termHaystack(env);
     return KITTY_TERM_HINTS.some((h) => haystack.includes(h));
-}
-
-/**
- * Provisional value until the async probe; under tmux/ssh $TERM is often masked, so it may
- * under-report. Under tmux the host terminal's env flags (`KITTY_WINDOW_ID` is passed through) prove
- * nothing: extended keys get through only if tmux itself passes them (`extended-keys on`, ≥ 3.2).
- * Trusting the flag overstated the tier and disabled legacy fallbacks, so Ctrl+Shift+F arrived as
- * Ctrl+F. Under a multiplexer, wait for the probe or observed extended input.
- */
-export function detectExtendedKeysHint(env: NodeJS.ProcessEnv = process.env): boolean {
-    const haystack = termHaystack(env);
-    if (EXTENDED_KEYS_TERM_HINTS.some((h) => haystack.includes(h))) return true;
-    if (isInsideTmux(env)) return false;
-    return EXTENDED_KEYS_ENV_FLAGS.some((flag) => env[flag] != null && env[flag] !== "");
 }

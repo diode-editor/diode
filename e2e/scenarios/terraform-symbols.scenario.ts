@@ -15,6 +15,8 @@ const mainFile = resolve(sampleDir, "main.tf");
 
 export default defineScenario({
     name: "terraform-symbols",
+    // Ctrl+Shift and Shift+Alt shortcuts need an extended tier, which only an explicit setting turns on (#1049).
+    settings: { "terminal.tier": "csi-u" },
     title: "Terraform from the marketplace: registry link, Go to Symbol in Editor, Go to Declaration, a menu without what the server lacks",
     open: [sampleDir, mainFile],
     installVsix: ["hashicorp.terraform"],

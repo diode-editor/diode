@@ -17,7 +17,6 @@ import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import { StatusBarService } from "../../statusbar/common/statusBarService.ts";
 
-import type { IExtendedKeysObserver } from "./keybindingDispatcher.ts";
 import { KeybindingDispatcher } from "./keybindingDispatcher.ts";
 
 function keyDown(init: ConstructorParameters<typeof TUIKeyboardEvent>[1]): TUIKeyboardEvent {
@@ -30,35 +29,7 @@ function createHarness(logService: ILogService = NULL_LOG_SERVICE) {
     const commands = new CommandRegistry();
     const statusBar = new StatusBarService(NULL_STATE_SERVICE);
     const armory = new ModifierReleaseArmory();
-    const extendedKeysCalls: string[] = [];
-    let extendedKeys = false;
-    let superKey = false;
-    const terminalEnv: IExtendedKeysObserver = {
-        // Strict: a typo in a capability name in the dispatcher fails the test instead of a silent false.
-        hasCapability: (cap: string) => {
-            if (cap === "super") return superKey;
-            if (cap === "extended-keys") return extendedKeys;
-            throw new Error(`unknown capability ${cap}`);
-        },
-        noteExtendedKeysObserved: () => {
-            extendedKeysCalls.push("observed");
-            extendedKeys = true;
-        },
-        noteSuperObserved: () => {
-            extendedKeysCalls.push("super");
-            superKey = true;
-            extendedKeys = true;
-        },
-    };
-    const dispatcher = new KeybindingDispatcher(
-        keybindings,
-        contextKeys,
-        commands,
-        statusBar,
-        armory,
-        terminalEnv,
-        logService,
-    );
+    const dispatcher = new KeybindingDispatcher(keybindings, contextKeys, commands, statusBar, armory, logService);
     const executed: string[] = [];
     const bind = (spec: string, commandId: string, when?: string): void => {
         keybindings.register(parseChord(spec), commandId, when);
@@ -77,7 +48,6 @@ function createHarness(logService: ILogService = NULL_LOG_SERVICE) {
         armory,
         dispatcher,
         executed,
-        extendedKeysCalls,
         bind,
         statusTexts,
     };
@@ -485,42 +455,6 @@ describe("KeybindingDispatcher — binding args", () => {
 
         h.dispatcher.dispatchKeyDown(keyDown({ key: "F6" }));
         expect(received).toEqual([[]]);
-    });
-});
-
-describe("KeybindingDispatcher — runtime extended-keys detection", () => {
-    it("a CSI-u raw key promotes the tier (noteExtendedKeysObserved), then no-op", () => {
-        const h = createHarness();
-
-        h.dispatcher.handleKeyDownCapture(keyDown({ key: "Tab", ctrlKey: true, raw: "\x1b[9;5u" }));
-        expect(h.extendedKeysCalls).toEqual(["observed"]);
-
-        // The capability is already confirmed — a repeated CSI-u reports nothing.
-        h.dispatcher.handleKeyDownCapture(keyDown({ key: "Tab", ctrlKey: true, raw: "\x1b[9;5u" }));
-        expect(h.extendedKeysCalls).toEqual(["observed"]);
-    });
-
-    it("a regular (non CSI-u) key reports nothing", () => {
-        const h = createHarness();
-
-        h.dispatcher.handleKeyDownCapture(keyDown({ key: "a", raw: "a" }));
-
-        expect(h.extendedKeysCalls).toEqual([]);
-    });
-
-    it("the super bit (Cmd) is reported once and BEFORE resolving, so the very first Cmd+S finds the Cmd binding", () => {
-        const h = createHarness();
-        let superAtResolve: boolean | undefined;
-        h.dispatcher.updateContextKeys = () => {
-            superAtResolve = h.extendedKeysCalls.includes("super");
-        };
-
-        h.dispatcher.handleKeyDownCapture(keyDown({ key: "s", metaKey: true, raw: "\x1b[115;9u" }));
-        h.dispatcher.handleKeyDown(keyDown({ key: "s", metaKey: true, raw: "\x1b[115;9u" }));
-        h.dispatcher.handleKeyDownCapture(keyDown({ key: "p", metaKey: true, raw: "\x1b[112;9u" }));
-
-        expect(h.extendedKeysCalls).toEqual(["super"]);
-        expect(superAtResolve).toBe(true);
     });
 });
 

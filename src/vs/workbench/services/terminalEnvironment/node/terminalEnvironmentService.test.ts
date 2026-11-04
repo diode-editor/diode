@@ -1,3 +1,4 @@
+import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBackend";
 import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,7 +8,7 @@ import type { IConfigurationService } from "../../../../platform/configuration/c
 import { ConfigurationService } from "../../../../platform/configuration/node/configurationService.ts";
 import { terminalConfiguration } from "../../../common/configuration/terminalConfiguration.ts";
 
-import { TerminalEnvironmentService } from "./terminalEnvironmentService.ts";
+import { extendedKeysAtStartup, extendedKeysSwitch, TerminalEnvironmentService } from "./terminalEnvironmentService.ts";
 import type { TmuxClientInfo } from "./tmuxClientProbe.ts";
 
 function configFrom(userRaw: Record<string, unknown> = {}): IConfigurationService {
@@ -29,10 +30,6 @@ describe("TerminalEnvironmentService", () => {
         delete process.env.SSH_CONNECTION;
         delete process.env.SSH_TTY;
         delete process.env.COLORTERM;
-        delete process.env.KITTY_WINDOW_ID;
-        delete process.env.GHOSTTY_RESOURCES_DIR;
-        delete process.env.WEZTERM_PANE;
-        delete process.env.ALACRITTY_WINDOW_ID;
         delete process.env.TERM_PROGRAM;
         delete process.env.LC_DIODE_PLATFORM;
         delete process.env.LC_TERMINAL;
@@ -43,127 +40,209 @@ describe("TerminalEnvironmentService", () => {
         process.env = savedEnv;
     });
 
-    describe("synchronous detection (no probe, no waiting)", () => {
-        it("resolves kitty tier immediately from $TERM=xterm-kitty", () => {
+    function create(settings: Record<string, unknown> = {}, tmux: TmuxClientInfo = {}) {
+        const backend = new MockTerminalBackend();
+        const enabled: string[] = [];
+        const service = new TerminalEnvironmentService(
+            backend,
+            configFrom(settings),
+            () => Promise.resolve(tmux),
+            () => enabled.push("enable"),
+        );
+        let changed = 0;
+        service.onDidChange(() => changed++);
+        return { backend, service, enabled, changed: () => changed };
+    }
+
+    describe("the tier is fixed at startup (#1049)", () => {
+        it("auto stays legacy even in kitty: env hints do not turn anything on", () => {
             process.env.TERM = "xterm-kitty";
-            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
-            expect(service.tier).toBe("kitty");
-            expect(service.hasCapability("extended-keys")).toBe(true);
-        });
-
-        it("resolves legacy tier for a plain xterm-256color terminal", () => {
-            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
-            expect(service.tier).toBe("legacy");
-            expect(service.hasCapability("extended-keys")).toBe(false);
-        });
-
-        it("picks up extended-keys from an env flag even when $TERM is masked (e.g. inside tmux)", () => {
-            process.env.TERM = "tmux-256color";
             process.env.KITTY_WINDOW_ID = "1";
-            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
-            // extended-keys via env flag, but no graphics hint → csi-u.
-            expect(service.tier).toBe("csi-u");
-        });
-    });
-
-    describe("fire-and-forget probe (upgrade-only)", () => {
-        it("upgrades legacy → csi-u when the probe confirms keyboard-protocol support", () => {
-            const backend = new MockTerminalBackend();
-            const service = new TerminalEnvironmentService(backend, configFrom());
-            let changed = 0;
-            service.onDidChange(() => changed++);
-
+            const { service } = create();
             expect(service.tier).toBe("legacy");
-            service.detect();
-            backend.resolveKeyboardProtocol(true);
-
-            expect(service.hasCapability("extended-keys")).toBe(true);
-            expect(service.tier).toBe("csi-u");
-            expect(changed).toBe(1);
-        });
-
-        it("does nothing when the probe reports no support", () => {
-            const backend = new MockTerminalBackend();
-            const service = new TerminalEnvironmentService(backend, configFrom());
-            let changed = 0;
-            service.onDidChange(() => changed++);
-
-            service.detect();
-            backend.resolveKeyboardProtocol(false);
-
-            expect(service.tier).toBe("legacy");
-            expect(changed).toBe(0);
-        });
-
-        it("upgrades the capability without firing onDidChange when a forced tier pins the result", () => {
-            // Probe upgrades extended-keys, but terminal.tier forces the tier, so the
-            // resolved tier equals the current one → the change is swallowed (no emit).
-            const backend = new MockTerminalBackend();
-            const service = new TerminalEnvironmentService(backend, configFrom({ terminal: { tier: "csi-u" } }));
-            let changed = 0;
-            service.onDidChange(() => changed++);
-
-            expect(service.tier).toBe("csi-u");
             expect(service.hasCapability("extended-keys")).toBe(false);
+        });
+
+        it("auto: a probe answer only reports kitty as available, the tier stays legacy", () => {
+            const { backend, service, enabled, changed } = create();
+            service.detect();
+            backend.resolveKeyboardProtocol(true);
+
+            expect(service.tier).toBe("legacy");
+            expect(service.hasCapability("extended-keys")).toBe(false);
+            expect(service.availableTier).toBe("kitty");
+            expect(enabled).toEqual([]);
+            expect(changed()).toBe(1);
+        });
+
+        it("no probe answer: nothing available, no event", () => {
+            const { backend, service, changed } = create();
+            service.detect();
+            backend.resolveKeyboardProtocol(false);
+
+            expect(service.availableTier).toBeUndefined();
+            expect(changed()).toBe(0);
+        });
+
+        it.each(["csi-u", "kitty"] as const)("terminal.tier %s: that tier with extended keys on", (tier) => {
+            const { service } = create({ terminal: { tier } });
+            expect(service.tier).toBe(tier);
+            expect(service.hasCapability("extended-keys")).toBe(true);
+            expect(extendedKeysAtStartup(configFrom({ terminal: { tier } }))).toBe(true);
+        });
+
+        it("an explicit tier: a probe answer offers nothing more and does not switch", () => {
+            const { backend, service, enabled } = create({ terminal: { tier: "csi-u" } });
+            service.detect();
+            backend.resolveKeyboardProtocol(true);
+            expect(service.tier).toBe("csi-u");
+            expect(service.availableTier).toBeUndefined();
+            expect(enabled).toEqual([]);
+        });
+
+        it("auto + terminal.capabilities extended-keys: true turns the protocols on", () => {
+            process.env.TERM = "xterm-kitty";
+            const settings = { terminal: { capabilities: { "extended-keys": true } } };
+            const { service } = create(settings);
+            expect(service.tier).toBe("kitty");
+            expect(extendedKeysAtStartup(configFrom(settings))).toBe(true);
+        });
+
+        it.each<[Record<string, unknown>]>([
+            [{}],
+            [{ terminal: { tier: "legacy" } }],
+            [{ terminal: { tier: "legacy", capabilities: { "extended-keys": true } } }],
+            [{ terminal: { capabilities: { "extended-keys": false } } }],
+            [{ terminal: { capabilities: { "extended-keys": "yes" } } }],
+        ])("%j keeps the protocols off and the tier legacy", (settings) => {
+            expect(extendedKeysAtStartup(configFrom(settings))).toBe(false);
+            const { service } = create(settings);
+            expect(service.tier).toBe("legacy");
+            expect(service.hasCapability("extended-keys")).toBe(false);
+        });
+    });
+
+    describe("availability under tmux", () => {
+        beforeEach(() => {
+            process.env.TMUX = "/tmp/tmux-1000/default,1,0";
+        });
+
+        it("tmux passing extended keys offers csi-u; the tier stays legacy", async () => {
+            const { service } = create({}, { extendedKeys: true });
+            service.detectTmuxClient();
+            await vi.waitFor(() => {
+                expect(service.availableTier).toBe("csi-u");
+            });
+            expect(service.tier).toBe("legacy");
+        });
+
+        it.each<[string, Record<string, unknown>, boolean]>([
+            ["tmux without extended keys", {}, false],
+            ["an explicit tier", { terminal: { tier: "csi-u" } }, true],
+        ])("%s: nothing is offered", async (_name, settings, extendedKeys) => {
+            const { service } = create(settings, { extendedKeys, termType: "kitty(0.45.0)" });
+            service.detectTmuxClient();
+            await vi.waitFor(() => {
+                expect(service.terminalName).toBe("kitty(0.45.0)");
+            });
+            expect(service.availableTier).toBeUndefined();
+        });
+    });
+
+    describe("the Mac exception: kitty on after the probe, outside tmux", () => {
+        it("auto + mac keyboard + a probe answer: kitty on once, tier kitty, rung cmd", () => {
+            process.env.TERM_PROGRAM = "ghostty";
+            const { backend, service, enabled, changed } = create({ keyboard: { platform: "mac" } });
+            expect(service.macKeysRung).toBe("legacy");
 
             service.detect();
             backend.resolveKeyboardProtocol(true);
 
-            expect(service.hasCapability("extended-keys")).toBe(true);
-            expect(service.tier).toBe("csi-u");
-            expect(changed).toBe(0);
+            expect(enabled).toEqual(["enable"]);
+            expect(service.tier).toBe("kitty");
+            expect(service.macKeysRung).toBe("cmd");
+            expect(service.hasCapability("super")).toBe(true);
+            expect(service.availableTier).toBeUndefined();
+            expect(changed()).toBe(1);
         });
 
-        it("never downgrades — a non-reply keeps an env-detected capability", () => {
-            process.env.TERM = "xterm-kitty";
-            const backend = new MockTerminalBackend();
-            const service = new TerminalEnvironmentService(backend, configFrom());
+        it("the tier follows resolveTier: csi-u without a kitty-graphics hint", () => {
+            const { backend, service } = create({ keyboard: { platform: "mac" } });
+            service.detect();
+            backend.resolveKeyboardProtocol(true);
+            expect(service.tier).toBe("csi-u");
+            expect(service.macKeysRung).toBe("cmd");
+        });
 
+        it("a Mac terminal name from XTVERSION (answered first) is enough", () => {
+            const { backend, service, enabled } = create();
+            backend.terminalVersion = "iTerm2 3.5.0";
+            service.detect();
+            backend.resolveKeyboardProtocol(true);
+            expect(enabled).toEqual(["enable"]);
+            expect(service.macKeysRung).toBe("cmd");
+        });
+
+        it("no probe answer: legacy and mac-legacy for the session", () => {
+            const { backend, service, enabled } = create({ keyboard: { platform: "mac" } });
             service.detect();
             backend.resolveKeyboardProtocol(false);
-
-            expect(service.tier).toBe("kitty");
-        });
-    });
-
-    describe("runtime detection from observed CSI-u input (noteExtendedKeysObserved)", () => {
-        it("upgrades legacy → csi-u on the first observed extended key", () => {
-            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
-            let changed = 0;
-            service.onDidChange(() => changed++);
-
+            expect(enabled).toEqual([]);
             expect(service.tier).toBe("legacy");
-            service.noteExtendedKeysObserved();
-
-            expect(service.hasCapability("extended-keys")).toBe(true);
-            expect(service.tier).toBe("csi-u");
-            expect(changed).toBe(1);
+            expect(service.macKeysRung).toBe("legacy");
         });
 
-        it("is idempotent — a second observation does not emit again", () => {
-            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
-            let changed = 0;
-            service.onDidChange(() => changed++);
-
-            service.noteExtendedKeysObserved();
-            service.noteExtendedKeysObserved();
-
-            expect(changed).toBe(1);
+        it("under tmux: legacy, nothing is switched", () => {
+            process.env.TMUX = "/tmp/tmux-1000/default,1,0";
+            const { backend, service, enabled } = create({ keyboard: { platform: "mac" } });
+            service.detect();
+            backend.resolveKeyboardProtocol(true);
+            expect(enabled).toEqual([]);
+            expect(service.tier).toBe("legacy");
+            expect(service.macKeysRung).toBe("legacy");
         });
 
-        it("upgrades the capability but does not emit when a forced tier pins the result", () => {
-            const service = new TerminalEnvironmentService(
-                new MockTerminalBackend(),
-                configFrom({ terminal: { tier: "csi-u" } }),
-            );
-            let changed = 0;
-            service.onDidChange(() => changed++);
+        it.each<[Record<string, unknown>]>([[{ tier: "legacy" }], [{ capabilities: { "extended-keys": false } }]])(
+            "explicit %j: no exception",
+            (terminal) => {
+                const { backend, service, enabled } = create({ keyboard: { platform: "mac" }, terminal });
+                service.detect();
+                backend.resolveKeyboardProtocol(true);
+                expect(enabled).toEqual([]);
+                expect(service.macKeysRung).toBe("legacy");
+            },
+        );
 
-            service.noteExtendedKeysObserved();
-
-            expect(service.hasCapability("extended-keys")).toBe(true);
+        it("a forced super: false keeps the rung at extended", () => {
+            const { backend, service } = create({
+                keyboard: { platform: "mac" },
+                terminal: { capabilities: { super: false } },
+            });
+            service.detect();
+            backend.resolveKeyboardProtocol(true);
             expect(service.tier).toBe("csi-u");
-            expect(changed).toBe(0);
+            expect(service.macKeysRung).toBe("extended");
+        });
+
+        it("an explicit tier on a mac: the probe answer proves Cmd, nothing is switched", () => {
+            const { backend, service, enabled } = create({
+                keyboard: { platform: "mac" },
+                terminal: { tier: "kitty" },
+            });
+            expect(service.macKeysRung).toBe("extended");
+            service.detect();
+            backend.resolveKeyboardProtocol(true);
+            expect(enabled).toEqual([]);
+            expect(service.tier).toBe("kitty");
+            expect(service.macKeysRung).toBe("cmd");
+        });
+
+        it("not a mac: no exception", () => {
+            const { backend, service, enabled } = create({ keyboard: { platform: "linux" } });
+            service.detect();
+            backend.resolveKeyboardProtocol(true);
+            expect(enabled).toEqual([]);
+            expect(service.availableTier).toBe("kitty");
         });
     });
 
@@ -442,78 +521,7 @@ describe("TerminalEnvironmentService", () => {
         });
     });
 
-    describe("super (Cmd) from an observed super bit (noteSuperObserved)", () => {
-        it("on a mac raises the rung to cmd and the tier from legacy; a repeat is a no-op", () => {
-            process.env.LC_DIODE_PLATFORM = "mac";
-            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
-            let changed = 0;
-            service.onDidChange(() => changed++);
-            expect(service.macKeysRung).toBe("legacy");
-
-            service.noteSuperObserved();
-            service.noteSuperObserved();
-
-            expect(service.hasCapability("super")).toBe(true);
-            expect(service.hasCapability("extended-keys")).toBe(true);
-            expect(service.tier).toBe("csi-u");
-            expect(service.macKeysRung).toBe("cmd");
-            expect(changed).toBe(1);
-        });
-
-        it("non-mac on legacy: only the tier changes, the event fires", () => {
-            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
-            let changed = 0;
-            service.onDidChange(() => changed++);
-            service.noteSuperObserved();
-            expect(service.tier).toBe("csi-u");
-            expect(service.macKeysRung).toBeUndefined();
-            expect(changed).toBe(1);
-        });
-
-        it("mac on kitty: the tier stays, only the rung changes, the event fires", () => {
-            process.env.TERM = "xterm-kitty";
-            process.env.LC_DIODE_PLATFORM = "mac";
-            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
-            let changed = 0;
-            service.onDidChange(() => changed++);
-            expect(service.macKeysRung).toBe("extended");
-            service.noteSuperObserved();
-            expect(service.tier).toBe("kitty");
-            expect(service.macKeysRung).toBe("cmd");
-            expect(changed).toBe(1);
-        });
-
-        it("under tmux the rung stays below cmd", () => {
-            process.env.LC_DIODE_PLATFORM = "mac";
-            const service = new TerminalEnvironmentService(
-                new MockTerminalBackend(),
-                configFrom({ terminal: { modes: { tmux: true } } }),
-            );
-            service.noteSuperObserved();
-            expect(service.macKeysRung).toBe("extended");
-        });
-
-        it("non-mac and the tier already known: nothing visible changes, the event stays silent", () => {
-            process.env.TERM = "xterm-kitty";
-            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
-            let changed = 0;
-            service.onDidChange(() => changed++);
-            service.noteSuperObserved();
-            expect(service.hasCapability("super")).toBe(true);
-            expect(changed).toBe(0);
-        });
-
-        it("a forced terminal.capabilities.super=false beats the observation", () => {
-            process.env.LC_DIODE_PLATFORM = "mac";
-            const service = new TerminalEnvironmentService(
-                new MockTerminalBackend(),
-                configFrom({ terminal: { capabilities: { super: false } } }),
-            );
-            service.noteSuperObserved();
-            expect(service.hasCapability("super")).toBe(false);
-            expect(service.macKeysRung).toBe("extended");
-        });
-
+    describe("super (Cmd) forced by config", () => {
         it("a forced terminal.capabilities.super=true gives cmd immediately", () => {
             process.env.LC_DIODE_PLATFORM = "mac";
             const service = new TerminalEnvironmentService(
@@ -535,5 +543,28 @@ describe("TerminalEnvironmentService", () => {
             service.setMode("presentation", true);
             expect(fired).toBe(0);
         });
+    });
+});
+
+describe("extendedKeysSwitch", () => {
+    it("turns the protocols on in a real terminal backend", () => {
+        const writes: string[] = [];
+        const stdout = {
+            write(data: string): boolean {
+                writes.push(data);
+                return true;
+            },
+        } as unknown as NodeJS.WriteStream;
+        const backend = new NodeTerminalBackend(process.stdin, stdout, { extendedKeys: false });
+
+        extendedKeysSwitch(backend)();
+
+        expect(writes.join("")).toContain("\x1b[>15u");
+    });
+
+    it("has nothing to switch on a backend without a terminal", () => {
+        expect(() => {
+            extendedKeysSwitch(new MockTerminalBackend())();
+        }).not.toThrow();
     });
 });

@@ -136,6 +136,7 @@ import { ViewsServiceDIToken } from "./browser/parts/views/viewsService.ts";
 import { ViewTitleActionsContributionDIToken } from "./browser/parts/views/viewTitleActionsContribution.ts";
 import { ResourceContextKeysDIToken } from "./browser/resourceContextKeys.ts";
 import { SetContextCommandContributionDIToken } from "./browser/setContextCommandContribution.ts";
+import { TerminalRestartNotificationContributionDIToken } from "./browser/terminalRestartNotificationContribution.ts";
 import { UndoRefusalNotificationContributionDIToken } from "./browser/undoRefusalNotificationContribution.ts";
 import type { IWorkbenchContributionRegistration } from "./common/iWorkbenchContribution.ts";
 import { CODE_ACTION_ACTIONS } from "./contrib/codeAction/browser/codeActionActions.ts";
@@ -310,6 +311,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Subscribe before the first open, otherwise the very first failure goes unnoticed.
     // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it the toast doesn't appear, which the virtualDocument e2e scenario catches
     { token: OpenFailureNotificationContributionDIToken, phase: "ready" },
+    { token: TerminalRestartNotificationContributionDIToken, phase: "ready" },
     { token: LargeFileOptimizationsWarnerDIToken, phase: "ready" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it there is no progress, which the large-file-on-disk e2e scenario catches
     { token: LargeFileIndexingStatusDIToken, phase: "ready" },

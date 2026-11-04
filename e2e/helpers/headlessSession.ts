@@ -46,6 +46,8 @@ export interface HeadlessSessionOptions {
     rows?: number;
     cwd?: string;
     env?: Record<string, string>;
+    /** See `hermeticSpawnEnv`: survives the terminal-identity sanitizing. */
+    terminalIdentity?: Readonly<Record<string, string>>;
     /** E.g. a self-extract build; defaults to the SEA from getBinaryPath(). */
     binary?: string;
 }
@@ -81,7 +83,7 @@ export class HeadlessSession {
         const child = spawn(binary, args, {
             stdio: ["ignore", "ignore", "pipe"],
             ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
-            env: hermeticSpawnEnv({ ...options.env, [SESSION_MARKER_ENV]: sessionTag }),
+            env: hermeticSpawnEnv({ ...options.env, [SESSION_MARKER_ENV]: sessionTag }, options.terminalIdentity),
             // Own process group (posix): `dispose` signals the whole group, not just the
             // editor, so its direct helpers are not orphaned.
             detached: process.platform !== "win32",

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService, EXTENDED_TIER_SETTINGS } from "../../../TestUtils/testConfigurationService.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 import type { IEditorService } from "../services/editor/common/editorService.ts";
 
@@ -25,7 +26,10 @@ describe("Workbench: Quick Open lists recently opened files", () => {
             prefix: "diode-quickopen-history-",
             files: { "a.ts": "a", "b.ts": "b", "src/c.ts": "c", "unrelated.md": "x" },
         });
-        h = createAppTestHarness({ workspaceFolder: ws.dir });
+        h = createAppTestHarness({
+            workspaceFolder: ws.dir,
+            configurationService: createTestConfigurationService(EXTENDED_TIER_SETTINGS),
+        });
         await h.workbench.activate();
         await h.workbench.fileIndexReady;
         for (const name of ["a.ts", "b.ts", "src/c.ts"]) h.commands.execute("workbench.openFile", ws.path(name));

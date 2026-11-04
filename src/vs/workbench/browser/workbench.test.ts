@@ -425,19 +425,14 @@ describe("Workbench — Quick Open", () => {
     });
 });
 
-describe("Workbench — runtime extended-keys detection", () => {
+describe("Workbench — the tier does not change mid-session (#1049)", () => {
     let savedEnv: NodeJS.ProcessEnv;
 
     beforeEach(() => {
         savedEnv = { ...process.env };
-        // Force a legacy baseline: tmux masks $TERM and ssh strips the kitty env flag,
-        // so neither the term-name hint nor the env-flag hint fires.
+        // Behind tmux keys may arrive CSI-u encoded while diode itself never asked for it.
         process.env.TERM = "tmux-256color";
         process.env.TMUX = "/tmp/tmux-1000/default,1,0";
-        delete process.env.KITTY_WINDOW_ID;
-        delete process.env.GHOSTTY_RESOURCES_DIR;
-        delete process.env.WEZTERM_PANE;
-        delete process.env.ALACRITTY_WINDOW_ID;
         delete process.env.TERM_PROGRAM;
         delete process.env.COLORTERM;
     });
@@ -454,20 +449,11 @@ describe("Workbench — runtime extended-keys detection", () => {
         return { workbench, env };
     }
 
-    it("promotes the tier off legacy when a CSI-u key arrives (e.g. Ctrl+Tab behind tmux)", () => {
+    it("a CSI-u key (Ctrl+Tab behind tmux) leaves the tier at legacy", () => {
         const { workbench, env } = mountWorkbench();
-        expect(env.tier).toBe("legacy");
 
         workbench.view.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Tab", ctrlKey: true, raw: "\x1b[9;5u" }));
-
-        expect(env.tier).toBe("csi-u");
-        expect(env.hasCapability("extended-keys")).toBe(true);
-    });
-
-    it("leaves the tier at legacy for ordinary (non-CSI-u) keys", () => {
-        const { workbench, env } = mountWorkbench();
-
-        workbench.view.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "a", raw: "a" }));
+        workbench.view.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "s", metaKey: true, raw: "\x1b[115;9u" }));
 
         expect(env.tier).toBe("legacy");
     });

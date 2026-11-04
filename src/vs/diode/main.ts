@@ -109,6 +109,7 @@ import { LanguageConfigurationService } from "../workbench/services/language/com
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { OutputServiceDIToken } from "../workbench/services/output/common/outputService.ts";
+import { extendedKeysAtStartup } from "../workbench/services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { SemanticTokenStyleResolver } from "../workbench/services/themes/common/semanticTokenStyleResolver.ts";
 import { createTextMateTheme } from "../workbench/services/themes/common/textMateTheme.ts";
 import {
@@ -364,8 +365,13 @@ async function runEditor(): Promise<void> {
     const headlessBackend = cli.headless
         ? new HeadlessCaptureBackend(new Size(cli.headless.cols, cli.headless.rows))
         : null;
+    // Legacy keys unless the user asked for more: the protocols are not switched mid-session (#1049).
+    const terminalOptions = { extendedKeys: extendedKeysAtStartup(configurationService) };
     const backend =
-        headlessBackend ?? (startupTraceFile !== null ? new TracingNodeTerminalBackend() : new NodeTerminalBackend());
+        headlessBackend ??
+        (startupTraceFile !== null
+            ? new TracingNodeTerminalBackend(undefined, undefined, terminalOptions)
+            : new NodeTerminalBackend(undefined, undefined, terminalOptions));
     const application = new TuiApplication(backend);
     application.validateTreeAfterRender = process.env.DIODE_VALIDATE_TREE === "1";
     const clipboard = new OscClipboard((seq) => {

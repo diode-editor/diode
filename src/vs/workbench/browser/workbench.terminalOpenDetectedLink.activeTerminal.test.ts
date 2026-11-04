@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { feed } from "../../../TestUtils/terminalLinks.ts";
+import { createTestConfigurationService, EXTENDED_TIER_SETTINGS } from "../../../TestUtils/testConfigurationService.ts";
 import { TerminalEditorServiceDIToken } from "../contrib/terminal/browser/terminalEditorService.ts";
 import { TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import { ExtensionPtySession } from "../contrib/terminal/node/extensionPtySession.ts";
@@ -46,7 +47,11 @@ describe("Workbench — Terminal: Open Detected Link targets the focused termina
     /** A panel terminal printing `src/a.ts:2`, then a terminal in an editor tab printing `pkg/inner/b.ts:1`; the user goes back to the panel one. */
     async function bootPanelFocusedAfterEditorTerminal(): Promise<void> {
         ws = createTempWorkspace({ prefix: "diode-terminal-detected-links-active-", files: FILES });
-        h = createAppTestHarness({ workspaceFolder: ws.dir });
+        // Ctrl+Shift+O is gated on an extended tier, which only an explicit setting turns on (#1049).
+        h = createAppTestHarness({
+            workspaceFolder: ws.dir,
+            configurationService: createTestConfigurationService(EXTENDED_TIER_SETTINGS),
+        });
 
         const panelSession = await emulator();
         h.container.get(TerminalServiceDIToken).createInstance({ session: panelSession, cwd: ws.dir });

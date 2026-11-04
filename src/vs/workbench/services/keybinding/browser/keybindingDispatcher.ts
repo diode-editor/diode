@@ -28,15 +28,8 @@ import type { ILogService } from "../../../../platform/log/common/iLogService.ts
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../statusbar/common/statusBarService.ts";
 import { StatusBarServiceDIToken } from "../../statusbar/common/statusBarService.ts";
-import { TerminalEnvironmentServiceDIToken } from "../../terminalEnvironment/node/terminalEnvironmentService.ts";
 
 export const KeybindingDispatcherDIToken = token<KeybindingDispatcher>("KeybindingDispatcher");
-
-export interface IExtendedKeysObserver {
-    hasCapability(cap: "extended-keys" | "super"): boolean;
-    noteExtendedKeysObserved(): void;
-    noteSuperObserved(): void;
-}
 
 // Same as VS Code.
 const CHORD_TIMEOUT_MS = 5000;
@@ -85,13 +78,6 @@ function isModifierKey(key: string): boolean {
 }
 
 /**
- * A key arrives CSI-u encoded only when Kitty protocol / modifyOtherKeys is engaged — proof of
- * `extended-keys` support even behind tmux, where the capability probe can't confirm.
- */
-// eslint-disable-next-line no-control-regex
-const CSI_U_KEY_RAW = /^\x1b\[[0-9;:]*u$/;
-
-/**
  * `true` — consumed, `false` — not handled; `focus` — left to the focused widget's default action: no command
  * runs, the root's later listeners don't see it.
  */
@@ -119,7 +105,6 @@ export class KeybindingDispatcher extends Disposable {
         CommandRegistryDIToken,
         StatusBarServiceDIToken,
         ModifierReleaseArmoryDIToken,
-        TerminalEnvironmentServiceDIToken,
         ILogServiceDIToken,
     ] as const;
 
@@ -151,7 +136,6 @@ export class KeybindingDispatcher extends Disposable {
     private commands: CommandRegistry;
     private statusBarService: StatusBarService;
     private armory: ModifierReleaseArmory;
-    private terminalEnv: IExtendedKeysObserver;
     private logger: ILogger;
 
     private chordHintEntry: IStatusBarEntryHandle | null = null;
@@ -165,7 +149,6 @@ export class KeybindingDispatcher extends Disposable {
         commands: CommandRegistry,
         statusBarService: StatusBarService,
         armory: ModifierReleaseArmory,
-        terminalEnv: IExtendedKeysObserver,
         logService: ILogService,
     ) {
         super();
@@ -174,7 +157,6 @@ export class KeybindingDispatcher extends Disposable {
         this.commands = commands;
         this.statusBarService = statusBarService;
         this.armory = armory;
-        this.terminalEnv = terminalEnv;
         // Stryker disable next-line StringLiteral,ObjectLiteral: the channel name and label are captions in the Output selector and do not affect logging behavior
         this.logger = logService.createLogger("input.keybindings", { label: "Keybindings" });
         this.register({
@@ -189,7 +171,6 @@ export class KeybindingDispatcher extends Disposable {
     // Capture phase: while a chord is pending, swallow the next key before it reaches the
     // focused widget, matched or not.
     public readonly handleKeyDownCapture = (event: TUIKeyboardEvent): void => {
-        this.observeExtendedKeys(event);
         if (this.keybindings.pendingLength === 0) return; // not in a chord — let the bubble handler run
         if (isModifierKey(event.key)) return; // holding a modifier must not break the chord
         event.preventDefault();
@@ -219,14 +200,6 @@ export class KeybindingDispatcher extends Disposable {
     public readonly handleKeyUp = (event: TUIKeyboardEvent): void => {
         this.armory.fireRelease(event.key);
     };
-
-    private observeExtendedKeys(event: TUIKeyboardEvent): void {
-        // Only Kitty encodes the Super bit, so an observed meta proves both it and extended-keys.
-        // BEFORE resolving: context keys are re-read on this same keypress, so the first Cmd+S already finds the Cmd binding.
-        if (event.metaKey && !this.terminalEnv.hasCapability("super")) this.terminalEnv.noteSuperObserved();
-        if (this.terminalEnv.hasCapability("extended-keys")) return;
-        if (CSI_U_KEY_RAW.test(event.raw)) this.terminalEnv.noteExtendedKeysObserved();
-    }
 
     /** `true` means the key was consumed (the caller calls preventDefault). */
     public dispatchKeyDown(event: TUIKeyboardEvent): boolean {

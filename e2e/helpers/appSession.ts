@@ -201,12 +201,15 @@ export interface HeadlessApp {
     dispose(): Promise<void>;
 }
 
-export async function startHeadlessApp(options: AppEnvOptions & { binary?: string } = {}): Promise<HeadlessApp> {
+export async function startHeadlessApp(
+    options: AppEnvOptions & { binary?: string; terminalIdentity?: Readonly<Record<string, string>> } = {},
+): Promise<HeadlessApp> {
     const env = await prepareAppEnv(options);
     const sessionOpts: HeadlessSessionOptions = {
         args: env.args,
         cwd: options.cwd ?? env.workspaceDir,
         env: env.env,
+        ...(options.terminalIdentity !== undefined ? { terminalIdentity: options.terminalIdentity } : {}),
         ...(options.cols !== undefined ? { cols: options.cols } : {}),
         ...(options.rows !== undefined ? { rows: options.rows } : {}),
         ...(options.binary !== undefined ? { binary: options.binary } : {}),
