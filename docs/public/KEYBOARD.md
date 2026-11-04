@@ -77,6 +77,13 @@ it runs on. Over ssh to a Linux box the terminal's name usually gives it away (i
 Terminal.app announce themselves). When it doesn't, set `LC_DIODE_PLATFORM=mac` on the client:
 ssh forwards `LC_*` variables by default. The `keyboard.platform` setting overrides both.
 
+## Non-Latin layouts
+
+As in VS Code, shortcuts follow the physical key, so they work with a Russian (or another
+non-Latin) layout switched on: Ctrl+С saves like Ctrl+S, Ctrl+Shift+Х folds like Ctrl+Shift+[,
+and the second key of a chord counts too: Ctrl+Л then Ь is Ctrl+K M. A Latin layout (AZERTY and
+the like) is matched by the character it types.
+
 ## Keys your terminal takes for itself
 
 Some combinations never reach any application because the terminal or the window manager

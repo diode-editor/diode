@@ -324,7 +324,11 @@ export function chordsEqual(a: KeybindingChord, b: KeybindingChord): boolean {
     });
 }
 
-function matchesBinding(event: KeyboardEventLike, binding: Keybinding): boolean {
+/**
+ * `continuation` — the part after the first one of a chord (Ctrl+K *G*): there a bare non-Latin key is a
+ * key press for the chord, not text, so it falls back by the physical key even without a modifier.
+ */
+function matchesBinding(event: KeyboardEventLike, binding: Keybinding, continuation: boolean): boolean {
     const modifiersMatch =
         event.ctrlKey === binding.ctrlKey &&
         event.shiftKey === binding.shiftKey &&
@@ -340,13 +344,13 @@ function matchesBinding(event: KeyboardEventLike, binding: Keybinding): boolean 
     // (physical Q) stays Alt+A — the same rule as the menu bar mnemonics.
     // Punctuation falls back only for a non-Latin character with Ctrl, Cmd or Alt (Ctrl+Shift+Cyrillic
     // "ha" → Ctrl+Shift+[): a Latin character always decides by itself, whatever the layout.
+    // In a chord continuation a bare non-Latin key falls back too: Ctrl+K then Cyrillic "ghe" is Ctrl+K G.
     const nonLatin = event.key.charCodeAt(0) >= 0x80;
     const ctrlOrMeta = event.ctrlKey || event.metaKey;
+    const nonLatinFallback = nonLatin && (event.altKey || continuation);
     const punctuationCode = PUNCTUATION_CODES.get(binding.key);
     const physicalFallback =
-        punctuationCode === undefined
-            ? ctrlOrMeta || (event.altKey && nonLatin)
-            : nonLatin && (ctrlOrMeta || event.altKey);
+        punctuationCode === undefined ? ctrlOrMeta || nonLatinFallback : (nonLatin && ctrlOrMeta) || nonLatinFallback;
     // No guards for multi-char keys or a missing code: `Key${"ENTER"}` is never a real code.
     return physicalFallback && event.code === (punctuationCode ?? `Key${binding.key.toUpperCase()}`);
 }
@@ -520,7 +524,7 @@ export class KeybindingRegistry implements IDisposable {
         const prefixMatches = (entry: KeybindingEntry): boolean => {
             if (entry.chord.length < seq.length) return false;
             for (let i = 0; i < seq.length; i++) {
-                if (!matchesBinding(seq[i], entry.chord[i])) return false;
+                if (!matchesBinding(seq[i], entry.chord[i], i > 0)) return false;
             }
             return true;
         };
@@ -589,7 +593,7 @@ export class KeybindingRegistry implements IDisposable {
             if (entry.when && !contextKeys?.evaluate(entry.when)) continue;
             let matches = true;
             for (let j = 0; j < seq.length; j++) {
-                if (!matchesBinding(seq[j], entry.chord[j])) {
+                if (!matchesBinding(seq[j], entry.chord[j], j > 0)) {
                     matches = false;
                     break;
                 }

@@ -257,3 +257,52 @@ describe("KeybindingRegistry.getPendingChord — fallback to raw events", () => 
         expect(formatKeybinding(registry.getPendingChord())).toBe("Ctrl+K");
     });
 });
+
+describe("KeybindingRegistry — chords in a non-Latin layout", () => {
+    it("Ctrl+K then a bare Cyrillic key is matched by the physical key (Ctrl+K G)", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseChord("ctrl+k g"), "chord");
+
+        // Russian layout: Ctrl+Cyrillic "el" is Ctrl+K, then Cyrillic "ghe" sits on the physical G.
+        expect(registry.resolveKey(makeEvent({ key: "л", code: "KeyK", ctrlKey: true })).kind).toBe("chord");
+        expect(registry.resolveKey(makeEvent({ key: "п", code: "KeyG" }))).toEqual({
+            kind: "command",
+            commandId: "chord",
+        });
+    });
+
+    it("a bare Cyrillic punctuation key in a continuation: Ctrl+K then ha is Ctrl+K [", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseChord("ctrl+k ["), "chord");
+
+        registry.resolveKey(makeEvent({ key: "k", ctrlKey: true }));
+        expect(registry.resolveKey(makeEvent({ key: "х", code: "BracketLeft" }))).toEqual({
+            kind: "command",
+            commandId: "chord",
+        });
+    });
+
+    it("a bare Latin key in a continuation decides by itself (AZERTY q on the physical A is not A)", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseChord("ctrl+k a"), "chord");
+
+        registry.resolveKey(makeEvent({ key: "k", ctrlKey: true }));
+        expect(registry.resolveKey(makeEvent({ key: "q", code: "KeyA" }))).toEqual({ kind: "none" });
+    });
+
+    it("the first part is not a continuation: a bare Cyrillic key does not start a modifier-less chord", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseChord("g g"), "chord");
+
+        expect(registry.resolveKey(makeEvent({ key: "п", code: "KeyG" }))).toEqual({ kind: "none" });
+    });
+
+    it("the pending chord shows the bound parts for a Cyrillic continuation", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseChord("ctrl+k g x"), "deep");
+
+        registry.resolveKey(makeEvent({ key: "л", code: "KeyK", ctrlKey: true }));
+        registry.resolveKey(makeEvent({ key: "п", code: "KeyG" }));
+        expect(formatKeybinding(registry.getPendingChord())).toBe("Ctrl+K G");
+    });
+});
