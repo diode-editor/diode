@@ -4,7 +4,7 @@ import { findTextCell } from "../helpers/frame.ts";
 
 import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
-// Stock Merge Conflict from the marketplace: lenses above each conflict, a jump to the next one, Compare in a diff
+// The built-in Merge Conflict (upstream code, ships with the binary): lenses above each conflict, a jump to the next one, Compare in a diff
 // tab, a click on Accept Incoming resolves one conflict and a single undo brings it back.
 
 const conflictFile = resolve(repoRoot, "e2e", "fixtures", "mergeConflictSample", "conflict.txt");
@@ -19,10 +19,8 @@ async function palette(editor: ScenarioDriver, title: string): Promise<void> {
 
 export default defineScenario({
     name: "merge-conflict",
-    title: "Merge Conflict from the marketplace: lenses, next conflict, compare, accept incoming, undo",
+    title: "Built-in Merge Conflict: lenses, next conflict, compare, accept incoming, undo",
     open: [conflictFile],
-    installVsix: ["vscode.merge-conflict"],
-    network: true,
     cols: 130,
     rows: 24,
     // Extension host scenarios run a subprocess — Linux only.

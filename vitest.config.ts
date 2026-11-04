@@ -127,6 +127,8 @@ export default defineConfig({
         "extensions/git/main.ts", // extension entry (subprocess IO/glue); logic is in git/lib/* (units), e2e covers integration
         "extensions/diode-lsp-typescript/main.ts", // extension entry (spawns languageclient); resolution logic is in lib/* (units), integration: the stock server in extensionHost.typescriptLsp.test
         "extensions/references-view/main.ts", // extension entry (loaded in a subprocess); behavior: e2e/javaHierarchyCommands.test.ts
+        "extensions/merge-conflict/main.ts", // extension entry (re-export, loaded in a subprocess)
+        "extensions/merge-conflict/src/**", // vendored upstream (scripts/import-vscode-editor.mjs), runs in a subprocess; gate: e2e/mergeConflict.test.ts
         "extensions/diode-settings/main.ts", // extension entry (loaded in a subprocess); behavior: ExtensionHost.SettingsCompletion.test.ts + e2e
         "src/**/*.generated.ts", // generated data files (e.g. settings-schema.generated.ts), run in a subprocess
         "src/vs/workbench/api/common/vscodeNamespace.ts", // RPC wiring in a subprocess
