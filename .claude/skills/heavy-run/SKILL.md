@@ -23,7 +23,7 @@ Stryker'ом. Для скрипта называй ресурс явно: `claud
 прогона одного сеанса (Stryker, бенч, линт) однажды шли разом, и цифры бенча пришлось снимать заново.
 
 Мутационный гейт, e2e и покрытие **лучше гонять не здесь, а в CI** на своей ветке:
-`npm run ci:run -- <static|test|mutation|e2e|e2e-windows|all>` (в фоне; код выхода — вердикт,
+`npm run ci:run -- <static|test|mutation|e2e|e2e-windows|api-conformance|all>` (в фоне; код выхода — вердикт,
 логи упавшего и артефакты — в `reports/ci/<run id>/`). Лиза ему не нужна, машина не голодает.
 Подробно — [ниже](#гейт-в-ci-без-pr). Под лизу — то, что нужно
 именно локально (узкий прогон, перепроверка вживлением, живой запуск бинаря).
@@ -60,7 +60,7 @@ ready in 5000ms` в случайных файлах); на дефолтной к
 Тяжёлый гейт можно прогнать не на своей машине, а на раннере GitHub — на своей ветке, без PR:
 
 ```bash
-npm run ci:run -- mutation              # static | test | mutation | e2e | e2e-windows | all
+npm run ci:run -- mutation              # static | test | mutation | e2e | e2e-windows | api-conformance | all
 npm run ci:run -- mutation --base <sha> # база диффа; по умолчанию merge-base с origin/main
 npm run ci:run -- e2e --no-push         # ветка уже запушена (скрипт сверит remote с HEAD)
 ```

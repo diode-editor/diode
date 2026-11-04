@@ -6,7 +6,7 @@
  *
  * Usage:
  *   node scripts/ci-run.mjs <gate> [--base <sha>] [--no-push] [--tail <lines>]
- *   gate: all | static | test | mutation | e2e | e2e-windows
+ *   gate: all | static | test | mutation | e2e | e2e-windows | api-conformance
  *
  *   --base     diff base of the mutation gate; merge-base with origin/main by default
  *   --no-push  the branch is already pushed (we still check that the remote is exactly HEAD)
@@ -21,7 +21,7 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 
-const GATES = ["all", "static", "test", "mutation", "e2e", "e2e-windows"];
+const GATES = ["all", "static", "test", "mutation", "e2e", "e2e-windows", "api-conformance"];
 const WORKFLOW = "ci.yml";
 const POLL_MS = 30_000;
 const FIND_TIMEOUT_MS = 120_000;
