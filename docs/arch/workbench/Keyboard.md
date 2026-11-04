@@ -8,30 +8,35 @@
 [TODO/EnvironmentTuning.md](../../TODO/EnvironmentTuning.md); пользовательский рецепт tmux —
 [public/TERMINAL.md](../../public/TERMINAL.md#tmux).
 
-## Tier фиксирован на сессию (#1049)
+## Tier выбирается на старте и дальше не меняется (#1049)
 
 Решение человека 2026-11-03: «auto = legacy всегда; расширенный режим только явной настройкой,
 diode лишь показывает, что он доступен». Иначе сочетания зависели от терминала и менялись посреди
 сессии (#907: Ctrl+S переставал сохранять после первого Cmd).
 
-- Протоколы клавиш (kitty-push `CSI > 15 u` и `modifyOtherKeys` `CSI > 4 ; 2 m`) включаются на
-  старте только явной настройкой: `terminal.tier` `csi-u`/`kitty` или `auto` +
+Решение человека 2026-11-04: «дефолт, который был в начале, лучше — с деградацией», но починку
+#1049 не откатывать. Поэтому `auto` снова включает расширенные клавиши сам, когда терминал их
+подтвердил, но один раз на старте и без подъёма по пришедшим клавишам; `legacy` ведёт себя как
+`auto` из #1049.
+
+- Протоколы клавиш (kitty-push `CSI > 15 u` и `modifyOtherKeys` `CSI > 4 ; 2 m`) включаются с
+  первого байта только явной настройкой: `terminal.tier` `csi-u`/`kitty` или `auto` +
   `terminal.capabilities["extended-keys"]: true` (`extendedKeysAtStartup`). `main.ts` передаёт ответ
   в `NodeTerminalBackend({ extendedKeys })`; без него движок не шлёт ни того, ни другого и на выходе
   ничего не сбрасывает. Позже включить может только сервис (`enableExtendedKeys()` движка, если бэкенд —
   `NodeTerminalBackend`).
-- Tier считается в конструкторе `TerminalEnvironmentService` и дальше не меняется: подъёма по
-  пробе, env-хинту и пришедшей клавише нет. Смена `terminal.tier`/`terminal.capabilities` в живой
+- **`auto` деградирует.** Старт в legacy; подтверждение терминала включает протоколы один раз:
+  без tmux — ответ на `CSI ? u` (tier по `resolveTier`: `kitty`/`csi-u`, `cap_super` поднят, на маке
+  рунг `cmd`; XTVERSION уходит раньше, так что имя мак-терминала к этому моменту известно), под tmux —
+  `detectTmuxClient` (ниже) → `csi-u`. Нет подтверждения — legacy до конца сессии. `auto` с
+  `terminal.capabilities["extended-keys"]` (`true` или `false`) — явное слово, автовключения нет.
+- После этого tier не меняется: подъёма по env-хинту и пришедшей клавише нет. Смена `terminal.tier`/`terminal.capabilities` в живой
   сессии даёт уведомление «Restart Diode to apply …».
-- Пробы только узнают, что **доступно** (`availableTier`, сегмент `legacy · kitty available`): без
+- При `legacy` (и `extended-keys: false`) пробы только узнают, что **доступно** (`availableTier`, сегмент `legacy · kitty available`): без
   tmux — ответ на `CSI ? u` → `kitty`; под tmux пробы не шлются (ответил бы tmux или никто), а
   `detectTmuxClient` спрашивает сам tmux одним `display-message`: опция `#{extended-keys}` не `off`
   и `extkeys` в `#{client_termfeatures}` → `csi-u`. Когда протоколы уже включены, «available» не
   показывается. Смена настройки предлагает «Reload Window» — перезапуск процесса на месте.
-- **Исключение — мак без tmux.** `auto`, ОС клавиатуры mac, не tmux и терминал ответил на `CSI ? u`
-  → один раз `enableExtendedKeys()` движка, tier — по `resolveTier` (`kitty`/`csi-u`), `cap_super`
-  поднят (рунг `cmd`). XTVERSION уходит раньше `CSI ? u`, ответы идут по порядку, так что имя
-  мак-терминала к этому моменту известно. Нет ответа — `legacy`/`mac-legacy` до конца сессии.
 
 ## ОС клавиатуры
 
