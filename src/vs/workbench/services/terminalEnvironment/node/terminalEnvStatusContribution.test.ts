@@ -75,7 +75,13 @@ describe("TerminalEnvStatusContribution", () => {
         const env = new TerminalEnvironmentService(new MockTerminalBackend(), configuration, () =>
             Promise.resolve({ extendedKeys: true }),
         );
-        new TerminalEnvStatusContribution(statusBar, env, new CommandRegistry(), configuration, new NotificationService());
+        new TerminalEnvStatusContribution(
+            statusBar,
+            env,
+            new CommandRegistry(),
+            configuration,
+            new NotificationService(),
+        );
         env.detectTmuxClient();
         await vi.waitFor(() => {
             expect(statusBar.entries().find((e) => e.id === "status.terminalEnvironment")?.text).toBe(

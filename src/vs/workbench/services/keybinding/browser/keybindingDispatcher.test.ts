@@ -29,14 +29,7 @@ function createHarness(logService: ILogService = NULL_LOG_SERVICE) {
     const commands = new CommandRegistry();
     const statusBar = new StatusBarService(NULL_STATE_SERVICE);
     const armory = new ModifierReleaseArmory();
-    const dispatcher = new KeybindingDispatcher(
-        keybindings,
-        contextKeys,
-        commands,
-        statusBar,
-        armory,
-        logService,
-    );
+    const dispatcher = new KeybindingDispatcher(keybindings, contextKeys, commands, statusBar, armory, logService);
     const executed: string[] = [];
     const bind = (spec: string, commandId: string, when?: string): void => {
         keybindings.register(parseChord(spec), commandId, when);

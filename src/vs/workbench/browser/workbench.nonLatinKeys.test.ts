@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
-import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 
 // Russian layout with extended keys (Kitty / tmux `extended-keys`): the key arrives as the Cyrillic

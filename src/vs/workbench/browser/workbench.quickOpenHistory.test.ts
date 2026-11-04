@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
-import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 import type { IEditorService } from "../services/editor/common/editorService.ts";
 

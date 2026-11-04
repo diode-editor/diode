@@ -2,9 +2,9 @@ import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewEleme
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
-import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { feed } from "../../../TestUtils/terminalLinks.ts";
+import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { TerminalEditorServiceDIToken } from "../contrib/terminal/browser/terminalEditorService.ts";
 import { TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import { ExtensionPtySession } from "../contrib/terminal/node/extensionPtySession.ts";

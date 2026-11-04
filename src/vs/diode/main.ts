@@ -99,7 +99,6 @@ import {
 import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/configurationContributions.ts";
-import { extendedKeysAtStartup } from "../workbench/services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { ExtensionConfigurationContributor } from "../workbench/services/extensions/common/extensionConfigurationContributor.ts";
 import { ExtensionServiceDIToken } from "../workbench/services/extensions/common/extensions.ts";
 import { registerExtensionSemanticTokens } from "../workbench/services/extensions/common/extensionSemanticTokensContributor.ts";
@@ -110,6 +109,7 @@ import { LanguageConfigurationService } from "../workbench/services/language/com
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { OutputServiceDIToken } from "../workbench/services/output/common/outputService.ts";
+import { extendedKeysAtStartup } from "../workbench/services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { SemanticTokenStyleResolver } from "../workbench/services/themes/common/semanticTokenStyleResolver.ts";
 import { createTextMateTheme } from "../workbench/services/themes/common/textMateTheme.ts";
 import {
