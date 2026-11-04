@@ -1697,9 +1697,18 @@ workspace-состоянии `terminal.integrated.environmentVariableCollections
 (`ThemeColor`/`FileDecoration`/`OverviewRulerLane`/`DecorationRangeBehavior`) живут в
 `api/common/vscodeTypes.ts`; `WindowNamespace` держит тип декорации локально (монотонный числовой
 key) и шлёт хосту RPC-нотификации, сериализуя `ThemeColor` как `{ $themeColor: id }` (см.
-`api/common/wireTypes.ts`). Хост держит реестр `key → { overviewRulerColorId?, isWholeLine }`
-(gutter-тип = есть `overviewRulerColor`), резолвит `ThemeColor` через `IThemeColorResolver` и
-проталкивает: gutter change-bar'ы — в `EditorComponent.setGutterChangeDecorations` (по совпадению
-пути, образец — `DiagnosticsService`), файловые декорации — в `ExplorerService.setFileDecorations`.
+`api/common/wireTypes.ts`; на провод идут `backgroundColor`, `color`, `overviewRulerColor`, `isWholeLine`,
+`overviewRulerLane` и ветки `light`/`dark` с теми же цветами — рамки, шрифты, `opacity`, `before`/`after` клетке
+нарисовать нечем, они выбрасываются). `DecorationsCustomer` держит на тип разобранные опции
+`{ overviewRulerColorId?, isWholeLine, background, foreground }` (у цвета — `base`/`light`/`dark`); цвет — id
+`ThemeColor` (строка) или packed RGBA (число): CSS-строку один раз разбирает `parseCssColor` (`base/common/color.ts`,
+порт `Color.Format.CSS.parse`, отдаёт `RGBA`; дробные каналы и `null` вместо исключения — отступления), мусор = поля нет. На каждый
+push эффективный цвет — ветка темы (`Dark`/`HighContrast` → `dark`, `Light`/`HighContrastLight` → `light`,
+`IThemeColorResolver.kind()`), иначе базовое поле; `ThemeColor` резолвит `IThemeColorResolver`. Хост проталкивает
+полный набор ресурса в `IEditorDecorationsService` (адаптер — во все редакторы ресурса во всех группах):
+gutter change-bar'ы (gutter-тип = есть `overviewRulerColor`) — в `setGutterChangeDecorations`, фон и цвет текста —
+в `setExtensionTextDecorations` (проекция `IExtensionTextDecoration`, типы по возрастанию key). Диапазоны
+статические: стоят на координатах последнего `setDecorations` (трекинг — #1023, [TODO/TrackedDecorations.md](../TODO/TrackedDecorations.md));
+смерть спавна снимает его декорации из редакторов. Файловые декорации — в `ExplorerService.setFileDecorations`.
 На `theme.onDidChange` все держимые декорации пере-резолвятся и пере-push'атся. **Ядро про источник
 декораций (git/SCM) не знает** — адаптеры отдают уже резолвнутые packed-RGB цвета.

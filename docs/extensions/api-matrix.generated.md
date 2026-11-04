@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 157 |
+| test | 159 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -73,7 +73,7 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `TypeHierarchyItem` | C | 70 | 512,751,679 | the provider is never called; needs new graphics |
 | `languages.registerTypeHierarchyProvider` | C | 69 | 512,262,735 | registration is accepted, the provider is never called; needs new graphics |
 | `workspace.onDidOpenNotebookDocument` | X | 69 | 512,262,735 | notebook |
-| `window.createTextEditorDecorationType` | C | 56 | 481,992,789 | text decorations are not drawn; gutter and overview ruler only |
+| `window.createTextEditorDecorationType` | C | 56 | 481,992,789 | background, text color, isWholeLine, light/dark branches and gutter bars are drawn; border, outline, font styles, opacity and before/after are not (#1023) |
 | `window.createWebviewPanel` | X | 73 | 478,100,689 | webview |
 | `debug.startDebugging` | C | 35 | 443,917,951 | needs a debugger |
 | `debug.onDidTerminateDebugSession` | C | 27 | 402,897,992 | needs a debugger |
@@ -2258,7 +2258,7 @@ Proposed API or a false hit: class X when real.
 | `TextEditor.revealRange` | ok | yes | 0 | 0 |  |
 | `TextEditor.selection` | ok | yes | 0 | 0 |  |
 | `TextEditor.selections` | ok |  | 0 | 0 |  |
-| `TextEditor.setDecorations` | C |  | 0 | 0 |  |
+| `TextEditor.setDecorations` | C | yes | 0 | 0 |  |
 | `TextEditor.show` | B |  | 0 | 0 |  |
 | `TextEditor.viewColumn` | ok |  | 0 | 0 |  |
 | `TextEditor.visibleRanges` | B |  | 0 | 0 |  |
@@ -2498,7 +2498,7 @@ Proposed API or a false hit: class X when real.
 | `window.createQuickPick` | ok | yes | 57 | 660,652,049 |  |
 | `window.createStatusBarItem` | ok |  | 86 | 651,676,549 | biomejs.biome, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, tamasfe.even-better-toml, timonwong.shellcheck |
 | `window.createTerminal` | ok | yes | 59 | 442,493,421 | vscjava.vscode-maven |
-| `window.createTextEditorDecorationType` | C |  | 56 | 481,992,789 | bradlc.vscode-tailwindcss, shardulm94.trailing-spaces, vscode.merge-conflict, yzhang.markdown-all-in-one |
+| `window.createTextEditorDecorationType` | C | yes | 56 | 481,992,789 | bradlc.vscode-tailwindcss, shardulm94.trailing-spaces, vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `window.createTreeView` | ok | yes | 47 | 432,182,103 | llvm-vs-code-extensions.vscode-clangd, vscjava.vscode-maven |
 | `window.createWebviewPanel` | X |  | 73 | 478,100,689 |  |
 | `window.onDidChangeActiveColorTheme` | ok |  | 18 | 52,945,951 |  |

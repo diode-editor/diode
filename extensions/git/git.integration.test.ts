@@ -15,7 +15,10 @@ import {
 import { settle } from "../../src/TestUtils/timing.ts";
 import { Uri } from "../../src/vs/base/common/uri.ts";
 import type { IGutterChangeDecoration } from "../../src/vs/editor/common/model/iGutterChangeDecoration.ts";
-import type { IEditorDecorationsService } from "../../src/vs/workbench/api/common/iEditorDecorationsService.ts";
+import {
+    type IEditorDecorationsService,
+    NULL_EDITOR_DECORATIONS_SERVICE,
+} from "../../src/vs/workbench/api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../../src/vs/workbench/api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../src/vs/workbench/api/common/iThemeColorResolver.ts";
 import { ColorThemeKind } from "../../src/vs/workbench/api/common/vscodeTypes.ts";
@@ -53,7 +56,10 @@ function makeEditorSpy(): {
 } {
     const calls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[] = [];
     return {
-        service: { setGutterChangeDecorations: (uri, decorations) => calls.push({ uri, decorations }) },
+        service: {
+            ...NULL_EDITOR_DECORATIONS_SERVICE,
+            setGutterChangeDecorations: (uri, decorations) => calls.push({ uri, decorations }),
+        },
         latestFor: (suffix) => calls.filter((c) => c.uri.endsWith(suffix)).at(-1)?.decorations,
     };
 }

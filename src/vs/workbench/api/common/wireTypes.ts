@@ -1151,23 +1151,29 @@ export interface IWireSaveAllParams {
 /** `null` when not open or not saved (upstream's `undefined`). */
 export type IWireSaveResult = IWireUriParams | null;
 
-/** A bare `string` in the same fields is a CSS color the host ignores: inline hex colors are not parsed. */
+/** A bare `string` in the same fields is a CSS color: the host parses it (`parseCssColor`). */
 export interface ISerializedThemeColor {
     readonly $themeColor: string;
 }
 
 export type SerializedColor = string | ISerializedThemeColor;
 
-/**
- * Only the fields the host projects: `overviewRulerColor` makes the type a
- * "gutter change-bar"; other CSS fields are not rendered in the TUI.
- */
-export interface SerializedDecorationRenderOptions {
-    readonly isWholeLine?: boolean;
-    readonly overviewRulerLane?: number;
+/** The fields of `ThemableDecorationRenderOptions` the host projects. */
+export interface SerializedThemableDecorationRenderOptions {
     readonly backgroundColor?: SerializedColor;
     readonly color?: SerializedColor;
     readonly overviewRulerColor?: SerializedColor;
+}
+
+/**
+ * Only the fields the host projects: `overviewRulerColor` makes the type a "gutter change-bar",
+ * `backgroundColor`/`color` paint the text; borders, outlines and font styles have nothing to draw with in a cell.
+ */
+export interface SerializedDecorationRenderOptions extends SerializedThemableDecorationRenderOptions {
+    readonly isWholeLine?: boolean;
+    readonly overviewRulerLane?: number;
+    readonly light?: SerializedThemableDecorationRenderOptions;
+    readonly dark?: SerializedThemableDecorationRenderOptions;
 }
 
 export interface IWireCreateDecorationType {

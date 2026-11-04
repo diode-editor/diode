@@ -6126,7 +6126,7 @@
     },
     "TextEditor.setDecorations": {
       "class": "C",
-      "note": "text decorations are not drawn; gutter and overview ruler only"
+      "note": "background and text color are drawn; ranges are static until the next call (not tracked through edits), renderOptions per range are dropped (#1023)"
     },
     "TextEditor.show": {
       "class": "B",

@@ -1,5 +1,6 @@
-import { Uri } from "../../../base/common/uri.ts";
+import type { IExtensionTextDecoration } from "../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../editor/common/model/iGutterChangeDecoration.ts";
+import type { TextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
 import type { IEditorDecorationsService } from "../common/iEditorDecorationsService.ts";
 
@@ -11,11 +12,15 @@ export class EditorDecorationsServiceAdapter implements IEditorDecorationsServic
     }
 
     public setGutterChangeDecorations(uri: string, decorations: readonly IGutterChangeDecoration[]): void {
-        // All groups: the same file in a neighboring split is also its tab.
-        for (const editor of this.group.getEditors()) {
-            if (editor.uri.toString() === uri) {
-                editor.setExtensionGutterChangeDecorations(decorations);
-            }
-        }
+        for (const editor of this.editorsOf(uri)) editor.setExtensionGutterChangeDecorations(decorations);
+    }
+
+    public setExtensionTextDecorations(uri: string, decorations: readonly IExtensionTextDecoration[]): void {
+        for (const editor of this.editorsOf(uri)) editor.setExtensionTextDecorations(decorations);
+    }
+
+    /** All groups: the same file in a neighboring split is also its tab. */
+    private editorsOf(uri: string): TextEditorPane[] {
+        return this.group.getEditors().filter((editor) => editor.uri.toString() === uri);
     }
 }

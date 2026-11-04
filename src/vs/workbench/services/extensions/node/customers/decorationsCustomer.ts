@@ -1,12 +1,22 @@
+import { packRgba } from "@tuidom/core/common/colorUtils";
+
+import { parseCssColor } from "../../../../../base/common/color.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
 import type { IRange } from "../../../../../editor/common/core/iRange.ts";
+import type { IExtensionTextDecoration } from "../../../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IEditorDecorationsService } from "../../../../api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../../../../api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../../../api/common/iThemeColorResolver.ts";
-import type { IWireColorTheme, SerializedDecorationRenderOptions } from "../../../../api/common/wireTypes.ts";
+import { ColorThemeKind } from "../../../../api/common/vscodeTypes.ts";
+import type {
+    IWireColorTheme,
+    SerializedColor,
+    SerializedDecorationRenderOptions,
+    SerializedThemableDecorationRenderOptions,
+} from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { parseDecorationRanges, parseWireFileDecorations, themeColorIdOf } from "../hostWireParsers.ts";
 
@@ -41,13 +51,13 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         const decorations = new SpawnDecorations(this.editorDecorations, this.fileDecorations, this.themeColorResolver);
         this.live = { rpc, decorations };
         const store = new DisposableStore();
-        // overviewRulerColor makes the type a gutter change bar.
+        // overviewRulerColor makes the type a gutter change bar, backgroundColor/color paint the text.
         store.add(
             rpc.handleNotification("window.createTextEditorDecorationType", (params) => {
                 const p: { key?: unknown; options?: unknown } = params;
                 // Stryker disable next-line ConditionalExpression: a type with a non-numeric key is unobservable — setDecorations, which has its own key guard, never reaches it
                 if (typeof p.key !== "number") return;
-                // A non-object in options carries no fields — a type without a gutter color.
+                // A non-object in options carries no fields — a type that draws nothing.
                 const options = (p.options ?? {}) as SerializedDecorationRenderOptions;
                 decorations.createType(p.key, options);
             }),
@@ -78,6 +88,8 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         // it's safe to remove without checking “is the live one ours”.
         store.add({
             dispose: () => {
+                // A dead extension no longer owns what it painted; on respawn it redraws.
+                decorations.clearEditorDecorations();
                 this.live = null;
             },
         });
@@ -85,9 +97,61 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
     }
 }
 
-class SpawnDecorations {
+/**
+ * A CSS string is parsed once, on type creation, into packed RGBA (`number`); a theme color stays its id
+ * (`string`) and resolves on each push, as the theme may change.
+ */
+type DecorationColor = number | string;
+
+/** `base` is the type's own field, `light`/`dark` the branch's: the branch of the current theme wins. */
+interface IThemedDecorationColor {
+    readonly base: DecorationColor | undefined;
+    readonly light: DecorationColor | undefined;
+    readonly dark: DecorationColor | undefined;
+}
+
+interface IDecorationType {
     /** `undefined` means the type doesn't paint the gutter. */
-    private readonly types = new Map<number, string | undefined>();
+    readonly overviewRulerColorId: string | undefined;
+    readonly isWholeLine: boolean;
+    readonly background: IThemedDecorationColor;
+    readonly foreground: IThemedDecorationColor;
+}
+
+/** Garbage (an unparsable string, a non-color) is no color: the type's other fields live on. */
+function decorationColorOf(value: SerializedColor | undefined): DecorationColor | undefined {
+    if (typeof value !== "string") return themeColorIdOf(value);
+    const rgba = parseCssColor(value);
+    return rgba === null ? undefined : packRgba(rgba.r, rgba.g, rgba.b, Math.round(rgba.a * 255));
+}
+
+function themedColorOf(
+    options: SerializedDecorationRenderOptions,
+    field: keyof SerializedThemableDecorationRenderOptions,
+): IThemedDecorationColor {
+    return {
+        base: decorationColorOf(options[field]),
+        light: decorationColorOf(options.light?.[field]),
+        dark: decorationColorOf(options.dark?.[field]),
+    };
+}
+
+function decorationTypeOf(options: SerializedDecorationRenderOptions): IDecorationType {
+    return {
+        overviewRulerColorId: themeColorIdOf(options.overviewRulerColor),
+        isWholeLine: options.isWholeLine === true,
+        background: themedColorOf(options, "backgroundColor"),
+        foreground: themedColorOf(options, "color"),
+    };
+}
+
+/** Like upstream's theme class selectors: `.vs-dark, .hc-black` take `dark`, `.vs, .hc-light` take `light`. */
+function isDarkKind(kind: ColorThemeKind): boolean {
+    return kind === ColorThemeKind.Dark || kind === ColorThemeKind.HighContrast;
+}
+
+class SpawnDecorations {
+    private readonly types = new Map<number, IDecorationType>();
     private readonly editorDecorationsByFile = new Map<string, Map<number, readonly IRange[]>>();
     private readonly fileDecorationState = new Map<
         string,
@@ -101,7 +165,7 @@ class SpawnDecorations {
     ) {}
 
     public createType(key: number, options: SerializedDecorationRenderOptions): void {
-        this.types.set(key, themeColorIdOf(options.overviewRulerColor));
+        this.types.set(key, decorationTypeOf(options));
     }
 
     public disposeType(key: number): void {
@@ -137,34 +201,72 @@ class SpawnDecorations {
         this.pushFileDecorations();
     }
 
+    public clearEditorDecorations(): void {
+        for (const uri of this.editorDecorationsByFile.keys()) {
+            this.editorDecorations.setGutterChangeDecorations(uri, []);
+            this.editorDecorations.setExtensionTextDecorations(uri, []);
+        }
+    }
+
     public repushAll(): void {
         for (const uri of this.editorDecorationsByFile.keys()) this.pushEditorDecorations(uri);
         this.pushFileDecorations();
     }
 
-    /** Gutter types only (those with overviewRulerColor); an empty set removes the bars. */
+    /**
+     * Gutter bars of types with overviewRulerColor and text paint of types with backgroundColor/color, each a
+     * full set for the resource; an empty set removes them. Types go in key (creation) order: a later one paints
+     * over an earlier one.
+     */
     private pushEditorDecorations(uri: string): void {
         const byKey = this.editorDecorationsByFile.get(uri);
-        const decorations: IGutterChangeDecoration[] = [];
+        const gutter: IGutterChangeDecoration[] = [];
+        const text: IExtensionTextDecoration[] = [];
         /* v8 ignore start -- defensive: pushEditorDecorations is only called for resources with an entry (setRanges/disposeType/repushAll) */
         // Stryker disable all: see v8 ignore above — unit tests can't reach the branch
         if (byKey === undefined) {
-            this.editorDecorations.setGutterChangeDecorations(uri, decorations);
+            this.editorDecorations.setGutterChangeDecorations(uri, gutter);
+            this.editorDecorations.setExtensionTextDecorations(uri, text);
             return;
         }
         // Stryker restore all
         /* v8 ignore stop */
-        for (const [key, ranges] of byKey) {
-            const colorId = this.types.get(key);
-            // Stryker disable next-line ConditionalExpression: the resolver returns undefined for an unknown id — the color check below skips the type the same way
-            if (colorId === undefined) continue;
-            const color = this.themeColorResolver.resolve(colorId);
-            if (color === undefined) continue;
-            // VS Code's dirty-diff draws modified lines dashed, added/deleted solid.
-            const dashed = colorId === "editorGutter.modifiedBackground";
-            for (const range of ranges) decorations.push({ range, color, ...(dashed ? { dashed: true } : {}) });
+        const dark = isDarkKind(this.themeColorResolver.kind());
+        for (const [key, ranges] of [...byKey].sort(([a], [b]) => a - b)) {
+            const type = this.types.get(key);
+            if (type === undefined) continue;
+            this.collectGutter(type, ranges, gutter);
+            const bg = this.resolveThemed(type.background, dark);
+            const fg = this.resolveThemed(type.foreground, dark);
+            if (bg === undefined && fg === undefined) continue;
+            for (const range of ranges) {
+                text.push({
+                    range,
+                    ...(bg === undefined ? {} : { bg }),
+                    ...(fg === undefined ? {} : { fg }),
+                    isWholeLine: type.isWholeLine,
+                });
+            }
         }
-        this.editorDecorations.setGutterChangeDecorations(uri, decorations);
+        this.editorDecorations.setGutterChangeDecorations(uri, gutter);
+        this.editorDecorations.setExtensionTextDecorations(uri, text);
+    }
+
+    private collectGutter(type: IDecorationType, ranges: readonly IRange[], into: IGutterChangeDecoration[]): void {
+        const colorId = type.overviewRulerColorId;
+        // Stryker disable next-line ConditionalExpression: the resolver returns undefined for an unknown id — the color check below skips the type the same way
+        if (colorId === undefined) return;
+        const color = this.themeColorResolver.resolve(colorId);
+        if (color === undefined) return;
+        // VS Code's dirty-diff draws modified lines dashed, added/deleted solid.
+        const dashed = colorId === "editorGutter.modifiedBackground";
+        for (const range of ranges) into.push({ range, color, ...(dashed ? { dashed: true } : {}) });
+    }
+
+    /** The branch of the current theme kind, otherwise the type's own field; an unknown theme color id is no color. */
+    private resolveThemed(color: IThemedDecorationColor, dark: boolean): number | undefined {
+        const effective = (dark ? color.dark : color.light) ?? color.base;
+        return typeof effective === "string" ? this.themeColorResolver.resolve(effective) : effective;
     }
 
     /** `propagate` goes as is: propagation to folders is computed by the tree, which knows its root. */

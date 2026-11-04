@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
-import type { IEditorDecorationsService } from "../../../api/common/iEditorDecorationsService.ts";
+import {
+    type IEditorDecorationsService,
+    NULL_EDITOR_DECORATIONS_SERVICE,
+} from "../../../api/common/iEditorDecorationsService.ts";
 import type { IFileDecorationsService } from "../../../api/common/iFileDecorationsService.ts";
 import type { IThemeColorResolver } from "../../../api/common/iThemeColorResolver.ts";
 import { ColorThemeKind } from "../../../api/common/vscodeTypes.ts";
@@ -49,7 +52,10 @@ function makeEditorSpy(): {
 } {
     const calls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[] = [];
     return {
-        service: { setGutterChangeDecorations: (uri, decorations) => calls.push({ uri, decorations }) },
+        service: {
+            ...NULL_EDITOR_DECORATIONS_SERVICE,
+            setGutterChangeDecorations: (uri, decorations) => calls.push({ uri, decorations }),
+        },
         calls,
         latestFor: (suffix) => calls.filter((c) => c.uri.endsWith(suffix)).at(-1),
     };
