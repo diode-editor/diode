@@ -1,6 +1,10 @@
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { NotificationService } from "../../notification/browser/notificationService.ts";
+import { NotificationServiceDIToken } from "../../notification/browser/notificationService.ts";
 import type { IStatusBarEntryHandle } from "../../statusbar/common/statusBarService.ts";
 import type { StatusBarService } from "../../statusbar/common/statusBarService.ts";
 import { StatusBarServiceDIToken } from "../../statusbar/common/statusBarService.ts";
@@ -12,11 +16,16 @@ export const TerminalEnvStatusContributionDIToken = token<TerminalEnvStatusContr
     "TerminalEnvStatusContribution",
 );
 
+/** Settings read once at startup: the keyboard protocols are not switched mid-session. */
+const RESTART_SETTINGS = ["terminal.tier", "terminal.capabilities"] as const;
+
 export class TerminalEnvStatusContribution extends Disposable {
     public static dependencies = [
         StatusBarServiceDIToken,
         TerminalEnvironmentServiceDIToken,
         CommandRegistryDIToken,
+        IConfigurationServiceDIToken,
+        NotificationServiceDIToken,
     ] as const;
 
     private readonly handle: IStatusBarEntryHandle;
@@ -25,6 +34,8 @@ export class TerminalEnvStatusContribution extends Disposable {
         statusBar: StatusBarService,
         private readonly terminalEnv: TerminalEnvironmentService,
         commands: CommandRegistry,
+        configuration: IConfigurationService,
+        notifications: NotificationService,
     ) {
         super();
         this.handle = this.register(
@@ -46,13 +57,28 @@ export class TerminalEnvStatusContribution extends Disposable {
                 this.handle.update({ text: this.segmentText() });
             }),
         );
+        this.register(
+            configuration.onDidChangeConfiguration((event) => {
+                for (const key of RESTART_SETTINGS) {
+                    if (!event.affectsConfiguration(key)) continue;
+                    notifications.show({
+                        severity: "info",
+                        message: `Restart Diode to apply ${key}`,
+                        modal: false,
+                        items: [],
+                    });
+                }
+            }),
+        );
     }
 
     private segmentText(): string {
-        const modes = [...this.terminalEnv.getActiveModes()].filter((m) => m !== "local").sort();
+        const env = this.terminalEnv;
+        const modes = [...env.getActiveModes()].filter((m) => m !== "local").sort();
         const suffix = modes.length > 0 ? ` · ${modes.join(",")}` : "";
-        const rung = this.terminalEnv.macKeysRung;
+        const rung = env.macKeysRung;
         const mac = rung === undefined ? "" : ` · mac-${rung}`;
-        return `${this.terminalEnv.tier}${mac}${suffix}`;
+        const available = env.availableTier === undefined ? "" : ` · ${env.availableTier} available`;
+        return `${env.tier}${mac}${suffix}${available}`;
     }
 }

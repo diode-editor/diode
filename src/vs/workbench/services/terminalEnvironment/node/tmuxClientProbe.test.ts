@@ -4,7 +4,13 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { parseShowEnvironment, queryTmuxClient, runTmux, type TmuxRunner } from "./tmuxClientProbe.ts";
+import {
+    parseShowEnvironment,
+    queryTmuxClient,
+    runTmux,
+    tmuxPassesExtendedKeys,
+    type TmuxRunner,
+} from "./tmuxClientProbe.ts";
 
 describe("parseShowEnvironment", () => {
     it.each<[string | undefined, string | undefined]>([
@@ -23,7 +29,9 @@ describe("queryTmuxClient", () => {
         const calls: string[] = [];
         const run: TmuxRunner = (args) => {
             calls.push(args.join(" "));
-            if (args[0] === "display-message") return Promise.resolve("kitty(0.45.0)\n");
+            if (args[2] === "#{client_termtype}") return Promise.resolve("kitty(0.45.0)\n");
+            if (args[2] === "#{client_termfeatures}") return Promise.resolve("bpaste,extkeys,title\n");
+            if (args[0] === "show-options") return Promise.resolve("on\n");
             if (args[1] === "LC_DIODE_PLATFORM") return Promise.resolve("LC_DIODE_PLATFORM=mac\n");
             return Promise.resolve("LC_TERMINAL=iTerm2\n");
         };
@@ -31,11 +39,14 @@ describe("queryTmuxClient", () => {
             termType: "kitty(0.45.0)",
             envPlatform: "mac",
             lcTerminal: "iTerm2",
+            extendedKeys: true,
         });
         expect(calls).toEqual([
             "display-message -p #{client_termtype}",
             "show-environment LC_DIODE_PLATFORM",
             "show-environment LC_TERMINAL",
+            "show-options -sv extended-keys",
+            "display-message -p #{client_termfeatures}",
         ]);
     });
 
@@ -45,7 +56,23 @@ describe("queryTmuxClient", () => {
             termType: undefined,
             envPlatform: undefined,
             lcTerminal: undefined,
+            extendedKeys: false,
         });
+    });
+});
+
+describe("tmuxPassesExtendedKeys", () => {
+    it.each<[string | undefined, string | undefined, boolean]>([
+        ["on\n", "bpaste,extkeys,title\n", true],
+        ["always\n", "extkeys", true],
+        ["off\n", "bpaste,extkeys", false],
+        ["on\n", "bpaste,title", false],
+        ["on\n", "notextkeys,extkeys2", false],
+        ["on\n", undefined, false],
+        [undefined, "extkeys", false], // tmux before 3.2 has no such option
+        ["  \n", "extkeys", false],
+    ])("extended-keys %j, termfeatures %j → %j", (option, features, expected) => {
+        expect(tmuxPassesExtendedKeys(option, features)).toBe(expected);
     });
 });
 

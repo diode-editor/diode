@@ -8,6 +8,29 @@
 [TODO/EnvironmentTuning.md](../../TODO/EnvironmentTuning.md); пользовательский рецепт tmux —
 [public/TERMINAL.md](../../public/TERMINAL.md#tmux).
 
+## Tier фиксирован на сессию (#1049)
+
+Решение человека 2026-11-03: «auto = legacy всегда; расширенный режим только явной настройкой,
+diode лишь показывает, что он доступен». Иначе сочетания зависели от терминала и менялись посреди
+сессии (#907: Ctrl+S переставал сохранять после первого Cmd).
+
+- Протоколы клавиш (kitty-push `CSI > 15 u` и `modifyOtherKeys` `CSI > 4 ; 2 m`) включаются на
+  старте только явной настройкой: `terminal.tier` `csi-u`/`kitty` или `auto` +
+  `terminal.capabilities["extended-keys"]: true` (`extendedKeysAtStartup`). `main.ts` передаёт ответ
+  в `NodeTerminalBackend({ extendedKeys })`; без него движок не шлёт ни того, ни другого и на выходе
+  ничего не сбрасывает.
+- Tier считается в конструкторе `TerminalEnvironmentService` и дальше не меняется: подъёма по
+  пробе, env-хинту и пришедшей клавише нет. Смена `terminal.tier`/`terminal.capabilities` в живой
+  сессии даёт уведомление «Restart Diode to apply …».
+- Пробы только узнают, что **доступно** (`availableTier`, сегмент `legacy · kitty available`): без
+  tmux — ответ на `CSI ? u` → `kitty`; под tmux проба не отвечает, поэтому `detectTmuxClient`
+  спрашивает сам tmux: `show-options -sv extended-keys` не `off` и `extkeys` в
+  `#{client_termfeatures}` → `csi-u`. Когда протоколы уже включены, «available» не показывается.
+- **Исключение — мак без tmux.** `auto`, ОС клавиатуры mac, не tmux и терминал ответил на `CSI ? u`
+  → один раз `enableExtendedKeys()` движка, tier — по `resolveTier` (`kitty`/`csi-u`), `cap_super`
+  поднят (рунг `cmd`). XTVERSION уходит раньше `CSI ? u`, ответы идут по порядку, так что имя
+  мак-терминала к этому моменту известно. Нет ответа — `legacy`/`mac-legacy` до конца сессии.
+
 ## ОС клавиатуры
 
 `env.os` — ОС клавиатуры, а не процесса: по ssh с мака раскладка маковская. Её резолвит
@@ -34,8 +57,8 @@
 | `extended` | 2 | Ctrl+Shift, Ctrl+Tab, Shift+Enter, но без Cmd | tmux с `extended-keys always` + `csi-u` |
 | `cmd` | 3 | плюс Cmd | kitty / ghostty / iTerm2 **без** tmux |
 
-- `cap_super` поднимается по увиденному super-биту (как `noteExtendedKeysObserved`) или форсится
-  через `terminal.capabilities`.
+- `cap_super` поднимается ответом на `CSI ? u` при включённых протоколах вне tmux (мак-исключение
+  или явный tier) или форсится через `terminal.capabilities`.
 - **Под tmux рунг не выше `extended` никогда**: у tmux три модификатора, Alt и super пишутся в один
   бит, и Cmd+S приезжает байт в байт как Option+S — Cmd-бинд выстрелил бы по команде на Alt.
 - В when-клаузах — типизированные `macKeysAtLeast` / `macKeysIs` / `notMacKeys`; рунг другого
@@ -71,7 +94,8 @@
 
 ## Сегмент окружения в статус-баре
 
-`TerminalEnvStatusContribution` показывает tier, мак-рунг и моды; клик открывает пользовательский
+`TerminalEnvStatusContribution` показывает tier, мак-рунг, моды и в конце доступное сверх
+включённого (`legacy · tmux · csi-u available`); клик открывает пользовательский
 `settings.json` (`workbench.action.openSettingsJson` с `revealSetting: terminal.tier` — аргумент
 принимается, Settings UI нет). Для разработчика путь клавиши по слоям показывает демо
 `src/demos/keyDiagnosticsDemo.ts` (включает те же режимы, что бэкенд). Мастер настройки клавиатуры —
@@ -89,19 +113,18 @@
 - **Два формата расширенных клавиш tmux.** `extended-keys-format csi-u` (tmux ≥ 3.5) шлёт
   `\x1b[1092;5u`, формат `xterm` (дефолт на 3.5+, единственный на 3.4) — modifyOtherKeys
   `\x1b[27;5;1092~`. Движок с 0.30.1 разбирает второй в то же событие, что первый: тот же `key`,
-  `code` и модификаторы (раньше печатные клавиши в нём выбрасывались, #1048). Детект tier по
-  пришедшей клавише видит только CSI-u (#1049).
+  `code` и модификаторы (раньше печатные клавиши в нём выбрасывались, #1048).
 - **Нелатинская раскладка — по физической клавише**, как `keyboard.dispatch: code` в VS Code на Linux
   (`matchesBinding` в `keybindingRegistry.ts`). Бинд на букву с Ctrl/Cmd матчится по `code`
   (Ctrl+ы → Ctrl+S), с Alt — только для нелатинского символа (мнемоники меню). Бинд на знак
   `` [ ] ; ' , . / \ ` - = `` — только для нелатинского символа (≥ U+0080) с Ctrl, Cmd или Alt:
   Ctrl+Shift+Х → Ctrl+Shift+[, Ctrl+Ё → `` Ctrl+` ``. Латинский символ решает сам: в русской раскладке
   на физическом `/` печатается `.`, и это Ctrl+., а не Ctrl+/.
-- **Индикатор tier ≠ доставка клавиш.** `extended-keys` поднимается и по env-хинту внешнего
-  терминала (`KITTY_WINDOW_ID`), который под tmux доказательством не считается, — отсюда
-  односторонний гейт по tier ([Commands.md](Commands.md#конвенции-системы-команд)). Runtime-детект —
-  `TerminalEnvironmentService.noteExtendedKeysObserved()` по реально пришедшей CSI-u клавише.
-- Бэкенд (`@tuidom/terminal-backend`) шлёт рядом с kitty-push ещё и `modifyOtherKeys`
+- **Индикатор tier ≠ доставка клавиш.** Явный `csi-u`/`kitty` в терминале без протокола (или tmux
+  с `extended-keys off`) клавиши не доставит — отсюда односторонний гейт по tier
+  ([Commands.md](Commands.md#конвенции-системы-команд)). Обратное тоже бывает: tmux с
+  `extended-keys always` шлёт CSI-u и в legacy — парсер их разбирает, tier от этого не меняется.
+- Бэкенд (`@tuidom/terminal-backend`), когда протоколы включены, шлёт рядом с kitty-push ещё и `modifyOtherKeys`
   (`\x1b[>4;2m`) — для терминалов и мультиплексоров, которые его понимают. **Порядок важен:** iTerm2
   трактует любой `CSI >4;n m` как сброс kitty-стека, поэтому kitty-push идёт последним (tuidom
   [#13](https://github.com/tuidom/tuidom/pull/13)); тот же порядок повторяет `keyDiagnosticsDemo.ts`.

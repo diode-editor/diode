@@ -2,6 +2,7 @@ import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness } from "../../../../../TestUtils/AppTestHarness.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { TerminalBackendDIToken } from "../../../../platform/terminal/common/terminalBackendDIToken.ts";
 import { statusSegments } from "../../../browser/parts/statusbar/statusBarComponent.testUtils.ts";
@@ -25,8 +26,9 @@ describe("Terminal environment integration (context keys + status bar)", () => {
         process.env = savedEnv;
     });
 
-    async function setup() {
-        const h = createAppTestHarness(); // WorkbenchComponent subscribes to env changes
+    async function setup(settings: Record<string, unknown> = {}) {
+        // WorkbenchComponent subscribes to env changes
+        const h = createAppTestHarness({ configurationService: createTestConfigurationService(settings) });
         await h.workbench.activate();
         const contextKeys = h.container.get(ContextKeyServiceDIToken);
         const statusBar = h.container.get(StatusBarComponentDIToken);
@@ -35,17 +37,17 @@ describe("Terminal environment integration (context keys + status bar)", () => {
         return { workbench: h.workbench, contextKeys, statusBar, env, backend };
     }
 
-    it("flows a synchronously-detected kitty tier into context keys and the status bar", async () => {
-        process.env.TERM = "xterm-kitty"; // extended-keys + graphics hint → kitty (no probe needed)
-        const { contextKeys, statusBar } = await setup();
+    it("an explicit terminal.tier flows into context keys and the status bar", async () => {
+        process.env.TERM = "xterm-kitty";
+        const { contextKeys, statusBar } = await setup({ "terminal.tier": "kitty" });
 
         expect(contextKeys.evaluate("tier == 'kitty'")).toBe(true);
         expect(contextKeys.evaluate("cap_extendedKeys")).toBe(true);
         expect(statusSegments(statusBar.view)[0]).toEqual({ text: "kitty", side: "left" });
     });
 
-    it("upgrades the tier (and re-renders) when the fire-and-forget probe confirms support", async () => {
-        process.env.TERM = "xterm-256color"; // env says legacy
+    it("auto in kitty stays legacy; the probe answer only adds `kitty available`", async () => {
+        process.env.TERM = "xterm-kitty";
         const { contextKeys, statusBar, backend } = await setup();
 
         expect(contextKeys.evaluate("tier == 'legacy'")).toBe(true);
@@ -54,9 +56,9 @@ describe("Terminal environment integration (context keys + status bar)", () => {
         // activate() already started the probe; the terminal now confirms keyboard-protocol support.
         backend.resolveKeyboardProtocol(true);
 
-        expect(contextKeys.evaluate("tier == 'legacy'")).toBe(false);
-        expect(contextKeys.evaluate("cap_extendedKeys")).toBe(true);
-        expect(statusSegments(statusBar.view)[0]).toEqual({ text: "csi-u", side: "left" });
+        expect(contextKeys.evaluate("tier == 'legacy'")).toBe(true);
+        expect(contextKeys.evaluate("cap_extendedKeys")).toBe(false);
+        expect(statusSegments(statusBar.view)[0]).toEqual({ text: "legacy · kitty available", side: "left" });
     });
 
     it("reflects a runtime mode toggle in context keys and the status bar", async () => {

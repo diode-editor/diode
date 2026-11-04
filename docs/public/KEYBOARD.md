@@ -10,8 +10,9 @@ the trip. This page is about those, and about what to press instead.
 A classic terminal encodes `Ctrl+Shift+P` exactly like `Ctrl+P`, turns `Ctrl+Tab` into `Tab`,
 `Ctrl+Enter` into `Enter` and `Ctrl+Backspace` into `Ctrl+H`, and has no code for ``Ctrl+` `` at all.
 Modern terminals fix this with an extended keyboard protocol (the kitty keyboard protocol, or
-CSI u). Diode asks for it at startup; a terminal that supports it starts sending full key events,
-and then every VS Code shortcut works as is.
+CSI u). Diode turns it on only when you ask for it with `terminal.tier`: a terminal that supports
+it then sends full key events, and every VS Code shortcut works as is. By default the keys stay
+legacy, so they are the same in every terminal, in tmux and over ssh.
 
 Diode knows three levels of key support:
 
@@ -21,9 +22,10 @@ Diode knows three levels of key support:
 | extended | plus Ctrl+Shift+letter, Ctrl+Tab, Ctrl+Enter, Shift+Enter, ``Ctrl+` `` | kitty, ghostty, WezTerm, foot, Alacritty, iTerm2, tmux 3.5+ with extended keys |
 | cmd (Mac) | plus Cmd as in VS Code for macOS | kitty, ghostty, iTerm2 without tmux |
 
-The left segment of the status bar shows the level Diode detected. Click it to open your
-`settings.json`, where `terminal.tier` forces a level if detection gets it wrong. Getting to
-"extended" is a terminal setting, see [terminal setup](TERMINAL.md).
+The left segment of the status bar shows the level in use, and what the terminal could do on top:
+`legacy · kitty available`. Click it to open your `settings.json`, where `terminal.tier` sets
+`csi-u` or `kitty`; the level is fixed for the session, so a change applies after a restart. Some
+terminals need a setting of their own for "extended", see [terminal setup](TERMINAL.md).
 
 ## Every command has a key that works everywhere
 
@@ -63,7 +65,8 @@ tabs; `Alt+PageUp` and `Alt+PageDown` do the same inside Diode. Word movement ha
 
 Inside tmux and in Terminal.app, Cmd never reaches an app: Diode uses its Ctrl layout there, so
 `Ctrl+P`, `Ctrl+S`, `Ctrl+Q` and the rest work as on Linux. In kitty, ghostty or iTerm2 without
-tmux, Diode gets the Cmd keys and uses the VS Code for macOS layout (`Cmd+P`, `Cmd+S`, `Cmd+Q`,
+tmux, Diode turns the kitty protocol on by itself once the terminal answers its query (the only
+case it does so without `terminal.tier`), gets the Cmd keys and uses the VS Code for macOS layout (`Cmd+P`, `Cmd+S`, `Cmd+Q`,
 `Cmd+Shift+]` for the next tab). Either way the Ctrl chords above keep working, and `Cmd+C`,
 `Cmd+V`, `Cmd+X` are left to the terminal.
 

@@ -99,6 +99,7 @@ import {
 import { VSCODE_SHIM_VERSION } from "../workbench/api/common/vscodeShimVersion.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { CONFIGURATION_CONTRIBUTIONS } from "../workbench/common/configuration/configurationContributions.ts";
+import { extendedKeysAtStartup } from "../workbench/services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { ExtensionConfigurationContributor } from "../workbench/services/extensions/common/extensionConfigurationContributor.ts";
 import { ExtensionServiceDIToken } from "../workbench/services/extensions/common/extensions.ts";
 import { registerExtensionSemanticTokens } from "../workbench/services/extensions/common/extensionSemanticTokensContributor.ts";
@@ -364,8 +365,13 @@ async function runEditor(): Promise<void> {
     const headlessBackend = cli.headless
         ? new HeadlessCaptureBackend(new Size(cli.headless.cols, cli.headless.rows))
         : null;
+    // Legacy keys unless the user asked for more: the protocols are not switched mid-session (#1049).
+    const terminalOptions = { extendedKeys: extendedKeysAtStartup(configurationService) };
     const backend =
-        headlessBackend ?? (startupTraceFile !== null ? new TracingNodeTerminalBackend() : new NodeTerminalBackend());
+        headlessBackend ??
+        (startupTraceFile !== null
+            ? new TracingNodeTerminalBackend(undefined, undefined, terminalOptions)
+            : new NodeTerminalBackend(undefined, undefined, terminalOptions));
     const application = new TuiApplication(backend);
     application.validateTreeAfterRender = process.env.DIODE_VALIDATE_TREE === "1";
     const clipboard = new OscClipboard((seq) => {
@@ -417,6 +423,12 @@ async function runEditor(): Promise<void> {
     const container = createProductionContainer({
         app: application,
         backend,
+        enableExtendedKeys:
+            backend instanceof NodeTerminalBackend
+                ? () => {
+                      backend.enableExtendedKeys();
+                  }
+                : undefined,
         theme: initialTheme,
         themeRegistry,
         clipboard,
