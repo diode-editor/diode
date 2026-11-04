@@ -29,10 +29,6 @@ describe("TerminalEnvironmentService", () => {
         delete process.env.SSH_CONNECTION;
         delete process.env.SSH_TTY;
         delete process.env.COLORTERM;
-        delete process.env.KITTY_WINDOW_ID;
-        delete process.env.GHOSTTY_RESOURCES_DIR;
-        delete process.env.WEZTERM_PANE;
-        delete process.env.ALACRITTY_WINDOW_ID;
         delete process.env.TERM_PROGRAM;
         delete process.env.LC_DIODE_PLATFORM;
         delete process.env.LC_TERMINAL;
@@ -43,13 +39,13 @@ describe("TerminalEnvironmentService", () => {
         process.env = savedEnv;
     });
 
-    function create(settings: Record<string, unknown> = {}) {
+    function create(settings: Record<string, unknown> = {}, tmux: TmuxClientInfo = {}) {
         const backend = new MockTerminalBackend();
         const enabled: string[] = [];
         const service = new TerminalEnvironmentService(
             backend,
             configFrom(settings),
-            () => Promise.resolve({ extendedKeys: false }),
+            () => Promise.resolve(tmux),
             () => enabled.push("enable"),
         );
         let changed = 0;
@@ -131,9 +127,7 @@ describe("TerminalEnvironmentService", () => {
         });
 
         it("tmux passing extended keys offers csi-u; the tier stays legacy", async () => {
-            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(), () =>
-                Promise.resolve({ extendedKeys: true }),
-            );
+            const { service } = create({}, { extendedKeys: true });
             service.detectTmuxClient();
             await vi.waitFor(() => {
                 expect(service.availableTier).toBe("csi-u");
@@ -145,9 +139,7 @@ describe("TerminalEnvironmentService", () => {
             ["tmux without extended keys", {}, false],
             ["an explicit tier", { terminal: { tier: "csi-u" } }, true],
         ])("%s: nothing is offered", async (_name, settings, extendedKeys) => {
-            const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom(settings), () =>
-                Promise.resolve({ extendedKeys, termType: "kitty(0.45.0)" }),
-            );
+            const { service } = create(settings, { extendedKeys, termType: "kitty(0.45.0)" });
             service.detectTmuxClient();
             await vi.waitFor(() => {
                 expect(service.terminalName).toBe("kitty(0.45.0)");

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { feed } from "../../../TestUtils/terminalLinks.ts";
-import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
+import { createTestConfigurationService, EXTENDED_TIER_SETTINGS } from "../../../TestUtils/testConfigurationService.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { ExplorerServiceDIToken } from "../contrib/files/browser/explorerService.ts";
 import { TerminalEditorServiceDIToken } from "../contrib/terminal/browser/terminalEditorService.ts";
@@ -37,8 +37,7 @@ describe("Workbench — Terminal: Open Detected Link", () => {
         ws = createTempWorkspace({ prefix: "diode-terminal-detected-links-", files: FILES });
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
-            // Ctrl+Shift+O is gated on an extended tier, which only an explicit setting turns on (#1049).
-            configurationService: createTestConfigurationService({ "terminal.tier": "csi-u", ...settings }),
+            configurationService: createTestConfigurationService({ ...EXTENDED_TIER_SETTINGS, ...settings }),
         });
         terminal = h.container.get(TerminalServiceDIToken);
         input = [];

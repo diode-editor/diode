@@ -18,7 +18,6 @@ describe("Terminal environment integration (context keys + status bar)", () => {
         delete process.env.TMUX;
         delete process.env.SSH_CONNECTION;
         delete process.env.SSH_TTY;
-        delete process.env.KITTY_WINDOW_ID;
         process.env.TERM = "xterm-256color";
     });
 

@@ -433,10 +433,6 @@ describe("Workbench — the tier does not change mid-session (#1049)", () => {
         // Behind tmux keys may arrive CSI-u encoded while diode itself never asked for it.
         process.env.TERM = "tmux-256color";
         process.env.TMUX = "/tmp/tmux-1000/default,1,0";
-        delete process.env.KITTY_WINDOW_ID;
-        delete process.env.GHOSTTY_RESOURCES_DIR;
-        delete process.env.WEZTERM_PANE;
-        delete process.env.ALACRITTY_WINDOW_ID;
         delete process.env.TERM_PROGRAM;
         delete process.env.COLORTERM;
     });

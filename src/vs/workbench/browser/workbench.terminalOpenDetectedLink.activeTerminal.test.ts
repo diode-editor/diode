@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { feed } from "../../../TestUtils/terminalLinks.ts";
-import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
+import { createTestConfigurationService, EXTENDED_TIER_SETTINGS } from "../../../TestUtils/testConfigurationService.ts";
 import { TerminalEditorServiceDIToken } from "../contrib/terminal/browser/terminalEditorService.ts";
 import { TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import { ExtensionPtySession } from "../contrib/terminal/node/extensionPtySession.ts";
@@ -50,7 +50,7 @@ describe("Workbench — Terminal: Open Detected Link targets the focused termina
         // Ctrl+Shift+O is gated on an extended tier, which only an explicit setting turns on (#1049).
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
-            configurationService: createTestConfigurationService({ "terminal.tier": "csi-u" }),
+            configurationService: createTestConfigurationService(EXTENDED_TIER_SETTINGS),
         });
 
         const panelSession = await emulator();

@@ -34,16 +34,10 @@ export function emptyCapabilities(): CapabilitySet {
 }
 
 export type Tier = "legacy" | "csi-u" | "kitty";
-export const TIER_ORDER: readonly Tier[] = ["legacy", "csi-u", "kitty"];
-
 export function resolveTier(caps: CapabilitySet): Tier {
     if (caps["extended-keys"] && caps["kitty-graphics"]) return "kitty";
     if (caps["extended-keys"]) return "csi-u";
     return "legacy";
-}
-
-export function tierAtLeast(a: Tier, b: Tier): boolean {
-    return TIER_ORDER.indexOf(a) >= TIER_ORDER.indexOf(b);
 }
 
 /**

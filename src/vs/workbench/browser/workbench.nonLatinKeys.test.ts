@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
-import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
+import { createTestConfigurationService, EXTENDED_TIER_SETTINGS } from "../../../TestUtils/testConfigurationService.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 
 // Russian layout with extended keys (Kitty / tmux `extended-keys`): the key arrives as the Cyrillic
@@ -29,10 +29,9 @@ describe("Workbench — non-Latin layout keys reach punctuation bindings by phys
     });
 
     async function open(): Promise<{ h: IAppHarness; editor: EditorElement }> {
-        // Ctrl+Shift keys are gated on an extended tier, which only an explicit setting turns on (#1049).
         const h = createAppTestHarness({
             openFile: ws.writeFile("block.txt", BLOCK),
-            configurationService: createTestConfigurationService({ "terminal.tier": "csi-u" }),
+            configurationService: createTestConfigurationService(EXTENDED_TIER_SETTINGS),
         });
         h.workbench.focusEditor();
         const editor = h.testApp.querySelector("EditorElement") as EditorElement;

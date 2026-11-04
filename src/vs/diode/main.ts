@@ -423,12 +423,6 @@ async function runEditor(): Promise<void> {
     const container = createProductionContainer({
         app: application,
         backend,
-        enableExtendedKeys:
-            backend instanceof NodeTerminalBackend
-                ? () => {
-                      backend.enableExtendedKeys();
-                  }
-                : undefined,
         theme: initialTheme,
         themeRegistry,
         clipboard,

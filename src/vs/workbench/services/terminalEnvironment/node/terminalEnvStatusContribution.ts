@@ -61,11 +61,15 @@ export class TerminalEnvStatusContribution extends Disposable {
             configuration.onDidChangeConfiguration((event) => {
                 for (const key of RESTART_SETTINGS) {
                     if (!event.affectsConfiguration(key)) continue;
-                    notifications.show({
+                    const handle = notifications.show({
                         severity: "info",
                         message: `Restart Diode to apply ${key}`,
                         modal: false,
-                        items: [],
+                        items: ["Reload Window"],
+                    });
+                    // Reload restarts the process in place: the new setting applies from startup.
+                    void handle.answered.then((choice) => {
+                        if (choice === 0) void commands.execute("workbench.action.reloadWindow");
                     });
                 }
             }),

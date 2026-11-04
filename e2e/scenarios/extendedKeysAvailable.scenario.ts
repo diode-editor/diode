@@ -14,9 +14,8 @@ writeFileSync(
     [
         "#!/bin/sh",
         'case "$*" in',
-        '  "show-options -sv extended-keys") echo on ;;',
-        '  *client_termfeatures*) echo "bpaste,extkeys,title" ;;',
-        '  *client_termtype*) echo "xterm-256color" ;;',
+        // termtype, termfeatures and the server's extended-keys, tab-separated, in one display-message.
+        "  *client_termfeatures*) printf 'xterm-256color\\tbpaste,extkeys,title\\ton\\n' ;;",
         "  *) exit 1 ;;",
         "esac",
         "",

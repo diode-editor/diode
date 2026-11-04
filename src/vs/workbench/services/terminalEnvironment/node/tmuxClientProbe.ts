@@ -20,6 +20,8 @@ export type TmuxRunner = (args: readonly string[]) => Promise<string | undefined
 
 const TMUX_TIMEOUT_MS = 1000;
 
+const CLIENT_FORMAT = "#{client_termtype}\t#{client_termfeatures}\t#{extended-keys}";
+
 export const runTmux: TmuxRunner = (args) =>
     new Promise((resolve) => {
         // Stryker disable next-line ObjectLiteral: the timeout guards against a hung tmux; a hang does not reproduce in unit tests.
@@ -43,13 +45,13 @@ function nonEmpty(value: string | undefined): string | undefined {
 
 /** Queries tmux about the current client; never throws. */
 export async function queryTmuxClient(run: TmuxRunner = runTmux): Promise<TmuxClientInfo> {
-    const [termType, platform, lcTerminal, extendedKeys, termFeatures] = await Promise.all([
-        run(["display-message", "-p", "#{client_termtype}"]),
+    const [client, platform, lcTerminal] = await Promise.all([
+        // One spawn for the client and the server option: a format expands option names too.
+        run(["display-message", "-p", CLIENT_FORMAT]),
         run(["show-environment", "LC_DIODE_PLATFORM"]),
         run(["show-environment", "LC_TERMINAL"]),
-        run(["show-options", "-sv", "extended-keys"]),
-        run(["display-message", "-p", "#{client_termfeatures}"]),
     ]);
+    const [termType, termFeatures, extendedKeys] = (client ?? "").replace(/\n$/, "").split("\t");
     return {
         termType: nonEmpty(termType),
         envPlatform: parseShowEnvironment(platform, "LC_DIODE_PLATFORM"),
@@ -58,7 +60,7 @@ export async function queryTmuxClient(run: TmuxRunner = runTmux): Promise<TmuxCl
     };
 }
 
-/** `extended-keys` is `on` or `always` (an old tmux without the option errors out — undefined) and `extkeys` is a client feature. */
+/** `extended-keys` is `on` or `always` (empty on a tmux without the option) and `extkeys` is a client feature. */
 export function tmuxPassesExtendedKeys(option: string | undefined, termFeatures: string | undefined): boolean {
     const value = nonEmpty(option);
     if (value === undefined || value === "off") return false;

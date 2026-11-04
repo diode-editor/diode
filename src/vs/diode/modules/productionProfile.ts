@@ -45,8 +45,6 @@ import { workspaceModule } from "./workspaceModule.ts";
 export interface ProductionProfileContext {
     app: TuiApplication;
     backend: ITerminalBackend;
-    /** See `TerminalEnvironmentModuleContext.enableExtendedKeys`. */
-    enableExtendedKeys?: () => void;
     theme: WorkbenchTheme;
     themeRegistry: ThemeRegistry;
     clipboard: IClipboard;
@@ -70,11 +68,7 @@ export interface ProductionProfileContext {
 
 export function createProductionContainer(ctx: ProductionProfileContext): Container {
     // Stryker disable next-line ObjectLiteral: production composition root, no unit test boots it; the $TERM decision lives in `resolveNerdFont` (unit tests), the wiring runs in every e2e scenario
-    const terminalEnvironment = {
-        backend: ctx.backend,
-        term: process.env.TERM,
-        enableExtendedKeys: ctx.enableExtendedKeys,
-    };
+    const terminalEnvironment = { backend: ctx.backend, term: process.env.TERM };
     return new Container()
         .use(coreModule, { app: ctx.app })
         .use(environmentModule, ctx.environment)

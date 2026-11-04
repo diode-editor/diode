@@ -29,9 +29,7 @@ describe("queryTmuxClient", () => {
         const calls: string[] = [];
         const run: TmuxRunner = (args) => {
             calls.push(args.join(" "));
-            if (args[2] === "#{client_termtype}") return Promise.resolve("kitty(0.45.0)\n");
-            if (args[2] === "#{client_termfeatures}") return Promise.resolve("bpaste,extkeys,title\n");
-            if (args[0] === "show-options") return Promise.resolve("on\n");
+            if (args[0] === "display-message") return Promise.resolve("kitty(0.45.0)\tbpaste,extkeys,title\ton\n");
             if (args[1] === "LC_DIODE_PLATFORM") return Promise.resolve("LC_DIODE_PLATFORM=mac\n");
             return Promise.resolve("LC_TERMINAL=iTerm2\n");
         };
@@ -42,11 +40,9 @@ describe("queryTmuxClient", () => {
             extendedKeys: true,
         });
         expect(calls).toEqual([
-            "display-message -p #{client_termtype}",
+            "display-message -p #{client_termtype}\t#{client_termfeatures}\t#{extended-keys}",
             "show-environment LC_DIODE_PLATFORM",
             "show-environment LC_TERMINAL",
-            "show-options -sv extended-keys",
-            "display-message -p #{client_termfeatures}",
         ]);
     });
 
@@ -69,8 +65,8 @@ describe("tmuxPassesExtendedKeys", () => {
         ["on\n", "bpaste,title", false],
         ["on\n", "notextkeys,extkeys2", false],
         ["on\n", undefined, false],
-        [undefined, "extkeys", false], // tmux before 3.2 has no such option
-        ["  \n", "extkeys", false],
+        [undefined, "extkeys", false],
+        ["", "extkeys", false], // tmux before 3.2 has no such option
     ])("extended-keys %j, termfeatures %j → %j", (option, features, expected) => {
         expect(tmuxPassesExtendedKeys(option, features)).toBe(expected);
     });

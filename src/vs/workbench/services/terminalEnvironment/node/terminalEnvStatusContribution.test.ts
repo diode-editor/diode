@@ -9,6 +9,7 @@ import { StatusBarService } from "../../statusbar/common/statusBarService.ts";
 
 import { TerminalEnvironmentService } from "./terminalEnvironmentService.ts";
 import { TerminalEnvStatusContribution } from "./terminalEnvStatusContribution.ts";
+import type { TmuxClientInfo } from "./tmuxClientProbe.ts";
 
 describe("TerminalEnvStatusContribution", () => {
     let savedEnv: NodeJS.ProcessEnv;
@@ -19,7 +20,6 @@ describe("TerminalEnvStatusContribution", () => {
         delete process.env.SSH_CONNECTION;
         delete process.env.SSH_TTY;
         delete process.env.LC_TERMINAL;
-        delete process.env.KITTY_WINDOW_ID;
         delete process.env.TERM_PROGRAM;
         process.env.TERM = "xterm-256color";
     });
@@ -28,16 +28,18 @@ describe("TerminalEnvStatusContribution", () => {
         process.env = savedEnv;
     });
 
-    function segment(settings: Record<string, unknown> = {}) {
+    function segment(settings: Record<string, unknown> = {}, tmux: TmuxClientInfo = {}) {
         const statusBar = new StatusBarService(NULL_STATE_SERVICE);
         const backend = new MockTerminalBackend();
         const configuration = createTestConfigurationService(settings);
-        const env = new TerminalEnvironmentService(backend, configuration);
+        const env = new TerminalEnvironmentService(backend, configuration, () => Promise.resolve(tmux));
         const commands = new CommandRegistry();
         const executed: unknown[][] = [];
-        commands.register("workbench.action.openSettingsJson", (...args: unknown[]) => {
-            executed.push(args);
-        });
+        for (const id of ["workbench.action.openSettingsJson", "workbench.action.reloadWindow"]) {
+            commands.register(id, (...args: unknown[]) => {
+                executed.push([id, ...args]);
+            });
+        }
         const notifications = new NotificationService();
         new TerminalEnvStatusContribution(statusBar, env, commands, configuration, notifications);
         const entry = () => statusBar.entries().find((e) => e.id === "status.terminalEnvironment");
@@ -57,7 +59,7 @@ describe("TerminalEnvStatusContribution", () => {
         const { text, click, executed } = segment();
         expect(text()).toBe("legacy");
         click();
-        expect(executed).toEqual([[{ revealSetting: { key: "terminal.tier" } }]]);
+        expect(executed).toEqual([["workbench.action.openSettingsJson", { revealSetting: { key: "terminal.tier" } }]]);
     });
 
     it("a terminal that answers the kitty probe adds `kitty available` at the end", () => {
@@ -70,23 +72,10 @@ describe("TerminalEnvStatusContribution", () => {
 
     it("under tmux passing extended keys: `legacy · tmux · csi-u available`", async () => {
         process.env.TMUX = "/tmp/tmux-1000/default,1,0";
-        const statusBar = new StatusBarService(NULL_STATE_SERVICE);
-        const configuration = createTestConfigurationService();
-        const env = new TerminalEnvironmentService(new MockTerminalBackend(), configuration, () =>
-            Promise.resolve({ extendedKeys: true }),
-        );
-        new TerminalEnvStatusContribution(
-            statusBar,
-            env,
-            new CommandRegistry(),
-            configuration,
-            new NotificationService(),
-        );
+        const { text, env } = segment({}, { extendedKeys: true });
         env.detectTmuxClient();
         await vi.waitFor(() => {
-            expect(statusBar.entries().find((e) => e.id === "status.terminalEnvironment")?.text).toBe(
-                "legacy · tmux · csi-u available",
-            );
+            expect(text()).toBe("legacy · tmux · csi-u available");
         });
     });
 
@@ -112,16 +101,22 @@ describe("TerminalEnvStatusContribution", () => {
     it.each(["terminal.tier", "terminal.capabilities"])(
         "changing %s in a live session asks for a restart and keeps the tier",
         async (key) => {
-            const { env, configuration, notifications } = segment();
+            const { env, configuration, notifications, executed } = segment();
             await configuration.updateValue(key, key === "terminal.tier" ? "kitty" : { "extended-keys": true });
-            expect(notifications.passive().map((n) => n.message)).toEqual([`Restart Diode to apply ${key}`]);
+            const shown = notifications.current();
+            expect(shown?.message).toBe(`Restart Diode to apply ${key}`);
             expect(env.tier).toBe("legacy");
+
+            notifications.answer(shown?.id ?? -1, 0);
+            await vi.waitFor(() => {
+                expect(executed).toEqual([["workbench.action.reloadWindow"]]);
+            });
         },
     );
 
     it("other settings do not ask for a restart", async () => {
         const { configuration, notifications } = segment();
         await configuration.updateValue("keyboard.platform", "mac");
-        expect(notifications.passive()).toEqual([]);
+        expect(notifications.isEmpty()).toBe(true);
     });
 });

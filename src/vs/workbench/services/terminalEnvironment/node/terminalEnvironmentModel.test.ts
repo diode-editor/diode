@@ -16,7 +16,6 @@ import {
     resolveMacKeysRung,
     resolveOs,
     resolveTier,
-    tierAtLeast,
 } from "./terminalEnvironmentModel.ts";
 
 function caps(overrides: Partial<CapabilitySet>): CapabilitySet {
@@ -39,14 +38,6 @@ describe("TerminalEnvironmentModel", () => {
 
         it("stays legacy when only graphics is present (no extended-keys)", () => {
             expect(resolveTier(caps({ "kitty-graphics": true }))).toBe("legacy");
-        });
-    });
-
-    describe("tierAtLeast", () => {
-        it("orders legacy < csi-u < kitty", () => {
-            expect(tierAtLeast("kitty", "csi-u")).toBe(true);
-            expect(tierAtLeast("csi-u", "csi-u")).toBe(true);
-            expect(tierAtLeast("legacy", "csi-u")).toBe(false);
         });
     });
 

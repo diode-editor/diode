@@ -18,14 +18,16 @@ diode лишь показывает, что он доступен». Иначе 
   старте только явной настройкой: `terminal.tier` `csi-u`/`kitty` или `auto` +
   `terminal.capabilities["extended-keys"]: true` (`extendedKeysAtStartup`). `main.ts` передаёт ответ
   в `NodeTerminalBackend({ extendedKeys })`; без него движок не шлёт ни того, ни другого и на выходе
-  ничего не сбрасывает.
+  ничего не сбрасывает. Позже включить может только сервис (`enableExtendedKeys()` движка, если бэкенд —
+  `NodeTerminalBackend`).
 - Tier считается в конструкторе `TerminalEnvironmentService` и дальше не меняется: подъёма по
   пробе, env-хинту и пришедшей клавише нет. Смена `terminal.tier`/`terminal.capabilities` в живой
   сессии даёт уведомление «Restart Diode to apply …».
 - Пробы только узнают, что **доступно** (`availableTier`, сегмент `legacy · kitty available`): без
-  tmux — ответ на `CSI ? u` → `kitty`; под tmux проба не отвечает, поэтому `detectTmuxClient`
-  спрашивает сам tmux: `show-options -sv extended-keys` не `off` и `extkeys` в
-  `#{client_termfeatures}` → `csi-u`. Когда протоколы уже включены, «available» не показывается.
+  tmux — ответ на `CSI ? u` → `kitty`; под tmux пробы не шлются (ответил бы tmux или никто), а
+  `detectTmuxClient` спрашивает сам tmux одним `display-message`: опция `#{extended-keys}` не `off`
+  и `extkeys` в `#{client_termfeatures}` → `csi-u`. Когда протоколы уже включены, «available» не
+  показывается. Смена настройки предлагает «Reload Window» — перезапуск процесса на месте.
 - **Исключение — мак без tmux.** `auto`, ОС клавиатуры mac, не tmux и терминал ответил на `CSI ? u`
   → один раз `enableExtendedKeys()` движка, tier — по `resolveTier` (`kitty`/`csi-u`), `cap_super`
   поднят (рунг `cmd`). XTVERSION уходит раньше `CSI ? u`, ответы идут по порядку, так что имя
