@@ -45,7 +45,7 @@ describe("Terminal environment integration (context keys + status bar)", () => {
         expect(statusSegments(statusBar.view)[0]).toEqual({ text: "kitty", side: "left" });
     });
 
-    it("auto in kitty stays legacy; the probe answer only adds `kitty available`", async () => {
+    it("auto in kitty starts legacy; the probe answer turns kitty on in context keys and the status bar", async () => {
         process.env.TERM = "xterm-kitty";
         const { contextKeys, statusBar, backend } = await setup();
 
@@ -53,6 +53,16 @@ describe("Terminal environment integration (context keys + status bar)", () => {
         expect(statusSegments(statusBar.view)[0]).toEqual({ text: "legacy", side: "left" });
 
         // activate() already started the probe; the terminal now confirms keyboard-protocol support.
+        backend.resolveKeyboardProtocol(true);
+
+        expect(contextKeys.evaluate("tier == 'kitty'")).toBe(true);
+        expect(contextKeys.evaluate("cap_extendedKeys")).toBe(true);
+        expect(statusSegments(statusBar.view)[0]).toEqual({ text: "kitty", side: "left" });
+    });
+
+    it("legacy in kitty: the probe answer only adds `kitty available`", async () => {
+        process.env.TERM = "xterm-kitty";
+        const { contextKeys, statusBar, backend } = await setup({ "terminal.tier": "legacy" });
         backend.resolveKeyboardProtocol(true);
 
         expect(contextKeys.evaluate("tier == 'legacy'")).toBe(true);

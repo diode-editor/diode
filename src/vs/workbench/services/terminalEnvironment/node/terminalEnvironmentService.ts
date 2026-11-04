@@ -32,9 +32,10 @@ import { queryTmuxClient, type TmuxClientInfo } from "./tmuxClientProbe.ts";
 export const TerminalEnvironmentServiceDIToken = token<TerminalEnvironmentService>("TerminalEnvironmentService");
 
 /**
- * The keyboard protocols (Kitty push + modifyOtherKeys) are on from startup only by an explicit
+ * The keyboard protocols (Kitty push + modifyOtherKeys) are on from the first byte only by an explicit
  * setting: `terminal.tier` `csi-u`/`kitty`, or `auto` with `terminal.capabilities["extended-keys"]: true`.
- * `main.ts` asks this before creating the backend; the answer holds for the whole session.
+ * Plain `auto` turns them on later, once, when the terminal confirms them ({@link TerminalEnvironmentService}).
+ * `main.ts` asks this before creating the backend.
  */
 export function extendedKeysAtStartup(config: IConfigurationService): boolean {
     return protocolsRequested(config.get("terminal.tier"), capabilityOverrides(config));
@@ -61,11 +62,12 @@ function capabilityOverrides(config: IConfigurationService): CapabilityOverrides
 }
 
 /**
- * The tier is fixed at construction and does not change during the session (#1049): the
- * same keys in kitty, tmux and ssh. The one exception is a Mac keyboard outside tmux with
- * `auto`: once the terminal answers the `CSI ? u` probe, the Kitty protocol is turned on
- * for Cmd ({@link detect}). Otherwise the probes only learn what is *available*
- * ({@link availableTier}) for the status bar. Config can force any value.
+ * An explicit tier is fixed at construction. `auto` degrades: it starts in legacy and turns the
+ * protocols on once, at startup, when the terminal confirms them: outside tmux by an answer to
+ * the `CSI ? u` probe ({@link detect}), under tmux by its `extended-keys` and the client's `extkeys`
+ * ({@link detectTmuxClient}). No confirmation means legacy for the whole session. After that the tier
+ * does not change: no promotion by observed keys (#907). With `legacy` (or `extended-keys: false`) the
+ * probes only learn what is *available* ({@link availableTier}) for the status bar. Config can force any value.
  */
 export class TerminalEnvironmentService extends Disposable {
     public static dependencies = [TerminalBackendDIToken, IConfigurationServiceDIToken] as const;
@@ -189,20 +191,21 @@ export class TerminalEnvironmentService extends Disposable {
         this.backend.probeKeyboardProtocol((supported) => {
             if (!supported) return;
             if (this.capabilities["extended-keys"]) this.noteCmdReachable();
-            else if (this.isMacException()) this.enableForMac();
-            else this.noteAvailable("kitty");
+            else if (this.autoEnables()) {
+                this.turnExtendedKeysOn();
+                this.noteCmdReachable();
+            } else this.noteAvailable("kitty");
         });
     }
 
-    /** `auto`, a Mac keyboard and no explicit word on extended keys. */
-    private isMacException(): boolean {
-        return this.tierSetting === "auto" && this.os === "mac" && this.overrides["extended-keys"] === undefined;
+    /** `auto` and no explicit word on extended keys: a confirmed protocol is turned on. */
+    private autoEnables(): boolean {
+        return this.tierSetting === "auto" && this.overrides["extended-keys"] === undefined;
     }
 
-    private enableForMac(): void {
+    private turnExtendedKeysOn(): void {
         this.enableExtendedKeys();
         this.capabilities["extended-keys"] = true;
-        this.noteCmdReachable();
     }
 
     /** The Kitty protocol is on outside tmux: Cmd gets through unless the config says otherwise. */
@@ -227,7 +230,11 @@ export class TerminalEnvironmentService extends Disposable {
         void this.queryTmux().then((info) => {
             this.noteOsSignals({ envPlatform: info.envPlatform, lcTerminal: info.lcTerminal });
             this.noteTerminalName(info.termType);
-            if (info.extendedKeys && !this.capabilities["extended-keys"]) this.noteAvailable("csi-u");
+            if (!info.extendedKeys || this.capabilities["extended-keys"]) return;
+            if (this.autoEnables()) {
+                this.turnExtendedKeysOn();
+                this.emitChange();
+            } else this.noteAvailable("csi-u");
         });
     }
 

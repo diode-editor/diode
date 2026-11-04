@@ -4,8 +4,8 @@ import { delimiter, join } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// #1049: diode keeps legacy keys unless `terminal.tier` asks for more, and only says in the status bar
-// what the terminal could do. Under tmux the availability comes from tmux itself: a fake `tmux` on PATH
+// #1049: with `terminal.tier: "legacy"` diode keeps legacy keys and only says in the status bar
+// what the terminal could do (`auto` would turn csi-u on here). Under tmux the availability comes from tmux itself: a fake `tmux` on PATH
 // answers `extended-keys on` and a client with the `extkeys` feature.
 
 const fakeBin = mkdtempSync(join(tmpdir(), "diode-fake-tmux-"));
@@ -25,12 +25,13 @@ writeFileSync(
 
 export default defineScenario({
     name: "extended-keys-available",
-    title: "Legacy keys by default; the status bar says tmux could pass extended keys",
+    title: "terminal.tier legacy: the status bar says tmux could pass extended keys",
     open: [join(repoRoot, "AGENTS.md")],
     cols: 120,
     rows: 24,
     env: { PATH: `${fakeBin}${delimiter}${process.env.PATH ?? ""}` },
     terminalIdentity: { TMUX: "/tmp/diode-fake-tmux,1,0" },
+    settings: { "terminal.tier": "legacy" },
     // The fake tmux is a shell script.
     skipOn: ["win32"],
     async run(editor) {

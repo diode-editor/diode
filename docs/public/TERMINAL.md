@@ -44,15 +44,17 @@ The setting applies at once, no restart needed.
 ## Keys
 
 The Ctrl+Shift shortcuts, `Ctrl+Tab`, `Ctrl+Enter` and ``Ctrl+` `` need an extended keyboard
-protocol. By default Diode keeps the terminal in its legacy key encoding, so the same keys work
-in every terminal, in tmux and over ssh; see [Keyboard](KEYBOARD.md) for what works that way.
-When the terminal can do more, the left status bar segment says so: `legacy · kitty available`,
-or `legacy · tmux · csi-u available` inside tmux. To turn the extended protocol on, set
-`terminal.tier` to `kitty` or `csi-u` and restart Diode: it then asks for both the kitty keyboard
-protocol and xterm's `modifyOtherKeys` at startup. The tier never changes mid-session.
+protocol. By default (`terminal.tier: "auto"`) Diode starts in the legacy key encoding and turns
+the extended protocol on once, at startup, when the terminal confirms it: outside tmux when the
+terminal answers the kitty protocol query, inside tmux when tmux passes extended keys
+(`extended-keys` on and the `extkeys` feature for your terminal). Otherwise it stays legacy, which
+works in every terminal; see [Keyboard](KEYBOARD.md) for what works that way. The tier never
+changes mid-session. On a Mac outside tmux this is also what makes the Cmd shortcuts reach Diode.
 
-The one exception is a Mac outside tmux: when the terminal answers the kitty protocol query,
-Diode turns the protocol on by itself so that the Cmd shortcuts reach it.
+To keep the legacy keys everywhere, set `terminal.tier` to `legacy`: the left status bar segment
+then says what the terminal could do, `legacy · kitty available` or `legacy · tmux · csi-u
+available`. `kitty` or `csi-u` force the extended protocol on from the first byte. A change applies
+after a restart.
 
 Terminal by terminal, for the extended protocol:
 

@@ -56,17 +56,34 @@ describe("TerminalEnvStatusContribution", () => {
         expect(executed).toEqual([[{ revealSetting: { key: "terminal.tier" } }]]);
     });
 
-    it("a terminal that answers the kitty probe adds `kitty available` at the end", () => {
+    it("auto: a terminal that answers the kitty probe switches the segment to kitty", () => {
         process.env.TERM_PROGRAM = "ghostty";
         const { text, env, backend } = segment();
+        env.detect();
+        backend.resolveKeyboardProtocol(true);
+        expect(text()).toBe("kitty");
+    });
+
+    it("legacy: a terminal that answers the kitty probe adds `kitty available` at the end", () => {
+        process.env.TERM_PROGRAM = "ghostty";
+        const { text, env, backend } = segment({ "terminal.tier": "legacy" });
         env.detect();
         backend.resolveKeyboardProtocol(true);
         expect(text()).toBe("legacy · kitty available");
     });
 
-    it("under tmux passing extended keys: `legacy · tmux · csi-u available`", async () => {
+    it("auto under tmux passing extended keys: `csi-u · tmux`", async () => {
         process.env.TMUX = "/tmp/tmux-1000/default,1,0";
         const { text, env } = segment({}, { extendedKeys: true });
+        env.detectTmuxClient();
+        await vi.waitFor(() => {
+            expect(text()).toBe("csi-u · tmux");
+        });
+    });
+
+    it("legacy under tmux passing extended keys: `legacy · tmux · csi-u available`", async () => {
+        process.env.TMUX = "/tmp/tmux-1000/default,1,0";
+        const { text, env } = segment({ "terminal.tier": "legacy" }, { extendedKeys: true });
         env.detectTmuxClient();
         await vi.waitFor(() => {
             expect(text()).toBe("legacy · tmux · csi-u available");

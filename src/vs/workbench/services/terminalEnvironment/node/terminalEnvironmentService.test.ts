@@ -54,8 +54,8 @@ describe("TerminalEnvironmentService", () => {
         return { backend, service, enabled, changed: () => changed };
     }
 
-    describe("the tier is fixed at startup (#1049)", () => {
-        it("auto stays legacy even in kitty: env hints do not turn anything on", () => {
+    describe("auto degrades: legacy until the terminal confirms, then on once", () => {
+        it("auto starts legacy even in kitty: env hints do not turn anything on", () => {
             process.env.TERM = "xterm-kitty";
             process.env.KITTY_WINDOW_ID = "1";
             const { service } = create();
@@ -63,23 +63,33 @@ describe("TerminalEnvironmentService", () => {
             expect(service.hasCapability("extended-keys")).toBe(false);
         });
 
-        it("auto: a probe answer only reports kitty as available, the tier stays legacy", () => {
+        it("auto: a probe answer turns kitty on once; nothing is offered as available", () => {
+            process.env.TERM_PROGRAM = "ghostty";
             const { backend, service, enabled, changed } = create();
             service.detect();
             backend.resolveKeyboardProtocol(true);
 
-            expect(service.tier).toBe("legacy");
-            expect(service.hasCapability("extended-keys")).toBe(false);
-            expect(service.availableTier).toBe("kitty");
-            expect(enabled).toEqual([]);
+            expect(enabled).toEqual(["enable"]);
+            expect(service.tier).toBe("kitty");
+            expect(service.hasCapability("extended-keys")).toBe(true);
+            expect(service.availableTier).toBeUndefined();
             expect(changed()).toBe(1);
         });
 
-        it("no probe answer: nothing available, no event", () => {
-            const { backend, service, changed } = create();
+        it("the tier follows resolveTier: csi-u without a kitty-graphics hint", () => {
+            const { backend, service } = create();
+            service.detect();
+            backend.resolveKeyboardProtocol(true);
+            expect(service.tier).toBe("csi-u");
+        });
+
+        it("no probe answer: legacy for the session, nothing available, no event", () => {
+            const { backend, service, enabled, changed } = create();
             service.detect();
             backend.resolveKeyboardProtocol(false);
 
+            expect(enabled).toEqual([]);
+            expect(service.tier).toBe("legacy");
             expect(service.availableTier).toBeUndefined();
             expect(changed()).toBe(0);
         });
@@ -100,7 +110,7 @@ describe("TerminalEnvironmentService", () => {
             expect(enabled).toEqual([]);
         });
 
-        it("auto + terminal.capabilities extended-keys: true turns the protocols on", () => {
+        it("auto + terminal.capabilities extended-keys: true turns the protocols on from the first byte", () => {
             process.env.TERM = "xterm-kitty";
             const settings = { terminal: { capabilities: { "extended-keys": true } } };
             const { service } = create(settings);
@@ -114,43 +124,81 @@ describe("TerminalEnvironmentService", () => {
             [{ terminal: { tier: "legacy", capabilities: { "extended-keys": true } } }],
             [{ terminal: { capabilities: { "extended-keys": false } } }],
             [{ terminal: { capabilities: { "extended-keys": "yes" } } }],
-        ])("%j keeps the protocols off and the tier legacy", (settings) => {
+        ])("%j: the protocols are off at the first byte and the tier is legacy", (settings) => {
             expect(extendedKeysAtStartup(configFrom(settings))).toBe(false);
             const { service } = create(settings);
             expect(service.tier).toBe("legacy");
             expect(service.hasCapability("extended-keys")).toBe(false);
         });
+
+        it.each<[Record<string, unknown>]>([
+            [{ tier: "legacy" }],
+            [{ capabilities: { "extended-keys": false } }],
+            [{ tier: "legacy", capabilities: { "extended-keys": true } }],
+        ])("explicit %j: a probe answer only reports kitty as available", (terminal) => {
+            const { backend, service, enabled } = create({ terminal });
+            service.detect();
+            backend.resolveKeyboardProtocol(true);
+            expect(enabled).toEqual([]);
+            expect(service.tier).toBe("legacy");
+            expect(service.availableTier).toBe("kitty");
+        });
     });
 
-    describe("availability under tmux", () => {
+    describe("under tmux", () => {
         beforeEach(() => {
             process.env.TMUX = "/tmp/tmux-1000/default,1,0";
         });
 
-        it("tmux passing extended keys offers csi-u; the tier stays legacy", async () => {
-            const { service } = create({}, { extendedKeys: true });
+        it("auto + tmux passing extended keys: csi-u on once", async () => {
+            const { service, enabled, changed } = create({}, { extendedKeys: true });
+            expect(service.tier).toBe("legacy");
+            service.detectTmuxClient();
+            await vi.waitFor(() => {
+                expect(service.tier).toBe("csi-u");
+            });
+            expect(enabled).toEqual(["enable"]);
+            expect(service.availableTier).toBeUndefined();
+            expect(changed()).toBeGreaterThan(0);
+        });
+
+        it("legacy + tmux passing extended keys offers csi-u; the tier stays legacy", async () => {
+            const { service, enabled } = create({ terminal: { tier: "legacy" } }, { extendedKeys: true });
             service.detectTmuxClient();
             await vi.waitFor(() => {
                 expect(service.availableTier).toBe("csi-u");
             });
+            expect(enabled).toEqual([]);
             expect(service.tier).toBe("legacy");
         });
 
         it.each<[string, Record<string, unknown>, boolean]>([
             ["tmux without extended keys", {}, false],
             ["an explicit tier", { terminal: { tier: "csi-u" } }, true],
-        ])("%s: nothing is offered", async (_name, settings, extendedKeys) => {
-            const { service } = create(settings, { extendedKeys, termType: "kitty(0.45.0)" });
+        ])("%s: nothing is switched or offered", async (_name, settings, extendedKeys) => {
+            const { service, enabled } = create(settings, { extendedKeys, termType: "kitty(0.45.0)" });
+            const tierBefore = service.tier;
             service.detectTmuxClient();
             await vi.waitFor(() => {
                 expect(service.terminalName).toBe("kitty(0.45.0)");
             });
+            expect(enabled).toEqual([]);
+            expect(service.tier).toBe(tierBefore);
             expect(service.availableTier).toBeUndefined();
+        });
+
+        it("the CSI ? u probe is not sent: tmux would not answer it", () => {
+            const { backend, service, enabled } = create({ keyboard: { platform: "mac" } });
+            service.detect();
+            backend.resolveKeyboardProtocol(true);
+            expect(enabled).toEqual([]);
+            expect(service.tier).toBe("legacy");
+            expect(service.macKeysRung).toBe("legacy");
         });
     });
 
-    describe("the Mac exception: kitty on after the probe, outside tmux", () => {
-        it("auto + mac keyboard + a probe answer: kitty on once, tier kitty, rung cmd", () => {
+    describe("mac: the probe answer makes Cmd reachable", () => {
+        it("auto + mac keyboard + a probe answer: kitty on once, rung cmd", () => {
             process.env.TERM_PROGRAM = "ghostty";
             const { backend, service, enabled, changed } = create({ keyboard: { platform: "mac" } });
             expect(service.macKeysRung).toBe("legacy");
@@ -162,16 +210,7 @@ describe("TerminalEnvironmentService", () => {
             expect(service.tier).toBe("kitty");
             expect(service.macKeysRung).toBe("cmd");
             expect(service.hasCapability("super")).toBe(true);
-            expect(service.availableTier).toBeUndefined();
             expect(changed()).toBe(1);
-        });
-
-        it("the tier follows resolveTier: csi-u without a kitty-graphics hint", () => {
-            const { backend, service } = create({ keyboard: { platform: "mac" } });
-            service.detect();
-            backend.resolveKeyboardProtocol(true);
-            expect(service.tier).toBe("csi-u");
-            expect(service.macKeysRung).toBe("cmd");
         });
 
         it("a Mac terminal name from XTVERSION (answered first) is enough", () => {
@@ -192,26 +231,16 @@ describe("TerminalEnvironmentService", () => {
             expect(service.macKeysRung).toBe("legacy");
         });
 
-        it("under tmux: legacy, nothing is switched", () => {
-            process.env.TMUX = "/tmp/tmux-1000/default,1,0";
-            const { backend, service, enabled } = create({ keyboard: { platform: "mac" } });
+        it("explicit legacy: nothing is switched, the rung stays legacy", () => {
+            const { backend, service, enabled } = create({
+                keyboard: { platform: "mac" },
+                terminal: { tier: "legacy" },
+            });
             service.detect();
             backend.resolveKeyboardProtocol(true);
             expect(enabled).toEqual([]);
-            expect(service.tier).toBe("legacy");
             expect(service.macKeysRung).toBe("legacy");
         });
-
-        it.each<[Record<string, unknown>]>([[{ tier: "legacy" }], [{ capabilities: { "extended-keys": false } }]])(
-            "explicit %j: no exception",
-            (terminal) => {
-                const { backend, service, enabled } = create({ keyboard: { platform: "mac" }, terminal });
-                service.detect();
-                backend.resolveKeyboardProtocol(true);
-                expect(enabled).toEqual([]);
-                expect(service.macKeysRung).toBe("legacy");
-            },
-        );
 
         it("a forced super: false keeps the rung at extended", () => {
             const { backend, service } = create({
@@ -235,14 +264,6 @@ describe("TerminalEnvironmentService", () => {
             expect(enabled).toEqual([]);
             expect(service.tier).toBe("kitty");
             expect(service.macKeysRung).toBe("cmd");
-        });
-
-        it("not a mac: no exception", () => {
-            const { backend, service, enabled } = create({ keyboard: { platform: "linux" } });
-            service.detect();
-            backend.resolveKeyboardProtocol(true);
-            expect(enabled).toEqual([]);
-            expect(service.availableTier).toBe("kitty");
         });
     });
 
