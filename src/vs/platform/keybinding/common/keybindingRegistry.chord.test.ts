@@ -150,6 +150,17 @@ describe("KeybindingRegistry — chords", () => {
         });
     });
 
+    it("a shorter binding registered mid-chord (keybindings.json reload) does not break the chord", () => {
+        const registry = new KeybindingRegistry();
+        registry.register(parseChord("ctrl+k ctrl+x s"), "deep");
+
+        expect(registry.resolveKey(makeEvent({ key: "k", ctrlKey: true })).kind).toBe("chord");
+        registry.register(parseKeybinding("ctrl+k"), "short");
+
+        expect(registry.resolveKey(makeEvent({ key: "x", ctrlKey: true })).kind).toBe("chord");
+        expect(registry.resolveKey(makeEvent({ key: "s" }))).toEqual({ kind: "command", commandId: "deep" });
+    });
+
     it("ordinary single combinations still resolve in one step", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+s"), "save");
