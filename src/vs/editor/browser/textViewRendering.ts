@@ -1,4 +1,4 @@
-import { blendRgb, isColorValue } from "@tuidom/core/common/colorUtils";
+import { blendRgb, DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
 import type { DisplayLine } from "@tuidom/core/common/displayLine";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
@@ -237,6 +237,7 @@ export function paintExtensionTextDecorations(
             }
             paintRangeColors(context, glyphRangeOf(decoration), { fg }, geo);
         }
+        // Stryker disable next-line ConditionalExpression: performance only — OR-ing no attributes changes no cell
         if (style !== undefined) {
             // The attributes join what the token set (a bold keyword stays bold under a strikethrough).
             forEachRangeGlyphCell(glyphRangeOf(decoration), geo, (screenX, screenY) => {
@@ -263,7 +264,7 @@ export function paintExtensionTextDecorationOpacity(
         forEachRangeGlyphCell(glyphRangeOf(decoration), geo, (screenX, screenY) => {
             const cell = context.getCell(screenX, screenY);
             // A terminal default color has no RGB to blend.
-            if (cell === null || !isColorValue(cell.fg) || !isColorValue(cell.bg)) return;
+            if (cell === null || cell.fg === DEFAULT_COLOR || cell.bg === DEFAULT_COLOR) return;
             context.setCell(screenX, screenY, { fg: blendRgb(cell.fg, cell.bg, opacity) });
         });
     }

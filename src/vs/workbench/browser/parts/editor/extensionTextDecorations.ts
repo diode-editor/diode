@@ -19,6 +19,7 @@ interface ITypeSet {
 
 /** Whether the range itself draws anything (its `before`/`after` are insertions, not paint). */
 function paints({ bg, fg, style, opacity }: IExtensionTextDecoration): boolean {
+    // Stryker disable next-line ConditionalExpression: performance only — a range without colors, attributes and opacity paints nothing
     return bg !== undefined || fg !== undefined || style !== undefined || opacity !== undefined;
 }
 

@@ -515,7 +515,7 @@ describe("DecorationsCustomer — text attributes and opacity", () => {
     });
 
     it("fontWeight is bold from 600 and for bold/bolder; fontStyle italic and oblique lean", async () => {
-        for (const weight of ["bold", "bolder", "600", " 900 "])
+        for (const weight of ["bold", "bolder", "600", " 900 ", " bold "])
             expect(await styleOf({ fontWeight: weight })).toBe(StyleFlags.Bold);
         for (const weight of ["normal", "lighter", "599", "", "heavy", "100px"])
             expect(await styleOf({ fontWeight: weight })).toBeUndefined();
@@ -526,6 +526,18 @@ describe("DecorationsCustomer — text attributes and opacity", () => {
         expect(await styleOf({ fontStyle: "italic", fontWeight: "700", textDecoration: "underline" })).toBe(
             StyleFlags.Italic | StyleFlags.Bold | StyleFlags.Underline,
         );
+    });
+
+    it("a branch's normal clears the base's weight and style; a branch's garbage is no value and leaves the base", async () => {
+        const base = { fontWeight: "bold", fontStyle: "italic" };
+        expect(await styleOf({ ...base, dark: { fontWeight: "normal", fontStyle: "normal" } })).toBeUndefined();
+        expect(await styleOf({ ...base, dark: { fontWeight: "lighter" } })).toBe(StyleFlags.Italic);
+        for (const garbage of ["", "heavy", "100px"])
+            expect(await styleOf({ ...base, dark: { fontWeight: garbage, fontStyle: garbage } })).toBe(
+                StyleFlags.Bold | StyleFlags.Italic,
+            );
+        expect(await opacityOf({ opacity: "0.5", dark: { opacity: "half" } })).toBe(0.5);
+        expect(await styleOf({ textDecoration: "underline", dark: { textDecoration: "none" } })).toBeUndefined();
     });
 
     it("the branch of the current theme wins property by property; a theme change resends the attributes", async () => {

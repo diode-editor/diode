@@ -1,7 +1,8 @@
-import { blendRgb, compositeOver, packRgb, packRgba } from "@tuidom/core/common/colorUtils";
+import { blendRgb, compositeOver, DEFAULT_COLOR, packRgb, packRgba } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
-import { describe, expect, it } from "vitest";
+import { RenderContext } from "@tuidom/core/dom/tuiElement";
+import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createRange } from "../common/core/iRange.ts";
@@ -250,5 +251,44 @@ describe("EditorElement — extension text decorations", () => {
         expect(fgAt(1, 0)).toBe(blendRgb(blendRgb(red, BG, 0.5), BG, 0.5));
         expect(fgAt(2, 0)).toBe(blendRgb(FG, BG, 0.5));
         expect(fgAt(3, 0)).toBe(FG);
+    });
+
+    describe("cells the attribute and opacity passes cannot read", () => {
+        /**
+         * The patches of the two passes: `{ style }` with the underline and `{ fg }` with the blend of what the cell
+         * reads (other passes read the mocked cell too, with other patches).
+         */
+        function renderWith(cell: ReturnType<RenderContext["getCell"]>) {
+            const { app, editor } = createEditor("abcd", [
+                { range: createRange(0, 0, 0, 4), style: StyleFlags.Underline, opacity: 0.5, isWholeLine: false },
+            ]);
+            const getCell = vi.spyOn(RenderContext.prototype, "getCell").mockReturnValue(cell);
+            const setCell = vi.spyOn(RenderContext.prototype, "setCell");
+            editor.markDirty();
+            app.render();
+            const blended = cell === null ? undefined : blendRgb(cell.fg, cell.bg, 0.5);
+            const patches = setCell.mock.calls
+                .map(([, , patch]) => patch)
+                .filter(
+                    (patch) =>
+                        (Object.keys(patch).join() === "style" && patch.style === StyleFlags.Underline) ||
+                        (Object.keys(patch).join() === "fg" && patch.fg === blended),
+                )
+                .map((patch) => Object.keys(patch).join());
+            getCell.mockRestore();
+            setCell.mockRestore();
+            return patches;
+        }
+        const cell = (fg: number, bg: number) => ({ char: "a", fg, bg, style: StyleFlags.None, width: 1 });
+
+        it("a cell clipped away is left alone", () => {
+            expect(renderWith(null)).toStrictEqual([]);
+        });
+
+        it("a terminal default color, of the text or of the background, has nothing to blend", () => {
+            expect(renderWith(cell(DEFAULT_COLOR, BG)).filter((keys) => keys === "fg")).toStrictEqual([]);
+            expect(renderWith(cell(FG, DEFAULT_COLOR)).filter((keys) => keys === "fg")).toStrictEqual([]);
+            expect(renderWith(cell(FG, BG)).filter((keys) => keys === "fg")).toHaveLength(4);
+        });
     });
 });

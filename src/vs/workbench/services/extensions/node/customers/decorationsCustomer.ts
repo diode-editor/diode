@@ -189,7 +189,7 @@ function boldOf(value: unknown): boolean | undefined {
  */
 function textDecorationOf(value: unknown): StyleFlags | undefined {
     if (typeof value !== "string") return undefined;
-    const words = value.split(";", 1)[0].trim().toLowerCase().split(/\s+/);
+    const words = value.split(";", 1)[0].trim().toLowerCase().split(/\s/);
     let flags: number = StyleFlags.None;
     if (words.includes("underline")) flags |= words.includes("wavy") ? StyleFlags.Undercurl : StyleFlags.Underline;
     if (words.includes("line-through")) flags |= StyleFlags.Strikethrough;
