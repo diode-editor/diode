@@ -17,7 +17,6 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
-import { NotificationService } from "../../../services/notification/browser/notificationService.ts";
 import { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import { TerminalEnvironmentService } from "../../../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { TerminalEnvStatusContribution } from "../../../services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
@@ -180,16 +179,9 @@ export function createStatusBarHarness(languageService: ILanguageService = NULL_
     const contextMenuService = new ContextMenuService(
         new MenuService(new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), [])),
     );
-    const configuration = createTestConfigurationService();
-    const terminalEnv = new TerminalEnvironmentService(new MockTerminalBackend(), configuration);
+    const terminalEnv = new TerminalEnvironmentService(new MockTerminalBackend(), createTestConfigurationService());
     const source = new FakeActiveEditorSource();
-    const terminalContribution = new TerminalEnvStatusContribution(
-        statusBarService,
-        terminalEnv,
-        commands,
-        configuration,
-        new NotificationService(),
-    );
+    const terminalContribution = new TerminalEnvStatusContribution(statusBarService, terminalEnv, commands);
     const editorContribution = new EditorStatusContribution(statusBarService, source, languageService, commands);
     const component = new StatusBarComponent(statusBarService, contextMenuService);
     return {

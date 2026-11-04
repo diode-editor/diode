@@ -1,3 +1,4 @@
+import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBackend";
 import { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,7 +8,7 @@ import type { IConfigurationService } from "../../../../platform/configuration/c
 import { ConfigurationService } from "../../../../platform/configuration/node/configurationService.ts";
 import { terminalConfiguration } from "../../../common/configuration/terminalConfiguration.ts";
 
-import { extendedKeysAtStartup, TerminalEnvironmentService } from "./terminalEnvironmentService.ts";
+import { extendedKeysAtStartup, extendedKeysSwitch, TerminalEnvironmentService } from "./terminalEnvironmentService.ts";
 import type { TmuxClientInfo } from "./tmuxClientProbe.ts";
 
 function configFrom(userRaw: Record<string, unknown> = {}): IConfigurationService {
@@ -542,5 +543,28 @@ describe("TerminalEnvironmentService", () => {
             service.setMode("presentation", true);
             expect(fired).toBe(0);
         });
+    });
+});
+
+describe("extendedKeysSwitch", () => {
+    it("turns the protocols on in a real terminal backend", () => {
+        const writes: string[] = [];
+        const stdout = {
+            write(data: string): boolean {
+                writes.push(data);
+                return true;
+            },
+        } as unknown as NodeJS.WriteStream;
+        const backend = new NodeTerminalBackend(process.stdin, stdout, { extendedKeys: false });
+
+        extendedKeysSwitch(backend)();
+
+        expect(writes.join("")).toContain("\x1b[>15u");
+    });
+
+    it("has nothing to switch on a backend without a terminal", () => {
+        expect(() => {
+            extendedKeysSwitch(new MockTerminalBackend())();
+        }).not.toThrow();
     });
 });

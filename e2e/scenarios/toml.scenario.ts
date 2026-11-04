@@ -15,6 +15,8 @@ const sample = join(projectRoot, "sample.toml");
 
 export default defineScenario({
     name: "toml",
+    // Ctrl+Shift and Shift+Alt shortcuts need an extended tier, which only an explicit setting turns on (#1049).
+    settings: { "terminal.tier": "csi-u" },
     title: "Even Better TOML from the marketplace: diagnostics, format, schema hover, symbols, rename",
     open: [projectRoot, sample],
     installVsix: ["tamasfe.even-better-toml"],

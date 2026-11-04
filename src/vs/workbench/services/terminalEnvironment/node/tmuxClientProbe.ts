@@ -51,7 +51,8 @@ export async function queryTmuxClient(run: TmuxRunner = runTmux): Promise<TmuxCl
         run(["show-environment", "LC_DIODE_PLATFORM"]),
         run(["show-environment", "LC_TERMINAL"]),
     ]);
-    const [termType, termFeatures, extendedKeys] = (client ?? "").replace(/\n$/, "").split("\t");
+    // Each field is trimmed where it is read: the trailing newline goes with the last one.
+    const [termType, termFeatures, extendedKeys] = (client ?? "").split("\t");
     return {
         termType: nonEmpty(termType),
         envPlatform: parseShowEnvironment(platform, "LC_DIODE_PLATFORM"),
@@ -64,5 +65,5 @@ export async function queryTmuxClient(run: TmuxRunner = runTmux): Promise<TmuxCl
 export function tmuxPassesExtendedKeys(option: string | undefined, termFeatures: string | undefined): boolean {
     const value = nonEmpty(option);
     if (value === undefined || value === "off") return false;
-    return (termFeatures ?? "").split(",").some((feature) => feature.trim() === "extkeys");
+    return termFeatures?.split(",").includes("extkeys") ?? false;
 }

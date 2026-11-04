@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
-import { NotificationService } from "../../notification/browser/notificationService.ts";
 import { StatusBarService } from "../../statusbar/common/statusBarService.ts";
 
 import { TerminalEnvironmentService } from "./terminalEnvironmentService.ts";
@@ -35,19 +34,14 @@ describe("TerminalEnvStatusContribution", () => {
         const env = new TerminalEnvironmentService(backend, configuration, () => Promise.resolve(tmux));
         const commands = new CommandRegistry();
         const executed: unknown[][] = [];
-        for (const id of ["workbench.action.openSettingsJson", "workbench.action.reloadWindow"]) {
-            commands.register(id, (...args: unknown[]) => {
-                executed.push([id, ...args]);
-            });
-        }
-        const notifications = new NotificationService();
-        new TerminalEnvStatusContribution(statusBar, env, commands, configuration, notifications);
+        commands.register("workbench.action.openSettingsJson", (...args: unknown[]) => {
+            executed.push(args);
+        });
+        new TerminalEnvStatusContribution(statusBar, env, commands);
         const entry = () => statusBar.entries().find((e) => e.id === "status.terminalEnvironment");
         return {
             env,
             backend,
-            configuration,
-            notifications,
             executed,
             click: () => entry()?.onClick?.(),
             text: () => entry()?.text ?? "",
@@ -59,7 +53,7 @@ describe("TerminalEnvStatusContribution", () => {
         const { text, click, executed } = segment();
         expect(text()).toBe("legacy");
         click();
-        expect(executed).toEqual([["workbench.action.openSettingsJson", { revealSetting: { key: "terminal.tier" } }]]);
+        expect(executed).toEqual([[{ revealSetting: { key: "terminal.tier" } }]]);
     });
 
     it("a terminal that answers the kitty probe adds `kitty available` at the end", () => {
@@ -79,6 +73,13 @@ describe("TerminalEnvStatusContribution", () => {
         });
     });
 
+    it("modes are listed sorted, whatever order they were turned on in", () => {
+        process.env.TMUX = "/tmp/tmux-1000/default,1,0";
+        const { text, env } = segment();
+        env.setMode("presentation", true);
+        expect(text()).toBe("legacy · presentation,tmux");
+    });
+
     it("an explicit tier shows as is, with nothing available", () => {
         const { text, env, backend } = segment({ "terminal.tier": "csi-u" });
         env.detect();
@@ -96,27 +97,5 @@ describe("TerminalEnvStatusContribution", () => {
         expect(text()).toBe("kitty · mac-cmd");
         env.setMode("tmux", true);
         expect(text()).toBe("kitty · mac-extended · tmux");
-    });
-
-    it.each(["terminal.tier", "terminal.capabilities"])(
-        "changing %s in a live session asks for a restart and keeps the tier",
-        async (key) => {
-            const { env, configuration, notifications, executed } = segment();
-            await configuration.updateValue(key, key === "terminal.tier" ? "kitty" : { "extended-keys": true });
-            const shown = notifications.current();
-            expect(shown?.message).toBe(`Restart Diode to apply ${key}`);
-            expect(env.tier).toBe("legacy");
-
-            notifications.answer(shown?.id ?? -1, 0);
-            await vi.waitFor(() => {
-                expect(executed).toEqual([["workbench.action.reloadWindow"]]);
-            });
-        },
-    );
-
-    it("other settings do not ask for a restart", async () => {
-        const { configuration, notifications } = segment();
-        await configuration.updateValue("keyboard.platform", "mac");
-        expect(notifications.isEmpty()).toBe(true);
     });
 });

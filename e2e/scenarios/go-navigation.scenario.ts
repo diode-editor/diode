@@ -22,6 +22,8 @@ const greeterFile = join(GO_SAMPLE_DIR, "greet", "greeter.go");
 
 export default defineScenario({
     name: "go-navigation",
+    // Ctrl+Shift and Shift+Alt shortcuts need an extended tier, which only an explicit setting turns on (#1049).
+    settings: { "terminal.tier": "csi-u" },
     title: "Go (golang.go + gopls): import link to pkg.go.dev, Go to Symbol in Editor, Implementations of an interface method",
     open: [GO_SAMPLE_DIR, greeterFile],
     installVsix: [GO_ID],

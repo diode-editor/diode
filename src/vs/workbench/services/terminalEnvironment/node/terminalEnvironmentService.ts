@@ -49,6 +49,13 @@ function protocolsRequested(tier: TierSetting, overrides: CapabilityOverrides): 
     return tier === "auto" && overrides["extended-keys"] === true;
 }
 
+/** Turns the keyboard protocols on in the real terminal; headless and mock backends have none to switch. */
+export function extendedKeysSwitch(backend: ITerminalBackend): () => void {
+    return () => {
+        if (backend instanceof NodeTerminalBackend) backend.enableExtendedKeys();
+    };
+}
+
 function capabilityOverrides(config: IConfigurationService): CapabilityOverrides {
     return config.get<CapabilityOverrides>("terminal.capabilities") ?? {};
 }
@@ -86,10 +93,7 @@ export class TerminalEnvironmentService extends Disposable {
         backend: ITerminalBackend,
         config: IConfigurationService,
         private readonly queryTmux: () => Promise<TmuxClientInfo> = queryTmuxClient,
-        /** Turns the keyboard protocols on in the real terminal; headless backends have none to switch. */
-        private readonly enableExtendedKeys: () => void = () => {
-            if (backend instanceof NodeTerminalBackend) backend.enableExtendedKeys();
-        },
+        private readonly enableExtendedKeys: () => void = extendedKeysSwitch(backend),
     ) {
         super();
         this.backend = backend;

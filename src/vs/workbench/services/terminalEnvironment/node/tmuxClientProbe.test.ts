@@ -46,6 +46,12 @@ describe("queryTmuxClient", () => {
         ]);
     });
 
+    it("extended-keys off in the last field, before the newline, means no extended keys", async () => {
+        const run: TmuxRunner = (args) =>
+            Promise.resolve(args[0] === "display-message" ? "kitty(0.45.0)\textkeys\toff\n" : undefined);
+        await expect(queryTmuxClient(run)).resolves.toMatchObject({ termType: "kitty(0.45.0)", extendedKeys: false });
+    });
+
     it("an empty termtype and tmux failures mean `unknown`, without exceptions", async () => {
         const run: TmuxRunner = (args) => Promise.resolve(args[1] === "LC_TERMINAL" ? "  \n" : undefined);
         await expect(queryTmuxClient(run)).resolves.toEqual({
