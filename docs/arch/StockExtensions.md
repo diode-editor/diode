@@ -92,7 +92,9 @@
   статус (`Table of Contents (up to date)`, `command: ''`), кнопки Update нет, обновляют `toc.update` и сохранение
   (`toc.updateOnSave`). Подсказки файлов и якорей — за настройкой `markdown.extension.completion.enabled`, по умолчанию
   выключена, как и в эталоне. Своего превью Markdown в Diode нет, поэтому `markdown.previewStyles`, `markdownItPlugins` и
-  `autoShowPreviewToSide` не действуют. `setDecorations` виден частично: зачёркивание есть, фона у code span нет. При
+  `autoShowPreviewToSide` не действуют. `setDecorations` виден частично: зачёркивание рисуют и грамматика (`markup.strikethrough` темы), и декорация расширения
+  (`textDecoration: line-through`, #1058) — без второй его не было бы только в теме без стиля зачёркивания; у code span
+  нет фона, а рамки не будет и дальше (`border` клетке нечем нарисовать). При
   активации расширение пишет в stderr `"undefined" is not valid JSON`: читает `VSCODE_NLS_CONFIG`, которого у нас нет,
   ловит ошибку и работает на английском.
 - **`christian-kohler.npm-intellisense`** — прокси на сток Open VSX 1.4.5, `support: full`, правок в ядре не понадобилось.
@@ -160,7 +162,8 @@
   нет: «No clangd 23.1.0 binary available»). Без `compile_commands.json` у clangd нет фонового индекса: F12 на функцию из
   другого файла ведёт на объявление в заголовке, `#`, Implementations, входящие вызовы и подтипы видят только открытые
   файлы — в сьютах они идут с базой компиляции. `#` отдаёт определение, а не объявление. `support: partial`: неактивные
-  ветки препроцессора не приглушены (`setDecorations` с прозрачностью, класс C эпика #912). `commandPalette` у стока не
+  ветки препроцессора приглушены: тип с `isWholeLine` и `opacity` (`clangd.inactiveRegions.opacity`, 0.55) смешивает цвет
+  текста с фоном (#1058), смоук сверяет цвет комментария в `#if 0` и вне его. `commandPalette` у стока не
   применяется (общая строка «not applied yet»): `Types: Show Base Classes` видна в палитре и вне C++. Сьюты
   `extensionHost.clangd*` и CI-шаги ставят `clangd` из apt; без него — пропуск (`clangdMissing`). Смоук — undercurl на
   `int x = "s";`, сценарий `clangd` — подсказки, `Alt+O`, дерево типа и AST.

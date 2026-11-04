@@ -1,4 +1,5 @@
 import { packRgba } from "@tuidom/core/common/colorUtils";
+import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
 import { parseCssColor } from "../../../../../base/common/color.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
@@ -134,6 +135,11 @@ interface IDecorationType extends IEdgeLayers {
     readonly stickiness: TrackedRangeStickiness | undefined;
     readonly background: IThemed<DecorationColor>;
     readonly foreground: IThemed<DecorationColor>;
+    /** `fontStyle`, `fontWeight` and `textDecoration`, each a CSS property of its own: a theme branch wins per one. */
+    readonly italic: IThemed<boolean>;
+    readonly bold: IThemed<boolean>;
+    readonly textDecoration: IThemed<StyleFlags>;
+    readonly opacity: IThemed<number>;
 }
 
 /** A range of `setDecorations` and its own `renderOptions` (all layers `undefined` without them). */
@@ -158,6 +164,48 @@ function themed<T>(
     of: (layer: Record<string, unknown>) => T | undefined,
 ): IThemed<T> {
     return { base: of(options), light: of(asRecord(options.light)), dark: of(asRecord(options.dark)) };
+}
+
+/** `italic` and `oblique` lean the glyph, `normal` doesn't; anything else is no value. */
+function italicOf(value: unknown): boolean | undefined {
+    if (value === "italic" || value === "oblique") return true;
+    return value === "normal" ? false : undefined;
+}
+
+/** A cell has one weight: `bold`, `bolder` and 600 or more are bold; `normal`, `lighter` and below 600 are not. */
+function boldOf(value: unknown): boolean | undefined {
+    if (typeof value !== "string") return undefined;
+    const weight = value.trim();
+    if (weight === "bold" || weight === "bolder") return true;
+    if (weight === "normal" || weight === "lighter") return false;
+    const numeric = Number(weight);
+    return weight !== "" && Number.isFinite(numeric) ? numeric >= 600 : undefined;
+}
+
+/**
+ * The lines of the CSS `text-decoration` shorthand a cell has: `underline` (`wavy` makes it a curl) and
+ * `line-through`; `overline`, colors and thickness are dropped. Extensions append CSS after `;` (`none; display:
+ * none`), which the cell ignores. `none` is no lines.
+ */
+function textDecorationOf(value: unknown): StyleFlags | undefined {
+    if (typeof value !== "string") return undefined;
+    const words = value.split(";", 1)[0].trim().toLowerCase().split(/\s+/);
+    let flags: number = StyleFlags.None;
+    if (words.includes("underline")) flags |= words.includes("wavy") ? StyleFlags.Undercurl : StyleFlags.Underline;
+    if (words.includes("line-through")) flags |= StyleFlags.Strikethrough;
+    return flags;
+}
+
+/** A CSS `<number>` (no hex, no `Infinity`, unlike `Number()`) and an optional percent sign. */
+const CSS_ALPHA = /^([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)(%?)$/i;
+
+/** A CSS `<alpha-value>`: a number or a percentage, clamped to [0, 1]; garbage is no value. */
+function opacityOf(value: unknown): number | undefined {
+    if (typeof value !== "string") return undefined;
+    const match = CSS_ALPHA.exec(value.trim());
+    if (match === null) return undefined;
+    const numeric = Number(match[1]);
+    return Math.min(1, Math.max(0, match[2] === "%" ? numeric / 100 : numeric));
 }
 
 /** Only the fields a cell can draw; a non-object is no layer. */
@@ -204,6 +252,10 @@ function decorationTypeOf(options: Record<string, unknown>): IDecorationType {
         stickiness: stickinessOf(o.rangeBehavior),
         background: themed(options, (layer) => decorationColorOf(layer.backgroundColor)),
         foreground: themed(options, (layer) => decorationColorOf(layer.color)),
+        italic: themed(options, (layer) => italicOf(layer.fontStyle)),
+        bold: themed(options, (layer) => boldOf(layer.fontWeight)),
+        textDecoration: themed(options, (layer) => textDecorationOf(layer.textDecoration)),
+        opacity: themed(options, (layer) => opacityOf(layer.opacity)),
         ...edgeLayersOf(options),
     };
 }
@@ -226,6 +278,19 @@ function contentTextOf(raw: string): string {
 /** Like upstream's theme class selectors: `.vs-dark, .hc-black` take `dark`, `.vs, .hc-light` take `light`. */
 function isDarkKind(kind: ColorThemeKind): boolean {
     return kind === ColorThemeKind.Dark || kind === ColorThemeKind.HighContrast;
+}
+
+/** The branch of the current theme kind, otherwise the own field. */
+function themedValue<T>(value: IThemed<T>, dark: boolean): T | undefined {
+    return (dark ? value.dark : value.light) ?? value.base;
+}
+
+/** The attributes the type adds to the glyphs; a `normal` weight or style adds nothing (the token's stays). */
+function textStyleOf(type: IDecorationType, dark: boolean): StyleFlags {
+    let style: number = themedValue(type.textDecoration, dark) ?? StyleFlags.None;
+    if (themedValue(type.italic, dark) === true) style |= StyleFlags.Italic;
+    if (themedValue(type.bold, dark) === true) style |= StyleFlags.Bold;
+    return style;
 }
 
 class SpawnDecorations {
@@ -319,6 +384,8 @@ class SpawnDecorations {
             const dark = isDarkKind(this.themeColorResolver.kind());
             const bg = this.resolveThemed(type.background, dark);
             const fg = this.resolveThemed(type.foreground, dark);
+            const style = textStyleOf(type, dark);
+            const opacity = themedValue(type.opacity, dark);
             for (const { range, edges } of ranges) {
                 const before = this.resolveAttachment(type.before, edges.before, dark);
                 const after = this.resolveAttachment(type.after, edges.after, dark);
@@ -326,6 +393,9 @@ class SpawnDecorations {
                     range,
                     ...(bg === undefined ? {} : { bg }),
                     ...(fg === undefined ? {} : { fg }),
+                    ...(style === StyleFlags.None ? {} : { style }),
+                    // Fully opaque text needs no blend; 0 turns the glyph into its background, as in CSS.
+                    ...(opacity === undefined || opacity === 1 ? {} : { opacity }),
                     isWholeLine: type.isWholeLine,
                     ...(type.stickiness === undefined ? {} : { stickiness: type.stickiness }),
                     ...(before === undefined ? {} : { before }),
@@ -386,7 +456,7 @@ class SpawnDecorations {
 
     /** The branch of the current theme kind, otherwise the own field; an unknown theme color id is no color. */
     private resolveThemed(color: IThemed<DecorationColor>, dark: boolean): number | undefined {
-        return this.resolveColor((dark ? color.dark : color.light) ?? color.base);
+        return this.resolveColor(themedValue(color, dark));
     }
 
     private resolveColor(color: DecorationColor | undefined): number | undefined {

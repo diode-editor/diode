@@ -1181,12 +1181,18 @@ export interface SerializedThemableDecorationRenderOptions extends SerializedThe
     readonly backgroundColor?: SerializedColor;
     readonly color?: SerializedColor;
     readonly overviewRulerColor?: SerializedColor;
+    /** CSS strings, as the extension gave them: the host turns them into cell attributes and a color blend. */
+    readonly fontStyle?: string;
+    readonly fontWeight?: string;
+    readonly textDecoration?: string;
+    readonly opacity?: string;
 }
 
 /**
  * Only the fields the host projects: `overviewRulerColor` makes the type a "gutter change-bar",
- * `backgroundColor`/`color` paint the text, `before`/`after` draw cells at its edges; borders, outlines and font
- * styles of the text have nothing to draw with in a cell.
+ * `backgroundColor`/`color` paint the text, `fontStyle`/`fontWeight`/`textDecoration` add cell attributes,
+ * `opacity` fades the text, `before`/`after` draw cells at its edges; borders, outlines and sizes have nothing to
+ * draw with in a cell.
  */
 export interface SerializedDecorationRenderOptions extends SerializedThemableDecorationRenderOptions {
     readonly isWholeLine?: boolean;

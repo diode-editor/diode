@@ -330,4 +330,29 @@ describe("EditorComponent — setExtensionTextDecorations", () => {
         expect(app.backend.getBgAt(new Point(GUTTER + 1, 0))).toBe(editorBg);
         expect(app.backend.getBgAt(new Point(GUTTER + 5, 0))).toBe(selected);
     });
+
+    it("[api:TextEditor.setDecorations] a type with only opacity or only attributes reaches the frame; its text cells stay as they are", () => {
+        const { pane, app } = open("dead\nstrike\nkeep");
+        const fgAt = (x: number, y: number) => app.backend.getFgAt(new Point(GUTTER + x, y));
+        const styleAt = (x: number, y: number) => app.app.screen.getCell(new Point(GUTTER + x, y)).style;
+        const plainFg = fgAt(0, 2);
+        pane.setExtensionTextDecorations({
+            key: 1,
+            decorations: [deco(createRange(0, 0, 0, 0), { opacity: 0.5, isWholeLine: true, after: text("T") })],
+        });
+        pane.setExtensionTextDecorations({
+            key: 2,
+            decorations: [deco(createRange(1, 0, 1, 6), { style: StyleFlags.Strikethrough })],
+        });
+        app.render();
+
+        expect(fgAt(0, 0)).not.toBe(plainFg);
+        expect(fgAt(3, 0)).toBe(fgAt(0, 0));
+        // "deadT": the after text is an insertion of its own, upstream's inline class wraps the line's text only.
+        expect(fgAt(4, 0)).toBe(plainFg);
+        expect(styleAt(0, 1) & StyleFlags.Strikethrough).toBe(StyleFlags.Strikethrough);
+        expect(styleAt(5, 1) & StyleFlags.Strikethrough).toBe(StyleFlags.Strikethrough);
+        expect(styleAt(6, 1) & StyleFlags.Strikethrough).toBe(0);
+        expect(fgAt(0, 2)).toBe(plainFg);
+    });
 });

@@ -6273,8 +6273,7 @@
       "note": "text decorations are not drawn"
     },
     "ThemableDecorationRenderOptions.backgroundColor": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationRenderOptions.before": {
       "class": "C",
@@ -6305,20 +6304,19 @@
       "note": "text decorations are not drawn"
     },
     "ThemableDecorationRenderOptions.color": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok"
     },
     "ThemableDecorationRenderOptions.cursor": {
       "class": "C",
       "note": "text decorations are not drawn"
     },
     "ThemableDecorationRenderOptions.fontStyle": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "italic and oblique are drawn italic; normal does not clear a token's italic"
     },
     "ThemableDecorationRenderOptions.fontWeight": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "bold, bolder and 600+ are drawn bold; normal does not clear a token's bold"
     },
     "ThemableDecorationRenderOptions.gutterIconPath": {
       "class": "ok"
@@ -6331,8 +6329,8 @@
       "note": "text decorations are not drawn"
     },
     "ThemableDecorationRenderOptions.opacity": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "the glyph color is blended toward the cell's final background"
     },
     "ThemableDecorationRenderOptions.outline": {
       "class": "C",
@@ -6354,8 +6352,8 @@
       "class": "ok"
     },
     "ThemableDecorationRenderOptions.textDecoration": {
-      "class": "C",
-      "note": "text decorations are not drawn"
+      "class": "ok",
+      "note": "underline (wavy: undercurl) and line-through are drawn; overline, color and thickness are not"
     },
     "ThemeColor": {
       "class": "ok"
