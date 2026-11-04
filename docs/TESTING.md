@@ -507,7 +507,7 @@ PATH есть. `claudeCodeSessionEnv()` ещё и обнуляет `CLAUDE_CONFI
 
 ## Контракт extension API: тесты эталона (`test:api-conformance`)
 
-`npm run test:api-conformance` (под лизой, скилл `heavy-run`; около 11 минут) запускает `extensions/vscode-api-tests` с запиннённого тега внутри настоящего Diode из исходников и сравнивает зелёные тесты с базовым списком. Это источник задач и храповик [эпика #912](https://github.com/diode-editor/diode/issues/912). Гейта PR нет: прогон идёт ночью (джоба `api-conformance` в `nightly.yml`, красная джоба и сводка в отчёте, релиз она не держит). Перевод в гейт — отдельным решением человека после двух недель без флаков.
+`npm run test:api-conformance` (под лизой, скилл `heavy-run`; около 11 минут) запускает `extensions/vscode-api-tests` с запиннённого тега внутри настоящего Diode из исходников и сравнивает зелёные тесты с базовым списком. Это источник задач и храповик [эпика #912](https://github.com/diode-editor/diode/issues/912). Гейт PR: джоба `api-conformance` в `ci.yml` идёт на каждом PR и push в `main`, параллельно остальным, около пяти минут; регрессия базового списка красит джобу, сводка — артефакт `api-conformance-report`. Отдельно — `node scripts/ci-run.mjs api-conformance`. В мутационный гейт не входит: Stryker гоняет только vitest. В гейт переведена решением человека 2026-11-04 после пяти ночей без единого переключения статуса; до этого джоба шла в `nightly.yml`. Флак — тест в `exclusions.json` с причиной, а не повтор.
 
 Устройство — `e2e/api-conformance/`:
 
@@ -566,7 +566,7 @@ npm run check:diff -- --list           # только показать файл�
 
 ## Гейты в CI без PR
 
-Мутационный гейт, e2e и покрытие можно прогнать на раннере GitHub на своей ветке, без PR и без лизы: `npm run ci:run -- <static|test|mutation|e2e|e2e-windows|all>` → скилл [`heavy-run`](../.claude/skills/heavy-run/SKILL.md#гейт-в-ci-без-pr).
+Мутационный гейт, e2e и покрытие можно прогнать на раннере GitHub на своей ветке, без PR и без лизы: `npm run ci:run -- <static|test|mutation|e2e|e2e-windows|api-conformance|all>` → скилл [`heavy-run`](../.claude/skills/heavy-run/SKILL.md#гейт-в-ci-без-pr).
 
 Тяжёлое локально (полный `npm run lint`, `npm test` перед сдачей, мутационный гейт, e2e, покрытие, `build:sea`, бенчи) — под лизой `claude-lease run -- …`, тот же скилл.
 
