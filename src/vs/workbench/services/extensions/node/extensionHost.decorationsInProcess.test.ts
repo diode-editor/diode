@@ -5,7 +5,10 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
-import type { IEditorDecorationsService } from "../../../api/common/iEditorDecorationsService.ts";
+import {
+    type IEditorDecorationsService,
+    NULL_EDITOR_DECORATIONS_SERVICE,
+} from "../../../api/common/iEditorDecorationsService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
 import type { IFileDecorationsService } from "../../../api/common/iFileDecorationsService.ts";
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
@@ -55,6 +58,7 @@ function makeHost(colors: Record<string, number>) {
     const editorCalls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[] = [];
     const fileCalls: { path: string; color?: number; badge?: string }[][] = [];
     const editorDecorations: IEditorDecorationsService = {
+        ...NULL_EDITOR_DECORATIONS_SERVICE,
         setGutterChangeDecorations: (uri, decorations) => editorCalls.push({ uri, decorations }),
     };
     const fileDecorations: IFileDecorationsService = {

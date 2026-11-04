@@ -7,6 +7,7 @@ import { findFirstIdxMonotonousOrArrLen } from "../../base/common/arraysFind.ts"
 import type { IRange } from "../common/core/iRange.ts";
 import type { ISelection } from "../common/core/iSelection.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
+import type { IExtensionTextDecoration } from "../common/model/iExtensionTextDecoration.ts";
 import type { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
 import {
@@ -162,6 +163,18 @@ function isOutsideRangeBackgrounds(geo: ITextViewportGeometry, row: TextViewport
     return false;
 }
 
+/** Only the patched colors (an absent one is kept): the glyph and the rest of the cell are kept too. */
+function paintRangeColors(
+    context: RenderContext,
+    range: IRange,
+    patch: { bg?: number; fg?: number },
+    geo: ITextViewportGeometry,
+): void {
+    forEachRangeCell(range, geo, (screenX, screenY, column, row) => {
+        if (!isOutsideRangeBackgrounds(geo, row, column)) context.setCell(screenX, screenY, patch);
+    });
+}
+
 /** Only `bg`: the glyph and fg under the highlight are kept. */
 export function paintRangeBackground(
     context: RenderContext,
@@ -169,9 +182,36 @@ export function paintRangeBackground(
     bg: number,
     geo: ITextViewportGeometry,
 ): void {
-    forEachRangeCell(range, geo, (screenX, screenY, column, row) => {
-        if (!isOutsideRangeBackgrounds(geo, row, column)) context.setCell(screenX, screenY, { bg });
-    });
+    paintRangeColors(context, range, { bg }, geo);
+}
+
+/**
+ * In set order, a later decoration over an earlier one; a range off the viewport costs a binary search over
+ * the rows, so thousands of them (Trailing Spaces on a big file) don't slow the frame. An absent color leaves
+ * the cell's own. A whole-line background covers the text area of every row of the range's lines, like
+ * upstream `_renderWholeLineDecorations`; its `fg` still paints only the glyphs.
+ */
+export function paintExtensionTextDecorations(
+    context: RenderContext,
+    decorations: readonly IExtensionTextDecoration[],
+    geo: ITextViewportGeometry,
+): void {
+    for (const { range, bg, fg, isWholeLine } of decorations) {
+        if (!isWholeLine) {
+            paintRangeColors(context, range, { bg, fg }, geo);
+            continue;
+        }
+        for (const row of geo.rows) {
+            if (row.logLine < range.start.line || row.logLine > range.end.line) continue;
+            // Stryker disable next-line EqualityOperator: equivalent — contentCols reaches the element's right edge, a cell past it is cut by the element's clip
+            for (let x = 0; x < geo.contentCols; x++) context.setCell(geo.gutterW + x, row.screenY, { bg });
+        }
+        const lines = {
+            start: { line: range.start.line, character: 0 },
+            end: { line: range.end.line, character: Number.MAX_SAFE_INTEGER },
+        };
+        paintRangeColors(context, lines, { fg }, geo);
+    }
 }
 
 /**

@@ -30,7 +30,7 @@
     },
     "window.createTextEditorDecorationType": {
       "class": "C",
-      "note": "text decorations are not drawn; gutter and overview ruler only"
+      "note": "background, text color, isWholeLine, light/dark branches and gutter bars are drawn; border, outline, font styles, opacity and before/after are not (#1023)"
     },
     "window.createTreeView": {
       "class": "ok"

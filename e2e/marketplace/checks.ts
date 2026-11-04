@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { compositeOver, packRgb, packRgba } from "@tuidom/core/common/colorUtils";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
 import {
@@ -632,7 +633,8 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
     {
         // kind: "proxy-openvsx": the stock Trailing Spaces edits through `registerTextEditorCommand` and a
         // will-save `waitUntil`. Blanks don't show in a frame, so the status bar column at the line end
-        // stands for them: 9 with the spaces, 6 without.
+        // stands for them: 9 with the spaces, 6 without. The highlight is the cells' background: its default
+        // `rgba(255,0,0,0.3)` over the editor background, off the caret line (`highlightCurrentLine`).
         id: "shardulm94.trailing-spaces",
         expectFiles: ["package.json", "dist/extension.js"],
         run: async (ctx) => {
@@ -649,13 +651,29 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
             writeFileSync(byCommand, source);
             const commandApp = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [byCommand] });
             try {
-                // Awaits activation; the highlight itself is not painted, but must not fail.
                 await commandApp.session.executeCommand("trailing-spaces.highlightTrailingSpaces");
                 await commandApp.session.key("Ctrl+Home");
                 await commandApp.session.key("End");
                 await commandApp.session.waitForText((text) => text.includes("Ln 1, Col 9"), { timeoutMs: 20_000 });
+                const trailingBgs = async () => {
+                    const frame = await commandApp.session.captureFrame();
+                    const beta = findTextCell(frame, "beta");
+                    if (beta === null) throw new Error("beta is not on screen");
+                    const at = (dx: number) => frame.cells[beta.y * frame.cols + beta.x + dx].bg;
+                    return { spaces: [at(4), at(5)], editorBg: at(12) };
+                };
+                const highlighted = compositeOver(packRgba(255, 0, 0, 77), packRgb(0x1f, 0x1f, 0x1f));
+                await waitUntil(trailingBgs, ({ spaces, editorBg }) =>
+                    editorBg === packRgb(0x1f, 0x1f, 0x1f) && spaces.every((bg) => bg === highlighted),
+                    { describe: "the trailing spaces of beta highlighted", timeoutMs: 20_000, intervalMs: 100 },
+                );
                 await commandApp.session.executeCommand("trailing-spaces.deleteTrailingSpaces");
                 await commandApp.session.waitForText((text) => text.includes("Ln 1, Col 6"), { timeoutMs: 20_000 });
+                await waitUntil(trailingBgs, ({ spaces, editorBg }) => spaces.every((bg) => bg === editorBg), {
+                    describe: "no highlight after Delete",
+                    timeoutMs: 20_000,
+                    intervalMs: 100,
+                });
                 await commandApp.session.key("Ctrl+S");
                 await waitForContent(byCommand, trimmed);
             } finally {
