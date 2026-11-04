@@ -37,7 +37,8 @@ describe("Workbench — Terminal: Open Detected Link", () => {
         ws = createTempWorkspace({ prefix: "diode-terminal-detected-links-", files: FILES });
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
-            configurationService: createTestConfigurationService(settings),
+            // Ctrl+Shift+O is gated on an extended tier, which only an explicit setting turns on (#1049).
+            configurationService: createTestConfigurationService({ "terminal.tier": "csi-u", ...settings }),
         });
         terminal = h.container.get(TerminalServiceDIToken);
         input = [];

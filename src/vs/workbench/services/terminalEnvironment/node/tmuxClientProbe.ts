@@ -13,7 +13,7 @@ export interface TmuxClientInfo {
      * tmux passes extended keys to us if asked: `extended-keys` is not `off` and the client
      * terminal has the `extkeys` feature (`#{client_termfeatures}`).
      */
-    readonly extendedKeys: boolean;
+    readonly extendedKeys?: boolean;
 }
 
 export type TmuxRunner = (args: readonly string[]) => Promise<string | undefined>;

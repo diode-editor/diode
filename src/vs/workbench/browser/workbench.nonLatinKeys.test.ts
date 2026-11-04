@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
+import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 
@@ -28,7 +29,11 @@ describe("Workbench — non-Latin layout keys reach punctuation bindings by phys
     });
 
     async function open(): Promise<{ h: IAppHarness; editor: EditorElement }> {
-        const h = createAppTestHarness({ openFile: ws.writeFile("block.txt", BLOCK) });
+        // Ctrl+Shift keys are gated on an extended tier, which only an explicit setting turns on (#1049).
+        const h = createAppTestHarness({
+            openFile: ws.writeFile("block.txt", BLOCK),
+            configurationService: createTestConfigurationService({ "terminal.tier": "csi-u" }),
+        });
         h.workbench.focusEditor();
         const editor = h.testApp.querySelector("EditorElement") as EditorElement;
         // The workbench computes folding regions after a debounce, not on open.
