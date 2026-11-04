@@ -12,7 +12,8 @@
   (диагностики большого файла, подсветка всех вхождений поиска) — до того линейный
   проход дешевле дерева.
 - [ ] **Перевести остальные декорации на модель**: подсветку совпадений поиска
-  (`EditorViewState.searchMatches`), gutter-бары SCM (`gutterChangeDecorations`),
+  (`EditorViewState.searchMatches`), gutter-бары SCM и типов декораций расширений (`gutterChangeDecorations`;
+  фон и `before`/`after` тех же типов уже трекнуты — `ExtensionTextDecorations`, #1023),
   `IExternalDecorations` диффа — сейчас между пересчётами их владельцев они стоят на
   старых координатах так же, как стояли маркеры.
 - [ ] **`ownerId` и `getDecorationsInRange`** — как у эталона, чтобы вью читала декорации

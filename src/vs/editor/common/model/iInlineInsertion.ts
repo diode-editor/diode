@@ -18,6 +18,8 @@ export interface IInlineInsertion {
     readonly colorToken?: string;
     /** Theme token of the cells' background, composited over the editor background; absent — the line's own. */
     readonly bgToken?: string;
+    /** Packed RGBA of the cells' background, already resolved (extension decorations); wins over {@link bgToken}. */
+    readonly bg?: number;
     readonly italic?: boolean;
     readonly dim?: boolean;
     /** A selection, find match or occurrence spanning the insertion leaves its cells alone (inlay hints). */

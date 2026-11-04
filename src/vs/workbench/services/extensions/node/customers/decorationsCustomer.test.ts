@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
-import type { IExtensionTextDecoration } from "../../../../../editor/common/model/iExtensionTextDecoration.ts";
+import type {
+    IExtensionTextDecoration,
+    IExtensionTextDecorationSet,
+} from "../../../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../../editor/common/model/iGutterChangeDecoration.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
@@ -27,14 +30,14 @@ const COLORS: Record<string, number> = {
 /** `rpcLogger.warn` catches notification handler exceptions — RpcEndpoint swallows them. */
 function setup(colors: Record<string, number> = COLORS) {
     const editorCalls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[] = [];
-    const textCalls: { uri: string; decorations: readonly IExtensionTextDecoration[] }[] = [];
+    const textCalls: { uri: string; set: IExtensionTextDecorationSet }[] = [];
     const fileCalls: { path: string; color?: number; badge?: string }[][] = [];
     const themeListeners: (() => void)[] = [];
     let kind = ColorThemeKind.Dark;
     const customer = new DecorationsCustomer(
         {
             setGutterChangeDecorations: (uri, decorations) => editorCalls.push({ uri, decorations }),
-            setExtensionTextDecorations: (uri, decorations) => textCalls.push({ uri, decorations }),
+            setExtensionTextDecorations: (uri, set) => textCalls.push({ uri, set }),
         },
         { setFileDecorations: (entries) => fileCalls.push([...entries]) },
         {
@@ -72,7 +75,22 @@ function setup(colors: Record<string, number> = COLORS) {
             for (const cb of themeListeners) cb();
         },
         editorCallsFor: (file: string) => editorCalls.filter((c) => c.uri === Uri.file(file).toString()),
-        textFor: (file: string) => textCalls.filter((c) => c.uri === Uri.file(file).toString()).at(-1)?.decorations,
+        textCalls,
+        /**
+         * What the editor holds: the last set of each type, in key order, without decorations that draw nothing
+         * (`ExtensionTextDecorations` paints and inserts nothing for them).
+         */
+        textFor: (file: string) => {
+            const byKey = new Map<number, readonly IExtensionTextDecoration[]>();
+            for (const { uri, set } of textCalls)
+                if (uri === Uri.file(file).toString()) byKey.set(set.key, set.decorations);
+            return [...byKey]
+                .sort(([a], [b]) => a - b)
+                .flatMap(([, decorations]) => decorations)
+                .filter(
+                    (d) => d.bg !== undefined || d.fg !== undefined || d.before !== undefined || d.after !== undefined,
+                );
+        },
     };
 }
 
@@ -107,7 +125,7 @@ describe("DecorationsCustomer — editor gutter decorations", () => {
 
         const uri = Uri.file("/a.ts").toString();
         for (const key of [1, 2, 3, 4, 5, 6])
-            h.peer.notify("editor.setDecorations", { key, uri, ranges: [range(key)] });
+            h.peer.notify("editor.setDecorations", { key, uri, ranges: [{ range: range(key) }] });
         await flushMicrotasks(10);
 
         expect(h.editorCallsFor("/a.ts").at(-1)?.decorations).toStrictEqual([{ range: range(1), color: ADD }]);
@@ -126,8 +144,8 @@ describe("DecorationsCustomer — editor gutter decorations", () => {
         });
         await flushMicrotasks(10);
         const uri = Uri.file("/f.ts").toString();
-        h.peer.notify("editor.setDecorations", { key: 1, uri, ranges: [range(2)] });
-        h.peer.notify("editor.setDecorations", { key: 2, uri, ranges: [range(5)] });
+        h.peer.notify("editor.setDecorations", { key: 1, uri, ranges: [{ range: range(2) }] });
+        h.peer.notify("editor.setDecorations", { key: 2, uri, ranges: [{ range: range(5) }] });
         await flushMicrotasks(10);
 
         expect(h.editorCallsFor("/f.ts").at(-1)?.decorations).toStrictEqual([
@@ -147,8 +165,16 @@ describe("DecorationsCustomer — editor gutter decorations", () => {
             options: gutter("editorGutter.addedBackground"),
         });
         await flushMicrotasks(10);
-        h.peer.notify("editor.setDecorations", { key: 1, uri: Uri.file("/a.ts").toString(), ranges: [range(1)] });
-        h.peer.notify("editor.setDecorations", { key: 2, uri: Uri.file("/b.ts").toString(), ranges: [range(1)] });
+        h.peer.notify("editor.setDecorations", {
+            key: 1,
+            uri: Uri.file("/a.ts").toString(),
+            ranges: [{ range: range(1) }],
+        });
+        h.peer.notify("editor.setDecorations", {
+            key: 2,
+            uri: Uri.file("/b.ts").toString(),
+            ranges: [{ range: range(1) }],
+        });
         await flushMicrotasks(10);
 
         h.peer.notify("editor.setDecorations", { key: 2, uri: Uri.file("/b.ts").toString(), ranges: [] });
@@ -162,7 +188,11 @@ describe("DecorationsCustomer — editor gutter decorations", () => {
         expect(h.editorCalls.slice(before)).toStrictEqual([{ uri: Uri.file("/a.ts").toString(), decorations: [] }]);
 
         // A disposed type is no longer drawn, even if the subprocess sends a set for it.
-        h.peer.notify("editor.setDecorations", { key: 1, uri: Uri.file("/a.ts").toString(), ranges: [range(3)] });
+        h.peer.notify("editor.setDecorations", {
+            key: 1,
+            uri: Uri.file("/a.ts").toString(),
+            ranges: [{ range: range(3) }],
+        });
         await flushMicrotasks(10);
         expect(h.editorCallsFor("/a.ts").at(-1)?.decorations).toStrictEqual([]);
     });
@@ -221,7 +251,11 @@ describe("DecorationsCustomer — theme", () => {
             options: gutter("editorGutter.addedBackground"),
         });
         await flushMicrotasks(10);
-        h.peer.notify("editor.setDecorations", { key: 1, uri: Uri.file("/a.ts").toString(), ranges: [range(1)] });
+        h.peer.notify("editor.setDecorations", {
+            key: 1,
+            uri: Uri.file("/a.ts").toString(),
+            ranges: [{ range: range(1) }],
+        });
         h.peer.notify("window.fileDecorationsChanged", { decorations: [{ uri: "file:///x.md", badge: "M" }] });
         await flushMicrotasks(10);
         const editorBefore = h.editorCalls.length;
@@ -267,7 +301,7 @@ const span = (line: number, from: number, to: number) => ({
 const A_TS = Uri.file("/a.ts").toString();
 
 describe("DecorationsCustomer — text decorations", () => {
-    async function typed(options: unknown, ranges: unknown[] = [span(0, 5, 8)]) {
+    async function typed(options: unknown, ranges: unknown[] = [{ range: span(0, 5, 8) }]) {
         const h = setup();
         h.peer.notify("window.createTextEditorDecorationType", { key: 1, options });
         h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges });
@@ -357,20 +391,24 @@ describe("DecorationsCustomer — text decorations", () => {
             { range: span(0, 5, 8), bg: packRgb(0xff, 0xff, 1), fg: packRgb(0, 0, 2), isWholeLine: false },
         ]);
         h.changeTheme(ColorThemeKind.HighContrastLight);
-        expect(h.textFor("/a.ts")?.[0].bg).toBe(packRgb(0xff, 0xff, 1));
+        expect(h.textFor("/a.ts")[0].bg).toBe(packRgb(0xff, 0xff, 1));
         h.changeTheme(ColorThemeKind.HighContrast);
-        expect(h.textFor("/a.ts")?.[0].bg).toBe(packRgb(0x33, 0, 1));
+        expect(h.textFor("/a.ts")[0].bg).toBe(packRgb(0x33, 0, 1));
     });
 
     it("[api:TextEditor.setDecorations] types paint in creation order whatever order their sets came in; ranges keep theirs", async () => {
         const h = setup();
         h.peer.notify("window.createTextEditorDecorationType", { key: 1, options: { backgroundColor: "#000001" } });
         h.peer.notify("window.createTextEditorDecorationType", { key: 2, options: { backgroundColor: "#000002" } });
-        h.peer.notify("editor.setDecorations", { key: 2, uri: A_TS, ranges: [span(3, 0, 1), span(1, 0, 1)] });
-        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [span(2, 0, 1)] });
+        h.peer.notify("editor.setDecorations", {
+            key: 2,
+            uri: A_TS,
+            ranges: [{ range: span(3, 0, 1) }, { range: span(1, 0, 1) }],
+        });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [{ range: span(2, 0, 1) }] });
         await flushMicrotasks(10);
 
-        expect(h.textFor("/a.ts")?.map((d) => [d.bg, d.range.start.line])).toStrictEqual([
+        expect(h.textFor("/a.ts").map((d) => [d.bg, d.range.start.line])).toStrictEqual([
             [packRgb(0, 0, 1), 2],
             [packRgb(0, 0, 2), 3],
             [packRgb(0, 0, 2), 1],
@@ -392,17 +430,210 @@ describe("DecorationsCustomer — text decorations", () => {
 
     it("[api:TextEditor.setDecorations] a repeated set replaces the type's set, an empty one and dispose remove it", async () => {
         const h = await typed({ backgroundColor: "red" });
-        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [span(4, 0, 2)] });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [{ range: span(4, 0, 2) }] });
         await flushMicrotasks(10);
-        expect(h.textFor("/a.ts")?.map((d) => d.range)).toStrictEqual([span(4, 0, 2)]);
+        expect(h.textFor("/a.ts").map((d) => d.range)).toStrictEqual([span(4, 0, 2)]);
 
         h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [] });
         await flushMicrotasks(10);
         expect(h.textFor("/a.ts")).toStrictEqual([]);
 
-        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [span(4, 0, 2)] });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [{ range: span(4, 0, 2) }] });
         h.peer.notify("window.disposeTextEditorDecorationType", { key: 1 });
         await flushMicrotasks(10);
         expect(h.textFor("/a.ts")).toStrictEqual([]);
+    });
+});
+
+/** The type Tailwind CSS IntelliSense 0.16 creates for its color squares. */
+const TAILWIND_TYPE = {
+    before: { contentText: " " },
+    dark: { before: { borderColor: "#eeeeee" } },
+    light: { before: { borderColor: "#000000" } },
+};
+const RED_500 = packRgba(239, 68, 68, 255);
+
+describe("DecorationsCustomer — before/after attachments", () => {
+    async function withRanges(options: unknown, ranges: unknown[]) {
+        const h = setup();
+        h.peer.notify("window.createTextEditorDecorationType", { key: 1, options });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges });
+        await flushMicrotasks(10);
+        return h;
+    }
+
+    it("[api:TextEditor.setDecorations] a blank contentText with a range background is a swatch of that color (Tailwind)", async () => {
+        const h = await withRanges(TAILWIND_TYPE, [
+            {
+                range: span(0, 7, 17),
+                renderOptions: { before: { backgroundColor: "rgba(239.00000000000003, 68, 68, 1)" } },
+            },
+        ]);
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            { range: span(0, 7, 17), isWholeLine: false, before: { kind: "swatch", color: RED_500 } },
+        ]);
+    });
+
+    it("[api:window.createTextEditorDecorationType] a swatch takes backgroundColor, else borderColor of the theme branch, else color", async () => {
+        const h = await withRanges(TAILWIND_TYPE, [{ range: span(0, 1, 2) }]);
+        expect(h.textFor("/a.ts")[0].before).toStrictEqual({ kind: "swatch", color: packRgb(0xee, 0xee, 0xee) });
+        h.changeTheme(ColorThemeKind.Light);
+        expect(h.textFor("/a.ts")[0].before).toStrictEqual({ kind: "swatch", color: packRgb(0, 0, 0) });
+
+        const colorOnly = await withRanges({ after: { color: "blue", borderColor: "#ggg" } }, [
+            { range: span(0, 1, 2) },
+        ]);
+        expect(colorOnly.textFor("/a.ts")[0].after).toStrictEqual({ kind: "swatch", color: packRgb(0, 0, 255) });
+    });
+
+    it("no text and no color — nothing is drawn, also with a blank contentText or an unparsable color", async () => {
+        const h = await withRanges({ before: { contentText: " \t " }, after: {} }, [
+            { range: span(0, 1, 2) },
+            { range: span(1, 1, 2), renderOptions: { before: { backgroundColor: "rgba(1,2)" } } },
+        ]);
+        expect(h.textFor("/a.ts")).toStrictEqual([]);
+        expect(h.rpcLogger.warn).not.toHaveBeenCalled();
+    });
+
+    it("[api:window.createTextEditorDecorationType] text takes its color, background and italic; without them it has none", async () => {
+        const h = await withRanges(
+            {
+                after: {
+                    contentText: "  You, 2 days ago",
+                    color: "#808080",
+                    backgroundColor: "#102030",
+                    fontStyle: "italic",
+                },
+                before: { contentText: "⚠ ", fontStyle: "oblique" },
+            },
+            [{ range: span(2, 0, 4) }],
+        );
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            {
+                range: span(2, 0, 4),
+                isWholeLine: false,
+                before: { kind: "text", text: "⚠ ", italic: true },
+                after: {
+                    kind: "text",
+                    text: "  You, 2 days ago",
+                    fg: packRgb(0x80, 0x80, 0x80),
+                    bg: packRgb(0x10, 0x20, 0x30),
+                    italic: true,
+                },
+            },
+        ]);
+    });
+
+    it("contentText keeps its first line only, a tab becomes a space, control characters go", async () => {
+        const h = await withRanges({ after: { contentText: "a\tb\u0007c\u009b\u007f\nsecond" } }, [
+            { range: span(0, 0, 1) },
+        ]);
+        expect(h.textFor("/a.ts")[0].after).toStrictEqual({ kind: "text", text: "a bc", italic: false });
+        const cr = await withRanges({ after: { contentText: "one\rtwo" } }, [{ range: span(0, 0, 1) }]);
+        expect(cr.textFor("/a.ts")[0].after).toStrictEqual({ kind: "text", text: "one", italic: false });
+    });
+
+    it("[api:TextEditor.setDecorations] type ⊕ type branch ⊕ range ⊕ range branch, a later layer wins field by field", async () => {
+        const h = await withRanges(
+            {
+                after: { contentText: "type", color: "#000001", fontStyle: "italic" },
+                dark: { after: { color: "#000002", backgroundColor: "#000003" } },
+            },
+            [
+                {
+                    range: span(0, 0, 1),
+                    renderOptions: {
+                        after: { contentText: "range", backgroundColor: "#000004" },
+                        dark: { after: { fontStyle: "normal" } },
+                        light: { after: { color: "#000005" } },
+                    },
+                },
+                { range: span(1, 0, 1) },
+            ],
+        );
+        expect(h.textFor("/a.ts").map((d) => d.after)).toStrictEqual([
+            { kind: "text", text: "range", fg: packRgb(0, 0, 2), bg: packRgb(0, 0, 4), italic: false },
+            { kind: "text", text: "type", fg: packRgb(0, 0, 2), bg: packRgb(0, 0, 3), italic: true },
+        ]);
+
+        h.changeTheme(ColorThemeKind.Light);
+        expect(h.textFor("/a.ts").map((d) => d.after)).toStrictEqual([
+            { kind: "text", text: "range", fg: packRgb(0, 0, 5), bg: packRgb(0, 0, 4), italic: true },
+            { kind: "text", text: "type", fg: packRgb(0, 0, 1), italic: true },
+        ]);
+    });
+
+    it("a ThemeColor in an attachment resolves through the theme, an unknown one is no color", async () => {
+        const h = await withRanges({ after: { contentText: "x", color: { $themeColor: "editor.foreground" } } }, [
+            { range: span(0, 0, 1), renderOptions: { before: { backgroundColor: { $themeColor: "no.such" } } } },
+        ]);
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            { range: span(0, 0, 1), isWholeLine: false, after: { kind: "text", text: "x", fg: FG, italic: false } },
+        ]);
+    });
+
+    it("garbage renderOptions are no layer, the type's own attachments live on", async () => {
+        const h = await withRanges({ before: { contentText: "t" } }, [
+            { range: span(0, 0, 1), renderOptions: { before: "red", after: 5, light: "x", dark: null } },
+            { range: span(1, 0, 1), renderOptions: { before: null, dark: { before: null } } },
+        ]);
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            { range: span(0, 0, 1), isWholeLine: false, before: { kind: "text", text: "t", italic: false } },
+            { range: span(1, 0, 1), isWholeLine: false, before: { kind: "text", text: "t", italic: false } },
+        ]);
+    });
+
+    it("an unparsable color of a range leaves the earlier layer's colors, as an invalid CSS value does", async () => {
+        const h = await withRanges(TAILWIND_TYPE, [
+            {
+                range: span(0, 1, 2),
+                renderOptions: { before: { backgroundColor: "rgba(1,2)", borderColor: "#ggg", color: 5 } },
+            },
+        ]);
+        expect(h.textFor("/a.ts")[0].before).toStrictEqual({ kind: "swatch", color: packRgb(0xee, 0xee, 0xee) });
+    });
+
+    it("[api:window.createTextEditorDecorationType] rangeBehavior becomes the tracked stickiness; an unknown value is the default", async () => {
+        for (const rangeBehavior of [0, 1, 2, 3]) {
+            const h = await withRanges({ rangeBehavior, before: { contentText: "t" } }, [{ range: span(0, 0, 1) }]);
+            expect(h.textFor("/a.ts")[0].stickiness).toBe(rangeBehavior);
+        }
+        for (const rangeBehavior of [-1, 4, "1", 1.5]) {
+            const h = await withRanges({ rangeBehavior, before: { contentText: "t" } }, [{ range: span(0, 0, 1) }]);
+            expect(h.textFor("/a.ts")[0]).not.toHaveProperty("stickiness");
+        }
+    });
+
+    it("every range of the type goes in each set, a theme change resends them as a restyle", async () => {
+        const h = await withRanges({ before: { contentText: "t" } }, [{ range: span(0, 0, 1) }]);
+        expect(h.textCalls.at(-1)?.set).toStrictEqual({
+            key: 1,
+            decorations: [
+                { range: span(0, 0, 1), isWholeLine: false, before: { kind: "text", text: "t", italic: false } },
+            ],
+        });
+        h.changeTheme(ColorThemeKind.Light);
+        expect(h.textCalls.at(-1)?.set.restyle).toBe(true);
+        expect(h.textCalls.at(-1)?.set.decorations).toHaveLength(1);
+
+        // A type that draws nothing in this theme still sends its ranges: the restyle keeps them by index.
+        const nothing = await withRanges({ light: { before: { contentText: "t" } } }, [{ range: span(0, 0, 1) }]);
+        expect(nothing.textCalls.at(-1)?.set.decorations).toStrictEqual([{ range: span(0, 0, 1), isWholeLine: false }]);
+    });
+
+    it("disposing a type sends an empty set of that type only, in each file it was in", async () => {
+        const h = setup();
+        h.peer.notify("window.createTextEditorDecorationType", { key: 1, options: { before: { contentText: "a" } } });
+        h.peer.notify("window.createTextEditorDecorationType", { key: 2, options: { before: { contentText: "b" } } });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [{ range: span(0, 0, 1) }] });
+        h.peer.notify("editor.setDecorations", { key: 2, uri: A_TS, ranges: [{ range: span(1, 0, 1) }] });
+        await flushMicrotasks(10);
+        const before = h.textCalls.length;
+
+        h.peer.notify("window.disposeTextEditorDecorationType", { key: 1 });
+        await flushMicrotasks(10);
+
+        expect(h.textCalls.slice(before)).toStrictEqual([{ uri: A_TS, set: { key: 1, decorations: [] } }]);
+        expect(h.textFor("/a.ts").map((d) => d.range.start.line)).toStrictEqual([1]);
     });
 });
