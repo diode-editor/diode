@@ -163,11 +163,11 @@ function isOutsideRangeBackgrounds(geo: ITextViewportGeometry, row: TextViewport
     return false;
 }
 
-/** Only the patched colors: the glyph and the rest of the cell are kept. */
+/** Only the patched colors (an absent one is kept): the glyph and the rest of the cell are kept too. */
 function paintRangeColors(
     context: RenderContext,
     range: IRange,
-    patch: { bg: number } | { fg: number },
+    patch: { bg?: number; fg?: number },
     geo: ITextViewportGeometry,
 ): void {
     forEachRangeCell(range, geo, (screenX, screenY, column, row) => {
@@ -187,8 +187,9 @@ export function paintRangeBackground(
 
 /**
  * In set order, a later decoration over an earlier one; a range off the viewport costs a binary search over
- * the rows, so thousands of them (Trailing Spaces on a big file) don't slow the frame. A whole-line background
- * covers the text area of every row of the range's lines, like upstream `_renderWholeLineDecorations`.
+ * the rows, so thousands of them (Trailing Spaces on a big file) don't slow the frame. An absent color leaves
+ * the cell's own. A whole-line background covers the text area of every row of the range's lines, like
+ * upstream `_renderWholeLineDecorations`; its `fg` still paints only the glyphs.
  */
 export function paintExtensionTextDecorations(
     context: RenderContext,
@@ -196,22 +197,20 @@ export function paintExtensionTextDecorations(
     geo: ITextViewportGeometry,
 ): void {
     for (const { range, bg, fg, isWholeLine } of decorations) {
-        if (bg !== undefined && isWholeLine) {
-            for (const row of geo.rows) {
-                if (row.logLine < range.start.line || row.logLine > range.end.line) continue;
-                for (let x = 0; x < geo.contentCols; x++) context.setCell(geo.gutterW + x, row.screenY, { bg });
-            }
-        } else if (bg !== undefined) {
-            paintRangeBackground(context, range, bg, geo);
+        if (!isWholeLine) {
+            paintRangeColors(context, range, { bg, fg }, geo);
+            continue;
         }
-        if (fg === undefined) continue;
-        const fgRange = isWholeLine
-            ? {
-                  start: { line: range.start.line, character: 0 },
-                  end: { line: range.end.line, character: Number.MAX_SAFE_INTEGER },
-              }
-            : range;
-        paintRangeColors(context, fgRange, { fg }, geo);
+        for (const row of geo.rows) {
+            if (row.logLine < range.start.line || row.logLine > range.end.line) continue;
+            // Stryker disable next-line EqualityOperator: equivalent — contentCols reaches the element's right edge, a cell past it is cut by the element's clip
+            for (let x = 0; x < geo.contentCols; x++) context.setCell(geo.gutterW + x, row.screenY, { bg });
+        }
+        const lines = {
+            start: { line: range.start.line, character: 0 },
+            end: { line: range.end.line, character: Number.MAX_SAFE_INTEGER },
+        };
+        paintRangeColors(context, lines, { fg }, geo);
     }
 }
 

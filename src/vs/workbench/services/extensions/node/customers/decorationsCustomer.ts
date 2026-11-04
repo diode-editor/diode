@@ -1,3 +1,5 @@
+import { packRgba } from "@tuidom/core/common/colorUtils";
+
 import { parseCssColor } from "../../../../../base/common/color.ts";
 import { Disposable, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
@@ -95,16 +97,17 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
     }
 }
 
-/** A CSS string is parsed once, on type creation; a theme color resolves on each push (the theme may change). */
-type DecorationColor =
-    | { readonly kind: "theme"; readonly id: string }
-    | { readonly kind: "raw"; readonly packed: number };
+/**
+ * A CSS string is parsed once, on type creation, into packed RGBA (`number`); a theme color stays its id
+ * (`string`) and resolves on each push, as the theme may change.
+ */
+type DecorationColor = number | string;
 
 /** `base` is the type's own field, `light`/`dark` the branch's: the branch of the current theme wins. */
 interface IThemedDecorationColor {
-    readonly base?: DecorationColor;
-    readonly light?: DecorationColor;
-    readonly dark?: DecorationColor;
+    readonly base: DecorationColor | undefined;
+    readonly light: DecorationColor | undefined;
+    readonly dark: DecorationColor | undefined;
 }
 
 interface IDecorationType {
@@ -117,25 +120,19 @@ interface IDecorationType {
 
 /** Garbage (an unparsable string, a non-color) is no color: the type's other fields live on. */
 function decorationColorOf(value: SerializedColor | undefined): DecorationColor | undefined {
-    if (typeof value === "string") {
-        const packed = parseCssColor(value);
-        return packed === null ? undefined : { kind: "raw", packed };
-    }
-    const id = themeColorIdOf(value);
-    return id === undefined ? undefined : { kind: "theme", id };
+    if (typeof value !== "string") return themeColorIdOf(value);
+    const rgba = parseCssColor(value);
+    return rgba === null ? undefined : packRgba(rgba.r, rgba.g, rgba.b, Math.round(rgba.a * 255));
 }
 
 function themedColorOf(
     options: SerializedDecorationRenderOptions,
     field: keyof SerializedThemableDecorationRenderOptions,
 ): IThemedDecorationColor {
-    const base = decorationColorOf(options[field]);
-    const light = decorationColorOf(options.light?.[field]);
-    const dark = decorationColorOf(options.dark?.[field]);
     return {
-        ...(base === undefined ? {} : { base }),
-        ...(light === undefined ? {} : { light }),
-        ...(dark === undefined ? {} : { dark }),
+        base: decorationColorOf(options[field]),
+        light: decorationColorOf(options.light?.[field]),
+        dark: decorationColorOf(options.dark?.[field]),
     };
 }
 
@@ -269,8 +266,7 @@ class SpawnDecorations {
     /** The branch of the current theme kind, otherwise the type's own field; an unknown theme color id is no color. */
     private resolveThemed(color: IThemedDecorationColor, dark: boolean): number | undefined {
         const effective = (dark ? color.dark : color.light) ?? color.base;
-        if (effective === undefined) return undefined;
-        return effective.kind === "raw" ? effective.packed : this.themeColorResolver.resolve(effective.id);
+        return typeof effective === "string" ? this.themeColorResolver.resolve(effective) : effective;
     }
 
     /** `propagate` goes as is: propagation to folders is computed by the tree, which knows its root. */

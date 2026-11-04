@@ -310,12 +310,13 @@ describe("DecorationsCustomer — text decorations", () => {
         ]);
     });
 
-    it("garbage colors and unknown theme ids are no color, the other fields of the type live on", async () => {
+    it("garbage colors are no color, the other fields of the type live on", async () => {
         const h = await typed({
             backgroundColor: "rgba(1,2)",
             color: "#ggg",
-            light: { backgroundColor: "кирпичный" },
-            dark: { backgroundColor: { $themeColor: "no.such.color" }, color: "green" },
+            // A non-ASCII word.
+            light: { backgroundColor: "\u043a\u0438\u0440\u043f\u0438\u0447" },
+            dark: { color: "green" },
         });
         expect(h.textFor("/a.ts")).toStrictEqual([
             { range: span(0, 5, 8), fg: packRgb(0, 128, 0), isWholeLine: false },
@@ -326,6 +327,13 @@ describe("DecorationsCustomer — text decorations", () => {
     it("a type without background and color paints no text, and neither does a non-object branch", async () => {
         const h = await typed({ isWholeLine: true, light: "red", dark: 5, borderColor: "red" });
         expect(h.textFor("/a.ts")).toStrictEqual([]);
+    });
+
+    it("an unknown theme color id is no color, even in the branch of the current theme", async () => {
+        const h = await typed({ color: "red", dark: { backgroundColor: { $themeColor: "no.such.color" } } });
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            { range: span(0, 5, 8), fg: packRgb(255, 0, 0), isWholeLine: false },
+        ]);
     });
 
     it("transparent goes through as a color that paints nothing", async () => {

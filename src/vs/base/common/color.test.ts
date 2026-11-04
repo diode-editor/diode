@@ -1,4 +1,3 @@
-import { packRgb, packRgba, TRANSPARENT_COLOR } from "@tuidom/core/common/colorUtils";
 import { describe, expect, it } from "vitest";
 
 import { HSLA, parseCssColor, parseHex, RGBA } from "./color.ts";
@@ -73,37 +72,35 @@ describe("parseHex", () => {
 
 describe("parseCssColor", () => {
     it.each([
-        ["#ff8000", packRgb(255, 128, 0)],
-        ["#FF800080", packRgba(255, 128, 0, 128)],
-        ["#f80", packRgb(255, 136, 0)],
-        ["#f808", packRgba(255, 136, 0, 136)],
-        ["#000000ff", packRgb(0, 0, 0)],
-        ["rgb(1, 2, 3)", packRgb(1, 2, 3)],
-        ["rgb(1,2,3)", packRgb(1, 2, 3)],
-        ["RGB( 1 , 2 , 3 )", packRgb(1, 2, 3)],
-        ["rgba(255,0,0,0.3)", packRgba(255, 0, 0, 77)],
-        ["rgba(255, 100, 100, 0.15)", packRgba(255, 100, 100, 38)],
-        ["rgba(255, 0, 0, 1)", packRgb(255, 0, 0)],
-        ["rgba(255, 0, 0, .5)", packRgba(255, 0, 0, 128)],
-        ["rgba(10, 20, 30, 0)", TRANSPARENT_COLOR],
-        ["transparent", TRANSPARENT_COLOR],
-        ["red", packRgb(255, 0, 0)],
-        ["rebeccapurple", packRgb(102, 51, 153)],
-        ["yellowgreen", packRgb(154, 205, 50)],
-        ["aliceblue", packRgb(240, 248, 255)],
-    ])("%s", (css, packed) => {
-        expect(parseCssColor(css)).toBe(packed);
+        ["#ff8000", [255, 128, 0, 1]],
+        ["#FF800080", [255, 128, 0, 0.502]],
+        ["#f80", [255, 136, 0, 1]],
+        ["#f808", [255, 136, 0, 0.533]],
+        ["rgb(1, 2, 3)", [1, 2, 3, 1]],
+        ["rgb(1,2,3)", [1, 2, 3, 1]],
+        ["RGB( 1 , 2 , 3 )", [1, 2, 3, 1]],
+        ["rgba(255,0,0,0.3)", [255, 0, 0, 0.3]],
+        ["rgba(255, 100, 100, 0.15)", [255, 100, 100, 0.15]],
+        ["rgba(255, 0, 0, .5)", [255, 0, 0, 0.5]],
+        ["rgba(10, 20, 30, 0)", [10, 20, 30, 0]],
+        ["transparent", [0, 0, 0, 0]],
+        ["red", [255, 0, 0, 1]],
+        ["rebeccapurple", [102, 51, 153, 1]],
+        ["yellowgreen", [154, 205, 50, 1]],
+        ["aliceblue", [240, 248, 255, 1]],
+    ])("%s", (css, rgba) => {
+        expect(channels(parseCssColor(css))).toEqual(rgba);
     });
 
     it("fractional channels are rounded like a browser does (Tailwind sends floats)", () => {
-        expect(parseCssColor("rgba(239.00000000000003, 68, 68, 1)")).toBe(packRgb(239, 68, 68));
-        expect(parseCssColor("rgb(10.5, 0.4, 1e2)")).toBe(packRgb(11, 0, 100));
+        expect(channels(parseCssColor("rgba(239.00000000000003, 68, 68, 1)"))).toEqual([239, 68, 68, 1]);
+        expect(channels(parseCssColor("rgb(10.5, 0.6, 1e2)"))).toEqual([11, 1, 100, 1]);
     });
 
     it("channels are clamped into [0, 255], alpha into [0, 1]", () => {
-        expect(parseCssColor("rgb(-5, 300, +7)")).toBe(packRgb(0, 255, 7));
-        expect(parseCssColor("rgba(1, 2, 3, 2)")).toBe(packRgb(1, 2, 3));
-        expect(parseCssColor("rgba(1, 2, 3, -1)")).toBe(TRANSPARENT_COLOR);
+        expect(channels(parseCssColor("rgb(-5, 300, +7)"))).toEqual([0, 255, 7, 1]);
+        expect(channels(parseCssColor("rgba(1, 2, 3, 2)"))).toEqual([1, 2, 3, 1]);
+        expect(channels(parseCssColor("rgba(1, 2, 3, -1)"))).toEqual([1, 2, 3, 0]);
     });
 
     it.each([
@@ -118,7 +115,8 @@ describe("parseCssColor", () => {
         "rgb(1, 2, 3",
         "xrgb(1, 2, 3)",
         "rgb(1, 2, 3)x",
-        "кирпичный",
+        // A non-ASCII word.
+        "\u043a\u0438\u0440\u043f\u0438\u0447",
         "Red",
         "constructor",
         "hsl(0, 100%, 50%)",

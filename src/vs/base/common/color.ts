@@ -1,5 +1,3 @@
-import { packRgba, TRANSPARENT_COLOR } from "@tuidom/core/common/colorUtils";
-
 /**
  * The slice of upstream `base/common/color.ts` the default color detector needs: `RGBA`, `HSLA` with
  * its conversion to RGB, and `Color.Format.CSS.parseHex` (returning the `RGBA` instead of a `Color`);
@@ -270,26 +268,23 @@ const NAMED_COLORS: Readonly<Record<string, readonly [number, number, number]>> 
     yellowgreen: [154, 205, 50],
 };
 
+/** RGBA truncates; a browser rounds. */
 function channel(text: string): number {
-    return Math.round(Math.min(255, Math.max(0, Number(text))));
+    return Math.round(Number(text));
 }
 
 /**
- * Upstream `Color.Format.CSS.parse` as packed RGBA (alpha kept, the engine composites it): `transparent`,
+ * Upstream `Color.Format.CSS.parse`, returning the `RGBA` instead of a `Color`: `transparent`,
  * `#hex` (3/4/6/8 digits), `rgb()`, `rgba()` and the named colors. Deviations: channels take any CSS
  * `<number>`, rounded like a browser does, and a string it does not understand (including a hex with a
  * non-hex digit) is `null` instead of an exception — extension input must not crash the host.
  */
-export function parseCssColor(css: string): number | null {
-    if (css === "transparent") return TRANSPARENT_COLOR;
-    const rgba = HEX_COLOR.test(css) ? parseHex(css) : null;
-    if (rgba !== null) return packRgba(rgba.r, rgba.g, rgba.b, Math.round(rgba.a * 255));
+export function parseCssColor(css: string): RGBA | null {
+    if (css === "transparent") return new RGBA(0, 0, 0, 0);
+    if (HEX_COLOR.test(css)) return parseHex(css);
     const fn = RGBA_FUNCTION.exec(css) ?? RGB_FUNCTION.exec(css);
-    if (fn !== null) {
-        // `rgb()` has no fourth group.
-        const alpha = fn.length > 4 ? Math.min(1, Math.max(0, Number(fn[4]))) : 1;
-        return packRgba(channel(fn[1]), channel(fn[2]), channel(fn[3]), Math.round(alpha * 255));
-    }
+    // `rgb()` has no fourth group; RGBA clamps the channels and the alpha.
+    if (fn !== null) return new RGBA(channel(fn[1]), channel(fn[2]), channel(fn[3]), fn.length > 4 ? Number(fn[4]) : 1);
     const named = Object.hasOwn(NAMED_COLORS, css) ? NAMED_COLORS[css] : undefined;
-    return named === undefined ? null : packRgba(named[0], named[1], named[2], 255);
+    return named === undefined ? null : new RGBA(named[0], named[1], named[2]);
 }

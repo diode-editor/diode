@@ -1700,9 +1700,9 @@ key) и шлёт хосту RPC-нотификации, сериализуя `Th
 `api/common/wireTypes.ts`; на провод идут `backgroundColor`, `color`, `overviewRulerColor`, `isWholeLine`,
 `overviewRulerLane` и ветки `light`/`dark` с теми же цветами — рамки, шрифты, `opacity`, `before`/`after` клетке
 нарисовать нечем, они выбрасываются). `DecorationsCustomer` держит на тип разобранные опции
-`{ overviewRulerColorId?, isWholeLine, background, foreground }`, цвет — `{ kind: "theme", id }` или
-`{ kind: "raw", packed }`: CSS-строку один раз разбирает `parseCssColor` (`base/common/color.ts`, порт
-`Color.Format.CSS.parse`; дробные каналы и `null` вместо исключения — отступления), мусор = поля нет. На каждый
+`{ overviewRulerColorId?, isWholeLine, background, foreground }` (у цвета — `base`/`light`/`dark`); цвет — id
+`ThemeColor` (строка) или packed RGBA (число): CSS-строку один раз разбирает `parseCssColor` (`base/common/color.ts`,
+порт `Color.Format.CSS.parse`, отдаёт `RGBA`; дробные каналы и `null` вместо исключения — отступления), мусор = поля нет. На каждый
 push эффективный цвет — ветка темы (`Dark`/`HighContrast` → `dark`, `Light`/`HighContrastLight` → `light`,
 `IThemeColorResolver.kind()`), иначе базовое поле; `ThemeColor` резолвит `IThemeColorResolver`. Хост проталкивает
 полный набор ресурса в `IEditorDecorationsService` (адаптер — во все редакторы ресурса во всех группах):
