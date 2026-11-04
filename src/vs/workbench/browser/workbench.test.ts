@@ -1,3 +1,4 @@
+import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { EditorTabStripElement } from "@tuidom/elements/editorgroup/editorTabStripElement";
 import type { HFlexElement } from "@tuidom/elements/layout/hFlexElement";
@@ -153,6 +154,21 @@ describe("Workbench integration", () => {
 
         expect(h.testApp.focusedElement).not.toBeNull();
         expect(h.testApp.focusedElement).toBe(h.testApp.querySelector("EditorElement"));
+    });
+
+    it("lays out the chrome: menu bar on row 0, status bar on the last row, the layout between them", () => {
+        const width = 70;
+        const rows = 20;
+        const h = createAppTestHarness({ size: new Size(width, rows) });
+        const box = (selector: string): { y: number; height: number; width: number } => {
+            const element = h.testApp.querySelector(selector);
+            if (!element) throw new Error(`no ${selector}`);
+            return { y: element.globalPosition.y, height: element.layoutSize.height, width: element.layoutSize.width };
+        };
+
+        expect(box("#menuBar")).toEqual({ y: 0, height: 1, width });
+        expect(box("WorkbenchLayoutElement")).toEqual({ y: 1, height: rows - 2, width });
+        expect(box("#statusBar")).toEqual({ y: rows - 1, height: 1, width });
     });
 
     it("creates UI tree with statusbar", () => {
