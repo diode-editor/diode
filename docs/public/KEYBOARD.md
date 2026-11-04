@@ -21,10 +21,9 @@ Diode knows three levels of key support:
 | extended | plus Ctrl+Shift+letter, Ctrl+Tab, Ctrl+Enter, Shift+Enter, ``Ctrl+` `` | kitty, ghostty, WezTerm, foot, Alacritty, iTerm2, tmux 3.5+ with extended keys |
 | cmd (Mac) | plus Cmd as in VS Code for macOS | kitty, ghostty, iTerm2 without tmux |
 
-The left segment of the status bar shows the level Diode detected. Click it, or run **Diode:
-Keyboard Doctor** from the command palette, to see what your terminal actually sends for each key:
-the report opens as a document and lands in the clipboard. Getting to "extended" is a terminal
-setting, see [terminal setup](TERMINAL.md).
+The left segment of the status bar shows the level Diode detected. Click it to open your
+`settings.json`, where `terminal.tier` forces a level if detection gets it wrong. Getting to
+"extended" is a terminal setting, see [terminal setup](TERMINAL.md).
 
 ## Every command has a key that works everywhere
 
@@ -78,6 +77,5 @@ ssh forwards `LC_*` variables by default. The `keyboard.platform` setting overri
 Some combinations never reach any application because the terminal or the window manager
 handles them first: tab switching in the terminal, `Ctrl+Shift+C`/`Ctrl+Shift+V` as the
 terminal's copy and paste, `Ctrl+Left`/`Ctrl+Right` for Mission Control on a Mac, `Cmd+W`/`Cmd+Q`
-closing the terminal window. When a key does nothing in Diode, run **Diode: Keyboard Doctor**
-first: if the key doesn't show up there, it was taken before Diode saw it, and the fix is in the
-terminal's settings.
+closing the terminal window. When a key does nothing in Diode, check the terminal's own
+shortcuts first: a key it takes never reaches Diode, and the fix is in the terminal's settings.

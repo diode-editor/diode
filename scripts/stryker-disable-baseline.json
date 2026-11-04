@@ -31,7 +31,6 @@
     "src/vs/workbench/contrib/gotoDefinition/browser/definitionService.ts": 1,
     "src/vs/workbench/contrib/hover/browser/hoverElement.ts": 2,
     "src/vs/workbench/contrib/inlineCompletions/browser/inlineCompletionsService.ts": 2,
-    "src/vs/workbench/contrib/keyboardDoctor/browser/keyboardDoctorComponent.ts": 1,
     "src/vs/workbench/contrib/largeFile/browser/largeFileOptimizationsWarner.ts": 1,
     "src/vs/workbench/contrib/parameterHints/browser/parameterHintsElement.ts": 2,
     "src/vs/workbench/contrib/parameterHints/browser/parameterHintsService.ts": 3,

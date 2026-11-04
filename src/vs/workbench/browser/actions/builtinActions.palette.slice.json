@@ -37,7 +37,6 @@
     "workbench.action.openFolderSettingsFile",
     "workbench.action.openGlobalKeybindings",
     "workbench.action.openGlobalKeybindingsFile",
-    "diode.keyboardDoctor",
     "workbench.action.showAboutDialog",
     "workbench.action.reloadWindow",
     "workbench.action.quit",

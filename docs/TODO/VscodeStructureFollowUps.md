@@ -27,7 +27,7 @@
 
   Хвосты E1 (не блокируют):
   - тестовые подделки `as unknown as IEditorService` (40 мест в тестах
-    адаптеров, completion, inline, references, keyboardDoctor…) — переводить на
+    адаптеров, completion, inline, references…) — переводить на
     типизированные фейки узких ролей постепенно, по образцу
     `createTestActiveEditorService` (`TestUtils/testActiveEditorService.ts`;
     восемь тестов команд уже на нём, `editorActions.test.ts` — нет: Alt+Z

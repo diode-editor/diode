@@ -35,7 +35,9 @@ export class TerminalEnvStatusContribution extends Disposable {
                 alignment: "left",
                 priority: 100,
                 onClick: () => {
-                    void commands.execute("diode.keyboardDoctor");
+                    void commands.execute("workbench.action.openSettingsJson", {
+                        revealSetting: { key: "terminal.tier" },
+                    });
                 },
             }),
         );

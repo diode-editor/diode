@@ -14,7 +14,7 @@ DI-модули и профили — `src/vs/diode/modules/` (см. [../DI.md](
 |---|---|
 | [Contributions.md](workbench/Contributions.md) | workbench-contributions и их фазы, узлы конфигурации фич |
 | [Commands.md](workbench/Commands.md) | конвенции системы команд, кейбинды и их досягаемость, when-вычислитель, контекст-ключи, клавиатурный диспатч, где живут экшены |
-| [Keyboard.md](workbench/Keyboard.md) | ОС клавиатуры, мак-лестница и мак-раскладка, Keyboard Doctor, где теряется клавиша в tmux/kitty/iTerm2 |
+| [Keyboard.md](workbench/Keyboard.md) | ОС клавиатуры, мак-лестница и мак-раскладка, сегмент окружения в статус-баре, где теряется клавиша в tmux/kitty/iTerm2 |
 | [Menus.md](workbench/Menus.md) | `MenuRegistry`/`MenuService`, точки меню, пункты расширений, `enablement` |
 | [Shell.md](workbench/Shell.md) | корневой компонент и последовательность старта, жизненный цикл, layout, строка меню, статус-бар, нижняя и вторичная боковая панели |
 | [Views.md](workbench/Views.md) | модель container↔view (`ViewsService`), расположение видов, общие контролы списков |
@@ -85,7 +85,7 @@ bootstrap-последовательность приложения (mount → a
    оверлеи берут так же, как там: `LayoutService.mainContainer` (корневая view;
    корень прикрепляет её `attachRoot` первым делом в конструкторе, до резолва фич),
    сессию создают в своём конструкторе (suggest, hover, parameterHints) или лениво
-   при первом показе (рекордер, Keyboard Doctor); find берёт слои групп у
+   при первом показе (рекордер); find берёт слои групп у
    `EditorPartComponent` через DI. Оверлеи `browser/parts` и `DialogService` пока на
    `attachHost` от корня. Целевой каркас попапов («владелец создаёт виджет сам») —
    задача H1.

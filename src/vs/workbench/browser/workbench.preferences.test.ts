@@ -11,6 +11,8 @@ import { IEnvironmentServiceDIToken } from "../../platform/environment/common/en
 import type { KeybindingsEditorPane } from "../contrib/preferences/browser/keybindingsEditorPane.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
+import { clickSegment, statusSegments } from "./parts/statusbar/statusBarComponent.testUtils.ts";
+import { StatusBarComponentDIToken } from "./parts/statusbar/statusBarComponent.ts";
 import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
@@ -52,6 +54,19 @@ describe("Workbench — Preferences commands", () => {
 
             expect(fs.readFileSync(settingsFile, "utf-8")).toBe("{}\n");
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
+            h.testApp.render();
+            expect(h.testApp.backend.screenToString()).toContain("settings.json");
+        });
+
+        it("a click on the terminal segment (leftmost in the status bar) opens settings.json", async () => {
+            h.testApp.render();
+            const view = h.container.get(StatusBarComponentDIToken).view;
+            const terminalSegment = statusSegments(view).find((segment) => segment.side === "left");
+            expect(terminalSegment).toBeDefined();
+            clickSegment(view, terminalSegment!.text);
+            await vi.waitFor(() => {
+                expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
+            });
             h.testApp.render();
             expect(h.testApp.backend.screenToString()).toContain("settings.json");
         });
