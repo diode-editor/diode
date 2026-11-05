@@ -15,7 +15,8 @@ import { withMacKeybindings } from "./macKeybindings.ts";
 /** The source of truth is the `ContextKeyTypes` interface itself; the test reads it instead of duplicating it. */
 function declaredContextKeys(): Set<string> {
     const source = readFileSync(new URL("../../../platform/contextkey/common/contextKeys.ts", import.meta.url), "utf8");
-    return new Set([...source.matchAll(/^ {4}(\w+)\??:/gm)].map((match) => match[1]));
+    // A dotted upstream name (`testing.canRefresh`) is a quoted field.
+    return new Set([...source.matchAll(/^ {4}"?([\w.]+)"?\??:/gm)].map((match) => match[1]));
 }
 
 /** Dynamic key families: environment modes and terminal capabilities. */

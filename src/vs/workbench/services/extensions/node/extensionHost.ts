@@ -111,6 +111,7 @@ import { type IEditorLayoutService, NULL_EDITOR_LAYOUT_SERVICE } from "../../../
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
 import { type IExtensionFileWatcher, NULL_EXTENSION_FILE_WATCHER } from "../../../api/common/iExtensionFileWatcher.ts";
 import type { IExtensionTaskSink } from "../../../api/common/iExtensionTaskSink.ts";
+import type { IExtensionTestingSink } from "../../../api/common/iExtensionTestingSink.ts";
 import type { IExtensionTreeViewsSink } from "../../../api/common/iExtensionTreeViewsSink.ts";
 import type {
     DiagnosticsSink,
@@ -179,6 +180,7 @@ import { LanguageStatusCustomer } from "./customers/languageStatusCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { TasksCustomer } from "./customers/tasksCustomer.ts";
 import { TerminalCustomer } from "./customers/terminalCustomer.ts";
+import { TestingCustomer } from "./customers/testingCustomer.ts";
 import { TreeViewsCustomer } from "./customers/treeViewsCustomer.ts";
 import { UriHandlersCustomer } from "./customers/uriHandlersCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
@@ -261,6 +263,8 @@ export interface IExtensionHostOptions {
     readonly taskSink?: IExtensionTaskSink;
     /** When the subprocess dies, the host itself calls `reset()`: every extension tree goes back to an empty section. */
     readonly treeViewsSink?: IExtensionTreeViewsSink;
+    /** When the subprocess dies, the host itself calls `reset()`: its test controllers go with their trees. */
+    readonly testingSink?: IExtensionTestingSink;
     readonly clipboard?: IClipboard;
     readonly externalOpener?: IExternalOpener;
     readonly environment?: IExtensionHostEnvironment;
@@ -424,6 +428,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             this.environmentVariableCollections,
             new TasksCustomer(options.taskSink),
             new TreeViewsCustomer(options.treeViewsSink),
+            new TestingCustomer(options.testingSink),
             new LanguageConfigurationCustomer(options.languageConfigurations ?? NULL_LANGUAGE_CONFIGURATION_SERVICE),
             new WorkspaceFoldersCustomer(options.workspaceFoldersSink),
             new LanguageStatusCustomer(options.languageStatusSink),

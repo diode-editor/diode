@@ -125,6 +125,18 @@ export interface ContextKeyTypes {
 
     taskRunning: boolean;
 
+    /** Upstream `TestingContextKeys`: test controllers registered by extensions. */
+    "testing.providerCount": number;
+    /** Some controller has a `refreshHandler`. */
+    "testing.canRefresh": boolean;
+    "testing.isRefreshing": boolean;
+    /** Some controller has a `Run` profile. */
+    "testing.hasRunnableTests": boolean;
+    /** Always `false`: no debugger (owner's decision), Debug profiles are kept but not offered. */
+    "testing.hasDebuggableTests": boolean;
+    /** Always `false`: coverage is a later wave, Coverage profiles are kept but not offered. */
+    "testing.hasCoverableTests": boolean;
+
     searchViewletVisible: boolean;
     searchViewletFocus: boolean;
     searchInputBoxFocus: boolean;

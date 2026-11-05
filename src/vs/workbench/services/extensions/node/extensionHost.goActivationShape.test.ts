@@ -47,7 +47,6 @@ describe("ExtensionHost — an extension with a debugger and the Test API activa
 
             expect(output.map((line) => `${line.channel}/${line.level}: ${line.value}`)).toEqual([
                 expect.stringMatching(/^extensions\/warn: debugging "go" is not supported in TUI yet/),
-                expect.stringMatching(/^extensions\/warn: tests "go" are not shown in TUI yet/),
                 expect.stringMatching(/^extensions\/warn: starting a debug session is not supported in TUI yet/),
             ]);
         } finally {

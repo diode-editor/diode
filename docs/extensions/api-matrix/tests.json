@@ -2,7 +2,7 @@
   "members": {
     "tests.createTestController": {
       "class": "C",
-      "note": "needs the Testing surface"
+      "note": "the tree, resolve, refresh and profiles reach the core; no Testing view, runs are not wired"
     }
   }
 }

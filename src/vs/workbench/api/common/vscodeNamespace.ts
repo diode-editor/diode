@@ -29,6 +29,7 @@ import { createExtensionsNamespace } from "./extensionsNamespace.ts";
 import type { IExtHostDisk } from "./extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
+import { createExtHostTesting } from "./extHostTesting.ts";
 import { createExtHostTreeViews } from "./extHostTreeViews.ts";
 import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
@@ -48,7 +49,6 @@ import {
     TestRunRequest,
     TestTag,
 } from "./testingTypes.ts";
-import { createTestsNoop } from "./testsNoop.ts";
 import { TextEditorRevealType } from "./textEditorRevealType.ts";
 import { CallHierarchyIncomingCall, CallHierarchyOutgoingCall } from "./vscodeCallHierarchyTypes.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -454,7 +454,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         Breakpoint,
         SourceBreakpoint,
         FunctionBreakpoint,
-        tests: createTestsNoop(rpc),
+        tests: createExtHostTesting(rpc),
         TestRunProfileKind,
         TestTag,
         TestRunRequest,

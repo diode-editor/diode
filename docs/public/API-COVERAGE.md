@@ -295,11 +295,11 @@ fire (see the table below).
 
 ## vscode.tests
 
-🟡 **1/1.** Declared, the runtime is inert: there is no Testing view.
+🟡 **1/1.** Controllers reach the editor core; there is no Testing view yet and tests do not run.
 
 | member | status | comment |
 | --- | :-: | --- |
-| `createTestController` | 🟡 | a controller with `id`/`label`; `items` and `children` are working collections; `createTestItem`, `createRunProfile`, `createTestRun` (accepts reports, `end` fires `onDidDispose` once) work. `runHandler`, `resolveHandler`, `refreshHandler` are never called; one line per controller in Output |
+| `createTestController` | 🟡 | the controller and its whole `TestItem` tree (adds, field edits, deletes, batched over 200 ms as in VS Code) are mirrored in the core; `resolveHandler` is called when the core expands a test (the root as `undefined`), a failure is a line in Output → Extensions; `refreshHandler` is called by **Test: Refresh Tests** (`Ctrl+; Ctrl+R`) and cancelled by **Test: Cancel Test Refresh**; run profiles of all three kinds are kept, `testing.hasRunnableTests` counts Run ones (Debug and Coverage are not offered: no debugger, coverage comes later). `runHandler` is never called, `createTestRun` accepts reports and drops them, `onDidChangeDefault` never fires, `invalidateTestResults` does nothing |
 
 The value types are VS Code's: `TestRunProfileKind`, `TestTag`, `TestRunRequest`, `TestMessage`
 (with `diff`), `TestMessageStackFrame`, `TestCoverageCount`, `FileCoverage` (with `fromDetails`),

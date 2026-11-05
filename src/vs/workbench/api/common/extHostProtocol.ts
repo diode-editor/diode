@@ -37,6 +37,16 @@ import type {
     WireTaskExecuteRequest,
 } from "./taskWireTypes.ts";
 import type {
+    IWireExpandTest,
+    IWireTestController,
+    IWireTestControllerId,
+    IWireTestControllerPatch,
+    IWireTestRunProfile,
+    IWireTestRunProfileId,
+    IWireTestRunProfileUpdate,
+    IWireTestsDiff,
+} from "./testingWireTypes.ts";
+import type {
     IWireTreeItem,
     IWireTreeViewExpansion,
     IWireTreeViewGetChildren,
@@ -312,6 +322,11 @@ export interface IHostToSubprocess {
         /** Runs the row's `TreeItem.command` there, with its arguments; rejects with the command's error. */
         readonly "treeView.executeCommand": readonly [IWireTreeViewItemRef, null];
 
+        /** Upstream `$expandTest`; responds after the diff of what the `resolveHandler` calls added. */
+        readonly "testing.expandTest": readonly [IWireExpandTest, null];
+        /** Upstream `$refreshTests`: awaits the controller's `refreshHandler`; cancellation cancels its token. */
+        readonly "testing.refreshTests": readonly [IWireTestControllerId, null];
+
         readonly "host.activateExtension": readonly [IWireActivateExtensionParams, null];
         readonly "host.deactivateExtension": readonly [IWireExtensionId, null];
         readonly "host.shutdown": readonly [undefined, null];
@@ -501,6 +516,14 @@ export interface ISubprocessToHost {
         readonly "treeView.dispose": IWireTreeViewId;
         readonly "treeView.setMessage": IWireTreeViewMessage;
         readonly "treeView.setTitle": IWireTreeViewTitle;
+
+        readonly "testing.registerController": IWireTestController;
+        readonly "testing.updateController": IWireTestControllerPatch;
+        readonly "testing.unregisterController": IWireTestControllerId;
+        readonly "testing.publishDiff": IWireTestsDiff;
+        readonly "testing.publishProfile": IWireTestRunProfile;
+        readonly "testing.updateProfile": IWireTestRunProfileUpdate;
+        readonly "testing.removeProfile": IWireTestRunProfileId;
 
         /** `host.activateExtension` may be sent. */
         readonly "host.ready": null;

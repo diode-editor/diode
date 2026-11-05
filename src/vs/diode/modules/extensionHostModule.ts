@@ -74,6 +74,9 @@ import { TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser
 import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import { EnvironmentVariableServiceDIToken } from "../../workbench/contrib/terminal/common/environmentVariableService.ts";
 import { ExtensionPtySessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
+import { ExtensionTestingAdapter } from "../../workbench/contrib/testing/browser/extensionTestingAdapter.ts";
+import { TestProfileServiceDIToken } from "../../workbench/contrib/testing/common/testProfileService.ts";
+import { TestServiceDIToken } from "../../workbench/contrib/testing/common/testService.ts";
 import { DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import { FileDialogServiceDIToken } from "../../workbench/services/dialogs/browser/fileDialogService.ts";
 import {
@@ -393,6 +396,10 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 logger: logService.createLogger("extensions"),
             }),
             // Stryker restore ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,BooleanLiteral,ArrayDeclaration,CallExpression
+            testingSink: new ExtensionTestingAdapter(
+                container.get(TestServiceDIToken),
+                container.get(TestProfileServiceDIToken),
+            ),
             taskSink: new ExtensionTaskAdapter(
                 container.get(TaskServiceDIToken),
                 workspaceContext,
