@@ -1,4 +1,5 @@
 import { packRgb, packRgba, TRANSPARENT_COLOR } from "@tuidom/core/common/colorUtils";
+import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
@@ -88,7 +89,13 @@ function setup(colors: Record<string, number> = COLORS) {
                 .sort(([a], [b]) => a - b)
                 .flatMap(([, decorations]) => decorations)
                 .filter(
-                    (d) => d.bg !== undefined || d.fg !== undefined || d.before !== undefined || d.after !== undefined,
+                    (d) =>
+                        d.bg !== undefined ||
+                        d.fg !== undefined ||
+                        d.style !== undefined ||
+                        d.opacity !== undefined ||
+                        d.before !== undefined ||
+                        d.after !== undefined,
                 );
         },
     };
@@ -452,6 +459,116 @@ const TAILWIND_TYPE = {
     light: { before: { borderColor: "#000000" } },
 };
 const RED_500 = packRgba(239, 68, 68, 255);
+
+describe("DecorationsCustomer — text attributes and opacity", () => {
+    async function typed(options: unknown) {
+        const h = setup();
+        h.peer.notify("window.createTextEditorDecorationType", { key: 1, options });
+        h.peer.notify("editor.setDecorations", { key: 1, uri: A_TS, ranges: [{ range: span(0, 5, 8) }] });
+        await flushMicrotasks(10);
+        return h;
+    }
+    const styleOf = async (options: unknown) => (await typed(options)).textFor("/a.ts")[0]?.style;
+    const opacityOf = async (options: unknown) => (await typed(options)).textFor("/a.ts")[0]?.opacity;
+
+    it("[api:window.createTextEditorDecorationType] clangd's inactive region: a whole-line opacity fades the text", async () => {
+        const h = await typed({ isWholeLine: true, opacity: "0.55" });
+        expect(h.textFor("/a.ts")).toStrictEqual([{ range: span(0, 5, 8), opacity: 0.55, isWholeLine: true }]);
+    });
+
+    it("opacity is a CSS alpha value: a number or a percentage, clamped; opaque and garbage are none", async () => {
+        expect(await opacityOf({ opacity: "55%" })).toBe(0.55);
+        expect(await opacityOf({ opacity: " 0.3 " })).toBe(0.3);
+        expect(await opacityOf({ opacity: "-1" })).toBe(0);
+        expect(await opacityOf({ opacity: "0" })).toBe(0);
+        expect(await opacityOf({ opacity: "1" })).toBeUndefined();
+        expect(await opacityOf({ opacity: "150%" })).toBeUndefined();
+        expect(await opacityOf({ opacity: "half" })).toBeUndefined();
+        expect(await opacityOf({ opacity: "" })).toBeUndefined();
+        expect(await opacityOf({ opacity: ".5" })).toBe(0.5);
+        expect(await opacityOf({ opacity: "5e-1" })).toBe(0.5);
+        expect(await opacityOf({ opacity: "%" })).toBeUndefined();
+        expect(await opacityOf({ opacity: "0x0" })).toBeUndefined();
+        expect(await opacityOf({ opacity: "0.5 !important" })).toBeUndefined();
+        expect(await opacityOf({ opacity: 0.5 })).toBeUndefined();
+    });
+
+    it("[api:window.createTextEditorDecorationType] Markdown's strikethrough: line-through becomes the cell attribute", async () => {
+        const h = await typed({ rangeBehavior: 1, textDecoration: "line-through" });
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            { range: span(0, 5, 8), style: StyleFlags.Strikethrough, isWholeLine: false, stickiness: 1 },
+        ]);
+    });
+
+    it("textDecoration keeps the lines a cell has: underline (wavy — a curl) and line-through; the rest is none", async () => {
+        expect(await styleOf({ textDecoration: "underline" })).toBe(StyleFlags.Underline);
+        expect(await styleOf({ textDecoration: "underline wavy red" })).toBe(StyleFlags.Undercurl);
+        expect(await styleOf({ textDecoration: "  line-through  " })).toBe(StyleFlags.Strikethrough);
+        expect(await styleOf({ textDecoration: "Line-Through  Underline" })).toBe(
+            StyleFlags.Strikethrough | StyleFlags.Underline,
+        );
+        // CSS smuggled after `;` is dropped with the rest of the declaration.
+        expect(await styleOf({ textDecoration: "none; display: none" })).toBeUndefined();
+        expect(await styleOf({ textDecoration: "underline; font-size: 0" })).toBe(StyleFlags.Underline);
+        expect(await styleOf({ textDecoration: "overline" })).toBeUndefined();
+        expect(await styleOf({ textDecoration: "wavy" })).toBeUndefined();
+        expect(await styleOf({ textDecoration: 4 })).toBeUndefined();
+    });
+
+    it("fontWeight is bold from 600 and for bold/bolder; fontStyle italic and oblique lean", async () => {
+        for (const weight of ["bold", "bolder", "600", " 900 ", " bold "])
+            expect(await styleOf({ fontWeight: weight })).toBe(StyleFlags.Bold);
+        for (const weight of ["normal", "lighter", "599", "", "heavy", "100px"])
+            expect(await styleOf({ fontWeight: weight })).toBeUndefined();
+        expect(await styleOf({ fontStyle: "italic" })).toBe(StyleFlags.Italic);
+        expect(await styleOf({ fontStyle: "oblique" })).toBe(StyleFlags.Italic);
+        expect(await styleOf({ fontStyle: "normal" })).toBeUndefined();
+        expect(await styleOf({ fontStyle: "slanted" })).toBeUndefined();
+        expect(await styleOf({ fontStyle: "italic", fontWeight: "700", textDecoration: "underline" })).toBe(
+            StyleFlags.Italic | StyleFlags.Bold | StyleFlags.Underline,
+        );
+    });
+
+    it("a branch's normal clears the base's weight and style; a branch's garbage is no value and leaves the base", async () => {
+        const base = { fontWeight: "bold", fontStyle: "italic" };
+        expect(await styleOf({ ...base, dark: { fontWeight: "normal", fontStyle: "normal" } })).toBeUndefined();
+        expect(await styleOf({ ...base, dark: { fontWeight: "lighter" } })).toBe(StyleFlags.Italic);
+        for (const garbage of ["", "heavy", "100px"])
+            expect(await styleOf({ ...base, dark: { fontWeight: garbage, fontStyle: garbage } })).toBe(
+                StyleFlags.Bold | StyleFlags.Italic,
+            );
+        expect(await opacityOf({ opacity: "0.5", dark: { opacity: "half" } })).toBe(0.5);
+        expect(await styleOf({ textDecoration: "underline", dark: { textDecoration: "none" } })).toBeUndefined();
+    });
+
+    it("the branch of the current theme wins property by property; a theme change resends the attributes", async () => {
+        const h = await typed({
+            fontWeight: "bold",
+            fontStyle: "italic",
+            opacity: "0.5",
+            light: { fontWeight: "normal", textDecoration: "underline" },
+            dark: { opacity: "0.25", fontStyle: "garbage" },
+        });
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            {
+                range: span(0, 5, 8),
+                style: StyleFlags.Bold | StyleFlags.Italic,
+                opacity: 0.25,
+                isWholeLine: false,
+            },
+        ]);
+
+        h.changeTheme(ColorThemeKind.Light);
+        expect(h.textFor("/a.ts")).toStrictEqual([
+            {
+                range: span(0, 5, 8),
+                style: StyleFlags.Italic | StyleFlags.Underline,
+                opacity: 0.5,
+                isWholeLine: false,
+            },
+        ]);
+    });
+});
 
 describe("DecorationsCustomer — before/after attachments", () => {
     async function withRanges(options: unknown, ranges: unknown[]) {

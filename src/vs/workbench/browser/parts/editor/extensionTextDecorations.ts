@@ -17,6 +17,12 @@ interface ITypeSet {
     readonly decorations: readonly IExtensionTextDecoration[];
 }
 
+/** Whether the range itself draws anything (its `before`/`after` are insertions, not paint). */
+function paints({ bg, fg, style, opacity }: IExtensionTextDecoration): boolean {
+    // Stryker disable next-line ConditionalExpression: performance only — a range without colors, attributes and opacity paints nothing
+    return bg !== undefined || fg !== undefined || style !== undefined || opacity !== undefined;
+}
+
 /**
  * Extension decoration types of one editor: each range is a tracked document decoration with the type's
  * stickiness, so between two `setDecorations` the paint and the `before`/`after` cells follow the text. Upstream
@@ -78,8 +84,8 @@ export class ExtensionTextDecorations extends Disposable {
                 // Our ids live until we remove them.
                 const range = assertReturnsDefined(this.document.getDecorationRange(ids[i]));
                 // A Tailwind-sized set of swatches would cost the frame a pass per range that paints nothing.
-                // Stryker disable next-line ConditionalExpression,EqualityOperator: performance only — a range without colors paints nothing
-                if (decoration.bg !== undefined || decoration.fg !== undefined) paint.push({ ...decoration, range });
+                // Stryker disable next-line ConditionalExpression,EqualityOperator: performance only — a range without colors, attributes and opacity paints nothing
+                if (paints(decoration)) paint.push({ ...decoration, range });
                 const { isWholeLine, before, after } = decoration;
                 if (before !== undefined) {
                     const at = isWholeLine ? { line: range.start.line, character: 0 } : range.start;

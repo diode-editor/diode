@@ -2,7 +2,8 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { compositeOver, packRgb, packRgba } from "@tuidom/core/common/colorUtils";
+import { blendRgb, compositeOver, packRgb, packRgba } from "@tuidom/core/common/colorUtils";
+import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
 
 import { findTextCell } from "../helpers/frame.ts";
@@ -11,16 +12,28 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 // `text-decorations` paints three decoration types: the trailing spaces of `alpha   ` with Trailing Spaces'
 // `rgba(255,0,0,0.3)`, the line `mine` whole-line with `merge.currentContentBackground`, and the word `themed`
-// with a light/dark background and a magenta text color. A selection shows through the translucent trailing
-// background, the light theme switches the branch, `text-decorations.toggle` takes everything away.
+// with a light/dark background and a magenta text color; `dead();` fades with a whole-line opacity of 0.4 (clangd's
+// inactive region), `struck` is struck through and bold (Markdown's strikethrough). A selection shows through the
+// translucent trailing background, the light theme switches the branch, `text-decorations.toggle` takes everything
+// away.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-text-decorations-"));
 const file = join(sampleDir, "sample.txt");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-text-decorations");
 
-const TEXT = ["alpha   ", "<<<<<<< HEAD", "mine", "=======", "theirs", ">>>>>>> branch", "a themed word", ""].join(
-    "\n",
-);
+const TEXT = [
+    "alpha   ",
+    "<<<<<<< HEAD",
+    "mine",
+    "=======",
+    "theirs",
+    ">>>>>>> branch",
+    "a themed word",
+    "dead();",
+    "live();",
+    "a struck word",
+    "",
+].join("\n");
 
 const DARK_BG = packRgb(0x1f, 0x1f, 0x1f);
 const TRAILING = packRgba(255, 0, 0, 77);
@@ -87,6 +100,23 @@ export default defineScenario({
         const themed = locate(frame, "themed");
         expectBg(frame, themed.x, themed.y, packRgb(0x00, 0x33, 0x66), "dark branch of themed");
         if (cellAt(frame, themed.x, themed.y).fg !== MAGENTA) throw new Error("themed is not painted magenta");
+
+        // The same token colors on both lines: only the opacity tells them apart.
+        const dead = locate(frame, "dead();");
+        const live = locate(frame, "live();");
+        const deadFg = cellAt(frame, dead.x, dead.y).fg;
+        const expectedDead = blendRgb(cellAt(frame, live.x, live.y).fg, DARK_BG, 0.4);
+        if (deadFg !== expectedDead) {
+            throw new Error(`dead() fg #${deadFg.toString(16)}, expected #${expectedDead.toString(16)} (opacity 0.4)`);
+        }
+        const struck = locate(frame, "struck");
+        const struckStyle = StyleFlags.Strikethrough | StyleFlags.Bold;
+        if ((cellAt(frame, struck.x, struck.y).style & struckStyle) !== struckStyle) {
+            throw new Error("struck is not struck through and bold");
+        }
+        if ((cellAt(frame, struck.x - 2, struck.y).style & StyleFlags.Strikethrough) !== 0) {
+            throw new Error("the word before struck is struck through");
+        }
         await editor.capture("dark");
 
         // The caret is on the first line: Shift+End selects `alpha   `.

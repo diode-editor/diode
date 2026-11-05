@@ -166,6 +166,27 @@ describe("decorations", () => {
                 color: { $themeColor: "foreground" },
             });
         });
+        it("[api:window.createTextEditorDecorationType] font style, weight, text decoration and opacity go as strings, also in theme branches", () => {
+            expect(
+                serializeDecorationRenderOptions({
+                    isWholeLine: true,
+                    opacity: "0.55",
+                    fontWeight: "bold",
+                    fontStyle: "italic",
+                    textDecoration: "line-through",
+                    dark: { opacity: "0.4" },
+                    light: { textDecoration: "underline", fontWeight: 700 },
+                }),
+            ).toStrictEqual({
+                isWholeLine: true,
+                opacity: "0.55",
+                fontWeight: "bold",
+                fontStyle: "italic",
+                textDecoration: "line-through",
+                dark: { opacity: "0.4" },
+                light: { textDecoration: "underline" },
+            });
+        });
         it("empty/invalid options → an empty object", () => {
             expect(serializeDecorationRenderOptions(undefined)).toEqual({});
             expect(serializeDecorationRenderOptions(null)).toEqual({});

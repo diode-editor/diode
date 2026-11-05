@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { compositeOver, packRgb, packRgba } from "@tuidom/core/common/colorUtils";
+import { blendRgb, compositeOver, packRgb, packRgba } from "@tuidom/core/common/colorUtils";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
 import {
@@ -1222,16 +1222,38 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         run: async (ctx) => {
             const projectRoot = join(ctx.root, "cppproj");
             cpSync(CPP_SAMPLE_DIR, projectRoot, { recursive: true });
+            // clangd marks the `#if 0` branch inactive; the extension fades it with a whole-line `opacity`. Two
+            // comments of the same token color tell the faded line from the plain one. The extension creates its
+            // decoration type on the first change of the visible editors after the server is up (as in VS Code):
+            // shape.h is opened too, to switch away and back.
+            writeFileSync(
+                join(projectRoot, "main.cpp"),
+                `${readFileSync(join(CPP_SAMPLE_DIR, "main.cpp"), "utf8")}\n#if 0\n// inactive line\n#endif\n// active line\n`,
+            );
             const app = await startHeadlessApp({
                 root: ctx.root,
                 keepRoot: true,
-                open: [projectRoot, join(projectRoot, "main.cpp")],
+                open: [projectRoot, join(projectRoot, "shape.h"), join(projectRoot, "main.cpp")],
             });
             try {
                 await waitUntil(
                     () => app.session.captureFrame(),
                     (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
                     { describe: 'undercurl under int x = "s" from clangd', timeoutMs: 120_000, intervalMs: 500 },
+                );
+                await app.session.executeCommand("workbench.action.previousEditor");
+                await app.session.executeCommand("workbench.action.nextEditor");
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => {
+                        const inactive = findTextCell(frame, "// inactive line");
+                        const active = findTextCell(frame, "// active line");
+                        if (inactive === null || active === null) return false;
+                        const cell = ({ x, y }: { x: number; y: number }) => frame.cells[y * frame.cols + x];
+                        // `clangd.inactiveRegions.opacity` defaults to 0.55.
+                        return cell(inactive).fg === blendRgb(cell(active).fg, cell(inactive).bg, 0.55);
+                    },
+                    { describe: "the #if 0 branch faded by clangd to 0.55", timeoutMs: 60_000, intervalMs: 500 },
                 );
             } finally {
                 await app.dispose();

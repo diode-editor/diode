@@ -73,6 +73,7 @@ import {
     forEachRangeCell,
     forEachVisibleSortedRange,
     paintCarets,
+    paintExtensionTextDecorationOpacity,
     paintExtensionTextDecorations,
     paintPhantomText,
     paintRangeBackground,
@@ -1184,6 +1185,8 @@ export class EditorElement extends TUIElement implements IScrollable {
         if (currentMatchIndex >= 0 && currentMatchIndex < searchMatches.length) {
             paintRangeBackground(context, searchMatches[currentMatchIndex], FIND_MATCH_CURRENT_BG, geometry);
         }
+        // After every background pass: the faded text shows the background it finally lies on.
+        paintExtensionTextDecorationOpacity(context, this.extensionTextDecorations, geometry);
 
         this.paintDocumentLinks(context, geometry);
 
