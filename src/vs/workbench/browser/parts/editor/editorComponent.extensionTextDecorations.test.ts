@@ -344,6 +344,7 @@ describe("EditorComponent — setExtensionTextDecorations", () => {
             key: 2,
             decorations: [deco(createRange(1, 0, 1, 6), { style: StyleFlags.Strikethrough })],
         });
+        pane.setExtensionTextDecorations({ key: 3, decorations: [deco(createRange(2, 0, 2, 1), { fg: NAVY })] });
         app.render();
 
         expect(fgAt(0, 0)).not.toBe(plainFg);
@@ -353,6 +354,8 @@ describe("EditorComponent — setExtensionTextDecorations", () => {
         expect(styleAt(0, 1) & StyleFlags.Strikethrough).toBe(StyleFlags.Strikethrough);
         expect(styleAt(5, 1) & StyleFlags.Strikethrough).toBe(StyleFlags.Strikethrough);
         expect(styleAt(6, 1) & StyleFlags.Strikethrough).toBe(0);
-        expect(fgAt(0, 2)).toBe(plainFg);
+        // A text color alone reaches the frame too.
+        expect(fgAt(0, 2)).toBe(NAVY);
+        expect(fgAt(1, 2)).toBe(plainFg);
     });
 });

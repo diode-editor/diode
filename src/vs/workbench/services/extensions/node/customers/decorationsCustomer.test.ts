@@ -503,6 +503,7 @@ describe("DecorationsCustomer — text attributes and opacity", () => {
     it("textDecoration keeps the lines a cell has: underline (wavy — a curl) and line-through; the rest is none", async () => {
         expect(await styleOf({ textDecoration: "underline" })).toBe(StyleFlags.Underline);
         expect(await styleOf({ textDecoration: "underline wavy red" })).toBe(StyleFlags.Undercurl);
+        expect(await styleOf({ textDecoration: "  line-through  " })).toBe(StyleFlags.Strikethrough);
         expect(await styleOf({ textDecoration: "Line-Through  Underline" })).toBe(
             StyleFlags.Strikethrough | StyleFlags.Underline,
         );
