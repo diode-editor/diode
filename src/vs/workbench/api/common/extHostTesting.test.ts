@@ -123,9 +123,9 @@ describe("vscode.tests — resolveHandler on the host's expand", () => {
         // A second expand while busy does not call again.
         await stub.callRequest("testing.expandTest", { testId: testId("ctrl", "f"), levels: 0 });
         expect(seen).toHaveLength(1);
-        controller.items.get("f")?.children.add(controller.createTestItem("t", "T"));
         // Still busy: a recount while the handler runs changes nothing.
         file.canResolveChildren = false;
+        controller.items.get("f")?.children.add(controller.createTestItem("t", "T"));
         finish();
         await expanding;
         expect(expandStates(stub).slice(-3)).toEqual(["ctrl/f=2", "+ctrl/f/t=0", "ctrl/f=3"]);
