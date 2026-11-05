@@ -54,4 +54,19 @@ describe("Workbench — non-Latin layout keys reach punctuation bindings by phys
         expect(editor.viewState.foldingRegionContaining(0)?.isCollapsed).toBe(true);
         expect(editor.viewState.document.getText()).toBe(BLOCK);
     });
+
+    it("a chord: Ctrl+Cyrillic El then a bare Cyrillic soft sign is Ctrl+K M and toggles Problems", async () => {
+        const { h, editor } = await open();
+        expect(h.testApp.backend.screenToString()).not.toContain("PROBLEMS");
+
+        h.testApp.backend.sendRaw(ESCAPE_CSI_U);
+        h.testApp.backend.sendRaw("\x1b[1083;5u"); // Ctrl+Cyrillic El, the physical K
+        h.testApp.backend.sendRaw("\u044c"); // Cyrillic soft sign, the physical M, no modifier
+
+        await vi.waitFor(() => {
+            expect(h.testApp.backend.screenToString()).toContain("PROBLEMS");
+        });
+        // The second key went to the chord, not into the document.
+        expect(editor.viewState.document.getText()).toBe(BLOCK);
+    });
 });
