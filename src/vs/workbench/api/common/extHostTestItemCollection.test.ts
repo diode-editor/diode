@@ -326,6 +326,7 @@ describe("vscode.tests — the controller's tree as diffs", () => {
         expect(tagsSent(["t", "v"])).toEqual([[testId("ctrl", "t"), testId("ctrl", "v")]]);
         expect(tagsSent(["w", "x"])).toEqual([[testId("ctrl", "w"), testId("ctrl", "x")]]);
         expect(tagsSent(["w", "x", "y"])).toHaveLength(1);
+        expect(tagsSent(["w", "x"])).toEqual([[testId("ctrl", "w"), testId("ctrl", "x")]]);
     });
 
     it("an empty error string is no error", () => {
@@ -378,13 +379,12 @@ describe("vscode.tests — the controller's tree as diffs", () => {
 
     it("the batch window does not slide: an edit 150 ms after the first goes in the same batch at 200 ms", () => {
         const { stub, controller, flush } = setup();
-        const item = controller.createTestItem("a", "A");
-        controller.items.add(item);
+        controller.items.add(controller.createTestItem("a", "A"));
         vi.advanceTimersByTime(150);
-        item.label = "A2";
+        controller.items.add(controller.createTestItem("b", "B"));
         vi.advanceTimersByTime(TEST_DIFF_DEBOUNCE_MS - 150);
         expect(stub.notifies.filter((n) => n.method === "testing.publishDiff")).toHaveLength(1);
-        expect(flush()).toMatchObject([{ op: 0 }, { op: 0, item: { item: { label: "A2" } } }]);
+        expect(flush().map((op) => (op.op === 0 ? op.item.item.label : op))).toEqual(["Ctrl", "A", "B"]);
     });
 
     it("re-adding the same instance changes nothing, even when it was expanded", async () => {

@@ -14,8 +14,9 @@ export function testTree(service: Pick<TestService, "rootItems" | "getNodeById">
     const lines: string[] = [];
     const walk = (id: string, depth: number): void => {
         const node = service.getNodeById(id);
-        /* v8 ignore next -- a child id always names a node: the service drops a subtree with its parent */
+        /* v8 ignore start -- a child id always names a node: the service drops a subtree with its parent */
         if (node === undefined) return;
+        /* v8 ignore stop */
         const state = expand && node.expand !== 0 ? ` [${node.expand}]` : "";
         lines.push(`${"  ".repeat(depth)}${node.item.label}${state}`);
         for (const child of node.children) walk(child, depth + 1);

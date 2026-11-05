@@ -21,7 +21,7 @@ import { parseRange } from "../../../api/common/wireTypes.ts";
 type Fields = Readonly<Record<string, unknown>>;
 
 function fields(raw: unknown): Fields | null {
-    return typeof raw === "object" && raw !== null ? (raw as Fields) : null;
+    return typeof raw === "object" ? (raw as Fields | null) : null;
 }
 
 /** The message's fields, when it names a controller. */

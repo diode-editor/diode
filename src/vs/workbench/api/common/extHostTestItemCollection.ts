@@ -256,20 +256,16 @@ export class ExtHostTestItemCollection implements IDisposable {
         );
     }
 
-    /** Calls `resolveHandler` for the item once: the controller root goes as `undefined`. */
+    /**
+     * Calls `resolveHandler` for an `Expandable` item (a handler is set and the item has not resolved yet); the
+     * controller root goes as `undefined`.
+     */
     private resolveChildren(internal: ICollectionItem): { readonly done: Promise<void> } {
-        if (internal.resolve !== undefined) return internal.resolve;
-        // The caller checked `Expandable`, which needs a handler.
         const handler = this.resolveHandlerValue as (item: TestItemImpl | undefined) => Thenable<void> | void;
         internal.expand = TestItemExpandState.BusyExpanding;
         this.pushDiff({ op: TestDiffOpType.Update, item: { extId: internal.fullId, expand: internal.expand } });
-        let settle: () => void = () => undefined;
-        const resolve = {
-            done: new Promise<void>((resolveDone) => {
-                settle = resolveDone;
-            }),
-            settled: false,
-        };
+        const { promise, resolve: settle } = Promise.withResolvers<undefined>();
+        const resolve = { done: promise, settled: false };
         internal.resolve = resolve;
         void (async () => {
             try {
@@ -281,7 +277,7 @@ export class ExtHostTestItemCollection implements IDisposable {
             }
             resolve.settled = true;
             this.updateExpandability(internal);
-            settle();
+            settle(undefined);
         })();
         return resolve;
     }

@@ -50,6 +50,7 @@ export class TestProfileService extends Disposable {
     }
 
     public updateProfile({ controllerId, profileId, update }: IWireTestRunProfileUpdate): void {
+        // Stryker disable next-line ArrayDeclaration: equivalent — a controller without profiles has none with the id either way
         const list = this.profiles.get(controllerId) ?? [];
         const index = list.findIndex((profile) => profile.profileId === profileId);
         if (index === -1) return;
@@ -63,8 +64,7 @@ export class TestProfileService extends Disposable {
         const list = this.profiles.get(controllerId) ?? [];
         const next = profileId === undefined ? [] : list.filter((profile) => profile.profileId !== profileId);
         if (next.length === list.length) return;
-        if (next.length === 0) this.profiles.delete(controllerId);
-        else this.profiles.set(controllerId, next);
+        this.profiles.set(controllerId, next);
         this.changed();
     }
 

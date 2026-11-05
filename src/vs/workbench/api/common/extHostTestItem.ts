@@ -215,8 +215,8 @@ export class TestItemImpl implements vscode.TestItem {
         return this.canResolveChildrenValue;
     }
 
+    /** A recount, not a field: the same value again changes no state. */
     public set canResolveChildren(value: boolean) {
-        if (value === this.canResolveChildrenValue) return;
         this.canResolveChildrenValue = value;
         this.api.listener?.({ op: "updateCanResolveChildren" });
     }

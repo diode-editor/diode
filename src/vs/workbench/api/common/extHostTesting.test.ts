@@ -124,6 +124,8 @@ describe("vscode.tests — resolveHandler on the host's expand", () => {
         await stub.callRequest("testing.expandTest", { testId: testId("ctrl", "f"), levels: 0 });
         expect(seen).toHaveLength(1);
         controller.items.get("f")?.children.add(controller.createTestItem("t", "T"));
+        // Still busy: a recount while the handler runs changes nothing.
+        file.canResolveChildren = false;
         finish();
         await expanding;
         expect(expandStates(stub).slice(-3)).toEqual(["ctrl/f=2", "+ctrl/f/t=0", "ctrl/f=3"]);
@@ -256,6 +258,24 @@ describe("vscode.tests — expand levels", () => {
         await Promise.resolve();
         expect(seen).toEqual(["<root>", "a"]);
         expect(sent(stub, "output.append")).toEqual([]);
+    });
+
+    it("[api:tests.createTestController] levels do not pass through a test that is not expandable, as upstream", async () => {
+        const { stub, vscode } = makeVscode();
+        const controller = vscode.tests.createTestController("ctrl", "Ctrl");
+        const seen: string[] = [];
+        controller.resolveHandler = (item) => {
+            seen.push(item?.id ?? "<root>");
+        };
+        const folder = controller.createTestItem("src", "src");
+        const file = controller.createTestItem("a.test.ts", "a.test.ts");
+        file.canResolveChildren = true;
+        folder.children.add(file);
+        controller.items.add(folder);
+        await stub.callRequest("testing.expandTest", { testId: testId("ctrl", "src"), levels: 1 });
+        expect(seen).toEqual([]);
+        await stub.callRequest("testing.expandTest", { testId: testId("ctrl", "src", "a.test.ts"), levels: 0 });
+        expect(seen).toEqual(["a.test.ts"]);
     });
 
     it("dropping the handler makes everything not expandable and calls nothing", async () => {

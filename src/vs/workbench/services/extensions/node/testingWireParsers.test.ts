@@ -188,6 +188,13 @@ describe("testing wire parsers", () => {
                 update: { label: 1, isDefault: "x", tag: 3, supportsContinuousRun: "y" },
             }),
         ).toEqual({ controllerId: "c", profileId: 1, update: { tag: null } });
+        expect(
+            parseWireTestRunProfileUpdate({ controllerId: "c", profileId: 1, update: { label: "L" } }),
+        ).toStrictEqual({
+            controllerId: "c",
+            profileId: 1,
+            update: { label: "L" },
+        });
         expect(parseWireTestRunProfileUpdate({ controllerId: "c", profileId: 1 })).toBeNull();
         expect(parseWireTestRunProfileUpdate({ controllerId: "c", update: {} })).toBeNull();
     });
