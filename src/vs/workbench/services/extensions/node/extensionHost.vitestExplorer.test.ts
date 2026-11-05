@@ -97,6 +97,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
 
                 // vitest lists the folders and test files on its own, a file's tests only on its resolve: the view
                 // expands a file when the user does (a folder is not resolvable, levels do not pass through it).
+                // The controller is counted before its root item reaches the mirror.
+                await waitUntil("the root", () => tests.rootItems.length === 1, 60_000);
                 const [root] = tests.rootItems;
                 await tests.expandTest(root.item.extId, Infinity);
                 await waitUntil("the test file", () => testTree(tests, false).includes("    math.test.ts"), 60_000);
