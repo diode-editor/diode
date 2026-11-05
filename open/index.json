@@ -4945,5 +4945,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-11-05-abdedbc72e33.json",
+    "generatedAt": "2026-11-05T23:36:50.363Z",
+    "commit": "abdedbc72e33",
+    "binaryVersion": "nightly-abdedbc",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
