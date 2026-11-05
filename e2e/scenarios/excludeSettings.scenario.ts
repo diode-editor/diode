@@ -30,17 +30,14 @@ export default defineScenario({
         );
         await editor.capture("tree");
 
-        // Quick Open filters by both sets.
+        // Quick Open filters by both sets. An empty query lists only recent files, so the query matches both `.js`
+        // files: the one under `build/` is listed, the one under `bower_components/` is not.
         await editor.sendKey("Ctrl+P");
-        await editor.waitForText(
-            (t) =>
-                t.includes("Go to File") &&
-                t.includes("app.py") &&
-                t.includes("README.md") &&
-                t.includes("generated.js") &&
-                !t.includes("cpython") &&
-                !t.includes("vendored.js"),
-        );
+        await editor.waitForText((t) => t.includes("Go to File"));
+        for (const ch of "js") {
+            await editor.sendKey(ch);
+        }
+        await editor.waitForText((t) => t.includes("generated.js") && t.includes("build") && !t.includes("vendored.js"));
         await editor.capture("quick-open");
         await editor.sendKey("Escape");
 
