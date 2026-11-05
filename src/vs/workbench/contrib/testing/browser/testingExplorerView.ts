@@ -11,6 +11,7 @@ import type { ITreeDataProvider, ITreeItem, ITreeItemAction } from "@tuidom/elem
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
 import { codicon } from "../../../../base/common/codicons.ts";
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import {
@@ -105,6 +106,8 @@ export interface ITestRow {
     readonly kind: "test" | "error";
     /** The test's id; the error row's test. */
     readonly testId: string;
+    /** The mirror's node, updated in place by the diffs: a row the next diff removed still draws. */
+    readonly node: ITestNode;
 }
 
 /** The error row sorts first and has a key apart from its test's. */
@@ -135,21 +138,17 @@ export class TestingExplorerComponent extends Component {
     public readonly view: TUIElement;
     public readonly tree: TreeViewElement<ITestRow>;
     public readonly filterInput = new InputElement();
-    private readonly rows = new Map<string, ITestRow>();
     /** For Collapse All: the tree keeps its expansion private. */
     private readonly expanded = new Map<string, ITestRow>();
-    /** Rows already shown once: a controller root and a test with an error expand when they first appear. */
+    /** Tests already shown once: a controller root and a test with an error expand when they first appear. */
     private readonly seen = new Set<string>();
     private filter: ITestExplorerFilter = parseTestExplorerFilter("");
     /** Tests the filter shows (`TreeVisibility.Visible`/`Recurse` with a visible descendant); `null` — no filter. */
     private visible: ReadonlySet<string> | null = null;
-    /** What the filter matched itself: upstream `lastIncludedTests`, revealed on a filter change. */
-    private included: readonly string[] = [];
-    private registered = false;
     /** Tests asked to resolve, until the request settles (its diff has come by then): upstream's `expandPromises`. */
     private readonly resolving = new Set<string>();
-    private refreshQueued = false;
-    private endBusy: (() => void) | null = null;
+    /** While some test is busy: ends the view's progress and the spinner ticks. */
+    private busy: IDisposable | null = null;
     private readonly inlineActions = new Map<string, ITreeItemAction[]>();
     /** The key of the tree's first row, from the last read of the roots. */
     private firstRowKey: string | undefined;
@@ -185,15 +184,17 @@ export class TestingExplorerComponent extends Component {
         });
         this.tree.id = "testingExplorerTree";
         this.tree.onExpandedChanged = (row, isExpanded) => {
-            if (isExpanded) this.expanded.set(rowKey(row), row);
-            else this.expanded.delete(rowKey(row));
+            if (!isExpanded) {
+                this.expanded.delete(rowKey(row));
+                return;
+            }
+            this.expanded.set(rowKey(row), row);
             // An error row is no folder: only tests expand.
-            if (isExpanded) this.resolve(row.testId);
+            this.resolve(row.node);
         };
         // Upstream `onDidOpen`: a leaf with a location opens it, the keyboard stays in the tree.
         this.tree.onActivate = (row) => {
-            const node = this.tests.getNodeById(row.testId);
-            if (row.kind === "error" || node === undefined || node.children.size > 0) return;
+            if (row.kind === "error" || row.node.children.size > 0) return;
             this.goToTest(row.testId, true);
         };
         this.tree.onContextMenu = (row, screenX, screenY) => {
@@ -205,7 +206,7 @@ export class TestingExplorerComponent extends Component {
             if (entry !== undefined) this.runEntry(entry, row);
         };
         this.tree.addEventListener("keydown", (event) => {
-            if (event.key !== "ArrowUp" || event.ctrlKey || event.altKey || event.shiftKey) return;
+            if (event.key !== "ArrowUp" || hasModifier(event)) return;
             const selected = this.tree.getSelectedNode();
             if (selected === null || rowKey(selected) !== this.firstRowKey) return;
             event.preventDefault();
@@ -217,7 +218,7 @@ export class TestingExplorerComponent extends Component {
             this.setFilter(value);
         };
         this.filterInput.addEventListener("keydown", (event) => {
-            if (event.ctrlKey || event.altKey || event.shiftKey) return;
+            if (hasModifier(event)) return;
             if (event.key === "ArrowDown") {
                 event.preventDefault();
                 this.tree.focus();
@@ -256,31 +257,24 @@ export class TestingExplorerComponent extends Component {
         });
         this.register(
             tests.onDidProcessDiff(() => {
-                this.scheduleRefresh();
+                void this.refresh();
             }),
         );
         this.register(
-            views.onDidChangeViewExpanded(({ viewId, expanded }) => {
-                if (viewId === TESTING_EXPLORER_VIEW_ID && expanded) this.resolveRoots();
-            }),
-        );
-        // A spinner tick redraws the rows from the mirror as it is; nothing else changed.
-        this.register(
-            progress.onDidChange(() => {
-                if (this.endBusy !== null) void this.tree.refresh();
+            views.onDidChangeViewExpanded(() => {
+                this.resolveRootsIfShown();
             }),
         );
         this.register(
             icons.onDidChange(() => {
-                this.scheduleRefresh();
+                void this.refresh();
             }),
         );
         let menuContexts: ReadonlySet<string> | null = null;
         this.register(
-            menuRegistry.onDidChangeMenu((menuId) => {
-                if (menuId !== MenuId.TestItem) return;
+            menuRegistry.onDidChangeMenu(() => {
                 menuContexts = null;
-                this.scheduleRefresh();
+                void this.refresh();
             }),
         );
         this.register(
@@ -288,8 +282,9 @@ export class TestingExplorerComponent extends Component {
                 this.syncRegistration();
                 menuContexts ??= menuRegistry.getMenuContexts(MenuId.TestItem);
                 for (const key of changed) {
+                    // Stryker disable next-line ConditionalExpression,BooleanLiteral: equivalent — a refresh on a key no item reads draws the same rows; the filter only saves the work
                     if (!menuContexts.has(key)) continue;
-                    this.scheduleRefresh();
+                    void this.refresh();
                     return;
                 }
             }),
@@ -312,7 +307,7 @@ export class TestingExplorerComponent extends Component {
         for (const row of [...this.expanded.values()]) await this.tree.toggleExpand(row);
     }
 
-    /** The test of the row under the cursor, `undefined` on an empty tree or an error row's. */
+    /** The test of the row under the cursor, `undefined` on an empty tree. */
     public get focusedTestId(): string | undefined {
         return this.tree.getSelectedNode()?.testId;
     }
@@ -334,10 +329,13 @@ export class TestingExplorerComponent extends Component {
         if (preserveFocus) this.tree.focus();
     }
 
+    private isRegistered(): boolean {
+        return this.views.getViewContainerByViewId(TESTING_EXPLORER_VIEW_ID) !== null;
+    }
+
     private syncRegistration(): void {
         const shown = this.contextKeys.evaluate(VIEW_WHEN);
-        if (shown === this.registered) return;
-        this.registered = shown;
+        if (shown === this.isRegistered()) return;
         if (!shown) {
             this.views.unregisterView(TESTING_EXPLORER_VIEW_ID);
             return;
@@ -364,134 +362,103 @@ export class TestingExplorerComponent extends Component {
         return empty ? null : this.view;
     }
 
-    private scheduleRefresh(): void {
-        if (this.refreshQueued) return;
-        this.refreshQueued = true;
-        queueMicrotask(() => {
-            this.refreshQueued = false;
-            void this.refresh();
-        });
-    }
-
-    /** After a diff: the mirror changed, the rows are read anew. */
+    /** After a diff and anything the rows show: the mirror is read anew. */
     private async refresh(): Promise<void> {
         this.inlineActions.clear();
-        this.forgetRemoved();
+        for (const testId of this.seen) {
+            if (this.tests.getNodeById(testId) === undefined) this.seen.delete(testId);
+        }
         this.setBusy(this.tests.rootItems.some((root) => this.anyBusy(root)));
         this.updateVisibility();
         // Without a controller there is no view: registering takes the body as it is then.
-        if (this.registered) {
-            this.views.setViewBody(TESTING_EXPLORER_VIEW_ID, this.body());
-            if (this.views.isViewExpanded(TESTING_EXPLORER_VIEW_ID)) this.resolveRoots();
-        }
+        if (this.isRegistered()) this.views.setViewBody(TESTING_EXPLORER_VIEW_ID, this.body());
+        this.resolveRootsIfShown();
         await this.tree.refresh();
     }
 
-    /** Rows, expansion and first sights of tests a diff removed. */
-    private forgetRemoved(): void {
-        for (const [key, row] of this.rows) {
-            if (this.tests.getNodeById(row.testId) !== undefined) continue;
-            this.rows.delete(key);
-            this.expanded.delete(key);
-            this.seen.delete(row.testId);
-        }
-    }
-
     /** Upstream `storeItem`: a controller's root resolves as soon as the view shows it. */
-    private resolveRoots(): void {
-        for (const root of this.tests.rootItems) {
-            if (root.expand === TestItemExpandState.Expandable) this.resolve(root.item.extId);
-        }
+    private resolveRootsIfShown(): void {
+        if (!this.isRegistered() || !this.views.isViewExpanded(TESTING_EXPLORER_VIEW_ID)) return;
+        for (const root of this.tests.rootItems) this.resolve(root);
     }
 
-    private resolve(testId: string): void {
-        if (this.resolving.has(testId)) return;
-        if (this.tests.getNodeById(testId)?.expand !== TestItemExpandState.Expandable) return;
+    private resolve(node: ITestNode): void {
+        const testId = node.item.extId;
+        if (this.resolving.has(testId) || node.expand !== TestItemExpandState.Expandable) return;
         this.resolving.add(testId);
         void this.tests.expandTest(testId, 0).finally(() => this.resolving.delete(testId));
     }
 
     private setFilter(text: string): void {
         this.filter = parseTestExplorerFilter(text);
-        this.updateVisibility();
-        void this.revealIncluded();
+        void this.revealIncluded(this.updateVisibility());
     }
 
-    /** Upstream: a filter change expands the tree to every test it matched. */
-    private async revealIncluded(): Promise<void> {
+    /** Upstream: a filter change expands the tree to every test it matched (ancestors first or not: the tree waits). */
+    private async revealIncluded(included: readonly ITestNode[]): Promise<void> {
         await this.tree.refresh();
-        const ancestors = new Set<string>();
-        for (const testId of this.included) {
-            for (let id = TestId.parentId(testId); id !== undefined; id = TestId.parentId(id)) ancestors.add(id);
+        const ancestors = new Map<string, ITestNode>();
+        for (const node of included) {
+            for (let id = TestId.parentId(node.item.extId); id !== undefined; id = TestId.parentId(id)) {
+                const ancestor = this.tests.getNodeById(id);
+                if (ancestor !== undefined) ancestors.set(id, ancestor);
+            }
         }
-        const rows = [...ancestors]
-            .filter((id) => this.tests.getNodeById(id) !== undefined)
-            .map((id) => this.rowFor(id));
-        // Ancestors first: the tree expands a row it already lists.
-        await this.tree.expandElements(rows.sort((a, b) => a.testId.length - b.testId.length));
+        await this.tree.expandElements([...ancestors.values()].map((node) => testRow(node)));
     }
 
-    /** Upstream `TestsFilter` over the whole mirror: what is shown and what matched itself. */
-    private updateVisibility(): void {
+    /** Upstream `TestsFilter` over the whole mirror; returns what matched itself (upstream `lastIncludedTests`). */
+    private updateVisibility(): ITestNode[] {
+        const included: ITestNode[] = [];
         if (isEmptyFilter(this.filter)) {
             this.visible = null;
-            this.included = [];
-            return;
+            return included;
         }
         const visible = new Set<string>();
-        const included: string[] = [];
         const visit = (node: ITestNode, lineage: ITestNode["item"][]): boolean => {
             const chain = [node.item, ...lineage];
             const result = filterTest(this.filter, chain);
             if (result === FilterResult.Exclude) return false;
+            // Upstream's error row is always visible, and so is its test.
             let shown = result === FilterResult.Include || node.item.error !== null;
             for (const child of this.childNodes(node)) {
                 if (visit(child, chain)) shown = true;
             }
-            if (result === FilterResult.Include) included.push(node.item.extId);
+            // Stryker disable next-line ConditionalExpression: equivalent — a test that only inherits is an ancestor of a match, expanded for it anyway
+            if (result === FilterResult.Include) included.push(node);
             if (shown) visible.add(node.item.extId);
             return shown;
         };
         for (const root of this.tests.rootItems) visit(root, []);
         this.visible = visible;
-        this.included = included;
+        return included;
     }
 
     /** Upstream `getChildrenForParent`: with one controller that has tests, its tests are the roots. */
     private childrenOf(row: ITestRow | undefined): ITestRow[] {
+        let parent: ITestNode | undefined = row?.node;
         let nodes: ITestNode[];
-        const result: ITestRow[] = [];
-        if (row === undefined) {
+        if (parent === undefined) {
             const roots = this.tests.rootItems.filter((root) => root.children.size > 0 || root.item.error !== null);
-            if (roots.length !== 1) {
-                nodes = roots;
-            } else {
-                const [root] = roots;
-                if (root.item.error !== null) result.push(this.rowFor(root.item.extId, "error"));
-                nodes = this.childNodes(root);
-            }
+            if (roots.length === 1) parent = roots[0];
+            nodes = parent === undefined ? roots : this.childNodes(parent);
         } else {
-            // The tree asks only for rows it listed, error rows are no folders: the test is in the mirror.
-            const node = this.tests.getNodeById(row.testId);
-            /* v8 ignore start -- see above */
-            if (node === undefined) return [];
-            /* v8 ignore stop */
-            if (node.item.error !== null) result.push(this.rowFor(row.testId, "error"));
-            nodes = this.childNodes(node);
+            nodes = this.childNodes(parent);
         }
         const visible = this.visible;
         const shown = visible === null ? nodes : nodes.filter((node) => visible.has(node.item.extId));
         shown.sort(compareTests);
-        for (const node of shown) result.push(this.rowFor(node.item.extId));
-        if (row === undefined) this.firstRowKey = result.at(0) === undefined ? undefined : rowKey(result[0]);
+        const result = shown.map((node) => testRow(node));
+        if (parent !== undefined && parent.item.error !== null)
+            result.unshift({ kind: "error", testId: parent.item.extId, node: parent });
+        if (row === undefined) this.firstRowKey = result.length === 0 ? undefined : rowKey(result[0]);
         this.expandOnFirstSight(row === undefined ? shown : shown.filter((node) => node.item.error !== null));
         return result;
     }
 
     private childNodes(node: ITestNode): ITestNode[] {
-        return [...node.children]
-            .map((childId) => this.tests.getNodeById(childId))
-            .filter((child): child is ITestNode => child !== undefined);
+        // `TestService` drops a child from its parent together with the child.
+        return [...node.children].flatMap((childId) => this.tests.getNodeById(childId) ?? []);
     }
 
     /** Upstream `PreserveOrExpanded` of a controller root and of a test with an error, once: the user's choice stays. */
@@ -501,28 +468,14 @@ export class TestingExplorerComponent extends Component {
             this.seen.add(node.item.extId);
             return isFresh && (TestId.parentId(node.item.extId) === undefined || node.item.error !== null);
         });
-        if (fresh.length === 0) return;
         // After the tree has taken these children: it expands a row it already lists.
         queueMicrotask(() => {
-            void this.tree.expandElements(fresh.map((node) => this.rowFor(node.item.extId)));
+            void this.tree.expandElements(fresh.map((node) => testRow(node)));
         });
     }
 
-    /** One object per row key: the tree hands it back to the callbacks. */
-    private rowFor(testId: string, kind: ITestRow["kind"] = "test"): ITestRow {
-        const candidate: ITestRow = { kind, testId };
-        const key = rowKey(candidate);
-        const known = this.rows.get(key);
-        if (known !== undefined) return known;
-        this.rows.set(key, candidate);
-        return candidate;
-    }
-
     private toTreeItem(row: ITestRow): ITreeItem {
-        const node = this.tests.getNodeById(row.testId);
-        /* v8 ignore start -- the tree asks only for rows it got from `childrenOf`, after the diff that removed one */
-        if (node === undefined) return { label: "", collapsible: false };
-        /* v8 ignore stop */
+        const { node } = row;
         if (row.kind === "error") {
             // An error row is listed only while its test has an error.
             return { label: String(node.item.error), collapsible: false, labelColor: "list.errorForeground" };
@@ -548,26 +501,38 @@ export class TestingExplorerComponent extends Component {
         return isBusy(node) || this.childNodes(node).some((child) => this.anyBusy(child));
     }
 
-    /** While some test is busy the view has a progress entry: its frames drive the row spinners. */
+    /** While some test is busy the view has a progress entry: its ticks redraw the row spinners. */
     private setBusy(busy: boolean): void {
-        if (busy === (this.endBusy !== null)) return;
+        if (busy === (this.busy !== null)) return;
         if (!busy) {
-            this.endBusy?.();
-            this.endBusy = null;
+            this.busy?.dispose();
+            this.busy = null;
             return;
         }
+        let end: () => void = () => undefined;
         void this.progress.withProgress(
+            // Stryker disable next-line StringLiteral: a view's progress draws only its spinner, not the title
             { location: "view", viewId: TESTING_EXPLORER_VIEW_ID, title: "Resolving tests" },
             () =>
                 new Promise<void>((resolve) => {
-                    this.endBusy = resolve;
+                    end = resolve;
                 }),
         );
+        const ticks = this.progress.onDidChange(() => {
+            void this.tree.refresh();
+        });
+        this.busy = {
+            dispose: () => {
+                ticks.dispose();
+                end();
+            },
+        };
     }
 
     /** The glyphs of a row, resolved once per refresh: a spinner tick redraws every row. */
     private inlineActionsOf(row: ITestRow): ITreeItemAction[] {
         let actions = this.inlineActions.get(row.testId);
+        // Stryker disable next-line ConditionalExpression: equivalent — resolving the menu again gives the same glyphs; the cache only saves the work
         if (actions === undefined) {
             actions = inlineMenuActions(this.itemMenu(row, true));
             this.inlineActions.set(row.testId, actions);
@@ -577,13 +542,12 @@ export class TestingExplorerComponent extends Component {
 
     /** Upstream `getActionableElementActions`: the row's keys on top of the global ones. */
     private itemMenu(row: ITestRow, inline: boolean): IMenuEntryGroup[] {
-        const node = this.tests.getNodeById(row.testId);
-        if (row.kind === "error" || node === undefined) return [];
+        if (row.kind === "error") return [];
         const keys: MenuContextKeys = {
             view: TESTING_EXPLORER_VIEW_ID,
             testId: TestId.localId(row.testId),
-            controllerId: node.controllerId,
-            "testing.testItemHasUri": node.item.uri !== undefined,
+            controllerId: row.node.controllerId,
+            "testing.testItemHasUri": row.node.item.uri !== undefined,
         };
         return this.menus
             .getEntryGroups(MenuId.TestItem, undefined, keys)
@@ -617,8 +581,20 @@ export class TestingExplorerComponent extends Component {
     }
 }
 
+function testRow(node: ITestNode): ITestRow {
+    return { kind: "test", testId: node.item.extId, node };
+}
+
 function rowKey(row: ITestRow): string {
     return row.kind === "error" ? row.testId + ERROR_KEY_SUFFIX : row.testId;
+}
+
+function hasModifier(event: {
+    readonly ctrlKey: boolean;
+    readonly altKey: boolean;
+    readonly shiftKey: boolean;
+}): boolean {
+    return event.ctrlKey || event.altKey || event.shiftKey;
 }
 
 function isBusy(node: ITestNode): boolean {

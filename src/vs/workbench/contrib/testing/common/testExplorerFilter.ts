@@ -107,7 +107,6 @@ function filterText(filter: ITestExplorerFilter, lineage: TestLineage): FilterRe
 
 /** Upstream `testTags`: some included tag, none of the excluded ones. */
 function filterTags(filter: ITestExplorerFilter, item: IWireTestItem): FilterResult {
-    if (filter.includeTags.size === 0 && filter.excludeTags.size === 0) return FilterResult.Include;
     const included = filter.includeTags.size === 0 || item.tags.some((tag) => filter.includeTags.has(tag));
     return included && item.tags.every((tag) => !filter.excludeTags.has(tag))
         ? FilterResult.Include

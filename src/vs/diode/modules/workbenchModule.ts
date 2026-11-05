@@ -650,6 +650,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TestServiceDIToken, TestService);
     container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-explorer
     container.bind(TestingRevealTargetDIToken, () => container.get(EditorServiceDIToken));
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));

@@ -101,6 +101,12 @@ describe("filterTest (upstream TestsFilter)", () => {
         expect(result("!@vitest:slow", ADDS)).toBe(FilterResult.Include);
     });
 
+    it("one included tag of several is enough; one excluded tag of several is too many", () => {
+        const both = item("both", [testId("vitest", "fast"), testId("vitest", "slow")]);
+        expect(result("@vitest:fast", both)).toBe(FilterResult.Include);
+        expect(result("!@vitest:slow", both)).toBe(FilterResult.Inherit);
+    });
+
     it("text and tags both have to hold", () => {
         expect(result("adds @vitest:fast", ADDS)).toBe(FilterResult.Include);
         expect(result("sum @vitest:fast", SLOW)).toBe(FilterResult.Inherit);

@@ -1,11 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 
+import {
+    add,
+    setupExplorer,
+    SwitchableIcons,
+    THEME,
+    update,
+    wireItem,
+} from "../../../../../TestUtils/testingExplorerHarness.ts";
+import { testId } from "../../../../../TestUtils/testTree.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { SPINNER_FRAMES } from "../../../../platform/progress/common/progressService.ts";
 import { TestItemExpandState, type WireTestsDiffOp } from "../../../api/common/testingWireTypes.ts";
 
-import { add, setupExplorer, SwitchableIcons, THEME, update, wireItem } from "./testingExplorerView.testUtils.ts";
 import { TESTING_EXPLORER_VIEW_ID, TESTING_VIEWLET_ID } from "./testingExplorerView.ts";
 
 const { NotExpandable, Expandable, BusyExpanding, Expanded } = TestItemExpandState;
@@ -35,7 +43,10 @@ function vitestFiles(): WireTestsDiffOp[] {
 function vitestTests(): WireTestsDiffOp[] {
     return [
         add(wireItem(SUITE, "math", { uri: FILE_URI, range: createRange(2, 0, 9, 2) }), NotExpandable),
-        add(wireItem(ADDS, "adds", { uri: FILE_URI, range: createRange(3, 4, 5, 6) }), NotExpandable),
+        add(
+            wireItem(ADDS, "adds", { uri: FILE_URI, range: createRange(3, 4, 5, 6), tags: [testId("vitest", "fast")] }),
+            NotExpandable,
+        ),
         add(wireItem(FAILS, "fails", { uri: FILE_URI, range: createRange(6, 4, 8, 6) }), NotExpandable),
         update(FILE, {}, Expanded),
     ];
@@ -404,19 +415,22 @@ describe("TestingExplorerComponent — the row's context menu", () => {
     });
 
     it("a controller the item does not name does not get it; a test without a location has no Go to Test", async () => {
-        const { views, tests, registerController, waitFrame, locate, component } = setupExplorer({
+        const { views, tests, registerController, waitFrame, locate, click, component } = setupExplorer({
             menus: [UPDATE_SNAPSHOT],
         });
         registerController("go", "Go");
         tests.publishDiff([add(wireItem(["go"], "Go"), Expanded), add(wireItem(["go", "pkg"]), NotExpandable)]);
         await waitFrame((text) => text.includes("pkg"));
         const { x, y } = locate("pkg");
-        component.tree.onContextMenu?.(component.tree.getSelectedNode() ?? { kind: "test", testId: "go\0pkg" }, x, y);
+        click(x, y);
+        const selected = component.tree.getSelectedNode();
+        if (selected === null) throw new Error("no row");
+        component.tree.onContextMenu?.(selected, x, y);
         expect(views.shown).toEqual([]);
     });
 
     it("a failing command is a toast", async () => {
-        const { views, locate, click, mouse, toasts } = await withTests({ menus: [UPDATE_SNAPSHOT] });
+        const { views, locate, click, mouse, toasts, toastOptions } = await withTests({ menus: [UPDATE_SNAPSHOT] });
         views.commands.register("vitest.updateSnapshot", () => Promise.reject(new Error("no snapshot")));
         const { x, y } = locate("adds");
         click(x, y);
@@ -430,6 +444,7 @@ describe("TestingExplorerComponent — the row's context menu", () => {
         item.onSelect?.();
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(toasts).toEqual(["no snapshot"]);
+        expect(toastOptions).toEqual([{ severity: "error", message: "no snapshot", modal: false, items: [] }]);
     });
 });
 
@@ -490,7 +505,9 @@ describe("TestingExplorerComponent — the edges", () => {
         const { tests, component, views, waitFrame, opened } = await withTests();
         tests.publishDiff([update(ADDS, { error: "boom" })]);
         await waitFrame((text) => text.includes("boom"));
-        const row = { kind: "error", testId: ADDS.join("\0") } as const;
+        const node = tests.getNodeById(ADDS.join("\0"));
+        if (node === undefined) throw new Error("no adds");
+        const row = { kind: "error", testId: ADDS.join("\0"), node } as const;
         component.tree.onActivate?.(row, { pinned: true, preserveFocus: false });
         component.tree.onContextMenu?.(row, 0, 0);
         expect(opened).toEqual([]);
@@ -498,8 +515,13 @@ describe("TestingExplorerComponent — the edges", () => {
     });
 
     it("a glyph clicked after the menu lost its item does nothing", async () => {
-        const { component, opened } = await withTests();
-        component.tree.onInlineAction?.({ kind: "test", testId: ADDS.join("\0") }, 5);
+        const { component, opened, locate, click } = await withTests();
+        const { x, y } = locate("adds");
+        click(x, y);
+        opened.length = 0;
+        const row = component.tree.getSelectedNode();
+        if (row === null) throw new Error("no row");
+        component.tree.onInlineAction?.(row, 5);
         expect(opened).toEqual([]);
     });
 
@@ -558,5 +580,285 @@ describe("TestingExplorerComponent — the edges", () => {
         views.contextKeys.set("searchViewletVisible", true);
         views.contextKeys.set("ext.ready" as never, true as never);
         await waitFrame((text) => text.split("\n")[y].includes("R"));
+    });
+});
+
+/** Expands `label` (a row with a chevron) or collapses it: a click on its row. */
+async function toggle(explorer: Awaited<ReturnType<typeof withTests>>, label: string): Promise<void> {
+    const { x, y } = explorer.row(label);
+    explorer.click(x, y);
+    await Promise.resolve();
+}
+
+describe("TestingExplorerComponent — the details", () => {
+    it("the frame's ids, the container's title and label, the sidebar's colors", async () => {
+        const { component, views, locate, fgAt, bgAt, width } = await withTests();
+        expect(component.tree.id).toBe("testingExplorerTree");
+        expect(component.view.id).toBe("testingExplorerView");
+        const container = views.service.getViewContainers().find((entry) => entry.id === TESTING_VIEWLET_ID);
+        expect([container?.title, container?.label]).toEqual(["TESTING", "Testing"]);
+        const summary = locate("No test results yet.");
+        expect(fgAt(summary.x, summary.y)).toBe(THEME.getColor("sideBar.foreground"));
+        expect(fgAt(width - 3, 1)).toBe(THEME.getColor("sideBar.foreground"));
+        expect(bgAt(width - 3, 1)).toBe(THEME.getColor("sideBar.background"));
+        expect(bgAt(2, 10)).toBe(THEME.getColor("sideBar.background"));
+    });
+
+    it("workbench.tree.expandMode: doubleClick — a click on a folder row only selects", async () => {
+        const { tests, registerController, waitFrame, row, click, frame } = setupExplorer({
+            settings: { "workbench.tree.expandMode": "doubleClick" },
+        });
+        registerController("vitest", "Vitest");
+        tests.publishDiff([...vitestRoot(), ...vitestFiles()]);
+        await waitFrame((text) => text.includes("src"));
+        const src = row("src");
+        click(src.x, src.y);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(frame()).not.toContain("math.test.ts");
+    });
+
+    it("workbench.list.openMode: a click opens a leaf, with doubleClick it only selects", async () => {
+        const single = await withTests();
+        single.opened.length = 0;
+        const adds = single.locate("adds");
+        single.click(adds.x, adds.y);
+        expect(single.opened).toEqual([FILE_URI]);
+
+        const double = await withTests({ settings: { "workbench.list.openMode": "doubleClick" } });
+        double.opened.length = 0;
+        const at = double.locate("adds");
+        double.click(at.x, at.y);
+        expect(double.opened).toEqual([]);
+    });
+
+    it("Collapse All leaves a test the user collapsed collapsed", async () => {
+        const explorer = await withTests();
+        await toggle(explorer, "math");
+        await explorer.waitFrame((text) => !text.includes("adds"));
+        await explorer.views.commands.execute("testing.collapseAll");
+        await toggle(explorer, "src");
+        await explorer.waitFrame((text) => text.includes("math.test.ts"));
+        await toggle(explorer, "math.test.ts");
+        await explorer.waitFrame((text) => text.includes(" math"));
+        expect(explorer.frame()).not.toContain("adds");
+    });
+
+    it("a lazy test is asked once per expand: collapsing does not ask, expanding again does", async () => {
+        const { tests, registerController, waitFrame, row, click, expands } = setupExplorer();
+        registerController("vitest", "Vitest");
+        tests.publishDiff([...vitestRoot(), ...vitestFiles()]);
+        await waitFrame((text) => text.includes("src"));
+        const src = row("src");
+        click(src.x, src.y);
+        await waitFrame((text) => text.includes("math.test.ts"));
+        const file = row("math.test.ts");
+        const asked = (): number => expands.filter(([id]) => id === FILE.join("\0")).length;
+        click(file.x, file.y);
+        await vi.waitFor(() => {
+            expect(asked()).toBe(1);
+        });
+        click(file.x, file.y);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(asked()).toBe(1);
+        click(file.x, file.y);
+        await vi.waitFor(() => {
+            expect(asked()).toBe(2);
+        });
+        // A folder vitest lists itself is not resolvable: expanding it asks nothing.
+        expect(expands.map(([id]) => id)).not.toContain(SRC.join("\0"));
+    });
+
+    it("a modified ArrowUp on the first row stays in the tree; so does ArrowUp on an empty tree", async () => {
+        const explorer = await withTests();
+        const { component, sendKey } = explorer;
+        const src = explorer.row("src");
+        explorer.click(src.x, src.y);
+        for (const key of ["Shift+ArrowUp", "Ctrl+ArrowUp", "Alt+ArrowUp"]) {
+            sendKey(key);
+            expect(component.tree.isFocused).toBe(true);
+        }
+        component.filterInput.inputState.value = "nothing";
+        component.filterInput.onChange?.("nothing");
+        await explorer.waitFrame((text) => !text.includes("src"));
+        component.tree.focus();
+        sendKey("ArrowUp");
+        expect(component.tree.isFocused).toBe(true);
+    });
+
+    it("a modified ArrowDown stays in the filter", async () => {
+        const { component, sendKey } = await withTests();
+        component.filterInput.focus();
+        for (const key of ["Ctrl+ArrowDown", "Alt+ArrowDown"]) {
+            sendKey(key);
+            expect(component.filterInput.isFocused).toBe(true);
+        }
+    });
+
+    it("Escape on an empty filter is left to the workbench", async () => {
+        const { component, sendKey } = await withTests();
+        const prevented: boolean[] = [];
+        component.view.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") prevented.push(event.defaultPrevented);
+        });
+        component.filterInput.focus();
+        sendKey("Escape");
+        sendKey("x");
+        sendKey("Escape");
+        expect(prevented).toEqual([false, true]);
+    });
+
+    it("disposing the view ends its progress", async () => {
+        const { tests, component, progress, waitFrame } = await withTests();
+        tests.publishDiff([update(ADDS, { busy: true })]);
+        await waitFrame((text) => text.includes(`${SPINNER_FRAMES[0]} adds`));
+        expect(progress.isBusy(TESTING_EXPLORER_VIEW_ID)).toBe(true);
+        component.dispose();
+        await Promise.resolve();
+        expect(progress.isBusy(TESTING_EXPLORER_VIEW_ID)).toBe(false);
+    });
+
+    it("the view has a progress while a test deep in the tree is busy, and only then", async () => {
+        const { tests, progress } = await withTests();
+        expect(progress.isBusy(TESTING_EXPLORER_VIEW_ID)).toBe(false);
+        tests.publishDiff([update(ADDS, { busy: true })]);
+        await vi.waitFor(() => {
+            expect(progress.isBusy(TESTING_EXPLORER_VIEW_ID)).toBe(true);
+        });
+    });
+
+    it("an empty tree has no test under the cursor; an unknown test goes nowhere", async () => {
+        const { component, opened, tests, registerController, waitFrame } = setupExplorer();
+        registerController("vitest", "Vitest");
+        tests.publishDiff([add(wireItem(ROOT, "Vitest"), Expanded)]);
+        await waitFrame((text) => text.includes("No tests have been found"));
+        expect(component.focusedTestId).toBeUndefined();
+        component.goToTest("vitest\0gone", true);
+        expect(opened).toEqual([]);
+    });
+
+    it("Go to Test keeps the keyboard where it is unless asked to come back to the tree", async () => {
+        const { component } = await withTests();
+        component.filterInput.focus();
+        component.goToTest(ADDS.join("\0"), false);
+        expect(component.filterInput.isFocused).toBe(true);
+        component.goToTest(ADDS.join("\0"), true);
+        expect(component.tree.isFocused).toBe(true);
+    });
+
+    it("a key that changes nothing about the controllers does not register the view again", async () => {
+        const { views, registerController } = setupExplorer();
+        registerController("vitest");
+        await vi.waitFor(() => {
+            expect(views.service.getViewContainerByViewId(TESTING_EXPLORER_VIEW_ID)).toBe(TESTING_VIEWLET_ID);
+        });
+        const registerView = vi.spyOn(views.service, "registerView");
+        views.contextKeys.set("searchViewletVisible", true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(registerView).not.toHaveBeenCalled();
+    });
+
+    it("the view moves to the panel, as upstream's canMoveView", async () => {
+        const { views, registerController } = setupExplorer();
+        registerController("vitest");
+        await vi.waitFor(() => {
+            expect(views.service.getViewContainerByViewId(TESTING_EXPLORER_VIEW_ID)).toBe(TESTING_VIEWLET_ID);
+        });
+        views.service.moveViewToLocation(TESTING_EXPLORER_VIEW_ID, "panel");
+        const container = views.service.getViewContainerByViewId(TESTING_EXPLORER_VIEW_ID);
+        expect(container === null ? null : views.service.getViewContainerLocation(container)).toBe("panel");
+    });
+
+    it("a controller without tests next to one with them: no welcome, and the other's tests are the roots", async () => {
+        const { tests, registerController, waitFrame, lines } = setupExplorer();
+        registerController("vitest", "Vitest");
+        registerController("go", "Go");
+        tests.publishDiff([add(wireItem(["go"], "Go"), Expanded)]);
+        tests.publishDiff([add(wireItem(ROOT, "Vitest"), Expanded), add(wireItem(SRC), NotExpandable)]);
+        await waitFrame((text) => text.includes("src"));
+        expect(lines()[3].trim()).toBe("○ src");
+        expect(lines().join("\n")).not.toContain("Go");
+    });
+
+    it("a controller with an error and no tests is a root next to one with tests", async () => {
+        const { tests, registerController, waitFrame } = setupExplorer();
+        registerController("vitest", "Vitest");
+        registerController("go", "Go");
+        tests.publishDiff([add(wireItem(ROOT, "Vitest", { error: "No vitest config" }), Expanded)]);
+        tests.publishDiff([add(wireItem(["go"], "Go"), Expanded), add(wireItem(["go", "pkg"]), NotExpandable)]);
+        await waitFrame((text) => text.includes("No vitest config") && text.includes("Go") && text.includes("pkg"));
+    });
+
+    it("`!math` hides the matching tests with what is under them; a folder left with excluded tests only goes", async () => {
+        const { component, waitFrame } = await withTests();
+        component.filterInput.onChange?.("!math");
+        const frame = await waitFrame((text) => !text.includes("math"));
+        expect(frame).toContain("src");
+        expect(frame).not.toContain("adds");
+        // `adds` matches and is excluded by the later glob; nothing else matches.
+        component.filterInput.onChange?.("adds, !adds");
+        await waitFrame((text) => !text.includes("src"));
+    });
+
+    it("a test with an error stays visible under a filter that does not match it", async () => {
+        const { tests, component, waitFrame } = await withTests();
+        tests.publishDiff([update(SUITE, { error: "Cannot parse math" })]);
+        await waitFrame((text) => text.includes("Cannot parse math"));
+        component.filterInput.onChange?.("nothing");
+        await waitFrame((text) => text.includes("Cannot parse math") && !text.includes("adds"));
+    });
+
+    it("clearing the filter expands nothing", async () => {
+        const explorer = await withTests();
+        await toggle(explorer, "math");
+        await explorer.waitFrame((text) => !text.includes("adds"));
+        explorer.component.filterInput.onChange?.("math");
+        explorer.component.filterInput.onChange?.("");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await explorer.waitFrame((text) => text.includes(" math"));
+        expect(explorer.frame()).toContain("adds");
+        await toggle(explorer, "math");
+        await explorer.waitFrame((text) => !text.includes("adds"));
+        explorer.component.filterInput.onChange?.("");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(explorer.frame()).not.toContain("adds");
+    });
+
+    it("tags: `@vitest:fast` keeps the tagged test, `!@vitest:fast` drops it", async () => {
+        const { component, waitFrame } = await withTests();
+        component.filterInput.onChange?.("@vitest:fast");
+        await waitFrame((text) => text.includes("adds") && !text.includes("fails"));
+        component.filterInput.onChange?.("!@vitest:fast");
+        await waitFrame((text) => !text.includes("adds") && text.includes("fails"));
+    });
+
+    it("a test with an error collapsed by the user stays collapsed; one that comes back expands again", async () => {
+        const explorer = await withTests();
+        const { tests, waitFrame } = explorer;
+        tests.publishDiff([update(SUITE, { error: "Cannot parse math" })]);
+        await waitFrame((text) => text.includes("Cannot parse math"));
+        await toggle(explorer, "math");
+        await waitFrame((text) => !text.includes("Cannot parse math"));
+        tests.publishDiff([update(ADDS, { label: "adds two" })]);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(explorer.frame()).not.toContain("Cannot parse math");
+        tests.publishDiff([{ op: 3, itemId: SUITE.join("\0") }]);
+        await waitFrame((text) => !/○ math(\s|$)/m.test(text));
+        tests.publishDiff([add(wireItem(SUITE, "math", { error: "Cannot parse math" }), NotExpandable)]);
+        await waitFrame((text) => text.includes("Cannot parse math"));
+    });
+
+    it("an item of the row menu can name the test by its own id", async () => {
+        const { views, locate, click, lines, width } = await withTests({
+            menus: [
+                { menuId: MenuId.TestItem, command: "ext.only", group: "inline", icon: "Q", when: "testId == 'adds'" },
+            ],
+        });
+        views.commands.register("ext.only", () => undefined, "Only");
+        const fails = locate("fails");
+        click(fails.x, fails.y);
+        expect(lines()[fails.y]).not.toContain("Q");
+        const adds = locate("adds");
+        click(adds.x, adds.y);
+        expect(lines()[adds.y].slice(width - 6)).toContain("Q");
     });
 });

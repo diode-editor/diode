@@ -1,42 +1,43 @@
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { expect, vi } from "vitest";
 
-import { TestApp } from "../../../../../TestUtils/TestApp.ts";
-import { testId } from "../../../../../TestUtils/testTree.ts";
-import { Emitter } from "../../../../base/common/event.ts";
-import type { IRange } from "../../../../editor/common/core/iRange.ts";
-import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
-import type { MenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
-import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
-import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
-import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { type IProgressServiceOptions, ProgressService } from "../../../../platform/progress/common/progressService.ts";
-import { bindWidgetGlyphs } from "../../../../platform/theme/browser/widgetGlyphs.ts";
-import {
-    type IProductIconService,
-    StaticProductIconService,
-} from "../../../../platform/theme/common/productIconService.ts";
-import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { Emitter } from "../vs/base/common/event.ts";
+import type { IRange } from "../vs/editor/common/core/iRange.ts";
+import { registerAction } from "../vs/platform/actions/common/commandAction.ts";
+import type { MenuContribution } from "../vs/platform/actions/common/iMenuContribution.ts";
+import type { IConfigurationService } from "../vs/platform/configuration/common/iConfigurationService.ts";
+import { ContextKeyServiceDIToken } from "../vs/platform/contextkey/common/contextKeyService.ts";
+import type { ServiceAccessor } from "../vs/platform/instantiation/common/diContainer.ts";
+import { KeybindingRegistry } from "../vs/platform/keybinding/common/keybindingRegistry.ts";
+import { type IProgressServiceOptions, ProgressService } from "../vs/platform/progress/common/progressService.ts";
+import { bindWidgetGlyphs } from "../vs/platform/theme/browser/widgetGlyphs.ts";
+import { type IProductIconService, StaticProductIconService } from "../vs/platform/theme/common/productIconService.ts";
+import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
 import {
     type IWireTestItem,
     TestDiffOpType,
     type TestItemExpandState,
     type WireTestsDiffOp,
-} from "../../../api/common/testingWireTypes.ts";
-import { menuItemsOfAction } from "../../../browser/actions/menuContributions.ts";
-import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
-import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
-import type { NotificationService } from "../../../services/notification/browser/notificationService.ts";
-import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
-import { type ITestControllerRegistration, TestService, TestServiceDIToken } from "../common/testService.ts";
-
-import { TESTING_ACTIONS } from "./testingActions.ts";
+} from "../vs/workbench/api/common/testingWireTypes.ts";
+import { menuItemsOfAction } from "../vs/workbench/browser/actions/menuContributions.ts";
+import { makeViewsHarness } from "../vs/workbench/browser/parts/views/viewsService.testUtils.ts";
+import { TESTING_ACTIONS } from "../vs/workbench/contrib/testing/browser/testingActions.ts";
 import {
     TESTING_VIEWLET_ID,
     TestingExplorerComponent,
     TestingExplorerComponentDIToken,
-} from "./testingExplorerView.ts";
+} from "../vs/workbench/contrib/testing/browser/testingExplorerView.ts";
+import {
+    type ITestControllerRegistration,
+    TestService,
+    TestServiceDIToken,
+} from "../vs/workbench/contrib/testing/common/testService.ts";
+import { NULL_JUMP_RECORDER } from "../vs/workbench/services/history/browser/historyService.ts";
+import type { NotificationService } from "../vs/workbench/services/notification/browser/notificationService.ts";
+import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";
+
+import { TestApp } from "./TestApp.ts";
+import { testId } from "./testTree.ts";
 
 export const UNICODE_ICONS = new StaticProductIconService(false);
 export const THEME = WorkbenchTheme.fromThemeFile(darkPlusTheme);
@@ -120,6 +121,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
     const opened: string[] = [];
     const positions: [number, number | undefined][] = [];
     const toasts: string[] = [];
+    const toastOptions: unknown[] = [];
     const reveal = {
         openUri: (uri: { toString(): string }) => {
             opened.push(uri.toString());
@@ -156,6 +158,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
         {
             show: (toast: { message: string }) => {
                 toasts.push(toast.message);
+                toastOptions.push(toast);
             },
         } as unknown as NotificationService,
     );
@@ -235,6 +238,10 @@ export function setupExplorer(options: ISetupOptions = {}) {
         frame();
         return show().backend.getFgAt(new Point(x, y));
     };
+    const bgAt = (x: number, y: number): number => {
+        frame();
+        return show().backend.getBgAt(new Point(x, y));
+    };
     const sendKey = (key: string): void => {
         show().backend.sendKey(key);
         show().render();
@@ -270,6 +277,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
         opened,
         positions,
         toasts,
+        toastOptions,
         expands,
         controllers,
         registerController,
@@ -279,6 +287,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
         row,
         waitFrame,
         fgAt,
+        bgAt,
         sendKey,
         mouse,
         click,
