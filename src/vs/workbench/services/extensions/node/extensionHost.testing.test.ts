@@ -140,6 +140,18 @@ describe("ExtensionHost — test controllers reach the TestService", () => {
         await waitForEvent("refresh:cancelled");
     });
 
+    it("[api:tests.createTestController] a profile's edits reach the core", async () => {
+        await harness.commandRegistry.execute("test.testing.editRunProfile");
+        await waitUntil("the profile edit", () =>
+            profiles.getControllerProfiles(ROOT).some((p) => p.label === "Debug Everything"),
+        );
+        expect(profiles.getControllerProfiles(ROOT).map((p) => [p.label, p.isDefault])).toEqual([
+            ["Debug Everything", true],
+            ["Run Tests", true],
+            ["Run Tests with Coverage", false],
+        ]);
+    });
+
     it("[api:tests.createTestController] a disposed profile and a disposed controller leave the core", async () => {
         await harness.commandRegistry.execute("test.testing.disposeRunProfile");
         await waitUntil("the profile removal", () => contextKeys.get("testing.hasRunnableTests") === false);

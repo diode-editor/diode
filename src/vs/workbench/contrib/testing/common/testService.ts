@@ -149,13 +149,14 @@ export class TestService extends Disposable {
         } finally {
             this.refreshCancellations.delete(cts);
             this.contextKeys.set("testing.isRefreshing", this.refreshCancellations.size > 0);
+            // Stryker disable next-line CallExpression: hygiene — the source's listener list goes with it; nothing reads a finished refresh's token
             cts.dispose();
         }
     }
 
     public cancelRefreshTests(): void {
+        // Each refresh drops its own source when it settles.
         for (const cts of this.refreshCancellations) cts.cancel();
-        this.refreshCancellations.clear();
         this.contextKeys.set("testing.isRefreshing", false);
     }
 

@@ -27,6 +27,7 @@ export class TestingCustomer implements IExtensionHostCustomer {
         };
         on("testing.registerController", (params) => {
             const controller = parseWireTestController(params);
+            // Stryker disable next-line ConditionalExpression: equivalent — without the check the null message throws before the sink changes anything, RpcEndpoint swallows a notification handler's exception
             if (controller === null) return;
             const { controllerId } = controller;
             sink.registerController(controller, {
@@ -40,26 +41,32 @@ export class TestingCustomer implements IExtensionHostCustomer {
         });
         on("testing.updateController", (params) => {
             const patch = parseWireTestControllerPatch(params);
+            // Stryker disable next-line ConditionalExpression: equivalent — without the check the null message throws before the sink changes anything, RpcEndpoint swallows a notification handler's exception
             if (patch !== null) sink.updateController(patch);
         });
         on("testing.unregisterController", (params) => {
             const controllerId = parseWireTestControllerId(params);
+            // Stryker disable next-line ConditionalExpression: equivalent — without the check the null message throws before the sink changes anything, RpcEndpoint swallows a notification handler's exception
             if (controllerId !== null) sink.unregisterController(controllerId);
         });
         on("testing.publishDiff", (params) => {
             const diff = parseWireTestsDiff(params);
+            // Stryker disable next-line ConditionalExpression: equivalent — without the check the null message throws before the sink changes anything, RpcEndpoint swallows a notification handler's exception
             if (diff !== null) sink.publishDiff(diff.diff);
         });
         on("testing.publishProfile", (params) => {
             const profile = parseWireTestRunProfile(params);
+            // Stryker disable next-line ConditionalExpression: equivalent — without the check the null message throws before the sink changes anything, RpcEndpoint swallows a notification handler's exception
             if (profile !== null) sink.publishProfile(profile);
         });
         on("testing.updateProfile", (params) => {
             const update = parseWireTestRunProfileUpdate(params);
+            // Stryker disable next-line ConditionalExpression: equivalent — without the check the null message throws before the sink changes anything, RpcEndpoint swallows a notification handler's exception
             if (update !== null) sink.updateProfile(update);
         });
         on("testing.removeProfile", (params) => {
             const id = parseWireTestRunProfileId(params);
+            // Stryker disable next-line ConditionalExpression: equivalent — without the check the null message throws before the sink changes anything, RpcEndpoint swallows a notification handler's exception
             if (id !== null) sink.removeProfile(id.controllerId, id.profileId);
         });
         store.add({

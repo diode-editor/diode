@@ -78,6 +78,10 @@ exports.activate = function activate(context) {
         vscode.commands.registerCommand("test.testing.finishRefresh", function () {
             finishRefresh();
         }),
+        vscode.commands.registerCommand("test.testing.editRunProfile", function () {
+            profiles[1].label = "Debug Everything";
+            profiles[1].isDefault = true;
+        }),
         vscode.commands.registerCommand("test.testing.disposeRunProfile", function () {
             profiles[0].dispose();
         }),

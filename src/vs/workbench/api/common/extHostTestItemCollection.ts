@@ -96,29 +96,24 @@ export class ExtHostTestItemCollection implements IDisposable {
     public async expand(testId: string, levels: number): Promise<void> {
         const internal = this.tree.get(testId);
         if (internal === undefined) return;
-        if (internal.expandLevels === undefined || levels > internal.expandLevels) internal.expandLevels = levels;
-        if (internal.expand === TestItemExpandState.Expandable) {
-            await this.resolveChildren(internal).done;
-        } else if (internal.expand === TestItemExpandState.Expanded) {
-            await internal.resolve?.done;
-        } else {
-            return;
-        }
+        internal.expandLevels = Math.max(internal.expandLevels ?? levels, levels);
+        // `Expanded` is set once the handler has settled: there is nothing to wait for then.
+        if (internal.expand === TestItemExpandState.Expandable) await this.resolveChildren(internal).done;
+        else if (internal.expand !== TestItemExpandState.Expanded) return;
         await this.expandChildren(internal, levels - 1);
     }
 
     /** Sends the queued diff now. */
     public flushDiff(): void {
-        this.debounceSendDiff.cancel();
         const diff = this.diff;
         this.diff = [];
         if (diff.length > 0) this.options.publishDiff(diff);
     }
 
+    /** The queued diff is dropped: the host forgets the controller anyway. */
     public dispose(): void {
+        // Stryker disable next-line BlockStatement,ArrowFunction: hygiene — a detached item stops feeding a dead collection; with its scheduler disposed nothing it queues is sent either way
         for (const internal of this.tree.values()) TestItemImpl.apiOf(internal.actual).listener = undefined;
-        this.tree.clear();
-        this.diff = [];
         this.debounceSendDiff.dispose();
     }
 
@@ -126,16 +121,17 @@ export class ExtHostTestItemCollection implements IDisposable {
         if (diff.op === TestDiffOpType.Update) {
             // Updates come per field: merge them into the previous op of the same test.
             const last = this.diff.at(-1);
-            const lastId =
+            const target =
                 last?.op === TestDiffOpType.Update
-                    ? last.item.extId
+                    ? { id: last.item.extId, op: last.item }
                     : last?.op === TestDiffOpType.Add
-                      ? last.item.item.extId
+                      ? { id: last.item.item.extId, op: last.item }
                       : undefined;
-            if (last !== undefined && last.op !== TestDiffOpType.Remove && lastId === diff.item.extId) {
-                const target = last.item;
-                if (diff.item.expand !== undefined) target.expand = diff.item.expand;
-                if (diff.item.item !== undefined) target.item = { ...target.item, ...diff.item.item } as IWireTestItem;
+            if (target?.id === diff.item.extId) {
+                if (diff.item.expand !== undefined) target.op.expand = diff.item.expand;
+                if (diff.item.item !== undefined) {
+                    target.op.item = { ...target.op.item, ...diff.item.item } as IWireTestItem;
+                }
                 return;
             }
         }
@@ -168,6 +164,7 @@ export class ExtHostTestItemCollection implements IDisposable {
 
         // The item moves: it leaves its old parent first.
         const api = TestItemImpl.apiOf(actual);
+        // Stryker disable next-line OptionalChaining: equivalent — only the controller root comes without a parent, and it never had one, so the left operand is already false
         if (api.parent !== undefined && api.parent !== parent?.actual) api.parent.children.delete(actual.id);
 
         const internal = this.tree.get(fullId);
@@ -189,11 +186,8 @@ export class ExtHostTestItemCollection implements IDisposable {
             return;
         }
 
-        // The same instance again: only reconnect, the parent may have changed.
-        if (internal.actual === actual) {
-            this.connectItem(actual, internal, parent);
-            return;
-        }
+        // The same instance again under the same parent (a move removed it above): nothing changes.
+        if (internal.actual === actual) return;
 
         // A new instance under a known id; a new URI is not an update, the test is inserted anew.
         if (internal.actual.uri?.toString() !== actual.uri?.toString()) {
@@ -213,16 +207,7 @@ export class ExtHostTestItemCollection implements IDisposable {
         for (const [id, child] of oldActual.children) {
             if (actual.children.get(id) === undefined) this.removeItem(TestId.joinToString(fullId, id), child);
         }
-
-        // Upstream #207574: an item that was expanded expands again, after the extension has set it up.
-        const levels = internal.expandLevels;
-        if (levels !== undefined) {
-            queueMicrotask(() => {
-                if (internal.expand !== TestItemExpandState.Expandable) return;
-                internal.expandLevels = undefined;
-                void this.expand(fullId, levels);
-            });
-        }
+        // Upstream #207574 (an expanded item expands again): `expandLevels` stays, so connecting resolves it.
     }
 
     private connectItem(actual: TestItemImpl, internal: ICollectionItem, parent: ICollectionItem | undefined): void {

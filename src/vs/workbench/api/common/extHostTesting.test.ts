@@ -219,6 +219,55 @@ describe("vscode.tests — resolveHandler on the host's expand", () => {
     });
 });
 
+describe("vscode.tests — expand levels", () => {
+    it("[api:tests.createTestController] an unknown test of a known controller is nothing; an empty batch is not sent", async () => {
+        const { stub, vscode } = makeVscode();
+        vscode.tests.createTestController("ctrl", "Ctrl");
+        await stub.callRequest("testing.expandTest", { testId: "ctrl", levels: 0 });
+        const before = sent(stub, "testing.publishDiff").length;
+        await expect(stub.callRequest("testing.expandTest", { testId: testId("ctrl", "nope"), levels: 0 })).resolves.toBeNull();
+        expect(sent(stub, "testing.publishDiff")).toHaveLength(before);
+    });
+
+    it("[api:tests.createTestController] levels are remembered: a child added later resolves within them, a smaller expand does not lower them", async () => {
+        const { stub, vscode } = makeVscode();
+        const controller = vscode.tests.createTestController("ctrl", "Ctrl");
+        const seen: string[] = [];
+        controller.resolveHandler = (item) => {
+            seen.push(item?.id ?? "<root>");
+        };
+        const add = (parent: vscodeTypes.TestItemCollection, id: string): vscodeTypes.TestItem => {
+            const item = controller.createTestItem(id, id);
+            item.canResolveChildren = true;
+            parent.add(item);
+            return item;
+        };
+        await stub.callRequest("testing.expandTest", { testId: "ctrl", levels: 0 });
+        await stub.callRequest("testing.expandTest", { testId: "ctrl", levels: 1 });
+        await stub.callRequest("testing.expandTest", { testId: "ctrl", levels: 0 });
+        const a = add(controller.items, "a");
+        await vi.waitFor(() => {
+            expect(seen).toEqual(["<root>", "a"]);
+        });
+        add(a.children, "a1");
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(seen).toEqual(["<root>", "a"]);
+        expect(sent(stub, "output.append")).toEqual([]);
+    });
+
+    it("dropping the handler makes everything not expandable and calls nothing", async () => {
+        const { stub, vscode } = makeVscode();
+        const controller = vscode.tests.createTestController("ctrl", "Ctrl");
+        controller.resolveHandler = () => undefined;
+        await stub.callRequest("testing.expandTest", { testId: "ctrl", levels: 1 });
+        controller.resolveHandler = undefined;
+        await stub.callRequest("testing.expandTest", { testId: "ctrl", levels: 0 });
+        expect(sent(stub, "output.append")).toEqual([]);
+        expect(expandStates(stub).at(-1)).toBe("ctrl=0");
+    });
+});
+
 describe("vscode.tests — refreshHandler on the host's refresh", () => {
     it("[api:tests.createTestController] the host's request awaits the handler; its cancellation cancels the token", async () => {
         const { stub, vscode } = makeVscode();
@@ -318,7 +367,8 @@ describe("vscode.tests — run profiles reach the host", () => {
             return (sent(env.stub, "testing.publishProfile") as { profileId: number }[]).map((p) => p.profileId);
         };
         const a = ids(first);
-        expect(a[0]).not.toBe(a[1]);
+        // The hash of "Run" (31-based over UTF-16 units); the second one is the next free id.
+        expect(a).toEqual([82539, 82540]);
         expect(ids(second)).toEqual(a);
     });
 
@@ -332,6 +382,7 @@ describe("vscode.tests — run profiles reach the host", () => {
         profile.isDefault = true;
         profile.isDefault = true;
         profile.tag = new vscode.TestTag("unit");
+        expect(profile.tag?.id).toBe("unit");
         profile.tag = new vscode.TestTag("unit");
         profile.tag = undefined;
         profile.supportsContinuousRun = true;

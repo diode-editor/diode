@@ -109,6 +109,8 @@ describe("ExtensionTestingAdapter", () => {
         expect(profiles.getControllerProfiles("a")).toEqual([]);
         expect(tests.getTestController("b")).toBeDefined();
         adapter.unregisterController("a");
+        adapter.publishProfile(runProfile("a"));
+        expect(profiles.getControllerProfiles("a")).toEqual([]);
         adapter.reset();
         expect(contextKeys.get("testing.providerCount")).toBe(0);
         expect(contextKeys.get("testing.hasRunnableTests")).toBe(false);

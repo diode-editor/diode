@@ -286,4 +286,114 @@ describe("vscode.tests — the controller's tree as diffs", () => {
         item.label = "after";
         expect(flush()).toEqual([]);
     });
+
+    it("a same value set again after a batch sends nothing, for every field", () => {
+        const { vscode, controller, flush } = setup();
+        const item = controller.createTestItem("a", "A");
+        controller.items.add(item);
+        flush();
+        item.range = undefined;
+        item.description = undefined;
+        expect(flush()).toEqual([]);
+        const values = (): void => {
+            item.label = "L";
+            item.description = "d";
+            item.sortText = "s";
+            item.busy = true;
+            item.error = "e";
+            item.canResolveChildren = true;
+            item.range = new vscode.Range(1, 2, 3, 4);
+            item.tags = [new vscode.TestTag("t"), new vscode.TestTag("u")];
+        };
+        values();
+        expect(flush()).toHaveLength(1);
+        values();
+        expect(flush()).toEqual([]);
+    });
+
+    it("a tag set of the same size but other ids, or a grown one, is a change", () => {
+        const { vscode, controller, flush } = setup();
+        const item = controller.createTestItem("a", "A");
+        controller.items.add(item);
+        item.tags = [new vscode.TestTag("t"), new vscode.TestTag("u")];
+        flush();
+        const tagsSent = (tags: string[]): string[][] => {
+            item.tags = tags.map((id) => new vscode.TestTag(id));
+            return flush().flatMap((op) => (op.op === 1 && op.item.item?.tags !== undefined ? [op.item.item.tags] : []));
+        };
+        expect(tagsSent(["t", "v"])).toEqual([[testId("ctrl", "t"), testId("ctrl", "v")]]);
+        expect(tagsSent(["w", "x"])).toEqual([[testId("ctrl", "w"), testId("ctrl", "x")]]);
+        expect(tagsSent(["w", "x", "y"])).toHaveLength(1);
+    });
+
+    it("an empty error string is no error", () => {
+        const { controller, flush } = setup();
+        flush();
+        const item = controller.createTestItem("a", "A");
+        item.error = "";
+        controller.items.add(item);
+        expect(flush()).toMatchObject([{ op: 0, item: { item: { error: null } } }]);
+    });
+
+    it("an item outside any tree takes edits and replace without a listener", () => {
+        const { vscode, controller } = setup();
+        const loose = controller.createTestItem("loose", "Loose");
+        expect(() => {
+            loose.label = "x";
+            loose.description = "d";
+            loose.sortText = "s";
+            loose.busy = true;
+            loose.error = "e";
+            loose.canResolveChildren = true;
+            loose.range = new vscode.Range(0, 0, 0, 1);
+            loose.tags = [new vscode.TestTag("t")];
+            loose.children.replace([controller.createTestItem("c", "C")]);
+            loose.children.add(controller.createTestItem("d", "D"));
+            loose.children.delete("c");
+            loose.children.delete("missing");
+        }).not.toThrow();
+        expect([...loose.children].map(([id]) => id)).toEqual(["d"]);
+    });
+
+    it("an edit merged into an Add keeps its expand state; two expand updates merge into one without fields", () => {
+        const { vscode, controller, flush } = setup();
+        flush();
+        controller.resolveHandler = () => undefined;
+        const item = controller.createTestItem("a", "A");
+        item.canResolveChildren = true;
+        controller.items.add(item);
+        item.label = "A2";
+        expect(flush()).toEqual([
+            { op: 1, item: { extId: "ctrl", expand: 1 } },
+            expect.objectContaining({ op: 0, item: expect.objectContaining({ expand: 1 }) }),
+        ]);
+        const solo = vscode.tests.createTestController("solo", "Solo");
+        flush();
+        solo.resolveHandler = () => undefined;
+        solo.resolveHandler = undefined;
+        expect(flush()).toStrictEqual([{ op: 1, item: { extId: "solo", expand: 0 } }]);
+    });
+
+    it("the batch window does not slide: an edit 150 ms after the first goes in the same batch at 200 ms", () => {
+        const { stub, controller, flush } = setup();
+        const item = controller.createTestItem("a", "A");
+        controller.items.add(item);
+        vi.advanceTimersByTime(150);
+        item.label = "A2";
+        vi.advanceTimersByTime(TEST_DIFF_DEBOUNCE_MS - 150);
+        expect(stub.notifies.filter((n) => n.method === "testing.publishDiff")).toHaveLength(1);
+        expect(flush()).toMatchObject([{ op: 0 }, { op: 0, item: { item: { label: "A2" } } }]);
+    });
+
+    it("re-adding the same instance changes nothing, even when it was expanded", async () => {
+        const { stub, controller, flush } = setup();
+        controller.resolveHandler = () => undefined;
+        const item = controller.createTestItem("a", "A");
+        item.canResolveChildren = true;
+        controller.items.add(item);
+        await stub.callRequest("testing.expandTest", { testId: testId("ctrl", "a"), levels: 0 });
+        flush();
+        controller.items.add(item);
+        expect(flush()).toEqual([]);
+    });
 });

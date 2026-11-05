@@ -78,7 +78,6 @@ class TestItemChildren implements vscode.TestItemCollection {
 
     public replace(items: readonly vscode.TestItem[]): void {
         const next = new Map<string, TestItemImpl>();
-        const ops: TestItemChildOp[] = [];
         for (const raw of items) {
             const item = checkItem(raw);
             const itemController = TestItemImpl.apiOf(item).controllerId;
@@ -87,8 +86,8 @@ class TestItemChildren implements vscode.TestItemCollection {
             }
             if (next.has(item.id)) throw new DuplicateTestItemError(item.id);
             next.set(item.id, item);
-            ops.push({ op: "upsert", item });
         }
+        const ops = [...next.values()].map((item): TestItemChildOp => ({ op: "upsert", item }));
         for (const [id, item] of this.mapped) {
             if (!next.has(id)) ops.push({ op: "removeChild", item });
         }

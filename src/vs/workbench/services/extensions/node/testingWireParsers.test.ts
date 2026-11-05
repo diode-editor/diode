@@ -127,8 +127,12 @@ describe("testing wire parsers", () => {
         expect(update({ range: null, description: null, error: 5, sortText: "s" })).toMatchObject({
             item: { item: { range: null, description: null, error: null, sortText: "s" } },
         });
-        expect(update({ label: 1, tags: "x", busy: "y" })).toMatchObject({ item: { item: {} } });
-        expect(update("x")).toMatchObject({ item: { item: undefined } });
+        expect(update({ label: 1, tags: "x", busy: "y" })).toEqual({
+            op: 1,
+            item: { extId: "c", expand: undefined, item: {} },
+        });
+        expect(update("x")).toEqual({ op: 1, item: { extId: "c", expand: undefined, item: undefined } });
+        expect(update(null)).toEqual({ op: 1, item: { extId: "c", expand: undefined, item: undefined } });
     });
 
     it("a profile needs an id, a label and a known group", () => {

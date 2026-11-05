@@ -50,9 +50,9 @@ export class TestProfileService extends Disposable {
     }
 
     public updateProfile({ controllerId, profileId, update }: IWireTestRunProfileUpdate): void {
-        const list = this.profiles.get(controllerId);
-        const index = list?.findIndex((profile) => profile.profileId === profileId) ?? -1;
-        if (list === undefined || index === -1) return;
+        const list = this.profiles.get(controllerId) ?? [];
+        const index = list.findIndex((profile) => profile.profileId === profileId);
+        if (index === -1) return;
         list[index] = { ...list[index], ...update };
         list.sort(compareProfiles);
         this.changed();
@@ -60,8 +60,7 @@ export class TestProfileService extends Disposable {
 
     /** Without `profileId` — all of the controller's profiles. */
     public removeProfile(controllerId: string, profileId?: number): void {
-        const list = this.profiles.get(controllerId);
-        if (list === undefined) return;
+        const list = this.profiles.get(controllerId) ?? [];
         const next = profileId === undefined ? [] : list.filter((profile) => profile.profileId !== profileId);
         if (next.length === list.length) return;
         if (next.length === 0) this.profiles.delete(controllerId);
