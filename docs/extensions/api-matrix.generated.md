@@ -14,10 +14,10 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1203 |
+| ok | 1209 |
 | A | 4 |
 | B | 221 |
-| C | 553 |
+| C | 547 |
 | X | 234 |
 
 | mark | members |
@@ -48,7 +48,7 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `workspace.onDidCloseNotebookDocument` | X | 72 | 519,617,722 | notebook |
 | `workspace.onDidSaveNotebookDocument` | X | 70 | 514,036,465 | notebook |
 | `workspace.onDidOpenNotebookDocument` | X | 69 | 512,262,735 | notebook |
-| `window.createTextEditorDecorationType` | C | 56 | 481,992,789 | background, text color, isWholeLine, light/dark branches, gutter bars and before/after (a color swatch or text with its color, background and italic) are drawn, ranges follow edits by rangeBehavior; border, outline, sizes, margins, font weight, text decoration, opacity, gutterIconPath and contentIconPath are not |
+| `window.createTextEditorDecorationType` | C | 56 | 481,992,789 | background, text color, font style and weight, text decoration (underline, line-through), opacity, isWholeLine, light/dark branches, gutter bars and before/after (a color swatch or text with its color, background and italic) are drawn, ranges follow edits by rangeBehavior; border, outline, sizes, margins, gutterIconPath and contentIconPath are not |
 | `window.createWebviewPanel` | X | 73 | 478,100,689 | webview |
 | `debug.startDebugging` | C | 35 | 443,917,951 | needs a debugger |
 | `debug.onDidTerminateDebugSession` | C | 27 | 402,897,992 | needs a debugger |
@@ -2324,7 +2324,7 @@ Proposed API or a false hit: class X when real.
 | `ThemableDecorationInstanceRenderOptions.after` | C |  | 0 | 0 |  |
 | `ThemableDecorationInstanceRenderOptions.before` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.after` | C |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.backgroundColor` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.backgroundColor` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.before` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.border` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.borderColor` | C |  | 0 | 0 |  |
@@ -2332,20 +2332,20 @@ Proposed API or a false hit: class X when real.
 | `ThemableDecorationRenderOptions.borderSpacing` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.borderStyle` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.borderWidth` | C |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.color` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.color` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.cursor` | C |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.fontStyle` | C |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.fontWeight` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.fontStyle` | ok |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.fontWeight` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.gutterIconPath` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.gutterIconSize` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.letterSpacing` | C |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.opacity` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.opacity` | ok |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.outline` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.outlineColor` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.outlineStyle` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.outlineWidth` | C |  | 0 | 0 |  |
 | `ThemableDecorationRenderOptions.overviewRulerColor` | ok |  | 0 | 0 |  |
-| `ThemableDecorationRenderOptions.textDecoration` | C |  | 0 | 0 |  |
+| `ThemableDecorationRenderOptions.textDecoration` | ok |  | 0 | 0 |  |
 | `ThemeColor` | ok |  | 63 | 516,643,095 |  |
 | `ThemeColor.id` | ok |  | 0 | 0 |  |
 | `ThemeIcon` | ok |  | 70 | 690,227,082 |  |

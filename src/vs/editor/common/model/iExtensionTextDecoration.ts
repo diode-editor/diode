@@ -1,3 +1,5 @@
+import type { StyleFlags } from "@tuidom/core/common/styleFlags";
+
 import type { IRange } from "../core/iRange.ts";
 
 import type { TrackedRangeStickiness } from "./trackedDecorations.ts";
@@ -30,6 +32,16 @@ export interface IExtensionTextDecoration {
     readonly range: IRange;
     readonly bg?: number;
     readonly fg?: number;
+    /**
+     * Cell attributes added to the glyphs of the range (`fontWeight`, `fontStyle`, `textDecoration` of the type),
+     * on top of what the token set; absent — none.
+     */
+    readonly style?: StyleFlags;
+    /**
+     * The type's `opacity`, in (0, 1): the glyph color is blended toward the cell's final background, as the CSS
+     * opacity of upstream's inline class shows the background through the text. Absent — opaque.
+     */
+    readonly opacity?: number;
     /** The background covers each line of the range across the whole text area; `fg` still paints only the glyphs. */
     readonly isWholeLine: boolean;
     /** The type's `rangeBehavior`; absent — `AlwaysGrowsWhenTypingAtEdges` (`OpenOpen`). */

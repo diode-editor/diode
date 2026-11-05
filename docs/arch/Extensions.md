@@ -1725,15 +1725,15 @@ workspace-состоянии `terminal.integrated.environmentVariableCollections
 (`ThemeColor`/`FileDecoration`/`OverviewRulerLane`/`DecorationRangeBehavior`) живут в
 `api/common/vscodeTypes.ts`; `WindowNamespace` держит тип декорации локально (монотонный числовой
 key) и шлёт хосту RPC-нотификации, сериализуя `ThemeColor` как `{ $themeColor: id }` (см.
-`api/common/wireTypes.ts`; на провод идут `backgroundColor`, `color`, `overviewRulerColor`, `isWholeLine`,
-`rangeBehavior`, `overviewRulerLane`, `before`/`after` (`contentText`, `color`, `backgroundColor`, `borderColor`,
-`fontStyle`) и ветки `light`/`dark` с теми же полями — рамки, размеры, отступы, шрифты, `opacity`, иконки клетке
-нарисовать нечем, они выбрасываются). `setDecorations` шлёт элементы `{ range, renderOptions? }` (`IWireDecorationOptions`,
+`api/common/wireTypes.ts`; на провод идут `backgroundColor`, `color`, `overviewRulerColor`, `fontStyle`, `fontWeight`,
+`textDecoration`, `opacity` (CSS-строки как есть), `isWholeLine`, `rangeBehavior`, `overviewRulerLane`, `before`/`after`
+(`contentText`, `color`, `backgroundColor`, `borderColor`, `fontStyle`) и ветки `light`/`dark` с теми же полями — рамки,
+размеры, отступы, семейство шрифта, иконки клетке нарисовать нечем, они выбрасываются). `setDecorations` шлёт элементы `{ range, renderOptions? }` (`IWireDecorationOptions`,
 `vscode.DecorationOptions` без `hoverMessage`; голый `Range` — без `renderOptions`), `renderOptions` — `before`/`after`
 и их ветки; хост разбирает их `parseDecorationOptions` (битый элемент выбрасывается, мусор в полях = поля нет).
 `DecorationsCustomer` держит на тип разобранные опции (`overviewRulerColorId`, `isWholeLine`, stickiness из
 `rangeBehavior` — значения совпадают с `TrackedRangeStickiness`, цвета `background`/`foreground` и слои `before`/`after`,
-у каждого — `base`/`light`/`dark`); цвет — id `ThemeColor` (строка) или packed RGBA (число): CSS-строку один раз
+у каждого — `base`/`light`/`dark`; так же по одному свойству — `italic`, `bold`, `textDecoration`, `opacity`); цвет — id `ThemeColor` (строка) или packed RGBA (число): CSS-строку один раз
 разбирает `parseCssColor` (`base/common/color.ts`, порт `Color.Format.CSS.parse`, отдаёт `RGBA`; дробные каналы и
 `null` вместо исключения — отступления), мусор = поля нет. На каждый push эффективный цвет — ветка темы
 (`Dark`/`HighContrast` → `dark`, `Light`/`HighContrastLight` → `light`, `IThemeColorResolver.kind()`), иначе базовое
@@ -1742,6 +1742,12 @@ key) и шлёт хосту RPC-нотификации, сериализуя `Th
 `setDecorationsByType`). Пустой или пробельный `contentText` с цветом (`backgroundColor`, иначе `borderColor`, иначе
 `color`) — свотч `■ ` (как у `ColorDetector`; бокс 0.8em с рамкой клетке не нарисовать); непустой — первая строка без
 управляющих символов (`\t` → пробел) со своими `color`/`backgroundColor`/курсивом; ни текста, ни цвета — ничего.
+Атрибуты текста — CSS-разбор на хосте: `fontStyle` `italic`/`oblique` → курсив, `fontWeight` `bold`/`bolder`/≥600 →
+жирный (`normal` — «не добавляет», а не «снимает» атрибут токена: клетке нечем различить спан и токен), `textDecoration` —
+слова до первого `;` (расширения дописывают туда CSS): `underline` (с `wavy` — undercurl), `line-through`; `overline`,
+цвет и толщина линии — нет. Итог — флаги `StyleFlags` в `IExtensionTextDecoration.style`. `opacity` — CSS `<alpha-value>`
+(число или процент, зажат в [0, 1]; `1` не шлётся) → `IExtensionTextDecoration.opacity`. Все четыре — свойства
+`inlineClassName` эталона: ложатся на глифы диапазона (с `isWholeLine` — всех строк), как и `color`.
 Хост проталкивает в `IEditorDecorationsService` (адаптер — во все редакторы ресурса во всех группах): gutter
 change-bar'ы ресурса (gutter-тип = есть `overviewRulerColor`) — в `setGutterChangeDecorations`, полный набор ОДНОГО
 типа — в `setExtensionTextDecorations(uri, { key, decorations })` (проекция `IExtensionTextDecoration`: фон, цвет,

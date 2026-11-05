@@ -1,3 +1,4 @@
+import { blendRgb, DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
 import type { DisplayLine } from "@tuidom/core/common/displayLine";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
@@ -186,31 +187,86 @@ export function paintRangeBackground(
 }
 
 /**
+ * The range upstream's inline class covers: with `isWholeLine` every line of the range, from its start to its end
+ * (`ViewModelDecorations` widens it so).
+ */
+function glyphRangeOf({ range, isWholeLine }: IExtensionTextDecoration): IRange {
+    if (!isWholeLine) return range;
+    return {
+        start: { line: range.start.line, character: 0 },
+        end: { line: range.end.line, character: Number.MAX_SAFE_INTEGER },
+    };
+}
+
+/**
+ * The cells holding the glyphs of the range: the newline cell past the line end and an insertion that keeps its
+ * own look (an inlay hint) are left alone, as upstream's inline class wraps the text only.
+ */
+function forEachRangeGlyphCell(
+    range: IRange,
+    geo: ITextViewportGeometry,
+    visit: (screenX: number, screenY: number) => void,
+): void {
+    forEachRangeCell(range, geo, (screenX, screenY, column, row) => {
+        if (column >= row.displayLine.displayWidth || isOutsideRangeBackgrounds(geo, row, column)) return;
+        visit(screenX, screenY);
+    });
+}
+
+/**
  * In set order, a later decoration over an earlier one; a range off the viewport costs a binary search over
  * the rows, so thousands of them (Trailing Spaces on a big file) don't slow the frame. An absent color leaves
  * the cell's own. A whole-line background covers the text area of every row of the range's lines, like
- * upstream `_renderWholeLineDecorations`; its `fg` still paints only the glyphs.
+ * upstream `_renderWholeLineDecorations`; its `fg` and `style` still paint only the glyphs. `opacity` is left to
+ * {@link paintExtensionTextDecorationOpacity}, which needs the final background.
  */
 export function paintExtensionTextDecorations(
     context: RenderContext,
     decorations: readonly IExtensionTextDecoration[],
     geo: ITextViewportGeometry,
 ): void {
-    for (const { range, bg, fg, isWholeLine } of decorations) {
+    for (const decoration of decorations) {
+        const { range, bg, fg, isWholeLine, style } = decoration;
         if (!isWholeLine) {
             paintRangeColors(context, range, { bg, fg }, geo);
-            continue;
+        } else {
+            for (const row of geo.rows) {
+                if (row.logLine < range.start.line || row.logLine > range.end.line) continue;
+                // Stryker disable next-line EqualityOperator: equivalent — contentCols reaches the element's right edge, a cell past it is cut by the element's clip
+                for (let x = 0; x < geo.contentCols; x++) context.setCell(geo.gutterW + x, row.screenY, { bg });
+            }
+            paintRangeColors(context, glyphRangeOf(decoration), { fg }, geo);
         }
-        for (const row of geo.rows) {
-            if (row.logLine < range.start.line || row.logLine > range.end.line) continue;
-            // Stryker disable next-line EqualityOperator: equivalent — contentCols reaches the element's right edge, a cell past it is cut by the element's clip
-            for (let x = 0; x < geo.contentCols; x++) context.setCell(geo.gutterW + x, row.screenY, { bg });
+        // Stryker disable next-line ConditionalExpression: performance only — OR-ing no attributes changes no cell
+        if (style !== undefined) {
+            // The attributes join what the token set (a bold keyword stays bold under a strikethrough).
+            forEachRangeGlyphCell(glyphRangeOf(decoration), geo, (screenX, screenY) => {
+                const cell = context.getCell(screenX, screenY);
+                if (cell !== null) context.setCell(screenX, screenY, { style: cell.style | style });
+            });
         }
-        const lines = {
-            start: { line: range.start.line, character: 0 },
-            end: { line: range.end.line, character: Number.MAX_SAFE_INTEGER },
-        };
-        paintRangeColors(context, lines, { fg }, geo);
+    }
+}
+
+/**
+ * `opacity` of the decorations: each glyph color is blended toward the background the cell ends up with — the
+ * selection, the current find match — as CSS opacity shows whatever lies under the text. Goes after the
+ * background passes; overlapping decorations blend twice, as nested CSS opacities multiply.
+ */
+export function paintExtensionTextDecorationOpacity(
+    context: RenderContext,
+    decorations: readonly IExtensionTextDecoration[],
+    geo: ITextViewportGeometry,
+): void {
+    for (const decoration of decorations) {
+        const { opacity } = decoration;
+        if (opacity === undefined) continue;
+        forEachRangeGlyphCell(glyphRangeOf(decoration), geo, (screenX, screenY) => {
+            const cell = context.getCell(screenX, screenY);
+            // A terminal default color has no RGB to blend.
+            if (cell === null || cell.fg === DEFAULT_COLOR || cell.bg === DEFAULT_COLOR) return;
+            context.setCell(screenX, screenY, { fg: blendRgb(cell.fg, cell.bg, opacity) });
+        });
     }
 }
 

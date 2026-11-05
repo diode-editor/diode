@@ -4,7 +4,9 @@
  * Three decoration types over every visible editor, redrawn on each document change:
  * - `trailing` — Trailing Spaces' call: a translucent CSS background plus a border the terminal can't draw;
  * - `merge` — vscode.merge-conflict's call: a whole-line ThemeColor background on the line `mine`;
- * - `themed` — light/dark branches with different backgrounds and a text color, on the word `themed`.
+ * - `themed` — light/dark branches with different backgrounds and a text color, on the word `themed`;
+ * - `faded` — clangd's inactive region: a whole-line `opacity` on the line `dead();`;
+ * - `struck` — Markdown All in One's strikethrough plus a bold weight, on the word `struck`.
  * `text-decorations.toggle` clears the sets and disposes the types; run again, it brings them back.
  */
 exports.activate = function activate(context) {
@@ -29,6 +31,11 @@ exports.activate = function activate(context) {
                 light: { backgroundColor: "#ffd700" },
                 dark: { backgroundColor: "#003366" },
             }),
+            faded: vscode.window.createTextEditorDecorationType({ isWholeLine: true, opacity: "0.4" }),
+            struck: vscode.window.createTextEditorDecorationType({
+                textDecoration: "line-through",
+                fontWeight: "bold",
+            }),
         };
     }
 
@@ -52,6 +59,8 @@ exports.activate = function activate(context) {
         editor.setDecorations(types.trailing, rangesOf(document, /[ \t]+$/));
         editor.setDecorations(types.merge, rangesOf(document, /^mine$/));
         editor.setDecorations(types.themed, rangesOf(document, /\bthemed\b/g));
+        editor.setDecorations(types.faded, rangesOf(document, /^dead\(\);$/));
+        editor.setDecorations(types.struck, rangesOf(document, /\bstruck\b/g));
     }
 
     function paintAll() {

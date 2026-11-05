@@ -1,6 +1,8 @@
-import { compositeOver, packRgb, packRgba } from "@tuidom/core/common/colorUtils";
+import { blendRgb, compositeOver, DEFAULT_COLOR, packRgb, packRgba } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
-import { describe, expect, it } from "vitest";
+import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import { RenderContext } from "@tuidom/core/dom/tuiElement";
+import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createRange } from "../common/core/iRange.ts";
@@ -39,7 +41,8 @@ function createEditor(text: string, decorations: readonly IExtensionTextDecorati
     const gw = editor.gutterWidth;
     const bgAt = (col: number, row: number): number => app.backend.getBgAt(new Point(gw + col, row));
     const fgAt = (col: number, row: number): number => app.backend.getFgAt(new Point(gw + col, row));
-    return { app, editor, viewState, gw, bgAt, fgAt };
+    const styleAt = (col: number, row: number): number => app.app.screen.getCell(new Point(gw + col, row)).style;
+    return { app, editor, viewState, gw, bgAt, fgAt, styleAt };
 }
 
 describe("EditorElement — extension text decorations", () => {
@@ -179,5 +182,113 @@ describe("EditorElement — extension text decorations", () => {
         expect(bgAt(0, 0)).toBe(BG);
         expect(bgAt(1, 0)).toBe(compositeOver(TRAILING, BG));
         expect(bgAt(2, 5)).toBe(compositeOver(TRAILING, BG));
+    });
+
+    it("style adds its attributes to the glyphs of the range only: not past the line end, not the newline cell", () => {
+        const { styleAt } = createEditor("abcd\nef", [
+            { range: createRange(0, 1, 1, 9), style: StyleFlags.Strikethrough, isWholeLine: false },
+        ]);
+
+        expect([styleAt(0, 0), styleAt(1, 0), styleAt(3, 0), styleAt(4, 0)]).toStrictEqual([
+            StyleFlags.None,
+            StyleFlags.Strikethrough,
+            StyleFlags.Strikethrough,
+            StyleFlags.None,
+        ]);
+        expect([styleAt(1, 1), styleAt(2, 1)]).toStrictEqual([StyleFlags.Strikethrough, StyleFlags.None]);
+    });
+
+    it("style joins the attributes already there, and isWholeLine styles every glyph of its lines", () => {
+        const { styleAt } = createEditor("abc\ndef", [
+            { range: createRange(0, 0, 0, 2), style: StyleFlags.Bold, isWholeLine: false },
+            { range: createRange(0, 1, 0, 1), style: StyleFlags.Underline, isWholeLine: true },
+        ]);
+
+        expect([styleAt(0, 0), styleAt(1, 0), styleAt(2, 0), styleAt(3, 0)]).toStrictEqual([
+            StyleFlags.Bold | StyleFlags.Underline,
+            StyleFlags.Bold | StyleFlags.Underline,
+            StyleFlags.Underline,
+            StyleFlags.None,
+        ]);
+        expect(styleAt(0, 1)).toBe(StyleFlags.None);
+    });
+
+    it("[api:TextEditor.setDecorations] opacity blends the glyphs of whole lines toward the background, not the cells past them", () => {
+        const { fgAt, bgAt } = createEditor("#if 0\ndead();\n#endif", [
+            { range: createRange(1, 0, 1, 0), opacity: 0.55, isWholeLine: true },
+        ]);
+        const faded = blendRgb(FG, BG, 0.55);
+
+        expect(faded).not.toBe(FG);
+        for (let col = 0; col < 7; col++) expect(fgAt(col, 1)).toBe(faded);
+        expect(bgAt(0, 1)).toBe(BG);
+        expect(fgAt(0, 0)).toBe(FG);
+        expect(fgAt(0, 2)).toBe(FG);
+    });
+
+    it("opacity blends toward the final background: the selection and the current find match under the text", () => {
+        const { fgAt, viewState, app } = createEditor("alpha beta gamma", [
+            { range: createRange(0, 0, 0, 16), opacity: 0.5, isWholeLine: false },
+        ]);
+        viewState.selections = [createSelection(0, 0, 0, 5)];
+        viewState.searchMatches = [createRange(0, 6, 0, 10)];
+        viewState.currentSearchMatchIndex = 0;
+        app.render();
+
+        expect(fgAt(1, 0)).toBe(blendRgb(FG, SELECTION_BG, 0.5));
+        expect(fgAt(7, 0)).toBe(blendRgb(FG, FIND_MATCH_CURRENT_BG, 0.5));
+        expect(fgAt(12, 0)).toBe(blendRgb(FG, BG, 0.5));
+    });
+
+    it("opacity fades a decoration's own color, and overlapping opacities multiply", () => {
+        const red = packRgb(255, 0, 0);
+        const { fgAt } = createEditor("abcd", [
+            { range: createRange(0, 0, 0, 2), fg: red, opacity: 0.5, isWholeLine: false },
+            { range: createRange(0, 1, 0, 3), opacity: 0.5, isWholeLine: false },
+        ]);
+
+        expect(fgAt(0, 0)).toBe(blendRgb(red, BG, 0.5));
+        expect(fgAt(1, 0)).toBe(blendRgb(blendRgb(red, BG, 0.5), BG, 0.5));
+        expect(fgAt(2, 0)).toBe(blendRgb(FG, BG, 0.5));
+        expect(fgAt(3, 0)).toBe(FG);
+    });
+
+    describe("cells the attribute and opacity passes cannot read", () => {
+        /**
+         * The patches of the two passes: `{ style }` with the underline and `{ fg }` with the blend of what the cell
+         * reads (other passes read the mocked cell too, with other patches).
+         */
+        function renderWith(cell: ReturnType<RenderContext["getCell"]>) {
+            const { app, editor } = createEditor("abcd", [
+                { range: createRange(0, 0, 0, 4), style: StyleFlags.Underline, opacity: 0.5, isWholeLine: false },
+            ]);
+            const getCell = vi.spyOn(RenderContext.prototype, "getCell").mockReturnValue(cell);
+            const setCell = vi.spyOn(RenderContext.prototype, "setCell");
+            editor.markDirty();
+            app.render();
+            const blended = cell === null ? undefined : blendRgb(cell.fg, cell.bg, 0.5);
+            const patches = setCell.mock.calls
+                .map(([, , patch]) => patch)
+                .filter(
+                    (patch) =>
+                        (Object.keys(patch).join() === "style" && patch.style === StyleFlags.Underline) ||
+                        (Object.keys(patch).join() === "fg" && patch.fg === blended),
+                )
+                .map((patch) => Object.keys(patch).join());
+            getCell.mockRestore();
+            setCell.mockRestore();
+            return patches;
+        }
+        const cell = (fg: number, bg: number) => ({ char: "a", fg, bg, style: StyleFlags.None, width: 1 });
+
+        it("a cell clipped away is left alone", () => {
+            expect(renderWith(null)).toStrictEqual([]);
+        });
+
+        it("a terminal default color, of the text or of the background, has nothing to blend", () => {
+            expect(renderWith(cell(DEFAULT_COLOR, BG)).filter((keys) => keys === "fg")).toStrictEqual([]);
+            expect(renderWith(cell(FG, DEFAULT_COLOR)).filter((keys) => keys === "fg")).toStrictEqual([]);
+            expect(renderWith(cell(FG, BG)).filter((keys) => keys === "fg")).toHaveLength(4);
+        });
     });
 });

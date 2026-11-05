@@ -153,6 +153,10 @@ function serializeThemableDecorationRenderOptions(
         backgroundColor?: SerializedColor;
         color?: SerializedColor;
         overviewRulerColor?: SerializedColor;
+        fontStyle?: string;
+        fontWeight?: string;
+        textDecoration?: string;
+        opacity?: string;
     } & SerializedThemableDecorationInstanceRenderOptions = serializeThemableInstanceRenderOptions(o);
     const bg = serializeColor(o.backgroundColor);
     if (bg !== undefined) result.backgroundColor = bg;
@@ -160,6 +164,10 @@ function serializeThemableDecorationRenderOptions(
     if (color !== undefined) result.color = color;
     const overview = serializeColor(o.overviewRulerColor);
     if (overview !== undefined) result.overviewRulerColor = overview;
+    if (typeof o.fontStyle === "string") result.fontStyle = o.fontStyle;
+    if (typeof o.fontWeight === "string") result.fontWeight = o.fontWeight;
+    if (typeof o.textDecoration === "string") result.textDecoration = o.textDecoration;
+    if (typeof o.opacity === "string") result.opacity = o.opacity;
     return result;
 }
 
