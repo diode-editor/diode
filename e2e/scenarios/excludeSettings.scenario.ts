@@ -3,9 +3,10 @@ import { resolve } from "node:path";
 import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// The token is in four files, one per layer: `app.py`/`README.md` are regular; `__pycache__/…pyc` is a
-// `files.exclude` default and shows up nowhere; `out/bundle.js` is a `search.exclude` default: visible in the tree,
-// absent from search (upstream: build output gets opened, but in search it duplicates the source).
+// The token is in five files, one per layer: `app.py`/`README.md` are regular; `build/generated.js` is found too, as
+// upstream has no name-based list of build directories (generated ones are cut by `.gitignore`); `__pycache__/…pyc`
+// is a `files.exclude` default and shows up nowhere; `bower_components/vendored.js` is a `search.exclude` default:
+// visible in the tree, absent from search.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "excludeSettings");
 
@@ -23,21 +24,20 @@ export default defineScenario({
                 t.includes(explorerTitle(sampleDir)) &&
                 t.includes("app.py") &&
                 t.includes("README.md") &&
-                t.includes("out") &&
+                t.includes("bower_components") &&
+                t.includes("build") &&
                 !t.includes("__pycache__"),
         );
         await editor.capture("tree");
 
-        // Quick Open filters by both sets.
+        // Quick Open filters by both sets. An empty query lists only recent files, so the query matches both `.js`
+        // files: the one under `build/` is listed, the one under `bower_components/` is not.
         await editor.sendKey("Ctrl+P");
-        await editor.waitForText(
-            (t) =>
-                t.includes("Go to File") &&
-                t.includes("app.py") &&
-                t.includes("README.md") &&
-                !t.includes("cpython") &&
-                !t.includes("bundle.js"),
-        );
+        await editor.waitForText((t) => t.includes("Go to File"));
+        for (const ch of "js") {
+            await editor.sendKey(ch);
+        }
+        await editor.waitForText((t) => t.includes("generated.js") && t.includes("build") && !t.includes("vendored.js"));
         await editor.capture("quick-open");
         await editor.sendKey("Escape");
 
@@ -48,11 +48,12 @@ export default defineScenario({
         }
         await editor.waitForText(
             (t) =>
-                t.includes("2 results in 2 files") &&
+                t.includes("3 results in 3 files") &&
                 t.includes("app.py") &&
                 t.includes("README.md") &&
+                t.includes("generated.js") &&
                 !t.includes("cpython") &&
-                !t.includes("bundle.js"),
+                !t.includes("vendored.js"),
         );
         await editor.capture("search");
     },

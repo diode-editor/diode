@@ -4,28 +4,16 @@ export const searchConfiguration = {
     id: "search",
     title: "Search",
     properties: {
-        // `**/<name>` form: the index walk and ripgrep prune the whole branch without reading it.
-        // Added to upstream's set: Python dependencies, build output (finding your function in the
-        // bundle too is noise) and full repository copies (they multiply every result).
-        // Not all of `.claude`: settings and skills are exactly what people search for.
+        // Upstream's set, verbatim. Build output, virtualenvs and agent worktrees are left to
+        // `.gitignore` (`search.useIgnoreFiles`), as upstream does: a hard-coded `**/build` hid
+        // hand-written sources wherever `build/` is not generated.
         "search.exclude": {
             scope: "resource",
             type: "object",
             default: {
                 "**/node_modules": true,
                 "**/bower_components": true,
-                "**/.venv": true,
-                "**/dist": true,
-                "**/out": true,
-                "**/build": true,
-                "**/target": true,
-                "**/coverage": true,
-                "**/.next": true,
-                "**/.gradle": true,
-                "**/.cache": true,
-                "**/.turbo": true,
-                "**/.stryker-tmp": true,
-                "**/.claude/worktrees": true,
+                "**/*.code-search": true,
             },
             description:
                 "Glob patterns to exclude from search, in addition to files.exclude. Matched relative to the folder.",
