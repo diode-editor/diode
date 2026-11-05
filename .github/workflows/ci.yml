@@ -16,7 +16,7 @@ on:
       gate:
         description: Which gate to run
         type: choice
-        options: [all, static, test, mutation, e2e, e2e-windows]
+        options: [all, static, test, mutation, e2e, e2e-windows, api-conformance]
         default: all
       base:
         description: Diff base of the mutation gate (SHA); empty means merge-base with origin/main
@@ -334,6 +334,33 @@ jobs:
 
   # A manual run splits the matrix: `e2e` is ubuntu, `e2e-windows` is windows. The check
   # names on PRs (`e2e (ubuntu-latest)`, `e2e (windows-latest)`) stay the same.
+  # Upstream's vscode-api-tests against the baseline (e2e/api-conformance, docs/TESTING.md):
+  # a test green in the baseline that is not green now turns the job red. A parallel job of
+  # about five minutes; Stryker does not run it (vitest includes only src/, extensions/, tools/).
+  api-conformance:
+    if: github.event_name != 'workflow_dispatch' || inputs.gate == 'all' || inputs.gate == 'api-conformance'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - run: npm install
+
+      - run: npm run test:api-conformance
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-conformance-report
+          path: reports/api-conformance/
+          if-no-files-found: warn
+
   e2e:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["all","e2e","e2e-windows"]'), inputs.gate)
     strategy:

@@ -33,6 +33,11 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] Сценарий `linked-editing`: `waitUntil(screen text predicate) timed out after 10000ms` на ubuntu (run 41933177040,
+  PR #1065, дифф — сопоставление хорд в реестре клавиш); `--failed` зеленит.
+- [ ] `e2e/todoTreeStock.test.ts`, «a click on a tag line moves the keyboard to the editor»: набор не дошёл до строки
+  тега за 30 с на ubuntu, все повторы (run 41933177040, PR #1065, тот же дифф); `--failed` зеленит. Тот же прогон —
+  первый после #1062 (`auto` снова включает расширенные клавиши на старте), связь не проверена.
 - [ ] Сценарий `typescript-navigation`: `waitUntil(the linked tag ranges) timed out after 60000ms` — в `tag.tsx`
   подсветка связанных тегов не пришла за минуту. Ubuntu: `main` e082b0a6 (run 41632750011) и PR #1045 дважды подряд
   (run 41649556011 и его `--failed`), дифф — переменные сниппетов; на той же базе PR #1045 при 29c0db1b зелёный.

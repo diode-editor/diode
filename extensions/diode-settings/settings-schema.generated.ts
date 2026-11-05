@@ -1000,7 +1000,7 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "string",
         default: "auto",
         description:
-            'Keyboard protocol tier. "auto" keeps legacy keys and only shows in the status bar when the terminal can do more; "csi-u" and "kitty" turn the extended protocol on. Applies after restart.',
+            'Keyboard protocol tier. "auto" turns the extended protocol on at startup when the terminal (or tmux) confirms it and stays legacy otherwise; "legacy" keeps legacy keys and only shows in the status bar when the terminal can do more; "csi-u" and "kitty" force the extended protocol on. Applies after restart.',
         enum: ["auto", "legacy", "csi-u", "kitty"],
     },
     {
