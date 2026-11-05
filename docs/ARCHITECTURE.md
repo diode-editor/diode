@@ -241,6 +241,12 @@ env-флагом, который выставляет спавнящая сто�
   так их относительные импорты остаются дословными. Mocha-глобалы `suite`/`test` скрипт
   импортирует из `src/TestUtils/mochaCompat.ts`; хелперы эталона, на которые смотрят импорты
   тестов (`base/test/common/utils.ts`, `editor/test/common/testTextModel.ts`), — шимы.
+- **Встроенные расширения эталона — тем же скриптом.** Код `vscode.merge-conflict` лежит в
+  `extensions/merge-conflict/src/` дословной копией (upstream-путь = наш), манифест и
+  `package.nls.json` скрипт тоже выводит из upstream (`builtinManifest`: `main` → собранный
+  `out/extension.cjs`, поля сборки эталона и ключ телеметрии убраны). Импорты без расширения
+  получают `.ts`, npm-зависимость `@vscode/extension-telemetry` подменяется рукописным
+  null-объектом (`IMPORT_SUBSTITUTES`). Рукописная точка входа — `extensions/merge-conflict/main.ts`.
 - **Виджет не переносим.** `editor/browser/widget/diffEditor/` (24 файла) построен на двух
   monaco-`ICodeEditor`, DOM-оверлеях и `observable` — оттуда берём решения, а не строки.
 - **Ловушка: два `IRange`.** В `editor/common/core/` сосуществуют наш `iRange.ts`

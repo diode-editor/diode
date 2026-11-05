@@ -14,10 +14,10 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1101 |
+| ok | 1203 |
 | A | 4 |
-| B | 286 |
-| C | 590 |
+| B | 221 |
+| C | 553 |
 | X | 234 |
 
 | mark | members |
@@ -35,34 +35,11 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `window.withProgress` | B | 124 | 944,816,089 | cancellation token never fires, location is ignored |
 | `workspace.onDidChangeWorkspaceFolders` | B | 109 | 884,612,940 | never fires |
 | `workspace.openTextDocument` | B | 104 | 814,693,192 | A file is a live model without a tab; an explicit encoding decodes a separate read until the encodings cluster. untitled: uris as upstream, except that a relative or host uri has no path to write to: Ctrl+S asks through Save As, TextDocument.save gives false. |
-| `SnippetString` | C | 95 | 736,241,729 | builders as in VS Code; snippet mode needs a snippet session |
-| `SymbolKind.Property` | B | 81 | 684,369,652 | the provider is never called |
-| `SymbolInformation` | B | 84 | 635,989,694 | the provider is never called |
-| `DocumentSymbol` | B | 81 | 617,847,778 | the provider is never called |
-| `DocumentHighlight` | B | 78 | 611,582,041 | the provider is never called |
-| `DocumentHighlightKind.Read` | B | 78 | 611,582,041 | the provider is never called |
-| `DocumentHighlightKind.Text` | B | 77 | 610,326,043 | the provider is never called |
-| `DocumentHighlightKind.Write` | B | 77 | 610,326,043 | the provider is never called |
 | `InlineValueEvaluatableExpression` | C | 71 | 603,512,722 | needs a debugger |
 | `InlineValueVariableLookup` | C | 71 | 603,512,722 | needs a debugger |
 | `languages.registerInlineValuesProvider` | C | 71 | 603,512,722 | registration is accepted, the provider is never called; needs new graphics |
 | `workspace.notebookDocuments` | X | 75 | 583,025,321 | notebook |
 | `NotebookCellKind.Code` | X | 74 | 582,942,373 | notebook |
-| `CallHierarchyItem` | C | 77 | 582,689,207 | the provider is never called; needs new graphics |
-| `CallHierarchyIncomingCall` | C | 76 | 582,200,263 | the provider is never called; needs new graphics |
-| `CallHierarchyOutgoingCall` | C | 76 | 582,200,263 | the provider is never called; needs new graphics |
-| `LinkedEditingRanges` | B | 75 | 581,065,613 | the provider is never called |
-| `SymbolTag.Deprecated` | B | 75 | 581,065,613 | the provider is never called |
-| `SymbolKind.TypeParameter` | B | 76 | 566,436,762 | the provider is never called |
-| `languages.registerDocumentSymbolProvider` | B | 81 | 563,742,221 | registration is accepted, the provider is never called |
-| `languages.registerWorkspaceSymbolProvider` | B | 77 | 555,872,071 | registration is accepted, the provider is never called |
-| `languages.registerDocumentHighlightProvider` | B | 75 | 554,284,024 | registration is accepted, the provider is never called |
-| `languages.registerCallHierarchyProvider` | C | 74 | 553,028,026 | registration is accepted, the provider is never called; needs new graphics |
-| `languages.registerDeclarationProvider` | B | 74 | 553,028,026 | registration is accepted, the provider is never called |
-| `languages.registerImplementationProvider` | B | 74 | 553,028,026 | registration is accepted, the provider is never called |
-| `languages.registerOnTypeFormattingEditProvider` | B | 74 | 553,028,026 | registration is accepted, the provider is never called |
-| `languages.registerTypeDefinitionProvider` | B | 74 | 553,028,026 | registration is accepted, the provider is never called |
-| `languages.registerLinkedEditingRangeProvider` | B | 73 | 551,893,376 | registration is accepted, the provider is never called |
 | `InlineValueText` | C | 70 | 540,498,208 | needs a debugger |
 | `TabInputCustom` | X | 65 | 531,244,154 | webview |
 | `workspace.onDidChangeNotebookDocument` | X | 71 | 525,888,653 | notebook |
@@ -70,8 +47,6 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `NotebookCellKind.Markup` | X | 73 | 520,625,477 | notebook |
 | `workspace.onDidCloseNotebookDocument` | X | 72 | 519,617,722 | notebook |
 | `workspace.onDidSaveNotebookDocument` | X | 70 | 514,036,465 | notebook |
-| `TypeHierarchyItem` | C | 70 | 512,751,679 | the provider is never called; needs new graphics |
-| `languages.registerTypeHierarchyProvider` | C | 69 | 512,262,735 | registration is accepted, the provider is never called; needs new graphics |
 | `workspace.onDidOpenNotebookDocument` | X | 69 | 512,262,735 | notebook |
 | `window.createTextEditorDecorationType` | C | 56 | 481,992,789 | background, text color, isWholeLine, light/dark branches, gutter bars and before/after (a color swatch or text with its color, background and italic) are drawn, ranges follow edits by rangeBehavior; border, outline, sizes, margins, font weight, text decoration, opacity, gutterIconPath and contentIconPath are not |
 | `window.createWebviewPanel` | X | 73 | 478,100,689 | webview |
@@ -79,7 +54,7 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `debug.onDidTerminateDebugSession` | C | 27 | 402,897,992 | needs a debugger |
 | `TabInputNotebook` | X | 34 | 346,368,003 | notebook |
 | `debug.registerDebugConfigurationProvider` | C | 24 | 341,511,617 | needs a debugger |
-| `SnippetTextEdit` | C | 29 | 313,879,605 | text and caret only; snippet mode needs a snippet session |
+| `SnippetTextEdit` | B | 29 | 313,879,605 | in a WorkspaceEdit the snippet goes in as plain text, without a snippet session |
 | `debug.onDidStartDebugSession` | C | 21 | 282,985,515 | needs a debugger |
 | `debug.activeDebugSession` | C | 21 | 280,309,222 | needs a debugger |
 | `debug.registerDebugAdapterDescriptorFactory` | C | 16 | 275,810,190 | needs a debugger |
@@ -105,18 +80,13 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `NotebookCellData` | X | 11 | 155,195,593 | notebook |
 | `NotebookEdit.insertCells` | X | 5 | 143,176,786 | notebook |
 | `StatementCoverage` | C | 7 | 142,636,589 | needs the Testing surface |
-| `SymbolKind.Function` | B | 14 | 140,041,556 | the provider is never called |
 | `window.activeNotebookEditor` | X | 17 | 133,990,636 | notebook |
 | `DebugAdapterExecutable` | C | 6 | 133,614,703 | needs a debugger |
-| `SymbolKind.Class` | B | 13 | 132,651,614 | the provider is never called |
-| `SymbolKind.Method` | B | 12 | 132,176,454 | the provider is never called |
 | `window.registerTerminalLinkProvider` | B | 9 | 128,601,447 | not declared in vscode.d.ts |
 | `TestRunRequest` | C | 9 | 126,743,505 | needs the Testing surface |
 | `TestTag` | C | 9 | 126,484,023 | needs the Testing surface |
-| `SymbolKind.Interface` | B | 8 | 124,219,670 | the provider is never called |
 | `workspace.registerFileSystemProvider` | B | 16 | 123,646,172 | opens only as a diff side; directory operations are never called |
 | `DebugConfigurationProviderTriggerKind.Dynamic` | C | 8 | 121,970,902 | needs a debugger |
-| `SymbolKind.Package` | B | 7 | 121,927,783 | the provider is never called |
 | `window.onDidChangeTerminalState` | B | 5 | 120,897,053 | not declared in vscode.d.ts |
 | `TestMessage.diff` | C | 5 | 115,107,275 | needs the Testing surface |
 | `FileCoverage` | C | 6 | 114,510,809 | needs the Testing surface |
@@ -132,6 +102,36 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `workspace.openNotebookDocument` | X | 12 | 94,704,857 | notebook |
 | `NotebookRange` | X | 8 | 94,570,104 | notebook |
 | `LanguageModelChatMessage.User` | C | 13 | 91,360,330 | needs a chat surface and a model backend |
+| `lm.selectChatModels` | C | 10 | 87,384,413 | needs a chat surface and a model backend |
+| `InputBoxValidationSeverity.Error` | B | 8 | 83,187,929 | #915: quick input |
+| `window.showNotebookDocument` | X | 7 | 82,892,295 | notebook |
+| `window.onDidChangeTextEditorOptions` | B | 4 | 82,872,454 | not declared in vscode.d.ts |
+| `debug.onDidChangeBreakpoints` | C | 6 | 82,581,295 | needs a debugger |
+| `comments.createCommentController` | C | 7 | 82,395,720 | needs the comments surface |
+| `CommentThreadCollapsibleState.Expanded` | C | 7 | 82,395,720 | needs the comments surface |
+| `NotebookCellOutputItem.error` | X | 5 | 81,299,479 | notebook |
+| `NotebookCellOutput` | X | 6 | 80,697,116 | notebook |
+| `NotebookCellOutputItem.text` | X | 6 | 80,697,116 | notebook |
+| `notebooks.createNotebookController` | X | 6 | 80,697,116 | notebook |
+| `lm.invokeTool` | C | 5 | 80,526,859 | needs a chat surface and a model backend |
+| `lm.registerMcpServerDefinitionProvider` | C | 8 | 74,586,571 | needs a chat surface and a model backend |
+| `CommentThreadCollapsibleState.Collapsed` | C | 5 | 74,422,282 | needs the comments surface |
+| `CommentThreadState.Resolved` | C | 3 | 72,778,408 | needs the comments surface |
+| `FileCoverage.fromDetails` | C | 2 | 72,766,057 | needs the Testing surface |
+| `NotebookEditorRevealType.InCenter` | X | 2 | 63,746,003 | notebook |
+| `DebugAdapterInlineImplementation` | C | 5 | 61,149,607 | needs a debugger |
+| `window.onDidChangeTextEditorVisibleRanges` | B | 11 | 59,943,750 | not declared in vscode.d.ts |
+| `DebugConfigurationProviderTriggerKind.Initial` | C | 7 | 58,698,773 | needs a debugger |
+| `languages.registerDocumentPasteEditProvider` | B | 3 | 54,970,403 | not declared in vscode.d.ts |
+| `authentication.getSession` | B | 12 | 52,997,104 | null object: there is no sign-in |
+| `DebugAdapterNamedPipeServer` | C | 4 | 52,810,407 | needs a debugger |
+| `chat.createChatParticipant` | C | 6 | 52,713,037 | needs a chat surface and a model backend |
+| `authentication.onDidChangeSessions` | B | 10 | 50,272,105 | null object: there is no sign-in |
+| `ChatRequestTurn` | C | 3 | 49,880,483 | needs a chat surface and a model backend |
+| `ChatResponseMarkdownPart` | C | 3 | 49,880,483 | needs a chat surface and a model backend |
+| `ChatResponseTurn` | C | 3 | 49,880,483 | needs a chat surface and a model backend |
+| `LanguageModelError` | C | 3 | 46,576,739 | needs a chat surface and a model backend |
+| `DataTransferItem` | B | 3 | 43,734,303 | not declared in vscode.d.ts |
 
 ## Proposed extensions
 
@@ -144,16 +144,16 @@ Up to 15 extensions whose whole gap is class A or B, nearest first. **Candidates
 | `ritwickdey.LiveServer` | 3,110,633 | `workspace.saveAll` (B) | 1 A/B gap(s), no C or X; 13 of 14 used members ready |
 | `EditorConfig.EditorConfig` | 2,331,170 | `workspace.openTextDocument` (B) | 1 A/B gap(s), no C or X; 29 of 30 used members ready |
 | `DavidAnson.vscode-markdownlint` | 1,853,861 | `workspace.onDidChangeWorkspaceFolders` (B) | 1 A/B gap(s), no C or X; 45 of 46 used members ready |
+| `jeanp413.open-remote-ssh` | 1,061,778 | `window.withProgress` (B) | 1 A/B gap(s), no C or X; 25 of 26 used members ready |
 | `aryansudhir.promptr` | 875,099 | `window.withProgress` (B) | 1 A/B gap(s), no C or X; 24 of 25 used members ready |
 | `k--kato.intellij-idea-keybindings` | 652,795 | `workspace.openTextDocument` (B) | 1 A/B gap(s), no C or X; 13 of 14 used members ready |
 | `mtxr.sqltools-driver-pg` | 547,503 | `authentication.getSession` (B) | 1 A/B gap(s), no C or X; 1 of 2 used members ready |
 | `salesforce.salesforcedx-vscode-apex-oas` | 510,812 | `window.withProgress` (B) | 1 A/B gap(s), no C or X; 13 of 14 used members ready |
 | `abhaysudhir.securelint` | 1,397,805 | `window.withProgress` (B), `workspace.openTextDocument` (B) | 2 A/B gap(s), no C or X; 30 of 32 used members ready |
 | `formulahendry.code-runner` | 1,062,464 | `workspace.openTextDocument` (B), `workspace.saveAll` (B) | 2 A/B gap(s), no C or X; 13 of 15 used members ready |
+| `vscode.npm` | 1,005,671 | `workspace.onDidChangeWorkspaceFolders` (B), `workspace.openTextDocument` (B) | 2 A/B gap(s), no C or X; 62 of 64 used members ready |
 | `timonwong.shellcheck` | 809,009 | `workspace.onDidChangeWorkspaceFolders` (B), `workspace.openTextDocument` (B) | 2 A/B gap(s), no C or X; 68 of 70 used members ready |
 | `tihonove.bazel-java-tihonove` | 4,888 | `window.withProgress` (B), `workspace.openTextDocument` (B) | 2 A/B gap(s), no C or X; 38 of 40 used members ready |
-| `Google.gemini-cli-vscode-ide-companion` | 1,593,216 | `workspace.onDidChangeWorkspaceFolders` (B), `workspace.openTextDocument` (B), `workspace.registerTextDocumentContentProvider` (B) | 3 A/B gap(s), no C or X; 25 of 28 used members ready |
-| `vscjava.vscode-spring-initializr` | 607,017 | `window.withProgress` (B), `workspace.openTextDocument` (B), `workspace.updateWorkspaceFolders` (B) | 3 A/B gap(s), no C or X; 36 of 39 used members ready |
 
 ## Extension ranking
 
@@ -169,6 +169,7 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `jmxgrog.vscode-nuget-package-manager` | 1.1.6 | 2,045,354 |  | 8 | 0 | 0 | 0 | 0 | 0 |
 | `vscode-icons-team.vscode-icons` | 13.0.0 | 1,602,710 |  | 1 | 0 | 0 | 0 | 0 | 0 |
 | `ajsqnhort.include-autocomplete` | 0.0.4 | 985,356 |  | 8 | 0 | 0 | 0 | 0 | 0 |
+| `dsznajder.es7-react-js-snippets` | 4.4.3 | 915,726 |  | 8 | 0 | 0 | 0 | 0 | 0 |
 | `dbcode.dbcode` | 1.38.14 | 895,172 |  | 8 | 0 | 0 | 0 | 0 | 0 |
 | `bierner.markdown-mermaid` | 1.32.1 | 890,274 |  | 3 | 0 | 0 | 0 | 0 | 0 |
 | `ecmel.vscode-html-css` | 2.0.14 | 793,460 |  | 26 | 0 | 0 | 0 | 0 | 0 |
@@ -192,8 +193,8 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `DavidAnson.vscode-markdownlint` | 0.62.1 | 1,853,861 |  | 46 | 1 | 0 | 1 | 0 | 0 |
 | `tomoki1207.pdf` | 1.2.2 | 1,791,974 |  | 5 | 1 | 0 | 0 | 0 | 1 |
 | `aryansudhir.contextcheck` | 0.1.1 | 1,182,749 |  | 10 | 1 | 0 | 0 | 0 | 1 |
+| `jeanp413.open-remote-ssh` | 0.5.1 | 1,061,778 |  | 26 | 1 | 0 | 1 | 0 | 0 |
 | `zhuangtongfa.material-theme` | 3.20.6 | 1,018,979 |  | 11 | 1 | 0 | 0 | 0 | 1 |
-| `dsznajder.es7-react-js-snippets` | 4.4.3 | 915,726 |  | 8 | 1 | 0 | 0 | 1 | 0 |
 | `aryansudhir.promptr` | 1.5.6 | 875,099 |  | 25 | 1 | 0 | 1 | 0 | 0 |
 | `kombai.kombai` | 2.0.163 | 714,844 |  | 7 | 1 | 0 | 0 | 0 | 1 |
 | `aaron-bond.better-comments` | 3.1.1 | 696,190 |  | 10 | 1 | 0 | 0 | 1 | 0 |
@@ -204,27 +205,29 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `mtxr.sqltools-driver-pg` | 0.5.8 | 547,503 |  | 2 | 1 | 0 | 1 | 0 | 0 |
 | `tldraw-org.tldraw-vscode` | 2.386.8 | 535,445 |  | 11 | 1 | 0 | 0 | 0 | 1 |
 | `salesforce.salesforcedx-vscode-apex-oas` | 68.7.3 | 510,812 |  | 14 | 1 | 0 | 1 | 0 | 0 |
+| `yoavbls.pretty-ts-errors` | 0.8.7 | 488,944 |  | 56 | 1 | 0 | 0 | 0 | 1 |
 | `anyscalecompute.anyscale-workspaces` | 0.2.47 | 4,309,291 |  | 31 | 2 | 0 | 1 | 1 | 0 |
 | `highagency.pencildev` | 0.6.79 | 1,521,273 |  | 46 | 2 | 0 | 0 | 0 | 2 |
 | `abhaysudhir.securelint` | 0.1.3 | 1,397,805 |  | 32 | 2 | 0 | 2 | 0 | 0 |
 | `aryansudhir.cognispec` | 0.1.0 | 1,250,616 |  | 17 | 2 | 0 | 1 | 0 | 1 |
 | `formulahendry.code-runner` | 0.12.2 | 1,062,464 |  | 15 | 2 | 0 | 2 | 0 | 0 |
-| `jeanp413.open-remote-ssh` | 0.5.1 | 1,061,778 |  | 26 | 2 | 0 | 1 | 1 | 0 |
+| `vscode.npm` | 1.95.3 | 1,005,671 |  | 64 | 2 | 0 | 2 | 0 | 0 |
 | `ms-vscode.node-debug2` | 1.43.0 | 846,939 |  | 4 | 2 | 0 | 0 | 2 | 0 |
 | `timonwong.shellcheck` | 0.48.4 | 809,009 |  | 70 | 2 | 0 | 2 | 0 | 0 |
+| `yzhang.markdown-all-in-one` | 3.6.2 | 720,705 |  | 57 | 2 | 0 | 1 | 1 | 0 |
 | `ChakrounAnas.turbo-console-log` | 3.29.0 | 567,775 |  | 34 | 2 | 0 | 1 | 0 | 1 |
 | `KylinIdeTeam.cppdebug` | 0.4.0 | 486,838 |  | 12 | 2 | 0 | 0 | 2 | 0 |
 | `n2ns.antigravity-panel` | 2.8.1 | 482,718 |  | 36 | 2 | 0 | 1 | 0 | 1 |
 | `tihonove.bazel-java-tihonove` | 1.4.7 | 4,888 | yes | 40 | 2 | 0 | 2 | 0 | 0 |
+| `devsense.intelli-php-vscode` | 0.12.17700 | 7,940,704 |  | 145 | 3 | 0 | 2 | 0 | 1 |
 | `jlcodes.antigravity-cockpit` | 2.1.52 | 5,014,093 |  | 37 | 3 | 0 | 0 | 0 | 3 |
 | `Google.gemini-cli-vscode-ide-companion` | 0.20.0 | 1,593,216 |  | 28 | 3 | 0 | 3 | 0 | 0 |
 | `mhutchie.git-graph` | 1.30.0 | 1,198,932 |  | 39 | 3 | 0 | 2 | 0 | 1 |
-| `vscode.npm` | 1.95.3 | 1,005,671 |  | 64 | 3 | 0 | 2 | 1 | 0 |
-| `yzhang.markdown-all-in-one` | 3.6.2 | 720,705 |  | 57 | 3 | 0 | 1 | 2 | 0 |
 | `donjayamanne.githistory` | 0.6.20 | 673,602 |  | 42 | 3 | 0 | 2 | 0 | 1 |
 | `vscjava.vscode-spring-initializr` | 0.12.1 | 607,017 |  | 39 | 3 | 0 | 3 | 0 | 0 |
 | `muhammad-ahmad.xlsx-viewer` | 2.0.6 | 488,876 |  | 41 | 3 | 0 | 1 | 0 | 2 |
 | `Supermaven.supermaven` | 1.1.5 | 37,349 | yes | 36 | 3 | 0 | 1 | 1 | 1 |
+| `mechatroner.rainbow-csv` | 3.24.1 | 3,392,397 |  | 48 | 4 | 0 | 2 | 1 | 1 |
 | `rangav.vscode-thunder-client` | 3.1.2 | 2,981,951 |  | 38 | 4 | 0 | 2 | 2 | 0 |
 | `ms-dotnettools.vscode-dotnet-runtime` | 3.2.0 | 2,156,643 |  | 29 | 4 | 0 | 1 | 3 | 0 |
 | `ms-vscode.vscode-js-profile-table` | 1.0.11 | 2,103,223 |  | 24 | 4 | 0 | 3 | 0 | 1 |
@@ -238,129 +241,126 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `usernamehw.errorlens` | 3.30.0 | 1,402,321 |  | 56 | 5 | 0 | 2 | 3 | 0 |
 | `qwtel.sqlite-viewer` | 26.9.1 | 1,030,879 |  | 55 | 5 | 0 | 4 | 0 | 1 |
 | `salesforce.salesforcedx-vscode-services` | 68.7.3 | 547,921 |  | 60 | 5 | 0 | 5 | 0 | 0 |
+| `vscjava.vscode-gradle` | 3.18.0 | 27,995,663 |  | 172 | 6 | 0 | 3 | 3 | 0 |
 | `vscjava.vscode-java-pack` | 0.31.2 | 24,027,482 |  | 60 | 6 | 0 | 3 | 0 | 3 |
 | `ms-toolsai.vscode-jupyter-slideshow` | 0.1.6 | 8,898,746 |  | 15 | 6 | 0 | 1 | 0 | 5 |
+| `Prisma.prisma-insider` | 31.12.17 | 2,128,455 |  | 161 | 6 | 0 | 2 | 3 | 1 |
+| `Prisma.prisma` | 31.13.0 | 1,565,819 |  | 161 | 6 | 0 | 2 | 3 | 1 |
 | `huijbzhou.githd` | 2.5.7 | 1,045,634 |  | 50 | 6 | 0 | 4 | 1 | 1 |
 | `xdebug.php-debug` | 1.40.2 | 803,058 |  | 14 | 6 | 0 | 1 | 5 | 0 |
-| `yoavbls.pretty-ts-errors` | 0.8.7 | 488,944 |  | 56 | 6 | 0 | 2 | 3 | 1 |
-| `mechatroner.rainbow-csv` | 3.24.1 | 3,392,397 |  | 48 | 7 | 0 | 5 | 1 | 1 |
+| `vscjava.vscode-maven` | 0.45.3 | 28,632,256 |  | 138 | 7 | 0 | 5 | 2 | 0 |
 | `salesforce.salesforcedx-einstein-gpt` | 4.42.0 | 676,578 |  | 79 | 7 | 0 | 4 | 0 | 3 |
 | `salesforce.salesforcedx-vscode-apex-testing` | 68.7.3 | 487,568 |  | 36 | 7 | 0 | 0 | 7 | 0 |
 | `ms-python.vscode-python-envs` | 1.40.0 | 45,566,739 |  | 108 | 8 | 0 | 7 | 0 | 1 |
+| `vscjava.vscode-java-dependency` | 0.27.7 | 41,776,591 |  | 101 | 8 | 0 | 5 | 3 | 0 |
+| `openai.chatgpt` | 26.51021.22027 | 12,919,792 |  | 102 | 8 | 0 | 3 | 1 | 4 |
 | `NexrallCode.nexrall-code-vscode` | 2.0.17 | 1,166,251 |  | 45 | 8 | 0 | 5 | 0 | 3 |
+| `James-Yu.latex-workshop` | 10.20.0 | 907,583 |  | 122 | 8 | 0 | 3 | 1 | 4 |
 | `WallabyJs.console-ninja` | 1.0.547 | 596,976 |  | 9 | 8 | 0 | 0 | 7 | 1 |
+| `vscjava.vscode-spring-boot-dashboard` | 0.15.0 | 539,981 |  | 102 | 8 | 0 | 2 | 5 | 1 |
 | `ms-toolsai.vscode-jupyter-cell-tags` | 0.1.9 | 8,947,433 |  | 22 | 9 | 0 | 1 | 0 | 8 |
+| `cweijan.vscode-office` | 4.2.3 | 2,348,119 |  | 107 | 10 | 0 | 5 | 2 | 3 |
+| `mtxr.sqltools` | 0.28.6 | 1,134,650 |  | 160 | 10 | 0 | 6 | 3 | 1 |
 | `coderabbit.coderabbit-vscode` | 0.25.0 | 820,812 |  | 75 | 10 | 0 | 4 | 5 | 1 |
 | `vscodevim.vim` | 1.32.4 | 1,989,577 |  | 66 | 11 | 0 | 5 | 6 | 0 |
+| `ms-kubernetes-tools.vscode-kubernetes-tools` | 1.4.1 | 1,255,998 |  | 110 | 11 | 0 | 7 | 3 | 1 |
 | `eclipse-cdt.cdt-gdb-vscode` | 2.9.1 | 1,006,438 |  | 27 | 11 | 0 | 0 | 10 | 1 |
+| `robertpiosik.gemini-coder` | 2026.1030.308 | 603,271 |  | 86 | 11 | 0 | 9 | 0 | 2 |
 | `firsttris.vscode-jest-runner` | 0.4.151 | 917,973 |  | 40 | 12 | 0 | 0 | 12 | 0 |
 | `salesforce.salesforcedx-vscode-apex-replay-debugger` | 68.7.3 | 607,617 |  | 27 | 12 | 0 | 1 | 11 | 0 |
+| `Continue.continue` | 2.1.0 | 1,747,795 |  | 102 | 13 | 0 | 6 | 2 | 5 |
+| `Alibaba-Cloud.tongyi-lingma` | 2.6.10 | 896,092 |  | 135 | 13 | 0 | 6 | 4 | 3 |
+| `GraphQL.vscode-graphql` | 1.0.0-rc.1 | 592,340 |  | 161 | 13 | 0 | 2 | 4 | 7 |
 | `pokey.cursorless` | 1.1.1874 | 584,084 |  | 84 | 13 | 0 | 2 | 5 | 6 |
+| `ms-python.debugpy` | 2026.6.0 | 63,014,514 |  | 57 | 14 | 0 | 0 | 14 | 0 |
+| `bradlc.vscode-tailwindcss` | 0.16.0 | 2,627,725 |  | 167 | 14 | 0 | 2 | 5 | 7 |
+| `bmewburn.vscode-intelephense-client` | 1.18.5 | 2,245,620 |  | 171 | 14 | 0 | 2 | 4 | 8 |
+| `ms-python.isort` | 2025.0.0 | 914,054 |  | 174 | 14 | 0 | 3 | 4 | 7 |
 | `qwenlm.qwen-code-vscode-ide-companion` | 0.26.4 | 902,772 |  | 75 | 14 | 0 | 5 | 0 | 9 |
-| `robertpiosik.gemini-coder` | 2026.1030.308 | 603,271 |  | 86 | 14 | 0 | 12 | 0 | 2 |
-| `ms-python.debugpy` | 2026.6.0 | 63,014,514 |  | 57 | 15 | 0 | 0 | 15 | 0 |
+| `stylelint.vscode-stylelint` | 2.2.1 | 755,096 |  | 163 | 14 | 0 | 2 | 4 | 8 |
+| `tamasfe.even-better-toml` | 0.21.2 | 701,599 |  | 170 | 14 | 0 | 2 | 4 | 8 |
+| `salesforce.salesforcedx-vscode-lightning` | 68.7.3 | 585,851 |  | 169 | 14 | 0 | 2 | 4 | 8 |
+| `salesforce.salesforcedx-vscode-visualforce` | 68.7.3 | 581,543 |  | 170 | 14 | 0 | 2 | 4 | 8 |
+| `meta.pyrefly` | 1.4.0 | 93,029,722 |  | 181 | 15 | 0 | 3 | 4 | 8 |
 | `RooVeterinaryInc.roo-cline` | 3.54.0 | 2,033,348 |  | 81 | 15 | 0 | 5 | 8 | 2 |
-| `Continue.continue` | 2.1.0 | 1,747,795 |  | 102 | 17 | 0 | 10 | 2 | 5 |
+| `ms-python.black-formatter` | 2025.2.0 | 1,570,996 |  | 176 | 15 | 0 | 3 | 4 | 8 |
+| `salesforce.salesforcedx-vscode-apex` | 68.7.3 | 658,242 |  | 174 | 15 | 0 | 3 | 4 | 8 |
+| `ms-python.mypy-type-checker` | 2026.6.0 | 482,714 |  | 174 | 15 | 0 | 4 | 4 | 7 |
+| `ms-python.flake8` | 2025.2.0 | 459,504 |  | 173 | 15 | 0 | 4 | 4 | 7 |
+| `llvm-vs-code-extensions.vscode-clangd` | 0.6.0 | 31,675,501 |  | 189 | 16 | 0 | 3 | 5 | 8 |
+| `svelte.svelte-vscode` | 110.3.2 | 2,182,506 |  | 177 | 16 | 0 | 4 | 4 | 8 |
+| `googlecloudtools.firebase-dataconnect-vscode` | 2.4.3 | 826,211 |  | 188 | 16 | 0 | 4 | 4 | 8 |
+| `salesforce.salesforcedx-vscode-soql` | 68.7.3 | 588,749 |  | 175 | 16 | 0 | 2 | 4 | 10 |
+| `posit.air-vscode` | 0.30.0 | 544,773 |  | 173 | 16 | 0 | 4 | 4 | 8 |
+| `sumneko.lua` | 3.19.2 | 503,643 |  | 182 | 16 | 0 | 2 | 4 | 10 |
+| `bufbuild.vscode-buf` | 0.8.19 | 37,626 | yes | 176 | 16 | 0 | 4 | 4 | 8 |
+| `redhat.vscode-yaml` | 2.1.2026102308 | 9,023,758 |  | 194 | 17 | 0 | 4 | 4 | 9 |
+| `dbaeumer.vscode-eslint` | 3.0.34 | 6,504,283 | yes | 188 | 17 | 0 | 4 | 4 | 9 |
+| `Angular.ng-template` | 22.2.0 | 2,978,950 |  | 174 | 17 | 0 | 4 | 5 | 8 |
+| `detachhead.basedpyright` | 1.40.2 | 2,908,667 | yes | 176 | 17 | 0 | 4 | 4 | 9 |
+| `Codeium.windsurfPyright` | 1.29.6 | 2,857,440 |  | 173 | 17 | 0 | 4 | 4 | 9 |
+| `astro-build.astro-vscode` | 2.16.20 | 1,084,439 |  | 177 | 17 | 0 | 3 | 6 | 8 |
+| `ms-pyright.pyright` | 1.1.402 | 1,080,398 |  | 172 | 17 | 0 | 4 | 4 | 9 |
+| `fwcd.kotlin` | 0.2.36 | 746,111 |  | 170 | 17 | 0 | 3 | 7 | 7 |
+| `oxc.oxc-vscode` | 1.64.1 | 670,578 |  | 183 | 17 | 0 | 4 | 4 | 9 |
+| `biomejs.biome` | 2026.10.241124 | 555,534 |  | 180 | 17 | 0 | 4 | 4 | 9 |
+| `vscjava.vscode-java-test` | 0.47.0 | 28,125,780 |  | 101 | 18 | 0 | 2 | 16 | 0 |
+| `Google.geminicodeassist` | 2.107.0 | 4,275,020 |  | 214 | 18 | 0 | 5 | 5 | 8 |
 | `posit.publisher` | 2.13.24 | 1,773,730 |  | 85 | 18 | 0 | 8 | 3 | 7 |
 | `kade.kade` | 4.0.4 | 923,388 |  | 113 | 18 | 0 | 6 | 8 | 4 |
-| `cweijan.vscode-office` | 4.2.3 | 2,348,119 |  | 107 | 19 | 0 | 13 | 3 | 3 |
-| `vscjava.vscode-maven` | 0.45.3 | 28,632,256 |  | 138 | 20 | 0 | 14 | 6 | 0 |
-| `James-Yu.latex-workshop` | 10.20.0 | 907,583 |  | 122 | 20 | 0 | 14 | 2 | 4 |
-| `vscjava.vscode-java-dependency` | 0.27.7 | 41,776,591 |  | 101 | 21 | 0 | 17 | 4 | 0 |
+| `vscode.json-language-features` | 1.95.3 | 622,421 |  | 186 | 18 | 0 | 5 | 4 | 9 |
+| `tombi-toml.tombi` | 1.9.8 | 558,397 |  | 182 | 18 | 0 | 5 | 4 | 9 |
+| `laravel.vscode-laravel` | 2.0.1 | 541,132 |  | 182 | 18 | 0 | 2 | 8 | 8 |
+| `Slint.slint-nightly` | 2026.10.2921 | 466,416 |  | 183 | 18 | 0 | 4 | 4 | 10 |
+| `redhat.vscode-xml` | 0.29.2026103008 | 1,658,522 |  | 204 | 19 | 0 | 5 | 4 | 10 |
+| `TabNine.tabnine-vscode` | 3.346.8 | 620,681 |  | 130 | 19 | 0 | 12 | 4 | 3 |
+| `Vue.volar` | 3.3.14 | 11,149,304 |  | 185 | 20 | 0 | 4 | 7 | 9 |
+| `hashicorp.terraform` | 2.40.0 | 2,425,304 | yes | 202 | 20 | 0 | 7 | 5 | 8 |
+| `wgsl-analyzer.wgsl-analyzer` | 0.12.534 | 466,617 |  | 202 | 20 | 0 | 5 | 5 | 10 |
+| `redhat.java` | 1.59.2026103008 | 47,408,151 | yes | 233 | 21 | 0 | 6 | 4 | 11 |
 | `saoudrizwan.claude-dev` | 4.1.26 | 7,352,757 |  | 86 | 21 | 0 | 8 | 11 | 2 |
 | `kilocode.kilo-code` | 7.8.25 | 4,678,485 |  | 130 | 21 | 0 | 3 | 1 | 17 |
-| `vscjava.vscode-spring-boot-dashboard` | 0.15.0 | 539,981 |  | 102 | 21 | 0 | 11 | 9 | 1 |
+| `charliermarsh.ruff` | 2026.92.0 | 4,019,733 | yes | 189 | 21 | 0 | 7 | 4 | 10 |
+| `nrwl.angular-console` | 18.102.0 | 701,593 |  | 206 | 21 | 0 | 6 | 6 | 9 |
+| `GitHub.vscode-github-actions` | 0.32.3 | 4,553,330 |  | 188 | 22 | 0 | 5 | 10 | 7 |
 | `posit.shiny` | 1.5.0 | 3,140,385 |  | 62 | 22 | 0 | 4 | 18 | 0 |
+| `mongodb.mongodb-vscode` | 1.18.0 | 495,671 |  | 215 | 22 | 0 | 6 | 6 | 10 |
+| `VMware.vscode-spring-boot` | 2.5.2026102900 | 2,014,123 |  | 191 | 23 | 0 | 4 | 11 | 8 |
+| `cweijan.vscode-mysql-client2` | 9.0.2 | 1,382,296 |  | 140 | 23 | 0 | 6 | 7 | 10 |
+| `vadimcn.vscode-lldb` | 1.12.3 | 1,377,722 |  | 75 | 23 | 0 | 2 | 20 | 1 |
+| `vitest.explorer` | 1.52.2 | 873,636 |  | 79 | 23 | 0 | 3 | 19 | 1 |
+| `cweijan.vscode-database-client2` | 9.0.2 | 554,166 |  | 140 | 23 | 0 | 6 | 7 | 10 |
 | `Anthropic.claude-code` | 2.1.314 | 63,161,919 | yes | 108 | 24 | 0 | 8 | 5 | 11 |
 | `vscjava.vscode-java-debug` | 0.60.0 | 28,235,473 |  | 88 | 24 | 0 | 3 | 21 | 0 |
-| `vadimcn.vscode-lldb` | 1.12.3 | 1,377,722 |  | 75 | 24 | 0 | 2 | 21 | 1 |
-| `ms-kubernetes-tools.vscode-kubernetes-tools` | 1.4.1 | 1,255,998 |  | 110 | 24 | 0 | 19 | 4 | 1 |
-| `Alibaba-Cloud.tongyi-lingma` | 2.6.10 | 896,092 |  | 135 | 24 | 0 | 16 | 5 | 3 |
-| `vscjava.vscode-java-test` | 0.47.0 | 28,125,780 |  | 101 | 26 | 0 | 9 | 17 | 0 |
-| `devsense.intelli-php-vscode` | 0.12.17700 | 7,940,704 |  | 145 | 26 | 0 | 20 | 5 | 1 |
-| `vitest.explorer` | 1.52.2 | 873,636 |  | 79 | 26 | 0 | 6 | 19 | 1 |
-| `MermaidChart.vscode-mermaid-chart` | 2.8.3 | 2,099,821 |  | 111 | 27 | 0 | 6 | 19 | 2 |
-| `vscjava.vscode-gradle` | 3.18.0 | 27,995,663 |  | 172 | 29 | 0 | 21 | 8 | 0 |
-| `Prisma.prisma-insider` | 31.12.17 | 2,128,455 |  | 161 | 29 | 0 | 20 | 8 | 1 |
-| `Prisma.prisma` | 31.13.0 | 1,565,819 |  | 161 | 29 | 0 | 20 | 8 | 1 |
-| `cweijan.vscode-mysql-client2` | 9.0.2 | 1,382,296 |  | 140 | 29 | 0 | 11 | 8 | 10 |
-| `cweijan.vscode-database-client2` | 9.0.2 | 554,166 |  | 140 | 29 | 0 | 11 | 8 | 10 |
-| `ms-vscode.js-debug` | 1.140.0 | 3,217,541 |  | 101 | 30 | 0 | 9 | 20 | 1 |
-| `ms-vscode.cmake-tools` | 1.24.42 | 2,271,738 |  | 120 | 30 | 0 | 6 | 23 | 1 |
-| `mtxr.sqltools` | 0.28.6 | 1,134,650 |  | 160 | 30 | 0 | 21 | 8 | 1 |
-| `openai.chatgpt` | 26.51021.22027 | 12,919,792 |  | 102 | 34 | 0 | 29 | 1 | 4 |
-| `TabNine.tabnine-vscode` | 3.346.8 | 620,681 |  | 130 | 34 | 0 | 26 | 5 | 3 |
+| `salesforce.salesforcedx-vscode-lwc` | 68.7.3 | 611,798 |  | 189 | 24 | 0 | 3 | 13 | 8 |
+| `amazonwebservices.amazon-q-vscode` | 2.9.0 | 2,245,244 |  | 250 | 25 | 0 | 10 | 5 | 10 |
+| `ms-vscode.powershell` | 2025.4.0 | 2,680,851 |  | 216 | 26 | 0 | 3 | 15 | 8 |
+| `SonarSource.sonarlint-vscode` | 6.2.0 | 2,183,069 |  | 225 | 26 | 0 | 5 | 9 | 12 |
+| `MermaidChart.vscode-mermaid-chart` | 2.8.3 | 2,099,821 |  | 111 | 26 | 0 | 6 | 18 | 2 |
+| `streetsidesoftware.code-spell-checker` | 4.10.0 | 2,195,179 |  | 235 | 27 | 0 | 7 | 5 | 15 |
+| `atlassian.atlascode` | 4.1.204 | 823,062 |  | 221 | 27 | 0 | 8 | 9 | 10 |
+| `denoland.vscode-deno` | 3.53.1 | 488,760 |  | 205 | 28 | 0 | 5 | 13 | 10 |
+| `ms-vscode.js-debug` | 1.140.0 | 3,217,541 |  | 101 | 29 | 0 | 9 | 19 | 1 |
+| `ms-vscode.cmake-tools` | 1.24.42 | 2,271,738 |  | 120 | 29 | 0 | 6 | 22 | 1 |
+| `rust-lang.rust-analyzer` | 0.4.3101 | 7,519,413 |  | 224 | 30 | 0 | 9 | 12 | 9 |
+| `redhat.ansible` | 26.8.2 | 700,254 |  | 229 | 30 | 0 | 10 | 9 | 11 |
+| `ms-azuretools.vscode-containers` | 2.4.5 | 14,894,897 |  | 238 | 31 | 0 | 10 | 12 | 9 |
+| `muhammad-sammy.csharp` | 2.160.9-g01198ecc1f | 1,291,943 |  | 246 | 31 | 0 | 9 | 11 | 11 |
+| `dotnetdev-kr-custom.csharp` | 11.7.18 | 579,875 |  | 248 | 32 | 0 | 9 | 12 | 11 |
+| `quarto.quarto` | 1.139.0 | 4,721,611 |  | 256 | 33 | 0 | 8 | 7 | 18 |
+| `malloydata.malloy-vscode` | 0.3.1793323135 | 667,347 |  | 206 | 33 | 0 | 3 | 4 | 26 |
+| `eamodio.gitlens` | 2026.10.300511 | 18,726,545 |  | 208 | 36 | 0 | 17 | 11 | 8 |
 | `GitHub.vscode-pull-request-github` | 0.174.0 | 6,666,160 |  | 147 | 36 | 0 | 16 | 13 | 7 |
-| `GraphQL.vscode-graphql` | 1.0.0-rc.1 | 592,340 |  | 161 | 38 | 0 | 20 | 11 | 7 |
-| `bradlc.vscode-tailwindcss` | 0.16.0 | 2,627,725 |  | 167 | 39 | 0 | 20 | 12 | 7 |
-| `bmewburn.vscode-intelephense-client` | 1.18.5 | 2,245,620 |  | 171 | 39 | 0 | 20 | 11 | 8 |
-| `ms-python.isort` | 2025.0.0 | 914,054 |  | 174 | 39 | 0 | 21 | 11 | 7 |
-| `stylelint.vscode-stylelint` | 2.2.1 | 755,096 |  | 163 | 39 | 0 | 20 | 11 | 8 |
-| `tamasfe.even-better-toml` | 0.21.2 | 701,599 |  | 170 | 39 | 0 | 20 | 11 | 8 |
-| `salesforce.salesforcedx-vscode-lightning` | 68.7.3 | 585,851 |  | 169 | 39 | 0 | 20 | 11 | 8 |
-| `salesforce.salesforcedx-vscode-visualforce` | 68.7.3 | 581,543 |  | 170 | 39 | 0 | 20 | 11 | 8 |
-| `meta.pyrefly` | 1.4.0 | 93,029,722 |  | 181 | 40 | 0 | 21 | 11 | 8 |
-| `ms-python.black-formatter` | 2025.2.0 | 1,570,996 |  | 176 | 40 | 0 | 21 | 11 | 8 |
-| `salesforce.salesforcedx-vscode-apex` | 68.7.3 | 658,242 |  | 174 | 40 | 0 | 21 | 11 | 8 |
-| `ms-python.mypy-type-checker` | 2026.6.0 | 482,714 |  | 174 | 40 | 0 | 22 | 11 | 7 |
-| `ms-python.flake8` | 2025.2.0 | 459,504 |  | 173 | 40 | 0 | 22 | 11 | 7 |
-| `llvm-vs-code-extensions.vscode-clangd` | 0.6.0 | 31,675,501 |  | 189 | 41 | 0 | 21 | 12 | 8 |
-| `svelte.svelte-vscode` | 110.3.2 | 2,182,506 |  | 177 | 41 | 0 | 22 | 11 | 8 |
-| `googlecloudtools.firebase-dataconnect-vscode` | 2.4.3 | 826,211 |  | 188 | 41 | 0 | 22 | 11 | 8 |
-| `salesforce.salesforcedx-vscode-soql` | 68.7.3 | 588,749 |  | 175 | 41 | 0 | 20 | 11 | 10 |
-| `posit.air-vscode` | 0.30.0 | 544,773 |  | 173 | 41 | 0 | 22 | 11 | 8 |
-| `sumneko.lua` | 3.19.2 | 503,643 |  | 182 | 41 | 0 | 20 | 11 | 10 |
-| `bufbuild.vscode-buf` | 0.8.19 | 37,626 | yes | 176 | 41 | 0 | 22 | 11 | 8 |
-| `redhat.vscode-yaml` | 2.1.2026102308 | 9,023,758 |  | 194 | 42 | 0 | 21 | 12 | 9 |
-| `dbaeumer.vscode-eslint` | 3.0.34 | 6,504,283 | yes | 188 | 42 | 0 | 21 | 12 | 9 |
-| `Angular.ng-template` | 22.2.0 | 2,978,950 |  | 174 | 42 | 0 | 22 | 12 | 8 |
-| `detachhead.basedpyright` | 1.40.2 | 2,908,667 | yes | 176 | 42 | 0 | 21 | 12 | 9 |
-| `Codeium.windsurfPyright` | 1.29.6 | 2,857,440 |  | 173 | 42 | 0 | 21 | 12 | 9 |
-| `astro-build.astro-vscode` | 2.16.20 | 1,084,439 |  | 177 | 42 | 0 | 21 | 13 | 8 |
-| `ms-pyright.pyright` | 1.1.402 | 1,080,398 |  | 172 | 42 | 0 | 21 | 12 | 9 |
-| `fwcd.kotlin` | 0.2.36 | 746,111 |  | 170 | 42 | 0 | 21 | 14 | 7 |
-| `oxc.oxc-vscode` | 1.64.1 | 670,578 |  | 183 | 42 | 0 | 21 | 12 | 9 |
-| `biomejs.biome` | 2026.10.241124 | 555,534 |  | 180 | 42 | 0 | 21 | 12 | 9 |
-| `vscode.json-language-features` | 1.95.3 | 622,421 |  | 186 | 43 | 0 | 22 | 12 | 9 |
-| `tombi-toml.tombi` | 1.9.8 | 558,397 |  | 182 | 43 | 0 | 22 | 12 | 9 |
-| `laravel.vscode-laravel` | 2.0.1 | 541,132 |  | 182 | 43 | 0 | 20 | 15 | 8 |
-| `Slint.slint-nightly` | 2026.10.2921 | 466,416 |  | 183 | 43 | 0 | 22 | 11 | 10 |
-| `redhat.vscode-xml` | 0.29.2026103008 | 1,658,522 |  | 204 | 44 | 0 | 22 | 12 | 10 |
-| `Vue.volar` | 3.3.14 | 11,149,304 |  | 185 | 45 | 0 | 22 | 14 | 9 |
-| `hashicorp.terraform` | 2.40.0 | 2,425,304 | yes | 202 | 45 | 0 | 25 | 12 | 8 |
-| `wgsl-analyzer.wgsl-analyzer` | 0.12.534 | 466,617 |  | 202 | 45 | 0 | 22 | 13 | 10 |
-| `charliermarsh.ruff` | 2026.92.0 | 4,019,733 | yes | 189 | 46 | 0 | 24 | 12 | 10 |
-| `nrwl.angular-console` | 18.102.0 | 701,593 |  | 206 | 46 | 0 | 24 | 13 | 9 |
-| `mongodb.mongodb-vscode` | 1.18.0 | 495,671 |  | 215 | 47 | 0 | 23 | 14 | 10 |
-| `GitHub.vscode-github-actions` | 0.32.3 | 4,553,330 |  | 188 | 48 | 0 | 24 | 17 | 7 |
-| `VMware.vscode-spring-boot` | 2.5.2026102900 | 2,014,123 |  | 191 | 48 | 0 | 22 | 18 | 8 |
-| `redhat.java` | 1.59.2026103008 | 47,408,151 | yes | 233 | 49 | 0 | 26 | 12 | 11 |
-| `salesforce.salesforcedx-vscode-lwc` | 68.7.3 | 611,798 |  | 189 | 49 | 0 | 21 | 20 | 8 |
-| `eamodio.gitlens` | 2026.10.300511 | 18,726,545 |  | 208 | 50 | 0 | 31 | 11 | 8 |
-| `amazonwebservices.amazon-q-vscode` | 2.9.0 | 2,245,244 |  | 250 | 50 | 0 | 28 | 12 | 10 |
-| `ms-vscode.powershell` | 2025.4.0 | 2,680,851 |  | 216 | 51 | 0 | 21 | 22 | 8 |
-| `SonarSource.sonarlint-vscode` | 6.2.0 | 2,183,069 |  | 225 | 51 | 0 | 22 | 17 | 12 |
-| `streetsidesoftware.code-spell-checker` | 4.10.0 | 2,195,179 |  | 235 | 52 | 0 | 24 | 13 | 15 |
-| `atlassian.atlascode` | 4.1.204 | 823,062 |  | 221 | 52 | 0 | 26 | 16 | 10 |
-| `denoland.vscode-deno` | 3.53.1 | 488,760 |  | 205 | 53 | 0 | 22 | 21 | 10 |
-| `rust-lang.rust-analyzer` | 0.4.3101 | 7,519,413 |  | 224 | 55 | 0 | 26 | 20 | 9 |
-| `redhat.ansible` | 26.8.2 | 700,254 |  | 229 | 55 | 0 | 27 | 17 | 11 |
-| `ms-azuretools.vscode-containers` | 2.4.5 | 14,894,897 |  | 238 | 56 | 0 | 27 | 20 | 9 |
-| `Google.geminicodeassist` | 2.107.0 | 4,275,020 |  | 214 | 57 | 0 | 37 | 12 | 8 |
-| `malloydata.malloy-vscode` | 0.3.1793323135 | 667,347 |  | 206 | 58 | 0 | 21 | 11 | 26 |
-| `quarto.quarto` | 1.139.0 | 4,721,611 |  | 256 | 59 | 0 | 26 | 15 | 18 |
-| `devsense.phptools-vscode` | 1.76.19462 | 42,465,202 |  | 235 | 63 | 0 | 22 | 31 | 10 |
-| `GitLab.gitlab-workflow` | 7.3.5 | 2,950,329 |  | 252 | 63 | 0 | 31 | 19 | 13 |
-| `Shopify.ruby-lsp` | 0.10.8 | 44,640,277 |  | 234 | 67 | 0 | 22 | 35 | 10 |
-| `Oracle.oracle-java` | 27.0.0 | 853,283 |  | 231 | 67 | 0 | 23 | 25 | 19 |
-| `muhammad-sammy.csharp` | 2.160.9-g01198ecc1f | 1,291,943 |  | 246 | 68 | 0 | 37 | 20 | 11 |
-| `dotnetdev-kr-custom.csharp` | 11.7.18 | 579,875 |  | 248 | 69 | 0 | 37 | 21 | 11 |
-| `golang.Go` | 0.58.0 | 43,153,897 | yes | 251 | 70 | 0 | 30 | 29 | 11 |
-| `REditorSupport.r` | 3.3.20261027 | 2,232,798 |  | 265 | 74 | 0 | 25 | 14 | 35 |
-| `Dart-Code.dart-code` | 3.147.20261029 | 6,090,051 |  | 266 | 79 | 0 | 26 | 42 | 11 |
-| `amazonwebservices.aws-toolkit-vscode` | 4.18.0 | 3,840,104 |  | 286 | 82 | 0 | 36 | 16 | 30 |
-| `ms-python.python` | 2026.4.0 | 61,892,209 |  | 282 | 85 | 0 | 28 | 41 | 16 |
-| `ms-toolsai.jupyter` | 2025.9.1 | 11,211,375 |  | 268 | 87 | 0 | 21 | 32 | 34 |
+| `devsense.phptools-vscode` | 1.76.19462 | 42,465,202 |  | 235 | 38 | 0 | 5 | 23 | 10 |
+| `GitLab.gitlab-workflow` | 7.3.5 | 2,950,329 |  | 252 | 38 | 0 | 13 | 12 | 13 |
+| `golang.Go` | 0.58.0 | 43,153,897 | yes | 251 | 41 | 0 | 9 | 21 | 11 |
+| `Shopify.ruby-lsp` | 0.10.8 | 44,640,277 |  | 234 | 42 | 0 | 5 | 27 | 10 |
+| `Oracle.oracle-java` | 27.0.0 | 853,283 |  | 231 | 42 | 0 | 5 | 18 | 19 |
+| `REditorSupport.r` | 3.3.20261027 | 2,232,798 |  | 265 | 49 | 0 | 8 | 6 | 35 |
+| `amazonwebservices.aws-toolkit-vscode` | 4.18.0 | 3,840,104 |  | 286 | 50 | 0 | 11 | 9 | 30 |
+| `Dart-Code.dart-code` | 3.147.20261029 | 6,090,051 |  | 266 | 54 | 0 | 9 | 34 | 11 |
+| `ms-python.python` | 2026.4.0 | 61,892,209 |  | 282 | 60 | 0 | 11 | 33 | 16 |
+| `ms-toolsai.jupyter` | 2025.9.1 | 11,211,375 |  | 268 | 62 | 0 | 3 | 25 | 34 |
 
 ## Bundles without a visible API
 
@@ -457,23 +457,23 @@ Proposed API or a false hit: class X when real.
 | `BreakpointsChangeEvent.added` | C |  | 0 | 0 |  |
 | `BreakpointsChangeEvent.changed` | C |  | 0 | 0 |  |
 | `BreakpointsChangeEvent.removed` | C |  | 0 | 0 |  |
-| `CallHierarchyIncomingCall` | C | yes | 76 | 582,200,263 |  |
-| `CallHierarchyIncomingCall.from` | C |  | 0 | 0 |  |
-| `CallHierarchyIncomingCall.fromRanges` | C |  | 0 | 0 |  |
-| `CallHierarchyItem` | C | yes | 77 | 582,689,207 |  |
-| `CallHierarchyItem.detail` | C |  | 0 | 0 |  |
-| `CallHierarchyItem.kind` | C |  | 0 | 0 |  |
-| `CallHierarchyItem.name` | C |  | 0 | 0 |  |
-| `CallHierarchyItem.range` | C |  | 0 | 0 |  |
-| `CallHierarchyItem.selectionRange` | C |  | 0 | 0 |  |
-| `CallHierarchyItem.tags` | C |  | 0 | 0 |  |
-| `CallHierarchyItem.uri` | C |  | 0 | 0 |  |
-| `CallHierarchyOutgoingCall` | C | yes | 76 | 582,200,263 |  |
-| `CallHierarchyOutgoingCall.fromRanges` | C |  | 0 | 0 |  |
-| `CallHierarchyOutgoingCall.to` | C |  | 0 | 0 |  |
-| `CallHierarchyProvider.prepareCallHierarchy` | C | yes | 0 | 0 |  |
-| `CallHierarchyProvider.provideCallHierarchyIncomingCalls` | C | yes | 0 | 0 |  |
-| `CallHierarchyProvider.provideCallHierarchyOutgoingCalls` | C | yes | 0 | 0 |  |
+| `CallHierarchyIncomingCall` | ok | yes | 76 | 582,200,263 |  |
+| `CallHierarchyIncomingCall.from` | ok |  | 0 | 0 |  |
+| `CallHierarchyIncomingCall.fromRanges` | ok |  | 0 | 0 |  |
+| `CallHierarchyItem` | ok | yes | 77 | 582,689,207 |  |
+| `CallHierarchyItem.detail` | ok |  | 0 | 0 |  |
+| `CallHierarchyItem.kind` | ok |  | 0 | 0 |  |
+| `CallHierarchyItem.name` | ok |  | 0 | 0 |  |
+| `CallHierarchyItem.range` | ok |  | 0 | 0 |  |
+| `CallHierarchyItem.selectionRange` | ok |  | 0 | 0 |  |
+| `CallHierarchyItem.tags` | ok |  | 0 | 0 |  |
+| `CallHierarchyItem.uri` | ok |  | 0 | 0 |  |
+| `CallHierarchyOutgoingCall` | ok | yes | 76 | 582,200,263 |  |
+| `CallHierarchyOutgoingCall.fromRanges` | ok |  | 0 | 0 |  |
+| `CallHierarchyOutgoingCall.to` | ok |  | 0 | 0 |  |
+| `CallHierarchyProvider.prepareCallHierarchy` | ok | yes | 0 | 0 |  |
+| `CallHierarchyProvider.provideCallHierarchyIncomingCalls` | ok | yes | 0 | 0 |  |
+| `CallHierarchyProvider.provideCallHierarchyOutgoingCalls` | ok | yes | 0 | 0 |  |
 | `CancellationError` | ok |  | 76 | 580,122,489 |  |
 | `CancellationToken.isCancellationRequested` | ok |  | 0 | 0 |  |
 | `CancellationToken.onCancellationRequested` | ok |  | 0 | 0 |  |
@@ -850,7 +850,7 @@ Proposed API or a false hit: class X when real.
 | `DeclarationCoverage.executed` | C |  | 0 | 0 |  |
 | `DeclarationCoverage.location` | C |  | 0 | 0 |  |
 | `DeclarationCoverage.name` | C |  | 0 | 0 |  |
-| `DeclarationProvider.provideDeclaration` | B |  | 0 | 0 |  |
+| `DeclarationProvider.provideDeclaration` | ok |  | 0 | 0 |  |
 | `DecorationInstanceRenderOptions.dark` | C |  | 0 | 0 |  |
 | `DecorationInstanceRenderOptions.light` | C |  | 0 | 0 |  |
 | `DecorationOptions.hoverMessage` | C |  | 0 | 0 |  |
@@ -923,14 +923,14 @@ Proposed API or a false hit: class X when real.
 | `DocumentFilter.pattern` | ok |  | 0 | 0 |  |
 | `DocumentFilter.scheme` | ok |  | 0 | 0 |  |
 | `DocumentFormattingEditProvider.provideDocumentFormattingEdits` | ok |  | 0 | 0 |  |
-| `DocumentHighlight` | B |  | 78 | 611,582,041 |  |
-| `DocumentHighlight.kind` | B |  | 0 | 0 |  |
-| `DocumentHighlight.range` | B |  | 0 | 0 |  |
-| `DocumentHighlightKind` | B |  | 0 | 0 |  |
-| `DocumentHighlightKind.Read` | B |  | 78 | 611,582,041 |  |
-| `DocumentHighlightKind.Text` | B |  | 77 | 610,326,043 |  |
-| `DocumentHighlightKind.Write` | B |  | 77 | 610,326,043 |  |
-| `DocumentHighlightProvider.provideDocumentHighlights` | B |  | 0 | 0 |  |
+| `DocumentHighlight` | ok |  | 78 | 611,582,041 |  |
+| `DocumentHighlight.kind` | ok |  | 0 | 0 |  |
+| `DocumentHighlight.range` | ok |  | 0 | 0 |  |
+| `DocumentHighlightKind` | ok |  | 0 | 0 |  |
+| `DocumentHighlightKind.Read` | ok |  | 78 | 611,582,041 |  |
+| `DocumentHighlightKind.Text` | ok |  | 77 | 610,326,043 |  |
+| `DocumentHighlightKind.Write` | ok |  | 77 | 610,326,043 |  |
+| `DocumentHighlightProvider.provideDocumentHighlights` | ok |  | 0 | 0 |  |
 | `DocumentLink` | ok |  | 84 | 647,723,130 |  |
 | `DocumentLink.range` | ok |  | 0 | 0 |  |
 | `DocumentLink.target` | ok |  | 0 | 0 |  |
@@ -961,16 +961,16 @@ Proposed API or a false hit: class X when real.
 | `DocumentSemanticTokensProvider.onDidChangeSemanticTokens` | ok |  | 0 | 0 |  |
 | `DocumentSemanticTokensProvider.provideDocumentSemanticTokens` | ok |  | 0 | 0 |  |
 | `DocumentSemanticTokensProvider.provideDocumentSemanticTokensEdits` | ok |  | 0 | 0 |  |
-| `DocumentSymbol` | B |  | 81 | 617,847,778 |  |
-| `DocumentSymbol.children` | B |  | 0 | 0 |  |
-| `DocumentSymbol.detail` | B |  | 0 | 0 |  |
-| `DocumentSymbol.kind` | B |  | 0 | 0 |  |
-| `DocumentSymbol.name` | B |  | 0 | 0 |  |
-| `DocumentSymbol.range` | B |  | 0 | 0 |  |
-| `DocumentSymbol.selectionRange` | B |  | 0 | 0 |  |
-| `DocumentSymbol.tags` | B |  | 0 | 0 |  |
-| `DocumentSymbolProvider.provideDocumentSymbols` | B |  | 0 | 0 |  |
-| `DocumentSymbolProviderMetadata.label` | B |  | 0 | 0 |  |
+| `DocumentSymbol` | ok |  | 81 | 617,847,778 |  |
+| `DocumentSymbol.children` | ok |  | 0 | 0 |  |
+| `DocumentSymbol.detail` | ok |  | 0 | 0 |  |
+| `DocumentSymbol.kind` | ok |  | 0 | 0 |  |
+| `DocumentSymbol.name` | ok |  | 0 | 0 |  |
+| `DocumentSymbol.range` | ok |  | 0 | 0 |  |
+| `DocumentSymbol.selectionRange` | ok |  | 0 | 0 |  |
+| `DocumentSymbol.tags` | ok |  | 0 | 0 |  |
+| `DocumentSymbolProvider.provideDocumentSymbols` | ok |  | 0 | 0 |  |
+| `DocumentSymbolProviderMetadata.label` | C |  | 0 | 0 |  |
 | `EndOfLine` | ok |  | 0 | 0 |  |
 | `EndOfLine.CRLF` | ok |  | 11 | 100,504,777 |  |
 | `EndOfLine.LF` | ok |  | 10 | 124,603,235 |  |
@@ -1163,7 +1163,7 @@ Proposed API or a false hit: class X when real.
 | `Hover.contents` | ok |  | 0 | 0 |  |
 | `Hover.range` | ok |  | 0 | 0 |  |
 | `HoverProvider.provideHover` | ok |  | 0 | 0 |  |
-| `ImplementationProvider.provideImplementation` | B |  | 0 | 0 |  |
+| `ImplementationProvider.provideImplementation` | ok |  | 0 | 0 |  |
 | `IndentAction` | ok |  | 0 | 0 |  |
 | `IndentAction.Indent` | ok |  | 7 | 68,727,730 |  |
 | `IndentAction.IndentOutdent` | ok |  | 13 | 27,242,426 |  |
@@ -1351,38 +1351,38 @@ Proposed API or a false hit: class X when real.
 | `languages.getLanguages` | ok | yes | 2 | 13,406,554 |  |
 | `languages.match` | ok |  | 79 | 568,236,171 | biomejs.biome, bradlc.vscode-tailwindcss, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, svelte.svelte-vscode, tamasfe.even-better-toml, timonwong.shellcheck |
 | `languages.onDidChangeDiagnostics` | ok |  | 9 | 178,729,024 |  |
-| `languages.registerCallHierarchyProvider` | C | yes | 74 | 553,028,026 |  |
+| `languages.registerCallHierarchyProvider` | ok | yes | 74 | 553,028,026 |  |
 | `languages.registerCodeActionsProvider` | ok | yes | 94 | 802,908,021 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck |
 | `languages.registerCodeLensProvider` | ok | yes | 94 | 721,586,993 | bradlc.vscode-tailwindcss, redhat.vscode-yaml, svelte.svelte-vscode, vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `languages.registerColorProvider` | ok |  | 75 | 553,935,609 | bradlc.vscode-tailwindcss, svelte.svelte-vscode |
 | `languages.registerCompletionItemProvider` | ok | yes | 100 | 769,073,820 | bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, redhat.vscode-yaml |
-| `languages.registerDeclarationProvider` | B |  | 74 | 553,028,026 |  |
+| `languages.registerDeclarationProvider` | ok |  | 74 | 553,028,026 |  |
 | `languages.registerDefinitionProvider` | ok |  | 81 | 588,318,046 |  |
 | `languages.registerDocumentDropEditProvider` | C |  | 4 | 18,090,004 |  |
 | `languages.registerDocumentFormattingEditProvider` | ok | yes | 82 | 631,700,018 | biomejs.biome, tamasfe.even-better-toml, yzhang.markdown-all-in-one |
-| `languages.registerDocumentHighlightProvider` | B |  | 75 | 554,284,024 |  |
+| `languages.registerDocumentHighlightProvider` | ok |  | 75 | 554,284,024 |  |
 | `languages.registerDocumentLinkProvider` | ok |  | 80 | 589,936,169 | bradlc.vscode-tailwindcss, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, tamasfe.even-better-toml, timonwong.shellcheck |
 | `languages.registerDocumentPasteEditProvider` | B |  | 3 | 54,970,403 |  |
 | `languages.registerDocumentRangeFormattingEditProvider` | ok | yes | 81 | 570,534,477 |  |
 | `languages.registerDocumentRangeSemanticTokensProvider` | ok |  | 75 | 556,420,423 | svelte.svelte-vscode |
 | `languages.registerDocumentSemanticTokensProvider` | ok |  | 74 | 553,028,026 | llvm-vs-code-extensions.vscode-clangd, svelte.svelte-vscode, tamasfe.even-better-toml |
-| `languages.registerDocumentSymbolProvider` | B |  | 81 | 563,742,221 | tamasfe.even-better-toml |
+| `languages.registerDocumentSymbolProvider` | ok |  | 81 | 563,742,221 | tamasfe.even-better-toml |
 | `languages.registerEvaluatableExpressionProvider` | C |  | 0 | 0 |  |
 | `languages.registerFoldingRangeProvider` | ok |  | 78 | 556,745,707 | redhat.vscode-yaml, svelte.svelte-vscode, tamasfe.even-better-toml |
 | `languages.registerHoverProvider` | ok |  | 94 | 698,785,264 | bradlc.vscode-tailwindcss, timonwong.shellcheck |
-| `languages.registerImplementationProvider` | B |  | 74 | 553,028,026 |  |
+| `languages.registerImplementationProvider` | ok |  | 74 | 553,028,026 |  |
 | `languages.registerInlayHintsProvider` | ok | yes | 71 | 558,951,383 | llvm-vs-code-extensions.vscode-clangd, svelte.svelte-vscode |
 | `languages.registerInlineCompletionItemProvider` | ok |  | 67 | 506,595,543 |  |
 | `languages.registerInlineValuesProvider` | C |  | 71 | 603,512,722 |  |
-| `languages.registerLinkedEditingRangeProvider` | B |  | 73 | 551,893,376 |  |
-| `languages.registerOnTypeFormattingEditProvider` | B |  | 74 | 553,028,026 |  |
+| `languages.registerLinkedEditingRangeProvider` | ok |  | 73 | 551,893,376 |  |
+| `languages.registerOnTypeFormattingEditProvider` | ok |  | 74 | 553,028,026 |  |
 | `languages.registerReferenceProvider` | ok |  | 76 | 556,048,285 |  |
 | `languages.registerRenameProvider` | ok |  | 74 | 553,028,026 |  |
 | `languages.registerSelectionRangeProvider` | ok |  | 75 | 553,935,609 |  |
 | `languages.registerSignatureHelpProvider` | ok |  | 76 | 554,964,488 |  |
-| `languages.registerTypeDefinitionProvider` | B |  | 74 | 553,028,026 |  |
-| `languages.registerTypeHierarchyProvider` | C | yes | 69 | 512,262,735 |  |
-| `languages.registerWorkspaceSymbolProvider` | B |  | 77 | 555,872,071 |  |
+| `languages.registerTypeDefinitionProvider` | ok |  | 74 | 553,028,026 |  |
+| `languages.registerTypeHierarchyProvider` | ok | yes | 69 | 512,262,735 |  |
+| `languages.registerWorkspaceSymbolProvider` | ok |  | 77 | 555,872,071 |  |
 | `languages.setLanguageConfiguration` | ok | yes | 22 | 147,598,036 | svelte.svelte-vscode, yzhang.markdown-all-in-one |
 | `languages.setTextDocumentLanguage` | ok | yes | 15 | 138,689,114 |  |
 | `LanguageStatusItem.accessibilityInformation` | B |  | 0 | 0 |  |
@@ -1401,10 +1401,10 @@ Proposed API or a false hit: class X when real.
 | `LanguageStatusSeverity.Warning` | ok |  | 10 | 173,530,781 |  |
 | `LineCommentRule.comment` | ok |  | 0 | 0 |  |
 | `LineCommentRule.noIndent` | ok |  | 0 | 0 |  |
-| `LinkedEditingRangeProvider.provideLinkedEditingRanges` | B |  | 0 | 0 |  |
-| `LinkedEditingRanges` | B |  | 75 | 581,065,613 |  |
-| `LinkedEditingRanges.ranges` | B |  | 0 | 0 |  |
-| `LinkedEditingRanges.wordPattern` | B |  | 0 | 0 |  |
+| `LinkedEditingRangeProvider.provideLinkedEditingRanges` | ok |  | 0 | 0 |  |
+| `LinkedEditingRanges` | ok |  | 75 | 581,065,613 |  |
+| `LinkedEditingRanges.ranges` | ok |  | 0 | 0 |  |
+| `LinkedEditingRanges.wordPattern` | ok |  | 0 | 0 |  |
 | `lm.invokeTool` | C |  | 5 | 80,526,859 |  |
 | `lm.onDidChangeChatModels` | C |  | 1 | 18,726,545 |  |
 | `lm.registerLanguageModelChatProvider` | C |  | 0 | 0 |  |
@@ -1611,7 +1611,7 @@ Proposed API or a false hit: class X when real.
 | `OnEnterRule.afterText` | ok |  | 0 | 0 |  |
 | `OnEnterRule.beforeText` | ok |  | 0 | 0 |  |
 | `OnEnterRule.previousLineText` | ok |  | 0 | 0 |  |
-| `OnTypeFormattingEditProvider.provideOnTypeFormattingEdits` | B |  | 0 | 0 |  |
+| `OnTypeFormattingEditProvider.provideOnTypeFormattingEdits` | ok |  | 0 | 0 |  |
 | `OpenDialogOptions.canSelectFiles` | ok |  | 0 | 0 |  |
 | `OpenDialogOptions.canSelectFolders` | ok |  | 0 | 0 |  |
 | `OpenDialogOptions.canSelectMany` | ok |  | 0 | 0 |  |
@@ -1830,19 +1830,19 @@ Proposed API or a false hit: class X when real.
 | `SignatureInformation.documentation` | ok |  | 0 | 0 |  |
 | `SignatureInformation.label` | ok |  | 0 | 0 |  |
 | `SignatureInformation.parameters` | ok |  | 0 | 0 |  |
-| `SnippetString` | C | yes | 95 | 736,241,729 |  |
+| `SnippetString` | ok | yes | 95 | 736,241,729 |  |
 | `SnippetString.appendChoice` | ok | yes | 0 | 0 |  |
 | `SnippetString.appendPlaceholder` | ok | yes | 0 | 0 |  |
 | `SnippetString.appendTabstop` | ok | yes | 0 | 0 |  |
 | `SnippetString.appendText` | ok | yes | 0 | 0 |  |
 | `SnippetString.appendVariable` | ok | yes | 0 | 0 |  |
 | `SnippetString.value` | ok |  | 0 | 0 |  |
-| `SnippetTextEdit` | C |  | 29 | 313,879,605 |  |
-| `SnippetTextEdit.insert` | C |  | 0 | 0 |  |
-| `SnippetTextEdit.keepWhitespace` | C |  | 0 | 0 |  |
-| `SnippetTextEdit.range` | C |  | 0 | 0 |  |
-| `SnippetTextEdit.replace` | C |  | 2 | 1,871,818 |  |
-| `SnippetTextEdit.snippet` | C |  | 0 | 0 |  |
+| `SnippetTextEdit` | B |  | 29 | 313,879,605 |  |
+| `SnippetTextEdit.insert` | B |  | 0 | 0 |  |
+| `SnippetTextEdit.keepWhitespace` | B |  | 0 | 0 |  |
+| `SnippetTextEdit.range` | B |  | 0 | 0 |  |
+| `SnippetTextEdit.replace` | B |  | 2 | 1,871,818 |  |
+| `SnippetTextEdit.snippet` | B |  | 0 | 0 |  |
 | `SourceBreakpoint` | C |  | 8 | 43,108,503 |  |
 | `SourceBreakpoint.location` | C |  | 0 | 0 |  |
 | `SourceControl.acceptInputCommand` | C |  | 0 | 0 |  |
@@ -1896,41 +1896,41 @@ Proposed API or a false hit: class X when real.
 | `StatusBarItem.show` | ok |  | 0 | 0 |  |
 | `StatusBarItem.text` | ok |  | 0 | 0 |  |
 | `StatusBarItem.tooltip` | B |  | 0 | 0 |  |
-| `SymbolInformation` | B |  | 84 | 635,989,694 |  |
-| `SymbolInformation.containerName` | B |  | 0 | 0 |  |
-| `SymbolInformation.kind` | B |  | 0 | 0 |  |
-| `SymbolInformation.location` | B |  | 0 | 0 |  |
-| `SymbolInformation.name` | B |  | 0 | 0 |  |
-| `SymbolInformation.tags` | B |  | 0 | 0 |  |
-| `SymbolKind` | B |  | 0 | 0 |  |
-| `SymbolKind.Array` | B |  | 4 | 19,071,491 |  |
-| `SymbolKind.Boolean` | B |  | 2 | 17,194,812 |  |
-| `SymbolKind.Class` | B |  | 13 | 132,651,614 |  |
-| `SymbolKind.Constant` | B |  | 9 | 64,523,575 |  |
-| `SymbolKind.Constructor` | B |  | 8 | 81,938,242 |  |
-| `SymbolKind.Enum` | B |  | 7 | 76,811,519 |  |
-| `SymbolKind.EnumMember` | B |  | 5 | 60,843,221 |  |
-| `SymbolKind.Event` | B |  | 3 | 14,791,610 |  |
-| `SymbolKind.Field` | B |  | 9 | 65,964,111 |  |
-| `SymbolKind.File` | B |  | 5 | 36,566,998 |  |
-| `SymbolKind.Function` | B |  | 14 | 140,041,556 |  |
-| `SymbolKind.Interface` | B |  | 8 | 124,219,670 |  |
-| `SymbolKind.Key` | B |  | 2 | 17,194,812 |  |
-| `SymbolKind.Method` | B |  | 12 | 132,176,454 |  |
-| `SymbolKind.Module` | B |  | 7 | 40,314,510 |  |
-| `SymbolKind.Namespace` | B |  | 7 | 81,115,427 |  |
-| `SymbolKind.Null` | B |  | 3 | 64,602,963 |  |
-| `SymbolKind.Number` | B |  | 3 | 18,102,395 |  |
-| `SymbolKind.Object` | B |  | 6 | 22,315,702 |  |
-| `SymbolKind.Operator` | B |  | 3 | 14,791,610 |  |
-| `SymbolKind.Package` | B |  | 7 | 121,927,783 |  |
-| `SymbolKind.Property` | B |  | 81 | 684,369,652 |  |
-| `SymbolKind.String` | B |  | 6 | 41,925,042 |  |
-| `SymbolKind.Struct` | B |  | 6 | 35,321,830 |  |
-| `SymbolKind.TypeParameter` | B |  | 76 | 566,436,762 |  |
-| `SymbolKind.Variable` | B |  | 7 | 64,092,293 |  |
-| `SymbolTag` | B |  | 0 | 0 |  |
-| `SymbolTag.Deprecated` | B |  | 75 | 581,065,613 |  |
+| `SymbolInformation` | ok |  | 84 | 635,989,694 |  |
+| `SymbolInformation.containerName` | ok |  | 0 | 0 |  |
+| `SymbolInformation.kind` | ok |  | 0 | 0 |  |
+| `SymbolInformation.location` | ok |  | 0 | 0 |  |
+| `SymbolInformation.name` | ok |  | 0 | 0 |  |
+| `SymbolInformation.tags` | ok |  | 0 | 0 |  |
+| `SymbolKind` | ok |  | 0 | 0 |  |
+| `SymbolKind.Array` | ok |  | 4 | 19,071,491 |  |
+| `SymbolKind.Boolean` | ok |  | 2 | 17,194,812 |  |
+| `SymbolKind.Class` | ok |  | 13 | 132,651,614 |  |
+| `SymbolKind.Constant` | ok |  | 9 | 64,523,575 |  |
+| `SymbolKind.Constructor` | ok |  | 8 | 81,938,242 |  |
+| `SymbolKind.Enum` | ok |  | 7 | 76,811,519 |  |
+| `SymbolKind.EnumMember` | ok |  | 5 | 60,843,221 |  |
+| `SymbolKind.Event` | ok |  | 3 | 14,791,610 |  |
+| `SymbolKind.Field` | ok |  | 9 | 65,964,111 |  |
+| `SymbolKind.File` | ok |  | 5 | 36,566,998 |  |
+| `SymbolKind.Function` | ok |  | 14 | 140,041,556 |  |
+| `SymbolKind.Interface` | ok |  | 8 | 124,219,670 |  |
+| `SymbolKind.Key` | ok |  | 2 | 17,194,812 |  |
+| `SymbolKind.Method` | ok |  | 12 | 132,176,454 |  |
+| `SymbolKind.Module` | ok |  | 7 | 40,314,510 |  |
+| `SymbolKind.Namespace` | ok |  | 7 | 81,115,427 |  |
+| `SymbolKind.Null` | ok |  | 3 | 64,602,963 |  |
+| `SymbolKind.Number` | ok |  | 3 | 18,102,395 |  |
+| `SymbolKind.Object` | ok |  | 6 | 22,315,702 |  |
+| `SymbolKind.Operator` | ok |  | 3 | 14,791,610 |  |
+| `SymbolKind.Package` | ok |  | 7 | 121,927,783 |  |
+| `SymbolKind.Property` | ok |  | 81 | 684,369,652 |  |
+| `SymbolKind.String` | ok |  | 6 | 41,925,042 |  |
+| `SymbolKind.Struct` | ok |  | 6 | 35,321,830 |  |
+| `SymbolKind.TypeParameter` | ok |  | 76 | 566,436,762 |  |
+| `SymbolKind.Variable` | ok |  | 7 | 64,092,293 |  |
+| `SymbolTag` | ok |  | 0 | 0 |  |
+| `SymbolTag.Deprecated` | ok |  | 75 | 581,065,613 |  |
 | `SyntaxTokenType` | ok |  | 0 | 0 |  |
 | `SyntaxTokenType.Comment` | ok |  | 0 | 0 |  |
 | `SyntaxTokenType.Other` | ok |  | 0 | 0 |  |
@@ -2253,7 +2253,7 @@ Proposed API or a false hit: class X when real.
 | `TextEditor.document` | ok |  | 0 | 0 |  |
 | `TextEditor.edit` | ok | yes | 0 | 0 |  |
 | `TextEditor.hide` | B |  | 0 | 0 |  |
-| `TextEditor.insertSnippet` | C | yes | 0 | 0 |  |
+| `TextEditor.insertSnippet` | ok | yes | 0 | 0 |  |
 | `TextEditor.options` | ok | yes | 0 | 0 |  |
 | `TextEditor.revealRange` | ok | yes | 0 | 0 |  |
 | `TextEditor.selection` | ok | yes | 0 | 0 |  |
@@ -2404,18 +2404,18 @@ Proposed API or a false hit: class X when real.
 | `TreeViewOptions.treeDataProvider` | ok |  | 0 | 0 |  |
 | `TreeViewSelectionChangeEvent.selection` | ok |  | 0 | 0 |  |
 | `TreeViewVisibilityChangeEvent.visible` | ok |  | 0 | 0 |  |
-| `TypeDefinitionProvider.provideTypeDefinition` | B |  | 0 | 0 |  |
-| `TypeHierarchyItem` | C | yes | 70 | 512,751,679 |  |
-| `TypeHierarchyItem.detail` | C |  | 0 | 0 |  |
-| `TypeHierarchyItem.kind` | C |  | 0 | 0 |  |
-| `TypeHierarchyItem.name` | C |  | 0 | 0 |  |
-| `TypeHierarchyItem.range` | C |  | 0 | 0 |  |
-| `TypeHierarchyItem.selectionRange` | C |  | 0 | 0 |  |
-| `TypeHierarchyItem.tags` | C |  | 0 | 0 |  |
-| `TypeHierarchyItem.uri` | C |  | 0 | 0 |  |
-| `TypeHierarchyProvider.prepareTypeHierarchy` | C | yes | 0 | 0 |  |
-| `TypeHierarchyProvider.provideTypeHierarchySubtypes` | C | yes | 0 | 0 |  |
-| `TypeHierarchyProvider.provideTypeHierarchySupertypes` | C | yes | 0 | 0 |  |
+| `TypeDefinitionProvider.provideTypeDefinition` | ok |  | 0 | 0 |  |
+| `TypeHierarchyItem` | ok | yes | 70 | 512,751,679 |  |
+| `TypeHierarchyItem.detail` | ok |  | 0 | 0 |  |
+| `TypeHierarchyItem.kind` | ok |  | 0 | 0 |  |
+| `TypeHierarchyItem.name` | ok |  | 0 | 0 |  |
+| `TypeHierarchyItem.range` | ok |  | 0 | 0 |  |
+| `TypeHierarchyItem.selectionRange` | ok |  | 0 | 0 |  |
+| `TypeHierarchyItem.tags` | ok |  | 0 | 0 |  |
+| `TypeHierarchyItem.uri` | ok |  | 0 | 0 |  |
+| `TypeHierarchyProvider.prepareTypeHierarchy` | ok | yes | 0 | 0 |  |
+| `TypeHierarchyProvider.provideTypeHierarchySubtypes` | ok | yes | 0 | 0 |  |
+| `TypeHierarchyProvider.provideTypeHierarchySupertypes` | ok | yes | 0 | 0 |  |
 | `UIKind` | ok |  | 1 | 61,892,209 |  |
 | `UIKind.Desktop` | ok |  | 17 | 122,334,434 |  |
 | `UIKind.Web` | ok |  | 29 | 283,305,678 |  |
@@ -2621,5 +2621,5 @@ Proposed API or a false hit: class X when real.
 | `WorkspaceFolderPickOptions.placeHolder` | B |  | 0 | 0 |  |
 | `WorkspaceFoldersChangeEvent.added` | B |  | 0 | 0 |  |
 | `WorkspaceFoldersChangeEvent.removed` | B |  | 0 | 0 |  |
-| `WorkspaceSymbolProvider.provideWorkspaceSymbols` | B |  | 0 | 0 |  |
-| `WorkspaceSymbolProvider.resolveWorkspaceSymbol` | B |  | 0 | 0 |  |
+| `WorkspaceSymbolProvider.provideWorkspaceSymbols` | ok |  | 0 | 0 |  |
+| `WorkspaceSymbolProvider.resolveWorkspaceSymbol` | ok |  | 0 | 0 |  |

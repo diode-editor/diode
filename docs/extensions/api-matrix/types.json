@@ -176,72 +176,55 @@
       "note": "needs a debugger"
     },
     "CallHierarchyIncomingCall": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyIncomingCall.from": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyIncomingCall.fromRanges": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyItem": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyItem.detail": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyItem.kind": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyItem.name": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyItem.range": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyItem.selectionRange": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyItem.tags": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyItem.uri": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyOutgoingCall": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyOutgoingCall.fromRanges": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyOutgoingCall.to": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyProvider.prepareCallHierarchy": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyProvider.provideCallHierarchyIncomingCalls": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CallHierarchyProvider.provideCallHierarchyOutgoingCalls": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "CancellationError": {
       "class": "ok",
@@ -1523,8 +1506,7 @@
       "note": "needs the Testing surface"
     },
     "DeclarationProvider.provideDeclaration": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DecorationInstanceRenderOptions.dark": {
       "class": "C",
@@ -1772,36 +1754,28 @@
       "class": "ok"
     },
     "DocumentHighlight": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentHighlight.kind": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentHighlight.range": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentHighlightKind": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentHighlightKind.Read": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentHighlightKind.Text": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentHighlightKind.Write": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentHighlightProvider.provideDocumentHighlights": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentLink": {
       "class": "ok"
@@ -1912,44 +1886,35 @@
       "class": "ok"
     },
     "DocumentSymbol": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentSymbol.children": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentSymbol.detail": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentSymbol.kind": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentSymbol.name": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentSymbol.range": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentSymbol.selectionRange": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentSymbol.tags": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentSymbolProvider.provideDocumentSymbols": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "DocumentSymbolProviderMetadata.label": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "C",
+      "note": "accepted and ignored: upstream shows it in the Outline view, which needs new graphics"
     },
     "EndOfLine": {
       "class": "ok"
@@ -2491,8 +2456,7 @@
       "class": "ok"
     },
     "ImplementationProvider.provideImplementation": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "IndentAction": {
       "class": "ok"
@@ -3203,20 +3167,16 @@
       "class": "ok"
     },
     "LinkedEditingRangeProvider.provideLinkedEditingRanges": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "LinkedEditingRanges": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "LinkedEditingRanges.ranges": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "LinkedEditingRanges.wordPattern": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "Location": {
       "class": "ok"
@@ -3976,8 +3936,7 @@
       "class": "ok"
     },
     "OnTypeFormattingEditProvider.provideOnTypeFormattingEdits": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "OpenDialogOptions.canSelectFiles": {
       "class": "ok"
@@ -4651,8 +4610,7 @@
       "class": "ok"
     },
     "SnippetString": {
-      "class": "C",
-      "note": "builders as in VS Code; snippet mode needs a snippet session"
+      "class": "ok"
     },
     "SnippetString.appendChoice": {
       "class": "ok",
@@ -4679,28 +4637,28 @@
       "note": "builds the same template text as VS Code; inserting it has no snippet mode yet: Tab does not move between stops"
     },
     "SnippetTextEdit": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "B",
+      "note": "in a WorkspaceEdit the snippet goes in as plain text, without a snippet session"
     },
     "SnippetTextEdit.insert": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "B",
+      "note": "in a WorkspaceEdit the snippet goes in as plain text, without a snippet session"
     },
     "SnippetTextEdit.keepWhitespace": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "B",
+      "note": "in a WorkspaceEdit the snippet goes in as plain text, without a snippet session"
     },
     "SnippetTextEdit.range": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "B",
+      "note": "in a WorkspaceEdit the snippet goes in as plain text, without a snippet session"
     },
     "SnippetTextEdit.replace": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "B",
+      "note": "in a WorkspaceEdit the snippet goes in as plain text, without a snippet session"
     },
     "SnippetTextEdit.snippet": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "B",
+      "note": "in a WorkspaceEdit the snippet goes in as plain text, without a snippet session"
     },
     "SourceBreakpoint": {
       "class": "C",
@@ -4903,144 +4861,109 @@
       "note": "stored, not drawn"
     },
     "SymbolInformation": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolInformation.containerName": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolInformation.kind": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolInformation.location": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolInformation.name": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolInformation.tags": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Array": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Boolean": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Class": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Constant": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Constructor": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Enum": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.EnumMember": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Event": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Field": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.File": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Function": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Interface": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Key": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Method": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Module": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Namespace": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Null": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Number": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Object": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Operator": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Package": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Property": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.String": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Struct": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.TypeParameter": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolKind.Variable": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolTag": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SymbolTag.Deprecated": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "SyntaxTokenType": {
       "class": "ok"
@@ -6109,8 +6032,7 @@
       "note": "not declared in vscode.d.ts"
     },
     "TextEditor.insertSnippet": {
-      "class": "C",
-      "note": "text and caret only; snippet mode needs a snippet session"
+      "class": "ok"
     },
     "TextEditor.options": {
       "class": "ok"
@@ -6626,52 +6548,40 @@
       "class": "ok"
     },
     "TypeDefinitionProvider.provideTypeDefinition": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "TypeHierarchyItem": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "TypeHierarchyItem.detail": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "TypeHierarchyItem.kind": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "TypeHierarchyItem.name": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "TypeHierarchyItem.range": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "TypeHierarchyItem.selectionRange": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "TypeHierarchyItem.tags": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "TypeHierarchyItem.uri": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "TypeHierarchyProvider.prepareTypeHierarchy": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "TypeHierarchyProvider.provideTypeHierarchySubtypes": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "TypeHierarchyProvider.provideTypeHierarchySupertypes": {
-      "class": "C",
-      "note": "the provider is never called; needs new graphics"
+      "class": "ok"
     },
     "UIKind": {
       "class": "ok"
@@ -7028,12 +6938,10 @@
       "note": "not declared in vscode.d.ts"
     },
     "WorkspaceSymbolProvider.provideWorkspaceSymbols": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     },
     "WorkspaceSymbolProvider.resolveWorkspaceSymbol": {
-      "class": "B",
-      "note": "the provider is never called"
+      "class": "ok"
     }
   }
 }

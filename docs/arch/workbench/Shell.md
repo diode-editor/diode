@@ -9,7 +9,13 @@
   вставляет в неё view компонентов (`EditorGroupComponent` в центр,
   `PanelComponent` вниз, контейнеры view — в `mount()` через
   `ViewsService.attachRegisteredContainers()`, `StatusBarComponent`, `MenuBarComponent` — ПОСЛЕ
-  применения user keybindings), первым делом прикрепляет корневую view
+  применения user keybindings). Ряды хрома собирает сам корень, а не движок: в
+  `BodyElement.setContent` — один `VFlexElement` с рядами меню-бар (1 ряд), `WorkbenchLayoutElement`
+  (остаток), статус-бар (1 ряд); собирается он вместе с `MenuBarComponent`, ПОСЛЕ user
+  keybindings (кадров до этого нет — конструктор синхронный). Слоты
+  `BodyElement.setMenuBar`/`setStatusBar` движка не используем: меню и статус-бар — части
+  workbench, как в эталоне (`layout.ts` кладёт title bar и status bar в workbench grid, а не в
+  `document.body`). Первым делом прикрепляет корневую view
   (`LayoutService.attachRoot` — хост оверлеев фич), затем late-init швы
   (`DialogService`/`QuickInputComponent`/`TabSwitcherComponent`/`NotificationsComponent`
   `attachHost(BodyElement)`, `LayoutService.attachLayout`, `WorkbenchContextKeys.attachView`), вешает
@@ -134,8 +140,8 @@ undefined`), **текущий каталог не трогается вообщ�
   `MenuBarElement` (`view.id = "menuBar"`; стили — `getMenuStyles`), строит
   top-уровень из submenu-записей `MenuId.MenubarMainMenu`, а entries каждого
   меню резолвит лениво при открытии попапа через живые `IMenu`
-  (см. [Menus.md](Menus.md)); `view` вставляет владелец корневой view
-  (`BodyElement.setMenuBar`).
+  (см. [Menus.md](Menus.md)); `view` вставляет владелец корневой view верхним рядом хрома
+  (см. [«Корневой компонент и старт»](#корневой-компонент-и-старт)).
 
 ## Layout и сайдбар
 

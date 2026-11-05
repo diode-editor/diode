@@ -58,6 +58,28 @@ async function loadThemeNames(repoRoot) {
     return mod.builtinThemes.map((theme) => theme.name);
 }
 
+/**
+ * `"%config.title%"` → its text from `package.nls.json`, like the scanner does at runtime (`extensionNls.ts`); a string
+ * that is not a key, or a key the bundle lacks, stays as is.
+ *
+ * @param {unknown} value
+ * @param {Record<string, unknown>} bundle
+ */
+export function localizeNls(value, bundle) {
+    if (typeof value !== "string" || value.length <= 2 || !value.startsWith("%") || !value.endsWith("%")) return value;
+    const text = bundle[value.slice(1, -1)];
+    return typeof text === "string" ? text : value;
+}
+
+/** @param {string} dir */
+function readNlsBundle(dir) {
+    try {
+        return JSON.parse(readFileSync(join(dir, "package.nls.json"), "utf8"));
+    } catch {
+        return {};
+    }
+}
+
 function collectBuiltinContributions(repoRoot) {
     const builtinDir = resolve(repoRoot, "extensions");
     const entries = [];
@@ -69,6 +91,7 @@ function collectBuiltinContributions(repoRoot) {
         } catch {
             continue;
         }
+        const nls = readNlsBundle(join(builtinDir, dir.name));
         const cfg = pkg?.contributes?.configuration;
         const blocks = Array.isArray(cfg) ? cfg : cfg ? [cfg] : [];
         for (const block of blocks) {
@@ -77,7 +100,7 @@ function collectBuiltinContributions(repoRoot) {
                     key,
                     type: Array.isArray(schema?.type) ? schema.type.join(" | ") : schema?.type,
                     default: schema?.default,
-                    description: schema?.markdownDescription ?? schema?.description,
+                    description: localizeNls(schema?.markdownDescription ?? schema?.description, nls),
                     enum: Array.isArray(schema?.enum) ? schema.enum : undefined,
                 });
             }

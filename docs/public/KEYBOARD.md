@@ -22,9 +22,11 @@ Diode knows three levels of key support:
 | extended | plus Ctrl+Shift+letter, Ctrl+Tab, Ctrl+Enter, Shift+Enter, ``Ctrl+` `` | kitty, ghostty, WezTerm, foot, Alacritty, iTerm2, tmux 3.5+ with extended keys |
 | cmd (Mac) | plus Cmd as in VS Code for macOS | kitty, ghostty, iTerm2 without tmux |
 
-The left segment of the status bar shows the level in use, and what the terminal could do on top:
-`legacy · kitty available`. Click it to open your `settings.json`, where `terminal.tier` sets
-`csi-u` or `kitty`; the level is fixed for the session, so a change applies after a restart. Some
+The left segment of the status bar shows the level in use. By default Diode picks it at startup:
+extended when the terminal (or tmux) confirms it, legacy otherwise. With `terminal.tier: "legacy"`
+the segment also says what the terminal could do on top: `legacy · kitty available`. Click it to
+open your `settings.json`, where `terminal.tier` sets `legacy`, `csi-u` or `kitty`; the level is
+fixed for the session, so a change applies after a restart. Some
 terminals need a setting of their own for "extended", see [terminal setup](TERMINAL.md).
 
 ## Every command has a key that works everywhere
@@ -74,6 +76,14 @@ Diode decides whether the keyboard is a Mac's from the terminal it talks to, not
 it runs on. Over ssh to a Linux box the terminal's name usually gives it away (iTerm2 and
 Terminal.app announce themselves). When it doesn't, set `LC_DIODE_PLATFORM=mac` on the client:
 ssh forwards `LC_*` variables by default. The `keyboard.platform` setting overrides both.
+
+## Non-Latin layouts
+
+As in VS Code, shortcuts follow the physical key, so they work with a Russian (or another
+non-Latin) layout switched on: Ctrl with the Cyrillic letter on the S key saves like Ctrl+S, and
+Ctrl+Shift with the letter on the `[` key folds like Ctrl+Shift+[. The second key of a chord counts
+too: Ctrl+K then the Cyrillic letter on the M key is Ctrl+K M. A Latin layout (AZERTY and the like)
+is matched by the character it types.
 
 ## Keys your terminal takes for itself
 

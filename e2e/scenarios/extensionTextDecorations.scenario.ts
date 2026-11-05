@@ -54,6 +54,8 @@ export default defineScenario({
     rows: 16,
     // The extension host subprocess is flaky on Windows.
     skipOn: ["win32"],
+    // The sample has real conflict markers: the built-in Merge Conflict would paint the same block a second time.
+    settings: { "merge-conflict.decorators.enabled": false, "merge-conflict.codeLens.enabled": false },
     // J: F/E/S/V/G/H are menu bar mnemonics and O is the SS3 prefix.
     userKeybindings: [
         { key: "alt+j", command: "text-decorations.toggle" },

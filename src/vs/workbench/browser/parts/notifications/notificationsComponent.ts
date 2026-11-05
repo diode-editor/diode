@@ -44,7 +44,7 @@ export const TOAST_WIDTH = TOAST_TEXT_WIDTH + 6;
 
 const RIGHT_MARGIN = 1;
 
-/** The BodyElement slot takes EXACTLY one row (engine contract). */
+/** The status bar's height in the workbench chrome rows (`WorkbenchComponent`); toasts stand above it. */
 const STATUS_BAR_ROWS = 1;
 
 interface IAttachedHost {

@@ -98,7 +98,49 @@ const FILES = [
     // (`snippetSession.ts` next to it), they need upstream's `ICodeEditor`/`ITextModel`.
     "src/vs/editor/contrib/snippet/browser/snippetParser.ts",
     "src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts",
+
+    // Built-in Merge Conflict: the code of upstream's `vscode.merge-conflict` (its manifest is in MANIFESTS).
+    // `extensions/merge-conflict/main.ts` is the entry `build-extensions.mjs` compiles.
+    ...[
+        "codelensProvider",
+        "commandHandler",
+        "contentProvider",
+        "delayer",
+        "documentMergeConflict",
+        "documentTracker",
+        "interfaces",
+        "mergeConflictMain",
+        "mergeConflictParser",
+        "mergeDecorator",
+        "services",
+    ].map((name) => `extensions/merge-conflict/src/${name}.ts`),
 ];
+
+/**
+ * Manifests of vendored builtin extensions with code. `package.nls.json` is copied as is, `package.json` goes through
+ * `builtinManifest`. Upstream path == our path.
+ */
+const MANIFESTS = ["extensions/merge-conflict"];
+
+/**
+ * Upstream's manifest turned into a builtin one: `main` points at what `build-extensions.mjs` compiles, and the fields
+ * of upstream's own build (web bundle, npm scripts and dependencies, telemetry key, marketplace icon) are dropped.
+ * `type: module` makes `tsc` read the sources as ESM, like every other builtin.
+ *
+ * @param {Record<string, unknown>} manifest
+ */
+export function builtinManifest(manifest) {
+    const { browser, scripts, dependencies, devDependencies, aiKey, icon, ...rest } = manifest;
+    return { ...rest, type: "module", main: "./out/extension.cjs" };
+}
+
+/**
+ * Bare specifiers of upstream's npm dependencies, replaced by our files (repo paths). Telemetry: diode has none, the
+ * reporter is a null object.
+ */
+const IMPORT_SUBSTITUTES = {
+    "@vscode/extension-telemetry": "extensions/merge-conflict/telemetryReporter.ts",
+};
 
 /** Fixture corpus, copied as is, without the transform. */
 const FIXTURES_FROM = "src/vs/editor/test/node/diffing/fixtures";
@@ -128,6 +170,7 @@ const SPARSE_PATHS = [
     "/src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
     "/src/vs/editor/contrib/snippet/browser/snippetParser.ts",
     "/src/vs/editor/contrib/snippet/test/browser/snippetParser.test.ts",
+    "extensions/merge-conflict",
     FIXTURES_FROM,
 ];
 
@@ -300,9 +343,28 @@ function nthIndex(lines, from, line, nth) {
     return -1;
 }
 
-/** `from './x.js'` → `from './x.ts'` — only in import/export specifiers. */
-function rewriteImportExtensions(lines) {
-    return lines.map((l) => l.replace(/(\bfrom\s+')([^']+)\.js(')/g, "$1$2.ts$3"));
+/**
+ * `from './x.js'` → `from './x.ts'` — only in import/export specifiers. Extension code imports without an extension
+ * (`from './x'`), Node16 resolution needs it written out.
+ */
+export function rewriteImportExtensions(lines) {
+    return lines.map((l) =>
+        l
+            .replace(/(\bfrom\s+')([^']+)\.js(')/g, "$1$2.ts$3")
+            .replace(/(\bfrom\s+')(\.{1,2}\/[^']+?)(?<!\.ts)(')/g, "$1$2.ts$3"),
+    );
+}
+
+/** `from '@vscode/extension-telemetry'` → `from '../telemetryReporter.ts'`, relative to the vendored file. */
+export function substituteImports(lines, upstreamPath) {
+    return lines.map((l) =>
+        l.replace(/(\bfrom\s+')([^'.][^']*)(')/g, (whole, head, specifier, tail) => {
+            const target = IMPORT_SUBSTITUTES[specifier];
+            if (target === undefined) return whole;
+            const rel = relative(dirname(upstreamPath), target);
+            return `${head}${rel.startsWith(".") ? rel : `./${rel}`}${tail}`;
+        }),
+    );
 }
 
 /**
@@ -344,6 +406,7 @@ function transform(text, upstreamPath) {
     while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
     lines = applyExcisions(lines, upstreamPath);
     lines = rewriteImportExtensions(lines);
+    lines = substituteImports(lines, upstreamPath);
     lines = splitTypeImports(lines);
     lines = insertBanner(lines, upstreamPath);
     while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
@@ -384,6 +447,17 @@ function fixtureFiles(cloneDir) {
     return out;
 }
 
+/** `[repo path, expected content]` of every vendored manifest file. */
+function manifestFiles(cloneDir) {
+    return MANIFESTS.flatMap((dir) => {
+        const manifest = JSON.parse(readFileSync(join(cloneDir, dir, "package.json"), "utf8"));
+        return [
+            [`${dir}/package.json`, `${JSON.stringify(builtinManifest(manifest), null, 2)}\n`],
+            [`${dir}/package.nls.json`, readFileSync(join(cloneDir, dir, "package.nls.json"), "utf8")],
+        ];
+    });
+}
+
 function regen() {
     withUpstream((cloneDir, sha) => {
         for (const upstreamPath of FILES) {
@@ -393,6 +467,9 @@ function regen() {
             writeFileSync(target, transform(source, upstreamPath));
         }
         console.error(`[vendor] imported files: ${FILES.length}`);
+
+        for (const [path, content] of manifestFiles(cloneDir)) writeFileSync(join(repoRoot, path), content);
+        console.error(`[vendor] imported manifests: ${MANIFESTS.length}`);
 
         const fixtureTarget = join(repoRoot, FIXTURES_TO);
         rmSync(fixtureTarget, { recursive: true, force: true });
@@ -428,6 +505,12 @@ function check() {
             );
         }
 
+        for (const [path, want] of manifestFiles(cloneDir)) {
+            const target = join(repoRoot, path);
+            if (!existsSync(target)) problems.push(`missing: ${path}`);
+            else if (readFileSync(target, "utf8") !== want) problems.push(`drift: ${path}`);
+        }
+
         const fixtures = fixtureFiles(cloneDir);
         for (const rel of fixtures) {
             const target = join(repoRoot, FIXTURES_TO, rel);
@@ -450,5 +533,7 @@ function check() {
     });
 }
 
-if (process.argv.includes("--check")) check();
-else regen();
+if (import.meta.url === `file://${process.argv[1]}`) {
+    if (process.argv.includes("--check")) check();
+    else regen();
+}
