@@ -10,7 +10,7 @@ import {
     TestRunProfileBitset,
     type TestRunProfileGroup,
 } from "./testingWireTypes.ts";
-import { toVscodeCancellationToken } from "./vscodeCancellation.ts";
+import { callWithVscodeToken } from "./vscodeCancellation.ts";
 import { CancellationTokenSource, EventEmitter } from "./vscodeTypes.ts";
 
 // Upstream `ExtHostTesting` (`api/common/extHostTesting.ts`): the controllers live here, the host mirrors their
@@ -145,12 +145,7 @@ export function createExtHostTesting(rpc: SubprocessRpc): typeof vscode.tests {
         const { controllerId } = params as { controllerId: string };
         const handler = controllers.get(controllerId)?.controller.refreshHandler;
         if (handler === undefined) return null;
-        const cancel = toVscodeCancellationToken(token);
-        try {
-            await handler(cancel.token);
-        } finally {
-            cancel.dispose();
-        }
+        await callWithVscodeToken(token, (t) => handler(t));
         return null;
     });
 
@@ -158,13 +153,11 @@ export function createExtHostTesting(rpc: SubprocessRpc): typeof vscode.tests {
         if (controllers.has(controllerId)) {
             throw new Error(`Attempt to insert a duplicate controller with ID "${controllerId}"`);
         }
-        let controllerLabel = label;
         let refresh: ((token: vscode.CancellationToken) => Thenable<void> | void) | undefined;
         const profileIds = new Set<number>();
         // Registered before the collection's first diff, which carries the root.
         rpc.notify("testing.registerController", { controllerId, label, canRefresh: false });
         const collection = new ExtHostTestItemCollection({
-            controllerId,
             root: new TestItemRootImpl(controllerId, label),
             publishDiff: (diff) => {
                 rpc.notify("testing.publishDiff", { controllerId, diff });
@@ -184,10 +177,9 @@ export function createExtHostTesting(rpc: SubprocessRpc): typeof vscode.tests {
                 return controllerId;
             },
             get label() {
-                return controllerLabel;
+                return collection.root.label;
             },
             set label(value: string) {
-                controllerLabel = value;
                 collection.root.label = value;
                 rpc.notify("testing.updateController", { controllerId, label: value });
             },

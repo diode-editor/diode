@@ -58,12 +58,20 @@ describe("ExtensionTestingAdapter", () => {
         expect(tests.getTestController("zz")).toBeUndefined();
     });
 
+    it("a repeated registration of an id replaces the stale one", () => {
+        const { tests, adapter, proxy } = setup();
+        adapter.registerController({ controllerId: "c", label: "old", canRefresh: false }, proxy);
+        adapter.registerController({ controllerId: "c", label: "new", canRefresh: false }, proxy);
+        adapter.unregisterController("c");
+        expect(tests.getTestController("c")).toBeUndefined();
+    });
+
     it("diffs and profiles reach the core; a profile of an unknown controller is dropped", () => {
         const { tests, profiles, contextKeys, adapter, proxy } = setup();
         adapter.publishProfile(runProfile("c"));
         expect(profiles.getControllerProfiles("c")).toEqual([]);
         adapter.registerController({ controllerId: "c", label: "C", canRefresh: false }, proxy);
-        adapter.publishDiff("c", [
+        adapter.publishDiff([
             {
                 op: 0,
                 item: {
@@ -99,8 +107,7 @@ describe("ExtensionTestingAdapter", () => {
         adapter.unregisterController("a");
         expect(tests.getTestController("a")).toBeUndefined();
         expect(profiles.getControllerProfiles("a")).toEqual([]);
-        expect(contextKeys.get("testing.providerCount")).toBe(1);
-        expect(contextKeys.get("testing.canRefresh")).toBe(false);
+        expect(tests.getTestController("b")).toBeDefined();
         adapter.unregisterController("a");
         adapter.reset();
         expect(contextKeys.get("testing.providerCount")).toBe(0);

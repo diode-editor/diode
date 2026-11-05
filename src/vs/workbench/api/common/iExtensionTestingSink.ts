@@ -21,7 +21,7 @@ export interface IExtensionTestingSink {
     registerController(controller: IWireTestController, proxy: IExtensionTestControllerProxy): void;
     updateController(patch: IWireTestControllerPatch): void;
     unregisterController(controllerId: string): void;
-    publishDiff(controllerId: string, diff: readonly WireTestsDiffOp[]): void;
+    publishDiff(diff: readonly WireTestsDiffOp[]): void;
     publishProfile(profile: IWireTestRunProfile): void;
     updateProfile(update: IWireTestRunProfileUpdate): void;
     removeProfile(controllerId: string, profileId: number): void;

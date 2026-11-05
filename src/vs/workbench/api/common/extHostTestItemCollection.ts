@@ -57,7 +57,6 @@ function diffTestItems(a: IWireTestItem, b: IWireTestItem): ItemPatch | undefine
 export const TEST_DIFF_DEBOUNCE_MS = 200;
 
 export interface ITestItemCollectionOptions {
-    readonly controllerId: string;
     readonly root: TestItemRootImpl;
     publishDiff(diff: readonly WireTestsDiffOp[]): void;
     /** A throwing or rejecting `resolveHandler`. */
@@ -127,13 +126,14 @@ export class ExtHostTestItemCollection implements IDisposable {
         if (diff.op === TestDiffOpType.Update) {
             // Updates come per field: merge them into the previous op of the same test.
             const last = this.diff.at(-1);
-            const target =
-                last?.op === TestDiffOpType.Update && last.item.extId === diff.item.extId
-                    ? last.item
-                    : last?.op === TestDiffOpType.Add && last.item.item.extId === diff.item.extId
-                      ? last.item
+            const lastId =
+                last?.op === TestDiffOpType.Update
+                    ? last.item.extId
+                    : last?.op === TestDiffOpType.Add
+                      ? last.item.item.extId
                       : undefined;
-            if (target !== undefined) {
+            if (last !== undefined && last.op !== TestDiffOpType.Remove && lastId === diff.item.extId) {
+                const target = last.item;
                 if (diff.item.expand !== undefined) target.expand = diff.item.expand;
                 if (diff.item.item !== undefined) target.item = { ...target.item, ...diff.item.item } as IWireTestItem;
                 return;
@@ -164,7 +164,7 @@ export class ExtHostTestItemCollection implements IDisposable {
     }
 
     private upsertItem(actual: TestItemImpl, parent: ICollectionItem | undefined): void {
-        const fullId = parent === undefined ? this.options.controllerId : TestId.joinToString(parent.fullId, actual.id);
+        const fullId = parent === undefined ? this.options.root.id : TestId.joinToString(parent.fullId, actual.id);
 
         // The item moves: it leaves its old parent first.
         const api = TestItemImpl.apiOf(actual);
@@ -291,7 +291,7 @@ export class ExtHostTestItemCollection implements IDisposable {
                 await handler(internal.actual instanceof TestItemRootImpl ? undefined : internal.actual);
             } catch (error) {
                 this.options.logError(
-                    `Unhandled error in resolveHandler of test controller "${this.options.controllerId}": ${String(error)}`,
+                    `Unhandled error in resolveHandler of test controller "${this.options.root.id}": ${String(error)}`,
                 );
             }
             resolve.settled = true;

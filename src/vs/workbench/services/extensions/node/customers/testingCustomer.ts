@@ -48,7 +48,7 @@ export class TestingCustomer implements IExtensionHostCustomer {
         });
         on("testing.publishDiff", (params) => {
             const diff = parseWireTestsDiff(params);
-            if (diff !== null) sink.publishDiff(diff.controllerId, diff.diff);
+            if (diff !== null) sink.publishDiff(diff.diff);
         });
         on("testing.publishProfile", (params) => {
             const profile = parseWireTestRunProfile(params);

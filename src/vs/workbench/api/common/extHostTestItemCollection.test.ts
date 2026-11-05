@@ -1,14 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as vscodeTypes from "vscode";
 
+import { testId } from "../../../../TestUtils/testTree.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { TEST_DIFF_DEBOUNCE_MS } from "./extHostTestItemCollection.ts";
 import type { WireTestsDiffOp } from "./testingWireTypes.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
-
-const ID = (...path: string[]): string => path.join("\0");
 
 function setup() {
     const stub = makeStubRpc();
@@ -75,16 +74,16 @@ describe("vscode.tests — the controller's tree as diffs", () => {
         controller.items.add(file);
         const ops = flush();
         expect(ops.map((op) => (op.op === 0 ? op.item.item.extId : op))).toEqual([
-            ID("ctrl", "file"),
-            ID("ctrl", "file", "suite"),
-            ID("ctrl", "file", "suite", "adds"),
+            testId("ctrl", "file"),
+            testId("ctrl", "file", "suite"),
+            testId("ctrl", "file", "suite", "adds"),
         ]);
         expect(ops[0]).toMatchObject({ item: { item: { uri: "file:///w/math.test.ts", label: "math.test.ts" } } });
         expect(ops[2]).toMatchObject({
             item: {
                 item: {
                     range: { start: { line: 2, character: 4 }, end: { line: 2, character: 20 } },
-                    tags: [ID("ctrl", "unit")],
+                    tags: [testId("ctrl", "unit")],
                     description: "desc",
                     sortText: "a",
                     error: "**bad**",
@@ -114,7 +113,7 @@ describe("vscode.tests — the controller's tree as diffs", () => {
             {
                 op: 1,
                 item: {
-                    extId: ID("ctrl", "a"),
+                    extId: testId("ctrl", "a"),
                     item: {
                         label: "A2",
                         busy: true,
@@ -122,7 +121,7 @@ describe("vscode.tests — the controller's tree as diffs", () => {
                         sortText: "s",
                         error: "e",
                         range: { start: { line: 0, character: 0 }, end: { line: 1, character: 0 } },
-                        tags: [ID("ctrl", "t")],
+                        tags: [testId("ctrl", "t")],
                     },
                 },
             },
@@ -136,7 +135,7 @@ describe("vscode.tests — the controller's tree as diffs", () => {
             {
                 op: 1,
                 item: {
-                    extId: ID("ctrl", "a"),
+                    extId: testId("ctrl", "a"),
                     item: { description: null, sortText: null, error: null, range: null, busy: false },
                 },
             },
@@ -164,9 +163,9 @@ describe("vscode.tests — the controller's tree as diffs", () => {
         b.label = "B2";
         a.busy = true;
         expect(flush().map((op) => (op.op === 1 ? op.item.extId : op))).toEqual([
-            ID("ctrl", "a"),
-            ID("ctrl", "b"),
-            ID("ctrl", "a"),
+            testId("ctrl", "a"),
+            testId("ctrl", "b"),
+            testId("ctrl", "a"),
         ]);
     });
 
@@ -179,7 +178,7 @@ describe("vscode.tests — the controller's tree as diffs", () => {
         flush();
         controller.items.delete("file");
         controller.items.delete("file");
-        expect(flush()).toEqual([{ op: 3, itemId: ID("ctrl", "file") }]);
+        expect(flush()).toEqual([{ op: 3, itemId: testId("ctrl", "file") }]);
         child.label = "after";
         file.children.delete("c");
         expect(flush()).toEqual([]);
@@ -194,8 +193,8 @@ describe("vscode.tests — the controller's tree as diffs", () => {
         const c = controller.createTestItem("c", "C");
         controller.items.replace([b, c]);
         expect(flush().map((op) => (op.op === 0 ? `add ${op.item.item.extId}` : op))).toEqual([
-            `add ${ID("ctrl", "c")}`,
-            { op: 3, itemId: ID("ctrl", "a") },
+            `add ${testId("ctrl", "c")}`,
+            { op: 3, itemId: testId("ctrl", "a") },
         ]);
         expect([...controller.items].map(([id]) => id)).toEqual(["b", "c"]);
 
@@ -230,12 +229,12 @@ describe("vscode.tests — the controller's tree as diffs", () => {
         next.children.add(controller.createTestItem("keep", "K"));
         controller.items.add(next);
         expect(flush()).toEqual([
-            { op: 1, item: { extId: ID("ctrl", "a"), item: { label: "A2" } } },
-            { op: 3, itemId: ID("ctrl", "a", "gone") },
+            { op: 1, item: { extId: testId("ctrl", "a"), item: { label: "A2" } } },
+            { op: 3, itemId: testId("ctrl", "a", "gone") },
         ]);
         old.label = "stale";
         next.label = "A3";
-        expect(flush()).toEqual([{ op: 1, item: { extId: ID("ctrl", "a"), item: { label: "A3" } } }]);
+        expect(flush()).toEqual([{ op: 1, item: { extId: testId("ctrl", "a"), item: { label: "A3" } } }]);
     });
 
     it("a new instance under a known id with another uri is removed and added anew", () => {
@@ -244,8 +243,8 @@ describe("vscode.tests — the controller's tree as diffs", () => {
         flush();
         controller.items.add(controller.createTestItem("a", "A", vscode.Uri.file("/w/b.ts")));
         const ops = flush();
-        expect(ops[0]).toEqual({ op: 3, itemId: ID("ctrl", "a") });
-        expect(ops[1]).toMatchObject({ op: 0, item: { item: { extId: ID("ctrl", "a"), uri: "file:///w/b.ts" } } });
+        expect(ops[0]).toEqual({ op: 3, itemId: testId("ctrl", "a") });
+        expect(ops[1]).toMatchObject({ op: 0, item: { item: { extId: testId("ctrl", "a"), uri: "file:///w/b.ts" } } });
     });
 
     it("an item moved to another parent leaves the old one", () => {
@@ -260,8 +259,8 @@ describe("vscode.tests — the controller's tree as diffs", () => {
         expect(left.children.get("x")).toBeUndefined();
         expect(item.parent).toBe(right);
         expect(flush().map((op) => (op.op === 0 ? `add ${op.item.item.extId}` : op))).toEqual([
-            { op: 3, itemId: ID("ctrl", "l", "x") },
-            `add ${ID("ctrl", "r", "x")}`,
+            { op: 3, itemId: testId("ctrl", "l", "x") },
+            `add ${testId("ctrl", "r", "x")}`,
         ]);
         right.children.add(item);
         expect(flush()).toEqual([]);

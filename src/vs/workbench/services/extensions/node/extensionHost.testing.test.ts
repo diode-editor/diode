@@ -5,6 +5,7 @@ import {
     extensionFixture,
     type IExtensionHarness,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { testTree } from "../../../../../TestUtils/testTree.ts";
 import { settle, waitUntil } from "../../../../../TestUtils/timing.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ExtensionTestingAdapter } from "../../../contrib/testing/browser/extensionTestingAdapter.ts";
@@ -14,19 +15,6 @@ import { TestService } from "../../../contrib/testing/common/testService.ts";
 const ROOT = "fixture";
 const FILE = "fixture\0math.test.ts";
 const SUITE = "fixture\0math.test.ts\0math";
-
-/** Labels of the tree, children indented, the expand state in brackets when not `NotExpandable`. */
-function tree(service: TestService): string[] {
-    const lines: string[] = [];
-    const walk = (id: string, depth: number): void => {
-        const node = service.getNodeById(id);
-        if (node === undefined) return;
-        lines.push(`${"  ".repeat(depth)}${node.item.label}${node.expand === 0 ? "" : ` [${node.expand}]`}`);
-        for (const child of node.children) walk(child, depth + 1);
-    };
-    for (const root of service.rootItems) walk(root.item.extId, 0);
-    return lines;
-}
 
 // The extension's controller over the real wire into the core's TestService, as upstream's
 // `ExtHostTesting` ↔ `MainThreadTesting`.
@@ -81,14 +69,14 @@ describe("ExtensionHost — test controllers reach the TestService", () => {
             ["Debug Tests", 4, false],
             ["Run Tests with Coverage", 8, false],
         ]);
-        expect(tree(tests)).toEqual(["Fixture [1]"]);
+        expect(testTree(tests)).toEqual(["Fixture [1]"]);
         expect(output).toEqual([]);
         expect(await state()).toEqual([]);
     });
 
     it("[api:tests.createTestController] expanding resolves lazily: the root with undefined, the file with itself", async () => {
         await tests.expandTest(ROOT, 0);
-        expect(tree(tests)).toEqual(["Fixture [3]", "  math.test.ts [1]"]);
+        expect(testTree(tests)).toEqual(["Fixture [3]", "  math.test.ts [1]"]);
         expect(tests.getNodeById(FILE)?.item.uri).toBe("file:///w/math.test.ts");
 
         const expanding = tests.expandTest(FILE, 1);
@@ -97,7 +85,13 @@ describe("ExtensionHost — test controllers reach the TestService", () => {
         await waitUntil("the file busy", () => tests.getNodeById(FILE)?.expand === 2);
         await harness.commandRegistry.execute("test.testing.finishResolve");
         await expanding;
-        expect(tree(tests)).toEqual(["Fixture [3]", "  math.test.ts [3]", "    math", "      adds", "      subtracts"]);
+        expect(testTree(tests)).toEqual([
+            "Fixture [3]",
+            "  math.test.ts [3]",
+            "    math",
+            "      adds",
+            "      subtracts",
+        ]);
         expect(tests.getNodeById(`${SUITE}\0adds`)?.item.range).toEqual({
             start: { line: 1, character: 4 },
             end: { line: 3, character: 6 },
@@ -110,10 +104,10 @@ describe("ExtensionHost — test controllers reach the TestService", () => {
         await harness.commandRegistry.execute("test.testing.rename");
         await waitUntil("the rename", () => tests.getNodeById(FILE)?.item.label === "renamed.test.ts");
         expect(tests.getTestController(ROOT)?.label).toBe("Renamed");
-        expect(tree(tests)).toEqual(["Renamed [3]", "  renamed.test.ts [1]"]);
+        expect(testTree(tests)).toEqual(["Renamed [3]", "  renamed.test.ts [1]"]);
         await harness.commandRegistry.execute("test.testing.removeFile");
         await waitUntil("the removal", () => tests.getNodeById(FILE) === undefined);
-        expect(tree(tests)).toEqual(["Renamed [3]"]);
+        expect(testTree(tests)).toEqual(["Renamed [3]"]);
     });
 
     it("[api:tests.createTestController] a failing resolveHandler is an Output line, the tree stays and the host lives", async () => {
@@ -123,7 +117,7 @@ describe("ExtensionHost — test controllers reach the TestService", () => {
         expect(output).toEqual([
             'extensions/error: Unhandled error in resolveHandler of test controller "fixture": Error: resolve exploded',
         ]);
-        expect(tree(tests)).toEqual(["Fixture [3]", "  math.test.ts", "  other.test.ts [3]"]);
+        expect(testTree(tests)).toEqual(["Fixture [3]", "  math.test.ts", "  other.test.ts [3]"]);
         expect(await state()).toEqual(["resolve:<root>", "resolve:other.test.ts"]);
     });
 

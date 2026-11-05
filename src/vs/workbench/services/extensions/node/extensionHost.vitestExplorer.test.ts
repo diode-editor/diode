@@ -8,6 +8,7 @@ import { createExtensionTestHarness, type IExtensionHarness } from "../../../../
 import { registrationFromInstalled } from "../../../../../TestUtils/installedExtensionRegistration.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { fetchStockVsix } from "../../../../../TestUtils/stockVsix.ts";
+import { testTree } from "../../../../../TestUtils/testTree.ts";
 import { waitUntil } from "../../../../../TestUtils/timing.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { installVsix } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
@@ -46,19 +47,6 @@ function writeWorkspace(root: string): void {
     );
     fs.writeFileSync(path.join(root, "src", "math.test.ts"), MATH_TEST);
     fs.symlinkSync(REPO_NODE_MODULES, path.join(root, "node_modules"), "dir");
-}
-
-/** Labels of the tree, children indented. */
-function labels(tests: TestService): string[] {
-    const lines: string[] = [];
-    const walk = (id: string, depth: number): void => {
-        const node = tests.getNodeById(id);
-        if (node === undefined) return;
-        lines.push(`${"  ".repeat(depth)}${node.item.label}`);
-        for (const child of node.children) walk(child, depth + 1);
-    };
-    for (const root of tests.rootItems) walk(root.item.extId, 0);
-    return lines;
 }
 
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#1068)", () => {
@@ -111,13 +99,13 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                 // expands a file when the user does (a folder is not resolvable, levels do not pass through it).
                 const [root] = tests.rootItems;
                 await tests.expandTest(root.item.extId, Infinity);
-                await waitUntil("the test file", () => labels(tests).includes("    math.test.ts"), 60_000);
-                expect(labels(tests)).toEqual(["Vitest", "  src", "    math.test.ts"]);
+                await waitUntil("the test file", () => testTree(tests, false).includes("    math.test.ts"), 60_000);
+                expect(testTree(tests, false)).toEqual(["Vitest", "  src", "    math.test.ts"]);
                 const file = [...(tests.getNodeById([...root.children][0])?.children ?? [])][0];
                 expect(tests.getNodeById(file)?.expand).toBe(1);
                 await tests.expandTest(file, Infinity);
-                await waitUntil("the file's tests", () => labels(tests).length === 6, 60_000);
-                expect(labels(tests)).toEqual([
+                await waitUntil("the file's tests", () => testTree(tests, false).length === 6, 60_000);
+                expect(testTree(tests, false)).toEqual([
                     "Vitest",
                     "  src",
                     "    math.test.ts",

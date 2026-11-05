@@ -1,14 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type * as vscodeTypes from "vscode";
 
+import { testId } from "../../../../TestUtils/testTree.ts";
 import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import type { WireTestsDiffOp } from "./testingWireTypes.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
-
-const ID = (...path: string[]): string => path.join("\0");
 
 function makeVscode() {
     const stub = makeStubRpc();
@@ -117,18 +116,18 @@ describe("vscode.tests — resolveHandler on the host's expand", () => {
                 finish = resolve;
             });
         };
-        const expanding = stub.callRequest("testing.expandTest", { testId: ID("ctrl", "f"), levels: 0 });
+        const expanding = stub.callRequest("testing.expandTest", { testId: testId("ctrl", "f"), levels: 0 });
         await vi.waitFor(() => {
             expect(seen).toEqual([file]);
         });
         // A second expand while busy does not call again.
-        await stub.callRequest("testing.expandTest", { testId: ID("ctrl", "f"), levels: 0 });
+        await stub.callRequest("testing.expandTest", { testId: testId("ctrl", "f"), levels: 0 });
         expect(seen).toHaveLength(1);
         controller.items.get("f")?.children.add(controller.createTestItem("t", "T"));
         finish();
         await expanding;
         expect(expandStates(stub).slice(-3)).toEqual(["ctrl/f=2", "+ctrl/f/t=0", "ctrl/f=3"]);
-        await stub.callRequest("testing.expandTest", { testId: ID("ctrl", "f"), levels: 0 });
+        await stub.callRequest("testing.expandTest", { testId: testId("ctrl", "f"), levels: 0 });
         expect(seen).toHaveLength(1);
     });
 
@@ -161,7 +160,7 @@ describe("vscode.tests — resolveHandler on the host's expand", () => {
             return Promise.reject(new Error("async boom"));
         };
         await stub.callRequest("testing.expandTest", { testId: "ctrl", levels: 0 });
-        await stub.callRequest("testing.expandTest", { testId: ID("ctrl", "f"), levels: 0 });
+        await stub.callRequest("testing.expandTest", { testId: testId("ctrl", "f"), levels: 0 });
         expect(sent(stub, "output.append")).toEqual([
             {
                 channel: "extensions",
@@ -210,7 +209,7 @@ describe("vscode.tests — resolveHandler on the host's expand", () => {
         const first = controller.createTestItem("f", "F");
         first.canResolveChildren = true;
         controller.items.add(first);
-        await stub.callRequest("testing.expandTest", { testId: ID("ctrl", "f"), levels: 0 });
+        await stub.callRequest("testing.expandTest", { testId: testId("ctrl", "f"), levels: 0 });
         const second = controller.createTestItem("f", "F");
         second.canResolveChildren = true;
         controller.items.add(second);
@@ -291,7 +290,7 @@ describe("vscode.tests — run profiles reach the host", () => {
                 label: "Debug",
                 group: 4,
                 isDefault: true,
-                tag: ID("go", "unit"),
+                tag: testId("go", "unit"),
                 hasConfigurationHandler: false,
                 supportsContinuousRun: true,
             },
@@ -346,7 +345,7 @@ describe("vscode.tests — run profiles reach the host", () => {
         expect(sent(stub, "testing.updateProfile")).toEqual([
             { controllerId: "go", profileId, update: { label: "Run all" } },
             { controllerId: "go", profileId, update: { isDefault: true } },
-            { controllerId: "go", profileId, update: { tag: ID("go", "unit") } },
+            { controllerId: "go", profileId, update: { tag: testId("go", "unit") } },
             { controllerId: "go", profileId, update: { tag: null } },
             { controllerId: "go", profileId, update: { supportsContinuousRun: true } },
         ]);

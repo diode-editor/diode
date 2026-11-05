@@ -9,7 +9,6 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import {
     type IWireTestItem,
     type IWireTestItemUpdate,
-    TEST_ID_DELIMITER,
     TestDiffOpType,
     TestId,
     type TestItemExpandState,
@@ -25,6 +24,19 @@ export interface ITestController {
     expandTest(testId: string, levels: number): Promise<void>;
     refreshTests(token: ICancellationToken): Promise<void>;
 }
+
+/** Upstream `$updateController`: only the fields that changed. */
+export interface ITestControllerPatch {
+    readonly label?: string;
+    readonly canRefresh?: boolean;
+}
+
+/** Disposing it drops the controller's tests. */
+export interface ITestControllerRegistration extends IDisposable {
+    update(patch: ITestControllerPatch): void;
+}
+
+type MutableTestController = { -readonly [K in keyof ITestController]: ITestController[K] };
 
 /** Upstream `IncrementalTestCollectionItem`: a test with the ids of its children. */
 export interface ITestNode {
@@ -51,7 +63,7 @@ export const TestServiceDIToken = token<TestService>("TestService");
 export class TestService extends Disposable {
     public static dependencies = [ContextKeyServiceDIToken] as const;
 
-    private readonly controllers = new Map<string, ITestController>();
+    private readonly controllers = new Map<string, MutableTestController>();
     private readonly items = new Map<string, IMutableTestNode>();
     private readonly roots = new Map<string, IMutableTestNode>();
     private readonly refreshCancellations = new Set<CancellationTokenSource>();
@@ -78,12 +90,18 @@ export class TestService extends Disposable {
         return this.controllers.get(controllerId);
     }
 
-    /** Disposing it drops the controller's tests. */
-    public registerTestController(controller: ITestController): IDisposable {
-        this.controllers.set(controller.id, controller);
+    public registerTestController(controller: ITestController): ITestControllerRegistration {
+        const registered: MutableTestController = { ...controller };
+        this.controllers.set(controller.id, registered);
         this.updateControllerKeys();
         return {
+            update: ({ label, canRefresh }) => {
+                registered.label = label ?? registered.label;
+                registered.canRefresh = canRefresh ?? registered.canRefresh;
+                this.updateControllerKeys();
+            },
             dispose: () => {
+                if (this.controllers.get(controller.id) !== registered) return;
                 const diff: WireTestsDiffOp[] = [];
                 for (const [rootId, root] of this.roots) {
                     if (root.controllerId === controller.id) diff.push({ op: TestDiffOpType.Remove, itemId: rootId });
@@ -93,13 +111,6 @@ export class TestService extends Disposable {
                 this.updateControllerKeys();
             },
         };
-    }
-
-    /** Replaces the registered controller's fields: upstream `$updateController`. */
-    public updateTestController(controller: ITestController): void {
-        if (!this.controllers.has(controller.id)) return;
-        this.controllers.set(controller.id, controller);
-        this.updateControllerKeys();
     }
 
     /** Upstream `AbstractIncrementalTestCollection.apply`. */
@@ -178,14 +189,18 @@ export class TestService extends Disposable {
         if (patch.item !== undefined) existing.item = { ...existing.item, ...patch.item };
     }
 
-    /** The test and every id below it. */
     private remove(testId: string): void {
         const parentId = TestId.parentId(testId);
         if (parentId === undefined) this.roots.delete(testId);
         else this.items.get(parentId)?.children.delete(testId);
-        const subtree = testId + TEST_ID_DELIMITER;
-        for (const id of this.items.keys()) {
-            if (id === testId || id.startsWith(subtree)) this.items.delete(id);
-        }
+        this.removeSubtree(testId);
+    }
+
+    /** Walks the subtree through the children, an unknown id is nothing. */
+    private removeSubtree(testId: string): void {
+        const node = this.items.get(testId);
+        if (node === undefined) return;
+        this.items.delete(testId);
+        for (const child of node.children) this.removeSubtree(child);
     }
 }
