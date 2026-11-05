@@ -103,7 +103,8 @@ describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
                     expect(layers.map((layer) => layer.languageId)).toContain("go");
                     const warnings = outputLines.filter((line) => line.level === "warn").map((line) => line.value);
                     expect(warnings).toContainEqual(expect.stringContaining('debugging "go"'));
-                    expect(warnings).toContainEqual(expect.stringContaining('tests "go"'));
+                    // The test controller reaches the core (#1068): no warn line about it any more.
+                    expect(warnings).not.toContainEqual(expect.stringContaining('tests "go"'));
 
                     // Diagnostics from the REAL gopls signal that the server is ready.
                     const unusedImport = await until("diagnostic for the unused os import", () => {
