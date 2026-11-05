@@ -192,7 +192,8 @@ export class TestingExplorerComponent extends Component {
         };
         // Upstream `onDidOpen`: a leaf with a location opens it, the keyboard stays in the tree.
         this.tree.onActivate = (row) => {
-            if (row.kind === "error" || (this.tests.getNodeById(row.testId)?.children.size ?? 0) > 0) return;
+            const node = this.tests.getNodeById(row.testId);
+            if (row.kind === "error" || node === undefined || node.children.size > 0) return;
             this.goToTest(row.testId, true);
         };
         this.tree.onContextMenu = (row, screenX, screenY) => {
@@ -470,8 +471,11 @@ export class TestingExplorerComponent extends Component {
                 nodes = this.childNodes(root);
             }
         } else {
-            const node = row.kind === "test" ? this.tests.getNodeById(row.testId) : undefined;
+            // The tree asks only for rows it listed, error rows are no folders: the test is in the mirror.
+            const node = this.tests.getNodeById(row.testId);
+            /* v8 ignore start -- see above */
             if (node === undefined) return [];
+            /* v8 ignore stop */
             if (node.item.error !== null) result.push(this.rowFor(row.testId, "error"));
             nodes = this.childNodes(node);
         }
@@ -485,12 +489,9 @@ export class TestingExplorerComponent extends Component {
     }
 
     private childNodes(node: ITestNode): ITestNode[] {
-        const nodes: ITestNode[] = [];
-        for (const childId of node.children) {
-            const child = this.tests.getNodeById(childId);
-            if (child !== undefined) nodes.push(child);
-        }
-        return nodes;
+        return [...node.children]
+            .map((childId) => this.tests.getNodeById(childId))
+            .filter((child): child is ITestNode => child !== undefined);
     }
 
     /** Upstream `PreserveOrExpanded` of a controller root and of a test with an error, once: the user's choice stays. */
@@ -523,7 +524,8 @@ export class TestingExplorerComponent extends Component {
         if (node === undefined) return { label: "", collapsible: false };
         /* v8 ignore stop */
         if (row.kind === "error") {
-            return { label: node.item.error ?? "", collapsible: false, labelColor: "list.errorForeground" };
+            // An error row is listed only while its test has an error.
+            return { label: String(node.item.error), collapsible: false, labelColor: "list.errorForeground" };
         }
         const busy = isBusy(node);
         return {
@@ -575,13 +577,13 @@ export class TestingExplorerComponent extends Component {
 
     /** Upstream `getActionableElementActions`: the row's keys on top of the global ones. */
     private itemMenu(row: ITestRow, inline: boolean): IMenuEntryGroup[] {
-        if (row.kind === "error") return [];
         const node = this.tests.getNodeById(row.testId);
+        if (row.kind === "error" || node === undefined) return [];
         const keys: MenuContextKeys = {
             view: TESTING_EXPLORER_VIEW_ID,
             testId: TestId.localId(row.testId),
-            controllerId: node?.controllerId ?? "",
-            "testing.testItemHasUri": node?.item.uri !== undefined,
+            controllerId: node.controllerId,
+            "testing.testItemHasUri": node.item.uri !== undefined,
         };
         return this.menus
             .getEntryGroups(MenuId.TestItem, undefined, keys)

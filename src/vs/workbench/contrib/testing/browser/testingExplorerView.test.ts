@@ -5,7 +5,7 @@ import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { SPINNER_FRAMES } from "../../../../platform/progress/common/progressService.ts";
 import { TestItemExpandState, type WireTestsDiffOp } from "../../../api/common/testingWireTypes.ts";
 
-import { add, setupExplorer, THEME, update, wireItem } from "./testingExplorerView.testUtils.ts";
+import { add, setupExplorer, SwitchableIcons, THEME, update, wireItem } from "./testingExplorerView.testUtils.ts";
 import { TESTING_EXPLORER_VIEW_ID, TESTING_VIEWLET_ID } from "./testingExplorerView.ts";
 
 const { NotExpandable, Expandable, BusyExpanding, Expanded } = TestItemExpandState;
@@ -379,7 +379,7 @@ describe("TestingExplorerComponent — the row's context menu", () => {
     };
 
     it("an extension's item gets the row's test; built-in Go to Test is there for a test with a location", async () => {
-        const { views, locate, click, mouse } = await withTests({ menus: [UPDATE_SNAPSHOT] });
+        const { views, locate, click, mouse, component } = await withTests({ menus: [UPDATE_SNAPSHOT] });
         const seen: unknown[][] = [];
         views.commands.register("vitest.updateSnapshot", (...args: unknown[]) => {
             seen.push(args);
@@ -392,6 +392,11 @@ describe("TestingExplorerComponent — the row's context menu", () => {
         const entries = delegate?.getEntries?.() ?? [];
         const labels = entries.map((entry) => (entry.type === "separator" ? "-" : entry.label));
         expect(labels).toEqual(["Go to Test", "-", "Update Snapshot"]);
+        expect(delegate?.getAnchor()).toEqual({
+            screenX: expect.any(Number) as number,
+            screenY: expect.any(Number) as number,
+        });
+        expect(delegate?.getOwner()).toBe(component.tree);
         const item = entries.find((entry) => entry.type !== "separator" && entry.label === "Update Snapshot");
         if (item === undefined || item.type === "separator" || item.type === "submenu") throw new Error("no item");
         item.onSelect?.();
@@ -434,6 +439,7 @@ describe("TestingExplorerComponent — the title", () => {
         registerController("vitest", "Vitest", true);
         tests.publishDiff([...vitestRoot(), ...vitestFiles()]);
         await waitFrame((text) => text.includes("TEST EXPLORER") && text.includes("↻"));
+        await views.commands.execute("testing.refreshTests");
         views.contextKeys.set("testing.isRefreshing", true);
         // `ViewTitleActionsContribution` does this on every key change in the app.
         views.service.refreshTitleActions();
@@ -453,5 +459,104 @@ describe("TestingExplorerComponent — the title", () => {
         await vi.waitFor(() => {
             expect(views.service.getViewContainerByViewId(TESTING_EXPLORER_VIEW_ID)).toBe(TESTING_VIEWLET_ID);
         });
+    });
+});
+
+describe("TestingExplorerComponent — the edges", () => {
+    it("the root does not resolve before the view is built; building it does", async () => {
+        const { tests, views, registerController, expands } = setupExplorer({ attach: false });
+        registerController("vitest", "Vitest");
+        tests.publishDiff(vitestRoot());
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(expands).toEqual([]);
+        views.service.attachRegisteredContainers();
+        await vi.waitFor(() => {
+            expect(expands).toEqual([["vitest", 0]]);
+        });
+    });
+
+    it("the only controller's error is the first row", async () => {
+        const { tests, registerController, waitFrame, lines } = setupExplorer();
+        registerController("vitest", "Vitest");
+        tests.publishDiff([
+            add(wireItem(ROOT, "Vitest", { error: "No vitest config" }), Expanded),
+            add(wireItem(SRC), NotExpandable),
+        ]);
+        await waitFrame((text) => text.includes("No vitest config"));
+        expect(lines()[3].trim()).toBe("No vitest config");
+    });
+
+    it("an error row neither opens nor has a menu", async () => {
+        const { tests, component, views, waitFrame, opened } = await withTests();
+        tests.publishDiff([update(ADDS, { error: "boom" })]);
+        await waitFrame((text) => text.includes("boom"));
+        const row = { kind: "error", testId: ADDS.join("\0") } as const;
+        component.tree.onActivate?.(row, { pinned: true, preserveFocus: false });
+        component.tree.onContextMenu?.(row, 0, 0);
+        expect(opened).toEqual([]);
+        expect(views.shown).toEqual([]);
+    });
+
+    it("a glyph clicked after the menu lost its item does nothing", async () => {
+        const { component, opened } = await withTests();
+        component.tree.onInlineAction?.({ kind: "test", testId: ADDS.join("\0") }, 5);
+        expect(opened).toEqual([]);
+    });
+
+    it("Go to Test on a test without a location does nothing", async () => {
+        const { views, row, click, opened } = await withTests();
+        const { x, y } = row("src");
+        click(x, y);
+        opened.length = 0;
+        await views.commands.execute("testing.editFocusedTest");
+        expect(opened).toEqual([]);
+    });
+
+    it("a modified ArrowDown stays in the filter", async () => {
+        const { component, sendKey } = await withTests();
+        component.filterInput.focus();
+        sendKey("Shift+ArrowDown");
+        expect(component.filterInput.isFocused).toBe(true);
+    });
+
+    it("focusing the view puts the keyboard into the filter", async () => {
+        const { views, component } = await withTests();
+        views.focus(TESTING_VIEWLET_ID);
+        expect(component.filterInput.isFocused).toBe(true);
+    });
+
+    it("the spinner turns on the shared clock", async () => {
+        const { tests, waitFrame } = await withTests({ progress: { delayMs: 0, intervalMs: 5, minVisibleMs: 0 } });
+        tests.publishDiff([update(ADDS, { busy: true })]);
+        await waitFrame((text) => SPINNER_FRAMES.slice(1).some((spin) => text.includes(`${spin} adds`)));
+    });
+
+    it("switching the icon set redraws the state icons", async () => {
+        const icons = new SwitchableIcons();
+        const { waitFrame } = await withTests({ icons });
+        icons.useNerdFont();
+        await waitFrame((text) => !text.includes("○ adds"));
+    });
+
+    it("an item added to the row menu later shows its glyph; another menu's does not redraw", async () => {
+        const { views, locate, click, waitFrame } = await withTests();
+        views.commands.register("ext.run", () => undefined, "Run");
+        const { x, y } = locate("adds");
+        click(x, y);
+        views.menuRegistry.appendMenuItem({ menuId: MenuId.EditorContext, command: "ext.run" });
+        views.menuRegistry.appendMenuItem({ menuId: MenuId.TestItem, command: "ext.run", group: "inline", icon: "R" });
+        await waitFrame((text) => text.split("\n")[y].includes("R"));
+    });
+
+    it("a key the row menu reads redraws the glyphs; other keys do not", async () => {
+        const { views, locate, click, waitFrame } = await withTests({
+            menus: [{ menuId: MenuId.TestItem, command: "ext.run", group: "inline", icon: "R", when: "ext.ready" }],
+        });
+        views.commands.register("ext.run", () => undefined, "Run");
+        const { x, y } = locate("adds");
+        click(x, y);
+        views.contextKeys.set("searchViewletVisible", true);
+        views.contextKeys.set("ext.ready" as never, true as never);
+        await waitFrame((text) => text.split("\n")[y].includes("R"));
     });
 });

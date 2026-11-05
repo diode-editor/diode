@@ -1,5 +1,5 @@
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
-import { vi } from "vitest";
+import { expect, vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { testId } from "../../../../../TestUtils/testTree.ts";
@@ -11,9 +11,12 @@ import type { IConfigurationService } from "../../../../platform/configuration/c
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
+import { type IProgressServiceOptions, ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import { bindWidgetGlyphs } from "../../../../platform/theme/browser/widgetGlyphs.ts";
-import { StaticProductIconService } from "../../../../platform/theme/common/productIconService.ts";
+import {
+    type IProductIconService,
+    StaticProductIconService,
+} from "../../../../platform/theme/common/productIconService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import {
     type IWireTestItem,
@@ -23,7 +26,6 @@ import {
 } from "../../../api/common/testingWireTypes.ts";
 import { menuItemsOfAction } from "../../../browser/actions/menuContributions.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
-import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
 import type { NotificationService } from "../../../services/notification/browser/notificationService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
@@ -50,7 +52,11 @@ export interface IItemFields {
 }
 
 /** `path` from the controller id; the label is the last segment unless given. */
-export function wireItem(path: readonly string[], label = path.at(-1) ?? "", fields: IItemFields = {}): IWireTestItem {
+export function wireItem(
+    path: readonly string[],
+    label = path[path.length - 1],
+    fields: IItemFields = {},
+): IWireTestItem {
     return {
         extId: testId(...path),
         label,
@@ -82,6 +88,25 @@ export interface ISetupOptions {
     readonly height?: number;
     readonly menus?: readonly MenuContribution[];
     readonly settings?: Readonly<Record<string, unknown>>;
+    readonly progress?: IProgressServiceOptions;
+    readonly icons?: IProductIconService;
+    /** `false`: the containers are attached by the test, as `mount()` does after the components exist. */
+    readonly attach?: boolean;
+}
+
+/** Unicode glyphs until `useNerdFont()`, as `diode.icons.nerdFont` switched live. */
+export class SwitchableIcons extends StaticProductIconService {
+    private readonly onDidChangeEmitter = new Emitter<void>();
+    public override readonly onDidChange = this.onDidChangeEmitter.event;
+
+    public constructor() {
+        super(false);
+    }
+
+    public useNerdFont(): void {
+        (this as { nerdFont: boolean }).nerdFont = true;
+        this.onDidChangeEmitter.fire();
+    }
 }
 
 export function setupExplorer(options: ISetupOptions = {}) {
@@ -90,7 +115,8 @@ export function setupExplorer(options: ISetupOptions = {}) {
         UNICODE_ICONS,
     );
     const tests = new TestService(views.contextKeys);
-    const progress = new ProgressService();
+    const progress = new ProgressService(options.progress);
+    const icons = options.icons ?? UNICODE_ICONS;
     const opened: string[] = [];
     const positions: [number, number | undefined][] = [];
     const toasts: string[] = [];
@@ -118,7 +144,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
         tests,
         views.service,
         views.contextKeys,
-        UNICODE_ICONS,
+        icons,
         progress,
         views.menuService,
         views.menuRegistry,
@@ -133,18 +159,15 @@ export function setupExplorer(options: ISetupOptions = {}) {
             },
         } as unknown as NotificationService,
     );
-    const accessor = {
-        get: (token: unknown) => {
-            if (token === TestServiceDIToken) return tests;
-            if (token === TestingExplorerComponentDIToken) return component;
-            if (token === ViewsServiceDIToken) return views.service;
-            if (token === ContextKeyServiceDIToken) return views.contextKeys;
-            throw new Error("not in the test accessor");
-        },
-    } as unknown as ServiceAccessor;
+    const services = new Map<unknown, unknown>([
+        [TestServiceDIToken, tests],
+        [TestingExplorerComponentDIToken, component],
+        [ContextKeyServiceDIToken, views.contextKeys],
+    ]);
+    const accessor = { get: (token: unknown) => services.get(token) } as unknown as ServiceAccessor;
     const keybindings = new KeybindingRegistry();
     for (const action of TESTING_ACTIONS) registerAction(views.commands, keybindings, accessor, action);
-    views.service.attachRegisteredContainers();
+    if (options.attach !== false) views.service.attachRegisteredContainers();
 
     const expands: [string, number][] = [];
     const controllers = new Map<string, ITestControllerRegistration>();
@@ -191,7 +214,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
     const locate = (text: string): { x: number; y: number } => {
         const all = lines();
         const y = all.findIndex((line) => line.includes(text));
-        if (y < 0) throw new Error(`no "${text}" on the frame:\n${all.join("\n")}`);
+        expect(y, `"${text}" on the frame:\n${all.join("\n")}`).toBeGreaterThanOrEqual(0);
         return { x: all[y].indexOf(text), y };
     };
     /** The row whose label is exactly `label` (after its icon): a click on it. */
@@ -199,7 +222,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
         const all = lines();
         const pattern = new RegExp(`. ${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s|$)`);
         const y = all.findIndex((line, index) => index > 2 && pattern.test(line));
-        if (y < 0) throw new Error(`no row "${label}" on the frame:\n${all.join("\n")}`);
+        expect(y, `row "${label}" on the frame:\n${all.join("\n")}`).toBeGreaterThanOrEqual(0);
         return { x: all[y].indexOf(` ${label}`) + 1, y };
     };
     const waitFrame = (predicate: (text: string) => boolean): Promise<string> =>
