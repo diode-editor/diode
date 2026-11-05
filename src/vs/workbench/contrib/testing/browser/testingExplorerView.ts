@@ -10,6 +10,7 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import type { ITreeDataProvider, ITreeItem, ITreeItemAction } from "@tuidom/elements/tree/iTreeDataProvider";
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { codicon } from "../../../../base/common/codicons.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -395,29 +396,25 @@ export class TestingExplorerComponent extends Component {
     }
 
     /** Upstream: a filter change expands the tree to every test it matched (ancestors first or not: the tree waits). */
-    private async revealIncluded(included: readonly ITestNode[]): Promise<void> {
+    private async revealIncluded(ancestors: readonly ITestNode[]): Promise<void> {
         await this.tree.refresh();
-        const ancestors = new Map<string, ITestNode>();
-        for (const node of included) {
-            for (let id = TestId.parentId(node.item.extId); id !== undefined; id = TestId.parentId(id)) {
-                const ancestor = this.tests.getNodeById(id);
-                if (ancestor !== undefined) ancestors.set(id, ancestor);
-            }
-        }
-        await this.tree.expandElements([...ancestors.values()].map((node) => testRow(node)));
+        await this.tree.expandElements(ancestors.map((node) => testRow(node)));
     }
 
-    /** Upstream `TestsFilter` over the whole mirror; returns what matched itself (upstream `lastIncludedTests`). */
+    /** Upstream `TestsFilter` over the whole mirror; returns the ancestors of what matched itself (upstream `lastIncludedTests`). */
     private updateVisibility(): ITestNode[] {
-        const included: ITestNode[] = [];
+        const ancestors = new Map<string, ITestNode>();
         if (isEmptyFilter(this.filter)) {
             this.visible = null;
-            return included;
+            return [];
         }
         const visible = new Set<string>();
-        const visit = (node: ITestNode, lineage: ITestNode["item"][]): boolean => {
-            const chain = [node.item, ...lineage];
-            const result = filterTest(this.filter, chain);
+        const visit = (node: ITestNode, lineage: ITestNode[]): boolean => {
+            const chain = [node, ...lineage];
+            const result = filterTest(
+                this.filter,
+                chain.map((test) => test.item),
+            );
             if (result === FilterResult.Exclude) return false;
             // Upstream's error row is always visible, and so is its test.
             let shown = result === FilterResult.Include || node.item.error !== null;
@@ -425,13 +422,14 @@ export class TestingExplorerComponent extends Component {
                 if (visit(child, chain)) shown = true;
             }
             // Stryker disable next-line ConditionalExpression: equivalent — a test that only inherits is an ancestor of a match, expanded for it anyway
-            if (result === FilterResult.Include) included.push(node);
+            if (result === FilterResult.Include)
+                for (const ancestor of lineage) ancestors.set(ancestor.item.extId, ancestor);
             if (shown) visible.add(node.item.extId);
             return shown;
         };
         for (const root of this.tests.rootItems) visit(root, []);
         this.visible = visible;
-        return included;
+        return [...ancestors.values()];
     }
 
     /** Upstream `getChildrenForParent`: with one controller that has tests, its tests are the roots. */
@@ -457,8 +455,8 @@ export class TestingExplorerComponent extends Component {
     }
 
     private childNodes(node: ITestNode): ITestNode[] {
-        // `TestService` drops a child from its parent together with the child.
-        return [...node.children].flatMap((childId) => this.tests.getNodeById(childId) ?? []);
+        // `TestService` drops a child from its parent together with the child: every child id is in the mirror.
+        return [...node.children].map((childId) => assertReturnsDefined(this.tests.getNodeById(childId)));
     }
 
     /** Upstream `PreserveOrExpanded` of a controller root and of a test with an error, once: the user's choice stays. */
@@ -509,14 +507,14 @@ export class TestingExplorerComponent extends Component {
             this.busy = null;
             return;
         }
-        let end: () => void = () => undefined;
+        let end!: () => void;
+        const ended = new Promise<void>((resolve) => {
+            end = resolve;
+        });
         void this.progress.withProgress(
             // Stryker disable next-line StringLiteral: a view's progress draws only its spinner, not the title
             { location: "view", viewId: TESTING_EXPLORER_VIEW_ID, title: "Resolving tests" },
-            () =>
-                new Promise<void>((resolve) => {
-                    end = resolve;
-                }),
+            () => ended,
         );
         const ticks = this.progress.onDidChange(() => {
             void this.tree.refresh();
