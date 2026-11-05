@@ -225,7 +225,9 @@ describe("vscode.tests — expand levels", () => {
         vscode.tests.createTestController("ctrl", "Ctrl");
         await stub.callRequest("testing.expandTest", { testId: "ctrl", levels: 0 });
         const before = sent(stub, "testing.publishDiff").length;
-        await expect(stub.callRequest("testing.expandTest", { testId: testId("ctrl", "nope"), levels: 0 })).resolves.toBeNull();
+        await expect(
+            stub.callRequest("testing.expandTest", { testId: testId("ctrl", "nope"), levels: 0 }),
+        ).resolves.toBeNull();
         expect(sent(stub, "testing.publishDiff")).toHaveLength(before);
     });
 
@@ -382,7 +384,7 @@ describe("vscode.tests — run profiles reach the host", () => {
         profile.isDefault = true;
         profile.isDefault = true;
         profile.tag = new vscode.TestTag("unit");
-        expect(profile.tag?.id).toBe("unit");
+        expect(profile.tag).toMatchObject({ id: "unit" });
         profile.tag = new vscode.TestTag("unit");
         profile.tag = undefined;
         profile.supportsContinuousRun = true;

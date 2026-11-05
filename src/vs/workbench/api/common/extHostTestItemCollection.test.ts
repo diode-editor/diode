@@ -317,9 +317,11 @@ describe("vscode.tests — the controller's tree as diffs", () => {
         controller.items.add(item);
         item.tags = [new vscode.TestTag("t"), new vscode.TestTag("u")];
         flush();
-        const tagsSent = (tags: string[]): string[][] => {
+        const tagsSent = (tags: string[]): (readonly string[])[] => {
             item.tags = tags.map((id) => new vscode.TestTag(id));
-            return flush().flatMap((op) => (op.op === 1 && op.item.item?.tags !== undefined ? [op.item.item.tags] : []));
+            return flush().flatMap((op) =>
+                op.op === 1 && op.item.item?.tags !== undefined ? [op.item.item.tags] : [],
+            );
         };
         expect(tagsSent(["t", "v"])).toEqual([[testId("ctrl", "t"), testId("ctrl", "v")]]);
         expect(tagsSent(["w", "x"])).toEqual([[testId("ctrl", "w"), testId("ctrl", "x")]]);
@@ -363,10 +365,10 @@ describe("vscode.tests — the controller's tree as diffs", () => {
         item.canResolveChildren = true;
         controller.items.add(item);
         item.label = "A2";
-        expect(flush()).toEqual([
-            { op: 1, item: { extId: "ctrl", expand: 1 } },
-            expect.objectContaining({ op: 0, item: expect.objectContaining({ expand: 1 }) }),
-        ]);
+        const ops = flush();
+        expect(ops[0]).toEqual({ op: 1, item: { extId: "ctrl", expand: 1 } });
+        expect(ops[1]).toMatchObject({ op: 0, item: { expand: 1, item: { label: "A2" } } });
+        expect(ops).toHaveLength(2);
         const solo = vscode.tests.createTestController("solo", "Solo");
         flush();
         solo.resolveHandler = () => undefined;
