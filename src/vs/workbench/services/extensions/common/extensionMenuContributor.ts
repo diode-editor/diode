@@ -22,6 +22,7 @@ const MENU_IDS: Readonly<Partial<Record<string, MenuId>>> = {
     "scm/historyItem/context": MenuId.ScmGraphContext,
     "view/title": MenuId.ViewTitle,
     "view/item/context": MenuId.ViewItemContext,
+    "testing/item/context": MenuId.TestItem,
     "viewContainer/title": MenuId.ViewContainerTitle,
 };
 

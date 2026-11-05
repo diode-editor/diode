@@ -374,6 +374,11 @@ import {
     TestProfileService,
     TestProfileServiceDIToken,
 } from "../../workbench/contrib/testing/common/testProfileService.ts";
+import {
+    TestingExplorerComponent,
+    TestingExplorerComponentDIToken,
+    TestingRevealTargetDIToken,
+} from "../../workbench/contrib/testing/browser/testingExplorerView.ts";
 import { TestService, TestServiceDIToken } from "../../workbench/contrib/testing/common/testService.ts";
 import {
     ThemeConfigContribution,
@@ -644,6 +649,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TaskServiceDIToken, TaskService);
     container.bind(TestServiceDIToken, TestService);
     container.bind(TestProfileServiceDIToken, TestProfileService);
+    container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);
+    container.bind(TestingRevealTargetDIToken, () => container.get(EditorServiceDIToken));
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));
     container.bind(TerminalColorsServiceDIToken, TerminalColorsService);

@@ -15,7 +15,7 @@ isDefault?, rejectAddedViews?}` (`label` — название в авторск�
 VS Code), строит их все `attachRegisteredContainers()` из `mount()` — по
 `order`, а не по порядку резолва компонентов: Explorer 0 (`isDefault`),
 Search 1, Source Control 2 (регистрирует `ChangesComponent`), Extensions 3,
-References 4; в панели PROBLEMS 0, OUTPUT 1, TERMINAL 2 — это порядок вкладок,
+References 4, Testing 6 (`order` эталона; есть, пока есть контроллер тестов); в панели PROBLEMS 0, OUTPUT 1, TERMINAL 2 — это порядок вкладок,
 первая активна. Поздний `attachContainer` вставляет вкладку в позицию по
 `order`; контейнер без `order` встаёт после упорядоченных. View — секция внутри
 него: `{id, containerId, title, order, body, placeholder?, focus,
@@ -406,6 +406,41 @@ layout'а находит их.
 мультивыбора, typeahead и `ensureVisible`, а ключ `listFocus` и команды `list.*`
 перечисляют оба класса руками (третий списочный контрол — сигнал завести общий
 интерфейс); трекер — [TODO/README.md](../../TODO/README.md#workbench).
+
+## Testing
+
+Контейнер `workbench.view.extension.test` («Testing», `order: 6`) и вид `workbench.view.testing` (TEST
+EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorerComponent`), эталон —
+`testingExplorerView.ts` с иерархической проекцией. Вид регистрируется, пока истинно `testing.providerCount
+> 0` (`when` эталона): контейнер появляется с первым контроллером и уходит с последним (`hideIfEmpty`).
+
+- **Пустое состояние** — welcome эталона («No tests have been found…», кнопка «Install Additional Test
+  Extensions...» → `testing.searchForTestExtension`), пока ни у одного корня нет детей и ни один не занят.
+  Поиск расширений не знает `@category:`, поэтому кнопка ищет слово `testing` (отступление).
+- **Шапка** — поле фильтра с глифом `filter` справа и сводка «No test results yet.» (запусков ещё нет).
+  Фильтр — `common/testExplorerFilter.ts` (`setText` + `TestsFilter` эталона): термы через запятую,
+  подстрока подписи теста или предка, `!` исключает, `@ctrlId:tag` — тег; текст и теги — И. Совпадение
+  раскрывает дерево до себя. ArrowDown из поля — в дерево, ArrowUp с первой строки — в поле, Escape
+  чистит поле (на пустом — как в Search, ничего).
+- **Дерево** — `TreeViewElement` поверх зеркала `TestService`: с одним контроллером корни — его тесты,
+  с двумя и больше — сами контроллеры. Порядок — `sortText ?? label`. Строка: иконка состояния
+  (`circle-outline` в `testing.iconUnset`; цвета `testing.*` — `testingColors.ts`), подпись, приглушённое
+  `description`. `TestItem.error` — строка-ребёнок цветом `list.errorForeground`, тест с ней раскрыт
+  (`TestTreeErrorMessage` эталона). Занятый (`busy`) и раскрывающийся тест крутит спиннер: пока такой
+  есть, у вида открыт прогресс `ProgressService` (общий такт и спиннер в заголовке). Раскрытие
+  `Expandable`-узла (и корня контроллера при показе) зовёт `TestService.expandTest(id, 0)`, по разу на
+  состояние. Диффы перечитывают дерево целиком, раскрытие и курсор держатся по id.
+- **Меню строки** — `MenuId.TestItem` (`testing/item/context`) с ключами строки `view`, `testId`
+  (последний сегмент), `controllerId`, `testing.testItemHasUri`; группа `inline` — глифы справа с отступом в
+  колонку (`inlineActionsRightPadding: 1`), прочее — контекстное меню. Общие помощники с деревьями
+  расширений — `browser/parts/views/treeItemMenu.ts`. Команде уходит `{ $testId }`.
+- **Go to Test** — Enter/клик по листу с `uri` открывает файл на `range.start`, фокус остаётся в дереве;
+  `testing.editFocusedTest` (`Alt+Enter` при `focusedView == 'workbench.view.testing'`, inline и в меню при
+  `testing.testItemHasUri`) уводит фокус в редактор. Inline — решение спеки (у эталона только меню).
+- **Заголовок** — Refresh Tests / Cancel Test Refresh на одном месте (`navigation`), Collapse All Tests —
+  в «⋯» (`displayAction`).
+- Не сделано: count badge (`testing.countBadge` — activity bar нет), View as List/Tree, сортировки,
+  Hide/Unhide Test, Show in Active File Only, «More Filters...», печать символа из дерева в фильтр.
 
 ## References
 

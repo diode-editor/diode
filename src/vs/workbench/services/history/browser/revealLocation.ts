@@ -1,6 +1,7 @@
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
-import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
+
+import type { IJumpRecorder } from "./historyService.ts";
 
 export interface IRevealLocationEditor {
     goToPosition(line: number, column?: number): void;

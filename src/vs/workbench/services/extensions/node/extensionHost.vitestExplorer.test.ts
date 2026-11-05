@@ -66,7 +66,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
     });
 
     it(
-        "[api:tests.createTestController] the controller, its profiles and its lazily resolved tree reach the core; refresh calls the extension",
+        "[api:tests.createTestController] the controller, its profiles and its lazily resolved tree reach the core; a row's Update Snapshot gets its TestItem; refresh calls the extension",
         { timeout: 120_000 },
         async () => {
             const workspace = path.join(tmpRoot, "workspace");
@@ -113,6 +113,19 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                     "        adds",
                     "        subtracts",
                 ]);
+
+                // The row's "Update Snapshot" (`testing/item/context`) gets the extension's own TestItem: it runs it.
+                const suite = [...(tests.getNodeById(file)?.children ?? [])][0];
+                const adds = [...(tests.getNodeById(suite)?.children ?? [])].find(
+                    (id) => tests.getNodeById(id)?.item.label === "adds",
+                );
+                const before = output.length;
+                await harness.commandRegistry.execute("vitest.updateSnapshot", { $testId: adds });
+                await waitUntil(
+                    'Enqueuing "adds"',
+                    () => output.slice(before).some((line) => line.includes('Enqueuing "adds"')),
+                    60_000,
+                );
 
                 const resolving = output.filter((line) => line.includes("Resolving configs")).length;
                 await tests.refreshTests();

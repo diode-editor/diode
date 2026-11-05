@@ -379,13 +379,16 @@ eval-режим node, иначе расширение молча не линти
   расширение запускает Vitest проекта (нужен в `node_modules`) и следит за файлами по `**/*`.
 - **Тесты** (#1068) — контроллер `vitest` доходит до `TestService`: после активации
   `testing.providerCount > 0`, `testing.canRefresh`; **Test: Refresh Tests** зовёт его `refreshHandler`
-  (в OUTPUT → Vitest — новый «Resolving configs»). Вьюхи Testing и запусков пока нет — следующие задачи
-  цепочки #1056.
+  (в OUTPUT → Vitest — новый «Resolving configs»). Вьюха Testing (#1069): контейнер появляется с
+  контроллером, дерево `src` → `math.test.ts` → `math` → тесты, Enter открывает файл на строке теста;
+  «Update Snapshot» из меню строки получает `TestItem` расширения и запускает тест (в OUTPUT → Vitest —
+  `Enqueuing "adds"`, стоковый тест это проверяет). Запусков из ядра пока нет — следующая задача цепочки #1056.
 - **Магазин** — запись `vitest.explorer` (`support: partial`, `engines.diode` — релиз с вьюхой Testing).
   Стоковый тест — `extensionHost.vitestExplorer.test.ts`: воркспейс `package.json` + `vitest.config.ts`
   + `src/math.test.ts`, `node_modules` — симлинк на репозиторий diode (vitest там есть).
-- Меню `testing/item/context`, `testing/item/gutter`, `testing/message/*` пока неизвестны —
-  `unknown menu … items skipped` в Output → Extensions.
+- Меню `testing/item/gutter`, `testing/message/*` пока неизвестны — `unknown menu … items skipped` в
+  Output → Extensions. `testing/item/context` есть (#1069); «Open Trace View» у vitest скрыт его же
+  `when` (`testId in vitest.traceViewTests`).
 
 ## Go: `golang.go` (gopls)
 

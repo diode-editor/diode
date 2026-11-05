@@ -97,7 +97,7 @@ export function makeViewsHarness(
     const auxiliaryBarService = new AuxiliaryBarService();
     const commands = new CommandRegistry();
     const contextKeys = new ContextKeyService();
-    const menuRegistry = new MenuRegistry(commands, new KeybindingRegistry(), contextKeys, contributions);
+    const menuRegistry = new MenuRegistry(commands, new KeybindingRegistry(), contextKeys, contributions, icons);
     const menuService = new MenuService(menuRegistry);
 
     const stored = new Map<string, unknown>();

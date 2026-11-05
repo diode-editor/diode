@@ -5,6 +5,7 @@ import { namespaceTestTag, TestItemImpl, TestItemRootImpl } from "./extHostTestI
 import { ExtHostTestItemCollection } from "./extHostTestItemCollection.ts";
 import { TestRunProfileKind } from "./testingTypes.ts";
 import {
+    type IWireTestItemArg,
     type IWireTestRunProfileUpdate,
     TestId,
     TestRunProfileBitset,
@@ -130,7 +131,16 @@ class TestRunProfileImpl implements vscode.TestRunProfile {
     }
 }
 
-export function createExtHostTesting(rpc: SubprocessRpc): typeof vscode.tests {
+export interface IExtHostTesting {
+    readonly tests: typeof vscode.tests;
+    /**
+     * Upstream's argument processor for `MarshalledId.TestItemContext`: a Test Explorer row ({@link IWireTestItemArg})
+     * becomes the extension's own `TestItem`, `undefined` once the test is gone.
+     */
+    processArgument(arg: unknown): unknown;
+}
+
+export function createExtHostTesting(rpc: SubprocessRpc): IExtHostTesting {
     const controllers = new Map<string, IControllerInfo>();
 
     rpc.handleRequest("testing.expandTest", async (params) => {
@@ -253,5 +263,15 @@ export function createExtHostTesting(rpc: SubprocessRpc): typeof vscode.tests {
         return controller;
     }
 
-    return { createTestController };
+    return {
+        tests: { createTestController },
+        processArgument: (arg) => {
+            if (!isTestItemArg(arg)) return arg;
+            return controllers.get(TestId.root(arg.$testId))?.collection.tree.get(arg.$testId)?.actual;
+        },
+    };
+}
+
+function isTestItemArg(arg: unknown): arg is IWireTestItemArg {
+    return typeof (arg as Partial<Record<keyof IWireTestItemArg, unknown>> | null | undefined)?.$testId === "string";
 }

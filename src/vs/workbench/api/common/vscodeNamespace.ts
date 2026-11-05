@@ -235,12 +235,13 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         executeCodeActionProvider: (...args) => executeProviders.codeActions(...args),
         getActiveTextEditor: () => window.activeTextEditor,
     });
+    const testing = createExtHostTesting(rpc);
     const commands = buildCommandsNamespace(
         rpc,
         () => window.activeTextEditor,
         ctx.owner,
         apiCommands,
-        treeViews.processArgument,
+        (arg) => testing.processArgument(treeViews.processArgument(arg)),
     );
     const { languages, executeProviders } = createLanguagesNamespace(ctx, {
         applyEdit: (edit, metadata) => workspace.applyEdit(edit, metadata),
@@ -454,7 +455,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         Breakpoint,
         SourceBreakpoint,
         FunctionBreakpoint,
-        tests: createExtHostTesting(rpc),
+        tests: testing.tests,
         TestRunProfileKind,
         TestTag,
         TestRunRequest,
