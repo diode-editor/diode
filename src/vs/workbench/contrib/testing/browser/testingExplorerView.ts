@@ -337,6 +337,8 @@ export class TestingExplorerComponent extends Component {
                 this.filterInput.focus();
             },
         });
+        // A registration after an unregistration gets the body it had then: `null` would not replace it.
+        this.views.setViewBody(TESTING_EXPLORER_VIEW_ID, this.isEmpty() ? null : this.view);
     }
 
     /** Upstream `testCollectionIsEmpty` while no controller is busy: the welcome. */
@@ -358,10 +360,13 @@ export class TestingExplorerComponent extends Component {
             if (this.tests.getNodeById(testId)?.expand !== TestItemExpandState.Expandable)
                 this.resolving.delete(testId);
         }
-        this.views.setViewBody(TESTING_EXPLORER_VIEW_ID, this.isEmpty() ? null : this.view);
         this.setBusy(this.tests.rootItems.some((root) => this.anyBusy(root)));
         this.updateVisibility();
-        if (this.views.isViewExpanded(TESTING_EXPLORER_VIEW_ID)) this.resolveRoots();
+        // Without a controller there is no view: registering takes the body as it is then.
+        if (this.registered) {
+            this.views.setViewBody(TESTING_EXPLORER_VIEW_ID, this.isEmpty() ? null : this.view);
+            if (this.views.isViewExpanded(TESTING_EXPLORER_VIEW_ID)) this.resolveRoots();
+        }
         await this.tree.refresh();
     }
 

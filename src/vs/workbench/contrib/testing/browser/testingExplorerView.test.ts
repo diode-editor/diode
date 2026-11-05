@@ -87,6 +87,28 @@ describe("TestingExplorerComponent — the container follows the controllers", (
         expect(frame).not.toContain("Filter (e.g.");
     });
 
+    it("a controller that comes back without tests gets the welcome, not the tree it left", async () => {
+        const { tests, registerController, waitFrame } = setupExplorer({ width: 60 });
+        const first = registerController("vitest", "Vitest");
+        tests.publishDiff([...vitestRoot(), ...vitestFiles()]);
+        await waitFrame((text) => text.includes("src"));
+        first.dispose();
+        await vi.waitFor(() => {
+            expect(tests.rootItems).toEqual([]);
+        });
+        registerController("go", "Go");
+        tests.publishDiff([add(wireItem(["go"], "Go"), Expanded)]);
+        await waitFrame((text) => text.includes("No tests have been found"));
+    });
+
+    it("a diff before any controller's view exists draws nothing and throws nothing", async () => {
+        const { tests, views } = setupExplorer();
+        tests.publishDiff(vitestRoot());
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(views.viewlets).not.toContain(TESTING_VIEWLET_ID);
+    });
+
     it("the root resolves once the view shows it; while the controller is busy there is no welcome", async () => {
         const { tests, registerController, waitFrame, expands, frame } = setupExplorer();
         registerController("vitest", "Vitest");

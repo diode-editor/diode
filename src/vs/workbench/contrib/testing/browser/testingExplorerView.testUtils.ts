@@ -159,14 +159,17 @@ export function setupExplorer(options: ISetupOptions = {}) {
     const width = options.width ?? 40;
     const height = options.height ?? 12;
     let app: TestApp | null = null;
+    let appRoot: unknown = null;
     /** The sidebar shows the container: the app renders its root. */
     const show = (): TestApp => {
         views.showViewlet(TESTING_VIEWLET_ID);
-        if (app === null) {
-            const root = views.root(TESTING_VIEWLET_ID);
+        const root = views.root(TESTING_VIEWLET_ID);
+        // The container is built anew when its view comes back after the last controller left.
+        if (app === null || root !== appRoot) {
             // The app's chevrons: Unicode, as the icon service draws them without a Nerd Font.
             bindWidgetGlyphs(root, UNICODE_ICONS);
             app = TestApp.createWithContent(root, new Size(width, height));
+            appRoot = root;
         }
         return app;
     };
