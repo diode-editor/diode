@@ -782,22 +782,7 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {
         key: "search.exclude",
         type: "object",
-        default: {
-            "**/node_modules": true,
-            "**/bower_components": true,
-            "**/.venv": true,
-            "**/dist": true,
-            "**/out": true,
-            "**/build": true,
-            "**/target": true,
-            "**/coverage": true,
-            "**/.next": true,
-            "**/.gradle": true,
-            "**/.cache": true,
-            "**/.turbo": true,
-            "**/.stryker-tmp": true,
-            "**/.claude/worktrees": true,
-        },
+        default: { "**/node_modules": true, "**/bower_components": true, "**/*.code-search": true },
         description:
             "Glob patterns to exclude from search, in addition to files.exclude. Matched relative to the folder.",
     },
