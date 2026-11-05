@@ -371,6 +371,11 @@ import {
     TerminalLinkServiceDIToken,
 } from "../../workbench/contrib/terminalContrib/links/browser/terminalLinkService.ts";
 import {
+    TestProfileService,
+    TestProfileServiceDIToken,
+} from "../../workbench/contrib/testing/common/testProfileService.ts";
+import { TestService, TestServiceDIToken } from "../../workbench/contrib/testing/common/testService.ts";
+import {
     ThemeConfigContribution,
     ThemeConfigContributionDIToken,
 } from "../../workbench/contrib/themes/browser/themeConfigContribution.ts";
@@ -637,6 +642,8 @@ export const workbenchModule: ContainerModule = (container) => {
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding (the test profile binds a ready registry of its own); end-to-end — e2e scenario tsc-problem-matcher-task
     container.bind(ProblemMatcherRegistryDIToken, () => new ProblemMatcherRegistry());
     container.bind(TaskServiceDIToken, TaskService);
+    container.bind(TestServiceDIToken, TestService);
+    container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));
     container.bind(TerminalColorsServiceDIToken, TerminalColorsService);

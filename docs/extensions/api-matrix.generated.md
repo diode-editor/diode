@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 159 |
+| test | 160 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -61,7 +61,7 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `TestRunProfileKind.Run` | C | 17 | 269,628,634 | needs the Testing surface |
 | `TestRunProfileKind.Debug` | C | 15 | 268,387,248 | needs the Testing surface |
 | `DebugAdapterServer` | C | 6 | 244,153,911 | needs a debugger |
-| `tests.createTestController` | C | 16 | 241,632,971 | needs the Testing surface |
+| `tests.createTestController` | C | 16 | 241,632,971 | the tree, resolve, refresh and profiles reach the core; no Testing view, runs are not wired |
 | `debug.registerDebugAdapterTrackerFactory` | C | 12 | 240,119,647 | needs a debugger |
 | `LanguageModelTextPart` | C | 23 | 219,657,968 | needs a chat surface and a model backend |
 | `window.onDidChangeTerminalShellIntegration` | B | 9 | 210,306,892 | never fires |
@@ -2198,7 +2198,7 @@ Proposed API or a false hit: class X when real.
 | `TestRunRequest.include` | C |  | 0 | 0 |  |
 | `TestRunRequest.preserveFocus` | C |  | 0 | 0 |  |
 | `TestRunRequest.profile` | C |  | 0 | 0 |  |
-| `tests.createTestController` | C |  | 16 | 241,632,971 |  |
+| `tests.createTestController` | C | yes | 16 | 241,632,971 |  |
 | `TestTag` | C |  | 9 | 126,484,023 |  |
 | `TestTag.id` | C |  | 0 | 0 |  |
 | `TextDocument.encoding` | ok | yes | 0 | 0 |  |

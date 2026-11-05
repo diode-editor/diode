@@ -373,6 +373,20 @@ eval-режим node, иначе расширение молча не линти
   нет. Активация → готовность на игрушечном проекте с тёплыми кэшами ≈ 19 с. Тесты —
   `extensionHost.javaLsp.{navigation,hierarchy,symbols,formatOnType}.test.ts`, демо — `java-hierarchy`.
 
+## Vitest: `vitest.explorer`
+
+- **Активация** — `workspaceContains` (`**/*{vite,vitest}*.config*`, `node_modules/.bin/vitest`):
+  расширение запускает Vitest проекта (нужен в `node_modules`) и следит за файлами по `**/*`.
+- **Тесты** (#1068) — контроллер `vitest` доходит до `TestService`: после активации
+  `testing.providerCount > 0`, `testing.canRefresh`; **Test: Refresh Tests** зовёт его `refreshHandler`
+  (в OUTPUT → Vitest — новый «Resolving configs»). Вьюхи Testing и запусков пока нет — следующие задачи
+  цепочки #1056.
+- **Магазин** — запись `vitest.explorer` (`support: partial`, `engines.diode` — релиз с вьюхой Testing).
+  Стоковый тест — `extensionHost.vitestExplorer.test.ts`: воркспейс `package.json` + `vitest.config.ts`
+  + `src/math.test.ts`, `node_modules` — симлинк на репозиторий diode (vitest там есть).
+- Меню `testing/item/context`, `testing/item/gutter`, `testing/message/*` пока неизвестны —
+  `unknown menu … items skipped` в Output → Extensions.
+
 ## Go: `golang.go` (gopls)
 
 - **Активация** — `onLanguage:go` (+ `go.mod`, `go.sum`, `go.work`, `gotmpl`, `go.asm`) и неявные

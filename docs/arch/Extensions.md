@@ -874,17 +874,43 @@
   ними — отказ с причиной (перегрузка обещает сессию, `undefined` уронил бы расширение невнятным
   `TypeError`), провайдер принимается и не зовётся, человеку — одна warn-строка в Output на id
   провайдера. Настоящие провайдеры — [docs/TODO/LanguageServers.md](../TODO/LanguageServers.md#terraform).
-- **Отладка и Test API как null-объекты (`debugNoop.ts`, `testsNoop.ts`):** дебаггера (DAP) в Diode
-  нет и не планируется (решение человека, [StockExtensions.md](StockExtensions.md#go-golanggo-gopls)), view Testing пока
-  нет, но ОТСУТСТВИЕ namespace'ов убивало расширение целиком: `golang.go` регистрирует провайдер
-  конфигураций отладки посреди `activate()` и заводит контроллер тестов с тремя профилями
-  `TestRunProfileKind` — без них не появлялись ~60 команд `go.*`, хотя gopls уже жил. Декларации
-  `vscode.debug`/`vscode.tests` и их типы подняты в `vscode.d.ts` целиком, значения-типы — эталонные
-  (`debugTypes.ts`, `testingTypes.ts`). Поведение — «сессий нет»: `register*` — `Disposable`,
-  события не стреляют, `startDebugging` — `false`, `asDebugSourceUri` честный; у контроллера тестов
-  коллекции `items`/`children` рабочие (расширение ищет в них свои элементы), обработчики никто не
-  зовёт. Человеку — одна warn-строка в Output на тип отладчика / id контроллера (как у comments).
-  События активации `onDebug*` не стреляют.
+- **Отладка как null-объект (`debugNoop.ts`):** дебаггера (DAP) в Diode нет и не планируется
+  (решение человека, [StockExtensions.md](StockExtensions.md#go-golanggo-gopls)), но ОТСУТСТВИЕ
+  namespace'а убивало расширение целиком: `golang.go` регистрирует провайдер конфигураций отладки
+  посреди `activate()` — без него не появлялись ~60 команд `go.*`, хотя gopls уже жил. Декларации
+  `vscode.debug` и типы подняты в `vscode.d.ts` целиком, значения-типы — эталонные (`debugTypes.ts`).
+  Поведение — «сессий нет»: `register*` — `Disposable`, события не стреляют, `startDebugging` —
+  `false`, `asDebugSourceUri` честный. Человеку — одна warn-строка в Output на тип отладчика (как у
+  comments). События активации `onDebug*` не стреляют.
+- **Тесты расширений (Testing, #1068):** цепочка эталона `ExtHostTesting` ↔ `MainThreadTesting` →
+  `TestService`. **Объекты расширения живут только в субпроцессе** (`api/common/extHostTesting.ts`,
+  `extHostTestItem.ts`); его `ExtHostTestItemCollection` — порт `TestItemCollection` эталона — шлёт
+  хосту дерево **диффами** (`testingWireTypes.ts`): `Add` (тест с полями и `expand`), `Update`
+  (неглубокая правка; правки одного теста подряд и правка теста, добавленного в той же пачке,
+  сливаются в одну операцию), `Remove` (тест с поддеревом). Id теста — путь id элементов через `\0`
+  с id контроллера в корне (`TestId`), теги — `<контроллер>\0<тег>`. Пачка уходит раз в 200 мс
+  (`debounceSendDiff` эталона) и сразу перед ответом на `testing.expandTest`. Корень контроллера —
+  сам тест с id контроллера, его дети — `controller.items`. Протокол: субпроцесс шлёт
+  `testing.registerController {controllerId, label, canRefresh}` / `updateController` /
+  `unregisterController`, `publishDiff`, `publishProfile` / `updateProfile` / `removeProfile`
+  (группа — битсет эталона `Run=2, Debug=4, Coverage=8`, id профиля — хеш метки, как у эталона);
+  хост просит `testing.expandTest {testId, levels}` (отрицательное — «все уровни») и
+  `testing.refreshTests {controllerId}` с отменой по токену. **Ленивые дети:** без `resolveHandler`
+  элементы `NotExpandable`, с ним — `Expandable` при `canResolveChildren`; раскрытие → `BusyExpanding`
+  → `resolveHandler(элемент | undefined для корня)` → `Expanded`; исключение или reject — error-строка
+  `Unhandled error in resolveHandler of test controller "<id>"` в Output → Extensions, дерево как было.
+  Хост: `TestingCustomer` → порт `IExtensionTestingSink` → `ExtensionTestingAdapter`
+  (`contrib/testing/browser`) → `TestService` (контроллеры, зеркало дерева, `onDidProcessDiff`, ключи
+  `testing.providerCount`/`canRefresh`/`isRefreshing`) и `TestProfileService` (профили,
+  `testing.hasRunnableTests`). Команды `testing.refreshTests` (`Ctrl+; Ctrl+R`, доступна при
+  `testing.canRefresh`) и `testing.cancelTestRefresh` — `contrib/testing/browser/testingActions.ts`.
+  Смерть субпроцесса — `reset()`: контроллеры уходят с деревьями и профилями.
+  Отступления: Debug- и Coverage-профили хранятся, но `testing.hasDebuggableTests` и
+  `testing.hasCoverableTests` всегда `false` (дебаггера нет, coverage — позже); `isDefault` профиля —
+  только расширения (`onDidChangeDefault` не стреляет, выбора профилей по умолчанию у ядра нет);
+  `DocumentSynced`, `AddTag`/`RemoveTag` эталона не переносятся (их потребители — декорации и фильтр
+  вьюхи). Не сделано: вьюха Testing, запуски (`runHandler`, `createTestRun` — инертный), `testResults`,
+  continuous run, related code.
 - **`languages.setLanguageConfiguration` (`extHostLanguageConfiguration.ts` →
   `LanguageConfigurationCustomer`):** по эталону `wordPattern` остаётся в субпроцессе — определение
   слова языка в `DocumentRegistry` для `getWordRangeAtPosition` (и эфемерных документов
