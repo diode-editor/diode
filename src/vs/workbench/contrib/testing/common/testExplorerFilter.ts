@@ -1,6 +1,6 @@
 import { splitGlobAware } from "../../../../base/common/glob.ts";
 import type { IWireTestItem } from "../../../api/common/testingWireTypes.ts";
-import { TEST_ID_DELIMITER } from "../../../api/common/testingWireTypes.ts";
+import { namespaceTestTag } from "../../../api/common/testingWireTypes.ts";
 
 /** Upstream `TestFilterTerm`: recognized and taken out of the text; the states they filter by come with runs. */
 const FILTER_TERMS: readonly string[] = ["@failed", "@executed", "@doc", "@openedFiles", "@hidden"];
@@ -51,7 +51,7 @@ export function parseTestExplorerFilter(text: string): ITestExplorerFilter {
                     nextIndex++;
                 }
             }
-            (match[0].startsWith("!") ? excludeTags : includeTags).add(match[1] + TEST_ID_DELIMITER + tagId);
+            (match[0].startsWith("!") ? excludeTags : includeTags).add(namespaceTestTag(match[1], tagId));
             nextIndex++;
         }
         // A test named "@smoke" is searched by its name.
@@ -62,10 +62,15 @@ export function parseTestExplorerFilter(text: string): ITestExplorerFilter {
     globText += text.slice(lastIndex).trim();
     for (const filter of splitGlobAware(globText, ",").map((part) => part.trim())) {
         if (filter === "") continue;
-        if (filter.startsWith("!")) globList.push({ include: false, text: filter.slice(1).toLowerCase() });
-        else globList.push({ include: true, text: filter.toLowerCase() });
+        const include = !filter.startsWith("!");
+        globList.push({ include, text: (include ? filter : filter.slice(1)).toLowerCase() });
     }
     return { globList, includeTags, excludeTags };
+}
+
+/** Nothing to filter by: every test is shown. */
+export function isEmptyFilter(filter: ITestExplorerFilter): boolean {
+    return filter.globList.length === 0 && filter.includeTags.size === 0 && filter.excludeTags.size === 0;
 }
 
 /** Upstream `FilterResult`, ordered as upstream's `Math.min` reads it. */

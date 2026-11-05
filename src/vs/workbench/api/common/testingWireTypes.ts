@@ -11,12 +11,19 @@ export const TestId = {
     joinToString: (base: string, id: string): string => base + TEST_ID_DELIMITER + id,
     /** The controller id. */
     root: (testId: string): string => testId.split(TEST_ID_DELIMITER, 1)[0],
+    /** The test's own id: the last segment. */
+    localId: (testId: string): string => testId.slice(testId.lastIndexOf(TEST_ID_DELIMITER) + 1),
     /** `undefined` for a controller root. */
     parentId: (testId: string): string | undefined => {
         const index = testId.lastIndexOf(TEST_ID_DELIMITER);
         return index === -1 ? undefined : testId.slice(0, index);
     },
 };
+
+/** Upstream `Convert.TestTag.namespace`: a tag id as the core sees it. */
+export function namespaceTestTag(controllerId: string, tagId: string): string {
+    return controllerId + TEST_ID_DELIMITER + tagId;
+}
 
 /** Upstream `TestItemExpandState`. */
 export const TestItemExpandState = {

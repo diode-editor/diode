@@ -3,6 +3,7 @@ import { vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { testId } from "../../../../../TestUtils/testTree.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import type { MenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
@@ -102,10 +103,17 @@ export function setupExplorer(options: ISetupOptions = {}) {
             revealRange: () => undefined,
         }),
     };
+    const settings: Record<string, unknown> = { "workbench.tree.renderIndentGuides": "none", ...options.settings };
+    const onDidChangeConfiguration = new Emitter<{ affectsConfiguration(key: string): boolean }>();
     const configuration = {
-        get: (key: string) =>
-            (({ "workbench.tree.renderIndentGuides": "none", ...options.settings }) as Record<string, unknown>)[key],
+        get: (key: string) => settings[key],
+        onDidChangeConfiguration: onDidChangeConfiguration.event,
     } as unknown as IConfigurationService;
+    /** A settings change as the configuration service reports it. */
+    const setSetting = (key: string, value: unknown): void => {
+        settings[key] = value;
+        onDidChangeConfiguration.fire({ affectsConfiguration: (affected) => affected === key });
+    };
     const component = new TestingExplorerComponent(
         tests,
         views.service,
@@ -252,5 +260,6 @@ export function setupExplorer(options: ISetupOptions = {}) {
         mouse,
         click,
         width,
+        setSetting,
     };
 }

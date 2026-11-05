@@ -1,7 +1,12 @@
 import type * as vscode from "vscode";
 
 import { rangeFrom } from "./extHostTypeConverters.ts";
-import { type IWireTestItem, type IWireTestItemUpdate, TEST_ID_DELIMITER } from "./testingWireTypes.ts";
+import {
+    type IWireTestItem,
+    type IWireTestItemUpdate,
+    namespaceTestTag,
+    TEST_ID_DELIMITER,
+} from "./testingWireTypes.ts";
 
 // Upstream `extHostTestItem.ts` + `createTestItemChildren` of `testItemCollection.ts`: an item tells its
 // collection about every change through the listener the collection hangs on it.
@@ -21,11 +26,6 @@ export interface ITestItemApi {
     readonly controllerId: string;
     parent: TestItemImpl | undefined;
     listener: ((event: TestItemEvent) => void) | undefined;
-}
-
-/** Upstream `Convert.TestTag.namespace`. */
-export function namespaceTestTag(controllerId: string, tagId: string): string {
-    return controllerId + TEST_ID_DELIMITER + tagId;
 }
 
 function errorText(error: string | vscode.MarkdownString | undefined): string | null {

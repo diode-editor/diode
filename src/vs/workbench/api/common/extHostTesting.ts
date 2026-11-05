@@ -1,12 +1,13 @@
 import type * as vscode from "vscode";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
-import { namespaceTestTag, TestItemImpl, TestItemRootImpl } from "./extHostTestItem.ts";
+import { TestItemImpl, TestItemRootImpl } from "./extHostTestItem.ts";
 import { ExtHostTestItemCollection } from "./extHostTestItemCollection.ts";
 import { TestRunProfileKind } from "./testingTypes.ts";
 import {
     type IWireTestItemArg,
     type IWireTestRunProfileUpdate,
+    namespaceTestTag,
     TestId,
     TestRunProfileBitset,
     type TestRunProfileGroup,

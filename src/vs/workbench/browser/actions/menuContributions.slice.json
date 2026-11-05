@@ -347,6 +347,7 @@
             "workbench.view.scm",
             "workbench.view.extensions",
             "workbench.view.references",
+            "workbench.view.extension.test",
             "workbench.actions.view.problems",
             "workbench.action.output.toggleOutput",
             "workbench.action.terminal.toggleTerminal",
@@ -413,6 +414,14 @@
             "workbench.action.terminal.killActiveTab"
         ]
     },
+    "TestItem": {
+        "builtin": [
+            "testing.editFocusedTest"
+        ],
+        "inline": [
+            "testing.editFocusedTest"
+        ]
+    },
     "ViewTitle": {
         "1_actions": [
             "scm.graph.loadMore"
@@ -445,12 +454,17 @@
         "9_footer": [
             "git.showOutput"
         ],
+        "displayAction": [
+            "testing.collapseAll"
+        ],
         "navigation": [
             "workbench.action.toggleEditorGroupLayout",
             "explorer.newFile",
             "search.action.collapseSearchResults",
             "search.action.expandSearchResults",
             "workbench.action.terminal.new",
+            "testing.refreshTests",
+            "testing.cancelTestRefresh",
             "git.refresh",
             "scm.graph.refresh",
             "extensions.refresh",

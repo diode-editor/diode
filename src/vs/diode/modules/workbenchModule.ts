@@ -371,14 +371,14 @@ import {
     TerminalLinkServiceDIToken,
 } from "../../workbench/contrib/terminalContrib/links/browser/terminalLinkService.ts";
 import {
-    TestProfileService,
-    TestProfileServiceDIToken,
-} from "../../workbench/contrib/testing/common/testProfileService.ts";
-import {
     TestingExplorerComponent,
     TestingExplorerComponentDIToken,
     TestingRevealTargetDIToken,
 } from "../../workbench/contrib/testing/browser/testingExplorerView.ts";
+import {
+    TestProfileService,
+    TestProfileServiceDIToken,
+} from "../../workbench/contrib/testing/common/testProfileService.ts";
 import { TestService, TestServiceDIToken } from "../../workbench/contrib/testing/common/testService.ts";
 import {
     ThemeConfigContribution,

@@ -2,6 +2,7 @@ import { codicon } from "../../../../base/common/codicons.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import type { IWireTestItemArg } from "../../../api/common/testingWireTypes.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
@@ -99,6 +100,8 @@ export const goToTestAction: CommandAction = {
     id: "testing.editFocusedTest",
     title: "Go to Test",
     keybinding: { keys: parseKeybinding("alt+enter"), when: `focusedView == '${TESTING_EXPLORER_VIEW_ID}'` },
+    // Upstream's weight: under the editor contributions, above the core.
+    weight: KeybindingWeight.EditorContrib - 10,
     menus: [
         {
             menuId: MenuId.TestItem,

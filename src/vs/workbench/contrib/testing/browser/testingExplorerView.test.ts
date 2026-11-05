@@ -235,6 +235,12 @@ describe("TestingExplorerComponent — the tree", () => {
         expect(fgAt(x, y)).toBe(THEME.getColor("list.errorForeground"));
     });
 
+    it("workbench.tree.renderIndentGuides changed in the settings repaints the guides", async () => {
+        const { setSetting, waitFrame } = await withTests();
+        setSetting("workbench.tree.renderIndentGuides", "always");
+        await waitFrame((text) => text.includes("│"));
+    });
+
     it("a removed test goes from the frame", async () => {
         const { tests, waitFrame } = await withTests();
         tests.publishDiff([{ op: 3, itemId: FAILS.join("\0") }]);
