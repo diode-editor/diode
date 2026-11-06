@@ -118,10 +118,11 @@ describe("Test Explorer — followRunningTest", () => {
 
     it("with two controllers a collapsed root is where the cursor stops", async () => {
         const { explorer, state } = await setup({}, true);
+        await explorer.waitFrame((text) => / x\b/.test(text));
         const root = explorer.row("d");
         explorer.click(root.x, root.y);
         await explorer.waitFrame((text) => !/ x\b/.test(text));
-        const top = explorer.row("top");
+        const top = await vi.waitFor(() => explorer.row("top"));
         explorer.click(top.x, top.y);
         await settle();
         expect(explorer.component.focusedTestId).toBe(testId("c", "top"));
