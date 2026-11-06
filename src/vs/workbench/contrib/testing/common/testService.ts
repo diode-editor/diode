@@ -32,7 +32,10 @@ export interface ITestController {
     expandTest(testId: string, levels: number): Promise<void>;
     refreshTests(token: ICancellationToken): Promise<void>;
     /** Resolves when the `runHandler`s have settled and their runs have ended; rejects if the extension is gone. */
-    runTests(requests: readonly IWireStartControllerTests[], token: ICancellationToken): Promise<IWireRunControllerTestsResult[]>;
+    runTests(
+        requests: readonly IWireStartControllerTests[],
+        token: ICancellationToken,
+    ): Promise<IWireRunControllerTestsResult[]>;
     /** The same function for the controllers of one extension host: a run is cancelled there once. */
     readonly cancelTestRun: (runId: string, taskId?: string) => void;
 }
@@ -213,7 +216,9 @@ export class TestService extends Disposable {
             const profile = this.profiles.getDefaultProfileForTest(group, test);
             if (profile === undefined) continue;
             const existing = byProfile.find(
-                (entry) => entry.profile.controllerId === profile.controllerId && entry.profile.profileId === profile.profileId,
+                (entry) =>
+                    entry.profile.controllerId === profile.controllerId &&
+                    entry.profile.profileId === profile.profileId,
             );
             if (existing === undefined) byProfile.push({ profile, testIds: [test.item.extId] });
             else existing.testIds.push(test.item.extId);

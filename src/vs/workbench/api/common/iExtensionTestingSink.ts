@@ -27,7 +27,10 @@ export interface IExtensionTestControllerProxy {
      * Upstream `runTests`: the profiles' `runHandler`s; resolves when they have settled and the run's `TestRun`s
      * have ended. Cancellation cancels the handlers' tokens; rejects if the subprocess dies meanwhile.
      */
-    runTests(requests: readonly IWireStartControllerTests[], token: ICancellationToken): Promise<IWireRunControllerTestsResult[]>;
+    runTests(
+        requests: readonly IWireStartControllerTests[],
+        token: ICancellationToken,
+    ): Promise<IWireRunControllerTestsResult[]>;
     /**
      * Upstream `$cancelExtensionTestRun`: the same function for every controller of one subprocess, so a run of
      * several of its controllers is cancelled once.

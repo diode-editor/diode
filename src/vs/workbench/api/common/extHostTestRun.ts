@@ -36,7 +36,9 @@ export function fullTestId(item: TestItemImpl, controllerId: string): string {
 /** Upstream `InvalidTestItemError`. */
 function assertTestItem(test: vscode.TestItem): asserts test is TestItemImpl {
     if (!(test instanceof TestItemImpl)) {
-        throw new Error(`TestItem with ID "${test.id}" is invalid. Make sure to create it from the createTestItem method.`);
+        throw new Error(
+            `TestItem with ID "${test.id}" is invalid. Make sure to create it from the createTestItem method.`,
+        );
     }
 }
 
@@ -149,7 +151,10 @@ export class TestRunTracker {
             messages: vscode.TestMessage | readonly vscode.TestMessage[],
         ): void => {
             const list = Array.isArray(messages) ? (messages as readonly vscode.TestMessage[]) : [messages];
-            const fallback = test.uri === undefined ? undefined : locationFrom({ uri: test.uri, range: test.range } as vscode.Location);
+            const fallback =
+                test.uri === undefined
+                    ? undefined
+                    : locationFrom({ uri: test.uri, range: test.range } as vscode.Location);
             this.rpc.notify("testing.appendTestMessagesInRun", {
                 runId,
                 taskId,
@@ -323,7 +328,7 @@ export class TestRunCoordinator {
             include: request.include?.map(idOf) ?? [root.id],
             exclude: request.exclude?.map(idOf) ?? [],
             profileId,
-            preserveFocus: request.preserveFocus ?? true,
+            preserveFocus: request.preserveFocus,
             persist,
             continuous: request.continuous === true,
         });

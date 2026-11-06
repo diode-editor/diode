@@ -32,7 +32,7 @@ export class TestingCustomer implements IExtensionHostCustomer {
         const sink = this.sink;
         if (sink === undefined) return store;
         /** A malformed message (`null`) is dropped. */
-        const on = <T,>(
+        const on = <T>(
             method: keyof ISubprocessToHost["notifications"],
             parse: (params: unknown) => T | null,
             deliver: (message: T) => void,

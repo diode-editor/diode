@@ -11,9 +11,8 @@ import { fetchStockVsix } from "../../../../../TestUtils/stockVsix.ts";
 import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
 import { testTree } from "../../../../../TestUtils/testTree.ts";
 import { waitUntil } from "../../../../../TestUtils/timing.ts";
-import { installVsix } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
-
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
+import { installVsix } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
 import { TestResultState } from "../../../api/common/testingWireTypes.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
@@ -133,16 +132,23 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                     (id) => tests.getNodeById(id)?.item.label === "fails",
                 );
                 const run = await tests.runTests({ tests: [root] });
-                const state = (id: string | undefined) => (id === undefined ? undefined : results.getStateById(id)?.[1]);
+                const state = (id: string | undefined) =>
+                    id === undefined ? undefined : results.getStateById(id)?.[1];
                 expect(state(adds)?.ownComputedState).toBe(TestResultState.Passed);
                 expect(state(fails)?.ownComputedState).toBe(TestResultState.Failed);
                 expect(state(suite)?.computedState).toBe(TestResultState.Failed);
                 expect(run.counts[TestResultState.Passed]).toBe(1);
                 expect(run.counts[TestResultState.Failed] + run.counts[TestResultState.Errored]).toBe(1);
-                expect(state(fails)?.tasks.flatMap((task) => task.messages).some((m) => m.type === "error")).toBe(true);
+                expect(
+                    state(fails)
+                        ?.tasks.flatMap((task) => task.messages)
+                        .some((m) => m.type === "error"),
+                ).toBe(true);
 
                 // Rerun Failed Tests: only `fails` runs, `adds` keeps its state from the first run.
-                const rerun = await tests.runTests({ tests: [assertReturnsDefined(tests.getNodeById(assertReturnsDefined(fails)))] });
+                const rerun = await tests.runTests({
+                    tests: [assertReturnsDefined(tests.getNodeById(assertReturnsDefined(fails)))],
+                });
                 const ran = [...rerun.tests].filter((test) => test.ownComputedState !== TestResultState.Unset);
                 expect(ran.map((test) => test.item.label)).toEqual(["fails"]);
                 expect(state(adds)?.ownComputedState).toBe(TestResultState.Passed);

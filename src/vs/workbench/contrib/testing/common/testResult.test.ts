@@ -188,9 +188,7 @@ describe("LiveTestResult", () => {
         result.addTestChainToRun("ctrl", [item("ctrl", "math"), item("ctrl", "math", "adds")]);
         result.addTestChainToRun("ctrl", []);
         expect([...result.tests]).toHaveLength(4);
-        expect(result.getStateById(testId("ctrl", "math", "adds"))?.tasks).toEqual([
-            { state: Unset, messages: [] },
-        ]);
+        expect(result.getStateById(testId("ctrl", "math", "adds"))?.tasks).toEqual([{ state: Unset, messages: [] }]);
         expect(result.getStateById(testId("ctrl", "math"))?.controllerId).toBe("ctrl");
     });
 });

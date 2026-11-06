@@ -224,7 +224,11 @@ export class LiveTestResult extends Disposable {
         return this.taskList.findIndex((task) => task.id === taskId);
     }
 
-    private addTestToRun(controllerId: string, item: IWireTestItem, parent: IMutableResultItem | undefined): IMutableResultItem {
+    private addTestToRun(
+        controllerId: string,
+        item: IWireTestItem,
+        parent: IMutableResultItem | undefined,
+    ): IMutableResultItem {
         const node: IMutableResultItem = {
             controllerId,
             item,
@@ -251,7 +255,8 @@ export class LiveTestResult extends Disposable {
         }
         const own = maxPriority(...entry.tasks.map((task) => task.state));
         if (own === previousOwn) {
-            if (entry.ownDuration !== previousDuration) this.changeEmitter.fire({ item: entry, result: this, reason: "ownState" });
+            if (entry.ownDuration !== previousDuration)
+                this.changeEmitter.fire({ item: entry, result: this, reason: "ownState" });
             return;
         }
         entry.ownComputedState = own;

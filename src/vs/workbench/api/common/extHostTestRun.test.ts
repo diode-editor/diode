@@ -5,8 +5,8 @@ import { testId } from "../../../../TestUtils/testTree.ts";
 import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
-import { fullTestId, RUN_CANCEL_DEADLINE } from "./extHostTestRun.ts";
 import { TestItemImpl } from "./extHostTestItem.ts";
+import { fullTestId, RUN_CANCEL_DEADLINE } from "./extHostTestRun.ts";
 import { TestResultState } from "./testingWireTypes.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
@@ -48,8 +48,10 @@ function setup(handler: (request: vscodeTypes.TestRunRequest, token: vscodeTypes
     math.children.add(adds);
     math.children.add(fails);
     controller.items.add(math);
-    const profile = controller.createRunProfile("Run", env.vscode.TestRunProfileKind.Run, (request, token) =>
-        handler(request, token) as Thenable<void> | void,
+    const profile = controller.createRunProfile(
+        "Run",
+        env.vscode.TestRunProfileKind.Run,
+        (request, token) => handler(request, token) as Thenable<void> | void,
     );
     const profileId = (profile as unknown as { profileId: number }).profileId;
     const run = (testIds: string[], token = new CancellationTokenSource().token, excludeExtIds: string[] = []) =>
@@ -100,9 +102,18 @@ describe("vscode.tests — a run the core asks for", () => {
                     ],
                 },
             ],
-            ["updateTestStateInRun", { runId: "r1", taskId: "T0", testId: adds, state: TestResultState.Queued, duration: undefined }],
-            ["updateTestStateInRun", { runId: "r1", taskId: "T0", testId: adds, state: TestResultState.Running, duration: undefined }],
-            ["updateTestStateInRun", { runId: "r1", taskId: "T0", testId: adds, state: TestResultState.Passed, duration: 12 }],
+            [
+                "updateTestStateInRun",
+                { runId: "r1", taskId: "T0", testId: adds, state: TestResultState.Queued, duration: undefined },
+            ],
+            [
+                "updateTestStateInRun",
+                { runId: "r1", taskId: "T0", testId: adds, state: TestResultState.Running, duration: undefined },
+            ],
+            [
+                "updateTestStateInRun",
+                { runId: "r1", taskId: "T0", testId: adds, state: TestResultState.Passed, duration: 12 },
+            ],
             // The known ancestor starts the chain.
             [
                 "addTestsToRun",
@@ -122,11 +133,26 @@ describe("vscode.tests — a run the core asks for", () => {
                     taskId: "T0",
                     testId: fails,
                     // `fails` has no range: no default location.
-                    messages: [{ message: "boom", expected: undefined, actual: undefined, contextValue: undefined, location: undefined, stackTrace: undefined }],
+                    messages: [
+                        {
+                            message: "boom",
+                            expected: undefined,
+                            actual: undefined,
+                            contextValue: undefined,
+                            location: undefined,
+                            stackTrace: undefined,
+                        },
+                    ],
                 },
             ],
-            ["updateTestStateInRun", { runId: "r1", taskId: "T0", testId: fails, state: TestResultState.Failed, duration: 3 }],
-            ["appendOutputToRun", { runId: "r1", taskId: "T0", output: "hello\r\n", location: undefined, testId: adds }],
+            [
+                "updateTestStateInRun",
+                { runId: "r1", taskId: "T0", testId: fails, state: TestResultState.Failed, duration: 3 },
+            ],
+            [
+                "appendOutputToRun",
+                { runId: "r1", taskId: "T0", output: "hello\r\n", location: undefined, testId: adds },
+            ],
             ["finishedTestRunTask", { runId: "r1", taskId: "T0" }],
         ]);
     });
@@ -151,10 +177,20 @@ describe("vscode.tests — a run the core asks for", () => {
     it("[api:tests.createTestController] an unknown controller, profile or test answers empty without calling the handler", async () => {
         const handler = vi.fn();
         const env = setup(handler);
-        const req = { runId: "r", controllerId: "ctrl", profileId: env.profileId, testIds: ["ctrl\0gone"], excludeExtIds: [] };
+        const req = {
+            runId: "r",
+            controllerId: "ctrl",
+            profileId: env.profileId,
+            testIds: ["ctrl\0gone"],
+            excludeExtIds: [],
+        };
         await expect(
             env.stub.callRequest("testing.runControllerTests", {
-                requests: [req, { ...req, controllerId: "nope" }, { ...req, profileId: env.profileId + 1, testIds: ["ctrl"] }],
+                requests: [
+                    req,
+                    { ...req, controllerId: "nope" },
+                    { ...req, profileId: env.profileId + 1, testIds: ["ctrl"] },
+                ],
             }),
         ).resolves.toEqual([{}, {}, {}]);
         expect(handler).not.toHaveBeenCalled();
@@ -324,7 +360,7 @@ describe("vscode.tests — a run the extension starts", () => {
         expect(started).toEqual([
             "startedExtensionTestRun",
             {
-                runId: expect.any(String),
+                runId: expect.any(String) as string,
                 controllerId: "ctrl",
                 include: [testId("ctrl", "math", "adds")],
                 exclude: [testId("ctrl", "math", "fails")],
@@ -354,16 +390,22 @@ describe("vscode.tests — a run the extension starts", () => {
         const env = setup(() => undefined);
         env.controller.createTestRun(new env.vscode.TestRunRequest());
         expect(sentParams(env.stub, "testing.startedExtensionTestRun")).toEqual([
-            expect.objectContaining({ include: ["ctrl"], exclude: [], profileId: null, preserveFocus: true, continuous: false }),
+            expect.objectContaining({
+                include: ["ctrl"],
+                exclude: [],
+                profileId: null,
+                preserveFocus: true,
+                continuous: false,
+            }),
         ]);
     });
 
     it("[api:tests.createTestController] a profile or a test from elsewhere throws, as upstream", () => {
         const env = setup(() => undefined);
         const foreignProfile = { kind: 1 } as unknown as vscodeTypes.TestRunProfile;
-        expect(() => env.controller.createTestRun(new env.vscode.TestRunRequest(undefined, undefined, foreignProfile))).toThrow(
-            "TestRunRequest.profile is not an instance created from TestController.createRunProfile",
-        );
+        expect(() =>
+            env.controller.createTestRun(new env.vscode.TestRunRequest(undefined, undefined, foreignProfile)),
+        ).toThrow("TestRunRequest.profile is not an instance created from TestController.createRunProfile");
         const run = env.controller.createTestRun(new env.vscode.TestRunRequest());
         const fake = { id: "fake" } as vscodeTypes.TestItem;
         expect(() => {
@@ -381,21 +423,28 @@ describe("vscode.tests — a run the extension starts", () => {
         const diff = env.vscode.TestMessage.diff(new env.vscode.MarkdownString("**not equal**"), "2", "3");
         diff.contextValue = "ctx";
         diff.stackTrace = [
-            new env.vscode.TestMessageStackFrame("at adds", env.vscode.Uri.file("/w/a.ts"), new env.vscode.Position(4, 2)),
+            new env.vscode.TestMessageStackFrame(
+                "at adds",
+                env.vscode.Uri.file("/w/a.ts"),
+                new env.vscode.Position(4, 2),
+            ),
             new env.vscode.TestMessageStackFrame("native"),
         ];
         const located = new env.vscode.TestMessage("here");
         located.location = new env.vscode.Location(env.vscode.Uri.file("/w/b.ts"), new env.vscode.Range(7, 0, 7, 1));
         run.errored(env.adds, [diff, located], 5);
-        run.appendOutput("at\n", new env.vscode.Location(env.vscode.Uri.file("/w/c.ts"), new env.vscode.Range(0, 0, 0, 1)));
+        run.appendOutput(
+            "at\n",
+            new env.vscode.Location(env.vscode.Uri.file("/w/c.ts"), new env.vscode.Range(0, 0, 0, 1)),
+        );
         const range = (line: number, from: number, to: number) => ({
             start: { line, character: from },
             end: { line, character: to },
         });
         expect(sentParams(env.stub, "testing.appendTestMessagesInRun")).toEqual([
             {
-                runId: expect.any(String),
-                taskId: expect.any(String),
+                runId: expect.any(String) as string,
+                taskId: expect.any(String) as string,
                 testId: testId("ctrl", "math", "adds"),
                 messages: [
                     {
@@ -409,7 +458,10 @@ describe("vscode.tests — a run the extension starts", () => {
                             { label: "native", uri: undefined, position: undefined },
                         ],
                     },
-                    expect.objectContaining({ message: "here", location: { uri: "file:///w/b.ts", range: range(7, 0, 1) } }),
+                    expect.objectContaining({
+                        message: "here",
+                        location: { uri: "file:///w/b.ts", range: range(7, 0, 1) },
+                    }),
                 ],
             },
         ]);
@@ -417,10 +469,16 @@ describe("vscode.tests — a run the extension starts", () => {
             expect.objectContaining({ state: TestResultState.Errored, duration: 5 }),
         ]);
         expect(sentParams(env.stub, "testing.appendOutputToRun")).toEqual([
-            expect.objectContaining({ output: "at\n", location: { uri: "file:///w/c.ts", range: range(0, 0, 1) }, testId: undefined }),
+            expect.objectContaining({
+                output: "at\n",
+                location: { uri: "file:///w/c.ts", range: range(0, 0, 1) },
+                testId: undefined,
+            }),
         ]);
         run.skipped(env.fails);
-        expect(sentParams(env.stub, "testing.updateTestStateInRun")[1]).toMatchObject({ state: TestResultState.Skipped });
+        expect(sentParams(env.stub, "testing.updateTestStateInRun")[1]).toMatchObject({
+            state: TestResultState.Skipped,
+        });
     });
 });
 

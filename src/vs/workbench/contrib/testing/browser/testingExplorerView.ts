@@ -42,7 +42,11 @@ import {
     ProgressServiceDIToken,
     SPINNER_FRAMES,
 } from "../../../../platform/progress/common/progressService.ts";
-import { type IStateDescriptor, type IStateService, StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
+import {
+    type IStateDescriptor,
+    type IStateService,
+    StateServiceDIToken,
+} from "../../../../platform/state/common/iStateService.ts";
 import {
     type IProductIconService,
     ProductIconServiceDIToken,
@@ -80,7 +84,14 @@ import {
     TestFilterTerm,
     toggleFilterTerm,
 } from "../common/testExplorerFilter.ts";
-import { isFailedState, isStateWithResult, statePriority, statesInOrder, computeState, formatDuration } from "../common/testingStates.ts";
+import {
+    computeState,
+    formatDuration,
+    isFailedState,
+    isStateWithResult,
+    statePriority,
+    statesInOrder,
+} from "../common/testingStates.ts";
 import type { ITestResultItemChange, LiveTestResult } from "../common/testResult.ts";
 import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
 import { type ITestNode, type TestService, TestServiceDIToken } from "../common/testService.ts";
@@ -691,10 +702,11 @@ export class TestingExplorerComponent extends Component {
         }
         const { state, duration } = this.stateOf(node);
         const spinning = isBusy(node) || state === TestResultState.Running;
-        const icon = spinning ? undefined : STATE_ICONS[state as keyof typeof STATE_ICONS];
+        const icon = spinning ? undefined : STATE_ICONS[state];
         let description = node.item.description ?? undefined;
         if (duration !== undefined) {
-            description = description === undefined ? formatDuration(duration) : `${description}: ${formatDuration(duration)}`;
+            description =
+                description === undefined ? formatDuration(duration) : `${description}: ${formatDuration(duration)}`;
         }
         return {
             label: node.item.label,
@@ -804,10 +816,10 @@ export class TestingExplorerComponent extends Component {
      * stops at its nearest shown ancestor.
      */
     private followRunningTest(change: ITestResultItemChange): void {
-        if (change.reason !== "ownState" || this.configuration.get("testing.followRunningTest") !== true) return;
+        if (change.reason !== "ownState" || !this.configuration.get("testing.followRunningTest")) return;
         const { ownComputedState: state } = change.item;
         if (state !== TestResultState.Running && !isStateWithResult(state)) return;
-        const expand = this.configuration.get("testing.alwaysRevealTestOnStateChange") === true || isFailedState(state);
+        const expand = this.configuration.get("testing.alwaysRevealTestOnStateChange") || isFailedState(state);
         const chain: ITestRow[] = [];
         for (let id: string | undefined = change.item.item.extId; id !== undefined; id = TestId.parentId(id)) {
             const node = this.tests.getNodeById(id);
@@ -817,7 +829,9 @@ export class TestingExplorerComponent extends Component {
         if (this.tests.rootItems.filter((root) => root.children.size > 0).length === 1) chain.shift();
         let target = chain;
         if (!expand) {
-            const collapsed = chain.findIndex((row, index) => index < chain.length - 1 && !this.expanded.has(rowKey(row)));
+            const collapsed = chain.findIndex(
+                (row, index) => index < chain.length - 1 && !this.expanded.has(rowKey(row)),
+            );
             if (collapsed !== -1) target = chain.slice(0, collapsed + 1);
         }
         if (target.length > 0) void this.tree.reveal(target).catch(onUnexpectedError);

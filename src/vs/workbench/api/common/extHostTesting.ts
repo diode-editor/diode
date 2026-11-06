@@ -182,11 +182,11 @@ export function createExtHostTesting(rpc: SubprocessRpc): IExtHostTesting {
     }
 
     rpc.handleRequest("testing.runControllerTests", (params, token) => {
-        const { requests } = params as IWireRunControllerTests;
+        const { requests } = params;
         return Promise.all(requests.map((req) => runControllerTestRequest(req, token)));
     });
     rpc.handleNotification("testing.cancelExtensionTestRun", (params) => {
-        const { runId, taskId } = params as IWireCancelTestRun;
+        const { runId, taskId } = params;
         if (runId === undefined) runTracker.cancelAllRuns();
         else runTracker.cancelRunById(runId, taskId);
     });

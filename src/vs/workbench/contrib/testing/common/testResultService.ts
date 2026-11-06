@@ -6,9 +6,18 @@ import {
     ContextKeyServiceDIToken,
 } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { type IWireExtensionTestRun, TestResultState, TestRunProfileBitset } from "../../../api/common/testingWireTypes.ts";
+import {
+    type IWireExtensionTestRun,
+    TestResultState,
+    TestRunProfileBitset,
+} from "../../../api/common/testingWireTypes.ts";
 
-import { type IResolvedTestRunRequest, type ITestResultItem, type ITestResultItemChange, LiveTestResult } from "./testResult.ts";
+import {
+    type IResolvedTestRunRequest,
+    type ITestResultItem,
+    type ITestResultItemChange,
+    LiveTestResult,
+} from "./testResult.ts";
 
 /** Upstream `RETAIN_MAX_RESULTS` (`testResultStorage.ts`). */
 export const RETAIN_MAX_RESULTS = 128;
@@ -76,7 +85,10 @@ export class TestResultService extends Disposable {
     }
 
     /** Upstream `createLiveResult` for a run the extension started; `profileGroup` of its profile, if any. */
-    public createExtensionLiveResult(run: IWireExtensionTestRun, profileGroup: IResolvedTestRunRequest["group"] | undefined): LiveTestResult {
+    public createExtensionLiveResult(
+        run: IWireExtensionTestRun,
+        profileGroup: IResolvedTestRunRequest["group"] | undefined,
+    ): LiveTestResult {
         const request: IResolvedTestRunRequest = {
             preserveFocus: run.preserveFocus,
             targets:
@@ -132,7 +144,8 @@ export class TestResultService extends Disposable {
     /** Upstream `resort`: the live ones first, then by insertion, the latest first. */
     private onComplete(result: LiveTestResult): void {
         this.resultList.sort((a, b) => {
-            if ((a.completedAt === undefined) !== (b.completedAt === undefined)) return a.completedAt === undefined ? -1 : 1;
+            if ((a.completedAt === undefined) !== (b.completedAt === undefined))
+                return a.completedAt === undefined ? -1 : 1;
             return b.insertOrder - a.insertOrder;
         });
         this.contextKeys.set(

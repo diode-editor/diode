@@ -9,7 +9,11 @@ import type { ITestRunUi } from "../common/testService.ts";
 
 /** Upstream `saveAllBeforeTest` through the workbench's Save All, and the run's error toast. */
 export class TestRunUi implements ITestRunUi {
-    public static dependencies = [CommandRegistryDIToken, IConfigurationServiceDIToken, NotificationServiceDIToken] as const;
+    public static dependencies = [
+        CommandRegistryDIToken,
+        IConfigurationServiceDIToken,
+        NotificationServiceDIToken,
+    ] as const;
 
     public constructor(
         private readonly commands: CommandRegistry,
@@ -18,7 +22,7 @@ export class TestRunUi implements ITestRunUi {
     ) {}
 
     public async saveAllBeforeTest(): Promise<void> {
-        if (this.configuration.get("testing.saveBeforeTest") === false) return;
+        if (!this.configuration.get("testing.saveBeforeTest")) return;
         await this.commands.execute("workbench.action.files.saveAll");
     }
 

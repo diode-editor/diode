@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { testId, testTree } from "../../../../../TestUtils/testTree.ts";
-import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
+import { testId, testTree } from "../../../../../TestUtils/testTree.ts";
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import {
     type IWireRunControllerTestsResult,
     type IWireStartControllerTests,

@@ -5,9 +5,9 @@ import {
     extensionFixture,
     type IExtensionHarness,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
 import { testTree } from "../../../../../TestUtils/testTree.ts";
 import { settle, waitUntil } from "../../../../../TestUtils/timing.ts";
-import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { TestProfileService } from "../../../contrib/testing/common/testProfileService.ts";
 import type { TestService } from "../../../contrib/testing/common/testService.ts";

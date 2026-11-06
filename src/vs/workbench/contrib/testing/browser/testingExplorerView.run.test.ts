@@ -73,7 +73,7 @@ type Explorer = Awaited<ReturnType<typeof withTests>>;
 /** The run the core asked for, as the extension reports it: one task, the chain of every test it touches. */
 function report(explorer: Explorer, index = 0) {
     const request = explorer.runs[index];
-    const result = explorer.results.getResult(request.requests[0].runId) as LiveTestResult;
+    const result = explorer.results.getResult(request.requests[0].runId)!;
     result.addTask({ id: "t", name: "vitest", ctrlId: "vitest" });
     const state = (path: readonly string[], value: TestResultState, duration?: number): void => {
         const chain = path.map((_, i) => wireItem(path.slice(0, i + 1)));
@@ -121,7 +121,9 @@ function menuIcons(explorer: Explorer): (string | undefined)[] {
 }
 
 function selectMenu(explorer: Explorer, label: string): void {
-    const entry = menuEntries(explorer).find((candidate) => candidate.type !== "separator" && candidate.label === label);
+    const entry = menuEntries(explorer).find(
+        (candidate) => candidate.type !== "separator" && candidate.label === label,
+    );
     if (entry === undefined || entry.type === "separator" || entry.type === "submenu") throw new Error(`no "${label}"`);
     entry.onSelect?.();
 }
@@ -139,7 +141,7 @@ describe("Test Explorer — a run from the title", () => {
         });
         expect(explorer.runs[0].requests).toEqual([
             {
-                runId: expect.any(String),
+                runId: expect.any(String) as string,
                 controllerId: "vitest",
                 profileId: 1,
                 testIds: ["vitest"],
@@ -378,7 +380,9 @@ describe("Test Explorer — results", () => {
         run.state(FAILS, Queued);
         run.state(SLOW, Errored, 5);
         run.end();
-        await explorer.waitFrame((text) => text.includes("↷ adds") && text.includes("↷ fails") && text.includes("⊙ slow 5.0ms"));
+        await explorer.waitFrame(
+            (text) => text.includes("↷ adds") && text.includes("↷ fails") && text.includes("⊙ slow 5.0ms"),
+        );
         expect(explorer.lines()[2]).toContain("⊙ 0/1");
         void Skipped;
     });
@@ -396,10 +400,20 @@ describe("Test Explorer — results", () => {
             continuous: false,
         });
         explorer.adapter.startedTestRunTask({ runId: "ext", taskId: "t", controllerId: "vitest", name: "vitest" });
-        explorer.adapter.addTestsToRun({ runId: "ext", controllerId: "vitest", tests: [wireItem(ROOT), wireItem(FILE), wireItem(SUITE), wireItem(ADDS)] });
+        explorer.adapter.addTestsToRun({
+            runId: "ext",
+            controllerId: "vitest",
+            tests: [wireItem(ROOT), wireItem(FILE), wireItem(SUITE), wireItem(ADDS)],
+        });
         explorer.adapter.updateTestStateInRun({ runId: "ext", taskId: "t", testId: testId(...ADDS), state: Running });
         await explorer.waitFrame((text) => text.includes("■") && /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] adds/.test(text));
-        explorer.adapter.updateTestStateInRun({ runId: "ext", taskId: "t", testId: testId(...ADDS), state: Passed, duration: 2 });
+        explorer.adapter.updateTestStateInRun({
+            runId: "ext",
+            taskId: "t",
+            testId: testId(...ADDS),
+            state: Passed,
+            duration: 2,
+        });
         explorer.adapter.finishedExtensionTestRun("ext");
         await explorer.waitFrame((text) => text.includes("✓ adds 2.0ms") && text.includes("✓ 1/1"));
     });
@@ -439,14 +453,18 @@ describe("Test Explorer — state filters and sortings", () => {
         expect(menuLabels(explorer)).toEqual(["Show Only Failed Tests", "Show Only Executed Tests"]);
         expect(explorer.views.shown.at(-1)?.getOwner()).toBe(explorer.component.filterInput);
         selectMenu(explorer, "Show Only Failed Tests");
-        await explorer.waitFrame((text) => text.includes("@failed") && !text.includes(" adds") && text.includes(" fails"));
+        await explorer.waitFrame(
+            (text) => text.includes("@failed") && !text.includes(" adds") && text.includes(" fails"),
+        );
         expect(explorer.component.isFilteringFor("@failed")).toBe(true);
         explorer.click(glyph.x, glyph.y);
         expect(menuIcons(explorer)).toEqual(["✓", undefined]);
         selectMenu(explorer, "Show Only Failed Tests");
         await explorer.waitFrame((text) => !text.includes("@failed") && text.includes(" adds"));
         explorer.component.toggleFilteringFor("@executed");
-        await explorer.waitFrame((text) => text.includes("@executed") && text.includes(" adds") && !text.includes(" slow"));
+        await explorer.waitFrame(
+            (text) => text.includes("@executed") && text.includes(" adds") && !text.includes(" slow"),
+        );
     });
 
     it("Sort by Status puts the failed first, by Duration the longest first; the choice is kept in the workspace", async () => {

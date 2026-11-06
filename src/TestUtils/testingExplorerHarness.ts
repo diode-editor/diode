@@ -25,13 +25,13 @@ import {
 import { menuItemsOfAction } from "../vs/workbench/browser/actions/menuContributions.ts";
 import { makeViewsHarness } from "../vs/workbench/browser/parts/views/viewsService.testUtils.ts";
 import { TESTING_ACTIONS } from "../vs/workbench/contrib/testing/browser/testingActions.ts";
-import { TestProfileServiceDIToken } from "../vs/workbench/contrib/testing/common/testProfileService.ts";
-import { TestResultServiceDIToken } from "../vs/workbench/contrib/testing/common/testResultService.ts";
 import {
     TESTING_VIEWLET_ID,
     TestingExplorerComponent,
     TestingExplorerComponentDIToken,
 } from "../vs/workbench/contrib/testing/browser/testingExplorerView.ts";
+import { TestProfileServiceDIToken } from "../vs/workbench/contrib/testing/common/testProfileService.ts";
+import { TestResultServiceDIToken } from "../vs/workbench/contrib/testing/common/testResultService.ts";
 import {
     type ITestControllerRegistration,
     TestService,

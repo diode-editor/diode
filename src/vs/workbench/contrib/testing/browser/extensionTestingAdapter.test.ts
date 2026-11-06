@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
+import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import type { IExtensionTestControllerProxy } from "../../../api/common/iExtensionTestingSink.ts";
 import { type IWireTestItem, type IWireTestRunProfile, TestResultState } from "../../../api/common/testingWireTypes.ts";
 function setup() {
@@ -140,8 +140,19 @@ describe("ExtensionTestingAdapter", () => {
         expect(result?.request.group).toBe(4);
         adapter.startedTestRunTask({ runId: "r", taskId: "t", controllerId: "c", name: "vitest" });
         adapter.addTestsToRun({ runId: "r", controllerId: "c", tests: [wireItem("c"), wireItem("c\0a")] });
-        adapter.updateTestStateInRun({ runId: "r", taskId: "t", testId: "c\0a", state: TestResultState.Failed, duration: 4 });
-        adapter.appendTestMessagesInRun({ runId: "r", taskId: "t", testId: "c\0a", messages: [{ message: "x" }, { message: "y" }] });
+        adapter.updateTestStateInRun({
+            runId: "r",
+            taskId: "t",
+            testId: "c\0a",
+            state: TestResultState.Failed,
+            duration: 4,
+        });
+        adapter.appendTestMessagesInRun({
+            runId: "r",
+            taskId: "t",
+            testId: "c\0a",
+            messages: [{ message: "x" }, { message: "y" }],
+        });
         adapter.appendOutputToRun({ runId: "r", taskId: "t", output: "out", testId: "c\0a" });
         adapter.updateTestStateInRun({ runId: "other", taskId: "t", testId: "c\0a", state: TestResultState.Passed });
         const state = result?.getStateById("c\0a");

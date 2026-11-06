@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
-
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";

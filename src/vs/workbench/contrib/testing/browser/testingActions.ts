@@ -17,9 +17,9 @@ import { TestResultServiceDIToken } from "../common/testResultService.ts";
 import { type ITestNode, TestServiceDIToken } from "../common/testService.ts";
 
 import {
+    type TestExplorerViewSorting,
     TESTING_EXPLORER_VIEW_ID,
     TESTING_VIEWLET_ID,
-    type TestExplorerViewSorting,
     TestingExplorerComponentDIToken,
 } from "./testingExplorerView.ts";
 

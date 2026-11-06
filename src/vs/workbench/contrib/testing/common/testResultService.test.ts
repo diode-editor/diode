@@ -10,7 +10,16 @@ import { RETAIN_MAX_RESULTS, TestResultService } from "./testResultService.ts";
 const REQUEST = { targets: [], group: TestRunProfileBitset.Run } as const;
 
 function item(...path: string[]): IWireTestItem {
-    return { extId: testId(...path), label: path.at(-1) ?? "", tags: [], busy: false, range: null, description: null, error: null, sortText: null };
+    return {
+        extId: testId(...path),
+        label: path.at(-1) ?? "",
+        tags: [],
+        busy: false,
+        range: null,
+        description: null,
+        error: null,
+        sortText: null,
+    };
 }
 
 function setup() {
@@ -135,7 +144,10 @@ describe("TestResultService", () => {
             targets: [],
             group: TestRunProfileBitset.Run,
         });
-        expect(service.createExtensionLiveResult({ ...run, runId: "y", profileId: null }, TestRunProfileBitset.Run).request.targets).toEqual([]);
+        expect(
+            service.createExtensionLiveResult({ ...run, runId: "y", profileId: null }, TestRunProfileBitset.Run).request
+                .targets,
+        ).toEqual([]);
     });
 
     it("disposing the service disposes its runs", () => {

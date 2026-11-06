@@ -129,7 +129,8 @@ export function filterTest(filter: ITestExplorerFilter, lineage: TestLineage, st
 
 /** Upstream `testState`: `@failed` wins over `@executed`. */
 function filterState(filter: ITestExplorerFilter, state: TestResultState): FilterResult {
-    if (filter.terms.has(TestFilterTerm.Failed)) return isFailedState(state) ? FilterResult.Include : FilterResult.Inherit;
+    if (filter.terms.has(TestFilterTerm.Failed))
+        return isFailedState(state) ? FilterResult.Include : FilterResult.Inherit;
     if (filter.terms.has(TestFilterTerm.Executed))
         return state === TestResultState.Unset ? FilterResult.Inherit : FilterResult.Include;
     return FilterResult.Include;

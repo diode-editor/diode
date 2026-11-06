@@ -137,7 +137,16 @@ describe("TestingCustomer", () => {
         const { sink, calls } = recordingSink();
         const { peer } = setup(sink);
         const range = { start: { line: 1, character: 0 }, end: { line: 1, character: 4 } };
-        const item = { extId: "c", label: "C", tags: [], busy: false, range: null, description: null, error: null, sortText: null };
+        const item = {
+            extId: "c",
+            label: "C",
+            tags: [],
+            busy: false,
+            range: null,
+            description: null,
+            error: null,
+            sortText: null,
+        };
         const methods = [
             "testing.startedExtensionTestRun",
             "testing.finishedExtensionTestRun",
@@ -170,7 +179,11 @@ describe("TestingCustomer", () => {
             continuous: false,
         } as never);
         peer.notify("testing.startedTestRunTask", { runId: "r", taskId: "t", controllerId: "c", name: "vitest" });
-        peer.notify("testing.addTestsToRun", { runId: "r", controllerId: "c", tests: [item, { label: "bad" }, item] } as never);
+        peer.notify("testing.addTestsToRun", {
+            runId: "r",
+            controllerId: "c",
+            tests: [item, { label: "bad" }, item],
+        } as never);
         peer.notify("testing.updateTestStateInRun", { runId: "r", taskId: "t", testId: "c", state: 3, duration: 12 });
         peer.notify("testing.updateTestStateInRun", { runId: "r", taskId: "t", testId: "c", state: 4, duration: NaN });
         peer.notify("testing.appendTestMessagesInRun", {
@@ -183,13 +196,23 @@ describe("TestingCustomer", () => {
                     expected: "1",
                     actual: 2,
                     location: { uri: "file:///a.ts", range },
-                    stackTrace: [{ label: "at", position: { line: 1, character: 2 } }, { label: 3 }, { label: "x", position: { line: 1 } }],
+                    stackTrace: [
+                        { label: "at", position: { line: 1, character: 2 } },
+                        { label: 3 },
+                        { label: "x", position: { line: 1 } },
+                    ],
                 },
                 { message: 3 },
                 { message: "no location", location: { uri: "file:///a.ts" } },
             ],
         } as never);
-        peer.notify("testing.appendOutputToRun", { runId: "r", taskId: "t", output: "hi", location: { uri: "file:///a.ts", range }, testId: "c" });
+        peer.notify("testing.appendOutputToRun", {
+            runId: "r",
+            taskId: "t",
+            output: "hi",
+            location: { uri: "file:///a.ts", range },
+            testId: "c",
+        });
         peer.notify("testing.finishedTestRunTask", { runId: "r", taskId: "t" });
         peer.notify("testing.finishedExtensionTestRun", { runId: "r" });
         peer.notify("testing.startedExtensionTestRun", { runId: "s", controllerId: "c" } as never);
@@ -198,7 +221,16 @@ describe("TestingCustomer", () => {
         expect(calls).toEqual([
             [
                 "startedExtensionTestRun",
-                { runId: "r", controllerId: "c", include: ["c"], exclude: [], profileId: 5, preserveFocus: false, persist: true, continuous: false },
+                {
+                    runId: "r",
+                    controllerId: "c",
+                    include: ["c"],
+                    exclude: [],
+                    profileId: 5,
+                    preserveFocus: false,
+                    persist: true,
+                    continuous: false,
+                },
             ],
             ["startedTestRunTask", { runId: "r", taskId: "t", controllerId: "c", name: "vitest" }],
             // The chain is cut at the malformed test.
@@ -234,12 +266,24 @@ describe("TestingCustomer", () => {
                     ],
                 },
             ],
-            ["appendOutputToRun", { runId: "r", taskId: "t", output: "hi", location: { uri: "file:///a.ts", range }, testId: "c" }],
+            [
+                "appendOutputToRun",
+                { runId: "r", taskId: "t", output: "hi", location: { uri: "file:///a.ts", range }, testId: "c" },
+            ],
             ["finishedTestRunTask", { runId: "r", taskId: "t" }],
             ["finishedExtensionTestRun", "r"],
             [
                 "startedExtensionTestRun",
-                { runId: "s", controllerId: "c", include: [], exclude: [], profileId: null, preserveFocus: true, persist: true, continuous: false },
+                {
+                    runId: "s",
+                    controllerId: "c",
+                    include: [],
+                    exclude: [],
+                    profileId: null,
+                    preserveFocus: true,
+                    persist: true,
+                    continuous: false,
+                },
             ],
             ["startedTestRunTask", { runId: "s", taskId: "t", controllerId: "c", name: "" }],
         ]);

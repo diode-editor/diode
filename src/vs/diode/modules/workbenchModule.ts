@@ -380,7 +380,10 @@ import {
     TestProfileService,
     TestProfileServiceDIToken,
 } from "../../workbench/contrib/testing/common/testProfileService.ts";
-import { TestResultService, TestResultServiceDIToken } from "../../workbench/contrib/testing/common/testResultService.ts";
+import {
+    TestResultService,
+    TestResultServiceDIToken,
+} from "../../workbench/contrib/testing/common/testResultService.ts";
 import {
     TestRunUiDIToken,
     TestService,
