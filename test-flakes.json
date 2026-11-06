@@ -2,6 +2,12 @@
     "$comment": "Known flaky tests, unit and e2e: vitest retries (retry) or skips (skip) them, see src/TestUtils/flakeTestRunner.ts. A screenshot scenario is keyed by its *.scenario.ts file and name (e2e/scenarios/suite.ts); optional platforms limits an entry to those process.platform values. Process and details: docs/TODO/TestFlakes.md.",
     "flakes": [
         {
+            "file": "e2e/scenarios/java-lens-hints.scenario.ts",
+            "test": "java-lens-hints",
+            "action": "retry",
+            "note": "waitUntil(screen text predicate) timed out after 180000ms waiting for the code lens counts after the settings change, both e2e attempts on ubuntu (run 41990980003, main 5dc77f229, whose diff is the 0.14.3 version bump); green on the neighbouring main runs"
+        },
+        {
             "file": "e2e/scenarios/linkedEditing.scenario.ts",
             "test": "linked-editing",
             "action": "retry",

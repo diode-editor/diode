@@ -50,9 +50,9 @@
   ожидания метки (run 41297584473, PR #1000, дифф — только тесты terraform).
 - [ ] `editorElement.performance.test.ts`, «displayLineFor caps the visible long line»: замер времени, 336 мс при пороге
   298 в dry run Stryker, из-за этого mutation-job остался без вердикта (run 41260477522, PR #985, дифф — команда `type`).
-- [ ] Бенч `e2e/bench/hugeBudget.bench.ts`, log500m Enable Editing: `ArrowDown during the load` — медиана 32 мс при
-  бюджете 30 (run 41260477522, ubuntu-latest, PR #985, дифф — команда `type`; повтор: run 41426194603, PR #1027, тот же
-  замер 32 > 30; ещё: run 41769127071, PR #1053 — 32 и 30 > 30 подряд). Не в `test-flakes.json`: это бюджет бенча.
+- [ ] Сценарий `java-lens-hints` (heavy): после записи настроек счётчики CodeLens не появились за 180 с, обе попытки
+  e2e, в кадре `Java: Ready` и подсказки параметров есть. Ubuntu, `main` 5dc77f229 (run 41990980003, дифф — версия 0.14.3);
+  соседние прогоны `main` зелёные.
 - [ ] e2e `quick-input-validation` и `extension-untitled-uri`, только windows-latest: `waitUntil(screen text predicate)`
   не дождался за 10 с (run 41255028793, PR #959, дифф — inlay hints); на ubuntu и при перезапуске зелёные.
 - [ ] `workbench.saveConflict.test.ts`, последний тест перед ошибкой — «saves without a prompt when the file was not
