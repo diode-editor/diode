@@ -35,7 +35,6 @@ import {
 } from "../../../api/common/testingWireTypes.ts";
 import type { QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
-import type { NotificationService } from "../../../services/notification/browser/notificationService.ts";
 
 import {
     type ITestingDecorationsEditor,
@@ -132,9 +131,10 @@ function setup(options: ISetupOptions = {}) {
         },
     } as unknown as QuickInputService;
     const toasts: string[] = [];
-    const notifications = {
-        show: (toast: { message: string }) => toasts.push(toast.message),
-    } as unknown as NotificationService;
+    const ui = {
+        saveAllBeforeTest: () => Promise.resolve(),
+        showError: (message: string) => toasts.push(message),
+    };
     const decorations = new TestingDecorations(
         { getEditors: () => open, onDidChangeEditors: editorsChanged.event },
         explorer.tests,
@@ -147,7 +147,7 @@ function setup(options: ISetupOptions = {}) {
         explorer.views.contextMenu,
         explorer.views.commands,
         quickInput,
-        notifications,
+        ui,
     );
 
     const openEditor = (uri = URI, text = TEXT): IOpenEditor => {

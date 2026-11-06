@@ -1,7 +1,6 @@
 import { assertReturnsDefined } from "../../../base/common/assert.ts";
-import { positionsEqual } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";
-import { createRange } from "../core/iRange.ts";
+import { createRange, isEmptyRange } from "../core/iRange.ts";
 import type { IGlyphMarginDecoration } from "../model/iGlyphMarginDecoration.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 import { TrackedRangeStickiness } from "../model/trackedDecorations.ts";
@@ -30,33 +29,30 @@ export class GlyphMarginDecorations {
     /** A glyph with the key and the line of one already placed keeps the line it moved to; the rest are placed anew. */
     public set(decorations: readonly IGlyphMarginDecoration[]): void {
         const previous = new Map(this.entries.map((entry) => [entry.decoration.key, entry]));
-        const kept = new Set<string>();
-        const placed: { readonly index: number; readonly range: IRange }[] = [];
-        const next: (IGlyphEntry | undefined)[] = decorations.map((decoration, index) => {
+        const kept = (decoration: IGlyphMarginDecoration): IGlyphEntry | undefined => {
             const old = previous.get(decoration.key);
-            if (old?.decoration.line === decoration.line && !kept.has(old.id)) {
-                kept.add(old.id);
-                return { ...old, decoration };
-            }
-            placed.push({ index, range: this.lineRange(decoration.line) });
-            return undefined;
-        });
+            return old?.decoration.line === decoration.line ? old : undefined;
+        };
+        const keptIds = new Set(decorations.flatMap((decoration) => kept(decoration)?.id ?? []));
+        const placed = decorations.filter((decoration) => kept(decoration) === undefined);
         const ids = this.document.deltaDecorations(
-            this.entries.filter((entry) => !kept.has(entry.id)).map((entry) => entry.id),
-            placed.map(({ range }) => ({
-                range,
-                // Stryker disable next-line StringLiteral: the description is for debugging only, as in upstream
+            this.entries.filter((entry) => !keptIds.has(entry.id)).map((entry) => entry.id),
+            placed.map((decoration) => ({
+                range: this.lineRange(decoration.line),
                 options: {
+                    // Stryker disable next-line StringLiteral: the description is for debugging only, as in upstream
                     description: "glyph-margin",
                     stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
                 },
             })),
         );
-        placed.forEach(({ index }, i) => {
-            const id = ids[i];
-            next[index] = { id, decoration: decorations[index], placedEmpty: isEmpty(this.rangeOf(id)) };
+        let next = 0;
+        this.entries = decorations.map((decoration) => {
+            const old = kept(decoration);
+            if (old !== undefined) return { ...old, decoration };
+            const id = ids[next++];
+            return { id, decoration, placedEmpty: isEmptyRange(this.rangeOf(id)) };
         });
-        this.entries = next as IGlyphEntry[];
     }
 
     /** The glyphs by the line they are on now; a deleted line's glyph is not there, the last one on a line wins. */
@@ -64,7 +60,7 @@ export class GlyphMarginDecorations {
         const result = new Map<number, IGlyphMarginDecoration>();
         for (const { id, decoration, placedEmpty } of this.entries) {
             const range = this.rangeOf(id);
-            if (!placedEmpty && isEmpty(range)) continue;
+            if (!placedEmpty && isEmptyRange(range)) continue;
             result.set(range.start.line, decoration);
         }
         return result;
@@ -81,8 +77,4 @@ export class GlyphMarginDecorations {
         // Only this class removes its decorations.
         return assertReturnsDefined(this.document.getDecorationRange(id));
     }
-}
-
-function isEmpty(range: IRange): boolean {
-    return positionsEqual(range.start, range.end);
 }

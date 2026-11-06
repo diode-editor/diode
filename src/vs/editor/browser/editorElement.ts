@@ -715,7 +715,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         return this.glyphMargin.isEmpty ? GUTTER_LEFT_PADDING : GUTTER_LEFT_PADDING_WITH_GLYPHS;
     }
 
-    /** Glyphs of the owner (test decorations); each keeps its line through edits until set again elsewhere. */
+    /** The glyph lane's glyphs; each keeps its line through edits until set again elsewhere. */
     public setGlyphMarginDecorations(decorations: readonly IGlyphMarginDecoration[]): void {
         this.glyphMargin.set(decorations);
         this.markDirty();
@@ -1568,16 +1568,15 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState.selections = [createSelection(pos.line, word.start, pos.line, word.end)];
     }
 
-    /** The glyph lane is the whole left padding: the glyph is drawn in its middle, a press anywhere on it counts. */
+    /**
+     * The glyph lane is the whole left padding: the glyph is drawn in its middle, a press anywhere on it counts. From
+     * the screen cell, as the editor's context menu reads its event.
+     */
     private tryClickGlyphMargin(event: TUIMouseEvent, button: IGlyphMarginClick["button"]): boolean {
         const localX = event.screenX - this.globalPosition.x;
         if (this.glyphMargin.isEmpty || localX < 0 || localX >= this.gutterLeftPadding) return false;
-        const viewLine = this.viewState.scrollTop + event.screenY - this.globalPosition.y;
-        if (viewLine >= this.viewState.getViewLineCount() || this.viewState.viewLineKind(viewLine) === "zone")
-            return false;
-        // The glyph is on the first fragment only.
-        if (this.viewState.viewLineRange(viewLine).start > 0) return false;
-        const glyph = this.glyphMargin.byLine().get(this.viewState.visualToLogicalLine(viewLine));
+        const line = this.gutterLineAt(event.screenY - this.globalPosition.y);
+        const glyph = line === null ? undefined : this.glyphMargin.byLine().get(line);
         if (glyph === undefined) return false;
         this.onDidClickGlyphMarginEmitter.fire({
             key: glyph.key,
@@ -1590,18 +1589,25 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     private tryToggleFoldAtGutter(localX: number, localY: number): boolean {
         if (localX !== this.foldControlColumn) return false;
-
-        const viewLine = this.viewState.scrollTop + localY;
-        if (viewLine < 0 || viewLine >= this.viewState.getViewLineCount()) return false;
-        // The chevron lives on the first fragment; a click on a wrapped continuation does not fold.
-        if (this.viewState.viewLineRange(viewLine).start > 0) return false;
-
-        const logLine = this.viewState.visualToLogicalLine(viewLine);
+        const logLine = this.gutterLineAt(localY);
+        if (logLine === null) return false;
         const region = this.viewState.foldedRegions.find((r) => r.startLine === logLine);
         if (region === undefined) return false;
 
         this.viewState.toggleFold(logLine);
         return true;
+    }
+
+    /**
+     * The document line whose gutter is at the row: the chevron and the glyph live on a line's first fragment, so a
+     * wrapped continuation, a view zone and the rows past the end have none.
+     */
+    private gutterLineAt(localY: number): number | null {
+        const viewLine = this.viewState.scrollTop + localY;
+        if (viewLine < 0 || viewLine >= this.viewState.getViewLineCount()) return null;
+        if (this.viewState.viewLineKind(viewLine) === "zone") return null;
+        if (this.viewState.viewLineRange(viewLine).start > 0) return null;
+        return this.viewState.visualToLogicalLine(viewLine);
     }
 
     /**

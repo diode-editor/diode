@@ -97,6 +97,7 @@ import { type TestResultService, TestResultServiceDIToken } from "../common/test
 import { type ITestNode, type TestService, TestServiceDIToken } from "../common/testService.ts";
 
 import { testingStatesToIcons } from "./icons.ts";
+import { getTestItemContextOverlay } from "./testItemContextOverlay.ts";
 
 /** Upstream `Testing.ViewletId`. */
 export const TESTING_VIEWLET_ID = "workbench.view.extension.test";
@@ -889,12 +890,7 @@ export class TestingExplorerComponent extends Component {
     /** Upstream `getActionableElementActions`: the row's keys on top of the global ones. */
     private itemMenu(row: ITestRow, inline: boolean): IMenuEntryGroup[] {
         if (row.kind === "error") return [];
-        const keys: MenuContextKeys = {
-            view: TESTING_EXPLORER_VIEW_ID,
-            testId: TestId.localId(row.testId),
-            controllerId: row.node.controllerId,
-            "testing.testItemHasUri": row.node.item.uri !== undefined,
-        };
+        const keys: MenuContextKeys = { view: TESTING_EXPLORER_VIEW_ID, ...getTestItemContextOverlay(row.node) };
         return this.menus
             .getEntryGroups(MenuId.TestItem, undefined, keys)
             .filter((group) => (group.group === INLINE_MENU_GROUP) === inline);

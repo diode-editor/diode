@@ -27,7 +27,6 @@ import { StaticProductIconService } from "../../../../platform/theme/common/prod
 import { TestResultState } from "../../../api/common/testingWireTypes.ts";
 import type { QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { TestingDecorations } from "../../../contrib/testing/browser/testingDecorations.ts";
-import type { NotificationService } from "../../notification/browser/notificationService.ts";
 import { registerExtensionMenus } from "../common/extensionMenuContributor.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
@@ -238,7 +237,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                     } as unknown as ContextMenuService,
                     commands,
                     {} as QuickInputService,
-                    { show: () => undefined } as unknown as NotificationService,
+                    { saveAllBeforeTest: () => Promise.resolve(), showError: () => undefined },
                 );
                 await harness.host.activateByEvent("workspaceContains:node_modules/.bin/vitest");
                 await waitUntil("a Run profile", () => contextKeys.get("testing.hasRunnableTests") === true, 60_000);

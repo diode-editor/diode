@@ -40,17 +40,21 @@ import {
     QuickInputServiceDIToken,
 } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { bindMenuEntry, runMenuEntry } from "../../../browser/parts/views/treeItemMenu.ts";
-import {
-    type NotificationService,
-    NotificationServiceDIToken,
-} from "../../../services/notification/browser/notificationService.ts";
 import { isFailedState, maxPriority } from "../common/testingStates.ts";
 import { type TestProfileService, TestProfileServiceDIToken } from "../common/testProfileService.ts";
 import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
-import { type ITestNode, type TestService, TestServiceDIToken } from "../common/testService.ts";
+import {
+    type ITestNode,
+    type ITestRunUi,
+    TestRunUiDIToken,
+    type TestService,
+    TestServiceDIToken,
+} from "../common/testService.ts";
 
 import { testingRunAllIcon, testingRunIcon, testingStatesToIcons } from "./icons.ts";
+import { cancelTestRunAction } from "./testingActions.ts";
 import { REVEAL_TEST_COMMAND, TESTING_EXPLORER_VIEW_ID } from "./testingExplorerView.ts";
+import { getTestItemContextOverlay } from "./testItemContextOverlay.ts";
 
 // Upstream `contrib/testing/browser/testingDecorations.ts`: the run glyphs (`RunTestDecoration`). Deviations: no Debug
 // and no Coverage entries (no debugger, no coverage yet), Alt does not switch to debug, and the glyph has no hover.
@@ -58,8 +62,6 @@ import { REVEAL_TEST_COMMAND, TESTING_EXPLORER_VIEW_ID } from "./testingExplorer
 /** Upstream `MAX_TESTS_IN_SUBMENU`. */
 export const MAX_TESTS_IN_SUBMENU = 30;
 
-/** Upstream `TestCommandId.CancelTestRunAction`. */
-const CANCEL_RUN_COMMAND = "testing.cancelRun";
 /** Upstream's command behind "Peek Error"; offered once something registers it (the TEST RESULTS view). */
 export const PEEK_TEST_ERROR_COMMAND = "vscode.peekTestError";
 
@@ -85,15 +87,13 @@ export const TestingDecorationsEditorSourceDIToken = token<ITestingDecorationsEd
 );
 export const TestingDecorationsDIToken = token<TestingDecorations>("TestingDecorations");
 
-/** Upstream `RunTestDecoration`: the tests whose range starts on one line. */
-interface IRunDecoration {
-    readonly tests: readonly ITestNode[];
-}
-
 interface IAttachedEditor {
+    readonly editor: ITestingDecorationsEditor;
     readonly subscriptions: readonly IDisposable[];
-    /** By the glyph's key. */
-    decorations: ReadonlyMap<string, IRunDecoration>;
+    /** Upstream `RunTestDecoration`s: the tests whose range starts on one line, by the glyph's key. */
+    decorations: ReadonlyMap<string, readonly ITestNode[]>;
+    /** Some glyph shows the spinner: the progress ticks redraw this editor. */
+    spinning: boolean;
     /** Tests asked to resolve their children for this file: upstream's `testsInFile`. */
     readonly expanded: Set<string>;
 }
@@ -116,13 +116,13 @@ export class TestingDecorations extends Disposable {
         ContextMenuServiceDIToken,
         CommandRegistryDIToken,
         QuickInputServiceDIToken,
-        NotificationServiceDIToken,
+        TestRunUiDIToken,
     ] as const;
 
     private readonly attached = new Map<ITestingDecorationsEditor, IAttachedEditor>();
-    /** Some glyph shows the spinner: the progress ticks redraw. */
-    private spinning = false;
     private refreshQueued = false;
+    /** A diff came in the batch: the files' tests may have new children to resolve. */
+    private expandQueued = false;
 
     public constructor(
         private readonly editors: ITestingDecorationsEditorSource,
@@ -136,7 +136,7 @@ export class TestingDecorations extends Disposable {
         private readonly contextMenu: ContextMenuService,
         private readonly commands: CommandRegistry,
         private readonly quickInput: QuickInputService,
-        private readonly notifications: NotificationService,
+        private readonly ui: ITestRunUi,
     ) {
         super();
         this.register(
@@ -146,17 +146,18 @@ export class TestingDecorations extends Disposable {
         );
         this.register(
             tests.onDidProcessDiff(() => {
-                this.queueRefresh(true);
+                this.expandQueued = true;
+                this.queueRefresh();
             }),
         );
         this.register(
             results.onResultsChanged(() => {
-                this.queueRefresh(false);
+                this.queueRefresh();
             }),
         );
         this.register(
             results.onTestChanged(() => {
-                this.queueRefresh(false);
+                this.queueRefresh();
             }),
         );
         this.register(
@@ -171,7 +172,9 @@ export class TestingDecorations extends Disposable {
         );
         this.register(
             progress.onDidChange(() => {
-                if (this.spinning) this.refreshAll();
+                for (const state of this.attached.values()) {
+                    if (state.spinning) this.refresh(state);
+                }
             }),
         );
         this.register({
@@ -190,21 +193,23 @@ export class TestingDecorations extends Disposable {
         for (const editor of open) {
             if (this.attached.has(editor)) continue;
             const state: IAttachedEditor = {
+                editor,
                 subscriptions: [
                     editor.onDidClickGlyphMargin((click) => {
-                        this.click(editor, click);
+                        this.click(state, click);
                     }),
                     editor.onDidChangeTooLargeForTokenization(() => {
-                        this.expandTestsInFile(editor);
-                        this.refresh(editor);
+                        this.expandTestsInFile(state);
+                        this.refresh(state);
                     }),
                 ],
                 decorations: new Map(),
+                spinning: false,
                 expanded: new Set(),
             };
             this.attached.set(editor, state);
-            this.expandTestsInFile(editor);
-            this.refresh(editor);
+            this.expandTestsInFile(state);
+            this.refresh(state);
         }
     }
 
@@ -215,28 +220,27 @@ export class TestingDecorations extends Disposable {
         this.attached.delete(editor);
     }
 
-    /** A run reports state by state: the glyphs are recomputed once per batch of them. */
-    private queueRefresh(expand: boolean): void {
-        if (expand) {
-            for (const editor of this.attached.keys()) this.expandTestsInFile(editor);
-        }
+    /** A run reports state by state, discovery diff by diff: the glyphs are recomputed once per batch. */
+    private queueRefresh(): void {
         if (this.refreshQueued) return;
         this.refreshQueued = true;
         queueMicrotask(() => {
             this.refreshQueued = false;
+            if (this.expandQueued) {
+                this.expandQueued = false;
+                for (const state of this.attached.values()) this.expandTestsInFile(state);
+            }
             this.refreshAll();
         });
     }
 
     private refreshAll(): void {
-        this.spinning = false;
-        for (const editor of this.attached.keys()) this.refresh(editor);
+        for (const state of this.attached.values()) this.refresh(state);
     }
 
     /** Upstream `applyDecorations`. */
-    private refresh(editor: ITestingDecorationsEditor): void {
-        const state = this.attached.get(editor);
-        if (state === undefined) return;
+    private refresh(state: IAttachedEditor): void {
+        const { editor } = state;
         const byLine = new Map<number, ITestNode[]>();
         if (this.configuration.get("testing.gutterEnabled") && !editor.isTooLargeForTokenization) {
             for (const test of this.tests.getNodesByUri(editor.uri.toString())) {
@@ -247,43 +251,47 @@ export class TestingDecorations extends Disposable {
                 else onLine.push(test);
             }
         }
-        const decorations = new Map<string, IRunDecoration>();
+        const decorations = new Map<string, readonly ITestNode[]>();
         const glyphs: IGlyphMarginDecoration[] = [];
+        state.spinning = false;
         for (const [line, tests] of byLine) {
             // Upstream `CachedDecorations` keys a decoration by its exact tests.
             const key = tests
                 .map((test) => test.item.extId)
                 .sort()
                 .join("\0\0");
-            decorations.set(key, { tests });
-            glyphs.push({ key, line, ...this.glyphFor(tests) });
+            decorations.set(key, tests);
+            const glyph = this.glyphFor(tests);
+            state.spinning ||= glyph.spinning;
+            glyphs.push({ key, line, ...glyph.decoration });
         }
         state.decorations = decorations;
         editor.setGlyphMarginDecorations(glyphs);
     }
 
     /** Upstream `createRunTestDecoration`. */
-    private glyphFor(tests: readonly ITestNode[]): Omit<IGlyphMarginDecoration, "key" | "line"> {
+    private glyphFor(tests: readonly ITestNode[]): {
+        readonly decoration: Omit<IGlyphMarginDecoration, "key" | "line">;
+        readonly spinning: boolean;
+    } {
         const state = this.stateOf(tests);
         if (state === TestResultState.Unset) {
             const multiple = tests.length > 1 || tests[0].children.size > 0;
-            return {
-                glyph: this.icons.glyph(multiple ? testingRunAllIcon : testingRunIcon),
-                colorToken: "testing.runAction",
-            };
+            const glyph = this.icons.glyph(multiple ? testingRunAllIcon : testingRunIcon);
+            return { decoration: { glyph, colorToken: "testing.runAction" }, spinning: false };
         }
         const icon = testingStatesToIcons[state];
         if (icon === undefined) {
             // Running: the spinner of the explorer's progress, the shared clock of `ProgressService`.
-            this.spinning = true;
             const spinner = this.progress.viewProgress().get(TESTING_EXPLORER_VIEW_ID)?.spinner ?? SPINNER_FRAMES[0];
-            return { glyph: spinner, colorToken: "testing.runAction" };
+            return { decoration: { glyph: spinner, colorToken: "testing.runAction" }, spinning: true };
         }
-        return {
+        const decoration = {
             glyph: this.icons.glyph(icon.icon),
             colorToken: icon.color,
             overviewRulerColorToken: isFailedState(state) ? "editorOverviewRuler.errorForeground" : undefined,
         };
+        return { decoration, spinning: false };
     }
 
     private stateOf(tests: readonly ITestNode[]): TestResultState {
@@ -298,9 +306,9 @@ export class TestingDecorations extends Disposable {
      * Upstream `testsInFile`: the tests over the file (no uri, a folder of it, the file itself) are asked to resolve
      * their children, so a controller that discovers lazily shows the file's tests.
      */
-    private expandTestsInFile(editor: ITestingDecorationsEditor): void {
-        const state = this.attached.get(editor);
-        if (state === undefined || editor.isTooLargeForTokenization) return;
+    private expandTestsInFile(state: IAttachedEditor): void {
+        const { editor } = state;
+        if (editor.isTooLargeForTokenization) return;
         const uri = editor.uri.toString();
         const visit = (test: ITestNode): void => {
             const testUri = test.item.uri;
@@ -319,15 +327,15 @@ export class TestingDecorations extends Disposable {
     }
 
     /** Upstream `RunTestDecoration.click`; Alt changes nothing, there is no debugger. */
-    private click(editor: ITestingDecorationsEditor, click: IGlyphMarginClick): void {
-        const decoration = this.attached.get(editor)?.decorations.get(click.key);
-        if (decoration === undefined) return;
+    private click(state: IAttachedEditor, click: IGlyphMarginClick): void {
+        const tests = state.decorations.get(click.key);
+        if (tests === undefined) return;
         if (click.button === "right" || this.configuration.get("testing.defaultGutterClickAction") === "contextMenu") {
-            this.showContextMenu(editor, decoration, click);
+            this.showContextMenu(state.editor, tests, click);
             return;
         }
         // `debug` and `runWithCoverage` run: no debugger, no coverage yet.
-        this.run(decoration.tests);
+        this.run(tests);
     }
 
     /** Upstream `runWith` over `simplifyTestsToExecute`: a test under another one of the set runs with it. */
@@ -344,10 +352,9 @@ export class TestingDecorations extends Disposable {
 
     private showContextMenu(
         editor: ITestingDecorationsEditor,
-        decoration: IRunDecoration,
+        tests: readonly ITestNode[],
         click: IGlyphMarginClick,
     ): void {
-        const { tests } = decoration;
         const entries = tests.length === 1 ? this.testEntries(tests[0]) : this.multiTestEntries(tests);
         this.contextMenu.showContextMenu({
             getOwner: () => editor.view,
@@ -381,7 +388,7 @@ export class TestingDecorations extends Disposable {
             entries.push({
                 label: "Cancel Test Run",
                 onSelect: () => {
-                    this.execute(CANCEL_RUN_COMMAND);
+                    this.execute(cancelTestRunAction.id);
                 },
             });
         }
@@ -397,15 +404,17 @@ export class TestingDecorations extends Disposable {
 
     /** Upstream `getContributedTestActions`: `testing/item/gutter` with the test's keys, the test as the argument. */
     private contributedEntries(test: ITestNode): MenuEntry[] {
-        const keys: MenuContextKeys = {
-            testId: TestId.localId(test.item.extId),
-            controllerId: test.controllerId,
-            "testing.testItemHasUri": test.item.uri !== undefined,
-        };
+        const keys = getTestItemContextOverlay(test);
         const arg: IWireTestItemArg = { $testId: test.item.extId };
         return joinMenuGroups(this.menus.getEntryGroups(MenuId.TestItemGutter, undefined, keys)).map((entry) =>
             bindMenuEntry(entry, (item) => {
-                runMenuEntry(item, (id) => this.commands.execute(id, arg), this.showError);
+                runMenuEntry(
+                    item,
+                    (id) => this.commands.execute(id, arg),
+                    (message) => {
+                        this.ui.showError(message);
+                    },
+                );
             }),
         );
     }
@@ -447,13 +456,14 @@ export class TestingDecorations extends Disposable {
             placeholder: "Select a test to run",
             items: labelled.map(({ label }) => ({ label })),
         });
-        const test = labelled.find(({ label }) => label === picked?.label)?.test;
+        if (picked === undefined) return;
+        const test = labelled.find(({ label }) => label === picked.label)?.test;
         if (test === undefined) return;
         const actions = this.testEntries(test).filter(
             (entry) => entry.type !== "separator" && entry.type !== "submenu",
         );
         const action = await this.quickInput.quickPick({
-            placeholder: picked?.label,
+            placeholder: picked.label,
             items: actions.map((entry) => ({ label: entry.label })),
         });
         actions.find((entry) => entry.label === action?.label)?.onSelect?.();
@@ -462,10 +472,6 @@ export class TestingDecorations extends Disposable {
     private execute(id: string, ...args: unknown[]): void {
         Promise.resolve(this.commands.execute(id, ...args)).catch(onUnexpectedError);
     }
-
-    private readonly showError = (message: string): void => {
-        this.notifications.show({ severity: "error", message, modal: false, items: [] });
-    };
 }
 
 interface ILabelledTest {
