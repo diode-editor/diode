@@ -90,11 +90,23 @@ describe("Test Explorer — sortings tell their keys apart", () => {
         run.result.markComplete();
         void explorer.views.commands.execute("testing.sortByStatus");
         await vi.waitFor(() => {
-            expect(order(explorer, NAMES)).toEqual(["yy line3", "zz line1", "xx line2", "aa no range", "bb other file"]);
+            expect(order(explorer, NAMES)).toEqual([
+                "yy line3",
+                "zz line1",
+                "xx line2",
+                "aa no range",
+                "bb other file",
+            ]);
         });
         void explorer.views.commands.execute("testing.sortByDuration");
         await vi.waitFor(() => {
-            expect(order(explorer, NAMES)).toEqual(["xx line2", "yy line3", "zz line1", "aa no range", "bb other file"]);
+            expect(order(explorer, NAMES)).toEqual([
+                "xx line2",
+                "yy line3",
+                "zz line1",
+                "aa no range",
+                "bb other file",
+            ]);
         });
     });
 });

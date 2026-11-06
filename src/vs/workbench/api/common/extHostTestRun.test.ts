@@ -555,12 +555,12 @@ describe("TestRunTracker — what the gate asked", () => {
             floating.range = new env.vscode.Range(1, 0, 1, 1);
             env.controller.items.add(floating);
             run.failed(floating, new env.vscode.TestMessage("x"));
+            // While the run is tracked.
+            env.stub.fire("testing.cancelExtensionTestRun", { runId: "r1", taskId: "nope" });
+            expect(run.token.isCancellationRequested).toBe(false);
             run.end();
         });
         await env.run(["ctrl"]);
-        expect(() => {
-            env.stub.fire("testing.cancelExtensionTestRun", { runId: "r1", taskId: "nope" });
-        }).not.toThrow();
         expect(
             (sentParams(env.stub, "testing.appendTestMessagesInRun")[0] as { messages: { location: unknown }[] })
                 .messages[0].location,

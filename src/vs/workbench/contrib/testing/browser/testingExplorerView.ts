@@ -449,6 +449,7 @@ export class TestingExplorerComponent extends Component {
         const visible = this.visible;
         if (visible === null) return { include: [...(within ?? this.tests.rootItems)], exclude: [] };
         // Within the given tests their children start as included; the whole tree starts at its roots.
+        // Stryker disable next-line ArrayDeclaration: equivalent — a stray entry has no controller, runTests finds no profile for it
         const include: ITestNode[] = within === undefined ? [] : [...within];
         const exclude: ITestNode[] = [];
         const attempt = (node: ITestNode, alreadyIncluded: boolean): void => {
@@ -834,6 +835,7 @@ export class TestingExplorerComponent extends Component {
             if (collapsed !== -1) target = chain.slice(0, collapsed + 1);
         }
         // After the refresh in flight: a reveal in the middle of one loses its cursor.
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent — revealing an empty chain selects nothing
         if (target.length > 0)
             void this.tree
                 .refresh()

@@ -84,8 +84,47 @@ describe("testing run commands", () => {
         expect(explorer.cancels).toEqual([explorer.runs[0].requests[0].runId]);
     });
 
+    it("Cancel Test Run with a run id and a task that is not an id cancels the whole run", async () => {
+        const explorer = setup();
+        void explorer.views.commands.execute("testing.runAll");
+        await vi.waitFor(() => {
+            expect(explorer.runs).toHaveLength(1);
+        });
+        const { runId } = explorer.runs[0].requests[0];
+        await explorer.views.commands.execute("testing.cancelRun", runId, 7);
+        expect(explorer.cancels).toEqual([runId]);
+        expect(explorer.runs[0].token.isCancellationRequested).toBe(true);
+    });
+
+    it("Rerun Last Run falls back to the defaults when any of its profiles is gone", async () => {
+        const explorer = setup();
+        explorer.registerController("d");
+        explorer.profiles.addProfile(profile("d", 1));
+        explorer.tests.publishDiff([add(wireItem(["d"]), Expanded), add(wireItem(["d", "x"]), NotExpandable)]);
+        void explorer.views.commands.execute("testing.runAll");
+        // One request per controller.
+        await vi.waitFor(() => {
+            expect(explorer.runs).toHaveLength(2);
+        });
+        for (const run of explorer.runs) run.finish();
+        await vi.waitFor(() => {
+            expect(explorer.results.results[0].completedAt).toBeDefined();
+        });
+        explorer.profiles.removeProfile("d", 1);
+        explorer.profiles.addProfile(profile("d", 2, "New"));
+        void explorer.views.commands.execute("testing.reRunLastRun");
+        await vi.waitFor(() => {
+            expect(explorer.runs).toHaveLength(4);
+        });
+        expect(explorer.runs.slice(2).map((r) => [r.requests[0].controllerId, r.requests[0].profileId])).toEqual([
+            ["vitest", 1],
+            ["d", 2],
+        ]);
+    });
+
     it("Run All Tests leaves out a root that has no tests and cannot get any", async () => {
         const explorer = setup();
+        explorer.profiles.addProfile(profile("empty"));
         explorer.registerController("empty");
         explorer.tests.publishDiff([add(wireItem(["empty"]), NotExpandable)]);
         void explorer.views.commands.execute("testing.runAll");
@@ -123,7 +162,9 @@ describe("testing run commands", () => {
         const explorer = setup();
         await completedRun(explorer, { a: TestResultState.Failed });
         await expect(explorer.views.commands.execute("testing.reRunLastRun", "gone")).resolves.toBeUndefined();
-        await expect(explorer.views.commands.execute("testing.reRunFailedFromLastRun", "gone")).resolves.toBeUndefined();
+        await expect(
+            explorer.views.commands.execute("testing.reRunFailedFromLastRun", "gone"),
+        ).resolves.toBeUndefined();
         expect(explorer.runs).toHaveLength(1);
     });
 

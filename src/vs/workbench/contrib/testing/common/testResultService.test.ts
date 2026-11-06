@@ -168,4 +168,14 @@ describe("TestResultService", () => {
         c.markComplete();
         expect(service.results).toEqual([b, c, a]);
     });
+
+    it("the oldest run, still live, is first after newer ones complete", () => {
+        const { service } = setup();
+        const a = service.createLiveResult(REQUEST);
+        const b = service.createLiveResult(REQUEST);
+        const c = service.createLiveResult(REQUEST);
+        b.markComplete();
+        c.markComplete();
+        expect(service.results).toEqual([a, c, b]);
+    });
 });

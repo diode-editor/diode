@@ -78,7 +78,7 @@ export interface ITestRunController {
 
 /** Upstream `TestRunTracker`: the `TestRun`s of one run of one controller. */
 export class TestRunTracker {
-    private state: "running" | "cancelling" | "ended" = "running";
+    private ended = false;
     private running = 0;
     private readonly tasks = new Map<string, { readonly cts: CancellationTokenSource; readonly run: vscode.TestRun }>();
     /** Tests whose chain the host already has. */
@@ -115,8 +115,7 @@ export class TestRunTracker {
     public cancel(taskId?: string): void {
         if (taskId !== undefined) {
             this.tasks.get(taskId)?.cts.cancel();
-        } else if (this.state === "running") {
-            this.state = "cancelling";
+        } else if (!this.cts.token.isCancellationRequested) {
             this.cts.cancel();
         } else {
             // An ended run's `TestRun`s ignore `end()`.
@@ -251,8 +250,8 @@ export class TestRunTracker {
     }
 
     private markEnded(): void {
-        if (this.state === "ended") return;
-        this.state = "ended";
+        if (this.ended) return;
+        this.ended = true;
         this.endEmitter.fire();
     }
 
