@@ -13,6 +13,9 @@ import { testTree } from "../../../../../TestUtils/testTree.ts";
 import { waitUntil } from "../../../../../TestUtils/timing.ts";
 import { installVsix } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
 
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
+import { TestResultState } from "../../../api/common/testingWireTypes.ts";
+
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 // The stock `vitest.explorer` from the marketplace (#1068): its controller reaches the TestService over the
@@ -28,8 +31,8 @@ const MATH_TEST = [
     '    it("adds", () => {',
     "        expect(1 + 1).toBe(2);",
     "    });",
-    '    it("subtracts", () => {',
-    "        expect(2 - 1).toBe(1);",
+    '    it("fails", () => {',
+    "        expect(2 - 1).toBe(2);",
     "    });",
     "});",
     "",
@@ -69,7 +72,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
             const workspace = path.join(tmpRoot, "workspace");
             writeWorkspace(workspace);
             const services = makeTestingServices();
-            const { contextKeys, tests } = services;
+            const { contextKeys, tests, results } = services;
             const output: string[] = [];
             const harness: IExtensionHarness = await createExtensionTestHarness({
                 workspaceFolders: [workspace],
@@ -109,7 +112,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                     "    math.test.ts",
                     "      math",
                     "        adds",
-                    "        subtracts",
+                    "        fails",
                 ]);
 
                 // The row's "Update Snapshot" (`testing/item/context`) gets the extension's own TestItem: it runs it.
@@ -124,6 +127,25 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                     () => output.slice(before).some((line) => line.includes('Enqueuing "adds"')),
                     60_000,
                 );
+
+                // Run Tests from the core: the profile's runHandler; `adds` passes, `fails` fails, 1 of 2 passed.
+                const fails = [...(tests.getNodeById(suite)?.children ?? [])].find(
+                    (id) => tests.getNodeById(id)?.item.label === "fails",
+                );
+                const run = await tests.runTests({ tests: [root] });
+                const state = (id: string | undefined) => (id === undefined ? undefined : results.getStateById(id)?.[1]);
+                expect(state(adds)?.ownComputedState).toBe(TestResultState.Passed);
+                expect(state(fails)?.ownComputedState).toBe(TestResultState.Failed);
+                expect(state(suite)?.computedState).toBe(TestResultState.Failed);
+                expect(run.counts[TestResultState.Passed]).toBe(1);
+                expect(run.counts[TestResultState.Failed] + run.counts[TestResultState.Errored]).toBe(1);
+                expect(state(fails)?.tasks.flatMap((task) => task.messages).some((m) => m.type === "error")).toBe(true);
+
+                // Rerun Failed Tests: only `fails` runs, `adds` keeps its state from the first run.
+                const rerun = await tests.runTests({ tests: [assertReturnsDefined(tests.getNodeById(assertReturnsDefined(fails)))] });
+                const ran = [...rerun.tests].filter((test) => test.ownComputedState !== TestResultState.Unset);
+                expect(ran.map((test) => test.item.label)).toEqual(["fails"]);
+                expect(state(adds)?.ownComputedState).toBe(TestResultState.Passed);
 
                 const resolving = output.filter((line) => line.includes("Resolving configs")).length;
                 await tests.refreshTests();

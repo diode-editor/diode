@@ -385,7 +385,9 @@ eval-режим node, иначе расширение молча не линти
   (в OUTPUT → Vitest — новый «Resolving configs»). Вьюха Testing (#1069): контейнер появляется с
   контроллером, дерево `src` → `math.test.ts` → `math` → тесты, Enter открывает файл на строке теста;
   «Update Snapshot» из меню строки получает `TestItem` расширения и запускает тест (в OUTPUT → Vitest —
-  `Enqueuing "adds"`, стоковый тест это проверяет). Запусков из ядра пока нет — следующая задача цепочки #1056.
+  `Enqueuing "adds"`, стоковый тест это проверяет). Запуски (#1070): Run Tests зовёт `runHandler` профиля
+  Vitest, `adds` ✓, `fails` ✗, родители ✗, сводка `1/2`; «Rerun Failed Tests» запускает только `fails`
+  (стоковый тест).
 - **Магазин** — запись `vitest.explorer` (`support: partial`, `engines.diode` — релиз с вьюхой Testing).
   Стоковый тест — `extensionHost.vitestExplorer.test.ts`: воркспейс `package.json` + `vitest.config.ts`
   + `src/math.test.ts`, `node_modules` — симлинк на репозиторий diode (vitest там есть).

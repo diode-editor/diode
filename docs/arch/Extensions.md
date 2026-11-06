@@ -912,8 +912,27 @@
   вьюхи). Пункт меню строки Test Explorer (`testing/item/context` → `MenuId.TestItem`) получает аргументом
   `IWireTestItemArg {$testId}`: `processArgument` субпроцесса (`extHostTesting`, после деревьев) превращает его
   в собственный `TestItem` расширения по id (`MarshalledId.TestItemContext` эталона), ушедший тест —
-  `undefined`. Вьюха — [Views.md, «Testing»](workbench/Views.md#testing). Не сделано: запуски
-  (`runHandler`, `createTestRun` — инертный), `testResults`, continuous run, related code.
+  `undefined`. Вьюха — [Views.md, «Testing»](workbench/Views.md#testing).
+  **Запуски (#1070)** — `TestRunTracker`/`TestRunCoordinator` эталона в `api/common/extHostTestRun.ts`.
+  Ядро просит `testing.runControllerTests {requests: [{runId, controllerId, profileId, testIds,
+  excludeExtIds}]}` с токеном: субпроцесс строит `TestRunRequest` (`include` — `undefined` для корня,
+  исключения — только под включёнными) и зовёт `runHandler` профиля; `createTestRun(request)` внутри него —
+  задача того же запуска. Ответ — `[{error?}]` (reject обработчика — текст), он ждёт конца всех `TestRun`
+  запуска, после отмены — только сам обработчик. Отчёты — notify: `startedTestRunTask`/`finishedTestRunTask`,
+  `addTestsToRun` (цепочка от известного предка или корня, как `ensureTestIsKnown`), `updateTestStateInRun`
+  (`TestResultState` эталона), `appendTestMessagesInRun` (markdown — текстом, локация теста по умолчанию),
+  `appendOutputToRun`. Отмена: токен запроса и `testing.cancelExtensionTestRun {runId?, taskId?}` (одна
+  функция на спавн, ядро шлёт её раз на субпроцесс); через `RUN_CANCEL_DEADLINE = 10 с` трекер сам
+  завершает `TestRun`, повторная отмена — сразу. `createTestRun` без запроса ядра — запуск расширения:
+  `startedExtensionTestRun` → `finishedExtensionTestRun` с концом последнего `TestRun`. Хост:
+  `ExtensionTestingAdapter` пишет отчёты в живой `LiveTestResult` (`common/testResult.ts`) из
+  `TestResultService` (`testResultService.ts`, ключи `testing.isRunning`/`hasAnyResults`, 128 результатов в
+  памяти); `TestService.runTests` берёт первый профиль группы контроллера, подходящий по тегу, Save All и
+  тост ошибки — через `ITestRunUi` (`browser/testRunUi.ts`). Смерть субпроцесса: ответ отклоняется, запуск
+  закрывается, его тесты в работе — skipped (`markTaskComplete` эталона); запуски расширения закрывает
+  `reset()`. Отступления: имя задачи без `name` — подпись контроллера (у эталона — имя расширения);
+  результаты не переживают перезапуск (у эталона — storage); coverage-отчёты отбрасываются. Не сделано:
+  `tests.testResults`/`onDidChangeTestResults`, continuous run, related code.
 - **`languages.setLanguageConfiguration` (`extHostLanguageConfiguration.ts` →
   `LanguageConfigurationCustomer`):** по эталону `wordPattern` остаётся в субпроцессе — определение
   слова языка в `DocumentRegistry` для `getWordRangeAtPosition` (и эфемерных документов
