@@ -11,12 +11,19 @@ export const TestId = {
     joinToString: (base: string, id: string): string => base + TEST_ID_DELIMITER + id,
     /** The controller id. */
     root: (testId: string): string => testId.split(TEST_ID_DELIMITER, 1)[0],
+    /** The test's own id: the last segment. */
+    localId: (testId: string): string => testId.slice(testId.lastIndexOf(TEST_ID_DELIMITER) + 1),
     /** `undefined` for a controller root. */
     parentId: (testId: string): string | undefined => {
         const index = testId.lastIndexOf(TEST_ID_DELIMITER);
         return index === -1 ? undefined : testId.slice(0, index);
     },
 };
+
+/** Upstream `Convert.TestTag.namespace`: a tag id as the core sees it. */
+export function namespaceTestTag(controllerId: string, tagId: string): string {
+    return controllerId + TEST_ID_DELIMITER + tagId;
+}
 
 /** Upstream `TestItemExpandState`. */
 export const TestItemExpandState = {
@@ -76,6 +83,15 @@ export type WireTestsDiffOp =
     | { readonly op: typeof TestDiffOpType.Add; readonly item: IWireInternalTestItem }
     | { readonly op: typeof TestDiffOpType.Update; readonly item: IWireTestItemUpdate }
     | { readonly op: typeof TestDiffOpType.Remove; readonly itemId: string };
+
+/**
+ * Upstream `ITestItemContext` (`MarshalledId.TestItemContext`), by id: a Test Explorer row as a command argument, turned
+ * back into the extension's `TestItem` before the command runs (`extHostTesting` `processArgument`).
+ */
+export interface IWireTestItemArg {
+    /** The full test id. */
+    readonly $testId: string;
+}
 
 /** Upstream `$registerTestController`; `canRefresh` is the `Refresh` capability. */
 export interface IWireTestController {

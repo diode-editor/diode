@@ -2,7 +2,7 @@ import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { MenuEntry, MenuItemEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
-import type { ITreeDataProvider, ITreeItem, ITreeItemAction } from "@tuidom/elements/tree/iTreeDataProvider";
+import type { ITreeDataProvider, ITreeItem } from "@tuidom/elements/tree/iTreeDataProvider";
 import { type TreeIndentGuides, TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
 import { CODICON_GLYPHS } from "../../../base/common/codicons.generated.ts";
@@ -11,13 +11,19 @@ import { DisposableStore, type IDisposable } from "../../../base/common/lifecycl
 import { Uri } from "../../../base/common/uri.ts";
 import {
     type IMenuEntryGroup,
-    type IResolvedMenuItemEntry,
     joinMenuGroups,
     type ResolvedMenuEntry,
 } from "../../../platform/actions/common/menuRegistry.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import type { IProductIconService } from "../../../platform/theme/common/productIconService.ts";
 import { HeaderBodyViewElement } from "../../browser/parts/views/headerBodyViewElement.ts";
+import {
+    bindMenuEntry,
+    INLINE_MENU_GROUP,
+    inlineMenuActions,
+    inlineMenuEntries,
+    runMenuEntry,
+} from "../../browser/parts/views/treeItemMenu.ts";
 import { ViewMessageElement } from "../../browser/parts/views/viewMessageElement.ts";
 import type { IExtensionTreeDataSource } from "../common/iExtensionTreeViewsSink.ts";
 import type { IWireTreeItem, IWireTreeItemHandleArg, IWireTreeViewReveal } from "../common/treeViewWireTypes.ts";
@@ -65,9 +71,6 @@ export interface IExtensionTreeNode {
 
 /** Upstream `TreeItemCollapsibleState.Expanded`. */
 const EXPANDED = 2;
-
-/** Upstream `getContextMenuActions(menuData, 'inline')`: this group is the row's buttons, the rest its menu. */
-const INLINE_GROUP = "inline";
 
 const NO_CHILDREN: readonly IExtensionTreeNode[] = [];
 
@@ -314,7 +317,7 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
 
     /** Resolved again on the click, as upstream's buttons: the item under the glyph runs with its row's element. */
     private runInlineAction(node: IExtensionTreeNode, index: number): void {
-        const entry = inlineEntries(this.menuGroups(node.item, true)).at(index);
+        const entry = inlineMenuEntries(this.menuGroups(node.item, true)).at(index);
         // A glyph drawn before the menu changed.
         if (entry === undefined) return;
         this.runEntry(entry, [this.rowArg(node)]);
@@ -323,7 +326,7 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
     private menuGroups(item: IWireTreeItem, inline: boolean): IMenuEntryGroup[] {
         return this.host
             .itemMenu(this.viewId, item.contextValue)
-            .filter((group) => (group.group === INLINE_GROUP) === inline);
+            .filter((group) => (group.group === INLINE_MENU_GROUP) === inline);
     }
 
     /** Upstream `MultipleSelectionActionRunner`: a selection of several counts only when the row is in it. */
@@ -341,32 +344,19 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
 
     /** The registry's entry runs the command without the row; ours passes it and reports a failure. */
     private bindEntry(entry: MenuEntry, args: readonly unknown[]): MenuEntry {
-        // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent — a separator given `onSelect` below is still a separator to the popup
-        if (entry.type === "separator") return entry;
-        if (entry.type === "submenu") {
-            // The engine's submenu may be lazy; the registry's is eager, both bind their items.
-            const entries = typeof entry.entries === "function" ? entry.entries() : entry.entries;
-            return { ...entry, entries: entries.map((child) => this.bindEntry(child, args)) };
-        }
-        return {
-            ...entry,
-            onSelect: () => {
-                this.runEntry(entry, args);
-            },
-        };
+        return bindMenuEntry(entry, (item) => {
+            this.runEntry(item, args);
+        });
     }
 
     private runEntry(entry: MenuItemEntry, args: readonly unknown[]): void {
-        // Stryker disable next-line ConditionalExpression: the registry always sets `id` (the command) on an item entry
-        if (entry.disabled === true || entry.id === undefined) return;
-        const fail = (err: unknown): void => {
-            this.host.notifyError(err instanceof Error ? err.message : String(err));
-        };
-        try {
-            Promise.resolve(this.host.executeCommand(entry.id, args)).catch(fail);
-        } catch (err: unknown) {
-            fail(err);
-        }
+        runMenuEntry(
+            entry,
+            (id) => this.host.executeCommand(id, args),
+            (message) => {
+                this.host.notifyError(message);
+            },
+        );
     }
 
     /** The glyphs are baked into the rows: they are rebuilt from the last answers. */
@@ -457,16 +447,8 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
             icon: icon?.glyph,
             iconColor: icon?.color,
             description: this.descriptionOf(item),
-            actions: this.inlineActions(item),
+            actions: inlineMenuActions(this.menuGroups(item, true)),
         };
-    }
-
-    /** The command's icon, or its title when it has none (or its glyph is missing from the font set). */
-    private inlineActions(item: IWireTreeItem): ITreeItemAction[] {
-        return inlineEntries(this.menuGroups(item, true)).map((entry) => ({
-            label: entry.label,
-            icon: entry.icon === "" ? undefined : entry.icon,
-        }));
     }
 
     /** `undefined` and `""` are no description. */
@@ -477,13 +459,6 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
         }
         return undefined;
     }
-}
-
-/** A submenu can't be a glyph: upstream's inline group shows only actions. A group holds no separators. */
-function inlineEntries(groups: readonly IMenuEntryGroup[]): IResolvedMenuItemEntry[] {
-    return groups.flatMap((group) =>
-        group.entries.filter((entry): entry is IResolvedMenuItemEntry => entry.type !== "submenu"),
-    );
 }
 
 /** Upstream `filterNonUniversalActions` compares action ids: an item by its command, a submenu by its label. */

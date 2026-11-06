@@ -295,11 +295,11 @@ fire (see the table below).
 
 ## vscode.tests
 
-🟡 **1/1.** Controllers reach the editor core; there is no Testing view yet and tests do not run.
+🟡 **1/1.** Controllers reach the editor core and the **Testing** view in the sidebar shows their tests; tests do not run yet.
 
 | member | status | comment |
 | --- | :-: | --- |
-| `createTestController` | 🟡 | the controller and its whole `TestItem` tree (adds, field edits, deletes, batched over 200 ms as in VS Code) are mirrored in the core; `resolveHandler` is called when the core expands a test (the root as `undefined`), a failure is a line in Output → Extensions; `refreshHandler` is called by **Test: Refresh Tests** (`Ctrl+; Ctrl+R`) and cancelled by **Test: Cancel Test Refresh**; run profiles of all three kinds are kept, `testing.hasRunnableTests` counts Run ones (Debug and Coverage are not offered: no debugger, coverage comes later). `runHandler` is never called, `createTestRun` accepts reports and drops them, `onDidChangeDefault` never fires, `invalidateTestResults` does nothing |
+| `createTestController` | 🟡 | the **Testing** container (sidebar switcher, **View: Show Testing**) appears with the first controller: the Test Explorer tree with the state icon (no runs yet: "not run"), `label`, `description`, `error` as a row under the test, a busy test and a resolving one spin; filter (`text`, `!exclude`, `@ctrlId:tag`), Go to Test (Enter, `Alt+Enter`, inline on the row), Refresh / Cancel Refresh and Collapse All in the title; `testing/item/context` items get the extension's own `TestItem`. The controller and its whole `TestItem` tree (adds, field edits, deletes, batched over 200 ms as in VS Code) are mirrored in the core; `resolveHandler` is called when the core expands a test (the root as `undefined`), a failure is a line in Output → Extensions; `refreshHandler` is called by **Test: Refresh Tests** (`Ctrl+; Ctrl+R`) and cancelled by **Test: Cancel Test Refresh**; run profiles of all three kinds are kept, `testing.hasRunnableTests` counts Run ones (Debug and Coverage are not offered: no debugger, coverage comes later). `runHandler` is never called, `createTestRun` accepts reports and drops them, `onDidChangeDefault` never fires, `invalidateTestResults` does nothing |
 
 The value types are VS Code's: `TestRunProfileKind`, `TestTag`, `TestRunRequest`, `TestMessage`
 (with `diff`), `TestMessageStackFrame`, `TestCoverageCount`, `FileCoverage` (with `fromDetails`),

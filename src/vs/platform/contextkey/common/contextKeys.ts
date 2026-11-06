@@ -136,6 +136,12 @@ export interface ContextKeyTypes {
     "testing.hasDebuggableTests": boolean;
     /** Always `false`: coverage is a later wave, Coverage profiles are kept but not offered. */
     "testing.hasCoverableTests": boolean;
+    /** A Test Explorer row's menu (`MenuId.TestItem`) only: the test's own id, the last segment of its path. */
+    testId: string;
+    /** A Test Explorer row's menu only: the controller the test belongs to. */
+    controllerId: string;
+    /** A Test Explorer row's menu only: the test has a `uri`, Go to Test has somewhere to go. */
+    "testing.testItemHasUri": boolean;
 
     searchViewletVisible: boolean;
     searchViewletFocus: boolean;

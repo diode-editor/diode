@@ -1,6 +1,8 @@
 {
     "pairs": [
         "alt+down: showNextParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > editor.action.moveLinesDownAction [textInputFocus && !editorReadonly]",
+        "alt+enter: testing.editFocusedTest [focusedView == 'workbench.view.testing'] > explorer.openToSide [filesExplorerFocus]",
+        "alt+enter: testing.editFocusedTest [focusedView == 'workbench.view.testing'] > git.commit [(!gitOperationInProgress) && (scmInputFocus)]",
         "alt+up: showPrevParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > editor.action.moveLinesUpAction [textInputFocus && !editorReadonly]",
         "ctrl+down: workbench.action.nextEditorInGroup [(editorAreaFocus && editorTabsMultiple) && (tabSwitcherVisible)] > scrollLineDown [(textViewFocus) && (!(macKeys >= 1))]",
         "ctrl+down: workbench.action.nextEditorInGroup [(editorAreaFocus && editorTabsMultiple) && (tabSwitcherVisible)] > search.focus.nextInputBox [(searchViewletVisible && searchInputBoxFocus) && (!(macKeys >= 3))]",
@@ -579,6 +581,7 @@
         "showNextParameterHint": "down",
         "showPrevParameterHint": "up",
         "tab": "tab",
+        "testing.editFocusedTest": "alt+enter",
         "testing.refreshTests": "ctrl+; ctrl+r",
         "toggleSuggestionDetails": "ctrl+space",
         "undo": {

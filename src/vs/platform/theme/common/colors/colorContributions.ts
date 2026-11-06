@@ -9,6 +9,7 @@ import { editorColors } from "./editorColors.ts";
 import { gitColors } from "./gitColors.ts";
 import { scmGraphColors } from "./scmGraphColors.ts";
 import { terminalColors } from "./terminalColors.ts";
+import { testingColors } from "./testingColors.ts";
 import { workbenchColors } from "./workbenchColors.ts";
 
 /**
@@ -26,6 +27,7 @@ export const COLOR_CONTRIBUTIONS = {
     ...diffColors,
     ...terminalColors,
     ...chartsColors,
+    ...testingColors,
 } as const satisfies ColorContribution;
 
 export type WorkbenchColorKey = keyof typeof COLOR_CONTRIBUTIONS;

@@ -497,3 +497,31 @@ describe("vscode.tests — runs are not wired yet", () => {
         expect(controller.items.get("id")).toBe(item);
     });
 });
+
+describe("vscode.tests — a Test Explorer row as a command argument", () => {
+    it("[api:tests.createTestController] `{ $testId }` becomes the extension's own TestItem; a gone test or a stray object stays as is", async () => {
+        const { stub, vscode } = makeVscode();
+        const controller = vscode.tests.createTestController("go", "Go");
+        const file = controller.createTestItem("a_test.go", "a_test.go");
+        controller.items.add(file);
+        const test = controller.createTestItem("TestA", "TestA");
+        file.children.add(test);
+        const seen: unknown[] = [];
+        vscode.commands.registerCommand("go.updateSnapshot", (...args: unknown[]) => {
+            seen.push(args);
+        });
+        const stray = { $testId: 1 };
+        await stub.callRequest("commands.executeCommand", {
+            id: "go.updateSnapshot",
+            args: [
+                { $testId: testId("go", "a_test.go", "TestA") },
+                { $testId: "go\0gone" },
+                { $testId: "rust\0x" },
+                stray,
+                null,
+            ],
+        });
+        expect(seen).toEqual([[test, undefined, undefined, stray, null]]);
+        expect((seen[0] as unknown[])[0]).toBe(test);
+    });
+});

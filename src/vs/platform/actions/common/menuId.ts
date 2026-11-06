@@ -27,6 +27,11 @@ export class MenuId {
      * `viewItem` keys; the `inline` group is the row's glyph buttons, the rest its context menu.
      */
     public static readonly ViewItemContext = new MenuId("ViewItemContext");
+    /**
+     * `testing/item/context`: a row of the Test Explorer, resolved per row with its `testId`, `controllerId` and
+     * `testing.testItemHasUri` keys; the `inline` group is the row's glyph buttons, the rest its context menu.
+     */
+    public static readonly TestItem = new MenuId("TestItem");
     /** Filtered by `menuContext.container` (`containerMenuVisible`). */
     public static readonly ViewContainerTitle = new MenuId("ViewContainerTitle");
     /**

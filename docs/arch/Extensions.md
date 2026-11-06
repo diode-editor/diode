@@ -909,8 +909,11 @@
   `testing.hasCoverableTests` всегда `false` (дебаггера нет, coverage — позже); `isDefault` профиля —
   только расширения (`onDidChangeDefault` не стреляет, выбора профилей по умолчанию у ядра нет);
   `DocumentSynced`, `AddTag`/`RemoveTag` эталона не переносятся (их потребители — декорации и фильтр
-  вьюхи). Не сделано: вьюха Testing, запуски (`runHandler`, `createTestRun` — инертный), `testResults`,
-  continuous run, related code.
+  вьюхи). Пункт меню строки Test Explorer (`testing/item/context` → `MenuId.TestItem`) получает аргументом
+  `IWireTestItemArg {$testId}`: `processArgument` субпроцесса (`extHostTesting`, после деревьев) превращает его
+  в собственный `TestItem` расширения по id (`MarshalledId.TestItemContext` эталона), ушедший тест —
+  `undefined`. Вьюха — [Views.md, «Testing»](workbench/Views.md#testing). Не сделано: запуски
+  (`runHandler`, `createTestRun` — инертный), `testResults`, continuous run, related code.
 - **`languages.setLanguageConfiguration` (`extHostLanguageConfiguration.ts` →
   `LanguageConfigurationCustomer`):** по эталону `wordPattern` остаётся в субпроцессе — определение
   слова языка в `DocumentRegistry` для `getWordRangeAtPosition` (и эфемерных документов

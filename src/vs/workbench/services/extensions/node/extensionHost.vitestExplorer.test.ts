@@ -66,7 +66,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
     });
 
     it(
-        "[api:tests.createTestController] the controller, its profiles and its lazily resolved tree reach the core; refresh calls the extension",
+        "[api:tests.createTestController] the controller, its profiles and its lazily resolved tree reach the core; a row's Update Snapshot gets its TestItem; refresh calls the extension",
         { timeout: 120_000 },
         async () => {
             const workspace = path.join(tmpRoot, "workspace");
@@ -97,6 +97,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
 
                 // vitest lists the folders and test files on its own, a file's tests only on its resolve: the view
                 // expands a file when the user does (a folder is not resolvable, levels do not pass through it).
+                // The controller is counted before its root item reaches the mirror.
+                await waitUntil("the root", () => tests.rootItems.length === 1, 60_000);
                 const [root] = tests.rootItems;
                 await tests.expandTest(root.item.extId, Infinity);
                 await waitUntil("the test file", () => testTree(tests, false).includes("    math.test.ts"), 60_000);
@@ -113,6 +115,19 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                     "        adds",
                     "        subtracts",
                 ]);
+
+                // The row's "Update Snapshot" (`testing/item/context`) gets the extension's own TestItem: it runs it.
+                const suite = [...(tests.getNodeById(file)?.children ?? [])][0];
+                const adds = [...(tests.getNodeById(suite)?.children ?? [])].find(
+                    (id) => tests.getNodeById(id)?.item.label === "adds",
+                );
+                const before = output.length;
+                await harness.commandRegistry.execute("vitest.updateSnapshot", { $testId: adds });
+                await waitUntil(
+                    'Enqueuing "adds"',
+                    () => output.slice(before).some((line) => line.includes('Enqueuing "adds"')),
+                    60_000,
+                );
 
                 const resolving = output.filter((line) => line.includes("Resolving configs")).length;
                 await tests.refreshTests();

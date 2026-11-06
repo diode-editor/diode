@@ -1,0 +1,36 @@
+{
+    "name": "demo-test-controller",
+    "displayName": "Demo Test Controller",
+    "description": "E2E demo extension: a test controller over *.test.js files with lazily resolved tests.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.88.0"
+    },
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "command": "demoTests.discover",
+                "title": "Discover Tests",
+                "category": "Demo Tests"
+            },
+            {
+                "command": "demoTests.updateSnapshot",
+                "title": "Update Snapshot",
+                "category": "Demo Tests"
+            }
+        ],
+        "menus": {
+            "testing/item/context": [
+                {
+                    "command": "demoTests.updateSnapshot",
+                    "when": "controllerId == 'demo'"
+                }
+            ]
+        }
+    }
+}

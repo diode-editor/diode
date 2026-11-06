@@ -26,12 +26,12 @@ import { ViewMessageElement } from "../../../browser/parts/views/viewMessageElem
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
+import { revealLocation } from "../../../services/history/browser/revealLocation.ts";
 import type { NotificationService } from "../../../services/notification/browser/notificationService.ts";
 
 import { HierarchyModel, HierarchyTreeProvider, type IHierarchyNode } from "./hierarchyTree.ts";
 import type { IReferencesRevealTarget, ReferencesComponent } from "./referencesComponent.ts";
 import { REFERENCES_VIEW_ID, REFERENCES_VIEWLET_ID } from "./referencesComponent.ts";
-import { revealLocation } from "./revealLocation.ts";
 
 /** Upstream's single section of the container: call and type trees take turns in it. */
 export const HIERARCHY_VIEW_ID = "references-view.hierarchy";

@@ -293,6 +293,7 @@ describe("Workbench — menu bar wiring", () => {
             "Source Control",
             "Extensions",
             "References",
+            "Testing",
             "Problems",
             "Output",
             "Terminal",

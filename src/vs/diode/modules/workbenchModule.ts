@@ -371,6 +371,11 @@ import {
     TerminalLinkServiceDIToken,
 } from "../../workbench/contrib/terminalContrib/links/browser/terminalLinkService.ts";
 import {
+    TestingExplorerComponent,
+    TestingExplorerComponentDIToken,
+    TestingRevealTargetDIToken,
+} from "../../workbench/contrib/testing/browser/testingExplorerView.ts";
+import {
     TestProfileService,
     TestProfileServiceDIToken,
 } from "../../workbench/contrib/testing/common/testProfileService.ts";
@@ -644,6 +649,9 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TaskServiceDIToken, TaskService);
     container.bind(TestServiceDIToken, TestService);
     container.bind(TestProfileServiceDIToken, TestProfileService);
+    container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-explorer
+    container.bind(TestingRevealTargetDIToken, () => container.get(EditorServiceDIToken));
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));
     container.bind(TerminalColorsServiceDIToken, TerminalColorsService);

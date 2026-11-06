@@ -19,11 +19,11 @@ import type { ViewsService } from "../../../browser/parts/views/viewsService.ts"
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
+import { revealLocation } from "../../../services/history/browser/revealLocation.ts";
 import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 import { buildFileRow, buildMatchRow, type ISearchRowStyles } from "../../search/browser/searchResultRows.ts";
 
 import type { IReferenceGroup } from "./referencePreview.ts";
-import { revealLocation } from "./revealLocation.ts";
 
 export const ReferencesComponentDIToken = token<ReferencesComponent>("ReferencesComponent");
 
