@@ -3,7 +3,15 @@ import { describe, expect, it, vi } from "vitest";
 import { testId, testTree } from "../../../../../TestUtils/testTree.ts";
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
-import type { IWireTestItem, WireTestsDiffOp } from "../../../api/common/testingWireTypes.ts";
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
+import {
+    type IWireRunControllerTestsResult,
+    type IWireStartControllerTests,
+    type IWireTestItem,
+    type IWireTestRunProfile,
+    TestRunProfileBitset,
+    type WireTestsDiffOp,
+} from "../../../api/common/testingWireTypes.ts";
 
 import type { ITestController } from "./testService.ts";
 
@@ -209,5 +217,213 @@ describe("TestService — refresh", () => {
         service.registerTestController(controller("a", { refreshTests: () => Promise.reject(new Error("boom")) }));
         await expect(service.refreshTests()).rejects.toThrow("boom");
         expect(contextKeys.get("testing.isRefreshing")).toBe(false);
+    });
+});
+
+describe("TestService — runs", () => {
+    /** A controller whose `runTests` waits for `answer`; it records the requests. */
+    function runner(id: string, cancel: ITestController["cancelTestRun"] = () => undefined) {
+        const calls: { requests: readonly IWireStartControllerTests[]; token: ICancellationToken }[] = [];
+        let answer: (answers: IWireRunControllerTestsResult[]) => void = () => undefined;
+        let fail: (error: Error) => void = () => undefined;
+        const registered = controller(id, {
+            runTests: (requests, token) => {
+                calls.push({ requests, token });
+                return new Promise((resolve, reject) => {
+                    answer = resolve;
+                    fail = reject;
+                });
+            },
+            cancelTestRun: cancel,
+        });
+        return {
+            registered,
+            calls,
+            answer: (answers: IWireRunControllerTestsResult[] = [{}]) => {
+                answer(answers);
+            },
+            fail: (error: Error) => {
+                fail(error);
+            },
+        };
+    }
+
+    function runProfile(
+        controllerId: string,
+        profileId: number,
+        fields: Partial<IWireTestRunProfile> = {},
+    ): IWireTestRunProfile {
+        return {
+            controllerId,
+            profileId,
+            label: "Run",
+            group: TestRunProfileBitset.Run,
+            isDefault: true,
+            tag: null,
+            hasConfigurationHandler: false,
+            supportsContinuousRun: false,
+            ...fields,
+        };
+    }
+
+    function tagged(extId: string, tags: string[]): WireTestsDiffOp {
+        return { op: 0, item: { expand: 0, item: { ...wireItem(extId), tags } } };
+    }
+
+    it("the result is live before Save All and the requests; each controller gets its share with the excludes outside it", async () => {
+        let saved = (): void => undefined;
+        const services = makeTestingServices({
+            saveAllBeforeTest: () =>
+                new Promise<void>((resolve) => {
+                    saved = resolve;
+                }),
+        });
+        const { tests: service, results, profiles } = services;
+        const a = runner("a");
+        const b = runner("b");
+        service.registerTestController(a.registered);
+        service.registerTestController(b.registered);
+        profiles.addProfile(runProfile("a", 1));
+        profiles.addProfile(runProfile("b", 2));
+        service.publishDiff([add("a"), add(testId("a", "x")), add(testId("a", "y")), add("b")]);
+        const node = (id: string) => assertReturnsDefined(service.getNodeById(id));
+        const running = service.runTests({ tests: [node("a"), node("b")], exclude: [node(testId("a", "y"))] });
+        expect(results.results).toHaveLength(1);
+        const [result] = results.results;
+        expect(result.completedAt).toBeUndefined();
+        expect(result.request).toEqual({
+            targets: [
+                { controllerId: "a", profileId: 1, testIds: ["a"] },
+                { controllerId: "b", profileId: 2, testIds: ["b"] },
+            ],
+            group: TestRunProfileBitset.Run,
+            exclude: [testId("a", "y")],
+        });
+        await Promise.resolve();
+        expect(services.saves).toHaveLength(1);
+        expect(a.calls).toEqual([]);
+        saved();
+        await vi.waitFor(() => {
+            expect(b.calls).toHaveLength(1);
+        });
+        expect(a.calls[0].requests).toEqual([
+            { runId: result.id, controllerId: "a", profileId: 1, testIds: ["a"], excludeExtIds: [testId("a", "y")] },
+        ]);
+        expect(b.calls[0].requests).toEqual([
+            { runId: result.id, controllerId: "b", profileId: 2, testIds: ["b"], excludeExtIds: [testId("a", "y")] },
+        ]);
+        a.answer();
+        await Promise.resolve();
+        expect(result.completedAt).toBeUndefined();
+        b.answer();
+        await expect(running).resolves.toBe(result);
+        expect(result.completedAt).toBeDefined();
+        expect(services.errors).toEqual([]);
+    });
+
+    it("each test goes with its controller's first profile of the group that takes its tag; a test without one is not run", async () => {
+        const { tests: service, results, profiles } = makeTestingServices();
+        const a = runner("a");
+        service.registerTestController(a.registered);
+        profiles.addProfile(runProfile("a", 1, { label: "Unit", isDefault: false, tag: "a\0unit" }));
+        profiles.addProfile(runProfile("a", 2, { label: "Debug", group: TestRunProfileBitset.Debug }));
+        profiles.addProfile(runProfile("a", 3, { label: "Zeta", isDefault: false }));
+        service.publishDiff([add("a"), tagged(testId("a", "u"), ["a\0unit"]), add(testId("a", "plain"))]);
+        const nodes = ["a", testId("a", "u"), testId("a", "plain")].map((id) =>
+            assertReturnsDefined(service.getNodeById(id)),
+        );
+        const running = service.runTests({ tests: nodes });
+        // A root takes any tag: the first Run profile.
+        expect(results.results[0].request.targets).toEqual([
+            { controllerId: "a", profileId: 1, testIds: ["a", testId("a", "u")] },
+            { controllerId: "a", profileId: 3, testIds: [testId("a", "plain")] },
+        ]);
+        await vi.waitFor(() => {
+            expect(a.calls).toHaveLength(1);
+        });
+        // One request per controller with both profiles' shares.
+        expect(a.calls[0].requests.map((request) => request.profileId)).toEqual([1, 3]);
+        a.answer([{}, {}]);
+        await running;
+        const nothing = makeTestingServices();
+        nothing.tests.publishDiff([add("z")]);
+        await nothing.tests.runTests({ tests: [assertReturnsDefined(nothing.tests.getNodeById("z"))] });
+        expect(nothing.results.results[0].request.targets).toEqual([]);
+        expect(nothing.results.results[0].completedAt).toBeDefined();
+    });
+
+    it("a runHandler's error is a toast; an extension gone meanwhile or an unknown controller just ends its share", async () => {
+        const services = makeTestingServices();
+        const { tests: service } = services;
+        const a = runner("a");
+        const b = runner("b");
+        service.registerTestController(a.registered);
+        service.registerTestController(b.registered);
+        const running = service.runResolvedTests({
+            targets: [
+                { controllerId: "a", profileId: 1, testIds: ["a"] },
+                { controllerId: "a", profileId: 2, testIds: ["a"] },
+                { controllerId: "b", profileId: 1, testIds: ["b"] },
+                { controllerId: "gone", profileId: 1, testIds: ["gone"] },
+            ],
+            group: TestRunProfileBitset.Run,
+        });
+        await vi.waitFor(() => {
+            expect(b.calls).toHaveLength(1);
+        });
+        a.answer([{ error: "Error: no vitest" }, { error: "Error: again" }]);
+        b.fail(new Error("Extension host exited"));
+        const result = await running;
+        expect(result.completedAt).toBeDefined();
+        expect(services.errors).toEqual(["An error occurred attempting to run tests: Error: no vitest Error: again"]);
+    });
+
+    it("cancel goes once to each extension host and cancels the token of a run the core started; without an id — every live run", async () => {
+        const { tests: service, results } = makeTestingServices();
+        const cancels: string[] = [];
+        const shared = (runId: string, taskId?: string): void => {
+            cancels.push(taskId === undefined ? runId : `${runId}/${taskId}`);
+        };
+        const a = runner("a", shared);
+        const b = runner("b", shared);
+        const other = runner("other", (runId) => {
+            cancels.push(`other:${runId}`);
+        });
+        for (const r of [a, b, other]) service.registerTestController(r.registered);
+        const first = service.runResolvedTests({
+            targets: [{ controllerId: "a", profileId: 1, testIds: ["a"] }],
+            group: TestRunProfileBitset.Run,
+        });
+        await vi.waitFor(() => {
+            expect(a.calls).toHaveLength(1);
+        });
+        const [live] = results.results;
+        service.cancelTestRun(live.id, "task");
+        expect(a.calls[0].token.isCancellationRequested).toBe(false);
+        service.cancelTestRun(live.id);
+        expect(a.calls[0].token.isCancellationRequested).toBe(true);
+        expect(cancels).toEqual([`${live.id}/task`, `other:${live.id}`, live.id, `other:${live.id}`]);
+        cancels.length = 0;
+        const ext = results.createExtensionLiveResult(
+            {
+                runId: "ext",
+                controllerId: "b",
+                include: ["b"],
+                exclude: [],
+                profileId: null,
+                preserveFocus: true,
+                persist: true,
+                continuous: false,
+            },
+            undefined,
+        );
+        service.cancelTestRun();
+        expect(cancels).toEqual(["ext", "other:ext", live.id, `other:${live.id}`]);
+        a.answer();
+        await first;
+        ext.markComplete();
+        cancels.length = 0;
+        service.cancelTestRun();
+        expect(cancels).toEqual([]);
     });
 });
