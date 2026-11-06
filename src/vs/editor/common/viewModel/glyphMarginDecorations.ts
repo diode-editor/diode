@@ -1,0 +1,82 @@
+import { positionsEqual } from "../core/iPosition.ts";
+import type { IRange } from "../core/iRange.ts";
+import { createRange } from "../core/iRange.ts";
+import type { IGlyphMarginDecoration } from "../model/iGlyphMarginDecoration.ts";
+import type { ITextDocument } from "../model/iTextDocument.ts";
+import { TrackedRangeStickiness } from "../model/trackedDecorations.ts";
+
+interface IGlyphEntry {
+    readonly id: string;
+    readonly decoration: IGlyphMarginDecoration;
+    /** Its line was the empty last line when it was placed: emptiness says nothing about a deletion then. */
+    readonly placedEmpty: boolean;
+}
+
+/**
+ * The glyph lane's decorations as tracked document decorations (upstream: the model's decorations with
+ * `glyphMarginClassName`): a glyph rides its line through edits until the owner places it elsewhere. The tracked
+ * range is the whole line with its line break, so deleting the line collapses it — and the glyph is gone.
+ */
+export class GlyphMarginDecorations {
+    private entries: readonly IGlyphEntry[] = [];
+
+    public constructor(private readonly document: ITextDocument) {}
+
+    public get isEmpty(): boolean {
+        return this.entries.length === 0;
+    }
+
+    /** A glyph with the key and the line of one already placed keeps the line it moved to; the rest are placed anew. */
+    public set(decorations: readonly IGlyphMarginDecoration[]): void {
+        const previous = new Map(this.entries.map((entry) => [entry.decoration.key, entry]));
+        const kept = new Set<string>();
+        const placed: { readonly index: number; readonly range: IRange }[] = [];
+        const next: (IGlyphEntry | undefined)[] = decorations.map((decoration, index) => {
+            const old = previous.get(decoration.key);
+            if (old !== undefined && old.decoration.line === decoration.line && !kept.has(old.id)) {
+                kept.add(old.id);
+                return { ...old, decoration };
+            }
+            placed.push({ index, range: this.lineRange(decoration.line) });
+            return undefined;
+        });
+        const ids = this.document.deltaDecorations(
+            this.entries.filter((entry) => !kept.has(entry.id)).map((entry) => entry.id),
+            placed.map(({ range }) => ({
+                range,
+                // Stryker disable next-line StringLiteral: the description is for debugging only, as in upstream
+                options: { description: "glyph-margin", stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges },
+            })),
+        );
+        placed.forEach(({ index }, i) => {
+            const id = ids[i];
+            next[index] = { id, decoration: decorations[index], placedEmpty: isEmpty(this.rangeOf(id)) };
+        });
+        this.entries = next as IGlyphEntry[];
+    }
+
+    /** The glyphs by the line they are on now; a deleted line's glyph is not there, the last one on a line wins. */
+    public byLine(): Map<number, IGlyphMarginDecoration> {
+        const result = new Map<number, IGlyphMarginDecoration>();
+        for (const { id, decoration, placedEmpty } of this.entries) {
+            const range = this.rangeOf(id);
+            if (!placedEmpty && isEmpty(range)) continue;
+            result.set(range.start.line, decoration);
+        }
+        return result;
+    }
+
+    /** Past the end of the document the document clamps the range to its last line, as upstream validates it. */
+    private lineRange(line: number): IRange {
+        return line + 1 < this.document.lineCount ? createRange(line, 0, line + 1, 0) : createRange(line, 0, line, Infinity);
+    }
+
+    private rangeOf(id: string): IRange {
+        // Only this class removes its decorations.
+        return this.document.getDecorationRange(id) as IRange;
+    }
+}
+
+function isEmpty(range: IRange): boolean {
+    return positionsEqual(range.start, range.end);
+}

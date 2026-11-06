@@ -131,6 +131,11 @@ export class TestService extends Disposable {
         return this.items.get(testId);
     }
 
+    /** Upstream `getNodeByUrl`: the known tests whose `uri` is the resource (`uri.toString()`). */
+    public getNodesByUri(uri: string): ITestNode[] {
+        return [...this.items.values()].filter((node) => node.item.uri === uri);
+    }
+
     public getTestController(controllerId: string): ITestController | undefined {
         return this.controllers.get(controllerId);
     }
