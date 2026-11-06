@@ -145,14 +145,19 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                         .some((m) => m.type === "error"),
                 ).toBe(true);
 
-                // Rerun Failed Tests: only `fails` runs, `adds` keeps its state from the first run.
+                // Rerun Failed Tests: only `fails` runs; vitest reports the rest of the file as skipped, as in VS Code.
+                const beforeRerun = output.length;
                 const rerun = await tests.runTests({
                     tests: [assertReturnsDefined(tests.getNodeById(assertReturnsDefined(fails)))],
                 });
                 const ran = [...rerun.tests].filter((test) => test.ownComputedState !== TestResultState.Unset);
-                expect(ran.map((test) => test.item.label)).toEqual(["fails"]);
-                expect(state(adds)?.ownComputedState).toBe(TestResultState.Passed);
+                expect(ran.map((test) => [test.item.label, test.ownComputedState])).toEqual([
+                    ["fails", TestResultState.Failed],
+                    ["adds", TestResultState.Skipped],
+                ]);
 
+                // OUTPUT → Vitest names the test it runs.
+                expect(output.slice(beforeRerun).some((line) => line.includes("with name pattern: ^\\s?math fails$"))).toBe(true);
                 const resolving = output.filter((line) => line.includes("Resolving configs")).length;
                 await tests.refreshTests();
                 await waitUntil(
