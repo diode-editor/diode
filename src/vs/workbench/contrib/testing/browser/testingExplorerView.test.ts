@@ -1044,6 +1044,7 @@ describe("TestingExplorerComponent — keys, progress and the mirror", () => {
         explorer.click(x, y);
         expect(explorer.component.tree.getSelectedNode()?.kind).toBe("error");
         explorer.sendKey("ArrowDown");
+        expect(explorer.component.tree.getSelectedNode()?.kind).toBe("test");
         expect(explorer.component.focusedTestId).toBe(ADDS.join("\0"));
     });
 });
