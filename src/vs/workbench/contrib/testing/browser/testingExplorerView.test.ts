@@ -862,3 +862,188 @@ describe("TestingExplorerComponent — the details", () => {
         expect(lines()[adds.y].slice(width - 6)).toContain("Q");
     });
 });
+
+describe("TestingExplorerComponent — keys, progress and the mirror", () => {
+    it("Enter on a test with children and a location expands it and opens nothing", async () => {
+        const explorer = await withTests();
+        await toggle(explorer, "math.test.ts");
+        await explorer.waitFrame((text) => !text.includes(" math\n") && !text.includes("adds"));
+        explorer.opened.length = 0;
+        explorer.sendKey("Enter");
+        await explorer.waitFrame((text) => text.includes("adds"));
+        expect(explorer.opened).toEqual([]);
+    });
+
+    it("a click on the glyph moves the keyboard out of the tree", async () => {
+        const { component, locate, click, width } = await withTests();
+        const { x, y } = locate("fails");
+        click(x, y);
+        click(width - 2, y);
+        expect(component.tree.isFocused).toBe(false);
+    });
+
+    it("an inline action runs only the row's inline items, not its context menu", async () => {
+        const { views, component, row, click } = await withTests({
+            menus: [{ menuId: MenuId.TestItem, command: "ext.context", title: "Context" }],
+        });
+        const ran: unknown[] = [];
+        views.commands.register("ext.context", (...args: unknown[]) => {
+            ran.push(args);
+        });
+        const src = row("src");
+        click(src.x, src.y);
+        const selected = component.tree.getSelectedNode();
+        if (selected === null) throw new Error("no row");
+        component.tree.onInlineAction?.(selected, 0);
+        expect(ran).toEqual([]);
+    });
+
+    it("on the first row only ArrowUp leaves the tree; the keys that leave do not go further", async () => {
+        const explorer = await withTests();
+        const { component, sendKey } = explorer;
+        const prevented: string[] = [];
+        component.view.addEventListener("keydown", (event) => {
+            if (event.defaultPrevented) prevented.push(event.key);
+        });
+        const src = explorer.row("src");
+        explorer.click(src.x, src.y);
+        sendKey("ArrowDown");
+        expect(component.tree.isFocused).toBe(true);
+        sendKey("ArrowUp");
+        sendKey("ArrowUp");
+        expect(component.filterInput.isFocused).toBe(true);
+        sendKey("ArrowDown");
+        expect(component.tree.isFocused).toBe(true);
+        expect(prevented.slice(-2)).toEqual(["ArrowUp", "ArrowDown"]);
+    });
+
+    it("ArrowUp on the first row of a folder goes to the folder, not to the filter", async () => {
+        const explorer = await withTests();
+        const adds = explorer.row("adds");
+        explorer.click(adds.x, adds.y);
+        explorer.sendKey("ArrowUp");
+        expect(explorer.component.tree.isFocused).toBe(true);
+        expect(explorer.component.focusedTestId).toBe(SUITE.join("\0"));
+    });
+
+    it("a controller that is there before the view is built has its view", () => {
+        const { views } = setupExplorer({
+            before: (tests) => {
+                tests.registerTestController({
+                    id: "vitest",
+                    label: "Vitest",
+                    canRefresh: false,
+                    expandTest: () => Promise.resolve(),
+                    refreshTests: () => Promise.resolve(),
+                });
+            },
+        });
+        expect(views.service.getViewContainerByViewId(TESTING_EXPLORER_VIEW_ID)).toBe(TESTING_VIEWLET_ID);
+    });
+
+    it("a controller that comes back without tests shows the welcome before its first diff", async () => {
+        const { tests, registerController, waitFrame } = setupExplorer({ width: 60 });
+        const first = registerController("vitest", "Vitest");
+        tests.publishDiff([...vitestRoot(), ...vitestFiles()]);
+        await waitFrame((text) => text.includes("src"));
+        first.dispose();
+        await vi.waitFor(() => {
+            expect(tests.rootItems).toEqual([]);
+        });
+        registerController("go", "Go");
+        await waitFrame((text) => text.includes("No tests have been found"));
+    });
+
+    it("a busy test of one controller out of two gives the view its progress, until it is idle again", async () => {
+        const { tests, registerController, progress } = setupExplorer();
+        registerController("vitest", "Vitest");
+        registerController("go", "Go");
+        tests.publishDiff([...vitestRoot(), add(wireItem(["go"], "Go"), Expanded)]);
+        tests.publishDiff([update(["go"], { busy: true })]);
+        await vi.waitFor(() => {
+            expect(progress.isBusy(TESTING_EXPLORER_VIEW_ID)).toBe(true);
+        });
+        tests.publishDiff([update(["go"], { label: "Go!" })]);
+        tests.publishDiff([update(["go"], { busy: false })]);
+        await vi.waitFor(() => {
+            expect(progress.isBusy(TESTING_EXPLORER_VIEW_ID)).toBe(false);
+        });
+    });
+
+    it("a progress tick after the tests are idle does not redraw the tree", async () => {
+        const { tests, component, progress, waitFrame } = await withTests();
+        tests.publishDiff([update(ADDS, { busy: true })]);
+        await waitFrame((text) => text.includes(`${SPINNER_FRAMES[0]} adds`));
+        tests.publishDiff([update(ADDS, { busy: false })]);
+        await waitFrame((text) => text.includes("○ adds"));
+        const refresh = vi.spyOn(component.tree, "refresh");
+        await progress.withProgress({ location: "view", viewId: "other", title: "Other" }, () => Promise.resolve());
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it("spinner ticks redraw the rows without resolving the row menus again", async () => {
+        const { tests, views, waitFrame } = await withTests({
+            progress: { delayMs: 0, intervalMs: 5, minVisibleMs: 0 },
+        });
+        tests.publishDiff([update(ADDS, { busy: true })]);
+        const spinning = (text: string): string | undefined =>
+            SPINNER_FRAMES.slice(1).find((spin) => text.includes(`${spin} adds`));
+        const first = spinning(await waitFrame((text) => spinning(text) !== undefined));
+        const resolve = vi.spyOn(views.menuService, "getEntryGroups");
+        await waitFrame((text) => spinning(text) !== undefined && spinning(text) !== first);
+        expect(resolve).not.toHaveBeenCalled();
+    });
+
+    it("a test added under an active filter is filtered too", async () => {
+        const { tests, component, waitFrame } = await withTests();
+        component.filterInput.onChange?.("adds");
+        await waitFrame((text) => !text.includes("fails"));
+        tests.publishDiff([add(wireItem([...SUITE, "adds again"], "adds again"), NotExpandable)]);
+        await waitFrame((text) => text.includes("adds again"));
+    });
+
+    it("the root is asked once while its controller has not answered", async () => {
+        const { tests, views } = setupExplorer();
+        const expands: string[] = [];
+        tests.registerTestController({
+            id: "vitest",
+            label: "Vitest",
+            canRefresh: false,
+            expandTest: (id) => {
+                expands.push(id);
+                return new Promise(() => undefined);
+            },
+            refreshTests: () => Promise.resolve(),
+        });
+        tests.publishDiff(vitestRoot());
+        await vi.waitFor(() => {
+            expect(expands).toEqual(["vitest"]);
+        });
+        tests.publishDiff([update(ROOT, { label: "Vitest!" })]);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(expands).toEqual(["vitest"]);
+        expect(views.viewlets).toContain(TESTING_VIEWLET_ID);
+    });
+
+    it("a leaf with an error has a chevron: its error is under it", async () => {
+        const { tests, waitFrame, lines, row } = await withTests();
+        tests.publishDiff([update(ADDS, { error: "boom" })]);
+        await waitFrame((text) => text.includes("boom"));
+        const adds = row("adds");
+        const before = lines()[adds.y].slice(0, adds.x);
+        const fails = row("fails");
+        expect(before.trim()).not.toBe(lines()[fails.y].slice(0, fails.x).trim());
+    });
+
+    it("the error row is a row of its own: ArrowDown from it goes to the first child", async () => {
+        const explorer = await withTests();
+        explorer.tests.publishDiff([update(SUITE, { error: "Cannot parse math" })]);
+        await explorer.waitFrame((text) => text.includes("Cannot parse math"));
+        const { x, y } = explorer.locate("Cannot parse math");
+        explorer.click(x, y);
+        expect(explorer.component.tree.getSelectedNode()?.kind).toBe("error");
+        explorer.sendKey("ArrowDown");
+        expect(explorer.component.focusedTestId).toBe(ADDS.join("\0"));
+    });
+});

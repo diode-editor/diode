@@ -93,6 +93,8 @@ export interface ISetupOptions {
     readonly icons?: IProductIconService;
     /** `false`: the containers are attached by the test, as `mount()` does after the components exist. */
     readonly attach?: boolean;
+    /** Runs before the view is built: a controller that is there already. */
+    readonly before?: (tests: TestService) => void;
 }
 
 /** Unicode glyphs until `useNerdFont()`, as `diode.icons.nerdFont` switched live. */
@@ -125,6 +127,8 @@ export function setupExplorer(options: ISetupOptions = {}) {
     const reveal = {
         openUri: (uri: { toString(): string }) => {
             opened.push(uri.toString());
+            // The editor takes the keyboard; the filter stands in for it.
+            component.filterInput.focus();
         },
         getActiveEditor: () => ({
             goToPosition: (line: number, column?: number) => positions.push([line, column]),
@@ -142,6 +146,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
         settings[key] = value;
         onDidChangeConfiguration.fire({ affectsConfiguration: (affected) => affected === key });
     };
+    options.before?.(tests);
     const component = new TestingExplorerComponent(
         tests,
         views.service,

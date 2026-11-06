@@ -1,4 +1,3 @@
-import { INHERITED_BG, INHERITED_FG } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
@@ -12,6 +11,7 @@ import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { codicon } from "../../../../base/common/codicons.ts";
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
@@ -44,12 +44,7 @@ import {
     type IProductIconService,
     ProductIconServiceDIToken,
 } from "../../../../platform/theme/common/productIconService.ts";
-import {
-    type IWireTestItemArg,
-    TEST_ID_DELIMITER,
-    TestId,
-    TestItemExpandState,
-} from "../../../api/common/testingWireTypes.ts";
+import { type IWireTestItemArg, TestId, TestItemExpandState } from "../../../api/common/testingWireTypes.ts";
 import { Component } from "../../../browser/component.ts";
 import { HeaderBodyViewElement } from "../../../browser/parts/views/headerBodyViewElement.ts";
 import {
@@ -110,9 +105,6 @@ export interface ITestRow {
     /** The mirror's node, updated in place by the diffs: a row the next diff removed still draws. */
     readonly node: ITestNode;
 }
-
-/** The error row sorts first and has a key apart from its test's. */
-const ERROR_KEY_SUFFIX = `${TEST_ID_DELIMITER}$error`;
 
 /**
  * Upstream `TestingExplorerView` with the hierarchical projection: a container in the sidebar while some controller is
@@ -231,20 +223,17 @@ export class TestingExplorerComponent extends Component {
             }
         });
         const filterGlyph = new TextLabelElement(icons.glyph(FILTER_ICON));
-        filterGlyph.setColors(INHERITED_FG, INHERITED_BG);
         const filterRow = new HFlexElement();
         filterRow.addChild(this.filterInput, { width: hflexFill(), height: 1 });
         filterRow.addChild(new TextLabelElement(""), { width: hflexFixed(1), height: 1 });
         filterRow.addChild(filterGlyph, { width: hflexFit(), height: 1 });
         const summary = new TextLabelElement(NO_RESULTS);
-        summary.setColors(INHERITED_FG, INHERITED_BG);
         const header = new VStackElement();
         for (const row of [filterRow, summary]) row.layoutStyle = { width: "fill", height: 1 };
         header.replaceChildren([filterRow, summary]);
         const scrollBars = new ScrollBarDecorator(this.tree);
         const root = new HeaderBodyViewElement(new PaddingContainerElement(header, { left: 1, right: 1 }), scrollBars);
         root.id = "testingExplorerView";
-        root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.view = root;
 
         views.registerContainer({
@@ -258,7 +247,7 @@ export class TestingExplorerComponent extends Component {
         });
         this.register(
             tests.onDidProcessDiff(() => {
-                void this.refresh();
+                void this.refresh().catch(onUnexpectedError);
             }),
         );
         this.register(
@@ -268,14 +257,14 @@ export class TestingExplorerComponent extends Component {
         );
         this.register(
             icons.onDidChange(() => {
-                void this.refresh();
+                void this.refresh().catch(onUnexpectedError);
             }),
         );
         let menuContexts: ReadonlySet<string> | null = null;
         this.register(
             menuRegistry.onDidChangeMenu(() => {
                 menuContexts = null;
-                void this.refresh();
+                void this.refresh().catch(onUnexpectedError);
             }),
         );
         this.register(
@@ -285,7 +274,7 @@ export class TestingExplorerComponent extends Component {
                 for (const key of changed) {
                     // Stryker disable next-line ConditionalExpression,BooleanLiteral: equivalent — a refresh on a key no item reads draws the same rows; the filter only saves the work
                     if (!menuContexts.has(key)) continue;
-                    void this.refresh();
+                    void this.refresh().catch(onUnexpectedError);
                     return;
                 }
             }),
@@ -353,8 +342,6 @@ export class TestingExplorerComponent extends Component {
                 this.filterInput.focus();
             },
         });
-        // A registration after an unregistration gets the body it had then: `null` would not replace it.
-        this.views.setViewBody(TESTING_EXPLORER_VIEW_ID, this.body());
     }
 
     /** Upstream `testCollectionIsEmpty` while no controller is busy: the welcome (`null`), otherwise the tree. */
@@ -371,8 +358,7 @@ export class TestingExplorerComponent extends Component {
         }
         this.setBusy(this.tests.rootItems.some((root) => this.anyBusy(root)));
         this.updateVisibility();
-        // Without a controller there is no view: registering takes the body as it is then.
-        if (this.isRegistered()) this.views.setViewBody(TESTING_EXPLORER_VIEW_ID, this.body());
+        this.views.setViewBody(TESTING_EXPLORER_VIEW_ID, this.body());
         this.resolveRootsIfShown();
         await this.tree.refresh();
     }
@@ -392,7 +378,7 @@ export class TestingExplorerComponent extends Component {
 
     private setFilter(text: string): void {
         this.filter = parseTestExplorerFilter(text);
-        void this.revealIncluded(this.updateVisibility());
+        void this.revealIncluded(this.updateVisibility()).catch(onUnexpectedError);
     }
 
     /** Upstream: a filter change expands the tree to every test it matched (ancestors first or not: the tree waits). */
@@ -502,8 +488,8 @@ export class TestingExplorerComponent extends Component {
     /** While some test is busy the view has a progress entry: its ticks redraw the row spinners. */
     private setBusy(busy: boolean): void {
         if (busy === (this.busy !== null)) return;
-        if (!busy) {
-            this.busy?.dispose();
+        if (this.busy !== null) {
+            this.busy.dispose();
             this.busy = null;
             return;
         }
@@ -517,7 +503,7 @@ export class TestingExplorerComponent extends Component {
             () => ended,
         );
         const ticks = this.progress.onDidChange(() => {
-            void this.tree.refresh();
+            void this.tree.refresh().catch(onUnexpectedError);
         });
         this.busy = {
             dispose: () => {
@@ -583,8 +569,9 @@ function testRow(node: ITestNode): ITestRow {
     return { kind: "test", testId: node.item.extId, node };
 }
 
+/** The error row has a key apart from its test's. */
 function rowKey(row: ITestRow): string {
-    return row.kind === "error" ? row.testId + ERROR_KEY_SUFFIX : row.testId;
+    return `${row.kind}:${row.testId}`;
 }
 
 function hasModifier(event: {
