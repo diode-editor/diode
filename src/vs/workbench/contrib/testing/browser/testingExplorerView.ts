@@ -692,7 +692,8 @@ export class TestingExplorerComponent extends Component {
         const sb = b.item.sortText;
         // In the same location without a sortText the extension's order stays (upstream #163449).
         if (inSameLocation && sa === null && sb === null) return 0;
-        return (sa ?? a.item.label).localeCompare(sb ?? b.item.label);
+        // Upstream `compareFileNames`: numbers in order, "test 2" before "test 10".
+        return (sa ?? a.item.label).localeCompare(sb ?? b.item.label, undefined, { numeric: true });
     }
 
     private toTreeItem(row: ITestRow): ITreeItem {

@@ -287,6 +287,7 @@ export const clearTestResultsAction: CommandAction = {
     id: "testing.clearTestResults",
     title: "Test: Clear All Results",
     shortTitle: "Clear All Results",
+    enablement: HAS_RESULTS,
     menus: [
         {
             menuId: MenuId.ViewTitle,
