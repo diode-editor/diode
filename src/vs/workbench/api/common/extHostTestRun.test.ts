@@ -482,6 +482,71 @@ describe("vscode.tests — a run the extension starts", () => {
     });
 });
 
+describe("TestRunTracker — edges", () => {
+    it("a request cancelled before the handler runs hands it cancelled tokens; a cancel after the end does nothing", async () => {
+        const seen: boolean[] = [];
+        const env = setup((request, token) => {
+            const run = env.controller.createTestRun(request);
+            seen.push(token.isCancellationRequested, run.token.isCancellationRequested);
+            run.end();
+        });
+        const cts = new CancellationTokenSource();
+        cts.cancel();
+        await env.run(["ctrl"], cts.token);
+        expect(seen).toEqual([true, true]);
+        // An extension's own run: ended, then cancelled twice — no second end.
+        const own = env.controller.createTestRun(new env.vscode.TestRunRequest());
+        const [{ runId }] = sentParams(env.stub, "testing.startedExtensionTestRun") as { runId: string }[];
+        own.end();
+        env.stub.fire("testing.cancelExtensionTestRun", { runId });
+        env.stub.fire("testing.cancelExtensionTestRun", { runId });
+        expect(sentParams(env.stub, "testing.finishedTestRunTask")).toHaveLength(2);
+    });
+
+    it("a cancel after the run's TestRuns ended, while the handler still runs, ends nothing again", async () => {
+        let finish = (): void => undefined;
+        const env = setup((request) => {
+            env.controller.createTestRun(request).end();
+            return new Promise<void>((resolve) => {
+                finish = resolve;
+            });
+        });
+        const answer = env.run(["ctrl"]);
+        await vi.waitFor(() => {
+            expect(sentParams(env.stub, "testing.finishedTestRunTask")).toHaveLength(1);
+        });
+        env.stub.fire("testing.cancelExtensionTestRun", { runId: "r1" });
+        env.stub.fire("testing.cancelExtensionTestRun", { runId: "r1" });
+        finish();
+        await answer;
+        expect(sentParams(env.stub, "testing.finishedTestRunTask")).toHaveLength(1);
+    });
+
+    it("a second run of the core under the same id keeps the newer one cancellable", async () => {
+        const runs: vscodeTypes.TestRun[] = [];
+        const finishers: (() => void)[] = [];
+        const env = setup((request) => {
+            runs.push(env.controller.createTestRun(request));
+            return new Promise<void>((resolve) => {
+                finishers.push(resolve);
+            });
+        });
+        const first = env.run(["ctrl"]);
+        const second = env.run(["ctrl"]);
+        await vi.waitFor(() => {
+            expect(runs).toHaveLength(2);
+        });
+        runs[0].end();
+        finishers[0]();
+        await first;
+        env.stub.fire("testing.cancelExtensionTestRun", { runId: "r1" });
+        expect(runs[1].token.isCancellationRequested).toBe(true);
+        runs[1].end();
+        finishers[1]();
+        await second;
+    });
+});
+
 describe("fullTestId", () => {
     it("is the path of ids from the controller; a detached item hangs off the root", () => {
         const { vscode } = makeVscode();

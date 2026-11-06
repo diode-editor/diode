@@ -558,6 +558,210 @@ describe("Test Explorer — following the running test", () => {
     });
 });
 
+describe("Test Explorer — commands with arguments", () => {
+    it("Cancel Test Run with a run and a task cancels that task only; the reruns take a run's id", async () => {
+        const explorer = await withTests();
+        await runAndFail(explorer);
+        const firstId = explorer.runs[0].requests[0].runId;
+        void explorer.views.commands.execute("testing.run", { $testId: testId(...ADDS) });
+        await vi.waitFor(() => {
+            expect(explorer.runs).toHaveLength(2);
+        });
+        const second = report(explorer, 1);
+        void explorer.views.commands.execute("testing.cancelRun", second.result.id, "t");
+        expect(explorer.cancels).toEqual([`${second.result.id}/t`]);
+        expect(explorer.runs[1].token.isCancellationRequested).toBe(false);
+        second.state(ADDS, Passed);
+        second.end();
+        await vi.waitFor(() => {
+            expect(second.result.completedAt).toBeDefined();
+        });
+        // The first run by its id: all of it again, then its failed one.
+        void explorer.views.commands.execute("testing.reRunLastRun", firstId);
+        await vi.waitFor(() => {
+            expect(explorer.runs).toHaveLength(3);
+        });
+        expect(explorer.runs[2].requests[0].testIds).toEqual(["vitest"]);
+        explorer.runs[2].finish();
+        void explorer.views.commands.execute("testing.reRunFailedFromLastRun", firstId);
+        await vi.waitFor(() => {
+            expect(explorer.runs).toHaveLength(4);
+        });
+        expect(explorer.runs[3].requests[0].testIds).toEqual([testId(...FAILS)]);
+        void explorer.views.commands.execute("testing.reRunLastRun", "gone");
+        void explorer.views.commands.execute("testing.reRunFailedFromLastRun", "gone");
+        expect(explorer.runs).toHaveLength(4);
+    });
+
+    it("Run Test under a filter leaves out the descendants it hides", async () => {
+        const explorer = await withTests();
+        explorer.component.filterInput.focus();
+        for (const char of "!slow") explorer.sendKey(char);
+        await explorer.waitFrame((text) => !text.includes(" slow"));
+        void explorer.views.commands.execute("testing.run", { $testId: testId(...SUITE) });
+        await vi.waitFor(() => {
+            expect(explorer.runs).toHaveLength(1);
+        });
+        expect(explorer.runs[0].requests[0]).toMatchObject({
+            testIds: [testId(...SUITE)],
+            excludeExtIds: [testId(...SLOW)],
+        });
+    });
+
+    it("More Filters opens under the glyph", async () => {
+        const explorer = await withTests();
+        const glyph = explorer.locate("▽");
+        explorer.click(glyph.x, glyph.y);
+        expect(explorer.views.shown.at(-1)?.getAnchor()).toEqual({ screenX: glyph.x, screenY: glyph.y + 1 });
+    });
+});
+
+describe("Test Explorer — edges of the commands", () => {
+    it("Run Test on an empty tree runs nothing; Rerun Failed skips a failed test gone from the tree", async () => {
+        const empty = setupExplorer();
+        empty.registerController("vitest");
+        empty.profiles.addProfile({
+            controllerId: "vitest",
+            profileId: 1,
+            label: "Run",
+            group: TestRunProfileBitset.Run,
+            isDefault: true,
+            tag: null,
+            hasConfigurationHandler: false,
+            supportsContinuousRun: false,
+        });
+        void empty.views.commands.execute("testing.run");
+        expect(empty.results.results).toHaveLength(0);
+        const explorer = await withTests();
+        await runAndFail(explorer);
+        explorer.tests.publishDiff([{ op: 3, itemId: testId(...FAILS) }]);
+        void explorer.views.commands.execute("testing.reRunFailTests");
+        expect(explorer.results.results).toHaveLength(1);
+    });
+
+    it("Run All Tests runs a root that may have tests: expandable or resolving", async () => {
+        for (const expand of [Expandable, TestItemExpandState.BusyExpanding]) {
+            const explorer = setupExplorer();
+            explorer.registerController("vitest");
+            explorer.profiles.addProfile({
+                controllerId: "vitest",
+                profileId: 1,
+                label: "Run",
+                group: TestRunProfileBitset.Run,
+                isDefault: true,
+                tag: null,
+                hasConfigurationHandler: false,
+                supportsContinuousRun: false,
+            });
+            explorer.tests.publishDiff([add(wireItem(ROOT), expand)]);
+            void explorer.views.commands.execute("testing.runAll");
+            await vi.waitFor(() => {
+                expect(explorer.runs).toHaveLength(1);
+            });
+        }
+    });
+});
+
+describe("Test Explorer — the details of states, sorting and following", () => {
+    it("a description with a duration is `description: duration`; a suite with its own duration shows that one", async () => {
+        const explorer = await withTests();
+        explorer.tests.publishDiff([update(ADDS, { description: "fast" })]);
+        void explorer.views.commands.execute("testing.runSelected");
+        await vi.waitFor(() => {
+            expect(explorer.runs).toHaveLength(1);
+        });
+        const run = report(explorer);
+        run.state(ADDS, Passed, 12);
+        run.state(SUITE, Passed, 99);
+        run.end();
+        await explorer.waitFrame((text) => text.includes("adds fast: 12ms") && text.includes("math 99ms"));
+    });
+
+    it("tests on the same line keep the extension's order unless a sortText says otherwise; a sorting chosen again changes nothing", async () => {
+        const explorer = setupExplorer();
+        explorer.registerController("vitest");
+        const sameLine = (name: string, sortText: string | null = null) =>
+            add(
+                wireItem(["vitest", name], name, { uri: URI, range: createRange(1, 0, 1, 1), sortText }),
+                NotExpandable,
+            );
+        explorer.tests.publishDiff([
+            add(wireItem(ROOT), Expanded),
+            sameLine("zeta"),
+            sameLine("alpha"),
+            sameLine("beta", "0"),
+        ]);
+        await explorer.waitFrame((text) => text.includes(" alpha"));
+        const rows = explorer
+            .lines()
+            .map((line) => /○ (\w+)/.exec(line)?.[1])
+            .filter((name) => name !== undefined);
+        expect(rows).toEqual(["beta", "zeta", "alpha"]);
+        explorer.views.stored.clear();
+        void explorer.views.commands.execute("testing.sortByLocation");
+        expect(explorer.views.stored.has(TESTING_VIEW_SORTING_STATE.key)).toBe(false);
+    });
+
+    it("under a filter matching one test, the hidden siblings are not excluded: they are not under it", async () => {
+        const explorer = await withTests();
+        explorer.component.filterInput.focus();
+        for (const char of "adds") explorer.sendKey(char);
+        await explorer.waitFrame((text) => !text.includes(" slow"));
+        void explorer.views.commands.execute("testing.runSelected");
+        await vi.waitFor(() => {
+            expect(explorer.runs).toHaveLength(1);
+        });
+        expect(explorer.runs[0].requests[0]).toMatchObject({ testIds: [testId(...ADDS)], excludeExtIds: [] });
+    });
+
+    it("following: a queued test does not move the cursor; a test or ancestors gone from the tree are skipped", async () => {
+        const explorer = await withTests({ settings: { "testing.followRunningTest": true } });
+        const { x, y } = explorer.row("slow");
+        explorer.click(x, y);
+        void explorer.views.commands.execute("testing.runSelected");
+        await vi.waitFor(() => {
+            expect(explorer.runs).toHaveLength(1);
+        });
+        const run = report(explorer);
+        run.state(ADDS, Queued);
+        await Promise.resolve();
+        expect(explorer.component.focusedTestId).toBe(testId(...SLOW));
+        // The only controller's root itself: there is no row to go to.
+        run.state(ROOT, Running);
+        // A test the tree no longer has: its known ancestors are the way, and it fails — they expand.
+        run.state([...SUITE, "gone"], Failed);
+        await vi.waitFor(() => {
+            expect(explorer.component.focusedTestId).toBe(testId(...SUITE));
+        });
+        explorer.tests.publishDiff([{ op: 3, itemId: testId(...FILE) }]);
+        run.end();
+        await vi.waitFor(() => {
+            expect(run.result.completedAt).toBeDefined();
+        });
+    });
+});
+
+describe("Test Explorer — following with everything shown", () => {
+    it("an expanded tree: the cursor goes to the test itself; with two controllers the controller rows are on the way", async () => {
+        const explorer = await withTests({ settings: { "testing.followRunningTest": true } });
+        void explorer.views.commands.execute("testing.runSelected");
+        await vi.waitFor(() => {
+            expect(explorer.runs).toHaveLength(1);
+        });
+        report(explorer).state(SLOW, Running);
+        await vi.waitFor(() => {
+            expect(explorer.component.focusedTestId).toBe(testId(...SLOW));
+        });
+        explorer.registerController("other");
+        explorer.tests.publishDiff([add(wireItem(["other"]), Expanded), add(wireItem(["other", "x"]), NotExpandable)]);
+        await explorer.waitFrame((text) => text.includes(" other"));
+        report(explorer).state(ADDS, Running);
+        await vi.waitFor(() => {
+            expect(explorer.component.focusedTestId).toBe(testId(...ROOT));
+        });
+    });
+});
+
 describe("Test Explorer — Run All Tests", () => {
     it("Ctrl+; A runs every controller that may have tests; none — a hint to install a test extension", async () => {
         const empty = setupExplorer();

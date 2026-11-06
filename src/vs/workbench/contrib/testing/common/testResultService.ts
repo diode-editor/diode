@@ -1,3 +1,4 @@
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Disposable, DisposableStore } from "../../../../base/common/lifecycle.ts";
 import { generateUuid } from "../../../../base/common/uuid.ts";
@@ -120,8 +121,7 @@ export class TestResultService extends Disposable {
         this.resultList.unshift(result);
         this.contextKeys.set("testing.hasAnyResults", true);
         if (this.resultList.length > RETAIN_MAX_RESULTS) {
-            const dropped = this.resultList.pop();
-            if (dropped !== undefined) this.dropStore(dropped);
+            this.dropStore(assertReturnsDefined(this.resultList.pop()));
         }
         const store = new DisposableStore();
         this.resultStores.set(result, store);

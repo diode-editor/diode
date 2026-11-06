@@ -21,6 +21,7 @@ const MATH = `describe("math", () => {
 `;
 
 const SPINNER = /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/;
+// The state glyphs are Nerd Font codicons here: the frame is checked by its text.
 
 export default defineScenario({
     name: "testing-run",
@@ -62,26 +63,24 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("skip me"));
 
         await editor.sendKey("Alt+u");
-        await editor.waitForText((t) => SPINNER.test(t) && t.includes("math.test.js") && t.includes("■"), {
-            timeoutMs: 10_000,
-        });
+        await editor.waitForText((t) => SPINNER.test(t) && t.includes(" 0/"), { timeoutMs: 10_000 });
         await editor.capture("the run spins in the title, the summary and the rows; Cancel takes Run's place");
 
-        await editor.waitForText((t) => t.includes("⊙ 1/3") && t.includes("↻"), { timeoutMs: 15_000 });
-        await editor.waitForText((t) => t.includes("✗ fails 20ms") && t.includes("✓ adds 10ms"), { timeoutMs: 5_000 });
+        await editor.waitForText((t) => t.includes(" 1/3 ") && t.includes("fails 20ms") && t.includes("adds 10ms"), {
+            timeoutMs: 15_000,
+        });
         await editor.capture("after the run: passed, failed, errored, skipped with durations; the summary and Rerun");
 
         await editor.sendKey("Alt+y");
-        await editor.waitForText((t) => SPINNER.test(t) && t.includes("■"), { timeoutMs: 10_000 });
-        await editor.waitForText((t) => t.includes("⊙ 0/2"), { timeoutMs: 15_000 });
+        await editor.waitForText((t) => SPINNER.test(t), { timeoutMs: 10_000 });
+        await editor.waitForText((t) => t.includes(" 0/2 ") && !SPINNER.test(t), { timeoutMs: 15_000 });
         await editor.capture("Rerun Failed Tests ran only the failed and the errored");
 
         await editor.sendKey("Alt+u");
         await editor.waitForText((t) => /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] adds/.test(t), { timeoutMs: 10_000 });
         await editor.sendKey("Alt+x");
-        await editor.waitForText((t) => t.includes("▷") && !t.includes("■") && t.includes("↷ fails"), {
-            timeoutMs: 15_000,
-        });
+        // Nothing passed or failed: the skipped do not count.
+        await editor.waitForText((t) => t.includes(" 0/0 ") && !SPINNER.test(t), { timeoutMs: 15_000 });
         await editor.capture("Cancel Test Run in the middle: the unfinished tests are skipped");
     },
 });
