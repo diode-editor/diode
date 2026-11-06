@@ -352,6 +352,34 @@ describe("TestService — runs", () => {
         expect(nothing.results.results[0].completedAt).toBeDefined();
     });
 
+    it("two controllers with the same profile id are two targets; a target's own tests are no exclusions of it", async () => {
+        const { tests: service, results, profiles } = makeTestingServices();
+        const a = runner("a");
+        const b = runner("b");
+        service.registerTestController(a.registered);
+        service.registerTestController(b.registered);
+        profiles.addProfile(runProfile("a", 1));
+        profiles.addProfile(runProfile("b", 1));
+        service.publishDiff([add("a"), add("b")]);
+        const node = (id: string) => assertReturnsDefined(service.getNodeById(id));
+        const running = service.runTests({ tests: [node("a"), node("b")], exclude: [node("a")] });
+        expect(results.results[0].request.targets).toEqual([
+            { controllerId: "a", profileId: 1, testIds: ["a"] },
+            { controllerId: "b", profileId: 1, testIds: ["b"] },
+        ]);
+        await vi.waitFor(() => {
+            expect(b.calls).toHaveLength(1);
+        });
+        expect(a.calls[0].requests[0].excludeExtIds).toEqual([]);
+        expect(b.calls[0].requests[0].excludeExtIds).toEqual(["a"]);
+        a.answer();
+        b.answer();
+        await running;
+        const plain = service.runResolvedTests({ targets: [], group: TestRunProfileBitset.Run });
+        expect(results.results[0].request.exclude).toEqual([]);
+        await plain;
+    });
+
     it("a runHandler's error is a toast; an extension gone meanwhile or an unknown controller just ends its share", async () => {
         const services = makeTestingServices();
         const { tests: service } = services;

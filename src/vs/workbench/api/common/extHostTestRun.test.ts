@@ -561,7 +561,10 @@ describe("TestRunTracker — what the gate asked", () => {
         expect(() => {
             env.stub.fire("testing.cancelExtensionTestRun", { runId: "r1", taskId: "nope" });
         }).not.toThrow();
-        expect((sentParams(env.stub, "testing.appendTestMessagesInRun")[0] as { messages: { location: unknown }[] }).messages[0].location).toBeUndefined();
+        expect(
+            (sentParams(env.stub, "testing.appendTestMessagesInRun")[0] as { messages: { location: unknown }[] })
+                .messages[0].location,
+        ).toBeUndefined();
     });
 
     it("a run the core forgot does not end its TestRuns at the deadline", async () => {
@@ -593,7 +596,13 @@ describe("TestRunTracker — what the gate asked", () => {
                 finishers.push(resolve);
             });
         });
-        const req = (runId: string) => ({ runId, controllerId: "ctrl", profileId: env.profileId, testIds: ["ctrl"], excludeExtIds: [] });
+        const req = (runId: string) => ({
+            runId,
+            controllerId: "ctrl",
+            profileId: env.profileId,
+            testIds: ["ctrl"],
+            excludeExtIds: [],
+        });
         const first = env.stub.callRequest("testing.runControllerTests", { requests: [req("a")] });
         const second = env.stub.callRequest("testing.runControllerTests", { requests: [req("b")] });
         await vi.waitFor(() => {
@@ -603,7 +612,9 @@ describe("TestRunTracker — what the gate asked", () => {
         await first;
         env.controller.createTestRun(requests[1]).end();
         expect(sentParams(env.stub, "testing.startedExtensionTestRun")).toEqual([]);
-        expect((sentParams(env.stub, "testing.startedTestRunTask") as { runId: string }[]).map((t) => t.runId)).toEqual(["a", "b", "b"]);
+        expect((sentParams(env.stub, "testing.startedTestRunTask") as { runId: string }[]).map((t) => t.runId)).toEqual(
+            ["a", "b", "b"],
+        );
         // After the answer the request is forgotten: a late TestRun of it is the extension's own.
         finishers[1]();
         await second;
@@ -614,7 +625,9 @@ describe("TestRunTracker — what the gate asked", () => {
     it("an extension's continuous request says so", () => {
         const env = setup(() => undefined);
         env.controller.createTestRun(new env.vscode.TestRunRequest(undefined, undefined, undefined, true));
-        expect(sentParams(env.stub, "testing.startedExtensionTestRun")).toEqual([expect.objectContaining({ continuous: true })]);
+        expect(sentParams(env.stub, "testing.startedExtensionTestRun")).toEqual([
+            expect.objectContaining({ continuous: true }),
+        ]);
     });
 
     it("the root among the included runs everything; an exclusion under any included test passes", async () => {

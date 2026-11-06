@@ -23,7 +23,7 @@ function item(...path: string[]): IWireTestItem {
 /** `ctrl` → `math` → `adds`, `fails` in one task `t`. */
 function setup() {
     let clock = 1000;
-    const result = new LiveTestResult("r", true, { targets: [], group: TestRunProfileBitset.Run }, 0, () => clock);
+    const result = new LiveTestResult("r", { targets: [], group: TestRunProfileBitset.Run }, 0, () => clock);
     const changes: string[] = [];
     result.onChange((change: ITestResultItemChange) => {
         changes.push(`${change.item.item.label}:${change.reason}`);
@@ -190,5 +190,30 @@ describe("LiveTestResult", () => {
         expect([...result.tests]).toHaveLength(4);
         expect(result.getStateById(testId("ctrl", "math", "adds"))?.tasks).toEqual([{ state: Unset, messages: [] }]);
         expect(result.getStateById(testId("ctrl", "math"))?.controllerId).toBe("ctrl");
+    });
+
+    it("a task added later starts every known test unset in it, without messages", () => {
+        const { result } = setup();
+        result.addTask({ id: "t2", name: "second", ctrlId: "ctrl" });
+        expect(result.getStateById(testId("ctrl", "math", "adds"))?.tasks[1]).toEqual({ state: Unset, messages: [] });
+    });
+
+    it("the same terminal state again takes its duration; a sibling's state that leaves the parent as it was fires nothing for it", () => {
+        const { result, changes } = setup();
+        const adds = testId("ctrl", "math", "adds");
+        result.updateState(adds, "t", Passed);
+        result.updateState(adds, "t", Passed, 12);
+        expect(result.getStateById(adds)?.ownDuration).toBe(12);
+        result.updateState(testId("ctrl", "math", "fails"), "t", Running);
+        changes.length = 0;
+        result.updateState(adds, "t", Failed);
+        // `math` stays Running.
+        expect(changes).toEqual(["adds:ownState"]);
+    });
+
+    it("an output of exactly 100 characters is its own preview", () => {
+        const { result } = setup();
+        result.appendOutput("z".repeat(100), "t");
+        expect(result.tasks[0].otherMessages[0].message).toBe("z".repeat(100));
     });
 });

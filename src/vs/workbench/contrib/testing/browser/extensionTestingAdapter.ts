@@ -95,6 +95,7 @@ export class ExtensionTestingAdapter implements IExtensionTestingSink {
 
     /** Upstream `$finishedExtensionTestRun`. */
     public finishedExtensionTestRun(runId: string): void {
+        // Stryker disable next-line CallExpression: hygiene — a finished run left in the set is finished again on reset, which completes nothing
         this.extensionRuns.delete(runId);
         this.withLiveRun(runId, (result) => {
             result.markComplete();

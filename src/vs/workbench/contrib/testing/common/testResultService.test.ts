@@ -132,7 +132,6 @@ describe("TestResultService", () => {
         };
         const withProfile = service.createExtensionLiveResult(run, TestRunProfileBitset.Debug);
         expect(withProfile.id).toBe("ext");
-        expect(withProfile.persist).toBe(false);
         expect(withProfile.request).toEqual({
             preserveFocus: false,
             targets: [{ profileId: 7, controllerId: "ctrl", testIds: ["ctrl"] }],
@@ -158,5 +157,15 @@ describe("TestResultService", () => {
         service.dispose();
         result.markComplete();
         expect(completions).toEqual([]);
+    });
+
+    it("a live run stays first while others complete around it", () => {
+        const { service } = setup();
+        const a = service.createLiveResult(REQUEST);
+        const b = service.createLiveResult(REQUEST);
+        a.markComplete();
+        const c = service.createLiveResult(REQUEST);
+        c.markComplete();
+        expect(service.results).toEqual([b, c, a]);
     });
 });

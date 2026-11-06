@@ -185,6 +185,7 @@ export const runTestAction: CommandAction = {
     menus: testItemInlineAndInContext(ActionOrder.Run, codicon("run"), HAS_RUNNABLE),
     async run(accessor, arg) {
         const testId = argTestId(accessor, arg);
+        // Stryker disable next-line ConditionalExpression: equivalent — the mirror has no test under an undefined id either
         const node = testId === undefined ? undefined : accessor.get(TestServiceDIToken).getNodeById(testId);
         if (node !== undefined) await runVisible(accessor, [node]);
     },

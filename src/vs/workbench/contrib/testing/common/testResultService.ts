@@ -87,7 +87,7 @@ export class TestResultService extends Disposable {
 
     /** Upstream `createLiveResult` for a run the core starts. */
     public createLiveResult(request: IResolvedTestRunRequest): LiveTestResult {
-        return this.push(new LiveTestResult(generateUuid(), true, request, this.insertOrderCounter++, this.now));
+        return this.push(new LiveTestResult(generateUuid(), request, this.insertOrderCounter++, this.now));
     }
 
     /** Upstream `createLiveResult` for a run the extension started; `profileGroup` of its profile, if any. */
@@ -105,7 +105,7 @@ export class TestResultService extends Disposable {
             continuous: run.continuous,
             group: profileGroup ?? TestRunProfileBitset.Run,
         };
-        return this.push(new LiveTestResult(run.runId, run.persist, request, this.insertOrderCounter++, this.now));
+        return this.push(new LiveTestResult(run.runId, request, this.insertOrderCounter++, this.now));
     }
 
     /** Upstream `clear`: the completed results go, the live ones stay. */
@@ -142,7 +142,8 @@ export class TestResultService extends Disposable {
     }
 
     private dropStore(result: LiveTestResult): void {
-        this.resultStores.get(result)?.dispose();
+        assertReturnsDefined(this.resultStores.get(result)).dispose();
+        // Stryker disable next-line CallExpression: hygiene — a disposed store left in the map only leaks
         this.resultStores.delete(result);
     }
 

@@ -168,6 +168,24 @@ describe("ExtensionTestingAdapter", () => {
         expect(result?.tasks).toHaveLength(1);
     });
 
+    it("the run's profile is found by its id among the controller's", () => {
+        const { results, adapter, proxy } = setup();
+        adapter.registerController({ controllerId: "c", label: "C", canRefresh: false }, proxy);
+        adapter.publishProfile({ ...runProfile("c", 1), group: 2 });
+        adapter.publishProfile({ ...runProfile("c", 7), label: "Zed coverage", group: 8 });
+        adapter.startedExtensionTestRun({
+            runId: "r",
+            controllerId: "c",
+            include: ["c"],
+            exclude: [],
+            profileId: 7,
+            preserveFocus: true,
+            persist: true,
+            continuous: false,
+        });
+        expect(results.getResult("r")?.request.group).toBe(8);
+    });
+
     it("a run of an unknown profile is a Run; the subprocess's death finishes the runs it started", () => {
         const { results, adapter } = setup();
         const run = {

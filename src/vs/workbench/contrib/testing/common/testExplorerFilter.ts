@@ -73,6 +73,7 @@ export function parseTestExplorerFilter(text: string): ITestExplorerFilter {
         }
         // A test named "@smoke" is searched by its name.
         if (!isFilterTerm && !isTag) continue;
+        // Stryker disable next-line ConditionalExpression: equivalent — only @failed and @executed are read from the terms, and they are filter terms
         if (isFilterTerm) terms.add(match[0]);
         globText += text.slice(lastIndex, match.index);
         lastIndex = nextIndex;
@@ -91,11 +92,9 @@ export function toggleFilterTerm(text: string, term: TestFilterTerm): string {
     const trimmed = text.trim();
     if (!parseTestExplorerFilter(text).terms.has(term)) return trimmed === "" ? term : `${trimmed} ${term}`;
     return trimmed
-        .split(" ")
+        .split(/\s+/)
         .filter((token) => token !== term)
-        .join(" ")
-        .replace(/\s\s+/g, " ")
-        .trim();
+        .join(" ");
 }
 
 /** Nothing to filter by: every test is shown. */

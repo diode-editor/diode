@@ -112,9 +112,9 @@ export class LiveTestResult extends Disposable {
     public readonly onChange: Event<ITestResultItemChange> = this.changeEmitter.event;
     public readonly onComplete: Event<void> = this.completeEmitter.event;
 
+    /** Upstream's `persist` decides what goes to the storage; results here live in memory only. */
     public constructor(
         public readonly id: string,
-        public readonly persist: boolean,
         public readonly request: IResolvedTestRunRequest,
         /** Upstream `insertOrder`: completed results sort by it, the latest first. */
         public readonly insertOrder: number,
@@ -149,12 +149,9 @@ export class LiveTestResult extends Disposable {
 
     /** Upstream `addTestChainToRun`: the first test of the chain is a root or a test the run knows. */
     public addTestChainToRun(controllerId: string, chain: readonly IWireTestItem[]): void {
-        // Stryker disable next-line ConditionalExpression: equivalent — an empty chain adds nothing either way
-        if (chain.length === 0) return;
-        let parent = this.testById.get(chain[0].extId) ?? this.addTestToRun(controllerId, chain[0], undefined);
-        for (const item of chain.slice(1)) {
+        let parent: IMutableResultItem | undefined;
+        for (const item of chain)
             parent = this.testById.get(item.extId) ?? this.addTestToRun(controllerId, item, parent);
-        }
     }
 
     /** Upstream `updateState`: a terminal state is not replaced by a lower one or by a non-terminal one. */
@@ -190,6 +187,7 @@ export class LiveTestResult extends Disposable {
             location,
         };
         task.output += output;
+        // Stryker disable next-line ConditionalExpression: equivalent — no test is under an undefined id
         const test = testId === undefined ? undefined : this.testById.get(testId);
         if (test === undefined) {
             task.otherMessages.push(message);
@@ -236,6 +234,7 @@ export class LiveTestResult extends Disposable {
             ownComputedState: TestResultState.Unset,
             ownDuration: undefined,
             computedState: TestResultState.Unset,
+            // Stryker disable next-line ArrayDeclaration: equivalent — a stray entry has no computed state, maxPriority skips it
             children: [],
         };
         this.testById.set(item.extId, node);
@@ -277,6 +276,7 @@ export class LiveTestResult extends Disposable {
             node.computedState = computed;
             if (node !== entry) this.changeEmitter.fire({ item: node, result: this, reason: "computedState" });
             const parentId = TestId.parentId(node.item.extId);
+            // Stryker disable next-line ConditionalExpression: equivalent — no test is under an undefined id
             node = parentId === undefined ? undefined : this.testById.get(parentId);
         }
     }

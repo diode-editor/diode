@@ -260,7 +260,9 @@ describe("testing wire parsers — runs", () => {
 
     it("a chain is cut at the first malformed test; it needs a run, a controller and a list", () => {
         const item = { extId: "c", label: "C" };
-        expect(parseWireAddTestsToRun({ runId: "r", controllerId: "c", tests: [item, {}, item] })?.tests).toHaveLength(1);
+        expect(parseWireAddTestsToRun({ runId: "r", controllerId: "c", tests: [item, {}, item] })?.tests).toHaveLength(
+            1,
+        );
         for (const bad of [
             null,
             { runId: "r", tests: [] },
@@ -290,7 +292,11 @@ describe("testing wire parsers — runs", () => {
                 {
                     message: "m",
                     location: { uri: 1, range: RANGE },
-                    stackTrace: [null, { label: "f", uri: "file:///f.ts", position: { line: 1, character: NaN } }, { label: "g" }],
+                    stackTrace: [
+                        null,
+                        { label: "f", uri: "file:///f.ts", position: { line: 1, character: NaN } },
+                        { label: "g" },
+                    ],
                 },
                 null,
                 { message: "n", location: { uri: "file:///a.ts", range: RANGE }, stackTrace: "x" },
@@ -328,9 +334,13 @@ describe("testing wire parsers — runs", () => {
     });
 
     it("output needs the text; its location without a range and a non-string test are dropped", () => {
-        expect(
-            parseWireTestOutputInRun({ runId: "r", taskId: "t", output: "o", location: null, testId: 1 }),
-        ).toEqual({ runId: "r", taskId: "t", output: "o", location: undefined, testId: undefined });
+        expect(parseWireTestOutputInRun({ runId: "r", taskId: "t", output: "o", location: null, testId: 1 })).toEqual({
+            runId: "r",
+            taskId: "t",
+            output: "o",
+            location: undefined,
+            testId: undefined,
+        });
         expect(parseWireTestOutputInRun(null)).toBeNull();
         expect(parseWireTestOutputInRun({ runId: "r", taskId: "t", output: 1 })).toBeNull();
     });

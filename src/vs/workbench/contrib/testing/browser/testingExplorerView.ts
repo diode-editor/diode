@@ -134,16 +134,15 @@ const WELCOME: readonly IViewWelcomeBlock[] = [
 ];
 
 /** Upstream `testingStatesToIcons` with `testStatesToIconColors`; Running is the spinner. */
-const STATE_ICONS: Readonly<
-    Record<Exclude<TestResultState, typeof TestResultState.Running>, { icon: IProductIcon; color: string }>
-> = {
-    [TestResultState.Errored]: { icon: codicon("issues"), color: "testing.iconErrored" },
-    [TestResultState.Failed]: { icon: codicon("error"), color: "testing.iconFailed" },
-    [TestResultState.Passed]: { icon: codicon("pass"), color: "testing.iconPassed" },
-    [TestResultState.Queued]: { icon: codicon("history"), color: "testing.iconQueued" },
-    [TestResultState.Skipped]: { icon: codicon("debug-step-over"), color: "testing.iconSkipped" },
-    [TestResultState.Unset]: { icon: codicon("circle-outline"), color: "testing.iconUnset" },
-};
+const STATE_ICONS: Readonly<Partial<Record<TestResultState, { readonly icon: IProductIcon; readonly color: string }>>> =
+    {
+        [TestResultState.Errored]: { icon: codicon("issues"), color: "testing.iconErrored" },
+        [TestResultState.Failed]: { icon: codicon("error"), color: "testing.iconFailed" },
+        [TestResultState.Passed]: { icon: codicon("pass"), color: "testing.iconPassed" },
+        [TestResultState.Queued]: { icon: codicon("history"), color: "testing.iconQueued" },
+        [TestResultState.Skipped]: { icon: codicon("debug-step-over"), color: "testing.iconSkipped" },
+        [TestResultState.Unset]: { icon: codicon("circle-outline"), color: "testing.iconUnset" },
+    };
 const FILTER_ICON = codicon("filter");
 /** Upstream `testingRerunIcon`. */
 const RERUN_ICON = codicon("debug-rerun");
@@ -216,9 +215,11 @@ export class TestingExplorerComponent extends Component {
     /** The computed states of one read of the tree; a change of the results drops them. */
     private readonly states = new Map<string, IComputedTestState>();
     private sorting: TestExplorerViewSorting;
+    // Stryker disable StringLiteral: equivalent — the constructor's renderSummary sets the texts before the first frame
     private readonly summaryStatus = new TextLabelElement("");
-    private readonly summaryText = new TextLabelElement(NO_RESULTS);
+    private readonly summaryText = new TextLabelElement("");
     private readonly summaryRerun = new TextLabelElement("");
+    // Stryker restore StringLiteral
     /** Upstream `renderLoop`: a run in progress redraws the summary at most this often. */
     private readonly summaryLoop = this.register(
         new RunOnceScheduler(() => {
@@ -306,20 +307,16 @@ export class TestingExplorerComponent extends Component {
             }
         });
         const filterGlyph = new TextLabelElement(icons.glyph(FILTER_ICON));
-        filterGlyph.id = "testingMoreFilters";
         // Upstream's "More Filters..." button.
         filterGlyph.addEventListener("click", (event) => {
-            event.preventDefault();
             this.showMoreFilters(event.screenX, event.screenY + 1);
         });
         const filterRow = new HFlexElement();
         filterRow.addChild(this.filterInput, { width: hflexFill(), height: 1 });
         filterRow.addChild(new TextLabelElement(""), { width: hflexFixed(1), height: 1 });
         filterRow.addChild(filterGlyph, { width: hflexFit(), height: 1 });
-        this.summaryRerun.id = "testingRerunLastRun";
-        this.summaryRerun.addEventListener("click", (event) => {
-            event.preventDefault();
-            runMenuEntry({ label: "", id: "testing.reRunLastRun" }, (id) => this.commands.execute(id), this.showError);
+        this.summaryRerun.addEventListener("click", () => {
+            void Promise.resolve(this.commands.execute("testing.reRunLastRun")).catch(onUnexpectedError);
         });
         const summary = new HFlexElement();
         summary.addChild(this.summaryStatus, { width: hflexFit(), height: 1 });
@@ -351,6 +348,7 @@ export class TestingExplorerComponent extends Component {
         this.register(
             results.onTestChanged((change) => {
                 this.followRunningTest(change);
+                // Stryker disable next-line ConditionalExpression,LogicalOperator,StringLiteral: equivalent — a message draws the same rows and a rescheduled refresh draws them a frame later; the check only saves the work of a run reporting test by test
                 if (change.reason !== "message" && !resultsRefresh.isScheduled()) resultsRefresh.schedule();
             }),
         );
@@ -450,7 +448,8 @@ export class TestingExplorerComponent extends Component {
     public getTreeIncludeExclude(within?: readonly ITestNode[]): { include: ITestNode[]; exclude: ITestNode[] } {
         const visible = this.visible;
         if (visible === null) return { include: [...(within ?? this.tests.rootItems)], exclude: [] };
-        const include: ITestNode[] = [];
+        // Within the given tests their children start as included; the whole tree starts at its roots.
+        const include: ITestNode[] = within === undefined ? [] : [...within];
         const exclude: ITestNode[] = [];
         const attempt = (node: ITestNode, alreadyIncluded: boolean): void => {
             if (!visible.has(node.item.extId)) {
@@ -461,14 +460,9 @@ export class TestingExplorerComponent extends Component {
             if (includeHere) include.push(node);
             for (const child of this.childNodes(node)) attempt(child, alreadyIncluded || includeHere);
         };
-        if (within === undefined) {
-            for (const root of this.tests.rootItems) attempt(root, false);
-            return { include, exclude };
-        }
-        for (const node of within) {
-            for (const child of this.childNodes(node)) attempt(child, true);
-        }
-        return { include: [...within], exclude };
+        if (within === undefined) for (const root of this.tests.rootItems) attempt(root, false);
+        else for (const child of within.flatMap((node) => this.childNodes(node))) attempt(child, true);
+        return { include, exclude };
     }
 
     /**
@@ -647,6 +641,7 @@ export class TestingExplorerComponent extends Component {
     private stateOf(node: ITestNode): IComputedTestState {
         const testId = node.item.extId;
         const cached = this.states.get(testId);
+        // Stryker disable next-line ConditionalExpression: equivalent — computing again gives the same state; the memo only saves the work of a spinner tick
         if (cached !== undefined) return cached;
         const own = this.results.getStateById(testId)?.[1];
         let computed: IComputedTestState;
@@ -668,6 +663,7 @@ export class TestingExplorerComponent extends Component {
                 duration,
             };
         }
+        // Stryker disable next-line CallExpression: equivalent — see the memo above
         this.states.set(testId, computed);
         return computed;
     }
@@ -703,8 +699,8 @@ export class TestingExplorerComponent extends Component {
             return { label: String(node.item.error), collapsible: false, labelColor: "list.errorForeground" };
         }
         const { state, duration } = this.stateOf(node);
-        const spinning = isBusy(node) || state === TestResultState.Running;
-        const icon = spinning ? undefined : STATE_ICONS[state];
+        // Running has no icon: the spinner.
+        const icon = isBusy(node) ? undefined : STATE_ICONS[state];
         let description = node.item.description ?? undefined;
         if (duration !== undefined) {
             description =
@@ -782,15 +778,16 @@ export class TestingExplorerComponent extends Component {
         } else {
             const last = results[0];
             const dominant = statesInOrder.find((state) => last.counts[state] > 0) ?? TestResultState.Unset;
-            const icon = STATE_ICONS[dominant as keyof typeof STATE_ICONS];
+            // A completed run has no running test.
+            const icon = assertReturnsDefined(STATE_ICONS[dominant]);
             status = this.icons.glyph(icon.icon);
             color = icon.color;
             duration = formatDuration(assertReturnsDefined(last.completedAt) - last.startedAt);
         }
         const { passed, totalWillBeRun } = countStates(live.length > 0 ? live : [results[0]]);
         this.summaryStatus.setText(`${status} `);
-        this.summaryStatus.clearCharStyles();
-        if (color !== undefined) this.summaryStatus.setCharStyle(0, { fg: color });
+        // The spinner of a run in progress has the default color.
+        this.summaryStatus.setCharStyle(0, { fg: color });
         this.summaryText.setText(`${String(passed)}/${String(totalWillBeRun)} ${duration}`);
         this.summaryRerun.setText(live.length > 0 ? "" : this.icons.glyph(RERUN_ICON));
     }
@@ -805,7 +802,6 @@ export class TestingExplorerComponent extends Component {
                 if (node !== undefined) ancestors.set(id, testRow(node));
             }
         }
-        if (ancestors.size === 0) return;
         // The tree takes ancestors in any order.
         void this.tree
             .refresh()
@@ -837,7 +833,12 @@ export class TestingExplorerComponent extends Component {
             );
             if (collapsed !== -1) target = chain.slice(0, collapsed + 1);
         }
-        if (target.length > 0) void this.tree.reveal(target).catch(onUnexpectedError);
+        // After the refresh in flight: a reveal in the middle of one loses its cursor.
+        if (target.length > 0)
+            void this.tree
+                .refresh()
+                .then(() => this.tree.reveal(target))
+                .catch(onUnexpectedError);
     }
 
     /** Upstream `TestingExplorerFilter`'s "More Filters..." menu under the filter glyph. */

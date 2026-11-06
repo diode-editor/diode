@@ -24,6 +24,7 @@ export function isStateWithResult(state: TestResultState): boolean {
 
 export function maxPriority(...states: TestResultState[]): TestResultState {
     let max: TestResultState = TestResultState.Unset;
+    // Stryker disable next-line EqualityOperator: equivalent — every state has its own priority, equal ones are the same state
     for (const state of states) if (statePriority[state] > statePriority[max]) max = state;
     return max;
 }
@@ -51,18 +52,11 @@ export function makeEmptyCounts(): TestStateCount {
 }
 
 /**
- * Upstream `getComputedState` for one node: its own state raised by its children's; a node of its own `Unset` whose
- * children are all skipped is skipped (upstream #131537).
+ * Upstream `getComputedState` for one node: its own state raised by its children's. Upstream's special case of an
+ * `Unset` node with skipped children (#131537) is the priority order itself here: Skipped outranks Unset.
  */
 export function computeState(own: TestResultState, children: Iterable<TestResultState>): TestResultState {
-    let computed = own;
-    for (const child of children) {
-        computed =
-            child === TestResultState.Skipped && computed === TestResultState.Unset
-                ? TestResultState.Skipped
-                : maxPriority(computed, child);
-    }
-    return computed;
+    return maxPriority(own, ...children);
 }
 
 /** Upstream `formatDuration` (`testingExplorerView.ts`). */

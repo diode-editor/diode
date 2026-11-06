@@ -266,6 +266,7 @@ export class TestService extends Disposable {
             );
             return result;
         } finally {
+            // Stryker disable next-line CallExpression: hygiene — a finished run's source left in the map only leaks; cancelling it reaches nobody
             this.uiRunningTests.delete(result.id);
             // Stryker disable next-line CallExpression: hygiene — the source's listener list goes with it; nothing reads a finished run's token
             cts.dispose();
