@@ -39,6 +39,8 @@ export interface IViewsHarness {
     /** The last one is the most recent. */
     readonly shown: IContextMenuDelegate[];
     readonly stored: Map<string, unknown>;
+    /** Over {@link stored}; {@link openWorkspace} fires its `onDidOpenWorkspace`. */
+    readonly state: IStateService;
     openWorkspace(): void;
     readonly viewlets: string[];
     readonly shownViewlets: { id: string; reveal: boolean | undefined; focus?: boolean }[];
@@ -154,6 +156,7 @@ export function makeViewsHarness(
         contextMenu,
         shown,
         stored,
+        state,
         openWorkspace: () => {
             state.openWorkspace("project" as WorkspaceId);
         },

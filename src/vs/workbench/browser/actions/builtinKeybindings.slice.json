@@ -581,8 +581,18 @@
         "showNextParameterHint": "down",
         "showPrevParameterHint": "up",
         "tab": "tab",
+        "testing.cancelRun": "ctrl+; ctrl+x",
         "testing.editFocusedTest": "alt+enter",
+        "testing.reRunFailTests": "ctrl+; e",
+        "testing.reRunLastRun": "ctrl+; l",
         "testing.refreshTests": "ctrl+; ctrl+r",
+        "testing.runAll": {
+            "*": "ctrl+; a",
+            "mac-cmd (kitty) #0": "meta+; a",
+            "mac-cmd (kitty) #1": "meta+; a",
+            "mac-cmd (kitty) #2": "meta+; a",
+            "mac-cmd (kitty) #3": "meta+; a"
+        },
         "toggleSuggestionDetails": "ctrl+space",
         "undo": {
             "*": "ctrl+z",

@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { testId } from "../../../../../TestUtils/testTree.ts";
-import type { IWireTestItem } from "../../../api/common/testingWireTypes.ts";
+import { type IWireTestItem, TestResultState } from "../../../api/common/testingWireTypes.ts";
 
-import { FilterResult, filterTest, parseTestExplorerFilter } from "./testExplorerFilter.ts";
+import {
+    FilterResult,
+    filterTest,
+    parseTestExplorerFilter,
+    TestFilterTerm,
+    toggleFilterTerm,
+} from "./testExplorerFilter.ts";
 
 function item(label: string, tags: readonly string[] = []): IWireTestItem {
     return {
@@ -24,7 +30,7 @@ const ADDS = item("adds", [testId("vitest", "fast")]);
 const SLOW = item("slow sum", [testId("vitest", "slow")]);
 
 const result = (text: string, ...lineage: IWireTestItem[]): FilterResult =>
-    filterTest(parseTestExplorerFilter(text), lineage);
+    filterTest(parseTestExplorerFilter(text), lineage, TestResultState.Unset);
 
 describe("parseTestExplorerFilter (upstream TestExplorerFilterState.setText)", () => {
     it("splits globs by comma, lower-cases them, `!` excludes, empty parts are dropped", () => {
@@ -111,5 +117,23 @@ describe("filterTest (upstream TestsFilter)", () => {
         expect(result("adds @vitest:fast", ADDS)).toBe(FilterResult.Include);
         expect(result("sum @vitest:fast", SLOW)).toBe(FilterResult.Inherit);
         expect(result("!adds @vitest:fast", ADDS)).toBe(FilterResult.Exclude);
+    });
+});
+
+describe("toggleFilterTerm (upstream toggleFilteringFor)", () => {
+    it("appends the term after the text, takes out only its own token", () => {
+        expect(toggleFilterTerm("", TestFilterTerm.Failed)).toBe("@failed");
+        expect(toggleFilterTerm(" adds ", TestFilterTerm.Failed)).toBe("adds @failed");
+        expect(toggleFilterTerm("adds @failed  !slow", TestFilterTerm.Failed)).toBe("adds !slow");
+        expect(toggleFilterTerm("@failed", TestFilterTerm.Failed)).toBe("");
+    });
+
+    it("@failed keeps failed and errored tests, @executed every test with a state", () => {
+        const failed = parseTestExplorerFilter("@failed");
+        const executed = parseTestExplorerFilter("@executed");
+        expect(filterTest(failed, [ADDS], TestResultState.Errored)).toBe(FilterResult.Include);
+        expect(filterTest(failed, [ADDS], TestResultState.Passed)).toBe(FilterResult.Inherit);
+        expect(filterTest(executed, [ADDS], TestResultState.Skipped)).toBe(FilterResult.Include);
+        expect(filterTest(executed, [ADDS], TestResultState.Unset)).toBe(FilterResult.Inherit);
     });
 });

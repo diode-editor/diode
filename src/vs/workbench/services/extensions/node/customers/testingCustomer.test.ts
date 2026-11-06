@@ -37,6 +37,14 @@ function recordingSink() {
         publishProfile: (profile) => calls.push(["profile", profile]),
         updateProfile: (update) => calls.push(["updateProfile", update]),
         removeProfile: (controllerId, profileId) => calls.push(["removeProfile", controllerId, profileId]),
+        startedExtensionTestRun: (run) => calls.push(["startedExtensionTestRun", run]),
+        finishedExtensionTestRun: (runId) => calls.push(["finishedExtensionTestRun", runId]),
+        startedTestRunTask: (task) => calls.push(["startedTestRunTask", task]),
+        finishedTestRunTask: (task) => calls.push(["finishedTestRunTask", task]),
+        addTestsToRun: (add) => calls.push(["addTestsToRun", add]),
+        updateTestStateInRun: (update) => calls.push(["updateTestStateInRun", update]),
+        appendTestMessagesInRun: (messages) => calls.push(["appendTestMessagesInRun", messages]),
+        appendOutputToRun: (output) => calls.push(["appendOutputToRun", output]),
         reset: () => calls.push(["reset"]),
     };
     return { sink, calls, proxies };
@@ -122,6 +130,200 @@ describe("TestingCustomer", () => {
             ["profile", PROFILE],
             ["removeProfile", "c", 1],
             ["updateProfile", { controllerId: "c", profileId: 1, update: { label: "R" } }],
+        ]);
+    });
+
+    it("the run's reports reach the sink parsed; malformed ones never do", async () => {
+        const { sink, calls } = recordingSink();
+        const { peer } = setup(sink);
+        const range = { start: { line: 1, character: 0 }, end: { line: 1, character: 4 } };
+        const item = {
+            extId: "c",
+            label: "C",
+            tags: [],
+            busy: false,
+            range: null,
+            description: null,
+            error: null,
+            sortText: null,
+        };
+        const methods = [
+            "testing.startedExtensionTestRun",
+            "testing.finishedExtensionTestRun",
+            "testing.startedTestRunTask",
+            "testing.finishedTestRunTask",
+            "testing.addTestsToRun",
+            "testing.updateTestStateInRun",
+            "testing.appendTestMessagesInRun",
+            "testing.appendOutputToRun",
+        ] as const;
+        for (const method of methods) peer.notify(method, null as never);
+        peer.notify("testing.updateTestStateInRun", { runId: "r", taskId: "t", testId: "c", state: 99 } as never);
+        peer.notify("testing.finishedExtensionTestRun", { runId: "" });
+        peer.notify("testing.startedTestRunTask", { runId: "r", taskId: "t" } as never);
+        peer.notify("testing.addTestsToRun", { runId: "r", controllerId: "c" } as never);
+        peer.notify("testing.appendTestMessagesInRun", { runId: "r", taskId: "t", testId: "c" } as never);
+        peer.notify("testing.appendOutputToRun", { runId: "r", taskId: "t" } as never);
+        peer.notify("testing.startedExtensionTestRun", { runId: "r" } as never);
+        await flushMicrotasks();
+        expect(calls).toEqual([]);
+
+        peer.notify("testing.startedExtensionTestRun", {
+            runId: "r",
+            controllerId: "c",
+            include: ["c", 3],
+            exclude: [],
+            profileId: 5,
+            preserveFocus: false,
+            persist: true,
+            continuous: false,
+        } as never);
+        peer.notify("testing.startedTestRunTask", { runId: "r", taskId: "t", controllerId: "c", name: "vitest" });
+        peer.notify("testing.addTestsToRun", {
+            runId: "r",
+            controllerId: "c",
+            tests: [item, { label: "bad" }, item],
+        } as never);
+        peer.notify("testing.updateTestStateInRun", { runId: "r", taskId: "t", testId: "c", state: 3, duration: 12 });
+        peer.notify("testing.updateTestStateInRun", { runId: "r", taskId: "t", testId: "c", state: 4, duration: NaN });
+        peer.notify("testing.appendTestMessagesInRun", {
+            runId: "r",
+            taskId: "t",
+            testId: "c",
+            messages: [
+                {
+                    message: "boom",
+                    expected: "1",
+                    actual: 2,
+                    location: { uri: "file:///a.ts", range },
+                    stackTrace: [
+                        { label: "at", position: { line: 1, character: 2 } },
+                        { label: 3 },
+                        { label: "x", position: { line: 1 } },
+                    ],
+                },
+                { message: 3 },
+                { message: "no location", location: { uri: "file:///a.ts" } },
+            ],
+        } as never);
+        peer.notify("testing.appendOutputToRun", {
+            runId: "r",
+            taskId: "t",
+            output: "hi",
+            location: { uri: "file:///a.ts", range },
+            testId: "c",
+        });
+        peer.notify("testing.finishedTestRunTask", { runId: "r", taskId: "t" });
+        peer.notify("testing.finishedExtensionTestRun", { runId: "r" });
+        peer.notify("testing.startedExtensionTestRun", { runId: "s", controllerId: "c" } as never);
+        peer.notify("testing.startedTestRunTask", { runId: "s", taskId: "t", controllerId: "c" } as never);
+        await flushMicrotasks();
+        expect(calls).toEqual([
+            [
+                "startedExtensionTestRun",
+                {
+                    runId: "r",
+                    controllerId: "c",
+                    include: ["c"],
+                    exclude: [],
+                    profileId: 5,
+                    preserveFocus: false,
+                    persist: true,
+                    continuous: false,
+                },
+            ],
+            ["startedTestRunTask", { runId: "r", taskId: "t", controllerId: "c", name: "vitest" }],
+            // The chain is cut at the malformed test.
+            ["addTestsToRun", { runId: "r", controllerId: "c", tests: [{ ...item, uri: undefined }] }],
+            ["updateTestStateInRun", { runId: "r", taskId: "t", testId: "c", state: 3, duration: 12 }],
+            ["updateTestStateInRun", { runId: "r", taskId: "t", testId: "c", state: 4, duration: undefined }],
+            [
+                "appendTestMessagesInRun",
+                {
+                    runId: "r",
+                    taskId: "t",
+                    testId: "c",
+                    messages: [
+                        {
+                            message: "boom",
+                            expected: "1",
+                            actual: undefined,
+                            contextValue: undefined,
+                            location: { uri: "file:///a.ts", range },
+                            stackTrace: [
+                                { label: "at", uri: undefined, position: { line: 1, character: 2 } },
+                                { label: "x", uri: undefined, position: undefined },
+                            ],
+                        },
+                        {
+                            message: "no location",
+                            expected: undefined,
+                            actual: undefined,
+                            contextValue: undefined,
+                            location: undefined,
+                            stackTrace: undefined,
+                        },
+                    ],
+                },
+            ],
+            [
+                "appendOutputToRun",
+                { runId: "r", taskId: "t", output: "hi", location: { uri: "file:///a.ts", range }, testId: "c" },
+            ],
+            ["finishedTestRunTask", { runId: "r", taskId: "t" }],
+            ["finishedExtensionTestRun", "r"],
+            [
+                "startedExtensionTestRun",
+                {
+                    runId: "s",
+                    controllerId: "c",
+                    include: [],
+                    exclude: [],
+                    profileId: null,
+                    preserveFocus: true,
+                    persist: true,
+                    continuous: false,
+                },
+            ],
+            ["startedTestRunTask", { runId: "s", taskId: "t", controllerId: "c", name: "" }],
+        ]);
+    });
+
+    it("a controller's proxy runs tests with the cancellation and cancels a run; every controller of the spawn shares the cancel", async () => {
+        const { sink, proxies } = recordingSink();
+        const { peer } = setup(sink);
+        const seen: unknown[] = [];
+        let cancelled = false;
+        peer.handleRequest("testing.runControllerTests", async (params, token) => {
+            seen.push(params);
+            await new Promise<void>((resolve) => {
+                token.onCancellationRequested(() => {
+                    cancelled = true;
+                    resolve();
+                });
+            });
+            return [{ error: "late" }];
+        });
+        peer.handleNotification("testing.cancelExtensionTestRun", (params) => {
+            seen.push(["cancel", params]);
+        });
+        peer.notify("testing.registerController", { controllerId: "a", label: "A", canRefresh: false });
+        peer.notify("testing.registerController", { controllerId: "b", label: "B", canRefresh: false });
+        await flushMicrotasks();
+        expect(proxies[0].cancelTestRun).toBe(proxies[1].cancelTestRun);
+        const request = { runId: "r", controllerId: "a", profileId: 1, testIds: ["a"], excludeExtIds: [] };
+        const cts = new CancellationTokenSource();
+        const running = proxies[0].runTests([request], cts.token);
+        await flushMicrotasks();
+        proxies[0].cancelTestRun("r");
+        proxies[1].cancelTestRun("r", "t");
+        cts.cancel();
+        await expect(running).resolves.toEqual([{ error: "late" }]);
+        expect(cancelled).toBe(true);
+        expect(seen).toEqual([
+            { requests: [request] },
+            ["cancel", { runId: "r" }],
+            ["cancel", { runId: "r", taskId: "t" }],
         ]);
     });
 

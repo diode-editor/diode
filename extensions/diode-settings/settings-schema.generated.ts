@@ -989,6 +989,25 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["auto", "legacy", "csi-u", "kitty"],
     },
     {
+        key: "testing.alwaysRevealTestOnStateChange",
+        type: "boolean",
+        default: false,
+        description:
+            "Always reveal the executed test when `#testing.followRunningTest#` is on. If this setting is turned off, only failed tests will be revealed.",
+    },
+    {
+        key: "testing.followRunningTest",
+        type: "boolean",
+        default: false,
+        description: "Controls whether the running test should be followed in the Test Explorer view.",
+    },
+    {
+        key: "testing.saveBeforeTest",
+        type: "boolean",
+        default: true,
+        description: "Control whether save all dirty editors before running a test.",
+    },
+    {
         key: "typescript.implementationsCodeLens.enabled",
         type: "boolean",
         default: false,

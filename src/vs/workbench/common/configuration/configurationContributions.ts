@@ -8,6 +8,7 @@ import { scmConfiguration } from "./scmConfiguration.ts";
 import { searchConfiguration } from "./searchConfiguration.ts";
 import { tasksConfiguration } from "./tasksConfiguration.ts";
 import { terminalConfiguration } from "./terminalConfiguration.ts";
+import { testingConfiguration } from "./testingConfiguration.ts";
 import { windowConfiguration } from "./windowConfiguration.ts";
 import { workbenchConfiguration } from "./workbenchConfiguration.ts";
 
@@ -25,6 +26,7 @@ export const CONFIGURATION_CONTRIBUTIONS = [
     searchConfiguration,
     terminalConfiguration,
     tasksConfiguration,
+    testingConfiguration,
     extensionsConfiguration,
 ] as const satisfies readonly IConfigurationNode[];
 

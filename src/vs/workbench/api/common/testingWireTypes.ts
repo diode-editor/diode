@@ -148,3 +148,129 @@ export interface IWireExpandTest {
     readonly testId: string;
     readonly levels: number;
 }
+
+/** Upstream `TestResultState`. */
+export const TestResultState = {
+    Unset: 0,
+    Queued: 1,
+    Running: 2,
+    Passed: 3,
+    Failed: 4,
+    Skipped: 5,
+    Errored: 6,
+} as const;
+export type TestResultState = (typeof TestResultState)[keyof typeof TestResultState];
+
+/** Upstream `ICallProfileRunHandler` of `IStartControllerTests`: one controller's share of a run. */
+export interface IWireStartControllerTests {
+    readonly runId: string;
+    readonly controllerId: string;
+    readonly profileId: number;
+    /** Full test ids; the controller's root id runs everything. */
+    readonly testIds: readonly string[];
+    readonly excludeExtIds: readonly string[];
+}
+
+/** Upstream `$runControllerTests`. */
+export interface IWireRunControllerTests {
+    readonly requests: readonly IWireStartControllerTests[];
+}
+
+/** Upstream `IStartControllerTestsResult`: the `runHandler`'s rejection as text. */
+export interface IWireRunControllerTestsResult {
+    readonly error?: string;
+}
+
+/** Upstream `$cancelExtensionTestRun`: without `runId` every run, without `taskId` the whole run. */
+export interface IWireCancelTestRun {
+    readonly runId?: string;
+    readonly taskId?: string;
+}
+
+/** Upstream `ExtensionRunTestsRequest`: a run the extension started with `createTestRun` on its own. */
+export interface IWireExtensionTestRun {
+    readonly runId: string;
+    readonly controllerId: string;
+    /** Full test ids; the controller's root id when the request has no `include`. */
+    readonly include: readonly string[];
+    readonly exclude: readonly string[];
+    readonly profileId: number | null;
+    readonly preserveFocus: boolean;
+    readonly persist: boolean;
+    readonly continuous: boolean;
+}
+
+export interface IWireTestRunId {
+    readonly runId: string;
+}
+
+/** Upstream `$startedTestRunTask`: a `TestRun` object of the run. */
+export interface IWireTestRunTask {
+    readonly runId: string;
+    readonly taskId: string;
+    readonly controllerId: string;
+    readonly name: string;
+}
+
+/** Upstream `$finishedTestRunTask`. */
+export interface IWireTestRunTaskId {
+    readonly runId: string;
+    readonly taskId: string;
+}
+
+/** Upstream `$addTestsToRun`: a chain from a test the run knows (or the root) down to the reported test. */
+export interface IWireAddTestsToRun {
+    readonly controllerId: string;
+    readonly runId: string;
+    readonly tests: readonly IWireTestItem[];
+}
+
+/** Upstream `$updateTestStateInRun`. */
+export interface IWireTestStateInRun {
+    readonly runId: string;
+    readonly taskId: string;
+    readonly testId: string;
+    readonly state: TestResultState;
+    readonly duration?: number;
+}
+
+/** Upstream `ILocationDto`. */
+export interface IWireTestLocation {
+    /** `uri.toString()`. */
+    readonly uri: string;
+    readonly range: IRange;
+}
+
+/** Upstream `ITestMessageStackFrame`. */
+export interface IWireTestMessageStackFrame {
+    readonly label: string;
+    readonly uri?: string;
+    readonly position?: { readonly line: number; readonly character: number };
+}
+
+/** Upstream `ITestErrorMessage.Serialized`; a `MarkdownString` goes as its source. */
+export interface IWireTestMessage {
+    readonly message: string;
+    readonly expected?: string;
+    readonly actual?: string;
+    readonly contextValue?: string;
+    readonly location?: IWireTestLocation;
+    readonly stackTrace?: readonly IWireTestMessageStackFrame[];
+}
+
+/** Upstream `$appendTestMessagesInRun`. */
+export interface IWireTestMessagesInRun {
+    readonly runId: string;
+    readonly taskId: string;
+    readonly testId: string;
+    readonly messages: readonly IWireTestMessage[];
+}
+
+/** Upstream `$appendOutputToRun`: the text as it came. */
+export interface IWireTestOutputInRun {
+    readonly runId: string;
+    readonly taskId: string;
+    readonly output: string;
+    readonly location?: IWireTestLocation;
+    readonly testId?: string;
+}

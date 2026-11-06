@@ -417,15 +417,26 @@ EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorer
 - **Пустое состояние** — welcome эталона («No tests have been found…», кнопка «Install Additional Test
   Extensions...» → `testing.searchForTestExtension`), пока ни у одного корня нет детей и ни один не занят.
   Поиск расширений не знает `@category:`, поэтому кнопка ищет слово `testing` (отступление).
-- **Шапка** — поле фильтра с глифом `filter` справа и сводка «No test results yet.» (запусков ещё нет).
+- **Шапка** — поле фильтра с глифом `filter` справа («More Filters...» эталона: клик — меню «Show Only
+  Failed Tests» / «Show Only Executed Tests» с галочкой, пункт дописывает или убирает `@failed`/`@executed`)
+  и сводка `ResultSummaryView`: без результатов «No test results yet.»; во время запуска — спиннер,
+  `passed/totalWillBeRun` живых запусков и время с начала старейшего, перерисовка раз в 200 мс
+  (`SUMMARY_RENDER_INTERVAL`); после — иконка доминирующего состояния последнего запуска его цветом, счёт,
+  длительность и `↻` справа (`testing.reRunLastRun`).
   Фильтр — `common/testExplorerFilter.ts` (`setText` + `TestsFilter` эталона): термы через запятую,
-  подстрока подписи теста или предка, `!` исключает, `@ctrlId:tag` — тег; текст и теги — И. Совпадение
-  раскрывает дерево до себя. ArrowDown из поля — в дерево, ArrowUp с первой строки — в поле, Escape
-  чистит поле (на пустом — как в Search, ничего).
+  подстрока подписи теста или предка, `!` исключает, `@ctrlId:tag` — тег, `@failed` — упавшие (вычисленное
+  состояние), `@executed` — с результатом; всё — И. Совпадение раскрывает дерево до себя. ArrowDown из
+  поля — в дерево, ArrowUp с первой строки — в поле, Escape чистит поле (на пустом — как в Search, ничего).
 - **Дерево** — `TreeViewElement` поверх зеркала `TestService`: с одним контроллером корни — его тесты,
-  с двумя и больше — сами контроллеры. Порядок — `sortText ?? label`. Строка: иконка состояния
-  (`circle-outline` в `testing.iconUnset`; цвета `testing.*` — `testingColors.ts`), подпись, приглушённое
-  `description`. `TestItem.error` — строка-ребёнок цветом `list.errorForeground`, тест с ней раскрыт
+  с двумя и больше — сами контроллеры. Порядок — `TreeSorter` эталона: «Sort by Location» (по
+  умолчанию — так у эталона в storage: строка в одном файле, иначе `sortText ?? label`), «Sort by Status»,
+  «Sort by Duration» в «⋯» (группа `sortBy`, ключ `testing.explorerViewSorting`, выбор — в state воркспейса).
+  Строка: иконка состояния `testingStatesToIcons` своим цветом `testing.icon*` (`testingColors.ts`),
+  Running — спиннер; подпись, приглушённое `description: длительность` (`formatDuration`). Состояние —
+  последний результат теста из `TestResultService.getStateById`, у родителя поднятое детьми по
+  `statePriority`; длительность родителя — сумма детей. После запуска предки упавших раскрываются;
+  `testing.followRunningTest` ведёт курсор за запущенным тестом (до ближайшего показанного предка, а с
+  `testing.alwaysRevealTestOnStateChange` или для упавшего — раскрывая). `TestItem.error` — строка-ребёнок цветом `list.errorForeground`, тест с ней раскрыт
   (`TestTreeErrorMessage` эталона). Занятый (`busy`) и раскрывающийся тест крутит спиннер: пока такой
   есть, у вида открыт прогресс `ProgressService` (общий такт и спиннер в заголовке). Раскрытие
   `Expandable`-узла (и корня контроллера при показе) зовёт `TestService.expandTest(id, 0)`, по разу на
@@ -437,10 +448,18 @@ EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorer
 - **Go to Test** — Enter/клик по листу с `uri` открывает файл на `range.start`, фокус остаётся в дереве;
   `testing.editFocusedTest` (`Alt+Enter` при `focusedView == 'workbench.view.testing'`, inline и в меню при
   `testing.testItemHasUri`) уводит фокус в редактор. Inline — решение спеки (у эталона только меню).
-- **Заголовок** — Refresh Tests / Cancel Test Refresh на одном месте (`navigation`), Collapse All Tests —
-  в «⋯» (`displayAction`).
-- Не сделано: count badge (`testing.countBadge` — activity bar нет), View as List/Tree, сортировки,
-  Hide/Unhide Test, Show in Active File Only, «More Filters...», печать символа из дерева в фильтр.
+- **Заголовок** — Refresh Tests / Cancel Test Refresh на одном месте (`navigation`, 10), Run Tests
+  (`testing.runSelected`, видимые тесты: без фильтра — все, с ним — совпавшие без скрытых) / Cancel Test
+  Run (`testing.cancelRun`, `Ctrl+; Ctrl+X`) — на одном месте (11) по `testing.isRunning`; Collapse All
+  Tests и Clear All Results — в «⋯» (`displayAction`), там же сортировки. На строке — Run Test
+  (`testing.run`, inline и `builtin@1`, тест с видимыми потомками) перед Go to Test. Команды палитры:
+  Run All Tests (`Ctrl+; A`), Rerun Failed Tests (`Ctrl+; E`, упавшие по всем результатам), Rerun Last Run
+  (`Ctrl+; L`, те же цели и профили, если они ещё есть), Rerun Failed Tests from Last Run — реруны
+  доступны при `testing.hasAnyResults`.
+- Не сделано: count badge (`testing.countBadge` — activity bar нет), View as List/Tree, Hide/Unhide Test,
+  Show in Active File Only, Debug/Coverage-пункты (решения человека), выбор профиля («Execute Using
+  Profile...», «Select Default Profile», «Configure Test Profiles»), Fuzzy Match, печать символа из дерева
+  в фильтр; показ сообщений и вывода (TEST RESULTS) — следующая задача.
 
 ## References
 

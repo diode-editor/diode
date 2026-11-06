@@ -1,20 +1,31 @@
 import {
+    type IWireAddTestsToRun,
+    type IWireExtensionTestRun,
     type IWireTestController,
     type IWireTestControllerPatch,
     type IWireTestItem,
     type IWireTestItemUpdate,
+    type IWireTestLocation,
+    type IWireTestMessage,
+    type IWireTestMessagesInRun,
+    type IWireTestMessageStackFrame,
+    type IWireTestOutputInRun,
     type IWireTestRunProfile,
     type IWireTestRunProfileId,
     type IWireTestRunProfileUpdate,
+    type IWireTestRunTask,
+    type IWireTestRunTaskId,
     type IWireTestsDiff,
+    type IWireTestStateInRun,
     TestDiffOpType,
     type TestItemExpandState as ExpandState,
     TestItemExpandState,
+    TestResultState,
     TestRunProfileBitset,
     type TestRunProfileGroup,
     type WireTestsDiffOp,
 } from "../../../api/common/testingWireTypes.ts";
-import { parseRange } from "../../../api/common/wireTypes.ts";
+import { isFiniteNumber, parseRange } from "../../../api/common/wireTypes.ts";
 
 // Testing messages from the subprocess (`testing.*`); `null` — a malformed message, ignored.
 
@@ -172,4 +183,132 @@ export function parseWireTestRunProfileUpdate(raw: unknown): IWireTestRunProfile
     if ("tag" in update) parsed.tag = nullableString(update.tag);
     if (typeof update.supportsContinuousRun === "boolean") parsed.supportsContinuousRun = update.supportsContinuousRun;
     return { ...id, update: parsed };
+}
+
+const RESULT_STATES: readonly unknown[] = Object.values(TestResultState);
+
+/** The message's fields, when it names a run. */
+function runEnvelope(raw: unknown): (Fields & { readonly runId: string }) | null {
+    const p = fields(raw);
+    return typeof p?.runId === "string" && p.runId !== "" ? (p as Fields & { readonly runId: string }) : null;
+}
+
+/** The message's fields, when it names a run and a task of it. */
+function taskEnvelope(raw: unknown): (Fields & { readonly runId: string; readonly taskId: string }) | null {
+    const p = runEnvelope(raw);
+    return typeof p?.taskId === "string" ? (p as Fields & { readonly runId: string; readonly taskId: string }) : null;
+}
+
+function parseLocation(raw: unknown): IWireTestLocation | undefined {
+    const p = fields(raw);
+    const range = parseRange(p?.range);
+    return typeof p?.uri === "string" && range !== null ? { uri: p.uri, range } : undefined;
+}
+
+export function parseWireExtensionTestRun(raw: unknown): IWireExtensionTestRun | null {
+    const p = runEnvelope(raw);
+    if (p === null || typeof p.controllerId !== "string") return null;
+    return {
+        runId: p.runId,
+        controllerId: p.controllerId,
+        include: strings(p.include),
+        exclude: strings(p.exclude),
+        profileId: typeof p.profileId === "number" ? p.profileId : null,
+        preserveFocus: p.preserveFocus !== false,
+        persist: p.persist !== false,
+        continuous: p.continuous === true,
+    };
+}
+
+export function parseWireTestRunId(raw: unknown): string | null {
+    return runEnvelope(raw)?.runId ?? null;
+}
+
+export function parseWireTestRunTask(raw: unknown): IWireTestRunTask | null {
+    const p = taskEnvelope(raw);
+    if (p === null || typeof p.controllerId !== "string") return null;
+    return { runId: p.runId, taskId: p.taskId, controllerId: p.controllerId, name: optionalString(p.name) ?? "" };
+}
+
+export function parseWireTestRunTaskId(raw: unknown): IWireTestRunTaskId | null {
+    const p = taskEnvelope(raw);
+    return p === null ? null : { runId: p.runId, taskId: p.taskId };
+}
+
+/** A malformed test cuts the chain there: its descendants have no parent the run knows. */
+export function parseWireAddTestsToRun(raw: unknown): IWireAddTestsToRun | null {
+    const p = runEnvelope(raw);
+    if (p === null || typeof p.controllerId !== "string" || !Array.isArray(p.tests)) return null;
+    const tests: IWireTestItem[] = [];
+    for (const test of p.tests) {
+        const parsed = parseTestItem(test);
+        if (parsed === null) break;
+        tests.push(parsed);
+    }
+    return { controllerId: p.controllerId, runId: p.runId, tests };
+}
+
+export function parseWireTestStateInRun(raw: unknown): IWireTestStateInRun | null {
+    const p = taskEnvelope(raw);
+    if (p === null || typeof p.testId !== "string" || !RESULT_STATES.includes(p.state)) return null;
+    return {
+        runId: p.runId,
+        taskId: p.taskId,
+        testId: p.testId,
+        state: p.state as TestResultState,
+        duration: isFiniteNumber(p.duration) ? p.duration : undefined,
+    };
+}
+
+function parseStackFrame(raw: unknown): IWireTestMessageStackFrame | null {
+    const p = fields(raw);
+    if (typeof p?.label !== "string") return null;
+    const position = fields(p.position);
+    return {
+        label: p.label,
+        uri: optionalString(p.uri),
+        position:
+            isFiniteNumber(position?.line) && isFiniteNumber(position.character)
+                ? { line: position.line, character: position.character }
+                : undefined,
+    };
+}
+
+function parseTestMessage(raw: unknown): IWireTestMessage | null {
+    const p = fields(raw);
+    if (typeof p?.message !== "string") return null;
+    return {
+        message: p.message,
+        expected: optionalString(p.expected),
+        actual: optionalString(p.actual),
+        contextValue: optionalString(p.contextValue),
+        location: parseLocation(p.location),
+        stackTrace: Array.isArray(p.stackTrace)
+            ? p.stackTrace.flatMap((frame) => parseStackFrame(frame) ?? [])
+            : undefined,
+    };
+}
+
+/** A malformed message is dropped, the rest are kept. */
+export function parseWireTestMessagesInRun(raw: unknown): IWireTestMessagesInRun | null {
+    const p = taskEnvelope(raw);
+    if (p === null || typeof p.testId !== "string" || !Array.isArray(p.messages)) return null;
+    return {
+        runId: p.runId,
+        taskId: p.taskId,
+        testId: p.testId,
+        messages: p.messages.flatMap((message) => parseTestMessage(message) ?? []),
+    };
+}
+
+export function parseWireTestOutputInRun(raw: unknown): IWireTestOutputInRun | null {
+    const p = taskEnvelope(raw);
+    if (p === null || typeof p.output !== "string") return null;
+    return {
+        runId: p.runId,
+        taskId: p.taskId,
+        output: p.output,
+        location: parseLocation(p.location),
+        testId: optionalString(p.testId),
+    };
 }

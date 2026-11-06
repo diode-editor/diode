@@ -8,13 +8,24 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import {
     type IWireTestRunProfile,
     type IWireTestRunProfileUpdate,
+    TestId,
     TestRunProfileBitset,
+    type TestRunProfileGroup,
 } from "../../../api/common/testingWireTypes.ts";
+
+import type { ITestNode } from "./testService.ts";
 
 export type ITestRunProfile = IWireTestRunProfile;
 
 // Stryker disable next-line StringLiteral: token() returns a unique Token matched by reference; the string is a label
 export const TestProfileServiceDIToken = token<TestProfileService>("TestProfileService");
+
+/** Upstream `canUseProfileWithTest` among the test's own controller's profiles: its tag is on the test (a root takes any). */
+function canRunTest(profile: ITestRunProfile, test: ITestNode): boolean {
+    return (
+        TestId.parentId(test.item.extId) === undefined || profile.tag === null || test.item.tags.includes(profile.tag)
+    );
+}
 
 /** Upstream `sorter`: defaults first, then by label. */
 function compareProfiles(a: ITestRunProfile, b: ITestRunProfile): number {
@@ -70,6 +81,13 @@ export class TestProfileService extends Disposable {
 
     public getControllerProfiles(controllerId: string): readonly ITestRunProfile[] {
         return this.profiles.get(controllerId) ?? [];
+    }
+
+    /** Upstream `getDefaultProfileForTest`: the controller's first profile of the group that can run the test. */
+    public getDefaultProfileForTest(group: TestRunProfileGroup, test: ITestNode): ITestRunProfile | undefined {
+        return this.getControllerProfiles(test.controllerId).find(
+            (profile) => profile.group === group && canRunTest(profile, test),
+        );
     }
 
     private changed(): void {

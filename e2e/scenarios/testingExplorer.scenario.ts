@@ -75,8 +75,10 @@ export default defineScenario({
         await editor.capture("Enter goes to the test and keeps the tree focused");
 
         await editor.sendKey("Shift+F10");
-        await editor.waitForText((t) => t.includes("Update Snapshot") && t.includes("Go to Test"));
+        await editor.waitForText((t) => t.includes("Update Snapshot") && t.includes("Go to Test") && t.includes("Run Test"));
         await editor.capture("the row's menu with the extension's item");
+        // Past Run Test and Go to Test.
+        await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Update Snapshot: adds"));

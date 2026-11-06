@@ -436,8 +436,8 @@ describe("vscode.tests — run profiles reach the host", () => {
     });
 });
 
-describe("vscode.tests — runs are not wired yet", () => {
-    it("a run accepts reports and ends once; invalidateTestResults is harmless", () => {
+describe("vscode.tests — a TestRun's own fields", () => {
+    it("[api:tests.createTestController] a run has its name and persistence, accepts every report and ends once; coverage and invalidateTestResults are no-ops", () => {
         const { vscode } = makeVscode();
         const controller = vscode.tests.createTestController("go", "Go");
         const item = controller.createTestItem("A", "TestA");

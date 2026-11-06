@@ -1,13 +1,21 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    parseWireAddTestsToRun,
+    parseWireExtensionTestRun,
     parseWireTestController,
     parseWireTestControllerId,
     parseWireTestControllerPatch,
+    parseWireTestMessagesInRun,
+    parseWireTestOutputInRun,
+    parseWireTestRunId,
     parseWireTestRunProfile,
     parseWireTestRunProfileId,
     parseWireTestRunProfileUpdate,
+    parseWireTestRunTask,
+    parseWireTestRunTaskId,
     parseWireTestsDiff,
+    parseWireTestStateInRun,
 } from "./testingWireParsers.ts";
 
 const ITEM = {
@@ -197,5 +205,143 @@ describe("testing wire parsers", () => {
         });
         expect(parseWireTestRunProfileUpdate({ controllerId: "c", profileId: 1 })).toBeNull();
         expect(parseWireTestRunProfileUpdate({ controllerId: "c", update: {} })).toBeNull();
+    });
+});
+
+const RANGE = { start: { line: 1, character: 2 }, end: { line: 3, character: 4 } };
+
+describe("testing wire parsers — runs", () => {
+    const run = {
+        runId: "r",
+        controllerId: "c",
+        include: ["c", 5],
+        exclude: ["c\0x"],
+        profileId: 3,
+        preserveFocus: false,
+        persist: false,
+        continuous: true,
+    };
+
+    it("an extension's run needs a non-empty run id and a controller; the flags default as upstream", () => {
+        expect(parseWireExtensionTestRun(run)).toEqual({ ...run, include: ["c"] });
+        expect(parseWireExtensionTestRun({ runId: "r", controllerId: "c" })).toEqual({
+            runId: "r",
+            controllerId: "c",
+            include: [],
+            exclude: [],
+            profileId: null,
+            preserveFocus: true,
+            persist: true,
+            continuous: false,
+        });
+        for (const bad of [null, 5, {}, { ...run, runId: "" }, { ...run, runId: 5 }, { ...run, controllerId: 5 }]) {
+            expect(parseWireExtensionTestRun(bad)).toBeNull();
+        }
+    });
+
+    it("a run id, a task and a task id need their fields", () => {
+        expect(parseWireTestRunId({ runId: "r" })).toBe("r");
+        expect(parseWireTestRunId(null)).toBeNull();
+        expect(parseWireTestRunId({ runId: 1 })).toBeNull();
+        expect(parseWireTestRunTask({ runId: "r", taskId: "t", controllerId: "c", name: "vitest" })).toEqual({
+            runId: "r",
+            taskId: "t",
+            controllerId: "c",
+            name: "vitest",
+        });
+        expect(parseWireTestRunTask({ runId: "r", taskId: "t", controllerId: "c", name: 1 })?.name).toBe("");
+        for (const bad of [null, { runId: "r", taskId: "t" }, { runId: "r", taskId: 1, controllerId: "c" }]) {
+            expect(parseWireTestRunTask(bad)).toBeNull();
+        }
+        expect(parseWireTestRunTaskId({ runId: "r", taskId: "t", extra: 1 })).toEqual({ runId: "r", taskId: "t" });
+        expect(parseWireTestRunTaskId(null)).toBeNull();
+        expect(parseWireTestRunTaskId({ runId: "r" })).toBeNull();
+    });
+
+    it("a chain is cut at the first malformed test; it needs a run, a controller and a list", () => {
+        const item = { extId: "c", label: "C" };
+        expect(parseWireAddTestsToRun({ runId: "r", controllerId: "c", tests: [item, {}, item] })?.tests).toHaveLength(
+            1,
+        );
+        for (const bad of [
+            null,
+            { runId: "r", tests: [] },
+            { runId: "r", controllerId: 1, tests: [] },
+            { runId: "r", controllerId: "c" },
+            { controllerId: "c", tests: [] },
+        ]) {
+            expect(parseWireAddTestsToRun(bad)).toBeNull();
+        }
+    });
+
+    it("a state needs a test and a known state; a duration only when it is a finite number", () => {
+        const state = { runId: "r", taskId: "t", testId: "c\0a", state: 3, duration: 12 };
+        expect(parseWireTestStateInRun(state)).toEqual(state);
+        expect(parseWireTestStateInRun({ ...state, duration: Infinity })?.duration).toBeUndefined();
+        for (const bad of [null, { ...state, testId: 1 }, { ...state, state: 7 }, { ...state, taskId: undefined }]) {
+            expect(parseWireTestStateInRun(bad)).toBeNull();
+        }
+    });
+
+    it("messages: a malformed one is dropped, a location needs a uri and a range, a frame a label", () => {
+        const parsed = parseWireTestMessagesInRun({
+            runId: "r",
+            taskId: "t",
+            testId: "c\0a",
+            messages: [
+                {
+                    message: "m",
+                    location: { uri: 1, range: RANGE },
+                    stackTrace: [
+                        null,
+                        { label: "f", uri: "file:///f.ts", position: { line: 1, character: NaN } },
+                        { label: "g" },
+                    ],
+                },
+                null,
+                { message: "n", location: { uri: "file:///a.ts", range: RANGE }, stackTrace: "x" },
+            ],
+        });
+        expect(parsed?.messages).toEqual([
+            {
+                message: "m",
+                expected: undefined,
+                actual: undefined,
+                contextValue: undefined,
+                location: undefined,
+                stackTrace: [
+                    { label: "f", uri: "file:///f.ts", position: undefined },
+                    { label: "g", uri: undefined, position: undefined },
+                ],
+            },
+            {
+                message: "n",
+                expected: undefined,
+                actual: undefined,
+                contextValue: undefined,
+                location: { uri: "file:///a.ts", range: RANGE },
+                stackTrace: undefined,
+            },
+        ]);
+        for (const bad of [
+            null,
+            { runId: "r", taskId: "t", messages: [] },
+            { runId: "r", taskId: "t", testId: 1, messages: [] },
+            { runId: "r", taskId: "t", testId: "c" },
+        ]) {
+            expect(parseWireTestMessagesInRun(bad)).toBeNull();
+        }
+    });
+
+    it("output needs the text; its location without a range and a non-string test are dropped", () => {
+        expect(parseWireTestOutputInRun({ runId: "r", taskId: "t", output: "o", location: null, testId: 1 })).toEqual({
+            runId: "r",
+            taskId: "t",
+            output: "o",
+            location: undefined,
+            testId: undefined,
+        });
+        expect(parseWireTestOutputInRun(null)).toBeNull();
+        expect(parseWireTestOutputInRun({ runId: "r", taskId: "t", output: 1 })).toBeNull();
     });
 });

@@ -138,6 +138,9 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "terminal.integrated.colorSource": "application",
 
     "task.autoDetect": "window",
+    "testing.alwaysRevealTestOnStateChange": "window",
+    "testing.followRunningTest": "window",
+    "testing.saveBeforeTest": "window",
     "task.slowProviderWarning": "window",
     "task.quickOpen.detail": "window",
     "task.quickOpen.skip": "window",

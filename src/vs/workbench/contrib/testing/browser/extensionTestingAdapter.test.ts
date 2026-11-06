@@ -1,24 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
 import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
-import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IExtensionTestControllerProxy } from "../../../api/common/iExtensionTestingSink.ts";
-import type { IWireTestRunProfile } from "../../../api/common/testingWireTypes.ts";
-import { TestProfileService } from "../common/testProfileService.ts";
-import { TestService } from "../common/testService.ts";
-
-import { ExtensionTestingAdapter } from "./extensionTestingAdapter.ts";
-
+import { type IWireTestItem, type IWireTestRunProfile, TestResultState } from "../../../api/common/testingWireTypes.ts";
 function setup() {
-    const contextKeys = new ContextKeyService();
-    const tests = new TestService(contextKeys);
-    const profiles = new TestProfileService(contextKeys);
-    const adapter = new ExtensionTestingAdapter(tests, profiles);
+    const services = makeTestingServices();
     const proxy: IExtensionTestControllerProxy = {
         expandTest: vi.fn(() => Promise.resolve()),
         refreshTests: vi.fn(() => Promise.resolve()),
+        runTests: vi.fn(() => Promise.resolve([])),
+        cancelTestRun: vi.fn(),
     };
-    return { contextKeys, tests, profiles, adapter, proxy };
+    return { ...services, proxy };
 }
 
 function runProfile(controllerId: string, profileId = 1): IWireTestRunProfile {
@@ -116,4 +110,105 @@ describe("ExtensionTestingAdapter", () => {
         expect(contextKeys.get("testing.hasRunnableTests")).toBe(false);
         adapter.reset();
     });
+
+    it("a controller's runs and cancels go to the subprocess", async () => {
+        const { tests, adapter, proxy } = setup();
+        adapter.registerController({ controllerId: "c", label: "C", canRefresh: false }, proxy);
+        const controller = tests.getTestController("c");
+        const request = { runId: "r", controllerId: "c", profileId: 1, testIds: ["c"], excludeExtIds: [] };
+        await controller?.runTests([request], CancellationTokenNone);
+        controller?.cancelTestRun("r", "t");
+        expect(proxy.runTests).toHaveBeenCalledWith([request], CancellationTokenNone);
+        expect(proxy.cancelTestRun).toHaveBeenCalledWith("r", "t");
+    });
+
+    it("a run the extension started is a live result with its profile's group; its reports land in it until it finishes", () => {
+        const { results, adapter, proxy } = setup();
+        adapter.registerController({ controllerId: "c", label: "C", canRefresh: false }, proxy);
+        adapter.publishProfile({ ...runProfile("c", 5), group: 4 });
+        adapter.startedExtensionTestRun({
+            runId: "r",
+            controllerId: "c",
+            include: ["c"],
+            exclude: [],
+            profileId: 5,
+            preserveFocus: true,
+            persist: true,
+            continuous: false,
+        });
+        const result = results.getResult("r");
+        expect(result?.request.group).toBe(4);
+        adapter.startedTestRunTask({ runId: "r", taskId: "t", controllerId: "c", name: "vitest" });
+        adapter.addTestsToRun({ runId: "r", controllerId: "c", tests: [wireItem("c"), wireItem("c\0a")] });
+        adapter.updateTestStateInRun({
+            runId: "r",
+            taskId: "t",
+            testId: "c\0a",
+            state: TestResultState.Failed,
+            duration: 4,
+        });
+        adapter.appendTestMessagesInRun({
+            runId: "r",
+            taskId: "t",
+            testId: "c\0a",
+            messages: [{ message: "x" }, { message: "y" }],
+        });
+        adapter.appendOutputToRun({ runId: "r", taskId: "t", output: "out", testId: "c\0a" });
+        adapter.updateTestStateInRun({ runId: "other", taskId: "t", testId: "c\0a", state: TestResultState.Passed });
+        const state = result?.getStateById("c\0a");
+        expect(state?.ownComputedState).toBe(TestResultState.Failed);
+        expect(state?.ownDuration).toBe(4);
+        expect(state?.tasks[0].messages.map((message) => message.message)).toEqual(["x", "y", "out"]);
+        adapter.finishedTestRunTask({ runId: "r", taskId: "t" });
+        expect(result?.tasks[0].running).toBe(false);
+        adapter.finishedExtensionTestRun("r");
+        expect(result?.completedAt).toBeDefined();
+        // A completed run takes no more reports.
+        adapter.startedTestRunTask({ runId: "r", taskId: "late", controllerId: "c", name: "late" });
+        expect(result?.tasks).toHaveLength(1);
+    });
+
+    it("the run's profile is found by its id among the controller's", () => {
+        const { results, adapter, proxy } = setup();
+        adapter.registerController({ controllerId: "c", label: "C", canRefresh: false }, proxy);
+        adapter.publishProfile({ ...runProfile("c", 1), group: 2 });
+        adapter.publishProfile({ ...runProfile("c", 7), label: "Zed coverage", group: 8 });
+        adapter.startedExtensionTestRun({
+            runId: "r",
+            controllerId: "c",
+            include: ["c"],
+            exclude: [],
+            profileId: 7,
+            preserveFocus: true,
+            persist: true,
+            continuous: false,
+        });
+        expect(results.getResult("r")?.request.group).toBe(8);
+    });
+
+    it("a run of an unknown profile is a Run; the subprocess's death finishes the runs it started", () => {
+        const { results, adapter } = setup();
+        const run = {
+            runId: "r",
+            controllerId: "c",
+            include: ["c"],
+            exclude: [],
+            profileId: 9,
+            preserveFocus: true,
+            persist: true,
+            continuous: false,
+        };
+        adapter.startedExtensionTestRun(run);
+        adapter.startedExtensionTestRun({ ...run, runId: "s" });
+        adapter.finishedExtensionTestRun("s");
+        const live = results.getResult("r");
+        expect(live?.request).toMatchObject({ group: 2, targets: [] });
+        adapter.reset();
+        expect(live?.completedAt).toBeDefined();
+        expect(results.results.every((result) => result.completedAt !== undefined)).toBe(true);
+    });
 });
+
+function wireItem(extId: string): IWireTestItem {
+    return { extId, label: extId, tags: [], busy: false, range: null, description: null, error: null, sortText: null };
+}
