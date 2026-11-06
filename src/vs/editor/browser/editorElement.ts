@@ -474,7 +474,9 @@ export class EditorElement extends TUIElement implements IScrollable {
         for (const [line, glyph] of this.glyphMargin.byLine()) {
             if (glyph.overviewRulerColorToken === undefined) continue;
             const color = this.styleVar(glyph.overviewRulerColorToken);
-            glyphMarkers.push(this.scrollBarMarker(createRange(line, 0, line, 0), color, ScrollBarMarkerPriority.GlyphMargin));
+            glyphMarkers.push(
+                this.scrollBarMarker(createRange(line, 0, line, 0), color, ScrollBarMarkerPriority.GlyphMargin),
+            );
         }
         const small = [...changeMarkers, ...diagnosticMarkers, ...glyphMarkers];
 
@@ -1571,12 +1573,18 @@ export class EditorElement extends TUIElement implements IScrollable {
         const localX = event.screenX - this.globalPosition.x;
         if (this.glyphMargin.isEmpty || localX < 0 || localX >= this.gutterLeftPadding) return false;
         const viewLine = this.viewState.scrollTop + event.screenY - this.globalPosition.y;
-        if (viewLine >= this.viewState.getViewLineCount() || this.viewState.viewLineKind(viewLine) === "zone") return false;
+        if (viewLine >= this.viewState.getViewLineCount() || this.viewState.viewLineKind(viewLine) === "zone")
+            return false;
         // The glyph is on the first fragment only.
         if (this.viewState.viewLineRange(viewLine).start > 0) return false;
         const glyph = this.glyphMargin.byLine().get(this.viewState.visualToLogicalLine(viewLine));
         if (glyph === undefined) return false;
-        this.onDidClickGlyphMarginEmitter.fire({ key: glyph.key, button, screenX: event.screenX, screenY: event.screenY });
+        this.onDidClickGlyphMarginEmitter.fire({
+            key: glyph.key,
+            button,
+            screenX: event.screenX,
+            screenY: event.screenY,
+        });
         return true;
     }
 

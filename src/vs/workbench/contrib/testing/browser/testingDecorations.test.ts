@@ -393,19 +393,22 @@ describe("TestingDecorations", () => {
         expect(open.gutter(2)).toBe(` ${RUN} 3   `);
     });
 
-    it.each(["debug", "runWithCoverage"])("testing.defaultGutterClickAction %s runs the test: there is no debugger nor coverage", async (action) => {
-        const s = setup({ settings: { "testing.defaultGutterClickAction": action } });
-        const open = s.show(s.openEditor());
-        s.publishTests();
-        await flush();
+    it.each(["debug", "runWithCoverage"])(
+        "testing.defaultGutterClickAction %s runs the test: there is no debugger nor coverage",
+        async (action) => {
+            const s = setup({ settings: { "testing.defaultGutterClickAction": action } });
+            const open = s.show(s.openEditor());
+            s.publishTests();
+            await flush();
 
-        open.click(1, 2);
+            open.click(1, 2);
 
-        await vi.waitFor(() => {
-            expect(s.explorer.runs).toHaveLength(1);
-        });
-        expect(s.explorer.views.shown).toHaveLength(0);
-    });
+            await vi.waitFor(() => {
+                expect(s.explorer.runs).toHaveLength(1);
+            });
+            expect(s.explorer.views.shown).toHaveLength(0);
+        },
+    );
 
     it("testing.defaultGutterClickAction contextMenu: a left click opens the menu at the pointer instead of running", async () => {
         const s = setup({ settings: { "testing.defaultGutterClickAction": "contextMenu" } });
@@ -532,7 +535,10 @@ describe("TestingDecorations", () => {
                 add(wireItem(ROOT, "Vitest"), Expanded),
                 add(item(FILE), Expanded),
                 ...Array.from({ length: count }, (_, i) =>
-                    add(wireItem([...FILE, `t${String(i)}`], label(i), { uri: URI, range: createRange(2, 0, 2, 5) }), NotExpandable),
+                    add(
+                        wireItem([...FILE, `t${String(i)}`], label(i), { uri: URI, range: createRange(2, 0, 2, 5) }),
+                        NotExpandable,
+                    ),
                 ),
             ]);
         }
@@ -566,7 +572,10 @@ describe("TestingDecorations", () => {
                 add(wireItem([...FILE, "b"], "second"), Expanded),
                 add(wireItem([...FILE, "a", "x"], "same", { uri: URI, range: createRange(2, 0, 2, 5) }), NotExpandable),
                 add(wireItem([...FILE, "b", "x"], "same", { uri: URI, range: createRange(2, 0, 2, 5) }), NotExpandable),
-                add(wireItem([...FILE, "c"], "multi\nline", { uri: URI, range: createRange(2, 0, 2, 5) }), NotExpandable),
+                add(
+                    wireItem([...FILE, "c"], "multi\nline", { uri: URI, range: createRange(2, 0, 2, 5) }),
+                    NotExpandable,
+                ),
             ]);
             await flush();
 

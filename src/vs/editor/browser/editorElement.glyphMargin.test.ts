@@ -1,7 +1,7 @@
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
-import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
@@ -19,7 +19,10 @@ const RUN_FG = packRgb(0x73, 0xc9, 0x91);
 const FAILED_FG = packRgb(0xf8, 0x80, 0x70);
 const RULER_ERROR = packRgb(250, 0, 0);
 
-function setup(text: string, size = new Size(30, 8)): { app: TestApp; editor: EditorElement; clicks: IGlyphMarginClick[] } {
+function setup(
+    text: string,
+    size = new Size(30, 8),
+): { app: TestApp; editor: EditorElement; clicks: IGlyphMarginClick[] } {
     const editor = new EditorElement(new EditorViewState(new TextDocument(text)));
     editor.occurrenceHighlightEnabled = false;
     editor.setStyleVars({
@@ -38,7 +41,9 @@ function glyph(key: string, line: number, extra: Partial<IGlyphMarginDecoration>
 }
 
 function mouseDown(editor: EditorElement, x: number, y: number): void {
-    editor.dispatchEvent(new TUIMouseEvent("mousedown", { button: "left", screenX: x, screenY: y, localX: x, localY: y }));
+    editor.dispatchEvent(
+        new TUIMouseEvent("mousedown", { button: "left", screenX: x, screenY: y, localX: x, localY: y }),
+    );
 }
 
 function rightClick(app: TestApp, editor: EditorElement, x: number, y: number): void {
@@ -69,7 +74,10 @@ describe("EditorElement — glyph margin", () => {
 
     it("a glyph widens the padding to three columns and is drawn in the middle one with its color", () => {
         const { app, editor } = setup(LINES);
-        editor.setGlyphMarginDecorations([glyph("a", 1), glyph("b", 2, { glyph: "⊗", colorToken: "testing.iconFailed" })]);
+        editor.setGlyphMarginDecorations([
+            glyph("a", 1),
+            glyph("b", 2, { glyph: "⊗", colorToken: "testing.iconFailed" }),
+        ]);
         app.render();
 
         expect(editor.gutterWidth).toBe(7);
@@ -112,17 +120,20 @@ describe("EditorElement — glyph margin", () => {
     });
 
     describe("clicks", () => {
-        it.each([0, 1, 2])("a left press on padding column %i of a glyph's line fires the click and leaves the cursor", (x) => {
-            const { app, editor, clicks } = setup(LINES);
-            editor.viewState.selections = [createCursorSelection(3, 2)];
-            editor.setGlyphMarginDecorations([glyph("a", 1)]);
-            app.render();
+        it.each([0, 1, 2])(
+            "a left press on padding column %i of a glyph's line fires the click and leaves the cursor",
+            (x) => {
+                const { app, editor, clicks } = setup(LINES);
+                editor.viewState.selections = [createCursorSelection(3, 2)];
+                editor.setGlyphMarginDecorations([glyph("a", 1)]);
+                app.render();
 
-            mouseDown(editor, x, 1);
+                mouseDown(editor, x, 1);
 
-            expect(clicks).toEqual([{ key: "a", button: "left", screenX: x, screenY: 1 }]);
-            expect(editor.viewState.selections).toEqual([createCursorSelection(3, 2)]);
-        });
+                expect(clicks).toEqual([{ key: "a", button: "left", screenX: x, screenY: 1 }]);
+                expect(editor.viewState.selections).toEqual([createCursorSelection(3, 2)]);
+            },
+        );
 
         it("the line number column and a line without a glyph place the cursor as before", () => {
             const { app, editor, clicks } = setup(LINES);
@@ -178,7 +189,14 @@ describe("EditorElement — glyph margin", () => {
 
             rightClick(app, editor, 1, 2);
             editor.dispatchEvent(
-                new TUIContextMenuEvent({ trigger: "keyboard", button: "none", screenX: 1, screenY: 1, localX: 1, localY: 1 }),
+                new TUIContextMenuEvent({
+                    trigger: "keyboard",
+                    button: "none",
+                    screenX: 1,
+                    screenY: 1,
+                    localX: 1,
+                    localY: 1,
+                }),
             );
 
             expect(clicks).toEqual([]);

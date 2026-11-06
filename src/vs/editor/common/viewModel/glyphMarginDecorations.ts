@@ -1,3 +1,4 @@
+import { assertReturnsDefined } from "../../../base/common/assert.ts";
 import { positionsEqual } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";
 import { createRange } from "../core/iRange.ts";
@@ -33,7 +34,7 @@ export class GlyphMarginDecorations {
         const placed: { readonly index: number; readonly range: IRange }[] = [];
         const next: (IGlyphEntry | undefined)[] = decorations.map((decoration, index) => {
             const old = previous.get(decoration.key);
-            if (old !== undefined && old.decoration.line === decoration.line && !kept.has(old.id)) {
+            if (old?.decoration.line === decoration.line && !kept.has(old.id)) {
                 kept.add(old.id);
                 return { ...old, decoration };
             }
@@ -45,7 +46,10 @@ export class GlyphMarginDecorations {
             placed.map(({ range }) => ({
                 range,
                 // Stryker disable next-line StringLiteral: the description is for debugging only, as in upstream
-                options: { description: "glyph-margin", stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges },
+                options: {
+                    description: "glyph-margin",
+                    stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+                },
             })),
         );
         placed.forEach(({ index }, i) => {
@@ -68,12 +72,14 @@ export class GlyphMarginDecorations {
 
     /** Past the end of the document the document clamps the range to its last line, as upstream validates it. */
     private lineRange(line: number): IRange {
-        return line + 1 < this.document.lineCount ? createRange(line, 0, line + 1, 0) : createRange(line, 0, line, Infinity);
+        return line + 1 < this.document.lineCount
+            ? createRange(line, 0, line + 1, 0)
+            : createRange(line, 0, line, Infinity);
     }
 
     private rangeOf(id: string): IRange {
         // Only this class removes its decorations.
-        return this.document.getDecorationRange(id) as IRange;
+        return assertReturnsDefined(this.document.getDecorationRange(id));
     }
 }
 

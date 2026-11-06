@@ -4,7 +4,10 @@ import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
-import type { IGlyphMarginClick, IGlyphMarginDecoration } from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
+import type {
+    IGlyphMarginClick,
+    IGlyphMarginDecoration,
+} from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { joinMenuGroups, type MenuContextKeys } from "../../../../platform/actions/common/menuRegistry.ts";
 import { type MenuService, MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
@@ -32,11 +35,11 @@ import {
     TestResultState,
     TestRunProfileBitset,
 } from "../../../api/common/testingWireTypes.ts";
-import { bindMenuEntry, runMenuEntry } from "../../../browser/parts/views/treeItemMenu.ts";
 import {
     type QuickInputService,
     QuickInputServiceDIToken,
 } from "../../../browser/parts/quickinput/quickInputService.ts";
+import { bindMenuEntry, runMenuEntry } from "../../../browser/parts/views/treeItemMenu.ts";
 import {
     type NotificationService,
     NotificationServiceDIToken,
@@ -339,7 +342,11 @@ export class TestingDecorations extends Disposable {
         this.tests.runTests({ tests: outermost }).catch(onUnexpectedError);
     }
 
-    private showContextMenu(editor: ITestingDecorationsEditor, decoration: IRunDecoration, click: IGlyphMarginClick): void {
+    private showContextMenu(
+        editor: ITestingDecorationsEditor,
+        decoration: IRunDecoration,
+        click: IGlyphMarginClick,
+    ): void {
         const { tests } = decoration;
         const entries = tests.length === 1 ? this.testEntries(tests[0]) : this.multiTestEntries(tests);
         this.contextMenu.showContextMenu({
@@ -355,15 +362,35 @@ export class TestingDecorations extends Disposable {
         const state = this.testState(test);
         const entries: MenuEntry[] = [];
         if (this.profiles.getDefaultProfileForTest(TestRunProfileBitset.Run, test) !== undefined) {
-            entries.push({ label: "Run Test", onSelect: () => this.run([test]) });
+            entries.push({
+                label: "Run Test",
+                onSelect: () => {
+                    this.run([test]);
+                },
+            });
         }
         if (isFailedState(state) && this.commands.has(PEEK_TEST_ERROR_COMMAND)) {
-            entries.push({ label: "Peek Error", onSelect: () => this.execute(PEEK_TEST_ERROR_COMMAND, testId) });
+            entries.push({
+                label: "Peek Error",
+                onSelect: () => {
+                    this.execute(PEEK_TEST_ERROR_COMMAND, testId);
+                },
+            });
         }
         if (state === TestResultState.Running) {
-            entries.push({ label: "Cancel Test Run", onSelect: () => this.execute(CANCEL_RUN_COMMAND) });
+            entries.push({
+                label: "Cancel Test Run",
+                onSelect: () => {
+                    this.execute(CANCEL_RUN_COMMAND);
+                },
+            });
         }
-        entries.push({ label: "Reveal in Test Explorer", onSelect: () => this.execute(REVEAL_TEST_COMMAND, testId) });
+        entries.push({
+            label: "Reveal in Test Explorer",
+            onSelect: () => {
+                this.execute(REVEAL_TEST_COMMAND, testId);
+            },
+        });
         const contributed = this.contributedEntries(test);
         return contributed.length > 0 ? [...entries, { type: "separator" }, ...contributed] : entries;
     }
@@ -386,8 +413,15 @@ export class TestingDecorations extends Disposable {
     /** Upstream `MultiRunTestDecoration.getContextMenuActions` without Debug and Coverage. */
     private multiTestEntries(tests: readonly ITestNode[]): MenuEntry[] {
         const entries: MenuEntry[] = [];
-        if (tests.some((test) => this.profiles.getDefaultProfileForTest(TestRunProfileBitset.Run, test) !== undefined)) {
-            entries.push({ label: "Run All Tests", onSelect: () => this.run(tests) });
+        if (
+            tests.some((test) => this.profiles.getDefaultProfileForTest(TestRunProfileBitset.Run, test) !== undefined)
+        ) {
+            entries.push({
+                label: "Run All Tests",
+                onSelect: () => {
+                    this.run(tests);
+                },
+            });
         }
         const labelled = labelTests(tests, (id) => this.tests.getNodeById(id));
         const submenus: MenuEntry[] = labelled.slice(0, MAX_TESTS_IN_SUBMENU).map(({ label, test }) => ({
@@ -415,7 +449,9 @@ export class TestingDecorations extends Disposable {
         });
         const test = labelled.find(({ label }) => label === picked?.label)?.test;
         if (test === undefined) return;
-        const actions = this.testEntries(test).filter((entry) => entry.type !== "separator" && entry.type !== "submenu");
+        const actions = this.testEntries(test).filter(
+            (entry) => entry.type !== "separator" && entry.type !== "submenu",
+        );
         const action = await this.quickInput.quickPick({
             placeholder: picked?.label,
             items: actions.map((entry) => ({ label: entry.label })),
@@ -461,6 +497,8 @@ export function labelTests(
             conflict.parent = TestId.parentId(conflict.parent);
         }
     }
-    items.sort((a, b) => (a.test.item.sortText ?? a.test.item.label).localeCompare(b.test.item.sortText ?? b.test.item.label));
+    items.sort((a, b) =>
+        (a.test.item.sortText ?? a.test.item.label).localeCompare(b.test.item.sortText ?? b.test.item.label),
+    );
     return items.map(({ label, test }) => ({ label: label.split("\n")[0], test }));
 }
