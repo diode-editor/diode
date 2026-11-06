@@ -25,6 +25,8 @@ import {
 import { menuItemsOfAction } from "../vs/workbench/browser/actions/menuContributions.ts";
 import { makeViewsHarness } from "../vs/workbench/browser/parts/views/viewsService.testUtils.ts";
 import { TESTING_ACTIONS } from "../vs/workbench/contrib/testing/browser/testingActions.ts";
+import { TestProfileServiceDIToken } from "../vs/workbench/contrib/testing/common/testProfileService.ts";
+import { TestResultServiceDIToken } from "../vs/workbench/contrib/testing/common/testResultService.ts";
 import {
     TESTING_VIEWLET_ID,
     TestingExplorerComponent,
@@ -156,6 +158,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
     options.before?.(tests);
     const component = new TestingExplorerComponent(
         tests,
+        services.results,
         views.service,
         views.contextKeys,
         icons,
@@ -165,6 +168,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
         views.contextMenu,
         views.commands,
         configuration,
+        views.state,
         reveal,
         NULL_JUMP_RECORDER,
         {
@@ -176,6 +180,8 @@ export function setupExplorer(options: ISetupOptions = {}) {
     );
     const serviceMap = new Map<unknown, unknown>([
         [TestServiceDIToken, tests],
+        [TestResultServiceDIToken, services.results],
+        [TestProfileServiceDIToken, services.profiles],
         [TestingExplorerComponentDIToken, component],
         [ContextKeyServiceDIToken, views.contextKeys],
     ]);
@@ -304,6 +310,12 @@ export function setupExplorer(options: ISetupOptions = {}) {
     return {
         views,
         tests,
+        results: services.results,
+        profiles: services.profiles,
+        saves: services.saves,
+        errors: services.errors,
+        runs,
+        cancels,
         progress,
         component,
         opened,

@@ -40,7 +40,8 @@ export class TestResultService extends Disposable {
 
     public constructor(
         private readonly contextKeys: ContextKeyService,
-        private readonly now: () => number = Date.now,
+        /** The clock of the runs and of the summary's ticking time. */
+        public readonly now: () => number = Date.now,
     ) {
         super();
         contextKeys.set("testing.isRunning", false);

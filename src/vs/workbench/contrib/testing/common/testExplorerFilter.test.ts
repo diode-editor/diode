@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { testId } from "../../../../../TestUtils/testTree.ts";
-import type { IWireTestItem } from "../../../api/common/testingWireTypes.ts";
+import { type IWireTestItem, TestResultState } from "../../../api/common/testingWireTypes.ts";
 
 import { FilterResult, filterTest, parseTestExplorerFilter } from "./testExplorerFilter.ts";
 
@@ -24,7 +24,7 @@ const ADDS = item("adds", [testId("vitest", "fast")]);
 const SLOW = item("slow sum", [testId("vitest", "slow")]);
 
 const result = (text: string, ...lineage: IWireTestItem[]): FilterResult =>
-    filterTest(parseTestExplorerFilter(text), lineage);
+    filterTest(parseTestExplorerFilter(text), lineage, TestResultState.Unset);
 
 describe("parseTestExplorerFilter (upstream TestExplorerFilterState.setText)", () => {
     it("splits globs by comma, lower-cases them, `!` excludes, empty parts are dropped", () => {

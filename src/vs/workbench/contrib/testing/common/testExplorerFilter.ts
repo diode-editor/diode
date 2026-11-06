@@ -1,9 +1,23 @@
 import { splitGlobAware } from "../../../../base/common/glob.ts";
-import type { IWireTestItem } from "../../../api/common/testingWireTypes.ts";
-import { namespaceTestTag } from "../../../api/common/testingWireTypes.ts";
+import { type IWireTestItem, namespaceTestTag, TestResultState } from "../../../api/common/testingWireTypes.ts";
 
-/** Upstream `TestFilterTerm`: recognized and taken out of the text; the states they filter by come with runs. */
-const FILTER_TERMS: readonly string[] = ["@failed", "@executed", "@doc", "@openedFiles", "@hidden"];
+import { isFailedState } from "./testingStates.ts";
+
+/** Upstream `TestFilterTerm`. */
+export const TestFilterTerm = {
+    Failed: "@failed",
+    Executed: "@executed",
+    CurrentDoc: "@doc",
+    OpenedFiles: "@openedFiles",
+    Hidden: "@hidden",
+} as const;
+export type TestFilterTerm = (typeof TestFilterTerm)[keyof typeof TestFilterTerm];
+
+/**
+ * Recognized and taken out of the text. Only `@failed` and `@executed` filter: `@doc`, `@openedFiles` (tests of the
+ * editor) and `@hidden` (hidden tests) have nothing to filter by yet.
+ */
+const FILTER_TERMS: readonly string[] = Object.values(TestFilterTerm);
 
 const TAG_RE = /!?@([^ ,:]+)/g;
 
@@ -19,6 +33,8 @@ export interface ITestExplorerFilter {
     /** Namespaced as {@link IWireTestItem.tags}: `<controller id>\0<tag id>`. */
     readonly includeTags: ReadonlySet<string>;
     readonly excludeTags: ReadonlySet<string>;
+    /** The {@link TestFilterTerm}s in the text. */
+    readonly terms: ReadonlySet<string>;
 }
 
 /**
@@ -29,6 +45,7 @@ export function parseTestExplorerFilter(text: string): ITestExplorerFilter {
     const globList: IGlob[] = [];
     const includeTags = new Set<string>();
     const excludeTags = new Set<string>();
+    const terms = new Set<string>();
     let globText = "";
     let lastIndex = 0;
     for (const match of text.matchAll(TAG_RE)) {
@@ -56,6 +73,7 @@ export function parseTestExplorerFilter(text: string): ITestExplorerFilter {
         }
         // A test named "@smoke" is searched by its name.
         if (!isFilterTerm && !isTag) continue;
+        if (isFilterTerm) terms.add(match[0]);
         globText += text.slice(lastIndex, match.index);
         lastIndex = nextIndex;
     }
@@ -65,12 +83,27 @@ export function parseTestExplorerFilter(text: string): ITestExplorerFilter {
         const include = !filter.startsWith("!");
         globList.push({ include, text: (include ? filter : filter.slice(1)).toLowerCase() });
     }
-    return { globList, includeTags, excludeTags };
+    return { globList, includeTags, excludeTags, terms };
+}
+
+/** Upstream `toggleFilteringFor`: the term is appended to the text or taken out of it. */
+export function toggleFilterTerm(text: string, term: TestFilterTerm, on: boolean): string {
+    const trimmed = text.trim();
+    const has = parseTestExplorerFilter(text).terms.has(term);
+    if (on && !has) return trimmed === "" ? term : `${trimmed} ${term}`;
+    if (!on && has) return trimmed.replace(term, "").replace(/\s\s+/g, " ").trim();
+    return text;
 }
 
 /** Nothing to filter by: every test is shown. */
 export function isEmptyFilter(filter: ITestExplorerFilter): boolean {
-    return filter.globList.length === 0 && filter.includeTags.size === 0 && filter.excludeTags.size === 0;
+    return (
+        filter.globList.length === 0 &&
+        filter.includeTags.size === 0 &&
+        filter.excludeTags.size === 0 &&
+        !filter.terms.has(TestFilterTerm.Failed) &&
+        !filter.terms.has(TestFilterTerm.Executed)
+    );
 }
 
 /** Upstream `FilterResult`, ordered as upstream's `Math.min` reads it. */
@@ -85,9 +118,21 @@ export type FilterResult = (typeof FilterResult)[keyof typeof FilterResult];
 /** The test and its ancestors up to the controller, nearest first. */
 export type TestLineage = readonly IWireTestItem[];
 
-/** Upstream `TestsFilter.filter` without the state and location terms: text AND tags. */
-export function filterTest(filter: ITestExplorerFilter, lineage: TestLineage): FilterResult {
-    return Math.min(filterText(filter, lineage), filterTags(filter, lineage[0])) as FilterResult;
+/** Upstream `TestsFilter.filter` without the location terms: text AND state AND tags; `state` is the test's computed one. */
+export function filterTest(filter: ITestExplorerFilter, lineage: TestLineage, state: TestResultState): FilterResult {
+    return Math.min(
+        filterText(filter, lineage),
+        filterState(filter, state),
+        filterTags(filter, lineage[0]),
+    ) as FilterResult;
+}
+
+/** Upstream `testState`: `@failed` wins over `@executed`. */
+function filterState(filter: ITestExplorerFilter, state: TestResultState): FilterResult {
+    if (filter.terms.has(TestFilterTerm.Failed)) return isFailedState(state) ? FilterResult.Include : FilterResult.Inherit;
+    if (filter.terms.has(TestFilterTerm.Executed))
+        return state === TestResultState.Unset ? FilterResult.Inherit : FilterResult.Include;
+    return FilterResult.Include;
 }
 
 /** Upstream `testFilterText`: the nearest of the test and its ancestors whose label decides wins. */
