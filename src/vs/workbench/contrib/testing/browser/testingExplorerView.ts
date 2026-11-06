@@ -86,15 +86,17 @@ import {
 } from "../common/testExplorerFilter.ts";
 import {
     computeState,
+    dominantState,
     formatDuration,
     isFailedState,
     isStateWithResult,
     statePriority,
-    statesInOrder,
 } from "../common/testingStates.ts";
 import type { ITestResultItemChange, LiveTestResult } from "../common/testResult.ts";
 import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
 import { type ITestNode, type TestService, TestServiceDIToken } from "../common/testService.ts";
+
+import { RERUN_ICON, STATE_ICONS } from "./testingIcons.ts";
 
 /** Upstream `Testing.ViewletId`. */
 export const TESTING_VIEWLET_ID = "workbench.view.extension.test";
@@ -133,20 +135,7 @@ const WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "button", label: "Install Additional Test Extensions...", command: "testing.searchForTestExtension" },
 ];
 
-/** Upstream `testingStatesToIcons` with `testStatesToIconColors`; Running is the spinner. */
-export const STATE_ICONS: Readonly<
-    Partial<Record<TestResultState, { readonly icon: IProductIcon; readonly color: string }>>
-> = {
-    [TestResultState.Errored]: { icon: codicon("issues"), color: "testing.iconErrored" },
-    [TestResultState.Failed]: { icon: codicon("error"), color: "testing.iconFailed" },
-    [TestResultState.Passed]: { icon: codicon("pass"), color: "testing.iconPassed" },
-    [TestResultState.Queued]: { icon: codicon("history"), color: "testing.iconQueued" },
-    [TestResultState.Skipped]: { icon: codicon("debug-step-over"), color: "testing.iconSkipped" },
-    [TestResultState.Unset]: { icon: codicon("circle-outline"), color: "testing.iconUnset" },
-};
 const FILTER_ICON = codicon("filter");
-/** Upstream `testingRerunIcon`. */
-const RERUN_ICON = codicon("debug-rerun");
 
 /** Upstream `testFilterDescriptions` of the terms "More Filters..." offers. */
 const MORE_FILTERS: readonly { readonly term: TestFilterTerm; readonly label: string }[] = [
@@ -779,7 +768,7 @@ export class TestingExplorerComponent extends Component {
             this.summaryLoop.schedule();
         } else {
             const last = results[0];
-            const dominant = statesInOrder.find((state) => last.counts[state] > 0) ?? TestResultState.Unset;
+            const dominant = dominantState(last.counts);
             // A completed run has no running test.
             const icon = assertReturnsDefined(STATE_ICONS[dominant]);
             status = this.icons.glyph(icon.icon);

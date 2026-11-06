@@ -6,7 +6,13 @@ import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { codicon, type IProductIcon } from "../../../../base/common/codicons.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
-import { Disposable, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import {
+    Disposable,
+    DisposableMap,
+    DisposableStore,
+    type IDisposable,
+    toDisposable,
+} from "../../../../base/common/lifecycle.ts";
 import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -39,11 +45,12 @@ import {
     type ExtensionPtySessionFactory,
     ExtensionPtySessionFactoryDIToken,
 } from "../../terminal/common/terminalSessionFactory.ts";
-import { isFailedState, statePriority, statesInOrder } from "../common/testingStates.ts";
+import { dominantState, isFailedState, statePriority } from "../common/testingStates.ts";
 import type { ITestResultItem, LiveTestResult } from "../common/testResult.ts";
 import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
 
-import { STATE_ICONS, TESTING_EXPLORER_VIEW_ID } from "./testingExplorerView.ts";
+import { TESTING_EXPLORER_VIEW_ID } from "./testingExplorerView.ts";
+import { CANCEL_ICON, RERUN_ICON, RUN_ICON, STATE_ICONS } from "./testingIcons.ts";
 import { TestResultsOutput, type TestResultsSubject } from "./testResultsOutput.ts";
 import { TestResultsSplitElement } from "./testResultsSplitElement.ts";
 
@@ -58,10 +65,6 @@ export const TestResultsComponentDIToken = token<TestResultsComponent>("TestResu
 const REFRESH_DELAY = 16;
 
 const TERMINAL_ICON = codicon("terminal");
-/** Upstream `testingCancelIcon`, `testingRerunIcon`, `testingRunIcon`. */
-const CANCEL_ICON = codicon("debug-stop");
-const RERUN_ICON = codicon("debug-rerun");
-const RUN_ICON = codicon("run");
 const GO_TO_FILE_ICON = codicon("go-to-file");
 const LIST_TREE_ICON = codicon("list-tree");
 
@@ -103,10 +106,11 @@ export class TestResultsComponent extends Disposable {
     public readonly tree: TreeViewElement<TestResultsRow>;
     public readonly view: TestResultsSplitElement;
     private readonly output: TestResultsOutput;
+    private readonly refreshLater: RunOnceScheduler;
     private subject: TestResultsSubject | null = null;
     /** Rows already shown once: a task and a test expand when they first appear. */
     private readonly seen = new Set<string>();
-    private readonly liveStores = new Map<LiveTestResult, DisposableStore>();
+    private readonly liveStores = this.register(new DisposableMap<LiveTestResult, DisposableStore>());
     private spinnerTicks: IDisposable | null = null;
 
     public constructor(
@@ -145,22 +149,15 @@ export class TestResultsComponent extends Disposable {
             if (row.kind === "test" && options.pinned) this.execute("testing.editFocusedTest", testArg(row));
         };
         this.tree.onInlineAction = (row, index) => {
-            this.actionsOf(row)
-                .filter((action) => action.secondary !== true)
-                .at(index)
-                ?.run();
+            primaryActions(this.actionsOf(row)).at(index)?.run();
         };
         this.tree.onContextMenu = (row, screenX, screenY) => {
             this.showContextMenu(row, screenX, screenY);
         };
-        this.output = this.register(
-            new TestResultsOutput(createSession, colors, (widget) => {
-                this.view.setContent(widget);
-            }),
-        );
+        this.output = this.register(new TestResultsOutput(createSession, colors));
         this.view = new TestResultsSplitElement(this.output.widget, new ScrollBarDecorator(this.tree));
         this.view.id = "testResultsView";
-        this.view.treeLeft = this.isTreeLeft();
+        this.view.setTreeLeft(this.isTreeLeft());
 
         views.registerContainer({
             id: TEST_RESULTS_CONTAINER_ID,
@@ -170,9 +167,9 @@ export class TestResultsComponent extends Disposable {
             // Upstream `order: 3`: after Terminal.
             order: 3,
         });
-        const refreshLater = this.register(
+        this.refreshLater = this.register(
             new RunOnceScheduler(() => {
-                this.refresh();
+                void this.tree.refresh().catch(onUnexpectedError);
             }, REFRESH_DELAY),
         );
         this.register(
@@ -182,23 +179,20 @@ export class TestResultsComponent extends Disposable {
                     this.attachToLive(event.started);
                     this.autoOpen(event.started);
                 }
-                if ("completed" in event) this.detachFromLive(event.completed);
-                if ("removed" in event) {
-                    for (const removed of event.removed) this.detachFromLive(removed);
-                    if (this.subject !== null && event.removed.includes(this.subject.result)) this.clearSubject();
-                }
+                if ("completed" in event) this.liveStores.deleteAndDispose(event.completed);
+                if ("removed" in event) for (const removed of event.removed) this.forget(removed);
                 this.syncSpinner();
                 this.refresh();
             }),
         );
         this.register(
             results.onTestChanged(() => {
-                if (!refreshLater.isScheduled()) refreshLater.schedule();
+                this.refresh();
             }),
         );
         this.register(
             configuration.onDidChangeConfiguration((event) => {
-                if (event.affectsConfiguration("testing.resultsView.layout")) this.view.treeLeft = this.isTreeLeft();
+                if (event.affectsConfiguration("testing.resultsView.layout")) this.view.setTreeLeft(this.isTreeLeft());
             }),
         );
         this.register(
@@ -211,12 +205,11 @@ export class TestResultsComponent extends Disposable {
                 this.tree.markDirty();
             }),
         );
-        this.register({
-            dispose: () => {
-                for (const store of this.liveStores.values()) store.dispose();
+        this.register(
+            toDisposable(() => {
                 this.spinnerTicks?.dispose();
-            },
-        });
+            }),
+        );
         this.syncRegistration();
     }
 
@@ -227,7 +220,7 @@ export class TestResultsComponent extends Disposable {
 
     /** Upstream `showLatestRun`: the first task of the latest run that has one, its row under the cursor. */
     public showLatestRun(): void {
-        const result = this.results.results.find((candidate) => candidate.tasks.length > 0);
+        const result = this.latestWithTasks();
         if (result !== undefined) this.reveal({ kind: "task", result, taskIndex: 0 });
     }
 
@@ -237,6 +230,11 @@ export class TestResultsComponent extends Disposable {
             "testing.resultsView.layout",
             this.isTreeLeft() ? "treeRight" : "treeLeft",
         );
+    }
+
+    /** Upstream's root run: the latest one that has a task. */
+    private latestWithTasks(): LiveTestResult | undefined {
+        return this.results.results.find((result) => result.tasks.length > 0);
     }
 
     private isTreeLeft(): boolean {
@@ -302,14 +300,24 @@ export class TestResultsComponent extends Disposable {
         return store;
     }
 
+    /** A removed run: its listeners, its rows' memory and, if shown, the content go. */
+    private forget(result: LiveTestResult): void {
+        this.liveStores.deleteAndDispose(result);
+        for (const key of this.seen) if (key.startsWith(`${result.id}/`)) this.seen.delete(key);
+        if (this.subject?.result === result) {
+            this.subject = null;
+            this.output.clear();
+        }
+    }
+
     /** Upstream `attachToResults`: a new task redraws the tree; the first task of a new run is shown. */
     private attachToLive(result: LiveTestResult): void {
         const store = this.liveStoreOf(result);
         store.add(
             result.onNewTask((index) => {
-                this.refresh();
                 if (index === 0 && this.results.results[0] === result)
                     this.reveal({ kind: "task", result, taskIndex: 0 });
+                else this.refresh();
             }),
         );
         store.add(
@@ -319,12 +327,7 @@ export class TestResultsComponent extends Disposable {
         );
     }
 
-    private detachFromLive(result: LiveTestResult): void {
-        this.liveStores.get(result)?.dispose();
-        this.liveStores.delete(result);
-    }
-
-    /** While a run goes on its spinners tick with the Test Explorer's. */
+    /** While a run goes on its spinners tick with the Test Explorer's; a hidden panel is not redrawn. */
     private syncSpinner(): void {
         const running = this.results.isRunning;
         if (running === (this.spinnerTicks !== null)) return;
@@ -334,7 +337,7 @@ export class TestResultsComponent extends Disposable {
             return;
         }
         this.spinnerTicks = this.progress.onDidChange(() => {
-            this.refresh();
+            if (this.views.isViewShown(TEST_RESULTS_VIEW_ID)) this.refresh();
         });
     }
 
@@ -342,8 +345,9 @@ export class TestResultsComponent extends Disposable {
         return this.progress.viewProgress().get(TESTING_EXPLORER_VIEW_ID)?.spinner ?? SPINNER_FRAMES[0];
     }
 
+    /** The changes of a frame come to the tree in one refresh. */
     private refresh(): void {
-        void this.tree.refresh().catch(onUnexpectedError);
+        if (!this.refreshLater.isScheduled()) this.refreshLater.schedule();
     }
 
     private show(subject: TestResultsSubject): void {
@@ -352,16 +356,12 @@ export class TestResultsComponent extends Disposable {
         this.output.show(subject);
     }
 
-    private clearSubject(): void {
-        this.subject = null;
-        this.output.clear();
-    }
-
     /** Upstream `onDidReveal`: the row's ancestors expand and the cursor goes to it; the content follows. */
     private reveal(subject: TestResultsSubject): void {
         this.show(subject);
         const chain: TestResultsRow[] = [];
-        if (this.results.results.find((result) => result.tasks.length > 0) !== subject.result) {
+        if (this.latestWithTasks() !== subject.result) {
+            // The "older" row's key does not depend on its count.
             chain.push({ kind: "older", count: 0 }, { kind: "result", result: subject.result });
         }
         chain.push({ kind: "task", result: subject.result, taskIndex: subject.taskIndex });
@@ -380,13 +380,13 @@ export class TestResultsComponent extends Disposable {
     private childrenOf(row: TestResultsRow | undefined): TestResultsRow[] {
         let children: TestResultsRow[];
         if (row === undefined) {
-            const latest = this.results.results.find((result) => result.tasks.length > 0);
+            const latest = this.latestWithTasks();
             const older = this.olderResults(latest);
             if (latest === undefined) return older;
             children = tasksOf(latest);
             if (older.length > 0) children.push({ kind: "older", count: older.length });
         } else if (row.kind === "older") {
-            return this.olderResults(this.results.results.find((result) => result.tasks.length > 0));
+            return this.olderResults(this.latestWithTasks());
         } else if (row.kind === "result") {
             children = tasksOf(row.result);
         } else if (row.kind === "task") {
@@ -441,10 +441,7 @@ export class TestResultsComponent extends Disposable {
                 };
             case "result": {
                 const { result } = row;
-                const state =
-                    result.completedAt === undefined
-                        ? TestResultState.Running
-                        : (statesInOrder.find((candidate) => result.counts[candidate] > 0) ?? TestResultState.Unset);
+                const state = result.completedAt === undefined ? TestResultState.Running : dominantState(result.counts);
                 return { label: result.name, ...this.stateIcon(state), collapsible: true, actions: this.inlineOf(row) };
             }
             case "task": {
@@ -462,7 +459,8 @@ export class TestResultsComponent extends Disposable {
                     label: test?.item.label ?? "",
                     description: test === undefined ? undefined : this.parentLabels(row.result, test),
                     ...this.stateIcon(test?.tasks[row.taskIndex].state ?? TestResultState.Unset),
-                    collapsible: errorMessagesOf(row).length > 0,
+                    collapsible:
+                        test?.tasks[row.taskIndex].messages.some((message) => message.type === "error") === true,
                     actions: this.inlineOf(row),
                 };
             }
@@ -502,88 +500,62 @@ export class TestResultsComponent extends Disposable {
     }
 
     private inlineOf(row: TestResultsRow): ITreeItemAction[] {
-        return this.actionsOf(row)
-            .filter((action) => action.secondary !== true)
-            .map((action) => ({ label: action.label, icon: this.icons.glyph(action.icon) }));
+        return primaryActions(this.actionsOf(row)).map((action) => ({
+            label: action.label,
+            icon: this.icons.glyph(action.icon),
+        }));
+    }
+
+    private commandAction(label: string, icon: IProductIcon, commandId: string, ...args: unknown[]): IRowAction {
+        return {
+            label,
+            icon,
+            run: () => {
+                this.execute(commandId, ...args);
+            },
+        };
     }
 
     /** Upstream `TreeActionsProvider.provideActionBar` without the debug entries and coverage. */
     private actionsOf(row: TestResultsRow): IRowAction[] {
-        const actions: IRowAction[] = [];
-        if (row.kind === "older") return actions;
+        if (row.kind === "older") return [];
         const { result } = row;
-        const hasFailed = [...result.tests].some((test) => isFailedState(test.ownComputedState));
-        const rerunFailed: IRowAction = {
-            label: "Rerun Failed Tests",
-            icon: RERUN_ICON,
-            run: () => {
-                this.execute("testing.reRunFailedFromLastRun", result.id);
-            },
-        };
+        const rerunFailed = (): IRowAction[] =>
+            [...result.tests].some((test) => isFailedState(test.ownComputedState))
+                ? [this.commandAction("Rerun Failed Tests", RERUN_ICON, "testing.reRunFailedFromLastRun", result.id)]
+                : [];
         if (row.kind === "task") {
-            actions.push(this.showOutputAction(row));
             const task = result.tasks[row.taskIndex];
-            if (task.running) {
-                actions.push({
-                    label: "Cancel Test Run",
-                    icon: CANCEL_ICON,
-                    run: () => {
-                        this.execute("testing.cancelRun", result.id, task.id);
-                    },
-                });
-            } else {
-                actions.push({
-                    label: "Rerun Last Run",
-                    icon: RERUN_ICON,
-                    run: () => {
-                        this.execute("testing.reRunLastRun", result.id);
-                    },
-                });
-                if (hasFailed) actions.push(rerunFailed);
-            }
-        } else if (row.kind === "result") {
-            if (result.tasks.length === 1) actions.push(this.showOutputAction({ kind: "task", result, taskIndex: 0 }));
-            actions.push({
-                label: "Rerun Test",
-                icon: RUN_ICON,
-                run: () => {
-                    this.execute("testing.reRunLastRun", result.id);
-                },
-            });
-            if (hasFailed) actions.push(rerunFailed);
-        } else {
-            const test = this.testOf(row);
-            const arg = testArg(row);
-            if (test?.item.uri !== undefined) {
-                actions.push({
-                    label: "Go to Test",
-                    icon: GO_TO_FILE_ICON,
-                    run: () => {
-                        this.execute("testing.editFocusedTest", arg);
-                    },
-                });
-            }
-            if (test?.tasks[row.taskIndex].messages.some((message) => message.type === "output") === true) {
-                actions.push(this.showOutputAction({ ...row, kind: "test" }));
-            }
-            actions.push({
-                label: "Reveal in Test Explorer",
-                icon: LIST_TREE_ICON,
-                secondary: true,
-                run: () => {
-                    this.execute("_revealTestInExplorer", row.testId);
-                },
-            });
-            if (this.contextKeys.get("testing.hasRunnableTests") === true) {
-                actions.push({
-                    label: "Run Test",
-                    icon: RUN_ICON,
-                    run: () => {
-                        this.execute("testing.run", arg);
-                    },
-                });
-            }
+            return [
+                this.showOutputAction(row),
+                ...(task.running
+                    ? [this.commandAction("Cancel Test Run", CANCEL_ICON, "testing.cancelRun", result.id, task.id)]
+                    : [
+                          this.commandAction("Rerun Last Run", RERUN_ICON, "testing.reRunLastRun", result.id),
+                          ...rerunFailed(),
+                      ]),
+            ];
         }
+        if (row.kind === "result") {
+            return [
+                ...(result.tasks.length === 1 ? [this.showOutputAction({ kind: "task", result, taskIndex: 0 })] : []),
+                this.commandAction("Rerun Test", RUN_ICON, "testing.reRunLastRun", result.id),
+                ...rerunFailed(),
+            ];
+        }
+        const test = this.testOf(row);
+        const arg = testArg(row);
+        const actions: IRowAction[] = [];
+        if (test?.item.uri !== undefined)
+            actions.push(this.commandAction("Go to Test", GO_TO_FILE_ICON, "testing.editFocusedTest", arg));
+        if (test?.tasks[row.taskIndex].messages.some((message) => message.type === "output") === true)
+            actions.push(this.showOutputAction({ ...row, kind: "test" }));
+        actions.push({
+            ...this.commandAction("Reveal in Test Explorer", LIST_TREE_ICON, "_revealTestInExplorer", row.testId),
+            secondary: true,
+        });
+        if (this.contextKeys.get("testing.hasRunnableTests") === true)
+            actions.push(this.commandAction("Run Test", RUN_ICON, "testing.run", arg));
         return actions;
     }
 
@@ -601,7 +573,7 @@ export class TestResultsComponent extends Disposable {
     private showContextMenu(row: TestResultsRow, screenX: number, screenY: number): void {
         const actions = this.actionsOf(row);
         const toEntry = (action: IRowAction): MenuEntry => ({ label: action.label, onSelect: () => action.run() });
-        const primary = actions.filter((action) => action.secondary !== true).map(toEntry);
+        const primary = primaryActions(actions).map(toEntry);
         const secondary = actions.filter((action) => action.secondary === true).map(toEntry);
         const entries: MenuEntry[] = secondary.length > 0 ? [...primary, { type: "separator" }, ...secondary] : primary;
         if (entries.length === 0) return;
@@ -615,6 +587,11 @@ export class TestResultsComponent extends Disposable {
     private execute(commandId: string, ...args: unknown[]): void {
         void Promise.resolve(this.commands.execute(commandId, ...args)).catch(onUnexpectedError);
     }
+}
+
+/** The glyphs of the row (upstream's `primary`), in the order the row draws them. */
+function primaryActions(actions: readonly IRowAction[]): IRowAction[] {
+    return actions.filter((action) => action.secondary !== true);
 }
 
 function tasksOf(result: LiveTestResult): TestResultsRow[] {

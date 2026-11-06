@@ -1,12 +1,8 @@
 import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 
-import { Disposable, DisposableStore } from "../../../../base/common/lifecycle.ts";
+import { Disposable, DisposableStore, toDisposable } from "../../../../base/common/lifecycle.ts";
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
-import {
-    applyTerminalColors,
-    type ITerminalColors,
-    type TerminalColorsService,
-} from "../../terminal/browser/terminalColorsService.ts";
+import { applyTerminalColors, type TerminalColorsService } from "../../terminal/browser/terminalColorsService.ts";
 import type { ExtensionPtySessionFactory, IExtensionPtySession } from "../../terminal/common/terminalSessionFactory.ts";
 import type { LiveTestResult } from "../common/testResult.ts";
 
@@ -26,6 +22,8 @@ export type TestResultsSubject =
 export const CASE_NO_OUTPUT = "The test case did not report any output.";
 export const RUN_NO_OUTPUT = "The test run did not record any output.";
 
+/** Upstream `makeTerminal` on reuse: a full reset (RIS) — the screen, the scrollback, the modes. */
+const RESET = "\x1bc";
 /** Upstream `attachTerminalToDom`: the output has no cursor. */
 const HIDE_CURSOR = "\x1b[?25l";
 
@@ -35,119 +33,88 @@ const INITIAL_ROWS = 10;
 
 /**
  * Upstream `TerminalMessagePeek`: the output in a read-only terminal surface — ANSI colors in the terminal's palette,
- * wrapping, the scrollback; a live run writes into it as it goes. Each subject gets a fresh surface (upstream resets
- * one). The widget takes no keyboard: nothing is typed into the output, and the workbench keeps its keys.
+ * wrapping, the scrollback; a live run writes into it as it goes. One surface, reset for each subject, as upstream.
+ * The widget takes no keyboard: nothing is typed into the output, and the workbench keeps its keys.
  */
 export class TestResultsOutput extends Disposable {
     private readonly subjectStore = this.register(new DisposableStore());
-    private session: IExtensionPtySession | null = null;
-    private widgetValue: TerminalViewElement;
+    private readonly session: IExtensionPtySession;
+    public readonly widget: TerminalViewElement;
 
     public constructor(
-        private readonly createSession: ExtensionPtySessionFactory,
-        private readonly colors: Pick<TerminalColorsService, "colors" | "onDidChange">,
-        /** The new widget goes where the old one was. */
-        private readonly onDidChangeWidget: (widget: TerminalViewElement) => void,
+        createSession: ExtensionPtySessionFactory,
+        colors: Pick<TerminalColorsService, "colors" | "onDidChange">,
     ) {
         super();
-        this.widgetValue = this.createWidget();
-        this.register(
-            colors.onDidChange((next) => {
-                this.applyColors(next);
-            }),
-        );
-    }
-
-    public get widget(): TerminalViewElement {
-        return this.widgetValue;
-    }
-
-    /** An empty surface: the shown run is gone. */
-    public clear(): void {
-        this.widgetValue = this.createWidget();
-        this.onDidChangeWidget(this.widgetValue);
-    }
-
-    public show(subject: TestResultsSubject): void {
-        this.clear();
-        if (subject.kind === "message") {
-            this.showMessage(subject);
-            return;
-        }
-        const { result, taskIndex } = subject;
-        const task = result.tasks[taskIndex];
-        const initial =
-            subject.kind === "task"
-                ? task.output
-                : (result.getStateById(subject.testId)?.tasks[taskIndex].messages ?? [])
-                      .filter((message) => message.type === "output")
-                      .map((message) => task.output.slice(message.offset, message.offset + message.length))
-                      .join("");
-        const noOutput = subject.kind === "task" ? RUN_NO_OUTPUT : CASE_NO_OUTPUT;
-        let wrote = initial.length > 0;
-        this.write(initial);
-        if (result.completedAt !== undefined) {
-            if (!wrote) this.write(formatMessageForTerminal(noOutput));
-            return;
-        }
-        const testId = subject.kind === "test" ? subject.testId : undefined;
-        this.subjectStore.add(
-            result.onDidAppendOutput((append) => {
-                if (append.taskIndex !== taskIndex || (testId !== undefined && append.testId !== testId)) return;
-                wrote ||= append.output.length > 0;
-                this.write(append.output);
-            }),
-        );
-        this.subjectStore.add(
-            result.onComplete(() => {
-                if (!wrote) this.write(formatMessageForTerminal(noOutput));
-            }),
-        );
-    }
-
-    /** Plain text: the message's lines as they are. */
-    private showMessage(subject: Extract<TestResultsSubject, { kind: "message" }>): void {
-        const message = subject.result.getStateById(subject.testId)?.tasks[subject.taskIndex].messages[
-            subject.messageIndex
-        ];
-        this.write((message?.message ?? "").replace(/\r?\n/g, "\r\n"));
-    }
-
-    private write(data: string): void {
-        this.session?.feed(data);
-    }
-
-    private createWidget(): TerminalViewElement {
-        this.subjectStore.clear();
-        this.session?.dispose();
-        const session = this.createSession({
+        this.session = createSession({
             cols: INITIAL_COLS,
             rows: INITIAL_ROWS,
             name: "Test Results",
             onInput: () => undefined,
             onResize: () => undefined,
         });
-        this.session = session;
-        const widget = new TerminalViewElement(session);
+        const widget = new TerminalViewElement(this.session);
+        this.widget = widget;
         widget.focusable = false;
-        this.subjectStore.add({
-            dispose: () => {
+        const session = this.session;
+        this.register(
+            toDisposable(() => {
                 widget.dispose();
-            },
-        });
-        this.applyColors(this.colors.colors, widget);
+                session.dispose();
+            }),
+        );
+        applyTerminalColors(session, widget, colors.colors);
+        this.register(
+            colors.onDidChange((next) => {
+                applyTerminalColors(session, widget, next);
+            }),
+        );
         session.feed(HIDE_CURSOR);
-        return widget;
     }
 
-    /** Upstream `colorProvider` over the terminal's colors. */
-    private applyColors(colors: ITerminalColors, widget = this.widgetValue): void {
-        if (this.session !== null) applyTerminalColors({ session: this.session }, widget, colors);
+    /** An empty surface: the shown run is gone. */
+    public clear(): void {
+        this.subjectStore.clear();
+        this.session.feed(RESET + HIDE_CURSOR);
     }
 
-    public override dispose(): void {
-        super.dispose();
-        this.session?.dispose();
-        this.session = null;
+    public show(subject: TestResultsSubject): void {
+        this.clear();
+        if (subject.kind === "message") {
+            const message = subject.result.getStateById(subject.testId)?.tasks[subject.taskIndex].messages[
+                subject.messageIndex
+            ];
+            // Plain text: the message's lines as they are.
+            this.session.feed((message?.message ?? "").replace(/\r?\n/g, "\r\n"));
+            return;
+        }
+        const { result, taskIndex } = subject;
+        const task = result.tasks[taskIndex];
+        const testId = subject.kind === "test" ? subject.testId : undefined;
+        const initial =
+            testId === undefined
+                ? task.output
+                : (result.getStateById(testId)?.tasks[taskIndex].messages ?? [])
+                      .filter((message) => message.type === "output")
+                      .map((message) => task.output.slice(message.offset, message.offset + message.length))
+                      .join("");
+        let wrote = initial.length > 0;
+        this.session.feed(initial);
+        const finish = (): void => {
+            if (wrote) return;
+            this.session.feed(formatMessageForTerminal(testId === undefined ? RUN_NO_OUTPUT : CASE_NO_OUTPUT));
+        };
+        if (result.completedAt !== undefined) {
+            finish();
+            return;
+        }
+        this.subjectStore.add(
+            result.onDidAppendOutput((append) => {
+                if (append.taskIndex !== taskIndex || (testId !== undefined && append.testId !== testId)) return;
+                wrote ||= append.output.length > 0;
+                this.session.feed(append.output);
+            }),
+        );
+        this.subjectStore.add(result.onComplete(finish));
     }
 }

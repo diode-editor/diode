@@ -124,11 +124,11 @@ export class TerminalColorsService extends Disposable {
  * var scope; without them, theme tokens apply.
  */
 export function applyTerminalColors(
-    instance: { readonly session: Pick<ITerminalSession, "setAnsiColors"> },
+    session: Pick<ITerminalSession, "setAnsiColors">,
     widget: TerminalViewElement,
     colors: ITerminalColors,
 ): void {
-    instance.session.setAnsiColors(colors.ansi);
+    session.setAnsiColors(colors.ansi);
     const vars: Record<string, number> = {};
     if (colors.background !== undefined) vars["terminal.background"] = colors.background;
     if (colors.foreground !== undefined) vars["terminal.foreground"] = colors.foreground;
