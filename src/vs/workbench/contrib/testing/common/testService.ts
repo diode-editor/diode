@@ -7,13 +7,21 @@ import {
 } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
+    type IWireRunControllerTestsResult,
+    type IWireStartControllerTests,
     type IWireTestItem,
     type IWireTestItemUpdate,
     TestDiffOpType,
     TestId,
     type TestItemExpandState,
+    TestRunProfileBitset,
+    type TestRunProfileGroup,
     type WireTestsDiffOp,
 } from "../../../api/common/testingWireTypes.ts";
+
+import { type TestProfileService, TestProfileServiceDIToken } from "./testProfileService.ts";
+import type { IResolvedTestRunRequest, LiveTestResult } from "./testResult.ts";
+import { type TestResultService, TestResultServiceDIToken } from "./testResultService.ts";
 
 /** Upstream `IMainThreadTestController`: a controller as the core sees it. */
 export interface ITestController {
@@ -23,6 +31,10 @@ export interface ITestController {
     readonly canRefresh: boolean;
     expandTest(testId: string, levels: number): Promise<void>;
     refreshTests(token: ICancellationToken): Promise<void>;
+    /** Resolves when the `runHandler`s have settled and their runs have ended; rejects if the extension is gone. */
+    runTests(requests: readonly IWireStartControllerTests[], token: ICancellationToken): Promise<IWireRunControllerTestsResult[]>;
+    /** The same function for the controllers of one extension host: a run is cancelled there once. */
+    readonly cancelTestRun: (runId: string, taskId?: string) => void;
 }
 
 /** Upstream `$updateController`: only the fields that changed. */
@@ -53,25 +65,55 @@ interface IMutableTestNode {
     readonly children: Set<string>;
 }
 
+/** What a run started from the UI needs from the workbench: upstream's `saveAllBeforeTest` and the error toast. */
+export interface ITestRunUi {
+    /** Upstream `saveAllBeforeTest`: Save All while `testing.saveBeforeTest` is on. */
+    saveAllBeforeTest(): Promise<void>;
+    /** Upstream `notificationService.error`. */
+    showError(message: string): void;
+}
+
+// Stryker disable next-line StringLiteral: token() returns a unique Token matched by reference; the string is a label
+export const TestRunUiDIToken = token<ITestRunUi>("TestRunUi");
+
+/** Upstream `AmbiguousRunTestsRequest`: tests to run with the default profile of their controller. */
+export interface IRunTestsRequest {
+    readonly tests: readonly ITestNode[];
+    readonly exclude?: readonly ITestNode[];
+    readonly group?: TestRunProfileGroup;
+}
+
 // Stryker disable next-line StringLiteral: token() returns a unique Token matched by reference; the string is a label
 export const TestServiceDIToken = token<TestService>("TestService");
 
 /**
  * Upstream `TestService` with its `MainThreadTestCollection`: the controllers extensions registered, their test
- * trees mirrored from the diffs, and the `testing.providerCount`/`canRefresh`/`isRefreshing` keys.
+ * trees mirrored from the diffs, the `testing.providerCount`/`canRefresh`/`isRefreshing` keys, and the runs.
  */
 export class TestService extends Disposable {
-    public static dependencies = [ContextKeyServiceDIToken] as const;
+    public static dependencies = [
+        ContextKeyServiceDIToken,
+        TestResultServiceDIToken,
+        TestProfileServiceDIToken,
+        TestRunUiDIToken,
+    ] as const;
 
     private readonly controllers = new Map<string, MutableTestController>();
     private readonly items = new Map<string, IMutableTestNode>();
     private readonly roots = new Map<string, IMutableTestNode>();
     private readonly refreshCancellations = new Set<CancellationTokenSource>();
+    /** Upstream `uiRunningTests`: the token of each run the core started, by result id. */
+    private readonly uiRunningTests = new Map<string, CancellationTokenSource>();
     private readonly onDidProcessDiffEmitter = this.register(new Emitter<readonly WireTestsDiffOp[]>());
     /** After a diff has been applied to the tree. */
     public readonly onDidProcessDiff: Event<readonly WireTestsDiffOp[]> = this.onDidProcessDiffEmitter.event;
 
-    public constructor(private readonly contextKeys: ContextKeyService) {
+    public constructor(
+        private readonly contextKeys: ContextKeyService,
+        private readonly results: TestResultService,
+        private readonly profiles: TestProfileService,
+        private readonly ui: ITestRunUi,
+    ) {
         super();
         this.updateControllerKeys();
         contextKeys.set("testing.isRefreshing", false);
@@ -158,6 +200,95 @@ export class TestService extends Disposable {
         // Each refresh drops its own source when it settles.
         for (const cts of this.refreshCancellations) cts.cancel();
         this.contextKeys.set("testing.isRefreshing", false);
+    }
+
+    /**
+     * Upstream `runTests`: each test with the first profile of the group its controller has for it (defaults
+     * first); a test without one is not run.
+     */
+    public runTests(req: IRunTestsRequest): Promise<LiveTestResult> {
+        const group = req.group ?? TestRunProfileBitset.Run;
+        const byProfile: { profile: { controllerId: string; profileId: number }; testIds: string[] }[] = [];
+        for (const test of req.tests) {
+            const profile = this.profiles.getDefaultProfileForTest(group, test);
+            if (profile === undefined) continue;
+            const existing = byProfile.find(
+                (entry) => entry.profile.controllerId === profile.controllerId && entry.profile.profileId === profile.profileId,
+            );
+            if (existing === undefined) byProfile.push({ profile, testIds: [test.item.extId] });
+            else existing.testIds.push(test.item.extId);
+        }
+        return this.runResolvedTests({
+            targets: byProfile.map(({ profile, testIds }) => ({
+                controllerId: profile.controllerId,
+                profileId: profile.profileId,
+                testIds,
+            })),
+            group,
+            exclude: req.exclude?.map((test) => test.item.extId),
+        });
+    }
+
+    /**
+     * Upstream `runResolvedTests`: the result is live at once; Save All, then each controller's share. A `runHandler`'s
+     * error is a toast; a controller whose extension died meanwhile just ends its share.
+     */
+    public async runResolvedTests(req: IResolvedTestRunRequest): Promise<LiveTestResult> {
+        const exclude = req.exclude ?? [];
+        const result = this.results.createLiveResult({ ...req, exclude });
+        const cts = new CancellationTokenSource();
+        this.uiRunningTests.set(result.id, cts);
+        try {
+            await this.ui.saveAllBeforeTest();
+            const controllerIds = [...new Set(req.targets.map((target) => target.controllerId))];
+            await Promise.all(
+                controllerIds.map(async (controllerId) => {
+                    const controller = this.controllers.get(controllerId);
+                    if (controller === undefined) return;
+                    const requests = req.targets
+                        .filter((target) => target.controllerId === controllerId)
+                        .map((target) => ({
+                            runId: result.id,
+                            controllerId,
+                            profileId: target.profileId,
+                            testIds: target.testIds,
+                            excludeExtIds: exclude.filter((testId) => !target.testIds.includes(testId)),
+                        }));
+                    let answers: IWireRunControllerTestsResult[];
+                    try {
+                        answers = await controller.runTests(requests, cts.token);
+                    } catch {
+                        return;
+                    }
+                    const errors = answers.flatMap((answer) => answer.error ?? []);
+                    if (errors.length > 0) {
+                        this.ui.showError(`An error occurred attempting to run tests: ${errors.join(" ")}`);
+                    }
+                }),
+            );
+            return result;
+        } finally {
+            this.uiRunningTests.delete(result.id);
+            // Stryker disable next-line CallExpression: hygiene — the source's listener list goes with it; nothing reads a finished run's token
+            cts.dispose();
+            result.markComplete();
+        }
+    }
+
+    /**
+     * Upstream `cancelTestRun`: the extension hosts cancel the run (or its task), a run the core started has its token
+     * cancelled too. Without `runId` — every live run.
+     */
+    public cancelTestRun(runId?: string, taskId?: string): void {
+        if (runId === undefined) {
+            for (const result of this.results.results) {
+                if (result.completedAt === undefined) this.cancelTestRun(result.id);
+            }
+            return;
+        }
+        const cancels = new Set([...this.controllers.values()].map((controller) => controller.cancelTestRun));
+        for (const cancel of cancels) cancel(runId, taskId);
+        if (taskId === undefined) this.uiRunningTests.get(runId)?.cancel();
     }
 
     private updateControllerKeys(): void {

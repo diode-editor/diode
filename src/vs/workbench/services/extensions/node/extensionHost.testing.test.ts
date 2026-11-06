@@ -7,10 +7,10 @@ import {
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { testTree } from "../../../../../TestUtils/testTree.ts";
 import { settle, waitUntil } from "../../../../../TestUtils/timing.ts";
-import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import { ExtensionTestingAdapter } from "../../../contrib/testing/browser/extensionTestingAdapter.ts";
-import { TestProfileService } from "../../../contrib/testing/common/testProfileService.ts";
-import { TestService } from "../../../contrib/testing/common/testService.ts";
+import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import type { TestProfileService } from "../../../contrib/testing/common/testProfileService.ts";
+import type { TestService } from "../../../contrib/testing/common/testService.ts";
 
 const ROOT = "fixture";
 const FILE = "fixture\0math.test.ts";
@@ -27,12 +27,11 @@ describe("ExtensionHost — test controllers reach the TestService", () => {
 
     beforeEach(async () => {
         output.length = 0;
-        contextKeys = new ContextKeyService();
-        tests = new TestService(contextKeys);
-        profiles = new TestProfileService(contextKeys);
+        const services = makeTestingServices();
+        ({ contextKeys, tests, profiles } = services);
         harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.testing", "testControllerExtension.cjs")],
-            testingSink: new ExtensionTestingAdapter(tests, profiles),
+            testingSink: services.adapter,
             outputSink: {
                 append: (channel, _label, level, value) => {
                     output.push(`${channel}/${level}: ${value}`);

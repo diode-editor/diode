@@ -1,6 +1,7 @@
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { expect, vi } from "vitest";
 
+import type { ICancellationToken } from "../vs/base/common/cancellation.ts";
 import { Emitter } from "../vs/base/common/event.ts";
 import type { IRange } from "../vs/editor/common/core/iRange.ts";
 import { registerAction } from "../vs/platform/actions/common/commandAction.ts";
@@ -14,6 +15,8 @@ import { bindWidgetGlyphs } from "../vs/platform/theme/browser/widgetGlyphs.ts";
 import { type IProductIconService, StaticProductIconService } from "../vs/platform/theme/common/productIconService.ts";
 import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
 import {
+    type IWireRunControllerTestsResult,
+    type IWireStartControllerTests,
     type IWireTestItem,
     TestDiffOpType,
     type TestItemExpandState,
@@ -37,6 +40,7 @@ import type { NotificationService } from "../vs/workbench/services/notification/
 import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";
 
 import { TestApp } from "./TestApp.ts";
+import { makeTestingServices } from "./testingServices.ts";
 import { testId } from "./testTree.ts";
 
 export const UNICODE_ICONS = new StaticProductIconService(false);
@@ -93,6 +97,8 @@ export interface ISetupOptions {
     readonly icons?: IProductIconService;
     /** `false`: the containers are attached by the test, as `mount()` does after the components exist. */
     readonly attach?: boolean;
+    /** The results' clock. */
+    readonly now?: () => number;
     /** Runs before the view is built: a controller that is there already. */
     readonly before?: (tests: TestService) => void;
 }
@@ -117,7 +123,8 @@ export function setupExplorer(options: ISetupOptions = {}) {
         [...TESTING_ACTIONS.flatMap((action) => menuItemsOfAction(action)), ...(options.menus ?? [])],
         UNICODE_ICONS,
     );
-    const tests = new TestService(views.contextKeys);
+    const services = makeTestingServices({ contextKeys: views.contextKeys, now: options.now });
+    const { tests } = services;
     const progress = new ProgressService(options.progress);
     const icons = options.icons ?? UNICODE_ICONS;
     const opened: string[] = [];
@@ -167,17 +174,24 @@ export function setupExplorer(options: ISetupOptions = {}) {
             },
         } as unknown as NotificationService,
     );
-    const services = new Map<unknown, unknown>([
+    const serviceMap = new Map<unknown, unknown>([
         [TestServiceDIToken, tests],
         [TestingExplorerComponentDIToken, component],
         [ContextKeyServiceDIToken, views.contextKeys],
     ]);
-    const accessor = { get: (token: unknown) => services.get(token) } as unknown as ServiceAccessor;
+    const accessor = { get: (token: unknown) => serviceMap.get(token) } as unknown as ServiceAccessor;
     const keybindings = new KeybindingRegistry();
     for (const action of TESTING_ACTIONS) registerAction(views.commands, keybindings, accessor, action);
     if (options.attach !== false) views.service.attachRegisteredContainers();
 
     const expands: [string, number][] = [];
+    /** The core's run requests per controller, answered by `finish`. */
+    const runs: {
+        readonly requests: readonly IWireStartControllerTests[];
+        readonly token: ICancellationToken;
+        finish(answers?: IWireRunControllerTestsResult[]): void;
+    }[] = [];
+    const cancels: string[] = [];
     const controllers = new Map<string, ITestControllerRegistration>();
     /** A controller whose root resolves on the view's request; the test publishes what it answers. */
     const registerController = (id: string, label = id, canRefresh = false): ITestControllerRegistration => {
@@ -190,6 +204,19 @@ export function setupExplorer(options: ISetupOptions = {}) {
                 return Promise.resolve();
             },
             refreshTests: () => Promise.resolve(),
+            runTests: (requests, token) =>
+                new Promise((resolve) => {
+                    runs.push({
+                        requests,
+                        token,
+                        finish: (answers = requests.map(() => ({}))) => {
+                            resolve(answers);
+                        },
+                    });
+                }),
+            cancelTestRun: (runId, taskId) => {
+                cancels.push(taskId === undefined ? runId : `${runId}/${taskId}`);
+            },
         });
         controllers.set(id, registration);
         return registration;

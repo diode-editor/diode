@@ -1,23 +1,32 @@
 import type * as vscode from "vscode";
 
+import type { ICancellationToken } from "../../../base/common/cancellation.ts";
+
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { TestItemImpl, TestItemRootImpl } from "./extHostTestItem.ts";
 import { ExtHostTestItemCollection } from "./extHostTestItemCollection.ts";
-import { TestRunProfileKind } from "./testingTypes.ts";
+import { TestRunCoordinator, type TestRunTracker } from "./extHostTestRun.ts";
+import { TestRunProfileKind, TestRunRequest } from "./testingTypes.ts";
 import {
+    type IWireCancelTestRun,
+    type IWireRunControllerTests,
+    type IWireRunControllerTestsResult,
+    type IWireStartControllerTests,
     type IWireTestItemArg,
     type IWireTestRunProfileUpdate,
     namespaceTestTag,
+    TEST_ID_DELIMITER,
     TestId,
     TestRunProfileBitset,
     type TestRunProfileGroup,
 } from "./testingWireTypes.ts";
-import { callWithVscodeToken } from "./vscodeCancellation.ts";
-import { CancellationTokenSource, EventEmitter } from "./vscodeTypes.ts";
+import { callWithVscodeToken, toVscodeCancellationToken } from "./vscodeCancellation.ts";
+import { EventEmitter } from "./vscodeTypes.ts";
 
 // Upstream `ExtHostTesting` (`api/common/extHostTesting.ts`): the controllers live here, the host mirrors their
-// trees (`testing.publishDiff`) and profiles, and asks back to expand (`testing.expandTest`) and to refresh
-// (`testing.refreshTests`). Runs are not wired yet: nobody calls `runHandler`, `createTestRun` is inert.
+// trees (`testing.publishDiff`) and profiles, and asks back to expand (`testing.expandTest`), to refresh
+// (`testing.refreshTests`) and to run (`testing.runControllerTests`, the profile's `runHandler`); a run's reports go
+// through `TestRunCoordinator`.
 
 const OUTPUT_CHANNEL = "extensions";
 const OUTPUT_LABEL = "Extensions";
@@ -31,6 +40,7 @@ const PROFILE_GROUPS: Readonly<Record<vscode.TestRunProfileKind, TestRunProfileG
 interface IControllerInfo {
     readonly controller: vscode.TestController;
     readonly collection: ExtHostTestItemCollection;
+    readonly profiles: ReadonlyMap<number, TestRunProfileImpl>;
 }
 
 /** Upstream's `hash(label)`: the same profile tends to keep its id across reloads. */
@@ -38,28 +48,6 @@ function labelHash(label: string): number {
     let hash = 0;
     for (let i = 0; i < label.length; i++) hash = (Math.imul(hash, 31) + label.charCodeAt(i)) | 0;
     return hash;
-}
-
-function createInertTestRun(name: string | undefined, persist: boolean): vscode.TestRun {
-    const onDidDispose = new EventEmitter<void>();
-    return {
-        name,
-        token: new CancellationTokenSource().token,
-        isPersisted: persist,
-        enqueued: (): void => undefined,
-        started: (): void => undefined,
-        skipped: (): void => undefined,
-        failed: (): void => undefined,
-        errored: (): void => undefined,
-        passed: (): void => undefined,
-        appendOutput: (): void => undefined,
-        addCoverage: (): void => undefined,
-        end: (): void => {
-            onDidDispose.fire();
-            onDidDispose.dispose();
-        },
-        onDidDispose: onDidDispose.event,
-    };
 }
 
 /** Upstream `TestRunProfileImpl`; `isDefault` is the extension's own, the host has no default picker yet. */
@@ -71,6 +59,7 @@ class TestRunProfileImpl implements vscode.TestRunProfile {
         private readonly publish: (update: IWireTestRunProfileUpdate["update"]) => void,
         private readonly remove: () => void,
         private readonly controllerId: string,
+        public readonly profileId: number,
         public readonly kind: vscode.TestRunProfileKind,
         private labelValue: string,
         public runHandler: (request: vscode.TestRunRequest, token: vscode.CancellationToken) => Thenable<void> | void,
@@ -143,6 +132,64 @@ export interface IExtHostTesting {
 
 export function createExtHostTesting(rpc: SubprocessRpc): IExtHostTesting {
     const controllers = new Map<string, IControllerInfo>();
+    const runTracker = new TestRunCoordinator(rpc);
+
+    /** Upstream `runControllerTestRequest`. */
+    async function runControllerTestRequest(
+        req: IWireStartControllerTests,
+        token: ICancellationToken,
+    ): Promise<IWireRunControllerTestsResult> {
+        const lookup = controllers.get(req.controllerId);
+        const profile = lookup?.profiles.get(req.profileId);
+        if (lookup === undefined || profile === undefined) return {};
+        const { collection, controller } = lookup;
+        const include = req.testIds.flatMap((testId) => collection.tree.get(testId) ?? []);
+        if (include.length === 0) return {};
+        // Only the exclusions under an included test matter.
+        const exclude = req.excludeExtIds
+            .flatMap((testId) => collection.tree.get(testId) ?? [])
+            .filter((test) => include.some((inc) => test.fullId.startsWith(inc.fullId + TEST_ID_DELIMITER)));
+        const request = new TestRunRequest(
+            include.some((test) => test.actual instanceof TestItemRootImpl) ? undefined : include.map((t) => t.actual),
+            exclude.map((test) => test.actual),
+            profile,
+            false,
+        );
+        const tracker: TestRunTracker = runTracker.prepareForMainThreadTestRun(
+            request,
+            req.runId,
+            { controllerId: req.controllerId, root: collection.root, defaultTaskName: controller.label },
+            token,
+        );
+        // The handler's token lives as long as the request: its runs go on after it has returned.
+        const handlerToken = toVscodeCancellationToken(token);
+        try {
+            await profile.runHandler(request, handlerToken.token);
+            return {};
+        } catch (error) {
+            return { error: String(error) };
+        } finally {
+            if (tracker.hasRunningTasks && !token.isCancellationRequested) {
+                await new Promise<void>((resolve) => {
+                    tracker.onEnd(() => {
+                        resolve();
+                    });
+                });
+            }
+            runTracker.disposeTestRun(tracker);
+            handlerToken.dispose();
+        }
+    }
+
+    rpc.handleRequest("testing.runControllerTests", (params, token) => {
+        const { requests } = params as IWireRunControllerTests;
+        return Promise.all(requests.map((req) => runControllerTestRequest(req, token)));
+    });
+    rpc.handleNotification("testing.cancelExtensionTestRun", (params) => {
+        const { runId, taskId } = params as IWireCancelTestRun;
+        if (runId === undefined) runTracker.cancelAllRuns();
+        else runTracker.cancelRunById(runId, taskId);
+    });
 
     rpc.handleRequest("testing.expandTest", async (params) => {
         const { testId, levels } = params as { testId: string; levels: number };
@@ -165,7 +212,7 @@ export function createExtHostTesting(rpc: SubprocessRpc): IExtHostTesting {
             throw new Error(`Attempt to insert a duplicate controller with ID "${controllerId}"`);
         }
         let refresh: ((token: vscode.CancellationToken) => Thenable<void> | void) | undefined;
-        const profileIds = new Set<number>();
+        const profiles = new Map<number, TestRunProfileImpl>();
         // Registered before the collection's first diff, which carries the root.
         rpc.notify("testing.registerController", { controllerId, label, canRefresh: false });
         const collection = new ExtHostTestItemCollection({
@@ -221,8 +268,7 @@ export function createExtHostTesting(rpc: SubprocessRpc): IExtHostTesting {
                 supportsContinuousRun = false,
             ) => {
                 let profileId = labelHash(profileLabel);
-                while (profileIds.has(profileId)) profileId++;
-                profileIds.add(profileId);
+                while (profiles.has(profileId)) profileId++;
                 rpc.notify("testing.publishProfile", {
                     controllerId,
                     profileId,
@@ -233,15 +279,16 @@ export function createExtHostTesting(rpc: SubprocessRpc): IExtHostTesting {
                     hasConfigurationHandler: false,
                     supportsContinuousRun,
                 });
-                return new TestRunProfileImpl(
+                const profile = new TestRunProfileImpl(
                     (update) => {
                         rpc.notify("testing.updateProfile", { controllerId, profileId, update });
                     },
                     () => {
-                        profileIds.delete(profileId);
+                        profiles.delete(profileId);
                         rpc.notify("testing.removeProfile", { controllerId, profileId });
                     },
                     controllerId,
+                    profileId,
                     kind,
                     profileLabel,
                     runHandler,
@@ -249,9 +296,25 @@ export function createExtHostTesting(rpc: SubprocessRpc): IExtHostTesting {
                     tag,
                     supportsContinuousRun,
                 );
+                profiles.set(profileId, profile);
+                return profile;
             },
             createTestItem: (id, itemLabel, uri) => new TestItemImpl(controllerId, id, itemLabel, uri),
-            createTestRun: (_request, name, persist = true) => createInertTestRun(name, persist),
+            createTestRun: (request, name, persist = true) => {
+                const { profile } = request;
+                if (profile !== undefined && !(profile instanceof TestRunProfileImpl)) {
+                    throw new Error(
+                        "TestRunRequest.profile is not an instance created from TestController.createRunProfile",
+                    );
+                }
+                return runTracker.createTestRun(
+                    { controllerId, root: collection.root, defaultTaskName: collection.root.label },
+                    request,
+                    profile?.profileId ?? null,
+                    name,
+                    persist,
+                );
+            },
             invalidateTestResults: (): void => undefined,
             dispose: () => {
                 if (controllers.get(controllerId)?.controller !== controller) return;
@@ -260,7 +323,7 @@ export function createExtHostTesting(rpc: SubprocessRpc): IExtHostTesting {
                 rpc.notify("testing.unregisterController", { controllerId });
             },
         };
-        controllers.set(controllerId, { controller, collection });
+        controllers.set(controllerId, { controller, collection, profiles });
         return controller;
     }
 

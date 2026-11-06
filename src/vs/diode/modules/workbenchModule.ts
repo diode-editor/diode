@@ -375,11 +375,17 @@ import {
     TestingExplorerComponentDIToken,
     TestingRevealTargetDIToken,
 } from "../../workbench/contrib/testing/browser/testingExplorerView.ts";
+import { TestRunUi } from "../../workbench/contrib/testing/browser/testRunUi.ts";
 import {
     TestProfileService,
     TestProfileServiceDIToken,
 } from "../../workbench/contrib/testing/common/testProfileService.ts";
-import { TestService, TestServiceDIToken } from "../../workbench/contrib/testing/common/testService.ts";
+import { TestResultService, TestResultServiceDIToken } from "../../workbench/contrib/testing/common/testResultService.ts";
+import {
+    TestRunUiDIToken,
+    TestService,
+    TestServiceDIToken,
+} from "../../workbench/contrib/testing/common/testService.ts";
 import {
     ThemeConfigContribution,
     ThemeConfigContributionDIToken,
@@ -647,6 +653,8 @@ export const workbenchModule: ContainerModule = (container) => {
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding (the test profile binds a ready registry of its own); end-to-end — e2e scenario tsc-problem-matcher-task
     container.bind(ProblemMatcherRegistryDIToken, () => new ProblemMatcherRegistry());
     container.bind(TaskServiceDIToken, TaskService);
+    container.bind(TestResultServiceDIToken, TestResultService);
+    container.bind(TestRunUiDIToken, TestRunUi);
     container.bind(TestServiceDIToken, TestService);
     container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);

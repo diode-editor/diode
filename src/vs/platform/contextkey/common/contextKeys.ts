@@ -136,6 +136,12 @@ export interface ContextKeyTypes {
     "testing.hasDebuggableTests": boolean;
     /** Always `false`: coverage is a later wave, Coverage profiles are kept but not offered. */
     "testing.hasCoverableTests": boolean;
+    /** Some test run is going on. */
+    "testing.isRunning": boolean;
+    /** Some test run is kept: the reruns have something to repeat. */
+    "testing.hasAnyResults": boolean;
+    /** Upstream `TestExplorerViewSorting`: "status" | "location" | "duration". */
+    "testing.explorerViewSorting": string;
     /** A Test Explorer row's menu (`MenuId.TestItem`) only: the test's own id, the last segment of its path. */
     testId: string;
     /** A Test Explorer row's menu only: the controller the test belongs to. */

@@ -935,6 +935,8 @@ describe("TestingExplorerComponent — keys, progress and the mirror", () => {
                     canRefresh: false,
                     expandTest: () => Promise.resolve(),
                     refreshTests: () => Promise.resolve(),
+                    runTests: () => Promise.resolve([]),
+                    cancelTestRun: () => undefined,
                 });
             },
         });
@@ -1015,6 +1017,8 @@ describe("TestingExplorerComponent — keys, progress and the mirror", () => {
                 return new Promise(() => undefined);
             },
             refreshTests: () => Promise.resolve(),
+            runTests: () => Promise.resolve([]),
+            cancelTestRun: () => undefined,
         });
         tests.publishDiff(vitestRoot());
         await vi.waitFor(() => {

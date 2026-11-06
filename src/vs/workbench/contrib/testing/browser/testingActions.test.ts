@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
+
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -12,14 +14,14 @@ import { formatKeybinding, KeybindingRegistry } from "../../../../platform/keybi
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { ExtensionsComponentDIToken } from "../../extensions/browser/extensionsComponent.ts";
-import { TestService, TestServiceDIToken } from "../common/testService.ts";
+import { TestServiceDIToken } from "../common/testService.ts";
 
 import { TESTING_ACTIONS } from "./testingActions.ts";
 import { TestingExplorerComponentDIToken } from "./testingExplorerView.ts";
 
 function setup() {
     const contextKeys = new ContextKeyService();
-    const tests = new TestService(contextKeys);
+    const { tests } = makeTestingServices({ contextKeys });
     const commands = new CommandRegistry();
     const keybindings = new KeybindingRegistry();
     const accessor = {
@@ -34,6 +36,8 @@ function setup() {
             label: id,
             canRefresh,
             expandTest: () => Promise.resolve(),
+            runTests: () => Promise.resolve([]),
+            cancelTestRun: () => undefined,
             refreshTests: (token) =>
                 new Promise<void>((resolve) => {
                     refreshes.push(id);

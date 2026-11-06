@@ -37,6 +37,14 @@ function recordingSink() {
         publishProfile: (profile) => calls.push(["profile", profile]),
         updateProfile: (update) => calls.push(["updateProfile", update]),
         removeProfile: (controllerId, profileId) => calls.push(["removeProfile", controllerId, profileId]),
+        startedExtensionTestRun: (run) => calls.push(["startedExtensionTestRun", run]),
+        finishedExtensionTestRun: (runId) => calls.push(["finishedExtensionTestRun", runId]),
+        startedTestRunTask: (task) => calls.push(["startedTestRunTask", task]),
+        finishedTestRunTask: (task) => calls.push(["finishedTestRunTask", task]),
+        addTestsToRun: (add) => calls.push(["addTestsToRun", add]),
+        updateTestStateInRun: (update) => calls.push(["updateTestStateInRun", update]),
+        appendTestMessagesInRun: (messages) => calls.push(["appendTestMessagesInRun", messages]),
+        appendOutputToRun: (output) => calls.push(["appendOutputToRun", output]),
         reset: () => calls.push(["reset"]),
     };
     return { sink, calls, proxies };

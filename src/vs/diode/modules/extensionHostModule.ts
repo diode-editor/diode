@@ -76,6 +76,7 @@ import { EnvironmentVariableServiceDIToken } from "../../workbench/contrib/termi
 import { ExtensionPtySessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { ExtensionTestingAdapter } from "../../workbench/contrib/testing/browser/extensionTestingAdapter.ts";
 import { TestProfileServiceDIToken } from "../../workbench/contrib/testing/common/testProfileService.ts";
+import { TestResultServiceDIToken } from "../../workbench/contrib/testing/common/testResultService.ts";
 import { TestServiceDIToken } from "../../workbench/contrib/testing/common/testService.ts";
 import { DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import { FileDialogServiceDIToken } from "../../workbench/services/dialogs/browser/fileDialogService.ts";
@@ -399,6 +400,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             testingSink: new ExtensionTestingAdapter(
                 container.get(TestServiceDIToken),
                 container.get(TestProfileServiceDIToken),
+                container.get(TestResultServiceDIToken),
             ),
             taskSink: new ExtensionTaskAdapter(
                 container.get(TaskServiceDIToken),

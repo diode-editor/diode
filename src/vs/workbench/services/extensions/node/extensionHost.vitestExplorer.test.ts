@@ -8,13 +8,10 @@ import { createExtensionTestHarness, type IExtensionHarness } from "../../../../
 import { registrationFromInstalled } from "../../../../../TestUtils/installedExtensionRegistration.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { fetchStockVsix } from "../../../../../TestUtils/stockVsix.ts";
+import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
 import { testTree } from "../../../../../TestUtils/testTree.ts";
 import { waitUntil } from "../../../../../TestUtils/timing.ts";
-import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { installVsix } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
-import { ExtensionTestingAdapter } from "../../../contrib/testing/browser/extensionTestingAdapter.ts";
-import { TestProfileService } from "../../../contrib/testing/common/testProfileService.ts";
-import { TestService } from "../../../contrib/testing/common/testService.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
@@ -71,15 +68,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
         async () => {
             const workspace = path.join(tmpRoot, "workspace");
             writeWorkspace(workspace);
-            const contextKeys = new ContextKeyService();
-            const tests = new TestService(contextKeys);
-            const profiles = new TestProfileService(contextKeys);
+            const services = makeTestingServices();
+            const { contextKeys, tests } = services;
             const output: string[] = [];
             const harness: IExtensionHarness = await createExtensionTestHarness({
                 workspaceFolders: [workspace],
                 extensions: [registration],
                 activateEvents: [],
-                testingSink: new ExtensionTestingAdapter(tests, profiles),
+                testingSink: services.adapter,
                 outputSink: {
                     append: (channel, _label, _level, value) => {
                         output.push(`${channel}: ${value}`);

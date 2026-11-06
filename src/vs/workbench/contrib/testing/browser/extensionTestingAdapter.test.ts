@@ -1,24 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
-import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
 import type { IExtensionTestControllerProxy } from "../../../api/common/iExtensionTestingSink.ts";
 import type { IWireTestRunProfile } from "../../../api/common/testingWireTypes.ts";
-import { TestProfileService } from "../common/testProfileService.ts";
-import { TestService } from "../common/testService.ts";
-
-import { ExtensionTestingAdapter } from "./extensionTestingAdapter.ts";
-
 function setup() {
-    const contextKeys = new ContextKeyService();
-    const tests = new TestService(contextKeys);
-    const profiles = new TestProfileService(contextKeys);
-    const adapter = new ExtensionTestingAdapter(tests, profiles);
+    const services = makeTestingServices();
     const proxy: IExtensionTestControllerProxy = {
         expandTest: vi.fn(() => Promise.resolve()),
         refreshTests: vi.fn(() => Promise.resolve()),
+        runTests: vi.fn(() => Promise.resolve([])),
+        cancelTestRun: vi.fn(),
     };
-    return { contextKeys, tests, profiles, adapter, proxy };
+    return { ...services, proxy };
 }
 
 function runProfile(controllerId: string, profileId = 1): IWireTestRunProfile {

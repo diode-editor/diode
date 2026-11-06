@@ -37,14 +37,25 @@ import type {
     WireTaskExecuteRequest,
 } from "./taskWireTypes.ts";
 import type {
+    IWireAddTestsToRun,
+    IWireCancelTestRun,
     IWireExpandTest,
+    IWireExtensionTestRun,
+    IWireRunControllerTests,
+    IWireRunControllerTestsResult,
     IWireTestController,
     IWireTestControllerId,
     IWireTestControllerPatch,
     IWireTestRunProfile,
     IWireTestRunProfileId,
     IWireTestRunProfileUpdate,
+    IWireTestMessagesInRun,
+    IWireTestOutputInRun,
+    IWireTestRunId,
+    IWireTestRunTask,
+    IWireTestRunTaskId,
     IWireTestsDiff,
+    IWireTestStateInRun,
 } from "./testingWireTypes.ts";
 import type {
     IWireTreeItem,
@@ -326,6 +337,11 @@ export interface IHostToSubprocess {
         readonly "testing.expandTest": readonly [IWireExpandTest, null];
         /** Upstream `$refreshTests`: awaits the controller's `refreshHandler`; cancellation cancels its token. */
         readonly "testing.refreshTests": readonly [IWireTestControllerId, null];
+        /**
+         * Upstream `$runControllerTests`: calls each request's `runHandler`; responds once it has settled and the
+         * run's `TestRun`s have ended, or as soon as it has settled after a cancellation.
+         */
+        readonly "testing.runControllerTests": readonly [IWireRunControllerTests, IWireRunControllerTestsResult[]];
 
         readonly "host.activateExtension": readonly [IWireActivateExtensionParams, null];
         readonly "host.deactivateExtension": readonly [IWireExtensionId, null];
@@ -382,6 +398,9 @@ export interface IHostToSubprocess {
         readonly "treeView.setVisible": IWireTreeViewVisibility;
         readonly "treeView.setExpanded": IWireTreeViewExpansion;
         readonly "treeView.setSelection": IWireTreeViewSelection;
+
+        /** Upstream `$cancelExtensionTestRun`: the run's token; a second cancel ends its `TestRun`s at once. */
+        readonly "testing.cancelExtensionTestRun": IWireCancelTestRun;
     };
 }
 
@@ -524,6 +543,14 @@ export interface ISubprocessToHost {
         readonly "testing.publishProfile": IWireTestRunProfile;
         readonly "testing.updateProfile": IWireTestRunProfileUpdate;
         readonly "testing.removeProfile": IWireTestRunProfileId;
+        readonly "testing.startedExtensionTestRun": IWireExtensionTestRun;
+        readonly "testing.finishedExtensionTestRun": IWireTestRunId;
+        readonly "testing.startedTestRunTask": IWireTestRunTask;
+        readonly "testing.finishedTestRunTask": IWireTestRunTaskId;
+        readonly "testing.addTestsToRun": IWireAddTestsToRun;
+        readonly "testing.updateTestStateInRun": IWireTestStateInRun;
+        readonly "testing.appendTestMessagesInRun": IWireTestMessagesInRun;
+        readonly "testing.appendOutputToRun": IWireTestOutputInRun;
 
         /** `host.activateExtension` may be sent. */
         readonly "host.ready": null;

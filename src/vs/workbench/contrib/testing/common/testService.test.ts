@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { testId, testTree } from "../../../../../TestUtils/testTree.ts";
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
-import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
 import type { IWireTestItem, WireTestsDiffOp } from "../../../api/common/testingWireTypes.ts";
 
-import { type ITestController, TestService } from "./testService.ts";
+import type { ITestController } from "./testService.ts";
 
 function wireItem(extId: string, label = extId.split("\0").at(-1)!): IWireTestItem {
     return { extId, label, tags: [], busy: false, range: null, description: null, error: null, sortText: null };
@@ -22,14 +22,15 @@ function controller(id: string, overrides: Partial<ITestController> = {}): ITest
         canRefresh: false,
         expandTest: () => Promise.resolve(),
         refreshTests: () => Promise.resolve(),
+        runTests: () => Promise.resolve([]),
+        cancelTestRun: () => undefined,
         ...overrides,
     };
 }
 
 function setup() {
-    const contextKeys = new ContextKeyService();
-    const service = new TestService(contextKeys);
-    return { contextKeys, service };
+    const services = makeTestingServices();
+    return { ...services, service: services.tests };
 }
 
 describe("TestService — the controllers' trees", () => {
