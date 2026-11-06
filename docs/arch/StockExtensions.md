@@ -387,7 +387,8 @@ eval-режим node, иначе расширение молча не линти
   «Update Snapshot» из меню строки получает `TestItem` расширения и запускает тест (в OUTPUT → Vitest —
   `Enqueuing "adds"`, стоковый тест это проверяет). Запуски (#1070): Run Tests зовёт `runHandler` профиля
   Vitest, `adds` ✓, `fails` ✗, родители ✗, сводка `1/2`; «Rerun Failed Tests» запускает только `fails`
-  (стоковый тест).
+  (стоковый тест). TEST RESULTS (#1071): панель открывается с запуском, в дереве `fails` с сообщением
+  `expected 1 to be 2`, в выводе задачи — отчёт vitest с `FAIL` (стоковый тест).
 - **Магазин** — запись `vitest.explorer` (`support: partial`, `engines.diode` — релиз с вьюхой Testing).
   Стоковый тест — `extensionHost.vitestExplorer.test.ts`: воркспейс `package.json` + `vitest.config.ts`
   + `src/math.test.ts`, `node_modules` — симлинк на репозиторий diode (vitest там есть).

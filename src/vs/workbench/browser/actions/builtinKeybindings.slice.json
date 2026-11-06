@@ -593,6 +593,7 @@
             "mac-cmd (kitty) #2": "meta+; a",
             "mac-cmd (kitty) #3": "meta+; a"
         },
+        "testing.showMostRecentOutput": "ctrl+; ctrl+o",
         "toggleSuggestionDetails": "ctrl+space",
         "undo": {
             "*": "ctrl+z",

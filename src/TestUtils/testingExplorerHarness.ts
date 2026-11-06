@@ -25,20 +25,13 @@ import {
 import { menuItemsOfAction } from "../vs/workbench/browser/actions/menuContributions.ts";
 import { makeViewsHarness } from "../vs/workbench/browser/parts/views/viewsService.testUtils.ts";
 import { ViewsServiceDIToken } from "../vs/workbench/browser/parts/views/viewsService.ts";
-import { resolveTerminalColors } from "../vs/workbench/contrib/terminal/browser/terminalColorsService.ts";
-import type { ExtensionPtySessionFactory } from "../vs/workbench/contrib/terminal/common/terminalSessionFactory.ts";
-import { ExtensionPtySession } from "../vs/workbench/contrib/terminal/node/extensionPtySession.ts";
 import { TESTING_ACTIONS } from "../vs/workbench/contrib/testing/browser/testingActions.ts";
 import {
     TESTING_VIEWLET_ID,
     TestingExplorerComponent,
     TestingExplorerComponentDIToken,
 } from "../vs/workbench/contrib/testing/browser/testingExplorerView.ts";
-import {
-    TEST_RESULTS_CONTAINER_ID,
-    TestResultsComponent,
-    TestResultsComponentDIToken,
-} from "../vs/workbench/contrib/testing/browser/testResultsView.ts";
+import { TestResultsComponentDIToken } from "../vs/workbench/contrib/testing/browser/testResultsView.ts";
 import { TestProfileServiceDIToken } from "../vs/workbench/contrib/testing/common/testProfileService.ts";
 import { TestResultServiceDIToken } from "../vs/workbench/contrib/testing/common/testResultService.ts";
 import {
@@ -55,6 +48,7 @@ import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/dar
 
 import { TestApp } from "./TestApp.ts";
 import { makeTestingServices } from "./testingServices.ts";
+import { createResultsPanel } from "./testResultsPanel.ts";
 import { testId } from "./testTree.ts";
 
 export const UNICODE_ICONS = new StaticProductIconService(false);
@@ -198,27 +192,18 @@ export function setupExplorer(options: ISetupOptions = {}) {
         NULL_JUMP_RECORDER,
         notifications,
     );
-    /** The output's surfaces, the latest last: a real emulator, as the panel draws it. */
-    const sessions: ExtensionPtySession[] = [];
-    const createSession: ExtensionPtySessionFactory = (sessionOptions) => {
-        const session = new ExtensionPtySession(sessionOptions);
-        sessions.push(session);
-        return session;
-    };
-    const resultsComponent = new TestResultsComponent(
-        services.results,
-        views.service,
-        views.contextKeys,
-        icons,
-        progress,
-        views.contextMenu,
-        views.commands,
+    const panel = createResultsPanel({
+        results: services.results,
+        views,
+        theme: THEME,
         configuration,
-        createSession,
-        { colors: resolveTerminalColors(THEME, undefined), onDidChange: new Emitter<never>().event } as never,
-    );
+        progress,
+        icons,
+        width: options.panelWidth,
+        height: options.panelHeight,
+    });
     const serviceMap = new Map<unknown, unknown>([
-        [TestResultsComponentDIToken, resultsComponent],
+        [TestResultsComponentDIToken, panel.component],
         [ViewsServiceDIToken, views.service],
         [TestServiceDIToken, tests],
         [TestResultServiceDIToken, services.results],
@@ -352,62 +337,6 @@ export function setupExplorer(options: ISetupOptions = {}) {
     const click = (x: number, y: number, button: "left" | "right" = "left"): void => {
         mouse(x, y, "press", button);
         mouse(x, y, "release", button);
-    };
-    const panelWidth = options.panelWidth ?? 60;
-    const panelHeight = options.panelHeight ?? 10;
-    let panelApp: TestApp | null = null;
-    let panelRoot: unknown = null;
-    /** The TEST RESULTS container's body as the panel shows it. */
-    const showPanel = (): TestApp => {
-        const root = views.root(TEST_RESULTS_CONTAINER_ID);
-        if (panelApp === null || root !== panelRoot) {
-            bindWidgetGlyphs(root, UNICODE_ICONS);
-            panelApp = TestApp.createWithContent(root, new Size(panelWidth, panelHeight));
-            panelRoot = root;
-        }
-        return panelApp;
-    };
-    const panelFrame = (): string => {
-        const shown = showPanel();
-        shown.render();
-        return shown.backend.screenToString();
-    };
-    const panel = {
-        component: resultsComponent,
-        sessions,
-        frame: panelFrame,
-        lines: (): string[] => panelFrame().split("\n"),
-        waitFrame: (predicate: (text: string) => boolean): Promise<string> =>
-            vi.waitFor(() => {
-                const text = panelFrame();
-                if (!predicate(text)) throw new Error(`the panel is not there yet:\n${text}`);
-                return text;
-            }),
-        fgAt: (x: number, y: number): number => {
-            panelFrame();
-            return showPanel().backend.getFgAt(new Point(x, y));
-        },
-        click: (x: number, y: number, button: "left" | "right" = "left"): void => {
-            for (const action of ["press", "release"] as const) {
-                showPanel().backend.simulateMouse({
-                    kind: "mouse",
-                    button,
-                    x: x + 1,
-                    y: y + 1,
-                    action,
-                    shiftKey: false,
-                    altKey: false,
-                    ctrlKey: false,
-                    raw: "",
-                });
-                showPanel().render();
-            }
-        },
-        sendKey: (key: string): void => {
-            showPanel().backend.sendKey(key);
-            showPanel().render();
-        },
-        width: panelWidth,
     };
     return {
         panel,

@@ -15,7 +15,8 @@ isDefault?, rejectAddedViews?}` (`label` — название в авторск�
 VS Code), строит их все `attachRegisteredContainers()` из `mount()` — по
 `order`, а не по порядку резолва компонентов: Explorer 0 (`isDefault`),
 Search 1, Source Control 2 (регистрирует `ChangesComponent`), Extensions 3,
-References 4, Testing 6 (`order` эталона; есть, пока есть контроллер тестов); в панели PROBLEMS 0, OUTPUT 1, TERMINAL 2 — это порядок вкладок,
+References 4, Testing 6 (`order` эталона; есть, пока есть контроллер тестов); в панели PROBLEMS 0, OUTPUT 1, TERMINAL 2, TEST RESULTS 3 (есть, пока есть
+результат запуска тестов) — это порядок вкладок,
 первая активна. Поздний `attachContainer` вставляет вкладку в позицию по
 `order`; контейнер без `order` встаёт после упорядоченных. View — секция внутри
 него: `{id, containerId, title, order, body, placeholder?, focus,
@@ -459,7 +460,51 @@ EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorer
 - Не сделано: count badge (`testing.countBadge` — activity bar нет), View as List/Tree, Hide/Unhide Test,
   Show in Active File Only, Debug/Coverage-пункты (решения человека), выбор профиля («Execute Using
   Profile...», «Select Default Profile», «Configure Test Profiles»), Fuzzy Match, печать символа из дерева
-  в фильтр; показ сообщений и вывода (TEST RESULTS) — следующая задача.
+  в фильтр. В заголовке ещё Show Output (`testing.showMostRecentOutput`, `navigation` 16) — панель
+  TEST RESULTS ниже.
+
+### TEST RESULTS
+
+Контейнер `workbench.panel.testResults` («Test Results», панель, `order: 3` — после TERMINAL) и вид
+`workbench.panel.testResults.view` — `contrib/testing/browser/testResultsView.ts` (`TestResultsComponent`),
+эталон — `TestResultsView` (`testingOutputPeek.ts`), `TestResultsViewContent`, `OutputPeekTree`. Вид
+регистрируется, пока у `TestResultService` есть результаты (`when: testing.hasAnyResults` эталона, по самому
+событию сервиса — ключ ставится в микротаске, а вид нужен до автооткрытия): вкладка появляется с первым
+запуском, «Clear All Results» её убирает (`hideIfEmpty`). `canMoveView: true`, `canToggleVisibility: false`.
+
+- **Раскладка** — `TestResultsSplitElement`: содержимое и дерево пополам (`Sizing.Distribute`), дерево справа,
+  `testing.resultsView.layout: treeLeft` — слева; Toggle Tree Position (`testing.toggleResultsViewLayout`,
+  `arrow-swap` в заголовке, `navigation` 18) переключает настройку, выбор строки остаётся. Минимумы эталона в
+  ячейках: содержимое ≥ 25, дерево ≥ 12; не влезает — первым сжимается дерево (до нуля). Отступление: sash
+  нет, пропорция фиксирована.
+- **Дерево** (`getRootChildren` эталона) — задачи последнего запуска с задачами в корне, прочие — под «1 older
+  result» / «{0} older results», каждый запуск свёрнут (подпись — «Test run at {0}» с локальным временем
+  старта, иконка — доминирующее состояние или спиннер). Задача (спиннер, пока идёт) → тесты с состоянием
+  ≥ Running или с сообщениями, по приоритету состояния, описание — цепочка родителей до корня контроллера
+  через « ‹ » → сообщения-ошибки (первая строка, «+ N more lines»). Задачи и тесты раскрываются при первом
+  появлении. Компактных строк эталона (тест с единственным сообщением одной строкой) нет.
+- **Действия строки** (`TreeActionsProvider` эталона без Debug-пунктов — дебагера нет) — свои, не меню:
+  у задачи Show Result Output, пока идёт — Cancel Test Run (`testing.cancelRun` с `resultId`, `taskId`), иначе
+  Rerun Last Run и при падениях Rerun Failed Tests (`testing.reRunFailedFromLastRun`); у старого запуска
+  Show Result Output (одна задача), Rerun Test, Rerun Failed Tests; у теста и сообщения Go to Test (есть
+  `uri`), Show Result Output (есть вывод), Run Test (`testing.hasRunnableTests`), в контекстном меню после
+  разделителя — Reveal in Test Explorer (`_revealTestInExplorer` → `TestingExplorerComponent.revealTest`).
+  Клик выбирает строку, Enter на тесте — Go to Test (решение спеки; у эталона Enter открывает сообщение).
+- **Содержимое** — `TestResultsOutput` (`TerminalMessagePeek` эталона): терминальная поверхность без
+  процесса (`ExtensionPtySessionFactory`), свежая на каждый выбор; цвета — `TerminalColorsService`
+  (`applyTerminalColors`), курсор спрятан, ввода и фокуса нет (клавиши остаются воркбенчу), прокрутка —
+  колесом. Задача — весь её вывод, тест — его `appendOutput` в этой задаче (срезы `offset`/`length`),
+  сообщение — его текст как есть (markdown, diff, стек — следующая задача). Живой запуск дописывает вывод
+  по `LiveTestResult.onDidAppendOutput`. Пустой вывод — тексты эталона «The test run did not record any
+  output.» / «The test case did not report any output.» (`formatMessageForTerminal`); «Test output is only
+  available for new test runs.» не бывает — результаты живут в памяти. Выделения и копирования нет: их нет
+  и у терминала.
+- **Открытие** (`TestingProgressUiService` эталона, внутри компонента): на старт запуска без
+  `preserveFocus` по `testing.automaticallyOpenTestResults` — `openOnTestStart` (по умолчанию) открывает
+  вид без фокуса, `openOnTestFailure` — на первом упавшем тесте, `openExplorerOnTestStart` — Test Explorer,
+  `neverOpen` — ничего. Первая задача нового запуска выбирается сама. Show Output
+  (`testing.showMostRecentOutput`, `Ctrl+; Ctrl+O`, при `testing.hasAnyResults`) открывает вид с фокусом и
+  первой задачей последнего запуска. Clear All Results — и в заголовке TEST RESULTS (`navigation`).
 
 ## References
 

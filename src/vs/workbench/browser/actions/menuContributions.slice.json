@@ -21,6 +21,8 @@
             "jumpToPrevSnippetPlaceholder",
             "leaveSnippet",
             "acceptSnippet",
+            "testing.showMostRecentOutput",
+            "_revealTestInExplorer",
             "references-view.removeCallItem",
             "references-view.removeTypeItem"
         ]
@@ -479,6 +481,9 @@
             "references-view.showSubtypes",
             "testing.cancelRun",
             "testing.runSelected",
+            "testing.showMostRecentOutput",
+            "testing.clearTestResults",
+            "testing.toggleResultsViewLayout",
             "workbench.action.files.saveAll",
             "explorer.newFolder",
             "references-view.clear",

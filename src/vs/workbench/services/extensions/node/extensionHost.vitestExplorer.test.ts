@@ -9,11 +9,17 @@ import { registrationFromInstalled } from "../../../../../TestUtils/installedExt
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { fetchStockVsix } from "../../../../../TestUtils/stockVsix.ts";
 import { makeTestingServices } from "../../../../../TestUtils/testingServices.ts";
+import { createResultsPanel } from "../../../../../TestUtils/testResultsPanel.ts";
 import { testTree } from "../../../../../TestUtils/testTree.ts";
 import { waitUntil } from "../../../../../TestUtils/timing.ts";
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { installVsix } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
+import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { TestResultState } from "../../../api/common/testingWireTypes.ts";
+import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
+import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
@@ -70,8 +76,23 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
         async () => {
             const workspace = path.join(tmpRoot, "workspace");
             writeWorkspace(workspace);
-            const services = makeTestingServices();
+            const views = makeViewsHarness();
+            const services = makeTestingServices({ contextKeys: views.contextKeys });
             const { contextKeys, tests, results } = services;
+            const configuration = {
+                get: (key: string) => (key === "testing.automaticallyOpenTestResults" ? "openOnTestStart" : undefined),
+                onDidChangeConfiguration: () => ({ dispose: () => undefined }),
+            } as unknown as IConfigurationService;
+            const panel = createResultsPanel({
+                results,
+                views,
+                theme: WorkbenchTheme.fromThemeFile(darkPlusTheme),
+                configuration,
+                progress: new ProgressService(),
+                width: 120,
+                height: 12,
+            });
+            views.service.attachRegisteredContainers();
             const output: string[] = [];
             const harness: IExtensionHarness = await createExtensionTestHarness({
                 workspaceFolders: [workspace],
@@ -144,6 +165,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                         ?.tasks.flatMap((task) => task.messages)
                         .some((m) => m.type === "error"),
                 ).toBe(true);
+                // TEST RESULTS opened with the run: `fails` with its message in the tree, vitest's report in the
+                // task's output.
+                expect(views.service.isViewShown("workbench.panel.testResults.view")).toBe(true);
+                expect(run.tasks[0].output).toContain("FAIL");
+                const frame = await panel.waitFrame((text) => text.includes("fails") && text.includes("expected"));
+                const tree = frame.split("\n").map((line) => line.slice(60));
+                const failsRow = tree.findIndex((line) => line.includes("fails"));
+                expect(tree[failsRow + 1]).toMatch(/expected .* to be/);
 
                 // Rerun Failed Tests: only `fails` runs; vitest reports the rest of the file as skipped, as in VS Code.
                 const beforeRerun = output.length;
