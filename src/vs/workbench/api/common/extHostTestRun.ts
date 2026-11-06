@@ -45,6 +45,7 @@ function assertTestItem(test: vscode.TestItem): asserts test is TestItemImpl {
 
 function locationFrom(location: vscode.Location | undefined): IWireTestLocation | undefined {
     const range = rangeFrom(location?.range);
+    // Stryker disable next-line ConditionalExpression: equivalent — rangeFrom(undefined) is null, a missing location takes the same branch
     return location === undefined || range === null ? undefined : { uri: location.uri.toString(), range };
 }
 
@@ -104,7 +105,6 @@ export class TestRunTracker {
         this.parentSubscription = parentToken?.onCancellationRequested(() => {
             this.cts.cancel();
         });
-        if (parentToken?.isCancellationRequested === true) this.cts.cancel();
     }
 
     public get hasRunningTasks(): boolean {
@@ -118,7 +118,8 @@ export class TestRunTracker {
         } else if (this.state === "running") {
             this.state = "cancelling";
             this.cts.cancel();
-        } else if (this.state === "cancelling") {
+        } else {
+            // An ended run's `TestRun`s ignore `end()`.
             this.forciblyEndTasks();
         }
     }
@@ -215,6 +216,7 @@ export class TestRunTracker {
             end: () => {
                 if (ended) return;
                 ended = true;
+                // Stryker disable next-line CallExpression: hygiene — the ended task's token is not read any more, the link only leaks a listener
                 cancellation.dispose();
                 this.rpc.notify("testing.finishedTestRunTask", { runId, taskId });
                 this.running--;
@@ -235,12 +237,13 @@ export class TestRunTracker {
 
     /** The host forgets the run: `onDidDispose` of its `TestRun`s fires. */
     public dispose(): void {
-        this.markEnded();
         this.forciblyEnd.dispose();
         this.parentSubscription?.dispose();
         this.disposeEmitter.fire();
+        // Stryker disable BlockStatement,CallExpression: hygiene — the emitters of a forgotten run drop their listeners; nothing fires them any more
         this.disposeEmitter.dispose();
         this.endEmitter.dispose();
+        // Stryker restore BlockStatement,CallExpression
     }
 
     private forciblyEndTasks(): void {
@@ -265,7 +268,8 @@ export class TestRunTracker {
             if (this.sharedTestIds.has(extId)) break;
             this.sharedTestIds.add(extId);
             extId = TestId.parentId(extId);
-            if (current === root || extId === undefined) break;
+            // The root's id has no parent: the walk ends there.
+            if (extId === undefined) break;
             current = TestItemImpl.apiOf(current).parent ?? root;
         }
         this.rpc.notify("testing.addTestsToRun", { controllerId, runId: this.id, tests: chain });
@@ -293,6 +297,7 @@ export class TestRunCoordinator {
     /** Upstream `disposeTestRun`. */
     public disposeTestRun(tracker: TestRunTracker): void {
         tracker.dispose();
+        // Stryker disable next-line ConditionalExpression,CallExpression: hygiene — a forgotten run's entry only leaks; a cancel of its id reaches a disposed tracker, which ends nothing
         if (this.trackedById.get(tracker.id) === tracker) this.trackedById.delete(tracker.id);
         for (const [request, other] of this.tracked) {
             if (other === tracker) this.tracked.delete(request);

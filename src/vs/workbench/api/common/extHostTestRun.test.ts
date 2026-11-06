@@ -547,6 +547,92 @@ describe("TestRunTracker — edges", () => {
     });
 });
 
+describe("TestRunTracker — what the gate asked", () => {
+    it("an unknown task's cancel is nothing; a test without a location has no default location for its message", async () => {
+        const env = setup((request) => {
+            const run = env.controller.createTestRun(request);
+            const floating = env.controller.createTestItem("floating", "floating");
+            floating.range = new env.vscode.Range(1, 0, 1, 1);
+            env.controller.items.add(floating);
+            run.failed(floating, new env.vscode.TestMessage("x"));
+            run.end();
+        });
+        await env.run(["ctrl"]);
+        expect(() => {
+            env.stub.fire("testing.cancelExtensionTestRun", { runId: "r1", taskId: "nope" });
+        }).not.toThrow();
+        expect((sentParams(env.stub, "testing.appendTestMessagesInRun")[0] as { messages: { location: unknown }[] }).messages[0].location).toBeUndefined();
+    });
+
+    it("a run the core forgot does not end its TestRuns at the deadline", async () => {
+        vi.useFakeTimers();
+        let finish = (): void => undefined;
+        const env = setup((request) => {
+            env.controller.createTestRun(request);
+            return new Promise<void>((resolve) => {
+                finish = resolve;
+            });
+        });
+        const cts = new CancellationTokenSource();
+        const answer = env.run(["ctrl"], cts.token);
+        await vi.advanceTimersByTimeAsync(0);
+        cts.cancel();
+        finish();
+        await answer;
+        await vi.advanceTimersByTimeAsync(RUN_CANCEL_DEADLINE);
+        expect(sentParams(env.stub, "testing.finishedTestRunTask")).toEqual([]);
+    });
+
+    it("two runs of the core at once: the end of one leaves the other's request tied to its run", async () => {
+        const requests: vscodeTypes.TestRunRequest[] = [];
+        const finishers: (() => void)[] = [];
+        const env = setup((request) => {
+            requests.push(request);
+            env.controller.createTestRun(request).end();
+            return new Promise<void>((resolve) => {
+                finishers.push(resolve);
+            });
+        });
+        const req = (runId: string) => ({ runId, controllerId: "ctrl", profileId: env.profileId, testIds: ["ctrl"], excludeExtIds: [] });
+        const first = env.stub.callRequest("testing.runControllerTests", { requests: [req("a")] });
+        const second = env.stub.callRequest("testing.runControllerTests", { requests: [req("b")] });
+        await vi.waitFor(() => {
+            expect(requests).toHaveLength(2);
+        });
+        finishers[0]();
+        await first;
+        env.controller.createTestRun(requests[1]).end();
+        expect(sentParams(env.stub, "testing.startedExtensionTestRun")).toEqual([]);
+        expect((sentParams(env.stub, "testing.startedTestRunTask") as { runId: string }[]).map((t) => t.runId)).toEqual(["a", "b", "b"]);
+        // After the answer the request is forgotten: a late TestRun of it is the extension's own.
+        finishers[1]();
+        await second;
+        env.controller.createTestRun(requests[1]);
+        expect(sentParams(env.stub, "testing.startedExtensionTestRun")).toHaveLength(1);
+    });
+
+    it("an extension's continuous request says so", () => {
+        const env = setup(() => undefined);
+        env.controller.createTestRun(new env.vscode.TestRunRequest(undefined, undefined, undefined, true));
+        expect(sentParams(env.stub, "testing.startedExtensionTestRun")).toEqual([expect.objectContaining({ continuous: true })]);
+    });
+
+    it("the root among the included runs everything; an exclusion under any included test passes", async () => {
+        const seen: vscodeTypes.TestRunRequest[] = [];
+        const env = setup((request) => {
+            seen.push(request);
+        });
+        const other = env.controller.createTestItem("other", "other");
+        const inner = env.controller.createTestItem("inner", "inner");
+        other.children.add(inner);
+        env.controller.items.add(other);
+        await env.run([testId("ctrl", "math"), "ctrl"]);
+        await env.run([testId("ctrl", "math"), testId("ctrl", "other")], undefined, [testId("ctrl", "other", "inner")]);
+        expect(seen[0].include).toBeUndefined();
+        expect(seen[1].exclude).toEqual([inner]);
+    });
+});
+
 describe("fullTestId", () => {
     it("is the path of ids from the controller; a detached item hangs off the root", () => {
         const { vscode } = makeVscode();

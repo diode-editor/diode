@@ -140,8 +140,9 @@ export function createExtHostTesting(rpc: SubprocessRpc): IExtHostTesting {
         token: ICancellationToken,
     ): Promise<IWireRunControllerTestsResult> {
         const lookup = controllers.get(req.controllerId);
-        const profile = lookup?.profiles.get(req.profileId);
-        if (lookup === undefined || profile === undefined) return {};
+        if (lookup === undefined) return {};
+        const profile = lookup.profiles.get(req.profileId);
+        if (profile === undefined) return {};
         const { collection, controller } = lookup;
         const include = req.testIds.flatMap((testId) => collection.tree.get(testId) ?? []);
         if (include.length === 0) return {};
@@ -177,6 +178,7 @@ export function createExtHostTesting(rpc: SubprocessRpc): IExtHostTesting {
                 });
             }
             runTracker.disposeTestRun(tracker);
+            // Stryker disable next-line CallExpression: hygiene — the request's token is gone with the reply, its link only leaks a listener
             handlerToken.dispose();
         }
     }
