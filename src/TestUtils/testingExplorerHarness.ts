@@ -38,7 +38,10 @@ import {
     TestServiceDIToken,
 } from "../vs/workbench/contrib/testing/common/testService.ts";
 import { NULL_JUMP_RECORDER } from "../vs/workbench/services/history/browser/historyService.ts";
-import type { NotificationService } from "../vs/workbench/services/notification/browser/notificationService.ts";
+import {
+    type NotificationService,
+    NotificationServiceDIToken,
+} from "../vs/workbench/services/notification/browser/notificationService.ts";
 import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";
 
 import { TestApp } from "./TestApp.ts";
@@ -156,6 +159,12 @@ export function setupExplorer(options: ISetupOptions = {}) {
         onDidChangeConfiguration.fire({ affectsConfiguration: (affected) => affected === key });
     };
     options.before?.(tests);
+    const notifications = {
+        show: (toast: { message: string }) => {
+            toasts.push(toast.message);
+            toastOptions.push(toast);
+        },
+    } as unknown as NotificationService;
     const component = new TestingExplorerComponent(
         tests,
         services.results,
@@ -171,12 +180,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
         views.state,
         reveal,
         NULL_JUMP_RECORDER,
-        {
-            show: (toast: { message: string }) => {
-                toasts.push(toast.message);
-                toastOptions.push(toast);
-            },
-        } as unknown as NotificationService,
+        notifications,
     );
     const serviceMap = new Map<unknown, unknown>([
         [TestServiceDIToken, tests],
@@ -184,11 +188,16 @@ export function setupExplorer(options: ISetupOptions = {}) {
         [TestProfileServiceDIToken, services.profiles],
         [TestingExplorerComponentDIToken, component],
         [ContextKeyServiceDIToken, views.contextKeys],
+        [NotificationServiceDIToken, notifications],
     ]);
     const accessor = { get: (token: unknown) => serviceMap.get(token) } as unknown as ServiceAccessor;
     const keybindings = new KeybindingRegistry();
     for (const action of TESTING_ACTIONS) registerAction(views.commands, keybindings, accessor, action);
     if (options.attach !== false) views.service.attachRegisteredContainers();
+    // `ViewTitleActionsContribution` refreshes the title on every key change in the app.
+    views.contextKeys.onDidChange(() => {
+        views.service.refreshTitleActions();
+    });
 
     const expands: [string, number][] = [];
     /** The core's run requests per controller, answered by `finish`. */
@@ -311,6 +320,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
         views,
         tests,
         results: services.results,
+        adapter: services.adapter,
         profiles: services.profiles,
         saves: services.saves,
         errors: services.errors,

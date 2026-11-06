@@ -428,13 +428,12 @@ export class TestingExplorerComponent extends Component {
     }
 
     /**
-     * Upstream `getTreeIncludeExclude` over the visible tests: without a filter the roots; with one the tests it
-     * matched, minus their descendants it hides.
+     * Upstream `getTreeIncludeExclude` over the visible tests: `within` (the whole tree by default) minus the
+     * descendants the filter hides; for the whole tree under a filter, the tests it matched themselves.
      */
-    public getVisibleIncludeExclude(): { include: ITestNode[]; exclude: ITestNode[] } {
-        const roots = this.tests.rootItems;
+    public getTreeIncludeExclude(within?: readonly ITestNode[]): { include: ITestNode[]; exclude: ITestNode[] } {
         const visible = this.visible;
-        if (visible === null) return { include: roots, exclude: [] };
+        if (visible === null) return { include: [...(within ?? this.tests.rootItems)], exclude: [] };
         const include: ITestNode[] = [];
         const exclude: ITestNode[] = [];
         const attempt = (node: ITestNode, alreadyIncluded: boolean): void => {
@@ -446,8 +445,14 @@ export class TestingExplorerComponent extends Component {
             if (includeHere) include.push(node);
             for (const child of this.childNodes(node)) attempt(child, alreadyIncluded || includeHere);
         };
-        for (const root of roots) attempt(root, false);
-        return { include, exclude };
+        if (within === undefined) {
+            for (const root of this.tests.rootItems) attempt(root, false);
+            return { include, exclude };
+        }
+        for (const node of within) {
+            for (const child of this.childNodes(node)) attempt(child, true);
+        }
+        return { include: [...within], exclude };
     }
 
     /**
@@ -531,6 +536,7 @@ export class TestingExplorerComponent extends Component {
 
     private setFilterText(text: string): void {
         this.filterInput.inputState.value = text;
+        this.filterInput.markDirty();
         this.setFilter(text);
     }
 

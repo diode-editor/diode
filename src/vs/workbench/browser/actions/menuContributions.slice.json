@@ -415,10 +415,12 @@
         ]
     },
     "TestItem": {
-        "builtin": [
+        "builtin@1": [
+            "testing.run",
             "testing.editFocusedTest"
         ],
         "inline": [
+            "testing.run",
             "testing.editFocusedTest"
         ]
     },
@@ -455,7 +457,8 @@
             "git.showOutput"
         ],
         "displayAction": [
-            "testing.collapseAll"
+            "testing.collapseAll",
+            "testing.clearTestResults"
         ],
         "navigation": [
             "workbench.action.toggleEditorGroupLayout",
@@ -474,6 +477,8 @@
             "references-view.showIncomingCalls",
             "references-view.showSupertypes",
             "references-view.showSubtypes",
+            "testing.cancelRun",
+            "testing.runSelected",
             "workbench.action.files.saveAll",
             "explorer.newFolder",
             "references-view.clear",
@@ -482,6 +487,11 @@
             "workbench.files.action.refreshFilesExplorer",
             "openEditors.closeAll",
             "workbench.action.terminal.kill"
+        ],
+        "sortBy": [
+            "testing.sortByDuration",
+            "testing.sortByLocation",
+            "testing.sortByStatus"
         ]
     }
 }

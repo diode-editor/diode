@@ -52,6 +52,7 @@ export const CODICON_UNICODE: Readonly<Partial<Record<string, string>>> = {
     debug: "※",
     "debug-alt": "▶",
     "debug-pause": "‖",
+    "debug-rerun": "↻",
     "debug-restart": "↻",
     "debug-start": "▶",
     "debug-step-over": "↷",
