@@ -3,6 +3,7 @@
 // (`^[]10;rgb:…`) were left as garbage in the shell after leaving the alt screen.
 
 import type { HostTerminalColors, ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
+import type { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 
 import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
@@ -17,6 +18,7 @@ import { LifecycleServiceDIToken } from "../../../services/lifecycle/browser/lif
 import { LIFECYCLE_PHASES } from "../../../services/lifecycle/common/lifecyclePhase.ts";
 import type { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
+import type { ITerminalSession } from "../common/terminalSessionFactory.ts";
 
 export const TerminalColorsServiceDIToken = token<TerminalColorsService>("TerminalColorsService");
 
@@ -115,4 +117,20 @@ export class TerminalColorsService extends Disposable {
             this.update();
         });
     }
+}
+
+/**
+ * Host background/foreground override `terminal.background`/`terminal.foreground` in the widget's
+ * var scope; without them, theme tokens apply.
+ */
+export function applyTerminalColors(
+    instance: { readonly session: Pick<ITerminalSession, "setAnsiColors"> },
+    widget: TerminalViewElement,
+    colors: ITerminalColors,
+): void {
+    instance.session.setAnsiColors(colors.ansi);
+    const vars: Record<string, number> = {};
+    if (colors.background !== undefined) vars["terminal.background"] = colors.background;
+    if (colors.foreground !== undefined) vars["terminal.foreground"] = colors.foreground;
+    widget.setStyleVars(vars);
 }

@@ -1,0 +1,663 @@
+import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
+import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
+import type { ITreeDataProvider, ITreeItem, ITreeItemAction } from "@tuidom/elements/tree/iTreeDataProvider";
+import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
+
+import { RunOnceScheduler } from "../../../../base/common/async.ts";
+import { codicon, type IProductIcon } from "../../../../base/common/codicons.ts";
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
+import { Disposable, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import {
+    type ContextKeyService,
+    ContextKeyServiceDIToken,
+} from "../../../../platform/contextkey/common/contextKeyService.ts";
+import {
+    type ContextMenuService,
+    ContextMenuServiceDIToken,
+} from "../../../../platform/contextview/browser/contextMenuService.ts";
+import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import {
+    type ProgressService,
+    ProgressServiceDIToken,
+    SPINNER_FRAMES,
+} from "../../../../platform/progress/common/progressService.ts";
+import {
+    type IProductIconService,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
+import { type IWireTestItemArg, TestId, TestResultState } from "../../../api/common/testingWireTypes.ts";
+import { type ViewsService, ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import { onDidChangeTreeIndentGuides, treeIndentGuides } from "../../../browser/treeIndentGuides.ts";
+import {
+    type TerminalColorsService,
+    TerminalColorsServiceDIToken,
+} from "../../terminal/browser/terminalColorsService.ts";
+import {
+    type ExtensionPtySessionFactory,
+    ExtensionPtySessionFactoryDIToken,
+} from "../../terminal/common/terminalSessionFactory.ts";
+import { isFailedState, statePriority, statesInOrder } from "../common/testingStates.ts";
+import type { ITestResultItem, LiveTestResult } from "../common/testResult.ts";
+import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
+
+import { STATE_ICONS, TESTING_EXPLORER_VIEW_ID } from "./testingExplorerView.ts";
+import { TestResultsOutput, type TestResultsSubject } from "./testResultsOutput.ts";
+import { TestResultsSplitElement } from "./testResultsSplitElement.ts";
+
+/** Upstream `Testing.ResultsPanelId`. */
+export const TEST_RESULTS_CONTAINER_ID = "workbench.panel.testResults";
+/** Upstream `Testing.ResultsViewId`. */
+export const TEST_RESULTS_VIEW_ID = "workbench.panel.testResults.view";
+
+export const TestResultsComponentDIToken = token<TestResultsComponent>("TestResultsComponent");
+
+/** A run's changes of this long come to the tree in one refresh. */
+const REFRESH_DELAY = 16;
+
+const TERMINAL_ICON = codicon("terminal");
+/** Upstream `testingCancelIcon`, `testingRerunIcon`, `testingRunIcon`. */
+const CANCEL_ICON = codicon("debug-stop");
+const RERUN_ICON = codicon("debug-rerun");
+const RUN_ICON = codicon("run");
+const GO_TO_FILE_ICON = codicon("go-to-file");
+const LIST_TREE_ICON = codicon("list-tree");
+
+/** A row of the results tree (upstream's `TreeElement`s without coverage). */
+export type TestResultsRow =
+    | { readonly kind: "older"; readonly count: number }
+    | { readonly kind: "result"; readonly result: LiveTestResult }
+    | TestResultsSubject;
+
+/** Upstream `TreeActionsProvider`'s action: a glyph on the row and an entry of its menu. */
+interface IRowAction {
+    readonly label: string;
+    readonly icon: IProductIcon;
+    /** Only in the context menu (upstream's `secondary`). */
+    readonly secondary?: boolean;
+    run(): unknown;
+}
+
+/**
+ * Upstream `TestResultsView` (`testingOutputPeek.ts`) with `TestResultsViewContent` and `OutputPeekTree`: a panel
+ * tab while there is any result, the output of the chosen run, test or message on the left, the runs' tree on the
+ * right. Also upstream's `TestingProgressUiService`: a run that starts opens the panel per
+ * `testing.automaticallyOpenTestResults`.
+ */
+export class TestResultsComponent extends Disposable {
+    public static dependencies = [
+        TestResultServiceDIToken,
+        ViewsServiceDIToken,
+        ContextKeyServiceDIToken,
+        ProductIconServiceDIToken,
+        ProgressServiceDIToken,
+        ContextMenuServiceDIToken,
+        CommandRegistryDIToken,
+        IConfigurationServiceDIToken,
+        ExtensionPtySessionFactoryDIToken,
+        TerminalColorsServiceDIToken,
+    ] as const;
+
+    public readonly tree: TreeViewElement<TestResultsRow>;
+    public readonly view: TestResultsSplitElement;
+    private readonly output: TestResultsOutput;
+    private subject: TestResultsSubject | null = null;
+    /** Rows already shown once: a task and a test expand when they first appear. */
+    private readonly seen = new Set<string>();
+    private readonly liveStores = new Map<LiveTestResult, DisposableStore>();
+    private spinnerTicks: IDisposable | null = null;
+
+    public constructor(
+        private readonly results: TestResultService,
+        private readonly views: ViewsService,
+        private readonly contextKeys: ContextKeyService,
+        private readonly icons: IProductIconService,
+        private readonly progress: ProgressService,
+        private readonly contextMenu: ContextMenuService,
+        private readonly commands: CommandRegistry,
+        private readonly configuration: IConfigurationService,
+        createSession: ExtensionPtySessionFactory,
+        colors: TerminalColorsService,
+    ) {
+        super();
+        const provider: ITreeDataProvider<TestResultsRow> = {
+            getTreeItem: (row) => this.toTreeItem(row),
+            getChildren: (row) => this.childrenOf(row),
+            getKey: (row) => rowKey(row),
+        };
+        this.tree = new TreeViewElement(provider, {
+            leftPadding: 1,
+            inlineActionsRightPadding: 1,
+            expandOnlyOnTwistieClick: () => configuration.get("workbench.tree.expandMode") === "doubleClick",
+            openOnSingleClick: () => configuration.get("workbench.list.openMode") !== "doubleClick",
+            renderIndentGuides: treeIndentGuides(configuration),
+        });
+        this.tree.id = "testResultsTree";
+        this.tree.onSelect = (row) => {
+            const subject = subjectOf(row);
+            if (subject !== null) this.show(subject);
+        };
+        // Upstream `onDidOpen` of a test reveals its message; here Enter goes to the test (the spec's decision). A
+        // click only chooses the row: its preview opening is the content on the left.
+        this.tree.onActivate = (row, options) => {
+            if (row.kind === "test" && options.pinned) this.execute("testing.editFocusedTest", testArg(row));
+        };
+        this.tree.onInlineAction = (row, index) => {
+            this.actionsOf(row)
+                .filter((action) => action.secondary !== true)
+                .at(index)
+                ?.run();
+        };
+        this.tree.onContextMenu = (row, screenX, screenY) => {
+            this.showContextMenu(row, screenX, screenY);
+        };
+        this.output = this.register(
+            new TestResultsOutput(createSession, colors, (widget) => {
+                this.view.setContent(widget);
+            }),
+        );
+        this.view = new TestResultsSplitElement(this.output.widget, new ScrollBarDecorator(this.tree));
+        this.view.id = "testResultsView";
+        this.view.treeLeft = this.isTreeLeft();
+
+        views.registerContainer({
+            id: TEST_RESULTS_CONTAINER_ID,
+            title: "TEST RESULTS",
+            label: "Test Results",
+            location: "panel",
+            // Upstream `order: 3`: after Terminal.
+            order: 3,
+        });
+        const refreshLater = this.register(
+            new RunOnceScheduler(() => {
+                this.refresh();
+            }, REFRESH_DELAY),
+        );
+        this.register(
+            results.onResultsChanged((event) => {
+                this.syncRegistration();
+                if ("started" in event) {
+                    this.attachToLive(event.started);
+                    this.autoOpen(event.started);
+                }
+                if ("completed" in event) this.detachFromLive(event.completed);
+                if ("removed" in event) {
+                    for (const removed of event.removed) this.detachFromLive(removed);
+                    if (this.subject !== null && event.removed.includes(this.subject.result)) this.clearSubject();
+                }
+                this.syncSpinner();
+                this.refresh();
+            }),
+        );
+        this.register(
+            results.onTestChanged(() => {
+                if (!refreshLater.isScheduled()) refreshLater.schedule();
+            }),
+        );
+        this.register(
+            configuration.onDidChangeConfiguration((event) => {
+                if (event.affectsConfiguration("testing.resultsView.layout")) this.view.treeLeft = this.isTreeLeft();
+            }),
+        );
+        this.register(
+            icons.onDidChange(() => {
+                this.refresh();
+            }),
+        );
+        this.register(
+            onDidChangeTreeIndentGuides(configuration, () => {
+                this.tree.markDirty();
+            }),
+        );
+        this.register({
+            dispose: () => {
+                for (const store of this.liveStores.values()) store.dispose();
+                this.spinnerTicks?.dispose();
+            },
+        });
+        this.syncRegistration();
+    }
+
+    /** What the content shows, `null` before anything was chosen. */
+    public get currentSubject(): TestResultsSubject | null {
+        return this.subject;
+    }
+
+    /** Upstream `showLatestRun`: the first task of the latest run that has one, its row under the cursor. */
+    public showLatestRun(): void {
+        const result = this.results.results.find((candidate) => candidate.tasks.length > 0);
+        if (result !== undefined) this.reveal({ kind: "task", result, taskIndex: 0 });
+    }
+
+    /** Upstream `ToggleResultsViewLayoutAction`. */
+    public async toggleLayout(): Promise<void> {
+        await this.configuration.updateValue(
+            "testing.resultsView.layout",
+            this.isTreeLeft() ? "treeRight" : "treeLeft",
+        );
+    }
+
+    private isTreeLeft(): boolean {
+        return this.configuration.get("testing.resultsView.layout") === "treeLeft";
+    }
+
+    /** Upstream `hideIfEmpty`: the view, and with it the tab, is there while there is any result. */
+    private syncRegistration(): void {
+        const shown = this.results.results.length > 0;
+        const registered = this.views.getViewContainerByViewId(TEST_RESULTS_VIEW_ID) !== null;
+        if (shown === registered) return;
+        if (!shown) {
+            this.views.unregisterView(TEST_RESULTS_VIEW_ID);
+            return;
+        }
+        this.views.registerView({
+            id: TEST_RESULTS_VIEW_ID,
+            containerId: TEST_RESULTS_CONTAINER_ID,
+            title: "TEST RESULTS",
+            order: 10,
+            body: this.view,
+            canMoveView: true,
+            canToggleVisibility: false,
+            focus: () => {
+                this.tree.focus();
+            },
+        });
+    }
+
+    /**
+     * Upstream `attachAutoOpenForNewResults`: not for a run that asked to preserve the focus; the view opens without
+     * taking the keyboard.
+     */
+    private autoOpen(result: LiveTestResult): void {
+        if (result.request.preserveFocus === true) return;
+        switch (this.configuration.get("testing.automaticallyOpenTestResults")) {
+            case "openOnTestStart":
+                this.views.openView(TEST_RESULTS_VIEW_ID, false);
+                return;
+            case "openExplorerOnTestStart":
+                this.views.openView(TESTING_EXPLORER_VIEW_ID, false);
+                return;
+            case "openOnTestFailure": {
+                const store = this.liveStoreOf(result);
+                const listener = result.onChange((change) => {
+                    if (change.reason !== "ownState" || !isFailedState(change.item.ownComputedState)) return;
+                    this.views.openView(TEST_RESULTS_VIEW_ID, false);
+                    listener.dispose();
+                });
+                store.add(listener);
+                return;
+            }
+            default:
+        }
+    }
+
+    private liveStoreOf(result: LiveTestResult): DisposableStore {
+        let store = this.liveStores.get(result);
+        if (store === undefined) {
+            store = new DisposableStore();
+            this.liveStores.set(result, store);
+        }
+        return store;
+    }
+
+    /** Upstream `attachToResults`: a new task redraws the tree; the first task of a new run is shown. */
+    private attachToLive(result: LiveTestResult): void {
+        const store = this.liveStoreOf(result);
+        store.add(
+            result.onNewTask((index) => {
+                this.refresh();
+                if (index === 0 && this.results.results[0] === result)
+                    this.reveal({ kind: "task", result, taskIndex: 0 });
+            }),
+        );
+        store.add(
+            result.onEndTask(() => {
+                this.refresh();
+            }),
+        );
+    }
+
+    private detachFromLive(result: LiveTestResult): void {
+        this.liveStores.get(result)?.dispose();
+        this.liveStores.delete(result);
+    }
+
+    /** While a run goes on its spinners tick with the Test Explorer's. */
+    private syncSpinner(): void {
+        const running = this.results.isRunning;
+        if (running === (this.spinnerTicks !== null)) return;
+        if (!running) {
+            this.spinnerTicks?.dispose();
+            this.spinnerTicks = null;
+            return;
+        }
+        this.spinnerTicks = this.progress.onDidChange(() => {
+            this.refresh();
+        });
+    }
+
+    private spinnerFrame(): string {
+        return this.progress.viewProgress().get(TESTING_EXPLORER_VIEW_ID)?.spinner ?? SPINNER_FRAMES[0];
+    }
+
+    private refresh(): void {
+        void this.tree.refresh().catch(onUnexpectedError);
+    }
+
+    private show(subject: TestResultsSubject): void {
+        if (this.subject !== null && rowKey(this.subject) === rowKey(subject)) return;
+        this.subject = subject;
+        this.output.show(subject);
+    }
+
+    private clearSubject(): void {
+        this.subject = null;
+        this.output.clear();
+    }
+
+    /** Upstream `onDidReveal`: the row's ancestors expand and the cursor goes to it; the content follows. */
+    private reveal(subject: TestResultsSubject): void {
+        this.show(subject);
+        const chain: TestResultsRow[] = [];
+        if (this.results.results.find((result) => result.tasks.length > 0) !== subject.result) {
+            chain.push({ kind: "older", count: 0 }, { kind: "result", result: subject.result });
+        }
+        chain.push({ kind: "task", result: subject.result, taskIndex: subject.taskIndex });
+        if (subject.kind !== "task") chain.push({ ...subject, kind: "test" });
+        if (subject.kind === "message") chain.push(subject);
+        void this.tree
+            .refresh()
+            .then(() => this.tree.reveal(chain))
+            .catch(onUnexpectedError);
+    }
+
+    /**
+     * Upstream `getRootChildren`: the tasks of the latest run that has any, the others under "N older results"; with
+     * no run with tasks every run is a root.
+     */
+    private childrenOf(row: TestResultsRow | undefined): TestResultsRow[] {
+        let children: TestResultsRow[];
+        if (row === undefined) {
+            const latest = this.results.results.find((result) => result.tasks.length > 0);
+            const older = this.olderResults(latest);
+            if (latest === undefined) return older;
+            children = tasksOf(latest);
+            if (older.length > 0) children.push({ kind: "older", count: older.length });
+        } else if (row.kind === "older") {
+            return this.olderResults(this.results.results.find((result) => result.tasks.length > 0));
+        } else if (row.kind === "result") {
+            children = tasksOf(row.result);
+        } else if (row.kind === "task") {
+            children = this.testsOf(row.result, row.taskIndex);
+        } else if (row.kind === "test") {
+            children = errorMessagesOf(row);
+        } else {
+            return [];
+        }
+        this.expandOnFirstSight(children);
+        return children;
+    }
+
+    private olderResults(latest: LiveTestResult | undefined): TestResultsRow[] {
+        return this.results.results
+            .filter((result) => result !== latest)
+            .map((result): TestResultsRow => ({ kind: "result", result }));
+    }
+
+    /** Upstream `getTaskChildren`: the tests that ran or have messages, the highest priority of their state first. */
+    private testsOf(result: LiveTestResult, taskIndex: number): TestResultsRow[] {
+        return [...result.tests]
+            .filter((test) => {
+                const task = test.tasks[taskIndex];
+                return task.state >= TestResultState.Running || task.messages.length > 0;
+            })
+            .sort((a, b) => statePriority[b.tasks[taskIndex].state] - statePriority[a.tasks[taskIndex].state])
+            .map((test) => ({ kind: "test", result, taskIndex, testId: test.item.extId }));
+    }
+
+    /** Upstream's tasks and tests are expanded unless the user collapsed them; the older runs stay collapsed. */
+    private expandOnFirstSight(rows: readonly TestResultsRow[]): void {
+        const fresh = rows.filter((row) => {
+            const key = rowKey(row);
+            const isFresh = !this.seen.has(key);
+            this.seen.add(key);
+            return isFresh && (row.kind === "task" || row.kind === "test");
+        });
+        // After the tree has taken these children: it expands a row it already lists.
+        if (fresh.length > 0)
+            queueMicrotask(() => {
+                void this.tree.expandElements(fresh);
+            });
+    }
+
+    private toTreeItem(row: TestResultsRow): ITreeItem {
+        switch (row.kind) {
+            case "older":
+                return {
+                    label: row.count === 1 ? "1 older result" : `${String(row.count)} older results`,
+                    collapsible: true,
+                };
+            case "result": {
+                const { result } = row;
+                const state =
+                    result.completedAt === undefined
+                        ? TestResultState.Running
+                        : (statesInOrder.find((candidate) => result.counts[candidate] > 0) ?? TestResultState.Unset);
+                return { label: result.name, ...this.stateIcon(state), collapsible: true, actions: this.inlineOf(row) };
+            }
+            case "task": {
+                const task = row.result.tasks[row.taskIndex];
+                return {
+                    label: task.name,
+                    ...(task.running ? this.stateIcon(TestResultState.Running) : {}),
+                    collapsible: true,
+                    actions: this.inlineOf(row),
+                };
+            }
+            case "test": {
+                const test = this.testOf(row);
+                return {
+                    label: test?.item.label ?? "",
+                    description: test === undefined ? undefined : this.parentLabels(row.result, test),
+                    ...this.stateIcon(test?.tasks[row.taskIndex].state ?? TestResultState.Unset),
+                    collapsible: errorMessagesOf(row).length > 0,
+                    actions: this.inlineOf(row),
+                };
+            }
+            case "message": {
+                const text = this.testOf(row)?.tasks[row.taskIndex].messages[row.messageIndex]?.message ?? "";
+                const lines = text.trimEnd().split("\n").length - 1;
+                return {
+                    label: text.split("\n")[0],
+                    description:
+                        lines === 0 ? undefined : lines === 1 ? "+ 1 more line" : `+ ${String(lines)} more lines`,
+                    collapsible: false,
+                    actions: this.inlineOf(row),
+                };
+            }
+        }
+    }
+
+    private stateIcon(state: TestResultState): Pick<ITreeItem, "icon" | "iconColor"> {
+        if (state === TestResultState.Running) return { icon: this.spinnerFrame() };
+        const icon = STATE_ICONS[state];
+        return { icon: icon === undefined ? undefined : this.icons.glyph(icon.icon), iconColor: icon?.color };
+    }
+
+    /** Upstream `TestCaseElement.description`: the parents' labels up to the controller's root, joined by " ‹ ". */
+    private parentLabels(result: LiveTestResult, test: ITestResultItem): string | undefined {
+        const labels: string[] = [];
+        for (let id = TestId.parentId(test.item.extId); id !== undefined; id = TestId.parentId(id)) {
+            const parent = result.getStateById(id);
+            if (TestId.parentId(id) === undefined || parent === undefined) break;
+            labels.push(parent.item.label);
+        }
+        return labels.length === 0 ? undefined : labels.join(" ‹ ");
+    }
+
+    private testOf(row: { readonly result: LiveTestResult; readonly testId: string }): ITestResultItem | undefined {
+        return row.result.getStateById(row.testId);
+    }
+
+    private inlineOf(row: TestResultsRow): ITreeItemAction[] {
+        return this.actionsOf(row)
+            .filter((action) => action.secondary !== true)
+            .map((action) => ({ label: action.label, icon: this.icons.glyph(action.icon) }));
+    }
+
+    /** Upstream `TreeActionsProvider.provideActionBar` without the debug entries and coverage. */
+    private actionsOf(row: TestResultsRow): IRowAction[] {
+        const actions: IRowAction[] = [];
+        if (row.kind === "older") return actions;
+        const { result } = row;
+        const hasFailed = [...result.tests].some((test) => isFailedState(test.ownComputedState));
+        const rerunFailed: IRowAction = {
+            label: "Rerun Failed Tests",
+            icon: RERUN_ICON,
+            run: () => {
+                this.execute("testing.reRunFailedFromLastRun", result.id);
+            },
+        };
+        if (row.kind === "task") {
+            actions.push(this.showOutputAction(row));
+            const task = result.tasks[row.taskIndex];
+            if (task.running) {
+                actions.push({
+                    label: "Cancel Test Run",
+                    icon: CANCEL_ICON,
+                    run: () => {
+                        this.execute("testing.cancelRun", result.id, task.id);
+                    },
+                });
+            } else {
+                actions.push({
+                    label: "Rerun Last Run",
+                    icon: RERUN_ICON,
+                    run: () => {
+                        this.execute("testing.reRunLastRun", result.id);
+                    },
+                });
+                if (hasFailed) actions.push(rerunFailed);
+            }
+        } else if (row.kind === "result") {
+            if (result.tasks.length === 1) actions.push(this.showOutputAction({ kind: "task", result, taskIndex: 0 }));
+            actions.push({
+                label: "Rerun Test",
+                icon: RUN_ICON,
+                run: () => {
+                    this.execute("testing.reRunLastRun", result.id);
+                },
+            });
+            if (hasFailed) actions.push(rerunFailed);
+        } else {
+            const test = this.testOf(row);
+            const arg = testArg(row);
+            if (test?.item.uri !== undefined) {
+                actions.push({
+                    label: "Go to Test",
+                    icon: GO_TO_FILE_ICON,
+                    run: () => {
+                        this.execute("testing.editFocusedTest", arg);
+                    },
+                });
+            }
+            if (test?.tasks[row.taskIndex].messages.some((message) => message.type === "output") === true) {
+                actions.push(this.showOutputAction({ ...row, kind: "test" }));
+            }
+            actions.push({
+                label: "Reveal in Test Explorer",
+                icon: LIST_TREE_ICON,
+                secondary: true,
+                run: () => {
+                    this.execute("_revealTestInExplorer", row.testId);
+                },
+            });
+            if (this.contextKeys.get("testing.hasRunnableTests") === true) {
+                actions.push({
+                    label: "Run Test",
+                    icon: RUN_ICON,
+                    run: () => {
+                        this.execute("testing.run", arg);
+                    },
+                });
+            }
+        }
+        return actions;
+    }
+
+    private showOutputAction(subject: TestResultsSubject): IRowAction {
+        return {
+            label: "Show Result Output",
+            icon: TERMINAL_ICON,
+            run: () => {
+                this.reveal(subject);
+            },
+        };
+    }
+
+    /** Upstream: the inline actions, then the secondary ones after a separator. */
+    private showContextMenu(row: TestResultsRow, screenX: number, screenY: number): void {
+        const actions = this.actionsOf(row);
+        const toEntry = (action: IRowAction): MenuEntry => ({ label: action.label, onSelect: () => action.run() });
+        const primary = actions.filter((action) => action.secondary !== true).map(toEntry);
+        const secondary = actions.filter((action) => action.secondary === true).map(toEntry);
+        const entries: MenuEntry[] = secondary.length > 0 ? [...primary, { type: "separator" }, ...secondary] : primary;
+        if (entries.length === 0) return;
+        this.contextMenu.showContextMenu({
+            getOwner: () => this.tree,
+            getAnchor: () => ({ screenX, screenY }),
+            getEntries: () => entries,
+        });
+    }
+
+    private execute(commandId: string, ...args: unknown[]): void {
+        void Promise.resolve(this.commands.execute(commandId, ...args)).catch(onUnexpectedError);
+    }
+}
+
+function tasksOf(result: LiveTestResult): TestResultsRow[] {
+    return result.tasks.map((_, taskIndex) => ({ kind: "task", result, taskIndex }));
+}
+
+/** Upstream `getTestChildren`: the error messages; the output ones are the test's output. */
+function errorMessagesOf(row: {
+    readonly result: LiveTestResult;
+    readonly taskIndex: number;
+    readonly testId: string;
+}) {
+    const messages = row.result.getStateById(row.testId)?.tasks[row.taskIndex].messages ?? [];
+    const rows: TestResultsRow[] = [];
+    messages.forEach((message, messageIndex) => {
+        if (message.type === "error") rows.push({ ...row, kind: "message", messageIndex });
+    });
+    return rows;
+}
+
+/** What the content shows for a row: an older run shows its first task. */
+function subjectOf(row: TestResultsRow): TestResultsSubject | null {
+    if (row.kind === "older") return null;
+    if (row.kind === "result")
+        return row.result.tasks.length > 0 ? { kind: "task", result: row.result, taskIndex: 0 } : null;
+    return row;
+}
+
+function testArg(row: { readonly testId: string }): IWireTestItemArg {
+    return { $testId: row.testId };
+}
+
+function rowKey(row: TestResultsRow): string {
+    switch (row.kind) {
+        case "older":
+            return "older";
+        case "result":
+            return `result:${row.result.id}`;
+        case "task":
+            return `${row.result.id}/${String(row.taskIndex)}`;
+        case "test":
+            return `${row.result.id}/${String(row.taskIndex)}/${row.testId}`;
+        case "message":
+            return `${row.result.id}/${String(row.taskIndex)}/${row.testId}/${String(row.messageIndex)}`;
+    }
+}

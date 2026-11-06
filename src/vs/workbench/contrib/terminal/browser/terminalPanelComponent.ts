@@ -23,7 +23,7 @@ import type { ViewsService } from "../../../browser/parts/views/viewsService.ts"
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 
 import {
-    type ITerminalColors,
+    applyTerminalColors,
     type TerminalColorsService,
     TerminalColorsServiceDIToken,
 } from "./terminalColorsService.ts";
@@ -310,22 +310,6 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
             menuContext: context,
         });
     }
-}
-
-/**
- * Host background/foreground override `terminal.background`/`terminal.foreground` in the widget's
- * var scope; without them, theme tokens apply.
- */
-export function applyTerminalColors(
-    instance: ITerminalInstance,
-    widget: TerminalViewElement,
-    colors: ITerminalColors,
-): void {
-    instance.session.setAnsiColors(colors.ansi);
-    const vars: Record<string, number> = {};
-    if (colors.background !== undefined) vars["terminal.background"] = colors.background;
-    if (colors.foreground !== undefined) vars["terminal.foreground"] = colors.foreground;
-    widget.setStyleVars(vars);
 }
 
 function holdsFocus(widget: TerminalViewElement): boolean {

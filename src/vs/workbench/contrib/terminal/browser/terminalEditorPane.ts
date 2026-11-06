@@ -7,7 +7,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 
 import type { ITerminalColors } from "./terminalColorsService.ts";
-import { applyTerminalColors } from "./terminalPanelComponent.ts";
+import { applyTerminalColors } from "./terminalColorsService.ts";
 import type { ITerminalInstance } from "./terminalService.ts";
 
 export const TERMINAL_EDITOR_SCHEME = "vscode-terminal";

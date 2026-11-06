@@ -24,12 +24,21 @@ import {
 } from "../vs/workbench/api/common/testingWireTypes.ts";
 import { menuItemsOfAction } from "../vs/workbench/browser/actions/menuContributions.ts";
 import { makeViewsHarness } from "../vs/workbench/browser/parts/views/viewsService.testUtils.ts";
+import { ViewsServiceDIToken } from "../vs/workbench/browser/parts/views/viewsService.ts";
+import { resolveTerminalColors } from "../vs/workbench/contrib/terminal/browser/terminalColorsService.ts";
+import type { ExtensionPtySessionFactory } from "../vs/workbench/contrib/terminal/common/terminalSessionFactory.ts";
+import { ExtensionPtySession } from "../vs/workbench/contrib/terminal/node/extensionPtySession.ts";
 import { TESTING_ACTIONS } from "../vs/workbench/contrib/testing/browser/testingActions.ts";
 import {
     TESTING_VIEWLET_ID,
     TestingExplorerComponent,
     TestingExplorerComponentDIToken,
 } from "../vs/workbench/contrib/testing/browser/testingExplorerView.ts";
+import {
+    TEST_RESULTS_CONTAINER_ID,
+    TestResultsComponent,
+    TestResultsComponentDIToken,
+} from "../vs/workbench/contrib/testing/browser/testResultsView.ts";
 import { TestProfileServiceDIToken } from "../vs/workbench/contrib/testing/common/testProfileService.ts";
 import { TestResultServiceDIToken } from "../vs/workbench/contrib/testing/common/testResultService.ts";
 import {
@@ -106,6 +115,9 @@ export interface ISetupOptions {
     readonly now?: () => number;
     /** Runs before the view is built: a controller that is there already. */
     readonly before?: (tests: TestService) => void;
+    /** The TEST RESULTS panel's size. */
+    readonly panelWidth?: number;
+    readonly panelHeight?: number;
 }
 
 /** Unicode glyphs until `useNerdFont()`, as `diode.icons.nerdFont` switched live. */
@@ -149,15 +161,19 @@ export function setupExplorer(options: ISetupOptions = {}) {
     };
     const settings: Record<string, unknown> = { "workbench.tree.renderIndentGuides": "none", ...options.settings };
     const onDidChangeConfiguration = new Emitter<{ affectsConfiguration(key: string): boolean }>();
-    const configuration = {
-        get: (key: string) => settings[key],
-        onDidChangeConfiguration: onDidChangeConfiguration.event,
-    } as unknown as IConfigurationService;
     /** A settings change as the configuration service reports it. */
     const setSetting = (key: string, value: unknown): void => {
         settings[key] = value;
         onDidChangeConfiguration.fire({ affectsConfiguration: (affected) => affected === key });
     };
+    const configuration = {
+        get: (key: string) => settings[key],
+        updateValue: (key: string, value: unknown) => {
+            setSetting(key, value);
+            return Promise.resolve();
+        },
+        onDidChangeConfiguration: onDidChangeConfiguration.event,
+    } as unknown as IConfigurationService;
     options.before?.(tests);
     const notifications = {
         show: (toast: { message: string }) => {
@@ -182,7 +198,28 @@ export function setupExplorer(options: ISetupOptions = {}) {
         NULL_JUMP_RECORDER,
         notifications,
     );
+    /** The output's surfaces, the latest last: a real emulator, as the panel draws it. */
+    const sessions: ExtensionPtySession[] = [];
+    const createSession: ExtensionPtySessionFactory = (sessionOptions) => {
+        const session = new ExtensionPtySession(sessionOptions);
+        sessions.push(session);
+        return session;
+    };
+    const resultsComponent = new TestResultsComponent(
+        services.results,
+        views.service,
+        views.contextKeys,
+        icons,
+        progress,
+        views.contextMenu,
+        views.commands,
+        configuration,
+        createSession,
+        { colors: resolveTerminalColors(THEME, undefined), onDidChange: new Emitter<never>().event } as never,
+    );
     const serviceMap = new Map<unknown, unknown>([
+        [TestResultsComponentDIToken, resultsComponent],
+        [ViewsServiceDIToken, views.service],
         [TestServiceDIToken, tests],
         [TestResultServiceDIToken, services.results],
         [TestProfileServiceDIToken, services.profiles],
@@ -316,7 +353,64 @@ export function setupExplorer(options: ISetupOptions = {}) {
         mouse(x, y, "press", button);
         mouse(x, y, "release", button);
     };
+    const panelWidth = options.panelWidth ?? 60;
+    const panelHeight = options.panelHeight ?? 10;
+    let panelApp: TestApp | null = null;
+    let panelRoot: unknown = null;
+    /** The TEST RESULTS container's body as the panel shows it. */
+    const showPanel = (): TestApp => {
+        const root = views.root(TEST_RESULTS_CONTAINER_ID);
+        if (panelApp === null || root !== panelRoot) {
+            bindWidgetGlyphs(root, UNICODE_ICONS);
+            panelApp = TestApp.createWithContent(root, new Size(panelWidth, panelHeight));
+            panelRoot = root;
+        }
+        return panelApp;
+    };
+    const panelFrame = (): string => {
+        const shown = showPanel();
+        shown.render();
+        return shown.backend.screenToString();
+    };
+    const panel = {
+        component: resultsComponent,
+        sessions,
+        frame: panelFrame,
+        lines: (): string[] => panelFrame().split("\n"),
+        waitFrame: (predicate: (text: string) => boolean): Promise<string> =>
+            vi.waitFor(() => {
+                const text = panelFrame();
+                if (!predicate(text)) throw new Error(`the panel is not there yet:\n${text}`);
+                return text;
+            }),
+        fgAt: (x: number, y: number): number => {
+            panelFrame();
+            return showPanel().backend.getFgAt(new Point(x, y));
+        },
+        click: (x: number, y: number, button: "left" | "right" = "left"): void => {
+            for (const action of ["press", "release"] as const) {
+                showPanel().backend.simulateMouse({
+                    kind: "mouse",
+                    button,
+                    x: x + 1,
+                    y: y + 1,
+                    action,
+                    shiftKey: false,
+                    altKey: false,
+                    ctrlKey: false,
+                    raw: "",
+                });
+                showPanel().render();
+            }
+        },
+        sendKey: (key: string): void => {
+            showPanel().backend.sendKey(key);
+            showPanel().render();
+        },
+        width: panelWidth,
+    };
     return {
+        panel,
         views,
         tests,
         results: services.results,
