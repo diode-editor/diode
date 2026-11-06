@@ -59,10 +59,16 @@ async function runTestIds(accessor: ServiceAccessor, testIds: Iterable<string>):
     if (nodes.length > 0) await tests.runTests({ tests: nodes });
 }
 
+/** Upstream `getTreeIncludeExclude`: the visible tests (within the given ones) with their defaults. */
+async function runVisible(accessor: ServiceAccessor, within?: readonly ITestNode[]): Promise<void> {
+    const { include, exclude } = accessor.get(TestingExplorerComponentDIToken).getTreeIncludeExclude(within);
+    await accessor.get(TestServiceDIToken).runTests({ tests: include, exclude });
+}
+
 /** The latest run, or the one `runId` names. */
 function lastRun(accessor: ServiceAccessor, runId: unknown): LiveTestResult | undefined {
-    const { results } = accessor.get(TestResultServiceDIToken);
-    return typeof runId === "string" ? results.find((result) => result.id === runId) : results.at(0);
+    const results = accessor.get(TestResultServiceDIToken);
+    return typeof runId === "string" ? results.getResult(runId) : results.results.at(0);
 }
 
 /** Upstream `openCommandActionDescriptor` of the container: the View menu's "Testing", no key. */
@@ -138,9 +144,8 @@ export const runSelectedTestsAction: CommandAction = {
             when: `!${IS_RUNNING} && ${HAS_RUNNABLE}`,
         },
     ],
-    async run(accessor) {
-        const { include, exclude } = accessor.get(TestingExplorerComponentDIToken).getTreeIncludeExclude();
-        await accessor.get(TestServiceDIToken).runTests({ tests: include, exclude });
+    run(accessor) {
+        return runVisible(accessor);
     },
 };
 
@@ -181,9 +186,7 @@ export const runTestAction: CommandAction = {
     async run(accessor, arg) {
         const testId = argTestId(accessor, arg);
         const node = testId === undefined ? undefined : accessor.get(TestServiceDIToken).getNodeById(testId);
-        if (node === undefined) return;
-        const { include, exclude } = accessor.get(TestingExplorerComponentDIToken).getTreeIncludeExclude([node]);
-        await accessor.get(TestServiceDIToken).runTests({ tests: include, exclude });
+        if (node !== undefined) await runVisible(accessor, [node]);
     },
 };
 

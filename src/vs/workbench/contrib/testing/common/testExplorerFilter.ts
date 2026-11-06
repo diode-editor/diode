@@ -86,13 +86,16 @@ export function parseTestExplorerFilter(text: string): ITestExplorerFilter {
     return { globList, includeTags, excludeTags, terms };
 }
 
-/** Upstream `toggleFilteringFor`: the term is appended to the text or taken out of it. */
-export function toggleFilterTerm(text: string, term: TestFilterTerm, on: boolean): string {
+/** Upstream `toggleFilteringFor`: the term is appended to the text or its tokens are taken out of it. */
+export function toggleFilterTerm(text: string, term: TestFilterTerm): string {
     const trimmed = text.trim();
-    const has = parseTestExplorerFilter(text).terms.has(term);
-    if (on && !has) return trimmed === "" ? term : `${trimmed} ${term}`;
-    if (!on && has) return trimmed.replace(term, "").replace(/\s\s+/g, " ").trim();
-    return text;
+    if (!parseTestExplorerFilter(text).terms.has(term)) return trimmed === "" ? term : `${trimmed} ${term}`;
+    return trimmed
+        .split(" ")
+        .filter((token) => token !== term)
+        .join(" ")
+        .replace(/\s\s+/g, " ")
+        .trim();
 }
 
 /** Nothing to filter by: every test is shown. */

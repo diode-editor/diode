@@ -66,6 +66,11 @@ export class TestResultService extends Disposable {
         return this.resultList;
     }
 
+    /** Some run goes on: `testing.isRunning`. */
+    public get isRunning(): boolean {
+        return this.resultList.some((result) => result.completedAt === undefined);
+    }
+
     /** Upstream `getStateById`: the test's state in the latest run where it has one. */
     public getStateById(testId: string): [LiveTestResult, ITestResultItem] | undefined {
         for (const result of this.resultList) {
@@ -148,10 +153,7 @@ export class TestResultService extends Disposable {
                 return a.completedAt === undefined ? -1 : 1;
             return b.insertOrder - a.insertOrder;
         });
-        this.contextKeys.set(
-            "testing.isRunning",
-            this.resultList.some((other) => other.completedAt === undefined),
-        );
+        this.contextKeys.set("testing.isRunning", this.isRunning);
         this.changeResultEmitter.fire({ completed: result });
     }
 }

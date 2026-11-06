@@ -12,6 +12,7 @@ import {
     type IWireTestLocation,
     type IWireTestMessage,
     TEST_ID_DELIMITER,
+    TestId,
     TestResultState,
 } from "./testingWireTypes.ts";
 import { CancellationTokenSource, EventEmitter } from "./vscodeTypes.ts";
@@ -129,7 +130,7 @@ export class TestRunTracker {
         const taskId = generateUuid();
         const cts = new CancellationTokenSource();
         if (this.cts.token.isCancellationRequested) cts.cancel();
-        this.cts.token.onCancellationRequested(() => {
+        const cancellation = this.cts.token.onCancellationRequested(() => {
             cts.cancel();
         });
         let ended = false;
@@ -150,7 +151,7 @@ export class TestRunTracker {
             testId: string,
             messages: vscode.TestMessage | readonly vscode.TestMessage[],
         ): void => {
-            const list = Array.isArray(messages) ? (messages as readonly vscode.TestMessage[]) : [messages];
+            const list: readonly vscode.TestMessage[] = Array.isArray(messages) ? messages : [messages];
             const fallback =
                 test.uri === undefined
                     ? undefined
@@ -159,9 +160,21 @@ export class TestRunTracker {
                 runId,
                 taskId,
                 testId,
-                messages: list.map((message) => messageFrom(message as vscode.TestMessage, fallback)),
+                messages: list.map((message) => messageFrom(message, fallback)),
             });
         };
+        const fail =
+            (state: TestResultState) =>
+            (
+                test: vscode.TestItem,
+                messages: vscode.TestMessage | readonly vscode.TestMessage[],
+                duration?: number,
+            ): void => {
+                report((testId) => {
+                    appendMessages(test, testId, messages);
+                    setState(testId, state, duration);
+                })(test);
+            };
 
         const run: vscode.TestRun = {
             name,
@@ -180,18 +193,8 @@ export class TestRunTracker {
             passed: report((testId, duration?: number) => {
                 setState(testId, TestResultState.Passed, duration);
             }),
-            failed: (test, messages, duration) => {
-                report((testId) => {
-                    appendMessages(test, testId, messages);
-                    setState(testId, TestResultState.Failed, duration);
-                })(test);
-            },
-            errored: (test, messages, duration) => {
-                report((testId) => {
-                    appendMessages(test, testId, messages);
-                    setState(testId, TestResultState.Errored, duration);
-                })(test);
-            },
+            failed: fail(TestResultState.Failed),
+            errored: fail(TestResultState.Errored),
             appendOutput: (output, location, test) => {
                 if (ended) return;
                 let testId: string | undefined;
@@ -212,6 +215,7 @@ export class TestRunTracker {
             end: () => {
                 if (ended) return;
                 ended = true;
+                cancellation.dispose();
                 this.rpc.notify("testing.finishedTestRunTask", { runId, taskId });
                 this.running--;
                 if (this.running === 0) this.markEnded();
@@ -255,12 +259,13 @@ export class TestRunTracker {
         const testId = fullTestId(test, controllerId);
         if (this.sharedTestIds.has(testId)) return testId;
         const chain: IWireTestItem[] = [];
-        for (let current: TestItemImpl = test; ; ) {
-            const extId = fullTestId(current, controllerId);
+        // The ancestors' ids are the test's id cut segment by segment.
+        for (let current: TestItemImpl = test, extId: string | undefined = testId; ; ) {
             chain.unshift(toWireTestItem(current, extId));
             if (this.sharedTestIds.has(extId)) break;
             this.sharedTestIds.add(extId);
-            if (current === root) break;
+            extId = TestId.parentId(extId);
+            if (current === root || extId === undefined) break;
             current = TestItemImpl.apiOf(current).parent ?? root;
         }
         this.rpc.notify("testing.addTestsToRun", { controllerId, runId: this.id, tests: chain });

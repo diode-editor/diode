@@ -120,6 +120,9 @@ const VIEW_WHEN = "testing.providerCount > 0";
 /** `testingExplorerView.ts`'s summary before any run. */
 const NO_RESULTS = "No test results yet.";
 
+/** The results' changes of this long come to the tree in one refresh. */
+const RESULTS_REFRESH_DELAY = 16;
+
 /** Upstream `SUMMARY_RENDER_INTERVAL`: the summary of a run in progress is redrawn this often. */
 export const SUMMARY_RENDER_INTERVAL = 200;
 
@@ -316,7 +319,7 @@ export class TestingExplorerComponent extends Component {
         this.summaryRerun.id = "testingRerunLastRun";
         this.summaryRerun.addEventListener("click", (event) => {
             event.preventDefault();
-            this.execute("testing.reRunLastRun");
+            runMenuEntry({ label: "", id: "testing.reRunLastRun" }, (id) => this.commands.execute(id), this.showError);
         });
         const summary = new HFlexElement();
         summary.addChild(this.summaryStatus, { width: hflexFit(), height: 1 });
@@ -342,11 +345,13 @@ export class TestingExplorerComponent extends Component {
         const refreshLater = (): void => {
             void this.refresh().catch(onUnexpectedError);
         };
+        // A run reports test by test: its changes come to the tree in one refresh per frame.
+        const resultsRefresh = this.register(new RunOnceScheduler(refreshLater, RESULTS_REFRESH_DELAY));
         this.register(tests.onDidProcessDiff(refreshLater));
         this.register(
             results.onTestChanged((change) => {
                 this.followRunningTest(change);
-                if (change.reason !== "message") refreshLater();
+                if (change.reason !== "message" && !resultsRefresh.isScheduled()) resultsRefresh.schedule();
             }),
         );
         this.register(
@@ -435,7 +440,7 @@ export class TestingExplorerComponent extends Component {
 
     /** Upstream `toggleFilteringFor`: the term goes into the filter's text or out of it. */
     public toggleFilteringFor(term: TestFilterTerm): void {
-        this.setFilterText(toggleFilterTerm(this.filterInput.inputState.value, term, !this.isFilteringFor(term)));
+        this.setFilterText(toggleFilterTerm(this.filterInput.inputState.value, term));
     }
 
     /**
@@ -521,15 +526,11 @@ export class TestingExplorerComponent extends Component {
         for (const testId of this.seen) {
             if (this.tests.getNodeById(testId) === undefined) this.seen.delete(testId);
         }
-        this.setBusy(this.isRunning() || this.tests.rootItems.some((root) => this.anyBusy(root)));
+        this.setBusy(this.results.isRunning || this.tests.rootItems.some((root) => this.anyBusy(root)));
         this.updateVisibility();
         this.views.setViewBody(TESTING_EXPLORER_VIEW_ID, this.body());
         this.resolveRootsIfShown();
         await this.tree.refresh();
-    }
-
-    private isRunning(): boolean {
-        return this.results.results.some((result) => result.completedAt === undefined);
     }
 
     /** Upstream `storeItem`: a controller's root resolves as soon as the view shows it. */
@@ -795,18 +796,19 @@ export class TestingExplorerComponent extends Component {
 
     /** After a run its failed tests are revealed: their ancestors expand. */
     private revealFailed(result: LiveTestResult): void {
-        const ancestors: ITestRow[] = [];
+        const ancestors = new Map<string, ITestRow>();
         for (const test of result.tests) {
             if (!isFailedState(test.ownComputedState)) continue;
             for (let id = TestId.parentId(test.item.extId); id !== undefined; id = TestId.parentId(id)) {
                 const node = this.tests.getNodeById(id);
-                if (node !== undefined) ancestors.push(testRow(node));
+                if (node !== undefined) ancestors.set(id, testRow(node));
             }
         }
-        if (ancestors.length === 0) return;
+        if (ancestors.size === 0) return;
+        // The tree takes ancestors in any order.
         void this.tree
             .refresh()
-            .then(() => this.tree.expandElements(ancestors.reverse()))
+            .then(() => this.tree.expandElements([...ancestors.values()]))
             .catch(onUnexpectedError);
     }
 
@@ -896,10 +898,6 @@ export class TestingExplorerComponent extends Component {
     private runEntry(entry: MenuItemEntry, row: ITestRow): void {
         const arg: IWireTestItemArg = { $testId: row.testId };
         runMenuEntry(entry, (id) => this.commands.execute(id, arg), this.showError);
-    }
-
-    private execute(id: string): void {
-        runMenuEntry({ label: id, id }, (commandId) => this.commands.execute(commandId), this.showError);
     }
 
     private readonly showError = (message: string): void => {

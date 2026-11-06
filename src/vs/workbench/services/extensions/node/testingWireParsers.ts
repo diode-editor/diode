@@ -25,7 +25,7 @@ import {
     type TestRunProfileGroup,
     type WireTestsDiffOp,
 } from "../../../api/common/testingWireTypes.ts";
-import { parseRange } from "../../../api/common/wireTypes.ts";
+import { isFiniteNumber, parseRange } from "../../../api/common/wireTypes.ts";
 
 // Testing messages from the subprocess (`testing.*`); `null` — a malformed message, ignored.
 
@@ -205,10 +205,6 @@ function parseLocation(raw: unknown): IWireTestLocation | undefined {
     return typeof p?.uri === "string" && range !== null ? { uri: p.uri, range } : undefined;
 }
 
-function optionalNumber(value: unknown): number | undefined {
-    return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
 export function parseWireExtensionTestRun(raw: unknown): IWireExtensionTestRun | null {
     const p = runEnvelope(raw);
     if (p === null || typeof p.controllerId !== "string") return null;
@@ -260,7 +256,7 @@ export function parseWireTestStateInRun(raw: unknown): IWireTestStateInRun | nul
         taskId: p.taskId,
         testId: p.testId,
         state: p.state as TestResultState,
-        duration: optionalNumber(p.duration),
+        duration: isFiniteNumber(p.duration) ? p.duration : undefined,
     };
 }
 
@@ -272,7 +268,7 @@ function parseStackFrame(raw: unknown): IWireTestMessageStackFrame | null {
         label: p.label,
         uri: optionalString(p.uri),
         position:
-            typeof position?.line === "number" && typeof position.character === "number"
+            isFiniteNumber(position?.line) && isFiniteNumber(position.character)
                 ? { line: position.line, character: position.character }
                 : undefined,
     };

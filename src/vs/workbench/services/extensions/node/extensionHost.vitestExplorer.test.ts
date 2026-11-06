@@ -157,7 +157,9 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                 ]);
 
                 // OUTPUT → Vitest names the test it runs.
-                expect(output.slice(beforeRerun).some((line) => line.includes("with name pattern: ^\\s?math fails$"))).toBe(true);
+                expect(
+                    output.slice(beforeRerun).some((line) => line.includes("with name pattern: ^\\s?math fails$")),
+                ).toBe(true);
                 const resolving = output.filter((line) => line.includes("Resolving configs")).length;
                 await tests.refreshTests();
                 await waitUntil(

@@ -211,24 +211,17 @@ export class TestService extends Disposable {
      */
     public runTests(req: IRunTestsRequest): Promise<LiveTestResult> {
         const group = req.group ?? TestRunProfileBitset.Run;
-        const byProfile: { profile: { controllerId: string; profileId: number }; testIds: string[] }[] = [];
+        const targets: { controllerId: string; profileId: number; testIds: string[] }[] = [];
         for (const test of req.tests) {
             const profile = this.profiles.getDefaultProfileForTest(group, test);
             if (profile === undefined) continue;
-            const existing = byProfile.find(
-                (entry) =>
-                    entry.profile.controllerId === profile.controllerId &&
-                    entry.profile.profileId === profile.profileId,
-            );
-            if (existing === undefined) byProfile.push({ profile, testIds: [test.item.extId] });
+            const { controllerId, profileId } = profile;
+            const existing = targets.find((t) => t.controllerId === controllerId && t.profileId === profileId);
+            if (existing === undefined) targets.push({ controllerId, profileId, testIds: [test.item.extId] });
             else existing.testIds.push(test.item.extId);
         }
         return this.runResolvedTests({
-            targets: byProfile.map(({ profile, testIds }) => ({
-                controllerId: profile.controllerId,
-                profileId: profile.profileId,
-                testIds,
-            })),
+            targets,
             group,
             exclude: req.exclude?.map((test) => test.item.extId),
         });
