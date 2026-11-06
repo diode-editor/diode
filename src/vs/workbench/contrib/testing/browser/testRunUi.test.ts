@@ -19,10 +19,19 @@ function setup(saveBeforeTest: unknown) {
     const toasts: unknown[] = [];
     const ui = new TestRunUi(
         commands,
-        { get: (key: string) => (key === "testing.saveBeforeTest" ? saveBeforeTest : undefined) } as IConfigurationService,
+        {
+            get: (key: string) => (key === "testing.saveBeforeTest" ? saveBeforeTest : undefined),
+        } as IConfigurationService,
         { show: (toast: unknown) => toasts.push(toast) } as unknown as NotificationService,
     );
-    return { ui, saves, toasts, finish: () => finish() };
+    return {
+        ui,
+        saves,
+        toasts,
+        finish: () => {
+            finish();
+        },
+    };
 }
 
 describe("TestRunUi", () => {
