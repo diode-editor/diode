@@ -242,6 +242,7 @@ export class TestService extends Disposable {
             await Promise.all(
                 controllerIds.map(async (controllerId) => {
                     const controller = this.controllers.get(controllerId);
+                    // Stryker disable next-line ConditionalExpression: equivalent — a missing controller's runTests throws in the try below, which ends its share the same way
                     if (controller === undefined) return;
                     const requests = req.targets
                         .filter((target) => target.controllerId === controllerId)

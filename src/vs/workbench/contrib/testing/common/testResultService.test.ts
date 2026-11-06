@@ -164,6 +164,7 @@ describe("TestResultService", () => {
         const a = service.createLiveResult(REQUEST);
         const b = service.createLiveResult(REQUEST);
         a.markComplete();
+        expect(service.results).toEqual([b, a]);
         const c = service.createLiveResult(REQUEST);
         c.markComplete();
         expect(service.results).toEqual([b, c, a]);

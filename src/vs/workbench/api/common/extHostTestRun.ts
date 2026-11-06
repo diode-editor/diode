@@ -78,7 +78,6 @@ export interface ITestRunController {
 
 /** Upstream `TestRunTracker`: the `TestRun`s of one run of one controller. */
 export class TestRunTracker {
-    private ended = false;
     private running = 0;
     private readonly tasks = new Map<string, { readonly cts: CancellationTokenSource; readonly run: vscode.TestRun }>();
     /** Tests whose chain the host already has. */
@@ -90,7 +89,10 @@ export class TestRunTracker {
     private readonly endEmitter = new EventEmitter<void>();
     private readonly disposeEmitter = new EventEmitter<void>();
     private readonly parentSubscription: { dispose(): void } | undefined;
-    /** Fires once, when the last `TestRun` ends. */
+    /**
+     * Fires each time the last running `TestRun` ends; a handler may start another after that. Upstream fires it once,
+     * and a request whose handler returned with such a later `TestRun` waits for it forever.
+     */
     public readonly onEnd = this.endEmitter.event;
 
     public constructor(
@@ -219,7 +221,7 @@ export class TestRunTracker {
                 cancellation.dispose();
                 this.rpc.notify("testing.finishedTestRunTask", { runId, taskId });
                 this.running--;
-                if (this.running === 0) this.markEnded();
+                if (this.running === 0) this.endEmitter.fire();
             },
         };
 
@@ -247,12 +249,6 @@ export class TestRunTracker {
 
     private forciblyEndTasks(): void {
         for (const { run } of this.tasks.values()) run.end();
-    }
-
-    private markEnded(): void {
-        if (this.ended) return;
-        this.ended = true;
-        this.endEmitter.fire();
     }
 
     /** Upstream `ensureTestIsKnown`: the chain from the nearest known ancestor (or the root) goes first. */

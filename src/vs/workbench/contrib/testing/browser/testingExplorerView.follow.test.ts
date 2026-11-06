@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-    add,
-    setupExplorer,
-    SwitchableIcons,
-    wireItem,
-} from "../../../../../TestUtils/testingExplorerHarness.ts";
+import { add, setupExplorer, SwitchableIcons, wireItem } from "../../../../../TestUtils/testingExplorerHarness.ts";
 import { testId } from "../../../../../TestUtils/testTree.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import {
@@ -14,6 +9,8 @@ import {
     TestResultState,
     TestRunProfileBitset,
 } from "../../../api/common/testingWireTypes.ts";
+
+import { SUMMARY_RENDER_INTERVAL } from "./testingExplorerView.ts";
 
 // Following the running test with the cursor, case by case; each case lets the reveals settle before it looks.
 
@@ -107,6 +104,32 @@ describe("Test Explorer — followRunningTest", () => {
         expect(explorer.component.focusedTestId).toBe(testId(...T1));
     });
 
+    it("a queued test changes only its ancestors' computed state: an ancestor with its own state keeps the cursor still", async () => {
+        const { explorer, state } = await setup({ "testing.alwaysRevealTestOnStateChange": true });
+        state(["c", "folder"], Passed);
+        await settle();
+        const top = explorer.row("top");
+        explorer.click(top.x, top.y);
+        await settle();
+        state(T1, Queued);
+        await settle();
+        expect(explorer.component.focusedTestId).toBe(testId("c", "top"));
+    });
+
+    it("with two controllers a collapsed root is where the cursor stops", async () => {
+        const { explorer, state } = await setup({}, true);
+        const root = explorer.row("d");
+        explorer.click(root.x, root.y);
+        await explorer.waitFrame((text) => !/ x\b/.test(text));
+        const top = explorer.row("top");
+        explorer.click(top.x, top.y);
+        await settle();
+        expect(explorer.component.focusedTestId).toBe(testId("c", "top"));
+        state(["d", "x"], Running);
+        await settle();
+        expect(explorer.component.focusedTestId).toBe(testId("d"));
+    });
+
     it("with two controllers their roots are rows on the way", async () => {
         const { explorer, state } = await setup({ "testing.alwaysRevealTestOnStateChange": true }, true);
         state(T1, Running);
@@ -116,7 +139,12 @@ describe("Test Explorer — followRunningTest", () => {
 });
 
 describe("Test Explorer — location sorting in detail", () => {
-    function at(name: string, uri: string | undefined, line: number | null, sortText: string | null = null): IWireTestItem {
+    function at(
+        name: string,
+        uri: string | undefined,
+        line: number | null,
+        sortText: string | null = null,
+    ): IWireTestItem {
         return wireItem(["c", name], name, {
             uri,
             range: line === null ? null : createRange(line, 0, line, 1),
@@ -142,11 +170,14 @@ describe("Test Explorer — location sorting in detail", () => {
         // One without a range: labels.
         expect(await shown([at("b1", "file:///f", 1), at("a0", "file:///f", null)])).toEqual(["a0", "b1"]);
         expect(await shown([at("a0", "file:///f", null), at("b1", "file:///f", 1)])).toEqual(["a0", "b1"]);
+        // Different files: labels.
+        expect(await shown([at("b1", "file:///f", 1), at("a2", "file:///g", 2)])).toEqual(["a2", "b1"]);
     });
 
     it("on one line a sortText on either side decides", async () => {
         expect(await shown([at("zz", "file:///f", 1, "1"), at("yy", "file:///f", 1)])).toEqual(["zz", "yy"]);
         expect(await shown([at("yy", "file:///f", 1), at("zz", "file:///f", 1, "1")])).toEqual(["zz", "yy"]);
+        expect(await shown([at("aa", "file:///f", 1, "z"), at("bb", "file:///f", 1)])).toEqual(["bb", "aa"]);
     });
 });
 
@@ -162,6 +193,8 @@ describe("Test Explorer — the summary follows the icon set", () => {
         result.updateState(testId("c", "a"), "t", Passed);
         result.markComplete();
         await explorer.waitFrame((text) => text.includes("✓ 1/1"));
+        // The redraw the live run had scheduled goes off first: only the icon change may redraw after it.
+        await new Promise((resolve) => setTimeout(resolve, SUMMARY_RENDER_INTERVAL + 50));
         icons.useNerdFont();
         await explorer.waitFrame((text) => !text.includes("✓ 1/1") && text.includes(" 1/1 "));
         await vi.waitFor(() => {

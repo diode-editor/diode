@@ -829,9 +829,8 @@ export class TestingExplorerComponent extends Component {
         if (this.tests.rootItems.filter((root) => root.children.size > 0).length === 1) chain.shift();
         let target = chain;
         if (!expand) {
-            const collapsed = chain.findIndex(
-                (row, index) => index < chain.length - 1 && !this.expanded.has(rowKey(row)),
-            );
+            // The test itself is never expanded: with every ancestor open the target is the whole chain.
+            const collapsed = chain.findIndex((row) => !this.expanded.has(rowKey(row)));
             if (collapsed !== -1) target = chain.slice(0, collapsed + 1);
         }
         // After the refresh in flight: a reveal in the middle of one loses its cursor.

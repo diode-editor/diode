@@ -244,6 +244,20 @@ describe("vscode.tests — a run the core asks for", () => {
         ]);
         expect(sentParams(env.stub, "testing.startedExtensionTestRun")).toEqual([]);
     });
+
+    it("[api:tests.createTestController] a TestRun created after the first one ended still ends the answer", async () => {
+        let later: vscodeTypes.TestRun | undefined;
+        const env = setup((request) => {
+            env.controller.createTestRun(request).end();
+            later = env.controller.createTestRun(request);
+        });
+        const answer = env.run(["ctrl"]);
+        await vi.waitFor(() => {
+            expect(later).toBeDefined();
+        });
+        later?.end();
+        await expect(answer).resolves.toEqual([{}]);
+    });
 });
 
 describe("vscode.tests — cancelling a run", () => {
