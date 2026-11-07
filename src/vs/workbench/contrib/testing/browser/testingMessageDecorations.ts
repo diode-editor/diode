@@ -19,7 +19,7 @@ import { type TestResultService, TestResultServiceDIToken } from "../common/test
 
 import { testingStatesToIcons } from "./icons.ts";
 import { PEEK_TEST_ERROR_COMMAND } from "./testingDecorations.ts";
-import type { TestMessageSubject } from "./testResultsOutput.ts";
+import { messageKey, messageOf, type TestMessageSubject } from "./testResultsOutput.ts";
 
 // Upstream `contrib/testing/browser/testingDecorations.ts`: `TestErrorContentWidget` and `TestMessageDecoration` of
 // `TestingDecorations.applyResults`. Deviations: no hover, no peek — TEST RESULTS plays its role; the error is a badge
@@ -282,7 +282,7 @@ export class TestingMessageDecorations extends Disposable {
                 decoration: Omit<ILineMessageDecoration, "key" | "line">,
             ) => {
                 seenLines.add(line);
-                const key = subjectKey(subject);
+                const key = messageKey(subject);
                 shown.set(key, { line, subject });
                 decorations.push({ key, line, ...decoration });
             };
@@ -333,15 +333,6 @@ function plainText(text: string): string {
     return removeAnsiEscapeCodes(text).replace(CONTROL_CHARACTERS, " ");
 }
 
-/** The message of a subject: the run keeps every message it got. */
-export function messageOf(subject: TestMessageSubject): ITestResultMessage {
-    return subject.test.tasks[subject.taskIndex].messages[subject.messageIndex];
-}
-
-function subjectKey(subject: TestMessageSubject): string {
-    return `${subject.result.id}/${String(subject.taskIndex)}/${subject.test.item.extId}/${String(subject.messageIndex)}`;
-}
-
 /** The messages of a run's tests, task by task; `fromLast` walks each task's messages from the last. */
 function forEachMessage(
     result: LiveTestResult,
@@ -383,13 +374,11 @@ export function errorText(message: ITestErrorMessage): string {
         const oneLine = (value: string) => truncateMiddle(plainText(value).replace(/\s+/g, " "), 30);
         return `${oneLine(message.actual)} != ${oneLine(message.expected)}`;
     }
-    const text = removeAnsiEscapeCodes(message.message);
-    const lineFeed = text.indexOf("\n");
-    return plainText(lineFeed === -1 ? text : text.slice(0, lineFeed)) || "Test Failed";
+    return plainText(message.message.split("\n", 1)[0]) || "Test Failed";
 }
 
 /** Upstream `TestMessageDecoration`'s text: one line, at most {@link MAX_INLINE_MESSAGE_LENGTH} with the ellipsis. */
 export function outputText(message: string): string {
-    const text = plainText(removeAnsiEscapeCodes(message).replace(LINE_BREAK, " "));
+    const text = plainText(message.replace(LINE_BREAK, " "));
     return text.length > MAX_INLINE_MESSAGE_LENGTH ? `${text.slice(0, MAX_INLINE_MESSAGE_LENGTH - 1)}…` : text;
 }

@@ -46,7 +46,13 @@ import { type TestResultService, TestResultServiceDIToken } from "../common/test
 
 import { testingCancelIcon, testingRerunIcon, testingRunIcon, testingStatesToIcons } from "./icons.ts";
 import { REVEAL_TEST_COMMAND, TESTING_EXPLORER_VIEW_ID } from "./testingExplorerView.ts";
-import { type TestMessageSubject, TestResultsOutput, type TestResultsSubject } from "./testResultsOutput.ts";
+import {
+    messageKey,
+    messageOf,
+    type TestMessageSubject,
+    TestResultsOutput,
+    type TestResultsSubject,
+} from "./testResultsOutput.ts";
 import { TestResultsSplitElement } from "./testResultsSplitElement.ts";
 
 /** Upstream `Testing.ResultsPanelId`. */
@@ -463,7 +469,7 @@ export class TestResultsComponent extends Disposable {
                 };
             }
             case "message": {
-                const text = row.test.tasks[row.taskIndex].messages[row.messageIndex].message;
+                const text = messageOf(row).message;
                 const lines = text.trimEnd().split("\n").length - 1;
                 return {
                     label: text.split("\n")[0],
@@ -649,6 +655,6 @@ function rowKey(row: TestResultsRow): string {
         case "test":
             return `${row.result.id}/${String(row.taskIndex)}/${row.test.item.extId}`;
         case "message":
-            return `${row.result.id}/${String(row.taskIndex)}/${row.test.item.extId}/${String(row.messageIndex)}`;
+            return messageKey(row);
     }
 }

@@ -777,7 +777,7 @@ export class EditorComponent extends Component {
         return this.editor.onDidClickGlyphMargin(listener);
     }
 
-    /** Test messages after the lines' ends: they ride their lines through edits. */
+    /** Messages after the lines' ends (test failures): they ride their lines through edits. */
     public setLineMessageDecorations(decorations: readonly ILineMessageDecoration[]): void {
         this.editor.setLineMessageDecorations(decorations);
     }

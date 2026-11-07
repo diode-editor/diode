@@ -11,7 +11,8 @@ import { NotificationServiceDIToken } from "../../../services/notification/brows
 import { TestProfileServiceDIToken } from "../common/testProfileService.ts";
 import { type ITestNode, TestServiceDIToken } from "../common/testService.ts";
 
-import { messageOf, TestingMessageDecorationsDIToken } from "./testingMessageDecorations.ts";
+import { TestingMessageDecorationsDIToken } from "./testingMessageDecorations.ts";
+import { messageOf } from "./testResultsOutput.ts";
 
 // Upstream `testExplorerActions.ts` (`RunAtCursor`, `RunCurrentFile`, `OpenOutputPeek`, `ToggleInlineTestOutput`) and
 // `testingOutputPeek.ts` (`GoToNextMessageAction`, `GoToPreviousMessageAction`). Deviations: no Debug and no Coverage
@@ -152,37 +153,33 @@ function goToFailure(accessor: ServiceAccessor, direction: 1 | -1): void {
     decorations.select(target.subject);
 }
 
-/** Upstream `GoToNextMessageAction` without the peek. */
-export const goToNextMessageAction: CommandAction = {
-    id: "testing.goToNextMessage",
-    title: "Test: Go to Next Test Failure",
-    shortTitle: "Go to Next Test Failure",
-    keybinding: {
-        keys: parseKeybinding("alt+f8"),
-        when: EDITOR_TEXT_FOCUS,
-        weight: KeybindingWeight.EditorContrib + 1,
-    },
-    menus: [{ menuId: MenuId.CommandPalette, when: EDITOR_TEXT_FOCUS }],
-    run(accessor) {
-        goToFailure(accessor, 1);
-    },
-};
+/** Upstream `GoToNextMessageAction` / `GoToPreviousMessageAction` without the peek. */
+function goToFailureAction(id: string, label: string, key: string, direction: 1 | -1): CommandAction {
+    return {
+        id,
+        title: `Test: ${label}`,
+        shortTitle: label,
+        keybinding: { keys: parseKeybinding(key), when: EDITOR_TEXT_FOCUS, weight: KeybindingWeight.EditorContrib + 1 },
+        menus: [{ menuId: MenuId.CommandPalette, when: EDITOR_TEXT_FOCUS }],
+        run(accessor) {
+            goToFailure(accessor, direction);
+        },
+    };
+}
 
-/** Upstream `GoToPreviousMessageAction` without the peek. */
-export const goToPreviousMessageAction: CommandAction = {
-    id: "testing.goToPreviousMessage",
-    title: "Test: Go to Previous Test Failure",
-    shortTitle: "Go to Previous Test Failure",
-    keybinding: {
-        keys: parseKeybinding("shift+alt+f8"),
-        when: EDITOR_TEXT_FOCUS,
-        weight: KeybindingWeight.EditorContrib + 1,
-    },
-    menus: [{ menuId: MenuId.CommandPalette, when: EDITOR_TEXT_FOCUS }],
-    run(accessor) {
-        goToFailure(accessor, -1);
-    },
-};
+export const goToNextMessageAction = goToFailureAction(
+    "testing.goToNextMessage",
+    "Go to Next Test Failure",
+    "alt+f8",
+    1,
+);
+
+export const goToPreviousMessageAction = goToFailureAction(
+    "testing.goToPreviousMessage",
+    "Go to Previous Test Failure",
+    "shift+alt+f8",
+    -1,
+);
 
 /** Upstream `OpenOutputPeek`: TEST RESULTS with the failure nearest to the cursor, the keyboard goes there. */
 export const openOutputPeekAction: CommandAction = {

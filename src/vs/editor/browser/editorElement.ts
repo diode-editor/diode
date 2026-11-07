@@ -132,6 +132,14 @@ const FOLD_ICON_COLLAPSED = codicon("chevron-right");
 const FOLD_GAP_LEFT = 1;
 const FOLD_GAP_RIGHT = 1;
 const FOLD_COLLAPSED_MARKER = "⋯";
+/** The element columns `[x0, x1)` of row `y` a frame painted a message on. */
+interface ILineMessageCells {
+    readonly y: number;
+    readonly x0: number;
+    readonly x1: number;
+    readonly key: string;
+}
+
 /** Empty cells between a line's end and its message (upstream's `margin-left` of the message). */
 const LINE_MESSAGE_GAP = 2;
 
@@ -251,12 +259,7 @@ export class EditorElement extends TUIElement implements IScrollable {
     private readonly glyphMargin: TrackedLineDecorations<IGlyphMarginDecoration>;
     private readonly lineMessages: TrackedLineDecorations<ILineMessageDecoration>;
     /** The cells the last frame painted each message on: a click is matched against what the user saw. */
-    private lineMessageCells: readonly {
-        readonly y: number;
-        readonly x0: number;
-        readonly x1: number;
-        readonly key: string;
-    }[] = [];
+    private lineMessageCells: readonly ILineMessageCells[] = [];
 
     private lineWidthCache: LineWidthCache | null = null;
     /**
@@ -947,7 +950,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         }
         const glyphByLine = this.glyphMargin.byLine();
         const messageByLine = this.lineMessages.byLine();
-        const messageCells: { y: number; x0: number; x1: number; key: string }[] = [];
+        const messageCells: ILineMessageCells[] = [];
         this.lineMessageCells = messageCells;
         const zoneDecorationByAnchor = new Map<number, IViewZoneDecoration>();
         for (const zone of this.decorations.zones ?? []) {
@@ -1222,8 +1225,8 @@ export class EditorElement extends TUIElement implements IScrollable {
                 // After what the line's end already shows: the cut line's badge, the folded region's marker.
                 const lineEnd =
                     dl.displayWidth +
-                    (dl.isTruncated ? LONG_LINE_TRUNCATION_BADGE.length : 0) +
-                    (isFoldedHeader ? 2 : 0);
+                    (dl.isTruncated ? LONG_LINE_TRUNCATION_BADGE_WIDTH : 0) +
+                    (isFoldedHeader ? 1 + FOLD_COLLAPSED_MARKER.length : 0);
                 const cells = this.paintLineMessage(context, message, {
                     screenY,
                     gutterW,

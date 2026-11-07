@@ -2,7 +2,7 @@ import type { Event } from "../../../../base/common/event.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import { createPosition } from "../../../../editor/common/core/iPosition.ts";
-import { rangeContainsPosition } from "../../../../editor/common/core/iRange.ts";
+import { type IRange, rangeContainsPosition } from "../../../../editor/common/core/iRange.ts";
 import {
     type ContextKeyService,
     ContextKeyServiceDIToken,
@@ -39,30 +39,43 @@ export class TestingEditorContextKeys extends Disposable {
         ContextKeyServiceDIToken,
     ] as const;
 
+    /** The active file's tests with a range. */
+    private ranges: readonly IRange[] = [];
+
     public constructor(
         private readonly editors: ITestingActiveEditorSource,
         private readonly tests: TestService,
         private readonly contextKeys: ContextKeyService,
     ) {
         super();
-        const update = (): void => {
-            this.update();
+        // A cursor move only checks the active file's tests; the file and the tests are looked up on their changes.
+        const refresh = (): void => {
+            this.refresh();
         };
-        this.register(editors.onActiveEditorChanged(update));
-        this.register(editors.onDidChangeActiveEditorSelection(update));
-        this.register(tests.onDidProcessDiff(update));
-        this.update();
+        this.register(editors.onActiveEditorChanged(refresh));
+        this.register(tests.onDidProcessDiff(refresh));
+        this.register(
+            editors.onDidChangeActiveEditorSelection(() => {
+                this.updateCursor();
+            }),
+        );
+        this.refresh();
     }
 
-    private update(): void {
+    private refresh(): void {
         const editor = this.editors.getActiveEditor();
         const tests = editor === null ? [] : this.tests.getNodesByUri(editor.uri.toString());
         this.contextKeys.set("testing.activeEditorHasTests", tests.length > 0);
+        this.ranges = tests.flatMap((test) => test.item.range ?? []);
+        this.updateCursor();
+    }
+
+    private updateCursor(): void {
+        const editor = this.editors.getActiveEditor();
         const cursor = editor === null ? null : createPosition(editor.primaryCursorLine, editor.primaryCursorColumn);
         this.contextKeys.set(
             "testing.cursorInsideTestRange",
-            cursor !== null &&
-                tests.some((test) => test.item.range !== null && rangeContainsPosition(test.item.range, cursor)),
+            cursor !== null && this.ranges.some((range) => rangeContainsPosition(range, cursor)),
         );
     }
 }

@@ -31,6 +31,16 @@ export type TestResultsSubject =
 /** A test's message in a task of a run. */
 export type TestMessageSubject = Extract<TestResultsSubject, { readonly kind: "message" }>;
 
+/** The message of a subject: the run keeps every message it got. */
+export function messageOf(subject: TestMessageSubject): ITestResultMessage {
+    return subject.test.tasks[subject.taskIndex].messages[subject.messageIndex];
+}
+
+/** A message's identity across refreshes: its run, task, test and index. */
+export function messageKey(subject: TestMessageSubject): string {
+    return `${subject.result.id}/${String(subject.taskIndex)}/${subject.test.item.extId}/${String(subject.messageIndex)}`;
+}
+
 /** Upstream's texts of an empty output. */
 export const CASE_NO_OUTPUT = "The test case did not report any output.";
 export const RUN_NO_OUTPUT = "The test run did not record any output.";
@@ -94,7 +104,7 @@ export class TestResultsOutput extends Disposable {
     public show(subject: TestResultsSubject): void {
         this.clear();
         if (subject.kind === "message") {
-            const { message } = subject.test.tasks[subject.taskIndex].messages[subject.messageIndex];
+            const { message } = messageOf(subject);
             // Plain text: the message's lines as they are.
             this.session.feed(message.replace(/\r?\n/g, "\r\n"));
             return;
