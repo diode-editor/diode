@@ -165,6 +165,23 @@ describe("TEST RESULTS — a message's content", () => {
         expect(content(harness).join("\n")).toContain("boom");
     });
 
+    it("a short panel: two frames wider than the content take two rows, no horizontal bar under them", async () => {
+        const { harness } = setup(6);
+        const long = "x".repeat(80);
+        failed(harness, {
+            message: "boom",
+            stackTrace: [
+                { label: `first ${long}`, uri: FILE },
+                { label: `second ${long}`, uri: FILE },
+            ],
+        });
+        const lines = await choose(harness, "boom", "second");
+        expect(lines.findIndex((line) => line.includes("second"))).toBe(
+            lines.findIndex((line) => line.includes("first")) + 1,
+        );
+        expect(lines.join("\n")).not.toContain("▄");
+    });
+
     it("a message without a stack has no header; choosing the task again brings the output back", async () => {
         const { harness } = setup();
         failed(harness, { message: "boom" });

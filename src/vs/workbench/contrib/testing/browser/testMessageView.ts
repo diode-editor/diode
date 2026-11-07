@@ -74,7 +74,7 @@ export class TestMessageView extends Disposable {
     public readonly element: TestMessageLayoutElement;
     public readonly frames: TreeViewElement<IFrameRow>;
     private readonly text = new TestMessageTextElement();
-    private readonly textView = new ScrollBarDecorator(this.text);
+    private readonly textView = verticalScroll(this.text);
     private readonly subjectStore = this.register(new DisposableStore());
     private subject: TestMessageSubject | null = null;
     private body: TUIElement = this.textView;
@@ -98,7 +98,7 @@ export class TestMessageView extends Disposable {
             const { uri, position } = row.frame;
             if (uri !== undefined) this.host.open(uri, position ?? { line: 0, character: 0 });
         };
-        this.element = new TestMessageLayoutElement(new ScrollBarDecorator(this.frames));
+        this.element = new TestMessageLayoutElement(verticalScroll(this.frames));
         this.element.id = "testMessage";
     }
 
@@ -168,6 +168,13 @@ export class TestMessageView extends Disposable {
         }
         return row;
     }
+}
+
+/** The text wraps and a frame row is cut at the width: a horizontal bar would only take a row. */
+function verticalScroll(child: ConstructorParameters<typeof ScrollBarDecorator>[0]): ScrollBarDecorator {
+    const decorator = new ScrollBarDecorator(child);
+    decorator.horizontalScrollBar = "never";
+    return decorator;
 }
 
 /** Upstream `CallStackFrame`'s header: the label, then where; a frame without a place is dimmed. */
