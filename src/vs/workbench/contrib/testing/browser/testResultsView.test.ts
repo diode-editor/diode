@@ -162,7 +162,10 @@ describe("TEST RESULTS — the tree and the output", () => {
         const fails = row("fails");
         harness.panel.click(fails.x, fails.y);
         await harness.panel.waitFrame((text) => !text.includes("RUN v1") && text.includes("FAIL fails"));
-        expect(harness.panel.component.currentSubject).toMatchObject({ kind: "test", testId: testId(...FAILS) });
+        expect(harness.panel.component.currentSubject).toMatchObject({
+            kind: "test",
+            test: { item: { extId: testId(...FAILS) } },
+        });
 
         // The click toggled the row: the message is back with Right, the cursor goes down to it.
         harness.panel.sendKey("ArrowRight");
@@ -216,5 +219,40 @@ describe("TEST RESULTS — the tree and the output", () => {
         await harness.views.commands.execute("testing.showMostRecentOutput");
         expect(harness.views.service.isViewShown(TEST_RESULTS_VIEW_ID)).toBe(true);
         expect(harness.panel.component.currentSubject).toMatchObject({ kind: "task", result: second, taskIndex: 0 });
+    });
+});
+
+describe("TEST RESULTS — edge runs", () => {
+    it("with no run that has a task every run is a root; choosing one and Show Output show nothing", async () => {
+        const harness = setup();
+        harness.results.createLiveResult(REQUEST).markComplete();
+        await harness.views.commands.execute("testing.showMostRecentOutput");
+        const frame = await harness.panel.waitFrame((text) => text.includes("Test run at"));
+        expect(harness.panel.component.currentSubject).toBeNull();
+        const lines = frame.split("\n");
+        const y = lines.findIndex((line) => line.includes("Test run at"));
+        harness.panel.click(lines[y].indexOf("Test run at"), y);
+        expect(harness.panel.component.currentSubject).toBeNull();
+    });
+
+    it("Clear All Results with two runs forgets both: the next run's tests expand again", async () => {
+        const harness = setup();
+        failingRun(harness);
+        failingRun(harness);
+        await harness.panel.waitFrame((text) => text.includes("1 older result"));
+        await harness.views.commands.execute("testing.clearTestResults");
+        expect(harness.panel.component.currentSubject).toBeNull();
+        failingRun(harness);
+        await harness.panel.waitFrame((text) => text.includes("expected 2 to be 3") && !text.includes("older result"));
+    });
+
+    it("a one-line message has no more-lines description", async () => {
+        const harness = setup();
+        const { result, state } = start(harness);
+        state(FAILS, Failed);
+        result.appendMessage(testId(...FAILS), "t", { message: "just this" });
+        result.markComplete();
+        const frame = await harness.panel.waitFrame((text) => text.includes("just this"));
+        expect(frame).not.toContain("more line");
     });
 });

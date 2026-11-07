@@ -4,17 +4,22 @@ import { Disposable, DisposableStore, toDisposable } from "../../../../base/comm
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
 import { applyTerminalColors, type TerminalColorsService } from "../../terminal/browser/terminalColorsService.ts";
 import type { ExtensionPtySessionFactory, IExtensionPtySession } from "../../terminal/common/terminalSessionFactory.ts";
-import type { LiveTestResult } from "../common/testResult.ts";
+import type { ITestResultItem, LiveTestResult } from "../common/testResult.ts";
 
 /** What the content shows: a task's output, a test's output in a task, or the text of a test's message. */
 export type TestResultsSubject =
     | { readonly kind: "task"; readonly result: LiveTestResult; readonly taskIndex: number }
-    | { readonly kind: "test"; readonly result: LiveTestResult; readonly taskIndex: number; readonly testId: string }
+    | {
+          readonly kind: "test";
+          readonly result: LiveTestResult;
+          readonly taskIndex: number;
+          readonly test: ITestResultItem;
+      }
     | {
           readonly kind: "message";
           readonly result: LiveTestResult;
           readonly taskIndex: number;
-          readonly testId: string;
+          readonly test: ITestResultItem;
           readonly messageIndex: number;
       };
 
@@ -81,20 +86,18 @@ export class TestResultsOutput extends Disposable {
     public show(subject: TestResultsSubject): void {
         this.clear();
         if (subject.kind === "message") {
-            const message = subject.result.getStateById(subject.testId)?.tasks[subject.taskIndex].messages[
-                subject.messageIndex
-            ];
+            const { message } = subject.test.tasks[subject.taskIndex].messages[subject.messageIndex];
             // Plain text: the message's lines as they are.
-            this.session.feed((message?.message ?? "").replace(/\r?\n/g, "\r\n"));
+            this.session.feed(message.replace(/\r?\n/g, "\r\n"));
             return;
         }
         const { result, taskIndex } = subject;
         const task = result.tasks[taskIndex];
-        const testId = subject.kind === "test" ? subject.testId : undefined;
+        const test = subject.kind === "test" ? subject.test : undefined;
         const initial =
-            testId === undefined
+            test === undefined
                 ? task.output
-                : (result.getStateById(testId)?.tasks[taskIndex].messages ?? [])
+                : test.tasks[taskIndex].messages
                       .filter((message) => message.type === "output")
                       .map((message) => task.output.slice(message.offset, message.offset + message.length))
                       .join("");
@@ -102,7 +105,7 @@ export class TestResultsOutput extends Disposable {
         this.session.feed(initial);
         const finish = (): void => {
             if (wrote) return;
-            this.session.feed(formatMessageForTerminal(testId === undefined ? RUN_NO_OUTPUT : CASE_NO_OUTPUT));
+            this.session.feed(formatMessageForTerminal(test === undefined ? RUN_NO_OUTPUT : CASE_NO_OUTPUT));
         };
         if (result.completedAt !== undefined) {
             finish();
@@ -110,7 +113,7 @@ export class TestResultsOutput extends Disposable {
         }
         this.subjectStore.add(
             result.onDidAppendOutput((append) => {
-                if (append.taskIndex !== taskIndex || (testId !== undefined && append.testId !== testId)) return;
+                if (append.taskIndex !== taskIndex || (test !== undefined && append.testId !== test.item.extId)) return;
                 wrote ||= append.output.length > 0;
                 this.session.feed(append.output);
             }),

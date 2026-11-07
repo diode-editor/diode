@@ -3,6 +3,7 @@ import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerEl
 import type { ITreeDataProvider, ITreeItem, ITreeItemAction } from "@tuidom/elements/tree/iTreeDataProvider";
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { codicon, type IProductIcon } from "../../../../base/common/codicons.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
@@ -366,7 +367,6 @@ export class TestResultsComponent extends Disposable {
         }
         chain.push({ kind: "task", result: subject.result, taskIndex: subject.taskIndex });
         if (subject.kind !== "task") chain.push({ ...subject, kind: "test" });
-        if (subject.kind === "message") chain.push(subject);
         void this.tree
             .refresh()
             .then(() => this.tree.reveal(chain))
@@ -414,7 +414,7 @@ export class TestResultsComponent extends Disposable {
                 return task.state >= TestResultState.Running || task.messages.length > 0;
             })
             .sort((a, b) => statePriority[b.tasks[taskIndex].state] - statePriority[a.tasks[taskIndex].state])
-            .map((test) => ({ kind: "test", result, taskIndex, testId: test.item.extId }));
+            .map((test) => ({ kind: "test", result, taskIndex, test }));
     }
 
     /** Upstream's tasks and tests are expanded unless the user collapsed them; the older runs stay collapsed. */
@@ -454,18 +454,17 @@ export class TestResultsComponent extends Disposable {
                 };
             }
             case "test": {
-                const test = this.testOf(row);
+                const { test } = row;
                 return {
-                    label: test?.item.label ?? "",
-                    description: test === undefined ? undefined : this.parentLabels(row.result, test),
-                    ...this.stateIcon(test?.tasks[row.taskIndex].state ?? TestResultState.Unset),
-                    collapsible:
-                        test?.tasks[row.taskIndex].messages.some((message) => message.type === "error") === true,
+                    label: test.item.label,
+                    description: this.parentLabels(row.result, test),
+                    ...this.stateIcon(test.tasks[row.taskIndex].state),
+                    collapsible: test.tasks[row.taskIndex].messages.some((message) => message.type === "error"),
                     actions: this.inlineOf(row),
                 };
             }
             case "message": {
-                const text = this.testOf(row)?.tasks[row.taskIndex].messages[row.messageIndex]?.message ?? "";
+                const text = row.test.tasks[row.taskIndex].messages[row.messageIndex].message;
                 const lines = text.trimEnd().split("\n").length - 1;
                 return {
                     label: text.split("\n")[0],
@@ -480,8 +479,9 @@ export class TestResultsComponent extends Disposable {
 
     private stateIcon(state: TestResultState): Pick<ITreeItem, "icon" | "iconColor"> {
         if (state === TestResultState.Running) return { icon: this.spinnerFrame() };
-        const icon = STATE_ICONS[state];
-        return { icon: icon === undefined ? undefined : this.icons.glyph(icon.icon), iconColor: icon?.color };
+        // Every state but Running has an icon.
+        const icon = assertReturnsDefined(STATE_ICONS[state]);
+        return { icon: this.icons.glyph(icon.icon), iconColor: icon.color };
     }
 
     /** Upstream `TestCaseElement.description`: the parents' labels up to the controller's root, joined by " ‹ ". */
@@ -493,10 +493,6 @@ export class TestResultsComponent extends Disposable {
             labels.push(parent.item.label);
         }
         return labels.length === 0 ? undefined : labels.join(" ‹ ");
-    }
-
-    private testOf(row: { readonly result: LiveTestResult; readonly testId: string }): ITestResultItem | undefined {
-        return row.result.getStateById(row.testId);
     }
 
     private inlineOf(row: TestResultsRow): ITreeItemAction[] {
@@ -543,15 +539,15 @@ export class TestResultsComponent extends Disposable {
                 ...rerunFailed(),
             ];
         }
-        const test = this.testOf(row);
+        const { test } = row;
         const arg = testArg(row);
         const actions: IRowAction[] = [];
-        if (test?.item.uri !== undefined)
+        if (test.item.uri !== undefined)
             actions.push(this.commandAction("Go to Test", GO_TO_FILE_ICON, "testing.editFocusedTest", arg));
-        if (test?.tasks[row.taskIndex].messages.some((message) => message.type === "output") === true)
+        if (test.tasks[row.taskIndex].messages.some((message) => message.type === "output"))
             actions.push(this.showOutputAction({ ...row, kind: "test" }));
         actions.push({
-            ...this.commandAction("Reveal in Test Explorer", LIST_TREE_ICON, "_revealTestInExplorer", row.testId),
+            ...this.commandAction("Reveal in Test Explorer", LIST_TREE_ICON, "_revealTestInExplorer", test.item.extId),
             secondary: true,
         });
         if (this.contextKeys.get("testing.hasRunnableTests") === true)
@@ -602,9 +598,9 @@ function tasksOf(result: LiveTestResult): TestResultsRow[] {
 function errorMessagesOf(row: {
     readonly result: LiveTestResult;
     readonly taskIndex: number;
-    readonly testId: string;
+    readonly test: ITestResultItem;
 }) {
-    const messages = row.result.getStateById(row.testId)?.tasks[row.taskIndex].messages ?? [];
+    const messages = row.test.tasks[row.taskIndex].messages;
     const rows: TestResultsRow[] = [];
     messages.forEach((message, messageIndex) => {
         if (message.type === "error") rows.push({ ...row, kind: "message", messageIndex });
@@ -620,8 +616,8 @@ function subjectOf(row: TestResultsRow): TestResultsSubject | null {
     return row;
 }
 
-function testArg(row: { readonly testId: string }): IWireTestItemArg {
-    return { $testId: row.testId };
+function testArg(row: { readonly test: ITestResultItem }): IWireTestItemArg {
+    return { $testId: row.test.item.extId };
 }
 
 function rowKey(row: TestResultsRow): string {
@@ -633,8 +629,8 @@ function rowKey(row: TestResultsRow): string {
         case "task":
             return `${row.result.id}/${String(row.taskIndex)}`;
         case "test":
-            return `${row.result.id}/${String(row.taskIndex)}/${row.testId}`;
+            return `${row.result.id}/${String(row.taskIndex)}/${row.test.item.extId}`;
         case "message":
-            return `${row.result.id}/${String(row.taskIndex)}/${row.testId}/${String(row.messageIndex)}`;
+            return `${row.result.id}/${String(row.taskIndex)}/${row.test.item.extId}/${String(row.messageIndex)}`;
     }
 }

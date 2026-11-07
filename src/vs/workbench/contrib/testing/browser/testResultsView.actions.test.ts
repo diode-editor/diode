@@ -96,6 +96,9 @@ describe("TEST RESULTS — the rows' actions", () => {
         expect(row.line).toContain(`${glyph("terminal")} ${glyph("debug-rerun")} ${glyph("debug-rerun")}`);
         harness.panel.click(TREE_X + row.line.indexOf("vitest"), row.y, "right");
         expect(menuLabels(harness)).toEqual(["Show Result Output", "Rerun Last Run", "Rerun Failed Tests"]);
+        const menu = harness.views.shown.at(-1);
+        expect(menu?.getOwner()).toBe(harness.panel.component.tree);
+        expect(menu?.getAnchor()).toEqual({ screenX: TREE_X + row.line.indexOf("vitest"), screenY: row.y });
         const rerunX = row.line.lastIndexOf(glyph("debug-rerun"));
         harness.panel.click(TREE_X + rerunX, row.y);
         expect(executed).toHaveBeenCalledWith("testing.reRunFailedFromLastRun", result.id);
@@ -127,6 +130,34 @@ describe("TEST RESULTS — the rows' actions", () => {
         expect(menuLabels(harness)).toEqual(["Go to Test", "Run Test", "-", "Reveal in Test Explorer"]);
     });
 
+    it("Show Result Output on a test shows the test's own output", async () => {
+        const { harness } = setup();
+        failed(harness);
+        await harness.panel.waitFrame((text) => text.includes("fails"));
+        const fails = treeRow(harness, "fails");
+        harness.panel.click(TREE_X + fails.line.indexOf("fails"), fails.y);
+        clickGlyph(harness, treeRow(harness, "fails"), "terminal");
+        expect(harness.panel.component.currentSubject).toMatchObject({
+            kind: "test",
+            test: { item: { extId: testId(...FAILS) } },
+        });
+        await harness.panel.waitFrame((text) => text.includes("fails out"));
+    });
+
+    it("a message has no rows under it", async () => {
+        const { harness } = setup();
+        const result = failed(harness);
+        const frame = await harness.panel.waitFrame((text) => text.includes("+ 2 more lines"));
+        await harness.panel.component.tree.expand({
+            kind: "message",
+            result,
+            taskIndex: 0,
+            test: result.getStateById(testId(...FAILS))!,
+            messageIndex: 0,
+        });
+        expect(harness.panel.frame()).toBe(frame);
+    });
+
     it("Enter on a test goes to it; a click only shows its output", async () => {
         const { harness, executed } = setup();
         failed(harness);
@@ -134,7 +165,10 @@ describe("TEST RESULTS — the rows' actions", () => {
         const adds = treeRow(harness, "adds");
         harness.panel.click(TREE_X + adds.line.indexOf("adds"), adds.y);
         expect(executed).not.toHaveBeenCalledWith("testing.editFocusedTest", expect.anything());
-        expect(harness.panel.component.currentSubject).toMatchObject({ kind: "test", testId: testId(...ADDS) });
+        expect(harness.panel.component.currentSubject).toMatchObject({
+            kind: "test",
+            test: { item: { extId: testId(...ADDS) } },
+        });
         harness.panel.sendKey("Enter");
         expect(executed).toHaveBeenCalledWith("testing.editFocusedTest", { $testId: testId(...ADDS) });
     });
@@ -159,7 +193,34 @@ describe("TEST RESULTS — older runs", () => {
         const frame = await harness.panel.waitFrame((text) => text.includes("Test run at"));
         expect(frame.split("\n").filter((line) => line.includes("Test run at"))).toHaveLength(2);
         // The runs themselves stay collapsed: only one task row, the latest run's.
-        expect(frame.split("\n").filter((line) => line.slice(TREE_X).includes(" vitest"))).toHaveLength(1);
+        const taskRows = (text: string) => text.split("\n").filter((line) => line.slice(TREE_X).includes(" vitest"));
+        expect(taskRows(frame)).toHaveLength(1);
+        // "N older results" has no actions: no glyphs, no menu.
+        const menus = harness.views.shown.length;
+        harness.panel.click(TREE_X + older.line.indexOf("2 older"), older.y, "right");
+        expect(harness.views.shown).toHaveLength(menus);
+    });
+
+    it("an older run expands to its tasks; its Show Result Output puts the cursor on its task", async () => {
+        const { harness } = setup();
+        const first = failed(harness);
+        failed(harness);
+        await harness.panel.waitFrame((text) => text.includes("1 older result"));
+        const older = treeRow(harness, "1 older result");
+        harness.panel.click(TREE_X + older.line.indexOf("1 older"), older.y);
+        await harness.panel.waitFrame((text) => text.includes("Test run at"));
+        const run = treeRow(harness, "Test run at");
+        harness.panel.click(TREE_X + run.line.indexOf("Test run at"), run.y);
+        expect(harness.panel.component.currentSubject).toMatchObject({ kind: "task", result: first, taskIndex: 0 });
+        await harness.panel.waitFrame(
+            (text) => text.split("\n").filter((line) => line.slice(TREE_X).includes(" vitest")).length === 2,
+        );
+        const { tree } = harness.panel.component;
+        expect(tree.getSelectedNode()).toMatchObject({ kind: "result", result: first });
+        clickGlyph(harness, treeRow(harness, "Test run at"), "terminal");
+        await vi.waitFor(() => {
+            expect(tree.getSelectedNode()).toMatchObject({ kind: "task", result: first, taskIndex: 0 });
+        });
     });
 });
 
@@ -183,6 +244,13 @@ describe("TEST RESULTS — Reveal in Test Explorer", () => {
             expect(harness.component.focusedTestId).toBe(testId(...FAILS));
         });
         await harness.waitFrame((text) => text.includes(" fails"));
+    });
+
+    it("without a test id it opens nothing", async () => {
+        const harness = setupExplorer();
+        const opened = vi.spyOn(harness.views.service, "openView");
+        await harness.views.commands.execute("_revealTestInExplorer");
+        expect(opened).not.toHaveBeenCalled();
     });
 });
 
