@@ -59,14 +59,16 @@ export default defineScenario({
         };
         await click(done, "expected 2 to equal 3");
         const diff = await editor.waitForText((t) => t.includes("Expected result") && t.includes("Actual result"));
-        await editor.capture("the expected/actual message: a diff, Expected result 3 against Actual result 2");
+        await editor.capture("the expected and actual message: a diff, Expected result 3 against Actual result 2");
 
         await click(diff, "Snapshot mismatch");
         const markdown = await editor.waitForText((t) => t.includes("expected 3") && !t.includes("Expected result"));
         await editor.capture("the markdown message: the heading and the list without their markup");
 
         await click(markdown, "TypeError");
-        const stack = await editor.waitForText((t) => t.includes("at fails stack") && t.includes("node:internal"));
+        const stack = await editor.waitForText(
+            (t) => t.includes("at fails stack") && t.includes("processTicksAndRejections"),
+        );
         await editor.capture("the message with a stack: the test's header, the message, the frames under it");
 
         await click(stack, "Copy Error");

@@ -33,7 +33,12 @@ import {
     ProductIconServiceDIToken,
 } from "../../../../platform/theme/common/productIconService.ts";
 import { type IWireTestItemArg, TestId, TestResultState } from "../../../api/common/testingWireTypes.ts";
-import { INLINE_MENU_GROUP, inlineMenuEntries, runMenuEntry } from "../../../browser/parts/views/treeItemMenu.ts";
+import {
+    INLINE_MENU_GROUP,
+    inlineMenuEntries,
+    menuEntryGlyph,
+    runMenuEntry,
+} from "../../../browser/parts/views/treeItemMenu.ts";
 import { type ViewsService, ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { onDidChangeTreeIndentGuides, treeIndentGuides } from "../../../browser/treeIndentGuides.ts";
 import { type IJumpRecorder, JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
@@ -419,7 +424,7 @@ export class TestResultsComponent extends Disposable {
         return groups.flatMap((group) =>
             inlineMenuEntries([group]).map((entry) => ({
                 label: entry.label,
-                glyph: entry.icon === "" ? undefined : entry.icon,
+                glyph: menuEntryGlyph(entry),
                 secondary: group.group !== INLINE_MENU_GROUP,
                 run: () => {
                     runMenuEntry(entry, (id) => this.commands.execute(id, testMessageArg(subject)), this.showError);

@@ -1,3 +1,4 @@
+import { TUIMouseEvent, type WheelDirection } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { describe, expect, it, vi } from "vitest";
 
 import { setupExplorer, THEME, wireItem } from "../../../../../TestUtils/testingExplorerHarness.ts";
@@ -187,6 +188,28 @@ describe("TEST RESULTS — a message's content", () => {
         expect(row(content(harness).at(-1))).toBe("row 29");
         harness.panel.sendKey("Home");
         expect(top()).toBe("row 0");
+
+        // The wheel scrolls three lines a notch, as the editor.
+        const wheel = (wheelDirection: WheelDirection): void => {
+            text.dispatchEvent(
+                new TUIMouseEvent("wheel", {
+                    button: "none",
+                    screenX: 0,
+                    screenY: 0,
+                    localX: 0,
+                    localY: 0,
+                    wheelDirection,
+                }),
+            );
+        };
+        wheel("down");
+        expect(top()).toBe("row 3");
+        wheel("up");
+        expect(top()).toBe("row 0");
+        // A sideways notch: the text wraps, there is nothing to the side.
+        wheel("down");
+        wheel("right");
+        expect(top()).toBe("row 3");
     });
 
     it("a short panel: two frames wider than the content take two rows, no horizontal bar under them", async () => {
@@ -215,6 +238,9 @@ describe("TEST RESULTS — a message's content", () => {
         clickRow(harness, "vitest");
         await harness.panel.waitFrame((text) => text.includes("did not record any output"));
         expect(harness.views.contextKeys.get("testing.peekHasStack")).toBeUndefined();
+        // No message shown: Collapse Stack Frames has nothing to fold.
+        await harness.views.commands.execute("testing.collapsePeekStack");
+        expect(content(harness).join("\n")).toContain("did not record any output");
     });
 });
 
@@ -264,6 +290,27 @@ describe("TEST RESULTS — a message's actions", () => {
         const y = header.split("\n").findIndex((line) => line.slice(0, TREE_X).includes("Copy Error"));
         harness.panel.click(header.split("\n")[y].indexOf("Copy Error"), y);
         expect(executed).toHaveBeenLastCalledWith("vitest.copyErrorOutput", arg);
+    });
+
+    it("a message without a place of a test without a file has no resource keys", async () => {
+        const { harness } = setup();
+        harness.views.menuRegistry.appendMenuItem({
+            menuId: MenuId.TestMessageContext,
+            command: "ext.nowhere",
+            title: "Nowhere",
+            when: "testMessage == 'ctx-3' && !resourcePath",
+        });
+        const result = harness.results.createLiveResult({ targets: [], group: TestRunProfileBitset.Run });
+        result.addTask({ id: "vitest", name: "vitest", ctrlId: "vitest" });
+        result.addTestChainToRun(
+            "vitest",
+            FAILS.map((_, i) => wireItem(FAILS.slice(0, i + 1))),
+        );
+        result.updateState(testId(...FAILS), "vitest", TestResultState.Failed);
+        result.appendMessage(testId(...FAILS), "vitest", { message: "unplaced", contextValue: "ctx-3" });
+        result.markComplete();
+        await harness.panel.waitFrame((text) => text.includes("unplaced"));
+        expect(menuLabels(harness, "unplaced")).toEqual(["Nowhere"]);
     });
 
     it("a failing command of the message's menu is a toast", async () => {

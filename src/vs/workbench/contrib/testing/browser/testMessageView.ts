@@ -21,9 +21,6 @@ import type { TestResultsSubject } from "./testResultsOutput.ts";
 
 export type TestMessageSubject = Extract<TestResultsSubject, { readonly kind: "message" }>;
 
-/** How a message is shown: upstream's `DiffContentProvider`, `MarkdownTestMessagePeek`, `PlainTextMessagePeek`. */
-export type TestMessageShow = "diff" | "markdown" | "plain";
-
 /** Upstream's labels of the diff's sides (`testingOutputExpected`, `testingOutputActual`). */
 export const EXPECTED_LABEL = "Expected result";
 export const ACTUAL_LABEL = "Actual result";
@@ -31,10 +28,13 @@ export const ACTUAL_LABEL = "Actual result";
 /** The stack's share of the height while the message is shown above it, at least its first frames. */
 const MIN_STACK_ROWS = 3;
 
-/** Upstream `ITestMessage.isDiffable` first, then a `MarkdownString`, else the plain text. */
-export function messageShow(message: IWireTestMessage): TestMessageShow {
-    if (message.expected !== undefined && message.actual !== undefined) return "diff";
-    return message.markdown === true ? "markdown" : "plain";
+/**
+ * Upstream `ITestMessage.isDiffable`: with both outputs the message is a diff (`DiffContentProvider`), else its text
+ * (`MarkdownTestMessagePeek`, `PlainTextMessagePeek`).
+ */
+export function messageDiff(message: IWireTestMessage): { readonly expected: string; readonly actual: string } | null {
+    const { expected, actual } = message;
+    return expected === undefined || actual === undefined ? null : { expected, actual };
 }
 
 /**
@@ -88,7 +88,7 @@ export class TestMessageView extends Disposable {
         super();
         const provider: ITreeDataProvider<IFrameRow> = {
             getTreeItem: (row) => frameItem(row.frame),
-            getChildren: (row) => (row === undefined ? this.stack.map((frame, index) => ({ index, frame })) : []),
+            getChildren: () => this.stack.map((frame, index) => ({ index, frame })),
             getKey: (row) => String(row.index),
         };
         // A click opens the frame as Enter does: upstream's frame header is a link to its place.
@@ -113,8 +113,9 @@ export class TestMessageView extends Disposable {
         this.collapsed = false;
         const message = messageOf(subject);
         this.stack = message.stackTrace ?? [];
-        if (messageShow(message) === "diff") {
-            this.body = this.subjectStore.add(this.host.createDiff(message.expected ?? "", message.actual ?? "")).view;
+        const diff = messageDiff(message);
+        if (diff !== null) {
+            this.body = this.subjectStore.add(this.host.createDiff(diff.expected, diff.actual)).view;
         } else {
             this.text.setText(messageText(message));
             this.body = this.textView;
@@ -135,7 +136,7 @@ export class TestMessageView extends Disposable {
     }
 
     private setCollapsed(collapsed: boolean): void {
-        if (this.subject === null || this.collapsed === collapsed) return;
+        if (this.subject === null) return;
         this.collapsed = collapsed;
         this.layout(this.subject);
     }

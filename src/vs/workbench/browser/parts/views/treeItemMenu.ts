@@ -19,10 +19,12 @@ export function inlineMenuEntries(groups: readonly IMenuEntryGroup[]): IResolved
 
 /** The command's icon, or its title when it has none (or its glyph is missing from the font set). */
 export function inlineMenuActions(groups: readonly IMenuEntryGroup[]): ITreeItemAction[] {
-    return inlineMenuEntries(groups).map((entry) => ({
-        label: entry.label,
-        icon: entry.icon === "" ? undefined : entry.icon,
-    }));
+    return inlineMenuEntries(groups).map((entry) => ({ label: entry.label, icon: menuEntryGlyph(entry) }));
+}
+
+/** The entry's glyph; none when the command has no icon or its glyph is missing from the font set. */
+export function menuEntryGlyph(entry: IResolvedMenuItemEntry): string | undefined {
+    return entry.icon === "" ? undefined : entry.icon;
 }
 
 /** Every item of the menu, submenus included, runs through `run` instead of the registry's handler. */

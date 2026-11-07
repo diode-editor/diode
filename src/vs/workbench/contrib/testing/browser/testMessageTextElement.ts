@@ -56,11 +56,6 @@ export class TestMessageTextElement extends ScrollableElement {
         return this.layoutSize.width;
     }
 
-    /** What the element shows at its width, for tests and the frame. */
-    public get wrappedLines(): readonly string[] {
-        return this.lines;
-    }
-
     protected override performLayout(constraints: BoxConstraints): Size {
         const width = constraints.maxWidth;
         if (width !== this.wrappedWidth) {
