@@ -24,12 +24,14 @@ import {
 } from "../vs/workbench/api/common/testingWireTypes.ts";
 import { menuItemsOfAction } from "../vs/workbench/browser/actions/menuContributions.ts";
 import { makeViewsHarness } from "../vs/workbench/browser/parts/views/viewsService.testUtils.ts";
+import { ViewsServiceDIToken } from "../vs/workbench/browser/parts/views/viewsService.ts";
 import { TESTING_ACTIONS } from "../vs/workbench/contrib/testing/browser/testingActions.ts";
 import {
     TESTING_VIEWLET_ID,
     TestingExplorerComponent,
     TestingExplorerComponentDIToken,
 } from "../vs/workbench/contrib/testing/browser/testingExplorerView.ts";
+import { TestResultsComponentDIToken } from "../vs/workbench/contrib/testing/browser/testResultsView.ts";
 import { TestProfileServiceDIToken } from "../vs/workbench/contrib/testing/common/testProfileService.ts";
 import { TestResultServiceDIToken } from "../vs/workbench/contrib/testing/common/testResultService.ts";
 import {
@@ -46,6 +48,7 @@ import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/dar
 
 import { TestApp } from "./TestApp.ts";
 import { makeTestingServices } from "./testingServices.ts";
+import { createResultsPanel } from "./testResultsPanel.ts";
 import { testId } from "./testTree.ts";
 
 export const UNICODE_ICONS = new StaticProductIconService(false);
@@ -106,6 +109,9 @@ export interface ISetupOptions {
     readonly now?: () => number;
     /** Runs before the view is built: a controller that is there already. */
     readonly before?: (tests: TestService) => void;
+    /** The TEST RESULTS panel's size. */
+    readonly panelWidth?: number;
+    readonly panelHeight?: number;
 }
 
 /** Unicode glyphs until `useNerdFont()`, as `diode.icons.nerdFont` switched live. */
@@ -149,15 +155,19 @@ export function setupExplorer(options: ISetupOptions = {}) {
     };
     const settings: Record<string, unknown> = { "workbench.tree.renderIndentGuides": "none", ...options.settings };
     const onDidChangeConfiguration = new Emitter<{ affectsConfiguration(key: string): boolean }>();
-    const configuration = {
-        get: (key: string) => settings[key],
-        onDidChangeConfiguration: onDidChangeConfiguration.event,
-    } as unknown as IConfigurationService;
     /** A settings change as the configuration service reports it. */
     const setSetting = (key: string, value: unknown): void => {
         settings[key] = value;
         onDidChangeConfiguration.fire({ affectsConfiguration: (affected) => affected === key });
     };
+    const configuration = {
+        get: (key: string) => settings[key],
+        updateValue: (key: string, value: unknown) => {
+            setSetting(key, value);
+            return Promise.resolve();
+        },
+        onDidChangeConfiguration: onDidChangeConfiguration.event,
+    } as unknown as IConfigurationService;
     options.before?.(tests);
     const notifications = {
         show: (toast: { message: string }) => {
@@ -182,7 +192,19 @@ export function setupExplorer(options: ISetupOptions = {}) {
         NULL_JUMP_RECORDER,
         notifications,
     );
+    const panel = createResultsPanel({
+        results: services.results,
+        views,
+        theme: THEME,
+        configuration,
+        progress,
+        icons,
+        width: options.panelWidth,
+        height: options.panelHeight,
+    });
     const serviceMap = new Map<unknown, unknown>([
+        [TestResultsComponentDIToken, panel.component],
+        [ViewsServiceDIToken, views.service],
         [TestServiceDIToken, tests],
         [TestResultServiceDIToken, services.results],
         [TestProfileServiceDIToken, services.profiles],
@@ -317,6 +339,7 @@ export function setupExplorer(options: ISetupOptions = {}) {
         mouse(x, y, "release", button);
     };
     return {
+        panel,
         views,
         tests,
         results: services.results,
@@ -347,5 +370,6 @@ export function setupExplorer(options: ISetupOptions = {}) {
         click,
         width,
         setSetting,
+        configuration,
     };
 }

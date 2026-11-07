@@ -227,6 +227,7 @@ import { TERMINAL_LINK_ACTIONS } from "./contrib/terminalContrib/links/browser/t
 import { TESTING_ACTIONS } from "./contrib/testing/browser/testingActions.ts";
 import { TestingDecorationsDIToken } from "./contrib/testing/browser/testingDecorations.ts";
 import { TestingExplorerComponentDIToken } from "./contrib/testing/browser/testingExplorerView.ts";
+import { TestResultsComponentDIToken } from "./contrib/testing/browser/testResultsView.ts";
 import { THEME_ACTIONS } from "./contrib/themes/browser/themeActions.ts";
 import { ThemeConfigContributionDIToken } from "./contrib/themes/browser/themeConfigContribution.ts";
 import { URL_ACTIONS } from "./contrib/url/browser/urlActions.ts";
@@ -254,6 +255,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: ReferencesComponentDIToken, phase: "blockStartup" },
     // Its container must be registered before `mount()` builds the sidebar; the view comes with the first controller.
     { token: TestingExplorerComponentDIToken, phase: "blockStartup" },
+    // Its container, too; the view comes with the first result.
+    { token: TestResultsComponentDIToken, phase: "blockStartup" },
     { token: QuickOpenServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (CompletionService in the next entry holds it) — the entry only hands lifetime ownership to the registry, which a unit test can't observe
     { token: SuggestComponentDIToken, phase: "blockStartup" },

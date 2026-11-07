@@ -13,6 +13,10 @@ export interface ITestStateIcon {
 export const testingRunIcon = codicon("run");
 /** Upstream `testingRunAllIcon`. */
 export const testingRunAllIcon = codicon("run-all");
+/** Upstream `testingRerunIcon`. */
+export const testingRerunIcon = codicon("debug-rerun");
+/** Upstream `testingCancelIcon`. */
+export const testingCancelIcon = codicon("debug-stop");
 
 /** Upstream `testingStatesToIcons` with `testStatesToIconColors`; Running is the spinner. */
 export const testingStatesToIcons: Readonly<Partial<Record<TestResultState, ITestStateIcon>>> = {

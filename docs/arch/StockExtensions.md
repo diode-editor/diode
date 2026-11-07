@@ -389,7 +389,8 @@ eval-режим node, иначе расширение молча не линти
   Vitest, `adds` ✓, `fails` ✗, родители ✗, сводка `1/2`; «Rerun Failed Tests» запускает только `fails`
   (стоковый тест). Поле редактора (#1073): у `describe("math"` — run-all, у каждого `it(` — run; клик по
   глифу `fails` запускает только его, после прогона глиф — ✗ красным; правый клик — Run Test, Reveal in Test
-  Explorer и пункты Vitest из `testing/item/gutter` (стоковый тест).
+  Explorer и пункты Vitest из `testing/item/gutter` (стоковый тест). TEST RESULTS (#1071): панель открывается с запуском, в дереве `fails` с сообщением
+  `expected 1 to be 2`, в выводе задачи — отчёт vitest с `FAIL` (стоковый тест).
 - **Магазин** — запись `vitest.explorer` (`support: partial`, `engines.diode` — релиз с вьюхой Testing).
   Стоковый тест — `extensionHost.vitestExplorer.test.ts`: воркспейс `package.json` + `vitest.config.ts`
   + `src/math.test.ts`, `node_modules` — симлинк на репозиторий diode (vitest там есть).

@@ -59,15 +59,18 @@ exports.activate = (context) => {
             else roots.push(...request.include);
             const tests = await collect(roots, new Set(request.exclude ?? []), []);
             const run = controller.createTestRun(request);
+            // The run's own output and each test's, in ANSI colors: the TEST RESULTS panel shows them.
+            run.appendOutput(`\x1b[1;36m RUN \x1b[0m demo tests\r\n`);
             for (const test of tests) run.enqueued(test);
             for (const [index, test] of tests.entries()) {
                 if (token.isCancellationRequested) break;
                 run.started(test);
-                run.appendOutput(`running ${test.label}\r\n`, undefined, test);
+                run.appendOutput(`\x1b[33mrunning\x1b[0m ${test.label}\r\n`, undefined, test);
                 await sleep(STEP_MS);
                 if (token.isCancellationRequested) break;
                 const duration = 10 * (index + 1);
                 if (test.label.includes("fails")) {
+                    run.appendOutput(`\x1b[31mFAIL\x1b[0m ${test.label}\r\n`, undefined, test);
                     run.failed(test, vscode.TestMessage.diff("expected 2 to equal 3", "3", "2"), duration);
                 } else if (test.label.includes("throws")) {
                     run.errored(test, new vscode.TestMessage("TypeError: boom"), duration);
@@ -77,6 +80,7 @@ exports.activate = (context) => {
                     run.passed(test, duration);
                 }
             }
+            run.appendOutput(`\x1b[2m done \x1b[0m\r\n`);
             run.end();
         },
         true,

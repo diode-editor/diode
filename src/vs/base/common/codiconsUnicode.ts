@@ -15,6 +15,7 @@ export const CODICON_UNICODE: Readonly<Partial<Record<string, string>>> = {
     "arrow-down": "↓",
     "arrow-left": "←",
     "arrow-right": "→",
+    "arrow-swap": "⇄",
     "arrow-up": "↑",
     bell: "♪",
     "bell-dot": "♪",

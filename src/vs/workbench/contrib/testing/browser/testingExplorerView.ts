@@ -86,17 +86,17 @@ import {
 } from "../common/testExplorerFilter.ts";
 import {
     computeState,
+    dominantState,
     formatDuration,
     isFailedState,
     isStateWithResult,
     statePriority,
-    statesInOrder,
 } from "../common/testingStates.ts";
 import type { ITestResultItemChange, LiveTestResult } from "../common/testResult.ts";
 import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
 import { type ITestNode, type TestService, TestServiceDIToken } from "../common/testService.ts";
 
-import { testingStatesToIcons } from "./icons.ts";
+import { testingRerunIcon, testingStatesToIcons } from "./icons.ts";
 import { getTestItemContextOverlay } from "./testItemContextOverlay.ts";
 
 /** Upstream `Testing.ViewletId`. */
@@ -140,8 +140,6 @@ const WELCOME: readonly IViewWelcomeBlock[] = [
 ];
 
 const FILTER_ICON = codicon("filter");
-/** Upstream `testingRerunIcon`. */
-const RERUN_ICON = codicon("debug-rerun");
 
 /** Upstream `testFilterDescriptions` of the terms "More Filters..." offers. */
 const MORE_FILTERS: readonly { readonly term: TestFilterTerm; readonly label: string }[] = [
@@ -802,7 +800,7 @@ export class TestingExplorerComponent extends Component {
             this.summaryLoop.schedule();
         } else {
             const last = results[0];
-            const dominant = statesInOrder.find((state) => last.counts[state] > 0) ?? TestResultState.Unset;
+            const dominant = dominantState(last.counts);
             // A completed run has no running test.
             const icon = assertReturnsDefined(testingStatesToIcons[dominant]);
             status = this.icons.glyph(icon.icon);
@@ -814,7 +812,7 @@ export class TestingExplorerComponent extends Component {
         // The spinner of a run in progress has the default color.
         this.summaryStatus.setCharStyle(0, { fg: color });
         this.summaryText.setText(`${String(passed)}/${String(totalWillBeRun)} ${duration}`);
-        this.summaryRerun.setText(live.length > 0 ? "" : this.icons.glyph(RERUN_ICON));
+        this.summaryRerun.setText(live.length > 0 ? "" : this.icons.glyph(testingRerunIcon));
     }
 
     /** After a run its failed tests are revealed: their ancestors expand. */

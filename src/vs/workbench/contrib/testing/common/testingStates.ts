@@ -34,6 +34,11 @@ export const statesInOrder: readonly TestResultState[] = (Object.values(TestResu
     (a, b) => statePriority[b] - statePriority[a],
 );
 
+/** Upstream `maxCountPriority`: the highest priority state a run has a test in. */
+export function dominantState(counts: Readonly<TestStateCount>): TestResultState {
+    return statesInOrder.find((state) => counts[state] > 0) ?? TestResultState.Unset;
+}
+
 /**
  * Upstream `terminalStatePriorities`: once a task reported one of these for a test, a lower one or a non-terminal
  * state does not replace it.

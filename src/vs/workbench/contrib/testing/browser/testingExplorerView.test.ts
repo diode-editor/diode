@@ -141,7 +141,7 @@ describe("TestingExplorerComponent — the tree", () => {
         const shown = lines().map((line) => line.trimEnd());
         // The filter field fills the row, the glyph sits at its end.
         expect(shown.slice(0, 7)).toEqual([
-            " TEST EXPLORER ▾                      ⋯",
+            " TEST EXPLORER ▾                  › │ ⋯",
             " Filter (e.g. text, !exclude, @tag)   ▽",
             " No test results yet.",
             " ▾ ○ src",

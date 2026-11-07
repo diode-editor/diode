@@ -996,6 +996,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Always reveal the executed test when `#testing.followRunningTest#` is on. If this setting is turned off, only failed tests will be revealed.",
     },
     {
+        key: "testing.automaticallyOpenTestResults",
+        type: "string",
+        default: "openOnTestStart",
+        description: "Controls when the testing view should open.",
+        enum: ["neverOpen", "openOnTestStart", "openOnTestFailure", "openExplorerOnTestStart"],
+    },
+    {
         key: "testing.defaultGutterClickAction",
         type: "string",
         default: "run",
@@ -1013,6 +1020,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "boolean",
         default: true,
         description: "Controls whether test decorations are shown in the editor gutter.",
+    },
+    {
+        key: "testing.resultsView.layout",
+        type: "string",
+        default: "treeRight",
+        description: "Controls the layout of the Test Results view.",
+        enum: ["treeRight", "treeLeft"],
     },
     {
         key: "testing.saveBeforeTest",
