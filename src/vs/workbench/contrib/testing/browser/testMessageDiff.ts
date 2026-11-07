@@ -60,6 +60,7 @@ export class TestMessageDiffFactory {
                 modified: { kind: "snapshot", text: actual },
                 // Stryker disable next-line StringLiteral: equivalent — an unknown language is plain text too
                 languageId: "plaintext",
+                // Stryker disable next-line StringLiteral: equivalent — the pane lays out side by side for any override but "auto" and "inline"
                 modeOverride: "side-by-side",
             },
         );

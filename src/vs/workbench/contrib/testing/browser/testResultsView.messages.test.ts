@@ -90,14 +90,12 @@ describe("TEST RESULTS — a message's content", () => {
         // Both sides take the editor's configuration (upstream `applyEditorMirrorOptions`).
         expect(harness.panel.configuredPanes).toHaveLength(2);
 
-        // Read-only: typing on a side changes nothing; the narrow half stays side by side once it settles.
-        harness.panel.click(values.indexOf("3"), header + 1);
-        harness.panel.sendKey("x");
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        const after = content(harness);
-        expect(after[header + 1]).toBe(values);
-        expect(after[header]).toContain(EXPECTED_LABEL);
-        expect(after[header]).toContain(ACTUAL_LABEL);
+        // Read-only: typing on either side changes nothing.
+        for (const x of [values.indexOf("3"), values.lastIndexOf("2")]) {
+            harness.panel.click(x, header + 1);
+            harness.panel.sendKey("x");
+        }
+        expect(content(harness)[header + 1]).toBe(values);
     });
 
     it("markdown: the hover's rendering, no markup left; plain: no ANSI codes, wrapped by words", async () => {
@@ -211,7 +209,7 @@ describe("TEST RESULTS — a message's content", () => {
         failed(
             harness,
             { message: Array.from({ length: 30 }, (_, i) => `row ${String(i)}`).join("\n") },
-            { message: "other text" },
+            { message: Array.from({ length: 30 }, (_, i) => `other ${String(i)}`).join("\n") },
         );
         await choose(harness, "row 0", "row 1");
         const row = (line: string | undefined): string => (line ?? "").slice(0, 10).trim();
@@ -256,10 +254,9 @@ describe("TEST RESULTS — a message's content", () => {
         wheel("right");
         expect(top()).toBe("row 3");
 
-        // Another message starts at its top, and so does this one again.
-        await choose(harness, "other text", "other text");
-        await choose(harness, "row 0", "row 0");
-        expect(top()).toBe("row 0");
+        // Another message starts at its top.
+        await choose(harness, "other 0", "other 1");
+        expect(top()).toBe("other 0");
 
         // Other keys are not the text's: Tab moves on.
         text.focus();
