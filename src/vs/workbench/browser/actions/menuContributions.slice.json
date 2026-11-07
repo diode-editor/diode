@@ -22,6 +22,7 @@
             "leaveSnippet",
             "acceptSnippet",
             "testing.showMostRecentOutput",
+            "testing.collapsePeekStack",
             "references-view.removeCallItem",
             "references-view.removeTypeItem"
         ]
@@ -481,6 +482,7 @@
             "testing.cancelRun",
             "testing.runSelected",
             "testing.showMostRecentOutput",
+            "testing.collapsePeekStack",
             "testing.clearTestResults",
             "testing.toggleResultsViewLayout",
             "workbench.action.files.saveAll",

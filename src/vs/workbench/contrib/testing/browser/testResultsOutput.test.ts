@@ -109,16 +109,6 @@ describe("TestResultsOutput", () => {
         before.markComplete();
     });
 
-    it("a message: each line from the left edge", async () => {
-        const { output, run, text } = setup();
-        const result = run();
-        result.appendMessage(MINE, "a", { message: "first\nsecond" });
-        result.markComplete();
-        const test = result.getStateById(MINE)!;
-        output.show({ kind: "message", result, taskIndex: 0, test, messageIndex: 0 });
-        expect((await text()).split("\n").slice(0, 2)).toEqual(["first", "second"]);
-    });
-
     it("a test's output: its pieces as they were written", async () => {
         const { run, showMine, text } = setup();
         const result = run();

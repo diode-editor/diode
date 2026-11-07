@@ -28,6 +28,7 @@ const CAN_REFRESH = "testing.canRefresh";
 const IS_RUNNING = "testing.isRunning";
 const HAS_RUNNABLE = "testing.hasRunnableTests";
 const HAS_RESULTS = "testing.hasAnyResults";
+const PEEK_HAS_STACK = "testing.peekHasStack";
 
 /** Upstream `ActionOrder`: positions in the title's navigation and in the row's menus. */
 const ActionOrder = {
@@ -354,6 +355,30 @@ export const toggleResultsViewLayoutAction: CommandAction = {
     },
 };
 
+/**
+ * Upstream `CollapsePeekStack`: the shown message folds, its stack takes the content. Upstream puts it in the peek's
+ * title, which we do not have: here it is in the TEST RESULTS title while the shown message has a stack.
+ */
+export const collapsePeekStackAction: CommandAction = {
+    id: "testing.collapsePeekStack",
+    title: "Test: Collapse Stack Frames",
+    shortTitle: "Collapse Stack Frames",
+    menus: [
+        {
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
+            order: ActionOrder.Collapse,
+            icon: codicon("collapse-all"),
+            visible: viewMenuVisible(TEST_RESULTS_VIEW_ID),
+            when: PEEK_HAS_STACK,
+        },
+        { menuId: MenuId.CommandPalette, when: PEEK_HAS_STACK },
+    ],
+    run(accessor) {
+        accessor.get(TestResultsComponentDIToken).message.collapseStack();
+    },
+};
+
 /** Upstream `CollapseAllAction`: in the `displayAction` group, so in "⋯". */
 export const collapseAllTestsAction: CommandAction = {
     id: "testing.collapseAll",
@@ -446,5 +471,6 @@ export const TESTING_ACTIONS: readonly CommandAction[] = [
     sortByLocationAction,
     sortByStatusAction,
     toggleResultsViewLayoutAction,
+    collapsePeekStackAction,
     reRunFailedFromLastRunAction,
 ];

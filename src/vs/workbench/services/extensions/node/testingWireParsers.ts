@@ -279,6 +279,7 @@ function parseTestMessage(raw: unknown): IWireTestMessage | null {
     if (typeof p?.message !== "string") return null;
     return {
         message: p.message,
+        markdown: p.markdown === true ? true : undefined,
         expected: optionalString(p.expected),
         actual: optionalString(p.actual),
         contextValue: optionalString(p.contextValue),

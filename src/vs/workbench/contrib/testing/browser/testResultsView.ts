@@ -8,6 +8,9 @@ import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { codicon, type IProductIcon } from "../../../../base/common/codicons.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from "../../../../base/common/lifecycle.ts";
+import { createRange } from "../../../../editor/common/core/iRange.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { type MenuService, MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
 import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -30,8 +33,20 @@ import {
     ProductIconServiceDIToken,
 } from "../../../../platform/theme/common/productIconService.ts";
 import { type IWireTestItemArg, TestId, TestResultState } from "../../../api/common/testingWireTypes.ts";
+import {
+    INLINE_MENU_GROUP,
+    inlineMenuEntries,
+    menuEntryGlyph,
+    runMenuEntry,
+} from "../../../browser/parts/views/treeItemMenu.ts";
 import { type ViewsService, ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { onDidChangeTreeIndentGuides, treeIndentGuides } from "../../../browser/treeIndentGuides.ts";
+import { type IJumpRecorder, JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
+import { type IRevealLocationTarget, revealLocation } from "../../../services/history/browser/revealLocation.ts";
+import {
+    type NotificationService,
+    NotificationServiceDIToken,
+} from "../../../services/notification/browser/notificationService.ts";
 import {
     type TerminalColorsService,
     TerminalColorsServiceDIToken,
@@ -45,7 +60,10 @@ import type { ITestResultItem, LiveTestResult } from "../common/testResult.ts";
 import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
 
 import { testingCancelIcon, testingRerunIcon, testingRunIcon, testingStatesToIcons } from "./icons.ts";
-import { REVEAL_TEST_COMMAND, TESTING_EXPLORER_VIEW_ID } from "./testingExplorerView.ts";
+import { REVEAL_TEST_COMMAND, TESTING_EXPLORER_VIEW_ID, TestingRevealTargetDIToken } from "./testingExplorerView.ts";
+import { type TestMessageDiffFactory, TestMessageDiffFactoryDIToken } from "./testMessageDiff.ts";
+import { testMessageArg, testMessageMenuKeys } from "./testMessageMenu.ts";
+import { messageOf, messageText, type TestMessageSubject, TestMessageView } from "./testMessageView.ts";
 import { TestResultsOutput, type TestResultsSubject } from "./testResultsOutput.ts";
 import { TestResultsSplitElement } from "./testResultsSplitElement.ts";
 
@@ -62,6 +80,7 @@ const REFRESH_DELAY = 16;
 const TERMINAL_ICON = codicon("terminal");
 const GO_TO_FILE_ICON = codicon("go-to-file");
 const LIST_TREE_ICON = codicon("list-tree");
+const GO_TO_ERROR_ICON = codicon("debug-stackframe");
 
 /** A row of the results tree (upstream's `TreeElement`s without coverage). */
 export type TestResultsRow =
@@ -72,7 +91,8 @@ export type TestResultsRow =
 /** Upstream `TreeActionsProvider`'s action: a glyph on the row and an entry of its menu. */
 interface IRowAction {
     readonly label: string;
-    readonly icon: IProductIcon;
+    /** The glyph, resolved; without one the row draws the label. */
+    readonly glyph?: string;
     /** Only in the context menu (upstream's `secondary`). */
     readonly secondary?: boolean;
     run(): unknown;
@@ -96,11 +116,17 @@ export class TestResultsComponent extends Disposable {
         IConfigurationServiceDIToken,
         ExtensionPtySessionFactoryDIToken,
         TerminalColorsServiceDIToken,
+        MenuServiceDIToken,
+        TestMessageDiffFactoryDIToken,
+        TestingRevealTargetDIToken,
+        JumpRecorderDIToken,
+        NotificationServiceDIToken,
     ] as const;
 
     public readonly tree: TreeViewElement<TestResultsRow>;
     public readonly view: TestResultsSplitElement;
     private readonly output: TestResultsOutput;
+    public readonly message: TestMessageView;
     private readonly refreshLater: RunOnceScheduler;
     private subject: TestResultsSubject | null = null;
     /** Rows already shown once: a task and a test expand when they first appear. */
@@ -119,6 +145,11 @@ export class TestResultsComponent extends Disposable {
         private readonly configuration: IConfigurationService,
         createSession: ExtensionPtySessionFactory,
         colors: TerminalColorsService,
+        private readonly menus: MenuService,
+        diffs: Pick<TestMessageDiffFactory, "create">,
+        private readonly revealTarget: IRevealLocationTarget,
+        private readonly jumps: IJumpRecorder,
+        private readonly notifications: Pick<NotificationService, "show">,
     ) {
         super();
         const provider: ITreeDataProvider<TestResultsRow> = {
@@ -150,6 +181,18 @@ export class TestResultsComponent extends Disposable {
             this.showContextMenu(row, screenX, screenY);
         };
         this.output = this.register(new TestResultsOutput(createSession, colors));
+        this.message = this.register(
+            new TestMessageView(
+                {
+                    createDiff: (expected, actual) => diffs.create(expected, actual),
+                    open: (uri, position) => {
+                        this.open(uri, position);
+                    },
+                    contentActions: (subject) => this.contentActions(subject),
+                },
+                icons,
+            ),
+        );
         this.view = new TestResultsSplitElement(
             this.output.widget,
             new ScrollBarDecorator(this.tree),
@@ -297,6 +340,7 @@ export class TestResultsComponent extends Disposable {
         for (const key of this.seen) if (key.startsWith(`${result.id}/`)) this.seen.delete(key);
         if (this.subject?.result === result) {
             this.subject = null;
+            this.showOutput();
             this.output.clear();
         }
     }
@@ -341,7 +385,54 @@ export class TestResultsComponent extends Disposable {
         // Stryker disable next-line ConditionalExpression: equivalent — the same subject again resets the surface and writes the same output, the scroll stays; the guard saves the work
         if (this.subject !== null && rowKey(this.subject) === rowKey(subject)) return;
         this.subject = subject;
-        this.output.show(subject);
+        if (subject.kind !== "message") {
+            this.showOutput();
+            this.output.show(subject);
+            return;
+        }
+        // Stryker disable next-line CallExpression: hygiene — the hidden surface lets its session go; a task writes it anew
+        this.output.clear();
+        this.message.show(subject);
+        this.view.setContent(this.message.element);
+        this.contextKeys.set("testing.peekHasStack", this.message.hasStack);
+    }
+
+    /** The output's surface on the left, no message there. */
+    private showOutput(): void {
+        // Stryker disable next-line CallExpression: hygiene — the hidden message lets its diff go
+        this.message.clear();
+        this.view.setContent(this.output.widget);
+        this.contextKeys.reset("testing.peekHasStack");
+    }
+
+    /** A frame's or an error's place in the editor; the keyboard goes there. */
+    private open(uri: string, position: { readonly line: number; readonly character: number }): void {
+        revealLocation(
+            this.revealTarget,
+            this.jumps,
+            uri,
+            createRange(position.line, position.character, position.line, position.character),
+        );
+    }
+
+    /** Upstream's `FloatingClickMenu` of `testing/message/content`: its items over the message, the message their argument. */
+    private contentActions(subject: TestMessageSubject): IRowAction[] {
+        return this.menuActions(MenuId.TestMessageContent, subject);
+    }
+
+    /** A message menu's items (a submenu is not offered), the message their command's argument. */
+    private menuActions(menuId: MenuId, subject: TestMessageSubject): IRowAction[] {
+        const groups = this.menus.getEntryGroups(menuId, undefined, testMessageMenuKeys(subject));
+        return groups.flatMap((group) =>
+            inlineMenuEntries([group]).map((entry) => ({
+                label: entry.label,
+                glyph: menuEntryGlyph(entry),
+                secondary: group.group !== INLINE_MENU_GROUP,
+                run: () => {
+                    runMenuEntry(entry, (id) => this.commands.execute(id, testMessageArg(subject)), this.showError);
+                },
+            })),
+        );
     }
 
     /** Upstream `onDidReveal`: the row's ancestors expand and the cursor goes to it; the content follows. */
@@ -447,7 +538,8 @@ export class TestResultsComponent extends Disposable {
                 };
             }
             case "message": {
-                const text = row.test.tasks[row.taskIndex].messages[row.messageIndex].message;
+                // Upstream `renderTestMessageAsText`: markdown as plain text, no ANSI codes.
+                const text = messageText(messageOf(row));
                 const lines = text.trimEnd().split("\n").length - 1;
                 return {
                     label: text.split("\n")[0],
@@ -479,16 +571,13 @@ export class TestResultsComponent extends Disposable {
     }
 
     private inlineOf(row: TestResultsRow): ITreeItemAction[] {
-        return primaryActions(this.actionsOf(row)).map((action) => ({
-            label: action.label,
-            icon: this.icons.glyph(action.icon),
-        }));
+        return primaryActions(this.actionsOf(row)).map((action) => ({ label: action.label, icon: action.glyph }));
     }
 
     private commandAction(label: string, icon: IProductIcon, commandId: string, ...args: unknown[]): IRowAction {
         return {
             label,
-            icon,
+            glyph: this.icons.glyph(icon),
             run: () => {
                 this.execute(commandId, ...args);
             },
@@ -498,6 +587,7 @@ export class TestResultsComponent extends Disposable {
     /** Upstream `TreeActionsProvider.provideActionBar` without the debug entries and coverage. */
     private actionsOf(row: TestResultsRow): IRowAction[] {
         if (row.kind === "older") return [];
+        if (row.kind === "message") return this.messageActions(row);
         const { result } = row;
         const rerunFailed = (): IRowAction[] =>
             [...result.tests].some((test) => isFailedState(test.ownComputedState))
@@ -556,12 +646,37 @@ export class TestResultsComponent extends Disposable {
     private showOutputAction(subject: TestResultsSubject): IRowAction {
         return {
             label: "Show Result Output",
-            icon: TERMINAL_ICON,
+            glyph: this.icons.glyph(TERMINAL_ICON),
             run: () => {
                 this.reveal(subject);
             },
         };
     }
+
+    /**
+     * Upstream's message actions: Go to Error where the message has a place, then `testing/message/context` (its
+     * `inline` items on the row, the rest in the menu).
+     */
+    private messageActions(subject: TestMessageSubject): IRowAction[] {
+        const { location } = messageOf(subject);
+        const goToError: IRowAction[] =
+            location === undefined
+                ? []
+                : [
+                      {
+                          label: "Go to Error",
+                          glyph: this.icons.glyph(GO_TO_ERROR_ICON),
+                          run: () => {
+                              this.open(location.uri, location.range.start);
+                          },
+                      },
+                  ];
+        return [...goToError, ...this.menuActions(MenuId.TestMessageContext, subject)];
+    }
+
+    private readonly showError = (message: string): void => {
+        this.notifications.show({ severity: "error", message, modal: false, items: [] });
+    };
 
     /** Upstream: the inline actions, then the secondary ones after a separator. */
     private showContextMenu(row: TestResultsRow, screenX: number, screenY: number): void {

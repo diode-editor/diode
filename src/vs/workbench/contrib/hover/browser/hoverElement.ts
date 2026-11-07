@@ -25,7 +25,7 @@ interface IWrappedLines {
  * `wrapText` collapses whitespace, and a code block (a CSS declaration, a nested `if`) would lose its indentation:
  * the indent is kept, and its continuation lines get it too. An indent as wide as the popup wraps as plain text.
  */
-function wrapIndented(line: string, width: number): string[] {
+export function wrapIndented(line: string, width: number): string[] {
     const indent = " ".repeat(line.length - line.replace(/^ +/, "").length);
     if (indent.length >= width) return wrapText(line, width);
     return wrapText(line, width - indent.length).map((wrapped) => indent + wrapped);

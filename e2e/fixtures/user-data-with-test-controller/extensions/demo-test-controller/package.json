@@ -22,6 +22,11 @@
                 "command": "demoTests.updateSnapshot",
                 "title": "Update Snapshot",
                 "category": "Demo Tests"
+            },
+            {
+                "command": "demoTests.copyError",
+                "title": "Copy Error",
+                "category": "Demo Tests"
             }
         ],
         "menus": {
@@ -35,6 +40,18 @@
                 {
                     "command": "demoTests.updateSnapshot",
                     "when": "controllerId == 'demo'"
+                }
+            ],
+            "testing/message/context": [
+                {
+                    "command": "demoTests.copyError",
+                    "when": "testMessage == demo"
+                }
+            ],
+            "testing/message/content": [
+                {
+                    "command": "demoTests.copyError",
+                    "when": "testMessage == demo"
                 }
             ]
         }
