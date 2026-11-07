@@ -165,6 +165,30 @@ describe("TEST RESULTS — a message's content", () => {
         expect(content(harness).join("\n")).toContain("boom");
     });
 
+    it("the text takes the keyboard: arrows by a line, pages by the height less one, Home and End to the ends", async () => {
+        const { harness } = setup(6);
+        failed(harness, { message: Array.from({ length: 30 }, (_, i) => `row ${String(i)}`).join("\n") });
+        await choose(harness, "row 0", "row 1");
+        const row = (line: string | undefined): string => (line ?? "").slice(0, 10).trim();
+        const top = (): string => row(content(harness)[0]);
+        const text = harness.panel.component.message.element.getChildren()[0].getChildren()[0];
+        text.focus();
+        expect(text.isFocused).toBe(true);
+        harness.panel.sendKey("ArrowDown");
+        expect(top()).toBe("row 1");
+        harness.panel.sendKey("PageDown");
+        expect(top()).toBe("row 6");
+        harness.panel.sendKey("PageUp");
+        harness.panel.sendKey("ArrowUp");
+        expect(top()).toBe("row 0");
+        harness.panel.sendKey("End");
+        expect(row(content(harness).at(-1))).toBe("row 29");
+        harness.panel.sendKey("Ctrl+Home");
+        expect(row(content(harness).at(-1))).toBe("row 29");
+        harness.panel.sendKey("Home");
+        expect(top()).toBe("row 0");
+    });
+
     it("a short panel: two frames wider than the content take two rows, no horizontal bar under them", async () => {
         const { harness } = setup(6);
         const long = "x".repeat(80);
