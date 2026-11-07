@@ -51,11 +51,12 @@ import { ghostTextEquals } from "../common/model/iGhostText.ts";
 import type { IGlyphMarginClick, IGlyphMarginDecoration } from "../common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecoration.ts";
 import type { IInlineInsertion } from "../common/model/iInlineInsertion.ts";
+import type { ILineMessageDecoration } from "../common/model/iLineMessageDecoration.ts";
 import { NO_INLINE_INSERTIONS } from "../common/model/iInlineInsertion.ts";
 import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
-import { GlyphMarginDecorations } from "../common/viewModel/glyphMarginDecorations.ts";
+import { TrackedLineDecorations } from "../common/viewModel/trackedLineDecorations.ts";
 import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
 import { composedFragmentStart, composedLineContent, composedOffset } from "../common/viewModel/lineInsertions.ts";
 import { LineWidthCache } from "../common/viewModel/lineWidthCache.ts";
@@ -131,6 +132,8 @@ const FOLD_ICON_COLLAPSED = codicon("chevron-right");
 const FOLD_GAP_LEFT = 1;
 const FOLD_GAP_RIGHT = 1;
 const FOLD_COLLAPSED_MARKER = "⋯";
+/** Empty cells between a line's end and its message (upstream's `margin-left` of the message). */
+const LINE_MESSAGE_GAP = 2;
 
 const INDENT_GUIDE = "▏";
 
@@ -187,6 +190,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     private readonly onDidClickGlyphMarginEmitter = new Emitter<IGlyphMarginClick>();
     /** A press of the left or the right button on the glyph lane of a line with a glyph; the cursor stays. */
     public readonly onDidClickGlyphMargin = this.onDidClickGlyphMarginEmitter.event;
+    private readonly onDidClickLineMessageEmitter = new Emitter<string>();
+    /** A press of the left button on a message after a line's end: its key; the cursor stays. */
+    public readonly onDidClickLineMessage = this.onDidClickLineMessageEmitter.event;
     private readonly onDidClickDocumentLinkEmitter = new Emitter<IPosition>();
     /** Ctrl+click: the press and the release on one link. The position is the link's start. */
     public readonly onDidClickDocumentLink = this.onDidClickDocumentLinkEmitter.event;
@@ -242,7 +248,11 @@ export class EditorElement extends TUIElement implements IScrollable {
     /** Painted over the selection, under the current find match: upstream's decorations layer lies above selections. */
     public extensionTextDecorations: readonly IExtensionTextDecoration[] = NO_EXTENSION_TEXT_DECORATIONS;
     public decorations: IExternalDecorations = EMPTY_EXTERNAL_DECORATIONS;
-    private readonly glyphMargin: GlyphMarginDecorations;
+    private readonly glyphMargin: TrackedLineDecorations<IGlyphMarginDecoration>;
+    private readonly lineMessages: TrackedLineDecorations<ILineMessageDecoration>;
+    /** The cells the last frame painted each message on: a click is matched against what the user saw. */
+    private lineMessageCells: readonly { readonly y: number; readonly x0: number; readonly x1: number; readonly key: string }[] =
+        [];
 
     private lineWidthCache: LineWidthCache | null = null;
     /**
@@ -721,6 +731,17 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.markDirty();
     }
 
+    /** The messages after the lines' ends; each keeps its line through edits until set again elsewhere. */
+    public setLineMessageDecorations(decorations: readonly ILineMessageDecoration[]): void {
+        this.lineMessages.set(decorations);
+        this.markDirty();
+    }
+
+    /** The messages by the line they are on now: a deleted line's message is gone. */
+    public getLineMessageDecorations(): ReadonlyMap<number, ILineMessageDecoration> {
+        return this.lineMessages.byLine();
+    }
+
     private get gutterMarkerColumns(): number {
         return (this.decorations.gutterMarkers?.length ?? 0) > 0 ? 1 : 0;
     }
@@ -782,7 +803,8 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState = viewState;
         this.undoManager = new UndoManager(viewState.document);
         this.wordHighlighter = new WordHighlighter(viewState);
-        this.glyphMargin = new GlyphMarginDecorations(viewState.document);
+        this.glyphMargin = new TrackedLineDecorations(viewState.document);
+        this.lineMessages = new TrackedLineDecorations(viewState.document);
 
         this.viewState.onDidChangeWordHighlights(() => {
             this.markDirty();
@@ -920,6 +942,9 @@ export class EditorElement extends TUIElement implements IScrollable {
             gutterMarkerByLine.set(marker.line, marker.char);
         }
         const glyphByLine = this.glyphMargin.byLine();
+        const messageByLine = this.lineMessages.byLine();
+        const messageCells: { y: number; x0: number; x1: number; key: string }[] = [];
+        this.lineMessageCells = messageCells;
         const zoneDecorationByAnchor = new Map<number, IViewZoneDecoration>();
         for (const zone of this.decorations.zones ?? []) {
             zoneDecorationByAnchor.set(zone.afterLine, zone);
@@ -1176,7 +1201,8 @@ export class EditorElement extends TUIElement implements IScrollable {
                 }
             }
 
-            if (foldHeaderByLine.get(rowLogLine) === true && isLastFragment) {
+            const isFoldedHeader = foldHeaderByLine.get(rowLogLine) === true;
+            if (isFoldedHeader && isLastFragment) {
                 const markerCol = dl.displayWidth + 1 - scrollLeft - fragStartCol;
                 if (markerCol >= 0 && markerCol < contentCols) {
                     context.setCell(gutterW + markerCol, screenY, {
@@ -1185,6 +1211,23 @@ export class EditorElement extends TUIElement implements IScrollable {
                         bg: editorBg,
                     });
                 }
+            }
+
+            const message = isLastFragment ? messageByLine.get(rowLogLine) : undefined;
+            if (message !== undefined) {
+                // After what the line's end already shows: the cut line's badge, the folded region's marker.
+                const lineEnd =
+                    dl.displayWidth +
+                    (dl.isTruncated ? LONG_LINE_TRUNCATION_BADGE.length : 0) +
+                    (isFoldedHeader ? 2 : 0);
+                const cells = this.paintLineMessage(context, message, {
+                    screenY,
+                    gutterW,
+                    contentCols,
+                    startCol: lineEnd + LINE_MESSAGE_GAP - scrollLeft - fragStartCol,
+                    bg: decoratedBg ?? editorBg,
+                });
+                if (cells !== null) messageCells.push({ y: screenY, ...cells, key: message.key });
             }
         }
 
@@ -1270,6 +1313,34 @@ export class EditorElement extends TUIElement implements IScrollable {
         }
 
         this.wordHighlighter.onFrame();
+    }
+
+    /**
+     * The message's text from `startCol` of the content area, cut by its edges; the cells it took, in element
+     * columns, or `null` when none is visible.
+     */
+    private paintLineMessage(
+        context: RenderContext,
+        message: ILineMessageDecoration,
+        at: { screenY: number; gutterW: number; contentCols: number; startCol: number; bg: number },
+    ): { x0: number; x1: number } | null {
+        const { screenY, gutterW, contentCols, startCol } = at;
+        const displayLine = this.viewState.displayLineFor(message.text);
+        const x0 = Math.max(startCol, 0);
+        const x1 = Math.min(startCol + displayLine.displayWidth, contentCols);
+        if (x0 >= x1) return null;
+        const bg = message.bgToken === undefined ? at.bg : compositeOver(this.styleVar(message.bgToken), at.bg);
+        paintPhantomText(context, {
+            displayLine,
+            screenY,
+            gutterW: gutterW + x0,
+            contentCols: x1 - x0,
+            fg: compositeOver(this.styleVar(message.colorToken), bg),
+            bg,
+            style: StyleFlags.None,
+            scrollLeft: x0 - startCol,
+        });
+        return { x0: gutterW + x0, x1: gutterW + x1 };
     }
 
     /** Tokens resolve only when there is something to paint: a bare element has no theme. */
@@ -1510,6 +1581,15 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         if (this.tryClickGlyphMargin(event, "left")) {
             this.dragAnchor = null;
+            return;
+        }
+
+        const message = this.lineMessageCells.find(
+            (cells) => cells.y === event.localY && event.localX >= cells.x0 && event.localX < cells.x1,
+        );
+        if (message !== undefined) {
+            this.dragAnchor = null;
+            this.onDidClickLineMessageEmitter.fire(message.key);
             return;
         }
 

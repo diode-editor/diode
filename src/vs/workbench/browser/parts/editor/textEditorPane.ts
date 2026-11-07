@@ -21,6 +21,7 @@ import type {
     IGlyphMarginClick,
     IGlyphMarginDecoration,
 } from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
+import type { ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
@@ -480,6 +481,18 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public onDidClickGlyphMargin(listener: (click: IGlyphMarginClick) => void): IDisposable {
         return this.component.onDidClickGlyphMargin(listener);
+    }
+
+    public setLineMessageDecorations(decorations: readonly ILineMessageDecoration[]): void {
+        this.component.setLineMessageDecorations(decorations);
+    }
+
+    public getLineMessageDecorations(): ReadonlyMap<number, ILineMessageDecoration> {
+        return this.component.getLineMessageDecorations();
+    }
+
+    public onDidClickLineMessage(listener: (key: string) => void): IDisposable {
+        return this.component.onDidClickLineMessage(listener);
     }
 
     public setExtensionTextDecorations(set: IExtensionTextDecorationSet): void {
