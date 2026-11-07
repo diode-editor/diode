@@ -1,12 +1,25 @@
 import { codicon, type IProductIcon } from "../../../../base/common/codicons.ts";
 import { TestResultState } from "../../../api/common/testingWireTypes.ts";
 
-// Upstream `contrib/testing/browser/icons.ts`: the glyphs both testing views draw.
+// Upstream `contrib/testing/browser/icons.ts` with `testStatesToIconColors` of `theme.ts`.
+
+export interface ITestStateIcon {
+    readonly icon: IProductIcon;
+    /** A theme token. */
+    readonly color: string;
+}
+
+/** Upstream `testingRunIcon`. */
+export const testingRunIcon = codicon("run");
+/** Upstream `testingRunAllIcon`. */
+export const testingRunAllIcon = codicon("run-all");
+/** Upstream `testingRerunIcon`. */
+export const testingRerunIcon = codicon("debug-rerun");
+/** Upstream `testingCancelIcon`. */
+export const testingCancelIcon = codicon("debug-stop");
 
 /** Upstream `testingStatesToIcons` with `testStatesToIconColors`; Running is the spinner. */
-export const STATE_ICONS: Readonly<
-    Partial<Record<TestResultState, { readonly icon: IProductIcon; readonly color: string }>>
-> = {
+export const testingStatesToIcons: Readonly<Partial<Record<TestResultState, ITestStateIcon>>> = {
     [TestResultState.Errored]: { icon: codicon("issues"), color: "testing.iconErrored" },
     [TestResultState.Failed]: { icon: codicon("error"), color: "testing.iconFailed" },
     [TestResultState.Passed]: { icon: codicon("pass"), color: "testing.iconPassed" },
@@ -14,8 +27,3 @@ export const STATE_ICONS: Readonly<
     [TestResultState.Skipped]: { icon: codicon("debug-step-over"), color: "testing.iconSkipped" },
     [TestResultState.Unset]: { icon: codicon("circle-outline"), color: "testing.iconUnset" },
 };
-
-/** Upstream `testingRerunIcon`, `testingRunIcon`, `testingCancelIcon`. */
-export const RERUN_ICON = codicon("debug-rerun");
-export const RUN_ICON = codicon("run");
-export const CANCEL_ICON = codicon("debug-stop");

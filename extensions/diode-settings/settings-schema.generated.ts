@@ -1003,10 +1003,23 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["neverOpen", "openOnTestStart", "openOnTestFailure", "openExplorerOnTestStart"],
     },
     {
+        key: "testing.defaultGutterClickAction",
+        type: "string",
+        default: "run",
+        description: "Controls the action to take when left-clicking on a test decoration in the gutter.",
+        enum: ["run", "debug", "runWithCoverage", "contextMenu"],
+    },
+    {
         key: "testing.followRunningTest",
         type: "boolean",
         default: false,
         description: "Controls whether the running test should be followed in the Test Explorer view.",
+    },
+    {
+        key: "testing.gutterEnabled",
+        type: "boolean",
+        default: true,
+        description: "Controls whether test decorations are shown in the editor gutter.",
     },
     {
         key: "testing.resultsView.layout",

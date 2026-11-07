@@ -224,36 +224,6 @@ describe("TEST RESULTS — older runs", () => {
     });
 });
 
-describe("TEST RESULTS — Reveal in Test Explorer", () => {
-    it("opens the Test Explorer with the cursor on the test", async () => {
-        const harness = setupExplorer({ height: 14 });
-        harness.registerController("vitest", "Vitest");
-        const { Expanded, NotExpandable } = TestItemExpandState;
-        harness.tests.publishDiff([
-            add(wireItem(["vitest"], "Vitest"), Expanded),
-            add(wireItem(["vitest", "math.test.ts"]), Expanded),
-            add(wireItem(SUITE), Expanded),
-            add(wireItem(ADDS), NotExpandable),
-            add(wireItem(FAILS), NotExpandable),
-        ]);
-        await harness.waitFrame((text) => text.includes(" math.test.ts"));
-        const opened = vi.spyOn(harness.views.service, "openView");
-        await harness.views.commands.execute("_revealTestInExplorer", testId(...FAILS));
-        expect(opened).toHaveBeenCalledWith("workbench.view.testing", false);
-        await vi.waitFor(() => {
-            expect(harness.component.focusedTestId).toBe(testId(...FAILS));
-        });
-        await harness.waitFrame((text) => text.includes(" fails"));
-    });
-
-    it("without a test id it opens nothing", async () => {
-        const harness = setupExplorer();
-        const opened = vi.spyOn(harness.views.service, "openView");
-        await harness.views.commands.execute("_revealTestInExplorer");
-        expect(opened).not.toHaveBeenCalled();
-    });
-});
-
 describe("TEST RESULTS — the split", () => {
     it("halves; the content keeps its minimum, the tree gives way first", () => {
         expect(splitWidths(100)).toEqual({ content: 50, tree: 50 });

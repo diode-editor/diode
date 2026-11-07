@@ -225,6 +225,7 @@ import { TerminalPanelComponentDIToken } from "./contrib/terminal/browser/termin
 import { TerminalServiceDIToken } from "./contrib/terminal/browser/terminalService.ts";
 import { TERMINAL_LINK_ACTIONS } from "./contrib/terminalContrib/links/browser/terminalLinkActions.ts";
 import { TESTING_ACTIONS } from "./contrib/testing/browser/testingActions.ts";
+import { TestingDecorationsDIToken } from "./contrib/testing/browser/testingDecorations.ts";
 import { TestingExplorerComponentDIToken } from "./contrib/testing/browser/testingExplorerView.ts";
 import { TestResultsComponentDIToken } from "./contrib/testing/browser/testResultsView.ts";
 import { THEME_ACTIONS } from "./contrib/themes/browser/themeActions.ts";
@@ -350,6 +351,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Stryker disable next-line ObjectLiteral,StringLiteral: see HistoryService above — removing the entry is unobservable in a unit test, the wiring is checked by app startup
     { token: ScmBusyContextContributionDIToken, phase: "ready" },
     { token: TaskStatusBarContributionDIToken, phase: "afterRestored" },
+    // The run glyphs of the restored editors' tests.
+    { token: TestingDecorationsDIToken, phase: "afterRestored" },
     // The background extension checks: never at startup, after the first frame (ExtensionUpdates stage 3).
     { token: ExtensionAutoUpdateContributionDIToken, phase: "eventually" },
 ];

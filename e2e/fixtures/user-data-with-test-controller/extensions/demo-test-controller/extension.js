@@ -90,7 +90,8 @@ exports.activate = (context) => {
         vscode.commands.registerCommand("demoTests.discover", async () => {
             const [folder] = vscode.workspace.workspaceFolders ?? [];
             if (folder === undefined) return;
-            const src = controller.createTestItem("src", "src");
+            // A folder has its uri, as vitest's do: opening a file resolves the tests over it (upstream `testsInFile`).
+            const src = controller.createTestItem("src", "src", vscode.Uri.joinPath(folder.uri, "src"));
             const files = await vscode.workspace.findFiles("src/*.test.js");
             for (const uri of files) {
                 const name = uri.path.slice(uri.path.lastIndexOf("/") + 1);

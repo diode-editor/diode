@@ -371,6 +371,11 @@ import {
     TerminalLinkServiceDIToken,
 } from "../../workbench/contrib/terminalContrib/links/browser/terminalLinkService.ts";
 import {
+    TestingDecorations,
+    TestingDecorationsDIToken,
+    TestingDecorationsEditorSourceDIToken,
+} from "../../workbench/contrib/testing/browser/testingDecorations.ts";
+import {
     TestingExplorerComponent,
     TestingExplorerComponentDIToken,
     TestingRevealTargetDIToken,
@@ -668,6 +673,9 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TestResultsComponentDIToken, TestResultsComponent);
     // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-explorer
     container.bind(TestingRevealTargetDIToken, () => container.get(EditorServiceDIToken));
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-gutter
+    container.bind(TestingDecorationsEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(TestingDecorationsDIToken, TestingDecorations);
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));
     container.bind(TerminalColorsServiceDIToken, TerminalColorsService);

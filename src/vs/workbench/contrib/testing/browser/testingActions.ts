@@ -354,16 +354,6 @@ export const toggleResultsViewLayoutAction: CommandAction = {
     },
 };
 
-/** Upstream `_revealTestInExplorer`: internal, the results tree's "Reveal in Test Explorer". */
-export const revealTestInExplorerAction: CommandAction = {
-    id: "_revealTestInExplorer",
-    title: "Reveal in Test Explorer",
-    menus: [{ menuId: MenuId.CommandPalette, when: "false" }],
-    run(accessor, testIdArg) {
-        if (typeof testIdArg === "string") accessor.get(TestingExplorerComponentDIToken).revealTest(testIdArg);
-    },
-};
-
 /** Upstream `CollapseAllAction`: in the `displayAction` group, so in "⋯". */
 export const collapseAllTestsAction: CommandAction = {
     id: "testing.collapseAll",
@@ -457,5 +447,4 @@ export const TESTING_ACTIONS: readonly CommandAction[] = [
     sortByStatusAction,
     toggleResultsViewLayoutAction,
     reRunFailedFromLastRunAction,
-    revealTestInExplorerAction,
 ];

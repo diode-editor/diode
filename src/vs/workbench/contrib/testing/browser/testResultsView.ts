@@ -44,8 +44,8 @@ import { dominantState, isFailedState, statePriority } from "../common/testingSt
 import type { ITestResultItem, LiveTestResult } from "../common/testResult.ts";
 import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
 
-import { TESTING_EXPLORER_VIEW_ID } from "./testingExplorerView.ts";
-import { CANCEL_ICON, RERUN_ICON, RUN_ICON, STATE_ICONS } from "./testingIcons.ts";
+import { testingCancelIcon, testingRerunIcon, testingRunIcon, testingStatesToIcons } from "./icons.ts";
+import { REVEAL_TEST_COMMAND, TESTING_EXPLORER_VIEW_ID } from "./testingExplorerView.ts";
 import { TestResultsOutput, type TestResultsSubject } from "./testResultsOutput.ts";
 import { TestResultsSplitElement } from "./testResultsSplitElement.ts";
 
@@ -468,7 +468,7 @@ export class TestResultsComponent extends Disposable {
     private stateIcon(state: TestResultState): Pick<ITreeItem, "icon" | "iconColor"> {
         if (state === TestResultState.Running) return { icon: this.spinnerFrame() };
         // Every state but Running has an icon.
-        const icon = assertReturnsDefined(STATE_ICONS[state]);
+        const icon = assertReturnsDefined(testingStatesToIcons[state]);
         return { icon: this.icons.glyph(icon.icon), iconColor: icon.color };
     }
 
@@ -506,16 +506,31 @@ export class TestResultsComponent extends Disposable {
         const { result } = row;
         const rerunFailed = (): IRowAction[] =>
             [...result.tests].some((test) => isFailedState(test.ownComputedState))
-                ? [this.commandAction("Rerun Failed Tests", RERUN_ICON, "testing.reRunFailedFromLastRun", result.id)]
+                ? [
+                      this.commandAction(
+                          "Rerun Failed Tests",
+                          testingRerunIcon,
+                          "testing.reRunFailedFromLastRun",
+                          result.id,
+                      ),
+                  ]
                 : [];
         if (row.kind === "task") {
             const task = result.tasks[row.taskIndex];
             return [
                 this.showOutputAction(row),
                 ...(task.running
-                    ? [this.commandAction("Cancel Test Run", CANCEL_ICON, "testing.cancelRun", result.id, task.id)]
+                    ? [
+                          this.commandAction(
+                              "Cancel Test Run",
+                              testingCancelIcon,
+                              "testing.cancelRun",
+                              result.id,
+                              task.id,
+                          ),
+                      ]
                     : [
-                          this.commandAction("Rerun Last Run", RERUN_ICON, "testing.reRunLastRun", result.id),
+                          this.commandAction("Rerun Last Run", testingRerunIcon, "testing.reRunLastRun", result.id),
                           ...rerunFailed(),
                       ]),
             ];
@@ -523,7 +538,7 @@ export class TestResultsComponent extends Disposable {
         if (row.kind === "result") {
             return [
                 ...(result.tasks.length === 1 ? [this.showOutputAction({ kind: "task", result, taskIndex: 0 })] : []),
-                this.commandAction("Rerun Test", RUN_ICON, "testing.reRunLastRun", result.id),
+                this.commandAction("Rerun Test", testingRunIcon, "testing.reRunLastRun", result.id),
                 ...rerunFailed(),
             ];
         }
@@ -535,11 +550,11 @@ export class TestResultsComponent extends Disposable {
         if (test.tasks[row.taskIndex].messages.some((message) => message.type === "output"))
             actions.push(this.showOutputAction({ ...row, kind: "test" }));
         actions.push({
-            ...this.commandAction("Reveal in Test Explorer", LIST_TREE_ICON, "_revealTestInExplorer", test.item.extId),
+            ...this.commandAction("Reveal in Test Explorer", LIST_TREE_ICON, REVEAL_TEST_COMMAND, test.item.extId),
             secondary: true,
         });
         if (this.contextKeys.get("testing.hasRunnableTests") === true)
-            actions.push(this.commandAction("Run Test", RUN_ICON, "testing.run", arg));
+            actions.push(this.commandAction("Run Test", testingRunIcon, "testing.run", arg));
         return actions;
     }
 

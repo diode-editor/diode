@@ -13,13 +13,25 @@ import { createResultsPanel } from "../../../../../TestUtils/testResultsPanel.ts
 import { testTree } from "../../../../../TestUtils/testTree.ts";
 import { waitUntil } from "../../../../../TestUtils/timing.ts";
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
+import { Event } from "../../../../base/common/event.ts";
+import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
+import { MenuService } from "../../../../platform/actions/common/menuService.ts";
+import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import type { IContextMenuDelegate } from "../../../../platform/contextview/common/contextMenuDelegate.ts";
 import { installVsix } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
+import type { IExtensionManifest } from "../../../../platform/extensions/common/iExtensionManifest.ts";
+import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
+import { StaticProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { TestResultState } from "../../../api/common/testingWireTypes.ts";
+import type { QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
+import { TestingDecorations } from "../../../contrib/testing/browser/testingDecorations.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
+import { registerExtensionMenus } from "../common/extensionMenuContributor.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
@@ -196,6 +208,113 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                     () => output.filter((line) => line.includes("Resolving configs")).length > resolving,
                     60_000,
                 );
+            } finally {
+                await harness.dispose();
+            }
+        },
+    );
+
+    it(
+        "[api:tests.createTestController] the editor gutter: run-all at describe, run at each it; a click on fails' glyph runs only it and turns it into the failed icon; the glyph's menu has Vitest's testing/item/gutter items",
+        { timeout: 120_000 },
+        async () => {
+            const workspace = path.join(tmpRoot, "gutter");
+            writeWorkspace(workspace);
+            const services = makeTestingServices();
+            const { contextKeys, tests, results, profiles } = services;
+            const commands = new CommandRegistry();
+            const harness = await createExtensionTestHarness({
+                workspaceFolders: [workspace],
+                extensions: [registration],
+                activateEvents: [],
+                testingSink: services.adapter,
+                commandRegistry: commands,
+            });
+            try {
+                const icons = new StaticProductIconService(false);
+                const menus = new MenuRegistry(commands, new KeybindingRegistry(), contextKeys, [], icons);
+                registerExtensionMenus(
+                    [
+                        {
+                            id: EXT_ID,
+                            manifest: registration.manifest as unknown as IExtensionManifest,
+                            location: workspace,
+                            isBuiltin: false,
+                        },
+                    ],
+                    menus,
+                );
+                const shown: IContextMenuDelegate[] = [];
+                const configuration = {
+                    get: (key: string) =>
+                        ({ "testing.gutterEnabled": true, "testing.defaultGutterClickAction": "run" })[key],
+                    onDidChangeConfiguration: Event.None,
+                } as unknown as IConfigurationService;
+                const decorations = new TestingDecorations(
+                    harness.group,
+                    tests,
+                    results,
+                    profiles,
+                    configuration,
+                    new ProgressService(),
+                    icons,
+                    new MenuService(menus),
+                    {
+                        showContextMenu: (delegate: IContextMenuDelegate) => shown.push(delegate),
+                    } as unknown as ContextMenuService,
+                    commands,
+                    {} as QuickInputService,
+                    { saveAllBeforeTest: () => Promise.resolve(), showError: () => undefined },
+                );
+                await harness.host.activateByEvent("workspaceContains:node_modules/.bin/vitest");
+                await waitUntil("a Run profile", () => contextKeys.get("testing.hasRunnableTests") === true, 60_000);
+                harness.group.openFile(path.join(workspace, "src", "math.test.ts"));
+
+                // Opening the file resolves its tests: nobody expands the tree here but the gutter.
+                const rows = (): string[] => {
+                    harness.app.render();
+                    return harness.app.backend.screenToString().split("\n");
+                };
+                const row = (text: string): string => rows().find((line) => line.includes(text)) ?? "";
+                await waitUntil("the glyphs", () => row('it("fails"').includes("▷"), 60_000);
+                expect(row('describe("math"')).toContain("▷");
+                expect(row('it("adds"')).toContain("▷");
+                expect(row("expect(1 + 1)")).not.toContain("▷");
+
+                const click = (text: string, glyph: string, button: "left" | "right"): void => {
+                    const all = rows();
+                    const y = all.findIndex((line) => line.includes(text));
+                    const x = all[y].indexOf(glyph);
+                    for (const action of ["press", "release"] as const) {
+                        harness.app.backend.simulateMouse({
+                            kind: "mouse",
+                            button,
+                            action,
+                            x: x + 1,
+                            y: y + 1,
+                            shiftKey: false,
+                            altKey: false,
+                            ctrlKey: false,
+                            raw: "",
+                        });
+                    }
+                };
+                click('it("fails"', "▷", "left");
+                await waitUntil("fails' failed glyph", () => row('it("fails"').includes("✗"), 60_000);
+                // Vitest reports the rest of the file as skipped, as in VS Code.
+                expect(row('it("adds"')).toContain("↷");
+                const failed = [...results.results[0].tests].filter(
+                    (test) => test.ownComputedState === TestResultState.Failed,
+                );
+                expect(failed.map((test) => test.item.label)).toEqual(["fails"]);
+
+                click('it("adds"', "↷", "right");
+                const labels = (shown.at(-1)?.getEntries?.() ?? []).map((entry) =>
+                    entry.type === "separator" ? "-" : entry.label,
+                );
+                expect(labels.slice(0, 3)).toEqual(["Run Test", "Reveal in Test Explorer", "-"]);
+                expect(labels).toContain("Update Snapshot");
+                decorations.dispose();
             } finally {
                 await harness.dispose();
             }
