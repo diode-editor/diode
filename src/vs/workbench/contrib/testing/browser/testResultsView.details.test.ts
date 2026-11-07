@@ -203,9 +203,8 @@ describe("TEST RESULTS — the rows", () => {
     it("older runs: exactly one or N older results; a completed one shows its state, a running one spins", async () => {
         const { harness } = setup();
         failed(harness);
-        // The running runs come first: the earlier one is older than the latest.
+        // The running runs come first: the earlier one is older than the latest. No test of it has reported yet.
         const running = start(harness);
-        report(running, ADDS, Running);
         const one = await harness.panel.waitFrame((text) => text.includes("1 older result"));
         expect(one).not.toContain("1 older results");
         const latest = start(harness);
@@ -394,6 +393,18 @@ describe("TEST RESULTS — the cursor and the content", () => {
         expect(harness.panel.component.tree.getSelectedNode()).toMatchObject({ kind: "test" });
         early.markComplete();
         latest.markComplete();
+    });
+
+    it("Show Result Output on a task the user collapsed leaves it collapsed", async () => {
+        const { harness } = setup();
+        failed(harness);
+        await harness.panel.waitFrame((text) => text.includes("adds"));
+        clickRow(harness, " vitest");
+        await harness.panel.waitFrame((text) => !text.includes("adds"));
+        const task = treeRow(harness, " vitest");
+        harness.panel.click(TREE_X + task.line.indexOf(glyph("terminal")), task.y);
+        await nextFrame();
+        expect(harness.panel.frame()).not.toContain("adds");
     });
 
     it("Show Output from a test: the latest run's first task, the keyboard in the panel", async () => {
