@@ -145,6 +145,12 @@ describe("TEST RESULTS — a message's content", () => {
         expect(lines[at]).toContain("math.test.ts:7:9");
         const internal = lines.findIndex((line) => line.includes("node:internal"));
         expect(internal).toBe(at + 1);
+        // Frames are leaves, with a place or without: no twisty before the label.
+        for (const [y, label] of [
+            [at, "at fails"],
+            [internal, "node:internal"],
+        ] as const)
+            expect(lines[y].slice(0, lines[y].indexOf(label)).trim()).toBe("");
         // The message's header: the test's label, the message under it.
         expect(lines[0]).toContain("fails");
         expect(lines[1]).toContain("boom");
@@ -262,6 +268,8 @@ describe("TEST RESULTS — a message's content", () => {
         text.focus();
         harness.panel.sendKey("Tab");
         expect(text.isFocused).toBe(false);
+        // Without a stack there are no frames to stop at.
+        expect(harness.panel.component.message.frames.isFocused).toBe(false);
     });
 
     it("a short panel: two frames wider than the content take two rows, no horizontal bar under them", async () => {
