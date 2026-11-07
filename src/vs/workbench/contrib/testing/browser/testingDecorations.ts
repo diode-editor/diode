@@ -307,8 +307,8 @@ export class TestingDecorations extends Disposable {
                 this.tests.expandTest(testId, 1).catch(onUnexpectedError);
             }
             for (const childId of test.children) {
-                const child = this.tests.getNodeById(childId);
-                if (child !== undefined) visit(child);
+                // A removed test leaves its parent's children with itself.
+                visit(assertReturnsDefined(this.tests.getNodeById(childId)));
             }
         };
         for (const root of this.tests.rootItems) visit(root);
@@ -480,7 +480,7 @@ export function labelTests(
     for (;;) {
         const counts = new Map<string, number>();
         for (const item of items) counts.set(item.label, (counts.get(item.label) ?? 0) + 1);
-        const conflicts = items.filter((item) => (counts.get(item.label) ?? 0) > 1);
+        const conflicts = items.filter((item) => counts.get(item.label) !== 1);
         if (conflicts.length === 0 || !hasParent) break;
         for (const conflict of conflicts) {
             if (conflict.parent === undefined) {

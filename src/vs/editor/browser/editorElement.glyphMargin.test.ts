@@ -108,9 +108,9 @@ describe("EditorElement — glyph margin", () => {
     });
 
     it("is not repeated on a wrapped continuation row", () => {
-        const { app, editor } = setup(`  it ${"x".repeat(40)}`, new Size(20, 4));
+        const { app, editor, clicks } = setup(`  it ${"x".repeat(40)}\n  it b`, new Size(20, 6));
         editor.viewState.wordWrap = "on";
-        editor.setGlyphMarginDecorations([glyph("a", 0)]);
+        editor.setGlyphMarginDecorations([glyph("a", 0), glyph("b", 1)]);
         app.render();
         app.render();
         expect(app.backend.getTextAt(new Point(0, 0), 3)).toBe(" ▷ ");
@@ -118,6 +118,7 @@ describe("EditorElement — glyph margin", () => {
 
         mouseDown(editor, 1, 1);
         expect(editor.viewState.selections[0].active.line).toBe(0);
+        expect(clicks).toEqual([]);
     });
 
     describe("clicks", () => {

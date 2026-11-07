@@ -463,6 +463,17 @@ describe("TestingDecorations", () => {
         expect(open.gutter(2)).toBe(` ${RUN} 3   `);
     });
 
+    it("another setting's change does not redraw the glyphs", async () => {
+        const s = setup();
+        const open = s.show(s.openEditor());
+        s.publishTests();
+        await flush();
+        const sets = open.sets();
+
+        s.setSetting("editor.fontSize", 20);
+        expect(open.sets()).toBe(sets);
+    });
+
     it.each(["debug", "runWithCoverage"])(
         "testing.defaultGutterClickAction %s runs the test: there is no debugger nor coverage",
         async (action) => {
@@ -953,6 +964,7 @@ describe("TestingDecorations", () => {
             s.show(s.openEditor());
             s.explorer.tests.publishDiff([
                 add(wireItem(ROOT, "Vitest"), Expanded),
+                add(wireItem(["vitest", "w"], "w", { uri: "file:///w/" }), Expandable),
                 add(wireItem(["vitest", "src"], "src", { uri: "file:///w/src" }), Expandable),
                 add(wireItem(["vitest", "lib"], "lib", { uri: "file:///w/lib/" }), Expandable),
                 add(wireItem(["vitest", "math"], "math", { uri: URI }), Expandable),
@@ -961,12 +973,20 @@ describe("TestingDecorations", () => {
             await flush();
 
             expect(s.explorer.expands).toEqual([
+                [testId("vitest", "w"), 1],
                 [testId("vitest", "src"), 1],
                 [testId("vitest", "math"), 1],
             ]);
             s.explorer.tests.publishDiff([update(["vitest", "lib"], { label: "lib!" })]);
             await flush();
-            expect(s.explorer.expands).toHaveLength(2);
+            expect(s.explorer.expands).toHaveLength(3);
+            // The other file's editor resolves its own; the open one does not resolve again.
+            s.show(s.openEditor(OTHER_URI));
+            expect(s.explorer.expands.slice(3)).toEqual([
+                [testId("vitest", "w"), 1],
+                [testId("vitest", "src"), 1],
+                [testId("vitest", "other"), 1],
+            ]);
         });
     });
 
