@@ -377,7 +377,7 @@ export class TestResultsComponent extends Disposable {
         } else if (row.kind === "task") {
             children = this.testsOf(row.result, row.taskIndex);
         } else {
-            // Stryker disable next-line ConditionalExpression,ArrayDeclaration: equivalent — a message row is not collapsible, the tree never asks for its children
+            // Stryker disable next-line ConditionalExpression,ArrayDeclaration,StringLiteral: equivalent — a message row is not collapsible, the tree never asks for its children
             children = row.kind === "message" ? [] : errorMessagesOf(row);
         }
         this.expandOnFirstSight(children);
