@@ -364,7 +364,6 @@
     "testing.sortByStatus",
     "testing.toggleResultsViewLayout",
     "testing.reRunFailedFromLastRun",
-    "_revealTestInExplorer",
     "notifications.clearAll",
     "notifications.focusMessage",
     "workbench.files.action.compareWithSaved",

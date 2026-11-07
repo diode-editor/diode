@@ -22,7 +22,6 @@
             "leaveSnippet",
             "acceptSnippet",
             "testing.showMostRecentOutput",
-            "_revealTestInExplorer",
             "references-view.removeCallItem",
             "references-view.removeTypeItem"
         ]
