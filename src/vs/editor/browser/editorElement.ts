@@ -51,12 +51,11 @@ import { ghostTextEquals } from "../common/model/iGhostText.ts";
 import type { IGlyphMarginClick, IGlyphMarginDecoration } from "../common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecoration.ts";
 import type { IInlineInsertion } from "../common/model/iInlineInsertion.ts";
-import type { ILineMessageDecoration } from "../common/model/iLineMessageDecoration.ts";
 import { NO_INLINE_INSERTIONS } from "../common/model/iInlineInsertion.ts";
+import type { ILineMessageDecoration } from "../common/model/iLineMessageDecoration.ts";
 import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
-import { TrackedLineDecorations } from "../common/viewModel/trackedLineDecorations.ts";
 import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
 import { composedFragmentStart, composedLineContent, composedOffset } from "../common/viewModel/lineInsertions.ts";
 import { LineWidthCache } from "../common/viewModel/lineWidthCache.ts";
@@ -65,6 +64,7 @@ import {
     LONG_LINE_TRUNCATION_BADGE_WIDTH,
     STOP_RENDERING_LINE_AFTER,
 } from "../common/viewModel/longLineRendering.ts";
+import { TrackedLineDecorations } from "../common/viewModel/trackedLineDecorations.ts";
 import { computeIndentLevel } from "../contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 import { WordHighlighter } from "../contrib/wordHighlighter/browser/wordHighlighter.ts";
@@ -251,8 +251,12 @@ export class EditorElement extends TUIElement implements IScrollable {
     private readonly glyphMargin: TrackedLineDecorations<IGlyphMarginDecoration>;
     private readonly lineMessages: TrackedLineDecorations<ILineMessageDecoration>;
     /** The cells the last frame painted each message on: a click is matched against what the user saw. */
-    private lineMessageCells: readonly { readonly y: number; readonly x0: number; readonly x1: number; readonly key: string }[] =
-        [];
+    private lineMessageCells: readonly {
+        readonly y: number;
+        readonly x0: number;
+        readonly x1: number;
+        readonly key: string;
+    }[] = [];
 
     private lineWidthCache: LineWidthCache | null = null;
     /**

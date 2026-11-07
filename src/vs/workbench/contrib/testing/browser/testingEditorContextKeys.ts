@@ -33,7 +33,11 @@ export const TestingEditorContextKeysDIToken = token<TestingEditorContextKeys>("
  * never sets it).
  */
 export class TestingEditorContextKeys extends Disposable {
-    public static dependencies = [TestingActiveEditorSourceDIToken, TestServiceDIToken, ContextKeyServiceDIToken] as const;
+    public static dependencies = [
+        TestingActiveEditorSourceDIToken,
+        TestServiceDIToken,
+        ContextKeyServiceDIToken,
+    ] as const;
 
     public constructor(
         private readonly editors: ITestingActiveEditorSource,
@@ -57,7 +61,8 @@ export class TestingEditorContextKeys extends Disposable {
         const cursor = editor === null ? null : createPosition(editor.primaryCursorLine, editor.primaryCursorColumn);
         this.contextKeys.set(
             "testing.cursorInsideTestRange",
-            cursor !== null && tests.some((test) => test.item.range !== null && rangeContainsPosition(test.item.range, cursor)),
+            cursor !== null &&
+                tests.some((test) => test.item.range !== null && rangeContainsPosition(test.item.range, cursor)),
         );
     }
 }

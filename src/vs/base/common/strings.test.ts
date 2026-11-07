@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { commonPrefixLength, commonSuffixLength, removeAnsiEscapeCodes, splitLines, truncateMiddle } from "./strings.ts";
+import {
+    commonPrefixLength,
+    commonSuffixLength,
+    removeAnsiEscapeCodes,
+    splitLines,
+    truncateMiddle,
+} from "./strings.ts";
 
 describe("commonPrefixLength", () => {
     it("counts the length of the common prefix", () => {

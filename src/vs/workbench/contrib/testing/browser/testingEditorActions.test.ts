@@ -15,11 +15,7 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { StaticProductIconService } from "../../../../platform/theme/common/productIconService.ts";
-import {
-    TestItemExpandState,
-    TestResultState,
-    TestRunProfileBitset,
-} from "../../../api/common/testingWireTypes.ts";
+import { TestItemExpandState, TestResultState, TestRunProfileBitset } from "../../../api/common/testingWireTypes.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 import { TestProfileServiceDIToken } from "../common/testProfileService.ts";
@@ -177,7 +173,9 @@ function setup() {
     ]);
     const accessor = { get: (token: unknown) => services.get(token) } as unknown as ServiceAccessor;
     const ran = (): string[][] =>
-        explorer.runs.map((run) => run.requests.flatMap((request) => request.testIds.map((id) => id.split("\0").pop() ?? "")));
+        explorer.runs.map((run) =>
+            run.requests.flatMap((request) => request.testIds.map((id) => id.split("\0").pop() ?? "")),
+        );
     const cursor = (line: number, character = 0) => {
         element.viewState.goToPosition(line, character);
     };
@@ -373,7 +371,7 @@ describe("the editor commands' contract", () => {
         const keys = Object.fromEntries(
             TESTING_EDITOR_ACTIONS.map((action) => [
                 action.id,
-                action.keybinding !== undefined && "keys" in action.keybinding ? action.keybinding.when : undefined,
+                action.keybinding !== undefined && "when" in action.keybinding ? action.keybinding.when : undefined,
             ]),
         );
         expect(keys).toEqual({

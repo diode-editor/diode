@@ -13,11 +13,7 @@ import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { StaticProductIconService } from "../../../../platform/theme/common/productIconService.ts";
-import {
-    type IWireTestMessage,
-    TestResultState,
-    TestRunProfileBitset,
-} from "../../../api/common/testingWireTypes.ts";
+import { type IWireTestMessage, TestResultState, TestRunProfileBitset } from "../../../api/common/testingWireTypes.ts";
 import type { LiveTestResult } from "../common/testResult.ts";
 
 import { PEEK_TEST_ERROR_COMMAND } from "./testingDecorations.ts";
@@ -76,7 +72,7 @@ function setup(options: { settings?: Record<string, unknown>; icons?: StaticProd
         let sets = 0;
         const editor = {
             uri: Uri.parse(uri),
-            isTooLargeForTokenization: false,
+            isTooLargeForTokenization: false as boolean,
             onDidChangeTooLargeForTokenization: largeFileLeft.event,
             setLineMessageDecorations: (messages) => {
                 sets++;
@@ -211,10 +207,7 @@ describe("TestingMessageDecorations — the failures after the lines", () => {
     it("with testing.showAllMessages, the older runs' messages too, the latest first on a shared line", async () => {
         const { explorer, openEditor, run, flush } = setup();
         const view = openEditor();
-        run([
-            { message: { message: "old 2", location: at(2) } },
-            { message: { message: "old 5", location: at(5) } },
-        ]);
+        run([{ message: { message: "old 2", location: at(2) } }, { message: { message: "old 5", location: at(5) } }]);
         run([{ message: { message: "new 2", location: at(2) } }]);
         await flush();
         expect([...view.element.getLineMessageDecorations().keys()]).toEqual([2]);
@@ -292,10 +285,7 @@ describe("TestingMessageDecorations — the failures after the lines", () => {
     it("an edit moves the message with its line; deleting the line takes it away until the next run", async () => {
         const { decorations, openEditor, run, flush } = setup();
         const view = openEditor();
-        run([
-            { message: { message: "a", location: at(2) } },
-            { message: { message: "b", location: at(5) } },
-        ]);
+        run([{ message: { message: "a", location: at(2) } }, { message: { message: "b", location: at(5) } }]);
         await flush();
         view.element.viewState.document.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "// top\n")]);
         expect(view.message(3)).toBe(` ${ERROR} a`);
@@ -382,10 +372,7 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
 
     it("Peek Error of a test shows its first error with a location; none — nothing opens", async () => {
         const { explorer, run, flush } = setup();
-        run([
-            { message: { message: "no location" } },
-            { message: { message: "located", location: at(5) } },
-        ]);
+        run([{ message: { message: "no location" } }, { message: { message: "located", location: at(5) } }]);
         await flush();
         expect(explorer.views.commands.has(PEEK_TEST_ERROR_COMMAND)).toBe(true);
 
@@ -404,7 +391,8 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
 
     it("Peek Output: the editor's failure nearest to the line, else the one shown last, else any failure", async () => {
         const { decorations, explorer, openEditor, run, flush } = setup();
-        expect(decorations.showNearest(undefined, 0)).toBe(false);
+        decorations.showNearest(undefined, 0);
+        expect(explorer.panel.component.currentSubject).toBeNull();
         const other = openEditor(OTHER_URI, "x\n");
         run([
             { message: { message: "two", location: at(2) } },
@@ -420,7 +408,7 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
                 : undefined;
         };
 
-        expect(decorations.showNearest(view.editor, 4)).toBe(true);
+        decorations.showNearest(view.editor, 4);
         expect(shownText()).toBe("five");
         decorations.showNearest(view.editor, 3);
         expect(shownText()).toBe("two");
@@ -446,10 +434,7 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
     it("select chooses the message in a shown TEST RESULTS and opens nothing otherwise", async () => {
         const { decorations, explorer, openEditor, run, flush } = setup();
         const view = openEditor();
-        run([
-            { message: { message: "two", location: at(2) } },
-            { message: { message: "five", location: at(5) } },
-        ]);
+        run([{ message: { message: "two", location: at(2) } }, { message: { message: "five", location: at(5) } }]);
         await flush();
         const [two, five] = decorations.failuresIn(view.editor);
         decorations.select(two.subject);
@@ -465,9 +450,9 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
 describe("the messages' texts", () => {
     it("an error: `actual != expected` when both are known, each on one line and cut in the middle at 30", () => {
         expect(errorText({ type: "error", message: "m", expected: "3", actual: "2" })).toBe("2 != 3");
-        expect(
-            errorText({ type: "error", message: "m", expected: `{\n  a: 1\n}`, actual: "x".repeat(40) }),
-        ).toBe(`${"x".repeat(14)}…${"x".repeat(15)} != { a: 1 }`);
+        expect(errorText({ type: "error", message: "m", expected: `{\n  a: 1\n}`, actual: "x".repeat(40) })).toBe(
+            `${"x".repeat(14)}…${"x".repeat(15)} != { a: 1 }`,
+        );
     });
 
     it("an error otherwise: its first line, without the escapes and control characters; empty — Test Failed", () => {

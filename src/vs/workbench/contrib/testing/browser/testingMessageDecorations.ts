@@ -13,7 +13,8 @@ import {
     ProductIconServiceDIToken,
 } from "../../../../platform/theme/common/productIconService.ts";
 import { TestResultState } from "../../../api/common/testingWireTypes.ts";
-import type { ITestResultMessage, LiveTestResult } from "../common/testResult.ts";
+import { isFailedState } from "../common/testingStates.ts";
+import type { ITestResultItem, ITestResultMessage, LiveTestResult } from "../common/testResult.ts";
 import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
 
 import { testingStatesToIcons } from "./icons.ts";
@@ -182,9 +183,9 @@ export class TestingMessageDecorations extends Disposable {
 
     /**
      * Upstream `TestingPeekOpener.open`: the editor's failure nearest to the line, otherwise the message shown last,
-     * otherwise the first failure with a location of the latest results. `false` when there is none.
+     * otherwise the first failure with a location of the latest results; none — nothing opens.
      */
-    public showNearest(editor: ITestingMessagesEditor | undefined, line: number): boolean {
+    public showNearest(editor: ITestingMessagesEditor | undefined, line: number): void {
         let nearest: IShownTestMessage | undefined;
         for (const failure of editor === undefined ? [] : this.failuresIn(editor)) {
             if (nearest === undefined || Math.abs(failure.line - line) < Math.abs(nearest.line - line))
@@ -194,32 +195,25 @@ export class TestingMessageDecorations extends Disposable {
         const subject =
             nearest?.subject ?? (last !== undefined && this.results.results.includes(last.result) ? last : undefined);
         const candidate = subject ?? this.anyFailure();
-        if (candidate === undefined) return false;
-        this.show(candidate, false);
-        return true;
+        if (candidate !== undefined) this.show(candidate, false);
     }
 
     /**
      * Upstream `tryPeekFirstError` ("Peek Error" of a test's menu): the first error message with a location of the
-     * test's latest result. `false` when there is none.
+     * test's latest result; none — nothing opens.
      */
-    public showFirstError(testId: string): boolean {
+    public showFirstError(testId: string): void {
         const found = this.results.getStateById(testId);
-        if (found === undefined) return false;
-        const [result, test] = found;
-        const subject = failuresOf(result, test.item.extId)[0];
-        if (subject === undefined) return false;
-        this.show(subject, false);
-        return true;
+        const subject = found === undefined ? undefined : failuresOf(...found).at(0);
+        if (subject !== undefined) this.show(subject, false);
     }
 
     /** Upstream `getAnyCandidateMessage`: the runs from the latest, their failed tests' first error with a location. */
     private anyFailure(): TestMessageSubject | undefined {
         for (const result of this.results.results) {
             for (const test of result.tests) {
-                if (test.ownComputedState !== TestResultState.Failed && test.ownComputedState !== TestResultState.Errored)
-                    continue;
-                const subject = failuresOf(result, test.item.extId)[0];
+                if (!isFailedState(test.ownComputedState)) continue;
+                const subject = failuresOf(result, test).at(0);
                 if (subject !== undefined) return subject;
             }
         }
@@ -282,7 +276,11 @@ export class TestingMessageDecorations extends Disposable {
                 ? this.results.results
                 : this.results.results.slice(0, 1);
             const seenLines = new Set<number>();
-            const add = (subject: TestMessageSubject, line: number, decoration: Omit<ILineMessageDecoration, "key" | "line">) => {
+            const add = (
+                subject: TestMessageSubject,
+                line: number,
+                decoration: Omit<ILineMessageDecoration, "key" | "line">,
+            ) => {
                 seenLines.add(line);
                 const key = subjectKey(subject);
                 shown.set(key, { line, subject });
@@ -362,11 +360,9 @@ function forEachMessage(
 }
 
 /** Upstream `getFailedCandidateMessage`: the test's error messages with a location, task by task. */
-function failuresOf(result: LiveTestResult, testId: string): TestMessageSubject[] {
+function failuresOf(result: LiveTestResult, test: ITestResultItem): TestMessageSubject[] {
     const subjects: TestMessageSubject[] = [];
-    // A test found by its state is in the run.
-    const test = result.getStateById(testId);
-    test?.tasks.forEach((task, taskIndex) => {
+    test.tasks.forEach((task, taskIndex) => {
         task.messages.forEach((message, messageIndex) => {
             if (message.type === "error" && message.location !== undefined)
                 subjects.push({ kind: "message", result, taskIndex, test, messageIndex });

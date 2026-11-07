@@ -1,5 +1,5 @@
 import { comparePositions, createPosition, type IPosition } from "../../../../editor/common/core/iPosition.ts";
-import { rangeContainsPosition, rangesEqual, type IRange } from "../../../../editor/common/core/iRange.ts";
+import { type IRange, rangeContainsPosition, rangesEqual } from "../../../../editor/common/core/iRange.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -157,7 +157,11 @@ export const goToNextMessageAction: CommandAction = {
     id: "testing.goToNextMessage",
     title: "Test: Go to Next Test Failure",
     shortTitle: "Go to Next Test Failure",
-    keybinding: { keys: parseKeybinding("alt+f8"), when: EDITOR_TEXT_FOCUS, weight: KeybindingWeight.EditorContrib + 1 },
+    keybinding: {
+        keys: parseKeybinding("alt+f8"),
+        when: EDITOR_TEXT_FOCUS,
+        weight: KeybindingWeight.EditorContrib + 1,
+    },
     menus: [{ menuId: MenuId.CommandPalette, when: EDITOR_TEXT_FOCUS }],
     run(accessor) {
         goToFailure(accessor, 1);

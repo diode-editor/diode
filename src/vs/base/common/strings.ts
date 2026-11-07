@@ -154,10 +154,18 @@ export function truncateMiddle(value: string, maxLength: number, suffix = "…")
 
 // -- ANSI escape sequences
 
+// Stryker disable all: upstream's patterns, verbatim; the tests check what they strip
+/* eslint-disable no-control-regex -- the escape sequences start with control characters */
 const CSI_SEQUENCE = /(?:\x1b\[|\x9b)[=?>!]?[\d;:]*["$#'* ]?[a-zA-Z@^`{}|~]/;
 const OSC_SEQUENCE = /(?:\x1b\]|\x9d).*?(?:\x1b\\|\x07|\x9c)/;
 const ESC_SEQUENCE = /\x1b(?:[ #%()*+\-./]?[a-zA-Z0-9|}~@])/;
-const CONTROL_SEQUENCES = new RegExp(`(?:${[CSI_SEQUENCE.source, OSC_SEQUENCE.source, ESC_SEQUENCE.source].join("|")})`, "g");
+/* eslint-enable no-control-regex */
+const CONTROL_SEQUENCES = new RegExp(
+    `(?:${[CSI_SEQUENCE.source, OSC_SEQUENCE.source, ESC_SEQUENCE.source].join("|")})`,
+    "g",
+);
+
+// Stryker restore all
 
 /** Upstream `removeAnsiEscapeCodes`: the text without its CSI, OSC and ESC sequences. */
 export function removeAnsiEscapeCodes(str: string): string {

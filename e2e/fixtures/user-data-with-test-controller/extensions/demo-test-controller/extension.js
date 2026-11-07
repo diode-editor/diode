@@ -1,6 +1,6 @@
 // A test controller in the shape of vitest.explorer: folders and test files come on "Discover Tests", a file's
 // `describe`/`it` blocks only when the file is expanded (resolveHandler, a second late, so the spinner shows).
-// Its Run profile steps through the tests: a name with "fails" fails, "throws" errors, "skip" is skipped, the rest
+// Its Run profile steps through the tests: a name with "fails" fails (the message at its line), "throws" errors, "skip" is skipped, the rest
 // pass; each takes a while so the run can be seen, cancellation stops it.
 const vscode = require("vscode");
 
@@ -71,7 +71,10 @@ exports.activate = (context) => {
                 const duration = 10 * (index + 1);
                 if (test.label.includes("fails")) {
                     run.appendOutput(`\x1b[31mFAIL\x1b[0m ${test.label}\r\n`, undefined, test);
-                    run.failed(test, vscode.TestMessage.diff("expected 2 to equal 3", "3", "2"), duration);
+                    // At the test's line, as vitest points at the failed assertion: the editor shows it there.
+                    const message = vscode.TestMessage.diff("expected 2 to equal 3", "3", "2");
+                    message.location = new vscode.Location(test.uri, test.range);
+                    run.failed(test, message, duration);
                 } else if (test.label.includes("throws")) {
                     run.errored(test, new vscode.TestMessage("TypeError: boom"), duration);
                 } else if (test.label.includes("skip")) {

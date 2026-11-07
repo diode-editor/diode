@@ -41,10 +41,13 @@ function setup() {
         activeChanged.fire();
     };
     const move = (line: number, column = 0): void => {
-        active = { ...(active as ITestingCursorEditor), primaryCursorLine: line, primaryCursorColumn: column };
+        active = { ...active!, primaryCursorLine: line, primaryCursorColumn: column };
         selectionChanged.fire();
     };
-    const state = () => [contextKeys.get("testing.activeEditorHasTests"), contextKeys.get("testing.cursorInsideTestRange")];
+    const state = () => [
+        contextKeys.get("testing.activeEditorHasTests"),
+        contextKeys.get("testing.cursorInsideTestRange"),
+    ];
     return { tests, keys, open, move, state };
 }
 
