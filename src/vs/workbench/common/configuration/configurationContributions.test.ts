@@ -145,6 +145,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "testing.gutterEnabled": "window",
     "testing.resultsView.layout": "window",
     "testing.saveBeforeTest": "window",
+    "testing.showAllMessages": "window",
     "task.slowProviderWarning": "window",
     "task.quickOpen.detail": "window",
     "task.quickOpen.skip": "window",

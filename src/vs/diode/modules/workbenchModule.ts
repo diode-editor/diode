@@ -376,10 +376,21 @@ import {
     TestingDecorationsEditorSourceDIToken,
 } from "../../workbench/contrib/testing/browser/testingDecorations.ts";
 import {
+    TestingActiveEditorSourceDIToken,
+    TestingEditorContextKeys,
+    TestingEditorContextKeysDIToken,
+} from "../../workbench/contrib/testing/browser/testingEditorContextKeys.ts";
+import {
     TestingExplorerComponent,
     TestingExplorerComponentDIToken,
     TestingRevealTargetDIToken,
 } from "../../workbench/contrib/testing/browser/testingExplorerView.ts";
+import {
+    TestingMessageDecorations,
+    TestingMessageDecorationsDIToken,
+    TestingMessagePeekDIToken,
+    TestingMessagesEditorSourceDIToken,
+} from "../../workbench/contrib/testing/browser/testingMessageDecorations.ts";
 import {
     TestResultsComponent,
     TestResultsComponentDIToken,
@@ -676,6 +687,14 @@ export const workbenchModule: ContainerModule = (container) => {
     // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-gutter
     container.bind(TestingDecorationsEditorSourceDIToken, () => container.get(EditorServiceDIToken));
     container.bind(TestingDecorationsDIToken, TestingDecorations);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-inline-messages
+    container.bind(TestingMessagesEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-inline-messages
+    container.bind(TestingMessagePeekDIToken, () => container.get(TestResultsComponentDIToken));
+    container.bind(TestingMessageDecorationsDIToken, TestingMessageDecorations);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-inline-messages
+    container.bind(TestingActiveEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(TestingEditorContextKeysDIToken, TestingEditorContextKeys);
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));
     container.bind(TerminalColorsServiceDIToken, TerminalColorsService);

@@ -28,6 +28,9 @@ export type TestResultsSubject =
           readonly messageIndex: number;
       };
 
+/** A test's message in a task of a run. */
+export type TestMessageSubject = Extract<TestResultsSubject, { readonly kind: "message" }>;
+
 /** Upstream's texts of an empty output. */
 export const CASE_NO_OUTPUT = "The test case did not report any output.";
 export const RUN_NO_OUTPUT = "The test run did not record any output.";
