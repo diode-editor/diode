@@ -2,6 +2,7 @@ import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
+import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
@@ -201,6 +202,47 @@ describe("EditorElement — glyph margin", () => {
 
             expect(clicks).toEqual([]);
             expect(prevented).toEqual([false, false]);
+        });
+
+        it("an editor away from the screen's corner takes the press from its own cells", () => {
+            const editor = new EditorElement(new EditorViewState(new TextDocument(LINES)));
+            editor.occurrenceHighlightEnabled = false;
+            const app = TestApp.createWithContent(
+                new PaddingContainerElement(editor, { left: 5, top: 2 }),
+                new Size(40, 10),
+            );
+            const clicks: IGlyphMarginClick[] = [];
+            editor.onDidClickGlyphMargin((click) => clicks.push(click));
+            editor.setGlyphMarginDecorations([glyph("a", 1)]);
+            app.render();
+
+            for (const action of ["press", "release"] as const) {
+                app.backend.simulateMouse({
+                    kind: "mouse",
+                    button: "left",
+                    action,
+                    x: 5 + 1 + 1,
+                    y: 2 + 1 + 1,
+                    shiftKey: false,
+                    altKey: false,
+                    ctrlKey: false,
+                    raw: "",
+                });
+            }
+
+            expect(clicks).toEqual([{ key: "a", button: "left", screenX: 6, screenY: 3 }]);
+        });
+
+        it("the rows past the end are no glyph of the last line", () => {
+            const { app, editor, clicks } = setup(LINES);
+            editor.setGlyphMarginDecorations([glyph("end", 3)]);
+            app.render();
+
+            mouseDown(editor, 1, 4);
+            mouseDown(editor, 1, 5);
+            expect(clicks).toEqual([]);
+            mouseDown(editor, 1, 3);
+            expect(clicks.map((click) => click.key)).toEqual(["end"]);
         });
 
         it("a view zone row under a glyph's line is no glyph", () => {

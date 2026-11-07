@@ -1,6 +1,7 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
-import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
+import type { MenuEntry, MenuItemEntry } from "@tuidom/elements/menu/popupMenuElement";
 
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
@@ -92,8 +93,6 @@ interface IAttachedEditor {
     readonly subscriptions: readonly IDisposable[];
     /** Upstream `RunTestDecoration`s: the tests whose range starts on one line, by the glyph's key. */
     decorations: ReadonlyMap<string, readonly ITestNode[]>;
-    /** Some glyph shows the spinner: the progress ticks redraw this editor. */
-    spinning: boolean;
     /** Tests asked to resolve their children for this file: upstream's `testsInFile`. */
     readonly expanded: Set<string>;
 }
@@ -121,8 +120,6 @@ export class TestingDecorations extends Disposable {
 
     private readonly attached = new Map<ITestingDecorationsEditor, IAttachedEditor>();
     private refreshQueued = false;
-    /** A diff came in the batch: the files' tests may have new children to resolve. */
-    private expandQueued = false;
 
     public constructor(
         private readonly editors: ITestingDecorationsEditorSource,
@@ -146,7 +143,8 @@ export class TestingDecorations extends Disposable {
         );
         this.register(
             tests.onDidProcessDiff(() => {
-                this.expandQueued = true;
+                // The files' tests may have new children to resolve.
+                for (const state of this.attached.values()) this.expandTestsInFile(state);
                 this.queueRefresh();
             }),
         );
@@ -172,14 +170,19 @@ export class TestingDecorations extends Disposable {
         );
         this.register(
             progress.onDidChange(() => {
+                // Only an editor with the spinner redraws on its clock.
                 for (const state of this.attached.values()) {
-                    if (state.spinning) this.refresh(state);
+                    if (
+                        [...state.decorations.values()].some((tests) => this.stateOf(tests) === TestResultState.Running)
+                    ) {
+                        this.refresh(state);
+                    }
                 }
             }),
         );
         this.register({
             dispose: () => {
-                for (const editor of [...this.attached.keys()]) this.detach(editor);
+                for (const state of [...this.attached.values()]) this.detach(state);
             },
         });
         this.syncEditors();
@@ -187,8 +190,8 @@ export class TestingDecorations extends Disposable {
 
     private syncEditors(): void {
         const open = new Set(this.editors.getEditors());
-        for (const editor of [...this.attached.keys()]) {
-            if (!open.has(editor)) this.detach(editor);
+        for (const state of [...this.attached.values()]) {
+            if (!open.has(state.editor)) this.detach(state);
         }
         for (const editor of open) {
             if (this.attached.has(editor)) continue;
@@ -204,7 +207,6 @@ export class TestingDecorations extends Disposable {
                     }),
                 ],
                 decorations: new Map(),
-                spinning: false,
                 expanded: new Set(),
             };
             this.attached.set(editor, state);
@@ -213,11 +215,9 @@ export class TestingDecorations extends Disposable {
         }
     }
 
-    private detach(editor: ITestingDecorationsEditor): void {
-        const state = this.attached.get(editor);
-        if (state === undefined) return;
+    private detach(state: IAttachedEditor): void {
         for (const subscription of state.subscriptions) subscription.dispose();
-        this.attached.delete(editor);
+        this.attached.delete(state.editor);
     }
 
     /** A run reports state by state, discovery diff by diff: the glyphs are recomputed once per batch. */
@@ -226,10 +226,6 @@ export class TestingDecorations extends Disposable {
         this.refreshQueued = true;
         queueMicrotask(() => {
             this.refreshQueued = false;
-            if (this.expandQueued) {
-                this.expandQueued = false;
-                for (const state of this.attached.values()) this.expandTestsInFile(state);
-            }
             this.refreshAll();
         });
     }
@@ -253,45 +249,37 @@ export class TestingDecorations extends Disposable {
         }
         const decorations = new Map<string, readonly ITestNode[]>();
         const glyphs: IGlyphMarginDecoration[] = [];
-        state.spinning = false;
         for (const [line, tests] of byLine) {
-            // Upstream `CachedDecorations` keys a decoration by its exact tests.
-            const key = tests
-                .map((test) => test.item.extId)
-                .sort()
-                .join("\0\0");
+            // A test is on one line: its first test tells the line's glyph apart (upstream keys it by all of them).
+            const key = tests[0].item.extId;
             decorations.set(key, tests);
-            const glyph = this.glyphFor(tests);
-            state.spinning ||= glyph.spinning;
-            glyphs.push({ key, line, ...glyph.decoration });
+            glyphs.push({ key, line, ...this.glyphFor(tests) });
         }
         state.decorations = decorations;
         editor.setGlyphMarginDecorations(glyphs);
     }
 
     /** Upstream `createRunTestDecoration`. */
-    private glyphFor(tests: readonly ITestNode[]): {
-        readonly decoration: Omit<IGlyphMarginDecoration, "key" | "line">;
-        readonly spinning: boolean;
-    } {
+    private glyphFor(tests: readonly ITestNode[]): Omit<IGlyphMarginDecoration, "key" | "line"> {
         const state = this.stateOf(tests);
         if (state === TestResultState.Unset) {
             const multiple = tests.length > 1 || tests[0].children.size > 0;
-            const glyph = this.icons.glyph(multiple ? testingRunAllIcon : testingRunIcon);
-            return { decoration: { glyph, colorToken: "testing.runAction" }, spinning: false };
+            return {
+                glyph: this.icons.glyph(multiple ? testingRunAllIcon : testingRunIcon),
+                colorToken: "testing.runAction",
+            };
         }
         const icon = testingStatesToIcons[state];
         if (icon === undefined) {
             // Running: the spinner of the explorer's progress, the shared clock of `ProgressService`.
             const spinner = this.progress.viewProgress().get(TESTING_EXPLORER_VIEW_ID)?.spinner ?? SPINNER_FRAMES[0];
-            return { decoration: { glyph: spinner, colorToken: "testing.runAction" }, spinning: true };
+            return { glyph: spinner, colorToken: "testing.runAction" };
         }
-        const decoration = {
+        return {
             glyph: this.icons.glyph(icon.icon),
             colorToken: icon.color,
             overviewRulerColorToken: isFailedState(state) ? "editorOverviewRuler.errorForeground" : undefined,
         };
-        return { decoration, spinning: false };
     }
 
     private stateOf(tests: readonly ITestNode[]): TestResultState {
@@ -328,8 +316,8 @@ export class TestingDecorations extends Disposable {
 
     /** Upstream `RunTestDecoration.click`; Alt changes nothing, there is no debugger. */
     private click(state: IAttachedEditor, click: IGlyphMarginClick): void {
-        const tests = state.decorations.get(click.key);
-        if (tests === undefined) return;
+        // The glyphs and their tests are set together.
+        const tests = assertReturnsDefined(state.decorations.get(click.key));
         if (click.button === "right" || this.configuration.get("testing.defaultGutterClickAction") === "contextMenu") {
             this.showContextMenu(state.editor, tests, click);
             return;
@@ -457,16 +445,16 @@ export class TestingDecorations extends Disposable {
             items: labelled.map(({ label }) => ({ label })),
         });
         if (picked === undefined) return;
-        const test = labelled.find(({ label }) => label === picked.label)?.test;
-        if (test === undefined) return;
-        const actions = this.testEntries(test).filter(
-            (entry) => entry.type !== "separator" && entry.type !== "submenu",
-        );
+        const { test } = assertReturnsDefined(labelled.find(({ label }) => label === picked.label));
+        // A test's menu has items and the separator before the extension's.
+        const actions = this.testEntries(test).filter((entry): entry is MenuItemEntry => entry.type !== "separator");
         const action = await this.quickInput.quickPick({
             placeholder: picked.label,
             items: actions.map((entry) => ({ label: entry.label })),
         });
-        actions.find((entry) => entry.label === action?.label)?.onSelect?.();
+        if (action === undefined) return;
+        // Stryker disable next-line OptionalChaining: equivalent — each of a test's menu items has its onSelect
+        assertReturnsDefined(actions.find((entry) => entry.label === action.label)).onSelect?.();
     }
 
     private execute(id: string, ...args: unknown[]): void {
@@ -499,7 +487,7 @@ export function labelTests(
                 hasParent = false;
                 continue;
             }
-            conflict.label = `${String(getNode(conflict.parent)?.item.label)} > ${conflict.label}`;
+            conflict.label = `${assertReturnsDefined(getNode(conflict.parent)).item.label} > ${conflict.label}`;
             conflict.parent = TestId.parentId(conflict.parent);
         }
     }

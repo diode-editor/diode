@@ -23,6 +23,7 @@ import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { SPINNER_FRAMES } from "../../../../platform/progress/common/progressService.ts";
 import {
     type IProductIconService,
     StaticProductIconService,
@@ -81,6 +82,8 @@ interface IOpenEditor {
     readonly element: EditorElement;
     readonly app: TestApp;
     readonly largeFileLeft: Emitter<void>;
+    /** How many times the glyphs were set. */
+    sets(): number;
     /** The gutter cells left of the text of a 0-based line. */
     gutter(line: number): string;
     fg(x: number, line: number): number;
@@ -92,10 +95,14 @@ interface ISetupOptions {
     /** The index the quick pick answers with. */
     readonly picks?: (items: readonly QuickPickItem[]) => number;
     readonly icons?: IProductIconService;
+    /** Before the progress shows, a running test has the spinner's first frame. */
+    readonly progressDelayMs?: number;
 }
 
 function setup(options: ISetupOptions = {}) {
-    const explorer = setupExplorer({ progress: { delayMs: 0, intervalMs: 5, minVisibleMs: 0 } });
+    const explorer = setupExplorer({
+        progress: { delayMs: options.progressDelayMs ?? 0, intervalMs: 5, minVisibleMs: 0 },
+    });
     explorer.registerController("vitest", "Vitest");
     explorer.profiles.addProfile({
         controllerId: "vitest",
@@ -124,9 +131,11 @@ function setup(options: ISetupOptions = {}) {
     const editorsChanged = new Emitter<void>();
     const open: ITestingDecorationsEditor[] = [];
     const picked: string[][] = [];
+    const placeholders: string[] = [];
     const quickInput = {
-        quickPick: (opts: { items: readonly QuickPickItem[] }) => {
+        quickPick: (opts: { placeholder: string; items: readonly QuickPickItem[] }) => {
             picked.push(opts.items.map((entry) => entry.label));
+            placeholders.push(opts.placeholder);
             return Promise.resolve(opts.items[options.picks?.(opts.items) ?? 0]);
         },
     } as unknown as QuickInputService;
@@ -135,20 +144,22 @@ function setup(options: ISetupOptions = {}) {
         saveAllBeforeTest: () => Promise.resolve(),
         showError: (message: string) => toasts.push(message),
     };
-    const decorations = new TestingDecorations(
-        { getEditors: () => open, onDidChangeEditors: editorsChanged.event },
-        explorer.tests,
-        explorer.results,
-        explorer.profiles,
-        configuration,
-        explorer.progress,
-        options.icons ?? NERD,
-        explorer.views.menuService,
-        explorer.views.contextMenu,
-        explorer.views.commands,
-        quickInput,
-        ui,
-    );
+    const start = (): TestingDecorations =>
+        new TestingDecorations(
+            { getEditors: () => open, onDidChangeEditors: editorsChanged.event },
+            explorer.tests,
+            explorer.results,
+            explorer.profiles,
+            configuration,
+            explorer.progress,
+            options.icons ?? NERD,
+            explorer.views.menuService,
+            explorer.views.contextMenu,
+            explorer.views.commands,
+            quickInput,
+            ui,
+        );
+    const decorations = start();
 
     const openEditor = (uri = URI, text = TEXT): IOpenEditor => {
         const element = new EditorElement(new EditorViewState(new TextDocument(text)));
@@ -156,12 +167,14 @@ function setup(options: ISetupOptions = {}) {
         element.setStyleVars(THEME.colors as Record<string, number>);
         const app = TestApp.createWithContent(element, new Size(40, 8));
         const largeFileLeft = new Emitter<void>();
+        let sets = 0;
         const editor = {
             uri: Uri.parse(uri),
             view: element,
             isTooLargeForTokenization: false,
             onDidChangeTooLargeForTokenization: largeFileLeft.event,
             setGlyphMarginDecorations: (glyphs) => {
+                sets++;
                 element.setGlyphMarginDecorations(glyphs);
             },
             onDidClickGlyphMargin: (listener) => element.onDidClickGlyphMargin(listener),
@@ -171,6 +184,7 @@ function setup(options: ISetupOptions = {}) {
             element,
             app,
             largeFileLeft,
+            sets: () => sets,
             gutter: (line) => {
                 app.render();
                 return app.backend.getTextAt(new Point(0, line), element.gutterWidth);
@@ -248,6 +262,7 @@ function setup(options: ISetupOptions = {}) {
     return {
         explorer,
         decorations,
+        start,
         openEditor,
         show,
         close,
@@ -258,6 +273,7 @@ function setup(options: ISetupOptions = {}) {
         select,
         setSetting,
         picked,
+        placeholders,
         toasts,
     };
 }
@@ -379,6 +395,60 @@ describe("TestingDecorations", () => {
         });
     });
 
+    it("before the progress shows, a running test has the spinner's first frame", async () => {
+        const s = setup({ progressDelayMs: 60_000 });
+        const open = s.show(s.openEditor());
+        s.publishTests();
+        await flush();
+        open.click(1, 2);
+        await vi.waitFor(() => {
+            expect(s.explorer.runs).toHaveLength(1);
+        });
+        s.report().state(ADDS, Running);
+        await flush();
+        expect(open.gutter(2)).toBe(` ${SPINNER_FRAMES[0]} 3   `);
+    });
+
+    it("the progress clock redraws only the editors with a running test; a batch of states redraws once", async () => {
+        const s = setup();
+        const open = s.show(s.openEditor());
+        const other = s.show(s.openEditor(OTHER_URI));
+        s.publishTests();
+        s.explorer.tests.publishDiff([add(item([...ROOT, "other"], 1, OTHER_URI), NotExpandable)]);
+        await flush();
+        open.click(1, 2);
+        await vi.waitFor(() => {
+            expect(s.explorer.runs).toHaveLength(1);
+        });
+        const run = s.report();
+        const before = open.sets();
+        run.state(ADDS, Running);
+        run.state(FAILS, Running);
+        await flush();
+        expect(open.sets()).toBe(before + 1);
+
+        const otherSets = other.sets();
+        const frames = new Set<string>();
+        await vi.waitFor(() => {
+            frames.add(open.gutter(2).charAt(1));
+            expect(frames.size).toBeGreaterThan(2);
+        });
+        expect(other.sets()).toBe(otherSets);
+        expect(other.gutter(1)).toBe(` ${RUN} 2   `);
+    });
+
+    it("clearing the results brings the run glyphs back", async () => {
+        const s = setup();
+        const open = s.show(s.openEditor());
+        s.publishTests();
+        await runAndFail(s, open);
+        expect(open.gutter(4)).toBe(` ${ERROR} 5   `);
+
+        s.explorer.results.clear();
+        await flush();
+        expect(open.gutter(4)).toBe(` ${RUN} 5   `);
+    });
+
     it("testing.gutterEnabled off removes the glyphs and the lane, on brings them back", async () => {
         const s = setup();
         const open = s.show(s.openEditor());
@@ -448,6 +518,7 @@ describe("TestingDecorations", () => {
             s.publishTests();
             await flush();
             s.explorer.frame();
+            const shownBefore = s.explorer.views.shownViewlets.length;
 
             open.click(1, 4, "right");
             s.select("Reveal in Test Explorer");
@@ -455,6 +526,9 @@ describe("TestingDecorations", () => {
             await vi.waitFor(() => {
                 expect(s.explorer.component.focusedTestId).toBe(testId(...FAILS));
             });
+            expect(s.explorer.views.shownViewlets.slice(shownBefore)).toEqual([
+                { id: "workbench.view.extension.test", reveal: true, focus: false },
+            ]);
         });
 
         it("a failed test offers Peek Error once its command exists, a running one Cancel Test Run", async () => {
@@ -553,6 +627,7 @@ describe("TestingDecorations", () => {
             open.click(1, 2, "right");
             expect(s.labels()).toEqual(["Run All Tests", "-", "case 0", "case 1"]);
             const submenu = s.menu()[3] as MenuSubmenuEntry;
+            expect(submenu.type).toBe("submenu");
             expect(s.labels((submenu.entries as () => MenuEntry[])())).toEqual(["Run Test", "Reveal in Test Explorer"]);
 
             s.select("Run All Tests");
@@ -560,6 +635,77 @@ describe("TestingDecorations", () => {
                 expect(s.explorer.runs).toHaveLength(1);
             });
             expect(s.explorer.runs[0].requests[0].testIds).toEqual([testId(...FILE, "t0"), testId(...FILE, "t1")]);
+        });
+
+        it("a suite and its test on one line: run-all, and the suite runs alone", async () => {
+            const s = setup();
+            const open = s.show(s.openEditor());
+            s.explorer.tests.publishDiff([
+                add(wireItem(ROOT, "Vitest"), Expanded),
+                add(item(FILE), Expanded),
+                add(item(SUITE, 2), Expanded),
+                add(item(ADDS, 2), NotExpandable),
+            ]);
+            await flush();
+            expect(open.gutter(2)).toBe(` ${RUN_ALL} 3   `);
+
+            open.click(1, 2);
+            await vi.waitFor(() => {
+                expect(s.explorer.runs).toHaveLength(1);
+            });
+            expect(s.explorer.runs[0].requests[0].testIds).toEqual([testId(...SUITE)]);
+        });
+
+        it("without a run profile there is no Run Test nor Run All Tests; one test with a profile is enough", async () => {
+            const s = setup();
+            s.explorer.registerController("jest", "Jest");
+            const open = s.show(s.openEditor());
+            const jest = (name: string, line: number) =>
+                add(wireItem(["jest", name], name, { uri: URI, range: createRange(line, 0, line, 5) }), NotExpandable);
+            s.explorer.tests.publishDiff([
+                add(wireItem(["jest"], "Jest"), Expanded),
+                jest("single", 0),
+                jest("a", 2),
+                jest("b", 2),
+            ]);
+            s.publishTests();
+            await flush();
+
+            open.click(1, 0, "right");
+            expect(s.labels()).toEqual(["Reveal in Test Explorer"]);
+            open.click(1, 2, "right");
+            expect(s.labels()).toEqual(["Run All Tests", "-", "a", "adds", "b"]);
+            s.explorer.tests.publishDiff([{ op: 3, itemId: testId(...ADDS) }]);
+            await flush();
+            open.click(1, 2, "right");
+            expect(s.labels()).toEqual(["a", "b"]);
+        });
+
+        it(`exactly ${String(MAX_TESTS_IN_SUBMENU)} tests are all in the menu, without "more tests..."`, async () => {
+            const s = setup();
+            const open = s.show(s.openEditor());
+            publishOnOneLine(s, MAX_TESTS_IN_SUBMENU, (i) => `case ${String(i).padStart(2, "0")}`);
+            await flush();
+
+            open.click(1, 2, "right");
+            expect(s.labels()).toHaveLength(2 + MAX_TESTS_IN_SUBMENU);
+            expect(s.labels().at(-1)).toBe("case 29");
+        });
+
+        it("tests with equal labels up to their controller keep them", async () => {
+            const s = setup();
+            const open = s.show(s.openEditor());
+            s.explorer.tests.publishDiff([
+                add(wireItem(ROOT, "Vitest"), Expanded),
+                add(wireItem([...ROOT, "a"], "suite"), Expanded),
+                add(wireItem([...ROOT, "b"], "suite"), Expanded),
+                add(wireItem([...ROOT, "a", "x"], "same", { uri: URI, range: createRange(2, 0, 2, 5) }), NotExpandable),
+                add(wireItem([...ROOT, "b", "x"], "same", { uri: URI, range: createRange(2, 0, 2, 5) }), NotExpandable),
+            ]);
+            await flush();
+
+            open.click(1, 2, "right");
+            expect(s.labels()).toEqual(["Run All Tests", "-", "Vitest > suite > same", "Vitest > suite > same"]);
         });
 
         it("equal labels are told apart by their parents; a label shows its first line", async () => {
@@ -601,7 +747,67 @@ describe("TestingDecorations", () => {
             });
             expect(s.picked[0]).toHaveLength(MAX_TESTS_IN_SUBMENU + 2);
             expect(s.picked[1]).toEqual(["Run Test", "Reveal in Test Explorer"]);
+            expect(s.placeholders).toEqual(["Select a test to run", "case 31"]);
             expect(s.explorer.runs[0].requests[0].testIds).toEqual([testId(...FILE, "t31")]);
+        });
+    });
+
+    describe('"more tests..."', () => {
+        function publishMany(s: Setup): void {
+            s.explorer.tests.publishDiff([
+                add(wireItem(ROOT, "Vitest"), Expanded),
+                add(item(FILE), Expanded),
+                ...Array.from({ length: MAX_TESTS_IN_SUBMENU + 1 }, (_, i) =>
+                    add(
+                        wireItem([...FILE, `t${String(i)}`], `case ${String(i).padStart(2, "0")}`, {
+                            uri: URI,
+                            range: createRange(2, 0, 2, 5),
+                        }),
+                        NotExpandable,
+                    ),
+                ),
+            ]);
+        }
+
+        it.each([
+            ["the test", 0],
+            ["the action", 1],
+        ])("dismissing the pick of %s runs nothing", async (_, dismissed) => {
+            const s = setup({ picks: (items) => (s.picked.length - 1 === dismissed ? -1 : 0) });
+            const open = s.show(s.openEditor());
+            publishMany(s);
+            await flush();
+
+            open.click(1, 2, "right");
+            s.select("1 more tests...");
+            await vi.waitFor(() => {
+                expect(s.picked).toHaveLength(dismissed + 1);
+            });
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            expect(s.picked).toHaveLength(dismissed + 1);
+            expect(s.explorer.runs).toHaveLength(0);
+        });
+
+        it("the actions are the test's menu items without the separator", async () => {
+            const s = setup({ picks: (items) => (items[0].label === "Run Test" ? 2 : 0) });
+            const received: unknown[] = [];
+            s.explorer.views.commands.register("vitest.updateSnapshot", (arg) => received.push(arg));
+            s.explorer.views.menuRegistry.appendMenuItem({
+                menuId: MenuId.TestItemGutter,
+                command: "vitest.updateSnapshot",
+                title: "Update Snapshot",
+            });
+            const open = s.show(s.openEditor());
+            publishMany(s);
+            await flush();
+
+            open.click(1, 2, "right");
+            s.select("1 more tests...");
+            await vi.waitFor(() => {
+                expect(received).toHaveLength(1);
+            });
+            expect(s.picked[1]).toEqual(["Run Test", "Reveal in Test Explorer", "Update Snapshot"]);
+            expect(received).toEqual([{ $testId: testId(...FILE, "t0") }]);
         });
     });
 
@@ -673,6 +879,62 @@ describe("TestingDecorations", () => {
             expect(s.explorer.runs).toHaveLength(0);
         });
 
+        it("editors open before it starts get their glyphs", async () => {
+            const s = setup();
+            s.decorations.dispose();
+            s.publishTests();
+            const open = s.show(s.openEditor());
+            expect(open.element.gutterWidth).toBe(6);
+
+            s.start();
+            expect(open.gutter(2)).toBe(` ${RUN} 3   `);
+        });
+
+        it("another editor opening does not attach the open one again: a click runs once", async () => {
+            const s = setup();
+            const open = s.show(s.openEditor());
+            s.show(s.openEditor(OTHER_URI));
+            s.publishTests();
+            await flush();
+
+            open.click(1, 2);
+            await vi.waitFor(() => {
+                expect(s.explorer.runs).toHaveLength(1);
+            });
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            expect(s.explorer.runs).toHaveLength(1);
+        });
+
+        it("an editor opened after the file's tests arrive resolves them", async () => {
+            const s = setup();
+            s.explorer.tests.publishDiff([
+                add(wireItem(ROOT, "Vitest"), Expanded),
+                add(wireItem(["vitest", "math"], "math", { uri: URI }), Expandable),
+            ]);
+            await flush();
+            expect(s.explorer.expands).toEqual([]);
+
+            s.show(s.openEditor());
+            expect(s.explorer.expands).toEqual([[testId("vitest", "math"), 1]]);
+        });
+
+        it("the large-file mode resolves nothing until it is left", async () => {
+            const s = setup();
+            const open = s.openEditor();
+            open.editor.isTooLargeForTokenization = true;
+            s.show(open);
+            s.explorer.tests.publishDiff([
+                add(wireItem(ROOT, "Vitest"), Expanded),
+                add(wireItem(["vitest", "math"], "math", { uri: URI }), Expandable),
+            ]);
+            await flush();
+            expect(s.explorer.expands).toEqual([]);
+
+            open.editor.isTooLargeForTokenization = false;
+            open.largeFileLeft.fire();
+            expect(s.explorer.expands).toEqual([[testId("vitest", "math"), 1]]);
+        });
+
         it("the large-file mode has no glyphs until it is left", async () => {
             const s = setup();
             s.publishTests();
@@ -727,5 +989,19 @@ describe("TestingDecorations", () => {
         s.publishTests();
         await flush();
         expect(open.element.gutterWidth).toBe(6);
+    });
+
+    it("disposed, it stops listening to the editors' clicks", async () => {
+        const s = setup();
+        const open = s.show(s.openEditor());
+        s.publishTests();
+        await flush();
+        s.decorations.dispose();
+
+        open.click(1, 2);
+        open.largeFileLeft.fire();
+        await flush();
+        expect(s.explorer.runs).toHaveLength(0);
+        expect(s.explorer.expands).toEqual([]);
     });
 });

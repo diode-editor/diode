@@ -1074,6 +1074,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                     context.setCell(leftPadding + d, screenY, { char: lineNumStr[d], fg: numFg, bg: rowGutBg });
                 }
                 const foldCol = this.foldControlColumn;
+                // Stryker disable next-line EqualityOperator: equivalent — the text paints the column at gutterW over it
                 for (let x = leftPadding + digitCount; x < gutterW; x++) {
                     context.setCell(x, screenY, { char: " ", fg: numFg, bg: rowGutBg });
                 }
@@ -1574,9 +1575,8 @@ export class EditorElement extends TUIElement implements IScrollable {
      */
     private tryClickGlyphMargin(event: TUIMouseEvent, button: IGlyphMarginClick["button"]): boolean {
         const localX = event.screenX - this.globalPosition.x;
-        if (this.glyphMargin.isEmpty || localX < 0 || localX >= this.gutterLeftPadding) return false;
-        const line = this.gutterLineAt(event.screenY - this.globalPosition.y);
-        const glyph = line === null ? undefined : this.glyphMargin.byLine().get(line);
+        if (localX >= this.gutterLeftPadding) return false;
+        const glyph = this.glyphMargin.byLine().get(this.gutterLineAt(event.screenY - this.globalPosition.y));
         if (glyph === undefined) return false;
         this.onDidClickGlyphMarginEmitter.fire({
             key: glyph.key,
@@ -1590,7 +1590,6 @@ export class EditorElement extends TUIElement implements IScrollable {
     private tryToggleFoldAtGutter(localX: number, localY: number): boolean {
         if (localX !== this.foldControlColumn) return false;
         const logLine = this.gutterLineAt(localY);
-        if (logLine === null) return false;
         const region = this.viewState.foldedRegions.find((r) => r.startLine === logLine);
         if (region === undefined) return false;
 
@@ -1599,14 +1598,12 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /**
-     * The document line whose gutter is at the row: the chevron and the glyph live on a line's first fragment, so a
-     * wrapped continuation, a view zone and the rows past the end have none.
+     * The document line whose gutter is at the row, -1 for none: the chevron and the glyph live on a line's first
+     * fragment, so a wrapped continuation has none; a view zone and the rows past the end are line -1.
      */
-    private gutterLineAt(localY: number): number | null {
+    private gutterLineAt(localY: number): number {
         const viewLine = this.viewState.scrollTop + localY;
-        if (viewLine < 0 || viewLine >= this.viewState.getViewLineCount()) return null;
-        if (this.viewState.viewLineKind(viewLine) === "zone") return null;
-        if (this.viewState.viewLineRange(viewLine).start > 0) return null;
+        if (this.viewState.viewLineRange(viewLine).start > 0) return -1;
         return this.viewState.visualToLogicalLine(viewLine);
     }
 

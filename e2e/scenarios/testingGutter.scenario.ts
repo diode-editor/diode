@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
+import { frameToText } from "../helpers/frame.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // `demo-test-controller`'s tests in the editor gutter: once the file's tests resolve, the suite's line has run-all,
@@ -46,7 +47,7 @@ export default defineScenario({
         const before = await editor.waitForText((t) => t.includes(RUN_ALL) && t.includes(RUN), { timeoutMs: 20_000 });
         await editor.capture("before a run: run-all on the suite's line, run on each test's");
 
-        const rows = before.text.split("\n");
+        const rows = frameToText(before).split("\n");
         const glyphAt = (label: string): { x: number; y: number } => {
             const y = rows.findIndex((row) => row.includes(`it("${label}"`));
             return { x: rows[y].indexOf(RUN), y };

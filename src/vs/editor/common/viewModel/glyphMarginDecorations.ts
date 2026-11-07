@@ -33,7 +33,12 @@ export class GlyphMarginDecorations {
             const old = previous.get(decoration.key);
             return old?.decoration.line === decoration.line ? old : undefined;
         };
-        const keptIds = new Set(decorations.flatMap((decoration) => kept(decoration)?.id ?? []));
+        const keptIds = new Set(
+            decorations
+                .map(kept)
+                .filter((entry) => entry !== undefined)
+                .map((entry) => entry.id),
+        );
         const placed = decorations.filter((decoration) => kept(decoration) === undefined);
         const ids = this.document.deltaDecorations(
             this.entries.filter((entry) => !keptIds.has(entry.id)).map((entry) => entry.id),
