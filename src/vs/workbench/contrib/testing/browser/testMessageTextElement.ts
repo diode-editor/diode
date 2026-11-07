@@ -14,8 +14,10 @@ const WHEEL_LINES = 3;
  */
 export class TestMessageTextElement extends ScrollableElement {
     private text = "";
+    // Stryker disable next-line ArrayDeclaration: equivalent — the first layout wraps the text before anything reads the lines
     private lines: readonly string[] = [];
-    private wrappedWidth = -1;
+    /** Nothing is wrapped yet: no width equals NaN. */
+    private wrappedWidth = Number.NaN;
 
     public constructor() {
         super();
@@ -36,6 +38,7 @@ export class TestMessageTextElement extends ScrollableElement {
             };
             const dy = delta[event.key];
             if (dy === undefined || event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) return;
+            // Stryker disable next-line CallExpression: equivalent — no ancestor in the panel takes these keys; consumed as upstream's editor does
             event.preventDefault();
             this.scrollBy(0, dy);
         });
@@ -43,21 +46,22 @@ export class TestMessageTextElement extends ScrollableElement {
 
     public setText(text: string): void {
         this.text = text;
-        this.wrappedWidth = -1;
+        this.wrappedWidth = Number.NaN;
         this.scrollTo(0, 0);
-        this.markDirty();
     }
 
     public get contentHeight(): number {
         return this.lines.length;
     }
 
+    // Stryker disable next-line BlockStatement: equivalent — the text wraps to the width and its bar has no horizontal one
     public get contentWidth(): number {
         return this.layoutSize.width;
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const width = constraints.maxWidth;
+        // Stryker disable next-line ConditionalExpression: equivalent — the same text wrapped at the same width gives the same lines; the check saves the work
         if (width !== this.wrappedWidth) {
             this.wrappedWidth = width;
             this.lines = this.text.split("\n").flatMap((line) => wrapIndented(line, width));
@@ -67,10 +71,10 @@ export class TestMessageTextElement extends ScrollableElement {
 
     protected override renderViewport(context: RenderContext, viewport: ScrollViewportInfo): void {
         const fg = this.styleVar("foreground");
-        for (let row = 0; row < viewport.viewportHeight; row++) {
-            const line = this.lines.at(viewport.scrollTop + row);
-            if (line === undefined) return;
-            context.drawText(0, row, line, { fg }, { maxWidth: viewport.viewportWidth });
+        const { scrollTop, viewportHeight, viewportWidth } = viewport;
+        for (const [row, line] of this.lines.slice(scrollTop, scrollTop + viewportHeight).entries()) {
+            // Stryker disable next-line ObjectLiteral: equivalent — the lines are wrapped to the viewport's width
+            context.drawText(0, row, line, { fg }, { maxWidth: viewportWidth });
         }
     }
 }

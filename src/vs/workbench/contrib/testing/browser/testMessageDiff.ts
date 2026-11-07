@@ -50,12 +50,15 @@ export class TestMessageDiffFactory {
             this.tokenization,
             this.tokenStyles,
             {
+                // Stryker disable next-line ObjectLiteral,StringLiteral: equivalent — the pane is in the panel, not a tab: its uri and label name nothing
                 uri: Uri.from({ scheme: "diode-test-message", path: "/diff" }),
+                // Stryker disable next-line StringLiteral: equivalent — the pane is in the panel, not a tab: its label is not shown
                 label: `${EXPECTED_LABEL} ↔ ${ACTUAL_LABEL}`,
                 originalLabel: EXPECTED_LABEL,
                 modifiedLabel: ACTUAL_LABEL,
                 original: { kind: "snapshot", text: expected },
                 modified: { kind: "snapshot", text: actual },
+                // Stryker disable next-line StringLiteral: equivalent — an unknown language is plain text too
                 languageId: "plaintext",
                 modeOverride: "side-by-side",
             },

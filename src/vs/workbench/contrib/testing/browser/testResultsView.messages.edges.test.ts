@@ -54,6 +54,13 @@ describe("TEST RESULTS — message edge cases", () => {
         expect(lines.join("\n")).not.toContain("Expected result");
     });
 
+    it("only an actual value is not a diff either", async () => {
+        const harness = setup();
+        failed(harness, { message: "only actual", actual: "2" });
+        const lines = await choose(harness, "only actual", "only actual");
+        expect(lines.join("\n")).not.toContain("Actual result");
+    });
+
     it("a long plain message: the keyboard reaches its text and scrolls it to the last line", async () => {
         const harness = setup(10);
         const message = Array.from({ length: 60 }, (_, i) => `row ${String(i)}`).join("\n");
@@ -107,7 +114,9 @@ describe("TEST RESULTS — message edge cases", () => {
     it("a frame with a uri but no position opens the file at its start", async () => {
         const harness = setup();
         failed(harness, { message: "boom", stackTrace: [{ label: "at fails", uri: FILE }] });
-        await choose(harness, "boom", "at fails");
+        const lines = await choose(harness, "boom", "at fails");
+        // Its description is the file alone, no line and column.
+        expect(lines.find((line) => line.includes("at fails"))?.trimEnd()).toMatch(/at fails\s+math\.test\.ts$/);
         harness.panel.component.message.frames.focus();
         harness.panel.sendKey("Enter");
         expect(harness.panel.opened).toEqual([{ uri: FILE, line: 0, character: 0 }]);

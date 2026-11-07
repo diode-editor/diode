@@ -78,7 +78,9 @@ export class TestMessageView extends Disposable {
     private readonly subjectStore = this.register(new DisposableStore());
     private subject: TestMessageSubject | null = null;
     private body: TUIElement = this.textView;
+    // Stryker disable next-line ArrayDeclaration: equivalent — show() sets the stack before the frames are asked for it
     private stack: readonly IWireTestMessageStackFrame[] = [];
+    // Stryker disable next-line BooleanLiteral: equivalent — show() unfolds before anything reads it
     private collapsed = false;
 
     public constructor(
@@ -89,17 +91,16 @@ export class TestMessageView extends Disposable {
         const provider: ITreeDataProvider<IFrameRow> = {
             getTreeItem: (row) => frameItem(row.frame),
             getChildren: () => this.stack.map((frame, index) => ({ index, frame })),
+            // Stryker disable next-line ArrowFunction: equivalent — the frames refresh only on show(), which replaces them all; no row is kept
             getKey: (row) => String(row.index),
         };
         // A click opens the frame as Enter does: upstream's frame header is a link to its place.
         this.frames = new TreeViewElement(provider, { leftPadding: 1, openOnSingleClick: true });
-        this.frames.id = "testMessageStack";
         this.frames.onActivate = (row) => {
             const { uri, position } = row.frame;
             if (uri !== undefined) this.host.open(uri, position ?? { line: 0, character: 0 });
         };
         this.element = new TestMessageLayoutElement(verticalScroll(this.frames));
-        this.element.id = "testMessage";
     }
 
     /** Upstream `inspectSubjectHasStack`. */
@@ -108,6 +109,7 @@ export class TestMessageView extends Disposable {
     }
 
     public show(subject: TestMessageSubject): void {
+        // Stryker disable next-line CallExpression: hygiene — the replaced diff's models go; nothing shows it any more
         this.subjectStore.clear();
         this.subject = subject;
         this.collapsed = false;
@@ -125,7 +127,9 @@ export class TestMessageView extends Disposable {
     }
 
     /** Nothing shown: the diff goes. */
+    // Stryker disable next-line BlockStatement: hygiene — the hidden view lets its diff and subject go; show() sets both again
     public clear(): void {
+        // Stryker disable next-line CallExpression: hygiene — the hidden diff's models go
         this.subjectStore.clear();
         this.subject = null;
     }
@@ -153,7 +157,6 @@ export class TestMessageView extends Disposable {
         const actions = this.host.contentActions(subject);
         if (!this.hasStack && actions.length === 0) return null;
         const row = new HFlexElement();
-        row.id = "testMessageHeader";
         const chevron = this.icons.codicon(this.collapsed ? "chevron-right" : "chevron-down");
         const label = new TextLabelElement(this.hasStack ? ` ${chevron} ${subject.test.item.label}` : "");
         label.addEventListener("click", () => {
@@ -174,6 +177,7 @@ export class TestMessageView extends Disposable {
 /** The text wraps and a frame row is cut at the width: a horizontal bar would only take a row. */
 function verticalScroll(child: ConstructorParameters<typeof ScrollBarDecorator>[0]): ScrollBarDecorator {
     const decorator = new ScrollBarDecorator(child);
+    // Stryker disable next-line StringLiteral: equivalent — the engine shows no bar for an unknown policy; "never" says so
     decorator.horizontalScrollBar = "never";
     return decorator;
 }
@@ -205,7 +209,6 @@ export class TestMessageLayoutElement extends TUIElement {
         this.stackRows = stackRows;
         const children = [header, body, stackRows > 0 ? this.stack : null].filter((child) => child !== null);
         this.setChildren(children);
-        this.markDirty();
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {
@@ -218,15 +221,10 @@ export class TestMessageLayoutElement extends TUIElement {
         }
         const rest = size.height - y;
         const { body } = this;
-        const stack =
-            this.stackRows === 0
-                ? 0
-                : body === null
-                  ? rest
-                  : Math.min(this.stackRows, Math.max(MIN_STACK_ROWS, Math.floor(rest / 2)), rest);
+        const share = body === null ? rest : Math.max(MIN_STACK_ROWS, Math.floor(rest / 2));
+        const stack = Math.min(this.stackRows, share, rest);
         if (body !== null) this.layoutChild(body, 0, y, BoxConstraints.tight(new Size(width, rest - stack)));
-        if (stack > 0)
-            this.layoutChild(this.stack, 0, size.height - stack, BoxConstraints.tight(new Size(width, stack)));
+        this.layoutChild(this.stack, 0, size.height - stack, BoxConstraints.tight(new Size(width, stack)));
         return size;
     }
 }

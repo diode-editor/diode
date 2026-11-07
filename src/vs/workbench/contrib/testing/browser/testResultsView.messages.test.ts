@@ -17,6 +17,7 @@ const SUITE = ["vitest", "math.test.ts", "math"];
 const FAILS = [...SUITE, "fails"];
 const TREE_X = 50;
 const FILE = "file:///w/math.test.ts";
+const HELPERS = "file:///w/helpers.ts";
 
 function setup(height = 14) {
     const harness = setupExplorer({ panelWidth: 100, panelHeight: height });
@@ -86,6 +87,17 @@ describe("TEST RESULTS — a message's content", () => {
         const values = lines[header + 1];
         expect(values.indexOf("3")).toBeLessThan(values.lastIndexOf("2"));
         expect(values.indexOf("3")).toBeLessThan(values.indexOf("│"));
+        // Both sides take the editor's configuration (upstream `applyEditorMirrorOptions`).
+        expect(harness.panel.configuredPanes).toHaveLength(2);
+
+        // Read-only: typing on a side changes nothing; the narrow half stays side by side once it settles.
+        harness.panel.click(values.indexOf("3"), header + 1);
+        harness.panel.sendKey("x");
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const after = content(harness);
+        expect(after[header + 1]).toBe(values);
+        expect(after[header]).toContain(EXPECTED_LABEL);
+        expect(after[header]).toContain(ACTUAL_LABEL);
     });
 
     it("markdown: the hover's rendering, no markup left; plain: no ANSI codes, wrapped by words", async () => {
@@ -149,6 +161,19 @@ describe("TEST RESULTS — a message's content", () => {
         harness.panel.sendKey("Enter");
         expect(harness.panel.opened).toHaveLength(1);
         expect(harness.views.contextKeys.get("testing.peekHasStack")).toBe(true);
+
+        // A frame has nothing under it: Right on either adds no rows.
+        harness.panel.sendKey("ArrowRight");
+        harness.panel.sendKey("ArrowUp");
+        harness.panel.sendKey("ArrowRight");
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(content(harness).filter((line) => line.includes("node:internal"))).toHaveLength(1);
+        // A click opens the frame as Enter does: upstream's frame header is a link.
+        harness.panel.click(lines[at].indexOf("at fails"), at);
+        expect(harness.panel.opened).toEqual([
+            { uri: FILE, line: 6, character: 8 },
+            { uri: FILE, line: 6, character: 8 },
+        ]);
     });
 
     it("Collapse Stack Frames folds the message, the frames take its rows; a click on the header unfolds it", async () => {
@@ -162,17 +187,37 @@ describe("TEST RESULTS — a message's content", () => {
         const folded = content(harness);
         expect(folded.join("\n")).not.toContain("boom");
         expect(folded.join("\n")).toContain("frame 5");
+        // The header's chevron turns: one glyph unfolded, another folded.
+        const chevron = (line: string): string => line.slice(0, 2).trim();
+        expect(chevron(before[0])).not.toBe("");
+        expect(chevron(folded[0])).not.toBe("");
+        expect(chevron(folded[0])).not.toBe(chevron(before[0]));
         harness.panel.click(2, 0);
         expect(content(harness).join("\n")).toContain("boom");
     });
 
+    it("a tall panel: the stack takes half of the rows under the header, the message the other half", async () => {
+        const { harness } = setup(16);
+        const stackTrace = Array.from({ length: 12 }, (_, i) => ({ label: `frame ${String(i)}`, uri: FILE }));
+        failed(harness, { message: "boom", stackTrace });
+        const lines = await choose(harness, "boom", "frame 2");
+        const frames = lines.filter((line) => line.includes("frame "));
+        expect(frames.length).toBe(Math.floor((lines.length - 1) / 2));
+        expect(lines[1]).toContain("boom");
+    });
+
     it("the text takes the keyboard: arrows by a line, pages by the height less one, Home and End to the ends", async () => {
         const { harness } = setup(6);
-        failed(harness, { message: Array.from({ length: 30 }, (_, i) => `row ${String(i)}`).join("\n") });
+        failed(
+            harness,
+            { message: Array.from({ length: 30 }, (_, i) => `row ${String(i)}`).join("\n") },
+            { message: "other text" },
+        );
         await choose(harness, "row 0", "row 1");
         const row = (line: string | undefined): string => (line ?? "").slice(0, 10).trim();
         const top = (): string => row(content(harness)[0]);
         const text = harness.panel.component.message.element.getChildren()[0].getChildren()[0];
+        expect(harness.panel.fgAt(0, 0)).toBe(THEME.getRequiredColor("foreground"));
         text.focus();
         expect(text.isFocused).toBe(true);
         harness.panel.sendKey("ArrowDown");
@@ -210,6 +255,16 @@ describe("TEST RESULTS — a message's content", () => {
         wheel("down");
         wheel("right");
         expect(top()).toBe("row 3");
+
+        // Another message starts at its top, and so does this one again.
+        await choose(harness, "other text", "other text");
+        await choose(harness, "row 0", "row 0");
+        expect(top()).toBe("row 0");
+
+        // Other keys are not the text's: Tab moves on.
+        text.focus();
+        harness.panel.sendKey("Tab");
+        expect(text.isFocused).toBe(false);
     });
 
     it("a short panel: two frames wider than the content take two rows, no horizontal bar under them", async () => {
@@ -244,11 +299,24 @@ describe("TEST RESULTS — a message's content", () => {
     });
 });
 
+describe("TEST RESULTS — a removed run", () => {
+    it("Clear All Results takes the shown message off the left: the output's surface is there again", async () => {
+        const { harness } = setup();
+        failed(harness, { message: "boom" });
+        await choose(harness, "boom", "boom");
+        const { element } = harness.panel.component.message;
+        expect(element.getParent()).not.toBeNull();
+        harness.results.clear();
+        expect(element.getParent()).toBeNull();
+        expect(harness.views.contextKeys.get("testing.peekHasStack")).toBeUndefined();
+    });
+});
+
 describe("TEST RESULTS — a message's actions", () => {
     const LOCATED: IWireTestMessage = {
         message: "expected 2 to be 3",
         contextValue: "ctx-1",
-        location: { uri: FILE, range: createRange(7, 8, 7, 30) },
+        location: { uri: HELPERS, range: createRange(7, 8, 7, 30) },
     };
 
     it("Go to Error: inline on the row and in its menu, the message's place opened", async () => {
@@ -259,13 +327,21 @@ describe("TEST RESULTS — a message's actions", () => {
         expect(menuLabels(harness, "expected 2 to be 3")).toEqual(["Go to Error"]);
         const entry = harness.views.shown.at(-1)?.getEntries?.()[0];
         if (entry?.type !== "separator" && entry?.type !== "submenu") entry?.onSelect?.();
-        expect(harness.panel.opened).toEqual([{ uri: FILE, line: 7, character: 8 }]);
+        expect(harness.panel.opened).toEqual([{ uri: HELPERS, line: 7, character: 8 }]);
     });
 
     it("testing/message/context and content: items by the message's keys, the command gets the message", async () => {
         const { harness, executed } = setup();
         const when =
-            "testMessage == 'ctx-1' && resourcePath == '/w/math.test.ts' && controllerId == vitest && testId == fails && !testResultOutdated";
+            "testMessage == 'ctx-1' && resourcePath == '/w/helpers.ts' && controllerId == vitest && testId == fails && !testResultOutdated";
+        // The `inline` group is the row's: before the separator.
+        harness.views.menuRegistry.appendMenuItem({
+            menuId: MenuId.TestMessageContext,
+            command: "ext.inline",
+            title: "Inline",
+            group: "inline",
+            when,
+        });
         for (const menuId of [MenuId.TestMessageContext, MenuId.TestMessageContent]) {
             harness.views.menuRegistry.appendMenuItem({
                 menuId,
@@ -277,8 +353,8 @@ describe("TEST RESULTS — a message's actions", () => {
         failed(harness, LOCATED, { message: "other", contextValue: "ctx-2" });
         await harness.panel.waitFrame((text) => text.includes("other"));
         expect(menuLabels(harness, "other")).toEqual([]);
-        expect(menuLabels(harness, "expected 2 to be 3")).toEqual(["Go to Error", "-", "Copy Error"]);
-        const copy = harness.views.shown.at(-1)?.getEntries?.()[2];
+        expect(menuLabels(harness, "expected 2 to be 3")).toEqual(["Go to Error", "Inline", "-", "Copy Error"]);
+        const copy = harness.views.shown.at(-1)?.getEntries?.()[3];
         if (copy?.type !== "separator" && copy?.type !== "submenu") copy?.onSelect?.();
         const arg = { $testMessageTestId: testId(...FAILS), message: expect.objectContaining(LOCATED) as unknown };
         expect(executed).toHaveBeenLastCalledWith("vitest.copyErrorOutput", arg);
@@ -288,17 +364,25 @@ describe("TEST RESULTS — a message's actions", () => {
         clickRow(harness, "expected 2 to be 3");
         const header = await harness.panel.waitFrame((text) => text.includes("Copy Error"));
         const y = header.split("\n").findIndex((line) => line.slice(0, TREE_X).includes("Copy Error"));
-        harness.panel.click(header.split("\n")[y].indexOf("Copy Error"), y);
+        const button = header.split("\n")[y].indexOf("Copy Error");
+        // Without a stack the header has no label: only the buttons.
+        expect(
+            header
+                .split("\n")
+                [y].slice(0, button - 2)
+                .trim(),
+        ).toBe("");
+        harness.panel.click(button, y);
         expect(executed).toHaveBeenLastCalledWith("vitest.copyErrorOutput", arg);
     });
 
-    it("a message without a place of a test without a file has no resource keys", async () => {
+    it("a message without a place of a test without a file has no resource keys; no context value, no testMessage", async () => {
         const { harness } = setup();
         harness.views.menuRegistry.appendMenuItem({
             menuId: MenuId.TestMessageContext,
             command: "ext.nowhere",
             title: "Nowhere",
-            when: "testMessage == 'ctx-3' && !resourcePath",
+            when: "!testMessage && !resourcePath",
         });
         const result = harness.results.createLiveResult({ targets: [], group: TestRunProfileBitset.Run });
         result.addTask({ id: "vitest", name: "vitest", ctrlId: "vitest" });
@@ -307,7 +391,7 @@ describe("TEST RESULTS — a message's actions", () => {
             FAILS.map((_, i) => wireItem(FAILS.slice(0, i + 1))),
         );
         result.updateState(testId(...FAILS), "vitest", TestResultState.Failed);
-        result.appendMessage(testId(...FAILS), "vitest", { message: "unplaced", contextValue: "ctx-3" });
+        result.appendMessage(testId(...FAILS), "vitest", { message: "unplaced" });
         result.markComplete();
         await harness.panel.waitFrame((text) => text.includes("unplaced"));
         expect(menuLabels(harness, "unplaced")).toEqual(["Nowhere"]);
@@ -329,7 +413,9 @@ describe("TEST RESULTS — a message's actions", () => {
         const entry = harness.views.shown.at(-1)?.getEntries?.()[0];
         if (entry?.type !== "separator" && entry?.type !== "submenu") entry?.onSelect?.();
         await vi.waitFor(() => {
-            expect(harness.toasts).toEqual(["no clipboard"]);
+            expect(harness.toastOptions).toEqual([
+                { severity: "error", message: "no clipboard", modal: false, items: [] },
+            ]);
         });
     });
 });

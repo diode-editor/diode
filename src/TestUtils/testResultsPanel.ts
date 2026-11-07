@@ -48,6 +48,8 @@ export interface IResultsPanelOptions {
     readonly height?: number;
     /** The toasts' messages go here. */
     readonly toasts?: string[];
+    /** The toasts as shown go here. */
+    readonly toastOptions?: unknown[];
 }
 
 /**
@@ -59,6 +61,8 @@ export function createResultsPanel(options: IResultsPanelOptions) {
     const icons = options.icons ?? new StaticProductIconService(false);
     const colors = { colors: resolveTerminalColors(options.theme, undefined), onDidChange: new Emitter<never>().event };
     const opened: IOpenedLocation[] = [];
+    /** The editors the editor's configuration was applied to: the diffs' sides. */
+    const configuredPanes: unknown[] = [];
     let openedUri = "";
     const revealTarget = {
         openUri: (uri: Uri) => {
@@ -75,12 +79,14 @@ export function createResultsPanel(options: IResultsPanelOptions) {
         diskFileService(),
         new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
-        { editorConfiguration: { apply: () => undefined } } as never,
+        { editorConfiguration: { apply: (pane: unknown) => configuredPanes.push(pane) } } as never,
     );
     const toasts = options.toasts ?? [];
+    const toastOptions = options.toastOptions ?? [];
     const notifications = {
         show: (toast: { message: string }) => {
             toasts.push(toast.message);
+            toastOptions.push(toast);
         },
     } as unknown as NotificationService;
     const component = new TestResultsComponent(
@@ -122,6 +128,7 @@ export function createResultsPanel(options: IResultsPanelOptions) {
         component,
         /** The places the panel opened, in order. */
         opened,
+        configuredPanes,
         width,
         frame,
         lines: (): string[] => frame().split("\n"),

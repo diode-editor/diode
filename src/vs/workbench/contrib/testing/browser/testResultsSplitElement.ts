@@ -29,10 +29,8 @@ export class TestResultsSplitElement extends TUIElement {
 
     /** The output's surface or a message's view. */
     public setContent(content: TUIElement): void {
-        if (content === this.content) return;
         this.content = content;
         this.setChildren([content, this.tree]);
-        this.markDirty();
     }
 
     public setTreeLeft(treeLeft: boolean): void {

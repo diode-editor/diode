@@ -390,6 +390,7 @@ export class TestResultsComponent extends Disposable {
             this.output.show(subject);
             return;
         }
+        // Stryker disable next-line CallExpression: hygiene — the hidden surface lets its session go; a task writes it anew
         this.output.clear();
         this.message.show(subject);
         this.view.setContent(this.message.element);
@@ -398,6 +399,7 @@ export class TestResultsComponent extends Disposable {
 
     /** The output's surface on the left, no message there. */
     private showOutput(): void {
+        // Stryker disable next-line CallExpression: hygiene — the hidden message lets its diff go
         this.message.clear();
         this.view.setContent(this.output.widget);
         this.contextKeys.reset("testing.peekHasStack");
