@@ -7,7 +7,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 
 import type { ITerminalColors } from "./terminalColorsService.ts";
-import { applyTerminalColors } from "./terminalPanelComponent.ts";
+import { applyTerminalColors } from "./terminalColorsService.ts";
 import type { ITerminalInstance } from "./terminalService.ts";
 
 export const TERMINAL_EDITOR_SCHEME = "vscode-terminal";
@@ -47,7 +47,7 @@ export class TerminalEditorPane extends Disposable implements IEditorPane {
         this.widget = widget;
         // No dots in the id — `#terminalEditor-3` works as an inspector selector.
         this.widget.id = `terminalEditor-${String(instance.id)}`;
-        applyTerminalColors(instance, this.widget, colors);
+        applyTerminalColors(instance.session, this.widget, colors);
         this.view = this.widget;
     }
 
@@ -64,7 +64,7 @@ export class TerminalEditorPane extends Disposable implements IEditorPane {
     }
 
     public setColors(colors: ITerminalColors): void {
-        applyTerminalColors(this.instance, this.widget, colors);
+        applyTerminalColors(this.instance.session, this.widget, colors);
     }
 
     /** Closing the tab no longer kills the instance. */

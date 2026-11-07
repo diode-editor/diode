@@ -931,7 +931,8 @@
   тост ошибки — через `ITestRunUi` (`browser/testRunUi.ts`). Смерть субпроцесса: ответ отклоняется, запуск
   закрывается, его тесты в работе — skipped (`markTaskComplete` эталона); запуски расширения закрывает
   `reset()`. Отступления: имя задачи без `name` — подпись контроллера (у эталона — имя расширения);
-  результаты не переживают перезапуск (у эталона — storage); coverage-отчёты отбрасываются. Не сделано:
+  результаты не переживают перезапуск (у эталона — storage); coverage-отчёты отбрасываются. Вывод и
+  сообщения показывает панель TEST RESULTS ([Views.md](workbench/Views.md#test-results)). Не сделано:
   `tests.testResults`/`onDidChangeTestResults`, continuous run, related code.
 - **`languages.setLanguageConfiguration` (`extHostLanguageConfiguration.ts` →
   `LanguageConfigurationCustomer`):** по эталону `wordPattern` остаётся в субпроцессе — определение

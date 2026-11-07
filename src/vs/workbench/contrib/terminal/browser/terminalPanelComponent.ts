@@ -23,7 +23,7 @@ import type { ViewsService } from "../../../browser/parts/views/viewsService.ts"
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 
 import {
-    type ITerminalColors,
+    applyTerminalColors,
     type TerminalColorsService,
     TerminalColorsServiceDIToken,
 } from "./terminalColorsService.ts";
@@ -155,7 +155,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
                     // Stryker disable next-line ConditionalExpression: unreachable (see above) — equivalent mutant
                     if (instance === null) continue;
                     /* v8 ignore stop */
-                    applyTerminalColors(instance, widget, next);
+                    applyTerminalColors(instance.session, widget, next);
                 }
             }),
         );
@@ -208,7 +208,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         widget.addEventListener("focus", () => {
             this.terminalService.setFocusedPanelInstance(instance.id);
         });
-        applyTerminalColors(instance, widget, this.colors.colors);
+        applyTerminalColors(instance.session, widget, this.colors.colors);
         this.widgets.set(instance.id, widget);
     }
 
@@ -310,22 +310,6 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
             menuContext: context,
         });
     }
-}
-
-/**
- * Host background/foreground override `terminal.background`/`terminal.foreground` in the widget's
- * var scope; without them, theme tokens apply.
- */
-export function applyTerminalColors(
-    instance: ITerminalInstance,
-    widget: TerminalViewElement,
-    colors: ITerminalColors,
-): void {
-    instance.session.setAnsiColors(colors.ansi);
-    const vars: Record<string, number> = {};
-    if (colors.background !== undefined) vars["terminal.background"] = colors.background;
-    if (colors.foreground !== undefined) vars["terminal.foreground"] = colors.foreground;
-    widget.setStyleVars(vars);
 }
 
 function holdsFocus(widget: TerminalViewElement): boolean {

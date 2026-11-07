@@ -18,7 +18,7 @@ import {
 } from "./testingStates.ts";
 
 // Upstream `LiveTestResult` (`contrib/testing/common/testResult.ts`): one run's tests with the states its tasks
-// reported, the messages and the output. Showing the messages and the output is the next task (TEST RESULTS).
+// reported, the messages and the output; the TEST RESULTS panel shows them.
 
 /** Upstream `ResolvedTestRunRequest`: what was asked to run, by controller and profile. */
 export interface IResolvedTestRunRequest {
@@ -98,6 +98,13 @@ export interface ITestResultItemChange {
     readonly reason: "ownState" | "computedState" | "message";
 }
 
+/** Upstream `task.output.onDidWriteData` with the test of the chunk, if any. */
+export interface ITestOutputAppend {
+    readonly taskIndex: number;
+    readonly output: string;
+    readonly testId: string | undefined;
+}
+
 const PREVIEW_LENGTH = 100;
 
 /** Upstream `LiveTestResult`: created when the run starts, marked complete when it ends. */
@@ -109,8 +116,18 @@ export class LiveTestResult extends Disposable {
     private completedAtValue: number | undefined;
     private readonly changeEmitter = this.register(new Emitter<ITestResultItemChange>());
     private readonly completeEmitter = this.register(new Emitter<void>());
+    private readonly newTaskEmitter = this.register(new Emitter<number>());
+    private readonly endTaskEmitter = this.register(new Emitter<number>());
+    private readonly outputEmitter = this.register(new Emitter<ITestOutputAppend>());
     public readonly onChange: Event<ITestResultItemChange> = this.changeEmitter.event;
     public readonly onComplete: Event<void> = this.completeEmitter.event;
+    /** Upstream `onNewTask`: the index of the added task. */
+    public readonly onNewTask: Event<number> = this.newTaskEmitter.event;
+    /** Upstream `onEndTask`: the index of the task that completed. */
+    public readonly onEndTask: Event<number> = this.endTaskEmitter.event;
+    public readonly onDidAppendOutput: Event<ITestOutputAppend> = this.outputEmitter.event;
+    /** Upstream `name`: "Test run at {0}" with the start's local date and time. */
+    public readonly name: string;
 
     /** Upstream's `persist` decides what goes to the storage; results here live in memory only. */
     public constructor(
@@ -122,6 +139,7 @@ export class LiveTestResult extends Disposable {
     ) {
         super();
         this.startedAt = now();
+        this.name = `Test run at ${new Date(this.startedAt).toLocaleString()}`;
     }
 
     /** `undefined` while the run goes on. */
@@ -145,6 +163,7 @@ export class LiveTestResult extends Disposable {
     public addTask(task: { readonly id: string; readonly name: string; readonly ctrlId: string }): void {
         this.taskList.push({ ...task, running: true, output: "", otherMessages: [] });
         for (const test of this.testById.values()) test.tasks.push({ state: TestResultState.Unset, messages: [] });
+        this.newTaskEmitter.fire(this.taskList.length - 1);
     }
 
     /** Upstream `addTestChainToRun`: the first test of the chain is a root or a test the run knows. */
@@ -189,6 +208,7 @@ export class LiveTestResult extends Disposable {
         task.output += output;
         // Stryker disable next-line ConditionalExpression: equivalent — no test is under an undefined id
         const test = testId === undefined ? undefined : this.testById.get(testId);
+        this.outputEmitter.fire({ taskIndex: index, output, testId: test?.item.extId });
         if (test === undefined) {
             task.otherMessages.push(message);
             return;
@@ -208,6 +228,7 @@ export class LiveTestResult extends Disposable {
                 this.setTaskState(test, index, TestResultState.Skipped);
             }
         }
+        this.endTaskEmitter.fire(index);
     }
 
     /** Upstream `markComplete`: the running tasks complete first. A second call does nothing. */

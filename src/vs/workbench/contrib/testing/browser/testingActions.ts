@@ -22,6 +22,7 @@ import {
     TESTING_VIEWLET_ID,
     TestingExplorerComponentDIToken,
 } from "./testingExplorerView.ts";
+import { TEST_RESULTS_VIEW_ID, TestResultsComponentDIToken } from "./testResultsView.ts";
 
 const CAN_REFRESH = "testing.canRefresh";
 const IS_RUNNING = "testing.isRunning";
@@ -34,6 +35,7 @@ const ActionOrder = {
     Run: 11,
     Collapse: 16,
     ClearResults: 17,
+    DisplayMode: 18,
     Sort: 19,
     GoToTest: 20,
 } as const;
@@ -283,7 +285,7 @@ export const reRunFailedFromLastRunAction: CommandAction = {
     },
 };
 
-/** Upstream `ClearTestResultsAction`: in "⋯". */
+/** Upstream `ClearTestResultsAction`: in the Test Explorer's "⋯", in the TEST RESULTS title. */
 export const clearTestResultsAction: CommandAction = {
     id: "testing.clearTestResults",
     title: "Test: Clear All Results",
@@ -297,9 +299,68 @@ export const clearTestResultsAction: CommandAction = {
             icon: codicon("clear-all"),
             visible: viewMenuVisible(TESTING_EXPLORER_VIEW_ID),
         },
+        {
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
+            order: ActionOrder.ClearResults,
+            icon: codicon("clear-all"),
+            visible: viewMenuVisible(TEST_RESULTS_VIEW_ID),
+        },
     ],
     run(accessor) {
         accessor.get(TestResultServiceDIToken).clear();
+    },
+};
+
+/** Upstream `ShowMostRecentOutputAction`: TEST RESULTS with the latest run's first task; in the Test Explorer title. */
+export const showMostRecentOutputAction: CommandAction = {
+    id: "testing.showMostRecentOutput",
+    title: "Test: Show Output",
+    shortTitle: "Show Output",
+    keybinding: { keys: parseChord("mod+; mod+o"), weight: KeybindingWeight.WorkbenchContrib },
+    enablement: HAS_RESULTS,
+    menus: [
+        {
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
+            order: ActionOrder.Collapse,
+            icon: codicon("terminal"),
+            visible: viewMenuVisible(TESTING_EXPLORER_VIEW_ID),
+        },
+        { menuId: MenuId.CommandPalette, when: HAS_RESULTS },
+    ],
+    run(accessor) {
+        accessor.get(ViewsServiceDIToken).openView(TEST_RESULTS_VIEW_ID, true);
+        accessor.get(TestResultsComponentDIToken).showLatestRun();
+    },
+};
+
+/** Upstream `ToggleResultsViewLayoutAction`: `testing.resultsView.layout` the other way. */
+export const toggleResultsViewLayoutAction: CommandAction = {
+    id: "testing.toggleResultsViewLayout",
+    title: "Test: Toggle Tree Position",
+    shortTitle: "Toggle Tree Position",
+    menus: [
+        {
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
+            order: ActionOrder.DisplayMode,
+            icon: codicon("arrow-swap"),
+            visible: viewMenuVisible(TEST_RESULTS_VIEW_ID),
+        },
+    ],
+    run(accessor) {
+        return accessor.get(TestResultsComponentDIToken).toggleLayout();
+    },
+};
+
+/** Upstream `_revealTestInExplorer`: internal, the results tree's "Reveal in Test Explorer". */
+export const revealTestInExplorerAction: CommandAction = {
+    id: "_revealTestInExplorer",
+    title: "Reveal in Test Explorer",
+    menus: [{ menuId: MenuId.CommandPalette, when: "false" }],
+    run(accessor, testIdArg) {
+        if (typeof testIdArg === "string") accessor.get(TestingExplorerComponentDIToken).revealTest(testIdArg);
     },
 };
 
@@ -390,8 +451,11 @@ export const TESTING_ACTIONS: readonly CommandAction[] = [
     runAllTestsAction,
     runSelectedTestsAction,
     searchForTestExtensionAction,
+    showMostRecentOutputAction,
     sortByDurationAction,
     sortByLocationAction,
     sortByStatusAction,
+    toggleResultsViewLayoutAction,
     reRunFailedFromLastRunAction,
+    revealTestInExplorerAction,
 ];

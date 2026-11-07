@@ -996,10 +996,24 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Always reveal the executed test when `#testing.followRunningTest#` is on. If this setting is turned off, only failed tests will be revealed.",
     },
     {
+        key: "testing.automaticallyOpenTestResults",
+        type: "string",
+        default: "openOnTestStart",
+        description: "Controls when the testing view should open.",
+        enum: ["neverOpen", "openOnTestStart", "openOnTestFailure", "openExplorerOnTestStart"],
+    },
+    {
         key: "testing.followRunningTest",
         type: "boolean",
         default: false,
         description: "Controls whether the running test should be followed in the Test Explorer view.",
+    },
+    {
+        key: "testing.resultsView.layout",
+        type: "string",
+        default: "treeRight",
+        description: "Controls the layout of the Test Results view.",
+        enum: ["treeRight", "treeLeft"],
     },
     {
         key: "testing.saveBeforeTest",
