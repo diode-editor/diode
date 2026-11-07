@@ -375,7 +375,7 @@ export const collapsePeekStackAction: CommandAction = {
         { menuId: MenuId.CommandPalette, when: PEEK_HAS_STACK },
     ],
     run(accessor) {
-        accessor.get(TestResultsComponentDIToken).collapseStack();
+        accessor.get(TestResultsComponentDIToken).message.collapseStack();
     },
 };
 

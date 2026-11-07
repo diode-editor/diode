@@ -1,4 +1,4 @@
-import type { MenuEntry, MenuItemEntry } from "@tuidom/elements/menu/popupMenuElement";
+import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import type { ITreeDataProvider, ITreeItem, ITreeItemAction } from "@tuidom/elements/tree/iTreeDataProvider";
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
@@ -10,7 +10,6 @@ import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
-import { joinMenuGroups } from "../../../../platform/actions/common/menuRegistry.ts";
 import { type MenuService, MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
 import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -34,12 +33,7 @@ import {
     ProductIconServiceDIToken,
 } from "../../../../platform/theme/common/productIconService.ts";
 import { type IWireTestItemArg, TestId, TestResultState } from "../../../api/common/testingWireTypes.ts";
-import {
-    bindMenuEntry,
-    INLINE_MENU_GROUP,
-    inlineMenuEntries,
-    runMenuEntry,
-} from "../../../browser/parts/views/treeItemMenu.ts";
+import { INLINE_MENU_GROUP, inlineMenuEntries, runMenuEntry } from "../../../browser/parts/views/treeItemMenu.ts";
 import { type ViewsService, ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { onDidChangeTreeIndentGuides, treeIndentGuides } from "../../../browser/treeIndentGuides.ts";
 import { type IJumpRecorder, JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
@@ -92,7 +86,7 @@ export type TestResultsRow =
 /** Upstream `TreeActionsProvider`'s action: a glyph on the row and an entry of its menu. */
 interface IRowAction {
     readonly label: string;
-    /** The glyph, resolved. */
+    /** The glyph, resolved; without one the row draws the label. */
     readonly glyph?: string;
     /** Only in the context menu (upstream's `secondary`). */
     readonly secondary?: boolean;
@@ -382,11 +376,6 @@ export class TestResultsComponent extends Disposable {
         if (!this.refreshLater.isScheduled()) this.refreshLater.schedule();
     }
 
-    /** Upstream `collapseStack`: the shown message folds, its stack takes the content. */
-    public collapseStack(): void {
-        this.message.collapseStack();
-    }
-
     private show(subject: TestResultsSubject): void {
         // Stryker disable next-line ConditionalExpression: equivalent — the same subject again resets the surface and writes the same output, the scroll stays; the guard saves the work
         if (this.subject !== null && rowKey(this.subject) === rowKey(subject)) return;
@@ -420,19 +409,22 @@ export class TestResultsComponent extends Disposable {
     }
 
     /** Upstream's `FloatingClickMenu` of `testing/message/content`: its items over the message, the message their argument. */
-    private contentActions(subject: TestMessageSubject): { readonly label: string; run(): void }[] {
-        const keys = testMessageMenuKeys(subject);
-        return joinMenuGroups(this.menus.getEntryGroups(MenuId.TestMessageContent, undefined, keys)).flatMap((entry) =>
-            entry.type === "separator" || entry.type === "submenu"
-                ? []
-                : [
-                      {
-                          label: entry.label,
-                          run: () => {
-                              this.runMessageEntry(entry, subject);
-                          },
-                      },
-                  ],
+    private contentActions(subject: TestMessageSubject): IRowAction[] {
+        return this.menuActions(MenuId.TestMessageContent, subject);
+    }
+
+    /** A message menu's items (a submenu is not offered), the message their command's argument. */
+    private menuActions(menuId: MenuId, subject: TestMessageSubject): IRowAction[] {
+        const groups = this.menus.getEntryGroups(menuId, undefined, testMessageMenuKeys(subject));
+        return groups.flatMap((group) =>
+            inlineMenuEntries([group]).map((entry) => ({
+                label: entry.label,
+                glyph: entry.icon === "" ? undefined : entry.icon,
+                secondary: group.group !== INLINE_MENU_GROUP,
+                run: () => {
+                    runMenuEntry(entry, (id) => this.commands.execute(id, testMessageArg(subject)), this.showError);
+                },
+            })),
         );
     }
 
@@ -655,41 +647,24 @@ export class TestResultsComponent extends Disposable {
     }
 
     /**
-     * Upstream's message actions: Go to Error where the message has a place, the `inline` items of
-     * `testing/message/context` after it; the command of an item gets the message.
+     * Upstream's message actions: Go to Error where the message has a place, then `testing/message/context` (its
+     * `inline` items on the row, the rest in the menu).
      */
     private messageActions(subject: TestMessageSubject): IRowAction[] {
         const { location } = messageOf(subject);
-        const actions: IRowAction[] = [];
-        if (location !== undefined) {
-            actions.push({
-                label: "Go to Error",
-                glyph: this.icons.glyph(GO_TO_ERROR_ICON),
-                run: () => {
-                    this.open(location.uri, location.range.start);
-                },
-            });
-        }
-        for (const entry of inlineMenuEntries(this.messageMenu(subject, true))) {
-            actions.push({
-                label: entry.label,
-                glyph: entry.icon === "" ? undefined : entry.icon,
-                run: () => {
-                    this.runMessageEntry(entry, subject);
-                },
-            });
-        }
-        return actions;
-    }
-
-    private messageMenu(subject: TestMessageSubject, inline: boolean) {
-        return this.menus
-            .getEntryGroups(MenuId.TestMessageContext, undefined, testMessageMenuKeys(subject))
-            .filter((group) => (group.group === INLINE_MENU_GROUP) === inline);
-    }
-
-    private runMessageEntry(entry: MenuItemEntry, subject: TestMessageSubject): void {
-        runMenuEntry(entry, (id) => this.commands.execute(id, testMessageArg(subject)), this.showError);
+        const goToError: IRowAction[] =
+            location === undefined
+                ? []
+                : [
+                      {
+                          label: "Go to Error",
+                          glyph: this.icons.glyph(GO_TO_ERROR_ICON),
+                          run: () => {
+                              this.open(location.uri, location.range.start);
+                          },
+                      },
+                  ];
+        return [...goToError, ...this.menuActions(MenuId.TestMessageContext, subject)];
     }
 
     private readonly showError = (message: string): void => {
@@ -701,14 +676,7 @@ export class TestResultsComponent extends Disposable {
         const actions = this.actionsOf(row);
         const toEntry = (action: IRowAction): MenuEntry => ({ label: action.label, onSelect: () => action.run() });
         const primary = primaryActions(actions).map(toEntry);
-        const secondary =
-            row.kind === "message"
-                ? joinMenuGroups(this.messageMenu(row, false)).map((entry) =>
-                      bindMenuEntry(entry, (item) => {
-                          this.runMessageEntry(item, row);
-                      }),
-                  )
-                : actions.filter((action) => action.secondary === true).map(toEntry);
+        const secondary = actions.filter((action) => action.secondary === true).map(toEntry);
         const separator: MenuEntry[] = primary.length > 0 && secondary.length > 0 ? [{ type: "separator" }] : [];
         const entries = [...primary, ...separator, ...secondary];
         if (entries.length === 0) return;

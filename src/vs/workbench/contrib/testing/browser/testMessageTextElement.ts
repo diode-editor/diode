@@ -1,7 +1,8 @@
 import type { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import type { RenderContext } from "@tuidom/core/dom/tuiElement";
-import { wrapText } from "@tuidom/elements/completionlist/completionDetailsElement";
 import { ScrollableElement, type ScrollViewportInfo } from "@tuidom/elements/scrollbar/scrollableElement";
+
+import { wrapIndented } from "../../hover/browser/hoverElement.ts";
 
 /** Upstream's editor scrolls three lines a notch, as our editor. */
 const WHEEL_LINES = 3;
@@ -61,12 +62,4 @@ export class TestMessageTextElement extends ScrollableElement {
             context.drawText(0, row, line, { fg }, { maxWidth: viewport.viewportWidth });
         }
     }
-}
-
-/** The hover's wrapping: an empty line stays, an indent as wide as the width wraps as plain text. */
-function wrapIndented(line: string, width: number): string[] {
-    const indent = " ".repeat(line.length - line.trimStart().length);
-    if (line.trim() === "") return [""];
-    if (indent.length >= width) return wrapText(line, width);
-    return wrapText(line, width - indent.length).map((wrapped) => indent + wrapped);
 }

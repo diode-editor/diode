@@ -56,7 +56,7 @@ export interface ITestMessageViewHost {
     /** Opens the place in the editor, the keyboard goes there. */
     open(uri: string, position: { readonly line: number; readonly character: number }): void;
     /** Upstream's `FloatingClickMenu` of `testing/message/content`, resolved for the message. */
-    contentActions(subject: TestMessageSubject): readonly { readonly label: string; run(): void }[];
+    contentActions(subject: TestMessageSubject): readonly { readonly label: string; run(): unknown }[];
 }
 
 interface IFrameRow {
@@ -74,8 +74,11 @@ export class TestMessageView extends Disposable {
     public readonly element: TestMessageLayoutElement;
     public readonly frames: TreeViewElement<IFrameRow>;
     private readonly text = new TestMessageTextElement();
+    private readonly textView = new ScrollBarDecorator(this.text);
     private readonly subjectStore = this.register(new DisposableStore());
     private subject: TestMessageSubject | null = null;
+    private body: TUIElement = this.textView;
+    private stack: readonly IWireTestMessageStackFrame[] = [];
     private collapsed = false;
 
     public constructor(
@@ -85,7 +88,7 @@ export class TestMessageView extends Disposable {
         super();
         const provider: ITreeDataProvider<IFrameRow> = {
             getTreeItem: (row) => frameItem(row.frame),
-            getChildren: (row) => (row === undefined ? this.frameRows() : []),
+            getChildren: (row) => (row === undefined ? this.stack.map((frame, index) => ({ index, frame })) : []),
             getKey: (row) => String(row.index),
         };
         // A click opens the frame as Enter does: upstream's frame header is a link to its place.
@@ -101,7 +104,7 @@ export class TestMessageView extends Disposable {
 
     /** Upstream `inspectSubjectHasStack`. */
     public get hasStack(): boolean {
-        return this.stack().length > 0;
+        return this.stack.length > 0;
     }
 
     public show(subject: TestMessageSubject): void {
@@ -109,15 +112,14 @@ export class TestMessageView extends Disposable {
         this.subject = subject;
         this.collapsed = false;
         const message = messageOf(subject);
-        let body: TUIElement;
+        this.stack = message.stackTrace ?? [];
         if (messageShow(message) === "diff") {
-            const diff = this.subjectStore.add(this.host.createDiff(message.expected ?? "", message.actual ?? ""));
-            body = diff.view;
+            this.body = this.subjectStore.add(this.host.createDiff(message.expected ?? "", message.actual ?? "")).view;
         } else {
             this.text.setText(messageText(message));
-            body = this.text;
+            this.body = this.textView;
         }
-        this.element.setParts(this.header(subject), body, this.stack().length);
+        this.layout(subject);
         void this.frames.refresh().catch(onUnexpectedError);
     }
 
@@ -133,19 +135,13 @@ export class TestMessageView extends Disposable {
     }
 
     private setCollapsed(collapsed: boolean): void {
-        const { subject } = this;
-        if (subject === null || this.collapsed === collapsed) return;
+        if (this.subject === null || this.collapsed === collapsed) return;
         this.collapsed = collapsed;
-        this.element.setCollapsed(collapsed);
-        this.element.setHeader(this.header(subject));
+        this.layout(this.subject);
     }
 
-    private stack(): readonly IWireTestMessageStackFrame[] {
-        return this.subject === null ? [] : (messageOf(this.subject).stackTrace ?? []);
-    }
-
-    private frameRows(): IFrameRow[] {
-        return this.stack().map((frame, index) => ({ index, frame }));
+    private layout(subject: TestMessageSubject): void {
+        this.element.setParts(this.header(subject), this.collapsed ? null : this.body, this.stack.length);
     }
 
     /**
@@ -177,49 +173,29 @@ export class TestMessageView extends Disposable {
 /** Upstream `CallStackFrame`'s header: the label, then where; a frame without a place is dimmed. */
 function frameItem(frame: IWireTestMessageStackFrame): ITreeItem {
     if (frame.uri === undefined) return { label: frame.label, labelColor: "descriptionForeground", collapsible: false };
-    const line = frame.position === undefined ? "" : `:${String(frame.position.line + 1)}`;
-    const column = frame.position === undefined ? "" : `:${String(frame.position.character + 1)}`;
-    return {
-        label: frame.label,
-        description: `${UriUtils.basename(Uri.parse(frame.uri))}${line}${column}`,
-        collapsible: false,
-    };
+    const { position } = frame;
+    const at = position === undefined ? "" : `:${String(position.line + 1)}:${String(position.character + 1)}`;
+    return { label: frame.label, description: `${UriUtils.basename(Uri.parse(frame.uri))}${at}`, collapsible: false };
 }
 
-/** The header's row, the message under it, the stack at the bottom; a folded message gives its rows to the stack. */
+/**
+ * The header's row, the message under it, the stack at the bottom; a folded message (no body) gives its rows to the
+ * stack.
+ */
 export class TestMessageLayoutElement extends TUIElement {
     private header: TUIElement | null = null;
     private body: TUIElement | null = null;
     private stackRows = 0;
-    private collapsed = false;
 
     public constructor(private readonly stack: TUIElement) {
         super();
     }
 
-    public setParts(header: TUIElement | null, body: TUIElement, stackRows: number): void {
+    public setParts(header: TUIElement | null, body: TUIElement | null, stackRows: number): void {
         this.header = header;
         this.body = body;
         this.stackRows = stackRows;
-        this.collapsed = false;
-        this.sync();
-    }
-
-    public setHeader(header: TUIElement | null): void {
-        this.header = header;
-        this.sync();
-    }
-
-    public setCollapsed(collapsed: boolean): void {
-        this.collapsed = collapsed;
-        this.sync();
-    }
-
-    private sync(): void {
-        const children: TUIElement[] = [];
-        if (this.header !== null) children.push(this.header);
-        if (this.body !== null && !this.collapsed) children.push(this.body);
-        if (this.stackRows > 0) children.push(this.stack);
+        const children = [header, body, stackRows > 0 ? this.stack : null].filter((child) => child !== null);
         this.setChildren(children);
         this.markDirty();
     }
@@ -233,15 +209,14 @@ export class TestMessageLayoutElement extends TUIElement {
             y = this.header.layoutSize.height;
         }
         const rest = size.height - y;
-        const showBody = this.body !== null && !this.collapsed;
+        const { body } = this;
         const stack =
             this.stackRows === 0
                 ? 0
-                : showBody
-                  ? Math.min(this.stackRows, Math.max(MIN_STACK_ROWS, Math.floor(rest / 2)), rest)
-                  : rest;
-        if (showBody && this.body !== null)
-            this.layoutChild(this.body, 0, y, BoxConstraints.tight(new Size(width, rest - stack)));
+                : body === null
+                  ? rest
+                  : Math.min(this.stackRows, Math.max(MIN_STACK_ROWS, Math.floor(rest / 2)), rest);
+        if (body !== null) this.layoutChild(body, 0, y, BoxConstraints.tight(new Size(width, rest - stack)));
         if (stack > 0)
             this.layoutChild(this.stack, 0, size.height - stack, BoxConstraints.tight(new Size(width, stack)));
         return size;

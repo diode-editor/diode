@@ -35,15 +35,8 @@ export class ResourceContextKeys implements IContextKeyContributor {
             for (const key of RESOURCE_CONTEXT_KEYS) contextKeys.reset(key);
             return;
         }
-        const keys = resourceContextKeysOf(editor.uri);
-        contextKeys.set("resource", keys.resource);
-        contextKeys.set("resourceScheme", keys.resourceScheme);
-        contextKeys.set("resourceFilename", keys.resourceFilename);
-        contextKeys.set("resourceDirname", keys.resourceDirname);
-        contextKeys.set("resourcePath", keys.resourcePath);
+        for (const [key, value] of Object.entries(resourceContextKeysOf(editor.uri))) contextKeys.setRaw(key, value);
         contextKeys.set("resourceLangId", editor.languageId);
-        contextKeys.set("resourceExtname", keys.resourceExtname);
-        contextKeys.set("resourceSet", true);
     }
 }
 
