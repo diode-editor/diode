@@ -347,13 +347,11 @@ export class TestResultsComponent extends Disposable {
     /** Upstream `onDidReveal`: the row's ancestors expand and the cursor goes to it; the content follows. */
     private reveal(subject: TestResultsSubject): void {
         this.show(subject);
-        const chain: TestResultsRow[] = [];
-        if (this.latestWithTasks() !== subject.result) {
-            // The "older" row's key does not depend on its count.
-            chain.push({ kind: "older", count: 0 }, { kind: "result", result: subject.result });
-        }
-        chain.push({ kind: "task", result: subject.result, taskIndex: subject.taskIndex });
-        if (subject.kind !== "task") chain.push({ ...subject, kind: "test" });
+        const { result } = subject;
+        const task: TestResultsRow = { kind: "task", result, taskIndex: subject.taskIndex };
+        // An older run's row is shown ("N older results" is open: its action is on screen); the latest run has none.
+        const chain: TestResultsRow[] = this.latestWithTasks() === result ? [task] : [{ kind: "result", result }, task];
+        if (subject.kind !== "task") chain.push(subject);
         void this.tree
             .refresh()
             .then(() => this.tree.reveal(chain))

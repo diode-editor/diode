@@ -160,6 +160,8 @@ describe("TEST RESULTS — the rows", () => {
         const { harness } = setup();
         const result = start(harness);
         report(result, ADDS, Passed);
+        // Output only: no rows under it.
+        result.appendOutput("adds out\r\n", "vitest", undefined, testId(...ADDS));
         report(result, FAILS, Failed);
         result.appendMessage(testId(...FAILS), "vitest", { message: "expected 2 to be 3\nat math.test.ts:3" });
         report(result, [...SUITE, "trailing"], Failed);
@@ -271,9 +273,9 @@ describe("TEST RESULTS — what redraws the tree", () => {
         const icons = new SwitchableIcons();
         const { harness } = setup({ ...quiet, icons });
         failed(harness);
-        const before = await harness.panel.waitFrame((text) => text.includes("adds"));
+        await harness.panel.waitFrame((text) => text.includes("adds"));
         icons.useNerdFont();
-        await harness.panel.waitFrame((text) => text !== before && text.includes("adds"));
+        await harness.panel.waitFrame((text) => text.includes(`${icons.glyph(codicon("pass"))} adds`));
     });
 
     it("turning the indent guides on draws them", async () => {
@@ -334,6 +336,21 @@ describe("TEST RESULTS — the cursor and the content", () => {
         result.markComplete();
     });
 
+    it("the cursor on a test's second message stays there when the tree redraws", async () => {
+        const { harness } = setup();
+        const result = start(harness);
+        report(result, FAILS, Failed);
+        result2Messages(result);
+        await harness.panel.waitFrame((text) => text.includes("second message"));
+        clickRow(harness, "second message");
+        const { tree } = harness.panel.component;
+        expect(tree.getSelectedNode()).toMatchObject({ kind: "message", messageIndex: 1 });
+        report(result, ADDS, Passed);
+        await harness.panel.waitFrame((text) => text.includes("adds"));
+        expect(tree.getSelectedNode()).toMatchObject({ kind: "message", messageIndex: 1 });
+        result.markComplete();
+    });
+
     it("Enter on a task goes nowhere; a middle click on a test goes to it unless the open mode is doubleClick", async () => {
         const single = setup();
         failed(single.harness);
@@ -388,6 +405,8 @@ describe("TEST RESULTS — the cursor and the content", () => {
         await harness.views.commands.execute("testing.showMostRecentOutput");
         expect(opened).toHaveBeenCalledWith(TEST_RESULTS_VIEW_ID, true);
         expect(harness.panel.component.currentSubject).toMatchObject({ kind: "task", result: latest, taskIndex: 0 });
+        await nextFrame();
+        expect(harness.panel.component.tree.getSelectedNode()).toMatchObject({ kind: "task", result: latest });
     });
 
     it("Show Result Output from the menu: on a collapsed older run the cursor goes to its task, on a test to the test", async () => {
@@ -399,13 +418,12 @@ describe("TEST RESULTS — the cursor and the content", () => {
         await harness.panel.waitFrame((text) => text.includes("Test run at"));
         choose(harness, "Test run at", "Show Result Output");
         const { tree } = harness.panel.component;
-        await vi.waitFor(() => {
-            expect(tree.getSelectedNode()).toMatchObject({ kind: "task", result: first, taskIndex: 0 });
-        });
+        // The right click has put the cursor on the run's row; the reveal moves it after the refresh.
+        await nextFrame();
+        expect(tree.getSelectedNode()).toMatchObject({ kind: "task", result: first, taskIndex: 0 });
         choose(harness, "fails", "Show Result Output");
-        await vi.waitFor(() => {
-            expect(tree.getSelectedNode()).toMatchObject({ kind: "test", test: { item: { extId: testId(...FAILS) } } });
-        });
+        await nextFrame();
+        expect(tree.getSelectedNode()).toMatchObject({ kind: "test", test: { item: { extId: testId(...FAILS) } } });
     });
 
     it("Clear All with a live run: its content and its collapsed rows stay", async () => {

@@ -4,7 +4,7 @@ import { Disposable, DisposableStore, toDisposable } from "../../../../base/comm
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
 import { applyTerminalColors, type TerminalColorsService } from "../../terminal/browser/terminalColorsService.ts";
 import type { ExtensionPtySessionFactory, IExtensionPtySession } from "../../terminal/common/terminalSessionFactory.ts";
-import type { ITestResultItem, LiveTestResult } from "../common/testResult.ts";
+import type { ITestResultItem, ITestResultMessage, LiveTestResult } from "../common/testResult.ts";
 
 /** What the content shows: a task's output, a test's output in a task, or the text of a test's message. */
 export type TestResultsSubject =
@@ -99,14 +99,7 @@ export class TestResultsOutput extends Disposable {
         const { result, taskIndex } = subject;
         const task = result.tasks[taskIndex];
         const { test } = subject;
-        const initial =
-            test === undefined
-                ? task.output
-                : test.tasks[taskIndex].messages
-                      // Stryker disable next-line MethodExpression,ConditionalExpression: equivalent — an error message has no offset or length, its slice is empty
-                      .filter((message) => message.type === "output")
-                      .map((message) => task.output.slice(message.offset, message.offset + message.length))
-                      .join("");
+        const initial = test === undefined ? task.output : ownOutput(task.output, test.tasks[taskIndex].messages);
         let wrote = initial.length > 0;
         this.session.feed(initial);
         const finish = (): void => {
@@ -126,4 +119,14 @@ export class TestResultsOutput extends Disposable {
         );
         this.subjectStore.add(result.onComplete(finish));
     }
+}
+
+/** A test's own output in its task's: the slices its output messages point at, in order. */
+function ownOutput(output: string, messages: readonly ITestResultMessage[]): string {
+    let text = "";
+    for (const message of messages) {
+        // Stryker disable next-line ConditionalExpression: equivalent — an error message has no offset or length, its slice is empty
+        if (message.type === "output") text += output.slice(message.offset, message.offset + message.length);
+    }
+    return text;
 }
