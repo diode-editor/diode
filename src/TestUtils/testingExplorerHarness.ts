@@ -370,5 +370,6 @@ export function setupExplorer(options: ISetupOptions = {}) {
         click,
         width,
         setSetting,
+        configuration,
     };
 }

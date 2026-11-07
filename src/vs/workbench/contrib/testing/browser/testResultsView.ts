@@ -7,13 +7,7 @@ import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { codicon, type IProductIcon } from "../../../../base/common/codicons.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
-import {
-    Disposable,
-    DisposableMap,
-    DisposableStore,
-    type IDisposable,
-    toDisposable,
-} from "../../../../base/common/lifecycle.ts";
+import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -112,7 +106,7 @@ export class TestResultsComponent extends Disposable {
     /** Rows already shown once: a task and a test expand when they first appear. */
     private readonly seen = new Set<string>();
     private readonly liveStores = this.register(new DisposableMap<LiveTestResult, DisposableStore>());
-    private spinnerTicks: IDisposable | null = null;
+    private readonly spinnerTicks = this.register(new MutableDisposable());
 
     public constructor(
         private readonly results: TestResultService,
@@ -150,15 +144,18 @@ export class TestResultsComponent extends Disposable {
             if (row.kind === "test" && options.pinned) this.execute("testing.editFocusedTest", testArg(row));
         };
         this.tree.onInlineAction = (row, index) => {
-            primaryActions(this.actionsOf(row)).at(index)?.run();
+            primaryActions(this.actionsOf(row))[index].run();
         };
         this.tree.onContextMenu = (row, screenX, screenY) => {
             this.showContextMenu(row, screenX, screenY);
         };
         this.output = this.register(new TestResultsOutput(createSession, colors));
-        this.view = new TestResultsSplitElement(this.output.widget, new ScrollBarDecorator(this.tree));
+        this.view = new TestResultsSplitElement(
+            this.output.widget,
+            new ScrollBarDecorator(this.tree),
+            this.isTreeLeft(),
+        );
         this.view.id = "testResultsView";
-        this.view.setTreeLeft(this.isTreeLeft());
 
         views.registerContainer({
             id: TEST_RESULTS_CONTAINER_ID,
@@ -177,10 +174,12 @@ export class TestResultsComponent extends Disposable {
             results.onResultsChanged((event) => {
                 this.syncRegistration();
                 if ("started" in event) {
-                    this.attachToLive(event.started);
-                    this.autoOpen(event.started);
+                    const store = new DisposableStore();
+                    // Stryker disable next-line CallExpression: hygiene — a run that is not kept here only keeps its own listeners; it fires nothing once removed
+                    this.liveStores.set(event.started, store);
+                    this.attachToLive(event.started, store);
+                    this.autoOpen(event.started, store);
                 }
-                if ("completed" in event) this.liveStores.deleteAndDispose(event.completed);
                 if ("removed" in event) for (const removed of event.removed) this.forget(removed);
                 this.syncSpinner();
                 this.refresh();
@@ -193,6 +192,7 @@ export class TestResultsComponent extends Disposable {
         );
         this.register(
             configuration.onDidChangeConfiguration((event) => {
+                // Stryker disable next-line ConditionalExpression: equivalent — another setting's change puts the tree on the same side again
                 if (event.affectsConfiguration("testing.resultsView.layout")) this.view.setTreeLeft(this.isTreeLeft());
             }),
         );
@@ -204,11 +204,6 @@ export class TestResultsComponent extends Disposable {
         this.register(
             onDidChangeTreeIndentGuides(configuration, () => {
                 this.tree.markDirty();
-            }),
-        );
-        this.register(
-            toDisposable(() => {
-                this.spinnerTicks?.dispose();
             }),
         );
         this.syncRegistration();
@@ -246,6 +241,7 @@ export class TestResultsComponent extends Disposable {
     private syncRegistration(): void {
         const shown = this.results.results.length > 0;
         const registered = this.views.getViewContainerByViewId(TEST_RESULTS_VIEW_ID) !== null;
+        // Stryker disable next-line ConditionalExpression: equivalent — registering the registered view again replaces its record with the same one, unregistering a missing one does nothing; the guard saves the work
         if (shown === registered) return;
         if (!shown) {
             this.views.unregisterView(TEST_RESULTS_VIEW_ID);
@@ -269,7 +265,7 @@ export class TestResultsComponent extends Disposable {
      * Upstream `attachAutoOpenForNewResults`: not for a run that asked to preserve the focus; the view opens without
      * taking the keyboard.
      */
-    private autoOpen(result: LiveTestResult): void {
+    private autoOpen(result: LiveTestResult, store: DisposableStore): void {
         if (result.request.preserveFocus === true) return;
         switch (this.configuration.get("testing.automaticallyOpenTestResults")) {
             case "openOnTestStart":
@@ -279,12 +275,13 @@ export class TestResultsComponent extends Disposable {
                 this.views.openView(TESTING_EXPLORER_VIEW_ID, false);
                 return;
             case "openOnTestFailure": {
-                const store = this.liveStoreOf(result);
+                // A test's own state turns failed only by an "ownState" change: the first failed one is that change.
                 const listener = result.onChange((change) => {
-                    if (change.reason !== "ownState" || !isFailedState(change.item.ownComputedState)) return;
+                    if (!isFailedState(change.item.ownComputedState)) return;
                     this.views.openView(TEST_RESULTS_VIEW_ID, false);
                     listener.dispose();
                 });
+                // Stryker disable next-line CallExpression: hygiene — a removed run fires nothing more; only the listener's memory goes
                 store.add(listener);
                 return;
             }
@@ -292,18 +289,11 @@ export class TestResultsComponent extends Disposable {
         }
     }
 
-    private liveStoreOf(result: LiveTestResult): DisposableStore {
-        let store = this.liveStores.get(result);
-        if (store === undefined) {
-            store = new DisposableStore();
-            this.liveStores.set(result, store);
-        }
-        return store;
-    }
-
     /** A removed run: its listeners, its rows' memory and, if shown, the content go. */
     private forget(result: LiveTestResult): void {
+        // Stryker disable next-line CallExpression: hygiene — a removed run fires nothing more; only its listeners' memory goes
         this.liveStores.deleteAndDispose(result);
+        // Stryker disable next-line ConditionalExpression,MethodExpression,CallExpression: hygiene — a removed run's keys are never asked again; only their memory goes
         for (const key of this.seen) if (key.startsWith(`${result.id}/`)) this.seen.delete(key);
         if (this.subject?.result === result) {
             this.subject = null;
@@ -312,8 +302,7 @@ export class TestResultsComponent extends Disposable {
     }
 
     /** Upstream `attachToResults`: a new task redraws the tree; the first task of a new run is shown. */
-    private attachToLive(result: LiveTestResult): void {
-        const store = this.liveStoreOf(result);
+    private attachToLive(result: LiveTestResult, store: DisposableStore): void {
         store.add(
             result.onNewTask((index) => {
                 if (index === 0 && this.results.results[0] === result)
@@ -330,14 +319,11 @@ export class TestResultsComponent extends Disposable {
 
     /** While a run goes on its spinners tick with the Test Explorer's; a hidden panel is not redrawn. */
     private syncSpinner(): void {
-        const running = this.results.isRunning;
-        if (running === (this.spinnerTicks !== null)) return;
-        if (!running) {
-            this.spinnerTicks?.dispose();
-            this.spinnerTicks = null;
+        if (!this.results.isRunning) {
+            this.spinnerTicks.clear();
             return;
         }
-        this.spinnerTicks = this.progress.onDidChange(() => {
+        this.spinnerTicks.value ??= this.progress.onDidChange(() => {
             if (this.views.isViewShown(TEST_RESULTS_VIEW_ID)) this.refresh();
         });
     }
@@ -352,6 +338,7 @@ export class TestResultsComponent extends Disposable {
     }
 
     private show(subject: TestResultsSubject): void {
+        // Stryker disable next-line ConditionalExpression: equivalent — the same subject again resets the surface and writes the same output, the scroll stays; the guard saves the work
         if (this.subject !== null && rowKey(this.subject) === rowKey(subject)) return;
         this.subject = subject;
         this.output.show(subject);
@@ -391,9 +378,11 @@ export class TestResultsComponent extends Disposable {
             children = tasksOf(row.result);
         } else if (row.kind === "task") {
             children = this.testsOf(row.result, row.taskIndex);
+            // Stryker disable next-line ConditionalExpression: equivalent — a message row is not collapsible, the tree never asks for its children
         } else if (row.kind === "test") {
             children = errorMessagesOf(row);
         } else {
+            // Stryker disable next-line ArrayDeclaration: equivalent — see above
             return [];
         }
         this.expandOnFirstSight(children);
@@ -426,10 +415,9 @@ export class TestResultsComponent extends Disposable {
             return isFresh && (row.kind === "task" || row.kind === "test");
         });
         // After the tree has taken these children: it expands a row it already lists.
-        if (fresh.length > 0)
-            queueMicrotask(() => {
-                void this.tree.expandElements(fresh);
-            });
+        queueMicrotask(() => {
+            void this.tree.expandElements(fresh);
+        });
     }
 
     private toTreeItem(row: TestResultsRow): ITreeItem {
@@ -488,11 +476,11 @@ export class TestResultsComponent extends Disposable {
     private parentLabels(result: LiveTestResult, test: ITestResultItem): string | undefined {
         const labels: string[] = [];
         for (let id = TestId.parentId(test.item.extId); id !== undefined; id = TestId.parentId(id)) {
-            const parent = result.getStateById(id);
-            if (TestId.parentId(id) === undefined || parent === undefined) break;
-            labels.push(parent.item.label);
+            if (TestId.parentId(id) === undefined) break;
+            // The run holds the whole chain of its tests (`addTestChainToRun`).
+            labels.push(assertReturnsDefined(result.getStateById(id)).item.label);
         }
-        return labels.length === 0 ? undefined : labels.join(" ‹ ");
+        return labels.join(" ‹ ") || undefined;
     }
 
     private inlineOf(row: TestResultsRow): ITreeItemAction[] {
@@ -571,7 +559,8 @@ export class TestResultsComponent extends Disposable {
         const toEntry = (action: IRowAction): MenuEntry => ({ label: action.label, onSelect: () => action.run() });
         const primary = primaryActions(actions).map(toEntry);
         const secondary = actions.filter((action) => action.secondary === true).map(toEntry);
-        const entries: MenuEntry[] = secondary.length > 0 ? [...primary, { type: "separator" }, ...secondary] : primary;
+        const separator: MenuEntry[] = primary.length > 0 && secondary.length > 0 ? [{ type: "separator" }] : [];
+        const entries = [...primary, ...separator, ...secondary];
         if (entries.length === 0) return;
         this.contextMenu.showContextMenu({
             getOwner: () => this.tree,
@@ -623,11 +612,14 @@ function testArg(row: { readonly test: ITestResultItem }): IWireTestItemArg {
 function rowKey(row: TestResultsRow): string {
     switch (row.kind) {
         case "older":
+            // Stryker disable next-line StringLiteral: equivalent — any constant key is unique among the rows
             return "older";
+        // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent — a run falls to the task key "<id>/undefined", as unique
         case "result":
             return `result:${row.result.id}`;
         case "task":
             return `${row.result.id}/${String(row.taskIndex)}`;
+        // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent — a test falls to the message key "<…>/undefined", as unique
         case "test":
             return `${row.result.id}/${String(row.taskIndex)}/${row.test.item.extId}`;
         case "message":

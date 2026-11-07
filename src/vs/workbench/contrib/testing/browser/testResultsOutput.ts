@@ -8,7 +8,12 @@ import type { ITestResultItem, LiveTestResult } from "../common/testResult.ts";
 
 /** What the content shows: a task's output, a test's output in a task, or the text of a test's message. */
 export type TestResultsSubject =
-    | { readonly kind: "task"; readonly result: LiveTestResult; readonly taskIndex: number }
+    | {
+          readonly kind: "task";
+          readonly result: LiveTestResult;
+          readonly taskIndex: number;
+          readonly test?: undefined;
+      }
     | {
           readonly kind: "test";
           readonly result: LiveTestResult;
@@ -93,11 +98,12 @@ export class TestResultsOutput extends Disposable {
         }
         const { result, taskIndex } = subject;
         const task = result.tasks[taskIndex];
-        const test = subject.kind === "test" ? subject.test : undefined;
+        const { test } = subject;
         const initial =
             test === undefined
                 ? task.output
                 : test.tasks[taskIndex].messages
+                      // Stryker disable next-line MethodExpression,ConditionalExpression: equivalent — an error message has no offset or length, its slice is empty
                       .filter((message) => message.type === "output")
                       .map((message) => task.output.slice(message.offset, message.offset + message.length))
                       .join("");

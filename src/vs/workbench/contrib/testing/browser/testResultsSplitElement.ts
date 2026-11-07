@@ -18,11 +18,10 @@ export function splitWidths(width: number): { readonly content: number; readonly
  * unless `treeLeft`. Deviation: there is no sash, the halves are fixed (upstream drags the boundary).
  */
 export class TestResultsSplitElement extends TUIElement {
-    private treeLeft = false;
-
     public constructor(
         private readonly content: TUIElement,
         private readonly tree: TUIElement,
+        private treeLeft: boolean,
     ) {
         super();
         this.setChildren([content, tree]);

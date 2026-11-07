@@ -88,7 +88,7 @@ export function createResultsPanel(options: IResultsPanelOptions) {
             frame();
             return show().backend.getFgAt(new Point(x, y));
         },
-        click: (x: number, y: number, button: "left" | "right" = "left"): void => {
+        click: (x: number, y: number, button: "left" | "middle" | "right" = "left"): void => {
             for (const action of ["press", "release"] as const) {
                 show().backend.simulateMouse({
                     kind: "mouse",
