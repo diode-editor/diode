@@ -214,12 +214,11 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                 expect(content[sides]).toContain("Actual result");
                 expect(content[sides + 1]).toMatch(/2.*│.*1/);
                 await panel.waitFrame((text) =>
-                    /math\.test\.ts:8:/.test(
-                        text
-                            .split("\n")
-                            .map((line) => line.slice(0, 60))
-                            .join("\n"),
-                    ),
+                    text
+                        .split("\n")
+                        .map((line) => line.slice(0, 60))
+                        .join("\n")
+                        .includes("math.test.ts:8:"),
                 );
                 panel.click(messageX, failsRow + 1, "right");
                 const copy = (views.shown.at(-1)?.getEntries?.() ?? []).find(
