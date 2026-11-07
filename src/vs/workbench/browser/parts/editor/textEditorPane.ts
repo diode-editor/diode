@@ -17,6 +17,10 @@ import type { IDocumentLanguageChange } from "../../../../editor/common/model/iD
 import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
 import type { IExtensionTextDecorationSet } from "../../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
+import type {
+    IGlyphMarginClick,
+    IGlyphMarginDecoration,
+} from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
@@ -468,6 +472,14 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public setExtensionGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
         this.component.setExtensionGutterChangeDecorations(decorations);
+    }
+
+    public setGlyphMarginDecorations(decorations: readonly IGlyphMarginDecoration[]): void {
+        this.component.setGlyphMarginDecorations(decorations);
+    }
+
+    public onDidClickGlyphMargin(listener: (click: IGlyphMarginClick) => void): IDisposable {
+        return this.component.onDidClickGlyphMargin(listener);
     }
 
     public setExtensionTextDecorations(set: IExtensionTextDecorationSet): void {

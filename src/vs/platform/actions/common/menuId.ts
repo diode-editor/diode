@@ -32,6 +32,11 @@ export class MenuId {
      * `testing.testItemHasUri` keys; the `inline` group is the row's glyph buttons, the rest its context menu.
      */
     public static readonly TestItem = new MenuId("TestItem");
+    /**
+     * `testing/item/gutter`: the menu of a test glyph in the editor gutter, resolved per test with the same keys as
+     * {@link TestItem}; its items follow the built-in ones.
+     */
+    public static readonly TestItemGutter = new MenuId("TestItemGutter");
     /** Filtered by `menuContext.container` (`containerMenuVisible`). */
     public static readonly ViewContainerTitle = new MenuId("ViewContainerTitle");
     /**

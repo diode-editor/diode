@@ -26,6 +26,10 @@ import type { TokenizationRegistry } from "../../../../editor/common/languages/t
 import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
 import type { IExtensionTextDecorationSet } from "../../../../editor/common/model/iExtensionTextDecoration.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
+import type {
+    IGlyphMarginClick,
+    IGlyphMarginDecoration,
+} from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
@@ -761,6 +765,15 @@ export class EditorComponent extends Component {
     private applyGutterChanges(): void {
         this.editor.gutterChangeDecorations = [...this.quickDiffGutterChanges, ...this.extensionGutterChanges];
         this.editor.markDirty();
+    }
+
+    /** Test glyphs left of the line numbers: they ride their lines through edits. */
+    public setGlyphMarginDecorations(decorations: readonly IGlyphMarginDecoration[]): void {
+        this.editor.setGlyphMarginDecorations(decorations);
+    }
+
+    public onDidClickGlyphMargin(listener: (click: IGlyphMarginClick) => void): IDisposable {
+        return this.editor.onDidClickGlyphMargin(listener);
     }
 
     public setDecorations(decorations: IExternalDecorations): void {
