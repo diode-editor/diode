@@ -30,6 +30,12 @@
                     "command": "demoTests.updateSnapshot",
                     "when": "controllerId == 'demo'"
                 }
+            ],
+            "testing/item/gutter": [
+                {
+                    "command": "demoTests.updateSnapshot",
+                    "when": "controllerId == 'demo'"
+                }
             ]
         }
     }

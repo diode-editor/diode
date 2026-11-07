@@ -14,6 +14,10 @@ export function createRange(startLine: number, startCharacter: number, endLine: 
     };
 }
 
+export function isEmptyRange(range: IRange): boolean {
+    return positionsEqual(range.start, range.end);
+}
+
 export function rangesEqual(a: IRange, b: IRange): boolean {
     return positionsEqual(a.start, b.start) && positionsEqual(a.end, b.end);
 }

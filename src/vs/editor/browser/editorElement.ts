@@ -7,7 +7,7 @@ import { measureTextWidth } from "@tuidom/core/common/measureTextWidth";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { TUIEventBase } from "@tuidom/core/dom/events/tuiEventBase";
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
-import type { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import type { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { TUIPasteEvent } from "@tuidom/core/dom/events/tuiPasteEvent";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { IScrollable, IScrollBarMarker } from "@tuidom/elements/scrollbar/iScrollable";
@@ -24,6 +24,7 @@ import { withCursorChangeSource } from "../common/core/cursorChangeSource.ts";
 import type { IPosition } from "../common/core/iPosition.ts";
 import { comparePositions } from "../common/core/iPosition.ts";
 import type { IRange } from "../common/core/iRange.ts";
+import { createRange } from "../common/core/iRange.ts";
 import {
     createCursorSelection,
     createSelection,
@@ -47,12 +48,14 @@ import { EMPTY_EXTERNAL_DECORATIONS } from "../common/model/iEditorDecoration.ts
 import type { IExtensionTextDecoration } from "../common/model/iExtensionTextDecoration.ts";
 import type { IGhostText } from "../common/model/iGhostText.ts";
 import { ghostTextEquals } from "../common/model/iGhostText.ts";
+import type { IGlyphMarginClick, IGlyphMarginDecoration } from "../common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecoration.ts";
 import type { IInlineInsertion } from "../common/model/iInlineInsertion.ts";
 import { NO_INLINE_INSERTIONS } from "../common/model/iInlineInsertion.ts";
 import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
+import { GlyphMarginDecorations } from "../common/viewModel/glyphMarginDecorations.ts";
 import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
 import { composedFragmentStart, composedLineContent, composedOffset } from "../common/viewModel/lineInsertions.ts";
 import { LineWidthCache } from "../common/viewModel/lineWidthCache.ts";
@@ -103,6 +106,8 @@ const enum ScrollBarMarkerPriority {
     Info = 4,
     Warning = 5,
     Error = 6,
+    /** Upstream's test glyph marks its ruler in the center lane, apart from the diagnostics' right lane. */
+    GlyphMargin = 7,
 }
 const NO_GUTTER_CHANGE_DECORATIONS: readonly IGutterChangeDecoration[] = [];
 const NO_EXTENSION_TEXT_DECORATIONS: readonly IExtensionTextDecoration[] = [];
@@ -112,6 +117,13 @@ const NO_PAINT_INSERTIONS: readonly IPaintTextLineInsertion[] = [];
 const GUTTER_CHANGE_BAR = "┃";
 const GUTTER_CHANGE_BAR_DASHED = "┋";
 const GUTTER_LEFT_PADDING = 2;
+/**
+ * With glyphs the padding grows by a column and the glyph takes the middle one: the leftmost column lies under the
+ * sash between the sidebar and the editor, which takes its clicks, and right of the glyph a gap keeps it off a
+ * two-digit line number.
+ */
+const GUTTER_LEFT_PADDING_WITH_GLYPHS = 3;
+const GLYPH_MARGIN_COLUMN = 1;
 
 // Codicons as in VS Code: thinner than the file tree's Nerd Font fa-angle, they don't crowd the text.
 const FOLD_ICON_EXPANDED = codicon("chevron-down");
@@ -172,6 +184,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     private readonly onDidClickCodeLensEmitter = new Emitter<CodeLensCommand>();
     /** A left click on the title of a code lens. */
     public readonly onDidClickCodeLens = this.onDidClickCodeLensEmitter.event;
+    private readonly onDidClickGlyphMarginEmitter = new Emitter<IGlyphMarginClick>();
+    /** A press of the left or the right button on the glyph lane of a line with a glyph; the cursor stays. */
+    public readonly onDidClickGlyphMargin = this.onDidClickGlyphMarginEmitter.event;
     private readonly onDidClickDocumentLinkEmitter = new Emitter<IPosition>();
     /** Ctrl+click: the press and the release on one link. The position is the link's start. */
     public readonly onDidClickDocumentLink = this.onDidClickDocumentLinkEmitter.event;
@@ -227,6 +242,7 @@ export class EditorElement extends TUIElement implements IScrollable {
     /** Painted over the selection, under the current find match: upstream's decorations layer lies above selections. */
     public extensionTextDecorations: readonly IExtensionTextDecoration[] = NO_EXTENSION_TEXT_DECORATIONS;
     public decorations: IExternalDecorations = EMPTY_EXTERNAL_DECORATIONS;
+    private readonly glyphMargin: GlyphMarginDecorations;
 
     private lineWidthCache: LineWidthCache | null = null;
     /**
@@ -454,7 +470,15 @@ export class EditorElement extends TUIElement implements IScrollable {
             const lane = this.severityRulerLane(severity);
             diagnosticMarkers.push(this.scrollBarMarker(range, lane.color, lane.priority));
         }
-        const small = [...changeMarkers, ...diagnosticMarkers];
+        const glyphMarkers: IScrollBarMarker[] = [];
+        for (const [line, glyph] of this.glyphMargin.byLine()) {
+            if (glyph.overviewRulerColorToken === undefined) continue;
+            const color = this.styleVar(glyph.overviewRulerColorToken);
+            glyphMarkers.push(
+                this.scrollBarMarker(createRange(line, 0, line, 0), color, ScrollBarMarkerPriority.GlyphMargin),
+            );
+        }
+        const small = [...changeMarkers, ...diagnosticMarkers, ...glyphMarkers];
 
         const cached = this.scrollBarMarkers;
         if (
@@ -472,6 +496,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             changeMarkers,
             this.findMarkers.markers,
             diagnosticMarkers,
+            glyphMarkers,
         );
         this.scrollBarMarkers = {
             occurrenceText: this.occurrenceTextMarkers.markers,
@@ -682,7 +707,18 @@ export class EditorElement extends TUIElement implements IScrollable {
         // (a 150-line file folded below 100 would cut "150" to "15").
         const lineCount = this.viewState.document.lineCount;
         const digitCount = Math.max(1, Math.floor(Math.log10(lineCount)) + 1);
-        return GUTTER_LEFT_PADDING + digitCount + this.gutterMarkerColumns + FOLD_GAP_LEFT + 1 + FOLD_GAP_RIGHT;
+        return this.gutterLeftPadding + digitCount + this.gutterMarkerColumns + FOLD_GAP_LEFT + 1 + FOLD_GAP_RIGHT;
+    }
+
+    /** The glyph lane exists while some glyph is set: an editor without glyphs keeps its gutter as it was. */
+    private get gutterLeftPadding(): number {
+        return this.glyphMargin.isEmpty ? GUTTER_LEFT_PADDING : GUTTER_LEFT_PADDING_WITH_GLYPHS;
+    }
+
+    /** The glyph lane's glyphs; each keeps its line through edits until set again elsewhere. */
+    public setGlyphMarginDecorations(decorations: readonly IGlyphMarginDecoration[]): void {
+        this.glyphMargin.set(decorations);
+        this.markDirty();
     }
 
     private get gutterMarkerColumns(): number {
@@ -746,6 +782,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState = viewState;
         this.undoManager = new UndoManager(viewState.document);
         this.wordHighlighter = new WordHighlighter(viewState);
+        this.glyphMargin = new GlyphMarginDecorations(viewState.document);
 
         this.viewState.onDidChangeWordHighlights(() => {
             this.markDirty();
@@ -790,6 +827,11 @@ export class EditorElement extends TUIElement implements IScrollable {
             withCursorChangeSource("mouse", () => {
                 this.handleMouseDown(event);
             });
+        });
+        // Before the editor's context menu, which listens on the view around the element and skips a prevented event.
+        this.addEventListener("contextmenu", (event) => {
+            const menu = event as TUIContextMenuEvent;
+            if (menu.trigger === "mouse" && this.tryClickGlyphMargin(menu, "right")) menu.preventDefault();
         });
         this.addEventListener("dblclick", (event) => {
             withCursorChangeSource("mouse", () => {
@@ -843,8 +885,8 @@ export class EditorElement extends TUIElement implements IScrollable {
         const lnActiveFg = this.styleVar("editorLineNumber.activeForeground");
 
         const primaryLine = this.viewState.selections[0].active.line;
-        const digitCount =
-            gutterW - GUTTER_LEFT_PADDING - this.gutterMarkerColumns - FOLD_GAP_LEFT - 1 - FOLD_GAP_RIGHT;
+        const leftPadding = this.gutterLeftPadding;
+        const digitCount = gutterW - leftPadding - this.gutterMarkerColumns - FOLD_GAP_LEFT - 1 - FOLD_GAP_RIGHT;
         const foldFg = this.styleVar("editorGutter.foldingControlForeground");
         const ghost = this.ghostTextValue;
         const ghostFg = ghost !== null ? this.styleVar("editorGhostText.foreground") : 0;
@@ -877,6 +919,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         for (const marker of this.decorations.gutterMarkers ?? []) {
             gutterMarkerByLine.set(marker.line, marker.char);
         }
+        const glyphByLine = this.glyphMargin.byLine();
         const zoneDecorationByAnchor = new Map<number, IViewZoneDecoration>();
         for (const zone of this.decorations.zones ?? []) {
             zoneDecorationByAnchor.set(zone.afterLine, zone);
@@ -1016,14 +1059,23 @@ export class EditorElement extends TUIElement implements IScrollable {
                 const numFg = isActive ? lnActiveFg : lnFg;
                 const rowGutBg = lineBgByLine.get(logLine) ?? gutBg;
 
-                for (let x = 0; x < GUTTER_LEFT_PADDING; x++) {
+                for (let x = 0; x < leftPadding; x++) {
                     context.setCell(x, screenY, { char: " ", fg: numFg, bg: rowGutBg });
                 }
+                const glyph = isContinuation ? undefined : glyphByLine.get(logLine);
+                if (glyph !== undefined) {
+                    context.setCell(GLYPH_MARGIN_COLUMN, screenY, {
+                        char: glyph.glyph,
+                        fg: this.styleVar(glyph.colorToken),
+                        bg: rowGutBg,
+                    });
+                }
                 for (let d = 0; d < digitCount; d++) {
-                    context.setCell(GUTTER_LEFT_PADDING + d, screenY, { char: lineNumStr[d], fg: numFg, bg: rowGutBg });
+                    context.setCell(leftPadding + d, screenY, { char: lineNumStr[d], fg: numFg, bg: rowGutBg });
                 }
                 const foldCol = this.foldControlColumn;
-                for (let x = GUTTER_LEFT_PADDING + digitCount; x < gutterW; x++) {
+                // Stryker disable next-line EqualityOperator: equivalent — the text paints the column at gutterW over it
+                for (let x = leftPadding + digitCount; x < gutterW; x++) {
                     context.setCell(x, screenY, { char: " ", fg: numFg, bg: rowGutBg });
                 }
                 // The column guard and the marker map come from one source
@@ -1032,7 +1084,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                 if (this.gutterMarkerColumns > 0 && !isContinuation) {
                     const marker = gutterMarkerByLine.get(logLine);
                     if (marker !== undefined) {
-                        context.setCell(GUTTER_LEFT_PADDING + digitCount, screenY, {
+                        context.setCell(leftPadding + digitCount, screenY, {
                             char: marker,
                             fg: editorFg,
                             bg: rowGutBg,
@@ -1456,6 +1508,11 @@ export class EditorElement extends TUIElement implements IScrollable {
         if (this.viewState.getViewLineCount() === 0) return;
         /* v8 ignore stop */
 
+        if (this.tryClickGlyphMargin(event, "left")) {
+            this.dragAnchor = null;
+            return;
+        }
+
         if (this.tryToggleFoldAtGutter(event.localX, event.localY)) {
             this.markDirty();
             return;
@@ -1512,20 +1569,42 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState.selections = [createSelection(pos.line, word.start, pos.line, word.end)];
     }
 
+    /**
+     * The glyph lane is the whole left padding: the glyph is drawn in its middle, a press anywhere on it counts. From
+     * the screen cell, as the editor's context menu reads its event.
+     */
+    private tryClickGlyphMargin(event: TUIMouseEvent, button: IGlyphMarginClick["button"]): boolean {
+        const localX = event.screenX - this.globalPosition.x;
+        if (localX >= this.gutterLeftPadding) return false;
+        const glyph = this.glyphMargin.byLine().get(this.gutterLineAt(event.screenY - this.globalPosition.y));
+        if (glyph === undefined) return false;
+        this.onDidClickGlyphMarginEmitter.fire({
+            key: glyph.key,
+            button,
+            screenX: event.screenX,
+            screenY: event.screenY,
+        });
+        return true;
+    }
+
     private tryToggleFoldAtGutter(localX: number, localY: number): boolean {
         if (localX !== this.foldControlColumn) return false;
-
-        const viewLine = this.viewState.scrollTop + localY;
-        if (viewLine < 0 || viewLine >= this.viewState.getViewLineCount()) return false;
-        // The chevron lives on the first fragment; a click on a wrapped continuation does not fold.
-        if (this.viewState.viewLineRange(viewLine).start > 0) return false;
-
-        const logLine = this.viewState.visualToLogicalLine(viewLine);
+        const logLine = this.gutterLineAt(localY);
         const region = this.viewState.foldedRegions.find((r) => r.startLine === logLine);
         if (region === undefined) return false;
 
         this.viewState.toggleFold(logLine);
         return true;
+    }
+
+    /**
+     * The document line whose gutter is at the row, -1 for none: the chevron and the glyph live on a line's first
+     * fragment, so a wrapped continuation has none; a view zone and the rows past the end are line -1.
+     */
+    private gutterLineAt(localY: number): number {
+        const viewLine = this.viewState.scrollTop + localY;
+        if (this.viewState.viewLineRange(viewLine).start > 0) return -1;
+        return this.viewState.visualToLogicalLine(viewLine);
     }
 
     /**

@@ -11,7 +11,7 @@ import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
 import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
-import { codicon, type IProductIcon } from "../../../../base/common/codicons.ts";
+import { codicon } from "../../../../base/common/codicons.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
@@ -96,6 +96,9 @@ import type { ITestResultItemChange, LiveTestResult } from "../common/testResult
 import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
 import { type ITestNode, type TestService, TestServiceDIToken } from "../common/testService.ts";
 
+import { testingStatesToIcons } from "./icons.ts";
+import { getTestItemContextOverlay } from "./testItemContextOverlay.ts";
+
 /** Upstream `Testing.ViewletId`. */
 export const TESTING_VIEWLET_ID = "workbench.view.extension.test";
 /** Upstream `Testing.ExplorerViewId`. */
@@ -103,6 +106,9 @@ export const TESTING_EXPLORER_VIEW_ID = "workbench.view.testing";
 
 export const TestingRevealTargetDIToken = token<IRevealLocationTarget>("TestingRevealTarget");
 export const TestingExplorerComponentDIToken = token<TestingExplorerComponent>("TestingExplorerComponent");
+
+/** Upstream's internal command: {@link TestingExplorerComponent.revealTest} for a test id. */
+export const REVEAL_TEST_COMMAND = "_revealTestInExplorer";
 
 /** Upstream `TestExplorerViewSorting`. */
 export type TestExplorerViewSorting = "location" | "status" | "duration";
@@ -133,16 +139,6 @@ const WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "button", label: "Install Additional Test Extensions...", command: "testing.searchForTestExtension" },
 ];
 
-/** Upstream `testingStatesToIcons` with `testStatesToIconColors`; Running is the spinner. */
-const STATE_ICONS: Readonly<Partial<Record<TestResultState, { readonly icon: IProductIcon; readonly color: string }>>> =
-    {
-        [TestResultState.Errored]: { icon: codicon("issues"), color: "testing.iconErrored" },
-        [TestResultState.Failed]: { icon: codicon("error"), color: "testing.iconFailed" },
-        [TestResultState.Passed]: { icon: codicon("pass"), color: "testing.iconPassed" },
-        [TestResultState.Queued]: { icon: codicon("history"), color: "testing.iconQueued" },
-        [TestResultState.Skipped]: { icon: codicon("debug-step-over"), color: "testing.iconSkipped" },
-        [TestResultState.Unset]: { icon: codicon("circle-outline"), color: "testing.iconUnset" },
-    };
 const FILTER_ICON = codicon("filter");
 /** Upstream `testingRerunIcon`. */
 const RERUN_ICON = codicon("debug-rerun");
@@ -404,6 +400,11 @@ export class TestingExplorerComponent extends Component {
                 this.setBusy(false);
             },
         });
+        this.register(
+            commands.register(REVEAL_TEST_COMMAND, async (testId: unknown) => {
+                await this.revealTest(String(testId));
+            }),
+        );
         this.syncRegistration();
         this.renderSummary();
     }
@@ -481,6 +482,29 @@ export class TestingExplorerComponent extends Component {
             createRange(start.line, start.character, start.line, start.character),
         );
         if (preserveFocus) this.tree.focus();
+    }
+
+    /**
+     * Upstream `_revealTestInExplorer` without focus: the view opens, the test's ancestors expand and the cursor goes
+     * to it.
+     */
+    public async revealTest(testId: string): Promise<void> {
+        this.views.openView(TESTING_EXPLORER_VIEW_ID);
+        const chain = this.rowsTo(testId);
+        await this.tree.refresh();
+        await this.tree.reveal(chain);
+    }
+
+    /** The rows from the top of the tree down to the test, which is the last. */
+    private rowsTo(testId: string): ITestRow[] {
+        const chain: ITestRow[] = [];
+        for (let id: string | undefined = testId; id !== undefined; id = TestId.parentId(id)) {
+            const node = this.tests.getNodeById(id);
+            if (node !== undefined) chain.unshift(testRow(node));
+        }
+        // The single controller's root is no row.
+        if (this.tests.rootItems.filter((root) => root.children.size > 0).length === 1) chain.shift();
+        return chain;
     }
 
     private isRegistered(): boolean {
@@ -701,7 +725,7 @@ export class TestingExplorerComponent extends Component {
         }
         const { state, duration } = this.stateOf(node);
         // Running has no icon: the spinner.
-        const icon = isBusy(node) ? undefined : STATE_ICONS[state];
+        const icon = isBusy(node) ? undefined : testingStatesToIcons[state];
         let description = node.item.description ?? undefined;
         if (duration !== undefined) {
             description =
@@ -780,7 +804,7 @@ export class TestingExplorerComponent extends Component {
             const last = results[0];
             const dominant = statesInOrder.find((state) => last.counts[state] > 0) ?? TestResultState.Unset;
             // A completed run has no running test.
-            const icon = assertReturnsDefined(STATE_ICONS[dominant]);
+            const icon = assertReturnsDefined(testingStatesToIcons[dominant]);
             status = this.icons.glyph(icon.icon);
             color = icon.color;
             duration = formatDuration(assertReturnsDefined(last.completedAt) - last.startedAt);
@@ -820,13 +844,7 @@ export class TestingExplorerComponent extends Component {
         const { ownComputedState: state } = change.item;
         if (state !== TestResultState.Running && !isStateWithResult(state)) return;
         const expand = this.configuration.get("testing.alwaysRevealTestOnStateChange") || isFailedState(state);
-        const chain: ITestRow[] = [];
-        for (let id: string | undefined = change.item.item.extId; id !== undefined; id = TestId.parentId(id)) {
-            const node = this.tests.getNodeById(id);
-            if (node !== undefined) chain.unshift(testRow(node));
-        }
-        // The single controller's root is no row.
-        if (this.tests.rootItems.filter((root) => root.children.size > 0).length === 1) chain.shift();
+        const chain = this.rowsTo(change.item.item.extId);
         let target = chain;
         if (!expand) {
             // The test itself is never expanded: with every ancestor open the target is the whole chain.
@@ -872,12 +890,7 @@ export class TestingExplorerComponent extends Component {
     /** Upstream `getActionableElementActions`: the row's keys on top of the global ones. */
     private itemMenu(row: ITestRow, inline: boolean): IMenuEntryGroup[] {
         if (row.kind === "error") return [];
-        const keys: MenuContextKeys = {
-            view: TESTING_EXPLORER_VIEW_ID,
-            testId: TestId.localId(row.testId),
-            controllerId: row.node.controllerId,
-            "testing.testItemHasUri": row.node.item.uri !== undefined,
-        };
+        const keys: MenuContextKeys = { view: TESTING_EXPLORER_VIEW_ID, ...getTestItemContextOverlay(row.node) };
         return this.menus
             .getEntryGroups(MenuId.TestItem, undefined, keys)
             .filter((group) => (group.group === INLINE_MENU_GROUP) === inline);

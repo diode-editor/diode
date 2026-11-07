@@ -5,7 +5,7 @@ import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import type { Event } from "../../../../base/common/event.ts";
 import { Disposable, DisposableStore } from "../../../../base/common/lifecycle.ts";
 import { StopWatch } from "../../../../base/common/stopwatch.ts";
-import type { IRange } from "../../../common/core/iRange.ts";
+import { type IRange, isEmptyRange } from "../../../common/core/iRange.ts";
 import type { LanguageFeatureRegistry } from "../../../common/languageFeatureRegistry.ts";
 import type {
     CodeLens,
@@ -275,7 +275,7 @@ export class CodeLensController extends Disposable {
                 id,
                 provider,
                 lens,
-                nonEmptyAtStart: range.start.line !== range.end.line || range.start.character !== range.end.character,
+                nonEmptyAtStart: !isEmptyRange(range),
                 // Stryker disable next-line StringLiteral: only "waiting" and "failed" are ever compared with
                 state: needsResolve ? "waiting" : "settled",
             };
@@ -302,12 +302,7 @@ export class CodeLensController extends Disposable {
         const document = this.model.document;
         const gone = this.items.filter((item) => {
             const range = document.getDecorationRange(item.id);
-            return (
-                range === null ||
-                (item.nonEmptyAtStart &&
-                    range.start.line === range.end.line &&
-                    range.start.character === range.end.character)
-            );
+            return range === null || (item.nonEmptyAtStart && isEmptyRange(range));
         });
         document.deltaDecorations(
             gone.map((item) => item.id),

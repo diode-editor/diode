@@ -139,7 +139,9 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
 
     "task.autoDetect": "window",
     "testing.alwaysRevealTestOnStateChange": "window",
+    "testing.defaultGutterClickAction": "window",
     "testing.followRunningTest": "window",
+    "testing.gutterEnabled": "window",
     "testing.saveBeforeTest": "window",
     "task.slowProviderWarning": "window",
     "task.quickOpen.detail": "window",
