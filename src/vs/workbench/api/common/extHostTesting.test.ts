@@ -524,4 +524,50 @@ describe("vscode.tests — a Test Explorer row as a command argument", () => {
         expect(seen).toEqual([[test, undefined, undefined, stray, null]]);
         expect((seen[0] as unknown[])[0]).toBe(test);
     });
+
+    it("[api:TestMessage] a message's `{ $testMessageTestId, message }` becomes `{ test, message }` (testing/message/*)", async () => {
+        const { stub, vscode } = makeVscode();
+        const controller = vscode.tests.createTestController("go", "Go");
+        const test = controller.createTestItem("TestA", "TestA");
+        controller.items.add(test);
+        const seen: unknown[] = [];
+        vscode.commands.registerCommand("go.copyError", (...args: unknown[]) => {
+            seen.push(...args);
+        });
+        const range = { start: { line: 3, character: 4 }, end: { line: 3, character: 9 } };
+        await stub.callRequest("commands.executeCommand", {
+            id: "go.copyError",
+            args: [
+                {
+                    $testMessageTestId: testId("go", "TestA"),
+                    message: {
+                        message: "**boom**",
+                        markdown: true,
+                        expected: "3",
+                        actual: "2",
+                        contextValue: "ctx",
+                        location: { uri: "file:///w/a_test.go", range },
+                    },
+                },
+                { $testMessageTestId: testId("go", "gone"), message: { message: "plain" } },
+                { $testMessageTestId: 1 },
+            ],
+        });
+        const [located, gone, stray] = seen as [
+            { test: unknown; message: InstanceType<typeof vscode.TestMessage> },
+            { test: unknown; message: InstanceType<typeof vscode.TestMessage> },
+            unknown,
+        ];
+        expect(located.test).toBe(test);
+        expect(located.message).toBeInstanceOf(vscode.TestMessage);
+        expect(located.message.message).toBeInstanceOf(vscode.MarkdownString);
+        expect((located.message.message as InstanceType<typeof vscode.MarkdownString>).value).toBe("**boom**");
+        expect(located.message).toMatchObject({ expectedOutput: "3", actualOutput: "2", contextValue: "ctx" });
+        expect(located.message.location?.uri.toString()).toBe("file:///w/a_test.go");
+        expect(located.message.location?.range).toEqual(new vscode.Range(3, 4, 3, 9));
+        expect(gone.test).toBeUndefined();
+        expect(gone.message.message).toBe("plain");
+        expect(gone.message.location).toBeUndefined();
+        expect(stray).toEqual({ $testMessageTestId: 1 });
+    });
 });

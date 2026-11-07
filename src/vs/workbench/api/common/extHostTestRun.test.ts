@@ -431,7 +431,7 @@ describe("vscode.tests — a run the extension starts", () => {
         expect(() => env.controller.createTestRun(new env.vscode.TestRunRequest([fake]))).toThrow("is invalid");
     });
 
-    it("[api:tests.createTestController] messages carry markdown as text, diffs, stack frames and the test's location by default", () => {
+    it("[api:tests.createTestController] messages carry markdown as its source marked so, diffs, stack frames and the test's location by default", () => {
         const env = setup(() => undefined);
         const run = env.controller.createTestRun(new env.vscode.TestRunRequest());
         const diff = env.vscode.TestMessage.diff(new env.vscode.MarkdownString("**not equal**"), "2", "3");
@@ -463,6 +463,7 @@ describe("vscode.tests — a run the extension starts", () => {
                 messages: [
                     {
                         message: "**not equal**",
+                        markdown: true,
                         expected: "2",
                         actual: "3",
                         contextValue: "ctx",
@@ -479,6 +480,10 @@ describe("vscode.tests — a run the extension starts", () => {
                 ],
             },
         ]);
+        const [plain] = (
+            sentParams(env.stub, "testing.appendTestMessagesInRun")[0] as { messages: object[] }
+        ).messages.slice(1);
+        expect(plain).not.toHaveProperty("markdown");
         expect(sentParams(env.stub, "testing.updateTestStateInRun")).toEqual([
             expect.objectContaining({ state: TestResultState.Errored, duration: 5 }),
         ]);

@@ -1,18 +1,22 @@
 import type * as vscode from "vscode";
 
 import type { ICancellationToken } from "../../../base/common/cancellation.ts";
+import { Uri } from "../../../base/common/uri.ts";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { TestItemImpl, TestItemRootImpl } from "./extHostTestItem.ts";
 import { ExtHostTestItemCollection } from "./extHostTestItemCollection.ts";
 import { TestRunCoordinator, type TestRunTracker } from "./extHostTestRun.ts";
-import { TestRunProfileKind, TestRunRequest } from "./testingTypes.ts";
+import { toVscodeRange } from "./extHostTypeConverters.ts";
+import { TestMessage, TestRunProfileKind, TestRunRequest } from "./testingTypes.ts";
 import {
     type IWireCancelTestRun,
     type IWireRunControllerTests,
     type IWireRunControllerTestsResult,
     type IWireStartControllerTests,
     type IWireTestItemArg,
+    type IWireTestMessage,
+    type IWireTestMessageArg,
     type IWireTestRunProfileUpdate,
     namespaceTestTag,
     TEST_ID_DELIMITER,
@@ -21,7 +25,7 @@ import {
     type TestRunProfileGroup,
 } from "./testingWireTypes.ts";
 import { callWithVscodeToken, toVscodeCancellationToken } from "./vscodeCancellation.ts";
-import { EventEmitter } from "./vscodeTypes.ts";
+import { EventEmitter, Location, MarkdownString } from "./vscodeTypes.ts";
 
 // Upstream `ExtHostTesting` (`api/common/extHostTesting.ts`): the controllers live here, the host mirrors their
 // trees (`testing.publishDiff`) and profiles, and asks back to expand (`testing.expandTest`), to refresh
@@ -125,7 +129,8 @@ export interface IExtHostTesting {
     readonly tests: typeof vscode.tests;
     /**
      * Upstream's argument processor for `MarshalledId.TestItemContext`: a Test Explorer row ({@link IWireTestItemArg})
-     * becomes the extension's own `TestItem`, `undefined` once the test is gone.
+     * becomes the extension's own `TestItem`, `undefined` once the test is gone; and for
+     * `MarshalledId.TestMessageMenuArgs`: a message ({@link IWireTestMessageArg}) becomes `{ test, message }`.
      */
     processArgument(arg: unknown): unknown;
 }
@@ -332,12 +337,36 @@ export function createExtHostTesting(rpc: SubprocessRpc): IExtHostTesting {
     return {
         tests: { createTestController },
         processArgument: (arg) => {
-            if (!isTestItemArg(arg)) return arg;
-            return controllers.get(TestId.root(arg.$testId))?.collection.tree.get(arg.$testId)?.actual;
+            const testItem = (testId: string) =>
+                controllers.get(TestId.root(testId))?.collection.tree.get(testId)?.actual;
+            if (isTestItemArg(arg)) return testItem(arg.$testId);
+            if (isTestMessageArg(arg))
+                return { test: testItem(arg.$testMessageTestId), message: messageTo(arg.message) };
+            return arg;
         },
     };
 }
 
 function isTestItemArg(arg: unknown): arg is IWireTestItemArg {
     return typeof (arg as Partial<Record<keyof IWireTestItemArg, unknown>> | null | undefined)?.$testId === "string";
+}
+
+function isTestMessageArg(arg: unknown): arg is IWireTestMessageArg {
+    return (
+        typeof (arg as Partial<Record<keyof IWireTestMessageArg, unknown>> | null | undefined)?.$testMessageTestId ===
+        "string"
+    );
+}
+
+/** Upstream `Convert.TestMessage.to`: the stack trace stays behind, as upstream's. */
+function messageTo(wire: IWireTestMessage): vscode.TestMessage {
+    const message = new TestMessage(wire.markdown === true ? new MarkdownString(wire.message) : wire.message);
+    message.expectedOutput = wire.expected;
+    message.actualOutput = wire.actual;
+    message.contextValue = wire.contextValue;
+    message.location =
+        wire.location === undefined
+            ? undefined
+            : new Location(Uri.parse(wire.location.uri), toVscodeRange(wire.location.range));
+    return message;
 }

@@ -148,6 +148,12 @@ export interface ContextKeyTypes {
     controllerId: string;
     /** A Test Explorer row's menu only: the test has a `uri`, Go to Test has somewhere to go. */
     "testing.testItemHasUri": boolean;
+    /** A test message's menus only: the message's `contextValue`. */
+    testMessage: string;
+    /** A test message's menus only: the run has been retired by a newer one; ours are never, so `false`. */
+    testResultOutdated: boolean;
+    /** The message shown in TEST RESULTS has a stack trace: Collapse Stack Frames has something to do. */
+    "testing.peekHasStack": boolean;
 
     searchViewletVisible: boolean;
     searchViewletFocus: boolean;

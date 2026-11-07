@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { createExtensionTestHarness, type IExtensionHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { registrationFromInstalled } from "../../../../../TestUtils/installedExtensionRegistration.ts";
@@ -16,6 +16,7 @@ import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { Event } from "../../../../base/common/event.ts";
 import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { MenuService } from "../../../../platform/actions/common/menuService.ts";
+import { InMemoryClipboard } from "../../../../platform/clipboard/common/inMemoryClipboard.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
@@ -29,6 +30,7 @@ import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme
 import { TestResultState } from "../../../api/common/testingWireTypes.ts";
 import type { QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
+import { SetContextCommandContribution } from "../../../browser/setContextCommandContribution.ts";
 import { TestingDecorations } from "../../../contrib/testing/browser/testingDecorations.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 import { registerExtensionMenus } from "../common/extensionMenuContributor.ts";
@@ -83,7 +85,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
     });
 
     it(
-        "[api:tests.createTestController] the controller, its profiles and its lazily resolved tree reach the core; a row's Update Snapshot gets its TestItem; refresh calls the extension",
+        "[api:tests.createTestController] the controller, its profiles and its lazily resolved tree reach the core; a row's Update Snapshot gets its TestItem; the failure's diff, stack and Copy Error; refresh calls the extension",
         { timeout: 120_000 },
         async () => {
             const workspace = path.join(tmpRoot, "workspace");
@@ -102,15 +104,31 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                 configuration,
                 progress: new ProgressService(),
                 width: 120,
-                height: 12,
+                height: 16,
             });
             views.service.attachRegisteredContainers();
+            registerExtensionMenus(
+                [
+                    {
+                        id: EXT_ID,
+                        manifest: registration.manifest as unknown as IExtensionManifest,
+                        location: workspace,
+                        isBuiltin: false,
+                    },
+                ],
+                views.menuRegistry,
+            );
+            // Copy Error's `when` reads vitest's `vitest.testFiles`, set by `setContext`.
+            const setContext = new SetContextCommandContribution(views.commands, views.contextKeys);
             const output: string[] = [];
+            const clipboard = new InMemoryClipboard();
             const harness: IExtensionHarness = await createExtensionTestHarness({
                 workspaceFolders: [workspace],
                 extensions: [registration],
                 activateEvents: [],
                 testingSink: services.adapter,
+                commandRegistry: views.commands,
+                clipboard,
                 outputSink: {
                     append: (channel, _label, _level, value) => {
                         output.push(`${channel}: ${value}`);
@@ -186,6 +204,36 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                 const failsRow = tree.findIndex((line) => line.includes("fails"));
                 expect(tree[failsRow + 1]).toMatch(/expected .* to be/);
 
+                // The failure's message: vitest sends expected/actual, a diff of 2 against 1; its frames under it, the
+                // test's line among them; Copy Error (`testing/message/context`) puts vitest's report in the clipboard.
+                const messageX = 60 + tree[failsRow + 1].indexOf("expected");
+                panel.click(messageX, failsRow + 1);
+                const diff = await panel.waitFrame((text) => text.includes("Expected result"));
+                const content = diff.split("\n").map((line) => line.slice(0, 60));
+                const sides = content.findIndex((line) => line.includes("Expected result"));
+                expect(content[sides]).toContain("Actual result");
+                expect(content[sides + 1]).toMatch(/2.*│.*1/);
+                await panel.waitFrame((text) =>
+                    /math\.test\.ts:8:/.test(
+                        text
+                            .split("\n")
+                            .map((line) => line.slice(0, 60))
+                            .join("\n"),
+                    ),
+                );
+                panel.click(messageX, failsRow + 1, "right");
+                const copy = (views.shown.at(-1)?.getEntries?.() ?? []).find(
+                    (entry) => entry.type !== "separator" && entry.label === "Copy Error",
+                );
+                if (copy?.type !== "separator" && copy?.type !== "submenu") copy?.onSelect?.();
+                await vi.waitFor(
+                    async () => {
+                        expect(await clipboard.readText()).toContain("expected 1 to be 2");
+                    },
+                    { timeout: 60_000 },
+                );
+                expect(await clipboard.readText()).toContain("Test: math.test.ts > math > fails");
+
                 // Rerun Failed Tests: only `fails` runs; vitest reports the rest of the file as skipped, as in VS Code.
                 const beforeRerun = output.length;
                 const rerun = await tests.runTests({
@@ -209,6 +257,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                     60_000,
                 );
             } finally {
+                setContext.dispose();
                 await harness.dispose();
             }
         },

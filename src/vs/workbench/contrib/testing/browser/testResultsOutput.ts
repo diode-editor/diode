@@ -88,14 +88,9 @@ export class TestResultsOutput extends Disposable {
         this.session.feed(RESET + HIDE_CURSOR);
     }
 
-    public show(subject: TestResultsSubject): void {
+    /** A message is shown by `TestMessageView`. */
+    public show(subject: Exclude<TestResultsSubject, { readonly kind: "message" }>): void {
         this.clear();
-        if (subject.kind === "message") {
-            const { message } = subject.test.tasks[subject.taskIndex].messages[subject.messageIndex];
-            // Plain text: the message's lines as they are.
-            this.session.feed(message.replace(/\r?\n/g, "\r\n"));
-            return;
-        }
         const { result, taskIndex } = subject;
         const task = result.tasks[taskIndex];
         const { test } = subject;

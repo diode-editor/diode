@@ -19,12 +19,20 @@ export function splitWidths(width: number): { readonly content: number; readonly
  */
 export class TestResultsSplitElement extends TUIElement {
     public constructor(
-        private readonly content: TUIElement,
+        private content: TUIElement,
         private readonly tree: TUIElement,
         private treeLeft: boolean,
     ) {
         super();
         this.setChildren([content, tree]);
+    }
+
+    /** The output's surface or a message's view. */
+    public setContent(content: TUIElement): void {
+        if (content === this.content) return;
+        this.content = content;
+        this.setChildren([content, this.tree]);
+        this.markDirty();
     }
 
     public setTreeLeft(treeLeft: boolean): void {

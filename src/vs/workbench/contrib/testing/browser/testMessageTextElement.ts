@@ -1,0 +1,72 @@
+import type { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
+import type { RenderContext } from "@tuidom/core/dom/tuiElement";
+import { wrapText } from "@tuidom/elements/completionlist/completionDetailsElement";
+import { ScrollableElement, type ScrollViewportInfo } from "@tuidom/elements/scrollbar/scrollableElement";
+
+/** Upstream's editor scrolls three lines a notch, as our editor. */
+const WHEEL_LINES = 3;
+
+/**
+ * Upstream `PlainTextMessagePeek`/`MarkdownTestMessagePeek`'s text: read only, wrapped by words to the width, the
+ * indentation of a line kept on its continuation lines (a code block, a stack), scrolled by the wheel.
+ */
+export class TestMessageTextElement extends ScrollableElement {
+    private text = "";
+    private lines: readonly string[] = [];
+    private wrappedWidth = -1;
+
+    public constructor() {
+        super();
+        this.focusable = false;
+        this.addEventListener("wheel", (event) => {
+            if (event.wheelDirection === "up") this.scrollBy(0, -WHEEL_LINES);
+            else if (event.wheelDirection === "down") this.scrollBy(0, WHEEL_LINES);
+        });
+    }
+
+    public setText(text: string): void {
+        this.text = text;
+        this.wrappedWidth = -1;
+        this.scrollTo(0, 0);
+        this.markDirty();
+    }
+
+    public get contentHeight(): number {
+        return this.lines.length;
+    }
+
+    public get contentWidth(): number {
+        return this.layoutSize.width;
+    }
+
+    /** What the element shows at its width, for tests and the frame. */
+    public get wrappedLines(): readonly string[] {
+        return this.lines;
+    }
+
+    protected override performLayout(constraints: BoxConstraints): Size {
+        const width = constraints.maxWidth;
+        if (width !== this.wrappedWidth) {
+            this.wrappedWidth = width;
+            this.lines = this.text.split("\n").flatMap((line) => wrapIndented(line, width));
+        }
+        return super.performLayout(constraints);
+    }
+
+    protected override renderViewport(context: RenderContext, viewport: ScrollViewportInfo): void {
+        const fg = this.styleVar("foreground");
+        for (let row = 0; row < viewport.viewportHeight; row++) {
+            const line = this.lines.at(viewport.scrollTop + row);
+            if (line === undefined) return;
+            context.drawText(0, row, line, { fg }, { maxWidth: viewport.viewportWidth });
+        }
+    }
+}
+
+/** The hover's wrapping: an empty line stays, an indent as wide as the width wraps as plain text. */
+function wrapIndented(line: string, width: number): string[] {
+    const indent = " ".repeat(line.length - line.trimStart().length);
+    if (line.trim() === "") return [""];
+    if (indent.length >= width) return wrapText(line, width);
+    return wrapText(line, width - indent.length).map((wrapped) => indent + wrapped);
+}
