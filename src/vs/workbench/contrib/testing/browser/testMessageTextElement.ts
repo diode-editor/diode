@@ -9,7 +9,8 @@ const WHEEL_LINES = 3;
 
 /**
  * Upstream `PlainTextMessagePeek`/`MarkdownTestMessagePeek`'s text: read only, wrapped by words to the width, the
- * indentation of a line kept on its continuation lines (a code block, a stack), scrolled by the wheel.
+ * indentation of a line kept on its continuation lines (a code block, a stack), scrolled by the wheel. It takes the
+ * keyboard as upstream's read-only editor does: the arrows, PageUp/PageDown, Home/End scroll it.
  */
 export class TestMessageTextElement extends ScrollableElement {
     private text = "";
@@ -18,10 +19,25 @@ export class TestMessageTextElement extends ScrollableElement {
 
     public constructor() {
         super();
-        this.focusable = false;
+        this.focusable = true;
         this.addEventListener("wheel", (event) => {
             if (event.wheelDirection === "up") this.scrollBy(0, -WHEEL_LINES);
             else if (event.wheelDirection === "down") this.scrollBy(0, WHEEL_LINES);
+        });
+        this.addEventListener("keydown", (event) => {
+            const page = Math.max(1, this.layoutSize.height - 1);
+            const delta: Partial<Record<string, number>> = {
+                ArrowUp: -1,
+                ArrowDown: 1,
+                PageUp: -page,
+                PageDown: page,
+                Home: -this.contentHeight,
+                End: this.contentHeight,
+            };
+            const dy = delta[event.key];
+            if (dy === undefined || event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) return;
+            event.preventDefault();
+            this.scrollBy(0, dy);
         });
     }
 
