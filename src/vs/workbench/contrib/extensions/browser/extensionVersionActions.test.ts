@@ -48,6 +48,8 @@ function entry(id: string, overrides: Partial<IExtensionListEntry> = {}): IExten
         installedVersion: "1.1.0",
         availability: "installed",
         pinned: false,
+        categories: [],
+        tags: [],
         needsReload: false,
         ...overrides,
     };

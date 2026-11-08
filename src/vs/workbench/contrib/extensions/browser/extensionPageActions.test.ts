@@ -135,6 +135,8 @@ function installedEntry(installedVersion: string | null): IExtensionListEntry {
         installedVersion,
         availability: "installed",
         pinned: false,
+        categories: [],
+        tags: [],
         needsReload: false,
     };
 }

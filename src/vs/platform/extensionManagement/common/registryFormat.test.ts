@@ -52,7 +52,9 @@ function metaText(versions: unknown[], envelope: Record<string, unknown> = {}): 
 describe("parseRegistryIndex", () => {
     it("parses a valid index", () => {
         const { index, problems } = parseRegistryIndex(
-            indexText([indexEntry({ categories: ["Programming Languages"] })], { generatedAt: "2026-08-27T00:00:00Z" }),
+            indexText([indexEntry({ categories: ["Programming Languages"], tags: ["markdown", "md"] })], {
+                generatedAt: "2026-08-27T00:00:00Z",
+            }),
             semver,
         );
         expect(problems).toEqual([]);
@@ -63,6 +65,7 @@ describe("parseRegistryIndex", () => {
             id: "acme.markdown-tools",
             kind: "native",
             categories: ["Programming Languages"],
+            tags: ["markdown", "md"],
             latest: { version: "1.2.0", engines: { vscode: "^1.90.0" } },
         });
     });
@@ -121,6 +124,9 @@ describe("parseRegistryIndex", () => {
         ["categories not an array", indexEntry({ categories: "Linters" })],
         ["categories with a non-string", indexEntry({ categories: ["ok", 5] })],
         ["categories with an empty string", indexEntry({ categories: [""] })],
+        ["tags not an array", indexEntry({ tags: "markdown" })],
+        ["tags with a non-string", indexEntry({ tags: ["ok", 5] })],
+        ["tags with an empty string", indexEntry({ tags: [""] })],
         ["no latest", indexEntry({ latest: undefined })],
         ["latest.version not a string", indexEntry({ latest: { version: 42, engines: { vscode: "*" } } })],
         ["latest.version not semver", indexEntry({ latest: { version: "latest", engines: { vscode: "*" } } })],
@@ -160,6 +166,8 @@ describe("parseRegistryMeta", () => {
                     license: "MIT",
                     homepage: "https://acme.dev",
                     readme: "# MT",
+                    categories: ["Formatters"],
+                    tags: ["markdown"],
                 },
             ),
             semver,
@@ -169,6 +177,8 @@ describe("parseRegistryMeta", () => {
         expect(meta).toMatchObject({
             id: "acme.markdown-tools",
             kind: "proxy-openvsx",
+            categories: ["Formatters"],
+            tags: ["markdown"],
             repository: "https://github.com/acme/mt",
             license: "MIT",
             homepage: "https://acme.dev",
@@ -179,6 +189,20 @@ describe("parseRegistryMeta", () => {
             size: 124000,
             publishedAt: "2026-08-01T00:00:00Z",
         });
+    });
+
+    it.each([
+        ["not an array", "Formatters"],
+        ["with an empty string", ["Formatters", ""]],
+    ])("broken categories/tags (%s) are dropped, the versions stay", (_label, broken) => {
+        const { meta, problems } = parseRegistryMeta(
+            metaText([versionRecord()], { categories: broken, tags: broken }),
+            semver,
+        );
+        expect(problems).toEqual([]);
+        expect(meta.categories).toBeUndefined();
+        expect(meta.tags).toBeUndefined();
+        expect(meta.versions).toHaveLength(1);
     });
 
     it("missing optional fields are undefined", () => {

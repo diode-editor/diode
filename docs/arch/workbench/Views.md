@@ -416,8 +416,8 @@ EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorer
 > 0` (`when` эталона): контейнер появляется с первым контроллером и уходит с последним (`hideIfEmpty`).
 
 - **Пустое состояние** — welcome эталона («No tests have been found…», кнопка «Install Additional Test
-  Extensions...» → `testing.searchForTestExtension`), пока ни у одного корня нет детей и ни один не занят.
-  Поиск расширений не знает `@category:`, поэтому кнопка ищет слово `testing` (отступление).
+  Extensions...» → `testing.searchForTestExtension` с поиском `@category:"testing"`, как в эталоне), пока ни у
+  одного корня нет детей и ни один не занят.
 - **Шапка** — поле фильтра с глифом `filter` справа («More Filters...» эталона: клик — меню «Show Only
   Failed Tests» / «Show Only Executed Tests» с галочкой, пункт дописывает или убирает `@failed`/`@executed`)
   и сводка `ResultSummaryView`: без результатов «No test results yet.»; во время запуска — спиннер,

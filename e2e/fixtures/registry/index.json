@@ -8,6 +8,7 @@
             "displayName": "Acme Sample",
             "description": "Sample entry for the Extensions view e2e",
             "kind": "native",
+            "categories": ["Themes"],
             "latest": { "version": "1.2.0", "engines": { "vscode": "^1.0.0" } }
         },
         {
@@ -17,6 +18,7 @@
             "displayName": "Tab Setter",
             "description": "Installed by the fixture at 0.0.1 — the registry knows a newer one",
             "kind": "native",
+            "categories": ["Formatters"],
             "latest": { "version": "0.0.2", "engines": { "vscode": "^1.0.0" } }
         },
         {
@@ -26,6 +28,7 @@
             "displayName": "Legacy Thing",
             "description": "Requires a vscode API version this build does not have",
             "kind": "proxy-openvsx",
+            "categories": ["Linters"],
             "latest": { "version": "3.0.0", "engines": { "vscode": "^99.0.0" } }
         }
     ]

@@ -333,6 +333,40 @@ describe("ExtensionsWorkbenchService", () => {
         });
     });
 
+    describe("categories and tags for the search filters", () => {
+        it("come from the registry index, beating the installed manifest", async () => {
+            ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+            installOnDisk(ws, "acme.tools", "1.0.0", { categories: ["Other"], keywords: ["old"] });
+            const service = createService(
+                new FakeSource(index(entry({ id: "acme.tools", categories: ["Themes"], tags: ["dark"] }))),
+            );
+
+            await service.ensureLoaded();
+            expect(service.getEntries()[0]).toMatchObject({ categories: ["Themes"], tags: ["dark"] });
+        });
+
+        it("an index entry without them falls back to the installed manifest", async () => {
+            ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+            installOnDisk(ws, "acme.tools", "1.0.0", { categories: ["Linters"], keywords: ["lint"] });
+            const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
+
+            await service.ensureLoaded();
+            expect(service.getEntries()[0]).toMatchObject({ categories: ["Linters"], tags: ["lint"] });
+        });
+
+        it("an extension outside the registry takes them from its manifest; neither — empty", async () => {
+            ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+            installOnDisk(ws, "local.themed", "0.1.0", { categories: ["Themes"], keywords: ["night"] });
+            const service = createService(new FakeSource(index(entry({ id: "acme.bare" }))));
+
+            await service.ensureLoaded();
+            expect(service.getEntries()).toMatchObject([
+                { id: "acme.bare", categories: [], tags: [] },
+                { id: "local.themed", categories: ["Themes"], tags: ["night"] },
+            ]);
+        });
+    });
+
     it("a manifest without displayName/description — the card makes do with the id", async () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
         installOnDisk(ws, "local.bare", "0.1.0");

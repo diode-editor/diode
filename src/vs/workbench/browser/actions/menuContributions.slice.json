@@ -29,6 +29,28 @@
             "testing.runAtCursor",
             "testing.runCurrentFile",
             "testing.toggleInlineTestOutput",
+            "extensions.actions.searchByCategory.AI",
+            "extensions.actions.searchByCategory.Azure",
+            "extensions.actions.searchByCategory.Chat",
+            "extensions.actions.searchByCategory.Data Science",
+            "extensions.actions.searchByCategory.Debuggers",
+            "extensions.actions.searchByCategory.Extension Packs",
+            "extensions.actions.searchByCategory.Education",
+            "extensions.actions.searchByCategory.Formatters",
+            "extensions.actions.searchByCategory.Keymaps",
+            "extensions.actions.searchByCategory.Language Packs",
+            "extensions.actions.searchByCategory.Linters",
+            "extensions.actions.searchByCategory.Machine Learning",
+            "extensions.actions.searchByCategory.Notebooks",
+            "extensions.actions.searchByCategory.Programming Languages",
+            "extensions.actions.searchByCategory.SCM Providers",
+            "extensions.actions.searchByCategory.Snippets",
+            "extensions.actions.searchByCategory.Testing",
+            "extensions.actions.searchByCategory.Themes",
+            "extensions.actions.searchByCategory.Visualization",
+            "extensions.actions.searchByCategory.Other",
+            "extensions.sort.name",
+            "extensions.sort.publishedDate",
             "references-view.removeCallItem",
             "references-view.removeTypeItem"
         ]
@@ -437,6 +459,9 @@
         ]
     },
     "ViewTitle": {
+        "0_filter": [
+            "submenu:extensionsFilterSubMenu"
+        ],
         "1_actions": [
             "scm.graph.loadMore"
         ],
@@ -508,6 +533,48 @@
             "testing.sortByDuration",
             "testing.sortByLocation",
             "testing.sortByStatus"
+        ]
+    },
+    "extensionsCategoryFilterSubMenu": {
+        "": [
+            "extensions.actions.searchByCategory.AI",
+            "extensions.actions.searchByCategory.Azure",
+            "extensions.actions.searchByCategory.Chat",
+            "extensions.actions.searchByCategory.Data Science",
+            "extensions.actions.searchByCategory.Debuggers",
+            "extensions.actions.searchByCategory.Extension Packs",
+            "extensions.actions.searchByCategory.Education",
+            "extensions.actions.searchByCategory.Formatters",
+            "extensions.actions.searchByCategory.Keymaps",
+            "extensions.actions.searchByCategory.Language Packs",
+            "extensions.actions.searchByCategory.Linters",
+            "extensions.actions.searchByCategory.Machine Learning",
+            "extensions.actions.searchByCategory.Notebooks",
+            "extensions.actions.searchByCategory.Programming Languages",
+            "extensions.actions.searchByCategory.SCM Providers",
+            "extensions.actions.searchByCategory.Snippets",
+            "extensions.actions.searchByCategory.Testing",
+            "extensions.actions.searchByCategory.Themes",
+            "extensions.actions.searchByCategory.Visualization",
+            "extensions.actions.searchByCategory.Other"
+        ]
+    },
+    "extensionsFilterSubMenu": {
+        "2_categories": [
+            "submenu:extensionsCategoryFilterSubMenu"
+        ],
+        "3_installed": [
+            "workbench.extensions.action.installedExtensions",
+            "workbench.extensions.action.extensionUpdates"
+        ],
+        "4_sort": [
+            "submenu:extensionsSortSubMenu"
+        ]
+    },
+    "extensionsSortSubMenu": {
+        "": [
+            "extensions.sort.name",
+            "extensions.sort.publishedDate"
         ]
     }
 }

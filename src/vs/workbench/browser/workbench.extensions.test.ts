@@ -3,16 +3,20 @@ import * as path from "node:path";
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { ListViewElement } from "@tuidom/elements/list/listViewElement";
+import type { MenuEntry, MenuItemEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { settle } from "../../../TestUtils/timing.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
+import { MenuId } from "../../platform/actions/common/menuId.ts";
+import { MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { IRegistryExtensionMeta } from "../../platform/extensionManagement/common/registryFormat.ts";
 import { REGISTRY_SCHEMA_VERSION } from "../../platform/extensionManagement/common/registryFormat.ts";
+import { EXTENSIONS_VIEW_ID } from "../contrib/extensions/browser/extensionsComponent.ts";
 import type {
     IExtensionListEntry,
     IExtensionsWorkbenchService,
@@ -43,6 +47,8 @@ const ENTRY: IExtensionListEntry = {
     installedVersion: null,
     availability: "available",
     pinned: false,
+    categories: [],
+    tags: [],
     needsReload: false,
 };
 
@@ -59,11 +65,11 @@ const META: IRegistryExtensionMeta = {
     versions: [],
 };
 
-function fakeService(): IExtensionsWorkbenchService {
+function fakeService(entries: readonly IExtensionListEntry[]): IExtensionsWorkbenchService {
     return {
         ensureLoaded: () => Promise.resolve(),
         refresh: () => Promise.resolve(),
-        getEntries: () => [ENTRY],
+        getEntries: () => entries,
         getCatalogError: () => null,
         install: () => Promise.resolve({ ok: true as const, version: "1.0.0" }),
         uninstall: () => Promise.resolve({ ok: true as const }),
@@ -86,6 +92,7 @@ interface IHarness {
     readonly contextKey: (key: "extensionsViewletVisible") => boolean | undefined;
     readonly activeUri: () => string | undefined;
     readonly focusedId: () => string | undefined;
+    readonly viewTitleMenu: () => MenuEntry[];
 }
 
 describe("Workbench — extension marketplace in the sidebar end-to-end", () => {
@@ -99,12 +106,12 @@ describe("Workbench — extension marketplace in the sidebar end-to-end", () => 
         ws = undefined;
     });
 
-    function setup(): IHarness {
+    function setup(entries: readonly IExtensionListEntry[] = [ENTRY]): IHarness {
         ws = createTempWorkspace({ prefix: "ws-", files: { "a.txt": "alpha\n" } });
 
         const { container, bindApp } = createTestContainer();
         // Before the component is first resolved: in the test profile the marketplace is an empty null object.
-        container.bind(ExtensionsWorkbenchServiceDIToken, fakeService);
+        container.bind(ExtensionsWorkbenchServiceDIToken, () => fakeService(entries));
 
         const workbench = container.get(WorkbenchComponentDIToken);
         const commands = container.get(CommandRegistryDIToken);
@@ -134,6 +141,8 @@ describe("Workbench — extension marketplace in the sidebar end-to-end", () => 
             contextKey: (key) => contextKeys.get(key),
             activeUri: () => editors.getActivePane()?.uri.toString(),
             focusedId: () => testApp.app.focusManager?.activeElement?.id,
+            viewTitleMenu: () =>
+                container.get(MenuServiceDIToken).getEntries(MenuId.ViewTitle, { view: EXTENSIONS_VIEW_ID }),
         };
     }
 
@@ -185,4 +194,41 @@ describe("Workbench — extension marketplace in the sidebar end-to-end", () => 
         expect(shown).toContain("[ Install ]");
         expect(h.focusedId()).toBe("extensionPageButton-install");
     });
+
+    it("Filter Extensions... → Category → Themes narrows the list to themes", () => {
+        const theme: IExtensionListEntry = {
+            ...ENTRY,
+            id: "acme.night",
+            name: "night",
+            displayName: "Night Owl",
+            categories: ["Themes"],
+        };
+        const h = setup([ENTRY, theme]);
+        h.execute(SHOW_EXTENSIONS);
+
+        const filter = submenu(h.viewTitleMenu(), "Filter Extensions...");
+        expect(filter.map((entry) => (entry.type === "separator" ? "-" : entry.label))).toEqual([
+            "Category",
+            "-",
+            "Installed",
+            "Updates",
+            "-",
+            "Sort By",
+        ]);
+        const themes = submenu(filter, "Category").find((e) => e.type !== "separator" && e.label === "Themes");
+        expect(themes?.type).toBeUndefined();
+        (themes as MenuItemEntry).onSelect?.();
+
+        const shown = h.screen();
+        expect(shown).toContain('@category:"themes"');
+        expect(shown).toContain("Night Owl");
+        expect(shown).not.toContain("Acme Tools");
+    });
 });
+
+function submenu(entries: readonly MenuEntry[], label: string): MenuEntry[] {
+    const found = entries.find((entry) => entry.type === "submenu" && entry.label === label);
+    expect(found, `submenu ${label} not found`).toBeDefined();
+    const nested = (found as MenuSubmenuEntry).entries;
+    return typeof nested === "function" ? nested() : nested;
+}

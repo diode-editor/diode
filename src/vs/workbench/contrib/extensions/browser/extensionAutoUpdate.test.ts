@@ -32,6 +32,8 @@ function outdated(id: string, extra: Partial<IExtensionListEntry> = {}): IExtens
         installedVersion: "1.0.0",
         availability: "outdated",
         pinned: false,
+        categories: [],
+        tags: [],
         needsReload: false,
         latestPublishedAt: null,
         ...extra,

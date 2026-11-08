@@ -53,6 +53,8 @@ function entry(overrides: Partial<IExtensionListEntry> & { id: string }): IExten
         installedVersion: null,
         availability: "available",
         pinned: false,
+        categories: [],
+        tags: [],
         needsReload: false,
         ...overrides,
     };
@@ -505,6 +507,48 @@ describe("ExtensionsComponent", () => {
         expect(screen.match(/Tools/g)).toHaveLength(1);
         expect(screen).not.toContain("Current");
         expect(screen).not.toContain("Fresh");
+    });
+
+    it("@installed is one INSTALLED list, with the rest of the query applied", () => {
+        const service = new FakeService([
+            entry({ id: "acme.tools", displayName: "Tools", installedVersion: "0.9.0", availability: "outdated" }),
+            entry({ id: "acme.dark", displayName: "Dark", installedVersion: "1.0.0", availability: "installed" }),
+            entry({ id: "acme.fresh", displayName: "Fresh" }),
+        ]);
+        const component = make(service);
+
+        typeQuery(component, "@installed dark");
+
+        const screen = render(component, 60).screenToString();
+        expect(screen).not.toContain("MARKETPLACE");
+        expect(screen).toContain("INSTALLED");
+        expect(screen.match(/Dark/g)).toHaveLength(1);
+        expect(screen).not.toContain("Tools");
+        expect(screen).not.toContain("Fresh");
+    });
+
+    it("@category:themes keeps both sections, each narrowed to themes", () => {
+        const service = new FakeService([
+            entry({ id: "acme.night", displayName: "Night", categories: ["Themes"] }),
+            entry({
+                id: "acme.dawn",
+                displayName: "Dawn",
+                categories: ["Themes"],
+                installedVersion: "1.0.0",
+                availability: "installed",
+            }),
+            entry({ id: "acme.lint", displayName: "Linter", categories: ["Linters"] }),
+        ]);
+        const component = make(service);
+
+        component.setQuery('@category:"themes"');
+
+        const screen = render(component, 60).screenToString();
+        expect(screen).toContain("MARKETPLACE");
+        expect(screen).toContain("Night");
+        // In the catalog and in INSTALLED.
+        expect(screen.match(/Dawn/g)).toHaveLength(2);
+        expect(screen).not.toContain("Linter");
     });
 
     it("US-2.4: under @outdated the catalog error row stays visible", () => {
