@@ -2,7 +2,8 @@ import type { IConfigurationNode } from "../../../platform/configuration/common/
 
 /**
  * Verbatim from upstream's `contrib/testing/common/configuration.ts` (no `scope` there: window); `markdownDescription`
- * goes into `description`. Keys of the features not ported yet (peek, coverage) are not registered.
+ * goes into `description`. Keys of the features not ported yet (peek, coverage) are not registered: `testing.automaticallyOpenPeekView` and
+ * `testing.automaticallyOpenPeekViewDuringAutoRun` among them, as there is no peek (TEST RESULTS plays its role).
  * `testing.defaultGutterClickAction`'s `debug` and `runWithCoverage` are registered as the contract, and run the test:
  * there is no debugger and no coverage yet. Upstream's migrations of `testing.openTesting` and
  * `testing.automaticallyOpenResults` into `testing.automaticallyOpenTestResults` are not ported: there is no settings
@@ -36,6 +37,12 @@ export const testingConfiguration = {
             type: "boolean",
             default: true,
             description: "Controls whether test decorations are shown in the editor gutter.",
+        },
+        "testing.showAllMessages": {
+            scope: "window",
+            description: "Controls whether to show messages from all test runs.",
+            type: "boolean",
+            default: false,
         },
         "testing.saveBeforeTest": {
             scope: "window",

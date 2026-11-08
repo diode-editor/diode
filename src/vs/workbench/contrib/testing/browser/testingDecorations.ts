@@ -63,7 +63,7 @@ import { getTestItemContextOverlay } from "./testItemContextOverlay.ts";
 /** Upstream `MAX_TESTS_IN_SUBMENU`. */
 export const MAX_TESTS_IN_SUBMENU = 30;
 
-/** Upstream's command behind "Peek Error"; offered once something registers it (the TEST RESULTS view). */
+/** Upstream's command behind "Peek Error"; offered once something registers it (`TestingMessageDecorations`). */
 export const PEEK_TEST_ERROR_COMMAND = "vscode.peekTestError";
 
 /** `TextEditorPane` matches structurally; the DI module does the binding. */

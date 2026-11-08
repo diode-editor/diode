@@ -23,6 +23,12 @@
             "acceptSnippet",
             "testing.showMostRecentOutput",
             "testing.collapsePeekStack",
+            "testing.goToNextMessage",
+            "testing.goToPreviousMessage",
+            "testing.openOutputPeek",
+            "testing.runAtCursor",
+            "testing.runCurrentFile",
+            "testing.toggleInlineTestOutput",
             "references-view.removeCallItem",
             "references-view.removeTypeItem"
         ]
@@ -52,6 +58,10 @@
             "references-view.findReferences",
             "references-view.showCallHierarchy",
             "references-view.showTypeHierarchy"
+        ],
+        "testing": [
+            "testing.runAtCursor",
+            "testing.runCurrentFile"
         ],
         "z_commands": [
             "workbench.action.showCommands"

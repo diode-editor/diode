@@ -49,6 +49,11 @@ export function messageOf(subject: TestMessageSubject): IWireTestMessage {
     return subject.test.tasks[subject.taskIndex].messages[subject.messageIndex] as IWireTestMessage;
 }
 
+/** A message's identity across refreshes: its run, task, test and index. */
+export function messageKey(subject: TestMessageSubject): string {
+    return `${subject.result.id}/${String(subject.taskIndex)}/${subject.test.item.extId}/${String(subject.messageIndex)}`;
+}
+
 /** What the view needs from the workbench. */
 export interface ITestMessageViewHost {
     /** Upstream `DiffContentProvider`'s widget: the read-only diff of the two outputs. */

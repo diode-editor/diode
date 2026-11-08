@@ -1035,6 +1035,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Control whether save all dirty editors before running a test.",
     },
     {
+        key: "testing.showAllMessages",
+        type: "boolean",
+        default: false,
+        description: "Controls whether to show messages from all test runs.",
+    },
+    {
         key: "typescript.implementationsCodeLens.enabled",
         type: "boolean",
         default: false,
