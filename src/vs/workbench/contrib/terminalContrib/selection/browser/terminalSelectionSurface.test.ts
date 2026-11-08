@@ -2,6 +2,7 @@ import { DEFAULT_COLOR, parseHexColor } from "@tuidom/core/common/colorUtils";
 import type { TerminalCell, TerminalMouseEventData } from "@tuidom/core/common/iTerminalSurface";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { FakeTerminalSurface } from "../../../../../../TestUtils/FakeTerminalSurface.ts";
 import { emulatorWith, feed } from "../../../../../../TestUtils/terminalLinks.ts";
 import type { ExtensionPtySession } from "../../../terminal/node/extensionPtySession.ts";
 
@@ -264,6 +265,44 @@ describe("TerminalSelectionSurface", () => {
         surface.resize(8, 4);
         expect(surface.hasSelection).toBe(false);
         expect(resized).toHaveBeenLastCalledWith(8, 4);
+    });
+
+    it("the alternate buffer selects too: a Shift+drag over vim", async () => {
+        await setup("\x1b[?1049hfull screen\x1b[?1002h");
+
+        surface.sendMouse(mouse(0, 0, "down", { shift: true }));
+        surface.sendMouse(mouse(3, 0, "move", { shift: true, button: "none" }));
+        surface.sendMouse(mouse(3, 0, "up", { shift: true }));
+
+        expect(surface.selectionText).toBe("full");
+        await feed(session, "!");
+        expect(surface.selectionText).toBe("full");
+    });
+
+    it("other buttons during a drag leave it as is", async () => {
+        await setup("hello");
+        surface.sendMouse(mouse(0, 0, "down"));
+        surface.sendMouse(mouse(2, 0, "move", { button: "none" }));
+
+        surface.sendMouse(mouse(4, 0, "up", { button: "right" }));
+        surface.sendMouse(mouse(4, 0, "wheelDown", { button: "wheel" }));
+        expect(surface.selectionText).toBe("hel");
+
+        surface.sendMouse(mouse(3, 0, "up"));
+        expect(surface.selectionText).toBe("hell");
+    });
+
+    it("before the emulator loads there is nothing to select", () => {
+        session = new FakeTerminalSurface() as unknown as ExtensionPtySession;
+        surface = new TerminalSelectionSurface(session);
+        const forwarded = vi.spyOn(session, "sendMouse");
+
+        surface.selectAll();
+        drag([0, 0], [3, 0]);
+
+        expect(surface.hasSelection).toBe(false);
+        expect(surface.selectionText).toBeUndefined();
+        expect(forwarded).toHaveBeenCalledTimes(3);
     });
 
     it("clearing without a selection changes nothing", async () => {

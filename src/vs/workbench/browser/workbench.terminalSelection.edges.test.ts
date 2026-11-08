@@ -237,11 +237,11 @@ describe("Workbench — the terminal's text selection, edges", () => {
     });
 
     it("Cyrillic is copied as is", async () => {
-        await boot("привет мир\r\n$ ");
+        await boot("\u043f\u0440\u0438\u0432\u0435\u0442 \u043c\u0438\u0440\r\n$ ");
 
         drag([0, 0], [9, 0]);
 
-        expect(await copied()).toBe("привет мир");
+        expect(await copied()).toBe("\u043f\u0440\u0438\u0432\u0435\u0442 \u043c\u0438\u0440");
     });
 
     it("new output keeps the selection on its text, also when it scrolls the screen", async () => {

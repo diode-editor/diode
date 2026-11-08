@@ -56,8 +56,9 @@ export class TerminalSelectionService implements ITerminalSurfaceDecorator, ICon
                     this.focused = surface;
                     surface.setFocused(true);
                 });
+                // The old widget's blur comes before the new one's focus.
                 widget.addEventListener("blur", () => {
-                    if (this.focused === surface) this.focused = undefined;
+                    this.focused = undefined;
                     surface.setFocused(false);
                 });
             },

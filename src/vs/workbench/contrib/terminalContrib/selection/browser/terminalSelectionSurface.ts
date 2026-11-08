@@ -33,6 +33,8 @@ interface IStoredSelection {
 }
 
 interface IDrag {
+    /** The buffer view the drag began over; it follows the emulator. */
+    readonly buffer: ITerminalBuffer;
     readonly anchor: ITerminalCellPosition;
     /** Shift+drag over a program that tracks the mouse: none of the drag's events reach the program. */
     readonly ownsEvents: boolean;
@@ -150,6 +152,7 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
         }
         this.clearSelection();
         this.drag = {
+            buffer,
             anchor: { x: clamp(event.col, buffer.cols), y: buffer.viewportY + event.row },
             ownsEvents,
             pointer: { col: event.col, row: event.row },
@@ -215,10 +218,8 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
 
     /** Past the top edge the selection runs to the start of the top row, past the bottom to the end of the bottom one. */
     private extendTo(drag: IDrag): void {
-        const buffer = this.session.buffer;
-        // Stryker disable next-line ConditionalExpression: the buffer of a drag stays (it began over one); the check narrows the type
-        if (buffer === undefined) return;
-        const { col, row } = drag.pointer;
+        const { buffer, pointer } = drag;
+        const { col, row } = pointer;
         let head: ITerminalCellPosition;
         if (row < 0) head = { x: 0, y: buffer.viewportY };
         else if (row >= buffer.rows) head = { x: buffer.cols - 1, y: buffer.viewportY + buffer.rows - 1 };
@@ -242,15 +243,14 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
     }
 
     private updateDragScroll(drag: IDrag): void {
-        const outside = drag.pointer.row < 0 || drag.pointer.row >= (this.session.buffer?.rows ?? 0);
+        const outside = drag.pointer.row < 0 || drag.pointer.row >= drag.buffer.rows;
         if (!outside) {
             this.stopDragScroll();
             return;
         }
         this.dragScroll ??= setInterval(() => {
-            const rows = this.session.buffer?.rows ?? 0;
             const row = drag.pointer.row;
-            this.scrollLines(row < 0 ? row : row - rows + 1);
+            this.scrollLines(row < 0 ? row : row - drag.buffer.rows + 1);
         }, DRAG_SCROLL_INTERVAL_MS);
     }
 

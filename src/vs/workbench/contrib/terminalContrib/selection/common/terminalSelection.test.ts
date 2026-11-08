@@ -58,9 +58,9 @@ describe("terminal selection", () => {
     });
 
     it("copies Cyrillic as is", async () => {
-        const buffer = await bufferWith("привет мир");
+        const buffer = await bufferWith("\u043f\u0440\u0438\u0432\u0435\u0442 \u043c\u0438\u0440");
 
-        expect(text(buffer, [0, 0], [9, 0])).toBe("привет мир");
+        expect(text(buffer, [0, 0], [9, 0])).toBe("\u043f\u0440\u0438\u0432\u0435\u0442 \u043c\u0438\u0440");
     });
 
     it("non-breaking spaces copy as plain spaces", async () => {

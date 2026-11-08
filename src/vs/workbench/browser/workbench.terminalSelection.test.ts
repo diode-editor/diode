@@ -11,6 +11,7 @@ import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/conte
 import { TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import { TerminalSessionFactoryDIToken } from "../contrib/terminal/common/terminalSessionFactory.ts";
 import { ExtensionPtySession } from "../contrib/terminal/node/extensionPtySession.ts";
+import { TerminalSelectionServiceDIToken } from "../contrib/terminalContrib/selection/browser/terminalSelectionService.ts";
 
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
@@ -155,6 +156,15 @@ describe("Workbench — the terminal's text selection", () => {
 
         expect(input[0]).toEqual(["a"]);
         expect(contextKey("terminalTextSelected")).toBe(false);
+    });
+
+    it("copying without a selection leaves the clipboard as is, whatever the context keys said", async () => {
+        await boot();
+        await h.container.get(ClipboardDIToken).writeText("before");
+
+        await h.container.get(TerminalSelectionServiceDIToken).copySelection();
+
+        expect(await clipboard()).toBe("before");
     });
 
     it("Copy Selection keeps the selection; Select All takes the whole buffer", async () => {

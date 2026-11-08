@@ -19,7 +19,10 @@ export interface ITerminalMarker {
     dispose(): void;
 }
 
-/** The emulator's active buffer: scrollback plus screen, rows are absolute and 0-based. */
+/**
+ * The emulator's active buffer: scrollback plus screen, rows are absolute and 0-based. A live view: its fields follow
+ * scrolling, resizes and the switch to the alternate buffer.
+ */
 export interface ITerminalBuffer {
     /** Full-screen programs (vim, less, htop) switch to the alternate buffer, which has no scrollback. */
     readonly type: "normal" | "alternate";
