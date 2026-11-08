@@ -224,6 +224,28 @@ describe("TypeHierarchyComponent", () => {
         expect(key("typeHierarchyVisible")).not.toBe(true);
     });
 
+    it("no provider for the language: the same toast, no section, the call tree keeps its session", async () => {
+        const { component, calls, callProvider, toasts, sections, key } = setup();
+        await calls.show();
+        Object.assign(component, { languageFeatures: new LanguageFeaturesService() });
+        await component.show();
+        expect(toasts).toEqual(["No results"]);
+        expect(sections()).toEqual([HIERARCHY_VIEW_ID]);
+        expect(key("typeHierarchyVisible")).not.toBe(true);
+        expect(key("callHierarchyVisible")).toBe(true);
+        expect(calls.tree.getSelectedNode()?.item.name).toBe("paint");
+        expect(callProvider.releaseCallHierarchy).not.toHaveBeenCalled();
+    });
+
+    it("no editor: no toast and nothing is asked", async () => {
+        const { component, provider, toasts, sections } = setup();
+        Object.assign(component, { group: { getActiveEditor: () => null } });
+        await component.show();
+        expect(toasts).toEqual([]);
+        expect(provider.prepareTypeHierarchy).not.toHaveBeenCalled();
+        expect(sections()).toEqual([REFERENCES_VIEW_ID]);
+    });
+
     it("a root without children says `No results.`", async () => {
         const provider = makeProvider();
         provider.provideSubtypes = vi.fn(() => Promise.resolve([]));
