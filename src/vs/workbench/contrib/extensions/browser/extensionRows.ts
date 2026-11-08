@@ -1,10 +1,16 @@
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
+import { VStackElement } from "@tuidom/elements/layout/vStackElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
 const GAP = "  ";
+
+/** Name with version and badges, the description, the publisher: upstream's list entry without the icon. */
+export const EXTENSION_ROW_HEIGHT = 3;
 
 /** `available` carries no badge. */
 export type ExtensionRowBadge = "installed" | "update" | "incompatible" | "reload";
@@ -61,15 +67,19 @@ function badgeTextOf(entry: IExtensionListEntry): { text: string; kind: Extensio
     return { text: "Installed", kind: "installed" };
 }
 
-export function buildExtensionRow(
-    id: string,
-    entry: IExtensionListEntry,
-    styles: IExtensionRowStyles,
-): TextLabelElement {
+/** {@link EXTENSION_ROW_HEIGHT} lines with a one-column gutter on both sides; the list appends it with that height. */
+export function buildExtensionRow(id: string, entry: IExtensionListEntry, styles: IExtensionRowStyles): TUIElement {
     const layout = describeExtensionRow(entry);
-    const row = new TextLabelElement(layout.text);
+    const header = new TextLabelElement(layout.text);
+    paintRow(header, layout, styles);
+    const description = new TextLabelElement(entry.description);
+    const publisher = new TextLabelElement(entry.publisher);
+    publisher.setColors(styles.dimFg, INHERITED_BG);
+
+    const lines = new VStackElement();
+    for (const line of [header, description, publisher]) lines.addChild(line, { width: "fill", height: 1 });
+    const row = new PaddingContainerElement(lines, { left: 1, right: 1 });
     row.id = id;
-    paintRow(row, layout, styles);
     return row;
 }
 
@@ -95,11 +105,4 @@ function paintSpan(row: TextLabelElement, start: number, length: number, fg: Sty
     for (let i = start; i < start + length; i++) {
         row.setCharStyle(i, { fg });
     }
-}
-
-export function buildGroupRow(id: string, title: string, dimFg: StyleColor): TextLabelElement {
-    const row = new TextLabelElement(title);
-    row.id = id;
-    row.setColors(dimFg, INHERITED_BG);
-    return row;
 }

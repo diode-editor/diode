@@ -252,7 +252,8 @@ async function pressButton(app: HeadlessApp, label: string): Promise<void> {
 }
 
 async function rowText(app: HeadlessApp, group: string, id: string): Promise<string | null> {
-    const row = await app.session.node(`#extensionsGroup-${group}-${pageId(id)}`);
+    // The entry's first line: name, version, badges.
+    const row = await app.session.node(`#extensionsGroup-${group}-${pageId(id)} TextLabelElement`);
     return row?.text ?? null;
 }
 

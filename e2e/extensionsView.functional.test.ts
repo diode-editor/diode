@@ -44,9 +44,12 @@ async function tabLabels(app: HeadlessApp): Promise<string[]> {
     return (state?.tabs ?? []).map((t) => t.label);
 }
 
-/** List row text by its id: unlike the frame, it doesn't depend on the sidebar width. */
+/**
+ * The text of an entry's first line (name, version, badges) by the row id: unlike the frame, it doesn't depend
+ * on the sidebar width.
+ */
 async function rowText(app: HeadlessApp, id: string): Promise<string> {
-    const row = await app.session.node(`#${id}`);
+    const row = await app.session.node(`#${id} TextLabelElement`);
     expect(row, `row #${id} not found`).not.toBeNull();
     return row?.text ?? "";
 }
@@ -106,6 +109,17 @@ describe("Extensions view (functional e2e)", () => {
         expect(screen).toContain("Not installed");
         expect(screen).toContain("Latest version: 1.2.0");
         expect(screen).toContain("Kind: native");
+    });
+
+    it("a single click on any line of an entry opens its page (workbench.list.openMode: singleClick)", async () => {
+        const app = await openExtensions();
+        await app.session.waitForText((t) => t.includes("Acme Sample"));
+        const entry = await app.session.waitForNode("#extensionsGroup-marketplace-acme-sample");
+        // The last line of the three: the publisher, not the name.
+        await app.session.click(entry.box.x + 2, entry.box.y + entry.box.height - 1);
+
+        await app.session.waitForNode("#extensionPage-acme-sample");
+        expect(await tabLabels(app)).toEqual(["Acme Sample"]);
     });
 
     it("US-9: opening again switches to the same tab instead of creating a second one", async () => {

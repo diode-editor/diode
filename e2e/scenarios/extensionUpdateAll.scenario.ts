@@ -47,14 +47,14 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("@outdated") && t.includes("Linter"));
         await editor.capture("outdated");
 
-        // The section's "⋯" menu carries both commands.
+        // The MARKETPLACE section's "⋯" menu carries both commands.
         const frame = await editor.captureFrame();
         let menu: { x: number; y: number } | null = null;
         for (let y = 0; y < frame.rows && menu === null; y++) {
             const line = frameLine(frame, y);
-            if (line.includes("EXTENSIONS") && line.includes("⋯")) menu = { x: line.indexOf("⋯"), y };
+            if (line.includes("MARKETPLACE") && line.includes("⋯")) menu = { x: line.indexOf("⋯"), y };
         }
-        if (menu === null) throw new Error("no ⋯ on the EXTENSIONS header");
+        if (menu === null) throw new Error("no ⋯ on the MARKETPLACE header");
         await editor.click(menu.x, menu.y);
         await editor.waitForText((t) => t.includes("Update All Extensions"));
         await editor.capture("menu");

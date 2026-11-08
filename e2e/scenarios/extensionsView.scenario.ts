@@ -31,10 +31,13 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Incompatible"));
         await editor.capture("viewlet");
 
-        // Extension page: focus the list, first catalog entry, Enter.
-        await editor.sendKey("Tab");
-        await editor.sendKey("ArrowDown");
-        await editor.sendKey("Enter");
+        // Hover paints the whole three-line entry, not one line of it: the pointer is on its publisher line.
+        const hovered = (await editor.waitForNode("#extensionsGroup-marketplace-test-tab-setter")).box;
+        await editor.sendMouse({ action: "move", x: hovered.x + 2, y: hovered.y + hovered.height - 1 });
+        await editor.capture("hover");
+
+        // Extension page: a single click anywhere on the entry (its centre is the description line) opens it.
+        await editor.clickNode("#extensionsGroup-marketplace-acme-sample");
         await editor.waitForText((t) => t.includes("This readme comes from the registry meta"));
         await editor.capture("page");
     },

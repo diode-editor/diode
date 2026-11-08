@@ -32,10 +32,10 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Acme Sample") && !t.includes("Legacy Thing"));
         await editor.capture("category");
 
-        // One INSTALLED list: the tab setter the user data already has.
+        // One INSTALLED list: the tab setter the user data already has; the MARKETPLACE section is empty.
         for (let i = 0; i < CATEGORY_QUERY.length; i++) await editor.sendKey("Backspace");
         await editor.sendText("@installed");
-        await editor.waitForText((t) => t.includes("Tab Setter") && !t.includes("MARKETPLACE"));
+        await editor.waitForText((t) => t.includes("Tab Setter") && !t.includes("Acme Sample"));
         await editor.capture("installed");
     },
 });
