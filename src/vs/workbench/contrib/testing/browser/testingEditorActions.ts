@@ -52,8 +52,10 @@ export function getTestsAtCursor(tests: readonly ITestNode[], position: IPositio
                 bestRange = range;
                 best = [test];
             }
+        } else if (
             // Stryker disable next-line EqualityOperator: equivalent, a range starting at the position contains it
-        } else if (comparePositions(range.start, position) < 0) {
+            comparePositions(range.start, position) < 0
+        ) {
             if (beforeRange === undefined || comparePositions(beforeRange.start, range.start) < 0) {
                 beforeRange = range;
                 before = [test];

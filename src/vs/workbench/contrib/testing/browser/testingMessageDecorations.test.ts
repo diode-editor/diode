@@ -103,13 +103,29 @@ function setup(options: { settings?: Record<string, unknown>; icons?: StaticProd
                 open.splice(open.indexOf(editor), 1);
                 editorsChanged.fire();
             },
+            /** A press on the message's second cell. */
+            clickMessage: (line: number): void => {
+                app.render();
+                const own = element.viewState.document.getLineContent(line);
+                app.backend.simulateMouse({
+                    kind: "mouse",
+                    button: "left",
+                    action: "press",
+                    x: element.gutterWidth + own.length + 4,
+                    y: line + 1,
+                    shiftKey: false,
+                    altKey: false,
+                    ctrlKey: false,
+                    raw: "",
+                });
+            },
         };
     };
 
     /** A completed run of the core where `fails` failed (and `adds` passed) with the given messages. */
     const run = (
         messages: { path?: readonly string[]; message: IWireTestMessage }[],
-        output: { path: readonly string[]; text: string; line: number; uri?: string }[] = [],
+        output: { path: readonly string[]; text: string; line?: number; uri?: string }[] = [],
     ): LiveTestResult => {
         const result = explorer.results.createLiveResult({ targets: [], group: TestRunProfileBitset.Run });
         result.addTask({ id: "t", name: "vitest", ctrlId: "vitest" });
@@ -122,7 +138,8 @@ function setup(options: { settings?: Record<string, unknown>; icons?: StaticProd
         result.updateState(testId(...ADDS), "t", TestResultState.Passed);
         result.updateState(testId(...FAILS), "t", TestResultState.Failed);
         for (const { path = FAILS, message } of messages) result.appendMessage(testId(...path), "t", message);
-        for (const { path, text, line, uri } of output) result.appendOutput(text, "t", at(line, uri), testId(...path));
+        for (const { path, text, line, uri } of output)
+            result.appendOutput(text, "t", line === undefined ? undefined : at(line, uri), testId(...path));
         result.markComplete();
         return result;
     };
@@ -166,12 +183,30 @@ describe("TestingMessageDecorations — the failures after the lines", () => {
                 },
             },
             { message: { message: "nowhere here", location: at(3, OTHER_URI) } },
+            {
+                message: {
+                    message: "frames elsewhere",
+                    stackTrace: [{ label: "helper", uri: OTHER_URI, position: { line: 2, character: 0 } }],
+                },
+            },
             { message: { message: "no location" } },
         ]);
         await flush();
 
         expect(view.message(5)).toBe(` ${ERROR} from a helper`);
         expect([...view.element.getLineMessageDecorations().keys()]).toEqual([5]);
+    });
+
+    it("the failures go by their lines, whatever the run's order", async () => {
+        const { decorations, openEditor, run, flush } = setup();
+        const view = openEditor();
+        // `adds` came to the run first: its message is met first.
+        run([
+            { path: ADDS, message: { message: "five", location: at(5) } },
+            { message: { message: "two", location: at(2) } },
+        ]);
+        await flush();
+        expect(decorations.failuresIn(view.editor).map((failure) => failure.line)).toEqual([2, 5]);
     });
 
     it("one message per line: the first error of the line in the run's order wins", async () => {
@@ -186,6 +221,10 @@ describe("TestingMessageDecorations — the failures after the lines", () => {
         // `adds` came to the run first.
         expect(view.message(2)).toBe(` ${ERROR} of adds`);
         expect(view.element.getLineMessageDecorations().size).toBe(1);
+
+        run([{ message: { message: "first", location: at(5) } }, { message: { message: "second", location: at(5) } }]);
+        await flush();
+        expect(view.message(5)).toBe(` ${ERROR} first`);
     });
 
     it("a new run replaces the messages; Clear All Results takes them away", async () => {
@@ -271,6 +310,36 @@ describe("TestingMessageDecorations — the failures after the lines", () => {
         expect(other.element.getLineMessageDecorations().size).toBe(0);
     });
 
+    it("an editor is attached once however often the list changes; a closed one's clicks open nothing", async () => {
+        const { explorer, openEditor, run, flush, editorsChanged } = setup();
+        const view = openEditor();
+        run([{ message: { message: "boom", location: at(2) } }]);
+        await flush();
+        editorsChanged.fire();
+        const openView = vi.spyOn(explorer.views.service, "openView");
+        view.clickMessage(2);
+        expect(openView).toHaveBeenCalledTimes(1);
+
+        view.close();
+        // The closed editor keeps what it showed: the press lands on the message.
+        const clicks: string[] = [];
+        view.element.onDidClickLineMessage((key) => clicks.push(key));
+        view.clickMessage(2);
+        expect(clicks).toHaveLength(1);
+        expect(openView).toHaveBeenCalledTimes(1);
+    });
+
+    it("disposed, it leaves the editors: their clicks open nothing", async () => {
+        const { explorer, decorations, openEditor, run, flush } = setup();
+        const view = openEditor();
+        run([{ message: { message: "boom", location: at(2) } }]);
+        await flush();
+        decorations.dispose();
+        const openView = vi.spyOn(explorer.views.service, "openView");
+        view.clickMessage(2);
+        expect(openView).not.toHaveBeenCalled();
+    });
+
     it("the icon follows the icon set", async () => {
         const icons = new SwitchableIcons();
         const { openEditor, run, flush } = setup({ icons });
@@ -304,6 +373,7 @@ describe("TestingMessageDecorations — Toggle Inline Test Output", () => {
                 { path: ADDS, text: "\x1b[32mlog\x1b[0m one\n  two", line: 2 },
                 { path: FAILS, text: "hidden by the error", line: 5 },
                 { path: FAILS, text: "elsewhere", line: 1, uri: OTHER_URI },
+                { path: FAILS, text: "nowhere" },
             ],
         );
         await flush();
@@ -311,6 +381,7 @@ describe("TestingMessageDecorations — Toggle Inline Test Output", () => {
 
         decorations.toggleInlineOutput();
         expect(decorations.showInlineOutput).toBe(true);
+        expect([...view.element.getLineMessageDecorations().keys()].sort()).toEqual([2, 5]);
         expect(view.message(2)).toBe("log one two");
         expect(view.message(5)).toBe(` ${ERROR} boom`);
         const x = view.element.gutterWidth + "        expect(1 + 1).toBe(3);".length + 2;
@@ -436,7 +507,13 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
                 : undefined;
         };
 
+        const openView = vi.spyOn(explorer.views.service, "openView");
         decorations.showNearest(view.editor, 4);
+        expect(shownText()).toBe("five");
+        // TEST RESULTS takes the keyboard.
+        expect(openView).toHaveBeenCalledWith(TEST_RESULTS_VIEW_ID, true);
+        // Between two at the same distance: the upper one.
+        decorations.showNearest(view.editor, 6);
         expect(shownText()).toBe("five");
         decorations.showNearest(view.editor, 3);
         expect(shownText()).toBe("two");
@@ -499,6 +576,8 @@ describe("the messages' texts", () => {
             "AssertionError: no way",
         );
         expect(errorText({ type: "error", message: "only one" })).toBe("only one");
+        expect(errorText({ type: "error", message: "no expected", actual: "2" })).toBe("no expected");
+        expect(errorText({ type: "error", message: "no actual", expected: "3" })).toBe("no actual");
         expect(errorText({ type: "error", message: "" })).toBe("Test Failed");
         expect(errorText({ type: "error", message: "∑ ünïcödé 😀" })).toBe("∑ ünïcödé 😀");
     });

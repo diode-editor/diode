@@ -1341,6 +1341,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             displayLine,
             screenY,
             gutterW: gutterW + x0,
+            // Stryker disable next-line ArithmeticOperator: equivalent, the content area reaches the element's right edge and RenderContext clips there
             contentCols: x1 - x0,
             fg: compositeOver(this.styleVar(message.colorToken), bg),
             bg,

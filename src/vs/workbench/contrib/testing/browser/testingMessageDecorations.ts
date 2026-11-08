@@ -12,7 +12,7 @@ import {
     type IProductIconService,
     ProductIconServiceDIToken,
 } from "../../../../platform/theme/common/productIconService.ts";
-import { TestResultState } from "../../../api/common/testingWireTypes.ts";
+import { type IWireTestMessageStackFrame, TestResultState } from "../../../api/common/testingWireTypes.ts";
 import { isFailedState } from "../common/testingStates.ts";
 import type { ITestResultItem, ITestResultMessage, LiveTestResult } from "../common/testResult.ts";
 import { type TestResultService, TestResultServiceDIToken } from "../common/testResultService.ts";
@@ -109,6 +109,7 @@ export class TestingMessageDecorations extends Disposable {
         super();
         this.register(
             commands.register(PEEK_TEST_ERROR_COMMAND, (testId: unknown) => {
+                // Stryker disable next-line ConditionalExpression: equivalent, no result has a test under a non-string id
                 if (typeof testId === "string") this.showFirstError(testId);
             }),
         );
@@ -163,6 +164,7 @@ export class TestingMessageDecorations extends Disposable {
         const failures: IShownTestMessage[] = [];
         for (const [line, decoration] of editor.getLineMessageDecorations()) {
             const shown = state.shown.get(decoration.key);
+            // Stryker disable next-line OptionalChaining: equivalent, the keys and the shown map are set together
             if (shown?.isError === true) failures.push({ line, subject: shown.subject });
         }
         return failures.sort((a, b) => a.line - b.line);
@@ -186,6 +188,7 @@ export class TestingMessageDecorations extends Disposable {
      */
     public showNearest(editor: ITestingMessagesEditor | undefined, line: number): void {
         let nearest: IShownTestMessage | undefined;
+        // Stryker disable next-line ConditionalExpression,ArrayDeclaration: equivalent, no editor has no failures either way
         for (const failure of editor === undefined ? [] : this.failuresIn(editor)) {
             if (nearest === undefined || Math.abs(failure.line - line) < Math.abs(nearest.line - line))
                 nearest = failure;
@@ -305,7 +308,8 @@ export class TestingMessageDecorations extends Disposable {
                     forEachMessage(
                         result,
                         (subject, message) => {
-                            if (message.type !== "output" || message.location?.uri !== uri) return;
+                            // An error located here has taken its line above: only the output gets past `seenLines`.
+                            if (message.location?.uri !== uri) return;
                             const line = message.location.range.start.line;
                             if (seenLines.has(line)) return;
                             add(subject, line, {
@@ -365,7 +369,11 @@ function failuresOf(result: LiveTestResult, test: ITestResultItem): TestMessageS
 /** The line of the file an error points at: its location there, otherwise the first stack frame there. */
 function errorLine(message: ITestErrorMessage, uri: string): number | undefined {
     if (message.location?.uri === uri) return message.location.range.start.line;
-    return message.stackTrace?.find((frame) => frame.uri === uri && frame.position !== undefined)?.position?.line;
+    const frame = message.stackTrace?.find(
+        (candidate): candidate is IWireTestMessageStackFrame & Required<Pick<IWireTestMessageStackFrame, "position">> =>
+            candidate.uri === uri && candidate.position !== undefined,
+    );
+    return frame?.position.line;
 }
 
 /** Upstream `TestErrorContentWidget`'s text: `actual != expected` when both are known, else the first line. */
