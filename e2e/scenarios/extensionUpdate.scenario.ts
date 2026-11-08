@@ -40,8 +40,8 @@ export default defineScenario({
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("MARKETPLACE"));
 
+        // The first catalog entry: the list's cursor starts on it.
         await editor.sendKey("Tab");
-        await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
         await editor.waitForNode("#extensionPage-test-lazy-version");
         await editor.waitForText((t) => t.includes("Update to 1.1.0"));

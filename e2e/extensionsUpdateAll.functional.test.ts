@@ -261,7 +261,8 @@ describe("Manual extension updates (ExtensionUpdates stage 2, functional e2e)", 
         await waitForScreen(app, "Updated 2 extensions. Reload the window to");
         // Nothing is outdated any more; without the filter the updated rows wait for the reload.
         await waitForScreen(app, "No extensions found");
-        await app.session.click(1, 2);
+        // The search box sits under the MARKETPLACE section header: click the input, not a fixed cell.
+        await app.session.clickNode("#extensionsView InputElement");
         await app.session.key("End");
         for (let i = 0; i < 12; i++) await app.session.key("Backspace");
         await waitForRow(app, "installed", PINNED, /^Upd Pinned {2}1\.1\.0 {2}Reload$/u);
