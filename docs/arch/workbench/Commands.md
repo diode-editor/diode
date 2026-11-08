@@ -193,7 +193,10 @@ EOL); экшены фич — `contrib/<f>/browser/*Actions.ts`. Как они �
 capture/bubble-листенеры и подключает хук-шов `hasKeyboardCapturingOverlay`; второй
 хук — `updateContextKeys` — замыкает на себя `WorkbenchContextKeys`; третий — `isKeyForFocusedWidget` —
 ставит терминал: клавиша остаётся default action сфокусированного виджета, команда не выполняется,
-мнемоники её не видят ([Terminal.md](Terminal.md#клавиши-в-фокусе-терминала)). Пользовательские
+мнемоники её не видят ([Terminal.md](Terminal.md#клавиши-в-фокусе-терминала)). Четвёртый — `activeElement`:
+capture-фаза запоминает фокус, и если к bubble-фазе он сменился, клавишу уже обработал виджет (Escape закрыл
+quick input, фокус вернулся в терминал) — биндинг не резолвится против восстановленного фокуса (#1087: иначе тот
+же Escape снимал выделение терминала). Пользовательские
 `keybindings.json` применяет `KeybindingsEditorService`
 ([KeybindingsEditor.md](KeybindingsEditor.md)).
 

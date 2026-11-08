@@ -158,6 +158,7 @@ export class WorkbenchComponent extends Component {
         this.terminalService = accessor.get(TerminalServiceDIToken);
         this.dispatcher = this.register(accessor.get(KeybindingDispatcherDIToken));
         this.dispatcher.hasKeyboardCapturingOverlay = () => this.view.overlayLayer.hasKeyboardCapturingOverlay();
+        this.dispatcher.activeElement = () => this.view.focusManager?.activeElement ?? null;
         // The capture phase runs before the focused widget: mid-chord, keys are
         // swallowed before they reach the editor. Registered BEFORE the main menu: mnemonics
         // listen on the same root, and a node's listeners run in subscription order —
