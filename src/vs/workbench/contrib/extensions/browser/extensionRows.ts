@@ -67,10 +67,17 @@ function badgeTextOf(entry: IExtensionListEntry): { text: string; kind: Extensio
     return { text: "Installed", kind: "installed" };
 }
 
+/** The id of a row's first line (name, version, badges). */
+export function extensionRowTitleId(rowId: string): string {
+    return `${rowId}--title`;
+}
+
 /** {@link EXTENSION_ROW_HEIGHT} lines with a one-column gutter on both sides; the list appends it with that height. */
 export function buildExtensionRow(id: string, entry: IExtensionListEntry, styles: IExtensionRowStyles): TUIElement {
     const layout = describeExtensionRow(entry);
     const header = new TextLabelElement(layout.text);
+    // e2e and the inspector read the name line by it: the row is a container without text of its own.
+    header.id = extensionRowTitleId(id);
     paintRow(header, layout, styles);
     const description = new TextLabelElement(entry.description);
     const publisher = new TextLabelElement(entry.publisher);

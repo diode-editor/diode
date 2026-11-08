@@ -253,7 +253,7 @@ async function pressButton(app: HeadlessApp, label: string): Promise<void> {
 
 async function rowText(app: HeadlessApp, group: string, id: string): Promise<string | null> {
     // The entry's first line: name, version, badges.
-    const row = await app.session.node(`#extensionsGroup-${group}-${pageId(id)} TextLabelElement`);
+    const row = await app.session.node(`#extensionsGroup-${group}-${pageId(id)}--title`);
     return row?.text ?? null;
 }
 

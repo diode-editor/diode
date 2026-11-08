@@ -4,6 +4,7 @@ import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import type { ListViewElement } from "@tuidom/elements/list/listViewElement";
+import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { describe, expect, it } from "vitest";
 
@@ -332,6 +333,41 @@ describe("ExtensionsComponent", () => {
 
         component.list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "o" }));
         expect(component.list.getCursorElement()?.id).toBe("extensionsGroup-marketplace-acme-tools");
+    });
+
+    it("letters in the INSTALLED list are not typeahead either", () => {
+        const installed = { installedVersion: "1.0.0", availability: "installed" } as const;
+        const service = new FakeService([
+            entry({ id: "acme.tools", displayName: "Acme Tools", ...installed }),
+            entry({ id: "other.thing", displayName: "Other Thing", ...installed }),
+        ]);
+        const component = make(service);
+        renderInstalled(component);
+        component.installedList.setCursorTo("extensionsGroup-installed-acme-tools");
+
+        component.installedList.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "o" }));
+        expect(component.installedList.getCursorElement()?.id).toBe("extensionsGroup-installed-acme-tools");
+    });
+
+    it("INSTALLED with entries has no empty-state row", () => {
+        const component = make(
+            new FakeService([entry({ id: "acme.tools", installedVersion: "1.0.0", availability: "installed" })]),
+        );
+        expect(component.installedList.querySelector("#extensionsInstalledEmpty")).toBeNull();
+        expect(renderInstalled(component).screenToString()).not.toContain("No extensions found");
+    });
+
+    it("a state row keeps the entries' one-column gutter", () => {
+        const lines = render(make(new FakeService([])))
+            .screenToString()
+            .split("\n");
+        expect(lines[1].startsWith(" No extensions found")).toBe(true);
+    });
+
+    it("an entry's first line carries its own id for the inspector", () => {
+        const component = make(new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]));
+        const title = component.list.querySelector("#extensionsGroup-marketplace-acme-tools--title");
+        expect((title as TextLabelElement | null)?.getText()).toBe("Acme Tools  1.0.0");
     });
 
     it("installed extensions outside the registry do not go into the catalog, and uninstalled registry ones do not go into INSTALLED", () => {

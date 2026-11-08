@@ -47,10 +47,9 @@ export default defineScenario({
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("MARKETPLACE"));
         for (let i = 0; i < 4; i++) await editor.sendKey("F7");
-        // Lang Pack's page, the first catalog entry: focus the list, Enter.
+        // Lang Pack's page, the first catalog entry (the list's cursor starts on it): focus the list, Enter.
         // No filter: it would narrow the installed list too, and the frame needs both.
         await editor.sendKey("Tab");
-        await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
         await editor.waitForNode("#extensionPage-test-lang-pack");
 

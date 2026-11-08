@@ -139,7 +139,7 @@ function versionDirs(app: HeadlessApp): string[] {
 
 /** The whole text of an entry's first line: the sidebar is narrower than a row with its badge. */
 async function rowText(app: HeadlessApp, section: "marketplace" | "installed", id: string): Promise<string> {
-    const row = await app.session.node(`#extensionsGroup-${section}-${pageId(id)} TextLabelElement`);
+    const row = await app.session.node(`#extensionsGroup-${section}-${pageId(id)}--title`);
     return row?.text ?? "";
 }
 

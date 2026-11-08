@@ -49,7 +49,7 @@ async function tabLabels(app: HeadlessApp): Promise<string[]> {
  * on the sidebar width.
  */
 async function rowText(app: HeadlessApp, id: string): Promise<string> {
-    const row = await app.session.node(`#${id} TextLabelElement`);
+    const row = await app.session.node(`#${id}--title`);
     expect(row, `row #${id} not found`).not.toBeNull();
     return row?.text ?? "";
 }

@@ -154,7 +154,7 @@ async function runPaletteCommand(app: HeadlessApp, title: string): Promise<void>
 
 async function rowText(app: HeadlessApp, section: "marketplace" | "installed", id: string): Promise<string | null> {
     // The entry's first line: name, version, badges.
-    const row = await app.session.node(`#extensionsGroup-${section}-${pageId(id)} TextLabelElement`);
+    const row = await app.session.node(`#extensionsGroup-${section}-${pageId(id)}--title`);
     return row?.text ?? null;
 }
 

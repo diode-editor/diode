@@ -117,8 +117,9 @@ export class ExtensionsComponent extends Component {
         });
         this.installedList.id = "extensionsInstalledList";
         this.installedList.onActivate = (element) => {
-            // Rows always carry an id.
-            if (element.id !== undefined) this.activateRow(element.id);
+            // `appendRow` throws on a row without an id, so every activated row has one; `String` only
+            // satisfies the type (an "undefined" key would find no action anyway).
+            this.activateRow(String(element.id));
         };
         this.installedView = new ScrollBarDecorator(this.installedList);
         this.installedView.id = "extensionsInstalledView";
@@ -250,7 +251,10 @@ export class ExtensionsComponent extends Component {
         // One entry can be in both sections, so the id carries the section. Dots become dashes: the
         // inspector selector (`#id`) does not understand dots.
         const rowId = `${prefix}-${entry.id.replaceAll(".", "-")}`;
-        list.appendRow(buildExtensionRow(rowId, entry, ROW_STYLES), { height: EXTENSION_ROW_HEIGHT });
+        list.appendRow(buildExtensionRow(rowId, entry, ROW_STYLES), {
+            height: EXTENSION_ROW_HEIGHT,
+            label: entry.displayName,
+        });
         this.actions.set(rowId, { kind: "open", id: entry.id });
     }
 
