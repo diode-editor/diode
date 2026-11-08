@@ -6,10 +6,14 @@ import type { GroupId } from "../../services/editor/browser/editorGroupModel.ts"
  */
 export interface ExplorerMenuContext {
     readonly path: string;
+    /** The whole selection when the row is part of it, else the row alone (upstream `getMultiSelectedResources`). */
+    readonly targets: readonly string[];
     readonly canPaste: boolean;
 }
 
 export const explorerPathArg = (context: unknown): readonly unknown[] => [(context as ExplorerMenuContext).path];
+
+export const explorerTargetsArg = (context: unknown): readonly unknown[] => [(context as ExplorerMenuContext).targets];
 
 /** Evaluated imperatively when the menu opens. */
 export const explorerCanPaste = (context: unknown): boolean => (context as ExplorerMenuContext).canPaste;

@@ -48,16 +48,30 @@ export interface IExplorerInputPrompt {
     }): Promise<string | undefined>;
 }
 
+/**
+ * Like upstream's `resources.distinctParents`: a path whose ancestor is also among the targets comes
+ * along with the ancestor — so a compact row in a multi-selection acts as its head alone.
+ */
+function distinctParents(paths: readonly string[]): string[] {
+    return paths.filter((candidate) => !paths.some((other) => candidate.startsWith(other + path.sep)));
+}
+
 export function buildPasteEdits(entry: FileClipboardEntry, targetDir: string): ResourceFileEdit[] {
-    // Like upstream's `resources.distinctParents`: a path whose ancestor is also in the clipboard comes
-    // along with the ancestor — so a compact row in a multi-selection is pasted as its head alone.
-    const paths = entry.paths.filter(
-        (candidate) => !entry.paths.some((other) => candidate.startsWith(other + path.sep)),
-    );
-    return paths.map(
+    return distinctParents(entry.paths).map(
         (from): ResourceFileEdit =>
             entry.mode === "cut" ? { kind: "move", from, to: targetDir } : { kind: "copy", from, to: targetDir },
     );
+}
+
+const MAX_CONFIRM_FILES = 10;
+
+/** Upstream `getFileNamesMessage`: base names, at most ten, then a count of the rest. */
+function fileNamesMessage(paths: readonly string[]): string[] {
+    const names = paths.slice(0, MAX_CONFIRM_FILES).map((p) => path.basename(p));
+    const hidden = paths.length - MAX_CONFIRM_FILES;
+    if (hidden === 1) names.push("...1 additional file not shown");
+    if (hidden > 1) names.push(`...${hidden} additional files not shown`);
+    return names;
 }
 
 export class FileOperationsService {
@@ -97,12 +111,32 @@ export class FileOperationsService {
      * The label of the tree's workspace-undo binding (under `listFocus`: while the dialog is open there
      * is no focus) or, without a binding, the way back through the trash.
      */
-    private undoHint(): string {
+    private undoHint(count: number): string {
+        const what = count > 1 ? "these files" : "this file";
         const chord = this.keybindings.getKeybindingForCommand("fileOperations.undo", this.contextKeys, {
             listFocus: true,
         });
-        if (chord === undefined) return "You can restore this file from the Trash.";
-        return `You can restore this file using the Undo command (${formatKeybinding(chord, keybindingLabelStyle(this.contextKeys))}) or from the Trash.`;
+        if (chord === undefined) return `You can restore ${what} from the Trash.`;
+        return `You can restore ${what} using the Undo command (${formatKeybinding(chord, keybindingLabelStyle(this.contextKeys))}) or from the Trash.`;
+    }
+
+    /** Upstream `getMoveToTrashMessage`/`getDeleteMessage`: the question, then the names of several targets. */
+    private deleteQuestion(targets: readonly string[], verb: string): string[] {
+        const directories = targets.filter((target) => this.explorer.isDirectory(target)).length;
+        if (targets.length === 1) {
+            const contents = directories > 0 ? " and its contents" : "";
+            return [`Are you sure you want to ${verb} '${path.basename(targets[0])}'${contents}?`];
+        }
+        const kind =
+            directories === 0
+                ? "files"
+                : directories === targets.length
+                  ? "directories and their contents"
+                  : "files/directories and their contents";
+        return [
+            `Are you sure you want to ${verb} the following ${targets.length} ${kind}?`,
+            ...fileNamesMessage(targets),
+        ];
     }
 
     public copySelected(): void {
@@ -130,13 +164,18 @@ export class FileOperationsService {
         await this.explorer.refresh();
     }
 
-    public requestDeleteFile(filePath: string): void {
+    /** Deletes all `paths` (nested ones go with their ancestor) as one undo step. */
+    public requestDelete(paths: readonly string[]): void {
+        const targets = distinctParents(paths);
+        if (targets.length === 0) return;
         const willTrash = this.workspaceEditService.willMoveToTrash();
         const confirmDelete = this.configurationService.get("explorer.confirmDelete");
-        const name = path.basename(filePath);
 
         const doDelete = async (): Promise<void> => {
-            await this.workspaceEditService.applyFileEdits([{ kind: "delete", from: filePath }], "Delete");
+            await this.workspaceEditService.applyFileEdits(
+                targets.map((from): ResourceFileEdit => ({ kind: "delete", from })),
+                "Delete",
+            );
             await this.explorer.refresh();
         };
 
@@ -145,24 +184,23 @@ export class FileOperationsService {
             void doDelete();
             return;
         }
+        const [question, ...names] = this.deleteQuestion(targets, willTrash ? "delete" : "permanently delete");
+        // Several targets: the warning goes on its own line after the names (upstream's `detail`), since the
+        // plural question is too long to carry it.
+        const permanent =
+            names.length === 0
+                ? [`${question} This action is irreversible!`]
+                : [question, ...names, "This action is irreversible!"];
         this.dialogService.showConfirmDialog(
-            willTrash
-                ? {
-                      title: "Delete",
-                      message: [`Are you sure you want to delete '${name}'?`, this.undoHint()],
-                      confirmLabel: "Move to Trash",
-                      defaultButton: "confirm",
-                  }
-                : {
-                      title: "Delete",
-                      message: [
-                          "⚠ The system Trash is not available.",
-                          `Are you sure you want to permanently delete '${name}'? This action is irreversible!`,
-                      ],
-                      confirmLabel: "Delete Permanently",
-                      warning: true,
-                      defaultButton: "cancel",
-                  },
+            {
+                title: "Delete",
+                message: willTrash
+                    ? [question, ...names, this.undoHint(targets.length)]
+                    : ["⚠ The system Trash is not available.", ...permanent],
+                confirmLabel: willTrash ? "Move to Trash" : "Delete Permanently",
+                warning: !willTrash,
+                defaultButton: willTrash ? "confirm" : "cancel",
+            },
             { onConfirm: () => void doDelete() },
         );
     }

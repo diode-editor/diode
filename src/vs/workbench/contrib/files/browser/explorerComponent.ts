@@ -207,7 +207,11 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
             getOwner: () => tree,
             getAnchor: () => ({ screenX, screenY }),
             menuId: MenuId.ExplorerContext,
-            menuContext: { path: filePath, canPaste: this.fileClipboard.read() !== null },
+            menuContext: {
+                path: filePath,
+                targets: this.explorerService.getContextTargets(filePath),
+                canPaste: this.fileClipboard.read() !== null,
+            },
         });
     }
 }

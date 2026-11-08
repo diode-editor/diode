@@ -111,3 +111,25 @@ describe("ExplorerService — compact row segments", () => {
         expect(view.focusLastSegment).toHaveBeenCalledTimes(1);
     });
 });
+
+describe("ExplorerService.getContextTargets — the targets of a context-menu action", () => {
+    it("a row inside the selection brings the whole selection", () => {
+        const { service } = serviceWith({ cursor: FILE, selection: [PLAIN_DIR, FILE] });
+        expect(service.getContextTargets("/w/a.txt")).toEqual(["/w/docs", "/w/a.txt"]);
+    });
+
+    it("a row outside the selection is the only target", () => {
+        const { service } = serviceWith({ cursor: FILE, selection: [PLAIN_DIR, FILE] });
+        expect(service.getContextTargets("/w/other.txt")).toEqual(["/w/other.txt"]);
+    });
+
+    it("a compact row's segment in a multi-selection brings the selection (chain folders included)", () => {
+        const { service } = serviceWith({ cursor: CHAIN, selection: [CHAIN, FILE], segment: 1 });
+        expect(service.getContextTargets("/w/src/main")).toEqual([
+            "/w/src",
+            "/w/src/main",
+            "/w/src/main/java",
+            "/w/a.txt",
+        ]);
+    });
+});

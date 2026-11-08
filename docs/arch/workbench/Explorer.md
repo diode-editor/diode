@@ -41,7 +41,11 @@
   `WorkbenchComponent`), выбор (`getSelectedPaths`/`getPasteTargetDir`; у
   компактной строки — папка текущего сегмента, `nodePath`; в мультивыборе —
   все папки цепочки, как `getContext` эталона, а вставка схлопывает вложенные
-  пути, как `distinctParents`),
+  пути, как `distinctParents`), цели действия меню (`getContextTargets`: строка
+  внутри выделения — всё выделение, вне его — только она, как
+  `getMultiSelectedResources` эталона; меню получает их в `ExplorerMenuContext.targets`,
+  Delete и Copy Path/Copy Relative Path — через `explorerTargetsArg` и `getCommandTargets`, с клавиши —
+  `getSelectedPaths`),
   `setFileDecorations` (мост декораций extension-host'а: адаптер
   `FileDecorationsServiceAdapter` типизирован минимальным интерфейсом
   `IFileDecorationsTarget`, сервис соответствует структурно), подсветка
@@ -87,8 +91,10 @@
   `runCreate`/`runRename` (промпт имени через узкий шов
   `IExplorerInputPrompt` — срез `QuickInputService.input`, в DI замкнут на
   `QuickInputServiceDIToken`; интерфейс оставлен ради фейков в тестах),
-  `requestDeleteFile` (корзина/
-  безвозвратно + подтверждения), `copySelected`/`cutSelected`/`paste`
+  `requestDelete` (пачка целей: вложенные схлопываются, как `distinctParents`;
+  корзина/безвозвратно + подтверждения с текстами `getMoveToTrashMessage`/
+  `getDeleteMessage` эталона; все удаления — один `applyFileEdits`, один шаг undo),
+  `copySelected`/`cutSelected`/`paste`
   (+ `buildPasteEdits`), workspace-undo/redo, `resolveInputPath` (`~`, корень
   воркспейса).
 - `contrib/files/browser/inputWidgetService.ts` — целевой сервис input-команд: держит
