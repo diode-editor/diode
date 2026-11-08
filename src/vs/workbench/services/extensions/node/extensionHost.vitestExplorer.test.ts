@@ -23,6 +23,7 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import type { IContextMenuDelegate } from "../../../../platform/contextview/common/contextMenuDelegate.ts";
 import { installVsix } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
 import type { IExtensionManifest } from "../../../../platform/extensions/common/iExtensionManifest.ts";
+import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import { StaticProductIconService } from "../../../../platform/theme/common/productIconService.ts";
@@ -32,6 +33,10 @@ import type { QuickInputService } from "../../../browser/parts/quickinput/quickI
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { SetContextCommandContribution } from "../../../browser/setContextCommandContribution.ts";
 import { TestingDecorations } from "../../../contrib/testing/browser/testingDecorations.ts";
+import { runCurrentFileAction } from "../../../contrib/testing/browser/testingEditorActions.ts";
+import { TestingMessageDecorations } from "../../../contrib/testing/browser/testingMessageDecorations.ts";
+import { TestServiceDIToken } from "../../../contrib/testing/common/testService.ts";
+import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 import { darkPlusTheme } from "../../themes/common/themes/darkPlus.ts";
 import { registerExtensionMenus } from "../common/extensionMenuContributor.ts";
 
@@ -263,7 +268,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
     );
 
     it(
-        "[api:tests.createTestController] the editor gutter: run-all at describe, run at each it; a click on fails' glyph runs only it and turns it into the failed icon; the glyph's menu has Vitest's testing/item/gutter items",
+        "[api:tests.createTestController] the editor gutter: run-all at describe, run at each it; a click on fails' glyph runs only it and turns it into the failed icon; the glyph's menu has Vitest's testing/item/gutter items; the failure after its assertion's line; Run Tests in Current File runs the file",
         { timeout: 120_000 },
         async () => {
             const workspace = path.join(tmpRoot, "gutter");
@@ -298,6 +303,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                         ({ "testing.gutterEnabled": true, "testing.defaultGutterClickAction": "run" })[key],
                     onDidChangeConfiguration: Event.None,
                 } as unknown as IConfigurationService;
+                const messages = new TestingMessageDecorations(
+                    harness.group,
+                    results,
+                    configuration,
+                    icons,
+                    { showMessage: () => undefined, selectMessage: () => undefined },
+                    commands,
+                );
                 const decorations = new TestingDecorations(
                     harness.group,
                     tests,
@@ -362,6 +375,32 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                 );
                 expect(labels.slice(0, 3)).toEqual(["Run Test", "Reveal in Test Explorer", "-"]);
                 expect(labels).toContain("Update Snapshot");
+
+                // The failure is a badge after the failed assertion's line, where Vitest's message points: Vitest sends
+                // the expected and the actual value, so it reads `actual != expected`, as in VS Code.
+                await waitUntil("fails' message", () => /toBe\(2\); {3}\S/.test(row("expect(2 - 1).toBe(2);")), 60_000);
+                const badge = row("expect(2 - 1).toBe(2);");
+                expect(badge).toMatch(/expect\(2 - 1\)\.toBe\(2\); {3}✗ 1 != 2\s*$/);
+                expect(row("expect(1 + 1).toBe(2);")).not.toContain("expected");
+                // Go to Next Test Failure reads the badges back from the editor.
+                const [editor] = harness.group.getEditors();
+                expect(messages.failuresIn(editor)).toHaveLength(1);
+
+                // Run Tests in Current File (Ctrl+; F): the file's test runs with all its tests, adds passes again.
+                const services = new Map<unknown, unknown>([
+                    [EditorServiceDIToken, harness.group],
+                    [TestServiceDIToken, tests],
+                ]);
+                const runs = results.results.length;
+                void runCurrentFileAction.run({ get: (token: unknown) => services.get(token) } as ServiceAccessor);
+                await waitUntil("the file's run", () => results.results.length > runs, 60_000);
+                await waitUntil("the file's run ended", () => results.results[0].completedAt !== undefined, 60_000);
+                await waitUntil(
+                    "adds passed, fails failed",
+                    () => row('it("adds"').includes("✓") && row('it("fails"').includes("✗"),
+                    10_000,
+                );
+                messages.dispose();
                 decorations.dispose();
             } finally {
                 await harness.dispose();

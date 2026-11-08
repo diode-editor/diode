@@ -142,14 +142,17 @@ export abstract class HierarchyComponent<TMode extends string, TProvider> extend
         return this.root;
     }
 
-    /** Nothing at the caret: a toast, and the tree that is already there stays (upstream core, `No results`). */
+    /** Nothing at the caret or no provider for the language: a toast, and the tree that is already there stays (upstream core, `No results`). */
     public async show(): Promise<void> {
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
         // Upstream `CallHierarchyModel.create`, `TypeHierarchyModel.create`: the first provider by score answers alone.
         const provider = this.kind.providers(this.languageFeatures).ordered(editor).at(0);
-        // Stryker disable next-line ConditionalExpression: the command's `when` hides it without a provider, and the palette goes through `when` too
-        if (provider === undefined) return;
+        // The palette lists the command for every language: one without the feature answers as an empty caret does.
+        if (provider === undefined) {
+            this.showNoResults();
+            return;
+        }
 
         const caret = editor.viewState.selections[0].active;
         const ticket = this.latest.start();
@@ -169,7 +172,7 @@ export abstract class HierarchyComponent<TMode extends string, TProvider> extend
             return;
         }
         if (prepared === null) {
-            this.notifications.show({ severity: "info", message: "No results", modal: false, items: [] });
+            this.showNoResults();
             return;
         }
 
@@ -208,6 +211,10 @@ export abstract class HierarchyComponent<TMode extends string, TProvider> extend
         // The container shows its remaining section by itself once this one is gone.
         this.viewsService.unregisterView(HIERARCHY_VIEW_ID);
         this.contextKeys.set(this.kind.visibleKey, false);
+    }
+
+    private showNoResults(): void {
+        this.notifications.show({ severity: "info", message: "No results", modal: false, items: [] });
     }
 
     private releaseSession(): void {

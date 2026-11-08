@@ -529,6 +529,38 @@ EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorer
   (`testing.showMostRecentOutput`, `Ctrl+; Ctrl+O`, при `testing.hasAnyResults`) открывает вид с фокусом и
   первой задачей последнего запуска. Clear All Results — и в заголовке TEST RESULTS (`navigation`).
 
+### Тесты в редакторе
+
+`contrib/testing/browser/testingDecorations.ts` — глифы поля (run, состояние, меню глифа). Сообщения после
+строк — `testingMessageDecorations.ts` (`TestingMessageDecorations`, `applyResults` эталона) над вкладками-
+редакторами (без сторон диффа и панелей; в режиме большого файла — ничего):
+
+- **Ошибки** — сообщения-ошибки последнего результата (`testing.showAllMessages` — всех), чей `location`
+  или первый кадр стека с позицией — в этом файле; по одному на строку, порядок — тесты запуска, задачи,
+  сообщения. Бейдж `ILineMessageDecoration`: ` <error-иконка> <текст> ` цветами
+  `testing.message.error.badgeForeground`/`badgeBackground`. Текст — `TestErrorContentWidget` эталона:
+  `actual != expected` (оба заданы, каждое в одну строку и `truncateMiddle(…, 30)`), иначе первая строка
+  сообщения без ANSI и управляющих символов, пустое — «Test Failed».
+- **Вывод** — Toggle Inline Test Output (`testing.toggleInlineTestOutput`, `Ctrl+; Ctrl+I`, в памяти):
+  `appendOutput` с `location` в этом файле, на строках без ошибки, последний вывод строки;
+  переводы строк — пробелы, до 128 символов с «…», цвет `testing.message.info.decorationForeground`.
+  «Только у живого результата» эталона — у нас все результаты живые (в памяти).
+- **TEST RESULTS вместо peek** (отступление, решение 2026-11-04): клик по сообщению —
+  `TestResultsComponent.showMessage` без фокуса (вид открывается, строка сообщения выбрана, текст слева);
+  Peek Output (`testing.openOutputPeek`, `Ctrl+; Ctrl+M`) — ближайшая к курсору ошибка файла, иначе
+  показанная последней, иначе первая ошибка упавшего теста — с фокусом; «Peek Error» меню глифа
+  (`vscode.peekTestError`) — первая ошибка теста с `location`. `testing.automaticallyOpenPeekView*` не
+  регистрируются.
+- **Команды редактора** — `testingEditorActions.ts`: Run Test at Cursor (`testing.runAtCursor`,
+  `Ctrl+; C`, `getTestsAtCursor` эталона — самый внутренний диапазон под курсором, вне тестов — ближайший
+  выше; ничего — уведомление «No tests found here», у эталона — сообщение в редакторе) и Run Tests in Current
+  File (`testing.runCurrentFile`, `Ctrl+; F`, «No tests found in this file»); обе при `editorTextFocus`, в
+  контекстном меню редактора группа `testing` при `testing.activeEditorHasTests && testing.hasRunnableTests`.
+  Go to Next/Previous Test Failure (`Alt+F8`/`Shift+Alt+F8`, `editorTextFocus`) — отступление: без peek
+  курсор идёт по ошибкам, показанным в файле, по кругу, и выбирает сообщение в TEST RESULTS, если вид
+  показан. Ключи `testing.activeEditorHasTests`, `testing.cursorInsideTestRange` —
+  `testingEditorContextKeys.ts`. Debug- и Coverage-варианты не делаем.
+
 ## References
 
 Find All References наполняет вьюлет сайдбара `REFERENCES` списком «файл →
@@ -559,7 +591,9 @@ Find All References наполняет вьюлет сайдбара `REFERENCES
   лежит в субпроцессе, а его документ может быть не открыт и не синхронизирован (`documentSync.resolve` ответил бы
   `null`). В `legacy`-терминале Shift+Alt+H не доезжает, а `ctrl+k ctrl+h` занят Output: там команда только в палитре
   и контекстном меню. «No results.» в секции — когда единственный корень без детей; `prepare` без ответа — тост, дерево
-  не трогаем.
+  не трогаем. Нет провайдера для языка (TypeScript, plaintext) — тот же тост: палитра показывает команду всегда, как
+  эталон, а без ответа она выглядела бы несработавшей. **Отступление:** эталон в обоих случаях фокусирует панель с
+  «No results.», у нас одно поведение на «ничего не нашлось» — тост core peek.
 - **Type hierarchy** — тот же view `references-view.hierarchy`: `TypeHierarchyComponent` и `CallHierarchyComponent` —
   наследники `HierarchyComponent`, разница описана в `IHierarchyKind`. У каждого своё дерево и сессия, но секция одна:
   показ одного дерева снимает другое через `onWillShow` (зависимость односторонняя, типы знают о вызовах). Секция общая,

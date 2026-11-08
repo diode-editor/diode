@@ -158,3 +158,11 @@ export function startsWithUTF8BOM(str: string): boolean {
     // Upstream also checks `str.length > 0`; on an empty string `charCodeAt(0)` is NaN.
     return str.charCodeAt(0) === UTF8_BOM;
 }
+
+/** Upstream `truncateMiddle`: the start and the end of a value longer than `maxLength`, the ellipsis between. */
+export function truncateMiddle(value: string, maxLength: number, suffix = "…"): string {
+    if (value.length <= maxLength) return value;
+    const prefixLength = Math.ceil(maxLength / 2) - suffix.length / 2;
+    const suffixLength = Math.floor(maxLength / 2) - suffix.length / 2;
+    return `${value.slice(0, prefixLength)}${suffix}${value.slice(value.length - suffixLength)}`;
+}

@@ -165,4 +165,13 @@ export const workbenchColors = {
         defaults: { dark: "#F14C4C", light: "#E51400" },
         description: "The color used for the notification error icon.",
     },
+    // Upstream `miscColors.ts`: `Color.black.lighten(0.2)` baked as hex.
+    "activityErrorBadge.foreground": {
+        defaults: { dark: "#333333", light: "#FFFFFF" },
+        description: "Foreground color of the error activity badge",
+    },
+    "activityErrorBadge.background": {
+        defaults: { dark: "#F14C4C", light: "#E51400" },
+        description: "Background color of the error activity badge",
+    },
 } as const satisfies ColorContribution;

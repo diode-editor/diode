@@ -144,6 +144,10 @@ export interface ContextKeyTypes {
     "testing.isRunning": boolean;
     /** Some test run is kept: the reruns have something to repeat. */
     "testing.hasAnyResults": boolean;
+    /** The active text editor's file has tests. */
+    "testing.activeEditorHasTests": boolean;
+    /** The active text editor's cursor is inside the range of one of its tests. */
+    "testing.cursorInsideTestRange": boolean;
     /** Upstream `TestExplorerViewSorting`: "status" | "location" | "duration". */
     "testing.explorerViewSorting": string;
     /** A Test Explorer row's menu (`MenuId.TestItem`) only: the test's own id, the last segment of its path. */

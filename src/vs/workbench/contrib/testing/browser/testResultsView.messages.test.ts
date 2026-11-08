@@ -304,6 +304,29 @@ describe("TEST RESULTS — a message's content", () => {
     });
 });
 
+describe("TEST RESULTS — a message shown from elsewhere", () => {
+    it("is revealed under its test even when the user collapsed the test", async () => {
+        const { harness } = setup();
+        const result = failed(harness, { message: "the message" });
+        const inTree = (text: string) =>
+            text
+                .split("\n")
+                .map((line) => line.slice(TREE_X))
+                .join("\n");
+        await harness.panel.waitFrame((text) => inTree(text).includes("the message"));
+        clickRow(harness, "fails");
+        await harness.panel.waitFrame((text) => !inTree(text).includes("the message"));
+
+        const test = result.getStateById(testId(...FAILS));
+        expect(test).toBeDefined();
+        harness.panel.component.showMessage(
+            { kind: "message", result, taskIndex: 0, test: test!, messageIndex: 0 },
+            true,
+        );
+        await harness.panel.waitFrame((text) => inTree(text).includes("the message"));
+    });
+});
+
 describe("TEST RESULTS — a removed run", () => {
     it("Clear All Results takes the shown message off the left: the output's surface is there again", async () => {
         const { harness } = setup();

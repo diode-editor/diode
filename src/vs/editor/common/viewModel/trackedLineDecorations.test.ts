@@ -5,7 +5,7 @@ import { createTextEdit } from "../core/iTextEdit.ts";
 import type { IGlyphMarginDecoration } from "../model/iGlyphMarginDecoration.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
-import { GlyphMarginDecorations } from "./glyphMarginDecorations.ts";
+import { TrackedLineDecorations } from "./trackedLineDecorations.ts";
 
 function glyph(key: string, line: number): IGlyphMarginDecoration {
     return { key, line, glyph: "▷", colorToken: "testing.runAction" };
@@ -21,7 +21,7 @@ function setup(text: string) {
         for (const id of ids) live.add(id);
         return ids;
     });
-    const glyphs = new GlyphMarginDecorations(document);
+    const glyphs = new TrackedLineDecorations<IGlyphMarginDecoration>(document);
     const lines = (): Record<number, string> =>
         Object.fromEntries([...glyphs.byLine()].map(([line, decoration]) => [line, decoration.key]));
     const edit = (startLine: number, startChar: number, endLine: number, endChar: number, text = ""): void => {
@@ -30,7 +30,7 @@ function setup(text: string) {
     return { document, glyphs, live, lines, edit };
 }
 
-describe("GlyphMarginDecorations", () => {
+describe("TrackedLineDecorations", () => {
     it("a glyph placed on another line leaves no decoration behind in the document", () => {
         const { glyphs, live, lines } = setup("a\nb\nc\nd");
         glyphs.set([glyph("x", 1), glyph("y", 2)]);

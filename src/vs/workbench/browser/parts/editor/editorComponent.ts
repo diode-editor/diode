@@ -32,6 +32,7 @@ import type {
 } from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
+import type { ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { FeatureDebounce } from "../../../../editor/common/services/languageFeatureDebounce.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
@@ -774,6 +775,19 @@ export class EditorComponent extends Component {
 
     public onDidClickGlyphMargin(listener: (click: IGlyphMarginClick) => void): IDisposable {
         return this.editor.onDidClickGlyphMargin(listener);
+    }
+
+    /** Messages after the lines' ends (test failures): they ride their lines through edits. */
+    public setLineMessageDecorations(decorations: readonly ILineMessageDecoration[]): void {
+        this.editor.setLineMessageDecorations(decorations);
+    }
+
+    public getLineMessageDecorations(): ReadonlyMap<number, ILineMessageDecoration> {
+        return this.editor.getLineMessageDecorations();
+    }
+
+    public onDidClickLineMessage(listener: (key: string) => void): IDisposable {
+        return this.editor.onDidClickLineMessage(listener);
     }
 
     public setDecorations(decorations: IExternalDecorations): void {

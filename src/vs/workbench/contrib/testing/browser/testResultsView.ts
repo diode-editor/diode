@@ -63,7 +63,7 @@ import { testingCancelIcon, testingRerunIcon, testingRunIcon, testingStatesToIco
 import { REVEAL_TEST_COMMAND, TESTING_EXPLORER_VIEW_ID, TestingRevealTargetDIToken } from "./testingExplorerView.ts";
 import { type TestMessageDiffFactory, TestMessageDiffFactoryDIToken } from "./testMessageDiff.ts";
 import { testMessageArg, testMessageMenuKeys } from "./testMessageMenu.ts";
-import { messageOf, messageText, type TestMessageSubject, TestMessageView } from "./testMessageView.ts";
+import { messageKey, messageOf, messageText, type TestMessageSubject, TestMessageView } from "./testMessageView.ts";
 import { TestResultsOutput, type TestResultsSubject } from "./testResultsOutput.ts";
 import { TestResultsSplitElement } from "./testResultsSplitElement.ts";
 
@@ -263,6 +263,20 @@ export class TestResultsComponent extends Disposable {
         if (result !== undefined) this.reveal({ kind: "task", result, taskIndex: 0 });
     }
 
+    /**
+     * Upstream `ITestingPeekOpener.peekUri` without the peek: TEST RESULTS opens with the message chosen and its text
+     * on the left; with `preserveFocus` the keyboard stays where it was.
+     */
+    public showMessage(subject: TestMessageSubject, preserveFocus: boolean): void {
+        this.views.openView(TEST_RESULTS_VIEW_ID, !preserveFocus);
+        this.reveal(subject);
+    }
+
+    /** The message is chosen in TEST RESULTS if the panel is shown; otherwise nothing opens. */
+    public selectMessage(subject: TestMessageSubject): void {
+        if (this.views.isViewShown(TEST_RESULTS_VIEW_ID)) this.reveal(subject);
+    }
+
     /** Upstream `ToggleResultsViewLayoutAction`. */
     public async toggleLayout(): Promise<void> {
         await this.configuration.updateValue(
@@ -440,8 +454,14 @@ export class TestResultsComponent extends Disposable {
         this.show(subject);
         const { result } = subject;
         const task: TestResultsRow = { kind: "task", result, taskIndex: subject.taskIndex };
-        // An older run's row is shown ("N older results" is open: its action is on screen); the latest run has none.
-        const chain: TestResultsRow[] = this.latestWithTasks() === result ? [task] : [{ kind: "result", result }, task];
+        // Upstream expands every parent: an older run's under "N older results" too; the latest run has no row.
+        const latest = this.latestWithTasks();
+        const chain: TestResultsRow[] =
+            latest === result
+                ? [task]
+                : [{ kind: "older", count: this.olderResults(latest).length }, { kind: "result", result }, task];
+        if (subject.kind === "message")
+            chain.push({ kind: "test", result, taskIndex: subject.taskIndex, test: subject.test });
         if (subject.kind !== "task") chain.push(subject);
         void this.tree
             .refresh()
@@ -748,6 +768,6 @@ function rowKey(row: TestResultsRow): string {
         case "test":
             return `${row.result.id}/${String(row.taskIndex)}/${row.test.item.extId}`;
         case "message":
-            return `${row.result.id}/${String(row.taskIndex)}/${row.test.item.extId}/${String(row.messageIndex)}`;
+            return messageKey(row);
     }
 }
