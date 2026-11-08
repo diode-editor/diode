@@ -40,6 +40,7 @@ export class TestingEditorContextKeys extends Disposable {
     ] as const;
 
     /** The active file's tests with a range. */
+    // Stryker disable next-line ArrayDeclaration: equivalent, the constructor's refresh() replaces it before any read
     private ranges: readonly IRange[] = [];
 
     public constructor(

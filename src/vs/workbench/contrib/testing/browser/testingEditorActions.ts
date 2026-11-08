@@ -52,6 +52,7 @@ export function getTestsAtCursor(tests: readonly ITestNode[], position: IPositio
                 bestRange = range;
                 best = [test];
             }
+            // Stryker disable next-line EqualityOperator: equivalent, a range starting at the position contains it
         } else if (comparePositions(range.start, position) < 0) {
             if (beforeRange === undefined || comparePositions(beforeRange.start, range.start) < 0) {
                 beforeRange = range;
@@ -136,6 +137,7 @@ export const runCurrentFileAction: CommandAction = {
 /** The failure shown in the active editor next to the cursor in the direction, round; the cursor goes to it. */
 function goToFailure(accessor: ServiceAccessor, direction: 1 | -1): void {
     const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+    // Stryker disable next-line ConditionalExpression: equivalent, failuresIn(null) is empty and the next guard returns
     if (editor === null) return;
     const decorations = accessor.get(TestingMessageDecorationsDIToken);
     const failures = decorations.failuresIn(editor);

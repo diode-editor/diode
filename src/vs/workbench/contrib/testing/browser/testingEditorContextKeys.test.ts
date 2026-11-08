@@ -44,11 +44,16 @@ function setup() {
         active = { ...active!, primaryCursorLine: line, primaryCursorColumn: column };
         selectionChanged.fire();
     };
+    /** The editor goes and a selection change is heard before the active editor's change. */
+    const closeBySelection = (): void => {
+        active = null;
+        selectionChanged.fire();
+    };
     const state = () => [
         contextKeys.get("testing.activeEditorHasTests"),
         contextKeys.get("testing.cursorInsideTestRange"),
     ];
-    return { tests, keys, open, move, state };
+    return { tests, keys, open, move, closeBySelection, state };
 }
 
 describe("TestingEditorContextKeys", () => {
@@ -75,5 +80,20 @@ describe("TestingEditorContextKeys", () => {
 
         open("file:///w/README.md", 2);
         expect(state()).toEqual([false, false]);
+    });
+
+    it("no active editor: the cursor is inside no range, even before the editor change is heard", () => {
+        const { tests, open, closeBySelection, state } = setup();
+        tests.publishDiff([
+            add(wireItem(["vitest"], "Vitest"), TestItemExpandState.Expanded),
+            add(
+                wireItem(["vitest", "adds"], "adds", { uri: URI, range: createRange(2, 4, 4, 6) }),
+                TestItemExpandState.NotExpandable,
+            ),
+        ]);
+        open(URI, 3);
+        expect(state()).toEqual([true, true]);
+        closeBySelection();
+        expect(state()).toEqual([true, false]);
     });
 });

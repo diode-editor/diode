@@ -77,6 +77,8 @@ describe("getTestsAtCursor (upstream's)", () => {
         expect(ids(getTestsAtCursor([suite, adds, fails], createPosition(3, 10)))).toEqual(["adds"]);
         expect(ids(getTestsAtCursor([suite, adds, fails], createPosition(1, 3)))).toEqual(["math"]);
         expect(ids(getTestsAtCursor([node(FILE, null), suite], createPosition(1, 3)))).toEqual(["math"]);
+        // Inside the suite past its first test: the suite, not the nearest test above.
+        expect(ids(getTestsAtCursor([suite, adds, fails], createPosition(4, 10)))).toEqual(["math"]);
     });
 
     it("tests sharing the innermost range all run, but not one under another of them", () => {
@@ -164,11 +166,20 @@ function setup() {
         explorer.views.commands,
     );
     const toasts: string[] = [];
+    const notifications: unknown[] = [];
     const services = new Map<unknown, unknown>([
         [EditorServiceDIToken, { getActiveEditor: () => active }],
         [TestServiceDIToken, explorer.tests],
         [TestProfileServiceDIToken, explorer.profiles],
-        [NotificationServiceDIToken, { show: (toast: { message: string }) => toasts.push(toast.message) }],
+        [
+            NotificationServiceDIToken,
+            {
+                show: (toast: { message: string }) => {
+                    toasts.push(toast.message);
+                    notifications.push(toast);
+                },
+            },
+        ],
         [TestingMessageDecorationsDIToken, decorations],
     ]);
     const accessor = { get: (token: unknown) => services.get(token) } as unknown as ServiceAccessor;
@@ -186,6 +197,7 @@ function setup() {
         decorations,
         accessor,
         toasts,
+        notifications,
         ran,
         cursor,
         setActive: (value: typeof editor | null) => {
@@ -210,10 +222,10 @@ describe("Run Test at Cursor", () => {
     });
 
     it("above every test: No tests found here, nothing runs; no editor — nothing", async () => {
-        const { accessor, ran, toasts, cursor, setActive } = setup();
+        const { accessor, ran, toasts, notifications, cursor, setActive } = setup();
         cursor(0, 0);
         await runAtCursorAction.run(accessor);
-        expect(toasts).toEqual(["No tests found here"]);
+        expect(notifications).toEqual([{ severity: "info", message: "No tests found here", modal: false, items: [] }]);
         setActive(null);
         await runAtCursorAction.run(accessor);
         expect(ran()).toEqual([]);
@@ -268,7 +280,7 @@ describe("Go to Next/Previous Test Failure", () => {
         });
         result.appendMessage(testId(...FAILS), "t", {
             message: "b",
-            location: { uri: OTHER_URI, range: createRange(0, 0, 0, 1) },
+            location: { uri: OTHER_URI, range: createRange(0, 5, 0, 6) },
             stackTrace: [{ label: "it", uri: URI, position: { line: 6, character: 8 } }],
         });
         result.markComplete();
@@ -299,6 +311,26 @@ describe("Go to Next/Previous Test Failure", () => {
         expect(at(fixture)).toEqual({ line: 6, character: 0 });
         goToPreviousMessageAction.run(fixture.accessor);
         expect(at(fixture)).toEqual({ line: 3, character: 8 });
+    });
+
+    it("an error without a location, shown by its stack frame: the line's start", async () => {
+        const fixture = setup();
+        const result = fixture.explorer.results.createLiveResult({ targets: [], group: TestRunProfileBitset.Run });
+        result.addTask({ id: "t", name: "vitest", ctrlId: "vitest" });
+        result.addTestChainToRun(
+            "vitest",
+            ADDS.map((_, i) => wireItem(ADDS.slice(0, i + 1))),
+        );
+        result.updateState(testId(...ADDS), "t", TestResultState.Failed);
+        result.appendMessage(testId(...ADDS), "t", {
+            message: "a",
+            stackTrace: [{ label: "it", uri: URI, position: { line: 3, character: 8 } }],
+        });
+        result.markComplete();
+        await Promise.resolve();
+        fixture.cursor(0, 0);
+        goToNextMessageAction.run(fixture.accessor);
+        expect(at(fixture)).toEqual({ line: 3, character: 0 });
     });
 
     it("chooses the failure in a shown TEST RESULTS", async () => {

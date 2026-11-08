@@ -950,6 +950,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         }
         const glyphByLine = this.glyphMargin.byLine();
         const messageByLine = this.lineMessages.byLine();
+        // Stryker disable next-line ArrayDeclaration: equivalent, an entry that is not a cell matches no click
         const messageCells: ILineMessageCells[] = [];
         this.lineMessageCells = messageCells;
         const zoneDecorationByAnchor = new Map<number, IViewZoneDecoration>();
