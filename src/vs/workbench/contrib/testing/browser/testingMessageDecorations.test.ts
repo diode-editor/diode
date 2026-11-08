@@ -122,7 +122,7 @@ function setup(options: { settings?: Record<string, unknown>; icons?: StaticProd
         };
     };
 
-    /** A completed run of the core where `fails` failed (and `adds` passed) with the given messages. */
+    /** A completed run of the core where `fails` failed (and `adds` passed) with the given output, then messages. */
     const run = (
         messages: { path?: readonly string[]; message: IWireTestMessage }[],
         output: { path: readonly string[]; text: string; line?: number; uri?: string }[] = [],
@@ -137,9 +137,9 @@ function setup(options: { settings?: Record<string, unknown>; icons?: StaticProd
         }
         result.updateState(testId(...ADDS), "t", TestResultState.Passed);
         result.updateState(testId(...FAILS), "t", TestResultState.Failed);
-        for (const { path = FAILS, message } of messages) result.appendMessage(testId(...path), "t", message);
         for (const { path, text, line, uri } of output)
             result.appendOutput(text, "t", line === undefined ? undefined : at(line, uri), testId(...path));
+        for (const { path = FAILS, message } of messages) result.appendMessage(testId(...path), "t", message);
         result.markComplete();
         return result;
     };
@@ -471,7 +471,10 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
 
     it("Peek Error of a test shows its first error with a location; none — nothing opens", async () => {
         const { explorer, run, flush } = setup();
-        run([{ message: { message: "no location" } }, { message: { message: "located", location: at(5) } }]);
+        run(
+            [{ message: { message: "no location" } }, { message: { message: "located", location: at(5) } }],
+            [{ path: FAILS, text: "a log", line: 3 }],
+        );
         await flush();
         expect(explorer.views.commands.has(PEEK_TEST_ERROR_COMMAND)).toBe(true);
 
@@ -485,7 +488,8 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
         await explorer.views.commands.execute(PEEK_TEST_ERROR_COMMAND, testId(...FAILS));
         expect(openView).toHaveBeenCalledWith(TEST_RESULTS_VIEW_ID, true);
         const subject = explorer.panel.component.currentSubject;
-        expect(subject?.kind === "message" ? subject.messageIndex : undefined).toBe(1);
+        // The located output is the test's first message, the located error the third.
+        expect(subject?.kind === "message" ? subject.messageIndex : undefined).toBe(2);
     });
 
     it("Peek Output: the editor's failure nearest to the line, else the one shown last, else any failure", async () => {
