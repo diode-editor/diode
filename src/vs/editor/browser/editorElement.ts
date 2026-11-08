@@ -1234,7 +1234,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                     startCol: lineEnd + LINE_MESSAGE_GAP - scrollLeft - fragStartCol,
                     bg: decoratedBg ?? editorBg,
                 });
-                if (cells !== null) messageCells.push({ y: screenY, ...cells, key: message.key });
+                messageCells.push({ y: screenY, ...cells, key: message.key });
             }
         }
 
@@ -1324,18 +1324,17 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     /**
      * The message's text from `startCol` of the content area, cut by its edges; the cells it took, in element
-     * columns, or `null` when none is visible.
+     * columns: an empty span when none is visible, which paints nothing and no click lands in.
      */
     private paintLineMessage(
         context: RenderContext,
         message: ILineMessageDecoration,
         at: { screenY: number; gutterW: number; contentCols: number; startCol: number; bg: number },
-    ): { x0: number; x1: number } | null {
+    ): { x0: number; x1: number } {
         const { screenY, gutterW, contentCols, startCol } = at;
         const displayLine = this.viewState.displayLineFor(message.text);
         const x0 = Math.max(startCol, 0);
         const x1 = Math.min(startCol + displayLine.displayWidth, contentCols);
-        if (x0 >= x1) return null;
         const bg = message.bgToken === undefined ? at.bg : compositeOver(this.styleVar(message.bgToken), at.bg);
         paintPhantomText(context, {
             displayLine,
