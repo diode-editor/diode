@@ -9,7 +9,7 @@ import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/
 import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import { editorTabPathArg, explorerTargetsArg } from "../../../browser/actions/menuContexts.ts";
 
-import { type ExplorerService, ExplorerServiceDIToken } from "./explorerService.ts";
+import { ExplorerService, ExplorerServiceDIToken } from "./explorerService.ts";
 import { buildPasteEdits } from "./fileOperationsService.ts";
 import { fileCopyPathAction, fileCopyRelativePathAction } from "./fileTreeClipboardActions.ts";
 
@@ -47,7 +47,12 @@ describe("buildPasteEdits", () => {
 function copyPathRig(selected: string[]): { accessor: Container; written: () => string | undefined } {
     let written: string | undefined;
     const accessor = new Container();
-    accessor.bind(ExplorerServiceDIToken, () => ({ getSelectedPaths: () => selected }) as unknown as ExplorerService);
+    // The real `getCommandTargets` over a stubbed selection.
+    accessor.bind(ExplorerServiceDIToken, () =>
+        Object.assign(Object.create(ExplorerService.prototype) as ExplorerService, {
+            getSelectedPaths: () => selected,
+        }),
+    );
     accessor.bind(
         ClipboardDIToken,
         () =>

@@ -247,6 +247,15 @@ export class ExplorerService extends Disposable {
         return selected.includes(rowPath) ? selected : [rowPath];
     }
 
+    /**
+     * Targets of an explorer command by its argument: the menu's list (`explorerTargetsArg`), an explicit
+     * path (an editor tab, the command API) or, from a keybinding (no argument), the selection.
+     */
+    public getCommandTargets(arg: unknown): readonly string[] {
+        if (typeof arg === "string") return [arg];
+        return (arg as readonly string[] | undefined) ?? this.getSelectedPaths();
+    }
+
     /** By the listed tree rows: a path the tree hasn't listed counts as a file. */
     public isDirectory(filePath: string): boolean {
         return this.provider?.findNode(filePath) !== undefined;

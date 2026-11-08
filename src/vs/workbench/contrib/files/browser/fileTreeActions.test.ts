@@ -4,7 +4,7 @@ import { Container } from "../../../../platform/instantiation/common/diContainer
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { explorerTargetsArg } from "../../../browser/actions/menuContexts.ts";
 
-import { type ExplorerService, ExplorerServiceDIToken } from "./explorerService.ts";
+import { ExplorerService, ExplorerServiceDIToken } from "./explorerService.ts";
 import { type FileOperationsService, FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 import {
     fileDeleteAction,
@@ -27,13 +27,14 @@ function makeAccessor(selectedPaths: string[] = []): { accessor: Container; call
     const accessor = new Container();
     accessor.bind(
         ExplorerServiceDIToken,
+        // The real `getCommandTargets` over a stubbed selection.
         () =>
-            ({
+            Object.assign(Object.create(ExplorerService.prototype) as ExplorerService, {
                 getSelectedPaths: () => selectedPaths,
                 refresh: async () => {
                     calls.refreshed++;
                 },
-            }) as unknown as ExplorerService,
+            }),
     );
     accessor.bind(
         FileOperationsServiceDIToken,

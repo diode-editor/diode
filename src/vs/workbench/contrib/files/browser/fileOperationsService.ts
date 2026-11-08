@@ -124,12 +124,8 @@ export class FileOperationsService {
     private deleteQuestion(targets: readonly string[], verb: string): string[] {
         const directories = targets.filter((target) => this.explorer.isDirectory(target)).length;
         if (targets.length === 1) {
-            const name = path.basename(targets[0]);
-            return [
-                directories > 0
-                    ? `Are you sure you want to ${verb} '${name}' and its contents?`
-                    : `Are you sure you want to ${verb} '${name}'?`,
-            ];
+            const contents = directories > 0 ? " and its contents" : "";
+            return [`Are you sure you want to ${verb} '${path.basename(targets[0])}'${contents}?`];
         }
         const kind =
             directories === 0
@@ -188,26 +184,16 @@ export class FileOperationsService {
             void doDelete();
             return;
         }
-        if (willTrash) {
-            this.dialogService.showConfirmDialog(
-                {
-                    title: "Delete",
-                    message: [...this.deleteQuestion(targets, "delete"), this.undoHint(targets.length)],
-                    confirmLabel: "Move to Trash",
-                    defaultButton: "confirm",
-                },
-                { onConfirm: () => void doDelete() },
-            );
-            return;
-        }
-        const [question, ...names] = this.deleteQuestion(targets, "permanently delete");
+        const [question, ...names] = this.deleteQuestion(targets, willTrash ? "delete" : "permanently delete");
         this.dialogService.showConfirmDialog(
             {
                 title: "Delete",
-                message: ["⚠ The system Trash is not available.", `${question} This action is irreversible!`, ...names],
-                confirmLabel: "Delete Permanently",
-                warning: true,
-                defaultButton: "cancel",
+                message: willTrash
+                    ? [question, ...names, this.undoHint(targets.length)]
+                    : ["⚠ The system Trash is not available.", `${question} This action is irreversible!`, ...names],
+                confirmLabel: willTrash ? "Move to Trash" : "Delete Permanently",
+                warning: !willTrash,
+                defaultButton: willTrash ? "confirm" : "cancel",
             },
             { onConfirm: () => void doDelete() },
         );

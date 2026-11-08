@@ -44,7 +44,7 @@
   пути, как `distinctParents`), цели действия меню (`getContextTargets`: строка
   внутри выделения — всё выделение, вне его — только она, как
   `getMultiSelectedResources` эталона; меню получает их в `ExplorerMenuContext.targets`,
-  Delete и Copy Path/Copy Relative Path — через `explorerTargetsArg`, с клавиши —
+  Delete и Copy Path/Copy Relative Path — через `explorerTargetsArg` и `getCommandTargets`, с клавиши —
   `getSelectedPaths`),
   `setFileDecorations` (мост декораций extension-host'а: адаптер
   `FileDecorationsServiceAdapter` типизирован минимальным интерфейсом

@@ -1,7 +1,6 @@
 import { codicon } from "../../../../base/common/codicons.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
-import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { explorerPathArg, explorerTargetsArg, viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 
@@ -11,15 +10,6 @@ import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 
 /** Inline button in the Explorer header. */
 const REFRESH_ICON = codicon("refresh");
-
-/**
- * Targets of an explorer command: the menu's list (`explorerTargetsArg`), an explicit path (an editor
- * tab, the command API) or, from a keybinding, the explorer selection.
- */
-export function commandTargets(accessor: ServiceAccessor, arg: unknown): readonly string[] {
-    if (typeof arg === "string") return [arg];
-    return (arg as readonly string[] | undefined) ?? accessor.get(ExplorerServiceDIToken).getSelectedPaths();
-}
 
 export const fileDeleteAction: CommandAction = {
     id: "fileOperations.deleteFile",
@@ -32,7 +22,9 @@ export const fileDeleteAction: CommandAction = {
         { menuId: MenuId.ExplorerContext, group: "4_modify", order: 20, args: explorerTargetsArg, shortcut: false },
     ],
     run(accessor, targets: unknown) {
-        accessor.get(FileOperationsServiceDIToken).requestDelete(commandTargets(accessor, targets));
+        accessor
+            .get(FileOperationsServiceDIToken)
+            .requestDelete(accessor.get(ExplorerServiceDIToken).getCommandTargets(targets));
     },
 };
 
