@@ -70,8 +70,8 @@ export function parseExtensionQuery(query: string): IExtensionQuery {
         sortBy = SORT_KEYS.has(by) ? (by as ExtensionSortBy) : undefined;
         return "";
     });
+    // With an id the rest is not read (see `ids`), so the tokens stay in the text.
     const ids = [...value.matchAll(ID_FILTER)].map((match) => match[1].toLowerCase());
-    value = value.replace(ID_FILTER, "");
 
     const categories: string[] = [];
     const excludedCategories: string[] = [];

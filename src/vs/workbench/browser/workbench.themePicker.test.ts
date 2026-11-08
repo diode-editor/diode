@@ -67,7 +67,7 @@ describe("Workbench color-theme picker", () => {
     });
 
     it("previews a theme live as you navigate, then reverts on Escape", async () => {
-        const { commands, themeService, testApp } = createThemeApp();
+        const { commands, themeService, testApp, container } = createThemeApp();
         expect(themeService.theme.name).toBe("Dark+");
 
         commands.execute("workbench.action.selectTheme");
@@ -79,6 +79,8 @@ describe("Workbench color-theme picker", () => {
         testApp.sendKey("Escape");
         await flush();
         expect(themeService.theme.name).toBe("Dark+");
+        // Escape is no request for more themes: the marketplace search stays untouched.
+        expect(container.get(ExtensionsComponentDIToken).getQuery()).toBe("");
     });
 
     it("applies and persists the picked theme on Enter", async () => {

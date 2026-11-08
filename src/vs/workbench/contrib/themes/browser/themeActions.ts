@@ -54,10 +54,9 @@ async function selectColorTheme(accessor: ServiceAccessor): Promise<void> {
     );
 
     const applyByLabel = (label: string): void => {
+        // The install item is no theme: highlighting it previews nothing, the last preview stays, like upstream.
         const theme = themeRegistry.resolve(label);
-        /* v8 ignore start -- defensive: `label` always originates from the registry's own list()/picker items, so resolve() never returns undefined */
         if (theme) themeService.setTheme(theme);
-        /* v8 ignore stop */
     };
 
     const picked = await quickInput.quickPick({
@@ -66,14 +65,17 @@ async function selectColorTheme(accessor: ServiceAccessor): Promise<void> {
         items,
         activeIndex,
         onDidChangeActive: (item) => {
-            // The install item previews nothing: the last previewed theme stays, like upstream.
-            if (item && item.label !== INSTALL_COLOR_THEMES_LABEL) applyByLabel(item.label);
+            if (item) applyByLabel(item.label);
         },
     });
 
-    if (picked === undefined || picked.label === INSTALL_COLOR_THEMES_LABEL) {
+    if (picked === undefined) {
         themeService.setTheme(originalTheme);
-        if (picked !== undefined) openExtensionsSearch(accessor, COLOR_THEMES_QUERY);
+        return;
+    }
+    if (picked.label === INSTALL_COLOR_THEMES_LABEL) {
+        themeService.setTheme(originalTheme);
+        openExtensionsSearch(accessor, COLOR_THEMES_QUERY);
         return;
     }
 

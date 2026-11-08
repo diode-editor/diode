@@ -142,6 +142,11 @@ describe("tag:", () => {
         expect(search(LIST, "@tag:pyth")).toEqual([]);
     });
 
+    it("a quote only at the end of a bare word is part of it", () => {
+        expect(parseExtensionQuery('tag:x"').tags).toEqual(['x"']);
+        expect(parseExtensionQuery('category:"data science"').categories).toEqual(["data science"]);
+    });
+
     it("several tags match any of them", () => {
         expect(search(LIST, '@tag:markdown @tag:"lint"')).toEqual(["acme.py", "acme.md"]);
     });
