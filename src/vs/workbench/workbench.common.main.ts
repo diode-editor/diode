@@ -226,7 +226,10 @@ import { TerminalServiceDIToken } from "./contrib/terminal/browser/terminalServi
 import { TERMINAL_LINK_ACTIONS } from "./contrib/terminalContrib/links/browser/terminalLinkActions.ts";
 import { TESTING_ACTIONS } from "./contrib/testing/browser/testingActions.ts";
 import { TestingDecorationsDIToken } from "./contrib/testing/browser/testingDecorations.ts";
+import { TESTING_EDITOR_ACTIONS } from "./contrib/testing/browser/testingEditorActions.ts";
+import { TestingEditorContextKeysDIToken } from "./contrib/testing/browser/testingEditorContextKeys.ts";
 import { TestingExplorerComponentDIToken } from "./contrib/testing/browser/testingExplorerView.ts";
+import { TestingMessageDecorationsDIToken } from "./contrib/testing/browser/testingMessageDecorations.ts";
 import { TestResultsComponentDIToken } from "./contrib/testing/browser/testResultsView.ts";
 import { THEME_ACTIONS } from "./contrib/themes/browser/themeActions.ts";
 import { ThemeConfigContributionDIToken } from "./contrib/themes/browser/themeConfigContribution.ts";
@@ -353,6 +356,10 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: TaskStatusBarContributionDIToken, phase: "afterRestored" },
     // The run glyphs of the restored editors' tests.
     { token: TestingDecorationsDIToken, phase: "afterRestored" },
+    // The failures of the restored editors' files; "Peek Error" of the glyphs' menu.
+    { token: TestingMessageDecorationsDIToken, phase: "afterRestored" },
+    // The editor context menu's "Run Test at Cursor" and "Run Tests in Current File".
+    { token: TestingEditorContextKeysDIToken, phase: "afterRestored" },
     // The background extension checks: never at startup, after the first frame (ExtensionUpdates stage 3).
     { token: ExtensionAutoUpdateContributionDIToken, phase: "eventually" },
 ];
@@ -500,6 +507,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...TERMINAL_LINK_ACTIONS,
     ...TASKS_ACTIONS,
     ...TESTING_ACTIONS,
+    ...TESTING_EDITOR_ACTIONS,
     clearNotificationsAction,
     focusNotificationAction,
     ...COMPARE_ACTIONS,

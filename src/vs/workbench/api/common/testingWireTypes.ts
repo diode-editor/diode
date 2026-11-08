@@ -13,6 +13,9 @@ export const TestId = {
     root: (testId: string): string => testId.split(TEST_ID_DELIMITER, 1)[0],
     /** The test's own id: the last segment. */
     localId: (testId: string): string => testId.slice(testId.lastIndexOf(TEST_ID_DELIMITER) + 1),
+    /** Upstream `isChild`: `maybeChild` is under `maybeParent`, at any depth. */
+    isChild: (maybeParent: string, maybeChild: string): boolean =>
+        maybeChild.startsWith(maybeParent + TEST_ID_DELIMITER),
     /** `undefined` for a controller root. */
     parentId: (testId: string): string | undefined => {
         const index = testId.lastIndexOf(TEST_ID_DELIMITER);

@@ -583,6 +583,15 @@
         "tab": "tab",
         "testing.cancelRun": "ctrl+; ctrl+x",
         "testing.editFocusedTest": "alt+enter",
+        "testing.goToNextMessage": "alt+f8",
+        "testing.goToPreviousMessage": "shift+alt+f8",
+        "testing.openOutputPeek": {
+            "*": "ctrl+; ctrl+m",
+            "mac-cmd (kitty) #0": "meta+; meta+m",
+            "mac-cmd (kitty) #1": "meta+; meta+m",
+            "mac-cmd (kitty) #2": "meta+; meta+m",
+            "mac-cmd (kitty) #3": "meta+; meta+m"
+        },
         "testing.reRunFailTests": "ctrl+; e",
         "testing.reRunLastRun": "ctrl+; l",
         "testing.refreshTests": "ctrl+; ctrl+r",
@@ -593,7 +602,16 @@
             "mac-cmd (kitty) #2": "meta+; a",
             "mac-cmd (kitty) #3": "meta+; a"
         },
+        "testing.runAtCursor": "ctrl+; c",
+        "testing.runCurrentFile": "ctrl+; f",
         "testing.showMostRecentOutput": "ctrl+; ctrl+o",
+        "testing.toggleInlineTestOutput": {
+            "*": "ctrl+; ctrl+i",
+            "mac-cmd (kitty) #0": "meta+; meta+i",
+            "mac-cmd (kitty) #1": "meta+; meta+i",
+            "mac-cmd (kitty) #2": "meta+; meta+i",
+            "mac-cmd (kitty) #3": "meta+; meta+i"
+        },
         "toggleSuggestionDetails": "ctrl+space",
         "undo": {
             "*": "ctrl+z",
