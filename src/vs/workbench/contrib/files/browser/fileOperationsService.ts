@@ -185,12 +185,18 @@ export class FileOperationsService {
             return;
         }
         const [question, ...names] = this.deleteQuestion(targets, willTrash ? "delete" : "permanently delete");
+        // Several targets: the warning goes on its own line after the names (upstream's `detail`), since the
+        // plural question is too long to carry it.
+        const permanent =
+            names.length === 0
+                ? [`${question} This action is irreversible!`]
+                : [question, ...names, "This action is irreversible!"];
         this.dialogService.showConfirmDialog(
             {
                 title: "Delete",
                 message: willTrash
                     ? [question, ...names, this.undoHint(targets.length)]
-                    : ["⚠ The system Trash is not available.", `${question} This action is irreversible!`, ...names],
+                    : ["⚠ The system Trash is not available.", ...permanent],
                 confirmLabel: willTrash ? "Move to Trash" : "Delete Permanently",
                 warning: !willTrash,
                 defaultButton: willTrash ? "confirm" : "cancel",

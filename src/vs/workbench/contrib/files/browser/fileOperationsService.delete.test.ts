@@ -139,9 +139,10 @@ describe("FileOperationsService.requestDelete — several targets", () => {
         });
         expect(r.dialogs[0].message).toEqual([
             "⚠ The system Trash is not available.",
-            "Are you sure you want to permanently delete the following 2 files/directories and their contents? This action is irreversible!",
+            "Are you sure you want to permanently delete the following 2 files/directories and their contents?",
             "a.txt",
             "src",
+            "This action is irreversible!",
         ]);
     });
 
