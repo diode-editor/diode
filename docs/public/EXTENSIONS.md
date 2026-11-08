@@ -14,7 +14,7 @@ a URL and a sha256 for every version.
 
 Some extensions carry a **Partial** badge: the extension works, but some of its features need a
 browser or a GUI and are listed under "Does not work" on its page, before you install it. A typical
-example: the language server works, the extension's webview chat or tree views don't.
+example: the language server works, the extension's webview chat doesn't.
 
 Today it has languages (Python, Go, Java, Terraform, Protocol Buffers), linters and formatters
 (ESLint, Prettier, ruff), themes, Claude Code with a diff tab for proposed edits, and inline
