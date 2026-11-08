@@ -59,8 +59,9 @@ export interface IExtensionQuery {
     readonly text: string;
 }
 
-function unquoted(quoted: string | undefined, plain: string | undefined): string {
-    return (plain ?? quoted ?? "").toLowerCase();
+/** The pattern's first group: `"x y"` with its quotes, or a bare word. */
+function unquoted(raw: string): string {
+    return (raw.startsWith('"') ? raw.slice(1, -1) : raw).toLowerCase();
 }
 
 export function parseExtensionQuery(query: string): IExtensionQuery {
@@ -74,15 +75,15 @@ export function parseExtensionQuery(query: string): IExtensionQuery {
 
     const categories: string[] = [];
     const excludedCategories: string[] = [];
-    value = value.replace(CATEGORY_FILTER, (_match, _raw, quoted?: string, plain?: string) => {
-        const category = unquoted(quoted, plain);
+    value = value.replace(CATEGORY_FILTER, (_match, raw: string) => {
+        const category = unquoted(raw);
         if (category.startsWith("-")) excludedCategories.push(category.slice(1));
         else categories.push(category);
         return "";
     });
     const tags: string[] = [];
-    value = value.replace(TAG_FILTER, (_match, _raw, quoted?: string, plain?: string) => {
-        tags.push(unquoted(quoted, plain));
+    value = value.replace(TAG_FILTER, (_match, raw: string) => {
+        tags.push(unquoted(raw));
         return "";
     });
 

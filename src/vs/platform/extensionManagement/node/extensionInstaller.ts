@@ -25,8 +25,8 @@ export interface IInstalledExtension {
     readonly displayName?: string;
     readonly description?: string;
     /** The manifest's `categories` and `keywords`: the search's `@category:` and `@tag:` outside the registry. */
-    readonly categories?: readonly string[];
-    readonly keywords?: readonly string[];
+    readonly categories: readonly string[];
+    readonly keywords: readonly string[];
     /** A profile takes the extension together with these (`ProfileExtensions.add`), even if they were already on disk. */
     readonly dependencies: readonly string[];
 }
