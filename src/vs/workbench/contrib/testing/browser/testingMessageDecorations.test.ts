@@ -473,3 +473,57 @@ describe("the messages' texts", () => {
         );
     });
 });
+
+describe("TestingMessageDecorations — TEST RESULTS on an older run's message", () => {
+    /** How many rows of TEST RESULTS' tree (the right half, past the message's text) name the message. */
+    const treeRowsWith = (frame: string, text: string): number =>
+        frame.split("\n").filter((row) => row.slice(40).includes(text)).length;
+
+    it("a click on an older run's message (testing.showAllMessages) reveals its row in the tree", async () => {
+        const { explorer, openEditor, run, flush } = setup({ settings: { "testing.showAllMessages": true } });
+        const view = openEditor();
+        run([{ message: { message: "old five", location: at(5) } }]);
+        run([{ message: { message: "new two", location: at(2) } }]);
+        await flush();
+        expect(view.message(5)).toBe(` ${ERROR} old five`);
+        view.app.render();
+        const x = view.element.gutterWidth + "        expect(2 - 1).toBe(2);".length + 4;
+        view.app.backend.simulateMouse({
+            kind: "mouse",
+            button: "left",
+            action: "press",
+            x: x + 1,
+            y: 6,
+            shiftKey: false,
+            altKey: false,
+            ctrlKey: false,
+            raw: "",
+        });
+        expect(explorer.panel.component.currentSubject?.kind).toBe("message");
+
+        // As upstream's reveal (testResultsTree.ts: every parent expanded, the older results' group too): the row is
+        // in the tree, not hidden under the collapsed "1 older result".
+        await explorer.panel.waitFrame((text) => treeRowsWith(text, "old five") === 1);
+    });
+
+    it("Peek Error of a test failed in an older run reveals the message's row in the tree", async () => {
+        const { explorer, run, flush } = setup();
+        run([{ message: { message: "old five", location: at(5) } }]);
+        // A later run of `adds` alone: `fails`' failure is only in the older run.
+        const later = explorer.results.createLiveResult({ targets: [], group: TestRunProfileBitset.Run });
+        later.addTask({ id: "t", name: "vitest", ctrlId: "vitest" });
+        later.addTestChainToRun(
+            "vitest",
+            ADDS.map((_, i) => wireItem(ADDS.slice(0, i + 1))),
+        );
+        later.updateState(testId(...ADDS), "t", TestResultState.Failed);
+        later.appendMessage(testId(...ADDS), "t", { message: "new one", location: at(2) });
+        later.markComplete();
+        await flush();
+
+        await explorer.views.commands.execute(PEEK_TEST_ERROR_COMMAND, testId(...FAILS));
+        expect(explorer.panel.component.currentSubject?.kind).toBe("message");
+
+        await explorer.panel.waitFrame((text) => treeRowsWith(text, "old five") === 1);
+    });
+});
