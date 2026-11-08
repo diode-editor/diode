@@ -1,16 +1,13 @@
-import type { ITerminalSurface, TerminalCell, TerminalMouseEventData } from "@tuidom/core/common/iTerminalSurface";
+import type { TerminalCell, TerminalMouseEventData } from "@tuidom/core/common/iTerminalSurface";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
 import { assertReturnsDefined } from "../../../../../base/common/assert.ts";
 import { onUnexpectedError } from "../../../../../base/common/errors.ts";
 import { Emitter } from "../../../../../base/common/event.ts";
 import { combinedDisposable, type IDisposable } from "../../../../../base/common/lifecycle.ts";
+import type { ITerminalDecoratedSurface } from "../../../terminal/browser/terminalWidgetFactory.ts";
 import type { ITerminalBuffer } from "../../../terminal/common/terminalBuffer.ts";
 import { isInLink, type ITerminalLink } from "../common/terminalLinkProvider.ts";
-
-export interface ITerminalLinkSession extends ITerminalSurface {
-    readonly buffer?: ITerminalBuffer | undefined;
-}
 
 export interface ITerminalLinkSource {
     provideLinks(buffer: ITerminalBuffer, row: number): Promise<ITerminalLink[]>;
@@ -25,7 +22,7 @@ export interface ITerminalLinkSource {
  * Ctrl alone is not a mouse event: its press and release arrive as keys only under the kitty protocol, so on
  * other tiers the underline follows the Ctrl bit of the next pointer move.
  */
-export class TerminalLinkSurface implements ITerminalSurface {
+export class TerminalLinkSurface implements ITerminalDecoratedSurface {
     private hovered: ITerminalLink | undefined;
     /** The link the quick pick points at; unlike the hover, the pointer and new output don't clear it. */
     private revealed: ITerminalLink | undefined;
@@ -38,7 +35,7 @@ export class TerminalLinkSurface implements ITerminalSurface {
     private readonly onDidChangeHoverEmitter = new Emitter<void>();
 
     public constructor(
-        private readonly session: ITerminalLinkSession,
+        private readonly session: ITerminalDecoratedSurface,
         private readonly links: ITerminalLinkSource,
         private readonly open: (link: ITerminalLink) => Promise<void>,
     ) {}
@@ -46,6 +43,11 @@ export class TerminalLinkSurface implements ITerminalSurface {
     /** For tests and the frame: the underlined link. */
     public get hoveredLink(): ITerminalLink | undefined {
         return this.hovered;
+    }
+
+    /** Decorations over this one (the selection) read the buffer through it. */
+    public get buffer(): ITerminalBuffer | undefined {
+        return this.session.buffer;
     }
 
     public get isExited(): boolean {

@@ -122,6 +122,10 @@ export interface ContextKeyTypes {
     terminalTabsFocus: boolean;
     terminalEditorFocus: boolean;
     terminalEditorActive: boolean;
+    /** Upstream key: the active terminal (in the panel or an editor tab) has a text selection. */
+    terminalTextSelected: boolean;
+    /** Upstream key: the focused terminal has a text selection. */
+    terminalTextSelectedInFocused: boolean;
 
     taskRunning: boolean;
 

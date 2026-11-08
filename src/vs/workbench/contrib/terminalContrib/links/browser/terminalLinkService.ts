@@ -1,5 +1,3 @@
-import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
-
 import { currentOperatingSystem } from "../../../../../base/common/platform.ts";
 import type { IConfigurationService } from "../../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -11,6 +9,11 @@ import { token } from "../../../../../platform/instantiation/common/diContainer.
 import type { IWorkspaceContextService } from "../../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import type { ITerminalInstance } from "../../../terminal/browser/terminalService.ts";
+import type {
+    ITerminalDecoratedSurface,
+    ITerminalSurfaceDecoration,
+    ITerminalSurfaceDecorator,
+} from "../../../terminal/browser/terminalWidgetFactory.ts";
 import { getDetectedLinks, getRecentFileLink, type IDetectedLinks } from "../common/terminalDetectedLinks.ts";
 import { type ITerminalLink, TerminalLinkProvider } from "../common/terminalLinkProvider.ts";
 import { TerminalLinkResolver } from "../common/terminalLinkResolver.ts";
@@ -27,7 +30,7 @@ export const TerminalLinkServiceDIToken = token<TerminalLinkService>("TerminalLi
  * and task terminals alike. The `enableFileLinks` value is read once per instance, so a change applies to new
  * terminals only, as in upstream.
  */
-export class TerminalLinkService {
+export class TerminalLinkService implements ITerminalSurfaceDecorator {
     public static dependencies = [
         IConfigurationServiceDIToken,
         IFileServiceDIToken,
@@ -49,23 +52,26 @@ export class TerminalLinkService {
         private readonly opener: TerminalLinkOpener,
     ) {}
 
-    public createWidget(instance: ITerminalInstance): TerminalViewElement {
+    public decorate(instance: ITerminalInstance, inner: ITerminalDecoratedSurface): ITerminalSurfaceDecoration {
         const provider = this.providerFor(instance);
-        if (provider === null) return new TerminalViewElement(instance.session);
-        const surface = new TerminalLinkSurface(instance.session, provider, (link) => this.opener.open(link));
+        if (provider === null) return { surface: inner, attach: () => undefined };
+        const surface = new TerminalLinkSurface(inner, provider, (link) => this.opener.open(link));
         this.surfaces.set(instance, surface);
-        const widget = new TerminalViewElement(surface);
-        widget.addEventListener("mouseleave", () => {
-            surface.pointerLeft();
-        });
-        widget.addEventListener("keydown", (event) => {
-            if (event.key === "Control") surface.setModifier(true);
-            else surface.clearHover();
-        });
-        widget.addEventListener("keyup", (event) => {
-            if (event.key === "Control") surface.setModifier(false);
-        });
-        return widget;
+        return {
+            surface,
+            attach: (widget) => {
+                widget.addEventListener("mouseleave", () => {
+                    surface.pointerLeft();
+                });
+                widget.addEventListener("keydown", (event) => {
+                    if (event.key === "Control") surface.setModifier(true);
+                    else surface.clearHover();
+                });
+                widget.addEventListener("keyup", (event) => {
+                    if (event.key === "Control") surface.setModifier(false);
+                });
+            },
+        };
     }
 
     /** Upstream `TerminalLinkManager.getLinks`; nothing with `enableFileLinks: "off"` or before the emulator loads. */

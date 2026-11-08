@@ -321,13 +321,16 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     /** `undefined` until the emulator loads. */
     public get buffer(): ITerminalBuffer | undefined {
         if (this.term === undefined) return undefined;
-        const active = this.term.buffer.active;
+        const term = this.term;
+        const active = term.buffer.active;
         return {
+            type: active.type,
             cols: this.cols,
             rows: this.rows,
             viewportY: active.baseY - this.scrollOffset,
             length: active.length,
             getLine: (y) => active.getLine(y),
+            registerMarker: () => term.registerMarker(0),
         };
     }
 
