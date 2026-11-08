@@ -454,8 +454,12 @@ export class TestResultsComponent extends Disposable {
         this.show(subject);
         const { result } = subject;
         const task: TestResultsRow = { kind: "task", result, taskIndex: subject.taskIndex };
-        // An older run's row is shown ("N older results" is open: its action is on screen); the latest run has none.
-        const chain: TestResultsRow[] = this.latestWithTasks() === result ? [task] : [{ kind: "result", result }, task];
+        // Upstream expands every parent: an older run's under "N older results" too; the latest run has no row.
+        const latest = this.latestWithTasks();
+        const chain: TestResultsRow[] =
+            latest === result
+                ? [task]
+                : [{ kind: "older", count: this.olderResults(latest).length }, { kind: "result", result }, task];
         if (subject.kind === "message")
             chain.push({ kind: "test", result, taskIndex: subject.taskIndex, test: subject.test });
         if (subject.kind !== "task") chain.push(subject);
