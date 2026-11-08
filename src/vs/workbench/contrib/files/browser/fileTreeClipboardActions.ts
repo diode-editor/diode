@@ -9,11 +9,11 @@ import {
     editorTabIsFile,
     editorTabPathArg,
     explorerCanPaste,
-    explorerPathArg,
+    explorerTargetsArg,
 } from "../../../browser/actions/menuContexts.ts";
 
-import { ExplorerServiceDIToken } from "./explorerService.ts";
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
+import { commandTargets } from "./fileTreeActions.ts";
 
 /** All under `filesExplorerFocus` (upstream `FilesExplorerFocusCondition`), so ctrl+c/x/v don't clash with the editor's (those are under `textInputFocus`). */
 export const fileCopyAction: CommandAction = {
@@ -64,7 +64,7 @@ export const fileCopyPathAction: CommandAction = {
     keybindings: [{ keys: parseKeybinding("shift+alt+c"), when: "tier != 'legacy'" }],
     when: "filesExplorerFocus",
     menus: [
-        { menuId: MenuId.ExplorerContext, group: "3_copypath", order: 10, args: explorerPathArg },
+        { menuId: MenuId.ExplorerContext, group: "3_copypath", order: 10, args: explorerTargetsArg },
         {
             menuId: MenuId.EditorTitleContext,
             group: "3_copypath",
@@ -73,9 +73,9 @@ export const fileCopyPathAction: CommandAction = {
             visible: editorTabIsFile,
         },
     ],
-    run(accessor, ...args) {
-        const filePath = (args[0] as string | undefined) ?? accessor.get(ExplorerServiceDIToken).getSelectedPaths()[0];
-        if (filePath) return accessor.get(ClipboardDIToken).writeText(filePath);
+    run(accessor, targets: unknown) {
+        const paths = commandTargets(accessor, targets);
+        if (paths.length > 0) return accessor.get(ClipboardDIToken).writeText(paths.join("\n"));
     },
 };
 
@@ -88,7 +88,7 @@ export const fileCopyRelativePathAction: CommandAction = {
     keybindings: [parseChord("ctrl+k ctrl+c")],
     when: "filesExplorerFocus",
     menus: [
-        { menuId: MenuId.ExplorerContext, group: "3_copypath", order: 20, args: explorerPathArg },
+        { menuId: MenuId.ExplorerContext, group: "3_copypath", order: 20, args: explorerTargetsArg },
         {
             menuId: MenuId.EditorTitleContext,
             group: "3_copypath",
@@ -97,13 +97,12 @@ export const fileCopyRelativePathAction: CommandAction = {
             visible: editorTabIsFile,
         },
     ],
-    run(accessor, ...args) {
-        const explorer = accessor.get(ExplorerServiceDIToken);
-        const filePath = (args[0] as string | undefined) ?? explorer.getSelectedPaths()[0];
-        if (!filePath) return;
+    run(accessor, targets: unknown) {
+        const paths = commandTargets(accessor, targets);
+        if (paths.length === 0) return;
         // `folders.at(0)` narrows to a single folder (in multi-root the base is the file's folder, stage F in docs/TODO/MultiRoot.md).
         const root = accessor.get(IWorkspaceContextServiceDIToken).getWorkspace().folders.at(0)?.uri.fsPath;
-        const relative = root === undefined ? filePath : path.relative(root, filePath);
-        return accessor.get(ClipboardDIToken).writeText(relative);
+        const relative = paths.map((filePath) => (root === undefined ? filePath : path.relative(root, filePath)));
+        return accessor.get(ClipboardDIToken).writeText(relative.join("\n"));
     },
 };

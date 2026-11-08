@@ -84,7 +84,7 @@ describe("FileOperationsService — undo hint in the move-to-trash dialog", () =
         contextKeys.set("isMac", isMac);
         contextKeys.set("macKeys", isMac ? 3 : 0);
         const service = new FileOperationsService(
-            {} as ExplorerService,
+            { isDirectory: () => false } as unknown as ExplorerService,
             { willMoveToTrash: () => true } as unknown as WorkspaceEditService,
             {} as UndoRedoService,
             { showConfirmDialog: (options: { message?: unknown }) => shown.push(options) } as unknown as DialogService,
@@ -98,7 +98,7 @@ describe("FileOperationsService — undo hint in the move-to-trash dialog", () =
             diskFileService(),
             createTestEnvironment(),
         );
-        service.requestDeleteFile("/ws/a.txt");
+        service.requestDelete(["/ws/a.txt"]);
         return shown[0].message;
     }
 
@@ -132,6 +132,7 @@ describe("FileOperationsService — what reaches the edit executor", () => {
         const service = new FileOperationsService(
             {
                 getPasteTargetDir: () => "/ws/target",
+                isDirectory: () => false,
                 refresh: () => Promise.resolve(),
                 revealPath: () => Promise.resolve(true),
             } as unknown as ExplorerService,
@@ -159,7 +160,7 @@ describe("FileOperationsService — what reaches the edit executor", () => {
 
     it("delete without confirmation — 'Delete' step", async () => {
         const { service, calls } = recording();
-        service.requestDeleteFile("/ws/a.txt");
+        service.requestDelete(["/ws/a.txt"]);
         await vi.waitFor(() => {
             expect(calls).toEqual([{ edits: [{ kind: "delete", from: "/ws/a.txt" }], label: "Delete" }]);
         });

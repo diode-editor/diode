@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { explorerTargetsArg } from "../../../browser/actions/menuContexts.ts";
 
 import { type ExplorerService, ExplorerServiceDIToken } from "./explorerService.ts";
 import { type FileOperationsService, FileOperationsServiceDIToken } from "./fileOperationsService.ts";
@@ -14,7 +15,7 @@ import {
 } from "./fileTreeActions.ts";
 
 interface StubCalls {
-    deleted: string[];
+    deleted: (readonly string[])[];
     renamed: string[];
     refreshed: number;
     undone: number;
@@ -38,8 +39,8 @@ function makeAccessor(selectedPaths: string[] = []): { accessor: Container; call
         FileOperationsServiceDIToken,
         () =>
             ({
-                requestDeleteFile: (filePath: string) => {
-                    calls.deleted.push(filePath);
+                requestDelete: (paths: readonly string[]) => {
+                    calls.deleted.push(paths);
                 },
                 runRename: async (filePath: string) => {
                     calls.renamed.push(filePath);
@@ -66,22 +67,33 @@ describe("fileDeleteAction", () => {
         expect(fileDeleteAction.when).toBe("filesExplorerFocus");
     });
 
-    it("delegates an explicit path to FileOperationsService.requestDeleteFile", () => {
-        const { accessor, calls } = makeAccessor();
+    it("an explicit path (the command API) deletes that path alone", () => {
+        const { accessor, calls } = makeAccessor(["/ws/a.txt", "/ws/b.txt"]);
         fileDeleteAction.run(accessor, "/ws/target.txt");
-        expect(calls.deleted).toEqual(["/ws/target.txt"]);
+        expect(calls.deleted).toEqual([["/ws/target.txt"]]);
     });
 
-    it("falls back to the explorer selection when no path is given", () => {
-        const { accessor, calls } = makeAccessor(["/ws/selected.txt"]);
+    it("from the Delete key: the whole explorer selection", () => {
+        const { accessor, calls } = makeAccessor(["/ws/a.txt", "/ws/b.txt", "/ws/c.txt"]);
         fileDeleteAction.run(accessor);
-        expect(calls.deleted).toEqual(["/ws/selected.txt"]);
+        expect(calls.deleted).toEqual([["/ws/a.txt", "/ws/b.txt", "/ws/c.txt"]]);
     });
 
-    it("is a no-op without a path and without a selection", () => {
+    it("from the context menu: the menu's targets", () => {
+        const { accessor, calls } = makeAccessor(["/ws/a.txt"]);
+        const [targets] = explorerTargetsArg({
+            path: "/ws/b.txt",
+            targets: ["/ws/b.txt", "/ws/c.txt"],
+            canPaste: false,
+        });
+        fileDeleteAction.run(accessor, targets);
+        expect(calls.deleted).toEqual([["/ws/b.txt", "/ws/c.txt"]]);
+    });
+
+    it("without a path and without a selection — an empty list", () => {
         const { accessor, calls } = makeAccessor();
         fileDeleteAction.run(accessor);
-        expect(calls.deleted).toEqual([]);
+        expect(calls.deleted).toEqual([[]]);
     });
 });
 
