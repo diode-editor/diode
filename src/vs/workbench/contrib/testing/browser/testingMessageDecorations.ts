@@ -163,8 +163,7 @@ export class TestingMessageDecorations extends Disposable {
         const failures: IShownTestMessage[] = [];
         for (const [line, decoration] of editor.getLineMessageDecorations()) {
             const shown = state.shown.get(decoration.key);
-            if (shown !== undefined && shown.isError)
-                failures.push({ line, subject: shown.subject });
+            if (shown?.isError === true) failures.push({ line, subject: shown.subject });
         }
         return failures.sort((a, b) => a.line - b.line);
     }
