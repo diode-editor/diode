@@ -6,7 +6,11 @@ import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
 type Frame = Awaited<ReturnType<ScenarioDriver["captureFrame"]>>;
 
-async function waitForFrame(editor: ScenarioDriver, predicate: (frame: Frame) => boolean, what: string): Promise<Frame> {
+async function waitForFrame(
+    editor: ScenarioDriver,
+    predicate: (frame: Frame) => boolean,
+    what: string,
+): Promise<Frame> {
     const deadline = Date.now() + 10_000;
     for (;;) {
         const frame = await editor.captureFrame();
@@ -77,7 +81,12 @@ export default defineScenario({
             (frame) => frame.cells[first.y * frame.cols + first.x].bg === plainBg,
             "the selection to clear",
         );
-        if (cleared.cells.map((cell) => cell.char).join("").includes("^C")) {
+        if (
+            cleared.cells
+                .map((cell) => cell.char)
+                .join("")
+                .includes("^C")
+        ) {
             throw new Error("Ctrl+C with a selection reached the shell");
         }
         await editor.capture("copied");
@@ -90,10 +99,13 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Untitled-1"));
         await editor.sendKey("Ctrl+V");
-        const pasted = await editor.waitForText(
-            (t) => /1\s+selection-alpha/u.test(t) && /2\s+selection-beta/u.test(t),
-        );
-        if (pasted.cells.map((cell) => cell.char).join("").includes("^C")) {
+        const pasted = await editor.waitForText((t) => /1\s+selection-alpha/u.test(t) && /2\s+selection-beta/u.test(t));
+        if (
+            pasted.cells
+                .map((cell) => cell.char)
+                .join("")
+                .includes("^C")
+        ) {
             throw new Error("Ctrl+C with a selection reached the shell");
         }
         await editor.capture("pasted");

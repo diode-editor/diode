@@ -1,6 +1,7 @@
 import type { CommandAction } from "../../../../../platform/actions/common/commandAction.ts";
 import { parseKeybinding } from "../../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../../platform/keybinding/common/keybindingResolver.ts";
+import { MODERN_TIER } from "../../../terminal/browser/terminalActions.ts";
 
 import { TerminalSelectionServiceDIToken } from "./terminalSelectionService.ts";
 
@@ -10,12 +11,13 @@ const TEXT_SELECTED = "terminalTextSelectedInFocused || terminalTextSelected";
 const TEXT_SELECTED_IN_FOCUS = "(terminalTextSelected && terminalFocus) || terminalTextSelectedInFocused";
 
 // Upstream binds Ctrl+Shift+C on Linux and Windows. In the legacy key encoding it arrives as Ctrl+C, and host
-// terminals usually take it for their own copy: Ctrl+C below is the way that always works.
+// terminals usually take it for their own copy: Ctrl+C below is the way that always works. Bound only where Shift
+// is encoded with Ctrl (kitty, CSI-u), like the other Ctrl+Shift+letter terminal bindings.
 export const copySelectionAction: CommandAction = {
     id: "workbench.action.terminal.copySelection",
     title: "Terminal: Copy Selection",
     enablement: TEXT_SELECTED,
-    keybindings: [{ keys: parseKeybinding("ctrl+shift+c"), when: TEXT_SELECTED_IN_FOCUS }],
+    keybindings: [{ keys: parseKeybinding("ctrl+shift+c"), when: `(${TEXT_SELECTED_IN_FOCUS}) && (${MODERN_TIER})` }],
     weight: KeybindingWeight.WorkbenchContrib,
     run(accessor) {
         return accessor.get(TerminalSelectionServiceDIToken).copySelection();

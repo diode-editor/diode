@@ -16,7 +16,17 @@ import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
 function mouse(action: MouseToken["action"], x: number, y: number, shiftKey = false): MouseToken {
     // Terminal tokens are 1-based.
-    return { kind: "mouse", button: "left", action, x: x + 1, y: y + 1, shiftKey, altKey: false, ctrlKey: false, raw: "" };
+    return {
+        kind: "mouse",
+        button: "left",
+        action,
+        x: x + 1,
+        y: y + 1,
+        shiftKey,
+        altKey: false,
+        ctrlKey: false,
+        raw: "",
+    };
 }
 
 /** #1087: a drag in the terminal selects, Ctrl+C with a selection copies it instead of sending SIGINT. */

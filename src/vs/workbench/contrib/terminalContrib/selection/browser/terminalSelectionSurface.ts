@@ -110,9 +110,9 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
         if (!this.session.readCell(x, y, out)) return false;
         const range = this.range();
         const host = this.host;
-        if (range === undefined || host === undefined) return true;
-        // A range exists only over a buffer.
-        const buffer = this.session.buffer as ITerminalBuffer;
+        const buffer = this.session.buffer;
+        // Stryker disable next-line ConditionalExpression: equivalent — a range exists only over a buffer; the check narrows the type
+        if (range === undefined || host === undefined || buffer === undefined) return true;
         if (!isInSelection(range, x, buffer.viewportY + y)) return true;
         const background = host.styleVar(
             host.isFocused ? "terminal.selectionBackground" : "terminal.inactiveSelectionBackground",

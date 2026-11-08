@@ -56,5 +56,5 @@ export function selectionText(buffer: ITerminalBuffer, range: ITerminalSelection
         }
     }
     lines.push(current);
-    return lines.map((line) => line.replace(/[  ]+$/u, "").replace(/ /gu, " ")).join("\n");
+    return lines.map((line) => line.replace(/[ \u00a0]+$/u, "").replace(/\u00a0/gu, " ")).join("\n");
 }

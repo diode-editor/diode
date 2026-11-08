@@ -152,6 +152,8 @@ describe("tier gate asymmetry — user-facing contract", () => {
         // No legacy fallback (#901): it only steps the picker up, the Up arrow does the same everywhere.
         "workbench.action.quickOpenNavigatePreviousInFilePicker | Ctrl+Shift+P | Ctrl+Shift+P",
         "workbench.action.search.toggleQueryDetails | Ctrl+K Alt+J | Ctrl+Shift+J",
+        // No legacy fallback (#1087): Ctrl+C with a selection copies there.
+        "workbench.action.terminal.copySelection | Ctrl+Shift+C | Ctrl+Shift+C",
         "workbench.action.terminal.focusTabs | Ctrl+K \\ | Ctrl+Shift+\\",
         "workbench.action.terminal.new | Ctrl+K Alt+T | Ctrl+Shift+`",
         // No legacy fallback (#817): the palette runs it there; the label is the canonical binding.
