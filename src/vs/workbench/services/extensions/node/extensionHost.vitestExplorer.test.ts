@@ -391,8 +391,12 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                 const runs = results.results.length;
                 void runCurrentFileAction.run({ get: (token: unknown) => services.get(token) } as ServiceAccessor);
                 await waitUntil("the file's run", () => results.results.length > runs, 60_000);
-                await waitUntil("adds passed", () => row('it("adds"').includes("✓"), 60_000);
-                expect(row('it("fails"')).toContain("✗");
+                await waitUntil("the file's run ended", () => results.results[0].completedAt !== undefined, 60_000);
+                await waitUntil(
+                    "adds passed, fails failed",
+                    () => row('it("adds"').includes("✓") && row('it("fails"').includes("✗"),
+                    10_000,
+                );
                 messages.dispose();
                 decorations.dispose();
             } finally {
