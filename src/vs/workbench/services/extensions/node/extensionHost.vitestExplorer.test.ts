@@ -382,6 +382,9 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                 const badge = row("expect(2 - 1).toBe(2);");
                 expect(badge).toMatch(/expect\(2 - 1\)\.toBe\(2\); {3}✗ 1 != 2\s*$/);
                 expect(row("expect(1 + 1).toBe(2);")).not.toContain("expected");
+                // Go to Next Test Failure reads the badges back from the editor.
+                const [editor] = harness.group.getEditors();
+                expect(messages.failuresIn(editor)).toHaveLength(1);
 
                 // Run Tests in Current File (Ctrl+; F): the file's test runs with all its tests, adds passes again.
                 const services = new Map<unknown, unknown>([

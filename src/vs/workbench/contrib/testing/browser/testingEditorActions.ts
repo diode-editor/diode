@@ -1,3 +1,4 @@
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { comparePositions, createPosition, type IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { type IRange, rangeContainsPosition, rangesEqual } from "../../../../editor/common/core/iRange.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
@@ -122,10 +123,7 @@ export const runCurrentFileAction: CommandAction = {
                 tests.push(test);
                 continue;
             }
-            for (const childId of test.children) {
-                const child = service.getNodeById(childId);
-                if (child !== undefined) queue.push(child);
-            }
+            for (const childId of test.children) queue.push(assertReturnsDefined(service.getNodeById(childId)));
         }
         if (tests.length === 0) {
             notify(accessor, "No tests found in this file");

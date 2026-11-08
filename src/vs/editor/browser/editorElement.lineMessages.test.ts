@@ -10,6 +10,7 @@ import { createTextEdit } from "../common/core/iTextEdit.ts";
 import type { ILineMessageDecoration } from "../common/model/iLineMessageDecoration.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
+import { LONG_LINE_TRUNCATION_BADGE, STOP_RENDERING_LINE_AFTER } from "../common/viewModel/longLineRendering.ts";
 import { createFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 
 import { EditorElement } from "./editorElement.ts";
@@ -125,6 +126,13 @@ describe("EditorElement — messages after the lines' ends", () => {
         const width = 24 - editor.gutterWidth;
         expect(row(0).slice(editor.gutterWidth)).toBe("x".repeat(width));
         expect(row(1).slice(editor.gutterWidth)).toBe(`${"x".repeat(30 - width)}  msg`);
+    });
+
+    it("on a trimmed long line goes after the trim badge", () => {
+        const { editor, row } = setup(`${"x".repeat(STOP_RENDERING_LINE_AFTER + 1)}\nend`, new Size(40, 6));
+        editor.viewState.scrollLeft = STOP_RENDERING_LINE_AFTER - 2;
+        editor.setLineMessageDecorations([error("a", 0, "msg")]);
+        expect(row(0).slice(editor.gutterWidth)).toBe(`xx${LONG_LINE_TRUNCATION_BADGE}  msg`);
     });
 
     it("on a folded region's header goes after the fold marker", () => {

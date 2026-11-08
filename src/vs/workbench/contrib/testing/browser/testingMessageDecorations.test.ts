@@ -371,6 +371,33 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
         expect(frame.split("\n")[0]).toMatch(/^expected 2 to be 3 /);
     });
 
+    it("a click on a message someone else set opens nothing", async () => {
+        const { explorer, openEditor, run, flush } = setup();
+        const view = openEditor();
+        run([{ message: { message: "expected 2 to be 3", location: at(2) } }]);
+        await flush();
+        view.element.setLineMessageDecorations([
+            { key: "foreign", line: 2, text: "foreign", colorToken: "foreground" },
+        ]);
+        const clicks: string[] = [];
+        view.element.onDidClickLineMessage((key) => clicks.push(key));
+        const openView = vi.spyOn(explorer.views.service, "openView");
+        view.app.render();
+        view.app.backend.simulateMouse({
+            kind: "mouse",
+            button: "left",
+            action: "press",
+            x: view.element.gutterWidth + "        expect(1 + 1).toBe(3);".length + 3,
+            y: 3,
+            shiftKey: false,
+            altKey: false,
+            ctrlKey: false,
+            raw: "",
+        });
+        expect(clicks).toEqual(["foreign"]);
+        expect(openView).not.toHaveBeenCalled();
+    });
+
     it("Peek Error of a test shows its first error with a location; none — nothing opens", async () => {
         const { explorer, run, flush } = setup();
         run([{ message: { message: "no location" } }, { message: { message: "located", location: at(5) } }]);
@@ -430,6 +457,14 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
         await flush();
         decorations.showNearest(undefined, 0);
         expect(shownText()).toBe("with a location");
+
+        // The latest run's failed test has no located error: the older run's.
+        explorer.results.clear();
+        run([{ message: { message: "an older one", location: at(5) } }]);
+        run([{ message: { message: "without a location" } }]);
+        await flush();
+        decorations.showNearest(undefined, 0);
+        expect(shownText()).toBe("an older one");
     });
 
     it("select chooses the message in a shown TEST RESULTS and opens nothing otherwise", async () => {
@@ -445,6 +480,9 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
         decorations.show(two.subject, true);
         decorations.select(five.subject);
         expect(explorer.panel.component.currentSubject).toBe(five.subject);
+
+        view.close();
+        expect(decorations.failuresIn(view.editor)).toEqual([]);
     });
 });
 
@@ -462,7 +500,7 @@ describe("the messages' texts", () => {
         );
         expect(errorText({ type: "error", message: "only one" })).toBe("only one");
         expect(errorText({ type: "error", message: "" })).toBe("Test Failed");
-        expect(errorText({ type: "error", message: "∑ юникод 😀" })).toBe("∑ юникод 😀");
+        expect(errorText({ type: "error", message: "∑ ünïcödé 😀" })).toBe("∑ ünïcödé 😀");
     });
 
     it("an output: the line breaks with their indent become spaces, cut with the ellipsis at the limit", () => {
