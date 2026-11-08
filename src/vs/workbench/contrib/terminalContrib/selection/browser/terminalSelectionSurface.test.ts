@@ -25,7 +25,6 @@ function mouse(
 }
 
 class FakeHost implements ITerminalSelectionHost {
-    public isFocused = true;
     public readonly colors: Partial<Record<TerminalSelectionColor, number>> = {
         "terminal.background": BACKGROUND,
         "terminal.selectionBackground": SELECTION,
@@ -50,6 +49,7 @@ describe("TerminalSelectionSurface", () => {
         surface = new TerminalSelectionSurface(session);
         host = new FakeHost();
         surface.attach(host);
+        surface.setFocused(true);
         updates = 0;
         surface.onUpdate(() => {
             updates++;
@@ -126,7 +126,7 @@ describe("TerminalSelectionSurface", () => {
         await setup("hi");
         drag([0, 0], [1, 0]);
 
-        host.isFocused = false;
+        surface.setFocused(false);
 
         // #264F78 at 50% over #101010.
         expect(cellAt(0, 0).bg).toBe(0x1b3044);
@@ -147,7 +147,7 @@ describe("TerminalSelectionSurface", () => {
     it("a selection over a cell with its own background composites over that background", async () => {
         await setup("\x1b[48;2;255;0;0mX");
         drag([0, 0], [1, 0]);
-        host.isFocused = false;
+        surface.setFocused(false);
 
         // #264F78 at 50% over #FF0000.
         expect(cellAt(0, 0).bg).toBe(0x92283c);
@@ -220,6 +220,18 @@ describe("TerminalSelectionSurface", () => {
         await feed(session, "\r\nx");
         const first = session.buffer!.getLine(0)!.translateToString(true);
         expect(surface.selectionText?.split("\n")[0]).toBe(first);
+    });
+
+    it("the selection goes once the scrollback trims all of its text, before the cursor row", async () => {
+        await setup(Array.from({ length: 1010 }, (_, i) => String(i)).join("\r\n"));
+        surface.scrollLines(-1000);
+        drag([0, 0], [3, 1]);
+        expect(surface.selectionText).toBe("6\n7");
+
+        await feed(session, "\r\nmore\r\nlines");
+
+        expect(surface.hasSelection).toBe(false);
+        expect(updates).toBeGreaterThan(0);
     });
 
     it("the selection goes once the scrollback trims the row it was made on", async () => {

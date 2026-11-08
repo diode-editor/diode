@@ -4,7 +4,7 @@ import { emulatorWith } from "../../../../../../TestUtils/terminalLinks.ts";
 import type { ITerminalBuffer } from "../../../terminal/common/terminalBuffer.ts";
 import type { ExtensionPtySession } from "../../../terminal/node/extensionPtySession.ts";
 
-import { isInSelection, selectAllRange, selectionRange, selectionText } from "./terminalSelection.ts";
+import { selectionRange, selectionText } from "./terminalSelection.ts";
 
 describe("terminal selection", () => {
     let session: ExtensionPtySession | undefined;
@@ -73,26 +73,5 @@ describe("terminal selection", () => {
         const buffer = await bufferWith("one");
 
         expect(selectionText(buffer, { start: { x: 0, y: 0 }, end: { x: 3, y: 40 } })).toBe("one\n\n\n\n");
-    });
-
-    it("select all spans the buffer, scrollback included", async () => {
-        const buffer = await bufferWith(Array.from({ length: 8 }, (_, i) => `line${String(i)}`).join("\r\n"));
-
-        const all = selectAllRange(buffer);
-        expect(all).toEqual({ start: { x: 0, y: 0 }, end: { x: 9, y: buffer.length - 1 } });
-        expect(selectionText(buffer, all)).toBe(Array.from({ length: 8 }, (_, i) => `line${String(i)}`).join("\n"));
-    });
-
-    it("a cell is in the selection by reading order", () => {
-        const range = { start: { x: 3, y: 1 }, end: { x: 2, y: 3 } };
-
-        expect(isInSelection(range, 2, 1)).toBe(false);
-        expect(isInSelection(range, 3, 1)).toBe(true);
-        expect(isInSelection(range, 9, 1)).toBe(true);
-        expect(isInSelection(range, 0, 2)).toBe(true);
-        expect(isInSelection(range, 2, 3)).toBe(true);
-        expect(isInSelection(range, 3, 3)).toBe(false);
-        expect(isInSelection(range, 0, 0)).toBe(false);
-        expect(isInSelection(range, 0, 4)).toBe(false);
     });
 });

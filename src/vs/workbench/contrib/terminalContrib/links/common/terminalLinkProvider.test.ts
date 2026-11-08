@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { emulatorWith, fakeLinkProvider, type IFakeLinkContext } from "../../../../../../TestUtils/terminalLinks.ts";
 import type { ITerminalBuffer } from "../../../terminal/common/terminalBuffer.ts";
 
-import { isInLink, type ITerminalLink } from "./terminalLinkProvider.ts";
+import { isInCellRange, type ITerminalLink } from "./terminalLinkProvider.ts";
 
 const DISK: IFakeLinkContext["disk"] = {
     "/ws": "dir",
@@ -247,7 +247,7 @@ describe("TerminalLinkProvider", () => {
     });
 });
 
-describe("isInLink", () => {
+describe("isInCellRange", () => {
     const link = { start: { x: 5, y: 1 }, end: { x: 2, y: 3 } } as ITerminalLink;
 
     it.each([
@@ -260,6 +260,6 @@ describe("isInLink", () => {
         [5, 0, false],
         [0, 4, false],
     ])("(%i, %i) \u2192 %s", (x, y, inside) => {
-        expect(isInLink(link, x, y)).toBe(inside);
+        expect(isInCellRange(link, x, y)).toBe(inside);
     });
 });

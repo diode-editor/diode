@@ -1,23 +1,21 @@
 import { basename } from "node:path";
 
-import { findTextCell } from "../helpers/frame.ts";
+import type { GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
+
+import { dumpFrame, findTextCell } from "../helpers/frame.ts";
+import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
-type Frame = Awaited<ReturnType<ScenarioDriver["captureFrame"]>>;
-
-async function waitForFrame(
+function waitForFrame(
     editor: ScenarioDriver,
-    predicate: (frame: Frame) => boolean,
+    predicate: (frame: GridSnapshot) => boolean,
     what: string,
-): Promise<Frame> {
-    const deadline = Date.now() + 10_000;
-    for (;;) {
-        const frame = await editor.captureFrame();
-        if (predicate(frame)) return frame;
-        if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}`);
-        await new Promise((resolve) => setTimeout(resolve, 100));
-    }
+): Promise<GridSnapshot> {
+    return waitUntil(() => editor.captureFrame(), predicate, {
+        describe: what,
+        diagnose: (frame) => dumpFrame(frame as GridSnapshot),
+    });
 }
 
 const FIRST = "selection-alpha";

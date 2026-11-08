@@ -5,14 +5,8 @@ import { Emitter } from "../../../../../base/common/event.ts";
 import { combinedDisposable, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import type { ITerminalDecoratedSurface } from "../../../terminal/browser/terminalWidgetFactory.ts";
 import type { ITerminalBuffer, ITerminalMarker } from "../../../terminal/common/terminalBuffer.ts";
-import type { ITerminalCellPosition } from "../../links/common/terminalLinkProvider.ts";
-import {
-    isInSelection,
-    type ITerminalSelectionRange,
-    selectAllRange,
-    selectionRange,
-    selectionText,
-} from "../common/terminalSelection.ts";
+import { isInCellRange, type ITerminalCellPosition } from "../../links/common/terminalLinkProvider.ts";
+import { type ITerminalSelectionRange, selectionRange, selectionText } from "../common/terminalSelection.ts";
 
 export type TerminalSelectionColor =
     | "terminal.background"
@@ -20,9 +14,8 @@ export type TerminalSelectionColor =
     | "terminal.inactiveSelectionBackground"
     | "terminal.selectionForeground";
 
-/** The widget the selection is drawn in: its focus picks the color, its var scope holds the theme's colors. */
+/** The widget the selection is drawn in: its var scope holds the theme's colors. */
 export interface ITerminalSelectionHost {
-    readonly isFocused: boolean;
     styleVar(name: TerminalSelectionColor, fallback?: number): number;
 }
 
@@ -58,8 +51,9 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
     private dragScroll: ReturnType<typeof setInterval> | undefined;
     /** `null` — to compute on the next read. */
     private cachedRange: ITerminalSelectionRange | undefined | null = null;
-    private size: { readonly cols: number; readonly rows: number } | undefined;
     private host: ITerminalSelectionHost | undefined;
+    /** The widget has the focus: the selection is painted with the active color. */
+    private focused = false;
     private readonly onDidChangeEmitter = new Emitter<void>();
     /** The selection appeared, changed or was cleared. */
     public readonly onDidChangeSelection = this.onDidChangeEmitter.event;
@@ -68,6 +62,10 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
 
     public attach(host: ITerminalSelectionHost): void {
         this.host = host;
+    }
+
+    public setFocused(focused: boolean): void {
+        this.focused = focused;
     }
 
     public get buffer(): ITerminalBuffer | undefined {
@@ -110,12 +108,12 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
         if (!this.session.readCell(x, y, out)) return false;
         const range = this.range();
         const host = this.host;
+        if (range === undefined || host === undefined) return true;
         const buffer = this.session.buffer;
         // Stryker disable next-line ConditionalExpression: equivalent — a range exists only over a buffer; the check narrows the type
-        if (range === undefined || host === undefined || buffer === undefined) return true;
-        if (!isInSelection(range, x, buffer.viewportY + y)) return true;
+        if (buffer === undefined || !isInCellRange(range, x, buffer.viewportY + y)) return true;
         const background = host.styleVar(
-            host.isFocused ? "terminal.selectionBackground" : "terminal.inactiveSelectionBackground",
+            this.focused ? "terminal.selectionBackground" : "terminal.inactiveSelectionBackground",
         );
         out.bg = compositeOver(background, out.bg === DEFAULT_COLOR ? host.styleVar("terminal.background") : out.bg);
         const foreground = host.styleVar("terminal.selectionForeground", DEFAULT_COLOR);
@@ -166,9 +164,8 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
     }
 
     public resize(cols: number, rows: number): void {
-        const size = this.size;
-        if (size !== undefined && (size.cols !== cols || size.rows !== rows)) this.clearSelection();
-        this.size = { cols, rows };
+        const buffer = this.session.buffer;
+        if (buffer !== undefined && (buffer.cols !== cols || buffer.rows !== rows)) this.clearSelection();
         this.session.resize(cols, rows);
     }
 
@@ -194,27 +191,26 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
         this.changed();
     }
 
-    /** The whole buffer, scrollback included. */
+    /** The whole buffer, scrollback included; the anchor is at the end, the scrollback trims the start first. */
     public selectAll(): void {
         const buffer = this.session.buffer;
         if (buffer === undefined) return;
-        const all = selectAllRange(buffer);
-        this.clearSelection();
-        this.store(buffer, all.end, all.start);
+        this.selection?.marker?.dispose();
+        this.store(buffer, { x: buffer.cols - 1, y: buffer.length - 1 }, { x: 0, y: 0 });
     }
 
     private continueDrag(drag: IDrag, event: TerminalMouseEventData): void {
         if (!drag.ownsEvents) this.session.sendMouse(event);
-        if (event.action === "move") {
-            drag.pointer = { col: event.col, row: event.row };
-            this.extendTo(drag);
+        const release = event.button === "left" && event.action === "up";
+        if (event.action !== "move" && !release) return;
+        drag.pointer = { col: event.col, row: event.row };
+        this.extendTo(drag);
+        if (!release) {
             this.updateDragScroll(drag);
-        } else if (event.button === "left" && event.action === "up") {
-            drag.pointer = { col: event.col, row: event.row };
-            this.extendTo(drag);
-            this.drag = undefined;
-            this.stopDragScroll();
+            return;
         }
+        this.drag = undefined;
+        this.stopDragScroll();
     }
 
     /** Past the top edge the selection runs to the start of the top row, past the bottom to the end of the bottom one. */
@@ -228,10 +224,9 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
         else if (row >= buffer.rows) head = { x: buffer.cols - 1, y: buffer.viewportY + buffer.rows - 1 };
         else head = { x: clamp(col, buffer.cols), y: buffer.viewportY + row };
         const current = this.selection;
-        // A press and a release in the same cell is a click, not a selection.
-        if (current === undefined && head.x === drag.anchor.x && head.y === drag.anchor.y) return;
         if (current === undefined) {
-            this.store(buffer, drag.anchor, head);
+            // A press and a release in the same cell is a click, not a selection.
+            if (head.x !== drag.anchor.x || head.y !== drag.anchor.y) this.store(buffer, drag.anchor, head);
             return;
         }
         const stored = { x: head.x, y: head.y - shiftOf(current) };
@@ -268,7 +263,12 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
         this.cachedRange = null;
         const selection = this.selection;
         if (selection === undefined) return;
-        if (this.session.buffer?.type !== selection.bufferType || selection.marker?.line === -1) {
+        // The scrollback trimmed all of the selection's text (or the cursor row its marker is on).
+        if (
+            this.session.buffer?.type !== selection.bufferType ||
+            selection.marker?.line === -1 ||
+            this.range() === undefined
+        ) {
             this.clearSelection();
         }
     }
@@ -290,9 +290,10 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
                 { x: selection.anchor.x, y: selection.anchor.y + shift },
                 { x: selection.head.x, y: selection.head.y + shift },
             );
-            // The scrollback trimmed the selection's top rows: what is left of it starts at the buffer's top. The
-            // marker is on the cursor row, below the text, so it is trimmed (and the selection cleared) last.
-            if (range.start.y < 0) range = { start: { x: 0, y: 0 }, end: range.end };
+            // The scrollback trimmed the selection's top rows: what is left of it starts at the buffer's top; trimmed
+            // whole, nothing is left.
+            if (range.end.y < 0) range = undefined;
+            else if (range.start.y < 0) range = { start: { x: 0, y: 0 }, end: range.end };
         }
         this.cachedRange = range;
         return range;

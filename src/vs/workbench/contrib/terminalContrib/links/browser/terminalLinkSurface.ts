@@ -7,7 +7,7 @@ import { Emitter } from "../../../../../base/common/event.ts";
 import { combinedDisposable, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import type { ITerminalDecoratedSurface } from "../../../terminal/browser/terminalWidgetFactory.ts";
 import type { ITerminalBuffer } from "../../../terminal/common/terminalBuffer.ts";
-import { isInLink, type ITerminalLink } from "../common/terminalLinkProvider.ts";
+import { isInCellRange, type ITerminalLink } from "../common/terminalLinkProvider.ts";
 
 export interface ITerminalLinkSource {
     provideLinks(buffer: ITerminalBuffer, row: number): Promise<ITerminalLink[]>;
@@ -79,8 +79,8 @@ export class TerminalLinkSurface implements ITerminalDecoratedSurface {
         // Both links come from a lookup over the buffer, which stays.
         const row = assertReturnsDefined(this.session.buffer).viewportY + y;
         if (
-            (hovered !== undefined && isInLink(hovered, x, row)) ||
-            (revealed !== undefined && isInLink(revealed, x, row))
+            (hovered !== undefined && isInCellRange(hovered, x, row)) ||
+            (revealed !== undefined && isInCellRange(revealed, x, row))
         ) {
             out.style |= StyleFlags.Underline;
         }
@@ -184,8 +184,8 @@ export class TerminalLinkSurface implements ITerminalDecoratedSurface {
         if (buffer === undefined) return;
         const pressY = buffer.viewportY + pressed.row;
         void this.links.provideLinks(buffer, pressY).then(async (links) => {
-            const link = links.find((candidate) => isInLink(candidate, pressed.col, pressY));
-            if (link === undefined || !isInLink(link, released.col, buffer.viewportY + released.row)) return;
+            const link = links.find((candidate) => isInCellRange(candidate, pressed.col, pressY));
+            if (link === undefined || !isInCellRange(link, released.col, buffer.viewportY + released.row)) return;
             try {
                 await this.open(link);
             } catch (error) {
@@ -208,7 +208,7 @@ export class TerminalLinkSurface implements ITerminalDecoratedSurface {
             return null;
         }
         if (request !== this.request) return null;
-        return links.find((link) => isInLink(link, col, y));
+        return links.find((link) => isInCellRange(link, col, y));
     }
 
     private setHover(link: ITerminalLink | undefined): void {

@@ -1,11 +1,8 @@
 import type { ITerminalBuffer } from "../../../terminal/common/terminalBuffer.ts";
-import type { ITerminalCellPosition } from "../../links/common/terminalLinkProvider.ts";
+import type { ITerminalCellPosition, ITerminalCellRange } from "../../links/common/terminalLinkProvider.ts";
 
 /** Inclusive cells in reading order: `start` is never after `end`. */
-export interface ITerminalSelectionRange {
-    readonly start: ITerminalCellPosition;
-    readonly end: ITerminalCellPosition;
-}
+export type ITerminalSelectionRange = ITerminalCellRange;
 
 function isBefore(a: ITerminalCellPosition, b: ITerminalCellPosition): boolean {
     return a.y < b.y || (a.y === b.y && a.x < b.x);
@@ -24,15 +21,6 @@ export function selectionRange(
     const [start, end] = isBefore(head, anchor) ? [head, anchor] : [anchor, head];
     const isContinuation = start.x > 0 && buffer.getLine(start.y)?.getCell(start.x)?.getWidth() === 0;
     return { start: isContinuation ? { x: start.x - 1, y: start.y } : start, end };
-}
-
-export function isInSelection(range: ITerminalSelectionRange, x: number, y: number): boolean {
-    return !isBefore({ x, y }, range.start) && !isBefore(range.end, { x, y });
-}
-
-/** The whole buffer, scrollback included (upstream `selectAll`). */
-export function selectAllRange(buffer: ITerminalBuffer): ITerminalSelectionRange {
-    return { start: { x: 0, y: 0 }, end: { x: buffer.cols - 1, y: buffer.length - 1 } };
 }
 
 /**

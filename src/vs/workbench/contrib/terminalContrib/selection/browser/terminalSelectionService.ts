@@ -54,11 +54,11 @@ export class TerminalSelectionService implements ITerminalSurfaceDecorator, ICon
                 // The selection color follows the focus.
                 widget.addEventListener("focus", () => {
                     this.focused = surface;
-                    widget.markDirty();
+                    surface.setFocused(true);
                 });
                 widget.addEventListener("blur", () => {
                     if (this.focused === surface) this.focused = undefined;
-                    widget.markDirty();
+                    surface.setFocused(false);
                 });
             },
         };
