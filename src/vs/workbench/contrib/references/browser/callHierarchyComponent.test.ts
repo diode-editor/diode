@@ -172,17 +172,36 @@ describe("CallHierarchyComponent", () => {
         expect(provider.releaseCallHierarchy).not.toHaveBeenCalled();
     });
 
-    it("no provider or no editor: nothing is asked", async () => {
-        const { component, toasts } = setup();
-        const none = new LanguageFeaturesService();
-        Object.assign(component, { languageFeatures: none });
+    it("no provider for the language: the same toast, no section", async () => {
+        const { component, toastOptions, sections, key } = setup();
+        Object.assign(component, { languageFeatures: new LanguageFeaturesService() });
         await component.show();
-        expect(toasts).toEqual([]);
+        expect(toastOptions).toEqual([{ severity: "info", message: "No results", modal: false, items: [] }]);
+        expect(sections()).toEqual([REFERENCES_VIEW_ID]);
+        expect(key("callHierarchyVisible")).not.toBe(true);
         expect(component.tree.getSelectedNode()).toBeNull();
+    });
 
+    it("no provider for the language: the tree that is already there stays with its session", async () => {
+        const { component, provider, toasts, sections, key, frame } = setup();
+        await component.show();
+        Object.assign(component, { languageFeatures: new LanguageFeaturesService() });
+        await component.show();
+        expect(toasts).toEqual(["No results"]);
+        expect(sections()).toEqual([HIERARCHY_VIEW_ID]);
+        expect(key("callHierarchyVisible")).toBe(true);
+        expect(component.tree.getSelectedNode()?.item.name).toBe("caller");
+        expect(frame()).toContain("caller");
+        expect(provider.releaseCallHierarchy).not.toHaveBeenCalled();
+    });
+
+    it("no editor: no toast and nothing is asked", async () => {
+        const { component, provider, toasts, sections } = setup();
         Object.assign(component, { group: { getActiveEditor: () => null } });
         await component.show();
-        expect(component.tree.getSelectedNode()).toBeNull();
+        expect(toasts).toEqual([]);
+        expect(provider.prepareCallHierarchy).not.toHaveBeenCalled();
+        expect(sections()).toEqual([REFERENCES_VIEW_ID]);
     });
 
     it("a root without children says `No results.`", async () => {
