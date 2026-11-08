@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 160 |
+| test | 161 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -2152,7 +2152,7 @@ Proposed API or a false hit: class X when real.
 | `TestItemCollection.get` | C |  | 0 | 0 |  |
 | `TestItemCollection.replace` | C |  | 0 | 0 |  |
 | `TestItemCollection.size` | C |  | 0 | 0 |  |
-| `TestMessage` | C |  | 15 | 198,479,074 |  |
+| `TestMessage` | C | yes | 15 | 198,479,074 |  |
 | `TestMessage.actualOutput` | C |  | 0 | 0 |  |
 | `TestMessage.contextValue` | C |  | 0 | 0 |  |
 | `TestMessage.diff` | C |  | 5 | 115,107,275 |  |

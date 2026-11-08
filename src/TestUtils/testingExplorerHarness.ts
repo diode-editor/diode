@@ -201,6 +201,8 @@ export function setupExplorer(options: ISetupOptions = {}) {
         icons,
         width: options.panelWidth,
         height: options.panelHeight,
+        toasts,
+        toastOptions,
     });
     const serviceMap = new Map<unknown, unknown>([
         [TestResultsComponentDIToken, panel.component],

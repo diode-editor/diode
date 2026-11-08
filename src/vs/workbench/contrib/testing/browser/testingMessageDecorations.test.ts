@@ -366,8 +366,9 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
         expect(subject?.kind).toBe("message");
         expect(subject?.result).toBe(result);
         expect(subject?.test?.item.label).toBe("fails");
-        const frame = await explorer.panel.waitFrame((text) => text.includes("+ 2 more lines"));
-        expect(frame).toContain("expected 2 to be 3");
+        // The message's text on the left, its row chosen in the tree.
+        const frame = await explorer.panel.waitFrame((text) => text.includes("+ 2 more lin"));
+        expect(frame.split("\n")[0]).toMatch(/^expected 2 to be 3 /);
     });
 
     it("Peek Error of a test shows its first error with a location; none — nothing opens", async () => {

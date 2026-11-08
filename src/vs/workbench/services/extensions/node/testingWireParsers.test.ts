@@ -283,7 +283,7 @@ describe("testing wire parsers — runs", () => {
         }
     });
 
-    it("messages: a malformed one is dropped, a location needs a uri and a range, a frame a label", () => {
+    it("messages: a malformed one is dropped, a location needs a uri and a range, a frame a label, markdown only when true", () => {
         const parsed = parseWireTestMessagesInRun({
             runId: "r",
             taskId: "t",
@@ -291,6 +291,7 @@ describe("testing wire parsers — runs", () => {
             messages: [
                 {
                     message: "m",
+                    markdown: true,
                     location: { uri: 1, range: RANGE },
                     stackTrace: [
                         null,
@@ -299,12 +300,13 @@ describe("testing wire parsers — runs", () => {
                     ],
                 },
                 null,
-                { message: "n", location: { uri: "file:///a.ts", range: RANGE }, stackTrace: "x" },
+                { message: "n", markdown: "yes", location: { uri: "file:///a.ts", range: RANGE }, stackTrace: "x" },
             ],
         });
         expect(parsed?.messages).toEqual([
             {
                 message: "m",
+                markdown: true,
                 expected: undefined,
                 actual: undefined,
                 contextValue: undefined,
@@ -316,6 +318,7 @@ describe("testing wire parsers — runs", () => {
             },
             {
                 message: "n",
+                markdown: undefined,
                 expected: undefined,
                 actual: undefined,
                 contextValue: undefined,

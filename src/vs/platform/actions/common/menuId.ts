@@ -37,6 +37,14 @@ export class MenuId {
      * {@link TestItem}; its items follow the built-in ones.
      */
     public static readonly TestItemGutter = new MenuId("TestItemGutter");
+    /**
+     * `testing/message/context`: a message row of the TEST RESULTS tree, resolved per message with its `testMessage`,
+     * `testResultOutdated`, `controllerId`, `testId` and resource keys; the `inline` group is the row's glyph buttons,
+     * the rest its context menu.
+     */
+    public static readonly TestMessageContext = new MenuId("TestMessageContext");
+    /** `testing/message/content`: the buttons over a shown message, resolved with the keys of {@link TestMessageContext}. */
+    public static readonly TestMessageContent = new MenuId("TestMessageContent");
     /** Filtered by `menuContext.container` (`containerMenuVisible`). */
     public static readonly ViewContainerTitle = new MenuId("ViewContainerTitle");
     /**

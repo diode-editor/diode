@@ -19,7 +19,7 @@ import { type TestResultService, TestResultServiceDIToken } from "../common/test
 
 import { testingStatesToIcons } from "./icons.ts";
 import { PEEK_TEST_ERROR_COMMAND } from "./testingDecorations.ts";
-import { messageKey, messageOf, type TestMessageSubject } from "./testResultsOutput.ts";
+import { messageKey, messageOf, type TestMessageSubject } from "./testMessageView.ts";
 
 // Upstream `contrib/testing/browser/testingDecorations.ts`: `TestErrorContentWidget` and `TestMessageDecoration` of
 // `TestingDecorations.applyResults`. Deviations: no hover, no peek — TEST RESULTS plays its role; the error is a badge
@@ -73,7 +73,7 @@ interface IAttachedEditor {
     readonly editor: ITestingMessagesEditor;
     readonly subscriptions: readonly IDisposable[];
     /** The messages the editor shows, by their decorations' keys. */
-    shown: ReadonlyMap<string, IShownTestMessage>;
+    shown: ReadonlyMap<string, IShownTestMessage & { readonly isError: boolean }>;
 }
 
 /**
@@ -163,7 +163,7 @@ export class TestingMessageDecorations extends Disposable {
         const failures: IShownTestMessage[] = [];
         for (const [line, decoration] of editor.getLineMessageDecorations()) {
             const shown = state.shown.get(decoration.key);
-            if (shown !== undefined && messageOf(shown.subject).type === "error")
+            if (shown !== undefined && shown.isError)
                 failures.push({ line, subject: shown.subject });
         }
         return failures.sort((a, b) => a.line - b.line);
@@ -268,7 +268,7 @@ export class TestingMessageDecorations extends Disposable {
     /** Upstream `applyResultsContentWidgets` and `applyResultsLoggedMessages`. */
     private refresh(state: IAttachedEditor): void {
         const { editor } = state;
-        const shown = new Map<string, IShownTestMessage>();
+        const shown = new Map<string, IShownTestMessage & { readonly isError: boolean }>();
         const decorations: ILineMessageDecoration[] = [];
         if (!editor.isTooLargeForTokenization) {
             const uri = editor.uri.toString();
@@ -276,6 +276,7 @@ export class TestingMessageDecorations extends Disposable {
                 ? this.results.results
                 : this.results.results.slice(0, 1);
             const seenLines = new Set<number>();
+            // Only an error has the badge's background.
             const add = (
                 subject: TestMessageSubject,
                 line: number,
@@ -283,7 +284,7 @@ export class TestingMessageDecorations extends Disposable {
             ) => {
                 seenLines.add(line);
                 const key = messageKey(subject);
-                shown.set(key, { line, subject });
+                shown.set(key, { line, subject, isError: decoration.bgToken !== undefined });
                 decorations.push({ key, line, ...decoration });
             };
             // Errors first: they take their lines before the output.

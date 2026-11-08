@@ -24,6 +24,8 @@ const MENU_IDS: Readonly<Partial<Record<string, MenuId>>> = {
     "view/item/context": MenuId.ViewItemContext,
     "testing/item/context": MenuId.TestItem,
     "testing/item/gutter": MenuId.TestItemGutter,
+    "testing/message/context": MenuId.TestMessageContext,
+    "testing/message/content": MenuId.TestMessageContent,
     "viewContainer/title": MenuId.ViewContainerTitle,
 };
 

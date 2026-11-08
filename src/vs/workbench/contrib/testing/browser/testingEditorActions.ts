@@ -12,7 +12,7 @@ import { TestProfileServiceDIToken } from "../common/testProfileService.ts";
 import { type ITestNode, TestServiceDIToken } from "../common/testService.ts";
 
 import { TestingMessageDecorationsDIToken } from "./testingMessageDecorations.ts";
-import { messageOf } from "./testResultsOutput.ts";
+import { messageOf } from "./testMessageView.ts";
 
 // Upstream `testExplorerActions.ts` (`RunAtCursor`, `RunCurrentFile`, `OpenOutputPeek`, `ToggleInlineTestOutput`) and
 // `testingOutputPeek.ts` (`GoToNextMessageAction`, `GoToPreviousMessageAction`). Deviations: no Debug and no Coverage

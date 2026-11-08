@@ -363,6 +363,7 @@
     "testing.sortByLocation",
     "testing.sortByStatus",
     "testing.toggleResultsViewLayout",
+    "testing.collapsePeekStack",
     "testing.reRunFailedFromLastRun",
     "testing.goToNextMessage",
     "testing.goToPreviousMessage",

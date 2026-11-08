@@ -35,16 +35,22 @@ export class ResourceContextKeys implements IContextKeyContributor {
             for (const key of RESOURCE_CONTEXT_KEYS) contextKeys.reset(key);
             return;
         }
-        const uri = editor.uri;
-        contextKeys.set("resource", uri.toString());
-        contextKeys.set("resourceScheme", uri.scheme);
-        contextKeys.set("resourceFilename", UriUtils.basename(uri));
-        contextKeys.set("resourceDirname", toPath(UriUtils.dirname(uri)));
-        contextKeys.set("resourcePath", toPath(uri));
+        for (const [key, value] of Object.entries(resourceContextKeysOf(editor.uri))) contextKeys.setRaw(key, value);
         contextKeys.set("resourceLangId", editor.languageId);
-        contextKeys.set("resourceExtname", UriUtils.extname(uri));
-        contextKeys.set("resourceSet", true);
     }
+}
+
+/** The family's values for a resource, its language aside: an editor's, or a place outside editors (a test message). */
+export function resourceContextKeysOf(uri: Uri) {
+    return {
+        resource: uri.toString(),
+        resourceScheme: uri.scheme,
+        resourceFilename: UriUtils.basename(uri),
+        resourceDirname: toPath(UriUtils.dirname(uri)),
+        resourcePath: toPath(uri),
+        resourceExtname: UriUtils.extname(uri),
+        resourceSet: true,
+    };
 }
 
 function toPath(uri: Uri): string {

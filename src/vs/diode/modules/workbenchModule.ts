@@ -392,6 +392,10 @@ import {
     TestingMessagesEditorSourceDIToken,
 } from "../../workbench/contrib/testing/browser/testingMessageDecorations.ts";
 import {
+    TestMessageDiffFactory,
+    TestMessageDiffFactoryDIToken,
+} from "../../workbench/contrib/testing/browser/testMessageDiff.ts";
+import {
     TestResultsComponent,
     TestResultsComponentDIToken,
 } from "../../workbench/contrib/testing/browser/testResultsView.ts";
@@ -682,6 +686,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);
     container.bind(TestResultsComponentDIToken, TestResultsComponent);
+    container.bind(TestMessageDiffFactoryDIToken, TestMessageDiffFactory);
     // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-explorer
     container.bind(TestingRevealTargetDIToken, () => container.get(EditorServiceDIToken));
     // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-gutter

@@ -135,6 +135,21 @@ export function containsUnusualLineTerminators(str: string): boolean {
     return UNUSUAL_LINE_TERMINATORS.test(str);
 }
 
+/* eslint-disable no-control-regex -- the terminal's control characters are what these match */
+const CSI_SEQUENCE = /(?:\x1b\[|\x9b)[=?>!]?[\d;:]*["$#'* ]?[a-zA-Z@^`{}|~]/;
+const OSC_SEQUENCE = /(?:\x1b\]|\x9d).*?(?:\x1b\\|\x07|\x9c)/;
+const ESC_SEQUENCE = /\x1b(?:[ #%()*+\-./]?[a-zA-Z0-9|}~@])/;
+/* eslint-enable no-control-regex */
+const CONTROL_SEQUENCES = new RegExp(
+    `(?:${[CSI_SEQUENCE.source, OSC_SEQUENCE.source, ESC_SEQUENCE.source].join("|")})`,
+    "g",
+);
+
+/** Upstream `removeAnsiEscapeCodes`: the text without its CSI, OSC and ESC sequences. */
+export function removeAnsiEscapeCodes(str: string): string {
+    return str.replace(CONTROL_SEQUENCES, "");
+}
+
 // -- UTF-8 BOM
 
 export const UTF8_BOM_CHARACTER = String.fromCharCode(UTF8_BOM);
@@ -150,24 +165,4 @@ export function truncateMiddle(value: string, maxLength: number, suffix = "…")
     const prefixLength = Math.ceil(maxLength / 2) - suffix.length / 2;
     const suffixLength = Math.floor(maxLength / 2) - suffix.length / 2;
     return `${value.slice(0, prefixLength)}${suffix}${value.slice(value.length - suffixLength)}`;
-}
-
-// -- ANSI escape sequences
-
-// Stryker disable all: upstream's patterns, verbatim; the tests check what they strip
-/* eslint-disable no-control-regex -- the escape sequences start with control characters */
-const CSI_SEQUENCE = /(?:\x1b\[|\x9b)[=?>!]?[\d;:]*["$#'* ]?[a-zA-Z@^`{}|~]/;
-const OSC_SEQUENCE = /(?:\x1b\]|\x9d).*?(?:\x1b\\|\x07|\x9c)/;
-const ESC_SEQUENCE = /\x1b(?:[ #%()*+\-./]?[a-zA-Z0-9|}~@])/;
-/* eslint-enable no-control-regex */
-const CONTROL_SEQUENCES = new RegExp(
-    `(?:${[CSI_SEQUENCE.source, OSC_SEQUENCE.source, ESC_SEQUENCE.source].join("|")})`,
-    "g",
-);
-
-// Stryker restore all
-
-/** Upstream `removeAnsiEscapeCodes`: the text without its CSI, OSC and ESC sequences. */
-export function removeAnsiEscapeCodes(str: string): string {
-    return str.replace(CONTROL_SEQUENCES, "");
 }

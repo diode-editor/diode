@@ -52,7 +52,9 @@ function locationFrom(location: vscode.Location | undefined): IWireTestLocation 
 /** Upstream `Convert.TestMessage.from`. */
 function messageFrom(message: vscode.TestMessage, fallback: IWireTestLocation | undefined): IWireTestMessage {
     return {
-        message: typeof message.message === "string" ? message.message : message.message.value,
+        ...(typeof message.message === "string"
+            ? { message: message.message }
+            : { message: message.message.value, markdown: true }),
         expected: message.expectedOutput,
         actual: message.actualOutput,
         contextValue: message.contextValue,

@@ -490,16 +490,39 @@ EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorer
   `uri`), Show Result Output (есть вывод), Run Test (`testing.hasRunnableTests`), в контекстном меню после
   разделителя — Reveal in Test Explorer (`_revealTestInExplorer` → `TestingExplorerComponent.revealTest`).
   Клик выбирает строку, Enter на тесте — Go to Test (решение спеки; у эталона Enter открывает сообщение).
+  У сообщения — Go to Error (`debug-stackframe`, есть `location`: файл на начале диапазона, клавиатура — в
+  редактор) и пункты расширений `testing/message/context` (группа `inline` — глифы, прочие — контекстное
+  меню). Ключи меню сообщения (`testMessageMenu.ts`): `testMessage` (`contextValue`), `testResultOutdated`
+  (всегда `false` — результаты не устаревают), `testId`, `controllerId` и семейство `resource*` по месту
+  сообщения, иначе по `uri` теста (эталон видит активный редактор — при peek это файл сообщения). Аргумент
+  команды — `IWireTestMessageArg` (`{ $testMessageTestId, message }`), хост расширений превращает его в
+  `{ test, message }` (`TestMessageMenuArgs` эталона; второго аргумента-задачи эталона нет).
 - **Содержимое** — `TestResultsOutput` (`TerminalMessagePeek` эталона): терминальная поверхность без
   процесса (`ExtensionPtySessionFactory`), свежая на каждый выбор; цвета — `TerminalColorsService`
   (`applyTerminalColors`), курсор спрятан, ввода и фокуса нет (клавиши остаются воркбенчу), прокрутка —
-  колесом. Задача — весь её вывод, тест — его `appendOutput` в этой задаче (срезы `offset`/`length`),
-  сообщение — его текст как есть (markdown, diff, стек — следующая задача). Живой запуск дописывает вывод
+  колесом. Задача — весь её вывод, тест — его `appendOutput` в этой задаче (срезы `offset`/`length`).
+  Живой запуск дописывает вывод
   по `LiveTestResult.onDidAppendOutput`. Пустой вывод — тексты эталона «The test run did not record any
   output.» / «The test case did not report any output.» (`formatMessageForTerminal`); «Test output is only
   available for new test runs.» не бывает — результаты живут в памяти. Выделения и копирования нет: их нет
   и у терминала.
-- **Открытие** (`TestingProgressUiService` эталона, внутри компонента): на старт запуска без
+- **Сообщение** — `TestMessageView` (`CallStackWidget` эталона с сообщением верхним кадром) встаёт на место
+  поверхности вывода (`TestResultsSplitElement.setContent`). Выбор показа — правило эталона (`messageShow`):
+  есть `expected` и `actual` — diff (`TestMessageDiffFactory`: `DiffEditorPane2` со снапшот-сторонами, только
+  чтение, подписи «Expected result» / «Actual result», всегда бок о бок — `useInlineViewWhenSpaceIsLimited:
+  false`, настройки редактора — `editorConfiguration.apply`); иначе markdown (`markdown: true` на проводе) —
+  `stripMarkdown` ховера, без ссылок; иначе plain — `removeAnsiEscapeCodes` (модель эталона без ANSI; цвета
+  эталон возвращает декорациями — у нас нет). Текст — `TestMessageTextElement`: перенос по словам с отступом
+  строки, прокрутка колесом. Отступление: компактного вида однострочного diff нет — у редактора нет
+  `lineNumbers: off`. Под сообщением — кадры `stackTrace` строками (`label`, `файл:строка:колонка`; без `uri` —
+  `descriptionForeground`), Enter или клик по кадру с `uri` открывает файл на позиции, клавиатура уходит в
+  редактор; стеку — не меньше трёх строк и до половины высоты. Со стеком над сообщением шапка — шеврон и
+  метка теста, клик по ней сворачивает/разворачивает сообщение; Collapse Stack Frames
+  (`testing.collapsePeekStack`, `collapse-all` в заголовке TEST RESULTS и палитра при `testing.peekHasStack`;
+  у эталона — заголовок peek) сворачивает его. Отступление: кадр — строка без кода вокруг (эталон встраивает
+  редактор на кадр), сворачивать, кроме сообщения, нечего. Пункты `testing/message/content` — кнопки в шапке
+  (`FloatingClickMenu` эталона, видны всегда). «Debug Test» у кадра не показываем — дебагера нет (решение
+  2026-11-04). (`TestingProgressUiService` эталона, внутри компонента): на старт запуска без
   `preserveFocus` по `testing.automaticallyOpenTestResults` — `openOnTestStart` (по умолчанию) открывает
   вид без фокуса, `openOnTestFailure` — на первом упавшем тесте, `openExplorerOnTestStart` — Test Explorer,
   `neverOpen` — ничего. Первая задача нового запуска выбирается сама. Show Output

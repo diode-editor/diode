@@ -1,7 +1,8 @@
 // A test controller in the shape of vitest.explorer: folders and test files come on "Discover Tests", a file's
 // `describe`/`it` blocks only when the file is expanded (resolveHandler, a second late, so the spinner shows).
-// Its Run profile steps through the tests: a name with "fails" fails (the message at its line), "throws" errors, "skip" is skipped, the rest
-// pass; each takes a while so the run can be seen, cancellation stops it.
+// Its Run profile steps through the tests: a name with "fails" fails, "throws" errors, "skip" is skipped, the rest
+// pass; each takes a while so the run can be seen, cancellation stops it. A failure's message is a markdown one for
+// "markdown", one with a stack for "stack", else expected/actual; "Copy Error" (`testing/message/*`) copies it.
 const vscode = require("vscode");
 
 const RESOLVE_DELAY_MS = 1500;
@@ -9,6 +10,27 @@ const STEP_MS = 700;
 const BLOCK = /^(\s*)(describe|it)\("([^"]+)"/;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** The failure's message by the test's name; "Copy Error" is offered on each. */
+const failureOf = (test) => {
+    let message;
+    if (test.label.includes("markdown")) {
+        message = new vscode.TestMessage(
+            new vscode.MarkdownString("## Snapshot mismatch\n\n- **expected** `3`\n- **received** `2`"),
+        );
+    } else if (test.label.includes("stack")) {
+        message = new vscode.TestMessage("TypeError: Cannot read properties of undefined (reading 'x')");
+        message.stackTrace = [
+            new vscode.TestMessageStackFrame(`at ${test.label}`, test.uri, test.range.start),
+            new vscode.TestMessageStackFrame("at processTicksAndRejections (node:internal/process/task_queues)"),
+        ];
+    } else {
+        message = vscode.TestMessage.diff("expected 2 to equal 3", "3", "2");
+    }
+    message.contextValue = "demo";
+    if (test.uri !== undefined) message.location = new vscode.Location(test.uri, test.range);
+    return message;
+};
 
 exports.activate = (context) => {
     const controller = vscode.tests.createTestController("demo", "Demo Tests");
@@ -71,10 +93,7 @@ exports.activate = (context) => {
                 const duration = 10 * (index + 1);
                 if (test.label.includes("fails")) {
                     run.appendOutput(`\x1b[31mFAIL\x1b[0m ${test.label}\r\n`, undefined, test);
-                    // At the test's line, as vitest points at the failed assertion: the editor shows it there.
-                    const message = vscode.TestMessage.diff("expected 2 to equal 3", "3", "2");
-                    message.location = new vscode.Location(test.uri, test.range);
-                    run.failed(test, message, duration);
+                    run.failed(test, failureOf(test), duration);
                 } else if (test.label.includes("throws")) {
                     run.errored(test, new vscode.TestMessage("TypeError: boom"), duration);
                 } else if (test.label.includes("skip")) {
@@ -107,6 +126,12 @@ exports.activate = (context) => {
         // A row's menu item gets the extension's own TestItem.
         vscode.commands.registerCommand("demoTests.updateSnapshot", (test) => {
             void vscode.window.showInformationMessage(`Update Snapshot: ${test?.label ?? "no test"}`);
+        }),
+        // A message's menu item gets `{ test, message }`, as vitest's "Copy Error".
+        vscode.commands.registerCommand("demoTests.copyError", async (arg) => {
+            const text = typeof arg?.message?.message === "string" ? arg.message.message : arg?.message?.message?.value;
+            await vscode.env.clipboard.writeText(text ?? "");
+            void vscode.window.showInformationMessage(`Copied the error of ${arg?.test?.label ?? "no test"}`);
         }),
     );
 };

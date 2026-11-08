@@ -96,6 +96,17 @@ export interface IWireTestItemArg {
     readonly $testId: string;
 }
 
+/**
+ * Upstream `ITestMessageMenuArgs` (`MarshalledId.TestMessageMenuArgs`): a test's message as the argument of a
+ * `testing/message/*` command, turned into `{ test: TestItem, message: TestMessage }` before the command runs
+ * (`extHostTesting` `processArgument`).
+ */
+export interface IWireTestMessageArg {
+    /** The full id of the message's test. */
+    readonly $testMessageTestId: string;
+    readonly message: IWireTestMessage;
+}
+
 /** Upstream `$registerTestController`; `canRefresh` is the `Refresh` capability. */
 export interface IWireTestController {
     readonly controllerId: string;
@@ -251,9 +262,11 @@ export interface IWireTestMessageStackFrame {
     readonly position?: { readonly line: number; readonly character: number };
 }
 
-/** Upstream `ITestErrorMessage.Serialized`; a `MarkdownString` goes as its source. */
+/** Upstream `ITestErrorMessage.Serialized`; a `MarkdownString` goes as its source with `markdown` set. */
 export interface IWireTestMessage {
     readonly message: string;
+    /** The message is a `MarkdownString`'s source (upstream's `IMarkdownString` message). */
+    readonly markdown?: boolean;
     readonly expected?: string;
     readonly actual?: string;
     readonly contextValue?: string;

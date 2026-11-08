@@ -390,12 +390,14 @@ eval-режим node, иначе расширение молча не линти
   (стоковый тест). Поле редактора (#1073): у `describe("math"` — run-all, у каждого `it(` — run; клик по
   глифу `fails` запускает только его, после прогона глиф — ✗ красным; правый клик — Run Test, Reveal in Test
   Explorer и пункты Vitest из `testing/item/gutter` (стоковый тест). TEST RESULTS (#1071): панель открывается с запуском, в дереве `fails` с сообщением
-  `expected 1 to be 2`, в выводе задачи — отчёт vitest с `FAIL` (стоковый тест).
+  `expected 1 to be 2`, в выводе задачи — отчёт vitest с `FAIL` (стоковый тест). Сообщения (#1072): vitest
+  шлёт `expectedOutput`/`actualOutput` — у `fails` слева diff «Expected result» `2` / «Actual result» `1`, под
+  ним кадры стека с `math.test.ts:8`; «Copy Error» (`testing/message/context`, `when: resourcePath in
+  vitest.testFiles` — ключи по месту сообщения) кладёт в буфер отчёт vitest с именем теста и файлом (стоковый тест).
 - **Магазин** — запись `vitest.explorer` (`support: partial`, `engines.diode` — релиз с вьюхой Testing).
   Стоковый тест — `extensionHost.vitestExplorer.test.ts`: воркспейс `package.json` + `vitest.config.ts`
   + `src/math.test.ts`, `node_modules` — симлинк на репозиторий diode (vitest там есть).
-- Меню `testing/message/*` пока неизвестны — `unknown menu … items skipped` в Output → Extensions. `testing/item/context` есть (#1069); «Open Trace View» у vitest скрыт его же
-  `when` (`testId in vitest.traceViewTests`).
+- «Open Trace View» у vitest (`testing/item/context`, #1069) скрыт его же `when` (`testId in vitest.traceViewTests`).
 
 ## Go: `golang.go` (gopls)
 
