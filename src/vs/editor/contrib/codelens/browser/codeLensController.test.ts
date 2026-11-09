@@ -627,14 +627,21 @@ describe("CodeLensController", () => {
                 const title = state.title(item.range.start.line);
                 return title === null ? null : { ...item, command: command(title) };
             });
+            /** The answers whose list is disposed, by their number. */
+            const disposed: number[] = [];
+            let answers = 0;
             providers.register("*", {
-                provideCodeLenses: () => list(state.lenses),
+                provideCodeLenses: () => {
+                    const answer = answers++;
+                    return list(state.lenses, () => disposed.push(answer));
+                },
                 resolveCodeLens,
                 onDidChange: changed.event,
             });
             return {
                 state,
                 resolveCodeLens,
+                disposed,
                 release: () => {
                     gate.resolve(undefined);
                 },
@@ -774,6 +781,43 @@ describe("CodeLensController", () => {
             await expect(controller.getPicksAtLine(5)).resolves.toEqual([
                 { label: "5 refs", command: command("5 refs") },
             ]);
+        });
+
+        it("the list of a held row lives while the row shows its commands: an extension runs them by it", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(1), lens(3, command("now"))];
+            const { zones, settle } = setup();
+            round.release();
+            await settle();
+            round.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()[0].text).toBe("1 refs");
+            expect(round.disposed).toEqual([]);
+            round.release();
+            await settle();
+            expect(round.disposed).toEqual([0]);
+        });
+
+        it("a list no row holds goes at the next answer", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(1, command("now"))];
+            const { settle } = setup();
+            await settle();
+            round.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(round.disposed).toEqual([0]);
+        });
+
+        it("dispose lets go of the held lists too", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(1)];
+            const { controller, settle } = setup();
+            round.release();
+            await settle();
+            round.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            controller.dispose();
+            expect(round.disposed.sort()).toEqual([0, 1]);
         });
 
         it("an edit that calls the resolve off leaves the row held, and it goes with its line", async () => {

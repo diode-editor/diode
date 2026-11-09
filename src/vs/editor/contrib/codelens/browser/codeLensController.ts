@@ -59,11 +59,14 @@ export interface ICodeLensViewport {
 interface IShownLens {
     readonly lens: CodeLens;
     readonly state: "waiting" | "settled" | "failed";
+    /** Where the lens came from: an extension runs its command by the list, so the list lives while it is shown. */
+    readonly list: CodeLensList;
 }
 
 interface ILensItem {
     readonly id: string;
     readonly provider: CodeLensProvider;
+    readonly list: CodeLensList;
     /** Whether a collapse of the tracked range means its text is gone. */
     readonly nonEmptyAtStart: boolean;
     lens: CodeLens;
@@ -85,10 +88,12 @@ function disposeList(list: CodeLensList): void {
     }
 }
 
-/** The lenses of a row: the held ones while any of the line waits for its resolve. */
+/**
+ * The lenses of a row: the held ones while any of the line waits for its resolve. Only a waiting lens offers its
+ * snapshot: one that has settled let its list go, and a row merged by an edit must not bring it back.
+ */
 function shown(group: readonly ILensItem[]): readonly IShownLens[] {
-    const held = group.find((item) => item.held !== undefined)?.held;
-    return held !== undefined && group.some((item) => item.state === "waiting") ? held : group;
+    return group.find((item) => item.state === "waiting" && item.held !== undefined)?.held ?? group;
 }
 
 /** A title is one line of cells; upstream trims it and its DOM collapses a line break. */
@@ -114,6 +119,8 @@ export class CodeLensController extends Disposable {
     // Stryker disable next-line ArrayDeclaration: an item without an id has no range and draws nothing
     private items: ILensItem[] = [];
     private lists: readonly CodeLensList[] = [];
+    /** Lists of earlier answers whose commands a held row still shows. */
+    private readonly heldLists = new Set<CodeLensList>();
     private publishQueued = false;
     private isDisposedController = false;
 
@@ -259,7 +266,9 @@ export class CodeLensController extends Disposable {
         this.provideRequest = null;
         provideDebounce.update(this.key, sw.elapsed());
         const candidates = answers.flatMap((list, rank) =>
-            (list?.lenses ?? []).map((lens) => ({ lens, rank, provider: providers[rank] })),
+            list === null || list === undefined
+                ? []
+                : list.lenses.map((lens) => ({ lens, rank, provider: providers[rank], list })),
         );
         this.replaceItems(candidates, lists);
         if (this.hasWaitingInView()) this.scheduleResolve();
@@ -267,7 +276,12 @@ export class CodeLensController extends Disposable {
 
     /** Within a line as upstream `getCodeLensModel`: provider rank, column. A range past the document is clamped into it. */
     private replaceItems(
-        candidates: readonly { readonly lens: CodeLens; readonly rank: number; readonly provider: CodeLensProvider }[],
+        candidates: readonly {
+            readonly lens: CodeLens;
+            readonly rank: number;
+            readonly provider: CodeLensProvider;
+            readonly list: CodeLensList;
+        }[],
         lists: readonly CodeLensList[],
     ): void {
         const sorted = candidates
@@ -276,7 +290,8 @@ export class CodeLensController extends Disposable {
         // Matched by line as upstream: the row where the old lenses are now against the line of the new lens.
         const rows = new Map(
             [...this.itemsByLine()].map(
-                ([line, group]) => [line, shown(group).map(({ lens, state }) => ({ lens, state }))] as const,
+                ([line, group]) =>
+                    [line, shown(group).map(({ lens, state, list }) => ({ lens, state, list }))] as const,
             ),
         );
         const ids = this.model.document.deltaDecorations(
@@ -291,11 +306,12 @@ export class CodeLensController extends Disposable {
             })),
         );
         this.items = ids.map((id, i) => {
-            const { lens, provider, range } = sorted[i];
+            const { lens, provider, list, range } = sorted[i];
             const needsResolve = lens.command === undefined && provider.resolveCodeLens !== undefined;
             return {
                 id,
                 provider,
+                list,
                 lens,
                 nonEmptyAtStart: !isEmptyRange(range),
                 // Stryker disable next-line StringLiteral: only "waiting" and "failed" are ever compared with
@@ -303,7 +319,7 @@ export class CodeLensController extends Disposable {
                 held: rows.get(range.start.line),
             };
         });
-        for (const list of this.lists) disposeList(list);
+        for (const list of this.lists) this.heldLists.add(list);
         this.lists = lists;
         this.publish();
     }
@@ -410,10 +426,17 @@ export class CodeLensController extends Disposable {
     }
 
     private publish(): void {
-        const zones = [...this.itemsByLine().entries()]
+        const rows = [...this.itemsByLine().entries()]
             .sort((a, b) => a[0] - b[0])
-            .map(([line, group]) => this.zoneOf(line, shown(group)));
-        this.onDidChangeZones(zones);
+            .map(([line, group]) => ({ line, lenses: shown(group) }));
+        // A list of an earlier answer goes once no row shows its commands any more.
+        const inUse = new Set(rows.flatMap(({ lenses }) => lenses.map(({ list }) => list)));
+        for (const list of this.heldLists) {
+            if (inUse.has(list)) continue;
+            this.heldLists.delete(list);
+            disposeList(list);
+        }
+        this.onDidChangeZones(rows.map(({ line, lenses }) => this.zoneOf(line, lenses)));
     }
 
     private zoneOf(line: number, group: readonly IShownLens[]): ICodeLensZone {
