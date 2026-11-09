@@ -5170,5 +5170,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-11-09-f2602d2dabde.json",
+    "generatedAt": "2026-11-09T02:32:35.960Z",
+    "commit": "f2602d2dabde",
+    "binaryVersion": "nightly-f2602d2",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
