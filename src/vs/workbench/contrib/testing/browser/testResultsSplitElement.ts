@@ -74,7 +74,12 @@ export class TestResultsSplitElement extends TUIElement {
         this.layoutChild(this.tree, treeX, 0, BoxConstraints.tight(new Size(widths.tree, size.height)));
         // Laid out explicitly, otherwise its stale box sits at (0,0). No tree, no boundary: zero width catches nothing.
         const sashWidth = Math.min(1, widths.tree);
-        this.layoutChild(this.sash, Math.max(contentX, treeX), 0, BoxConstraints.tight(new Size(sashWidth, size.height)));
+        this.layoutChild(
+            this.sash,
+            Math.max(contentX, treeX),
+            0,
+            BoxConstraints.tight(new Size(sashWidth, size.height)),
+        );
         return size;
     }
 }
