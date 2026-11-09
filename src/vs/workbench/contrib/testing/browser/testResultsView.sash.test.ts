@@ -1,5 +1,6 @@
 import { BoxConstraints, Offset, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
+import type { SashElement } from "@tuidom/elements/sash/sashElement";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setupExplorer, THEME, wireItem } from "../../../../../TestUtils/testingExplorerHarness.ts";
@@ -184,5 +185,24 @@ describe("TEST RESULTS — the split's widths", () => {
         expect(sash.localPosition.dx).toBe(50);
         expect(split.getChildren()[0].localPosition.dx).toBe(50);
         expect(laidOut(split, 20)).toEqual([20, 0, 0]);
+    });
+
+    it("a drag away from the screen's left edge and past the minimums stores the clamped share", () => {
+        const split = new TestResultsSplitElement(new Fill(), new Fill(), false);
+        const sash = split.getChildren()[2] as SashElement;
+        laidOut(split, 100);
+        split.localPosition = new Offset(10, 0);
+        sash.onDrag?.(10 + 30);
+        split.layout(BoxConstraints.tight(new Size(100, 4)));
+        expect(split.getChildren()[0].layoutSize.width).toBe(30);
+
+        sash.onDrag?.(10 + 150);
+        split.layout(BoxConstraints.tight(new Size(200, 4)));
+        expect(split.getChildren()[0].layoutSize.width).toBe(2 * (100 - MIN_TREE_WIDTH));
+
+        split.layout(BoxConstraints.tight(new Size(100, 4)));
+        sash.onDrag?.(10 + 2);
+        split.layout(BoxConstraints.tight(new Size(200, 4)));
+        expect(split.getChildren()[0].layoutSize.width).toBe(2 * MIN_CONTENT_WIDTH);
     });
 });
