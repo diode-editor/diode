@@ -44,9 +44,10 @@ export default defineScenario({
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("MARKETPLACE"));
 
-        await editor.sendKey("Tab");
-        await editor.sendKey("ArrowDown");
-        await editor.sendKey("Enter");
+        // The section header shows before the catalog is read: wait for the entry itself, then a
+        // single click opens it.
+        await editor.waitForNode("#extensionsGroup-marketplace-test-lazy-version");
+        await editor.clickNode("#extensionsGroup-marketplace-test-lazy-version");
         await editor.waitForNode("#extensionPage-test-lazy-version");
         await editor.waitForText((t) => t.includes("Install Specific Version..."));
         await editor.capture("page");

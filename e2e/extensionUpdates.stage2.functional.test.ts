@@ -153,7 +153,8 @@ async function runPaletteCommand(app: HeadlessApp, title: string): Promise<void>
 }
 
 async function rowText(app: HeadlessApp, section: "marketplace" | "installed", id: string): Promise<string | null> {
-    const row = await app.session.node(`#extensionsGroup-${section}-${pageId(id)}`);
+    // The entry's first line: name, version, badges.
+    const row = await app.session.node(`#extensionsGroup-${section}-${pageId(id)}--title`);
     return row?.text ?? null;
 }
 
@@ -324,7 +325,8 @@ describe("Manual extension updates edge cases (ExtensionUpdates stage 2 QA, func
             expect(await rowText(app, "installed", META)).toBeNull();
         });
         expect(await rowText(app, "installed", PLAIN)).toMatch(/Update 1\.1\.0$/u);
-        expect(await screen(app)).not.toContain("MARKETPLACE");
+        // The MARKETPLACE section stays, but the catalog would only repeat the installed ones: it is empty.
+        expect(await rowText(app, "marketplace", PLAIN)).toBeNull();
 
         // Text before the filter works the same.
         await search(app, "meta @Outdated");

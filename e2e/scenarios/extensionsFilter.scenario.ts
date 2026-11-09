@@ -24,18 +24,20 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)));
         await editor.sendKey("F6");
-        await editor.waitForText((t) => t.includes("Legacy Thing"));
+        // Three-line entries: the third one is below the section's fold, so wait for its row, not its text.
+        await editor.waitForNode("#extensionsGroup-marketplace-old-legacy");
         for (let i = 0; i < 4; i++) await editor.sendKey("F7");
 
-        // The fixture registry has one theme: it alone is left, in MARKETPLACE.
+        // The fixture registry has one theme: it alone is left, in MARKETPLACE; the tab setter (not a theme)
+        // leaves both sections.
         await editor.sendText(CATEGORY_QUERY);
-        await editor.waitForText((t) => t.includes("Acme Sample") && !t.includes("Legacy Thing"));
+        await editor.waitForText((t) => t.includes("Acme Sample") && !t.includes("Tab Setter"));
         await editor.capture("category");
 
-        // One INSTALLED list: the tab setter the user data already has.
+        // One INSTALLED list: the tab setter the user data already has; the MARKETPLACE section is empty.
         for (let i = 0; i < CATEGORY_QUERY.length; i++) await editor.sendKey("Backspace");
         await editor.sendText("@installed");
-        await editor.waitForText((t) => t.includes("Tab Setter") && !t.includes("MARKETPLACE"));
+        await editor.waitForText((t) => t.includes("Tab Setter") && !t.includes("Acme Sample"));
         await editor.capture("installed");
     },
 });
