@@ -47,10 +47,12 @@ export default defineScenario({
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("MARKETPLACE"));
         for (let i = 0; i < 4; i++) await editor.sendKey("F7");
-        // Lang Pack's page, the first catalog entry (the list's cursor starts on it): focus the list, Enter.
+        // Lang Pack's page.
         // No filter: it would narrow the installed list too, and the frame needs both.
-        await editor.sendKey("Tab");
-        await editor.sendKey("Enter");
+        // The section header shows before the catalog is read: wait for the entry itself, then a
+        // single click opens it.
+        await editor.waitForNode("#extensionsGroup-marketplace-test-lang-pack");
+        await editor.clickNode("#extensionsGroup-marketplace-test-lang-pack");
         await editor.waitForNode("#extensionPage-test-lang-pack");
 
         // The page focuses its first button, which is Install.

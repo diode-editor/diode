@@ -46,10 +46,11 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("MARKETPLACE"));
         for (let i = 0; i < 3; i++) await editor.sendKey("F7");
 
-        // Extension page: focus the list, first catalog entry, Enter.
-        await editor.sendKey("Tab");
-        await editor.sendKey("ArrowDown");
-        await editor.sendKey("Enter");
+        // Extension page.
+        // The section header shows before the catalog is read: wait for the entry itself, then a
+        // single click opens it.
+        await editor.waitForNode("#extensionsGroup-marketplace-test-sample-theme");
+        await editor.clickNode("#extensionsGroup-marketplace-test-sample-theme");
         await editor.waitForNode("#extensionPage-test-sample-theme");
         await editor.waitForText((t) => t.includes("Not installed"));
 
