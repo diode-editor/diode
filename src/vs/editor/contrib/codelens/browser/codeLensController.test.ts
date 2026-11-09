@@ -824,6 +824,160 @@ describe("CodeLensController", () => {
         });
     });
 
+    describe("a new answer over a held row", () => {
+        /** Each resolve answers on its own: `pending` holds them in call order, settled by `answer(title)`. */
+        function manual(lenses: () => readonly CodeLens[]) {
+            const changed = new Emitter<void>();
+            const pending: { line: number; answer(title: string | null): void }[] = [];
+            providers.register("*", {
+                provideCodeLenses: () => list(lenses()),
+                resolveCodeLens: async (_model: unknown, item: CodeLens) => {
+                    const gate = deferred<string | null>();
+                    pending.push({ line: item.range.start.line, answer: gate.resolve });
+                    const title = await gate.promise;
+                    return title === null ? null : { ...item, command: command(title) };
+                },
+                onDidChange: changed.event,
+            });
+            return {
+                pending,
+                ask: () => {
+                    changed.fire();
+                },
+            };
+        }
+
+        /** Past the provide's debounce, before the resolve's. */
+        const PROVIDED_MS = 300;
+
+        it("two answers before any resolve: the row keeps the first text, the latest resolve sets the new one", async () => {
+            const provider = manual(() => [lens(1)]);
+            const { zones, settle } = setup();
+            await settle();
+            provider.pending[0].answer("1 refs");
+            await settle();
+            expect(zones()[0].text).toBe("1 refs");
+            provider.ask();
+            await settle();
+            provider.ask();
+            await settle();
+            expect(zones()[0].text).toBe("1 refs");
+            provider.pending.at(-1)?.answer("2 refs");
+            await settle();
+            expect(zones()[0].text).toBe("2 refs");
+        });
+
+        it("a late resolve of a superseded answer does not change the held row", async () => {
+            const provider = manual(() => [lens(1)]);
+            const { zones, settle } = setup();
+            await settle();
+            provider.pending[0].answer("1 refs");
+            await settle();
+            provider.ask();
+            await settle();
+            const superseded = provider.pending.at(-1);
+            provider.ask();
+            await settle();
+            superseded?.answer("stale");
+            await settle();
+            expect(zones()[0].text).toBe("1 refs");
+            expect(zones()[0].actions.map((a) => a.command.title)).toEqual(["1 refs"]);
+        });
+
+        it("the held row's text deleted: the row goes and its resolve brings nothing back", async () => {
+            const provider = manual(() => [lens(1)]);
+            const { edit, zones, settle } = setup();
+            await settle();
+            provider.pending[0].answer("1 refs");
+            await settle();
+            provider.ask();
+            await settle();
+            edit({ start: { line: 1, character: 0 }, end: { line: 1, character: 1 } }, "");
+            await Promise.resolve();
+            expect(zones()).toEqual([]);
+            for (const p of provider.pending) p.answer("late");
+            await settle();
+            expect(zones().filter((z) => z.text !== "")).toEqual([]);
+        });
+
+        it("editor.codeLens off and on: the next answer's row is empty until its resolve, nothing held", async () => {
+            const provider = manual(() => [lens(1)]);
+            const { controller, zones, settle } = setup();
+            await settle();
+            provider.pending[0].answer("1 refs");
+            await settle();
+            controller.setOptions({ enabled: false, nerdFont: false });
+            expect(zones()).toEqual([]);
+            controller.setOptions({ enabled: true, nerdFont: false });
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()).toEqual([{ line: 1, text: "", actions: [] }]);
+        });
+
+        it("a new provider in the registry drops the rows at once, nothing held", async () => {
+            const provider = manual(() => [lens(1)]);
+            const { zones, settle } = setup();
+            await settle();
+            provider.pending[0].answer("1 refs");
+            await settle();
+            providers.register("*", answering([]));
+            expect(zones()).toEqual([]);
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()).toEqual([{ line: 1, text: "", actions: [] }]);
+        });
+
+        it("a row showing 'no commands' keeps it until the new resolve answers", async () => {
+            const provider = manual(() => [lens(1)]);
+            const { zones, settle } = setup();
+            await settle();
+            provider.pending[0].answer(null);
+            await settle();
+            expect(zones()[0].text).toBe("no commands");
+            provider.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()[0].text).toBe("no commands");
+            await settle();
+            expect(provider.pending).toHaveLength(2);
+            provider.pending[1].answer("1 refs");
+            await settle();
+            expect(zones()[0].text).toBe("1 refs");
+        });
+
+        it("a line missing from one answer is not held by the answer after it", async () => {
+            let lenses: readonly CodeLens[] = [lens(1)];
+            const provider = manual(() => lenses);
+            const { zones, settle } = setup();
+            await settle();
+            provider.pending[0].answer("1 refs");
+            await settle();
+            lenses = [];
+            provider.ask();
+            await settle();
+            expect(zones()).toEqual([]);
+            lenses = [lens(1)];
+            provider.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()).toEqual([{ line: 1, text: "", actions: [] }]);
+        });
+
+        it("the picks of a held row whose resolve an edit cut are its old commands or the new ones, never none", async () => {
+            const provider = manual(() => [lens(2)]);
+            const { controller, insert, zones, settle } = setup();
+            await settle();
+            provider.pending[0].answer("1 refs");
+            await settle();
+            provider.ask();
+            await settle();
+            insert(0, "x");
+            await Promise.resolve();
+            expect(zones()[0].text).toBe("1 refs");
+            const picks = controller.getPicksAtLine(2);
+            await settle();
+            for (const p of provider.pending) p.answer("1 refs");
+            await settle();
+            await expect(picks).resolves.toEqual([{ label: "1 refs", command: command("1 refs") }]);
+        });
+    });
+
     describe("the picks of a line", () => {
         it("leave out a lens without a command and those of other lines", async () => {
             const run = command("run");
