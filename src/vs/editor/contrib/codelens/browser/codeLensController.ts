@@ -55,14 +55,25 @@ export interface ICodeLensViewport {
     readonly onDidChangeVisibleRange: Event<void>;
 }
 
-interface ILensItem {
+/** What a row is drawn from. */
+interface IShownLens {
+    readonly lens: CodeLens;
+    /** `waiting` — a resolve is still due; `failed` — the resolve threw or answered nothing. */
+    readonly state: "waiting" | "settled" | "failed";
+}
+
+interface ILensItem extends IShownLens {
     readonly id: string;
     readonly provider: CodeLensProvider;
     /** Whether a collapse of the tracked range means its text is gone. */
     readonly nonEmptyAtStart: boolean;
     lens: CodeLens;
-    /** `waiting` — a resolve is still due; `failed` — the resolve threw or answered nothing. */
     state: "waiting" | "settled" | "failed";
+    /**
+     * Upstream `updateCodeLensSymbols`: what the row of this line showed when the answer came. It stays on screen
+     * while a lens of the line waits, so a new answer does not blank the titles until its resolve.
+     */
+    readonly held: readonly IShownLens[] | undefined;
 }
 
 /** A provider's failure to clean up costs nobody else their lenses. */
@@ -72,6 +83,12 @@ function disposeList(list: CodeLensList): void {
     } catch (e) {
         onUnexpectedError(e);
     }
+}
+
+/** The lenses of a row: the held ones while any of the line waits for its resolve. */
+function shown(group: readonly ILensItem[]): readonly IShownLens[] {
+    const held = group.find((item) => item.held !== undefined)?.held;
+    return held !== undefined && group.some((item) => item.state === "waiting") ? held : group;
 }
 
 /** A title is one line of cells; upstream trims it and its DOM collapses a line break. */
@@ -150,11 +167,10 @@ export class CodeLensController extends Disposable {
     public async getPicksAtLine(line: number): Promise<readonly ICodeLensPick[]> {
         await this.providing;
         await this.resolving;
-        const document = this.model.document;
         const picks: ICodeLensPick[] = [];
-        for (const item of this.items) {
-            const command = item.lens.command;
-            if (command === undefined || document.getDecorationRange(item.id)?.start.line !== line) continue;
+        for (const { lens } of shown(this.itemsByLine().get(line) ?? [])) {
+            const command = lens.command;
+            if (command === undefined) continue;
             const label = titleText(command, this.options.nerdFont);
             if (label !== "") picks.push({ label, command });
         }
@@ -257,6 +273,14 @@ export class CodeLensController extends Disposable {
         const sorted = candidates
             .map((candidate) => ({ ...candidate, range: this.clampRange(candidate.lens.range) }))
             .sort((a, b) => a.rank - b.rank || a.range.start.character - b.range.start.character);
+        // Matched by line as upstream: the row where the old lenses are now against the line of the new lens.
+        const rows = new Map<number, readonly IShownLens[]>();
+        for (const [line, group] of this.itemsByLine()) {
+            rows.set(
+                line,
+                shown(group).map(({ lens, state }) => ({ lens, state })),
+            );
+        }
         const ids = this.model.document.deltaDecorations(
             this.items.map((item) => item.id),
             sorted.map(({ range }) => ({
@@ -278,6 +302,7 @@ export class CodeLensController extends Disposable {
                 nonEmptyAtStart: !isEmptyRange(range),
                 // Stryker disable next-line StringLiteral: only "waiting" and "failed" are ever compared with
                 state: needsResolve ? "waiting" : "settled",
+                held: rows.get(range.start.line),
             };
         });
         for (const list of this.lists) disposeList(list);
@@ -372,7 +397,8 @@ export class CodeLensController extends Disposable {
         });
     }
 
-    private publish(): void {
+    /** A dropped lens has no line and is in no row. */
+    private itemsByLine(): Map<number, ILensItem[]> {
         const document = this.model.document;
         const byLine = new Map<number, ILensItem[]>();
         for (const item of this.items) {
@@ -382,13 +408,17 @@ export class CodeLensController extends Disposable {
             if (group === undefined) byLine.set(line, [item]);
             else group.push(item);
         }
-        const zones = [...byLine.entries()]
+        return byLine;
+    }
+
+    private publish(): void {
+        const zones = [...this.itemsByLine().entries()]
             .sort((a, b) => a[0] - b[0])
-            .map(([line, group]) => this.zoneOf(line, group));
+            .map(([line, group]) => this.zoneOf(line, shown(group)));
         this.onDidChangeZones(zones);
     }
 
-    private zoneOf(line: number, group: readonly ILensItem[]): ICodeLensZone {
+    private zoneOf(line: number, group: readonly IShownLens[]): ICodeLensZone {
         if (group.every((item) => item.state === "failed")) return { line, text: NO_COMMANDS, actions: [] };
         let text = "";
         const actions: ICodeLensAction[] = [];

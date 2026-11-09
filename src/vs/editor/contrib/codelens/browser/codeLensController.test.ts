@@ -613,6 +613,217 @@ describe("CodeLensController", () => {
         });
     });
 
+    describe("a new answer", () => {
+        /** Every provide answers `state.lenses` of that moment; the resolves of a round answer on its `release`. */
+        function rounds() {
+            const changed = new Emitter<void>();
+            const state = {
+                lenses: [] as readonly CodeLens[],
+                title: (line: number): string | null => `${String(line)} refs`,
+            };
+            let gate = deferred<undefined>();
+            const resolveCodeLens = vi.fn(async (_model: unknown, item: CodeLens) => {
+                await gate.promise;
+                const title = state.title(item.range.start.line);
+                return title === null ? null : { ...item, command: command(title) };
+            });
+            providers.register("*", {
+                provideCodeLenses: () => list(state.lenses),
+                resolveCodeLens,
+                onDidChange: changed.event,
+            });
+            return {
+                state,
+                resolveCodeLens,
+                release: () => {
+                    gate.resolve(undefined);
+                },
+                /** The provider's own change: the next provide, whose resolves wait for the next release. */
+                ask: () => {
+                    gate = deferred<undefined>();
+                    changed.fire();
+                },
+            };
+        }
+
+        /** Past the provide's debounce, before the resolve's. */
+        const PROVIDED_MS = 300;
+
+        function row(line: number, title: string): ICodeLensZone {
+            return { line, text: title, actions: [{ start: 0, end: title.length, command: command(title) }] };
+        }
+
+        it("lenses without a command keep the row's text and clicks until their resolve answers", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(1)];
+            const { zones, settle } = setup();
+            round.release();
+            await settle();
+            expect(zones()).toEqual([row(1, "1 refs")]);
+            round.state.title = () => "2 refs";
+            round.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()).toEqual([row(1, "1 refs")]);
+            await settle();
+            expect(zones()).toEqual([row(1, "1 refs")]);
+            round.release();
+            await settle();
+            expect(zones()).toEqual([row(1, "2 refs")]);
+        });
+
+        it("a row holds while any lens of its line waits, one that came with its command too", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(1), lens(1, undefined, 1)];
+            const { zones, settle } = setup();
+            round.release();
+            await settle();
+            round.state.lenses = [lens(1, command("now")), lens(1, undefined, 1)];
+            round.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()[0].text).toBe("1 refs | 1 refs");
+            round.release();
+            await settle();
+            expect(zones()[0].text).toBe("now | 1 refs");
+        });
+
+        it("every resolve failed: the held row turns to 'no commands'", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(1)];
+            const { zones, settle } = setup();
+            round.release();
+            await settle();
+            round.state.title = () => null;
+            round.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()[0].text).toBe("1 refs");
+            round.release();
+            await settle();
+            expect(zones()).toEqual([{ line: 1, text: "no commands", actions: [] }]);
+        });
+
+        it("lenses that came with their commands show at once", async () => {
+            const changed = new Emitter<void>();
+            let title = "old";
+            providers.register("*", {
+                provideCodeLenses: () => list([lens(1, command(title))]),
+                onDidChange: changed.event,
+            });
+            const { zones, settle } = setup();
+            await settle();
+            title = "new";
+            changed.fire();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()).toEqual([row(1, "new")]);
+        });
+
+        it("a line gone from the answer loses its row; a new line has an empty one until its resolve", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(1), lens(3)];
+            const { zones, settle } = setup();
+            round.release();
+            await settle();
+            round.state.lenses = [lens(1), lens(4)];
+            round.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()).toEqual([row(1, "1 refs"), { line: 4, text: "", actions: [] }]);
+            round.release();
+            await settle();
+            expect(zones()).toEqual([row(1, "1 refs"), row(4, "4 refs")]);
+        });
+
+        it("a lens clamped into the document holds the row of the line it lands on", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(5)];
+            const { zones, settle } = setup();
+            round.release();
+            await settle();
+            round.state.lenses = [lens(9)];
+            round.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()).toEqual([row(5, "5 refs")]);
+        });
+
+        it("a row out of view keeps the old text until a scroll resolves it", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(5)];
+            const { visible, visibleRange, zones, settle } = setup();
+            round.release();
+            await settle();
+            round.state.title = () => "new";
+            visible.endLine = 1;
+            round.ask();
+            round.release();
+            await settle();
+            expect(zones()).toEqual([row(5, "5 refs")]);
+            expect(round.resolveCodeLens).toHaveBeenCalledOnce();
+            visible.endLine = 5;
+            visibleRange.fire();
+            await settle();
+            expect(zones()).toEqual([row(5, "new")]);
+        });
+
+        it("the picks of a held row are its old commands", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(5)];
+            const { visible, controller, settle } = setup();
+            round.release();
+            await settle();
+            visible.endLine = 1;
+            round.ask();
+            await settle();
+            await expect(controller.getPicksAtLine(5)).resolves.toEqual([
+                { label: "5 refs", command: command("5 refs") },
+            ]);
+        });
+
+        it("an edit that calls the resolve off leaves the row held, and it goes with its line", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(1)];
+            const { insert, zones, settle } = setup();
+            round.release();
+            await settle();
+            round.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            round.state.lenses = [lens(2)];
+            insert(0, "new\n");
+            await Promise.resolve();
+            expect(zones()).toEqual([row(2, "1 refs")]);
+            // The next answer finds the row on line 2 still held: the resolve of the last one never answered.
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()).toEqual([row(2, "1 refs")]);
+            round.release();
+            await settle();
+            expect(zones()).toEqual([row(2, "2 refs")]);
+        });
+
+        it("a row whose text was deleted stays gone: the next answer has nothing to hold", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(1)];
+            const { edit, zones, settle } = setup();
+            round.release();
+            await settle();
+            edit({ start: { line: 1, character: 0 }, end: { line: 1, character: 1 } }, "");
+            await Promise.resolve();
+            expect(zones()).toEqual([]);
+            round.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()).toEqual([{ line: 1, text: "", actions: [] }]);
+        });
+
+        it("a change of the language drops the rows at once, nothing held for the next answer", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(1)];
+            const { language, zones, settle } = setup();
+            round.release();
+            await settle();
+            round.ask();
+            language.fire(undefined);
+            expect(zones()).toEqual([]);
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            expect(zones()).toEqual([{ line: 1, text: "", actions: [] }]);
+        });
+    });
+
     describe("the picks of a line", () => {
         it("leave out a lens without a command and those of other lines", async () => {
             const run = command("run");
