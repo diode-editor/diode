@@ -58,16 +58,16 @@ export interface ICodeLensViewport {
 /** What a row is drawn from. */
 interface IShownLens {
     readonly lens: CodeLens;
-    /** `waiting` — a resolve is still due; `failed` — the resolve threw or answered nothing. */
     readonly state: "waiting" | "settled" | "failed";
 }
 
-interface ILensItem extends IShownLens {
+interface ILensItem {
     readonly id: string;
     readonly provider: CodeLensProvider;
     /** Whether a collapse of the tracked range means its text is gone. */
     readonly nonEmptyAtStart: boolean;
     lens: CodeLens;
+    /** `waiting` — a resolve is still due; `failed` — the resolve threw or answered nothing. */
     state: "waiting" | "settled" | "failed";
     /**
      * Upstream `updateCodeLensSymbols`: what the row of this line showed when the answer came. It stays on screen
@@ -274,13 +274,11 @@ export class CodeLensController extends Disposable {
             .map((candidate) => ({ ...candidate, range: this.clampRange(candidate.lens.range) }))
             .sort((a, b) => a.rank - b.rank || a.range.start.character - b.range.start.character);
         // Matched by line as upstream: the row where the old lenses are now against the line of the new lens.
-        const rows = new Map<number, readonly IShownLens[]>();
-        for (const [line, group] of this.itemsByLine()) {
-            rows.set(
-                line,
-                shown(group).map(({ lens, state }) => ({ lens, state })),
-            );
-        }
+        const rows = new Map(
+            [...this.itemsByLine()].map(
+                ([line, group]) => [line, shown(group).map(({ lens, state }) => ({ lens, state }))] as const,
+            ),
+        );
         const ids = this.model.document.deltaDecorations(
             this.items.map((item) => item.id),
             sorted.map(({ range }) => ({

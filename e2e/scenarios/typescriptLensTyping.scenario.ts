@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { dumpFrame, frameToText } from "../helpers/frame.ts";
 import { defineScenario, type ScenarioDriver } from "./framework.ts";
 
 // Typing in a function body asks the built-in TypeScript for its lenses again, and they come without titles: those
@@ -23,26 +24,14 @@ export function bar() {
 /** Past the provide's debounce, its answer and the resolve's debounce: a pause in typing as a person makes it. */
 const PAUSE_MS = 1500;
 
-function rowsOf(frame: Awaited<ReturnType<ScenarioDriver["captureFrame"]>>): string[] {
-    const rows: string[] = [];
-    for (let y = 0; y < frame.rows; y++) {
-        rows.push(
-            frame.cells
-                .slice(y * frame.cols, (y + 1) * frame.cols)
-                .map((cell) => cell.char)
-                .join(""),
-        );
-    }
-    return rows;
-}
-
 /** Every frame for `ms`: both titles must be on each. */
 async function watchTitles(editor: ScenarioDriver, ms: number): Promise<void> {
     const end = Date.now() + ms;
     while (Date.now() < end) {
-        const text = rowsOf(await editor.captureFrame()).join("\n");
+        const frame = await editor.captureFrame();
+        const text = frameToText(frame);
         if (!text.includes("2 references") || !text.includes("0 references")) {
-            throw new Error(`a lens row went blank while typing:\n${text}`);
+            throw new Error(`a lens row went blank while typing:\n${dumpFrame(frame)}`);
         }
     }
 }
