@@ -137,9 +137,9 @@ function versionDirs(app: HeadlessApp): string[] {
         .sort();
 }
 
-/** A list row's whole text: the sidebar is narrower than a row with its badge. */
+/** The whole text of an entry's first line: the sidebar is narrower than a row with its badge. */
 async function rowText(app: HeadlessApp, section: "marketplace" | "installed", id: string): Promise<string> {
-    const row = await app.session.node(`#extensionsGroup-${section}-${pageId(id)}`);
+    const row = await app.session.node(`#extensionsGroup-${section}-${pageId(id)}--title`);
     return row?.text ?? "";
 }
 
@@ -238,15 +238,16 @@ describe("Manual extension updates (ExtensionUpdates stage 2, functional e2e)", 
         // Installed in this session, so its badge is Reload (it beats Update); being listed is what says outdated.
         await waitForRow(app, "installed", PLAIN, /^Upd Plain {2}1\.0\.0 {2}Reload$/u);
         const outdated = await waitForScreen(app, "INSTALLED");
-        expect(outdated).not.toContain("MARKETPLACE");
+        // The MARKETPLACE section stays, but the catalog would only repeat the installed ones: it is empty.
+        expect(await app.session.node(`#extensionsGroup-marketplace-${pageId(PLAIN)}`)).toBeNull();
         expect(outdated).not.toContain("Upd Fresh");
 
-        // Both commands are in the section's "⋯" menu, in the updates group.
+        // Both commands are in the MARKETPLACE section's "⋯" menu, in the updates group.
         const frame = await app.session.captureFrame();
         let menu: { x: number; y: number } | null = null;
         for (let y = 0; y < frame.rows && menu === null; y++) {
             const line = frameLine(frame, y);
-            if (line.includes("EXTENSIONS") && line.includes("⋯")) menu = { x: line.indexOf("⋯"), y };
+            if (line.includes("MARKETPLACE") && line.includes("⋯")) menu = { x: line.indexOf("⋯"), y };
         }
         expect(menu).not.toBeNull();
         await app.session.click(menu!.x, menu!.y);
@@ -260,7 +261,8 @@ describe("Manual extension updates (ExtensionUpdates stage 2, functional e2e)", 
         await waitForScreen(app, "Updated 2 extensions. Reload the window to");
         // Nothing is outdated any more; without the filter the updated rows wait for the reload.
         await waitForScreen(app, "No extensions found");
-        await app.session.click(1, 2);
+        // The search box sits under the MARKETPLACE section header: click the input, not a fixed cell.
+        await app.session.clickNode("#extensionsView InputElement");
         await app.session.key("End");
         for (let i = 0; i < 12; i++) await app.session.key("Backspace");
         await waitForRow(app, "installed", PINNED, /^Upd Pinned {2}1\.1\.0 {2}Reload$/u);

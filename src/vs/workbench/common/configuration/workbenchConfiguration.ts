@@ -98,7 +98,8 @@ export const workbenchConfiguration = {
             default: "onHover",
             description: "Controls whether the tree should render indent guides.",
         },
-        // Only the Explorer reads it so far: other trees and lists open on Enter and double click.
+        // Read by the Explorer, Open Editors, extension tree views and the Extensions view; other trees and
+        // lists open on Enter and double click.
         "workbench.list.openMode": {
             scope: "window",
             type: "string",

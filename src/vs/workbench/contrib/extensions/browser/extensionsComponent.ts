@@ -1,8 +1,13 @@
+import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import { INHERITED_BG } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
-import type { ListViewElement } from "@tuidom/elements/list/listViewElement";
+import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
+import { ListViewElement } from "@tuidom/elements/list/listViewElement";
+import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { Component } from "../../../browser/component.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
@@ -16,13 +21,16 @@ import { ExtensionsWorkbenchServiceDIToken } from "../common/extensionsWorkbench
 import { ExtensionEditorPane } from "./extensionEditorPane.ts";
 import type { IExtensionPageActions } from "./extensionPageActions.ts";
 import { ExtensionPageActionsDIToken } from "./extensionPageActions.ts";
-import { buildExtensionRow, buildGroupRow, type IExtensionRowStyles } from "./extensionRows.ts";
+import { buildExtensionRow, EXTENSION_ROW_HEIGHT, type IExtensionRowStyles } from "./extensionRows.ts";
 
 export const ExtensionsComponentDIToken = token<ExtensionsComponent>("ExtensionsComponent");
 
 export const EXTENSIONS_VIEWLET_ID = "extensions";
 
+/** The catalog section; it also holds the search box. */
 export const EXTENSIONS_VIEW_ID = "workbench.extensions.marketplace";
+
+export const EXTENSIONS_INSTALLED_VIEW_ID = "workbench.extensions.installed";
 
 export interface IExtensionsEditorTarget {
     openPane(pane: IEditorPane): void;
@@ -30,10 +38,12 @@ export interface IExtensionsEditorTarget {
 
 export const ExtensionsEditorTargetDIToken = token<IExtensionsEditorTarget>("ExtensionsEditorTarget");
 
-const MARKETPLACE_GROUP_ID = "extensionsGroup-marketplace";
-const INSTALLED_GROUP_ID = "extensionsGroup-installed";
+// Row id prefixes kept from the grouped list: e2e and the inspector address rows by them.
+const MARKETPLACE_ROW_PREFIX = "extensionsGroup-marketplace";
+const INSTALLED_ROW_PREFIX = "extensionsGroup-installed";
 const ERROR_ROW_ID = "extensionsRetry";
 const EMPTY_ROW_ID = "extensionsEmpty";
+const INSTALLED_EMPTY_ROW_ID = "extensionsInstalledEmpty";
 const LOADING_ROW_ID = "extensionsLoading";
 
 const ROW_STYLES: IExtensionRowStyles = {
@@ -42,11 +52,18 @@ const ROW_STYLES: IExtensionRowStyles = {
     warningFg: "editorWarning.foreground",
 };
 
+/** Entries are three lines each: a line between them keeps the list from looking crammed. */
+const ROW_SEPARATOR: StyleColor = "panel.border";
+
 type RowAction = { readonly kind: "open"; readonly id: string } | { readonly kind: "retry" };
 
 /**
- * Installed extensions get their own section and also stay in the catalog with an `Installed` badge: the
- * catalog must not lose entries. Filtering is local over the service cache, so no debounce is needed.
+ * Two sections of the viewlet, MARKETPLACE (with the search box) and INSTALLED; the query filters both.
+ * Installed extensions also stay in the catalog with an `Installed` badge: the catalog must not lose
+ * entries. Filtering is local over the service cache, so no debounce is needed.
+ *
+ * Deviation: upstream's search box sits above all sections, in the viewlet header; ours lives in the
+ * MARKETPLACE section, since a view container has no header of its own.
  */
 export class ExtensionsComponent extends Component {
     public static dependencies = [
@@ -54,14 +71,14 @@ export class ExtensionsComponent extends Component {
         ViewsServiceDIToken,
         ExtensionsEditorTargetDIToken,
         ExtensionPageActionsDIToken,
+        IConfigurationServiceDIToken,
     ] as const;
 
-    private readonly control = new FilteredListControl({
-        viewId: "extensionsView",
-        listId: "extensionsList",
-        placeholder: "Search Extensions",
-    });
+    private readonly control: FilteredListControl;
+    /** The MARKETPLACE section's list. */
     public readonly list: ListViewElement;
+    public readonly installedList: ListViewElement;
+    private readonly installedView: TUIElement;
     private readonly actions = new Map<string, RowAction>();
     /** The catalog is being read: an empty list now means "don't know yet", not "empty". */
     private loading = false;
@@ -71,9 +88,19 @@ export class ExtensionsComponent extends Component {
         viewsService: ViewsService,
         private readonly editorTarget: IExtensionsEditorTarget,
         private readonly pageActions: IExtensionPageActions,
+        configurationService: IConfigurationService,
     ) {
         super();
 
+        // Like upstream's extension lists (and our Explorer): a single click opens unless the user asked for double.
+        const openOnSingleClick = (): boolean => configurationService.get("workbench.list.openMode") !== "doubleClick";
+        this.control = new FilteredListControl({
+            viewId: "extensionsView",
+            listId: "extensionsList",
+            placeholder: "Search Extensions",
+            rowSeparatorColor: ROW_SEPARATOR,
+            openOnSingleClick,
+        });
         this.list = this.control.list;
         this.control.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.control.onQueryChange = () => {
@@ -82,6 +109,21 @@ export class ExtensionsComponent extends Component {
         this.control.onActivateRow = (rowId) => {
             this.activateRow(rowId);
         };
+
+        this.installedList = new ListViewElement({
+            typeahead: false,
+            rowSeparatorColor: ROW_SEPARATOR,
+            openOnSingleClick,
+        });
+        this.installedList.id = "extensionsInstalledList";
+        this.installedList.onActivate = (element) => {
+            // `appendRow` throws on a row without an id, so every activated row has one; `String` only
+            // satisfies the type (an "undefined" key would find no action anyway).
+            this.activateRow(String(element.id));
+        };
+        this.installedView = new ScrollBarDecorator(this.installedList);
+        this.installedView.id = "extensionsInstalledView";
+        this.installedView.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
 
         this.register(
             service.onDidChange(() => {
@@ -104,17 +146,32 @@ export class ExtensionsComponent extends Component {
         viewsService.registerView({
             id: EXTENSIONS_VIEW_ID,
             containerId: EXTENSIONS_VIEWLET_ID,
-            title: "EXTENSIONS",
+            title: "MARKETPLACE",
             order: 10,
             body: this.control.view,
             focus: () => {
                 this.focus();
             },
         });
+        viewsService.registerView({
+            id: EXTENSIONS_INSTALLED_VIEW_ID,
+            containerId: EXTENSIONS_VIEWLET_ID,
+            title: "INSTALLED",
+            order: 20,
+            body: this.installedView,
+            focus: () => {
+                this.installedList.focus();
+            },
+        });
     }
 
+    /** The MARKETPLACE section: the search box and the catalog. */
     public get view(): TUIElement {
         return this.control.view;
+    }
+
+    public get installedSectionView(): TUIElement {
+        return this.installedView;
     }
 
     /** Also the moment of the first catalog read: no network access until the viewlet is shown. */
@@ -156,48 +213,46 @@ export class ExtensionsComponent extends Component {
         const query = parseExtensionQuery(this.getQuery());
         const entries = filterExtensionEntries(this.service.getEntries(), query);
         // Upstream `@installed`/`@outdated` are one installed list: the catalog would only repeat it.
-        const catalog = query.scope === "all" ? entries.filter((e) => e.latestVersion !== null) : [];
+        const installedOnly = query.scope !== "all";
+        const catalog = installedOnly ? [] : entries.filter((e) => e.latestVersion !== null);
         const installed = entries.filter((e) => e.installedVersion !== null);
 
         this.list.clear();
+        this.installedList.clear();
         this.actions.clear();
 
         const error = this.service.getCatalogError();
         if (error !== null) {
-            this.appendGroup(MARKETPLACE_GROUP_ID, "MARKETPLACE");
-            const row = new TextLabelElement(`Retry — ${error}`);
-            row.id = ERROR_ROW_ID;
-            row.setColors("editorWarning.foreground", INHERITED_BG);
-            this.list.appendRow(row, { parentId: MARKETPLACE_GROUP_ID });
+            this.list.appendRow(messageRow(ERROR_ROW_ID, `Retry — ${error}`, "editorWarning.foreground"));
             this.actions.set(ERROR_ROW_ID, { kind: "retry" });
-        } else if (catalog.length > 0) {
-            this.appendGroup(MARKETPLACE_GROUP_ID, "MARKETPLACE");
-            for (const entry of catalog) this.appendEntry(MARKETPLACE_GROUP_ID, entry);
+        } else {
+            for (const entry of catalog) this.appendEntry(this.list, MARKETPLACE_ROW_PREFIX, entry);
+        }
+        // Under `@installed`/`@outdated` an empty catalog is by design, not "nothing found".
+        if (this.list.rowCount === 0 && (this.loading || !installedOnly)) {
+            showState(
+                this.list,
+                this.loading
+                    ? messageRow(LOADING_ROW_ID, "Loading extensions…", "descriptionForeground")
+                    : messageRow(EMPTY_ROW_ID, "No extensions found", "descriptionForeground"),
+            );
         }
 
-        if (installed.length > 0) {
-            this.appendGroup(INSTALLED_GROUP_ID, "INSTALLED");
-            for (const entry of installed) this.appendEntry(INSTALLED_GROUP_ID, entry);
-        }
-
-        if (this.list.rowCount === 0) {
-            this.control.showPlaceholderRow(
-                this.loading ? LOADING_ROW_ID : EMPTY_ROW_ID,
-                this.loading ? "Loading extensions…" : "No extensions found",
+        for (const entry of installed) this.appendEntry(this.installedList, INSTALLED_ROW_PREFIX, entry);
+        if (this.installedList.rowCount === 0) {
+            showState(
+                this.installedList,
+                messageRow(INSTALLED_EMPTY_ROW_ID, "No extensions found", "descriptionForeground"),
             );
         }
     }
 
-    private appendGroup(id: string, title: string): void {
-        this.list.appendRow(buildGroupRow(id, title, "descriptionForeground"));
-    }
-
-    private appendEntry(groupId: string, entry: IExtensionListEntry): void {
+    private appendEntry(list: ListViewElement, prefix: string, entry: IExtensionListEntry): void {
         // One entry can be in both sections, so the id carries the section. Dots become dashes: the
         // inspector selector (`#id`) does not understand dots.
-        const rowId = `${groupId}-${entry.id.replaceAll(".", "-")}`;
-        this.list.appendRow(buildExtensionRow(rowId, entry, ROW_STYLES), {
-            parentId: groupId,
+        const rowId = `${prefix}-${entry.id.replaceAll(".", "-")}`;
+        list.appendRow(buildExtensionRow(rowId, entry, ROW_STYLES), {
+            height: EXTENSION_ROW_HEIGHT,
             label: entry.displayName,
         });
         this.actions.set(rowId, { kind: "open", id: entry.id });
@@ -226,4 +281,19 @@ export class ExtensionsComponent extends Component {
         }
         this.editorTarget.openPane(new ExtensionEditorPane(this.service, this.pageActions, entry, meta, metaError));
     }
+}
+
+/** A state row is text, not an item: no cursor sits on it. */
+function showState(list: ListViewElement, row: TUIElement): void {
+    list.appendRow(row);
+    list.clearCursor();
+}
+
+/** A one-line state row (loading, empty, error) with the same gutter as the entries. */
+function messageRow(id: string, text: string, fg: StyleColor): TUIElement {
+    const label = new TextLabelElement(text);
+    label.setColors(fg, INHERITED_BG);
+    const row = new PaddingContainerElement(label, { left: 1, right: 1 });
+    row.id = id;
+    return row;
 }

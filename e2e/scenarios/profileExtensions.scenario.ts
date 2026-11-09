@@ -87,14 +87,14 @@ export default defineScenario({
         await editor.capture("empty");
 
         // The empty profile's marketplace view: hello-lang is on disk but not in this
-        // profile, so there is no INSTALLED section at all.
+        // profile, so the INSTALLED section is empty.
         await showExtensions(editor);
-        await editor.waitForText((t) => !t.includes("INSTALLED"));
+        await editor.waitForNode("#extensionsInstalledEmpty");
         await editor.capture("empty-view");
 
-        // Installing from the marketplace adds to the active profile.
+        // Installing from the marketplace adds to the active profile (the first catalog entry, where the
+        // list's cursor starts).
         await editor.sendKey("Tab");
-        await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
         await editor.waitForNode("#extensionPage-test-sample-lang");
         await editor.waitForText((t) => t.includes("Not installed"));

@@ -10,6 +10,7 @@ import { removeTempDir } from "./helpers/appSession.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { cliOk, createNamedProfile, defaultProfileFile, namedProfileFile } from "./helpers/extensionsDisk.ts";
 import { frameToText } from "./helpers/frame.ts";
+import { $ } from "./helpers/query.ts";
 import { createRegistryFixture } from "./helpers/registryFixture.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
@@ -74,11 +75,13 @@ async function openExtensions(app: HeadlessApp): Promise<void> {
     await app.session.waitForText((t) => t.includes("EXTENSIONS"));
 }
 
+/** A single click on the entry opens it; a sideloaded one is only in INSTALLED. */
 async function openPage(app: HeadlessApp, query: string, pageId: string): Promise<void> {
     await app.session.text(query);
-    await app.session.key("Tab");
-    await app.session.key("ArrowDown");
-    await app.session.key("Enter");
+    const inCatalog = `#extensionsGroup-marketplace-${pageId}`;
+    const installed = `#extensionsGroup-installed-${pageId}`;
+    await app.session.waitForDocument((root) => $(root, inCatalog) !== null || $(root, installed) !== null);
+    await app.session.clickNode((await app.session.node(inCatalog)) !== null ? inCatalog : installed);
     await app.session.waitForNode(`#extensionPage-${pageId}`);
 }
 

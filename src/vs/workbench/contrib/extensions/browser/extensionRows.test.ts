@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
-import { buildExtensionRow, buildGroupRow, describeExtensionRow, type IExtensionRowStyles } from "./extensionRows.ts";
+import {
+    buildExtensionRow,
+    describeExtensionRow,
+    EXTENSION_ROW_HEIGHT,
+    type IExtensionRowStyles,
+} from "./extensionRows.ts";
 
 const STYLES: IExtensionRowStyles = {
     dimFg: "descriptionForeground",
@@ -92,19 +97,41 @@ describe("describeExtensionRow", () => {
     });
 });
 
+/** The row's first line starts after the one-column gutter. */
+const X = 1;
+
+function renderRow(e: IExtensionListEntry): ReturnType<typeof renderElement> {
+    return renderElement(buildExtensionRow("row-1", e, STYLES), 40, EXTENSION_ROW_HEIGHT, { themeVars: true });
+}
+
 describe("list rows", () => {
-    it("a row carries its id and layout text", () => {
-        const row = buildExtensionRow("row-1", entry(), STYLES);
-        expect(row.id).toBe("row-1");
-        expect(row.getText()).toBe("Acme Tools  1.0.0");
+    it("a row carries its id; its lines are the name line, the description and the publisher", () => {
+        const e = entry({ description: "Tools for acme" });
+        expect(buildExtensionRow("row-1", e, STYLES).id).toBe("row-1");
+
+        const lines = renderRow(e).screenToString().split("\n");
+        expect(lines.map((line) => line.trimEnd())).toEqual([" Acme Tools  1.0.0", " Tools for acme", " acme"]);
+    });
+
+    it("an empty description keeps the row three lines tall", () => {
+        const lines = renderRow(entry({ description: "" }))
+            .screenToString()
+            .split("\n");
+        expect(lines).toHaveLength(EXTENSION_ROW_HEIGHT);
+        expect(lines[1].trim()).toBe("");
+        expect(lines[2].trim()).toBe("acme");
+    });
+
+    it("the publisher is dimmed, the description is not", () => {
+        const screen = renderRow(entry({ description: "Tools" }));
+        const nameFg = screen.getFgAt(new Point(X, 0));
+        expect(screen.getFgAt(new Point(X, 1))).toBe(nameFg);
+        expect(screen.getFgAt(new Point(X, 2))).not.toBe(nameFg);
     });
 
     it("each badge kind gets its own color", () => {
-        const fgOfBadge = (e: IExtensionListEntry): number => {
-            const row = buildExtensionRow("row-1", e, STYLES);
-            const screen = renderElement(row, 40, 1, { themeVars: true });
-            return screen.getFgAt(new Point(describeExtensionRow(e).badge!.start, 0));
-        };
+        const fgOfBadge = (e: IExtensionListEntry): number =>
+            renderRow(e).getFgAt(new Point(X + describeExtensionRow(e).badge!.start, 0));
 
         const installed = fgOfBadge(entry({ installedVersion: "1.0.0", availability: "installed" }));
         const update = fgOfBadge(entry({ installedVersion: "0.9.0", availability: "outdated" }));
@@ -115,40 +142,25 @@ describe("list rows", () => {
 
     it("highlighting does not spill past the version span", () => {
         const entryWithBadge = entry({ availability: "incompatible" });
-        const row = buildExtensionRow("row-1", entryWithBadge, STYLES);
-        const screen = renderElement(row, 40, 1, { themeVars: true });
+        const screen = renderRow(entryWithBadge);
         const layout = describeExtensionRow(entryWithBadge);
 
         // The space right after the version has the row color, not the dimmed one.
         const afterVersion = layout.version.start + layout.version.length;
-        expect(screen.getFgAt(new Point(afterVersion, 0))).toBe(screen.getFgAt(new Point(0, 0)));
+        expect(screen.getFgAt(new Point(X + afterVersion, 0))).toBe(screen.getFgAt(new Point(X, 0)));
     });
 
     it("name, version and badge are colored differently — visible in the frame", () => {
-        const row = buildExtensionRow("row-1", entry({ availability: "incompatible" }), STYLES);
-        const screen = renderElement(row, 40, 1, { themeVars: true });
+        const screen = renderRow(entry({ availability: "incompatible" }));
         const layout = describeExtensionRow(entry({ availability: "incompatible" }));
 
         expect(screen.screenToString()).toContain("Incompatible");
-        const nameFg = screen.getFgAt(new Point(0, 0));
-        const versionFg = screen.getFgAt(new Point(layout.version.start, 0));
-        const badgeFg = screen.getFgAt(new Point(layout.badge!.start, 0));
+        const nameFg = screen.getFgAt(new Point(X, 0));
+        const versionFg = screen.getFgAt(new Point(X + layout.version.start, 0));
+        const badgeFg = screen.getFgAt(new Point(X + layout.badge!.start, 0));
         expect(versionFg).not.toBe(nameFg);
         expect(badgeFg).not.toBe(nameFg);
         expect(badgeFg).not.toBe(versionFg);
-    });
-
-    it("a group header is a dimmed row with its own id", () => {
-        const row = buildGroupRow("group-1", "MARKETPLACE", "descriptionForeground");
-        expect(row.id).toBe("group-1");
-        expect(row.getText()).toBe("MARKETPLACE");
-
-        // Dimmed, not inherited: the group title is fainter than entries.
-        const groupFg = renderElement(row, 20, 1, { themeVars: true }).getFgAt(new Point(0, 0));
-        const entryFg = renderElement(buildExtensionRow("row-1", entry(), STYLES), 20, 1, {
-            themeVars: true,
-        }).getFgAt(new Point(0, 0));
-        expect(groupFg).not.toBe(entryFg);
     });
 });
 
@@ -179,12 +191,11 @@ describe("partial support marker", () => {
 
     it("is colored differently from the rest of the row text", () => {
         const withPartial = entry({ support: { level: "partial", limits: ["Chat"] }, installedVersion: "1.0.0" });
-        const row = buildExtensionRow("row-1", withPartial, STYLES);
-        const screen = renderElement(row, 40, 1, { themeVars: true });
+        const screen = renderRow(withPartial);
         const layout = describeExtensionRow(withPartial);
-        const partialFg = screen.getFgAt(new Point(layout.partialSupport!.start, 0));
-        const nameFg = screen.getFgAt(new Point(0, 0));
-        const badgeFg = screen.getFgAt(new Point(layout.badge!.start, 0));
+        const partialFg = screen.getFgAt(new Point(X + layout.partialSupport!.start, 0));
+        const nameFg = screen.getFgAt(new Point(X, 0));
+        const badgeFg = screen.getFgAt(new Point(X + layout.badge!.start, 0));
         // The warning differs from both the name and the dimmed "Installed".
         expect(partialFg).not.toBe(nameFg);
         expect(partialFg).not.toBe(badgeFg);
