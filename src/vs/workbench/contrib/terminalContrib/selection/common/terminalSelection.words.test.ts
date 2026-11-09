@@ -22,7 +22,7 @@ describe("terminal selection: words and lines", () => {
         return session.buffer!;
     }
 
-    function word(buffer: ITerminalBuffer, x: number, y: number, separators = SEPARATORS): string | undefined {
+    function word(buffer: ITerminalBuffer, x: number, y: number, separators: string = SEPARATORS): string | undefined {
         const range = wordRangeAt(buffer, { x, y }, separators);
         return range === undefined ? undefined : selectionText(buffer, range);
     }
