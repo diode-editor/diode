@@ -283,6 +283,36 @@ describe("ExtensionInstaller", () => {
         });
     });
 
+    it("list returns the manifest categories and keywords for the search filters, dropping broken items", async () => {
+        await installVsix(
+            await makeVsix(
+                "tagged.vsix",
+                vsixEntries({
+                    name: "hello",
+                    publisher: "acme",
+                    version: "1.0.0",
+                    categories: ["Themes", "", 5],
+                    keywords: ["dark", null],
+                }),
+            ),
+            extensionsDir,
+        );
+
+        expect(listInstalledExtensions(extensionsDir)[0]).toMatchObject({ categories: ["Themes"], keywords: ["dark"] });
+    });
+
+    it("a manifest without the lists, or with non-arrays there, gives empty lists", async () => {
+        await installVsix(
+            await makeVsix(
+                "untagged.vsix",
+                vsixEntries({ name: "hello", publisher: "acme", version: "1.0.0", categories: "Themes" }),
+            ),
+            extensionsDir,
+        );
+
+        expect(listInstalledExtensions(extensionsDir)[0]).toMatchObject({ categories: [], keywords: [] });
+    });
+
     it("list resolves %keys% in displayName/description via package.nls.json", async () => {
         await installVsix(
             await makeVsix(

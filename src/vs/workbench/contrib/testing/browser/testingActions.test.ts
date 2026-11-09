@@ -99,7 +99,7 @@ describe("testing actions — the Test Explorer", () => {
         expect(action?.menus?.map((menu) => [menu.menuId, menu.group])).toEqual([[MenuId.MenubarViewMenu, "3_views"]]);
     });
 
-    it("Install Additional Test Extensions searches the marketplace for `testing`", () => {
+    it("Install Additional Test Extensions searches the marketplace's testing category", () => {
         const shown: string[] = [];
         const queries: string[] = [];
         run(
@@ -110,7 +110,7 @@ describe("testing actions — the Test Explorer", () => {
             ]),
         );
         expect(shown).toEqual(["extensions"]);
-        expect(queries).toEqual(["testing"]);
+        expect(queries).toEqual(['@category:"testing"']);
     });
 
     it("Go to Test takes the row's test from a menu, the test under the cursor from the key; the keyboard goes to the editor", () => {

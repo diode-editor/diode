@@ -5,10 +5,6 @@ import type {
     IRegistryVersion,
     RegistryExtensionKind,
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
-import {
-    matchesExtensionQuery,
-    normalizeExtensionQuery,
-} from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
 // Contract in `common/`, implementation in `node/`: otherwise the viewlet in `browser/` would need
@@ -32,6 +28,12 @@ export interface IExtensionListEntry {
     readonly kind: RegistryExtensionKind | undefined;
     /** `undefined`: no registry entry, or the registry did not set the flag. */
     readonly support: IRegistrySupport | undefined;
+    /**
+     * The manifest's `categories` and `keywords` (upstream `IExtension.categories`, the gallery's tags) for the
+     * search's `category:` and `tag:`: from the registry index, else from the installed manifest.
+     */
+    readonly categories: readonly string[];
+    readonly tags: readonly string[];
     /**
      * The target version: the highest compatible one in the registry (upstream `gallery` is the compatible one too).
      * With no compatible version, the index's latest, for the reason text. `null` means no registry entry.
@@ -154,26 +156,3 @@ export interface IExtensionsWorkbenchService {
 }
 
 export const ExtensionsWorkbenchServiceDIToken = token<IExtensionsWorkbenchService>("ExtensionsWorkbenchService");
-
-/** Upstream `/@outdated/i`: anywhere in the query, any case. */
-const OUTDATED_FILTER = /@outdated/giu;
-
-export interface IExtensionQuery {
-    /** `@outdated`: only outdated entries. */
-    readonly outdated: boolean;
-    /** The rest of the query, normalized for {@link matchesExtensionQuery}. */
-    readonly text: string;
-}
-
-export function parseExtensionQuery(query: string): IExtensionQuery {
-    const text = query.replace(OUTDATED_FILTER, "");
-    return { outdated: text !== query, text: normalizeExtensionQuery(text) };
-}
-
-/** `searchRegistryIndex` semantics (shared predicate in `registryFormat.ts`) plus the `@outdated` filter. */
-export function filterExtensionEntries(entries: readonly IExtensionListEntry[], query: string): IExtensionListEntry[] {
-    const { outdated, text } = parseExtensionQuery(query);
-    return entries.filter(
-        (entry) => (!outdated || entry.availability === "outdated") && matchesExtensionQuery(entry, text),
-    );
-}

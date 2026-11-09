@@ -7,6 +7,16 @@ import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quic
 import { HostColorSchemeServiceDIToken } from "../../../services/themes/browser/hostColorSchemeService.ts";
 import { getColorThemeSettingId } from "../../../services/themes/common/themeConfiguration.ts";
 import { ThemeRegistryDIToken, ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
+import { openExtensionsSearch } from "../../extensions/browser/extensionsSearch.ts";
+
+/**
+ * Upstream `marketplaceTag` of the color theme picker. Our marketplace can't preview a theme it hasn't installed
+ * (upstream `supportsExtensionGalleryResources` is false), so both entry points open the Extensions view with it.
+ */
+const COLOR_THEMES_QUERY = "category:themes";
+
+/** Upstream `installMessage`: the picker's last item when the gallery can't serve themes inline. */
+const INSTALL_COLOR_THEMES_LABEL = "Install Additional Color Themes...";
 
 export function themeTypeLabel(type: "dark" | "light" | "hc" | "hcLight"): string {
     switch (type) {
@@ -31,20 +41,22 @@ async function selectColorTheme(accessor: ServiceAccessor): Promise<void> {
     const originalTheme = themeService.theme;
     const descriptors = themeRegistry.list();
 
-    const items = descriptors.map((d) => ({
-        label: d.label,
-        description: themeTypeLabel(d.type),
-    }));
+    const items = [
+        ...descriptors.map((d) => ({
+            label: d.label,
+            description: themeTypeLabel(d.type),
+        })),
+        { label: INSTALL_COLOR_THEMES_LABEL },
+    ];
     const activeIndex = Math.max(
         0,
         descriptors.findIndex((d) => d.label === originalTheme.name),
     );
 
     const applyByLabel = (label: string): void => {
+        // The install item is no theme: highlighting it previews nothing, the last preview stays, like upstream.
         const theme = themeRegistry.resolve(label);
-        /* v8 ignore start -- defensive: `label` always originates from the registry's own list()/picker items, so resolve() never returns undefined */
         if (theme) themeService.setTheme(theme);
-        /* v8 ignore stop */
     };
 
     const picked = await quickInput.quickPick({
@@ -59,6 +71,11 @@ async function selectColorTheme(accessor: ServiceAccessor): Promise<void> {
 
     if (picked === undefined) {
         themeService.setTheme(originalTheme);
+        return;
+    }
+    if (picked.label === INSTALL_COLOR_THEMES_LABEL) {
+        themeService.setTheme(originalTheme);
+        openExtensionsSearch(accessor, COLOR_THEMES_QUERY);
         return;
     }
 
@@ -79,4 +96,13 @@ export const selectThemeAction: CommandAction = {
     },
 };
 
-export const THEME_ACTIONS: readonly CommandAction[] = [selectThemeAction];
+/** Upstream falls back to `openSearch('category:themes')` without gallery resources, which is always our case. */
+export const browseColorThemesInMarketplaceAction: CommandAction = {
+    id: "workbench.action.browseColorThemesInMarketplace",
+    title: "Preferences: Browse Color Themes in Marketplace",
+    run(accessor) {
+        openExtensionsSearch(accessor, COLOR_THEMES_QUERY);
+    },
+};
+
+export const THEME_ACTIONS: readonly CommandAction[] = [selectThemeAction, browseColorThemesInMarketplaceAction];

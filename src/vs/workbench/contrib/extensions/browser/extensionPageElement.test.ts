@@ -25,6 +25,8 @@ const ENTRY: IExtensionListEntry = {
     installedVersion: null,
     availability: "available",
     pinned: false,
+    categories: [],
+    tags: [],
     needsReload: false,
 };
 

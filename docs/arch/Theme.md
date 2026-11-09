@@ -27,7 +27,7 @@ themes/*.ts ──▶ ThemeRegistry (label → IThemeFile) ──▶ resolve(lab
                               WorkbenchComponent: applyThemeVars → корневой var-scope → каскад
 ```
 
-Выбор темы: `main.ts` — после сканирования расширений и `await contributor.apply()` — читает `workbench.colorTheme` → `ThemeRegistry.resolve` (неизвестное имя, в том числе тема ещё не установленного расширения, → `DEFAULT_COLOR_THEME` с warning в лог `extensions`; настройка не переписывается). Поэтому первый кадр уже в теме расширения, без промежуточного Dark Modern. Рантайм-смена — команда `workbench.action.selectTheme`: quick-pick с **live preview**, Enter применяет и persist'ит через `IConfigurationService.updateValue`, Escape откатывает.
+Выбор темы: `main.ts` — после сканирования расширений и `await contributor.apply()` — читает `workbench.colorTheme` → `ThemeRegistry.resolve` (неизвестное имя, в том числе тема ещё не установленного расширения, → `DEFAULT_COLOR_THEME` с warning в лог `extensions`; настройка не переписывается). Поэтому первый кадр уже в теме расширения, без промежуточного Dark Modern. Рантайм-смена — команда `workbench.action.selectTheme`: quick-pick с **live preview**, Enter применяет и persist'ит через `IConfigurationService.updateValue`, Escape откатывает. Последний пункт — `Install Additional Color Themes...` (`installMessage` эталона: наш магазин не показывает темы до установки) — откатывает превью и открывает поиск расширений `category:themes`; то же делает команда `workbench.action.browseColorThemesInMarketplace`.
 
 ### Тема по схеме терминала (`window.autoDetectColorScheme`)
 

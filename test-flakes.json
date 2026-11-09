@@ -189,6 +189,12 @@
             "test": "ExtensionHost — JS/TS project status from the stock typescript-language-server > No jsconfig → Configure JSConfig → the status names jsconfig.json and the move updates an unopened importer",
             "action": "retry",
             "note": "the label already says jsconfig.json while the command is still _typescript.createOrOpenConfig (run 41297584473, PR #1000)"
+        },
+        {
+            "file": "src/vs/workbench/contrib/testing/browser/testResultsOutput.test.ts",
+            "test": "TestResultsOutput > a new subject starts from a clean surface: no old line on the screen or in the scrollback",
+            "action": "retry",
+            "note": "expected '\\n\\n\\n\\n\\n\\n\\n\\n\\n' to contain 'new' in the mutation gate's Stryker initial test run (run 42538740300, PR #1094, whose diff is the Extensions view); green in the same run's unit job"
         }
     ]
 }
