@@ -218,16 +218,31 @@ xterm.js `InputHandler.kittyKeyboard*`: свой стек у main и alt (до 1
 
 ## Выделение и копирование
 
-Выделение `SelectionService` xterm.js (#1087), в `contrib/terminalContrib/selection/`:
+Выделение `SelectionService` xterm.js (#1087, #1088), в `contrib/terminalContrib/selection/`:
 
 - `common/terminalSelection.ts` — чистая модель: диапазон от нажатия до указателя в любую сторону (первая строка —
   до края, средние целиком, последняя — до указателя, ячейки включительно), начало на правой половине широкого
   символа берёт его целиком; текст — `translateToString` по строкам, soft wrap склеивается без `\n`, хвостовые
-  пробелы и пустые ячейки отрезаются у каждой строки, NBSP → пробел.
+  пробелы и пустые ячейки отрезаются у каждой строки, NBSP → пробел. Якорь выделения словом или строкой — всё
+  слово/строка (`anchorEnd`): голова до якоря берёт его конец, после — начало. `wordRangeAt` (`_getWordAt`) — слово
+  до ближайшего разделителя из `terminal.integrated.wordSeparators` или края логической строки, сквозь soft wrap;
+  правая половина широкого символа — часть слова, щель на краю строки от перенесённого широкого символа
+  пропускается; ячейка, куда ничего не писали (`getChars() === ""`: справа от текста, щель от табуляции), — не
+  слово и конец слова. `lineRangeAt` (`_selectLineAt`) — все строки логической строки от края до края.
 - `browser/terminalSelectionSurface.ts` — декоратор поверх ссылок. Левое нажатие + протяжка выделяют, клик без
-  протяжки (нажатие и отпускание в одной ячейке) снимает выделение и нового не делает. События идут и дальше — в
-  ссылки (Ctrl+клик открывает, Ctrl+протяжка выделяет). Программа включила mouse-tracking — мышь её, выделяет только
-  `Shift`+протяжка, и ни одно событие такой протяжки до программы не доходит. В `readCell` выделенные ячейки
+  протяжки (нажатие и отпускание в одной ячейке) снимает выделение и нового не делает. Номер клика в серии —
+  `TerminalMouseEventData.detail` движка (`MouseEvent.detail`: та же кнопка в той же ячейке того же элемента за
+  300 мс): 2 — слово (`SelectionMode.WORD`), 3 и больше — строка (`LINE`), протяжка дальше растёт целыми словами
+  или строками; двойной клик там, где слова нет, — обычная протяжка от ячейки. С Ctrl слова нет: Ctrl+клик —
+  ссылки. Shift+клик при выделении над шеллом (`_handleIncrementalClick`) переносит конец выделения в ячейку
+  клика и тянет дальше по ячейкам от прежнего якоря; без выделения — обычный клик. Разделители читаются на
+  каждом двойном клике — смена настройки действует сразу. `onDidFinishSelection` — жест мыши (отпускание протяжки,
+  двойного/тройного клика, Shift+клика) или Select All оставил выделение: как `onSelectionChange` xterm, который
+  стреляет на отпускании, а не на каждом шаге протяжки. События идут и дальше — в
+  ссылки (Ctrl+клик открывает, Ctrl+протяжка выделяет). Программа включила mouse-tracking — мышь её (двойной и
+  тройной клик тоже, с `detail`), выделяют только жесты с `Shift` — протяжка, двойной и тройной клик (как
+  `shouldForceSelection` эталона; Shift+клик тут начинает новое выделение, а не продлевает), и ни одно событие
+  такого жеста до программы не доходит. В `readCell` выделенные ячейки
   получают `terminal.selectionBackground` (без фокуса — `terminal.inactiveSelectionBackground`), полупрозрачный цвет
   композитится над фоном ячейки (`compositeOver`; для фона по умолчанию — `terminal.background` из var-scope
   виджета, так что и цвет хоста при `colorSource: "host"`); `terminal.selectionForeground` — только если задан.
@@ -243,7 +258,9 @@ xterm.js `InputHandler.kittyKeyboard*`: свой стек у main и alt (до 1
 - `browser/terminalSelectionService.ts` — декоратор для фабрики + контрибьютор ключей: `terminalTextSelected` —
   выделение у активного терминала (`getActiveInstanceAcrossHosts`), `terminalTextSelectedInFocused` — у
   сфокусированного. Ключи ставятся и опросом, и сразу на смену выделения (как `onSelectionChange` эталона):
-  команда, вызванная сразу после протяжки, их уже видит.
+  команда, вызванная сразу после протяжки, их уже видит. `terminal.integrated.copyOnSelection` — на
+  `onDidFinishSelection` текст уходит в `IClipboard` (как `TerminalClipboardContribution` эталона); простой клик,
+  снявший выделение, буфер не трогает.
 - `browser/terminalSelectionActions.ts`: `copySelection` (`Ctrl+Shift+C`), `copyAndClearSelection` (`Ctrl+C`),
   `selectAll` (без клавиши), `clearSelection` (`Escape` при `terminalFocus && terminalTextSelected`). Все четыре — в
   `DEFAULT_COMMANDS_TO_SKIP_SHELL`, поэтому с фокусом в терминале клавиша достаётся им; ложный `when` (нет
@@ -254,9 +271,12 @@ xterm.js `InputHandler.kittyKeyboard*`: свой стек у main и alt (до 1
   `terminal.inactiveSelectionBackground` — запечённый hex от дефолта `editor.selectionBackground` с альфой 0x80
   (выражений `transparent()` в реестре нет): тема, задавшая только `terminal.selectionBackground`, неактивный цвет
   не меняет. `selectionForeground` в hc эталона чёрный/белый, у нас hc-слотов нет — `null`. Выделение живёт в
-  поверхности виджета: терминал, переехавший между панелью и вкладкой, начинает без выделения. Двойной/тройной клик,
-  Shift+клик, `wordSeparators`, `copyOnSelection` — следующая задача; колоночного выделения, `copySelectionAsHtml`,
-  `minimumContrastRatio` нет.
+  поверхности виджета: терминал, переехавший между панелью и вкладкой, начинает без выделения. Двойной клик по
+  разделителю выделяет только его, по пустому месту — ничего (спека #1088; xterm берёт всю серию пробелов и
+  соседние слова вокруг не-пробельного разделителя). Протяжка после Shift+клика идёт по ячейкам, а не в режиме
+  прошлого жеста. `wordSeparators` пока влияет только на двойной клик: word-ссылок нет. Колоночного выделения,
+  `copySelectionAsHtml`, `minimumContrastRatio`, `rightClickBehavior`, `macOptionClickForcesSelection`,
+  `altClickMovesCursor` нет.
 
 ## Цвета
 

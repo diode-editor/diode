@@ -6,7 +6,14 @@ import { combinedDisposable, type IDisposable } from "../../../../../base/common
 import type { ITerminalDecoratedSurface } from "../../../terminal/browser/terminalWidgetFactory.ts";
 import type { ITerminalBuffer, ITerminalMarker } from "../../../terminal/common/terminalBuffer.ts";
 import { isInCellRange, type ITerminalCellPosition } from "../../links/common/terminalLinkProvider.ts";
-import { type ITerminalSelectionRange, selectionRange, selectionText } from "../common/terminalSelection.ts";
+import {
+    isBefore,
+    type ITerminalSelectionRange,
+    lineRangeAt,
+    selectionRange,
+    selectionText,
+    wordRangeAt,
+} from "../common/terminalSelection.ts";
 
 export type TerminalSelectionColor =
     | "terminal.background"
@@ -26,6 +33,8 @@ interface IStoredSelection {
     /** The buffer view the selection was made over; it follows the emulator. */
     readonly buffer: ITerminalBuffer;
     readonly anchor: ITerminalCellPosition;
+    /** The last cell of the word or line a double or triple click anchored the selection on; else `anchor`. */
+    readonly anchorEnd: ITerminalCellPosition;
     readonly head: ITerminalCellPosition;
     /** Follows the rows as the scrollback trims lines off the top; none on the alternate buffer. */
     readonly marker: ITerminalMarker | undefined;
@@ -40,9 +49,14 @@ interface ISelectedCells {
     readonly range: ITerminalSelectionRange;
 }
 
+/** What a drag grows by: upstream `SelectionMode` NORMAL, WORD (a double click), LINE (a triple click). */
+type DragUnit = "cell" | "word" | "line";
+
 interface IDrag {
     /** The buffer view the drag began over; it follows the emulator. */
     readonly buffer: ITerminalBuffer;
+    readonly unit: DragUnit;
+    /** Where a cell drag selects from, once the pointer leaves the pressed cell. */
     readonly anchor: ITerminalCellPosition;
     /** Shift+drag over a program that tracks the mouse: none of the drag's events reach the program. */
     readonly ownsEvents: boolean;
@@ -51,8 +65,10 @@ interface IDrag {
 
 /**
  * The session as the terminal widget sees it, plus the text selection of xterm.js's `SelectionService`: a left drag
- * selects, the selected cells are painted with the selection colors, a plain click clears. A program that turned
- * mouse tracking on owns the mouse, Shift+drag still selects. Rows are buffer rows, so scrolling and new output
+ * selects, a double click selects a word and a triple click a line (dragging on grows the selection by words or
+ * lines), Shift+click moves the selection's end, the selected cells are painted with the selection colors, a plain
+ * click clears. A program that turned mouse tracking on owns the mouse, with Shift the clicks and drags still select.
+ * Rows are buffer rows, so scrolling and new output
  * keep the selection on its text; typing into the shell, switching to the alternate buffer and a resize clear it.
  */
 export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
@@ -67,8 +83,18 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
     private readonly onDidChangeEmitter = new Emitter<void>();
     /** The selection appeared, changed or was cleared. */
     public readonly onDidChangeSelection = this.onDidChangeEmitter.event;
+    private readonly onDidFinishEmitter = new Emitter<void>();
+    /**
+     * A mouse gesture (a drag, a double or triple click, Shift+click) or Select All left a selection: upstream copies
+     * on selection here (xterm fires `onSelectionChange` on the release, not on every step of a drag).
+     */
+    public readonly onDidFinishSelection = this.onDidFinishEmitter.event;
 
-    public constructor(private readonly session: ITerminalDecoratedSurface) {}
+    /** `wordSeparators` is read on every double click: a change of the setting applies at once. */
+    public constructor(
+        private readonly session: ITerminalDecoratedSurface,
+        private readonly wordSeparators: () => string,
+    ) {}
 
     public attach(host: ITerminalSelectionHost): void {
         this.host = host;
@@ -154,13 +180,7 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
             this.session.sendMouse(event);
             return;
         }
-        this.clearSelection();
-        this.drag = {
-            buffer,
-            anchor: { x: clamp(event.col, buffer.cols), y: buffer.viewportY + event.row },
-            ownsEvents,
-            pointer: { col: event.col, row: event.row },
-        };
+        this.press(buffer, event, ownsEvents);
         if (!ownsEvents) this.session.sendMouse(event);
     }
 
@@ -204,6 +224,38 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
         if (buffer === undefined) return;
         // Stryker disable next-line ArithmeticOperator: equivalent — cells past the last column and rows past the end add nothing to the text or the paint
         this.store(buffer, { x: buffer.cols - 1, y: buffer.length - 1 }, { x: 0, y: 0 });
+        this.onDidFinishEmitter.fire();
+    }
+
+    /**
+     * Upstream `handleMouseDown`: Shift+click over the shell moves the end of the selection there and drags on from
+     * its anchor (`_handleIncrementalClick`); a click starts a drag from a cell, a double click selects the word, a
+     * triple click the line. Ctrl+click is a link's: it never selects a word.
+     */
+    private press(buffer: ITerminalBuffer, event: TerminalMouseEventData, ownsEvents: boolean): void {
+        const point = { x: clamp(event.col, buffer.cols), y: buffer.viewportY + event.row };
+        const pointer = { col: event.col, row: event.row };
+        if (event.shift && !ownsEvents && this.selection !== undefined) {
+            this.drag = { buffer, unit: "cell", anchor: point, ownsEvents, pointer };
+            this.extendTo(this.drag);
+            return;
+        }
+        this.clearSelection();
+        const clicks = event.ctrl ? 1 : (event.detail ?? 1);
+        // A double click where no word is starts a plain drag.
+        const range = clicks === 1 ? undefined : this.rangeAt(buffer, clicks === 2 ? "word" : "line", point);
+        const unit: DragUnit = range === undefined ? "cell" : clicks === 2 ? "word" : "line";
+        this.drag = { buffer, unit, anchor: point, ownsEvents, pointer };
+        if (range !== undefined) this.store(buffer, range.start, range.end, range.end);
+    }
+
+    /** The word (none where nothing is written) or the logical line at the point. */
+    private rangeAt(
+        buffer: ITerminalBuffer,
+        unit: "word" | "line",
+        point: ITerminalCellPosition,
+    ): ITerminalSelectionRange | undefined {
+        return unit === "word" ? wordRangeAt(buffer, point, this.wordSeparators()) : lineRangeAt(buffer, point.y);
     }
 
     private continueDrag(drag: IDrag, event: TerminalMouseEventData): void {
@@ -218,6 +270,7 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
         }
         this.drag = undefined;
         this.stopDragScroll();
+        if (this.selection !== undefined) this.onDidFinishEmitter.fire();
     }
 
     /** Past the top edge the selection runs to the start of the top row, past the bottom to the end of the bottom one. */
@@ -239,16 +292,37 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
             if (head.x !== drag.anchor.x || head.y !== drag.anchor.y) this.store(buffer, drag.anchor, head);
             return;
         }
-        const stored = { x: head.x, y: head.y - shiftOf(current) };
+        // Upstream `_selectToWordAt` and the LINE mode of `_handleMouseMove`: the head takes the whole word or line,
+        // its start before the anchor, its end after it.
+        const shift = shiftOf(current);
+        if (drag.unit !== "cell") {
+            const range = this.rangeAt(buffer, drag.unit, head);
+            const before = isBefore(head, { x: current.anchor.x, y: current.anchor.y + shift });
+            if (range !== undefined) head = before ? range.start : range.end;
+        }
+        const stored = { x: head.x, y: head.y - shift };
         if (current.head.x === stored.x && current.head.y === stored.y) return;
         this.selection = { ...current, head: stored };
         this.changed();
     }
 
-    private store(buffer: ITerminalBuffer, anchor: ITerminalCellPosition, head: ITerminalCellPosition): void {
+    private store(
+        buffer: ITerminalBuffer,
+        anchor: ITerminalCellPosition,
+        head: ITerminalCellPosition,
+        anchorEnd = anchor,
+    ): void {
         this.selection?.marker?.dispose();
         const marker = buffer.registerMarker();
-        this.selection = { buffer, anchor, head, marker, markerLine: marker?.line ?? 0, bufferType: buffer.type };
+        this.selection = {
+            buffer,
+            anchor,
+            anchorEnd,
+            head,
+            marker,
+            markerLine: marker?.line ?? 0,
+            bufferType: buffer.type,
+        };
         this.changed();
     }
 
@@ -301,6 +375,7 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
                 buffer,
                 { x: selection.anchor.x, y: selection.anchor.y + shift },
                 { x: selection.head.x, y: selection.head.y + shift },
+                { x: selection.anchorEnd.x, y: selection.anchorEnd.y + shift },
             );
             // The scrollback trimmed the selection's top rows: what is left of it starts at the buffer's top; trimmed
             // whole, nothing is left.

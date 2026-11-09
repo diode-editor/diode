@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FakeTerminalSurface } from "../../../../../../TestUtils/FakeTerminalSurface.ts";
 import { emulatorWith, feed } from "../../../../../../TestUtils/terminalLinks.ts";
+import { terminalConfiguration } from "../../../../common/configuration/terminalConfiguration.ts";
 import type { ExtensionPtySession } from "../../../terminal/node/extensionPtySession.ts";
 
 import {
@@ -12,6 +13,7 @@ import {
     TerminalSelectionSurface,
 } from "./terminalSelectionSurface.ts";
 
+const SEPARATORS = terminalConfiguration.properties["terminal.integrated.wordSeparators"].default;
 const BACKGROUND = 0x101010;
 const SELECTION = 0x264f78;
 const INACTIVE = parseHexColor("#264F7880");
@@ -47,7 +49,7 @@ describe("TerminalSelectionSurface", () => {
 
     async function setup(output: string, cols = 10, rows = 4): Promise<void> {
         session = await emulatorWith(output, cols, rows);
-        surface = new TerminalSelectionSurface(session);
+        surface = new TerminalSelectionSurface(session, () => SEPARATORS);
         host = new FakeHost();
         surface.attach(host);
         surface.setFocused(true);
@@ -170,7 +172,7 @@ describe("TerminalSelectionSurface", () => {
 
     it("until the widget is focused, the selection is painted with the inactive color", async () => {
         session = await emulatorWith("hi", 10, 4);
-        surface = new TerminalSelectionSurface(session);
+        surface = new TerminalSelectionSurface(session, () => SEPARATORS);
         surface.attach(new FakeHost());
         drag([0, 0], [1, 0]);
 
@@ -230,7 +232,7 @@ describe("TerminalSelectionSurface", () => {
 
     it("without a host the cells are read as is", async () => {
         session = await emulatorWith("hello", 10, 4);
-        surface = new TerminalSelectionSurface(session);
+        surface = new TerminalSelectionSurface(session, () => SEPARATORS);
         drag([0, 0], [3, 0]);
 
         expect(cellAt(0, 0).bg).toBe(DEFAULT_COLOR);
@@ -384,7 +386,7 @@ describe("TerminalSelectionSurface", () => {
 
     it("before the emulator loads there is nothing to select", () => {
         session = new FakeTerminalSurface() as unknown as ExtensionPtySession;
-        surface = new TerminalSelectionSurface(session);
+        surface = new TerminalSelectionSurface(session, () => SEPARATORS);
         const forwarded = vi.spyOn(session, "sendMouse");
 
         surface.selectAll();

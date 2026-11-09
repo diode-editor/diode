@@ -167,6 +167,23 @@ export const terminalConfiguration = {
             description:
                 "Whether to allow menubar mnemonics (for example Alt+F) to trigger the open of the menubar. Note that this will cause all alt keystrokes to skip the shell when true. This does nothing on macOS.",
         },
+        // Copied when a mouse gesture or Select All ends, not on every step of a drag: upstream copies on xterm's
+        // `onSelectionChange`. No scope upstream: window.
+        "terminal.integrated.copyOnSelection": {
+            scope: "window",
+            type: "boolean",
+            default: false,
+            description: "Controls whether text selected in the terminal will be copied to the clipboard.",
+        },
+        // `markdownDescription` goes into `description`. There are no word links yet: the separators only bound
+        // the word a double click selects.
+        "terminal.integrated.wordSeparators": {
+            scope: "window",
+            type: "string",
+            default: " ()[]{}',\"`\u2500\u2018\u2019\u201c\u201d|",
+            description:
+                "A string containing all characters to be considered word separators when double-clicking to select word and in the fallback 'word' link detection. Since this is used for link detection, including characters such as `:` that are used when detecting links will cause the line and column part of links like `file:10:5` to be ignored.",
+        },
         // There is no remote here: "notRemote" behaves as "on".
         "terminal.integrated.enableFileLinks": {
             scope: "window",
