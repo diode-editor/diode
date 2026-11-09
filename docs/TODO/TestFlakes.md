@@ -33,6 +33,9 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `testResultsOutput.test.ts`, «a new subject starts from a clean surface»: на экране пусто вместо `new` в
+  initial test run Stryker'а мутационного гейта (run 42538740300, PR #1094, дифф — вьюлет Extensions); юнит-job
+  того же прогона зелёный.
 - [ ] Сценарий `linked-editing`: `waitUntil(screen text predicate) timed out after 10000ms` на ubuntu (run 41933177040,
   PR #1065, дифф — сопоставление хорд в реестре клавиш); `--failed` зеленит.
 - [ ] `e2e/todoTreeStock.test.ts`, «a click on a tag line moves the keyboard to the editor»: набор не дошёл до строки
