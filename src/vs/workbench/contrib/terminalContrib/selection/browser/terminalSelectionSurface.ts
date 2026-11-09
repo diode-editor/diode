@@ -49,13 +49,14 @@ interface ISelectedCells {
     readonly range: ITerminalSelectionRange;
 }
 
-/** What a drag grows by: upstream `SelectionMode` NORMAL, WORD (a double click), LINE (a triple click). */
-type DragUnit = "cell" | "word" | "line";
+/** The word or line at a point: what a drag after a double or triple click grows by. */
+type DragUnit = (point: ITerminalCellPosition) => ITerminalSelectionRange | undefined;
 
 interface IDrag {
     /** The buffer view the drag began over; it follows the emulator. */
     readonly buffer: ITerminalBuffer;
-    readonly unit: DragUnit;
+    /** Upstream `SelectionMode` WORD or LINE; none — NORMAL, by cells. */
+    readonly unit: DragUnit | undefined;
     /** Where a cell drag selects from, once the pointer leaves the pressed cell. */
     readonly anchor: ITerminalCellPosition;
     /** Shift+drag over a program that tracks the mouse: none of the drag's events reach the program. */
@@ -235,27 +236,23 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
     private press(buffer: ITerminalBuffer, event: TerminalMouseEventData, ownsEvents: boolean): void {
         const point = { x: clamp(event.col, buffer.cols), y: buffer.viewportY + event.row };
         const pointer = { col: event.col, row: event.row };
-        if (event.shift && !ownsEvents && this.selection !== undefined) {
-            this.drag = { buffer, unit: "cell", anchor: point, ownsEvents, pointer };
-            this.extendTo(this.drag);
+        // Without a selection the drag from the point selects by cells, the same as a plain click's.
+        if (event.shift && !ownsEvents) {
+            this.drag = { buffer, unit: undefined, anchor: point, ownsEvents, pointer };
             return;
         }
         this.clearSelection();
         const clicks = event.ctrl ? 1 : (event.detail ?? 1);
+        const unit: DragUnit | undefined =
+            clicks === 1
+                ? undefined
+                : clicks === 2
+                  ? (at) => wordRangeAt(buffer, at, this.wordSeparators())
+                  : (at) => lineRangeAt(buffer, at.y);
         // A double click where no word is starts a plain drag.
-        const range = clicks === 1 ? undefined : this.rangeAt(buffer, clicks === 2 ? "word" : "line", point);
-        const unit: DragUnit = range === undefined ? "cell" : clicks === 2 ? "word" : "line";
-        this.drag = { buffer, unit, anchor: point, ownsEvents, pointer };
+        const range = unit?.(point);
+        this.drag = { buffer, unit: range === undefined ? undefined : unit, anchor: point, ownsEvents, pointer };
         if (range !== undefined) this.store(buffer, range.start, range.end, range.end);
-    }
-
-    /** The word (none where nothing is written) or the logical line at the point. */
-    private rangeAt(
-        buffer: ITerminalBuffer,
-        unit: "word" | "line",
-        point: ITerminalCellPosition,
-    ): ITerminalSelectionRange | undefined {
-        return unit === "word" ? wordRangeAt(buffer, point, this.wordSeparators()) : lineRangeAt(buffer, point.y);
     }
 
     private continueDrag(drag: IDrag, event: TerminalMouseEventData): void {
@@ -295,10 +292,9 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
         // Upstream `_selectToWordAt` and the LINE mode of `_handleMouseMove`: the head takes the whole word or line,
         // its start before the anchor, its end after it.
         const shift = shiftOf(current);
-        if (drag.unit !== "cell") {
-            const range = this.rangeAt(buffer, drag.unit, head);
-            const before = isBefore(head, { x: current.anchor.x, y: current.anchor.y + shift });
-            if (range !== undefined) head = before ? range.start : range.end;
+        const range = drag.unit?.(head);
+        if (range !== undefined) {
+            head = isBefore(head, { x: current.anchor.x, y: current.anchor.y + shift }) ? range.start : range.end;
         }
         const stored = { x: head.x, y: head.y - shift };
         if (current.head.x === stored.x && current.head.y === stored.y) return;

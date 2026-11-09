@@ -58,6 +58,7 @@ describe("terminal selection: words and lines", () => {
         expect(wordRangeAt(buffer, { x: 5, y: 0 }, SEPARATORS)).toBeUndefined();
         expect(wordRangeAt(buffer, { x: 0, y: 3 }, SEPARATORS)).toBeUndefined();
         expect(wordRangeAt(buffer, { x: 0, y: 99 }, SEPARATORS)).toBeUndefined();
+        expect(wordRangeAt(buffer, { x: 99, y: 0 }, SEPARATORS)).toBeUndefined();
     });
 
     it("a gap a tab left ends a word", async () => {
@@ -81,6 +82,22 @@ describe("terminal selection: words and lines", () => {
 
         expect(word(buffer, 9, 0)).toBe("0123456789");
         expect(word(buffer, 0, 1)).toBe("abc");
+    });
+
+    it("a word at the right edge of the buffer's last row ends there", async () => {
+        const buffer = await bufferWith("\r\n\r\n\r\n\r\n0123456789");
+
+        expect(word(buffer, 3, 4)).toBe("0123456789");
+    });
+
+    it("a separator or a tab gap at the edge of a wrapped row ends the word before it", async () => {
+        const spaced = await bufferWith("123456789 abc");
+        expect(word(spaced, 0, 0)).toBe("123456789");
+        expect(word(spaced, 1, 1)).toBe("abc");
+
+        const tabbed = await bufferWith("ab\tcdefghijkl");
+        expect(word(tabbed, 0, 0)).toBe("ab");
+        expect(word(tabbed, 9, 0)).toBe("cdefghijkl");
     });
 
     it("Cyrillic and CJK are word characters; a wide character is never split", async () => {
@@ -118,5 +135,6 @@ describe("terminal selection: words and lines", () => {
         }
         expect(selectionText(buffer, lineRangeAt(buffer, 2))).toBe("0123456789abcdefghijKL");
         expect(selectionText(buffer, lineRangeAt(buffer, 4))).toBe("last");
+        expect(lineRangeAt(buffer, 99)).toEqual({ start: { x: 0, y: 99 }, end: { x: 9, y: 99 } });
     });
 });

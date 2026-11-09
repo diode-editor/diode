@@ -59,13 +59,9 @@ export function wordRangeAt(
     const chars = charsAt(buffer, at);
     if (chars === "") return undefined;
     if (separators.includes(chars)) return { start: at, end: endOfCell(buffer, at) };
-    const isWordCell = (position: ITerminalCellPosition): boolean => {
-        const cell = buffer.getLine(position.y)?.getCell(position.x);
-        // The right half of a wide character belongs to it.
-        if (cell?.getWidth() === 0) return true;
-        const text = cell?.getChars() ?? "";
-        return text !== "" && !separators.includes(text);
-    };
+    // The right half of a wide character belongs to it. An empty cell ends the word too: every string includes "".
+    const isWordCell = (cell: ITerminalCellPosition): boolean =>
+        widthAt(buffer, cell) === 0 || !separators.includes(charsAt(buffer, cell));
     let start = at;
     for (
         let cell = previousCell(buffer, start);
@@ -83,10 +79,11 @@ export function wordRangeAt(
 
 /** Upstream `_selectLineAt`: the logical line, all the rows a soft wrap split it into. */
 export function lineRangeAt(buffer: ITerminalBuffer, y: number): ITerminalSelectionRange {
+    // The first row of the buffer never continues another.
     let first = y;
-    while (first > 0 && buffer.getLine(first)?.isWrapped === true) first--;
+    while (isWrapped(buffer, first)) first--;
     let last = y;
-    while (buffer.getLine(last + 1)?.isWrapped === true) last++;
+    while (isWrapped(buffer, last + 1)) last++;
     return { start: { x: 0, y: first }, end: { x: buffer.cols - 1, y: last } };
 }
 
@@ -107,7 +104,7 @@ function endOfCell(buffer: ITerminalBuffer, cell: ITerminalCellPosition): ITermi
 /** The cell before, through a soft wrap; the gap a wide character left at the edge is skipped. */
 function previousCell(buffer: ITerminalBuffer, cell: ITerminalCellPosition): ITerminalCellPosition | undefined {
     if (cell.x > 0) return { x: cell.x - 1, y: cell.y };
-    if (buffer.getLine(cell.y)?.isWrapped !== true) return undefined;
+    if (!isWrapped(buffer, cell.y)) return undefined;
     const last = { x: buffer.cols - 1, y: cell.y - 1 };
     return isWrapGap(buffer, last) ? { x: last.x - 1, y: last.y } : last;
 }
@@ -116,10 +113,18 @@ function previousCell(buffer: ITerminalBuffer, cell: ITerminalCellPosition): ITe
 function nextCell(buffer: ITerminalBuffer, cell: ITerminalCellPosition): ITerminalCellPosition | undefined {
     const next = { x: cell.x + 1, y: cell.y };
     if (next.x < buffer.cols && !isWrapGap(buffer, next)) return next;
-    return buffer.getLine(cell.y + 1)?.isWrapped === true ? { x: 0, y: cell.y + 1 } : undefined;
+    return isWrapped(buffer, cell.y + 1) ? { x: 0, y: cell.y + 1 } : undefined;
 }
 
-/** The empty last cell of a row the next one continues: a wide character that did not fit went to the next row. */
+/** The row continues the previous one (soft wrap); a row past the buffer does not. */
+function isWrapped(buffer: ITerminalBuffer, y: number): boolean {
+    return buffer.getLine(y)?.isWrapped === true;
+}
+
+/**
+ * The empty last cell of a row: past it a word goes on only on a row the soft wrap continues, where it is the gap a
+ * wide character that did not fit left behind.
+ */
 function isWrapGap(buffer: ITerminalBuffer, cell: ITerminalCellPosition): boolean {
-    return cell.x === buffer.cols - 1 && charsAt(buffer, cell) === "" && buffer.getLine(cell.y + 1)?.isWrapped === true;
+    return cell.x === buffer.cols - 1 && charsAt(buffer, cell) === "";
 }

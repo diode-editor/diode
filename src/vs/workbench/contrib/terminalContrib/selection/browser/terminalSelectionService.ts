@@ -59,9 +59,7 @@ export class TerminalSelectionService implements ITerminalSurfaceDecorator, ICon
         });
         // Upstream `TerminalClipboardContribution`: the finished selection goes to the clipboard.
         surface.onDidFinishSelection(() => {
-            if (!this.configuration.get("terminal.integrated.copyOnSelection")) return;
-            const text = surface.selectionText;
-            if (text !== undefined) void this.clipboard.writeText(text);
+            if (this.configuration.get("terminal.integrated.copyOnSelection")) void this.copy(surface);
         });
         return {
             surface,
@@ -91,9 +89,8 @@ export class TerminalSelectionService implements ITerminalSurfaceDecorator, ICon
     }
 
     /** Upstream `copySelection`: the selection to the clipboard; it stays selected. */
-    public async copySelection(): Promise<void> {
-        const text = this.activeSurface()?.selectionText;
-        if (text !== undefined) await this.clipboard.writeText(text);
+    public copySelection(): Promise<void> {
+        return this.copy(this.activeSurface());
     }
 
     public clearSelection(): void {
@@ -102,6 +99,11 @@ export class TerminalSelectionService implements ITerminalSurfaceDecorator, ICon
 
     public selectAll(): void {
         this.activeSurface()?.selectAll();
+    }
+
+    private async copy(surface: TerminalSelectionSurface | undefined): Promise<void> {
+        const text = surface?.selectionText;
+        if (text !== undefined) await this.clipboard.writeText(text);
     }
 
     private activeSurface(): TerminalSelectionSurface | undefined {

@@ -1,7 +1,7 @@
 import type { TerminalMouseEventData } from "@tuidom/core/common/iTerminalSurface";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { emulatorWith } from "../../../../../../TestUtils/terminalLinks.ts";
+import { emulatorWith, feed } from "../../../../../../TestUtils/terminalLinks.ts";
 import { terminalConfiguration } from "../../../../common/configuration/terminalConfiguration.ts";
 import type { ExtensionPtySession } from "../../../terminal/node/extensionPtySession.ts";
 
@@ -111,6 +111,28 @@ describe("TerminalSelectionSurface: double and triple click, Shift+click", () =>
             // Back inside the anchor word: the word stays.
             clickDrag(2, [9, 0], [16, 0], [10, 0]);
             expect(surface.selectionText).toBe("three");
+
+            // Past the text no word is: the selection runs to the pointer.
+            clickDrag(2, [5, 0], [19, 0]);
+            expect(surface.selectionText).toBe("two three four");
+            expect(surface.hasSelection).toBe(true);
+        });
+
+        it("the scrollback trimming during the drag keeps the anchor word on its text", async () => {
+            // The buffer is full: 1000 rows of scrollback and 4 on screen.
+            await setup(Array.from({ length: 1010 }, (_, i) => `${String(i)} w${String(i)}`).join("\r\n"));
+            click(6, 3, 1);
+            surface.sendMouse(mouse(6, 3, "down", { detail: 2 }));
+            expect(surface.selectionText).toBe("w1009");
+
+            // The anchor word is now two rows up, on row 1: before it the head takes a word's start, after it its end.
+            await feed(session, "\r\nmore\r\nlines");
+            surface.sendMouse(mouse(1, 1, "move", { button: "none" }));
+            expect(surface.selectionText).toBe("1009 w1009");
+
+            surface.sendMouse(mouse(1, 2, "move", { button: "none" }));
+            surface.sendMouse(mouse(1, 2, "up", { detail: 2 }));
+            expect(surface.selectionText).toBe("w1009\nmore");
         });
 
         it("where no word is, a drag selects by cells", async () => {
