@@ -5,6 +5,7 @@ import type { ITerminalCellPosition, ITerminalCellRange } from "../../links/comm
 export type ITerminalSelectionRange = ITerminalCellRange;
 
 function isBefore(a: ITerminalCellPosition, b: ITerminalCellPosition): boolean {
+    // Stryker disable next-line EqualityOperator: equivalent — of two equal points either order is the same range
     return a.y < b.y || (a.y === b.y && a.x < b.x);
 }
 
@@ -19,7 +20,7 @@ export function selectionRange(
     head: ITerminalCellPosition,
 ): ITerminalSelectionRange {
     const [start, end] = isBefore(head, anchor) ? [head, anchor] : [anchor, head];
-    const isContinuation = start.x > 0 && buffer.getLine(start.y)?.getCell(start.x)?.getWidth() === 0;
+    const isContinuation = buffer.getLine(start.y)?.getCell(start.x)?.getWidth() === 0;
     return { start: isContinuation ? { x: start.x - 1, y: start.y } : start, end };
 }
 
@@ -29,20 +30,15 @@ export function selectionRange(
  */
 export function selectionText(buffer: ITerminalBuffer, range: ITerminalSelectionRange): string {
     const lines: string[] = [];
-    let current = "";
     for (let y = range.start.y; y <= range.end.y; y++) {
         const line = buffer.getLine(y);
         if (line === undefined) break;
         const from = y === range.start.y ? range.start.x : 0;
         const to = y === range.end.y ? range.end.x + 1 : buffer.cols;
-        const text = line.translateToString(false, from, to);
-        if (y > range.start.y && line.isWrapped) {
-            current += text;
-        } else {
-            if (y > range.start.y) lines.push(current);
-            current = text;
-        }
+        // Trims the cells nothing was written to: the gap a wide character left at the edge when it wrapped.
+        const text = line.translateToString(true, from, to);
+        if (line.isWrapped && lines.length > 0) lines[lines.length - 1] += text;
+        else lines.push(text);
     }
-    lines.push(current);
     return lines.map((line) => line.replace(/[ \u00a0]+$/u, "").replace(/\u00a0/gu, " ")).join("\n");
 }

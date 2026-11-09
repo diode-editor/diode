@@ -167,6 +167,22 @@ describe("Workbench — the terminal's text selection", () => {
         expect(await clipboard()).toBe("before");
     });
 
+    it("without a terminal the selection commands do nothing", async () => {
+        await boot();
+        h.commands.execute("workbench.action.terminal.kill");
+        await vi.waitFor(() => {
+            expect(h.container.get(TerminalServiceDIToken).getActiveInstanceAcrossHosts()).toBeNull();
+        });
+        await h.container.get(ClipboardDIToken).writeText("before");
+        const service = h.container.get(TerminalSelectionServiceDIToken);
+
+        service.selectAll();
+        service.clearSelection();
+        await service.copySelection();
+
+        expect(await clipboard()).toBe("before");
+    });
+
     it("Copy Selection keeps the selection; Select All takes the whole buffer", async () => {
         await boot();
         dragInTerminal([0, 1], [4, 1]);

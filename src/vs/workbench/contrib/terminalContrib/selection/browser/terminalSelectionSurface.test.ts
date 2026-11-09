@@ -115,12 +115,77 @@ describe("TerminalSelectionSurface", () => {
         expect(painted(0)).toBe("..........");
     });
 
+    it("a drag straight down selects", async () => {
+        await setup("hello\r\nworld");
+
+        drag([1, 0], [1, 1]);
+
+        expect(surface.selectionText).toBe("ello\nwo");
+    });
+
+    it("a press past the right edge starts at the last cell", async () => {
+        await setup("abcdefghij\r\nworld");
+
+        drag([40, 0], [1, 1]);
+
+        expect(surface.selectionText).toBe("j\nwo");
+    });
+
+    it("a right press or a hover selects nothing and keeps the selection", async () => {
+        await setup("hello\r\nworld");
+        drag([0, 0], [2, 0]);
+        const forwarded = vi.spyOn(session, "sendMouse");
+
+        surface.sendMouse(mouse(0, 1, "down", { button: "right" }));
+        surface.sendMouse(mouse(3, 1, "move", { button: "none" }));
+        surface.sendMouse(mouse(4, 1, "move", { button: "left" }));
+        surface.sendMouse(mouse(4, 1, "up", { button: "right" }));
+
+        expect(surface.selectionText).toBe("hel");
+        expect(forwarded).toHaveBeenCalledTimes(4);
+    });
+
+    it("moving within one cell changes nothing", async () => {
+        await setup("hello");
+        const changes = vi.fn();
+        surface.onDidChangeSelection(changes);
+        surface.sendMouse(mouse(0, 0, "down"));
+        surface.sendMouse(mouse(2, 0, "move", { button: "none" }));
+        expect(changes).toHaveBeenCalledTimes(1);
+
+        surface.sendMouse(mouse(2, 0, "move", { button: "none" }));
+        surface.sendMouse(mouse(2, 0, "up"));
+
+        expect(changes).toHaveBeenCalledTimes(1);
+        expect(surface.selectionText).toBe("hel");
+    });
+
     it("a drag back to its start keeps a one-cell selection", async () => {
         await setup("hello");
 
         drag([1, 0], [3, 0], [1, 0]);
 
         expect(surface.selectionText).toBe("e");
+    });
+
+    it("until the widget is focused, the selection is painted with the inactive color", async () => {
+        session = await emulatorWith("hi", 10, 4);
+        surface = new TerminalSelectionSurface(session);
+        surface.attach(new FakeHost());
+        drag([0, 0], [1, 0]);
+
+        expect(cellAt(0, 0).bg).toBe(0x1b3044);
+    });
+
+    it("a cell is read when the session reads it: in or out of the selection", async () => {
+        await setup("hello");
+        drag([0, 0], [1, 0]);
+        const cell: TerminalCell = { char: " ", fg: DEFAULT_COLOR, bg: DEFAULT_COLOR, style: 0, width: 1 };
+
+        expect(surface.readCell(0, 0, cell)).toBe(true);
+        expect(surface.readCell(5, 0, cell)).toBe(true);
+        vi.spyOn(session, "readCell").mockReturnValue(false);
+        expect(surface.readCell(0, 0, cell)).toBe(false);
     });
 
     it("unfocused, the selection is painted with the inactive color composited over the cell's background", async () => {
@@ -228,20 +293,35 @@ describe("TerminalSelectionSurface", () => {
         surface.scrollLines(-1000);
         drag([0, 0], [3, 1]);
         expect(surface.selectionText).toBe("6\n7");
+        const changes = vi.fn();
+        surface.onDidChangeSelection(changes);
 
         await feed(session, "\r\nmore\r\nlines");
 
         expect(surface.hasSelection).toBe(false);
-        expect(updates).toBeGreaterThan(0);
+        expect(changes).toHaveBeenCalled();
     });
 
-    it("the selection goes once the scrollback trims the row it was made on", async () => {
-        await setup(Array.from({ length: 1003 }, (_, i) => String(i)).join("\r\n"));
-        drag([0, 1], [3, 1]);
+    it("a selection below the cursor goes once the scrollback trims the cursor row it was made on", async () => {
+        await setup("prompt");
+        drag([0, 1], [3, 2]);
 
         await feed(session, "\r\n".repeat(1010));
 
         expect(surface.hasSelection).toBe(false);
+    });
+
+    it("the scrollback trimming during a drag keeps the drag on its text", async () => {
+        await setup(Array.from({ length: 1010 }, (_, i) => String(i)).join("\r\n"));
+        surface.sendMouse(mouse(0, 3, "down"));
+        surface.sendMouse(mouse(3, 3, "move", { button: "none" }));
+
+        // "1009" is now two rows up, on row 1.
+        await feed(session, "\r\nmore\r\nlines");
+        surface.sendMouse(mouse(1, 1, "move", { button: "none" }));
+        surface.sendMouse(mouse(1, 1, "up"));
+
+        expect(surface.selectionText).toBe("10");
     });
 
     it("switching to the alternate buffer clears the selection", async () => {
@@ -265,6 +345,10 @@ describe("TerminalSelectionSurface", () => {
         surface.resize(8, 4);
         expect(surface.hasSelection).toBe(false);
         expect(resized).toHaveBeenLastCalledWith(8, 4);
+
+        drag([0, 0], [3, 0]);
+        surface.resize(8, 5);
+        expect(surface.hasSelection).toBe(false);
     });
 
     it("the alternate buffer selects too: a Shift+drag over vim", async () => {
@@ -277,6 +361,12 @@ describe("TerminalSelectionSurface", () => {
         expect(surface.selectionText).toBe("full");
         await feed(session, "!");
         expect(surface.selectionText).toBe("full");
+
+        surface.selectAll();
+        // Select All takes the empty rows too, as xterm.js does.
+        expect(surface.selectionText).toBe("full screen!\n\n");
+        surface.clearSelection();
+        expect(surface.hasSelection).toBe(false);
     });
 
     it("other buttons during a drag leave it as is", async () => {
@@ -410,6 +500,27 @@ describe("TerminalSelectionSurface", () => {
             expect(session.buffer!.viewportY).toBe(bottom - 3);
             surface.sendMouse(mouse(1, 2, "up"));
             expect(surface.selectionText).toBe("ow3\nrow4\nrow5\nrow6\nro");
+        });
+
+        it("on the top row the drag doesn't scroll", async () => {
+            await setup(OUTPUT);
+            vi.useFakeTimers();
+            const bottom = session.buffer!.viewportY;
+
+            surface.sendMouse(mouse(1, 2, "down"));
+            surface.sendMouse(mouse(1, 0, "move", { button: "none" }));
+            vi.advanceTimersByTime(200);
+
+            expect(session.buffer!.viewportY).toBe(bottom);
+        });
+
+        it("the wheel right after the press selects from the press to the text now under the pointer", async () => {
+            await setup(OUTPUT);
+
+            surface.sendMouse(mouse(2, 3, "down"));
+            surface.scrollLines(-1);
+
+            expect(surface.selectionText).toBe("w10\nrow");
         });
 
         it("the wheel during a drag moves the selection's end with the text under the pointer", async () => {

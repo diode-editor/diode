@@ -23,6 +23,8 @@ export interface ITerminalSelectionHost {
 const DRAG_SCROLL_INTERVAL_MS = 50;
 
 interface IStoredSelection {
+    /** The buffer view the selection was made over; it follows the emulator. */
+    readonly buffer: ITerminalBuffer;
     readonly anchor: ITerminalCellPosition;
     readonly head: ITerminalCellPosition;
     /** Follows the rows as the scrollback trims lines off the top; none on the alternate buffer. */
@@ -30,6 +32,12 @@ interface IStoredSelection {
     /** `marker.line` when the rows were stored. */
     readonly markerLine: number;
     readonly bufferType: ITerminalBuffer["type"];
+}
+
+/** The selection as it is now: its buffer and the cells, the scrollback trim applied. */
+interface ISelectedCells {
+    readonly buffer: ITerminalBuffer;
+    readonly range: ITerminalSelectionRange;
 }
 
 interface IDrag {
@@ -52,7 +60,7 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
     private drag: IDrag | undefined;
     private dragScroll: ReturnType<typeof setInterval> | undefined;
     /** `null` — to compute on the next read. */
-    private cachedRange: ITerminalSelectionRange | undefined | null = null;
+    private cachedCells: ISelectedCells | undefined | null = null;
     private host: ITerminalSelectionHost | undefined;
     /** The widget has the focus: the selection is painted with the active color. */
     private focused = false;
@@ -75,15 +83,13 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
     }
 
     public get hasSelection(): boolean {
-        return this.range() !== undefined;
+        return this.cells() !== undefined;
     }
 
     /** `undefined` without a selection. */
     public get selectionText(): string | undefined {
-        const range = this.range();
-        const buffer = this.session.buffer;
-        if (range === undefined || buffer === undefined) return undefined;
-        return selectionText(buffer, range);
+        const cells = this.cells();
+        return cells === undefined ? undefined : selectionText(cells.buffer, cells.range);
     }
 
     public get isExited(): boolean {
@@ -108,12 +114,10 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
 
     public readCell(x: number, y: number, out: TerminalCell): boolean {
         if (!this.session.readCell(x, y, out)) return false;
-        const range = this.range();
+        const cells = this.cells();
         const host = this.host;
-        if (range === undefined || host === undefined) return true;
-        const buffer = this.session.buffer;
-        // Stryker disable next-line ConditionalExpression: equivalent — a range exists only over a buffer; the check narrows the type
-        if (buffer === undefined || !isInCellRange(range, x, buffer.viewportY + y)) return true;
+        if (cells === undefined || host === undefined) return true;
+        if (!isInCellRange(cells.range, x, cells.buffer.viewportY + y)) return true;
         const background = host.styleVar(
             this.focused ? "terminal.selectionBackground" : "terminal.inactiveSelectionBackground",
         );
@@ -198,7 +202,7 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
     public selectAll(): void {
         const buffer = this.session.buffer;
         if (buffer === undefined) return;
-        this.selection?.marker?.dispose();
+        // Stryker disable next-line ArithmeticOperator: equivalent — cells past the last column and rows past the end add nothing to the text or the paint
         this.store(buffer, { x: buffer.cols - 1, y: buffer.length - 1 }, { x: 0, y: 0 });
     }
 
@@ -222,6 +226,7 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
         const { col, row } = pointer;
         let head: ITerminalCellPosition;
         if (row < 0) head = { x: 0, y: buffer.viewportY };
+        // Stryker disable next-line ArithmeticOperator: equivalent — past the bottom the head is the selection's end, and cells past the last column add nothing
         else if (row >= buffer.rows) head = { x: buffer.cols - 1, y: buffer.viewportY + buffer.rows - 1 };
         else head = { x: clamp(col, buffer.cols), y: buffer.viewportY + row };
         const current = this.selection;
@@ -237,8 +242,9 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
     }
 
     private store(buffer: ITerminalBuffer, anchor: ITerminalCellPosition, head: ITerminalCellPosition): void {
+        this.selection?.marker?.dispose();
         const marker = buffer.registerMarker();
-        this.selection = { anchor, head, marker, markerLine: marker?.line ?? 0, bufferType: buffer.type };
+        this.selection = { buffer, anchor, head, marker, markerLine: marker?.line ?? 0, bufferType: buffer.type };
         this.changed();
     }
 
@@ -250,6 +256,7 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
         }
         this.dragScroll ??= setInterval(() => {
             const row = drag.pointer.row;
+            // Stryker disable next-line EqualityOperator: equivalent — the timer runs only while the pointer is past an edge, never on row 0
             this.scrollLines(row < 0 ? row : row - drag.buffer.rows + 1);
         }, DRAG_SCROLL_INTERVAL_MS);
     }
@@ -260,43 +267,45 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
     }
 
     private onSessionUpdate(): void {
-        this.cachedRange = null;
+        this.cachedCells = null;
         const selection = this.selection;
         if (selection === undefined) return;
         // The scrollback trimmed all of the selection's text (or the cursor row its marker is on).
         if (
-            this.session.buffer?.type !== selection.bufferType ||
+            selection.buffer.type !== selection.bufferType ||
             selection.marker?.line === -1 ||
-            this.range() === undefined
+            this.cells() === undefined
         ) {
             this.clearSelection();
         }
     }
 
     private changed(): void {
-        this.cachedRange = null;
+        this.cachedCells = null;
         this.onDidChangeEmitter.fire();
     }
 
-    private range(): ITerminalSelectionRange | undefined {
-        if (this.cachedRange !== null) return this.cachedRange;
+    private cells(): ISelectedCells | undefined {
+        // Stryker disable next-line ConditionalExpression: equivalent — the cache only spares computing the same cells again
+        if (this.cachedCells !== null) return this.cachedCells;
         const selection = this.selection;
-        const buffer = this.session.buffer;
-        let range: ITerminalSelectionRange | undefined;
-        if (selection !== undefined && buffer !== undefined) {
+        let cells: ISelectedCells | undefined;
+        if (selection !== undefined) {
+            const { buffer } = selection;
             const shift = shiftOf(selection);
-            range = selectionRange(
+            const range = selectionRange(
                 buffer,
                 { x: selection.anchor.x, y: selection.anchor.y + shift },
                 { x: selection.head.x, y: selection.head.y + shift },
             );
             // The scrollback trimmed the selection's top rows: what is left of it starts at the buffer's top; trimmed
             // whole, nothing is left.
-            if (range.end.y < 0) range = undefined;
-            else if (range.start.y < 0) range = { start: { x: 0, y: 0 }, end: range.end };
+            if (range.end.y >= 0) {
+                cells = { buffer, range: range.start.y < 0 ? { start: { x: 0, y: 0 }, end: range.end } : range };
+            }
         }
-        this.cachedRange = range;
-        return range;
+        this.cachedCells = cells;
+        return cells;
     }
 }
 

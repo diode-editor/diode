@@ -39,6 +39,18 @@ describe("terminal selection", () => {
         expect(text(buffer, [0, 1], [3, 2])).toBe("KLM\nnext");
     });
 
+    it("a soft wrap right after a space keeps the space", async () => {
+        const buffer = await bufferWith("123456789 next");
+
+        expect(text(buffer, [0, 0], [3, 1])).toBe("123456789 next");
+    });
+
+    it("the gap a wide character leaves at the edge when it wraps is not copied", async () => {
+        const buffer = await bufferWith("123456789中b");
+
+        expect(text(buffer, [0, 0], [3, 1])).toBe("123456789中b");
+    });
+
     it("drops trailing blanks of every line, empty cells and typed spaces alike", async () => {
         const buffer = await bufferWith("a b   \r\n\r\nc");
 
@@ -73,5 +85,17 @@ describe("terminal selection", () => {
         const buffer = await bufferWith("one");
 
         expect(selectionText(buffer, { start: { x: 0, y: 0 }, end: { x: 3, y: 40 } })).toBe("one\n\n\n\n");
+        expect(selectionText(buffer, { start: { x: 0, y: 30 }, end: { x: 3, y: 40 } })).toBe("");
+    });
+
+    it("points past the row's end or the buffer's end are taken as they are", async () => {
+        const buffer = await bufferWith("one");
+
+        expect(selectionRange(buffer, { x: 0, y: 0 }, { x: 99, y: 0 })).toEqual({
+            start: { x: 0, y: 0 },
+            end: { x: 99, y: 0 },
+        });
+        expect(selectionRange(buffer, { x: 99, y: 0 }, { x: 0, y: 99 }).start).toEqual({ x: 99, y: 0 });
+        expect(selectionRange(buffer, { x: 0, y: 99 }, { x: 0, y: 98 }).start).toEqual({ x: 0, y: 98 });
     });
 });
