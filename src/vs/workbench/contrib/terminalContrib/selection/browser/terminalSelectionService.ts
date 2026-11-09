@@ -1,5 +1,7 @@
 import type { IClipboard } from "../../../../../platform/clipboard/common/iClipboard.ts";
 import { ClipboardDIToken } from "../../../../../platform/clipboard/common/iClipboard.ts";
+import type { IConfigurationService } from "../../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IContextKeyContributor } from "../../../../../platform/contextkey/common/contextKeyContributor.ts";
 import {
     type ContextKeyService,
@@ -27,7 +29,12 @@ export const TerminalSelectionServiceDIToken = token<TerminalSelectionService>("
  * starts without one.
  */
 export class TerminalSelectionService implements ITerminalSurfaceDecorator, IContextKeyContributor {
-    public static dependencies = [TerminalServiceDIToken, ClipboardDIToken, ContextKeyServiceDIToken] as const;
+    public static dependencies = [
+        TerminalServiceDIToken,
+        ClipboardDIToken,
+        ContextKeyServiceDIToken,
+        IConfigurationServiceDIToken,
+    ] as const;
 
     /** The surface of the instance's current widget. */
     private readonly surfaces = new WeakMap<ITerminalInstance, TerminalSelectionSurface>();
@@ -38,14 +45,21 @@ export class TerminalSelectionService implements ITerminalSurfaceDecorator, ICon
         private readonly terminals: TerminalService,
         private readonly clipboard: IClipboard,
         private readonly contextKeys: ContextKeyService,
+        private readonly configuration: IConfigurationService,
     ) {}
 
     public decorate(instance: ITerminalInstance, inner: ITerminalDecoratedSurface): ITerminalSurfaceDecoration {
-        const surface = new TerminalSelectionSurface(inner);
+        const surface = new TerminalSelectionSurface(inner, () =>
+            this.configuration.get("terminal.integrated.wordSeparators"),
+        );
         this.surfaces.set(instance, surface);
         // Upstream sets the keys on `onSelectionChange`: a command run right after a drag sees them.
         surface.onDidChangeSelection(() => {
             this.updateContextKeys(this.contextKeys);
+        });
+        // Upstream `TerminalClipboardContribution`: the finished selection goes to the clipboard.
+        surface.onDidFinishSelection(() => {
+            if (this.configuration.get("terminal.integrated.copyOnSelection")) void this.copy(surface);
         });
         return {
             surface,
@@ -75,9 +89,8 @@ export class TerminalSelectionService implements ITerminalSurfaceDecorator, ICon
     }
 
     /** Upstream `copySelection`: the selection to the clipboard; it stays selected. */
-    public async copySelection(): Promise<void> {
-        const text = this.activeSurface()?.selectionText;
-        if (text !== undefined) await this.clipboard.writeText(text);
+    public copySelection(): Promise<void> {
+        return this.copy(this.activeSurface());
     }
 
     public clearSelection(): void {
@@ -86,6 +99,11 @@ export class TerminalSelectionService implements ITerminalSurfaceDecorator, ICon
 
     public selectAll(): void {
         this.activeSurface()?.selectAll();
+    }
+
+    private async copy(surface: TerminalSelectionSurface | undefined): Promise<void> {
+        const text = surface?.selectionText;
+        if (text !== undefined) await this.clipboard.writeText(text);
     }
 
     private activeSurface(): TerminalSelectionSurface | undefined {

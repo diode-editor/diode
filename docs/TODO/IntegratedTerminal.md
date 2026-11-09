@@ -27,7 +27,8 @@
 - [x] Выделение мышью и копирование: протяжка, `Ctrl+C` с выделением копирует, `Escape`, Select All, цвета
   `terminal.selectionBackground`/`inactiveSelectionBackground`/`selectionForeground` (#1087,
   [Terminal.md](../arch/workbench/Terminal.md#выделение-и-копирование)).
-- [ ] Двойной и тройной клик, Shift+клик, `terminal.integrated.wordSeparators`, `copyOnSelection`.
+- [x] Двойной и тройной клик, Shift+клик, `terminal.integrated.wordSeparators`, `copyOnSelection` (#1088,
+  [Terminal.md](../arch/workbench/Terminal.md#выделение-и-копирование)).
 - [x] Ссылки на файлы: Ctrl+наведение подчёркивает, Ctrl+клик открывает (#816,
   [Terminal.md](../arch/workbench/Terminal.md#ссылки-на-файлы)); с клавиатуры — quick pick «Open Detected
   Link…» (`Ctrl+Shift+O`) и «Open Last Local File Link» (#817). Дальше — URL и word-ссылки.

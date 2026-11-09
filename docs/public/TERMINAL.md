@@ -94,12 +94,16 @@ The mouse is always on in Diode, so the terminal's own text selection needs its 
 `Shift`+drag in most terminals, `Option`+drag in iTerm2.
 
 In Diode's integrated terminal (the TERMINAL panel or a terminal tab), drag with the left button to
-select text. `Ctrl+C` with a selection copies it and clears the selection; without one it goes to
-the shell as usual. `Ctrl+Shift+C` copies and keeps the selection where your terminal passes it
+select text. A double click selects a word and a triple click the whole line, soft-wrapped rows
+included; keep dragging after either to grow the selection by words or lines. `Shift`+click moves
+the end of the selection to the clicked cell. The characters that end a word are set by
+`terminal.integrated.wordSeparators`. `Ctrl+C` with a selection copies it and clears the selection;
+without one it goes to the shell as usual. `Ctrl+Shift+C` copies and keeps the selection where your terminal passes it
 through, `Escape` clears it, and **Terminal: Select All** selects the whole buffer, scrollback
-included. When a program in the terminal uses the mouse itself (htop, vim with `mouse=a`), hold
-`Shift` while dragging to select; if your terminal takes `Shift`+drag for its own selection, that
-one wins. The colors are `terminal.selectionBackground`, `terminal.inactiveSelectionBackground` and
+included. With `terminal.integrated.copyOnSelection` on, a selection goes to the clipboard as soon
+as you finish it, no `Ctrl+C` needed. When a program in the terminal uses the mouse itself (htop,
+vim with `mouse=a`), its clicks are its own: hold `Shift` while dragging, double or triple clicking
+to select; if your terminal takes `Shift`+drag for its own selection, that one wins. The colors are `terminal.selectionBackground`, `terminal.inactiveSelectionBackground` and
 `terminal.selectionForeground`.
 
 ## Mouse pointer

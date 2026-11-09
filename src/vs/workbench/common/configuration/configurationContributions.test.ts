@@ -128,6 +128,8 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "terminal.integrated.tabs.focusMode": "window",
     "terminal.integrated.hideOnLastClosed": "window",
     "terminal.integrated.enableFileLinks": "window",
+    "terminal.integrated.copyOnSelection": "window",
+    "terminal.integrated.wordSeparators": "window",
     "terminal.integrated.defaultLocation": "window",
     "terminal.integrated.sendKeybindingsToShell": "window",
     "terminal.integrated.commandsToSkipShell": "window",
