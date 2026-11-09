@@ -28,6 +28,20 @@ palette. Type in the search box: results come in two groups, **Marketplace** and
 `Enter` on a row opens the extension's page with its description, the support note and the
 buttons: **Install**, **Update to x.y.z**, **Uninstall**.
 
+The search box understands VS Code's filters, alone or combined with text:
+
+| Filter | Shows |
+|---|---|
+| `@category:themes`, `@category:"programming languages"` | extensions of a category; `category:-themes` excludes one |
+| `@tag:python` | extensions with that keyword in their manifest |
+| `@installed`, `@updates` (or `@outdated`) | one list of installed / outdated extensions |
+| `@id:publisher.name` | exactly that extension |
+| `@sort:name`, `@sort:publishedDate` | the same results, sorted |
+
+The same filters are in the view's `...` menu under **Filter Extensions...**. To find a color theme,
+pick **Install Additional Color Themes...** at the end of **Preferences: Color Theme**, or run
+**Preferences: Browse Color Themes in Marketplace**.
+
 After an install or uninstall, run **Reload Window** (File menu or the command palette): extensions
 are loaded at startup, there is no hot reload. The catalog is fetched the first time you open the
 view; **Extensions: Refresh** reloads it.

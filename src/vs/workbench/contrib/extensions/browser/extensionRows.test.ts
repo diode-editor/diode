@@ -25,6 +25,8 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
         installedVersion: null,
         availability: "available",
         pinned: false,
+        categories: [],
+        tags: [],
         needsReload: false,
         ...overrides,
     };

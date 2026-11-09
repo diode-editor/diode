@@ -6,10 +6,9 @@ import { parseChord, parseKeybinding } from "../../../../platform/keybinding/com
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import { type IWireTestItemArg, TestItemExpandState } from "../../../api/common/testingWireTypes.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
-import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
-import { EXTENSIONS_VIEWLET_ID, ExtensionsComponentDIToken } from "../../extensions/browser/extensionsComponent.ts";
+import { openExtensionsSearch } from "../../extensions/browser/extensionsSearch.ts";
 import { isFailedState } from "../common/testingStates.ts";
 import { TestProfileServiceDIToken } from "../common/testProfileService.ts";
 import type { LiveTestResult } from "../common/testResult.ts";
@@ -438,16 +437,12 @@ export const goToTestAction: CommandAction = {
     },
 };
 
-/**
- * Upstream `SearchForTestExtension` opens the marketplace with `@category:"testing"`; our search has no categories, so
- * it searches for the word (a deviation).
- */
+/** Upstream `SearchForTestExtension`. */
 export const searchForTestExtensionAction: CommandAction = {
     id: "testing.searchForTestExtension",
     title: "Search for Test Extension",
     run(accessor) {
-        accessor.get(SidebarServiceDIToken).showViewlet(EXTENSIONS_VIEWLET_ID);
-        accessor.get(ExtensionsComponentDIToken).setQuery("testing");
+        openExtensionsSearch(accessor, '@category:"testing"');
     },
 };
 

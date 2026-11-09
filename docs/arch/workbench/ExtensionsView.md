@@ -41,9 +41,33 @@
   «магазин пуст»; сбой — строка `Retry — <причина>` в секции магазина, карточки
   установленного остаются. Остальной кэш `meta` (страницы, пикер) живёт всю сессию; его сбрасывает
   `Check for Updates`, и только после успешного чтения индекса (офлайн список остаётся прежним).
-- **Запрос `@outdated`** (как `/@outdated/i` эталона, в любом месте и регистре): только устаревшие,
-  остаток запроса фильтрует как обычно (`parseExtensionQuery` в `common/`). Устаревшие установлены по
-  определению, поэтому под `@outdated` секции `MARKETPLACE` нет — строки не дублируются.
+- **Фильтры поиска** — `common/extensionQuery.ts` (имя и разбор как у `extensionQuery.ts` эталона плюс
+  куски `extensionsViews.ts`, которые его читают). Весь каталог в памяти, поэтому все фильтры локальные;
+  эталон отдаёт `category:`/`tag:`/`@sort` галерее.
+  - `@installed` / `@outdated` (= `@updates` эталона) — в любом месте и регистре; один список `INSTALLED`
+    без секции `MARKETPLACE` (строки не дублируются). `@installed` побеждает `@outdated`, как порядок
+    проверок эталона.
+  - `category:x` / `@category:"x y"` — без регистра; несколько — «любая из»; `category:-x` исключает (в
+    эталоне дефис остаётся в значении и исключение не срабатывает — делаем то, что задумано);
+    `category:none` — расширения без категорий. `tag:x` — точное совпадение ключевого слова без регистра.
+    Категории и теги карточки — из `index.json` реестра (`sync-manifest` в репозитории реестра переносит их
+    из манифеста), иначе из манифеста установленного (`IInstalledExtension.categories`/`keywords`).
+  - `@id:pub.name` — только эти id, остальной запрос игнорируется (`queryByIds` эталона).
+  - `@sort:name` и `@sort:publishedDate` сортируют; `installs`/`rating`/`updateDate` разбираются, но
+    данных под них нет — порядок прежний (отступление).
+  - Остаток — обычный подстрочный поиск по id, имени и описанию (`matchesExtensionQuery`).
+  - Не поддержаны (нет данных): `@popular`, `@featured`, `@recommended`, `@recentlyPublished`, `@builtin`,
+    `@enabled`/`@disabled`, `@ext:`, `@contribute:`, `@mcp`. Автодополнения по `@` в поле поиска нет.
+- **Меню `Filter Extensions...`** (`browser/extensionFilterActions.ts`, `extensionsFilterSubMenu` эталона) —
+  подменю в `...` секции, а не воронка в поле поиска, как в эталоне: у нашего поля нет кнопок (отступление).
+  Пункты: `Category ›` (20 категорий `EXTENSION_CATEGORIES`, команды `extensions.actions.searchByCategory.*`
+  вне палитры), `Installed` и `Updates` (`workbench.extensions.action.installedExtensions` /
+  `.extensionUpdates`, в палитре как `Extensions: Show …`), `Sort By ›` (`Name`, `Published Date` —
+  `extensions.sort.*`, заменяют `@sort:` в текущем запросе). Пункты без данных опущены, как эталон опускает
+  то, чего нет в возможностях галереи. `openExtensionsSearch` (`browser/extensionsSearch.ts`) — `openSearch`
+  эталона; через него идут и `Install Additional Test Extensions...` (`@category:"testing"`), и пункт
+  `Install Additional Color Themes...` в выборе темы, и `Preferences: Browse Color Themes in Marketplace`
+  (`category:themes`).
 - **Ручное обновление** (ExtensionUpdates, этап 2; эталон — `checkForUpdates` / `updateAll` в
   `extensions.contribution.ts`), `browser/extensionUpdateActions.ts`:
   - `Extensions: Check for Extension Updates` (`workbench.extensions.action.checkForUpdates`) —

@@ -9,12 +9,9 @@ import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import { FilteredListControl } from "../../../browser/parts/views/filteredListControl.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import { filterExtensionEntries, parseExtensionQuery } from "../common/extensionQuery.ts";
 import type { IExtensionListEntry, IExtensionsWorkbenchService } from "../common/extensionsWorkbench.ts";
-import {
-    ExtensionsWorkbenchServiceDIToken,
-    filterExtensionEntries,
-    parseExtensionQuery,
-} from "../common/extensionsWorkbench.ts";
+import { ExtensionsWorkbenchServiceDIToken } from "../common/extensionsWorkbench.ts";
 
 import { ExtensionEditorPane } from "./extensionEditorPane.ts";
 import type { IExtensionPageActions } from "./extensionPageActions.ts";
@@ -156,10 +153,10 @@ export class ExtensionsComponent extends Component {
     }
 
     private rebuildRows(): void {
-        const query = this.getQuery();
+        const query = parseExtensionQuery(this.getQuery());
         const entries = filterExtensionEntries(this.service.getEntries(), query);
-        // Outdated ones are installed by definition: under `@outdated` the catalog would only repeat them.
-        const catalog = parseExtensionQuery(query).outdated ? [] : entries.filter((e) => e.latestVersion !== null);
+        // Upstream `@installed`/`@outdated` are one installed list: the catalog would only repeat it.
+        const catalog = query.scope === "all" ? entries.filter((e) => e.latestVersion !== null) : [];
         const installed = entries.filter((e) => e.installedVersion !== null);
 
         this.list.clear();
