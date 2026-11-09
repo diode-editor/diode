@@ -1,16 +1,13 @@
-import type { ITerminalSurface, TerminalCell, TerminalMouseEventData } from "@tuidom/core/common/iTerminalSurface";
+import type { TerminalCell, TerminalMouseEventData } from "@tuidom/core/common/iTerminalSurface";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
 import { assertReturnsDefined } from "../../../../../base/common/assert.ts";
 import { onUnexpectedError } from "../../../../../base/common/errors.ts";
 import { Emitter } from "../../../../../base/common/event.ts";
 import { combinedDisposable, type IDisposable } from "../../../../../base/common/lifecycle.ts";
+import type { ITerminalDecoratedSurface } from "../../../terminal/browser/terminalWidgetFactory.ts";
 import type { ITerminalBuffer } from "../../../terminal/common/terminalBuffer.ts";
-import { isInLink, type ITerminalLink } from "../common/terminalLinkProvider.ts";
-
-export interface ITerminalLinkSession extends ITerminalSurface {
-    readonly buffer?: ITerminalBuffer | undefined;
-}
+import { isInCellRange, type ITerminalLink } from "../common/terminalLinkProvider.ts";
 
 export interface ITerminalLinkSource {
     provideLinks(buffer: ITerminalBuffer, row: number): Promise<ITerminalLink[]>;
@@ -25,7 +22,7 @@ export interface ITerminalLinkSource {
  * Ctrl alone is not a mouse event: its press and release arrive as keys only under the kitty protocol, so on
  * other tiers the underline follows the Ctrl bit of the next pointer move.
  */
-export class TerminalLinkSurface implements ITerminalSurface {
+export class TerminalLinkSurface implements ITerminalDecoratedSurface {
     private hovered: ITerminalLink | undefined;
     /** The link the quick pick points at; unlike the hover, the pointer and new output don't clear it. */
     private revealed: ITerminalLink | undefined;
@@ -38,7 +35,7 @@ export class TerminalLinkSurface implements ITerminalSurface {
     private readonly onDidChangeHoverEmitter = new Emitter<void>();
 
     public constructor(
-        private readonly session: ITerminalLinkSession,
+        private readonly session: ITerminalDecoratedSurface,
         private readonly links: ITerminalLinkSource,
         private readonly open: (link: ITerminalLink) => Promise<void>,
     ) {}
@@ -46,6 +43,11 @@ export class TerminalLinkSurface implements ITerminalSurface {
     /** For tests and the frame: the underlined link. */
     public get hoveredLink(): ITerminalLink | undefined {
         return this.hovered;
+    }
+
+    /** Decorations over this one (the selection) read the buffer through it. */
+    public get buffer(): ITerminalBuffer | undefined {
+        return this.session.buffer;
     }
 
     public get isExited(): boolean {
@@ -77,8 +79,8 @@ export class TerminalLinkSurface implements ITerminalSurface {
         // Both links come from a lookup over the buffer, which stays.
         const row = assertReturnsDefined(this.session.buffer).viewportY + y;
         if (
-            (hovered !== undefined && isInLink(hovered, x, row)) ||
-            (revealed !== undefined && isInLink(revealed, x, row))
+            (hovered !== undefined && isInCellRange(hovered, x, row)) ||
+            (revealed !== undefined && isInCellRange(revealed, x, row))
         ) {
             out.style |= StyleFlags.Underline;
         }
@@ -181,15 +183,14 @@ export class TerminalLinkSurface implements ITerminalSurface {
         const buffer = this.session.buffer;
         if (buffer === undefined) return;
         const pressY = buffer.viewportY + pressed.row;
-        void this.links.provideLinks(buffer, pressY).then(async (links) => {
-            const link = links.find((candidate) => isInLink(candidate, pressed.col, pressY));
-            if (link === undefined || !isInLink(link, released.col, buffer.viewportY + released.row)) return;
-            try {
+        void this.links
+            .provideLinks(buffer, pressY)
+            .then(async (links) => {
+                const link = links.find((candidate) => isInCellRange(candidate, pressed.col, pressY));
+                if (link === undefined || !isInCellRange(link, released.col, buffer.viewportY + released.row)) return;
                 await this.open(link);
-            } catch (error) {
-                onUnexpectedError(error);
-            }
-        }, onUnexpectedError);
+            })
+            .catch(onUnexpectedError);
     }
 
     /** `null` — a newer lookup superseded this one. */
@@ -206,7 +207,7 @@ export class TerminalLinkSurface implements ITerminalSurface {
             return null;
         }
         if (request !== this.request) return null;
-        return links.find((link) => isInLink(link, col, y));
+        return links.find((link) => isInCellRange(link, col, y));
     }
 
     private setHover(link: ITerminalLink | undefined): void {

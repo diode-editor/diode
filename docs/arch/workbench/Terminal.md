@@ -173,11 +173,15 @@ xterm.js `InputHandler.kittyKeyboard*`: свой стек у main и alt (до 1
 - `browser/terminalLinkSurface.ts` — декоратор `ITerminalSurface` между сессией и виджетом: мышь с Ctrl
   подчёркивает ссылку (`StyleFlags.Underline` в `readCell`, цвет не трогает), Ctrl+клик левой открывает
   (`terminalLinkOpener.ts`: файл — `openUri` + позиция из суффикса, папка воркспейса — Explorer). Включила
-  программа mouse-tracking (`mouseEventsActive`) — мышь её, ссылок нет. `terminalLinkService.ts` строит виджет
-  через шов `TerminalWidgetFactoryDIToken` (`contrib/terminal/browser/terminalWidgetFactory.ts`) — им пользуются
-  и панель, и вкладка-терминал; `enableFileLinks` читается один раз на инстанс («только в новых терминалах»).
+  программа mouse-tracking (`mouseEventsActive`) — мышь её, ссылок нет. `terminalLinkService.ts` — декоратор
+  поверхности (`ITerminalSurfaceDecorator`) в шве `TerminalWidgetFactoryDIToken`
+  (`contrib/terminal/browser/terminalWidgetFactory.ts`): `createDecoratedTerminalWidget` оборачивает сессию
+  цепочкой декораторов (ссылки, поверх них [выделение](#выделение-и-копирование)) и строит виджет над внешним; им
+  пользуются и панель, и вкладка-терминал. `enableFileLinks` читается один раз на инстанс («только в новых
+  терминалах»).
 - Буфер для детектора — `ITerminalSession.buffer` (`common/terminalBuffer.ts`, структурное подмножество
-  `IBuffer` xterm; есть у `XtermSurface`, у фейков — нет, и ссылок там нет).
+  `IBuffer` xterm; есть у `XtermSurface`, у фейков — нет, и ссылок там нет). Декоратор обязан отдавать `buffer`
+  внутренней поверхности наружу: по нему работает следующий в цепочке.
 - **Отступления.** cwd для относительных путей — не shell integration (её нет), а
   `ITerminalSession.getCwd()`: `/proc/<pid>/cwd` шелла, иначе его начальный cwd, у pty расширения — `cwd`
   запуска; потом корни воркспейса. Модификатор — всегда Ctrl (ключа `editor.multiCursorModifier` нет, Cmd до
@@ -211,6 +215,48 @@ xterm.js `InputHandler.kittyKeyboard*`: свой стек у main и alt (до 1
   (`PickerEditorState` эталона). URL, word-ссылок и accessible view (`Ctrl+Shift+G`) нет. На tier `legacy`
   `Ctrl+Shift+O` неотличим от `Ctrl+O` (у bash — operate-and-get-next), поэтому бинд гейтится `kitty`/`csi-u`, а
   там команда — из палитры.
+
+## Выделение и копирование
+
+Выделение `SelectionService` xterm.js (#1087), в `contrib/terminalContrib/selection/`:
+
+- `common/terminalSelection.ts` — чистая модель: диапазон от нажатия до указателя в любую сторону (первая строка —
+  до края, средние целиком, последняя — до указателя, ячейки включительно), начало на правой половине широкого
+  символа берёт его целиком; текст — `translateToString` по строкам, soft wrap склеивается без `\n`, хвостовые
+  пробелы и пустые ячейки отрезаются у каждой строки, NBSP → пробел.
+- `browser/terminalSelectionSurface.ts` — декоратор поверх ссылок. Левое нажатие + протяжка выделяют, клик без
+  протяжки (нажатие и отпускание в одной ячейке) снимает выделение и нового не делает. События идут и дальше — в
+  ссылки (Ctrl+клик открывает, Ctrl+протяжка выделяет). Программа включила mouse-tracking — мышь её, выделяет только
+  `Shift`+протяжка, и ни одно событие такой протяжки до программы не доходит. В `readCell` выделенные ячейки
+  получают `terminal.selectionBackground` (без фокуса — `terminal.inactiveSelectionBackground`), полупрозрачный цвет
+  композитится над фоном ячейки (`compositeOver`; для фона по умолчанию — `terminal.background` из var-scope
+  виджета, так что и цвет хоста при `colorSource: "host"`); `terminal.selectionForeground` — только если задан.
+  Цвета и фокус поверхность берёт у виджета (`attach`: `styleVar`, `isFocused`).
+- Строки выделения — строки буфера, не экрана: колесо и новый вывод его не сдвигают. Когда скролбэк полон, xterm
+  срезает строки сверху и номера сдвигаются — поэтому с выделением регистрируется маркер на строке курсора
+  (`ITerminalBuffer.registerMarker`, `registerMarker(0)` xterm) и сдвиг берётся из его `line`; срезанное сверху
+  выделение начинается с верха буфера, срезан сам маркер — выделение снято. Снимают выделение: ввод в шелл (`write`,
+  как `onUserInput` xterm — и вставка), смена буфера на alternate (`ITerminalBuffer.type`), ресайз.
+- Протяжка за верхний/нижний край виджета (виджет `capturesPointer`, события приходят и снаружи) крутит скролбэк
+  таймером раз в 50 мс (`DRAG_SCROLL_INTERVAL` эталона) на столько строк, на сколько указатель за краем; конец
+  выделения — начало верхней строки или конец нижней.
+- `browser/terminalSelectionService.ts` — декоратор для фабрики + контрибьютор ключей: `terminalTextSelected` —
+  выделение у активного терминала (`getActiveInstanceAcrossHosts`), `terminalTextSelectedInFocused` — у
+  сфокусированного. Ключи ставятся и опросом, и сразу на смену выделения (как `onSelectionChange` эталона):
+  команда, вызванная сразу после протяжки, их уже видит.
+- `browser/terminalSelectionActions.ts`: `copySelection` (`Ctrl+Shift+C`), `copyAndClearSelection` (`Ctrl+C`),
+  `selectAll` (без клавиши), `clearSelection` (`Escape` при `terminalFocus && terminalTextSelected`). Все четыре — в
+  `DEFAULT_COMMANDS_TO_SKIP_SHELL`, поэтому с фокусом в терминале клавиша достаётся им; ложный `when` (нет
+  выделения) — и `Ctrl+C`/`Escape` уходят в шелл. Копия — `IClipboard` (OSC 52), как у редактора.
+- **Отступления.** `Ctrl+C` с выделением копирует и снимает его на всех платформах (в эталоне — только на Windows):
+  `Ctrl+Shift+C` на tier `legacy` неотличим от `Ctrl+C`, а хост-терминалы обычно берут его себе. `terminalFocusInAny`
+  и `terminalFindVisible` нет — `Escape` гейтится `terminalFocus` (он и так любой терминал: панель и вкладка). Цвет
+  `terminal.inactiveSelectionBackground` — запечённый hex от дефолта `editor.selectionBackground` с альфой 0x80
+  (выражений `transparent()` в реестре нет): тема, задавшая только `terminal.selectionBackground`, неактивный цвет
+  не меняет. `selectionForeground` в hc эталона чёрный/белый, у нас hc-слотов нет — `null`. Выделение живёт в
+  поверхности виджета: терминал, переехавший между панелью и вкладкой, начинает без выделения. Двойной/тройной клик,
+  Shift+клик, `wordSeparators`, `copyOnSelection` — следующая задача; колоночного выделения, `copySelectionAsHtml`,
+  `minimumContrastRatio` нет.
 
 ## Цвета
 

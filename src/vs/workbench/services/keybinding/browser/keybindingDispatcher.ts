@@ -114,6 +114,12 @@ export class KeybindingDispatcher extends Disposable {
 
     public hasKeyboardCapturingOverlay: () => boolean = () => false;
 
+    /** The focused element; the view owner supplies it. */
+    public activeElement: () => unknown = () => null;
+
+    /** The focus when the key reached the root's capture phase; see {@link handleKeyDown}. */
+    private focusAtKeyDown: unknown = null;
+
     /** The quick input holds the keyboard itself: a modal dialog over an open picker keeps its focus and its keys. */
     private quickInputOwnsCommand(commandId: string): boolean {
         return (
@@ -171,6 +177,7 @@ export class KeybindingDispatcher extends Disposable {
     // Capture phase: while a chord is pending, swallow the next key before it reaches the
     // focused widget, matched or not.
     public readonly handleKeyDownCapture = (event: TUIKeyboardEvent): void => {
+        this.focusAtKeyDown = this.activeElement();
         if (this.keybindings.pendingLength === 0) return; // not in a chord — let the bubble handler run
         if (isModifierKey(event.key)) return; // holding a modifier must not break the chord
         event.preventDefault();
@@ -188,6 +195,9 @@ export class KeybindingDispatcher extends Disposable {
     // Bubble phase: a non-modifier key gets here only outside a chord (capture stops it otherwise);
     // a lone modifier keydown gets here in a chord too, and dispatchKeyDown ignores it.
     public readonly handleKeyDown = (event: TUIKeyboardEvent): void => {
+        // The key already moved the focus on its way here: a widget handled it (Escape closed the quick input over
+        // the terminal). A binding resolved against the restored focus would act on the key a second time.
+        if (this.activeElement() !== this.focusAtKeyDown) return;
         const outcome = this.dispatchKeyDownOutcome(event);
         if (outcome === true) event.preventDefault();
         // Neither a consumed key nor one left to the focused widget reaches the root's other

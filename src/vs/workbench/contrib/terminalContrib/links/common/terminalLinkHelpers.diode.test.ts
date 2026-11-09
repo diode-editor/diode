@@ -61,11 +61,13 @@ describe("getXtermLineContent — beyond the upstream suite", () => {
     it("rows past the buffer end add nothing", () => {
         const rows = [asciiRow("ab"), asciiRow("cd", true)];
         const buffer: ITerminalBuffer = {
+            type: "normal",
             cols: 10,
             rows: 2,
             viewportY: 0,
             length: rows.length,
             getLine: (y) => rows.at(y),
+            registerMarker: () => undefined,
         };
         expect(getXtermLineContent(buffer, 0, 5, 10)).toBe("abcd");
     });

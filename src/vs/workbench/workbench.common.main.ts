@@ -225,6 +225,8 @@ import { TerminalKeyRoutingDIToken } from "./contrib/terminal/browser/terminalKe
 import { TerminalPanelComponentDIToken } from "./contrib/terminal/browser/terminalPanelComponent.ts";
 import { TerminalServiceDIToken } from "./contrib/terminal/browser/terminalService.ts";
 import { TERMINAL_LINK_ACTIONS } from "./contrib/terminalContrib/links/browser/terminalLinkActions.ts";
+import { TERMINAL_SELECTION_ACTIONS } from "./contrib/terminalContrib/selection/browser/terminalSelectionActions.ts";
+import { TerminalSelectionServiceDIToken } from "./contrib/terminalContrib/selection/browser/terminalSelectionService.ts";
 import { TESTING_ACTIONS } from "./contrib/testing/browser/testingActions.ts";
 import { TestingDecorationsDIToken } from "./contrib/testing/browser/testingDecorations.ts";
 import { TESTING_EDITOR_ACTIONS } from "./contrib/testing/browser/testingEditorActions.ts";
@@ -506,6 +508,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...OUTPUT_ACTIONS,
     ...TERMINAL_ACTIONS,
     ...TERMINAL_LINK_ACTIONS,
+    ...TERMINAL_SELECTION_ACTIONS,
     ...TASKS_ACTIONS,
     ...TESTING_ACTIONS,
     ...TESTING_EDITOR_ACTIONS,
@@ -546,6 +549,7 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     TerminalServiceDIToken,
     TerminalPanelComponentDIToken,
     TerminalEditorServiceDIToken,
+    TerminalSelectionServiceDIToken,
     TabSwitcherComponentDIToken,
     QuickOpenServiceDIToken,
     LanguageFeatureContextKeysDIToken,

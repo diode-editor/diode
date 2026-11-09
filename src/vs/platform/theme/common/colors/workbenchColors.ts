@@ -119,6 +119,22 @@ export const workbenchColors = {
         defaults: { dark: "#CCCCCC", light: "#333333" },
         description: "The default foreground color of the Integrated Terminal.",
     },
+    "terminal.selectionBackground": {
+        defaults: { dark: "editor.selectionBackground", light: "editor.selectionBackground" },
+        description: "The selection background color of the terminal.",
+    },
+    // Upstream `transparent(terminal.selectionBackground, 0.5)`: no color expressions here, so it is baked from
+    // the `editor.selectionBackground` default; the terminal composites the alpha over the cell's background.
+    "terminal.inactiveSelectionBackground": {
+        defaults: { dark: "#264F7880", light: "#ADD6FF80" },
+        description: "The selection background color of the terminal when it does not have focus.",
+    },
+    // Upstream defaults to `#000000` in hcDark and `#ffffff` in hcLight only; the registry has no hc slots.
+    "terminal.selectionForeground": {
+        defaults: null,
+        description:
+            "The selection foreground color of the terminal. When this is null the selection foreground will be retained and have the minimum contrast ratio feature applied.",
+    },
     // Notification toasts (the stack above the status bar). In vscode these three tokens derive
     // from editorWidget.{background,foreground} and notificationCenterHeader.background; the
     // registry has no derived colors, so the defaults are duplicated as hex. Keep them in lockstep

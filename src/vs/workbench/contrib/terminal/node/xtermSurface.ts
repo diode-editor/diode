@@ -103,6 +103,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     // Viewport offset into scrollback, in lines up from the bottom (0 = live output).
     private viewportScrollOffset = 0;
     private palette: XtermPalette = DEFAULT_XTERM_PALETTE;
+    private bufferView: ITerminalBuffer | undefined;
     private readonly kittyKeyboard = new KittyKeyboardState();
     /** `terminal.integrated.enableKittyKeyboardProtocol`; off — the sequences are ignored (upstream `vtExtensions`). */
     private kittyKeyboardEnabled = true;
@@ -318,17 +319,12 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         return Math.min(this.viewportScrollOffset, this.maxScrollOffset);
     }
 
-    /** `undefined` until the emulator loads. */
+    /** `undefined` until the emulator loads. One object over the live state: decorations read it for every cell. */
     public get buffer(): ITerminalBuffer | undefined {
-        if (this.term === undefined) return undefined;
-        const active = this.term.buffer.active;
-        return {
-            cols: this.cols,
-            rows: this.rows,
-            viewportY: active.baseY - this.scrollOffset,
-            length: active.length,
-            getLine: (y) => active.getLine(y),
-        };
+        const term = this.term;
+        if (term === undefined) return undefined;
+        this.bufferView ??= createBufferView(this, term);
+        return this.bufferView;
     }
 
     public get mouseEventsActive(): boolean {
@@ -466,6 +462,29 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
  */
 function param(params: readonly (number | number[])[], index: number): number {
     return params.filter((value) => typeof value === "number").at(index) ?? 0;
+}
+
+/** The active buffer as it is now: the getters follow resizes, scrolling and switches to the alternate buffer. */
+function createBufferView(surface: XtermSurface, term: Terminal): ITerminalBuffer {
+    return {
+        get type() {
+            return term.buffer.active.type;
+        },
+        get cols() {
+            return term.cols;
+        },
+        get rows() {
+            return term.rows;
+        },
+        get viewportY() {
+            return term.buffer.active.baseY - surface.scrollOffset;
+        },
+        get length() {
+            return term.buffer.active.length;
+        },
+        getLine: (y) => term.buffer.active.getLine(y),
+        registerMarker: () => term.registerMarker(0),
+    };
 }
 
 function coreMouseService(term: Terminal): ICoreMouseService {

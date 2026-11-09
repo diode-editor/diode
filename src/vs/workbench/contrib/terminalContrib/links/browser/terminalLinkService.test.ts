@@ -66,7 +66,7 @@ describe("TerminalLinkService", () => {
         it("a link on screen, its top or bottom row included, doesn't scroll", async () => {
             const links = service();
             const instance = await instanceWith(OUTPUT);
-            links.createWidget(instance);
+            links.decorate(instance, instance.session);
             instance.session.scrollLines(-10);
             const top = instance.session.buffer!.viewportY;
 
@@ -79,7 +79,7 @@ describe("TerminalLinkService", () => {
         it("a link off screen is scrolled to a quarter of the viewport from the top, above or below", async () => {
             const links = service();
             const instance = await instanceWith(OUTPUT);
-            links.createWidget(instance);
+            links.decorate(instance, instance.session);
             const bottom = instance.session.buffer!.viewportY;
 
             links.revealLink(instance, linkAt(20));

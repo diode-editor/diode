@@ -347,7 +347,10 @@ import {
     TerminalPanelComponentDIToken,
 } from "../../workbench/contrib/terminal/browser/terminalPanelComponent.ts";
 import { TerminalService, TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
-import { TerminalWidgetFactoryDIToken } from "../../workbench/contrib/terminal/browser/terminalWidgetFactory.ts";
+import {
+    createDecoratedTerminalWidget,
+    TerminalWidgetFactoryDIToken,
+} from "../../workbench/contrib/terminal/browser/terminalWidgetFactory.ts";
 import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import {
     EnvironmentVariableService,
@@ -370,6 +373,10 @@ import {
     TerminalLinkService,
     TerminalLinkServiceDIToken,
 } from "../../workbench/contrib/terminalContrib/links/browser/terminalLinkService.ts";
+import {
+    TerminalSelectionService,
+    TerminalSelectionServiceDIToken,
+} from "../../workbench/contrib/terminalContrib/selection/browser/terminalSelectionService.ts";
 import {
     TestingDecorations,
     TestingDecorationsDIToken,
@@ -706,9 +713,11 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TerminalLinkOpenerDIToken, TerminalLinkOpener);
     container.bind(TerminalLinkServiceDIToken, TerminalLinkService);
     container.bind(TerminalLinkQuickpickDIToken, TerminalLinkQuickpick);
+    container.bind(TerminalSelectionServiceDIToken, TerminalSelectionService);
     container.bind(TerminalWidgetFactoryDIToken, () => {
-        const links = container.get(TerminalLinkServiceDIToken);
-        return (instance) => links.createWidget(instance);
+        // The selection wraps the links: a Ctrl+drag selects, a Ctrl+click still reaches the link.
+        const decorators = [container.get(TerminalLinkServiceDIToken), container.get(TerminalSelectionServiceDIToken)];
+        return (instance) => createDecoratedTerminalWidget(instance, decorators);
     });
     container.bind(TerminalPanelComponentDIToken, TerminalPanelComponent);
     container.bind(TerminalEditorServiceDIToken, TerminalEditorService);

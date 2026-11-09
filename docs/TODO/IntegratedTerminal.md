@@ -23,7 +23,11 @@
 ## UX
 
 - [ ] Скролбэк колесом в e2e: инспектор-протокол пока не инъецирует колесо (enabler `TUIDom.sendMouse`),
-  сценарий `terminalScrollback` крутит вьюпорт клавиатурой. Выделение и копирование, bracketed-paste.
+  сценарий `terminalScrollback` крутит вьюпорт клавиатурой. Bracketed-paste.
+- [x] Выделение мышью и копирование: протяжка, `Ctrl+C` с выделением копирует, `Escape`, Select All, цвета
+  `terminal.selectionBackground`/`inactiveSelectionBackground`/`selectionForeground` (#1087,
+  [Terminal.md](../arch/workbench/Terminal.md#выделение-и-копирование)).
+- [ ] Двойной и тройной клик, Shift+клик, `terminal.integrated.wordSeparators`, `copyOnSelection`.
 - [x] Ссылки на файлы: Ctrl+наведение подчёркивает, Ctrl+клик открывает (#816,
   [Terminal.md](../arch/workbench/Terminal.md#ссылки-на-файлы)); с клавиатуры — quick pick «Open Detected
   Link…» (`Ctrl+Shift+O`) и «Open Last Local File Link» (#817). Дальше — URL и word-ссылки.
@@ -36,7 +40,7 @@
 - [ ] Ширина списка вкладок: sash и узкий режим (`singleTerminalOrNarrow`), `tabs.showActions`.
 - [ ] Мышь в списке вкладок: средний клик — kill, мультивыделение, drag-and-drop.
 - [ ] Остальная цветовая механика xterm.js: `terminal.integrated.minimumContrastRatio` (дефолт 4.5),
-  `drawBoldTextInBrightColors`, `terminalCursor.*`, `terminal.selectionBackground`.
+  `drawBoldTextInBrightColors`, `terminalCursor.*`.
 - [x] Проброс клавиш à la `terminal.integrated.commandsToSkipShell`: список команд, которые перехватывает
   редактор, плюс `sendKeybindingsToShell`, `allowChords`, `allowMnemonics` (#820).
 - [ ] Не покрыто автоматизацией: живой Ctrl+`` ` `` на tier kitty/csi-u.

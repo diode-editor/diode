@@ -93,6 +93,15 @@ paste, so newlines and tabs land as text and never trigger shortcuts.
 The mouse is always on in Diode, so the terminal's own text selection needs its usual override:
 `Shift`+drag in most terminals, `Option`+drag in iTerm2.
 
+In Diode's integrated terminal (the TERMINAL panel or a terminal tab), drag with the left button to
+select text. `Ctrl+C` with a selection copies it and clears the selection; without one it goes to
+the shell as usual. `Ctrl+Shift+C` copies and keeps the selection where your terminal passes it
+through, `Escape` clears it, and **Terminal: Select All** selects the whole buffer, scrollback
+included. When a program in the terminal uses the mouse itself (htop, vim with `mouse=a`), hold
+`Shift` while dragging to select; if your terminal takes `Shift`+drag for its own selection, that
+one wins. The colors are `terminal.selectionBackground`, `terminal.inactiveSelectionBackground` and
+`terminal.selectionForeground`.
+
 ## Mouse pointer
 
 Over the borders between the Side Bar, the editor and the panels, the mouse pointer turns into a
