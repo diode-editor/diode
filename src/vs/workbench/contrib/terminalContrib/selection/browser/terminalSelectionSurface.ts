@@ -225,10 +225,14 @@ export class TerminalSelectionSurface implements ITerminalDecoratedSurface {
         const { buffer, pointer } = drag;
         const { col, row } = pointer;
         let head: ITerminalCellPosition;
-        if (row < 0) head = { x: 0, y: buffer.viewportY };
-        // Stryker disable next-line ArithmeticOperator: equivalent — past the bottom the head is the selection's end, and cells past the last column add nothing
-        else if (row >= buffer.rows) head = { x: buffer.cols - 1, y: buffer.viewportY + buffer.rows - 1 };
-        else head = { x: clamp(col, buffer.cols), y: buffer.viewportY + row };
+        if (row < 0) {
+            head = { x: 0, y: buffer.viewportY };
+        } else if (row >= buffer.rows) {
+            // Stryker disable next-line ArithmeticOperator: equivalent — past the bottom the head is the selection's end, and cells past the last column add nothing
+            head = { x: buffer.cols - 1, y: buffer.viewportY + buffer.rows - 1 };
+        } else {
+            head = { x: clamp(col, buffer.cols), y: buffer.viewportY + row };
+        }
         const current = this.selection;
         if (current === undefined) {
             // A press and a release in the same cell is a click, not a selection.

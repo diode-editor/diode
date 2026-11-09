@@ -183,15 +183,14 @@ export class TerminalLinkSurface implements ITerminalDecoratedSurface {
         const buffer = this.session.buffer;
         if (buffer === undefined) return;
         const pressY = buffer.viewportY + pressed.row;
-        void this.links.provideLinks(buffer, pressY).then(async (links) => {
-            const link = links.find((candidate) => isInCellRange(candidate, pressed.col, pressY));
-            if (link === undefined || !isInCellRange(link, released.col, buffer.viewportY + released.row)) return;
-            try {
+        void this.links
+            .provideLinks(buffer, pressY)
+            .then(async (links) => {
+                const link = links.find((candidate) => isInCellRange(candidate, pressed.col, pressY));
+                if (link === undefined || !isInCellRange(link, released.col, buffer.viewportY + released.row)) return;
                 await this.open(link);
-            } catch (error) {
-                onUnexpectedError(error);
-            }
-        }, onUnexpectedError);
+            })
+            .catch(onUnexpectedError);
     }
 
     /** `null` — a newer lookup superseded this one. */
