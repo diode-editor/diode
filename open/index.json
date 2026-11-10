@@ -5260,5 +5260,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-11-10-fab4d676e370.json",
+    "generatedAt": "2026-11-10T01:36:21.262Z",
+    "commit": "fab4d676e370",
+    "binaryVersion": "nightly-fab4d67",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
