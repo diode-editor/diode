@@ -128,7 +128,7 @@ describe("ConfigurationService — tasks.json and settings.json edits on the edg
     it("a CRLF tasks.json stays CRLF and unicode labels round-trip", async () => {
         folder.writeFile(".diode/tasks.json", `{\r\n    "version": "2.0.0",\r\n    "tasks": []\r\n}\r\n`);
         const cfg = await load();
-        const task = { label: "Сборка 🚀 测试", type: "shell", command: "echo 'é'" };
+        const task = { label: "Build 🚀 测试 Ω", type: "shell", command: "echo 'é'" };
 
         await cfg.updateValue("tasks.tasks", [task], "workspace");
 
