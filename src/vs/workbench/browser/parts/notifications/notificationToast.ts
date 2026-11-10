@@ -74,7 +74,6 @@ export class NotificationToast extends DialogComponent {
     private hint: TextLabelElement | null = null;
     private readonly unfocusedHint: string;
     private readonly stack: VStackElement;
-    private messageLabels: TextLabelElement[] = [];
     /** Rows after the message: progress, spacer, buttons, hint. */
     private readonly tail: readonly (TextLabelElement | HFlexElement)[];
     private readonly progressLabel: TextLabelElement | null;
@@ -153,21 +152,15 @@ export class NotificationToast extends DialogComponent {
      */
     public update(notification: IActiveNotification): void {
         this.notification = notification;
-        const lines = toastLines(notification.message);
-        if (lines.length === this.messageLabels.length) {
-            for (const [index, line] of lines.entries()) this.messageLabels[index].setText(line);
-            this.renderProgress();
-            return;
-        }
         const focused = this.buttons.find((button) => button.isFocused);
-        this.layoutRows(lines);
+        this.layoutRows(toastLines(notification.message));
         focused?.focus();
     }
 
+    /** The message may rewrap to another line count, so the rows are laid out anew. */
     private layoutRows(lines: readonly string[]): void {
-        this.messageLabels = lines.map((line) => new TextLabelElement(line));
         this.stack.replaceChildren([]);
-        for (const row of [...this.messageLabels, ...this.tail]) {
+        for (const row of [...lines.map((line) => new TextLabelElement(line)), ...this.tail]) {
             this.stack.addChild(row, { width: "stretch", height: 1 });
         }
         this.renderProgress();
