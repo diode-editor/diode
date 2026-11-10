@@ -14,8 +14,8 @@ describe("hostWireParsers — window.progress.*", () => {
         expect(
             parseWireProgressStart({ handle: 3, title: "Indexing", location: "notification", cancellable: true }),
         ).toStrictEqual({ handle: 3, title: "Indexing", location: "notification", cancellable: true });
-        expect(parseWireProgressStart({ handle: 1, title: "", location: null }).location).toBe("window");
-        expect(parseWireProgressStart({ handle: 1, title: "", location: { viewId: "explorer" } }).location).toEqual({
+        expect(parseWireProgressStart({ handle: 1, title: "", location: null })?.location).toBe("window");
+        expect(parseWireProgressStart({ handle: 1, title: "", location: { viewId: "explorer" } })?.location).toEqual({
             viewId: "explorer",
         });
         expect(parseWireProgressStart({ handle: 0, title: "" })).toStrictEqual({

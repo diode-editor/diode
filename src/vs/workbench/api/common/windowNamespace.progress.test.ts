@@ -148,9 +148,10 @@ describe("WindowNamespace — window.withProgress (real)", () => {
         let token!: { isCancellationRequested: boolean };
         let fired = false;
         let release!: () => void;
+        let listener!: { dispose(): unknown };
         const result = window.withProgress({ location: ProgressLocation.Notification as never }, (_p, t) => {
             token = t;
-            t.onCancellationRequested(() => {
+            listener = t.onCancellationRequested(() => {
                 fired = true;
             });
             return new Promise<void>((resolve) => {
@@ -164,6 +165,8 @@ describe("WindowNamespace — window.withProgress (real)", () => {
 
         expect(fired).toBe(false);
         expect(token.isCancellationRequested).toBe(false);
+        // The subscription is a disposable like any other.
+        expect(() => listener.dispose()).not.toThrow();
     });
 
     it("a cancel for another handle, a finished one or garbage changes nothing", async () => {

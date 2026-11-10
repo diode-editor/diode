@@ -3,6 +3,7 @@ import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { SizedBoxElement } from "@tuidom/elements/layout/sizedBoxElement";
 import { VStackElement } from "@tuidom/elements/layout/vStackElement";
+import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -394,12 +395,18 @@ describe("NotificationToast — progress", () => {
 
     it("a new percent with the same message redraws only the percent: the message row stays", () => {
         const { toast, testApp } = mount(progress());
-        const before = testApp.querySelectorAll("TextLabelElement").find((label) => label.getText() === "hello");
+        const before = (testApp.querySelectorAll("TextLabelElement") as TextLabelElement[]).find(
+            (label) => label.getText() === "hello",
+        );
 
         toast.update(notification(progress(10)));
 
         expect(screen(testApp)).toContain("10%");
-        expect(testApp.querySelectorAll("TextLabelElement").find((label) => label.getText() === "hello")).toBe(before);
+        expect(
+            (testApp.querySelectorAll("TextLabelElement") as TextLabelElement[]).find(
+                (label) => label.getText() === "hello",
+            ),
+        ).toBe(before);
     });
 
     it("the spinner ticker stops at the first percent and with the toast", () => {
