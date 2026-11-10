@@ -3,10 +3,24 @@ import { describe, expect, it } from "vitest";
 import {
     parseWireTerminalActive,
     parseWireTerminalClosed,
+    parseWireTerminalInteraction,
     parseWireTerminalOpened,
     parseWireTerminalPtyDimensions,
     parseWireTerminalPtyInput,
+    parseWireTerminalTitleChanged,
 } from "./terminalWireParsers.ts";
+
+describe("parseWireTerminalTitleChanged / parseWireTerminalInteraction", () => {
+    it("need a numeric id (and a string name); anything else is null", () => {
+        expect(parseWireTerminalTitleChanged(null)).toBeNull();
+        expect(parseWireTerminalTitleChanged({ id: "1", name: "a" })).toBeNull();
+        expect(parseWireTerminalTitleChanged({ id: 1, name: 2 })).toBeNull();
+        expect(parseWireTerminalTitleChanged({ id: 1, name: "a", extra: 1 })).toStrictEqual({ id: 1, name: "a" });
+        expect(parseWireTerminalInteraction(null)).toBeNull();
+        expect(parseWireTerminalInteraction({ id: "1" })).toBeNull();
+        expect(parseWireTerminalInteraction({ id: 1, extra: 1 })).toStrictEqual({ id: 1 });
+    });
+});
 
 describe("parseWireTerminalOpened", () => {
     it("without a numeric id or string name: null", () => {
