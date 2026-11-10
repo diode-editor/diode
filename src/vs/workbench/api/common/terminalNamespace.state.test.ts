@@ -130,6 +130,7 @@ describe("[api:Pseudoterminal.onDidChangeName] renaming a pty terminal", () => {
         stub.fire("terminal.titleChanged", { id: 2, name: "x" });
         stub.fire("terminal.titleChanged", { id: 1 });
         stub.fire("terminal.titleChanged", { id: "1", name: "x" });
+        stub.fire("terminal.titleChanged", null);
         expect(terminal.name).toBe("bash");
         stub.fire("terminal.titleChanged", { id: 1, name: "build" });
         expect(terminal.name).toBe("build");

@@ -1654,7 +1654,9 @@ Workbench** (адаптеры над `EditorService`; мост файловых 
 
 **Терминалы расширений (`window.createTerminal`, `terminals`, `activeTerminal`, события).** Устроено
 как `ExtHostTerminalService` ↔ `MainThreadTerminalService` эталона. Состояние `vscode.Terminal`
-живёт в субпроцессе (`api/common/terminalNamespace.ts`), инстансом владеет хост: `TerminalCustomer`
+живёт в субпроцессе (`api/common/terminalNamespace.ts`; разбор сообщений хоста — `terminalWireParsers.ts`,
+отдельно от общего с ядром `wireTypes.ts`, чтобы не раздувать общий код роли extension-host —
+бюджет в `scripts/build-lazy-chunks.mjs`), инстансом владеет хост: `TerminalCustomer`
 (`services/extensions/node/customers/`) переводит нотификации
 `terminal.create/show/hide/sendText/dispose` в сток `IExtensionTerminalSink`, а его реализация
 `ExtensionTerminalAdapter` (`contrib/terminal/browser/` — в фиче, потому что ядро workbench фич не

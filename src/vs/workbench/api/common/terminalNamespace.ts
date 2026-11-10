@@ -1,12 +1,7 @@
 import type * as vscode from "vscode";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
-import { EventEmitter, TerminalExitReason, Uri } from "./vscodeTypes.ts";
 import {
-    type IWireTerminalCreate,
-    type IWireTerminalLaunch,
-    type IWireTerminalLocation,
-    type IWireTerminalRef,
     parseWireTerminalActive,
     parseWireTerminalClosed,
     parseWireTerminalInteraction,
@@ -14,6 +9,13 @@ import {
     parseWireTerminalPtyDimensions,
     parseWireTerminalPtyInput,
     parseWireTerminalTitleChanged,
+} from "./terminalWireParsers.ts";
+import { EventEmitter, TerminalExitReason, Uri } from "./vscodeTypes.ts";
+import {
+    type IWireTerminalCreate,
+    type IWireTerminalLaunch,
+    type IWireTerminalLocation,
+    type IWireTerminalRef,
     type WireTerminalExitReason,
 } from "./wireTypes.ts";
 
