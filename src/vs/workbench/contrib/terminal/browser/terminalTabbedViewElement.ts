@@ -39,9 +39,13 @@ export class TerminalTabbedViewElement extends TUIElement {
     private readonly sash = new SashElement("vertical");
 
     /** A drag changed {@link tabsWidth}; the owner persists it. */
-    public onDidChangeTabsWidth?: (width: number) => void;
+    public onDidChangeTabsWidth: (width: number) => void = () => {
+        /* no listener yet */
+    };
     /** Double-click on the sash. */
-    public onDidResetTabsWidth?: () => void;
+    public onDidResetTabsWidth: () => void = () => {
+        /* no listener yet */
+    };
 
     public constructor(
         private readonly tabs: TUIElement,
@@ -50,8 +54,8 @@ export class TerminalTabbedViewElement extends TUIElement {
     ) {
         super();
         this.id = "terminalTabbedView";
+        // The sash may stay visible until the first setTabsVisible: with the list hidden its column is 0 wide.
         tabs.hidden = true;
-        this.sash.hidden = true;
         this.sash.restColorVar = "panel.border";
         this.sash.onDrag = (boundaryScreenX) => {
             const left = this.globalPosition.x;
@@ -59,10 +63,10 @@ export class TerminalTabbedViewElement extends TUIElement {
                 ? boundaryScreenX - left
                 : left + this.layoutSize.width - boundaryScreenX - 1;
             this.setTabsWidth(terminalTabsColumns(columns, this.layoutSize.width));
-            this.onDidChangeTabsWidth?.(this.tabsWidth);
+            this.onDidChangeTabsWidth(this.tabsWidth);
         };
         this.sash.addEventListener("dblclick", () => {
-            this.onDidResetTabsWidth?.();
+            this.onDidResetTabsWidth();
         });
         this.setChildren([tabs, this.sash]);
     }

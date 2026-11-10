@@ -1,7 +1,8 @@
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { buildHarness, WIDTH } from "./terminalPanelComponent.tabs.testUtils.ts";
+import { buildHarness, WIDTH } from "../../../../../TestUtils/terminalPanelHarness.ts";
+
 import { TERMINAL_VIEW_ID } from "./terminalService.ts";
 import { TERMINAL_TABS_WIDTH } from "./terminalTabsList.ts";
 
@@ -117,6 +118,16 @@ describe("TerminalPanelComponent — tabs list width", () => {
         h.views.service.moveViewToLocation(TERMINAL_VIEW_ID, "panel");
         h.screen();
         expect(h.list.layoutSize.width).toBe(TERMINAL_TABS_WIDTH);
+        h.dispose();
+    });
+
+    it("with the terminal view gone the panel's width applies", () => {
+        const h = twoTerminals({ [VERTICAL]: 14 });
+        h.views.service.moveViewToLocation(TERMINAL_VIEW_ID, "auxiliarybar");
+        expect(h.view.tabsColumns).toBe(14);
+        h.views.service.unregisterView(TERMINAL_VIEW_ID);
+        h.views.service.resetViewLocations();
+        expect(h.view.tabsColumns).toBe(TERMINAL_TABS_WIDTH);
         h.dispose();
     });
 

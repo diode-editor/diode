@@ -1,26 +1,27 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { vi } from "vitest";
 
-import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
-import { TestApp } from "../../../../../TestUtils/TestApp.ts";
-import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
-import { CODICON_GLYPHS } from "../../../../base/common/codicons.generated.ts";
-import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
-import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
-import type { IContextMenuMenuDelegate } from "../../../../platform/contextview/common/contextMenuDelegate.ts";
-import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
-import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
-import { PanelComponent } from "../../../browser/parts/panel/panelComponent.ts";
-import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
-import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
-import { ThemeService } from "../../../services/themes/common/themeService.ts";
+import { codicon, iconGlyph } from "../vs/base/common/codicons.ts";
+import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
+import type { ContextMenuService } from "../vs/platform/contextview/browser/contextMenuService.ts";
+import type { IContextMenuMenuDelegate } from "../vs/platform/contextview/common/contextMenuDelegate.ts";
+import type { IProductIconService } from "../vs/platform/theme/common/productIconService.ts";
+import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
+import { PanelComponent } from "../vs/workbench/browser/parts/panel/panelComponent.ts";
+import { makeViewsHarness } from "../vs/workbench/browser/parts/views/viewsService.testUtils.ts";
+import { makeTerminalColors } from "../vs/workbench/contrib/terminal/browser/terminalColorsService.testUtils.ts";
+import { TerminalPanelComponent } from "../vs/workbench/contrib/terminal/browser/terminalPanelComponent.ts";
+import { TerminalService } from "../vs/workbench/contrib/terminal/browser/terminalService.ts";
+import { terminalTabRowId } from "../vs/workbench/contrib/terminal/browser/terminalTabsList.ts";
+import { createPlainTerminalWidget } from "../vs/workbench/contrib/terminal/browser/terminalWidgetFactory.ts";
+import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";
+import { ThemeService } from "../vs/workbench/services/themes/common/themeService.ts";
 
-import { makeTerminalColors } from "./terminalColorsService.testUtils.ts";
-import { TerminalPanelComponent } from "./terminalPanelComponent.ts";
-import { TerminalService } from "./terminalService.ts";
-import { terminalTabRowId } from "./terminalTabsList.ts";
-import { createPlainTerminalWidget } from "./terminalWidgetFactory.ts";
+import { FakeTerminalSurface } from "./FakeTerminalSurface.ts";
+import { TestApp } from "./TestApp.ts";
+import { createTestConfigurationService } from "./testConfigurationService.ts";
 
 export const WIDTH = 80;
 const HEIGHT = 12;
@@ -71,9 +72,7 @@ export function buildHarness(
     const lines = (): string[] => screen().split("\n");
     const rowOf = (instanceIndex: number) => {
         const id = service.getInstances()[instanceIndex].id;
-        const row = component.tabs.list.querySelector(`#${terminalTabRowId(id)}`);
-        if (row === null) throw new Error("row not rendered");
-        return row;
+        return component.tabs.list.querySelectorAll(`#${terminalTabRowId(id)}`)[0];
     };
     /** Frame coordinates are 0-based. */
     const mouse = (button: MouseToken["button"], x: number, y: number, action: MouseToken["action"]): void => {
@@ -122,7 +121,7 @@ export function buildHarness(
 }
 
 export function tab(title: string): string {
-    return `│ ${CODICON_GLYPHS.terminal ?? ""} ${title}`;
+    return `│ ${iconGlyph(codicon("terminal"), true)} ${title}`;
 }
 
 export function count(text: string, needle: string): number {

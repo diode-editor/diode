@@ -255,18 +255,20 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
     /** Upstream's horizontal orientation is the panel; a side bar is vertical. */
     private currentTabsWidthState(): IStateDescriptor<unknown> {
         const container = this.viewsService.getViewContainerByViewId(TERMINAL_VIEW_ID);
+        // Stryker disable next-line ConditionalExpression: equivalent — the location of an unknown container is null as well
         const location = container === null ? null : this.viewsService.getViewContainerLocation(container);
         return location === "sidebar" || location === "auxiliarybar"
             ? TERMINAL_TABS_WIDTH_VERTICAL_STATE
             : TERMINAL_TABS_WIDTH_HORIZONTAL_STATE;
     }
 
-    /** The terminal moved between the panel and a side bar (or the startup restore put it there) — the other orientation's width. */
+    /**
+     * The terminal moved between the panel and a side bar (or the startup restore put it there) — the
+     * other orientation's width. Re-reading the same key gives the same width: every change is stored.
+     */
     private syncTabsWidthState(): void {
-        const next = this.currentTabsWidthState();
-        if (next === this.tabsWidthState) return;
-        this.tabsWidthState = next;
-        this.view.setTabsWidth(readTabsWidth(this.state, next));
+        this.tabsWidthState = this.currentTabsWidthState();
+        this.view.setTabsWidth(readTabsWidth(this.state, this.tabsWidthState));
     }
 
     /** Double-click on the sash: as wide as the widest tab; already so — nothing (we have no narrow mode to shrink to). */

@@ -252,4 +252,17 @@ describe("TerminalTabbedViewElement", () => {
         mouse(app, "left", "release", 29);
         expect(onReset).toHaveBeenCalledTimes(1);
     });
+
+    it("without listeners a drag still resizes and a double-click is harmless", () => {
+        const { tabs, app } = build(10, 40);
+        mouse(app, "left", "press", 29);
+        mouse(app, "left", "move", 25);
+        mouse(app, "left", "release", 25);
+        expect(tabs.layoutSize.width).toBe(14);
+        mouse(app, "left", "press", 25);
+        mouse(app, "left", "release", 25);
+        mouse(app, "left", "press", 25);
+        mouse(app, "left", "release", 25);
+        expect(tabs.layoutSize.width).toBe(14);
+    });
 });

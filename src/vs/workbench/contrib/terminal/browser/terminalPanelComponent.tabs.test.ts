@@ -5,10 +5,10 @@ import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewEleme
 import { describe, expect, it, vi } from "vitest";
 
 import { createSwitchableIcons } from "../../../../../TestUtils/switchableIcons.ts";
+import { buildHarness, count, tab, WIDTH } from "../../../../../TestUtils/terminalPanelHarness.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 
-import { buildHarness, count, tab, WIDTH } from "./terminalPanelComponent.tabs.testUtils.ts";
 import {
     SWITCH_TERMINAL_COMMAND_ID,
     TERMINAL_ACTIVE_TAB_ID,
