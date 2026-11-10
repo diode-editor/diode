@@ -485,6 +485,20 @@ describe("HoverService — showing and closing the popup", () => {
         expect(frame).toContain("│ - e");
     });
 
+    it("[api:MarkdownString.appendText] with supportThemeIcons an icon appended as text shows as `$(zap)`, without a backslash", async () => {
+        // Upstream: appendText escapes the icon (`\$(zap)`), the markdown renderer drops the escape's
+        // backslash and renderLabelWithIcons shows an escaped icon as its literal `$(zap)`.
+        const text = new MarkdownString("", true).appendText("icon $(zap) end");
+        useHovers(hoverOf([text.value]));
+
+        await service().showHover();
+        h.testApp.render();
+
+        const frame = h.testApp.backend.screenToString();
+        expect(frame).toContain("│ icon $(zap) end");
+        expect(frame).not.toContain("\\$(zap)");
+    });
+
     it("a code block keeps its indentation in the frame: Tailwind's CSS declaration", async () => {
         useHovers(hoverOf([TAILWIND_ARBITRARY_HOVER]));
 
