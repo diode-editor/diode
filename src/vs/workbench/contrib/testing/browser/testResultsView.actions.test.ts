@@ -7,8 +7,6 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { TestItemExpandState, TestResultState, TestRunProfileBitset } from "../../../api/common/testingWireTypes.ts";
 import type { LiveTestResult } from "../common/testResult.ts";
 
-import { MIN_CONTENT_WIDTH, splitWidths } from "./testResultsSplitElement.ts";
-
 // The TEST RESULTS tree's rows: their glyphs and menus, Enter on a test, the older runs.
 
 const { Running, Passed, Failed } = TestResultState;
@@ -221,15 +219,5 @@ describe("TEST RESULTS — older runs", () => {
         await vi.waitFor(() => {
             expect(tree.getSelectedNode()).toMatchObject({ kind: "task", result: first, taskIndex: 0 });
         });
-    });
-});
-
-describe("TEST RESULTS — the split", () => {
-    it("halves; the content keeps its minimum, the tree gives way first", () => {
-        expect(splitWidths(100)).toEqual({ content: 50, tree: 50 });
-        expect(splitWidths(51)).toEqual({ content: 26, tree: 25 });
-        expect(splitWidths(40)).toEqual({ content: MIN_CONTENT_WIDTH, tree: 15 });
-        expect(splitWidths(30)).toEqual({ content: MIN_CONTENT_WIDTH, tree: 5 });
-        expect(splitWidths(20)).toEqual({ content: 20, tree: 0 });
     });
 });

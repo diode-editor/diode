@@ -153,7 +153,11 @@ export function setupExplorer(options: ISetupOptions = {}) {
             revealRange: () => undefined,
         }),
     };
-    const settings: Record<string, unknown> = { "workbench.tree.renderIndentGuides": "none", ...options.settings };
+    const settings: Record<string, unknown> = {
+        "workbench.tree.renderIndentGuides": "none",
+        "workbench.sash.hoverDelay": 0,
+        ...options.settings,
+    };
     const onDidChangeConfiguration = new Emitter<{ affectsConfiguration(key: string): boolean }>();
     /** A settings change as the configuration service reports it. */
     const setSetting = (key: string, value: unknown): void => {
