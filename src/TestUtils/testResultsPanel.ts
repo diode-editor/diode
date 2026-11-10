@@ -161,6 +161,25 @@ export function createResultsPanel(options: IResultsPanelOptions) {
                 show().render();
             }
         },
+        /** One mouse event, then a frame: `move` with `none` is a hover, with `left` a drag. */
+        mouse: (action: "press" | "move" | "release", x: number, y: number, button: "left" | "none" = "left"): void => {
+            show().backend.simulateMouse({
+                kind: "mouse",
+                button,
+                x: x + 1,
+                y: y + 1,
+                action,
+                shiftKey: false,
+                altKey: false,
+                ctrlKey: false,
+                raw: "",
+            });
+            show().render();
+        },
+        textAt: (x: number, y: number): string => {
+            frame();
+            return show().backend.getTextAt(new Point(x, y), 1);
+        },
         sendKey: (key: string): void => {
             show().backend.sendKey(key);
             show().render();

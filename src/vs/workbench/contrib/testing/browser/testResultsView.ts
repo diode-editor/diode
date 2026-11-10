@@ -199,6 +199,7 @@ export class TestResultsComponent extends Disposable {
             this.isTreeLeft(),
         );
         this.view.id = "testResultsView";
+        this.view.sashHoverDelay = configuration.get("workbench.sash.hoverDelay");
 
         views.registerContainer({
             id: TEST_RESULTS_CONTAINER_ID,
@@ -237,6 +238,10 @@ export class TestResultsComponent extends Disposable {
             configuration.onDidChangeConfiguration((event) => {
                 // Stryker disable next-line ConditionalExpression: equivalent — another setting's change puts the tree on the same side again
                 if (event.affectsConfiguration("testing.resultsView.layout")) this.view.setTreeLeft(this.isTreeLeft());
+                // Upstream `SashSettingsController`: the delay applies live.
+                if (event.affectsConfiguration("workbench.sash.hoverDelay")) {
+                    this.view.sashHoverDelay = configuration.get("workbench.sash.hoverDelay");
+                }
             }),
         );
         this.register(
