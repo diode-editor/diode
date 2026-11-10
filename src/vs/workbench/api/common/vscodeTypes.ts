@@ -1292,6 +1292,18 @@ export class CancellationTokenSource {
     }
 }
 
+/** Upstream `escapeMarkdownSyntaxTokens` (htmlContent.ts). */
+function escapeMarkdownSyntaxTokens(text: string): string {
+    return text.replace(/[\\`*_{}[\]()#+!~]/g, "\\$&").replace(/^([ \t]*)-/gm, "$1\\-");
+}
+
+/** Upstream `escapeIcons` (iconLabels.ts): `$(name)` and `$(name~spin)`; an already escaped one stays. */
+function escapeIcons(text: string): string {
+    return text.replace(/(\\)?\$\([A-Za-z0-9-]+(?:~[A-Za-z]+)?\)/g, (match, escaped: string | undefined) =>
+        escaped === undefined ? `\\${match}` : match,
+    );
+}
+
 export class MarkdownString implements vscode.MarkdownString {
     public value: string;
     public isTrusted?: boolean;
@@ -1299,12 +1311,17 @@ export class MarkdownString implements vscode.MarkdownString {
     public supportHtml?: boolean;
     public baseUri?: Uri;
 
-    public constructor(value = "") {
+    public constructor(value = "", supportThemeIcons = false) {
         this.value = value;
+        this.supportThemeIcons = supportThemeIcons;
     }
 
+    /** Upstream `htmlContent.ts`: the text shows literally, a newline starts a paragraph. */
     public appendText(value: string): this {
-        this.value += value;
+        this.value += escapeMarkdownSyntaxTokens(this.supportThemeIcons === true ? escapeIcons(value) : value)
+            .replace(/[ \t]/g, "&nbsp;")
+            .replace(/>/g, "\\>")
+            .replace(/\n/g, "\n\n");
         return this;
     }
 

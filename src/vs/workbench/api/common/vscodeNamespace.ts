@@ -288,6 +288,15 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
                 // skipEncoding, as upstream: a plain `toString()` would give the system `?token%3D42` instead of `?token=42`.
                 await rpc.request("env.openExternal", { uri: target.toString(true) }),
             ),
+        /**
+         * Upstream on the desktop without a remote: no tunnel and no web origin to map to, so every uri,
+         * `diode:` included, comes back as is (a copy, as `URI.from` of the main side's answer). Only an
+         * empty scheme, possible in a plain object, is refused with upstream's message.
+         */
+        asExternalUri: (target: vscode.Uri): Promise<vscode.Uri> =>
+            target.scheme.trim() === ""
+                ? Promise.reject(new Error("Invalid scheme - cannot be empty"))
+                : Promise.resolve(Uri.from(target)),
 
         /** Deviation from upstream: the id does not survive an extension host restart. `redhat.java` uses it to tell its own launch from another one. */
         sessionId: randomUUID(),

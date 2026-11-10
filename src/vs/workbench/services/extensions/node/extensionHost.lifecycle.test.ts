@@ -1947,6 +1947,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         expect(init).toBeDefined();
         expect((init as { params: unknown }).params).toEqual({
             configuration: { defaults: { editor: { tabSize: 4 } }, user: { editor: { tabSize: 2 } }, workspace: {} },
+            settingIds: [],
             workspaceFolders: [{ uri: "/repo", name: "repo", index: 0 }],
         });
 

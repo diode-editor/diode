@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
 
 import { dependencyClosure, patchUtils, SUITES, transformManifest } from "./build.mjs";
+import { adoptWorkspaceSettings } from "./upstream.mjs";
 import { compareSuite, formatBaseline, formatReport, greenTitles, parseResults, readBaseline, staleExclusions, testKey, unfinishedTitles, writeBaseline } from "./compare.mjs";
 
 const here = import.meta.dirname;
@@ -205,5 +206,20 @@ test("the member map only speaks about green tests and names members", () => {
         assert.ok(greenKeys.has(key), `not in the baseline: ${key}`);
         assert.ok(members.length > 0, key);
         for (const member of members) assert.match(member, /^[A-Za-z]+(\.[A-Za-z]+)*$/, key);
+    }
+});
+
+test("the upstream workspace settings land in .diode/settings.json, .vscode stays", () => {
+    const workspace = mkdtempSync(path.join(os.tmpdir(), "conformance-settings-"));
+    try {
+        adoptWorkspaceSettings(workspace);
+        assert.equal(existsSync(path.join(workspace, ".diode")), false);
+
+        mkdirSync(path.join(workspace, ".vscode"));
+        writeFileSync(path.join(workspace, ".vscode", "settings.json"), '{ "files.exclude": { "**/files-exclude/**": true } // c\n}');
+        adoptWorkspaceSettings(workspace);
+        assert.equal(readFileSync(path.join(workspace, ".diode", "settings.json"), "utf8"), readFileSync(path.join(workspace, ".vscode", "settings.json"), "utf8"));
+    } finally {
+        rmSync(workspace, { recursive: true, force: true });
     }
 });

@@ -5,7 +5,7 @@ import type * as vscode from "vscode";
 import { detectEndOfLine, EndOfLine as CoreEndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
 import { workspaceFileLabel } from "../../../platform/workspace/common/workspaceFile.ts";
-import { filesExcludeGlobs } from "../../common/configuration/excludeSettings.ts";
+import { filesExcludeGlobs, watcherExcludeGlobs } from "../../common/configuration/excludeSettings.ts";
 import {
     decodeForResource,
     defaultUtf8Directories,
@@ -18,7 +18,12 @@ import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { ExtHostFileOperations } from "./extHostFileOperations.ts";
 import { serializeWillSaveTextEdit, serializeWorkspaceEdit } from "./extHostTypeConverters.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
-import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
+import {
+    providerWatchTarget,
+    resolveGlobPattern,
+    SubprocessFileSystemWatchers,
+    watchProviderFiles,
+} from "./fileWatcherNamespace.ts";
 import { findFiles as walkForFiles } from "./findFiles.ts";
 import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -367,11 +372,12 @@ export function createWorkspaceNamespace(
     rpc.handleNotification("workspace.initialize", (params) => {
         const p: {
             configuration?: unknown;
+            settingIds?: unknown;
             workspaceFolders?: readonly IWireWorkspaceFolder[];
             workspaceFile?: unknown;
             userRoamingDataHome?: unknown;
         } = params;
-        configStore.setData(p.configuration);
+        configStore.setData(p.configuration, p.settingIds);
         workspaceFile = typeof p.workspaceFile === "string" ? Uri.parse(p.workspaceFile) : undefined;
         userRoamingDataHome = typeof p.userRoamingDataHome === "string" ? p.userRoamingDataHome : undefined;
         workspaceFolders = (p.workspaceFolders ?? []).map((f) => ({
@@ -382,9 +388,9 @@ export function createWorkspaceNamespace(
     });
 
     rpc.handleNotification("workspace.configurationChanged", (params) => {
-        const p: { configuration?: unknown; affectedKeys?: readonly string[] } = params;
-        configStore.setData(p.configuration);
-        const affectedKeys = p.affectedKeys ?? [];
+        const p: { configuration?: unknown; settingIds?: unknown; affectedKeys?: readonly string[] } = params;
+        const affectedKeys = configStore.setData(p.configuration, p.settingIds);
+        if (p.affectedKeys !== undefined) affectedKeys.push(...p.affectedKeys);
         onDidChangeConfigurationEmitter.fire({
             affectsConfiguration: (section: string): boolean =>
                 affectedKeys.some((key) => key === section || key.startsWith(section + ".")),
@@ -798,6 +804,18 @@ export function createWorkspaceNamespace(
             ignoreChangeEvents = false,
             ignoreDeleteEvents = false,
         ): vscode.FileSystemWatcher => {
+            const provided = providerWatchTarget(globPattern, (scheme) => fsProviders.get(scheme));
+            if (provided !== null) {
+                // As upstream: a watcher that ignores every kind of event does not ask the provider to watch.
+                if (ignoreCreateEvents && ignoreChangeEvents && ignoreDeleteEvents) {
+                    return fsWatchers.createInert(ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents);
+                }
+                return watchProviderFiles(
+                    provided,
+                    { ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents },
+                    watcherExcludeGlobs(configStore),
+                );
+            }
             const resolved = resolveGlobPattern(globPattern, workspaceFolders[0]?.uri.fsPath);
             // Empty window or a garbage pattern gives a silent watcher: the extension does not have to check for this.
             if (resolved === null) {

@@ -1,3 +1,4 @@
+vscode API - workspace MarkdownString
 vscode API - workspace Should send a single FileWillRenameEvent instead of separate events when moving multiple files at once#111867, 1/3
 vscode API - workspace Should send a single FileWillRenameEvent instead of separate events when moving multiple files at once#111867, 3/3
 vscode API - workspace SnippetString in WorkspaceEdit with keepWhitespace
@@ -38,6 +39,7 @@ vscode API - workspace events: onDidOpenTextDocument, onDidChangeTextDocument, o
 vscode API - workspace events: onDidSaveTextDocument fires even for non dirty file when saved
 vscode API - workspace findFiles
 vscode API - workspace findFiles - exclude
+vscode API - workspace findFiles - null exclude
 vscode API - workspace findFiles, cancellation
 vscode API - workspace findFiles, exclude
 vscode API - workspace getWorkspaceFolder
