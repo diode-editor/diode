@@ -4,7 +4,6 @@ import type * as vscode from "vscode";
 import { Uri } from "../../../base/common/uri.ts";
 
 import {
-    isRecursiveWatchPattern,
     type IWatcherTransport,
     providerWatchTarget,
     resolveGlobPattern,
@@ -23,19 +22,6 @@ function makeTransport(): IWatcherTransport & { created: IWireWatcherCreate[]; d
         dispose: (id) => disposed.push(id),
     };
 }
-
-describe("isRecursiveWatchPattern", () => {
-    it("a single-segment pattern matches direct children only", () => {
-        expect(isRecursiveWatchPattern("*")).toBe(false);
-        expect(isRecursiveWatchPattern("HEAD")).toBe(false);
-    });
-
-    it("a globstar or a separator matches the subtree", () => {
-        expect(isRecursiveWatchPattern("**")).toBe(true);
-        expect(isRecursiveWatchPattern("**/*.ts")).toBe(true);
-        expect(isRecursiveWatchPattern("src/*.ts")).toBe(true);
-    });
-});
 
 describe("providerWatchTarget", () => {
     const base = Uri.from({ scheme: "memfs", path: "/a" });

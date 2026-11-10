@@ -7,8 +7,8 @@ import { Uri } from "../../../../../base/common/uri.ts";
 import type { IStat } from "../../../../../platform/files/common/files.ts";
 import type { ITreeFileChange } from "../../../../../platform/files/common/iTreeFileWatcher.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
-import { isRecursiveWatchPattern } from "../../../../api/common/fileWatcherNamespace.ts";
 import type { IExtensionFileWatcher } from "../../../../api/common/iExtensionFileWatcher.ts";
+import { isRecursiveWatchPattern } from "../../../../api/common/watchPattern.ts";
 import type { IWireWatcherCreate, IWireWatcherEvent } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {

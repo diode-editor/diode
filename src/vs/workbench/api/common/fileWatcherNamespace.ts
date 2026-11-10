@@ -5,6 +5,7 @@ import { DisposableStore } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 
 import { EventEmitter, FileChangeType, RelativePattern } from "./vscodeTypes.ts";
+import { isRecursiveWatchPattern } from "./watchPattern.ts";
 import type { IWireWatcherCreate, IWireWatcherEvents } from "./wireTypes.ts";
 
 export interface IWatcherTransport {
@@ -45,15 +46,6 @@ function baseFsPath(baseUri: unknown, base: unknown): string | null {
         if (typeof fsPath === "string" && fsPath !== "") return fsPath;
     }
     return typeof base === "string" && base !== "" ? base : null;
-}
-
-/**
- * VS Code rule: a single-segment pattern watches only direct children of the base,
- * `**` or a separator watches the subtree. The cheap `.git` watcher relies on this:
- * `new RelativePattern(dotGit, "*")` doesn't drag `.git/objects` along.
- */
-export function isRecursiveWatchPattern(pattern: string): boolean {
-    return pattern.includes("**") || pattern.includes("/");
 }
 
 export interface IProviderWatchTarget {
