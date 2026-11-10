@@ -17,6 +17,7 @@ import { EditorViewState } from "../../../../editor/common/viewModel/editorViewS
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 import { MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
+import { serializeHoverContents } from "../../../api/common/extHostTypeConverters.ts";
 import { MarkdownString } from "../../../api/common/vscodeTypes.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
@@ -489,7 +490,8 @@ describe("HoverService — showing and closing the popup", () => {
         // Upstream: appendText escapes the icon (`\$(zap)`), the markdown renderer drops the escape's
         // backslash and renderLabelWithIcons shows an escaped icon as its literal `$(zap)`.
         const text = new MarkdownString("", true).appendText("icon $(zap) end");
-        useHovers(hoverOf([text.value]));
+        // As the extension host sends it: the converter still sees the flag.
+        useHovers(hoverOf(serializeHoverContents(text)));
 
         await service().showHover();
         h.testApp.render();

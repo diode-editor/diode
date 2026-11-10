@@ -212,6 +212,16 @@ describe("WorkspaceConfigStore — `get('[lang]')`, the language section as upst
         });
     });
 
+    it("setData returns the `[lang]` keys whose merged section changed, whatever layer changed it", () => {
+        const store = new WorkspaceConfigStore();
+        expect(store.setData({ defaults: { "[a]": { x: 1 }, "[b]": { y: 1 } } })).toEqual(["[a]", "[b]"]);
+        expect(store.setData({ defaults: { "[a]": { x: 1 }, "[b]": { y: 1 } }, user: { "[b]": { y: 2 } } })).toEqual([
+            "[b]",
+        ]);
+        expect(store.setData({ defaults: { "[a]": { x: 1 } }, user: { "[b]": { y: 2 } } })).toEqual([]);
+        expect(store.setData({})).toEqual(["[a]", "[b]"]);
+    });
+
     it("the ids are replaced with each setData", () => {
         const store = new WorkspaceConfigStore();
         const data = { defaults: { "[abcLang]": { editor: { quickSuggestions: { other: "on" } } } } };

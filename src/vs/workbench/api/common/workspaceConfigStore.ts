@@ -1,3 +1,4 @@
+import { diffOverrideIdentifiers } from "../../../platform/configuration/common/configurationChangeEvent.ts";
 import { ConfigurationModel, isOverrideKey } from "../../../platform/configuration/common/configurationModel.ts";
 
 /**
@@ -24,8 +25,12 @@ export class WorkspaceConfigStore {
     private merged = ConfigurationModel.EMPTY;
     private settingIds: ReadonlySet<string> = new Set();
 
-    /** Anything that is not an object becomes an empty layer; anything but strings among the ids is dropped. */
-    public setData(data: unknown, settingIds?: unknown): void {
+    /**
+     * Anything that is not an object becomes an empty layer; anything but strings among the ids is dropped.
+     * Returns the `[lang]` keys whose section changed: upstream counts them among the event's keys.
+     */
+    public setData(data: unknown, settingIds?: unknown): string[] {
+        const before = this.merged;
         this.settingIds = new Set(Array.isArray(settingIds) ? settingIds.filter((id) => typeof id === "string") : []);
         const layers = isPlainObject(data) ? data : {};
         this.defaults = ConfigurationModel.fromRaw(layers.defaults);
@@ -33,6 +38,7 @@ export class WorkspaceConfigStore {
         this.workspace = ConfigurationModel.fromRaw(layers.workspace);
         this.workspaceFolder = ConfigurationModel.fromRaw(layers.workspaceFolder);
         this.merged = ConfigurationModel.merge(this.defaults, this.user, this.workspace, this.workspaceFolder);
+        return diffOverrideIdentifiers(before, this.merged).map((identifier) => `[${identifier}]`);
     }
 
     public get(dottedKey: string, defaultValue?: unknown, languageId?: string): unknown {
