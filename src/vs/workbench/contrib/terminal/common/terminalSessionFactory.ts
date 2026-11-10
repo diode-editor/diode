@@ -44,6 +44,11 @@ export type ITerminalSession = ITerminalSurface &
         /** Key press for "press any key to close" (upstream `waitOnExit`). */
         readonly onDidInputAfterExit: Event<void>;
         /**
+         * Upstream `onDidInputData`: input reached the live process — keys, mouse reports, `sendText`. The extension
+         * sees it as `terminal.state.isInteractedWith`.
+         */
+        readonly onDidInput: Event<void>;
+        /**
          * Upstream `onLineData`: each output line once complete (the unterminated last one on exit, before
          * `onExit`), wrapped rows joined, without escape sequences. Task problem matchers read it.
          */

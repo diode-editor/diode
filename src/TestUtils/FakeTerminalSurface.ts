@@ -5,7 +5,7 @@ import type { ITerminalRelaunchOptions } from "../vs/workbench/contrib/terminal/
 
 export type { FakeCellOptions } from "@tuidom/testing/FakeTerminalSurface";
 
-/** Input after exit is not written but fires `onDidInputAfterExit` — like a real session. */
+/** Input fires `onDidInput`; after exit it is not written but fires `onDidInputAfterExit` — like a real session. */
 export class FakeTerminalSurface extends EngineFakeTerminalSurface {
     public pid: number | undefined;
     public readonly relaunches: ITerminalRelaunchOptions[] = [];
@@ -16,6 +16,8 @@ export class FakeTerminalSurface extends EngineFakeTerminalSurface {
     public kittyKeyboardEnabled: boolean | undefined;
     private readonly inputAfterExit = new Emitter<void>();
     public readonly onDidInputAfterExit = this.inputAfterExit.event;
+    private readonly input = new Emitter<void>();
+    public readonly onDidInput = this.input.event;
     private readonly lineData = new Emitter<string>();
     public readonly onLineData = this.lineData.event;
 
@@ -33,6 +35,7 @@ export class FakeTerminalSurface extends EngineFakeTerminalSurface {
             return;
         }
         super.write(data);
+        this.input.fire();
     }
 
     /** Output lines as the emulator would report them. */
