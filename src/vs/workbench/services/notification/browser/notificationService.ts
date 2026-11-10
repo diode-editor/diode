@@ -42,6 +42,35 @@ export interface INotificationMessage {
 
 export interface IActiveNotification extends INotificationMessage {
     readonly id: number;
+    /** Set on a progress notification (upstream `INotification.progress`); `percent` absent means infinite. */
+    readonly progress?: { readonly percent?: number };
+}
+
+/** Upstream's progress button label (`localize('cancel', "Cancel")`). */
+export const PROGRESS_CANCEL_LABEL = "Cancel";
+
+export interface IProgressNotificationState {
+    readonly message: string;
+    /** 0–100; absent means infinite (a spinner). */
+    readonly percent?: number;
+}
+
+export interface IProgressNotificationOptions extends IProgressNotificationState {
+    readonly cancellable: boolean;
+    /** The user pressed Cancel; the notification is already gone. */
+    readonly onCancel: () => void;
+    /**
+     * The user hid it (Clear All, Escape) while the work goes on: upstream moves the progress
+     * to the status bar then. Not called after {@link IProgressNotificationHandle.close} or a cancel.
+     */
+    readonly onHide: () => void;
+}
+
+/** Calls after the notification is gone (cancelled, hidden or closed) are no-ops. */
+export interface IProgressNotificationHandle {
+    readonly id: number;
+    update(state: IProgressNotificationState): void;
+    close(): void;
 }
 
 /** `id` is available immediately: the extension bridge dismisses messages of a dead subprocess. */
@@ -52,8 +81,10 @@ export interface INotificationHandle {
 }
 
 interface IPassiveEntry {
-    readonly notification: IActiveNotification;
+    notification: IActiveNotification;
     timer: ReturnType<typeof setTimeout> | null;
+    /** A progress notification: sticky (never armed) and answered with Cancel. */
+    readonly progress?: Pick<IProgressNotificationOptions, "onCancel" | "onHide">;
 }
 
 interface IAskEntry {
@@ -115,6 +146,33 @@ export class NotificationService extends Disposable {
         return { id: notification.id, answered };
     }
 
+    /**
+     * Upstream `withNotificationProgress`: an info toast that takes one of the visible slots,
+     * stays until closed (no timeout) and is updated in place on every report.
+     */
+    public showProgress(options: IProgressNotificationOptions): IProgressNotificationHandle {
+        // Stryker disable next-line UpdateOperator: the counter only needs unique ids, see show()
+        const id = this.nextId++;
+        const entry: IPassiveEntry = {
+            notification: progressNotification(id, options, options.cancellable),
+            timer: null,
+            progress: { onCancel: options.onCancel, onHide: options.onHide },
+        };
+        this.passiveList.push(entry);
+        this.fire();
+        return {
+            id,
+            update: (state) => {
+                if (!this.passiveList.includes(entry)) return;
+                entry.notification = progressNotification(id, state, entry.notification.items.length > 0);
+                this.fire();
+            },
+            close: () => {
+                this.removePassive(entry);
+            },
+        };
+    }
+
     public passive(): readonly IActiveNotification[] {
         return this.passiveList.slice(0, MAX_VISIBLE_NOTIFICATIONS).map((entry) => entry.notification);
     }
@@ -143,7 +201,14 @@ export class NotificationService extends Disposable {
     /** An index outside the buttons means close: the answer isn't about this message. */
     public answer(id: number, index: number): void {
         const at = this.askList.findIndex((e) => e.notification.id === id);
-        if (at < 0) return;
+        if (at < 0) {
+            // The only button of a progress notification is Cancel.
+            const progress = this.passiveList.find((e) => e.notification.id === id);
+            if (progress?.progress === undefined || index !== 0 || progress.notification.items.length === 0) return;
+            this.removePassive(progress);
+            progress.progress.onCancel();
+            return;
+        }
         const { items } = this.askList[at].notification;
         this.settleAsk(at, index >= 0 && index < items.length ? index : undefined);
     }
@@ -155,23 +220,24 @@ export class NotificationService extends Disposable {
             this.settleAsk(ask, undefined);
             return;
         }
-        const index = this.passiveList.findIndex((e) => e.notification.id === id);
-        if (index < 0) return;
-        this.clearTimer(this.passiveList[index]);
-        this.passiveList.splice(index, 1);
-        this.armVisibleTimers();
-        this.fire();
+        const entry = this.passiveList.find((e) => e.notification.id === id);
+        if (entry === undefined) return;
+        this.removePassive(entry);
+        entry.progress?.onHide();
     }
 
     public clearAll(): void {
         if (this.passiveList.length === 0 && this.askList.length === 0) return;
-        for (const entry of this.passiveList) this.clearTimer(entry);
+        const passive = [...this.passiveList];
+        for (const entry of passive) this.clearTimer(entry);
         this.passiveList.length = 0;
         const asks = [...this.askList];
         for (const entry of asks) this.clearTimer(entry);
         this.askList.length = 0;
         for (const entry of asks) entry.resolve(undefined);
         this.fire();
+        // Upstream "Clear All" hides a running progress; the work goes on in the status bar.
+        for (const entry of passive) entry.progress?.onHide();
     }
 
     public isEmpty(): boolean {
@@ -181,7 +247,8 @@ export class NotificationService extends Disposable {
     /** Upstream `NotificationsModel.addNotification`: a new toast replaces its identical live twin, with a fresh timer. */
     private removePassiveDuplicate(message: INotificationMessage): void {
         const index = this.passiveList.findIndex(
-            ({ notification }) =>
+            ({ notification, progress }) =>
+                progress === undefined &&
                 notification.severity === message.severity &&
                 notification.message === message.message &&
                 notification.detail === message.detail,
@@ -189,6 +256,16 @@ export class NotificationService extends Disposable {
         if (index < 0) return;
         this.clearTimer(this.passiveList[index]);
         this.passiveList.splice(index, 1);
+    }
+
+    /** A repeated call is a no-op: `close` may come after a cancel or a hide. */
+    private removePassive(entry: IPassiveEntry): void {
+        const index = this.passiveList.indexOf(entry);
+        if (index < 0) return;
+        this.clearTimer(entry);
+        this.passiveList.splice(index, 1);
+        this.armVisibleTimers();
+        this.fire();
     }
 
     /** A modal is never passive, even without buttons: the user must close it. */
@@ -210,7 +287,7 @@ export class NotificationService extends Disposable {
 
     private armVisibleTimers(): void {
         for (const entry of this.passiveList.slice(0, MAX_VISIBLE_NOTIFICATIONS)) {
-            if (entry.timer !== null) continue;
+            if (entry.timer !== null || entry.progress !== undefined) continue;
             const { id, severity } = entry.notification;
             entry.timer = setTimeout(() => {
                 this.dismiss(id);
@@ -237,4 +314,19 @@ export class NotificationService extends Disposable {
     private fire(): void {
         this.onDidChangeEmitter.fire();
     }
+}
+
+function progressNotification(
+    id: number,
+    state: IProgressNotificationState,
+    cancellable: boolean,
+): IActiveNotification {
+    return {
+        id,
+        severity: "info",
+        message: state.message,
+        modal: false,
+        items: cancellable ? [PROGRESS_CANCEL_LABEL] : [],
+        progress: state.percent === undefined ? {} : { percent: state.percent },
+    };
 }

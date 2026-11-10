@@ -1,7 +1,7 @@
 import { SPINNER_FRAMES } from "../../../platform/progress/common/progressService.ts";
 import { type IProductIconService, NERD_FONT_ICONS } from "../../../platform/theme/common/productIconService.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
-import type { IProgressSink } from "../common/iExtensionWindowSinks.ts";
+import type { IProgressSink, IProgressStartOptions } from "../common/iExtensionWindowSinks.ts";
 
 const SPINNER_INTERVAL_MS = 100;
 
@@ -42,7 +42,8 @@ export class ProgressStatusBarAdapter implements IProgressSink {
         private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {}
 
-    public start(handle: number, title: string): void {
+    /** Window progress has no Cancel: upstream's status bar entry offers none either. */
+    public start(handle: number, { title }: Pick<IProgressStartOptions, "title">): void {
         // A repeated start of the same handle: defensively dismiss the previous entry.
         if (this.entries.has(handle)) this.end(handle);
         const entry = new ProgressEntry(title, this.icons);

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
-import type { IProgressSink } from "../../../api/common/iExtensionWindowSinks.ts";
+import type { IProgressSink, IProgressStartOptions } from "../../../api/common/iExtensionWindowSinks.ts";
 import { createInProcessChannelPair } from "../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
@@ -28,8 +28,12 @@ const NOOP_COMMANDS = {
 
 function makeHost(withSink: boolean) {
     const events: { kind: string; handle: number; message?: string; increment?: number; title?: string }[] = [];
+    const starts: { handle: number; options: IProgressStartOptions; cancel: () => void }[] = [];
     const sink: IProgressSink = {
-        start: (handle, title) => events.push({ kind: "start", handle, title }),
+        start: (handle, options, cancel) => {
+            starts.push({ handle, options, cancel });
+            events.push({ kind: "start", handle, title: options.title });
+        },
         report: (handle, message, increment) => events.push({ kind: "report", handle, message, increment }),
         end: (handle) => events.push({ kind: "end", handle }),
     };
@@ -38,7 +42,11 @@ function makeHost(withSink: boolean) {
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
-    return { host, peer, events };
+    const cancels: unknown[] = [];
+    peer.handleNotification("window.progress.cancel", (params) => {
+        cancels.push(params);
+    });
+    return { host, peer, events, starts, cancels };
 }
 
 describe("ExtensionHost — progress sink (window.progress.*, in-process)", () => {
@@ -91,5 +99,46 @@ describe("ExtensionHost — progress sink (window.progress.*, in-process)", () =
         const ends = h.events.filter((e) => e.kind === "end").map((e) => e.handle);
         // Handle 1 is closed by the extension; handle 2 by the host on shutdown, and only that one.
         expect(ends).toEqual([1, 2]);
+    });
+
+    it("[api:window.withProgress] start carries location and cancellable; garbage falls back to a non-cancellable Window", async () => {
+        const h = makeHost(true);
+        h.peer.notify("window.progress.start", { handle: 1, title: "a", location: "notification", cancellable: true });
+        h.peer.notify("window.progress.start", { handle: 2, title: "b", location: { viewId: "explorer" } });
+        h.peer.notify("window.progress.start", { handle: 3, title: "c", location: "sourceControl" });
+        h.peer.notify("window.progress.start", { handle: 4, title: "d", location: 15, cancellable: "yes" });
+        h.peer.notify("window.progress.start", { handle: 5, title: "e", location: { viewId: 7 } });
+        await flushMicrotasks();
+
+        expect(h.starts.map((s) => s.options)).toEqual([
+            { title: "a", location: "notification", cancellable: true },
+            { title: "b", location: { viewId: "explorer" }, cancellable: false },
+            { title: "c", location: "sourceControl", cancellable: false },
+            { title: "d", location: "window", cancellable: false },
+            { title: "e", location: "window", cancellable: false },
+        ]);
+    });
+
+    it("[api:window.withProgress] the sink's cancel goes back to the subprocess as window.progress.cancel", async () => {
+        const h = makeHost(true);
+        h.peer.notify("window.progress.start", { handle: 7, title: "a", location: "notification", cancellable: true });
+        await flushMicrotasks();
+
+        h.starts[0].cancel();
+        await flushMicrotasks();
+
+        expect(h.cancels).toEqual([{ handle: 7 }]);
+    });
+
+    it("a cancel after the subprocess died goes nowhere", async () => {
+        const h = makeHost(true);
+        h.peer.notify("window.progress.start", { handle: 7, title: "a", location: "notification", cancellable: true });
+        await flushMicrotasks();
+        h.host.dispose();
+
+        h.starts[0].cancel();
+        await flushMicrotasks();
+
+        expect(h.cancels).toEqual([]);
     });
 });

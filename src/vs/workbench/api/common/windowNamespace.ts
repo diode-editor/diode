@@ -6,6 +6,7 @@ import { cursorStyleFromApi, cursorStyleToApi } from "../../../editor/common/con
 
 import { implementsApi } from "./apiSurface.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { createProgressApi } from "./extHostProgress.ts";
 import { snippetRanges } from "./extHostSnippetInsert.ts";
 import { applyTextEditorEdit } from "./extHostTextEditorEdit.ts";
 import { createExtHostTreeViews, type ITreeViewMembers } from "./extHostTreeViews.ts";
@@ -120,11 +121,11 @@ export function createWindowNamespace(
 
     const quickInput = createQuickInputApi(rpc, asRelativePath);
     const messages = createMessageApi(rpc);
+    const progressApi = createProgressApi(rpc);
 
     let activeEditorUri: string | null = null;
     /** null until the first meta that carries a group. */
     let activeEditorGroupId: number | null = null;
-    let nextProgressHandle = 1;
     let nextStatusBarItemHandle = 1;
     let activeSelections: readonly IWireSelection[] = [];
     /** Single source of `visibleTextEditors`/`tabGroups`/`viewColumn`: API events come from diffing snapshots. */
@@ -1086,50 +1087,7 @@ export function createWindowNamespace(
                 return getEditorFor(registry.getOrCreate(Uri.parse(result.uri)), result.groupId);
             });
         },
-        // Location is ignored (in a TUI everything is Window); the token never fires, which
-        // languageclient's ProgressPart tolerates.
-        withProgress: <R>(
-            options: vscode.ProgressOptions,
-            task: (
-                progress: vscode.Progress<{ message?: string; increment?: number }>,
-                token: vscode.CancellationToken,
-            ) => Thenable<R>,
-        ): Thenable<R> => {
-            const handle = nextProgressHandle++;
-            const token: vscode.CancellationToken = {
-                isCancellationRequested: false,
-                onCancellationRequested: new EventEmitter<never>().event,
-            };
-            rpc.notify("window.progress.start", { handle, title: options.title ?? "" });
-            const progress: vscode.Progress<{ message?: string; increment?: number }> = {
-                report: (value: unknown) => {
-                    const v = (typeof value === "object" && value !== null ? value : {}) as {
-                        message?: unknown;
-                        increment?: unknown;
-                    };
-                    rpc.notify("window.progress.report", {
-                        handle,
-                        ...(typeof v.message === "string" ? { message: v.message } : {}),
-                        ...(typeof v.increment === "number" && Number.isFinite(v.increment)
-                            ? { increment: v.increment }
-                            : {}),
-                    });
-                },
-            };
-            const done = (): void => {
-                rpc.notify("window.progress.end", { handle });
-            };
-            return Promise.resolve(task(progress, token)).then(
-                (result) => {
-                    done();
-                    return result;
-                },
-                (err: unknown) => {
-                    done();
-                    throw err;
-                },
-            );
-        },
+        withProgress: progressApi.withProgress,
     };
 
     return implementsApi<typeof vscode.window>()(windowNs);
