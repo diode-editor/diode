@@ -18,9 +18,9 @@ function buildHarness() {
     views.service.attachRegisteredContainers();
     const titles: string[] = [];
     service.onDidChangeInstanceTitle((i) => titles.push(`${String(i.id)}:${i.title}`));
-    const inputs: number[] = [];
-    service.onDidInputInstanceData((i) => inputs.push(i.id));
-    return { service, sessions, titles, inputs };
+    const interactions: number[] = [];
+    service.onDidInteractWithInstance((i) => interactions.push(i.id));
+    return { service, sessions, titles, interactions };
 }
 
 describe("TerminalService — state an extension sees", () => {
@@ -52,17 +52,33 @@ describe("TerminalService — state an extension sees", () => {
         h.service.dispose();
     });
 
-    it("input: keys into the session and sendText are reported; input after exit is not", () => {
+    it("interaction: the first key or sendText per instance flips isInteractedWith and is reported once", () => {
         const h = buildHarness();
-        const a = h.service.createInstance({ waitOnExit: true });
+        const a = h.service.createInstance();
         const b = h.service.createInstance();
+        const c = h.service.createInstance({ waitOnExit: true });
+        expect(a.isInteractedWith).toBe(false);
         h.sessions[0].write("x");
+        h.sessions[0].write("y");
         h.service.sendText(b.id, "ls", true);
-        expect(h.inputs).toStrictEqual([a.id, b.id]);
+        expect(h.interactions).toStrictEqual([a.id, b.id]);
+        expect([a.isInteractedWith, b.isInteractedWith, c.isInteractedWith]).toStrictEqual([true, true, false]);
+        // A key after exit only closes the waiting terminal: it never reached a process.
+        h.sessions[2].isExited = true;
+        h.sessions[2].emitExit(0);
+        h.sessions[2].write("x");
+        expect(h.interactions).toStrictEqual([a.id, b.id]);
+        h.service.dispose();
+    });
+
+    it("relaunch re-guesses the shell type from the new executable", () => {
+        const h = buildHarness();
+        const instance = h.service.createInstance({ shellPath: "/bin/bash", waitOnExit: true });
         h.sessions[0].isExited = true;
         h.sessions[0].emitExit(0);
-        h.sessions[0].write("x");
-        expect(h.inputs).toStrictEqual([a.id, b.id]);
+        h.sessions[0].shell = "/usr/bin/fish";
+        h.service.relaunchInstance(instance.id, { shellPath: "/usr/bin/fish" });
+        expect(h.service.getInstance(instance.id)?.shellType).toBe("fish");
         h.service.dispose();
     });
 });

@@ -39,8 +39,6 @@ export class TerminalCustomer implements IExtensionHostCustomer {
         const spawn = { rpc, sink, ready: false, alive: true };
         const seeded = (): boolean => spawn.alive && spawn.ready;
         this.spawn = spawn;
-        // Upstream sends every input; only the first one flips `isInteractedWith`, so the rest stay on the host.
-        const interacted = new Set<number>();
 
         store.add(
             sink.subscribe({
@@ -48,7 +46,6 @@ export class TerminalCustomer implements IExtensionHostCustomer {
                     if (seeded()) rpc.notify("terminal.opened", terminal);
                 },
                 closed: (terminal) => {
-                    interacted.delete(terminal.id);
                     if (seeded()) rpc.notify("terminal.closed", terminal);
                 },
                 activeChanged: (id) => {
@@ -65,10 +62,8 @@ export class TerminalCustomer implements IExtensionHostCustomer {
                 ptyResize: (id, cols, rows) => {
                     rpc.notify("terminal.pty.resize", { id, cols, rows });
                 },
-                input: (id) => {
-                    if (!seeded() || interacted.has(id)) return;
-                    interacted.add(id);
-                    rpc.notify("terminal.interaction", { id });
+                interaction: (id) => {
+                    if (seeded()) rpc.notify("terminal.interaction", { id });
                 },
                 titleChanged: (id, name) => {
                     if (seeded()) rpc.notify("terminal.titleChanged", { id, name });

@@ -1,3 +1,5 @@
+import { posix, win32 } from "node:path";
+
 import { OperatingSystem } from "../../../base/common/platform.ts";
 
 /** Upstream `TerminalShellType` (`PosixShellType`, `WindowsShellType`, `GeneralShellType`): `terminal.state.shell`. */
@@ -41,7 +43,7 @@ const POSIX_SHELL_TYPES: readonly TerminalShellType[] = ["bash", "csh", "fish", 
  * upstream, the basename keeps its extension, so `cmd.exe` stays unknown.
  */
 export function guessShellTypeFromExecutable(os: OperatingSystem, executable: string): TerminalShellType | undefined {
-    const name = executable.split(os === OperatingSystem.Windows ? /[\\/]/u : "/").at(-1) ?? "";
+    const name = (os === OperatingSystem.Windows ? win32 : posix).basename(executable);
     for (const [type, pattern] of GENERAL_SHELL_TYPES) if (pattern.test(name)) return type;
     if (os === OperatingSystem.Windows) {
         for (const [type, pattern] of WINDOWS_SHELL_TYPES) if (pattern.test(name)) return type;

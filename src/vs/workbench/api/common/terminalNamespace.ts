@@ -304,7 +304,9 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
         byId.set(opened.id, record);
         onDidOpenTerminal.fire(record.value);
         // Upstream `$acceptTerminalShellType` follows `$acceptTerminalOpened`: the type arrives as a state change.
-        if (record.setShellType(opened.shellType)) onDidChangeTerminalState.fire(record.value);
+        const shellChanged = record.setShellType(opened.shellType);
+        const interacted = opened.isInteractedWith === true && record.setInteractedWith();
+        if (shellChanged || interacted) onDidChangeTerminalState.fire(record.value);
     });
 
     rpc.handleNotification("terminal.interaction", (params) => {

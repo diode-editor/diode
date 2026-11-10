@@ -95,8 +95,8 @@ export interface IExtensionTerminalEvents {
     /** User typing and `sendText` → `pty.handleInput`. */
     ptyInput(id: number, data: string): void;
     ptyResize(id: number, cols: number, rows: number): void;
-    /** Upstream `onAnyInstanceDataInput`: every input into the instance — keys or `sendText`. */
-    input(id: number): void;
+    /** Upstream `$acceptTerminalInteraction`: the first input into the instance — keys or `sendText`. */
+    interaction(id: number): void;
     /** Upstream `$acceptTerminalTitleChange`. */
     titleChanged(id: number, name: string): void;
 }

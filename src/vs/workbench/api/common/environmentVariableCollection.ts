@@ -76,8 +76,8 @@ function toWireScope(scope: vscode.EnvironmentVariableScope | undefined): IEnvir
  */
 function toApiMutator(mutator: IEnvironmentVariableMutator): vscode.EnvironmentVariableMutator & { variable: string } {
     return {
-        value: mutator.value,
         type: mutator.type as unknown as vscode.EnvironmentVariableMutatorType,
+        value: mutator.value,
         options: { ...mutator.options },
         variable: mutator.variable,
     };

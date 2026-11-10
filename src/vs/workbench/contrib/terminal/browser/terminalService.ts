@@ -62,8 +62,10 @@ export interface ITerminalInstance {
     /** `undefined` while the shell is alive or if the instance was closed by something other than exit. */
     readonly exitCode: number | undefined;
     readonly exitReason: TerminalExitReason | undefined;
-    /** Upstream `shellType`, guessed from the shell executable at creation; `undefined` — unknown or a pty. */
+    /** Upstream `shellType`, guessed from the shell executable at (re)launch; `undefined` — unknown or a pty. */
     readonly shellType: TerminalShellType | undefined;
+    /** Input — keys, mouse reports, `sendText` — has reached the process (`terminal.state.isInteractedWith`). */
+    readonly isInteractedWith: boolean;
 }
 
 export interface IDisposedTerminalInstance extends ITerminalInstance {
@@ -115,6 +117,8 @@ interface TerminalInstanceRecord extends ITerminalInstance {
     launch: ITerminalLaunchInfo;
     exitCode: number | undefined;
     exitReason: TerminalExitReason | undefined;
+    shellType: TerminalShellType | undefined;
+    isInteractedWith: boolean;
     waitOnExit: TerminalWaitOnExit | undefined;
     /** The process exited; the instance waits for a key (`waitOnExit`). */
     waiting: boolean;
@@ -160,7 +164,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     private readonly onDidDisposeInstanceEmitter = this.register(new Emitter<IDisposedTerminalInstance>());
     private readonly onDidExitInstanceEmitter = this.register(new Emitter<ITerminalInstance>());
     private readonly onDidChangeInstanceTitleEmitter = this.register(new Emitter<ITerminalInstance>());
-    private readonly onDidInputInstanceDataEmitter = this.register(new Emitter<ITerminalInstance>());
+    private readonly onDidInteractWithInstanceEmitter = this.register(new Emitter<ITerminalInstance>());
 
     public constructor(
         private readonly viewsService: ViewsService,
@@ -285,6 +289,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         if (options.session !== undefined && options.message !== undefined)
             session.printMessage(`${options.message}\r\n`);
         const hideFromUser = options.hideFromUser === true;
+        const external = options.session !== undefined;
         const instance: TerminalInstanceRecord = {
             id,
             target: options.target ?? "panel",
@@ -294,13 +299,11 @@ export class TerminalService extends Disposable implements IContextKeyContributo
             launch: launchInfo(options, session, cwd, hideFromUser),
             exitCode: undefined,
             exitReason: undefined,
-            shellType:
-                options.session === undefined
-                    ? guessShellTypeFromExecutable(currentOperatingSystem(), session.shell)
-                    : undefined,
+            shellType: shellTypeOf(external, session),
+            isInteractedWith: false,
             waitOnExit: options.waitOnExit,
             waiting: false,
-            external: options.session !== undefined,
+            external,
             subscriptions: [
                 session.onExit((code) => {
                     this.handleProcessExit(instance, code);
@@ -312,7 +315,9 @@ export class TerminalService extends Disposable implements IContextKeyContributo
                     if (instance.waiting) this.removeInstance(instance, "user");
                 }),
                 session.onDidInput(() => {
-                    this.onDidInputInstanceDataEmitter.fire(instance);
+                    if (instance.isInteractedWith) return;
+                    instance.isInteractedWith = true;
+                    this.onDidInteractWithInstanceEmitter.fire(instance);
                 }),
             ],
         };
@@ -343,11 +348,8 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         });
         instance.processId = instance.session.pid;
         instance.launch = launchInfo(options, instance.session, cwd, instance.launch.hideFromUser);
-        const title = titleOf(options, instance.session);
-        if (title !== instance.title) {
-            instance.title = title;
-            this.onDidChangeInstanceTitleEmitter.fire(instance);
-        }
+        instance.shellType = shellTypeOf(instance.external, instance.session);
+        this.renameInstance(id, titleOf(options, instance.session));
         return instance;
     }
 
@@ -450,8 +452,11 @@ export class TerminalService extends Disposable implements IContextKeyContributo
 
     public readonly onDidChangeInstanceTitle = this.onDidChangeInstanceTitleEmitter.event;
 
-    /** Upstream `onAnyInstanceDataInput`: keys or `sendText` reached the instance's live process. */
-    public readonly onDidInputInstanceData = this.onDidInputInstanceDataEmitter.event;
+    /**
+     * The first input into the instance ({@link ITerminalInstance.isInteractedWith} turned `true`). Upstream reports
+     * every input (`onAnyInstanceDataInput`), but only the first one changes the extension's `state`.
+     */
+    public readonly onDidInteractWithInstance = this.onDidInteractWithInstanceEmitter.event;
 
     public readonly onDidOpenInstance = this.onDidOpenInstanceEmitter.event;
 
@@ -615,6 +620,11 @@ function sessionOptions(
         ...(options.strictEnv === true ? { strictEnv: true } : {}),
         ...(options.message !== undefined ? { message: options.message } : {}),
     };
+}
+
+/** An extension pty has no executable on our side: its `shell` is the terminal name. */
+function shellTypeOf(external: boolean, session: ITerminalSession): TerminalShellType | undefined {
+    return external ? undefined : guessShellTypeFromExecutable(currentOperatingSystem(), session.shell);
 }
 
 /** Upstream treats an empty name as "not set": the title comes from the process. */

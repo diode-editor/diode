@@ -200,6 +200,7 @@ import type {
     IWireTerminalActive,
     IWireTerminalClosed,
     IWireTerminalCreate,
+    IWireTerminalInteraction,
     IWireTerminalOpened,
     IWireTerminalPtyData,
     IWireTerminalPtyDimensions,
@@ -391,7 +392,7 @@ export interface IHostToSubprocess {
         readonly "terminal.pty.start": IWireTerminalPtyDimensions;
         readonly "terminal.pty.resize": IWireTerminalPtyDimensions;
         readonly "terminal.pty.input": IWireTerminalPtyInput;
-        readonly "terminal.interaction": { readonly id: number };
+        readonly "terminal.interaction": IWireTerminalInteraction;
         readonly "terminal.titleChanged": IWireTerminalTitleChanged;
 
         readonly "tasks.didStart": IWireTaskStarted;

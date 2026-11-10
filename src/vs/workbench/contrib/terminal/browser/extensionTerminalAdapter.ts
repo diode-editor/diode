@@ -99,8 +99,8 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
             }),
         );
         store.add(
-            this.terminals.onDidInputInstanceData((instance) => {
-                events.input(instance.id);
+            this.terminals.onDidInteractWithInstance((instance) => {
+                events.interaction(instance.id);
             }),
         );
         store.add(
@@ -273,6 +273,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
             name: instance.title,
             ...(instance.processId !== undefined ? { pid: instance.processId } : {}),
             ...(instance.shellType !== undefined ? { shellType: instance.shellType } : {}),
+            ...(instance.isInteractedWith ? { isInteractedWith: true } : {}),
             launch: toWireLaunch(instance),
         };
     }

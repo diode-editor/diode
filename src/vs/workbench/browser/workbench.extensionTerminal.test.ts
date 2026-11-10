@@ -92,7 +92,7 @@ describe("Workbench — extension terminal", () => {
         expect(tabs().some((line) => line.trimEnd().endsWith(" foo"))).toBe(false);
     });
 
-    it("[api:Terminal.state] a key typed into the focused terminal is reported as input to the extension host", () => {
+    it("[api:Terminal.state] a key typed into the focused terminal is reported as the interaction to the extension host", () => {
         boot();
         const inputs: number[] = [];
         adapter.subscribe({
@@ -102,7 +102,7 @@ describe("Workbench — extension terminal", () => {
             ptyStart: () => undefined,
             ptyInput: () => undefined,
             ptyResize: () => undefined,
-            input: (id) => inputs.push(id),
+            interaction: (id) => inputs.push(id),
             titleChanged: () => undefined,
         });
         h.commands.execute("workbench.action.terminal.new");
@@ -130,7 +130,7 @@ describe("Workbench — extension terminal", () => {
             ptyStart: () => undefined,
             ptyInput: () => undefined,
             ptyResize: () => undefined,
-            input: () => undefined,
+            interaction: () => undefined,
             titleChanged: () => undefined,
         });
         adapter.create({ extHostId: 1, name: "Claude Code", location: { viewColumn: -2 } });

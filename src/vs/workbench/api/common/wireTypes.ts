@@ -836,6 +836,7 @@ export interface IWireTerminalLaunch {
 /**
  * `extHostId` only for this subprocess's terminals; `pid` only for a real shell. `shellType` — upstream's
  * `TerminalShellType` guessed from the shell executable (`terminal.state.shell`); absent when unknown.
+ * `isInteractedWith` — only `true`: input reached it before this subprocess learned of it (snapshot).
  */
 export interface IWireTerminalOpened {
     readonly id: number;
@@ -843,7 +844,13 @@ export interface IWireTerminalOpened {
     readonly name: string;
     readonly pid?: number;
     readonly shellType?: string;
+    readonly isInteractedWith?: true;
     readonly launch: IWireTerminalLaunch;
+}
+
+/** Upstream `$acceptTerminalInteraction`: the first input (keys or `sendText`) into the instance. */
+export interface IWireTerminalInteraction {
+    readonly id: number;
 }
 
 /** Upstream `$acceptTerminalTitleChange`: the instance was renamed (a pty's `onDidChangeName`, a task rerun). */
@@ -939,6 +946,7 @@ export function parseWireTerminalOpened(raw: unknown): IWireTerminalOpened | nul
         ...(typeof p.extHostId === "number" ? { extHostId: p.extHostId } : {}),
         ...(typeof p.pid === "number" ? { pid: p.pid } : {}),
         ...(typeof p.shellType === "string" ? { shellType: p.shellType } : {}),
+        ...(p.isInteractedWith === true ? { isInteractedWith: true } : {}),
         launch: parseWireTerminalLaunch(p.launch),
     };
 }
@@ -949,8 +957,7 @@ export function parseWireTerminalTitleChanged(raw: unknown): IWireTerminalTitleC
     return { id: p.id, name: p.name };
 }
 
-/** `terminal.interaction`: the first input (keys or `sendText`) into the instance. */
-export function parseWireTerminalInteraction(raw: unknown): { readonly id: number } | null {
+export function parseWireTerminalInteraction(raw: unknown): IWireTerminalInteraction | null {
     const id = (raw as WireEnvelope)?.id;
     return typeof id === "number" ? { id } : null;
 }

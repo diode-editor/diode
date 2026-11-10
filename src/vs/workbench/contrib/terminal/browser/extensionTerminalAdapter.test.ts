@@ -43,7 +43,7 @@ function setup(settings: Record<string, unknown> = {}) {
         ptyStart: vi.fn<IExtensionTerminalEvents["ptyStart"]>(),
         ptyInput: vi.fn<IExtensionTerminalEvents["ptyInput"]>(),
         ptyResize: vi.fn<IExtensionTerminalEvents["ptyResize"]>(),
-        input: vi.fn<IExtensionTerminalEvents["input"]>(),
+        interaction: vi.fn<IExtensionTerminalEvents["interaction"]>(),
         titleChanged: vi.fn<IExtensionTerminalEvents["titleChanged"]>(),
     };
     const subscription = adapter.subscribe(events);
@@ -144,7 +144,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
-    it("input: keys and sendText of shells and ptys are reported per input; nothing after unsubscribing", () => {
+    it("interaction: the first key or sendText of a shell or a pty is reported, also in opened; nothing after unsubscribing", () => {
         const h = setup();
         h.adapter.create({ extHostId: 1 });
         h.adapter.create({ extHostId: 2, pty: true, name: "p" });
@@ -152,10 +152,12 @@ describe("ExtensionTerminalAdapter", () => {
         h.sessions[0].write("k");
         h.adapter.sendText({ extHostId: 1 }, "ls", true);
         h.ptySessions[0].write("q");
-        expect(h.events.input.mock.calls).toStrictEqual([[shell.id], [shell.id], [pty.id]]);
+        expect(h.events.interaction.mock.calls).toStrictEqual([[shell.id], [pty.id]]);
+        expect(h.adapter.snapshot().terminals.map((t) => t.isInteractedWith)).toStrictEqual([true, true]);
         h.subscription.dispose();
-        h.sessions[0].write("k");
-        expect(h.events.input).toHaveBeenCalledTimes(3);
+        h.adapter.create({ extHostId: 3 });
+        h.service.getInstances()[2].session.write("k");
+        expect(h.events.interaction).toHaveBeenCalledTimes(2);
         h.service.dispose();
     });
 

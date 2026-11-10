@@ -250,16 +250,14 @@ describe("extension terminals — over the wire", () => {
         h.service.dispose();
     });
 
-    it("interaction before the seed is reported on the next input", async () => {
+    it("interaction before the seed (or a previous subprocess) arrives with the snapshot", async () => {
         const h = setup({ pushInitialState: false });
+        h.service.newTerminal();
         h.service.newTerminal();
         h.sessions[0].write("early");
         h.customer.pushInitialState();
         await flush();
-        expect(h.ns.terminals[0].state.isInteractedWith).toBe(false);
-        h.sessions[0].write("late");
-        await flush();
-        expect(h.ns.terminals[0].state.isInteractedWith).toBe(true);
+        expect(h.ns.terminals.map((t) => t.state.isInteractedWith)).toStrictEqual([true, false]);
         h.service.dispose();
     });
 

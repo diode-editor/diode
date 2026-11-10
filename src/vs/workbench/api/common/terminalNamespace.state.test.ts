@@ -51,6 +51,17 @@ describe("[api:Terminal.state] [api:window.onDidChangeTerminalState] terminal st
         expect(changes).toStrictEqual([[terminal, { isInteractedWith: false, shell: "zsh" }]]);
     });
 
+    it("opened with isInteractedWith (a snapshot after input): one state event with both fields", () => {
+        const { ns, stub, changes } = setup();
+        stub.fire("terminal.opened", { id: 1, name: "zsh", shellType: "zsh", isInteractedWith: true, launch: {} });
+        stub.fire("terminal.opened", { id: 2, name: "x", isInteractedWith: "yes", launch: {} });
+        expect(changes).toStrictEqual([[ns.terminals[0], { isInteractedWith: true, shell: "zsh" }]]);
+        expect(ns.terminals[1].state).toStrictEqual({ isInteractedWith: false, shell: undefined });
+        stub.fire("terminal.opened", { id: 3, name: "sh", isInteractedWith: true, launch: {} });
+        expect(changes).toHaveLength(2);
+        expect(ns.terminals[2].state).toStrictEqual({ isInteractedWith: true, shell: undefined });
+    });
+
     it("a foreign terminal (snapshot or the user's shell) gets its type too; a non-string type is unknown", () => {
         const { ns, stub, changes } = setup();
         stub.fire("terminal.opened", { id: 1, name: "fish", shellType: "fish", launch: {} });

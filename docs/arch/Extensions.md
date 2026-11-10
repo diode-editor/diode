@@ -1639,12 +1639,13 @@ Workbench** (адаптеры над `EditorService`; мост файловых 
 `dispose()` — `extension`), `terminal.activeChanged`, `terminal.titleChanged` (`$acceptTerminalTitleChange`:
 инстанс переименован — pty или перезапуск задачи; субпроцесс меняет `name`) и `terminal.interaction`
 (`$acceptTerminalInteraction`). `Terminal.state` — объект, который заменяется при каждой смене, как в
-эталоне. Ввод — нажатия клавиш и `sendText` — сессия сообщает событием `onDidInput`, сервис —
-`onDidInputInstanceData` (`onAnyInstanceDataInput` эталона); эталон шлёт каждый ввод, мы — только
-первый по инстансу (дедупликация в `TerminalCustomer` после засева снимка: ввод до засева не
-теряется, его сообщит следующий), потому что меняет `isInteractedWith` лишь первый. Тип оболочки
+эталоне. Ввод — нажатия клавиш и `sendText` — сессия сообщает событием `onDidInput`; флаг
+`isInteractedWith` держит инстанс `TerminalService`, и сервис сообщает только первый ввод
+(`onDidInteractWithInstance`): эталон шлёт каждый (`onAnyInstanceDataInput`), но состояние меняет лишь
+первый. Флаг едет и полем `isInteractedWith` в `terminal.opened` — так его видят снимок нового
+субпроцесса и терминал, в который печатали до засева. Тип оболочки
 (`state.shell`) — `guessShellTypeFromExecutable` эталона (`platform/terminal/common/terminalShellType.ts`)
-по basename исполняемого файла при создании инстанса; у pty его нет. Едет полем `shellType` в
+по basename исполняемого файла при создании инстанса и его перезапуске; у pty его нет. Едет полем `shellType` в
 `terminal.opened` (и в снимке), а субпроцесс после `onDidOpenTerminal` выставляет его и стреляет
 `onDidChangeTerminalState` — как `$acceptTerminalShellType` после `$acceptTerminalOpened`. Опроса
 процесса (вложенная оболочка) нет — отступление. Адресация двойная: хостовый `id` минтит хост,
