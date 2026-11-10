@@ -6,6 +6,7 @@ vscode API - editors insert snippet with clipboard variables
 vscode API - editors insert snippet with replacement, avoid adjusting indentation
 vscode API - editors insert snippet with replacement, editor selection
 vscode API - editors insert snippet with replacement, selection as argument
+vscode API - editors issue #16573: Extension API: insertSpaces and tabSize are undefined
 vscode API - editors issue #20757: Overlapping ranges are not allowed!
 vscode API - editors issue #6281: Edits fail to validate ranges correctly before applying
 vscode API - editors make edit

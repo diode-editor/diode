@@ -159,6 +159,7 @@ import {
     TextDocumentSaveReason,
     TextEdit,
     TextEditorCursorStyle,
+    TextEditorLineNumbersStyle,
     TextEditorSelectionChangeKind,
     ThemeColor,
     ThemeIcon,
@@ -234,6 +235,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         executeCompletionItemProvider: (...args) => executeProviders.completionItems(...args),
         executeCodeActionProvider: (...args) => executeProviders.codeActions(...args),
         getActiveTextEditor: () => window.activeTextEditor,
+        executeHostCommand: (id, args) => rpc.request("commands.executeCommand", { id, args }),
     });
     const testing = createExtHostTesting(rpc);
     const commands = buildCommandsNamespace(
@@ -407,6 +409,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         UIKind,
         ColorThemeKind,
         TextEditorCursorStyle,
+        TextEditorLineNumbersStyle,
         TextEditorRevealType,
         TextEditorSelectionChangeKind,
         ThemeColor,

@@ -14,9 +14,9 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1216 |
+| ok | 1222 |
 | A | 4 |
-| B | 214 |
+| B | 208 |
 | C | 547 |
 | X | 234 |
 
@@ -253,11 +253,11 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `robertpiosik.gemini-coder` | 2026.1030.308 | 603,271 |  | 86 | 7 | 0 | 5 | 0 | 2 |
 | `salesforce.salesforcedx-vscode-apex-testing` | 68.7.3 | 487,568 |  | 36 | 7 | 0 | 0 | 7 | 0 |
 | `ms-toolsai.vscode-jupyter-cell-tags` | 0.1.9 | 8,947,433 |  | 22 | 8 | 0 | 0 | 0 | 8 |
+| `vscodevim.vim` | 1.32.4 | 1,989,577 |  | 66 | 8 | 0 | 2 | 6 | 0 |
 | `WallabyJs.console-ninja` | 1.0.547 | 596,976 |  | 9 | 8 | 0 | 0 | 7 | 1 |
 | `Continue.continue` | 2.1.0 | 1,747,795 |  | 102 | 9 | 0 | 2 | 2 | 5 |
 | `ms-kubernetes-tools.vscode-kubernetes-tools` | 1.4.1 | 1,255,998 |  | 110 | 9 | 0 | 5 | 3 | 1 |
 | `Alibaba-Cloud.tongyi-lingma` | 2.6.10 | 896,092 |  | 135 | 9 | 0 | 2 | 4 | 3 |
-| `vscodevim.vim` | 1.32.4 | 1,989,577 |  | 66 | 10 | 0 | 4 | 6 | 0 |
 | `eclipse-cdt.cdt-gdb-vscode` | 2.9.1 | 1,006,438 |  | 27 | 11 | 0 | 0 | 10 | 1 |
 | `qwenlm.qwen-code-vscode-ide-companion` | 0.26.4 | 902,772 |  | 75 | 11 | 0 | 2 | 0 | 9 |
 | `salesforce.salesforcedx-vscode-apex-replay-debugger` | 68.7.3 | 607,617 |  | 27 | 11 | 0 | 0 | 11 | 0 |
@@ -2266,15 +2266,15 @@ Proposed API or a false hit: class X when real.
 | `TextEditorEdit.insert` | ok | yes | 0 | 0 |  |
 | `TextEditorEdit.replace` | ok | yes | 0 | 0 |  |
 | `TextEditorEdit.setEndOfLine` | ok | yes | 0 | 0 |  |
-| `TextEditorLineNumbersStyle` | B |  | 0 | 0 |  |
-| `TextEditorLineNumbersStyle.Interval` | B |  | 0 | 0 |  |
-| `TextEditorLineNumbersStyle.Off` | B |  | 0 | 0 |  |
-| `TextEditorLineNumbersStyle.On` | B |  | 1 | 1,989,577 |  |
-| `TextEditorLineNumbersStyle.Relative` | B |  | 1 | 1,989,577 |  |
+| `TextEditorLineNumbersStyle` | ok |  | 0 | 0 |  |
+| `TextEditorLineNumbersStyle.Interval` | ok |  | 0 | 0 |  |
+| `TextEditorLineNumbersStyle.Off` | ok |  | 0 | 0 |  |
+| `TextEditorLineNumbersStyle.On` | ok |  | 1 | 1,989,577 |  |
+| `TextEditorLineNumbersStyle.Relative` | ok |  | 1 | 1,989,577 |  |
 | `TextEditorOptions.cursorStyle` | ok |  | 0 | 0 |  |
 | `TextEditorOptions.indentSize` | ok |  | 0 | 0 |  |
 | `TextEditorOptions.insertSpaces` | ok |  | 0 | 0 |  |
-| `TextEditorOptions.lineNumbers` | B |  | 0 | 0 |  |
+| `TextEditorOptions.lineNumbers` | ok |  | 0 | 0 |  |
 | `TextEditorOptions.tabSize` | ok |  | 0 | 0 |  |
 | `TextEditorOptionsChangeEvent.options` | B |  | 0 | 0 |  |
 | `TextEditorOptionsChangeEvent.textEditor` | B |  | 0 | 0 |  |

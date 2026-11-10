@@ -35,6 +35,8 @@ import {
     StatusBarAlignment,
     TabInputText,
     TabInputTextDiff,
+    TextEditorCursorStyle,
+    TextEditorLineNumbersStyle,
     Uri,
 } from "./vscodeTypes.ts";
 import { createWebviewNoopMembers } from "./webviewNoop.ts";
@@ -482,21 +484,72 @@ export function createWindowNamespace(
         let storedOptions: vscode.TextEditorOptions = {};
         /** Lives with this object: a closed tab drops it from the cache, so a reopened one starts clean. */
         let cursorStyleOverride: vscode.TextEditorCursorStyle | undefined;
-        // Upstream resolves the style from the code editor; unset in Diode means the terminal's own shape.
-        const effectiveCursorStyle = (): vscode.TextEditorCursorStyle | undefined =>
+        // Upstream resolves the style from the code editor, whose default is `line`. Deviation: an unset
+        // `editor.cursorStyle` leaves the terminal's own shape on screen, yet reads as `Line`, as upstream.
+        const effectiveCursorStyle = (): vscode.TextEditorCursorStyle =>
             cursorStyleOverride ??
-            cursorStyleToApi(ctx.configStore.get("editor.cursorStyle", undefined, document.languageId));
+            cursorStyleToApi(ctx.configStore.get("editor.cursorStyle", undefined, document.languageId)) ??
+            TextEditorCursorStyle.Line;
+        const resolvedOptions = (): vscode.TextEditorOptions => {
+            const tab = layoutGroup(groupId)?.tabs.find((candidate) => candidate.uri === document.uri.toString());
+            return {
+                // Upstream's getter is always resolved: vsc-python-indent computes the next indent from `tabSize`.
+                ...(tab?.tabSize === undefined ? {} : { tabSize: tab.tabSize }),
+                ...(tab?.insertSpaces === undefined ? {} : { insertSpaces: tab.insertSpaces }),
+                // Deviation: Diode always draws plain line numbers; the style is only reported.
+                lineNumbers: lineNumbersToApi(
+                    ctx.configStore.get("editor.lineNumbers", undefined, document.languageId),
+                ),
+                ...storedOptions,
+                cursorStyle: effectiveCursorStyle(),
+            };
+        };
+        const setOptions = (patch: vscode.TextEditorOptions & { indentSize?: number | string }): void => {
+            const normalized: {
+                tabSize?: number;
+                insertSpaces?: boolean;
+                indentSize?: number;
+                cursorStyle?: number;
+            } = {};
+            const kept = { ...patch };
+            delete kept.tabSize;
+            // As upstream `_validateTabSize`: a value that is not a number (absent included) is no change.
+            const tabSize = normalizeTabSize(patch.tabSize);
+            if (tabSize !== undefined) normalized.tabSize = kept.tabSize = tabSize;
+            if (patch.insertSpaces !== undefined) {
+                normalized.insertSpaces = normalizeInsertSpaces(patch.insertSpaces);
+            }
+            const indentSize = normalizeIndentSize(patch.indentSize);
+            if (indentSize !== undefined) normalized.indentSize = indentSize;
+            // As upstream `_setOptions`: only a change goes out, so a read-modify-write of
+            // `options` for `tabSize` does not pin the configured style as an override.
+            if (cursorStyleFromApi(patch.cursorStyle) !== undefined && patch.cursorStyle !== effectiveCursorStyle()) {
+                cursorStyleOverride = patch.cursorStyle;
+                normalized.cursorStyle = patch.cursorStyle;
+            }
+            delete kept.cursorStyle;
+            storedOptions = { ...storedOptions, ...kept };
+            if (Object.keys(normalized).length > 0) {
+                void rpc.request("editor.setOptions", { ...normalized, uri: document.uri.toString(), groupId });
+            }
+        };
         const editorData: vscode.TextEditor = {
+            /**
+             * Live, as upstream's `ExtHostTextEditorOptions`: vscodevim writes `options.lineNumbers` and
+             * `options.cursorStyle` in place, so each member reads the editor and its write applies.
+             */
             get options(): vscode.TextEditorOptions {
-                const cursorStyle = effectiveCursorStyle();
-                const tab = layoutGroup(groupId)?.tabs.find((candidate) => candidate.uri === document.uri.toString());
-                return {
-                    // Upstream's getter is always resolved: vsc-python-indent computes the next indent from `tabSize`.
-                    ...(tab?.tabSize === undefined ? {} : { tabSize: tab.tabSize }),
-                    ...(tab?.insertSpaces === undefined ? {} : { insertSpaces: tab.insertSpaces }),
-                    ...storedOptions,
-                    ...(cursorStyle === undefined ? {} : { cursorStyle }),
-                };
+                return new Proxy(resolvedOptions(), {
+                    get: (_target, key) => Reflect.get(resolvedOptions(), key) as unknown,
+                    set: (_target, key, value: unknown): boolean => {
+                        setOptions({ [key]: value });
+                        return true;
+                    },
+                    has: (_target, key) => key in resolvedOptions(),
+                    ownKeys: () => Reflect.ownKeys(resolvedOptions()),
+                    getOwnPropertyDescriptor: (_target, key) =>
+                        Reflect.getOwnPropertyDescriptor(resolvedOptions(), key),
+                });
             },
             document,
             /** Read from the current snapshot: renumbering does not break the object (AS-9). */
@@ -583,41 +636,7 @@ export function createWindowNamespace(
             set: (target, prop, value): boolean => {
                 if (prop === "options") {
                     if (typeof value !== "object" || value === null) return false;
-                    const patch = value as vscode.TextEditorOptions & { indentSize?: number | string };
-                    const normalized: {
-                        tabSize?: number;
-                        insertSpaces?: boolean;
-                        indentSize?: number;
-                        cursorStyle?: number;
-                    } = {};
-                    if (patch.tabSize !== undefined) {
-                        normalized.tabSize = normalizeTabSize(patch.tabSize);
-                    }
-                    if (patch.insertSpaces !== undefined) {
-                        normalized.insertSpaces = normalizeInsertSpaces(patch.insertSpaces);
-                    }
-                    if (patch.indentSize !== undefined) {
-                        const indentSize = normalizeIndentSize(patch.indentSize);
-                        if (indentSize !== undefined) normalized.indentSize = indentSize;
-                    }
-                    // As upstream `_setOptions`: only a change goes out, so a read-modify-write of
-                    // `options` for `tabSize` does not pin the configured style as an override.
-                    if (
-                        cursorStyleFromApi(patch.cursorStyle) !== undefined &&
-                        patch.cursorStyle !== effectiveCursorStyle()
-                    ) {
-                        cursorStyleOverride = patch.cursorStyle;
-                        normalized.cursorStyle = patch.cursorStyle;
-                    }
-                    storedOptions = { ...storedOptions, ...patch };
-                    delete storedOptions.cursorStyle;
-                    if (Object.keys(normalized).length > 0) {
-                        void rpc.request("editor.setOptions", {
-                            ...normalized,
-                            uri: document.uri.toString(),
-                            groupId,
-                        });
-                    }
+                    setOptions(value as vscode.TextEditorOptions);
                     return true;
                 }
                 if (prop === "selection") {
@@ -1107,10 +1126,11 @@ export function openBeforeShow(
             : showAny(documentOrUri, ...rest)) as typeof vscode.window.showTextDocument;
 }
 
-function normalizeTabSize(value: number | string): number {
+/** `undefined` for a string that is not a number (`"auto"` included: Diode does not re-detect on request). */
+function normalizeTabSize(value: unknown): number | undefined {
     if (typeof value === "number") return Math.max(1, Math.floor(value));
-    const parsed = Number.parseInt(value, 10);
-    return Number.isNaN(parsed) ? 4 : Math.max(1, parsed);
+    const parsed = Number.parseInt(String(value), 10);
+    return Number.isNaN(parsed) ? undefined : Math.max(1, parsed);
 }
 
 function normalizeInsertSpaces(value: boolean | string): boolean {
@@ -1120,11 +1140,25 @@ function normalizeInsertSpaces(value: boolean | string): boolean {
 }
 
 /** `indentSize` is either a number or `"tabSize"` (same as tabSize, so skipped). */
-function normalizeIndentSize(value: number | string): number | undefined {
+function normalizeIndentSize(value: unknown): number | undefined {
     if (typeof value === "number") return Math.max(1, Math.floor(value));
     if (value === "tabSize") return undefined;
-    const parsed = Number.parseInt(value, 10);
+    const parsed = Number.parseInt(String(value), 10);
     return Number.isNaN(parsed) ? undefined : Math.max(1, parsed);
+}
+
+/** Upstream `MainThreadTextEditorProperties`: `editor.lineNumbers` as the API enum, anything unknown is `On`. */
+function lineNumbersToApi(setting: unknown): vscode.TextEditorLineNumbersStyle {
+    switch (setting) {
+        case "off":
+            return TextEditorLineNumbersStyle.Off;
+        case "relative":
+            return TextEditorLineNumbersStyle.Relative;
+        case "interval":
+            return TextEditorLineNumbersStyle.Interval;
+        default:
+            return TextEditorLineNumbersStyle.On;
+    }
 }
 
 function toWireDialogFilters(filters: Readonly<Record<string, string[]>> | undefined): IWireDialogFilter[] | undefined {
