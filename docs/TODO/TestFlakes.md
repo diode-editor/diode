@@ -33,6 +33,10 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `extensionHost.vitestExplorer.test.ts`, стоковый vitest.explorer (#1068): прогон vitest расширения вывел
+  `DEV` без `FAIL` в initial test run Stryker'а мутационного гейта (run 42741891573, PR #1117, дифф — sash
+  списка вкладок терминала); юнит-job того же прогона зелёный.
+
 - [ ] `testResultsOutput.test.ts`, «a new subject starts from a clean surface»: на экране пусто вместо `new` в
   initial test run Stryker'а мутационного гейта (run 42538740300, PR #1094, дифф — вьюлет Extensions); юнит-job
   того же прогона зелёный.
