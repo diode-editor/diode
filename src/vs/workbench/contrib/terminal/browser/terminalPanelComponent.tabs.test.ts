@@ -1,136 +1,21 @@
-import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import type { SelectBoxElement } from "@tuidom/elements/selectbox/selectBoxElement";
 import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 import { describe, expect, it, vi } from "vitest";
 
-import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { createSwitchableIcons } from "../../../../../TestUtils/switchableIcons.ts";
-import { TestApp } from "../../../../../TestUtils/TestApp.ts";
-import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
-import { CODICON_GLYPHS } from "../../../../base/common/codicons.generated.ts";
+import { buildHarness, count, tab, WIDTH } from "../../../../../TestUtils/terminalPanelHarness.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
-import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
-import type { IContextMenuMenuDelegate } from "../../../../platform/contextview/common/contextMenuDelegate.ts";
-import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
-import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
-import { PanelComponent } from "../../../browser/parts/panel/panelComponent.ts";
-import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
-import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
-import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
-import { makeTerminalColors } from "./terminalColorsService.testUtils.ts";
 import {
     SWITCH_TERMINAL_COMMAND_ID,
     TERMINAL_ACTIVE_TAB_ID,
     TerminalPanelComponent,
 } from "./terminalPanelComponent.ts";
-import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
-import { SWITCH_TERMINAL_SHOW_TABS, TERMINAL_TABS_WIDTH, terminalTabRowId } from "./terminalTabsList.ts";
-import { createPlainTerminalWidget } from "./terminalWidgetFactory.ts";
-
-const WIDTH = 80;
-const HEIGHT = 12;
-
-function buildHarness(
-    settings: Readonly<Record<string, unknown>> = {},
-    shells: readonly string[] = [],
-    icons?: IProductIconService,
-) {
-    const views = makeViewsHarness();
-    const panelComponent = new PanelComponent(views.panelService, new CommandRegistry());
-    const configuration = createTestConfigurationService(settings);
-    const sessions: FakeTerminalSurface[] = [];
-    const service = new TerminalService(views.service, configuration, () => {
-        const surface = new FakeTerminalSurface(shells[sessions.length] ?? "/bin/bash");
-        sessions.push(surface);
-        return surface;
-    });
-    views.service.attachRegisteredContainers();
-    const menus: IContextMenuMenuDelegate[] = [];
-    const contextMenu = {
-        showContextMenu: (delegate: IContextMenuMenuDelegate) => {
-            menus.push(delegate);
-        },
-    } as unknown as ContextMenuService;
-    const commands = new CommandRegistry();
-    const focusFallback = { focusEditor: vi.fn() };
-    const component = new TerminalPanelComponent(
-        service,
-        views.service,
-        focusFallback,
-        configuration,
-        contextMenu,
-        commands,
-        makeTerminalColors(new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)), configuration).colors,
-        createPlainTerminalWidget,
-        icons,
-    );
-    const testApp = TestApp.createWithContent(panelComponent.view, new Size(WIDTH, HEIGHT));
-    const screen = (): string => {
-        testApp.render();
-        return testApp.backend.screenToString();
-    };
-    const lines = (): string[] => screen().split("\n");
-    const rowOf = (instanceIndex: number) => {
-        const id = service.getInstances()[instanceIndex].id;
-        const row = component.tabs.list.querySelector(`#${terminalTabRowId(id)}`);
-        if (row === null) throw new Error("row not rendered");
-        return row;
-    };
-    const mouse = (button: MouseToken["button"], x: number, y: number, action: MouseToken["action"]): void => {
-        testApp.backend.simulateMouse({
-            kind: "mouse",
-            button,
-            action,
-            x: x + 1,
-            y: y + 1,
-            shiftKey: false,
-            altKey: false,
-            ctrlKey: false,
-            raw: "",
-        });
-    };
-    /** Frame coordinates are 0-based. */
-    const clickRow = (instanceIndex: number, button: MouseToken["button"] = "left"): void => {
-        screen();
-        const pos = rowOf(instanceIndex).globalPosition;
-        mouse(button, pos.x + 2, pos.y, "press");
-        mouse(button, pos.x + 2, pos.y, "release");
-    };
-    const activeIndex = (): number => service.getInstances().indexOf(service.getActiveInstance() as never);
-    const dispose = (): void => {
-        component.dispose();
-        service.dispose();
-    };
-    return {
-        views,
-        configuration,
-        service,
-        component,
-        testApp,
-        sessions,
-        focusFallback,
-        menus,
-        commands,
-        screen,
-        lines,
-        rowOf,
-        clickRow,
-        activeIndex,
-        dispose,
-    };
-}
-
-function tab(title: string): string {
-    return `│ ${CODICON_GLYPHS.terminal ?? ""} ${title}`;
-}
-
-function count(text: string, needle: string): number {
-    return text.split("\n").filter((line) => line.includes(needle)).length;
-}
+import { TERMINAL_VIEW_ID } from "./terminalService.ts";
+import { SWITCH_TERMINAL_SHOW_TABS, TERMINAL_TABS_WIDTH } from "./terminalTabsList.ts";
 
 describe("TerminalPanelComponent — tabs list in the frame", () => {
     it("hides the list for a single terminal and shows its name in the view title instead", () => {

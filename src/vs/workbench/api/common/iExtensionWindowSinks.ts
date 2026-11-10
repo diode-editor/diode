@@ -17,14 +17,22 @@ import type {
     IWireValidationMessage,
     WireMarker,
     WireOutputLevel,
+    WireProgressLocation,
 } from "./wireTypes.ts";
 
 /** Full set of the resource's markers: replaces, does not merge. */
 export type DiagnosticsSink = (owner: string, resource: string, markers: readonly WireMarker[]) => void;
 
+export interface IProgressStartOptions {
+    readonly title: string;
+    readonly location: WireProgressLocation;
+    readonly cancellable: boolean;
+}
+
 /** `handle` is unique within the subprocess. */
 export interface IProgressSink {
-    start(handle: number, title: string): void;
+    /** `onCancel`: the user pressed Cancel of a `cancellable` progress (upstream `$acceptProgressCanceled`). */
+    start(handle: number, options: IProgressStartOptions, onCancel: () => void): void;
     report(handle: number, message?: string, increment?: number): void;
     end(handle: number): void;
 }

@@ -456,10 +456,21 @@
         "WorkspaceEdit",
         "workspace.applyEdit"
     ],
+    "workspace vscode API - workspace encoding: decode": [
+        "workspace.decode"
+    ],
+    "workspace vscode API - workspace encoding: encode": [
+        "workspace.encode"
+    ],
     "workspace vscode API - workspace encoding: openTextDocument - invalid encoding falls back to default": [
         "workspace.openTextDocument"
     ],
     "workspace vscode API - workspace encoding: text document encodings": [
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace encoding: utf8bom does not explode (https://github.com/microsoft/vscode/issues/242132)": [
+        "workspace.decode",
+        "workspace.encode",
         "workspace.openTextDocument"
     ],
     "workspace vscode API - workspace eol, change via applyEdit": [

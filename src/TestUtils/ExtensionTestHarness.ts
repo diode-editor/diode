@@ -11,6 +11,7 @@ import {
     bindExtensionHostToEditors,
     bindFileOperationParticipant,
     configProviderOver,
+    workspaceFoldersProvider,
 } from "../vs/diode/modules/extensionHostModule.ts";
 import type { ITextEdit } from "../vs/editor/common/core/iTextEdit.ts";
 import type { ILanguageFeatureTarget } from "../vs/editor/common/languageFeatureRegistry.ts";
@@ -185,6 +186,8 @@ export interface IExtensionHarnessOptions {
     readonly workspaceConfiguration?: Readonly<Record<string, unknown>>;
     /** `uri.toString()`; absent — a folder window. */
     readonly workspaceFile?: string;
+    /** The app's `IEnvironmentService.userRoamingDataHome`; absent — none. */
+    readonly userRoamingDataHome?: string;
     /** What the host injects in the app (`builtinConfigInjection`); the harness collects manifest defaults itself. */
     readonly configurationDefaults?: Readonly<Record<string, unknown>>;
     /** CORE settings (`EditorService`, onSave participants) — not the subprocess `configuration`. */
@@ -245,6 +248,8 @@ export interface IExtensionHarness {
     readonly tmpDir: string;
     readonly workspaceEditService: WorkspaceEditService;
     writeFile(name: string, content: string): string;
+    /** Open Folder as the workbench does it: the workspace switches and the subprocess restarts (extensionHostModule). */
+    openFolder(folder: string): Promise<void>;
     /** One RPC round trip over `queueMicrotask` takes two turns (request → handler → response). */
     flushRpc(turns?: number): Promise<void>;
     dispose(): Promise<void>;
@@ -298,7 +303,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const commandRegistry = options.commandRegistry ?? new CommandRegistry();
     const commandAdapter = new CommandServiceAdapter(commandRegistry);
     const folderOptions = options.workspaceFolders ?? [tmpDir];
-    const folders = folderOptions.map((folder, index) =>
+    let folders: readonly IWorkspaceFolderInfo[] = folderOptions.map((folder, index) =>
         typeof folder === "string" ? { uri: Uri.file(folder).toString(), name: path.basename(folder), index } : folder,
     );
     const workspaceContext = new WorkspaceContextService();
@@ -328,6 +333,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         configurationRegistry,
         () => folders,
         () => options.workspaceFile,
+        options.userRoamingDataHome,
     );
     const editorLayout = new EditorLayoutServiceAdapter(
         group,
@@ -416,6 +422,12 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         await host.activateByEvent(event);
     }
 
+    const openFolder = async (folder: string): Promise<void> => {
+        workspaceContext.setWorkspaceFolder(folder);
+        folders = workspaceFoldersProvider(workspaceContext)();
+        await host.restartForWorkspaceChange();
+    };
+
     const dispose = async (): Promise<void> => {
         // Wait for the subprocess to exit, not a fixed window: while alive it writes to `tmpDir`, and removal
         // either fails or its `mkdir` resurrects the directory — that is how gigabytes of `diode-ext-*` piled up.
@@ -436,6 +448,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         tmpDir,
         workspaceEditService,
         writeFile,
+        openFolder,
         flushRpc,
         dispose,
     };

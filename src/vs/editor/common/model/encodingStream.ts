@@ -1,11 +1,5 @@
-import {
-    type IconvLite,
-    type IEncodingInfo,
-    loadIconv,
-    resolveDecodeEncoding,
-    resolveEncodeEncoding,
-    stripBOM,
-} from "./encoding.ts";
+import { type IconvLite, loadIconv, resolveDecodeEncoding, resolveEncodeEncoding, stripBOM } from "./encoding.ts";
+import type { IEncodingInfo } from "./supportedEncodings.ts";
 
 // A module separate from `encoding.ts` so the extension host, which only needs one-shot
 // decoding, does not pull this into its role.

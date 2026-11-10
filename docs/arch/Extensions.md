@@ -835,10 +835,15 @@
   code actions, а `onDidChangeDiagnostics` (окно 50 мс, как `DebounceEmitter` эталона) стреляет на
   `set`/`delete`/`clear` коллекций и на зеркало. Стоковый потребитель — Claude Code: без
   `onDidChangeDiagnostics` его ide-MCP-сервер рвёт каждое подключение CLI.
-- **Прогресс (LSP):** настоящий `window.withProgress` — notify `window.progress.{start,report,end}`
-  → опция `ExtensionHost.progressSink` → `ProgressStatusBarAdapter` (запись статус-бара с
-  анимированным спиннером; report обновляет message/проценты, end снимает; на смерть subprocess'а
-  host гасит живые handle'ы). Отмена не поддержана — токен не стреляет.
+- **Прогресс:** настоящий `window.withProgress` (`api/common/extHostProgress.ts`) — notify
+  `window.progress.{start,report,end}`; `start` несёт `location` и `cancellable` → опция
+  `ExtensionHost.progressSink` → `ExtensionProgressAdapter`: `Notification` — тост-прогресс
+  (`NotificationService.showProgress`, [Notifications.md](workbench/Notifications.md)), всё
+  остальное — `ProgressStatusBarAdapter` (запись статус-бара со спиннером; SourceControl и view id
+  пока тоже сюда). Cancel тоста возвращается в subprocess уведомлением `window.progress.cancel`
+  (эталонный `$acceptProgressCanceled`) и стреляет токен; без `cancellable` токен — «никогда».
+  `end` уходит при resolve, reject и синхронном throw задачи; на смерть subprocess'а host гасит
+  живые handle'ы.
 - **Пункты статус-бара:** настоящий `window.createStatusBarItem` — notify
   `window.statusBarItem.update`/`.dispose` → опция `ExtensionHost.statusBarItemSink` →
   `ExtensionStatusBarAdapter` (запись `StatusBarService` на каждый ПОКАЗАННЫЙ пункт; клик исполняет
@@ -1243,6 +1248,10 @@
   сразу поднимает новый спавн. Субпроцесса нет (или до барьера старта) — перезапускать нечего,
   остаётся проход `workspaceContains:` по новым папкам. Окно при этом не перезагружается: вкладки,
   раскладка и терминалы живут дальше.
+  Поэтому API-событие `vscode.workspace.onDidChangeWorkspaceFolders` молчит, как у эталона вне
+  multi-root: там оно стреляет только при смене папок на месте в состоянии WORKSPACE, а из
+  EMPTY/FOLDER смена идёт через перезапуск хоста (`abstractWorkspaceEditingService.ts`). Тест —
+  `extensionHost.onDidChangeWorkspaceFolders.test.ts`.
 - **Владелец цикла — `ExtensionService`** (`services/extensions/node/extensionService.ts`, интерфейс
   `IExtensionService` и токен — `services/extensions/common/extensions.ts`; аналог vscode
   `IExtensionService`, узкий срез). Политика «что и когда активировать» — у сервиса, механика (RPC,
@@ -1617,8 +1626,24 @@ Runtime-значение может опережать типовую декла
 осью encoding ядра (`src/vs/editor/common/model/encoding.ts`): explicit-кодировка побеждает
 BOM-сниф, неизвестный id молча откатывается к дефолту (контракт vscode.d.ts); эфемерный документ
 детектит и `encoding`, и `eol`. `ExtHostTextDocument.encoding`/`.eol` — живые: обновляются метой
-`editor.activeEditorChanged` и снапшотом will-save (`IWireWillSaveParams.encoding`). Дормантные
-`workspace.decode`/`encode` не раскомментированы (не понадобились).
+`editor.activeEditorChanged` и снапшотом will-save (`IWireWillSaveParams.encoding`).
+
+**`workspace.decode`/`encode` (#1102)** — как `ExtHostWorkspace.decode`/`encode` эталона, но кодировку
+выбирает сам ext host, без RPC: у него сырые слои настроек, а язык ресурса (для секции `"[lang]"`)
+спрашивается тем же `languages.getLanguageOfDocument`, что у `openTextDocument`. Выбор — порт
+`EncodingOracle` эталона в `workbench/services/textfile/common/encodingOracle.ts` (без DI, чтобы его
+взял и редактор): override → явная кодировка (явный `utf8` на содержимом с BOM — `utf8bom`) →
+найденная по BOM, по нулевым байтам (UTF-16 без BOM) или угаданная jschardet при
+`files.autoGuessEncoding` → `files.encoding` → utf8. Override — каталоги настроек, всегда utf8:
+`user-data/User` (`IEnvironmentService.userRoamingDataHome`, едет полем `userRoamingDataHome` в
+`workspace.initialize`), `.vscode/` и наш `.diode/` каждой папки, любой `*.code-workspace`. Имя
+кодировки — любое, которое знает iconv-lite (`'cp1252'` остаётся `'cp1252'`), неизвестное — utf8
+(`validateEncoding`, `encodeWithEncoding`, `decodeWithEncoding` в `encoding.ts`). Бинарное содержимое
+(нули вне шаблона UTF-16) — исключение с текстом эталона. Детекция по нулям и угадывание —
+`encodingDetection.ts`, отдельным модулем: пока их зовёт только `decode`, и в общий с ядром код
+ext host (бюджет `roles/extension-host`) они не входят; jschardet — ленивый кусок. Настройки
+`files.encoding`/`autoGuessEncoding`/`candidateGuessEncodings` зарегистрированы дословно, но
+открытие и сохранение файлов редактором их пока не читает (пункт в `docs/TODO/README.md`).
 
 **Зависимости:** Extensions → Editor (через `ILanguageService`, `TextMateGrammarLoader`,
 `TokenizationRegistry`), Common. Host-адаптеры (`workbench/api/browser/`) **дополнительно →
