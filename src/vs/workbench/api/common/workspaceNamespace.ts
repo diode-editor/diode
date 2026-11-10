@@ -519,6 +519,9 @@ export function createWorkspaceNamespace(
         return p;
     }
 
+    /** Upstream `_documentLoader`: one main-side request per uri in flight. */
+    const documentLoads = new Map<string, Promise<vscode.TextDocument>>();
+
     async function openTextDocument(
         uriOrPathOrOptions?: vscode.Uri | string | IUntitledDocumentOptions,
         options?: { encoding?: string },
@@ -534,22 +537,14 @@ export function createWorkspaceNamespace(
         const requestedEncoding = options?.encoding;
         // A closed document stays in the registry for the references extensions keep; it is not open.
         if (open !== undefined && !open.isClosed) {
-            // Upstream `ensureDocumentData`: another encoding goes to the main side. Files are a later cluster.
-            const changesEncoding =
-                uri.scheme === "untitled" && requestedEncoding !== undefined && open.encoding !== requestedEncoding;
-            if (!changesEncoding) return open;
+            // Upstream `ensureDocumentData`: another encoding goes to the main side.
+            if (requestedEncoding === undefined || open.encoding === requestedEncoding) return open;
         } else if (uri.scheme === "untitled" || uri.scheme === "file") {
             // As upstream's document map: what opens now is a new document, a held closed one stays closed.
             registry.forget(uri);
         }
 
-        if (uri.scheme === "untitled") {
-            const { uri: opened } = await rpc.request("workspace.createUntitledDocument", {
-                uri: uri.toString(),
-                ...(requestedEncoding === undefined ? {} : { encoding: requestedEncoding }),
-            });
-            return registry.get(Uri.parse(opened)) ?? makeEphemeralDocument(uri, "", "utf8");
-        }
+        if (uri.scheme === "untitled") return loadDocument(uri, requestedEncoding);
 
         const isVirtual = contentProviders.has(uri.scheme);
 
@@ -559,7 +554,7 @@ export function createWorkspaceNamespace(
         if (fsProvider !== undefined) {
             const { text, encoding } = await decodeBuffer(
                 Buffer.from(await fsProvider.readFile(uri)),
-                options?.encoding,
+                requestedEncoding,
             );
             return makeEphemeralDocument(uri, text, encoding, await languageOfDocumentWithoutModel(uri));
         }
@@ -567,17 +562,43 @@ export function createWorkspaceNamespace(
         // For non-file schemes `fsPath` is not a path; do not pass it to node:fs.
         if (uri.scheme !== "file") throw FileSystemError.Unavailable(uri);
 
-        // The live model: edits reach this very object, a save writes the file. An explicit encoding decodes
-        // this read only, as before: the model has one encoding, and opening with another is a separate feature.
-        if (options?.encoding === undefined) {
-            await rpc.request("workspace.openTextDocument", { uri: uri.toString() });
-            const live = registry.get(uri);
-            if (live !== undefined && !live.isClosed) return live;
-        }
+        return loadDocument(uri, requestedEncoding);
+    }
 
+    /** A load in flight without the encoding asked for is followed by one with it (upstream `ensureDocumentData`). */
+    function loadDocument(uri: Uri, encoding: string | undefined): Promise<vscode.TextDocument> {
+        const key = uri.toString();
+        const pending = documentLoads.get(key);
+        if (pending !== undefined) {
+            if (encoding === undefined) return pending;
+            return pending.then((doc) => (doc.encoding === encoding ? doc : openTextDocument(uri, { encoding })));
+        }
+        const load = requestDocument(uri, encoding).finally(() => documentLoads.delete(key));
+        documentLoads.set(key, load);
+        return load;
+    }
+
+    /**
+     * The live model: edits reach this very object, a save writes the file. `editor.didOpen` (and the state after
+     * a reread in another encoding) arrives before the response.
+     */
+    async function requestDocument(uri: Uri, encoding: string | undefined): Promise<vscode.TextDocument> {
+        const withEncoding = encoding === undefined ? {} : { encoding };
+        if (uri.scheme === "untitled") {
+            const { uri: opened } = await rpc.request("workspace.createUntitledDocument", {
+                uri: uri.toString(),
+                ...withEncoding,
+            });
+            return registry.get(Uri.parse(opened)) ?? makeEphemeralDocument(uri, "", "utf8");
+        }
+        await rpc.request("workspace.openTextDocument", { uri: uri.toString(), ...withEncoding });
+        const live = registry.get(uri);
+        if (live !== undefined && !live.isClosed) return live;
+
+        // No live document: not a readable file (the read reports why) or above the sync limit.
         const buffer = await ctx.disk.readFile(uri.fsPath);
-        const { text, encoding } = await decodeBuffer(buffer, options?.encoding);
-        return makeEphemeralDocument(uri, text, encoding, await languageOfDocumentWithoutModel(uri));
+        const decoded = await decodeBuffer(buffer, encoding);
+        return makeEphemeralDocument(uri, decoded.text, decoded.encoding, await languageOfDocumentWithoutModel(uri));
     }
 
     /**

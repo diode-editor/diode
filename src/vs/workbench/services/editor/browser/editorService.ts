@@ -14,6 +14,7 @@ import type { ITokenStyleResolver } from "../../../../editor/common/languages/iT
 import { TokenStyleResolverDIToken } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import { TokenizationRegistryDIToken } from "../../../../editor/common/languages/tokenizationRegistry.ts";
+import { validateEncoding } from "../../../../editor/common/model/encoding.ts";
 import type { ILanguageFeaturesService } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
@@ -661,19 +662,30 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return this.fileModelsWithoutEditor.models();
     }
 
-    public async openTextDocumentWithoutEditor(uri: Uri): Promise<boolean> {
+    public async openTextDocumentWithoutEditor(uri: Uri, encoding?: string): Promise<boolean> {
         if (uri.scheme !== "file") return false;
         try {
             if (!(await this.files.stat(uri)).isFile) return false;
         } catch {
             return false;
         }
-        this.holdFileModel(uri);
+        const model = this.holdFile(uri);
+        if (encoding !== undefined) {
+            if (model.isModified) {
+                throw new Error("Cannot re-open a dirty text document with different encoding. Save it first.");
+            }
+            // Upstream `setEncoding(…, EncodingMode.Decode)` returns early on the same encoding.
+            const validated = await validateEncoding(encoding);
+            if (model.encoding !== validated) await model.reopenWithEncoding(validated);
+        }
         return true;
     }
 
     public holdFileModel(uri: Uri): TextFileModel | null {
-        if (uri.scheme !== "file") return null;
+        return uri.scheme === "file" ? this.holdFile(uri) : null;
+    }
+
+    private holdFile(uri: Uri): TextFileModel {
         const reference = this.textFileModels.acquire(uri);
         this.fileModelsWithoutEditor.add(reference);
         this.fireEditorsChanged();

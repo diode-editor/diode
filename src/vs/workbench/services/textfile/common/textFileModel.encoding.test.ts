@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 
 import iconv from "iconv-lite";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
@@ -126,18 +126,19 @@ describe("TextFileModel — encoding axis", () => {
     // Decoding with an explicit encoding is async (non-Unicode waits for iconv): whatever
     // happened to the buffer meanwhile wins over the stale result.
     describe("reopenWithEncoding overtaken before decoding finishes", () => {
-        it("revertToDisk: the reread wins, reopen is not applied", async () => {
+        it("revertToDisk: the reread wins and reads in the encoding just chosen", async () => {
             const controller = createEditorPane();
             const fp = writeBytes("race-revert.txt", iconv.encode("\u0442\u0435\u043a\u0441\u0442\n", "windows1251")); // "tekst"
             controller.openFile(Uri.file(fp));
-            const asUtf8 = controller.getText();
 
             const pending = controller.reopenWithEncoding("windows1251");
             controller.revertToDisk();
 
             expect(await pending).toBe(false);
-            expect(controller.encoding).toBe("utf8");
-            expect(controller.getText()).toBe(asUtf8);
+            await vi.waitFor(() => {
+                expect(controller.getText()).toBe("\u0442\u0435\u043a\u0441\u0442\n"); // "tekst"
+            });
+            expect(controller.encoding).toBe("windows1251");
             controller.dispose();
         });
 
@@ -286,15 +287,64 @@ describe("TextFileModel — encoding axis", () => {
         controller.dispose();
     });
 
-    it("revertToDisk re-detects the encoding (BOM sniff, not the previous choice)", async () => {
+    it("revertToDisk keeps the chosen encoding (upstream preferredEncoding), not a BOM sniff", async () => {
         const controller = createEditorPane();
         const fp = writeBytes("redetect.txt", iconv.encode("text\n", "windows1251"));
         controller.openFile(Uri.file(fp));
         await controller.reopenWithEncoding("windows1251");
         expect(controller.encoding).toBe("windows1251");
 
+        fs.writeFileSync(fp, iconv.encode("\u0442\u0435\u043a\u0441\u0442\n", "windows1251")); // "tekst"
         controller.revertToDisk();
-        expect(controller.encoding).toBe("utf8");
+        await vi.waitFor(() => {
+            expect(controller.getText()).toBe("\u0442\u0435\u043a\u0441\u0442\n"); // "tekst"
+        });
+        expect(controller.encoding).toBe("windows1251");
+        controller.dispose();
+    });
+
+    it("a name outside the table (cp1252) is kept verbatim and survives a reload", async () => {
+        const controller = createEditorPane();
+        const fp = writeBytes("cp.txt", iconv.encode("Hell\u00f6 W\u00f6rld\n", "cp1252")); // "Hello World" with o-umlauts
+        controller.openFile(Uri.file(fp));
+        expect(await controller.reopenWithEncoding("cp1252")).toBe(true);
+        expect(controller.encoding).toBe("cp1252");
+        expect(controller.getText()).toBe("Hell\u00f6 W\u00f6rld\n");
+
+        fs.writeFileSync(fp, iconv.encode("\u00e4\n", "cp1252")); // "a-umlaut"
+        controller.revertToDisk();
+        await vi.waitFor(() => {
+            expect(controller.getText()).toBe("\u00e4\n");
+        });
+        expect(controller.encoding).toBe("cp1252");
+
+        controller.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "\u00fc")], "test edit"); // "u-umlaut"
+        await controller.save();
+        expect([...fs.readFileSync(fp)]).toEqual([...iconv.encode("\u00fc\u00e4\n", "cp1252")]);
+        controller.dispose();
+    });
+
+    it("an unknown name reads as utf-8, a BOM keeps utf8bom", async () => {
+        const controller = createEditorPane();
+        controller.openFile(Uri.file(writeBytes("bom.txt", Buffer.from([0xef, 0xbb, 0xbf, 0x78]))));
+        expect(await controller.reopenWithEncoding("foobar123")).toBe(true);
+        expect(controller.encoding).toBe("utf8bom");
+        expect(controller.getText()).toBe("x");
+        controller.dispose();
+    });
+
+    it("save with an encoding is kept by a later reload", async () => {
+        const controller = createEditorPane();
+        const fp = writeBytes("saved.txt", Buffer.from("x\n"));
+        controller.openFile(Uri.file(fp));
+        expect(await controller.saveWithEncoding("windows1251")).toBe("saved");
+
+        fs.writeFileSync(fp, iconv.encode("\u0442\n", "windows1251")); // "t"
+        controller.revertToDisk();
+        await vi.waitFor(() => {
+            expect(controller.getText()).toBe("\u0442\n"); // "t"
+        });
+        expect(controller.encoding).toBe("windows1251");
         controller.dispose();
     });
 
@@ -307,6 +357,11 @@ describe("TextFileModel — encoding axis", () => {
         const bom = writeBytes("two.txt", Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("x")]));
         controller.openFile(Uri.file(bom));
         expect(controller.encoding).toBe("utf8bom");
+        // The choice went with the old file: a reload sniffs again, synchronously.
+        fs.writeFileSync(bom, Buffer.from([0xff, 0xfe, 0x79, 0x00]));
+        controller.revertToDisk();
+        expect(controller.encoding).toBe("utf16le");
+        expect(controller.getText()).toBe("y");
         controller.dispose();
     });
 

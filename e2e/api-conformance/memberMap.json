@@ -713,5 +713,22 @@
         "WorkspaceConfiguration.get",
         "WorkspaceConfiguration.has",
         "workspace.getConfiguration"
+    ],
+    "workspace vscode API - workspace encoding: openTextDocument": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding"
+    ],
+    "workspace vscode API - workspace encoding: openTextDocument - throws for dirty documents": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding",
+        "TextDocument.isDirty"
+    ],
+    "workspace vscode API - workspace encoding: openTextDocument - multiple requests with different encoding work": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding"
+    ],
+    "workspace vscode API - workspace encoding: save text document with a different encoding": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding"
     ]
 }

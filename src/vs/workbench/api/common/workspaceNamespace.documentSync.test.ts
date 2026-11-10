@@ -355,14 +355,112 @@ describe("WorkspaceNamespace — openTextDocument and the live model", () => {
         expect(doc.getText()).toBe("from disk");
     });
 
-    it("an explicit encoding reads this one time from disk, past the model", async () => {
+    it("a model above the sync limit with an explicit encoding: the disk read decodes in it", async () => {
         const { stub, ctx, workspace } = makeCtx();
-        vi.spyOn(ctx.disk, "readFile").mockResolvedValue(Buffer.from("from disk"));
+        vi.spyOn(ctx.disk, "readFile").mockResolvedValue(Buffer.from([0x48, 0xf6]));
 
-        const doc = await workspace.openTextDocument(FILE as never, { encoding: "utf8" });
+        const doc = await workspace.openTextDocument(FILE as never, { encoding: "cp1252" });
 
-        expect(stub.requests.map((request) => request.method)).not.toContain("workspace.openTextDocument");
-        expect(doc.getText()).toBe("from disk");
+        expect(stub.requests[0]).toEqual({
+            method: "workspace.openTextDocument",
+            params: { uri: URI, encoding: "cp1252" },
+        });
+        expect(doc.getText()).toBe("H\u00f6"); // "H" + o-umlaut
+        expect(doc.encoding).toBe("cp1252");
+    });
+});
+
+describe("WorkspaceNamespace — openTextDocument with an encoding", () => {
+    const FILE = Uri.parse(URI);
+
+    /** The host rereads the model in the asked encoding: the state goes out before the reply. */
+    function reopenOnHost(stub: ReturnType<typeof makeCtx>["stub"]): void {
+        stub.responder = (method, params) => {
+            if (method !== "workspace.openTextDocument") return null;
+            const { encoding } = params as { encoding?: string };
+            stub.fire("editor.didOpen", openParams());
+            if (encoding !== undefined) {
+                stub.fire("editor.didChangeDocumentState", { uri: URI, version: 2, isDirty: false, eol: 1, encoding });
+            }
+            return { uri: URI };
+        };
+    }
+
+    it("[api:workspace.openTextDocument] [api:TextDocument.encoding] another encoding goes to the host and changes the same document", async () => {
+        const { stub, workspace } = makeCtx();
+        reopenOnHost(stub);
+        const first = await workspace.openTextDocument(FILE as never, { encoding: "cp1252" });
+        expect(first.encoding).toBe("cp1252");
+        const changed: string[] = [];
+        workspace.onDidChangeTextDocument((event) => changed.push(event.document.uri.toString()));
+
+        const second = await workspace.openTextDocument(FILE as never, { encoding: "utf16le" });
+
+        expect(second).toBe(first);
+        expect(second.encoding).toBe("utf16le");
+        expect(changed).toEqual([URI]);
+        expect(stub.requests.map((request) => request.params)).toEqual([
+            { uri: URI, encoding: "cp1252" },
+            { uri: URI, encoding: "utf16le" },
+        ]);
+    });
+
+    it("the same encoding, or none, returns the open document without a request", async () => {
+        const { stub, workspace } = makeCtx();
+        reopenOnHost(stub);
+        const doc = await workspace.openTextDocument(FILE as never, { encoding: "cp1252" });
+
+        await expect(workspace.openTextDocument(FILE as never, { encoding: "cp1252" })).resolves.toBe(doc);
+        await expect(workspace.openTextDocument(FILE as never)).resolves.toBe(doc);
+        expect(stub.requests).toHaveLength(1);
+    });
+
+    it("concurrent requests share one load; one with another encoding follows it", async () => {
+        const { stub, workspace } = makeCtx();
+        reopenOnHost(stub);
+
+        const [plain, again, encoded] = await Promise.all([
+            workspace.openTextDocument(FILE as never),
+            workspace.openTextDocument(FILE as never),
+            workspace.openTextDocument(FILE as never, { encoding: "cp1252" }),
+        ]);
+
+        expect(plain).toBe(encoded);
+        expect(again).toBe(encoded);
+        expect(encoded.encoding).toBe("cp1252");
+        expect(stub.requests.map((request) => request.params)).toEqual([
+            { uri: URI },
+            { uri: URI, encoding: "cp1252" },
+        ]);
+    });
+
+    it("a load in flight with the encoding asked for is enough", async () => {
+        const { stub, workspace } = makeCtx();
+        reopenOnHost(stub);
+
+        const [first, second] = await Promise.all([
+            workspace.openTextDocument(FILE as never, { encoding: "cp1252" }),
+            workspace.openTextDocument(FILE as never, { encoding: "cp1252" }),
+        ]);
+
+        expect(second).toBe(first);
+        expect(stub.requests).toHaveLength(1);
+    });
+
+    it("the host's refusal of a dirty document reaches the extension, and the next request goes out again", async () => {
+        const { stub, workspace } = makeCtx();
+        stub.fire("editor.didOpen", openParams({ isDirty: true }));
+        stub.responder = () => {
+            throw new Error("Cannot re-open a dirty text document with different encoding. Save it first.");
+        };
+
+        await expect(workspace.openTextDocument(FILE as never, { encoding: "cp1252" })).rejects.toThrow(
+            "Cannot re-open a dirty text document with different encoding. Save it first.",
+        );
+        await expect(workspace.openTextDocument(FILE as never, { encoding: "cp1252" })).rejects.toThrow(
+            "Save it first",
+        );
+        expect(stub.requests).toHaveLength(2);
     });
 
     it("textDocuments has no closed documents", () => {

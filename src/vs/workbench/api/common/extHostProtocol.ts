@@ -144,6 +144,7 @@ import type {
     IWireOpenDialogRequest,
     IWireOpenDialogResult,
     IWireOpenExternalResult,
+    IWireOpenTextDocumentParams,
     IWireOutputAppend,
     IWireOutputShow,
     IWirePrepareCallHierarchyParams,
@@ -410,10 +411,11 @@ export interface ISubprocessToHost {
         /** Responds AFTER `editor.didOpen` of the new document: after `await` it is already in the registry. */
         readonly "workspace.createUntitledDocument": readonly [IWireCreateUntitledParams, IWireUriParams];
         /**
-         * Upstream `$tryOpenDocument`. Responds AFTER `editor.didOpen`; `null` means no live document: not a
-         * readable file (the subprocess reports it from its own read) or above the sync limit.
+         * Upstream `$tryOpenDocument`. Responds AFTER `editor.didOpen` (and, with an encoding, after the reread);
+         * `null` means no live document: not a readable file (the subprocess reports it from its own read) or above
+         * the sync limit. With an encoding, a dirty document rejects.
          */
-        readonly "workspace.openTextDocument": readonly [IWireUriParams, IWireUriParams | null];
+        readonly "workspace.openTextDocument": readonly [IWireOpenTextDocumentParams, IWireUriParams | null];
         /** `true`: everything was saved. */
         readonly "workspace.saveAll": readonly [IWireSaveAllParams, boolean];
         /** Without Save As. */
