@@ -808,6 +808,21 @@ describe("CodeLensController", () => {
             expect(round.disposed).toEqual([0]);
         });
 
+        it("a held line joined by a new one keeps its text: the waiting lens without a snapshot holds nothing", async () => {
+            const round = rounds();
+            round.state.lenses = [lens(1, undefined, 1)];
+            const { edit, zones, settle } = setup();
+            round.release();
+            await settle();
+            // The new line's lens goes first in the row: column 0 against column 1.
+            round.state.lenses = [lens(1, undefined, 1), lens(2)];
+            round.ask();
+            await vi.advanceTimersByTimeAsync(PROVIDED_MS);
+            edit({ start: { line: 1, character: 2 }, end: { line: 2, character: 0 } }, "");
+            await Promise.resolve();
+            expect(zones()).toEqual([row(1, "1 refs")]);
+        });
+
         it("dispose lets go of the held lists too", async () => {
             const round = rounds();
             round.state.lenses = [lens(1)];
