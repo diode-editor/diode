@@ -103,6 +103,10 @@ export interface IExtensionTerminalEvents {
     /** User typing and `sendText` → `pty.handleInput`. */
     ptyInput(id: number, data: string): void;
     ptyResize(id: number, cols: number, rows: number): void;
+    /** Upstream `$acceptTerminalInteraction`: the first input into the instance — keys or `sendText`. */
+    interaction(id: number): void;
+    /** Upstream `$acceptTerminalTitleChange`. */
+    titleChanged(id: number, name: string): void;
 }
 
 /**
@@ -123,5 +127,7 @@ export interface IExtensionTerminalSink {
     dispose(terminal: IWireTerminalRef): void;
     ptyData(terminal: IWireTerminalRef, data: string): void;
     ptyExit(terminal: IWireTerminalRef, code: number | undefined): void;
+    /** The pty's `onDidChangeName`: renames the terminal, over the name it was created with (as upstream). */
+    ptyName(terminal: IWireTerminalRef, name: string): void;
     reset(): void;
 }

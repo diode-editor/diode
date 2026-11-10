@@ -191,6 +191,52 @@
         "window.onDidCloseTerminal",
         "window.onDidOpenTerminal"
     ],
+    "terminal vscode API - terminal Terminal Extension pty terminals should change terminal name": [
+        "EventEmitter",
+        "Pseudoterminal.onDidChangeName",
+        "Terminal.name",
+        "window.createTerminal",
+        "window.onDidCloseTerminal",
+        "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal environmentVariableCollection get and forEach should work": [
+        "EnvironmentVariableCollection.append",
+        "EnvironmentVariableCollection.forEach",
+        "EnvironmentVariableCollection.get",
+        "EnvironmentVariableCollection.prepend",
+        "EnvironmentVariableCollection.replace",
+        "EnvironmentVariableMutator.options",
+        "EnvironmentVariableMutator.type",
+        "EnvironmentVariableMutator.value",
+        "ExtensionContext.environmentVariableCollection"
+    ],
+    "terminal vscode API - terminal Terminal environmentVariableCollection get and forEach should work (scope)": [
+        "EnvironmentVariableCollection.append",
+        "EnvironmentVariableCollection.forEach",
+        "EnvironmentVariableCollection.get",
+        "EnvironmentVariableCollection.prepend",
+        "EnvironmentVariableCollection.replace",
+        "EnvironmentVariableMutator.options",
+        "EnvironmentVariableMutator.type",
+        "EnvironmentVariableMutator.value",
+        "ExtensionContext.environmentVariableCollection",
+        "GlobalEnvironmentVariableCollection.getScoped"
+    ],
+    "terminal vscode API - terminal Terminal onDidChangeTerminalState should fire with isInteractedWith after writing to a terminal": [
+        "Terminal.sendText",
+        "Terminal.state",
+        "TerminalState.isInteractedWith",
+        "window.createTerminal",
+        "window.onDidChangeTerminalState",
+        "window.onDidCloseTerminal"
+    ],
+    "terminal vscode API - terminal Terminal onDidChangeTerminalState should fire with shellType when created": [
+        "Terminal.state",
+        "TerminalState.shell",
+        "window.createTerminal",
+        "window.onDidChangeTerminalState",
+        "window.onDidCloseTerminal"
+    ],
     "tree vscode API - tree TreeView - element already registered after refresh": [
         "EventEmitter",
         "TreeItem",

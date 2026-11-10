@@ -2,11 +2,16 @@ vscode API - terminal Terminal Extension pty terminals creationOptions should be
 vscode API - terminal Terminal Extension pty terminals exitStatus.code should be set to the exit code (non-zero)
 vscode API - terminal Terminal Extension pty terminals exitStatus.code should be set to the exit code (undefined)
 vscode API - terminal Terminal Extension pty terminals exitStatus.code should be set to the exit code (zero)
+vscode API - terminal Terminal Extension pty terminals should change terminal name
 vscode API - terminal Terminal Extension pty terminals should fire onDidOpenTerminal and onDidCloseTerminal
 vscode API - terminal Terminal creationOptions should be set and readonly for TerminalOptions terminals
+vscode API - terminal Terminal environmentVariableCollection get and forEach should work
+vscode API - terminal Terminal environmentVariableCollection get and forEach should work (scope)
 vscode API - terminal Terminal exitStatus.code should be set to undefined after a terminal is disposed
 vscode API - terminal Terminal hideFromUser should be available to terminals API
 vscode API - terminal Terminal name in constructor should set terminal.name
+vscode API - terminal Terminal onDidChangeTerminalState should fire with isInteractedWith after writing to a terminal
+vscode API - terminal Terminal onDidChangeTerminalState should fire with shellType when created
 vscode API - terminal Terminal onDidCloseTerminal event fires when terminal is disposed
 vscode API - terminal Terminal onDidOpenTerminal should fire when a terminal is created
 vscode API - terminal Terminal processId immediately after createTerminal should fetch the pid

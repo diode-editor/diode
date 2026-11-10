@@ -204,13 +204,72 @@ describe("extension terminals — over the wire", () => {
         h.service.dispose();
     });
 
-    it("before the seed no opened, closed or activeChanged is sent", async () => {
+    it("[api:Terminal.state] typing and sendText → isInteractedWith: one state event per terminal, one message", async () => {
+        const h = setup();
+        const changes: string[] = [];
+        h.ns.onDidChangeTerminalState((t) => changes.push(`${t.name} ${String(t.state.isInteractedWith)}`));
+        const sent: string[] = [];
+        const notify = h.hostRpc.notify.bind(h.hostRpc);
+        vi.spyOn(h.hostRpc, "notify").mockImplementation((method, params) => {
+            sent.push(method);
+            notify(method as never, params as never);
+        });
+        const own = h.ns.createTerminal({ name: "own", shellPath: "/opt/unknown-shell" });
+        await flush();
+        h.service.createInstance({ name: "user", shellPath: "/opt/unknown-shell" });
+        await flush();
+        expect(own.state.isInteractedWith).toBe(false);
+        own.sendText("ls");
+        own.sendText("pwd");
+        await flush();
+        h.sessions[1].write("k");
+        h.sessions[1].write("l");
+        await flush();
+        expect(changes).toStrictEqual(["own true", "user true"]);
+        expect(own.state).toStrictEqual({ isInteractedWith: true, shell: undefined });
+        expect(sent.filter((m) => m === "terminal.interaction")).toHaveLength(2);
+        h.service.dispose();
+    });
+
+    it("[api:Terminal.state] the shell type: own terminal fires after onDidOpenTerminal, snapshot terminals have it too", async () => {
+        const h = setup({ pushInitialState: false });
+        h.service.createInstance({ shellPath: "/usr/bin/fish" });
+        h.customer.pushInitialState();
+        await flush();
+        const order: string[] = [];
+        h.ns.onDidOpenTerminal((t) => order.push(`open ${t.name} ${String(t.state.shell)}`));
+        h.ns.onDidChangeTerminalState((t) => order.push(`state ${t.name} ${String(t.state.shell)}`));
+        const own = h.ns.createTerminal({ name: "z", shellPath: "/bin/zsh" });
+        expect(own.state.shell).toBeUndefined();
+        await flush();
+        expect(h.ns.terminals.map((t) => [t.name, t.state.shell])).toStrictEqual([
+            ["fish", "fish"],
+            ["z", "zsh"],
+        ]);
+        expect(order).toStrictEqual(["open z undefined", "state z zsh"]);
+        h.service.dispose();
+    });
+
+    it("interaction before the seed (or a previous subprocess) arrives with the snapshot", async () => {
+        const h = setup({ pushInitialState: false });
+        h.service.newTerminal();
+        h.service.newTerminal();
+        h.sessions[0].write("early");
+        h.customer.pushInitialState();
+        await flush();
+        expect(h.ns.terminals.map((t) => t.state.isInteractedWith)).toStrictEqual([true, false]);
+        h.service.dispose();
+    });
+
+    it("before the seed no opened, closed, activeChanged, interaction or titleChanged is sent", async () => {
         const h = setup({ pushInitialState: false });
         const sent: string[] = [];
         vi.spyOn(h.hostRpc, "notify").mockImplementation((method) => {
             sent.push(method);
         });
         h.service.newTerminal();
+        h.sessions[0].write("k");
+        h.service.renameInstance(h.service.getActiveInstance()?.id, "renamed");
         h.service.closeInstance(h.service.getActiveInstance()?.id);
         expect(sent).toStrictEqual([]);
         h.customer.pushInitialState();
@@ -343,6 +402,7 @@ describe("extension terminals — over the wire", () => {
             dispose: () => calls.push("dispose"),
             ptyData: () => calls.push("ptyData"),
             ptyExit: () => calls.push("ptyExit"),
+            ptyName: () => calls.push("ptyName"),
             reset: () => calls.push("reset"),
         };
         const customer = new TerminalCustomer(sink);
@@ -368,6 +428,8 @@ describe("extension terminals — over the wire", () => {
         send("terminal.dispose", { terminal: "x" });
         send("terminal.pty.data", { terminal: { id: 1 }, data: 5 });
         send("terminal.pty.exit", { terminal: {} });
+        send("terminal.pty.name", { terminal: { id: 1 }, name: 5 });
+        send("terminal.pty.name", { name: "x" });
         await flush();
         expect(calls).toStrictEqual([]);
         expect(warnings).toStrictEqual([]);
@@ -378,8 +440,9 @@ describe("extension terminals — over the wire", () => {
         send("terminal.dispose", { terminal: { id: 1 } });
         send("terminal.pty.data", { terminal: { id: 1 }, data: "x" });
         send("terminal.pty.exit", { terminal: { id: 1 } });
+        send("terminal.pty.name", { terminal: { id: 1 }, name: "x" });
         await flush();
-        expect(calls).toStrictEqual(["create", "show", "hide", "sendText", "dispose", "ptyData", "ptyExit"]);
+        expect(calls).toStrictEqual(["create", "show", "hide", "sendText", "dispose", "ptyData", "ptyExit", "ptyName"]);
         attached.dispose();
         expect(calls.at(-1)).toBe("reset");
     });
@@ -530,6 +593,32 @@ describe("extension pty — over the wire", () => {
         await new Promise((r) => setTimeout(r, 20));
         await flush();
         expect(h.ptySessions[0].fed).toStrictEqual(["ok"]);
+        h.service.dispose();
+    });
+
+    it("[api:Pseudoterminal.onDidChangeName] the name fired in open() renames the tab and reaches the extension before close", async () => {
+        const h = setup();
+        const name = new EventEmitter<string>();
+        const close = new EventEmitter<number | undefined>();
+        const pty: vscode.Pseudoterminal = {
+            onDidWrite: new EventEmitter<string>().event,
+            onDidChangeName: name.event,
+            onDidClose: close.event,
+            open: () => {
+                name.fire("bar");
+                close.fire(undefined);
+            },
+            close: () => undefined,
+        };
+        const titles: string[] = [];
+        h.service.onDidChangeInstanceTitle((i) => titles.push(i.title));
+        const seen: string[] = [];
+        h.ns.onDidCloseTerminal((t) => seen.push(t.name));
+        const terminal = h.ns.createTerminal({ name: "foo", pty });
+        await flush();
+        expect(titles).toStrictEqual(["bar"]);
+        expect(seen).toStrictEqual(["bar"]);
+        expect(terminal.name).toBe("bar");
         h.service.dispose();
     });
 

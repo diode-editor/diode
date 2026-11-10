@@ -1276,6 +1276,11 @@ declare module "vscode" {
 		export const onDidCloseTerminal: Event<Terminal>;
 
 		/**
+		 * An {@link Event} which fires when a {@link Terminal.state terminal's state} has changed.
+		 */
+		export const onDidChangeTerminalState: Event<Terminal>;
+
+		/**
 		 * Fires when shell integration activates or one of its properties changes in a terminal.
 		 */
 		export const onDidChangeTerminalShellIntegration: Event<TerminalShellIntegrationChangeEvent>;

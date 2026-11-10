@@ -5554,7 +5554,8 @@
       "class": "ok"
     },
     "TerminalState.shell": {
-      "class": "ok"
+      "class": "ok",
+      "note": "guessed from the shell executable at creation; does not follow a sub-shell"
     },
     "TestController.createRunProfile": {
       "class": "C",

@@ -91,6 +91,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     private readonly onUpdateEmitter = new Emitter<void>();
     private readonly onExitEmitter = new Emitter<number>();
     private readonly onDidInputAfterExitEmitter = new Emitter<void>();
+    private readonly onDidInputEmitter = new Emitter<void>();
     private readonly onLineDataEmitter = new Emitter<string>();
     private loading = true;
     /** While our own text (a message, a relaunch preface) is parsed: it is not output. */
@@ -393,8 +394,12 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     /** Any input returns the viewport to the bottom. */
     public write(data: string): void {
         this.setScrollOffset(0);
-        if (this.exited) this.onDidInputAfterExitEmitter.fire();
-        else this.sendInput(data);
+        if (this.exited) {
+            this.onDidInputAfterExitEmitter.fire();
+            return;
+        }
+        this.sendInput(data);
+        this.onDidInputEmitter.fire();
     }
 
     public resize(cols: number, rows: number): void {
@@ -429,6 +434,8 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     /** Input after the process exits (the "press any key to close" key of `waitOnExit`). */
     public readonly onDidInputAfterExit = this.onDidInputAfterExitEmitter.event;
+
+    public readonly onDidInput = this.onDidInputEmitter.event;
 
     /** Upstream `onLineData`: each output line once it is complete, wrapped rows joined, without escape sequences. */
     public readonly onLineData = this.onLineDataEmitter.event;
