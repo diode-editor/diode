@@ -110,6 +110,17 @@ export class ProgressService extends Disposable {
         return result;
     }
 
+    /**
+     * The section's own operation, for its buttons: the earliest visible entry that is not passive. A passive
+     * entry spins the header only — an extension's progress must not take over the section's controls.
+     */
+    public operationProgress(viewId: string): IProgressFrame | null {
+        for (const entry of this.entries) {
+            if (entry.visible && !entry.passive && entry.scope === viewId) return this.frameOf(entry);
+        }
+        return null;
+    }
+
     /** The earliest visible entry. */
     public windowProgress(): IProgressFrame | null {
         for (const entry of this.entries) {

@@ -841,7 +841,8 @@
   (`NotificationService.showProgress`, [Notifications.md](workbench/Notifications.md)), `Window` —
   `ProgressStatusBarAdapter` (запись статус-бара со спиннером), SourceControl и `{ viewId }` —
   `ExtensionViewProgressAdapter`: операция `ProgressService` с местом `"view"` и `passive` (спиннер
-  в заголовке вида, `isBusy` её не видит — git-команды не блокируются). Порядок разбора id — как в
+  в заголовке вида; `isBusy` и `operationProgress` её не видят — git-команды и кнопка Commit не
+  блокируются и не перенимают заголовок). Порядок разбора id — как в
   эталонном `handleStringLocation`: id контейнера → его первый вид, id вида → он сам, иначе
   `Bad progress location` в лог и никакого UI; SourceControl — вид `workbench.scm.changes`
   (эталон: `workbench.scm`). Только индикатор: `message`, `increment` и Cancel вид не показывает. Cancel тоста возвращается в subprocess уведомлением `window.progress.cancel`

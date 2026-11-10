@@ -228,9 +228,34 @@ describe("ProgressService", () => {
         expect(service.viewProgress().get(VIEW)?.title).toBe("Indexing");
         expect(service.isBusy(VIEW)).toBe(false);
         expect(service.isBusy()).toBe(false);
+        expect(service.operationProgress(VIEW)).toBeNull();
 
         task.resolve();
         await running;
+    });
+
+    it("the section's operation: the earliest visible non-passive entry of that section only", async () => {
+        const passive = deferred();
+        const own = deferred();
+        const other = deferred();
+        const a = service.withProgress(
+            { location: "view", viewId: VIEW, title: "Indexing", passive: true },
+            () => passive.promise,
+        );
+        const b = service.withProgress(
+            { location: "view", viewId: "workbench.scm.graph", title: "Fetching…" },
+            () => other.promise,
+        );
+        const c = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => own.promise);
+
+        expect(service.operationProgress(VIEW)).toBeNull();
+        vi.advanceTimersByTime(300);
+        expect(service.operationProgress(VIEW)).toEqual({ spinner: "⠋", title: "Committing…" });
+        // The header still shows the earliest entry, passive or not.
+        expect(service.viewProgress().get(VIEW)?.title).toBe("Indexing");
+
+        for (const task of [passive, own, other]) task.resolve();
+        await Promise.all([a, b, c]);
     });
 
     it("a task error propagates and closes the progress", async () => {
