@@ -40,6 +40,14 @@
     "editor vscode API - editors throw when using invalid edit": [
         "TextEditorEdit.insert"
     ],
+    "env vscode API - env env is readonly": [
+        "env.appName",
+        "env.appRoot",
+        "env.language",
+        "env.machineId",
+        "env.sessionId",
+        "env.shell"
+    ],
     "env vscode API - env env is set": [
         "env.appName",
         "env.appRoot",
@@ -112,6 +120,10 @@
         "ExtensionContext.globalState",
         "ExtensionContext.workspaceState"
     ],
+    "terminal vscode API - terminal Terminal Extension pty terminals creationOptions should be set and readonly for ExtensionTerminalOptions terminals": [
+        "Terminal.creationOptions",
+        "window.createTerminal"
+    ],
     "terminal vscode API - terminal Terminal Extension pty terminals exitStatus.code should be set to the exit code (non-zero)": [
         "EventEmitter",
         "window.createTerminal",
@@ -135,6 +147,10 @@
         "window.createTerminal",
         "window.onDidCloseTerminal",
         "window.onDidOpenTerminal"
+    ],
+    "terminal vscode API - terminal Terminal creationOptions should be set and readonly for TerminalOptions terminals": [
+        "Terminal.creationOptions",
+        "window.createTerminal"
     ],
     "terminal vscode API - terminal Terminal exitStatus.code should be set to undefined after a terminal is disposed": [
         "window.createTerminal",
@@ -472,6 +488,9 @@
         "workspace.saveAll",
         "workspace.onDidSaveTextDocument"
     ],
+    "workspace vscode API - workspace textDocuments": [
+        "workspace.textDocuments"
+    ],
     "workspace vscode API - workspace workspaceFile": [
         "workspace.workspaceFile"
     ],
@@ -673,5 +692,15 @@
     ],
     "workspace vscode API - workspace registerTextDocumentContentProvider, change event": [
         "workspace.registerTextDocumentContentProvider"
+    ],
+    "configuration vscode API - configuration configuration, defaults": [
+        "WorkspaceConfiguration.get",
+        "WorkspaceConfiguration.has",
+        "workspace.getConfiguration"
+    ],
+    "configuration vscode API - configuration configuration, name vs property": [
+        "WorkspaceConfiguration.get",
+        "WorkspaceConfiguration.has",
+        "workspace.getConfiguration"
     ]
 }

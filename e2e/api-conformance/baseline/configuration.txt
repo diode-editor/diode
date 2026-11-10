@@ -1,0 +1,2 @@
+vscode API - configuration configuration, defaults
+vscode API - configuration configuration, name vs property
