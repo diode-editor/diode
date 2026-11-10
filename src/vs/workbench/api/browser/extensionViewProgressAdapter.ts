@@ -44,6 +44,7 @@ export class ExtensionViewProgressAdapter {
 
     public end(handle: number): void {
         this.running.get(handle)?.();
+        // Stryker disable next-line CallExpression: equivalent — a second resolve of a settled promise is a no-op, so a kept entry only costs memory
         this.running.delete(handle);
     }
 

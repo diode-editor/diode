@@ -37,7 +37,6 @@ class NotificationProgress {
  */
 export class ExtensionProgressAdapter implements IProgressSink {
     private readonly notified = new Map<number, NotificationProgress>();
-    private readonly viewed = new Set<number>();
 
     public constructor(
         private readonly window: IProgressSink,
@@ -52,7 +51,6 @@ export class ExtensionProgressAdapter implements IProgressSink {
             return;
         }
         if (location !== "notification") {
-            this.viewed.add(handle);
             this.views.start(handle, location, options.title);
             return;
         }
@@ -79,8 +77,7 @@ export class ExtensionProgressAdapter implements IProgressSink {
     }
 
     public report(handle: number, message?: string, increment?: number): void {
-        // A view shows only the indicator.
-        if (this.viewed.has(handle)) return;
+        // A view handle falls through to the status bar sink, which doesn't know it: a view shows only the indicator.
         const entry = this.notified.get(handle);
         if (entry === undefined) {
             this.window.report(handle, message, increment);
@@ -95,11 +92,9 @@ export class ExtensionProgressAdapter implements IProgressSink {
         entry.toast.update({ message: entry.text(), percent: entry.percent });
     }
 
+    /** Every sink ignores a handle it doesn't know, so the view sink is told unconditionally. */
     public end(handle: number): void {
-        if (this.viewed.delete(handle)) {
-            this.views.end(handle);
-            return;
-        }
+        this.views.end(handle);
         const entry = this.notified.get(handle);
         if (entry === undefined) {
             this.window.end(handle);

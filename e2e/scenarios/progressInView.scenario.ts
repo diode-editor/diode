@@ -1,5 +1,7 @@
 import { resolve } from "node:path";
 
+import { SPINNER_FRAMES } from "../../src/vs/platform/progress/common/progressService.ts";
+
 import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
 // `withProgress({ location: { viewId } })` and `ProgressLocation.SourceControl`: the view's header spins while
@@ -8,10 +10,12 @@ import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-view-progress");
 
-const SPINNER = /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/u;
+function spins(text: string): boolean {
+    return SPINNER_FRAMES.some((glyph) => text.includes(glyph));
+}
 
 function headerSpins(frame: string, header: string): boolean {
-    return frame.split("\n").some((line) => line.includes(header) && SPINNER.test(line));
+    return frame.split("\n").some((line) => line.includes(header) && spins(line));
 }
 
 async function runProbeCommand(editor: ScenarioDriver, title: string): Promise<void> {
@@ -38,7 +42,7 @@ export default defineScenario({
         await editor.waitForText((t) => headerSpins(t, "INDEXED ITEMS"), { timeoutMs: 20000 });
         await editor.capture("view-spinning");
 
-        await editor.waitForText((t) => t.includes("Probe: indexed in view") && !SPINNER.test(t), {
+        await editor.waitForText((t) => t.includes("Probe: indexed in view") && !spins(t), {
             timeoutMs: 20000,
         });
         await editor.capture("view-done");
@@ -47,7 +51,7 @@ export default defineScenario({
         await editor.waitForText((t) => headerSpins(t, "CHANGES"), { timeoutMs: 20000 });
         await editor.capture("scm-spinning");
 
-        await editor.waitForText((t) => t.includes("Probe: indexed in SCM") && !SPINNER.test(t), {
+        await editor.waitForText((t) => t.includes("Probe: indexed in SCM") && !spins(t), {
             timeoutMs: 20000,
         });
     },

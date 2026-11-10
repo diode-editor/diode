@@ -55,6 +55,8 @@ describe("ExtensionProgressAdapter", () => {
 
         adapter.end(1);
         expect(bar()).toEqual([]);
+        // The view sink hears every end and ignores a handle it never started.
+        expect(viewCalls).toEqual([["end", 1]]);
     });
 
     it.each([
@@ -73,9 +75,7 @@ describe("ExtensionProgressAdapter", () => {
             ["start", 1, location, "Build"],
             ["end", 1],
         ]);
-        // The handle is forgotten: a late end goes to the status bar sink, which ignores it.
-        adapter.end(1);
-        expect(viewCalls).toHaveLength(2);
+        expect(bar()).toEqual([]);
     });
 
     it("[api:window.withProgress] Notification: a toast with `title: message`, percent summed and clamped", () => {
