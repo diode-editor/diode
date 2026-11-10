@@ -52,8 +52,8 @@
       "class": "ok"
     },
     "workspace.onDidChangeWorkspaceFolders": {
-      "class": "B",
-      "note": "never fires"
+      "class": "ok",
+      "note": "fires only on in-place folder changes of a multi-root workspace; Diode is single-root and every folder change restarts the extension host, as upstream does for EMPTY/FOLDER states"
     },
     "workspace.onDidCloseNotebookDocument": {
       "class": "X",
