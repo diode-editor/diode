@@ -2383,7 +2383,7 @@ Proposed API or a false hit: class X when real.
 | `TreeView.onDidChangeVisibility` | ok |  | 0 | 0 |  |
 | `TreeView.onDidCollapseElement` | ok |  | 0 | 0 |  |
 | `TreeView.onDidExpandElement` | ok |  | 0 | 0 |  |
-| `TreeView.reveal` | ok |  | 0 | 0 |  |
+| `TreeView.reveal` | ok | yes | 0 | 0 |  |
 | `TreeView.selection` | ok |  | 0 | 0 |  |
 | `TreeView.title` | ok |  | 0 | 0 |  |
 | `TreeView.visible` | ok |  | 0 | 0 |  |

@@ -94,7 +94,7 @@ export function createExtHostTreeViews(rpc: SubprocessRpc, options: IExtHostTree
         // The extension's input is not trusted to match the types.
         const given: unknown = (viewOptions as Partial<vscode.TreeViewOptions<T>> | null | undefined)?.treeDataProvider;
         if (given === undefined || given === null) throw new Error("Options with treeDataProvider is mandatory");
-        const view = new ExtHostTreeView<T>(viewId, viewOptions.treeDataProvider, rpc, options);
+        const view = new ExtHostTreeView<T>(viewId, viewOptions.treeDataProvider, rpc, options, options.owner?.current);
         views.set(viewId, view as ExtHostTreeView<unknown>);
         rpc.notify("treeView.register", {
             viewId,
@@ -167,6 +167,8 @@ class ExtHostTreeView<T> {
         private readonly provider: vscode.TreeDataProvider<T>,
         private readonly rpc: SubprocessRpc,
         private readonly options: IExtHostTreeViewsOptions,
+        /** The registering extension, named in upstream's error when `reveal` can't resolve an element. */
+        private readonly extensionId: string | undefined,
     ) {
         this.dataSubscription = provider.onDidChangeTreeData?.((change) => {
             // Upstream ignores an empty array: nothing changed.
@@ -292,24 +294,25 @@ class ExtHostTreeView<T> {
             await this.rpc.request("treeView.reveal", { viewId: this.viewId, parentChain: [], select, focus, expand });
             return;
         }
-        let request: IWireTreeViewReveal;
+        let parentChain: ITreeNode<T>[];
         try {
             await this.refreshQueue;
-            const parentChain = await this.resolveParentChain(element, getParent);
-            const node = await this.resolveTreeNode(element, parentChain.at(-1));
-            request = {
-                viewId: this.viewId,
-                item: node.item,
-                parentChain: parentChain.map(itemOf),
-                select,
-                focus,
-                expand,
-            };
+            parentChain = await this.resolveParentChain(element, getParent);
         } catch (err: unknown) {
-            // Upstream logs a chain it can't resolve and resolves the promise.
+            // Upstream logs a parent chain it can't resolve and resolves the promise; the element itself
+            // failing to resolve below rejects it.
             console.error(`[tree view ${this.viewId}] reveal failed: ${errorText(err)}`);
             return;
         }
+        const node = await this.resolveTreeNode(element, parentChain.at(-1));
+        const request: IWireTreeViewReveal = {
+            viewId: this.viewId,
+            item: node.item,
+            parentChain: parentChain.map(itemOf),
+            select,
+            focus,
+            expand,
+        };
         await this.rpc.request("treeView.reveal", request);
     }
 
@@ -333,7 +336,11 @@ class ExtHostTreeView<T> {
         // Fetching the parent's children registers the element's node under the very same handle.
         await this.getChildren(parent?.item.handle);
         const node = this.byHandle.get(handle);
-        if (node === undefined) throw new Error(`Cannot resolve tree item for element ${handle}`);
+        if (node === undefined) {
+            throw new Error(
+                `Cannot resolve tree item for element ${handle} from extension ${String(this.extensionId)}`,
+            );
+        }
         return node;
     }
 

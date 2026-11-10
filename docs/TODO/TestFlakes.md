@@ -33,6 +33,11 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `testingDecorations.test.ts`, «the progress clock redraws only the editors with a running test»: `vi.waitFor`
+  за 1 с увидел лишь 2 разных кадра настоящего 100-мс тикера `ProgressService` под coverage (run 42780424813,
+  PR #1124, дифф — пассивный прогресс вида, тик непассивных не тронут); тот же код зелёный в прошлом прогоне и
+  локально. Лечение — фейковые таймеры в тесте вместо реального тикера.
+
 - [ ] `extensionHost.vitestExplorer.test.ts`, стоковый vitest.explorer (#1068): прогон vitest расширения вывел
   `DEV` без `FAIL` в initial test run Stryker'а мутационного гейта (run 42741891573, PR #1117, дифф — sash
   списка вкладок терминала); юнит-job того же прогона зелёный.
