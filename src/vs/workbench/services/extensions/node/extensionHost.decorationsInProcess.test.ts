@@ -138,6 +138,7 @@ describe("ExtensionHost — host handlers (in-process, deterministic)", () => {
         await flushMicrotasks(10);
         expect(h.configChanges.at(-1)).toEqual({
             configuration: { defaults: {}, user: { some: "config" }, workspace: {} },
+            settingIds: [],
             affectedKeys: ["git.enabled"],
         });
     });
