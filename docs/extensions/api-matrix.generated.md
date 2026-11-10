@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 190 |
+| test | 191 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
