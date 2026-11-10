@@ -1251,6 +1251,13 @@ export class CancellationError extends Error {
     }
 }
 
+/** Upstream `CancellationToken.None`: never cancelled, and its event (`Event.None`) keeps no listeners. */
+export const NEVER_CANCELLED_TOKEN: vscode.CancellationToken = Object.freeze({
+    isCancellationRequested: false,
+    // Stryker disable next-line ArrowFunction: nothing ever fires it, so the returned disposable is never observed
+    onCancellationRequested: () => new DisposableImpl(() => undefined),
+});
+
 export class CancellationTokenSource {
     private readonly emitter = new EventEmitter<unknown>();
     private cancelled = false;

@@ -1,19 +1,13 @@
 import type * as vscode from "vscode";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
-import { CancellationTokenSource, DisposableImpl, ProgressLocation } from "./vscodeTypes.ts";
+import { CancellationTokenSource, NEVER_CANCELLED_TOKEN, ProgressLocation } from "./vscodeTypes.ts";
 import type { WireProgressLocation } from "./wireTypes.ts";
 
 interface ProgressStep {
     message?: string;
     increment?: number;
 }
-
-/** Upstream `CancellationToken.None`: never cancelled, and its event (`Event.None`) keeps no listeners. */
-const NEVER_CANCELLED: vscode.CancellationToken = Object.freeze({
-    isCancellationRequested: false,
-    onCancellationRequested: () => new DisposableImpl(() => undefined),
-});
 
 /** An unknown number is `Window`, as upstream's `ProgressService` falls back for an unknown location. */
 export function toWireProgressLocation(location: unknown): WireProgressLocation {
@@ -77,17 +71,8 @@ export function createProgressApi(rpc: SubprocessRpc): Pick<typeof vscode.window
         };
         // `new Promise` turns a synchronous throw into a rejection, so `done` still runs.
         return new Promise<R>((resolve) => {
-            resolve(task(progress, source?.token ?? NEVER_CANCELLED));
-        }).then(
-            (result) => {
-                done();
-                return result;
-            },
-            (err: unknown) => {
-                done();
-                throw err;
-            },
-        );
+            resolve(task(progress, source?.token ?? NEVER_CANCELLED_TOKEN));
+        }).finally(done);
     };
     return { withProgress };
 }

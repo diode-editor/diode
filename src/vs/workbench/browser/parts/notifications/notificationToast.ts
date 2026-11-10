@@ -99,7 +99,12 @@ export class NotificationToast extends DialogComponent {
         if (this.progressLabel !== null) {
             this.progressLabel.style = { fg: TOAST_STYLES.descriptionFg };
             tail.push(this.progressLabel);
+            // Upstream animates only an infinite progress: the ticker stops at the first percent.
             const timer = setInterval(() => {
+                if (this.notification.progress?.percent !== undefined) {
+                    clearInterval(timer);
+                    return;
+                }
                 this.spinnerFrame = (this.spinnerFrame + 1) % SPINNER_FRAMES.length;
                 this.renderProgress();
             }, TOAST_SPINNER_INTERVAL_MS);
@@ -143,7 +148,7 @@ export class NotificationToast extends DialogComponent {
                 });
             }
         }
-        this.layoutRows(toastLines(notification.message));
+        this.layoutRows();
     }
 
     /**
@@ -151,16 +156,23 @@ export class NotificationToast extends DialogComponent {
      * rebuilding the toast would take the focus off its Cancel button on every report.
      */
     public update(notification: IActiveNotification): void {
+        const sameMessage = notification.message === this.notification.message;
         this.notification = notification;
+        // A bare `increment` is the common report: only the percent line changes.
+        if (sameMessage) {
+            this.renderProgress();
+            return;
+        }
         const focused = this.buttons.find((button) => button.isFocused);
-        this.layoutRows(toastLines(notification.message));
+        this.layoutRows();
         focused?.focus();
     }
 
     /** The message may rewrap to another line count, so the rows are laid out anew. */
-    private layoutRows(lines: readonly string[]): void {
+    private layoutRows(): void {
+        const lines = toastLines(this.notification.message).map((line) => new TextLabelElement(line));
         this.stack.replaceChildren([]);
-        for (const row of [...lines.map((line) => new TextLabelElement(line)), ...this.tail]) {
+        for (const row of [...lines, ...this.tail]) {
             this.stack.addChild(row, { width: "stretch", height: 1 });
         }
         this.renderProgress();

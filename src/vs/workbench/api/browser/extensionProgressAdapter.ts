@@ -5,6 +5,8 @@ import type {
 } from "../../services/notification/browser/notificationService.ts";
 import type { IProgressSink, IProgressStartOptions } from "../common/iExtensionWindowSinks.ts";
 
+import { accumulatePercent } from "./progressStatusBarAdapter.ts";
+
 /** Upstream `withNotificationProgress`: a toast that flashes up and away reads as noise. */
 export const PROGRESS_NOTIFICATION_MIN_VISIBLE_MS = 800;
 
@@ -14,7 +16,7 @@ class NotificationProgress {
     public percent: number | undefined;
     /** null once the user cancelled or hid it. */
     public toast: IProgressNotificationHandle | null = null;
-    public minVisible: ReturnType<typeof setTimeout> | null = null;
+    public minVisibleElapsed = false;
     /** The task finished while the toast was younger than the minimum. */
     public ended = false;
 
@@ -63,8 +65,8 @@ export class ExtensionProgressAdapter implements IProgressSink {
                 }
             },
         });
-        entry.minVisible = setTimeout(() => {
-            entry.minVisible = null;
+        setTimeout(() => {
+            entry.minVisibleElapsed = true;
             if (entry.ended) entry.toast?.close();
         }, PROGRESS_NOTIFICATION_MIN_VISIBLE_MS);
     }
@@ -76,7 +78,7 @@ export class ExtensionProgressAdapter implements IProgressSink {
             return;
         }
         if (message !== undefined) entry.message = message;
-        if (increment !== undefined) entry.percent = Math.min(100, Math.max(0, (entry.percent ?? 0) + increment));
+        if (increment !== undefined) entry.percent = accumulatePercent(entry.percent, increment);
         if (entry.toast === null) {
             this.window.report(handle, message, increment);
             return;
@@ -96,6 +98,6 @@ export class ExtensionProgressAdapter implements IProgressSink {
         this.notified.delete(handle);
         entry.ended = true;
         if (entry.toast === null) this.window.end(handle);
-        else if (entry.minVisible === null) entry.toast.close();
+        else if (entry.minVisibleElapsed) entry.toast.close();
     }
 }

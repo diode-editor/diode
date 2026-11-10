@@ -29,6 +29,7 @@ import {
     ColorThemeKind,
     DisposableImpl,
     EventEmitter,
+    NEVER_CANCELLED_TOKEN,
     Position,
     Selection,
     StatusBarAlignment,
@@ -67,12 +68,6 @@ function makeListenerEvent<T>(listeners: ((e: T) => unknown)[]): vscode.Event<T>
         return disposable;
     };
 }
-
-const NEVER_CANCELLED: vscode.CancellationToken = {
-    isCancellationRequested: false,
-    /* v8 ignore next -- defensive stub: the host bridge never cancels provideFileDecoration, so the listener is never called */
-    onCancellationRequested: () => new DisposableImpl(() => undefined),
-};
 
 function normalizeChangedUris(changed: undefined | vscode.Uri | vscode.Uri[]): vscode.Uri[] {
     if (changed === undefined) return [];
@@ -649,7 +644,7 @@ export function createWindowNamespace(
         if (uris.length === 0) return;
         const decorations: IWireFileDecoration[] = [];
         for (const uri of uris) {
-            const decoration = await provider.provideFileDecoration(uri, NEVER_CANCELLED);
+            const decoration = await provider.provideFileDecoration(uri, NEVER_CANCELLED_TOKEN);
             const entry: IWireFileDecoration = {
                 uri: uri.toString(),
                 ...(decoration?.badge !== undefined ? { badge: decoration.badge } : {}),

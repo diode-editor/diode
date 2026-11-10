@@ -32,6 +32,11 @@ class ProgressEntry {
     }
 }
 
+/** Upstream sums `increment`s into a percentage; clamped, since extensions overshoot. */
+export function accumulatePercent(percent: number | undefined, increment: number): number {
+    return Math.min(100, Math.max(0, (percent ?? 0) + increment));
+}
+
 /** Captions expand `$(name)`: upstream this is `ProgressLocation.Window`, which expands icons. */
 export class ProgressStatusBarAdapter implements IProgressSink {
     private readonly entries = new Map<number, ProgressEntry>();
@@ -65,7 +70,7 @@ export class ProgressStatusBarAdapter implements IProgressSink {
         if (entry === undefined) return;
         if (message !== undefined) entry.message = message;
         if (increment !== undefined) {
-            entry.percent = Math.min(100, Math.max(0, (entry.percent ?? 0) + increment));
+            entry.percent = accumulatePercent(entry.percent, increment);
         }
         entry.bar.update({ text: entry.render() });
     }
