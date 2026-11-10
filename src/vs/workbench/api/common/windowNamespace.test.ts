@@ -328,12 +328,18 @@ describe("WindowNamespace", () => {
     it("options with junk strings degrades safely", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
-        // invalid tabSize → 4; invalid indentSize → not forwarded
-        window.activeTextEditor!.options = { tabSize: "bad", indentSize: "bad" } as never;
-        expect(stub.requests.at(-1)).toEqual({
-            method: "editor.setOptions",
-            params: { tabSize: 4, uri: Uri.file("/a.ts").toString(), groupId: 1 },
-        });
+        // As upstream: a tabSize or indentSize that is not a number is no change, nothing is forwarded or kept.
+        const editor = window.activeTextEditor!;
+        editor.options = { tabSize: 3 };
+        editor.options = { tabSize: "bad", indentSize: "bad" } as never;
+        editor.options.tabSize = "auto";
+        expect(stub.requests).toEqual([
+            {
+                method: "editor.setOptions",
+                params: { tabSize: 3, uri: Uri.file("/a.ts").toString(), groupId: 1 },
+            },
+        ]);
+        expect(editor.options.tabSize).toBe(3);
     });
 
     it("assigning a non-object to options and other properties is rejected", () => {
