@@ -16,11 +16,16 @@ export function createNodeExtHostDisk(): IExtHostDisk {
     };
 }
 
+/** The errno table of upstream's `DiskFileSystemProvider.toFileSystemProviderError`. */
 export function toFileSystemError(err: unknown, uri: vscode.Uri): unknown {
     const code = (err as NodeJS.ErrnoException | null)?.code;
     switch (code) {
         case "ENOENT":
             return FileSystemError.FileNotFound(uri);
+        case "EISDIR":
+            return FileSystemError.FileIsADirectory(uri);
+        case "ENOTDIR":
+            return FileSystemError.FileNotADirectory(uri);
         case "EEXIST":
             return FileSystemError.FileExists(uri);
         case "EACCES":

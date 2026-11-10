@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
+import type * as vscode from "vscode";
 
 import { Uri } from "../../../base/common/uri.ts";
 
-import { type IWatcherTransport, resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
+import {
+    type IWatcherTransport,
+    providerWatchTarget,
+    resolveGlobPattern,
+    SubprocessFileSystemWatchers,
+} from "./fileWatcherNamespace.ts";
 import { RelativePattern } from "./vscodeTypes.ts";
 import type { IWireWatcherCreate } from "./wireTypes.ts";
 
@@ -16,6 +22,36 @@ function makeTransport(): IWatcherTransport & { created: IWireWatcherCreate[]; d
         dispose: (id) => disposed.push(id),
     };
 }
+
+describe("providerWatchTarget", () => {
+    const base = Uri.from({ scheme: "memfs", path: "/a" });
+    const provider = {} as vscode.FileSystemProvider;
+    // Answers for any scheme, `file` included: only the pattern's shape decides.
+    const anyScheme = () => provider;
+
+    it("a RelativePattern on a non-file Uri with a provider yields the provider, the Uri and the pattern", () => {
+        const schemes: string[] = [];
+        const target = providerWatchTarget(new RelativePattern(base, "*.txt"), (scheme) => {
+            schemes.push(scheme);
+            return provider;
+        });
+        expect(target).toEqual({ provider, base, pattern: "*.txt" });
+        expect(schemes).toEqual(["memfs"]);
+    });
+
+    it("a scheme without a provider is not a provider target", () => {
+        expect(providerWatchTarget(new RelativePattern(base, "*"), () => undefined)).toBeNull();
+    });
+
+    it("a string, null, a file base, a non-Uri base and a non-string pattern are not provider targets", () => {
+        expect(providerWatchTarget("**", anyScheme)).toBeNull();
+        expect(providerWatchTarget(null, anyScheme)).toBeNull();
+        expect(providerWatchTarget(undefined, anyScheme)).toBeNull();
+        expect(providerWatchTarget(new RelativePattern(Uri.file("/a"), "*"), anyScheme)).toBeNull();
+        expect(providerWatchTarget({ baseUri: { scheme: "memfs", path: "/a" }, pattern: "*" }, anyScheme)).toBeNull();
+        expect(providerWatchTarget({ baseUri: base, pattern: 1 }, anyScheme)).toBeNull();
+    });
+});
 
 describe("resolveGlobPattern", () => {
     it("string pattern binds to the workspace folder", () => {

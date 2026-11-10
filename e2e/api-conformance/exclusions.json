@@ -15,6 +15,7 @@
     "workspace vscode API - workspace findTextInFiles, cancellation": "proposed API: workspace.findTextInFiles",
     "workspace.tasks vscode API - tasks Tasks CustomExecution task should start and shutdown successfully": "proposed API: window.onDidWriteTerminalData",
     "workspace.tasks vscode API - tasks Tasks CustomExecution sync task should flush all data on close": "proposed API: window.onDidWriteTerminalData",
+    "workspace.fs vscode API - workspace-fs vscode.workspace.fs error reporting is weird #132981": "harness: createRandomFile creates the file on disk instead of fake-fs; on disk upstream also reports FileNotADirectory",
     "env vscode API - env env.remoteName": "harness layout: expects the upstream built-in extensions vscode.git and vscode.media-preview; Diode has diode.git and no media-preview",
     "languages vscode API - languages folding command": "harness layout: expects the upstream built-in extension vscode.json-language-features, which Diode does not bundle",
     "languages vscode API - languages link detector": "out of scope of #916: registerDocumentLinkProvider stays a no-op and the core has no link detector, so vscode.executeLinkProvider answers []",
