@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { applyEdits, modify, parse as parseJsonc, type ParseError, printParseErrorCode } from "jsonc-parser";
 
 import { Emitter } from "../../../base/common/event.ts";
-import { Disposable, type IDisposable, MutableDisposable } from "../../../base/common/lifecycle.ts";
+import { combinedDisposable, Disposable, type IDisposable, MutableDisposable } from "../../../base/common/lifecycle.ts";
 import { isFileNotFound } from "../../../base/node/fsErrors.ts";
 import type { IUserDataPaths } from "../../environment/node/userDataPaths.ts";
 import type { IFileWatcher } from "../../files/common/iFileWatcher.ts";
@@ -33,9 +33,14 @@ import {
     folderScopeWriteError,
     NO_WORKSPACE_OPENED_ERROR,
     PROFILE_SCOPES,
+    TASKS_CONFIGURATION_KEY,
+    TASKS_DEFAULT,
+    TASKS_FILE_NAME,
+    tasksJsonPath,
     WORKSPACE_SCOPES,
     workspaceScopeWriteError,
     workspaceSettingsPath,
+    workspaceTasksPath,
 } from "../common/workspaceSettings.ts";
 
 interface ISettingsSource {
@@ -44,6 +49,8 @@ interface ISettingsSource {
     readonly section: string | undefined;
     readonly scopes: readonly ConfigurationScope[];
     readonly ignoredReason: string;
+    /** The folder's `.diode/tasks.json`: the `tasks` section of the same layer (a `.code-workspace` file has none). */
+    readonly tasksFile: string | undefined;
 }
 
 /**
@@ -53,6 +60,9 @@ interface ISettingsSource {
  *   3. profile: the named profile's file, `PROFILE_SCOPES` keys;
  *   4. workspace: the folder's `.diode/settings.json` or the `settings` block of the `.code-workspace` file;
  *   5. workspaceFolder: only for a `.code-workspace` window: the folder's file, `FOLDER_SCOPES` keys.
+ *
+ * The `tasks` section is standalone, as upstream's `WORKSPACE_STANDALONE_CONFIGURATIONS`: the layer of a folder
+ * (and of the profile) takes it from its `tasks.json` next to `settings.json`, on top of the settings file.
  *
  * Broken JSONC yields an empty layer and a logged error: bootstrap must not fail because of settings.json.
  */
@@ -76,6 +86,8 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     private readonly writesToProfileLayer: boolean;
     private readonly userSettingsPath: string | undefined;
     private readonly profileSettingsPath: string | undefined;
+    /** The profile's `tasks.json` next to {@link writeTargetPath} (upstream `IUserDataProfile.tasksResource`). */
+    private readonly userTasksPath: string | undefined;
     private readonly logger: ILogger | undefined;
     /** The set already reported by a warning: the profile file is reread on every write, so a repeat is noise. */
     private warnedProfileKeys: string | undefined;
@@ -104,6 +116,10 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         this.writesToProfileLayer = input.writesToProfileLayer ?? false;
         this.userSettingsPath = input.userSettingsPath;
         this.profileSettingsPath = input.profileSettingsPath;
+        this.userTasksPath =
+            input.writeTargetPath === undefined
+                ? undefined
+                : path.join(path.dirname(input.writeTargetPath), TASKS_FILE_NAME);
         this.logger = input.logger;
         this.schemas = input.schemas ?? new Map();
         this.scopes = input.scopes ?? new Map();
@@ -122,6 +138,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         const paths = new Set<string>();
         if (this.userSettingsPath !== undefined) paths.add(this.userSettingsPath);
         if (this.profileSettingsPath !== undefined) paths.add(this.profileSettingsPath);
+        if (this.userTasksPath !== undefined) paths.add(this.userTasksPath);
         for (const filePath of paths) {
             this.register(
                 fileWatcher.watchFile(filePath, () => {
@@ -178,10 +195,13 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     public async reload(): Promise<void> {
         const prev = this.snapshot;
         if (this.userSettingsPath !== undefined) {
-            this.userLayer = this.toUserLayer(await loadSettingsLayer(this.userSettingsPath, this.logger));
+            const tasksFile = this.writesToProfileLayer ? undefined : this.userTasksPath;
+            this.userLayer = this.toUserLayer(await loadLayer(this.userSettingsPath, tasksFile, this.logger));
         }
         if (this.profileSettingsPath !== undefined) {
-            this.profileLayer = this.toProfileLayer(await loadSettingsLayer(this.profileSettingsPath, this.logger));
+            this.profileLayer = this.toProfileLayer(
+                await loadLayer(this.profileSettingsPath, this.userTasksPath, this.logger),
+            );
         }
         await this.reloadWorkspaceLayers();
         this.recompute(prev);
@@ -235,10 +255,16 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     }
 
     private watchSource(source: ISettingsSource | undefined): IDisposable | undefined {
-        if (source === undefined) return undefined;
-        return this.fileWatcher?.watchFile(source.file, () => {
-            void this.reloadWorkspace();
-        });
+        const fileWatcher = this.fileWatcher;
+        if (source === undefined || fileWatcher === undefined) return undefined;
+        const files = source.tasksFile === undefined ? [source.file] : [source.file, source.tasksFile];
+        return combinedDisposable(
+            ...files.map((file) =>
+                fileWatcher.watchFile(file, () => {
+                    void this.reloadWorkspace();
+                }),
+            ),
+        );
     }
 
     private async reloadWorkspace(): Promise<void> {
@@ -270,7 +296,8 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
                 `${source.file}: ignored settings that ${source.ignoredReason}: ${excludedKeys.join(", ")}`,
             );
         }
-        return model;
+        if (source.tasksFile === undefined) return model;
+        return ConfigurationModel.merge(model, await loadTasksLayer(source.tasksFile, this.logger));
     }
 
     /** An empty diff fires no event: reload after our own write stays silent. */
@@ -290,6 +317,11 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     }
 
     private async doUpdateValue(key: string, value: unknown, target: ConfigurationTarget): Promise<void> {
+        const jsonPath = tasksJsonPath(key);
+        if (jsonPath !== undefined) {
+            await this.updateTasksValue(jsonPath, value, target);
+            return;
+        }
         if (target === "workspace" || target === "workspaceFolder") {
             // In a folder window the folder target is the same file as the workspace one (upstream's `getConfigurationFileResource`).
             const source = target === "workspace" ? this.workspaceSource : (this.folderSource ?? this.workspaceSource);
@@ -329,6 +361,27 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         }
         this.recompute(prev);
     }
+
+    /**
+     * Upstream `ConfigurationEditing` for a standalone key: no scope checks, the edit goes to the tasks file. In a
+     * `.code-workspace` window the workspace target is the folder's file too (upstream writes the `tasks` block of
+     * the workspace file, which Diode's task service does not read).
+     */
+    private async updateTasksValue(
+        jsonPath: readonly string[],
+        value: unknown,
+        target: ConfigurationTarget,
+    ): Promise<void> {
+        let tasksFile = this.userTasksPath;
+        if (target === "workspace" || target === "workspaceFolder") {
+            tasksFile = (this.folderSource ?? this.workspaceSource)?.tasksFile;
+            if (tasksFile === undefined) throw new Error(NO_WORKSPACE_OPENED_ERROR);
+        }
+        if (tasksFile === undefined) return;
+        // Upstream creates a missing file with `TASKS_DEFAULT` (tab-indented) before the edit.
+        await editJsonFile(tasksFile, jsonPath, value, TASKS_DEFAULT);
+        await this.reload();
+    }
 }
 
 function workspaceSources(
@@ -344,7 +397,13 @@ function workspaceSources(
     const userOnly = "can be set only in User settings";
     if (configuration === undefined) {
         return {
-            workspace: { file: folderSettings, section: undefined, scopes: WORKSPACE_SCOPES, ignoredReason: userOnly },
+            workspace: {
+                file: folderSettings,
+                section: undefined,
+                scopes: WORKSPACE_SCOPES,
+                ignoredReason: userOnly,
+                tasksFile: workspaceTasksPath(path.resolve(folder)),
+            },
         };
     }
     return {
@@ -353,12 +412,14 @@ function workspaceSources(
             section: WORKSPACE_FILE_SETTINGS_KEY,
             scopes: WORKSPACE_SCOPES,
             ignoredReason: userOnly,
+            tasksFile: undefined,
         },
         folder: {
             file: folderSettings,
             section: undefined,
             scopes: FOLDER_SCOPES,
             ignoredReason: "cannot be applied in this workspace (set them in the workspace file)",
+            tasksFile: workspaceTasksPath(path.resolve(folder)),
         },
     };
 }
@@ -374,24 +435,35 @@ async function writeSettingsKey(
     value: unknown,
     section?: string,
 ): Promise<ConfigurationModel> {
-    let content = "";
+    // A flat dotted key, as VS Code writes it: ONE JSONPath segment, not `key.split(".")`.
+    const next = await editJsonFile(filePath, section === undefined ? [key] : [section, key], value, "");
+    // Stryker disable next-line ArrayDeclaration,ObjectLiteral,BooleanLiteral: parse errors are not read here, and the parser tolerates a trailing comma without the option too, so the model is the same
+    return ConfigurationModel.fromRaw(sectionOf(parseJsonc(next, [], { allowTrailingComma: true }), section));
+}
+
+/** The edit keeps the file's indentation, as upstream's edit through the text model: tabs when a line starts with one. */
+async function editJsonFile(
+    filePath: string,
+    jsonPath: readonly string[],
+    value: unknown,
+    missingContent: string,
+): Promise<string> {
+    let content = missingContent;
     try {
         content = await fs.promises.readFile(filePath, "utf-8");
     } catch (err) {
         if (!isFileNotFound(err)) throw err;
     }
 
-    // A flat dotted key, as VS Code writes it: ONE JSONPath segment, not `key.split(".")`.
-    const edits = modify(content, section === undefined ? [key] : [section, key], value, {
-        formattingOptions: { insertSpaces: true, tabSize: 4 },
+    const edits = modify(content, [...jsonPath], value, {
+        formattingOptions: { insertSpaces: !/^\t/m.test(content), tabSize: 4 },
     });
     const next = applyEdits(content, edits);
 
     await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
     // Stryker disable next-line StringLiteral: an empty encoding for writeFile is the same default utf-8
     await fs.promises.writeFile(filePath, next, "utf-8");
-    // Stryker disable next-line ArrayDeclaration,ObjectLiteral,BooleanLiteral: parse errors are not read here, and the parser tolerates a trailing comma without the option too, so the model is the same
-    return ConfigurationModel.fromRaw(sectionOf(parseJsonc(next, [], { allowTrailingComma: true }), section));
+    return next;
 }
 
 function sectionOf(parsed: unknown, section: string | undefined): unknown {
@@ -411,12 +483,13 @@ export async function loadConfiguration(
     const defaultsLayer = ConfigurationModel.fromRaw(registry?.getDefaultConfiguration() ?? {});
 
     const userSettingsPath = path.join(paths.userDir, "settings.json");
-    const userLayer = await loadSettingsLayer(userSettingsPath, logger);
+    const tasksFile = path.join(path.dirname(paths.settingsFile), TASKS_FILE_NAME);
+    const userLayer = await loadLayer(userSettingsPath, paths.isDefaultProfile ? tasksFile : undefined, logger);
 
     const profileSettingsPath = paths.isDefaultProfile ? undefined : paths.settingsFile;
     let profileLayer = ConfigurationModel.EMPTY;
     if (profileSettingsPath !== undefined) {
-        profileLayer = await loadSettingsLayer(profileSettingsPath, logger);
+        profileLayer = await loadLayer(profileSettingsPath, tasksFile, logger);
     }
 
     const service = new ConfigurationService({
@@ -436,18 +509,41 @@ export async function loadConfiguration(
     return service;
 }
 
+/** A settings file with the `tasks` section of its `tasks.json` on top. */
+async function loadLayer(
+    settingsFile: string,
+    tasksFile: string | undefined,
+    logger: ILogger | undefined,
+): Promise<ConfigurationModel> {
+    const settings = await loadSettingsLayer(settingsFile, logger);
+    if (tasksFile === undefined) return settings;
+    return ConfigurationModel.merge(settings, await loadTasksLayer(tasksFile, logger));
+}
+
+/** Upstream reads a standalone file as the value of its section; a missing file gives no section. */
+async function loadTasksLayer(filePath: string, logger: ILogger | undefined): Promise<ConfigurationModel> {
+    const content = await readJsoncFile(filePath, logger);
+    if (content === undefined) return ConfigurationModel.EMPTY;
+    return ConfigurationModel.fromRaw({ [TASKS_CONFIGURATION_KEY]: content });
+}
+
 async function loadSettingsLayer(
     filePath: string,
     logger: ILogger | undefined,
     section?: string,
 ): Promise<ConfigurationModel> {
+    return ConfigurationModel.fromRaw(sectionOf(await readJsoncFile(filePath, logger), section));
+}
+
+/** `undefined` when the file is missing or unreadable. */
+async function readJsoncFile(filePath: string, logger: ILogger | undefined): Promise<unknown> {
     let content: string;
     try {
         content = await fs.promises.readFile(filePath, "utf-8");
     } catch (err) {
-        if (isFileNotFound(err)) return ConfigurationModel.EMPTY;
+        if (isFileNotFound(err)) return undefined;
         logger?.error(`Failed to read settings file ${filePath}`, err);
-        return ConfigurationModel.EMPTY;
+        return undefined;
     }
 
     const errors: ParseError[] = [];
@@ -460,5 +556,5 @@ async function loadSettingsLayer(
         }
         // The parser's partial object is used, as in VS Code (best effort).
     }
-    return ConfigurationModel.fromRaw(sectionOf(parsed, section));
+    return parsed;
 }

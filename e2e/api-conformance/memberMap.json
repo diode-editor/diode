@@ -607,6 +607,12 @@
         "tasks.fetchTasks",
         "tasks.registerTaskProvider"
     ],
+    "workspace.tasks vscode API - tasks Tasks CustomExecution A task can be fetched with default task group information": [
+        "Task.group",
+        "WorkspaceConfiguration.update",
+        "tasks.fetchTasks",
+        "workspace.getConfiguration"
+    ],
     "workspace.tasks vscode API - tasks Tasks CustomExecution Tasks can be run back to back": [
         "CustomExecution",
         "EventEmitter",

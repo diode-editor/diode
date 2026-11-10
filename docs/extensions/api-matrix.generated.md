@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 168 |
+| test | 171 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -1980,7 +1980,7 @@ Proposed API or a false hit: class X when real.
 | `Task.definition` | ok |  | 0 | 0 |  |
 | `Task.detail` | ok |  | 0 | 0 |  |
 | `Task.execution` | ok |  | 0 | 0 |  |
-| `Task.group` | ok |  | 0 | 0 |  |
+| `Task.group` | ok | yes | 0 | 0 |  |
 | `Task.isBackground` | ok |  | 0 | 0 |  |
 | `Task.name` | ok |  | 0 | 0 |  |
 | `Task.presentationOptions` | ok |  | 0 | 0 |  |
@@ -2560,7 +2560,7 @@ Proposed API or a false hit: class X when real.
 | `workspace.isTrusted` | ok |  | 34 | 345,707,834 | svelte.svelte-vscode, vscjava.vscode-maven |
 | `workspace.name` | ok |  | 12 | 183,480,674 |  |
 | `workspace.notebookDocuments` | X |  | 75 | 583,025,321 |  |
-| `workspace.onDidChangeConfiguration` | ok |  | 147 | 1,063,598,568 | biomejs.biome, bradlc.vscode-tailwindcss, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, shardulm94.trailing-spaces, svelte.svelte-vscode, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
+| `workspace.onDidChangeConfiguration` | ok | yes | 147 | 1,063,598,568 | biomejs.biome, bradlc.vscode-tailwindcss, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, shardulm94.trailing-spaces, svelte.svelte-vscode, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `workspace.onDidChangeNotebookDocument` | X |  | 71 | 525,888,653 |  |
 | `workspace.onDidChangeTextDocument` | ok | yes | 118 | 907,561,438 | biomejs.biome, bradlc.vscode-tailwindcss, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, shardulm94.trailing-spaces, svelte.svelte-vscode, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `workspace.onDidChangeWorkspaceFolders` | ok | yes | 109 | 884,612,940 | biomejs.biome, bradlc.vscode-tailwindcss, redhat.vscode-yaml, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven |
@@ -2596,7 +2596,7 @@ Proposed API or a false hit: class X when real.
 | `WorkspaceConfiguration.get` | ok | yes | 0 | 0 |  |
 | `WorkspaceConfiguration.has` | ok | yes | 0 | 0 |  |
 | `WorkspaceConfiguration.inspect` | ok |  | 0 | 0 |  |
-| `WorkspaceConfiguration.update` | ok |  | 0 | 0 |  |
+| `WorkspaceConfiguration.update` | ok | yes | 0 | 0 |  |
 | `WorkspaceEdit` | ok | yes | 107 | 886,570,064 |  |
 | `WorkspaceEdit.createFile` | ok | yes | 0 | 0 |  |
 | `WorkspaceEdit.delete` | ok |  | 0 | 0 |  |

@@ -36,8 +36,6 @@ const MISSING_SETTINGS = {
     "terminal.integrated.shellIntegration.enabled": { type: "boolean", default: true },
     "terminal.integrated.environmentChangesRelaunch": { type: "boolean", default: true },
     "terminal.integrated.localEchoEnabled": { default: "off" },
-    "tasks.version": { default: "2.0.0" },
-    "tasks.tasks": { default: [] },
 };
 
 export function transformManifest(manifest) {

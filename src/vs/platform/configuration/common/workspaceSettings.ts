@@ -51,3 +51,28 @@ export function workspaceScopeWriteError(key: string, scope: ConfigurationScope 
     if (isWorkspaceScope(scope)) return null;
     return `Unable to write ${key} to Workspace Settings. This setting can be written only into User settings.`;
 }
+
+/**
+ * Upstream `TASKS_CONFIGURATION_KEY`: a standalone section. `tasks.*` is read from and written to its own file
+ * (`WORKSPACE_STANDALONE_CONFIGURATIONS`, `USER_STANDALONE_CONFIGURATIONS`), not a settings file.
+ */
+export const TASKS_CONFIGURATION_KEY = "tasks";
+
+export const TASKS_FILE_NAME = "tasks.json";
+
+/** Upstream `TASKS_DEFAULT`: the content a missing tasks file is created with before the edit. */
+export const TASKS_DEFAULT = '{\n\t"version": "2.0.0",\n\t"tasks": []\n}';
+
+export function workspaceTasksPath(folderPath: string): string {
+    return path.join(folderPath, workspaceConfigFilePath(TASKS_FILE_NAME));
+}
+
+/**
+ * The JSON path of a `tasks` key inside the tasks file (upstream `getConfigurationEditOperation`): `tasks` is the
+ * whole file, `tasks.<x>` is the top-level `<x>`; any other key is not standalone.
+ */
+export function tasksJsonPath(key: string): string[] | undefined {
+    if (key === TASKS_CONFIGURATION_KEY) return [];
+    const prefix = `${TASKS_CONFIGURATION_KEY}.`;
+    return key.startsWith(prefix) ? [key.slice(prefix.length)] : undefined;
+}
