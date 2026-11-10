@@ -485,9 +485,9 @@ async function editJsonFile(
  * first indented line tells tabs or the number of spaces; a file without one gets 4 spaces.
  */
 function indentationOf(content: string): { insertSpaces: boolean; tabSize: number } {
-    const indent = /^([ \t]+)\S/m.exec(content)?.[1] ?? "    ";
+    const indent = /^([ \t]+)\S/m.exec(content)?.[1];
     // For tabs `tabSize` does not matter.
-    return { insertSpaces: !indent.startsWith("\t"), tabSize: indent.length };
+    return { insertSpaces: indent?.includes("\t") !== true, tabSize: indent?.length ?? 4 };
 }
 
 function sectionOf(parsed: unknown, section: string | undefined): unknown {
