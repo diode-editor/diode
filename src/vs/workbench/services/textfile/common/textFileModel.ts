@@ -17,6 +17,7 @@ import {
     decodeBufferByBOM,
     DEFAULT_ENCODING,
     getEncodingInfo,
+    hasNativeCodec,
     resolveDecodeEncoding,
     stripBOM,
 } from "../../../../editor/common/model/encoding.ts";
@@ -639,14 +640,15 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     /**
-     * The encoding is re-detected (BOM sniff, otherwise utf-8), like reload in VS Code, unless one was chosen
-     * ({@link preferredEncoding}): then it is read in that one, asynchronously, as {@link reopenWithEncoding}. A reload of a model in the large-file mode goes back on disk when the file is
+     * The encoding is re-detected (BOM sniff, otherwise utf-8), like reload in VS Code, unless one that needs iconv
+     * was chosen ({@link preferredEncoding}): then it is read in that one, asynchronously, as
+     * {@link reopenWithEncoding}. A chosen utf-8 or UTF-16 is what the sniff finds in a file we wrote. A reload of a model in the large-file mode goes back on disk when the file is
      * still above the threshold (a reload never turns the mode on: upstream's "decided once"). A large file in
      * memory (editing enabled) streams in, like "Enable Editing": a synchronous read of 500 MB froze the editor for
      * seconds on every external change. The text is replaced in one flush, not diffed (docs/arch/Editor.md).
      */
     private loadDocumentFromDisk(filePath: string): void {
-        if (this.preferredEncoding !== null) {
+        if (this.preferredEncoding !== null && !hasNativeCodec(this.preferredEncoding)) {
             this.reopenWithEncoding(this.preferredEncoding).catch(onUnexpectedError);
             return;
         }

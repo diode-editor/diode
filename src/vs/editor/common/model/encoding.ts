@@ -85,6 +85,14 @@ const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INative
     ],
 ]);
 
+/**
+ * utf-8 and UTF-16 decode without iconv, synchronously. They are also all a BOM sniff can find; we write
+ * utf8bom and UTF-16 with a BOM.
+ */
+export function hasNativeCodec(encoding: string): boolean {
+    return NATIVE_CODECS.has(encodingInfoOf(encoding).iconvName);
+}
+
 /** An explicit encoding beats the detected one, except "utf8" on content with a BOM: that stays "utf8bom". */
 export function explicitOverDetected(explicit: string, detected: string | null): string {
     return explicit === DEFAULT_ENCODING && detected === UTF8_WITH_BOM ? UTF8_WITH_BOM : explicit;

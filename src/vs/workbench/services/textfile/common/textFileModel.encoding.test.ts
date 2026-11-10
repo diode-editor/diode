@@ -324,6 +324,20 @@ describe("TextFileModel — encoding axis", () => {
         controller.dispose();
     });
 
+    it("a chosen utf-8 or UTF-16 reloads synchronously, by the BOM a file we wrote carries", async () => {
+        const controller = createEditorPane();
+        const fp = writeBytes("wide.txt", Buffer.from("x"));
+        controller.openFile(Uri.file(fp));
+        expect(await controller.saveWithEncoding("utf16le")).toBe("saved");
+
+        fs.writeFileSync(fp, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("y", "utf16le")]));
+        controller.revertToDisk();
+
+        expect(controller.getText()).toBe("y");
+        expect(controller.encoding).toBe("utf16le");
+        controller.dispose();
+    });
+
     it("an unknown name reads as utf-8, a BOM keeps utf8bom", async () => {
         const controller = createEditorPane();
         controller.openFile(Uri.file(writeBytes("bom.txt", Buffer.from([0xef, 0xbb, 0xbf, 0x78]))));

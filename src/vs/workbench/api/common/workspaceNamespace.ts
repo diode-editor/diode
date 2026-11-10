@@ -231,7 +231,8 @@ export function createWorkspaceNamespace(
      * Deviation: upstream closes such a model after a while, here it lives until the tab that shows it closes.
      */
     const documentsWithoutModel = new Set<string>();
-    const virtualDocumentsLoading = new Map<string, Promise<vscode.TextDocument>>();
+    /** Upstream `_documentLoader`: one load per uri in flight, a virtual document's or a model's. */
+    const documentLoads = new Map<string, Promise<vscode.TextDocument>>();
     let virtualDocumentRefresh = Promise.resolve();
 
     /** One at a time, as upstream's `lastEvent`: a slow answer must not overwrite a newer one. */
@@ -260,7 +261,7 @@ export function createWorkspaceNamespace(
 
     function openVirtualDocument(uri: vscode.Uri): Promise<vscode.TextDocument> {
         const key = uri.toString();
-        const loading = virtualDocumentsLoading.get(key);
+        const loading = documentLoads.get(key);
         if (loading !== undefined) return loading;
         const opened = contentProviders
             .provide(uri)
@@ -272,9 +273,9 @@ export function createWorkspaceNamespace(
                 return documentSync.open({ uri: key, text, ...(languageId !== undefined ? { languageId } : {}) });
             })
             .finally(() => {
-                virtualDocumentsLoading.delete(key);
+                documentLoads.delete(key);
             });
-        virtualDocumentsLoading.set(key, opened);
+        documentLoads.set(key, opened);
         return opened;
     }
 
@@ -519,9 +520,6 @@ export function createWorkspaceNamespace(
         return p;
     }
 
-    /** Upstream `_documentLoader`: one main-side request per uri in flight. */
-    const documentLoads = new Map<string, Promise<vscode.TextDocument>>();
-
     async function openTextDocument(
         uriOrPathOrOptions?: vscode.Uri | string | IUntitledDocumentOptions,
         options?: { encoding?: string },
@@ -552,11 +550,7 @@ export function createWorkspaceNamespace(
 
         const fsProvider = fsProviders.get(uri.scheme);
         if (fsProvider !== undefined) {
-            const { text, encoding } = await decodeBuffer(
-                Buffer.from(await fsProvider.readFile(uri)),
-                requestedEncoding,
-            );
-            return makeEphemeralDocument(uri, text, encoding, await languageOfDocumentWithoutModel(uri));
+            return ephemeralDocumentOfBytes(uri, Buffer.from(await fsProvider.readFile(uri)), requestedEncoding);
         }
 
         // For non-file schemes `fsPath` is not a path; do not pass it to node:fs.
@@ -596,9 +590,16 @@ export function createWorkspaceNamespace(
         if (live !== undefined && !live.isClosed) return live;
 
         // No live document: not a readable file (the read reports why) or above the sync limit.
-        const buffer = await ctx.disk.readFile(uri.fsPath);
-        const decoded = await decodeBuffer(buffer, encoding);
-        return makeEphemeralDocument(uri, decoded.text, decoded.encoding, await languageOfDocumentWithoutModel(uri));
+        return ephemeralDocumentOfBytes(uri, await ctx.disk.readFile(uri.fsPath), encoding);
+    }
+
+    async function ephemeralDocumentOfBytes(
+        uri: Uri,
+        bytes: Buffer,
+        encoding: string | undefined,
+    ): Promise<ExtHostTextDocument> {
+        const { text, encoding: read } = await decodeBuffer(bytes, encoding);
+        return makeEphemeralDocument(uri, text, read, await languageOfDocumentWithoutModel(uri));
     }
 
     /**
