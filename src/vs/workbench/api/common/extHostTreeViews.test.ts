@@ -1070,16 +1070,65 @@ describe("extHostTreeViews — reveal", () => {
         ]);
     });
 
-    it("an element the provider doesn't list is logged and resolves without a request", async () => {
+    it("[api:TreeView.reveal] an element the provider doesn't list rejects with upstream's message", async () => {
+        const owner = new ExtensionOwner();
+        const { members, stub } = setup(owner);
+        const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+        const view = owner.runAs("pub.ext", () =>
+            members.createTreeView("v", { treeDataProvider: provider(() => [node("a")], true) }),
+        );
+        await expect(view.reveal(node("ghost"))).rejects.toThrow(
+            new Error("Cannot resolve tree item for element 0/0:ghost from extension pub.ext"),
+        );
+        expect(requests(stub, "treeView.reveal")).toEqual([]);
+        expect(error).not.toHaveBeenCalled();
+        error.mockRestore();
+    });
+
+    it("a parent the provider doesn't list is logged and resolves without a request", async () => {
         const { members, stub } = setup();
         const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
         const view = members.createTreeView("v", { treeDataProvider: provider(() => [node("a")], true) });
-        await view.reveal(node("ghost"));
+        const leaf = node("leaf");
+        node("ghost", [leaf]);
+        await view.reveal(leaf);
         expect(requests(stub, "treeView.reveal")).toEqual([]);
         expect(error).toHaveBeenCalledWith(
-            "[tree view v] reveal failed: Cannot resolve tree item for element 0/0:ghost",
+            "[tree view v] reveal failed: Cannot resolve tree item for element 0/0:ghost from extension undefined",
         );
         error.mockRestore();
+    });
+
+    it("[api:TreeView.reveal] of two reveals racing on the root fetch, the stale one rejects", async () => {
+        const { members, stub } = setup();
+        const leaf = node(Object.assign(new TreeItem("duplicate"), { id: "dup" }));
+        const pending: ((nodes: INode[]) => void)[] = [];
+        const view = members.createTreeView("v", {
+            treeDataProvider: {
+                ...provider(() => [], true),
+                getChildren: () =>
+                    new Promise<INode[]>((resolve) => {
+                        pending.push(resolve);
+                    }),
+            },
+        });
+        const settled = [view.reveal(leaf), view.reveal(leaf)].map(async (reveal) =>
+            reveal.then(
+                () => undefined,
+                (err: unknown) => err,
+            ),
+        );
+        await vi.waitFor(() => {
+            expect(pending).toHaveLength(2);
+        });
+        pending[0]([leaf]);
+        // As upstream: the stale fetch settles before the latest one answers.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        pending[1]([leaf]);
+        const [first, second] = await Promise.all(settled);
+        expect(first).toEqual(new Error("Cannot resolve tree item for element 1/dup from extension undefined"));
+        expect(second).toBeUndefined();
+        expect(requests(stub, "treeView.reveal")).toHaveLength(1);
     });
 
     it("a failing getParent is logged as text", async () => {

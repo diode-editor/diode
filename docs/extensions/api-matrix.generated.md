@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 189 |
+| test | 190 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -2383,7 +2383,7 @@ Proposed API or a false hit: class X when real.
 | `TreeView.onDidChangeVisibility` | ok |  | 0 | 0 |  |
 | `TreeView.onDidCollapseElement` | ok |  | 0 | 0 |  |
 | `TreeView.onDidExpandElement` | ok |  | 0 | 0 |  |
-| `TreeView.reveal` | ok |  | 0 | 0 |  |
+| `TreeView.reveal` | ok | yes | 0 | 0 |  |
 | `TreeView.selection` | ok |  | 0 | 0 |  |
 | `TreeView.title` | ok |  | 0 | 0 |  |
 | `TreeView.visible` | ok |  | 0 | 0 |  |
