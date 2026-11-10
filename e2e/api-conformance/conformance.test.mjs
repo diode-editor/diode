@@ -131,7 +131,9 @@ test("the manifest gets our entry point, loses build fields and keeps upstream's
     assert.equal("scripts" in manifest || "devDependencies" in manifest || "dependencies" in manifest, false);
     assert.deepEqual(manifest.contributes.views, {});
     assert.deepEqual(manifest.contributes.configuration.properties["farboo.get"], { type: "string" });
-    assert.equal(manifest.contributes.configuration.properties["tasks.version"].default, "2.0.0");
+    assert.equal(manifest.contributes.configuration.properties["terminal.integrated.showExitAlert"].default, true);
+    // `tasks` is a standalone section written to .diode/tasks.json, not a registered setting.
+    assert.equal("tasks.version" in manifest.contributes.configuration.properties, false);
 });
 
 test("an unexpected manifest shape fails instead of dropping settings", () => {
