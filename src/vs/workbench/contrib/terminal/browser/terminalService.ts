@@ -3,18 +3,18 @@ import { basename } from "node:path";
 import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
 
 import { Emitter } from "../../../../base/common/event.ts";
-import { currentOperatingSystem } from "../../../../base/common/platform.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { currentOperatingSystem } from "../../../../base/common/platform.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
 import {
     guessShellTypeFromExecutable,
     type TerminalShellType,
 } from "../../../../platform/terminal/common/terminalShellType.ts";
+import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import {
