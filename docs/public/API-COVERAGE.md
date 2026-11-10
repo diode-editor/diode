@@ -32,7 +32,7 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 19/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 26/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 35/57 |
-| [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
+| [`vscode.commands`](#vscodecommands) | 🟡 | 4/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
 | [`vscode.env`](#vscodeenv) | 🟡 | 17/21 |
@@ -168,7 +168,7 @@ extension terminals and tree views work; webview is the ceiling.
 
 ## vscode.commands
 
-🟡 **3/4.**
+🟡 **4/4.**
 
 | member | status | comment |
 | --- | :-: | --- |
