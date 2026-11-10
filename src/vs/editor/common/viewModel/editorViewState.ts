@@ -315,6 +315,8 @@ export class EditorViewState {
     public constructor(document: ITextDocument, selections?: ISelection[], indent: IIndentDefaults = {}) {
         this.document = document;
         this.docContentSubscription = document.onDidChangeContent((change) => {
+            // Before the revision moves (#1098): see LineBreaksCache.
+            this.lineBreaksCacheValue?.handleContentChange(change);
             // Stryker disable next-line UpdateOperator: revisions only need to differ, "--" works too
             this.contentRevision++;
             this.pendingProjectionChange =
@@ -338,7 +340,6 @@ export class EditorViewState {
     public dispose(): void {
         this.docContentSubscription.dispose();
         this.setMarkerDecorations([]);
-        this.lineBreaksCacheValue?.dispose();
         this.onDidChangeFollowTailEmitter.dispose();
     }
 
