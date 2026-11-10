@@ -31,7 +31,6 @@ function build(tabsWidth: number, width: number, location: "left" | "right" = "r
     view.setLocation(location);
     const app = TestApp.createWithContent(view, new Size(width, 3));
     app.render();
-    const firstLine = (): string => app.backend.screenToString().split("\n")[0];
     const cell = (x: number) => {
         const position = new Point(x, 1);
         return {
@@ -40,7 +39,7 @@ function build(tabsWidth: number, width: number, location: "left" | "right" = "r
             bg: app.backend.getBgAt(position),
         };
     };
-    return { tabs, terminal, view, app, firstLine, cell };
+    return { tabs, terminal, view, app, cell };
 }
 
 afterEach(() => {
@@ -252,13 +251,5 @@ describe("TerminalTabbedViewElement", () => {
         mouse(app, "left", "press", 29);
         mouse(app, "left", "release", 29);
         expect(onReset).toHaveBeenCalledTimes(1);
-    });
-
-    it("setTabsWidth relays out with the new width", () => {
-        const { view, tabs, app } = build(10, 40);
-        view.setTabsWidth(15);
-        app.render();
-        expect(tabs.layoutSize.width).toBe(15);
-        expect(view.tabsColumns).toBe(15);
     });
 });

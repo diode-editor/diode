@@ -64,6 +64,7 @@ import { QuickInputServiceDIToken } from "./parts/quickinput/quickInputService.t
 import { type SidebarService, SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 import { StatusBarComponent, StatusBarComponentDIToken } from "./parts/statusbar/statusBarComponent.ts";
 import { type ViewsService, ViewsServiceDIToken } from "./parts/views/viewsService.ts";
+import { bindSashHoverDelay } from "./sashHoverDelay.ts";
 import type { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 import { WorkbenchLayoutElement } from "./workbenchLayoutElement.ts";
@@ -192,16 +193,9 @@ export class WorkbenchComponent extends Component {
         this.workbenchContextKeys = this.register(accessor.get(WorkbenchContextKeysDIToken));
 
         this.workbenchLayout = new WorkbenchLayoutElement();
-        // Upstream `SashSettingsController`: the delay applies live, without a restart.
-        const configuration = accessor.get(IConfigurationServiceDIToken);
-        const applySashHoverDelay = (): void => {
-            this.workbenchLayout.setSashHoverDelay(configuration.get("workbench.sash.hoverDelay"));
-        };
-        applySashHoverDelay();
         this.register(
-            configuration.onDidChangeConfiguration((event) => {
-                // Stryker disable next-line ConditionalExpression: equivalent — re-applying the unchanged delay on another key's change is a no-op
-                if (event.affectsConfiguration("workbench.sash.hoverDelay")) applySashHoverDelay();
+            bindSashHoverDelay(accessor.get(IConfigurationServiceDIToken), (ms) => {
+                this.workbenchLayout.setSashHoverDelay(ms);
             }),
         );
         this.workbenchLayout.setCenterContent(this.editorPartComponent.view);

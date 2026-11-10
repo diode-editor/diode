@@ -26,6 +26,7 @@ import {
 } from "../../../../platform/theme/common/productIconService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import { bindSashHoverDelay } from "../../../browser/sashHoverDelay.ts";
 
 import {
     applyTerminalColors,
@@ -66,18 +67,18 @@ export const TERMINAL_ACTIVE_TAB_ID = "terminalActiveTab";
  * the list width with the terminal in the panel and at the side. `unknown` — the value is
  * validated on read ({@link readTabsWidth}).
  */
-export const TERMINAL_TABS_WIDTH_HORIZONTAL_STATE: IStateDescriptor<unknown> = {
+const TERMINAL_TABS_WIDTH_HORIZONTAL_STATE: IStateDescriptor<unknown> = {
     key: "terminal.tabs-list-width-horizontal",
     scope: "global",
-    default: TERMINAL_TABS_WIDTH,
+    default: null,
 };
-export const TERMINAL_TABS_WIDTH_VERTICAL_STATE: IStateDescriptor<unknown> = {
+const TERMINAL_TABS_WIDTH_VERTICAL_STATE: IStateDescriptor<unknown> = {
     key: "terminal.tabs-list-width-vertical",
     scope: "global",
-    default: TERMINAL_TABS_WIDTH,
+    default: null,
 };
 
-/** A hand-edited or corrupt value (not a positive whole number) falls back to the default. */
+/** Unset, hand-edited or corrupt (not a positive whole number) — {@link TERMINAL_TABS_WIDTH}. */
 function readTabsWidth(state: IStateService, descriptor: IStateDescriptor<unknown>): number {
     const value = state.get(descriptor);
     return Number.isInteger(value) && (value as number) > 0 ? (value as number) : TERMINAL_TABS_WIDTH;
@@ -164,15 +165,9 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
                 this.syncTabsWidthState();
             }),
         );
-        // Like the workbench sashes (`SashSettingsController`): the delay applies live.
-        const applySashHoverDelay = (): void => {
-            this.view.setSashHoverDelay(configuration.get("workbench.sash.hoverDelay"));
-        };
-        applySashHoverDelay();
         this.register(
-            configuration.onDidChangeConfiguration((event) => {
-                // Stryker disable next-line ConditionalExpression: equivalent — re-applying the unchanged delay on another key's change is a no-op
-                if (event.affectsConfiguration("workbench.sash.hoverDelay")) applySashHoverDelay();
+            bindSashHoverDelay(configuration, (ms) => {
+                this.view.setSashHoverDelay(ms);
             }),
         );
         this.activeTabLabel.id = TERMINAL_ACTIVE_TAB_ID;
@@ -266,10 +261,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
             : TERMINAL_TABS_WIDTH_HORIZONTAL_STATE;
     }
 
-    /**
-     * The terminal moved between the panel and a side bar — the other orientation's width.
-     * Also from {@link syncChrome}: the startup restore of view locations fires no event.
-     */
+    /** The terminal moved between the panel and a side bar (or the startup restore put it there) — the other orientation's width. */
     private syncTabsWidthState(): void {
         const next = this.currentTabsWidthState();
         if (next === this.tabsWidthState) return;
@@ -279,7 +271,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
 
     /** Double-click on the sash: as wide as the widest tab; already so — nothing (we have no narrow mode to shrink to). */
     private fitTabsWidth(): void {
-        const width = terminalTabsColumns(this.tabs.idealWidth(), this.view.layoutSize.width);
+        const width = terminalTabsColumns(this.tabs.idealWidth, this.view.layoutSize.width);
         if (width === this.view.tabsColumns) return;
         this.view.setTabsWidth(width);
         this.state.store(this.tabsWidthState, width);
@@ -339,7 +331,6 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         const hadTabsFocus = this.tabs.list.isFocused;
         this.tabs.setInstances(instances, active?.id ?? null);
         this.view.setLocation(this.configuration.get("terminal.integrated.tabs.location"));
-        this.syncTabsWidthState();
         const showTabs = this.shouldShowTabs(instances.length);
         this.view.setTabsVisible(showTabs);
         // The focused list got hidden — focus goes to the terminal, or,

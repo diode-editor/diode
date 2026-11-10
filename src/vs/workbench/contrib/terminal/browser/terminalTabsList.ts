@@ -53,8 +53,11 @@ export class TerminalTabsList {
     // No rows before the first setInstances, so onSelect never fires — the initial value has no effect.
     // Stryker disable next-line BooleanLiteral: the initial value is unobservable — see above
     private syncing = false;
-    /** Row texts, for {@link idealWidth}. */
-    private labels: readonly string[] = [];
+    /**
+     * Upstream `_handleOnDidSashReset`: the widest row plus padding — a column on the right
+     * to match the leading one.
+     */
+    public idealWidth = 0;
     public constructor(
         handlers: ITerminalTabsListHandlers,
         /** `diode.icons.nerdFont`; the owner re-syncs the rows after a change. */
@@ -76,9 +79,11 @@ export class TerminalTabsList {
     public setInstances(instances: readonly ITerminalInstance[], activeId: number | null): void {
         this.syncing = true;
         this.list.clear();
-        this.labels = instances.map((instance) => ` ${terminalTabLabel(instance, this.nerdFont)}`);
-        for (const [index, instance] of instances.entries()) {
-            const row = new TextLabelElement(this.labels[index]);
+        this.idealWidth = 0;
+        for (const instance of instances) {
+            const label = ` ${terminalTabLabel(instance, this.nerdFont)}`;
+            this.idealWidth = Math.max(this.idealWidth, measureTextWidth(label) + 1);
+            const row = new TextLabelElement(label);
             row.id = terminalTabRowId(instance.id);
             // No `label`: only typeahead needs it, and typeahead is off.
             this.list.appendRow(row);
@@ -86,16 +91,6 @@ export class TerminalTabsList {
         // No terminals — no row either (setCursorTo throws on an unknown one).
         if (activeId !== null) this.list.setCursorTo(terminalTabRowId(activeId));
         this.syncing = false;
-    }
-
-    /**
-     * Upstream `_handleOnDidSashReset`: the widest row plus padding — a column on the right
-     * to match the leading one.
-     */
-    public idealWidth(): number {
-        let width = 0;
-        for (const label of this.labels) width = Math.max(width, measureTextWidth(label) + 1);
-        return width;
     }
 
     public getCursorInstanceId(): number | undefined {

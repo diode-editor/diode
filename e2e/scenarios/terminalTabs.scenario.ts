@@ -1,4 +1,5 @@
 import { explorerTitle } from "../helpers/explorerTitle.ts";
+import { waitUntil } from "../helpers/waitFor.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Commands are on F keys: the legacy tier cannot encode Ctrl+` and Ctrl+Shift+\, and the menu bar keeps focus in the
@@ -47,12 +48,11 @@ export default defineScenario({
         // The divider left of the list is a sash: hover lights it, a drag resizes the list, a double-click fits it.
         const list = await editor.waitForNode("#terminalTabsList");
         const waitForListWidth = async (width: number): Promise<void> => {
-            const deadline = Date.now() + 5000;
-            for (;;) {
-                const current = (await editor.waitForNode("#terminalTabsList")).box.width;
-                if (current === width) return;
-                if (Date.now() > deadline) throw new Error(`the tabs list is ${current} wide, expected ${width}`);
-            }
+            await waitUntil(
+                async () => (await editor.waitForNode("#terminalTabsList")).box.width,
+                (current) => current === width,
+                { describe: `tabs list ${String(width)} wide`, diagnose: (last) => `width ${String(last)}` },
+            );
         };
         const dividerX = list.box.x - 1;
         const midY = list.box.y + 2;

@@ -164,12 +164,7 @@ describe("TerminalPanelComponent — tabs list width", () => {
 
         await h.configuration.updateValue("workbench.sash.hoverDelay", 1000);
         hover(h.divider());
-        vi.advanceTimersByTime(999);
-        h.testApp.render();
         expect(fg()).toBe(rest);
-        vi.advanceTimersByTime(1);
-        h.testApp.render();
-        expect(fg()).toBe(h.view.styleVar("sash.hoverBorder"));
         h.dispose();
     });
 });

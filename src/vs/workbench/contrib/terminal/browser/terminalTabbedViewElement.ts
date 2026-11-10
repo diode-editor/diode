@@ -6,9 +6,9 @@ import { SashElement } from "@tuidom/elements/sash/sashElement";
 export type TerminalTabsLocation = "left" | "right";
 
 /** Upstream `TerminalTabsListSizes.WideViewMinimumWidth` 80px; we have no narrow (icons only) mode below it. */
-export const TERMINAL_TABS_MIN_WIDTH = 10;
+const TERMINAL_TABS_MIN_WIDTH = 10;
 /** Upstream `TerminalTabsListSizes.MaximumWidth` 500px. */
-export const TERMINAL_TABS_MAX_WIDTH = 62;
+const TERMINAL_TABS_MAX_WIDTH = 62;
 /** Upstream terminal `minimumSize` 120px. */
 const TERMINAL_MIN_WIDTH = 15;
 
