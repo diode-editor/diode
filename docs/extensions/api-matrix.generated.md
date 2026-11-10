@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 161 |
+| test | 165 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -2048,7 +2048,7 @@ Proposed API or a false hit: class X when real.
 | `TelemetrySender.sendEventData` | ok |  | 0 | 0 |  |
 | `TelemetryTrustedValue` | ok |  | 3 | 60,001,590 |  |
 | `TelemetryTrustedValue.value` | ok |  | 0 | 0 |  |
-| `Terminal.creationOptions` | ok |  | 0 | 0 |  |
+| `Terminal.creationOptions` | ok | yes | 0 | 0 |  |
 | `Terminal.dispose` | ok |  | 0 | 0 |  |
 | `Terminal.exitStatus` | ok |  | 0 | 0 |  |
 | `Terminal.hide` | ok |  | 0 | 0 |  |
@@ -2555,7 +2555,7 @@ Proposed API or a false hit: class X when real.
 | `workspace.encode` | B |  | 0 | 0 |  |
 | `workspace.findFiles` | ok | yes | 72 | 686,973,290 | bradlc.vscode-tailwindcss, svelte.svelte-vscode, vscjava.vscode-maven |
 | `workspace.fs` | ok | yes | 138 | 914,256,103 | biomejs.biome, bradlc.vscode-tailwindcss, tamasfe.even-better-toml, timonwong.shellcheck, yzhang.markdown-all-in-one |
-| `workspace.getConfiguration` | ok |  | 176 | 1,135,915,147 | biomejs.biome, bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, shardulm94.trailing-spaces, svelte.svelte-vscode, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
+| `workspace.getConfiguration` | ok | yes | 176 | 1,135,915,147 | biomejs.biome, bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, shardulm94.trailing-spaces, svelte.svelte-vscode, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `workspace.getWorkspaceFolder` | ok | yes | 119 | 982,101,425 | biomejs.biome, bradlc.vscode-tailwindcss, timonwong.shellcheck, vscjava.vscode-maven, yzhang.markdown-all-in-one |
 | `workspace.isTrusted` | ok |  | 34 | 345,707,834 | svelte.svelte-vscode, vscjava.vscode-maven |
 | `workspace.name` | ok |  | 12 | 183,480,674 |  |
@@ -2593,8 +2593,8 @@ Proposed API or a false hit: class X when real.
 | `workspace.updateWorkspaceFolders` | B |  | 17 | 188,453,820 |  |
 | `workspace.workspaceFile` | ok | yes | 20 | 270,512,450 | bradlc.vscode-tailwindcss |
 | `workspace.workspaceFolders` | ok | yes | 142 | 1,022,232,086 | biomejs.biome, bradlc.vscode-tailwindcss, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, svelte.svelte-vscode, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven, yzhang.markdown-all-in-one |
-| `WorkspaceConfiguration.get` | ok |  | 0 | 0 |  |
-| `WorkspaceConfiguration.has` | ok |  | 0 | 0 |  |
+| `WorkspaceConfiguration.get` | ok | yes | 0 | 0 |  |
+| `WorkspaceConfiguration.has` | ok | yes | 0 | 0 |  |
 | `WorkspaceConfiguration.inspect` | ok |  | 0 | 0 |  |
 | `WorkspaceConfiguration.update` | ok |  | 0 | 0 |  |
 | `WorkspaceEdit` | ok | yes | 107 | 886,570,064 |  |

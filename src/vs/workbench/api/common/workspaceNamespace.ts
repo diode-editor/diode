@@ -460,7 +460,8 @@ export function createWorkspaceNamespace(
             if (key in config) continue; // do not overwrite get/has/inspect/update
             config[key] = configStore.get(prefix + key, undefined, languageId);
         }
-        return config;
+        // As upstream: assigning a field (`config.tabSize = 4`) throws in strict code instead of pretending to write.
+        return Object.freeze(config);
     }
 
     /**

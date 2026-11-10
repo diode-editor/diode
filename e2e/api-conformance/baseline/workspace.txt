@@ -56,6 +56,7 @@ vscode API - workspace registerTextDocumentContentProvider, simple
 vscode API - workspace rootPath
 vscode API - workspace save
 vscode API - workspace saveAll
+vscode API - workspace textDocuments
 vscode API - workspace workspace.applyEdit drops the TextEdit if there is a RenameFile later #77735 (without opened editor)
 vscode API - workspace workspaceFile
 vscode API - workspace workspaceFolders

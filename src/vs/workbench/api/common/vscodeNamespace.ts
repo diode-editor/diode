@@ -256,7 +256,8 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         hostEnvironment = parseWireEnvInitialize(params);
     });
 
-    const env = {
+    // Frozen as upstream: assigning `env.language` and the like throws in strict code.
+    const env = Object.freeze({
         get machineId(): string {
             return hostEnvironment.machineId;
         },
@@ -297,7 +298,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
 
         // `Web` in the contract means browser access (vscode.dev), not "non-graphical UI".
         uiKind: UIKind.Desktop,
-    };
+    });
 
     const { extensions, exportsById, onDidReceiveCatalog } = createExtensionsNamespace(rpc);
     const secrets = createExtensionSecretsFactory(rpc);
