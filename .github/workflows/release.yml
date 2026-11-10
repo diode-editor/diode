@@ -3,12 +3,14 @@ name: Release
 # Stable (versioned) release: triggered by pushing a tag like v1.2.3.
 # The tag is usually created via bump-version.yml.
 #
-# Once the GitHub release is published, the same tag goes out to the channels (packaging/README.md):
-#   packages — .deb + flat apt repository metadata, as assets of this same release;
+# build → packages (.deb + flat apt repository metadata, as an artifact) → release (the GitHub
+# release with the binaries and the apt repository at once). Once it is published, the same tag
+# goes out to the channels (packaging/README.md):
 #   npm      — @diode-editor/diode (a thin wrapper that downloads the binary from the release; OIDC, no token);
 #   brew     — a cask in diode-editor/homebrew-tap (not a formula: a formula without a bottle requires CLT on macOS);
 #   winget   — a PR to microsoft/winget-pkgs;
 #   site     — the version in the diode-editor.github.io footer (site-version.yml).
+# A failed packages holds the release back (no Latest without apt metadata): `gh run rerun --failed`.
 # Each channel is a separate job: a failed npm doesn't block brew. A channel is silently skipped
 # when its secret isn't set (env HAS_* below), so a release works without all the keys.
 # The exception is site: without SITE_PAT it fails, so a stale site is visible.
@@ -33,8 +35,11 @@ jobs:
       # Bake in the version from the tag (vX.Y.Z); build.yml strips the leading `v`.
       version: ${{ github.ref_name }}
 
+  # Created with every asset at once, the apt repository from `packages` included: the release
+  # becomes Latest at this moment, and releases/latest/download/InRelease must already be there,
+  # otherwise `apt update` in that window gets a 404 on Release.
   release:
-    needs: build
+    needs: [build, packages]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,6 +56,7 @@ jobs:
           config: cliff.toml
           args: --latest --strip all
 
+      # The build binaries plus the apt-repo artifact (.deb, Packages, InRelease, keyring).
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -67,8 +73,10 @@ jobs:
   # .deb for amd64/arm64 and a flat apt repository: Packages/InRelease are release
   # assets, and sources.list points at releases/latest/download (packaging/apt/build-repo.sh).
   # Packages also lists all past versions with links into their releases (fetch-history.sh).
+  # Runs before `release` and hands repo/* over as an artifact, so the release is published
+  # together with its apt metadata.
   packages:
-    needs: release
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,6 +103,7 @@ jobs:
 
       # Past versions as stanzas from the Packages of past releases, Filename via ../../download/vX/
       # (packaging/apt/fetch-history.sh): apt install diode=<version> and rollback work.
+      # The release of this tag doesn't exist yet; the list holds only published ones anyway.
       - name: Collect previous releases for apt
         if: env.HAS_APT_KEY == 'true'
         run: packaging/apt/fetch-history.sh "$RUNNER_TEMP/apt-history" "$GITHUB_REF_NAME"
@@ -111,10 +120,11 @@ jobs:
           APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
           APT_HISTORY: ${{ runner.temp }}/apt-history
 
-      - name: Upload to release
-        run: gh release upload "$GITHUB_REF_NAME" repo/* --clobber
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apt-repo
+          path: repo
+          if-no-files-found: error
 
   # Tokenless publishing: npm Trusted Publishing (OIDC). On npmjs.com the package has
   # the Trusted Publisher "GitHub Actions: diode-editor/diode, release.yml" configured;

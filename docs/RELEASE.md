@@ -24,6 +24,10 @@ gh release view vX.Y.Z --json url,assets --jq '.url, (.assets | length)'
 - «Просто тегни» / «просто на main» значит без отдельного PR: bump-коммит идёт прямо в `main`.
 - Упала одна job канала в `release.yml` (npm, brew, winget, site) — это не повод выпускать новую
   версию: `gh run rerun <id> --failed`. Каналы независимы, а без секрета job молча пропускается.
+- Порядок job: `build` → `packages` (.deb и apt-репозиторий артефактом) → `release` (релиз сразу со
+  всеми файлами) → каналы. Упавший `packages` держит релиз: тот не становится Latest без
+  apt-метаданных, иначе `apt update` получил бы 404 на `Release` (#1129). Лечится тем же
+  `gh run rerun <id> --failed`.
 - В итоге сообщи номер версии, ссылку на релиз и упавшие каналы, если такие есть.
 
 ## tuidom
