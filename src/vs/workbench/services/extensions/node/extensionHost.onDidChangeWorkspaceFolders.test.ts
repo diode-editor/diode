@@ -10,7 +10,7 @@ import {
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { WorkspaceFoldersExtensionAdapter } from "../../../api/browser/workspaceFoldersExtensionAdapter.ts";
 
-const ID = "test.workspaceFoldersProbe";
+const ID = "test.rootFolderJournal";
 
 /**
  * Upstream fires the event only for in-place folder changes of a multi-root workspace (WORKSPACE state);
@@ -26,7 +26,7 @@ async function setup() {
         () => undefined,
     );
     const harness = await createExtensionTestHarness({
-        extensions: [extensionFixture(ID, "workspaceFoldersProbe.cjs")],
+        extensions: [extensionFixture(ID, "rootFolderJournal.cjs")],
         workspaceFoldersSink: sink,
     });
     late.harness = harness;
