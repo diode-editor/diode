@@ -1,3 +1,4 @@
+import { SUPPORTED_ENCODINGS } from "../../../editor/common/model/supportedEncodings.ts";
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
 export const filesConfiguration = {
@@ -54,6 +55,34 @@ export const filesConfiguration = {
             default: false,
             description:
                 "When enabled, will trim all new lines after the final new line at the end of the file when saving it.",
+        },
+        // Verbatim from upstream (`files.contribution.ts`; `markdownDescription` → `description`, `{0}` substituted,
+        // `enumItemLabels` equal `enumDescriptions` there). The enum follows our table's order, upstream's object
+        // keys go in another one. Only `workspace.decode`/`encode` read the three keys so far: opening and saving
+        // files do not (docs/TODO/README.md).
+        "files.encoding": {
+            scope: "language-overridable",
+            type: "string",
+            enum: SUPPORTED_ENCODINGS.map((info) => info.id),
+            enumDescriptions: SUPPORTED_ENCODINGS.map((info) => info.label),
+            default: "utf8",
+            description:
+                "The default character set encoding to use when reading and writing files. This setting can also be configured per language.",
+        },
+        "files.autoGuessEncoding": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description:
+                "When enabled, the editor will attempt to guess the character set encoding when opening files. This setting can also be configured per language. Note, this setting is not respected by text search. Only `#files.encoding#` is respected.",
+        },
+        // Our schema can't express upstream's `items` (a string from the guessable encodings).
+        "files.candidateGuessEncodings": {
+            scope: "language-overridable",
+            type: "array",
+            default: [],
+            description:
+                "List of character set encodings that the editor should attempt to guess in the order they are listed. In case it cannot be determined, `#files.encoding#` is respected",
         },
         // Verbatim from upstream (`bulkEditService.ts`). Without it "Move to a new file" leaves the source
         // dirty in its buffer, and closing without saving duplicates the class.

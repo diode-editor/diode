@@ -71,6 +71,7 @@ export function createTestEnvironment(): IEnvironmentService {
         logsDir: path.join(root, "user-data", "logs"),
         registry: path.join(root, "no-registry"),
         userHome: homedir(),
+        userRoamingDataHome: profileDir,
         settingsResource: path.join(profileDir, "settings.json"),
         keybindingsResource: path.join(profileDir, "keybindings.json"),
         globalStorageDir: path.join(profileDir, "globalStorage"),

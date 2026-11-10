@@ -1,85 +1,12 @@
 import type IconvLiteModule from "iconv-lite";
 
 import { importLazyModule } from "../../../base/common/lazyModule.ts";
+import { startsWithUTF8BOM } from "../../../base/common/strings.ts";
 
-export interface IEncodingInfo {
-    /** Canonical VS Code id, exactly the API's `TextDocument.encoding`; the extension bridge does not map it. */
-    readonly id: string;
-    readonly label: string;
-    readonly statusLabel: string;
-    /** Differs from id only for "utf8bom". */
-    readonly iconvName: string;
-    readonly bom?: readonly number[];
-}
+import { BOM_UTF8, BOM_UTF16BE, BOM_UTF16LE, type IEncodingInfo, SUPPORTED_ENCODINGS } from "./supportedEncodings.ts";
 
 export const DEFAULT_ENCODING = "utf8";
-
-const BOM_UTF8 = [0xef, 0xbb, 0xbf] as const;
-const BOM_UTF16LE = [0xff, 0xfe] as const;
-const BOM_UTF16BE = [0xfe, 0xff] as const;
-
-/** Same order as VS Code's SUPPORTED_ENCODINGS. */
-export const SUPPORTED_ENCODINGS: readonly IEncodingInfo[] = [
-    { id: "utf8", label: "UTF-8", statusLabel: "UTF-8", iconvName: "utf8" },
-    { id: "utf8bom", label: "UTF-8 with BOM", statusLabel: "UTF-8 with BOM", iconvName: "utf8", bom: BOM_UTF8 },
-    { id: "utf16le", label: "UTF-16 LE", statusLabel: "UTF-16 LE", iconvName: "utf16le", bom: BOM_UTF16LE },
-    { id: "utf16be", label: "UTF-16 BE", statusLabel: "UTF-16 BE", iconvName: "utf16be", bom: BOM_UTF16BE },
-    { id: "windows1252", label: "Western (Windows 1252)", statusLabel: "Windows 1252", iconvName: "windows1252" },
-    { id: "iso88591", label: "Western (ISO 8859-1)", statusLabel: "ISO 8859-1", iconvName: "iso88591" },
-    { id: "iso88593", label: "Western (ISO 8859-3)", statusLabel: "ISO 8859-3", iconvName: "iso88593" },
-    { id: "iso885915", label: "Western (ISO 8859-15)", statusLabel: "ISO 8859-15", iconvName: "iso885915" },
-    { id: "macroman", label: "Western (Mac Roman)", statusLabel: "Mac Roman", iconvName: "macroman" },
-    { id: "cp437", label: "DOS (CP 437)", statusLabel: "CP437", iconvName: "cp437" },
-    { id: "windows1256", label: "Arabic (Windows 1256)", statusLabel: "Windows 1256", iconvName: "windows1256" },
-    { id: "iso88596", label: "Arabic (ISO 8859-6)", statusLabel: "ISO 8859-6", iconvName: "iso88596" },
-    { id: "windows1257", label: "Baltic (Windows 1257)", statusLabel: "Windows 1257", iconvName: "windows1257" },
-    { id: "iso88594", label: "Baltic (ISO 8859-4)", statusLabel: "ISO 8859-4", iconvName: "iso88594" },
-    { id: "iso885914", label: "Celtic (ISO 8859-14)", statusLabel: "ISO 8859-14", iconvName: "iso885914" },
-    {
-        id: "windows1250",
-        label: "Central European (Windows 1250)",
-        statusLabel: "Windows 1250",
-        iconvName: "windows1250",
-    },
-    { id: "iso88592", label: "Central European (ISO 8859-2)", statusLabel: "ISO 8859-2", iconvName: "iso88592" },
-    { id: "cp852", label: "Central European (CP 852)", statusLabel: "CP 852", iconvName: "cp852" },
-    { id: "windows1251", label: "Cyrillic (Windows 1251)", statusLabel: "Windows 1251", iconvName: "windows1251" },
-    { id: "cp866", label: "Cyrillic (CP 866)", statusLabel: "CP 866", iconvName: "cp866" },
-    { id: "cp1125", label: "Cyrillic (CP 1125)", statusLabel: "CP 1125", iconvName: "cp1125" },
-    { id: "iso88595", label: "Cyrillic (ISO 8859-5)", statusLabel: "ISO 8859-5", iconvName: "iso88595" },
-    { id: "koi8r", label: "Cyrillic (KOI8-R)", statusLabel: "KOI8-R", iconvName: "koi8r" },
-    { id: "koi8u", label: "Cyrillic (KOI8-U)", statusLabel: "KOI8-U", iconvName: "koi8u" },
-    { id: "koi8ru", label: "Cyrillic (KOI8-RU)", statusLabel: "KOI8-RU", iconvName: "koi8ru" },
-    { id: "koi8t", label: "Tajik (KOI8-T)", statusLabel: "KOI8-T", iconvName: "koi8t" },
-    { id: "iso885913", label: "Estonian (ISO 8859-13)", statusLabel: "ISO 8859-13", iconvName: "iso885913" },
-    { id: "windows1253", label: "Greek (Windows 1253)", statusLabel: "Windows 1253", iconvName: "windows1253" },
-    { id: "iso88597", label: "Greek (ISO 8859-7)", statusLabel: "ISO 8859-7", iconvName: "iso88597" },
-    { id: "windows1255", label: "Hebrew (Windows 1255)", statusLabel: "Windows 1255", iconvName: "windows1255" },
-    { id: "iso88598", label: "Hebrew (ISO 8859-8)", statusLabel: "ISO 8859-8", iconvName: "iso88598" },
-    { id: "iso885910", label: "Nordic (ISO 8859-10)", statusLabel: "ISO 8859-10", iconvName: "iso885910" },
-    { id: "cp865", label: "Nordic DOS (CP 865)", statusLabel: "CP 865", iconvName: "cp865" },
-    { id: "iso885916", label: "Romanian (ISO 8859-16)", statusLabel: "ISO 8859-16", iconvName: "iso885916" },
-    { id: "windows1254", label: "Turkish (Windows 1254)", statusLabel: "Windows 1254", iconvName: "windows1254" },
-    { id: "iso88599", label: "Turkish (ISO 8859-9)", statusLabel: "ISO 8859-9", iconvName: "iso88599" },
-    { id: "cp857", label: "Turkish DOS (CP 857)", statusLabel: "CP 857", iconvName: "cp857" },
-    { id: "windows1258", label: "Vietnamese (Windows 1258)", statusLabel: "Windows 1258", iconvName: "windows1258" },
-    { id: "windows874", label: "Thai (Windows 874)", statusLabel: "Windows 874", iconvName: "windows874" },
-    { id: "iso885911", label: "Latin/Thai (ISO 8859-11)", statusLabel: "ISO 8859-11", iconvName: "iso885911" },
-    { id: "cp850", label: "Western European DOS (CP 850)", statusLabel: "CP 850", iconvName: "cp850" },
-    { id: "gb2312", label: "Simplified Chinese (GB 2312)", statusLabel: "GB 2312", iconvName: "gb2312" },
-    { id: "gbk", label: "Simplified Chinese (GBK)", statusLabel: "GBK", iconvName: "gbk" },
-    { id: "gb18030", label: "Simplified Chinese (GB 18030)", statusLabel: "GB 18030", iconvName: "gb18030" },
-    { id: "cp950", label: "Traditional Chinese (Big5)", statusLabel: "Big5", iconvName: "cp950" },
-    {
-        id: "big5hkscs",
-        label: "Traditional Chinese (Big5-HKSCS)",
-        statusLabel: "Big5-HKSCS",
-        iconvName: "big5hkscs",
-    },
-    { id: "shiftjis", label: "Japanese (Shift JIS)", statusLabel: "Shift JIS", iconvName: "shiftjis" },
-    { id: "eucjp", label: "Japanese (EUC-JP)", statusLabel: "EUC-JP", iconvName: "eucjp" },
-    { id: "euckr", label: "Korean (EUC-KR)", statusLabel: "EUC-KR", iconvName: "euckr" },
-];
+export const UTF8_WITH_BOM = "utf8bom";
 
 const encodingsById = new Map(SUPPORTED_ENCODINGS.map((info) => [info.id, info]));
 
@@ -95,7 +22,7 @@ export function getEncodingInfo(id: string): IEncodingInfo | undefined {
     return encodingsById.get(id);
 }
 
-function startsWithBytes(buffer: Buffer, bytes: readonly number[]): boolean {
+function startsWithBytes(buffer: Uint8Array, bytes: readonly number[]): boolean {
     if (buffer.length < bytes.length) return false;
     for (let i = 0; i < bytes.length; i++) {
         if (buffer[i] !== bytes[i]) return false;
@@ -104,8 +31,8 @@ function startsWithBytes(buffer: Buffer, bytes: readonly number[]): boolean {
 }
 
 /** BOM only, no content guessing: the VS Code default. */
-export function detectEncodingByBOM(buffer: Buffer): string | null {
-    if (startsWithBytes(buffer, BOM_UTF8)) return "utf8bom";
+export function detectEncodingByBOM(buffer: Uint8Array): string | null {
+    if (startsWithBytes(buffer, BOM_UTF8)) return UTF8_WITH_BOM;
     if (startsWithBytes(buffer, BOM_UTF16LE)) return "utf16le";
     if (startsWithBytes(buffer, BOM_UTF16BE)) return "utf16be";
     return null;
@@ -150,11 +77,16 @@ const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INative
     ],
 ]);
 
+/** An explicit encoding beats the detected one, except "utf8" on content with a BOM: that stays "utf8bom". */
+export function explicitOverDetected(explicit: string, detected: string | null): string {
+    return explicit === DEFAULT_ENCODING && detected === UTF8_WITH_BOM ? UTF8_WITH_BOM : explicit;
+}
+
 export function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefined): IEncodingInfo {
     const sniffed = detectEncodingByBOM(buffer);
     // Stryker disable next-line ConditionalExpression: has(undefined) is false anyway; the check is for types, not behavior
     if (explicitEncoding !== undefined && encodingsById.has(explicitEncoding)) {
-        return requireEncodingInfo(explicitEncoding === "utf8" && sniffed === "utf8bom" ? "utf8bom" : explicitEncoding);
+        return requireEncodingInfo(explicitOverDetected(explicitEncoding, sniffed));
     }
     return requireEncodingInfo(sniffed ?? DEFAULT_ENCODING);
 }
@@ -185,20 +117,54 @@ export function decodeBufferByBOM(buffer: Buffer): IDecodedText {
  * {@link decodeBufferByBOM} gives the same result.
  */
 export async function decodeBuffer(buffer: Buffer, explicitEncoding?: string): Promise<IDecodedText> {
-    const info = resolveDecodeEncoding(buffer, explicitEncoding);
-    const body = stripBOM(buffer, info);
-    const codec = NATIVE_CODECS.get(info.iconvName);
-    // No iconv-lite BOM options: they are no-ops for non-Unicode codecs.
-    const text = codec !== undefined ? codec.decode(body) : (await loadIconv()).decode(body, info.iconvName);
-    return { text, encoding: info.id };
+    const { id } = resolveDecodeEncoding(buffer, explicitEncoding);
+    return { text: await decodeWithEncoding(buffer, id), encoding: id };
 }
 
-/** "utf8bom" and both UTF-16 write a BOM, as in VS Code; unrepresentable chars become iconv-lite's "?". */
-export async function encodeText(text: string, encoding: string): Promise<Buffer> {
-    const info = resolveEncodeEncoding(encoding);
-    const codec = NATIVE_CODECS.get(info.iconvName);
-    // Like stripBOM in decodeBuffer, addBOM is a no-op for non-Unicode codecs.
-    const body = codec !== undefined ? codec.encode(text) : (await loadIconv()).encode(text, info.iconvName);
-    if (info.bom === undefined) return body;
-    return Buffer.concat([Buffer.from(info.bom), body]);
+/** An id outside the table becomes utf-8: the model shows and saves only table encodings. */
+export function encodeText(text: string, encoding: string): Promise<Buffer> {
+    return encodeWithEncoding(text, resolveEncodeEncoding(encoding).id);
+}
+
+/** iconv does not tell utf-8 with a BOM from one without (upstream `toNodeEncoding`). */
+function toIconvName(encoding: string): string {
+    return encoding === UTF8_WITH_BOM ? DEFAULT_ENCODING : encoding;
+}
+
+/**
+ * Any name iconv-lite knows ("cp1252", "UTF-8"), not only the table's ids (upstream `encodingExists`).
+ * The native ones do not load iconv.
+ */
+export async function encodingExists(encoding: string): Promise<boolean> {
+    const name = toIconvName(encoding);
+    return NATIVE_CODECS.has(name) || (await loadIconv()).encodingExists(name);
+}
+
+/** Upstream `getValidatedEncodingForResource`: a name iconv does not know becomes utf-8, not the setting. */
+export async function validateEncoding(encoding: string): Promise<string> {
+    return (await encodingExists(encoding)) ? encoding : DEFAULT_ENCODING;
+}
+
+/**
+ * `encoding` must be validated ({@link validateEncoding}). A leading BOM is dropped for the Unicode
+ * encodings only, as iconv-lite's `stripBOM` does: in windows1252 the same bytes are text.
+ */
+export async function decodeWithEncoding(buffer: Buffer, encoding: string): Promise<string> {
+    const name = toIconvName(encoding);
+    const codec = NATIVE_CODECS.get(name);
+    if (codec === undefined) return (await loadIconv()).decode(buffer, name);
+    const text = codec.decode(buffer);
+    return startsWithUTF8BOM(text) ? text.slice(1) : text;
+}
+
+/**
+ * `encoding` must be validated ({@link validateEncoding}). "utf8bom" and both UTF-16 write a BOM, as in
+ * VS Code; unrepresentable chars become iconv-lite's "?".
+ */
+export async function encodeWithEncoding(text: string, encoding: string): Promise<Buffer> {
+    const name = toIconvName(encoding);
+    const codec = NATIVE_CODECS.get(name);
+    const body = codec !== undefined ? codec.encode(text) : (await loadIconv()).encode(text, name);
+    const bom = encodingsById.get(encoding)?.bom;
+    return bom === undefined ? body : Buffer.concat([Buffer.from(bom), body]);
 }

@@ -98,7 +98,10 @@
 ### [ ] `files.encoding` — дефолтная кодировка из настроек
 
 Ось encoding в ядре и пикеры Reopen/Save with Encoding готовы (#106); детект — BOM-only,
-без BOM всегда utf-8. Follow-up как в VS Code:
+без BOM всегда utf-8. Ключи `files.encoding`/`autoGuessEncoding`/`candidateGuessEncodings`
+зарегистрированы, выбор кодировки эталона (`encodingOracle.ts`), детект UTF-16 по нулям и угадывание
+jschardet (`encodingDetection.ts`) есть, но их читает только `workspace.decode`/`encode` (#1102).
+Follow-up как в VS Code:
 
 - **`files.encoding`** — кодировка по умолчанию для открытия/сохранения (вместо
   захардкоженного utf-8), применять в `TextEditorConfiguration.apply` (`src/vs/workbench/services/editor/browser/textEditorConfiguration.ts`).
