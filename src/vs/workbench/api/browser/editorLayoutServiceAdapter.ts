@@ -21,6 +21,7 @@ import type {
     IWireCloseTabsParams,
     IWireCreateUntitledParams,
     IWireEditorLayout,
+    IWireOpenTextDocumentParams,
     IWireSelection,
     IWireShowTextDocumentParams,
     IWireShowTextDocumentResult,
@@ -226,8 +227,9 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         return { uri: uri.toString() };
     }
 
-    public async openTextDocument(params: IWireUriParams): Promise<IWireUriParams | null> {
-        return (await this.editors.openTextDocumentWithoutEditor(Uri.parse(params.uri))) ? { uri: params.uri } : null;
+    public async openTextDocument(params: IWireOpenTextDocumentParams): Promise<IWireUriParams | null> {
+        const opened = await this.editors.openTextDocumentWithoutEditor(Uri.parse(params.uri), params.encoding);
+        return opened ? { uri: params.uri } : null;
     }
 
     /** The same confirm flow as for the user (upstream `MainThreadEditorTabs.$closeTab`); an already closed tab is a success. */

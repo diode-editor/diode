@@ -86,7 +86,11 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     /** Upstream's working copy file service: dirty models at or under the resource stop being unsaved. */
     revertSoftBeforeDelete(resource: Uri): void;
     /** `false`: not a readable file. */
-    openTextDocumentWithoutEditor(uri: Uri): Promise<boolean>;
+    /**
+     * Upstream `MainThreadDocuments._handleAsResourceInput`: with an encoding, the model is reread in it; a dirty
+     * one rejects with upstream's message.
+     */
+    openTextDocumentWithoutEditor(uri: Uri, encoding?: string): Promise<boolean>;
     /** Synchronous, for a file known to exist: {@link getFileModelsWithoutEditor}. `null`: not a file resource. */
     holdFileModel(uri: Uri): TextFileModel | null;
     /** In tab order, without untitled and non-disk ones. */

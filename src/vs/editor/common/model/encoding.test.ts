@@ -235,14 +235,20 @@ describe("iconv-lite — lazy chunk", () => {
         setLazyModuleLoader(undefined);
     });
 
-    it("utf-8 and UTF-16 both ways, BOM sniffing and the utf-8 fallback — without iconv", async () => {
-        for (const id of ["utf8", "utf8bom", "utf16le", "utf16be", "martian"]) {
+    it("utf-8 and UTF-16 both ways and BOM sniffing — without iconv", async () => {
+        for (const id of ["utf8", "utf8bom", "utf16le", "utf16be"]) {
             const bytes = await encodeText("\u043f\u0440\u0438\u0432\u0435\u0442", id); // "privet"
             await decodeBuffer(bytes, id);
             decodeBufferByBOM(bytes);
         }
         await decodeBuffer(Buffer.from("abc"));
         expect(requested).toEqual([]);
+    });
+
+    it("an unknown name asks iconv whether it exists, then falls back to utf-8", async () => {
+        const bytes = await encodeText("\u043f\u0440\u0438\u0432\u0435\u0442", "martian"); // "privet"
+        expect(bytes.equals(Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442", "utf8"))).toBe(true); // "privet"
+        expect(requested).toEqual(["iconv-lite"]);
     });
 
     it("other encodings request the iconv-lite chunk", async () => {
