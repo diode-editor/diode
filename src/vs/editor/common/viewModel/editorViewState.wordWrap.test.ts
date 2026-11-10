@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createCursorSelection } from "../core/iSelection.ts";
+import { createInsertEdit } from "../core/iTextEdit.ts";
 import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
@@ -218,5 +219,66 @@ describe("EditorViewState — wrapping sees the insertions", () => {
         state.inlineInsertions = [{ line: 0, offset: 4, text: ": int" }];
         state.inlineInsertions = [{ line: 0, offset: 4, text: ": int", italic: true }];
         expect(state.docLineForViewLine(2)).toBe(1);
+    });
+});
+
+// #1098: a subscriber of the document older than the lazily created breaks cache read the projection while the
+// cache still held the old lines' breaks, and the stale rows were memoized under the new revision.
+describe("EditorViewState word wrap — a document change seen by other subscribers", () => {
+    const BASE = Array.from({ length: 10 }, (_, i) => `v${i}`);
+    const LONG = "aaaa bbbb cccc dddd"; // two rows at width 10
+
+    function wrappedState(mode: "on" | "wordWrapColumn" | "bounded"): {
+        doc: TextDocument;
+        state: EditorViewState;
+        duringEvent: number[];
+    } {
+        const doc = new TextDocument(BASE.join("\n"));
+        const state = new EditorViewState(doc, [createCursorSelection(0, 0)]);
+        state.viewportWidth = mode === "on" ? 10 : 40;
+        state.wordWrapColumn = 10;
+        const duringEvent: number[] = [];
+        doc.onDidChangeContent(() => duringEvent.push(state.getViewLineCount()));
+        state.wordWrap = mode;
+        expect(state.getViewLineCount()).toBe(10);
+        return { doc, state, duringEvent };
+    }
+
+    it.each(["on", "wordWrapColumn", "bounded"] as const)(
+        "a reload that inserts long lines in the middle wraps them (%s)",
+        (mode) => {
+            const { doc, state, duringEvent } = wrappedState(mode);
+            doc.setText([...BASE.slice(0, 2), LONG, LONG, ...BASE.slice(2)].join("\n"));
+            expect(duringEvent).toEqual([14]);
+            expect(state.getViewLineCount()).toBe(14);
+            expect([2, 3, 4, 5, 6].map((row) => state.visualToLogicalLine(row))).toEqual([2, 2, 3, 3, 4]);
+        },
+    );
+
+    it("an edit that inserts long lines in the middle wraps them", () => {
+        const { doc, state, duringEvent } = wrappedState("on");
+        doc.applyEdits([createInsertEdit(2, 0, `${LONG}\n${LONG}\n`)]);
+        expect(duringEvent).toEqual([14]);
+        expect(state.getViewLineCount()).toBe(14);
+        expect(state.visualToLogicalLine(4)).toBe(3);
+    });
+
+    it("a reload that rewrites a line in place rewraps it", () => {
+        const { doc, state, duringEvent } = wrappedState("on");
+        doc.setText([LONG, ...BASE.slice(1)].join("\n"));
+        expect(duringEvent).toEqual([11]);
+        expect(state.getViewLineCount()).toBe(11);
+    });
+
+    it("a subscriber older than the view state does not leave stale rows either", () => {
+        const doc = new TextDocument(BASE.join("\n"));
+        let state: EditorViewState | null = null;
+        doc.onDidChangeContent(() => state?.getViewLineCount());
+        state = new EditorViewState(doc, [createCursorSelection(0, 0)]);
+        state.viewportWidth = 10;
+        state.wordWrap = "on";
+        expect(state.getViewLineCount()).toBe(10);
+        doc.setText([...BASE.slice(0, 2), LONG, LONG, ...BASE.slice(2)].join("\n"));
+        expect(state.getViewLineCount()).toBe(14);
     });
 });

@@ -1,4 +1,3 @@
-import { Disposable } from "../../../base/common/lifecycle.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import type { IInlineInsertion } from "../model/iInlineInsertion.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
@@ -9,8 +8,13 @@ import { type LineInsertions, NO_LINE_INSERTIONS } from "./lineInsertions.ts";
 /**
  * Without the cache every projection rebuild would re-segment the whole document. Per-line value:
  * `null` means not wrapped, `undefined` means not computed yet.
+ *
+ * Not subscribed to the document: the owner passes each change to {@link handleContentChange} first thing in
+ * the handler that moves its revision (upstream `ViewModel` updates its lines before it emits view events).
+ * A subscription of its own, made lazily, ran after the older subscribers, and one of them reading the
+ * projection got the old lines' breaks memoized under the new revision (#1098).
  */
-export class LineBreaksCache extends Disposable {
+export class LineBreaksCache {
     private readonly document: ITextDocument;
     private tabSize: number;
     private wrapWidth: number;
@@ -19,16 +23,10 @@ export class LineBreaksCache extends Disposable {
     private breaks: (number[] | null | undefined)[];
 
     public constructor(document: ITextDocument, tabSize: number, wrapWidth: number) {
-        super();
         this.document = document;
         this.tabSize = tabSize;
         this.wrapWidth = wrapWidth;
         this.breaks = new Array<number[] | null | undefined>(document.lineCount);
-        this.register(
-            document.onDidChangeContent((change) => {
-                this.handleContentChange(change);
-            }),
-        );
     }
 
     /** No-op for the same params: called on every projection rebuild. */
@@ -69,7 +67,7 @@ export class LineBreaksCache extends Disposable {
         return entry;
     }
 
-    private handleContentChange(change: IDocumentContentChange): void {
+    public handleContentChange(change: IDocumentContentChange): void {
         const { startLine, oldEndLine, newEndLine } = change;
         const lineDelta = newEndLine - oldEndLine;
 
