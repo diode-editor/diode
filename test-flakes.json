@@ -8,6 +8,12 @@
             "note": "the stock extension's vitest run printed DEV output without FAIL in Stryker's initial test run of the mutation gate (run 42741891573, PR #1117, whose diff is the terminal tabs sash); the unit job of the same run is green"
         },
         {
+            "file": "src/vs/workbench/services/search/node/fileSearchService.integration.test.ts",
+            "test": "FileSearchService — integration against real project > ranking on real files > \"wbc\": WorkbenchComponent.ts ties for the top score among \"wbc\" matches",
+            "action": "retry",
+            "note": "the tie assertion failed once in the unit job (run 42745526700, PR #1119, whose diff is a test and docs for workspace.onDidChangeWorkspaceFolders); green on the --failed rerun"
+        },
+        {
             "file": "e2e/scenarios/java-lens-hints.scenario.ts",
             "test": "java-lens-hints",
             "action": "retry",
