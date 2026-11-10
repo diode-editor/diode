@@ -1,11 +1,12 @@
 import type IconvLiteModule from "iconv-lite";
 
 import { importLazyModule } from "../../../base/common/lazyModule.ts";
+import { startsWithUTF8BOM } from "../../../base/common/strings.ts";
 
 import { BOM_UTF8, BOM_UTF16BE, BOM_UTF16LE, type IEncodingInfo, SUPPORTED_ENCODINGS } from "./supportedEncodings.ts";
 
 export const DEFAULT_ENCODING = "utf8";
-const UTF8_WITH_BOM = "utf8bom";
+export const UTF8_WITH_BOM = "utf8bom";
 
 const encodingsById = new Map(SUPPORTED_ENCODINGS.map((info) => [info.id, info]));
 
@@ -31,7 +32,7 @@ function startsWithBytes(buffer: Uint8Array, bytes: readonly number[]): boolean 
 
 /** BOM only, no content guessing: the VS Code default. */
 export function detectEncodingByBOM(buffer: Uint8Array): string | null {
-    if (startsWithBytes(buffer, BOM_UTF8)) return "utf8bom";
+    if (startsWithBytes(buffer, BOM_UTF8)) return UTF8_WITH_BOM;
     if (startsWithBytes(buffer, BOM_UTF16LE)) return "utf16le";
     if (startsWithBytes(buffer, BOM_UTF16BE)) return "utf16be";
     return null;
@@ -76,11 +77,16 @@ const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INative
     ],
 ]);
 
+/** An explicit encoding beats the detected one, except "utf8" on content with a BOM: that stays "utf8bom". */
+export function explicitOverDetected(explicit: string, detected: string | null): string {
+    return explicit === DEFAULT_ENCODING && detected === UTF8_WITH_BOM ? UTF8_WITH_BOM : explicit;
+}
+
 export function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefined): IEncodingInfo {
     const sniffed = detectEncodingByBOM(buffer);
     // Stryker disable next-line ConditionalExpression: has(undefined) is false anyway; the check is for types, not behavior
     if (explicitEncoding !== undefined && encodingsById.has(explicitEncoding)) {
-        return requireEncodingInfo(explicitEncoding === "utf8" && sniffed === "utf8bom" ? "utf8bom" : explicitEncoding);
+        return requireEncodingInfo(explicitOverDetected(explicitEncoding, sniffed));
     }
     return requireEncodingInfo(sniffed ?? DEFAULT_ENCODING);
 }
@@ -148,7 +154,7 @@ export async function decodeWithEncoding(buffer: Buffer, encoding: string): Prom
     const codec = NATIVE_CODECS.get(name);
     if (codec === undefined) return (await loadIconv()).decode(buffer, name);
     const text = codec.decode(buffer);
-    return text.startsWith("﻿") ? text.slice(1) : text;
+    return startsWithUTF8BOM(text) ? text.slice(1) : text;
 }
 
 /**

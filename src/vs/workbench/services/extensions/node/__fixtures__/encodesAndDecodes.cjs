@@ -22,10 +22,6 @@ function activate(context) {
         const encoded = await vscode.workspace.encode(text, toOptions(options));
         return { bytes: Array.from(encoded), isBuffer: Buffer.isBuffer(encoded), asString: encoded.toString() };
     });
-
-    register("test.encoding.setting", (key, value) =>
-        vscode.workspace.getConfiguration("files").update(key, value, vscode.ConfigurationTarget.Global),
-    );
 }
 
 module.exports = { activate };

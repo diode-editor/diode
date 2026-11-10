@@ -171,7 +171,7 @@ export function configProviderOver(
         getSnapshot: () => configService.getConfigurationData(),
         getWorkspaceFolders,
         getWorkspaceFile,
-        ...(userRoamingDataHome !== undefined ? { userRoamingDataHome } : {}),
+        userRoamingDataHome,
         onDidChange: (cb) =>
             configService.onDidChangeConfiguration((event) => {
                 cb(event.affectedKeys);

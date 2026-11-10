@@ -4,6 +4,8 @@ import {
     decodeWithEncoding,
     DEFAULT_ENCODING,
     encodeWithEncoding,
+    explicitOverDetected,
+    UTF8_WITH_BOM,
     validateEncoding,
 } from "../../../../editor/common/model/encoding.ts";
 import { detectEncoding } from "../../../../editor/common/model/encodingDetection.ts";
@@ -51,8 +53,6 @@ export function defaultUtf8Directories(
     ];
 }
 
-const UTF8_WITH_BOM = "utf8bom";
-
 export const BINARY_CONTENT_MESSAGE = "Stream is binary but only text is accepted for decoding";
 
 function isEqualOrParent(filePath: string, directory: string): boolean {
@@ -92,7 +92,7 @@ async function readEncoding(
 ): Promise<string> {
     let preferred: string | undefined;
     if (explicit !== undefined) {
-        preferred = detected === UTF8_WITH_BOM && explicit === DEFAULT_ENCODING ? UTF8_WITH_BOM : explicit;
+        preferred = explicitOverDetected(explicit, detected);
     } else if (detected !== null) {
         preferred = detected;
     } else if (configuredEncoding(context) === UTF8_WITH_BOM) {
