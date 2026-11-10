@@ -77,6 +77,44 @@ describe("Workbench — extension terminal", () => {
         expect(h.container.get(PanelServiceDIToken).getActiveViewId()).toBe(TERMINAL_VIEW_ID);
     });
 
+    it("[api:Pseudoterminal.onDidChangeName] the pty renames itself — the tab list shows the new name", () => {
+        boot();
+        h.commands.execute("workbench.action.terminal.new");
+        adapter.create({ extHostId: 1, pty: true, name: "foo" });
+        adapter.show({ extHostId: 1 }, true);
+        const tabs = (): string[] =>
+            screen()
+                .split("\n")
+                .filter((line) => line.includes("│ "));
+        expect(tabs().some((line) => line.trimEnd().endsWith(" foo"))).toBe(true);
+        adapter.ptyName({ extHostId: 1 }, "bar");
+        expect(tabs().some((line) => line.trimEnd().endsWith(" bar"))).toBe(true);
+        expect(tabs().some((line) => line.trimEnd().endsWith(" foo"))).toBe(false);
+    });
+
+    it("[api:Terminal.state] a key typed into the focused terminal is reported as input to the extension host", () => {
+        boot();
+        const inputs: number[] = [];
+        adapter.subscribe({
+            opened: () => undefined,
+            closed: () => undefined,
+            activeChanged: () => undefined,
+            ptyStart: () => undefined,
+            ptyInput: () => undefined,
+            ptyResize: () => undefined,
+            input: (id) => inputs.push(id),
+            titleChanged: () => undefined,
+        });
+        h.commands.execute("workbench.action.terminal.new");
+        const [shell] = terminal.getInstances();
+        h.testApp.render();
+        expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
+        expect(inputs).toStrictEqual([]);
+        h.testApp.sendKey("x");
+        expect((shell.session as FakeTerminalSurface).writes).toStrictEqual(["x"]);
+        expect(inputs).toStrictEqual([shell.id]);
+    });
+
     // The stock Claude Code extension runs `claude` in a terminal tab beside the file and, after a diff
     // or an accepted edit, returns focus with `window.activeTerminal?.show()`.
     it("activeTerminal is the terminal tab, not the hidden panel shell: show() does not open the panel", () => {
@@ -92,6 +130,8 @@ describe("Workbench — extension terminal", () => {
             ptyStart: () => undefined,
             ptyInput: () => undefined,
             ptyResize: () => undefined,
+            input: () => undefined,
+            titleChanged: () => undefined,
         });
         adapter.create({ extHostId: 1, name: "Claude Code", location: { viewColumn: -2 } });
         const claude = terminal.getEditorInstances()[0];

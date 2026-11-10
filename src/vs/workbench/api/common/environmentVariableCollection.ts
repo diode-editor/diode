@@ -70,12 +70,16 @@ function toWireScope(scope: vscode.EnvironmentVariableScope | undefined): IEnvir
         : { workspaceFolder: { uri: folder.uri.toString(), name: folder.name, index: folder.index } };
 }
 
-/** Like upstream's `convertMutator`. A copy of the options: the extension must not edit the stored mutator. */
-function toApiMutator(mutator: IEnvironmentVariableMutator): vscode.EnvironmentVariableMutator {
+/**
+ * Like upstream's `convertMutator`: everything but `scope`, `variable` included. A copy of the options: the extension
+ * must not edit the stored mutator.
+ */
+function toApiMutator(mutator: IEnvironmentVariableMutator): vscode.EnvironmentVariableMutator & { variable: string } {
     return {
-        type: mutator.type as unknown as vscode.EnvironmentVariableMutatorType,
         value: mutator.value,
+        type: mutator.type as unknown as vscode.EnvironmentVariableMutatorType,
         options: { ...mutator.options },
+        variable: mutator.variable,
     };
 }
 
@@ -124,13 +128,12 @@ class UnifiedEnvironmentVariableCollection {
         }
         const key = mutatorKey(variable, scope);
         const current = this.map.get(key);
-        const newOptions =
-            options === undefined
-                ? { applyAtProcessCreation: true }
-                : {
-                      applyAtProcessCreation: options.applyAtProcessCreation ?? false,
-                      applyAtShellIntegration: options.applyAtShellIntegration ?? false,
-                  };
+        // Upstream defaults the options before `_setIfDiffers`, which then fills in the missing flag.
+        const { applyAtProcessCreation, applyAtShellIntegration } = options ?? { applyAtProcessCreation: true };
+        const newOptions = {
+            applyAtProcessCreation: applyAtProcessCreation ?? false,
+            applyAtShellIntegration: applyAtShellIntegration ?? false,
+        };
         if (
             current?.value === value &&
             (current.type as number) === (type as number) &&

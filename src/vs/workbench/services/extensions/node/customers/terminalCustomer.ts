@@ -6,6 +6,7 @@ import {
     parseWireTerminalCreate,
     parseWireTerminalPtyData,
     parseWireTerminalPtyExit,
+    parseWireTerminalPtyName,
     parseWireTerminalSendText,
     parseWireTerminalShow,
     parseWireTerminalTarget,
@@ -38,6 +39,8 @@ export class TerminalCustomer implements IExtensionHostCustomer {
         const spawn = { rpc, sink, ready: false, alive: true };
         const seeded = (): boolean => spawn.alive && spawn.ready;
         this.spawn = spawn;
+        // Upstream sends every input; only the first one flips `isInteractedWith`, so the rest stay on the host.
+        const interacted = new Set<number>();
 
         store.add(
             sink.subscribe({
@@ -45,6 +48,7 @@ export class TerminalCustomer implements IExtensionHostCustomer {
                     if (seeded()) rpc.notify("terminal.opened", terminal);
                 },
                 closed: (terminal) => {
+                    interacted.delete(terminal.id);
                     if (seeded()) rpc.notify("terminal.closed", terminal);
                 },
                 activeChanged: (id) => {
@@ -60,6 +64,14 @@ export class TerminalCustomer implements IExtensionHostCustomer {
                 },
                 ptyResize: (id, cols, rows) => {
                     rpc.notify("terminal.pty.resize", { id, cols, rows });
+                },
+                input: (id) => {
+                    if (!seeded() || interacted.has(id)) return;
+                    interacted.add(id);
+                    rpc.notify("terminal.interaction", { id });
+                },
+                titleChanged: (id, name) => {
+                    if (seeded()) rpc.notify("terminal.titleChanged", { id, name });
                 },
             }),
         );
@@ -103,6 +115,12 @@ export class TerminalCustomer implements IExtensionHostCustomer {
             rpc.handleNotification("terminal.pty.exit", (params) => {
                 const request = parseWireTerminalPtyExit(params);
                 if (request !== null) sink.ptyExit(request.terminal, request.code);
+            }),
+        );
+        store.add(
+            rpc.handleNotification("terminal.pty.name", (params) => {
+                const request = parseWireTerminalPtyName(params);
+                if (request !== null) sink.ptyName(request.terminal, request.name);
             }),
         );
         store.add({

@@ -833,13 +833,29 @@ export interface IWireTerminalLaunch {
     readonly hideFromUser?: boolean;
 }
 
-/** `extHostId` only for this subprocess's terminals; `pid` only for a real shell. */
+/**
+ * `extHostId` only for this subprocess's terminals; `pid` only for a real shell. `shellType` — upstream's
+ * `TerminalShellType` guessed from the shell executable (`terminal.state.shell`); absent when unknown.
+ */
 export interface IWireTerminalOpened {
     readonly id: number;
     readonly extHostId?: number;
     readonly name: string;
     readonly pid?: number;
+    readonly shellType?: string;
     readonly launch: IWireTerminalLaunch;
+}
+
+/** Upstream `$acceptTerminalTitleChange`: the instance was renamed (a pty's `onDidChangeName`, a task rerun). */
+export interface IWireTerminalTitleChanged {
+    readonly id: number;
+    readonly name: string;
+}
+
+/** Upstream `$sendProcessProperty(Title)`: the pty's `onDidChangeName` renames its terminal. */
+export interface IWireTerminalPtyName {
+    readonly terminal: IWireTerminalRef;
+    readonly name: string;
 }
 
 export interface IWireTerminalPtyData {
@@ -922,8 +938,21 @@ export function parseWireTerminalOpened(raw: unknown): IWireTerminalOpened | nul
         name: p.name,
         ...(typeof p.extHostId === "number" ? { extHostId: p.extHostId } : {}),
         ...(typeof p.pid === "number" ? { pid: p.pid } : {}),
+        ...(typeof p.shellType === "string" ? { shellType: p.shellType } : {}),
         launch: parseWireTerminalLaunch(p.launch),
     };
+}
+
+export function parseWireTerminalTitleChanged(raw: unknown): IWireTerminalTitleChanged | null {
+    const p = raw as WireEnvelope;
+    if (typeof p?.id !== "number" || typeof p.name !== "string") return null;
+    return { id: p.id, name: p.name };
+}
+
+/** `terminal.interaction`: the first input (keys or `sendText`) into the instance. */
+export function parseWireTerminalInteraction(raw: unknown): { readonly id: number } | null {
+    const id = (raw as WireEnvelope)?.id;
+    return typeof id === "number" ? { id } : null;
 }
 
 /** An unfamiliar reason (newer host) becomes `unknown`. */

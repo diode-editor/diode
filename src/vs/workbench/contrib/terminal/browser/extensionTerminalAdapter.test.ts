@@ -43,6 +43,8 @@ function setup(settings: Record<string, unknown> = {}) {
         ptyStart: vi.fn<IExtensionTerminalEvents["ptyStart"]>(),
         ptyInput: vi.fn<IExtensionTerminalEvents["ptyInput"]>(),
         ptyResize: vi.fn<IExtensionTerminalEvents["ptyResize"]>(),
+        input: vi.fn<IExtensionTerminalEvents["input"]>(),
+        titleChanged: vi.fn<IExtensionTerminalEvents["titleChanged"]>(),
     };
     const subscription = adapter.subscribe(events);
     return { views, service, sessions, ptySessions, factoryCalls, adapter, events, subscription, editorTerminals };
@@ -127,6 +129,7 @@ describe("ExtensionTerminalAdapter", () => {
                 id: 1,
                 extHostId: 7,
                 name: "run",
+                shellType: "zsh",
                 launch: {
                     name: "run",
                     shellPath: "/bin/zsh",
@@ -136,8 +139,35 @@ describe("ExtensionTerminalAdapter", () => {
                     hideFromUser: true,
                 },
             },
-            { id: 2, name: "bash", launch: { name: "bash", shellPath: "/bin/bash", cwd: "/ws" } },
+            { id: 2, name: "bash", shellType: "bash", launch: { name: "bash", shellPath: "/bin/bash", cwd: "/ws" } },
         ]);
+        h.service.dispose();
+    });
+
+    it("input: keys and sendText of shells and ptys are reported per input; nothing after unsubscribing", () => {
+        const h = setup();
+        h.adapter.create({ extHostId: 1 });
+        h.adapter.create({ extHostId: 2, pty: true, name: "p" });
+        const [shell, pty] = h.service.getInstances();
+        h.sessions[0].write("k");
+        h.adapter.sendText({ extHostId: 1 }, "ls", true);
+        h.ptySessions[0].write("q");
+        expect(h.events.input.mock.calls).toStrictEqual([[shell.id], [shell.id], [pty.id]]);
+        h.subscription.dispose();
+        h.sessions[0].write("k");
+        expect(h.events.input).toHaveBeenCalledTimes(3);
+        h.service.dispose();
+    });
+
+    it("ptyName renames the pty terminal over its given name and reports the title; unknown address is ignored", () => {
+        const h = setup();
+        h.adapter.create({ extHostId: 1, pty: true, name: "foo" });
+        const [pty] = h.service.getInstances();
+        h.adapter.ptyName({ extHostId: 9 }, "lost");
+        h.adapter.ptyName({ extHostId: 1 }, "bar");
+        expect(h.service.getInstance(pty.id)?.title).toBe("bar");
+        expect(h.events.titleChanged.mock.calls).toStrictEqual([[pty.id, "bar"]]);
+        expect(h.adapter.snapshot().terminals[0].name).toBe("bar");
         h.service.dispose();
     });
 

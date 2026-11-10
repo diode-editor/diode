@@ -9,9 +9,11 @@ import {
     type IWireTerminalRef,
     parseWireTerminalActive,
     parseWireTerminalClosed,
+    parseWireTerminalInteraction,
     parseWireTerminalOpened,
     parseWireTerminalPtyDimensions,
     parseWireTerminalPtyInput,
+    parseWireTerminalTitleChanged,
     type WireTerminalExitReason,
 } from "./wireTypes.ts";
 
@@ -25,6 +27,7 @@ export interface ITerminalNamespace {
     readonly onDidOpenTerminal: vscode.Event<vscode.Terminal>;
     readonly onDidCloseTerminal: vscode.Event<vscode.Terminal>;
     readonly onDidChangeActiveTerminal: vscode.Event<vscode.Terminal | undefined>;
+    readonly onDidChangeTerminalState: vscode.Event<vscode.Terminal>;
     createTerminal(name?: string, shellPath?: string, shellArgs?: readonly string[] | string): vscode.Terminal;
     createTerminal(options: vscode.TerminalOptions | vscode.ExtensionTerminalOptions): vscode.Terminal;
     /** The previous pty of the same terminal (task rerun) is detached without `close()`: it has already closed itself. */
@@ -54,6 +57,15 @@ class ExtensionPty {
                 }, PTY_DATA_BUFFER_MS);
             }),
         );
+        // Upstream sends the name as a process property, unbuffered: it reaches the host before the data and `exit`.
+        const onDidChangeName = this.pty.onDidChangeName;
+        if (onDidChangeName !== undefined) {
+            this.subscriptions.push(
+                onDidChangeName((name) => {
+                    this.rpc.notify("terminal.pty.name", { terminal: this.ref, name });
+                }),
+            );
+        }
         const onDidClose = this.pty.onDidClose;
         if (onDidClose !== undefined) {
             this.subscriptions.push(
@@ -113,6 +125,8 @@ const EXIT_REASONS: Readonly<Record<WireTerminalExitReason, TerminalExitReason>>
 class TerminalRecord {
     public name: string;
     public exitStatus: vscode.TerminalExitStatus | undefined;
+    /** Replaced, never mutated, as upstream: an extension that kept the old object still sees the old state. */
+    public state: vscode.TerminalState = { isInteractedWith: false, shell: undefined };
     public disposed = false;
     public readonly value: vscode.Terminal;
     /** Resolves to `undefined` for a pty or a foreign terminal without a process. */
@@ -133,6 +147,7 @@ class TerminalRecord {
         const name_ = (): string => this.name;
         const pid = (): Promise<number | undefined> => this.pid.promise;
         const exitStatus = (): vscode.TerminalExitStatus | undefined => this.exitStatus;
+        const state = (): vscode.TerminalState => this.state;
         const live = (): IWireTerminalRef => {
             // As upstream `_checkDisposed`: methods of an already disposed terminal throw.
             if (this.disposed) throw new Error("Terminal has already been disposed");
@@ -149,8 +164,9 @@ class TerminalRecord {
             get exitStatus(): vscode.TerminalExitStatus | undefined {
                 return exitStatus();
             },
-            // Deviation (see API-COVERAGE): the host does not relay user input.
-            state: { isInteractedWith: false, shell: undefined },
+            get state(): vscode.TerminalState {
+                return state();
+            },
             // No shell integration: by contract `undefined` means "not activated", and extensions fall back to `sendText`.
             shellIntegration: undefined,
             sendText: (text: string, shouldExecute = true): void => {
@@ -176,6 +192,20 @@ class TerminalRecord {
 
     public settlePid(pid: number | undefined): void {
         this.pid.resolve(pid);
+    }
+
+    /** Upstream `setInteractedWith`: `true` if the state changed. */
+    public setInteractedWith(): boolean {
+        if (this.state.isInteractedWith) return false;
+        this.state = { ...this.state, isInteractedWith: true };
+        return true;
+    }
+
+    /** Upstream `setShellType`: `true` if the state changed. */
+    public setShellType(shell: string | undefined): boolean {
+        if (this.state.shell === shell) return false;
+        this.state = { ...this.state, shell };
+        return true;
     }
 }
 
@@ -261,6 +291,7 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
     const onDidOpenTerminal = new EventEmitter<vscode.Terminal>();
     const onDidCloseTerminal = new EventEmitter<vscode.Terminal>();
     const onDidChangeActiveTerminal = new EventEmitter<vscode.Terminal | undefined>();
+    const onDidChangeTerminalState = new EventEmitter<vscode.Terminal>();
 
     rpc.handleNotification("terminal.opened", (params) => {
         const opened = parseWireTerminalOpened(params);
@@ -272,6 +303,21 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
         record.settlePid(opened.pid);
         byId.set(opened.id, record);
         onDidOpenTerminal.fire(record.value);
+        // Upstream `$acceptTerminalShellType` follows `$acceptTerminalOpened`: the type arrives as a state change.
+        if (record.setShellType(opened.shellType)) onDidChangeTerminalState.fire(record.value);
+    });
+
+    rpc.handleNotification("terminal.interaction", (params) => {
+        const interaction = parseWireTerminalInteraction(params);
+        const record = interaction === null ? undefined : byId.get(interaction.id);
+        if (record?.setInteractedWith() === true) onDidChangeTerminalState.fire(record.value);
+    });
+
+    rpc.handleNotification("terminal.titleChanged", (params) => {
+        const changed = parseWireTerminalTitleChanged(params);
+        if (changed === null) return;
+        const record = byId.get(changed.id);
+        if (record !== undefined) record.name = changed.name;
     });
 
     rpc.handleNotification("terminal.closed", (params) => {
@@ -379,6 +425,7 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
         onDidOpenTerminal: onDidOpenTerminal.event,
         onDidCloseTerminal: onDidCloseTerminal.event,
         onDidChangeActiveTerminal: onDidChangeActiveTerminal.event,
+        onDidChangeTerminalState: onDidChangeTerminalState.event,
         createTerminal,
     };
 }

@@ -3,6 +3,7 @@ import { basename } from "node:path";
 import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
 
 import { Emitter } from "../../../../base/common/event.ts";
+import { currentOperatingSystem } from "../../../../base/common/platform.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -10,6 +11,10 @@ import type { IContextKeyContributor } from "../../../../platform/contextkey/com
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
+import {
+    guessShellTypeFromExecutable,
+    type TerminalShellType,
+} from "../../../../platform/terminal/common/terminalShellType.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import {
@@ -57,6 +62,8 @@ export interface ITerminalInstance {
     /** `undefined` while the shell is alive or if the instance was closed by something other than exit. */
     readonly exitCode: number | undefined;
     readonly exitReason: TerminalExitReason | undefined;
+    /** Upstream `shellType`, guessed from the shell executable at creation; `undefined` — unknown or a pty. */
+    readonly shellType: TerminalShellType | undefined;
 }
 
 export interface IDisposedTerminalInstance extends ITerminalInstance {
@@ -153,6 +160,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     private readonly onDidDisposeInstanceEmitter = this.register(new Emitter<IDisposedTerminalInstance>());
     private readonly onDidExitInstanceEmitter = this.register(new Emitter<ITerminalInstance>());
     private readonly onDidChangeInstanceTitleEmitter = this.register(new Emitter<ITerminalInstance>());
+    private readonly onDidInputInstanceDataEmitter = this.register(new Emitter<ITerminalInstance>());
 
     public constructor(
         private readonly viewsService: ViewsService,
@@ -286,6 +294,10 @@ export class TerminalService extends Disposable implements IContextKeyContributo
             launch: launchInfo(options, session, cwd, hideFromUser),
             exitCode: undefined,
             exitReason: undefined,
+            shellType:
+                options.session === undefined
+                    ? guessShellTypeFromExecutable(currentOperatingSystem(), session.shell)
+                    : undefined,
             waitOnExit: options.waitOnExit,
             waiting: false,
             external: options.session !== undefined,
@@ -298,6 +310,9 @@ export class TerminalService extends Disposable implements IContextKeyContributo
                 // key in that window finds a non-waiting instance whose exit is still on its way.
                 session.onDidInputAfterExit(() => {
                     if (instance.waiting) this.removeInstance(instance, "user");
+                }),
+                session.onDidInput(() => {
+                    this.onDidInputInstanceDataEmitter.fire(instance);
                 }),
             ],
         };
@@ -383,6 +398,14 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         instance.session.write(shouldExecute && !normalized.endsWith("\r") ? `${normalized}\r` : normalized);
     }
 
+    /** Upstream `TerminalInstance.rename`: the new title wins over the one given at creation. */
+    public renameInstance(id: number | undefined, title: string): void {
+        const instance = this.find(id);
+        if (instance === undefined || instance.title === title) return;
+        instance.title = title;
+        this.onDidChangeInstanceTitleEmitter.fire(instance);
+    }
+
     /** Without focus — like arrows and clicks in upstream's tab list. */
     public setActiveInstance(id: number): void {
         const instance = this.instances.find((i) => i.id === id);
@@ -426,6 +449,9 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     public readonly onDidExitInstance = this.onDidExitInstanceEmitter.event;
 
     public readonly onDidChangeInstanceTitle = this.onDidChangeInstanceTitleEmitter.event;
+
+    /** Upstream `onAnyInstanceDataInput`: keys or `sendText` reached the instance's live process. */
+    public readonly onDidInputInstanceData = this.onDidInputInstanceDataEmitter.event;
 
     public readonly onDidOpenInstance = this.onDidOpenInstanceEmitter.event;
 

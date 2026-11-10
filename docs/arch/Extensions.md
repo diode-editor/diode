@@ -1636,7 +1636,18 @@ Workbench** (адаптеры над `EditorService`; мост файловых 
 знает) водит `TerminalService`. Обратно хост пересказывает жизнь ВСЕХ инстансов встроенного
 терминала, включая шеллы человека: `terminal.opened` (с pid и `launch` — из него `creationOptions`
 чужого терминала), `terminal.closed` (код и причина: выход шелла — `process`, Kill — `user`,
-`dispose()` — `extension`), `terminal.activeChanged`. Адресация двойная: хостовый `id` минтит хост,
+`dispose()` — `extension`), `terminal.activeChanged`, `terminal.titleChanged` (`$acceptTerminalTitleChange`:
+инстанс переименован — pty или перезапуск задачи; субпроцесс меняет `name`) и `terminal.interaction`
+(`$acceptTerminalInteraction`). `Terminal.state` — объект, который заменяется при каждой смене, как в
+эталоне. Ввод — нажатия клавиш и `sendText` — сессия сообщает событием `onDidInput`, сервис —
+`onDidInputInstanceData` (`onAnyInstanceDataInput` эталона); эталон шлёт каждый ввод, мы — только
+первый по инстансу (дедупликация в `TerminalCustomer` после засева снимка: ввод до засева не
+теряется, его сообщит следующий), потому что меняет `isInteractedWith` лишь первый. Тип оболочки
+(`state.shell`) — `guessShellTypeFromExecutable` эталона (`platform/terminal/common/terminalShellType.ts`)
+по basename исполняемого файла при создании инстанса; у pty его нет. Едет полем `shellType` в
+`terminal.opened` (и в снимке), а субпроцесс после `onDidOpenTerminal` выставляет его и стреляет
+`onDidChangeTerminalState` — как `$acceptTerminalShellType` после `$acceptTerminalOpened`. Опроса
+процесса (вложенная оболочка) нет — отступление. Адресация двойная: хостовый `id` минтит хост,
 свой терминал субпроцесс до прихода `opened` адресует собственной меткой `extHostId`
 (`extHostTerminalId` эталона) — поэтому `createTerminal` + `sendText` в одном тике доходят до шелла.
 Снимок всех инстансов уходит после `host.ready` и до первой активации (`pushInitialState`); на
@@ -1658,8 +1669,12 @@ Workbench** (адаптеры над `EditorService`; мост файловых 
 эталона): на хосте — инстанс с сессией-эмулятором без процесса (`ExtensionPtySession` поверх общего
 с шеллом `XtermSurface`, фабрика `ExtensionPtySessionFactoryDIToken`, в сервис — готовой сессией в
 опции `session`, как `customPtyImplementation` эталона). Хост сразу после создания шлёт
-`terminal.pty.start` — субпроцесс подключает `onDidWrite`/`onDidClose` и зовёт `pty.open`; вывод
-склеивается окном 5 мс и едет `terminal.pty.data`, выход pty — `terminal.pty.exit`. Набор человека и
+`terminal.pty.start` — субпроцесс подключает `onDidWrite`/`onDidClose`/`onDidChangeName` и зовёт
+`pty.open`; вывод склеивается окном 5 мс и едет `terminal.pty.data`, выход pty — `terminal.pty.exit`,
+новое имя — сразу, без склейки, `terminal.pty.name` (свойство `Title` эталона): хост делает
+`TerminalService.renameInstance` (`instance.rename` эталона — перекрывает и явное `name`), вкладка
+перерисовывается по `onDidChangeInstanceTitle`, а `terminal.titleChanged` возвращает имя расширению
+раньше `terminal.closed`. Набор человека и
 `sendText` расширения идут через хост в эмулятор и обратно `terminal.pty.input` → `handleInput` —
 поэтому `sendText` сразу после `createTerminal` приходит уже после `open` (как в эталоне); размер
 виджета — `terminal.pty.resize` → `setDimensions`. Закрытие инстанса по любой причине зовёт
