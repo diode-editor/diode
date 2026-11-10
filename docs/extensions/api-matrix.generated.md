@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 189 |
+| test | 190 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -2541,7 +2541,7 @@ Proposed API or a false hit: class X when real.
 | `WindowState.focused` | ok |  | 0 | 0 |  |
 | `workspace.applyEdit` | ok | yes | 106 | 886,030,083 | timonwong.shellcheck, yzhang.markdown-all-in-one |
 | `workspace.asRelativePath` | ok | yes | 53 | 542,990,002 |  |
-| `workspace.createFileSystemWatcher` | ok |  | 117 | 944,215,757 | biomejs.biome, bradlc.vscode-tailwindcss, redhat.vscode-yaml, svelte.svelte-vscode, vscjava.vscode-maven |
+| `workspace.createFileSystemWatcher` | ok | yes | 117 | 944,215,757 | biomejs.biome, bradlc.vscode-tailwindcss, redhat.vscode-yaml, svelte.svelte-vscode, vscjava.vscode-maven |
 | `workspace.decode` | ok | yes | 1 | 18,726,545 |  |
 | `workspace.encode` | ok | yes | 0 | 0 |  |
 | `workspace.findFiles` | ok | yes | 72 | 686,973,290 | bradlc.vscode-tailwindcss, svelte.svelte-vscode, vscjava.vscode-maven |

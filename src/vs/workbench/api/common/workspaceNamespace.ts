@@ -5,7 +5,7 @@ import type * as vscode from "vscode";
 import { detectEndOfLine, EndOfLine as CoreEndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
 import { workspaceFileLabel } from "../../../platform/workspace/common/workspaceFile.ts";
-import { filesExcludeGlobs } from "../../common/configuration/excludeSettings.ts";
+import { filesExcludeGlobs, watcherExcludeGlobs } from "../../common/configuration/excludeSettings.ts";
 import {
     decodeForResource,
     defaultUtf8Directories,
@@ -18,7 +18,12 @@ import { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { ExtHostFileOperations } from "./extHostFileOperations.ts";
 import { serializeWillSaveTextEdit, serializeWorkspaceEdit } from "./extHostTypeConverters.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
-import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
+import {
+    providerGlobPattern,
+    resolveGlobPattern,
+    SubprocessFileSystemWatchers,
+    watchProviderFiles,
+} from "./fileWatcherNamespace.ts";
 import { findFiles as walkForFiles } from "./findFiles.ts";
 import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
@@ -798,6 +803,20 @@ export function createWorkspaceNamespace(
             ignoreChangeEvents = false,
             ignoreDeleteEvents = false,
         ): vscode.FileSystemWatcher => {
+            const provided = providerGlobPattern(globPattern);
+            const provider = provided === null ? undefined : fsProviders.get(provided.base.scheme);
+            if (provided !== null && provider !== undefined) {
+                // As upstream: a watcher that ignores every kind of event does not ask the provider to watch.
+                if (ignoreCreateEvents && ignoreChangeEvents && ignoreDeleteEvents) {
+                    return fsWatchers.createInert(ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents);
+                }
+                return watchProviderFiles(
+                    provider,
+                    provided,
+                    { ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents },
+                    watcherExcludeGlobs(configStore),
+                );
+            }
             const resolved = resolveGlobPattern(globPattern, workspaceFolders[0]?.uri.fsPath);
             // Empty window or a garbage pattern gives a silent watcher: the extension does not have to check for this.
             if (resolved === null) {

@@ -1,8 +1,9 @@
 import type * as vscode from "vscode";
 
+import { matchGlob } from "../../../base/common/glob.ts";
 import { Uri } from "../../../base/common/uri.ts";
 
-import { EventEmitter, RelativePattern } from "./vscodeTypes.ts";
+import { EventEmitter, FileChangeType, RelativePattern } from "./vscodeTypes.ts";
 import type { IWireWatcherCreate, IWireWatcherEvents } from "./wireTypes.ts";
 
 export interface IWatcherTransport {
@@ -43,6 +44,92 @@ function baseFsPath(baseUri: unknown, base: unknown): string | null {
         if (typeof fsPath === "string" && fsPath !== "") return fsPath;
     }
     return typeof base === "string" && base !== "" ? base : null;
+}
+
+/**
+ * VS Code rule: a single-segment pattern watches only direct children of the base,
+ * `**` or a separator watches the subtree. The cheap `.git` watcher relies on this:
+ * `new RelativePattern(dotGit, "*")` doesn't drag `.git/objects` along.
+ */
+export function isRecursiveWatchPattern(pattern: string): boolean {
+    return pattern.includes("**") || pattern.includes("/");
+}
+
+export interface IProviderGlobPattern {
+    readonly base: Uri;
+    readonly pattern: string;
+}
+
+/** A pattern whose base is not on disk: a `RelativePattern` on a `Uri` of another scheme. */
+export function providerGlobPattern(globPattern: unknown): IProviderGlobPattern | null {
+    if (typeof globPattern !== "object" || globPattern === null) return null;
+    const { baseUri, pattern } = globPattern as { baseUri?: unknown; pattern?: unknown };
+    if (!(baseUri instanceof Uri) || baseUri.scheme === "file" || typeof pattern !== "string") return null;
+    return { base: baseUri, pattern };
+}
+
+export interface IWatcherIgnoreFlags {
+    readonly ignoreCreateEvents: boolean;
+    readonly ignoreChangeEvents: boolean;
+    readonly ignoreDeleteEvents: boolean;
+}
+
+/**
+ * Upstream routes such a watcher through the main thread's file service back to the provider; here the
+ * provider lives in the same subprocess, so the hop is skipped. As upstream (`extHostFileSystemEventService.ts`):
+ * `provider.watch` is recursive by {@link isRecursiveWatchPattern}, a recursive watch gets `files.watcherExclude`
+ * as `excludes`, and `onDidChangeFile` events reach the watcher only when they match the pattern under the base.
+ */
+export function watchProviderFiles(
+    provider: vscode.FileSystemProvider,
+    target: IProviderGlobPattern,
+    flags: IWatcherIgnoreFlags,
+    watcherExcludes: readonly string[],
+): vscode.FileSystemWatcher {
+    const onDidCreate = new EventEmitter<vscode.Uri>();
+    const onDidChange = new EventEmitter<vscode.Uri>();
+    const onDidDelete = new EventEmitter<vscode.Uri>();
+    const byType = new Map<vscode.FileChangeType, EventEmitter<vscode.Uri> | undefined>([
+        [FileChangeType.Created, flags.ignoreCreateEvents ? undefined : onDidCreate],
+        [FileChangeType.Changed, flags.ignoreChangeEvents ? undefined : onDidChange],
+        [FileChangeType.Deleted, flags.ignoreDeleteEvents ? undefined : onDidDelete],
+    ]);
+    const prefix = target.base.path.endsWith("/") ? target.base.path : `${target.base.path}/`;
+    const subscription = provider.onDidChangeFile((events) => {
+        for (const { type, uri } of events) {
+            if (!uri.path.startsWith(prefix) || !matchGlob(target.pattern, uri.path.slice(prefix.length))) continue;
+            byType.get(type)?.fire(uri);
+        }
+    });
+    const recursive = isRecursiveWatchPattern(target.pattern);
+    let watching: vscode.Disposable | undefined;
+    let disposed = false;
+    // Never synchronously: upstream's `watch` arrives after an RPC round trip, and callers (upstream's own
+    // `workspace-watcher` test) subscribe to the provider's side only after `createFileSystemWatcher` returns.
+    queueMicrotask(() => {
+        if (disposed) return;
+        try {
+            watching = provider.watch(target.base, { recursive, excludes: recursive ? [...watcherExcludes] : [] });
+        } catch {
+            // The provider may belong to another extension: its failure must not throw into the caller,
+            // upstream only logs it on the main side. The watcher stays valid and hears `onDidChangeFile`.
+        }
+    });
+    return {
+        ...flags,
+        onDidCreate: onDidCreate.event,
+        onDidChange: onDidChange.event,
+        onDidDelete: onDidDelete.event,
+        dispose: () => {
+            if (disposed) return;
+            disposed = true;
+            subscription.dispose();
+            watching?.dispose();
+            onDidCreate.dispose();
+            onDidChange.dispose();
+            onDidDelete.dispose();
+        },
+    };
 }
 
 /** The core does the watching: the subprocess must not hand out the inotify budget or know `files.watcherExclude`. */

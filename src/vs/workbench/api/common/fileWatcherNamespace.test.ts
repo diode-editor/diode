@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
 
-import { type IWatcherTransport, resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
+import {
+    isRecursiveWatchPattern,
+    type IWatcherTransport,
+    providerGlobPattern,
+    resolveGlobPattern,
+    SubprocessFileSystemWatchers,
+} from "./fileWatcherNamespace.ts";
 import { RelativePattern } from "./vscodeTypes.ts";
 import type { IWireWatcherCreate } from "./wireTypes.ts";
 
@@ -16,6 +22,35 @@ function makeTransport(): IWatcherTransport & { created: IWireWatcherCreate[]; d
         dispose: (id) => disposed.push(id),
     };
 }
+
+describe("isRecursiveWatchPattern", () => {
+    it("a single-segment pattern matches direct children only", () => {
+        expect(isRecursiveWatchPattern("*")).toBe(false);
+        expect(isRecursiveWatchPattern("HEAD")).toBe(false);
+    });
+
+    it("a globstar or a separator matches the subtree", () => {
+        expect(isRecursiveWatchPattern("**")).toBe(true);
+        expect(isRecursiveWatchPattern("**/*.ts")).toBe(true);
+        expect(isRecursiveWatchPattern("src/*.ts")).toBe(true);
+    });
+});
+
+describe("providerGlobPattern", () => {
+    const base = Uri.from({ scheme: "memfs", path: "/a" });
+
+    it("a RelativePattern on a non-file Uri yields that Uri and the pattern", () => {
+        expect(providerGlobPattern(new RelativePattern(base, "*.txt"))).toEqual({ base, pattern: "*.txt" });
+    });
+
+    it("a string, a file base, a non-Uri base and a non-string pattern are not provider patterns", () => {
+        expect(providerGlobPattern("**")).toBeNull();
+        expect(providerGlobPattern(null)).toBeNull();
+        expect(providerGlobPattern(new RelativePattern(Uri.file("/a"), "*"))).toBeNull();
+        expect(providerGlobPattern({ baseUri: { scheme: "memfs", path: "/a" }, pattern: "*" })).toBeNull();
+        expect(providerGlobPattern({ baseUri: base, pattern: 1 })).toBeNull();
+    });
+});
 
 describe("resolveGlobPattern", () => {
     it("string pattern binds to the workspace folder", () => {

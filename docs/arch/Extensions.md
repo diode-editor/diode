@@ -738,7 +738,15 @@
   обратный notify `workspace.watcher.events`. **Матчинг шаблона — на хосте**: субпроцессу уезжают
   только подошедшие события, а не весь поток по воркспейсу. Рекурсивность выводится из шаблона (`*`
   — только прямые дети, `**`/`/` — поддерево) — на этом держится дешёвый watcher `.git` у
-  встроенного git.
+  встроенного git. **База на схеме провайдера** (`RelativePattern` на `Uri` схемы, для которой
+  зарегистрирован `registerFileSystemProvider`) обходится без ядра: провайдер живёт в том же
+  субпроцессе, поэтому `watchProviderFiles` зовёт `provider.watch(base, {recursive, excludes})`
+  напрямую, но в микрозадаче, а не синхронно: тест эталона подписывается на `watch` уже после
+  возврата `createFileSystemWatcher` (у эталона — круг через `MainThreadFileSystemEventService` и файловый сервис обратно в
+  ext host) и фильтрует `onDidChangeFile` шаблоном относительно `base.path`. Как у эталона:
+  `excludes` — `files.watcherExclude` только для рекурсивного; watcher, игнорирующий все три вида
+  событий, `watch` не зовёт. Схема без провайдера идёт старым путём по `fsPath`. Новых RPC-сообщений
+  нет.
 - **Локальный диск без RPC (`workspace.fs`, `workspace.findFiles`):** обе поверхности (и
   `openTextDocument` по промаху реестра) работают **в субпроцессе через `node:fs`**: привязка к
   диску — `api/node/extHostDisk.ts` (`IExtHostDisk`, как `extHostDiskFileSystemProvider` у эталона),

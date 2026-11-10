@@ -38,6 +38,7 @@ vscode API - workspace events: onDidOpenTextDocument, onDidChangeTextDocument, o
 vscode API - workspace events: onDidSaveTextDocument fires even for non dirty file when saved
 vscode API - workspace findFiles
 vscode API - workspace findFiles - exclude
+vscode API - workspace findFiles - null exclude
 vscode API - workspace findFiles, cancellation
 vscode API - workspace findFiles, exclude
 vscode API - workspace getWorkspaceFolder

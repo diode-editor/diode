@@ -505,6 +505,10 @@
         "workspace.asRelativePath",
         "workspace.findFiles"
     ],
+    "workspace vscode API - workspace findFiles - null exclude": [
+        "workspace.asRelativePath",
+        "workspace.findFiles"
+    ],
     "workspace vscode API - workspace findFiles, cancellation": [
         "workspace.findFiles"
     ],
@@ -617,6 +621,10 @@
     ],
     "workspace.fs vscode API - workspace-fs fs.delete folder": [
         "workspace.fs"
+    ],
+    "workspace.watcher vscode API - workspace-watcher createFileSystemWatcher": [
+        "workspace.createFileSystemWatcher",
+        "workspace.registerFileSystemProvider"
     ],
     "workspace.fs vscode API - workspace-fs fs.stat": [
         "workspace.fs"

@@ -7,6 +7,7 @@ import { Uri } from "../../../../../base/common/uri.ts";
 import type { IStat } from "../../../../../platform/files/common/files.ts";
 import type { ITreeFileChange } from "../../../../../platform/files/common/iTreeFileWatcher.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
+import { isRecursiveWatchPattern } from "../../../../api/common/fileWatcherNamespace.ts";
 import type { IExtensionFileWatcher } from "../../../../api/common/iExtensionFileWatcher.ts";
 import type { IWireWatcherCreate, IWireWatcherEvent } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
@@ -167,15 +168,6 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
         });
         return store;
     }
-}
-
-/**
- * VS Code rule: a single-segment pattern watches only direct children of the base,
- * `**` or a separator watches the subtree. The cheap `.git` watcher relies on this:
- * `new RelativePattern(dotGit, "*")` doesn't drag `.git/objects` along.
- */
-export function isRecursiveWatchPattern(pattern: string): boolean {
-    return pattern.includes("**") || pattern.includes("/");
 }
 
 /** The path is matched relative to the base in posix form — the pattern works the same on all platforms. */
