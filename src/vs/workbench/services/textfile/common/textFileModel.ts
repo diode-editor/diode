@@ -17,7 +17,6 @@ import {
     decodeBufferByBOM,
     DEFAULT_ENCODING,
     getEncodingInfo,
-    hasNativeCodec,
     resolveDecodeEncoding,
     stripBOM,
 } from "../../../../editor/common/model/encoding.ts";
@@ -26,6 +25,7 @@ import {
     decodeStream,
     decodeStreamByBOM,
     encodeStream,
+    hasNativeCodec,
     type IDecodedStream,
 } from "../../../../editor/common/model/encodingStream.ts";
 import {

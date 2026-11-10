@@ -10,14 +10,6 @@ export const UTF8_WITH_BOM = "utf8bom";
 
 const encodingsById = new Map(SUPPORTED_ENCODINGS.map((info) => [info.id, info]));
 
-function requireEncodingInfo(id: string): IEncodingInfo {
-    const info = encodingsById.get(id);
-    /* v8 ignore start -- only called with table ids (explicit is checked by has(), sniffed/DEFAULT are table entries); the throw is an unreachable invariant guard */
-    if (info === undefined) throw new Error(`No encoding info for id: ${id}`);
-    /* v8 ignore stop */
-    return info;
-}
-
 export function getEncodingInfo(id: string): IEncodingInfo | undefined {
     return encodingsById.get(id);
 }
@@ -85,14 +77,6 @@ const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INative
     ],
 ]);
 
-/**
- * utf-8 and UTF-16 decode without iconv, synchronously. They are also all a BOM sniff can find; we write
- * utf8bom and UTF-16 with a BOM.
- */
-export function hasNativeCodec(encoding: string): boolean {
-    return NATIVE_CODECS.has(encodingInfoOf(encoding).iconvName);
-}
-
 /** An explicit encoding beats the detected one, except "utf8" on content with a BOM: that stays "utf8bom". */
 export function explicitOverDetected(explicit: string, detected: string | null): string {
     return explicit === DEFAULT_ENCODING && detected === UTF8_WITH_BOM ? UTF8_WITH_BOM : explicit;
@@ -101,8 +85,9 @@ export function explicitOverDetected(explicit: string, detected: string | null):
 /** `explicitEncoding` must be validated ({@link validateEncoding}); without it the BOM decides, otherwise utf-8. */
 export function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefined): IEncodingInfo {
     const sniffed = detectEncodingByBOM(buffer);
-    if (explicitEncoding !== undefined) return encodingInfoOf(explicitOverDetected(explicitEncoding, sniffed));
-    return requireEncodingInfo(sniffed ?? DEFAULT_ENCODING);
+    return encodingInfoOf(
+        explicitEncoding !== undefined ? explicitOverDetected(explicitEncoding, sniffed) : (sniffed ?? DEFAULT_ENCODING),
+    );
 }
 
 export function stripBOM(buffer: Buffer, info: IEncodingInfo): Buffer {

@@ -200,6 +200,14 @@ function streamCodec(info: IEncodingInfo): IStreamCodec {
     return codec;
 }
 
+/**
+ * utf-8 and UTF-16 decode without iconv, synchronously. They are also all a BOM sniff can find; we write
+ * utf8bom and UTF-16 with a BOM.
+ */
+export function hasNativeCodec(encoding: string): boolean {
+    return STREAM_CODECS.has(encodingInfoOf(encoding).iconvName);
+}
+
 /** Synchronous and iconv-free: sniffing yields only utf-8 or UTF-16. */
 export function decodeStreamByBOM(bytes: Iterable<Buffer>): IDecodedStream {
     const source = bytes[Symbol.iterator]();
