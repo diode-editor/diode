@@ -19,7 +19,7 @@ import { ExtHostFileOperations } from "./extHostFileOperations.ts";
 import { serializeWillSaveTextEdit, serializeWorkspaceEdit } from "./extHostTypeConverters.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import {
-    providerGlobPattern,
+    providerWatchTarget,
     resolveGlobPattern,
     SubprocessFileSystemWatchers,
     watchProviderFiles,
@@ -803,15 +803,13 @@ export function createWorkspaceNamespace(
             ignoreChangeEvents = false,
             ignoreDeleteEvents = false,
         ): vscode.FileSystemWatcher => {
-            const provided = providerGlobPattern(globPattern);
-            const provider = provided === null ? undefined : fsProviders.get(provided.base.scheme);
-            if (provided !== null && provider !== undefined) {
+            const provided = providerWatchTarget(globPattern, (scheme) => fsProviders.get(scheme));
+            if (provided !== null) {
                 // As upstream: a watcher that ignores every kind of event does not ask the provider to watch.
                 if (ignoreCreateEvents && ignoreChangeEvents && ignoreDeleteEvents) {
                     return fsWatchers.createInert(ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents);
                 }
                 return watchProviderFiles(
-                    provider,
                     provided,
                     { ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents },
                     watcherExcludeGlobs(configStore),

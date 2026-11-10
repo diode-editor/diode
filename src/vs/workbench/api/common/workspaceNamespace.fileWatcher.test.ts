@@ -233,6 +233,17 @@ describe("workspace.createFileSystemWatcher — on an extension FileSystemProvid
         );
 
         expect(seen).toEqual(["changed watcherTest:/somePath/folder/a.txt"]);
+
+        const keepsCreateAndDelete = record(watch("*.txt", false, true, false));
+        fs.fire(
+            [FileChangeType.Created, "watcherTest:/somePath/folder/b.txt"],
+            [FileChangeType.Changed, "watcherTest:/somePath/folder/b.txt"],
+            [FileChangeType.Deleted, "watcherTest:/somePath/folder/b.txt"],
+        );
+        expect(keepsCreateAndDelete).toEqual([
+            "created watcherTest:/somePath/folder/b.txt",
+            "deleted watcherTest:/somePath/folder/b.txt",
+        ]);
     });
 
     it("[api:workspace.createFileSystemWatcher] a watcher that ignores every kind does not ask the provider to watch", async () => {

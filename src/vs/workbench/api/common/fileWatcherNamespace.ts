@@ -56,17 +56,22 @@ export function isRecursiveWatchPattern(pattern: string): boolean {
     return pattern.includes("**") || pattern.includes("/");
 }
 
-export interface IProviderGlobPattern {
+export interface IProviderWatchTarget {
+    readonly provider: vscode.FileSystemProvider;
     readonly base: Uri;
     readonly pattern: string;
 }
 
-/** A pattern whose base is not on disk: a `RelativePattern` on a `Uri` of another scheme. */
-export function providerGlobPattern(globPattern: unknown): IProviderGlobPattern | null {
-    if (typeof globPattern !== "object" || globPattern === null) return null;
-    const { baseUri, pattern } = globPattern as { baseUri?: unknown; pattern?: unknown };
+/** A pattern whose base is not on disk: a `RelativePattern` on a `Uri` of another scheme that has a provider. */
+export function providerWatchTarget(
+    globPattern: unknown,
+    providerOf: (scheme: string) => vscode.FileSystemProvider | undefined,
+): IProviderWatchTarget | null {
+    // `Object()`: a string pattern or garbage has no `baseUri` and falls through to `null` below.
+    const { baseUri, pattern } = Object(globPattern) as { baseUri?: unknown; pattern?: unknown };
     if (!(baseUri instanceof Uri) || baseUri.scheme === "file" || typeof pattern !== "string") return null;
-    return { base: baseUri, pattern };
+    const provider = providerOf(baseUri.scheme);
+    return provider === undefined ? null : { provider, base: baseUri, pattern };
 }
 
 export interface IWatcherIgnoreFlags {
@@ -82,11 +87,11 @@ export interface IWatcherIgnoreFlags {
  * as `excludes`, and `onDidChangeFile` events reach the watcher only when they match the pattern under the base.
  */
 export function watchProviderFiles(
-    provider: vscode.FileSystemProvider,
-    target: IProviderGlobPattern,
+    target: IProviderWatchTarget,
     flags: IWatcherIgnoreFlags,
     watcherExcludes: readonly string[],
 ): vscode.FileSystemWatcher {
+    const { provider } = target;
     const store = new DisposableStore();
     const onDidCreate = store.add(new EventEmitter<vscode.Uri>());
     const onDidChange = store.add(new EventEmitter<vscode.Uri>());

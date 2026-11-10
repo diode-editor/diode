@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
+import type * as vscode from "vscode";
 
 import { Uri } from "../../../base/common/uri.ts";
 
 import {
     isRecursiveWatchPattern,
     type IWatcherTransport,
-    providerGlobPattern,
+    providerWatchTarget,
     resolveGlobPattern,
     SubprocessFileSystemWatchers,
 } from "./fileWatcherNamespace.ts";
@@ -36,19 +37,33 @@ describe("isRecursiveWatchPattern", () => {
     });
 });
 
-describe("providerGlobPattern", () => {
+describe("providerWatchTarget", () => {
     const base = Uri.from({ scheme: "memfs", path: "/a" });
+    const provider = {} as vscode.FileSystemProvider;
+    // Answers for any scheme, `file` included: only the pattern's shape decides.
+    const anyScheme = () => provider;
 
-    it("a RelativePattern on a non-file Uri yields that Uri and the pattern", () => {
-        expect(providerGlobPattern(new RelativePattern(base, "*.txt"))).toEqual({ base, pattern: "*.txt" });
+    it("a RelativePattern on a non-file Uri with a provider yields the provider, the Uri and the pattern", () => {
+        const schemes: string[] = [];
+        const target = providerWatchTarget(new RelativePattern(base, "*.txt"), (scheme) => {
+            schemes.push(scheme);
+            return provider;
+        });
+        expect(target).toEqual({ provider, base, pattern: "*.txt" });
+        expect(schemes).toEqual(["memfs"]);
     });
 
-    it("a string, a file base, a non-Uri base and a non-string pattern are not provider patterns", () => {
-        expect(providerGlobPattern("**")).toBeNull();
-        expect(providerGlobPattern(null)).toBeNull();
-        expect(providerGlobPattern(new RelativePattern(Uri.file("/a"), "*"))).toBeNull();
-        expect(providerGlobPattern({ baseUri: { scheme: "memfs", path: "/a" }, pattern: "*" })).toBeNull();
-        expect(providerGlobPattern({ baseUri: base, pattern: 1 })).toBeNull();
+    it("a scheme without a provider is not a provider target", () => {
+        expect(providerWatchTarget(new RelativePattern(base, "*"), () => undefined)).toBeNull();
+    });
+
+    it("a string, null, a file base, a non-Uri base and a non-string pattern are not provider targets", () => {
+        expect(providerWatchTarget("**", anyScheme)).toBeNull();
+        expect(providerWatchTarget(null, anyScheme)).toBeNull();
+        expect(providerWatchTarget(undefined, anyScheme)).toBeNull();
+        expect(providerWatchTarget(new RelativePattern(Uri.file("/a"), "*"), anyScheme)).toBeNull();
+        expect(providerWatchTarget({ baseUri: { scheme: "memfs", path: "/a" }, pattern: "*" }, anyScheme)).toBeNull();
+        expect(providerWatchTarget({ baseUri: base, pattern: 1 }, anyScheme)).toBeNull();
     });
 });
 
