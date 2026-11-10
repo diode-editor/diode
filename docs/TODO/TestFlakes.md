@@ -33,6 +33,10 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `fileSearchService.integration.test.ts`, «"wbc": WorkbenchComponent.ts ties for the top score»: ничья не
+  сошлась в юнит-job (run 42745526700, PR #1119, дифф — тест и доки `onDidChangeWorkspaceFolders`).
+- [ ] `e2e/bench/xlargeBudget.bench.ts`: `undoInsert` median 16 > 16 на ubuntu, ровно на границе бюджета (run
+  42745526700, PR #1119, тот же дифф). Бенч, не юнит — в `test-flakes.json` не стоит.
 - [ ] `testResultsOutput.test.ts`, «a new subject starts from a clean surface»: на экране пусто вместо `new` в
   initial test run Stryker'а мутационного гейта (run 42538740300, PR #1094, дифф — вьюлет Extensions); юнит-job
   того же прогона зелёный.

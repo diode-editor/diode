@@ -6,6 +6,12 @@ import { detectEndOfLine, EndOfLine as CoreEndOfLine } from "../../../editor/com
 import { decodeBuffer } from "../../../editor/common/model/encoding.ts";
 import { workspaceFileLabel } from "../../../platform/workspace/common/workspaceFile.ts";
 import { filesExcludeGlobs } from "../../common/configuration/excludeSettings.ts";
+import {
+    decodeForResource,
+    defaultUtf8Directories,
+    encodeForResource,
+    type IEncodingContext,
+} from "../../services/textfile/common/encodingOracle.ts";
 
 import { implementsApi } from "./apiSurface.ts";
 import { ExtHostTextDocument } from "./extHostDocuments.ts";
@@ -155,6 +161,7 @@ export function createWorkspaceNamespace(
 
     let workspaceFolders: IWorkspaceFolder[] = [];
     let workspaceFile: vscode.Uri | undefined;
+    let userRoamingDataHome: string | undefined;
 
     const fsProviders = new SubprocessFileSystemProviders();
 
@@ -361,9 +368,11 @@ export function createWorkspaceNamespace(
             configuration?: unknown;
             workspaceFolders?: readonly IWireWorkspaceFolder[];
             workspaceFile?: unknown;
+            userRoamingDataHome?: unknown;
         } = params;
         configStore.setData(p.configuration);
         workspaceFile = typeof p.workspaceFile === "string" ? Uri.parse(p.workspaceFile) : undefined;
+        userRoamingDataHome = typeof p.userRoamingDataHome === "string" ? p.userRoamingDataHome : undefined;
         workspaceFolders = (p.workspaceFolders ?? []).map((f) => ({
             uri: Uri.parse(f.uri),
             name: f.name,
@@ -605,6 +614,46 @@ export function createWorkspaceNamespace(
         return doc;
     }
 
+    /**
+     * Upstream computes it on the main side (`$resolveDecoding`, `$resolveEncoding`); here the raw layers are
+     * local, so no round trip but the language of the resource.
+     */
+    async function encodingContext(uri: vscode.Uri | undefined): Promise<IEncodingContext> {
+        const languageId = uri === undefined ? undefined : await languageOfDocumentWithoutModel(uri);
+        return {
+            resource: uri,
+            utf8Directories: defaultUtf8Directories(
+                userRoamingDataHome,
+                workspaceFolders.filter((folder) => folder.uri.scheme === "file").map((folder) => folder.uri.fsPath),
+            ),
+            setting: (key) => configStore.get(key, undefined, languageId),
+        };
+    }
+
+    /** Upstream `toEncodeDecodeParameters`: anything else in the options is ignored. */
+    function encodingParameters(options: unknown): { uri: vscode.Uri | undefined; encoding: string | undefined } {
+        const { uri, encoding } = (typeof options === "object" && options !== null ? options : {}) as {
+            uri?: unknown;
+            encoding?: unknown;
+        };
+        return {
+            uri: uri instanceof Uri ? uri : undefined,
+            encoding: typeof encoding === "string" && encoding !== "" ? encoding : undefined,
+        };
+    }
+
+    async function decode(content: Uint8Array, options?: { uri?: vscode.Uri; encoding?: string }): Promise<string> {
+        const { uri, encoding } = encodingParameters(options);
+        const buffer = Buffer.from(content.buffer, content.byteOffset, content.byteLength);
+        return decodeForResource(buffer, await encodingContext(uri), encoding);
+    }
+
+    /** A Node `Buffer`, as upstream's `VSBuffer.buffer`: extensions call `.toString()` on it. */
+    async function encode(content: string, options?: { uri?: vscode.Uri; encoding?: string }): Promise<Uint8Array> {
+        const { uri, encoding } = encodingParameters(options);
+        return encodeForResource(content, await encodingContext(uri), encoding);
+    }
+
     const workspaceNs = {
         registerTaskProvider,
         /** Upstream `getPath`: legacy from before multi-root, the first folder. */
@@ -651,6 +700,8 @@ export function createWorkspaceNamespace(
         asRelativePath,
         // Cast to the three d.ts overloads: the implementation tells the shape apart at runtime.
         openTextDocument: openTextDocument as unknown as typeof vscode.workspace.openTextDocument,
+        decode,
+        encode,
 
         onDidChangeConfiguration: onDidChangeConfigurationEmitter.event,
         onDidOpenTextDocument: onDidOpenTextDocumentEmitter.event,
