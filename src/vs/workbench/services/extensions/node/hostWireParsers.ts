@@ -96,6 +96,7 @@ import {
     type WireMarker,
     type WireMessageSeverity,
     type WireOutputLevel,
+    type WireProgressLocation,
     type WireRenamePrepare,
     type WireSemanticTokensResult,
     type WireValidationSeverity,
@@ -407,7 +408,22 @@ export function parseWireProgressStart(raw: unknown): IWireProgressStart | null 
     const p = raw as Record<string, unknown>;
     if (!isFiniteNumber(p.handle)) return null;
     if (typeof p.title !== "string") return null;
-    return { handle: p.handle, title: p.title };
+    return {
+        handle: p.handle,
+        title: p.title,
+        location: parseWireProgressLocation(p.location),
+        cancellable: p.cancellable === true,
+    };
+}
+
+/** Anything unknown is `window`: the status bar entry is shown for every location. */
+function parseWireProgressLocation(raw: unknown): WireProgressLocation {
+    if (raw === "notification" || raw === "sourceControl") return raw;
+    if (typeof raw === "object" && raw !== null) {
+        const { viewId } = raw as { viewId?: unknown };
+        if (typeof viewId === "string") return { viewId };
+    }
+    return "window";
 }
 
 export function parseWireProgressReport(raw: unknown): IWireProgressReport | null {

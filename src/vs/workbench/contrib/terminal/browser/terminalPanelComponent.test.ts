@@ -55,6 +55,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
         commands,
         colors,
         createPlainTerminalWidget,
+        views.state,
     );
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     const dispose = (): void => {
@@ -243,6 +244,7 @@ describe("TerminalPanelComponent", () => {
             new CommandRegistry(),
             makeTerminalColors(themeService, configuration).colors,
             createPlainTerminalWidget,
+            views.state,
         );
 
         expect(views.paneView(TERMINAL_VIEW_ID).querySelectorAll("TerminalViewElement")).toHaveLength(1);

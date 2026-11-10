@@ -3,8 +3,9 @@ import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { SizedBoxElement } from "@tuidom/elements/layout/sizedBoxElement";
 import { VStackElement } from "@tuidom/elements/layout/vStackElement";
+import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
@@ -16,6 +17,7 @@ import {
     TOAST_ELEMENT_ID,
     TOAST_HINT_FOCUSED,
     TOAST_MAX_LINES,
+    TOAST_SPINNER_INTERVAL_MS,
     TOAST_TEXT_WIDTH,
     toastLines,
     toastUnfocusedHint,
@@ -358,5 +360,65 @@ describe("NotificationToast — keyboard reply", () => {
         buttons[0].blur();
         void testApp;
         expect(toast.hintText()).toBe("F6 — reply");
+    });
+});
+
+describe("NotificationToast — progress", () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    const progress = (percent?: number): Partial<IActiveNotification> => ({ progress: { percent } });
+    const rowsOf = (testApp: TestApp): string[] => screen(testApp).split("\n");
+
+    it("the progress line is dimmed like the hint", () => {
+        const { testApp } = mount({ ...progress(42), items: ["Cancel"] });
+        const rows = rowsOf(testApp);
+        const percentRow = rows.findIndex((row) => row.includes("42%"));
+        const hintRow = rows.findIndex((row) => row.includes("F6"));
+        const messageRow = rows.findIndex((row) => row.includes("hello"));
+
+        expect(testApp.backend.getFgAt(new Point(rows[percentRow].indexOf("42%"), percentRow))).toBe(
+            testApp.backend.getFgAt(new Point(rows[hintRow].indexOf("F6"), hintRow)),
+        );
+        expect(testApp.backend.getFgAt(new Point(rows[percentRow].indexOf("42%"), percentRow))).not.toBe(
+            testApp.backend.getFgAt(new Point(rows[messageRow].indexOf("hello"), messageRow)),
+        );
+    });
+
+    it("without buttons the frame closes right under the spinner", () => {
+        const rows = renderToast(progress()).screenToString().split("\n");
+        const spinnerRow = rows.findIndex((row) => row.includes("⠋"));
+
+        expect(rows[spinnerRow + 1]).toMatch(/^╰/);
+    });
+
+    it("a new percent with the same message redraws only the percent: the message row stays", () => {
+        const { toast, testApp } = mount(progress());
+        const before = (testApp.querySelectorAll("TextLabelElement") as TextLabelElement[]).find(
+            (label) => label.getText() === "hello",
+        );
+
+        toast.update(notification(progress(10)));
+
+        expect(screen(testApp)).toContain("10%");
+        expect(
+            (testApp.querySelectorAll("TextLabelElement") as TextLabelElement[]).find(
+                (label) => label.getText() === "hello",
+            ),
+        ).toBe(before);
+    });
+
+    it("the spinner ticker stops at the first percent and with the toast", () => {
+        vi.useFakeTimers();
+        const first = mount(progress());
+        expect(vi.getTimerCount()).toBe(1);
+        first.toast.update(notification(progress(10)));
+        vi.advanceTimersByTime(TOAST_SPINNER_INTERVAL_MS);
+        expect(vi.getTimerCount()).toBe(0);
+
+        const second = mount(progress());
+        second.toast.dispose();
+        expect(vi.getTimerCount()).toBe(0);
     });
 });

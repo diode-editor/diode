@@ -730,7 +730,10 @@ export function createWorkspaceNamespace(
         onDidChangeTextDocument: onDidChangeTextDocumentEmitter.event,
         onDidCloseTextDocument: onDidCloseTextDocumentEmitter.event,
 
-        // Silent events: vscode-languageclient touches this surface.
+        // Silent by design, as upstream outside a multi-root workspace: there it fires only on in-place changes of
+        // a WORKSPACE state (mainThreadWorkspace.ts → extHostWorkspace.ts); from EMPTY/FOLDER a change re-enters the
+        // workspace and restarts the extension host (abstractWorkspaceEditingService.ts). Single-root Diode restarts the
+        // subprocess on every folder change, so the new process reads the new `workspaceFolders` in `activate()`.
         onDidChangeWorkspaceFolders: naiveEvent(),
         // No multi-root (docs/TODO/MultiRoot.md): only a change that leaves a single folder is
         // possible — the host opens it like Open Folder; anything else is `false` plus a toast (owner's decision).

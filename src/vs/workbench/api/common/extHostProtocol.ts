@@ -150,6 +150,7 @@ import type {
     IWirePrepareCallHierarchyParams,
     IWirePrepareRenameParams,
     IWirePrepareTypeHierarchyParams,
+    IWireProgressCancel,
     IWireProgressEnd,
     IWireProgressReport,
     IWireProgressStart,
@@ -375,6 +376,7 @@ export interface IHostToSubprocess {
 
         readonly "window.themeChanged": IWireColorTheme;
         readonly "window.quickPick.event": IWireQuickPickEvent;
+        readonly "window.progress.cancel": IWireProgressCancel;
         readonly "window.showQuickPick.didSelectItem": IWireQuickPickDidSelectItem;
 
         readonly "secrets.changed": IWireSecretRef;

@@ -81,7 +81,10 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 const start = parseWireProgressStart(params);
                 if (start === null) return;
                 progressHandles.add(start.handle);
-                progressSink?.start(start.handle, start.title);
+                const { handle, ...options } = start;
+                progressSink?.start(handle, options, () => {
+                    if (attached) rpc.notify("window.progress.cancel", { handle });
+                });
             }),
         );
         store.add(

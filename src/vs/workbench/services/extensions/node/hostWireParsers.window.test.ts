@@ -10,12 +10,20 @@ import {
 } from "./hostWireParsers.ts";
 
 describe("hostWireParsers — window.progress.*", () => {
-    it("start: handle and title as is", () => {
-        expect(parseWireProgressStart({ handle: 3, title: "Indexing" })).toStrictEqual({
-            handle: 3,
-            title: "Indexing",
+    it("start: handle and title as is; without location and cancellable — a non-cancellable Window", () => {
+        expect(
+            parseWireProgressStart({ handle: 3, title: "Indexing", location: "notification", cancellable: true }),
+        ).toStrictEqual({ handle: 3, title: "Indexing", location: "notification", cancellable: true });
+        expect(parseWireProgressStart({ handle: 1, title: "", location: null })?.location).toBe("window");
+        expect(parseWireProgressStart({ handle: 1, title: "", location: { viewId: "explorer" } })?.location).toEqual({
+            viewId: "explorer",
         });
-        expect(parseWireProgressStart({ handle: 0, title: "" })).toStrictEqual({ handle: 0, title: "" });
+        expect(parseWireProgressStart({ handle: 0, title: "" })).toStrictEqual({
+            handle: 0,
+            title: "",
+            location: "window",
+            cancellable: false,
+        });
     });
 
     it("start: foreign envelope → null", () => {

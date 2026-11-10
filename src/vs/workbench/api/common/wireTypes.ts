@@ -723,9 +723,20 @@ export interface WireRenameResult {
     readonly error?: string;
 }
 
+/** `vscode.ProgressLocation` or `{ viewId }`; upstream sends the same over `$startProgress`. */
+export type WireProgressLocation = "window" | "notification" | "sourceControl" | { readonly viewId: string };
+
 export interface IWireProgressStart {
     readonly handle: number;
     readonly title: string;
+    readonly location: WireProgressLocation;
+    /** Upstream `ProgressOptions.cancellable`: the UI offers Cancel, which comes back as `window.progress.cancel`. */
+    readonly cancellable: boolean;
+}
+
+/** Host → subprocess: the user pressed Cancel (upstream `$acceptProgressCanceled`). */
+export interface IWireProgressCancel {
+    readonly handle: number;
 }
 
 export interface IWireProgressReport {
