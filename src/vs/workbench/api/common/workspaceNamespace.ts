@@ -804,7 +804,7 @@ export function createWorkspaceNamespace(
             ignoreDeleteEvents = false,
         ): vscode.FileSystemWatcher => {
             const provided = providerGlobPattern(globPattern);
-            const provider = provided && fsProviders.get(provided.base.scheme);
+            const provider = provided === null ? undefined : fsProviders.get(provided.base.scheme);
             if (provided !== null && provider !== undefined) {
                 // As upstream: a watcher that ignores every kind of event does not ask the provider to watch.
                 if (ignoreCreateEvents && ignoreChangeEvents && ignoreDeleteEvents) {
