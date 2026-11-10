@@ -5,6 +5,7 @@ import type {
 } from "../../services/notification/browser/notificationService.ts";
 import type { IProgressSink, IProgressStartOptions } from "../common/iExtensionWindowSinks.ts";
 
+import type { ExtensionViewProgressAdapter } from "./extensionViewProgressAdapter.ts";
 import { accumulatePercent } from "./progressStatusBarAdapter.ts";
 
 /** Upstream `withNotificationProgress`: a toast that flashes up and away reads as noise. */
@@ -31,7 +32,7 @@ class NotificationProgress {
 
 /**
  * Routes `withProgress` by location, as upstream `ProgressService`: Notification is a progress toast,
- * everything else (Window; SourceControl and views for now) is the status bar entry. A toast the user
+ * Window the status bar entry, SourceControl and `{ viewId }` a view's header spinner. A toast the user
  * hid while the task runs goes on in the status bar; after Cancel the task runs on without UI.
  */
 export class ExtensionProgressAdapter implements IProgressSink {
@@ -40,11 +41,17 @@ export class ExtensionProgressAdapter implements IProgressSink {
     public constructor(
         private readonly window: IProgressSink,
         private readonly notifications: NotificationService,
+        private readonly views: Pick<ExtensionViewProgressAdapter, "start" | "end">,
     ) {}
 
     public start(handle: number, options: IProgressStartOptions, onCancel: () => void): void {
-        if (options.location !== "notification") {
+        const { location } = options;
+        if (location === "window") {
             this.window.start(handle, options, onCancel);
+            return;
+        }
+        if (location !== "notification") {
+            this.views.start(handle, location, options.title);
             return;
         }
         const entry = new NotificationProgress(options.title);
@@ -70,6 +77,7 @@ export class ExtensionProgressAdapter implements IProgressSink {
     }
 
     public report(handle: number, message?: string, increment?: number): void {
+        // A view handle falls through to the status bar sink, which doesn't know it: a view shows only the indicator.
         const entry = this.notified.get(handle);
         if (entry === undefined) {
             this.window.report(handle, message, increment);
@@ -84,7 +92,9 @@ export class ExtensionProgressAdapter implements IProgressSink {
         entry.toast.update({ message: entry.text(), percent: entry.percent });
     }
 
+    /** Every sink ignores a handle it doesn't know, so the view sink is told unconditionally. */
     public end(handle: number): void {
+        this.views.end(handle);
         const entry = this.notified.get(handle);
         if (entry === undefined) {
             this.window.end(handle);

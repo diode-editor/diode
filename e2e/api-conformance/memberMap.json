@@ -237,9 +237,28 @@
         "window.onDidChangeTerminalState",
         "window.onDidCloseTerminal"
     ],
+    "tree vscode API - tree TreeView - element already registered": [
+        "EventEmitter",
+        "TreeItem",
+        "TreeView.reveal",
+        "window.createTreeView"
+    ],
+    "tree vscode API - tree TreeView - element already registered after rapid root refresh": [
+        "EventEmitter",
+        "TreeItem",
+        "TreeView.reveal",
+        "window.createTreeView"
+    ],
     "tree vscode API - tree TreeView - element already registered after refresh": [
         "EventEmitter",
         "TreeItem",
+        "TreeView.reveal",
+        "window.createTreeView"
+    ],
+    "tree vscode API - tree TreeView - element already registered during switch and update": [
+        "EventEmitter",
+        "TreeItem",
+        "TreeView.reveal",
         "window.createTreeView"
     ],
     "types vscode API - types static properties, es5 compat class": [

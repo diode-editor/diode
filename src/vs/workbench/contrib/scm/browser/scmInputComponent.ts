@@ -293,8 +293,8 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
 
         // An operation is running — progress owns the label. Disable is immediate (isBusy), while display
         // waits for a delay: the click is disabled instantly and a fast operation does not flash text.
-        const running = this.progress.viewProgress().get(SCM_CHANGES_VIEW_ID);
-        if (running !== undefined) {
+        const running = this.progress.operationProgress(SCM_CHANGES_VIEW_ID);
+        if (running !== null) {
             this.actionButton.setLabel(`${running.spinner} ${running.title}`);
             this.actionButton.setDisabled(true);
             return;
