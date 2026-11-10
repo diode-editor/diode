@@ -47,6 +47,19 @@ describe("ExtensionPtySession — emulator without a process", () => {
         session.dispose();
     });
 
+    it("[api:Terminal.state] input reports onDidInput after it reached the pty; after exit only onDidInputAfterExit", () => {
+        const { session, onInput } = make();
+        const order: string[] = [];
+        onInput.mockImplementation((data) => order.push(`pty ${data}`));
+        session.onDidInput(() => order.push("input"));
+        session.onDidInputAfterExit(() => order.push("after exit"));
+        session.write("a");
+        session.exit(0);
+        session.write("b");
+        expect(order).toStrictEqual(["pty a", "input", "after exit"]);
+        session.dispose();
+    });
+
     it("exit: onExit with the code (undefined → 0) once; afterwards no output, input or resize", async () => {
         const { session, onInput, onResize } = make();
         const exits = vi.fn();

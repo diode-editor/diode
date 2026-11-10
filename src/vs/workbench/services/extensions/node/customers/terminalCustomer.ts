@@ -6,6 +6,7 @@ import {
     parseWireTerminalCreate,
     parseWireTerminalPtyData,
     parseWireTerminalPtyExit,
+    parseWireTerminalPtyName,
     parseWireTerminalSendText,
     parseWireTerminalShow,
     parseWireTerminalTarget,
@@ -61,6 +62,12 @@ export class TerminalCustomer implements IExtensionHostCustomer {
                 ptyResize: (id, cols, rows) => {
                     rpc.notify("terminal.pty.resize", { id, cols, rows });
                 },
+                interaction: (id) => {
+                    if (seeded()) rpc.notify("terminal.interaction", { id });
+                },
+                titleChanged: (id, name) => {
+                    if (seeded()) rpc.notify("terminal.titleChanged", { id, name });
+                },
             }),
         );
         store.add(
@@ -103,6 +110,12 @@ export class TerminalCustomer implements IExtensionHostCustomer {
             rpc.handleNotification("terminal.pty.exit", (params) => {
                 const request = parseWireTerminalPtyExit(params);
                 if (request !== null) sink.ptyExit(request.terminal, request.code);
+            }),
+        );
+        store.add(
+            rpc.handleNotification("terminal.pty.name", (params) => {
+                const request = parseWireTerminalPtyName(params);
+                if (request !== null) sink.ptyName(request.terminal, request.name);
             }),
         );
         store.add({

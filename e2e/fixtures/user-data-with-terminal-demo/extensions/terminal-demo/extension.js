@@ -15,6 +15,7 @@ exports.activate = function activate(context) {
     const eventItem = item(103, "ev:-");
     const listItem = item(102, "ls:-");
     const activeItem = item(101, "act:-");
+    const stateItem = item(100, "st:-");
 
     const report = (event) => {
         eventItem.text = `ev:${event}`;
@@ -25,6 +26,10 @@ exports.activate = function activate(context) {
         vscode.window.onDidOpenTerminal((t) => report(`open ${t.name}`)),
         vscode.window.onDidCloseTerminal((t) => report(`close${t.exitStatus ? t.exitStatus.reason : "?"}`)),
         vscode.window.onDidChangeActiveTerminal(() => report("active")),
+        // `terminal.state`: the shell type guessed at creation, then "typed" after the first input.
+        vscode.window.onDidChangeTerminalState((t) => {
+            stateItem.text = `st:${t.state.shell || "?"}:${t.state.isInteractedWith ? "typed" : "idle"}`;
+        }),
     );
 
     let demo;
@@ -54,6 +59,21 @@ exports.activate = function activate(context) {
         // A log in a pty terminal — the shape of bazel-java's `getBazelTerminal()`: find our
         // terminal in window.terminals or create one with a pty, write via sendText
         // (the pty echoes the input recolored), show it.
+        // A pty that names itself once opened (`Pseudoterminal.onDidChangeName`), like a task runner showing its state.
+        vscode.commands.registerCommand("terminalDemo.rename", () => {
+            const writeEmitter = new vscode.EventEmitter();
+            const nameEmitter = new vscode.EventEmitter();
+            const pty = {
+                onDidWrite: writeEmitter.event,
+                onDidChangeName: nameEmitter.event,
+                open: () => {
+                    writeEmitter.fire("renamed by the pty\r\n");
+                    nameEmitter.fire("Pty Renamed");
+                },
+                close: () => undefined,
+            };
+            vscode.window.createTerminal({ name: "Pty Initial", pty }).show();
+        }),
         vscode.commands.registerCommand("terminalDemo.log", () => {
             const log = getLogTerminal(vscode);
             log.sendText("\u001b[32mlog: build started\u001b[0m");

@@ -71,6 +71,7 @@ import {
     type IWireTerminalLocation,
     type IWireTerminalPtyData,
     type IWireTerminalPtyExit,
+    type IWireTerminalPtyName,
     type IWireTerminalRef,
     type IWireTerminalSendText,
     type IWireTerminalShow,
@@ -543,6 +544,13 @@ export function parseWireTerminalPtyExit(raw: unknown): IWireTerminalPtyExit | n
     if (target === null) return null;
     const { code } = raw as Record<string, unknown>;
     return { terminal: target.terminal, ...(isFiniteNumber(code) ? { code } : {}) };
+}
+
+export function parseWireTerminalPtyName(raw: unknown): IWireTerminalPtyName | null {
+    const target = parseWireTerminalTarget(raw);
+    if (target === null) return null;
+    const { name } = raw as Record<string, unknown>;
+    return typeof name === "string" ? { terminal: target.terminal, name } : null;
 }
 
 export function parseWireTerminalSendText(raw: unknown): IWireTerminalSendText | null {

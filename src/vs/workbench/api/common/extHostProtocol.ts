@@ -202,14 +202,17 @@ import type {
     IWireTerminalActive,
     IWireTerminalClosed,
     IWireTerminalCreate,
+    IWireTerminalInteraction,
     IWireTerminalOpened,
     IWireTerminalPtyData,
     IWireTerminalPtyDimensions,
     IWireTerminalPtyExit,
     IWireTerminalPtyInput,
+    IWireTerminalPtyName,
     IWireTerminalSendText,
     IWireTerminalShow,
     IWireTerminalTarget,
+    IWireTerminalTitleChanged,
     IWireTextContentResult,
     IWireTypeHierarchyParams,
     IWireUpdateWorkspaceFolders,
@@ -392,6 +395,8 @@ export interface IHostToSubprocess {
         readonly "terminal.pty.start": IWireTerminalPtyDimensions;
         readonly "terminal.pty.resize": IWireTerminalPtyDimensions;
         readonly "terminal.pty.input": IWireTerminalPtyInput;
+        readonly "terminal.interaction": IWireTerminalInteraction;
+        readonly "terminal.titleChanged": IWireTerminalTitleChanged;
 
         readonly "tasks.didStart": IWireTaskStarted;
         readonly "tasks.didStartProcess": IWireTaskProcessStarted;
@@ -530,6 +535,7 @@ export interface ISubprocessToHost {
         readonly "terminal.dispose": IWireTerminalTarget;
         readonly "terminal.pty.data": IWireTerminalPtyData;
         readonly "terminal.pty.exit": IWireTerminalPtyExit;
+        readonly "terminal.pty.name": IWireTerminalPtyName;
 
         readonly "tasks.registerProvider": IWireTaskProviderRegistration;
         readonly "tasks.unregisterProvider": IWireTaskProviderHandle;

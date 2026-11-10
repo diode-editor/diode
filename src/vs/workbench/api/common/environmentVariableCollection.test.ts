@@ -22,6 +22,8 @@ const folder = (index: number): vscode.WorkspaceFolder => ({
     index,
 });
 
+const DEFAULT_OPTIONS = { applyAtProcessCreation: true, applyAtShellIntegration: false };
+
 describe("ExtensionContext.environmentVariableCollection (subprocess)", () => {
     it("one collection per extension; nothing is sent to the host without changes", () => {
         const { collections, sent } = setup();
@@ -41,24 +43,49 @@ describe("ExtensionContext.environmentVariableCollection (subprocess)", () => {
             extensionId: "a.b",
             persistent: true,
             collection: [
-                ["A", { variable: "A", value: "1", type: 1, options: { applyAtProcessCreation: true } }],
-                ["B", { variable: "B", value: "2", type: 2, options: { applyAtProcessCreation: true } }],
-                ["C", { variable: "C", value: "3", type: 3, options: { applyAtProcessCreation: true } }],
+                ["A", { variable: "A", value: "1", type: 1, options: DEFAULT_OPTIONS }],
+                ["B", { variable: "B", value: "2", type: 2, options: DEFAULT_OPTIONS }],
+                ["C", { variable: "C", value: "3", type: 3, options: DEFAULT_OPTIONS }],
             ],
             description: [],
         });
     });
 
-    it("get returns the mutator without variable and scope; unknown yields undefined", () => {
+    it("get returns the mutator with variable and without scope; unknown yields undefined", () => {
         const { collections } = setup();
         const c = collections.get("a.b");
         c.append("PATH", ":/x", { applyAtShellIntegration: true });
-        expect(c.get("PATH")).toEqual({
-            type: EnvironmentVariableMutatorType.Append,
+        expect(c.get("PATH")).toStrictEqual({
             value: ":/x",
+            type: EnvironmentVariableMutatorType.Append,
             options: { applyAtProcessCreation: false, applyAtShellIntegration: true },
+            variable: "PATH",
         });
         expect(c.get("NOPE")).toBeUndefined();
+    });
+
+    it("[api:EnvironmentVariableCollection.get] [api:EnvironmentVariableCollection.forEach] without options the mutator has both flags, as upstream", () => {
+        const { collections } = setup();
+        const c = collections.get("a.b");
+        c.replace("A", "1");
+        const scoped = c.getScoped({ workspaceFolder: folder(0) });
+        scoped.prepend("A", "s");
+        const mutator = {
+            value: "1",
+            type: EnvironmentVariableMutatorType.Replace,
+            options: DEFAULT_OPTIONS,
+            variable: "A",
+        };
+        expect(c.get("A")).toStrictEqual(mutator);
+        const entries: unknown[] = [];
+        c.forEach((variable, m) => entries.push([variable, m]));
+        expect(entries).toStrictEqual([["A", mutator]]);
+        expect(scoped.get("A")).toStrictEqual({
+            value: "s",
+            type: EnvironmentVariableMutatorType.Prepend,
+            options: DEFAULT_OPTIONS,
+            variable: "A",
+        });
     });
 
     it("same mutator again sends no notification (Claude Code resets the port on every activation)", () => {
@@ -69,9 +96,11 @@ describe("ExtensionContext.environmentVariableCollection (subprocess)", () => {
         expect(sent()).toHaveLength(1);
         c.replace("P", "2");
         c.append("P", "2");
+        // The default options spelled out are the same mutator.
         c.append("P", "2", { applyAtProcessCreation: true });
+        expect(sent()).toHaveLength(3);
         c.append("P", "2", { applyAtProcessCreation: true, applyAtShellIntegration: true });
-        expect(sent()).toHaveLength(5);
+        expect(sent()).toHaveLength(4);
     });
 
     it("shell integration only is allowed (no error), options as passed", () => {
@@ -126,7 +155,7 @@ describe("ExtensionContext.environmentVariableCollection (subprocess)", () => {
                     variable: "V",
                     value: "v",
                     type: 1,
-                    options: { applyAtProcessCreation: true },
+                    options: DEFAULT_OPTIONS,
                     scope: { workspaceFolder: { uri: "file:///w1", name: "w1", index: 1 } },
                 },
             ],
@@ -226,17 +255,15 @@ describe("ExtensionContext.environmentVariableCollection (subprocess)", () => {
     it("host seed: saved collection is visible to the extension, its edit is sent to the host", () => {
         const { stub, collections, sent } = setup();
         stub.fire("terminal.initEnvironmentVariableCollections", {
-            collections: [
-                ["a.b", [["P", { variable: "P", value: "5", type: 1, options: { applyAtProcessCreation: true } }]]],
-            ],
+            collections: [["a.b", [["P", { variable: "P", value: "5", type: 1, options: DEFAULT_OPTIONS }]]]],
         });
         const c = collections.get("a.b");
-        expect(c.get("P")?.value).toBe("5");
+        expect(c.get("P")).toStrictEqual({ value: "5", type: 1, options: DEFAULT_OPTIONS, variable: "P" });
         c.replace("P", "5");
         expect(sent()).toEqual([]);
         c.replace("P", "6");
         expect(sent().at(-1)?.collection).toEqual([
-            ["P", { variable: "P", value: "6", type: 1, options: { applyAtProcessCreation: true } }],
+            ["P", { variable: "P", value: "6", type: 1, options: DEFAULT_OPTIONS }],
         ]);
     });
 });

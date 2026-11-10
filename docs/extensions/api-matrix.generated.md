@@ -14,15 +14,15 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1213 |
+| ok | 1214 |
 | A | 4 |
-| B | 217 |
+| B | 216 |
 | C | 547 |
 | X | 234 |
 
 | mark | members |
 | --- | --- |
-| test | 169 |
+| test | 186 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -85,7 +85,6 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `TestTag` | C | 9 | 126,484,023 | needs the Testing surface |
 | `workspace.registerFileSystemProvider` | B | 16 | 123,646,172 | opens only as a diff side; directory operations are never called |
 | `DebugConfigurationProviderTriggerKind.Dynamic` | C | 8 | 121,970,902 | needs a debugger |
-| `window.onDidChangeTerminalState` | B | 5 | 120,897,053 | not declared in vscode.d.ts |
 | `TestMessage.diff` | C | 5 | 115,107,275 | needs the Testing surface |
 | `FileCoverage` | C | 6 | 114,510,809 | needs the Testing surface |
 | `TestCoverageCount` | C | 6 | 114,510,809 | needs the Testing surface |
@@ -132,6 +131,7 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 | `DataTransferItem` | B | 3 | 43,734,303 | not declared in vscode.d.ts |
 | `McpHttpServerDefinition` | C | 3 | 43,662,466 | needs a chat surface and a model backend |
 | `SourceBreakpoint` | C | 8 | 43,108,503 | needs a debugger |
+| `NotebookEdit.updateCellMetadata` | X | 6 | 35,797,803 | notebook |
 
 ## Proposed extensions
 
@@ -244,12 +244,12 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `qwtel.sqlite-viewer` | 26.9.1 | 1,030,879 |  | 55 | 5 | 0 | 4 | 0 | 1 |
 | `salesforce.salesforcedx-einstein-gpt` | 4.42.0 | 676,578 |  | 79 | 5 | 0 | 2 | 0 | 3 |
 | `salesforce.salesforcedx-vscode-services` | 68.7.3 | 547,921 |  | 60 | 5 | 0 | 5 | 0 | 0 |
+| `ms-python.vscode-python-envs` | 1.40.0 | 45,566,739 |  | 108 | 6 | 0 | 5 | 0 | 1 |
 | `vscjava.vscode-java-dependency` | 0.27.7 | 41,776,591 |  | 101 | 6 | 0 | 3 | 3 | 0 |
 | `vscjava.vscode-java-pack` | 0.31.2 | 24,027,482 |  | 60 | 6 | 0 | 3 | 0 | 3 |
 | `openai.chatgpt` | 26.51021.22027 | 12,919,792 |  | 102 | 6 | 0 | 1 | 1 | 4 |
 | `NexrallCode.nexrall-code-vscode` | 2.0.17 | 1,166,251 |  | 45 | 6 | 0 | 3 | 0 | 3 |
 | `xdebug.php-debug` | 1.40.2 | 803,058 |  | 14 | 6 | 0 | 1 | 5 | 0 |
-| `ms-python.vscode-python-envs` | 1.40.0 | 45,566,739 |  | 108 | 7 | 0 | 6 | 0 | 1 |
 | `James-Yu.latex-workshop` | 10.20.0 | 907,583 |  | 122 | 7 | 0 | 2 | 1 | 4 |
 | `salesforce.salesforcedx-vscode-apex-testing` | 68.7.3 | 487,568 |  | 36 | 7 | 0 | 0 | 7 | 0 |
 | `ms-toolsai.vscode-jupyter-cell-tags` | 0.1.9 | 8,947,433 |  | 22 | 8 | 0 | 0 | 0 | 8 |
@@ -311,10 +311,10 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `TabNine.tabnine-vscode` | 3.346.8 | 620,681 |  | 130 | 17 | 0 | 10 | 4 | 3 |
 | `laravel.vscode-laravel` | 2.0.1 | 541,132 |  | 182 | 17 | 0 | 1 | 8 | 8 |
 | `Vue.volar` | 3.3.14 | 11,149,304 |  | 185 | 18 | 0 | 2 | 7 | 9 |
+| `saoudrizwan.claude-dev` | 4.1.26 | 7,352,757 |  | 86 | 18 | 0 | 5 | 11 | 2 |
 | `hashicorp.terraform` | 2.40.0 | 2,425,304 | yes | 202 | 18 | 0 | 5 | 5 | 8 |
 | `wgsl-analyzer.wgsl-analyzer` | 0.12.534 | 466,617 |  | 202 | 18 | 0 | 3 | 5 | 10 |
 | `redhat.java` | 1.59.2026103008 | 47,408,151 | yes | 233 | 19 | 0 | 4 | 4 | 11 |
-| `saoudrizwan.claude-dev` | 4.1.26 | 7,352,757 |  | 86 | 19 | 0 | 6 | 11 | 2 |
 | `kilocode.kilo-code` | 7.8.25 | 4,678,485 |  | 130 | 19 | 0 | 1 | 1 | 17 |
 | `charliermarsh.ruff` | 2026.92.0 | 4,019,733 | yes | 189 | 19 | 0 | 5 | 4 | 10 |
 | `nrwl.angular-console` | 18.102.0 | 701,593 |  | 206 | 19 | 0 | 4 | 6 | 9 |
@@ -324,12 +324,12 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `VMware.vscode-spring-boot` | 2.5.2026102900 | 2,014,123 |  | 191 | 21 | 0 | 2 | 11 | 8 |
 | `vitest.explorer` | 1.52.2 | 873,636 |  | 79 | 21 | 0 | 1 | 19 | 1 |
 | `Anthropic.claude-code` | 2.1.314 | 63,161,919 | yes | 108 | 22 | 0 | 6 | 5 | 11 |
+| `amazonwebservices.amazon-q-vscode` | 2.9.0 | 2,245,244 |  | 250 | 22 | 0 | 7 | 5 | 10 |
 | `cweijan.vscode-mysql-client2` | 9.0.2 | 1,382,296 |  | 140 | 22 | 0 | 5 | 7 | 10 |
 | `vadimcn.vscode-lldb` | 1.12.3 | 1,377,722 |  | 75 | 22 | 0 | 1 | 20 | 1 |
 | `salesforce.salesforcedx-vscode-lwc` | 68.7.3 | 611,798 |  | 189 | 22 | 0 | 1 | 13 | 8 |
 | `cweijan.vscode-database-client2` | 9.0.2 | 554,166 |  | 140 | 22 | 0 | 5 | 7 | 10 |
 | `vscjava.vscode-java-debug` | 0.60.0 | 28,235,473 |  | 88 | 23 | 0 | 2 | 21 | 0 |
-| `amazonwebservices.amazon-q-vscode` | 2.9.0 | 2,245,244 |  | 250 | 23 | 0 | 8 | 5 | 10 |
 | `ms-vscode.powershell` | 2025.4.0 | 2,680,851 |  | 216 | 24 | 0 | 1 | 15 | 8 |
 | `SonarSource.sonarlint-vscode` | 6.2.0 | 2,183,069 |  | 225 | 24 | 0 | 3 | 9 | 12 |
 | `MermaidChart.vscode-mermaid-chart` | 2.8.3 | 2,099,821 |  | 111 | 24 | 0 | 4 | 18 | 2 |
@@ -352,10 +352,10 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `golang.Go` | 0.58.0 | 43,153,897 | yes | 251 | 39 | 0 | 7 | 21 | 11 |
 | `Shopify.ruby-lsp` | 0.10.8 | 44,640,277 |  | 234 | 40 | 0 | 3 | 27 | 10 |
 | `Oracle.oracle-java` | 27.0.0 | 853,283 |  | 231 | 40 | 0 | 3 | 18 | 19 |
+| `amazonwebservices.aws-toolkit-vscode` | 4.18.0 | 3,840,104 |  | 286 | 47 | 0 | 8 | 9 | 30 |
 | `REditorSupport.r` | 3.3.20261027 | 2,232,798 |  | 265 | 47 | 0 | 6 | 6 | 35 |
-| `amazonwebservices.aws-toolkit-vscode` | 4.18.0 | 3,840,104 |  | 286 | 48 | 0 | 9 | 9 | 30 |
 | `Dart-Code.dart-code` | 3.147.20261029 | 6,090,051 |  | 266 | 52 | 0 | 7 | 34 | 11 |
-| `ms-python.python` | 2026.4.0 | 61,892,209 |  | 282 | 58 | 0 | 9 | 33 | 16 |
+| `ms-python.python` | 2026.4.0 | 61,892,209 |  | 282 | 57 | 0 | 8 | 33 | 16 |
 | `ms-toolsai.jupyter` | 2025.9.1 | 11,211,375 |  | 268 | 60 | 0 | 1 | 25 | 34 |
 
 ## Bundles without a visible API
@@ -994,18 +994,18 @@ Proposed API or a false hit: class X when real.
 | `env.shell` | ok | yes | 21 | 356,487,352 | vscjava.vscode-maven |
 | `env.uiKind` | ok |  | 34 | 294,260,468 | redhat.vscode-yaml |
 | `env.uriScheme` | ok |  | 22 | 133,366,099 |  |
-| `EnvironmentVariableCollection.append` | ok |  | 0 | 0 |  |
+| `EnvironmentVariableCollection.append` | ok | yes | 0 | 0 |  |
 | `EnvironmentVariableCollection.clear` | ok |  | 0 | 0 |  |
 | `EnvironmentVariableCollection.delete` | ok |  | 0 | 0 |  |
 | `EnvironmentVariableCollection.description` | ok |  | 0 | 0 |  |
-| `EnvironmentVariableCollection.forEach` | ok |  | 0 | 0 |  |
-| `EnvironmentVariableCollection.get` | ok |  | 0 | 0 |  |
+| `EnvironmentVariableCollection.forEach` | ok | yes | 0 | 0 |  |
+| `EnvironmentVariableCollection.get` | ok | yes | 0 | 0 |  |
 | `EnvironmentVariableCollection.persistent` | ok |  | 0 | 0 |  |
-| `EnvironmentVariableCollection.prepend` | ok |  | 0 | 0 |  |
-| `EnvironmentVariableCollection.replace` | ok |  | 0 | 0 |  |
-| `EnvironmentVariableMutator.options` | ok |  | 0 | 0 |  |
-| `EnvironmentVariableMutator.type` | ok |  | 0 | 0 |  |
-| `EnvironmentVariableMutator.value` | ok |  | 0 | 0 |  |
+| `EnvironmentVariableCollection.prepend` | ok | yes | 0 | 0 |  |
+| `EnvironmentVariableCollection.replace` | ok | yes | 0 | 0 |  |
+| `EnvironmentVariableMutator.options` | ok | yes | 0 | 0 |  |
+| `EnvironmentVariableMutator.type` | ok | yes | 0 | 0 |  |
+| `EnvironmentVariableMutator.value` | ok | yes | 0 | 0 |  |
 | `EnvironmentVariableMutatorOptions.applyAtProcessCreation` | ok |  | 0 | 0 |  |
 | `EnvironmentVariableMutatorOptions.applyAtShellIntegration` | ok |  | 0 | 0 |  |
 | `EnvironmentVariableMutatorType` | ok |  | 0 | 0 |  |
@@ -1030,7 +1030,7 @@ Proposed API or a false hit: class X when real.
 | `Extension.isActive` | ok |  | 0 | 0 |  |
 | `Extension.packageJSON` | ok |  | 0 | 0 |  |
 | `ExtensionContext.asAbsolutePath` | ok |  | 0 | 0 |  |
-| `ExtensionContext.environmentVariableCollection` | ok |  | 0 | 0 |  |
+| `ExtensionContext.environmentVariableCollection` | ok | yes | 0 | 0 |  |
 | `ExtensionContext.extension` | ok |  | 0 | 0 |  |
 | `ExtensionContext.extensionMode` | ok |  | 0 | 0 |  |
 | `ExtensionContext.extensionPath` | ok |  | 0 | 0 |  |
@@ -1154,7 +1154,7 @@ Proposed API or a false hit: class X when real.
 | `FormattingOptions.tabSize` | ok |  | 0 | 0 |  |
 | `FunctionBreakpoint` | C |  | 1 | 1,989,577 |  |
 | `FunctionBreakpoint.functionName` | C |  | 0 | 0 |  |
-| `GlobalEnvironmentVariableCollection.getScoped` | ok |  | 0 | 0 |  |
+| `GlobalEnvironmentVariableCollection.getScoped` | ok | yes | 0 | 0 |  |
 | `Hover` | ok |  | 94 | 726,341,400 |  |
 | `Hover.contents` | ok |  | 0 | 0 |  |
 | `Hover.range` | ok |  | 0 | 0 |  |
@@ -1664,7 +1664,7 @@ Proposed API or a false hit: class X when real.
 | `ProvideLanguageModelChatResponseOptions.tools` | C |  | 0 | 0 |  |
 | `Pseudoterminal.close` | ok |  | 0 | 0 |  |
 | `Pseudoterminal.handleInput` | ok |  | 0 | 0 |  |
-| `Pseudoterminal.onDidChangeName` | ok |  | 0 | 0 |  |
+| `Pseudoterminal.onDidChangeName` | ok | yes | 0 | 0 |  |
 | `Pseudoterminal.onDidClose` | ok |  | 0 | 0 |  |
 | `Pseudoterminal.onDidOverrideDimensions` | ok |  | 0 | 0 |  |
 | `Pseudoterminal.onDidWrite` | ok |  | 0 | 0 |  |
@@ -2048,12 +2048,12 @@ Proposed API or a false hit: class X when real.
 | `Terminal.dispose` | ok |  | 0 | 0 |  |
 | `Terminal.exitStatus` | ok |  | 0 | 0 |  |
 | `Terminal.hide` | ok |  | 0 | 0 |  |
-| `Terminal.name` | ok |  | 0 | 0 |  |
+| `Terminal.name` | ok | yes | 0 | 0 |  |
 | `Terminal.processId` | ok |  | 0 | 0 |  |
-| `Terminal.sendText` | ok |  | 0 | 0 |  |
+| `Terminal.sendText` | ok | yes | 0 | 0 |  |
 | `Terminal.shellIntegration` | ok |  | 0 | 0 |  |
 | `Terminal.show` | ok |  | 0 | 0 |  |
-| `Terminal.state` | ok |  | 0 | 0 |  |
+| `Terminal.state` | ok | yes | 0 | 0 |  |
 | `TerminalDimensions.columns` | ok |  | 0 | 0 |  |
 | `TerminalDimensions.rows` | ok |  | 0 | 0 |  |
 | `TerminalEditorLocationOptions.preserveFocus` | ok |  | 0 | 0 |  |
@@ -2115,8 +2115,8 @@ Proposed API or a false hit: class X when real.
 | `TerminalShellIntegrationChangeEvent.shellIntegration` | B |  | 0 | 0 |  |
 | `TerminalShellIntegrationChangeEvent.terminal` | B |  | 0 | 0 |  |
 | `TerminalSplitLocationOptions.parentTerminal` | ok |  | 0 | 0 |  |
-| `TerminalState.isInteractedWith` | ok |  | 0 | 0 |  |
-| `TerminalState.shell` | ok |  | 0 | 0 |  |
+| `TerminalState.isInteractedWith` | ok | yes | 0 | 0 |  |
+| `TerminalState.shell` | ok | yes | 0 | 0 |  |
 | `TestController.createRunProfile` | C |  | 0 | 0 |  |
 | `TestController.createTestItem` | C |  | 0 | 0 |  |
 | `TestController.createTestRun` | C |  | 0 | 0 |  |
@@ -2504,7 +2504,7 @@ Proposed API or a false hit: class X when real.
 | `window.onDidChangeNotebookEditorSelection` | X |  | 3 | 10,746,297 |  |
 | `window.onDidChangeNotebookEditorVisibleRanges` | X |  | 0 | 0 |  |
 | `window.onDidChangeTerminalShellIntegration` | B |  | 9 | 210,306,892 |  |
-| `window.onDidChangeTerminalState` | B |  | 5 | 120,897,053 |  |
+| `window.onDidChangeTerminalState` | ok | yes | 5 | 120,897,053 |  |
 | `window.onDidChangeTextEditorOptions` | B |  | 4 | 82,872,454 |  |
 | `window.onDidChangeTextEditorSelection` | ok | yes | 50 | 361,667,096 | yzhang.markdown-all-in-one |
 | `window.onDidChangeTextEditorViewColumn` | ok | yes | 4 | 86,704,102 |  |
