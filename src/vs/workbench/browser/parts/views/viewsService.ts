@@ -583,6 +583,8 @@ export class ViewsService implements IContextKeyContributor {
             this.attachContainer(descriptor.id);
         }
         this.showDefaultViewlet();
+        // The restored moves are location changes too: a view created before this (the terminal's) learns where it is.
+        this.onDidChangeLocationsEmitter.fire();
     }
 
     /**

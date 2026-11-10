@@ -33,6 +33,9 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `extensionHost.vitestExplorer.test.ts`, стоковый vitest.explorer (#1068): прогон vitest расширения вывел
+  `DEV` без `FAIL` в initial test run Stryker'а мутационного гейта (run 42741891573, PR #1117, дифф — sash
+  списка вкладок терминала); юнит-job того же прогона зелёный.
 - [ ] `e2e/bench/xlargeBudget.bench.ts`: `undoInsert` median 16 > 16 на ubuntu, ровно на границе бюджета (run
   42745526700, PR #1119, дифф — тест и доки `onDidChangeWorkspaceFolders`). Бенч, не юнит — в `test-flakes.json` не стоит.
 - [ ] `testResultsOutput.test.ts`, «a new subject starts from a clean surface»: на экране пусто вместо `new` в

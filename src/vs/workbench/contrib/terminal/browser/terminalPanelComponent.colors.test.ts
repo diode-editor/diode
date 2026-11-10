@@ -54,6 +54,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
         new CommandRegistry(),
         colors,
         createPlainTerminalWidget,
+        views.state,
     );
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     const widget = (): TUIElement => views.paneView(TERMINAL_VIEW_ID).querySelectorAll("TerminalViewElement")[0];
