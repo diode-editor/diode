@@ -146,6 +146,36 @@ describe("NotificationsComponent — progress toast", () => {
         expect(w.notifications.passive()).toEqual([]);
     });
 
+    it("after the progress ended its Cancel is gone for Focus Message too", () => {
+        w.start();
+        w.adapter.end(1);
+        vi.advanceTimersByTime(PROGRESS_NOTIFICATION_MIN_VISIBLE_MS);
+
+        expect(w.component.focusAsk()).toBe(false);
+    });
+
+    it("a host outside an application (no focus manager): Focus Message and Cancel still work", () => {
+        const notifications = new NotificationService();
+        const component = new NotificationsComponent(notifications, new KeybindingRegistry(), new ContextKeyService());
+        component.attachHost(new BodyElement());
+        let cancelled = 0;
+        notifications.showProgress({
+            message: "Indexing",
+            cancellable: true,
+            onCancel: () => {
+                cancelled++;
+            },
+            onHide: () => undefined,
+        });
+
+        expect(component.focusAsk()).toBe(true);
+        notifications.answer(notifications.passive()[0].id, 0);
+
+        expect(cancelled).toBe(1);
+        expect(notifications.passive()).toEqual([]);
+        component.dispose();
+    });
+
     it("without Cancel there is nothing for Focus Message", () => {
         w.start(false);
 

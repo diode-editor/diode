@@ -95,13 +95,13 @@ export class NotificationToast extends DialogComponent {
         this.tail = tail;
 
         // Upstream shows a progress bar under the message: here a spinner, then the percent as text.
-        this.progressLabel = notification.progress === undefined ? null : new TextLabelElement("");
+        this.progressLabel = notification.progress === undefined ? null : new TextLabelElement(SPINNER_FRAMES[0]);
         if (this.progressLabel !== null) {
             this.progressLabel.style = { fg: TOAST_STYLES.descriptionFg };
             tail.push(this.progressLabel);
             // Upstream animates only an infinite progress: the ticker stops at the first percent.
             const timer = setInterval(() => {
-                if (this.notification.progress?.percent !== undefined) {
+                if (this.percent !== undefined) {
                     clearInterval(timer);
                     return;
                 }
@@ -178,8 +178,12 @@ export class NotificationToast extends DialogComponent {
         this.renderProgress();
     }
 
+    private get percent(): number | undefined {
+        return this.notification.progress?.percent;
+    }
+
     private renderProgress(): void {
-        const percent = this.notification.progress?.percent;
+        const percent = this.percent;
         this.progressLabel?.setText(
             percent === undefined ? SPINNER_FRAMES[this.spinnerFrame] : `${String(Math.round(percent))}%`,
         );
@@ -190,9 +194,9 @@ export class NotificationToast extends DialogComponent {
         return this.notification.items.length > 0;
     }
 
-    /** Only a progress toast without Cancel has no buttons, and nobody focuses it. */
+    /** Called on a question or an interactive progress toast: both have a button. */
     public focusDefault(): void {
-        this.buttons.at(0)?.focus();
+        this.buttons[0].focus();
     }
 
     public hintText(): string | null {

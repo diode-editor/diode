@@ -1,4 +1,5 @@
 import { Point } from "@tuidom/core/common/geometryPromitives";
+import type { FocusManager } from "@tuidom/core/dom/events/focusManager";
 import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { BodyElement } from "@tuidom/elements/body/bodyElement";
@@ -86,7 +87,7 @@ export class NotificationsComponent extends Component {
     /** By notification id: a progress toast is updated in place, not rebuilt (its Cancel may have focus). */
     private readonly passiveToasts = new Map<number, NotificationToast>();
     /** Queue size and ids the stack was last built from; the stack is rebuilt only when they change. */
-    private passiveLayout = "";
+    private passiveLayout: string | null = null;
     /** Where focus was before "Focus Message" moved it into a progress toast; returned when that toast goes. */
     private progressFocusReturn: { readonly id: number; readonly element: TUIElement | null } | null = null;
 
@@ -152,7 +153,7 @@ export class NotificationsComponent extends Component {
         }
         const progress = [...this.passiveToasts.values()].find((toast) => toast.isInteractive);
         if (progress === undefined) return false;
-        const element = this.attached?.host.focusManager?.activeElement ?? null;
+        const element = this.focusManager()?.activeElement ?? null;
         this.progressFocusReturn = { id: progress.notification.id, element };
         progress.focusDefault();
         return true;
@@ -183,12 +184,12 @@ export class NotificationsComponent extends Component {
                 this.passiveToasts.set(notification.id, toast);
                 return toast;
             }
-            if (existing.notification !== notification) existing.update(notification);
+            existing.update(notification);
             return existing;
         });
         // Not "hidden for good": the queue reaches the screen once the front toast goes away.
         const queued = this.notifications.queuedPassiveCount();
-        const layout = `${String(queued)}:${[...live].join(",")}`;
+        const layout = JSON.stringify([queued, ...live]);
         if (layout !== this.passiveLayout) {
             this.passiveLayout = layout;
             // Removed TOGETHER with disposing them: disposed widgets left in the tree would eventually get rendered.
@@ -218,10 +219,17 @@ export class NotificationsComponent extends Component {
         const saved = this.progressFocusReturn;
         if (saved?.id !== id) return;
         this.progressFocusReturn = null;
-        const focusManager = this.attached?.host.focusManager;
-        const active = focusManager?.activeElement ?? null;
+        const focusManager = this.focusManager();
+        if (focusManager === null) return;
+        const active = focusManager.activeElement;
         if (active !== null && !active.getAncestorPath().includes(toast.view)) return;
-        if (saved.element !== null) focusManager?.setFocus(saved.element);
+        focusManager.setFocus(saved.element);
+    }
+
+    /** The host's: it lives on the application root, not on the overlay. */
+    private focusManager(): FocusManager | null {
+        // Stryker disable next-line OptionalChaining: passive toasts are built only after attachHost, and both callers start from a passive toast
+        return this.attached?.host.focusManager ?? null;
     }
 
     private syncAsk(attached: IAttachedHost): void {
@@ -311,8 +319,6 @@ export class NotificationsComponent extends Component {
     private disposePassive(): void {
         // Stryker disable next-line CallExpression: same reason
         for (const toast of this.passiveToasts.values()) toast.dispose();
-        this.passiveToasts.clear();
-        this.passiveLayout = "";
     }
 
     /** The hint shows the CURRENT "answer" binding: the user may rebind it. */

@@ -76,7 +76,8 @@ describe("ExtensionProgressAdapter", () => {
         start(1, { title: "", location: "notification", cancellable: false });
         adapter.report(1, "$(sync~spin) Loading \\$(x)");
 
-        expect(toasts()[0]).toEqual(expect.objectContaining({ message: " Loading $(x)", items: [] }));
+        // A message alone leaves the progress infinite.
+        expect(toasts()[0]).toEqual(expect.objectContaining({ message: " Loading $(x)", items: [], progress: {} }));
     });
 
     it("the toast stays at least 800 ms, then goes when the task ended", () => {
@@ -125,6 +126,24 @@ describe("ExtensionProgressAdapter", () => {
 
         adapter.end(1);
         expect(bar()).toEqual([]);
+    });
+
+    it("hidden after a bare increment: the status bar gets the percent", () => {
+        start(1);
+        adapter.report(1, undefined, 30);
+
+        notifications.clearAll();
+
+        expect(bar()).toEqual(["Indexing (30%)"]);
+    });
+
+    it("a report after the task ended does not touch the toast still on screen", () => {
+        start(1);
+        adapter.end(1);
+
+        adapter.report(1, "late", 10);
+
+        expect(toasts()[0]).toEqual(expect.objectContaining({ message: "Indexing", progress: {} }));
     });
 
     it("hidden before any report: a bare status bar entry", () => {

@@ -27,12 +27,11 @@ export function toWireProgressLocation(location: unknown): WireProgressLocation 
  */
 export function createProgressApi(rpc: SubprocessRpc): Pick<typeof vscode.window, "withProgress"> {
     let nextHandle = 1;
-    const cancellations = new Map<number, CancellationTokenSource>();
+    /** Every running task has a source; only a cancellable one hands its token to the task. */
+    const cancellations = new Map<unknown, CancellationTokenSource>();
 
     rpc.handleNotification("window.progress.cancel", (params) => {
-        const handle = (params as { handle?: unknown } | null)?.handle;
-        if (typeof handle !== "number") return;
-        cancellations.get(handle)?.cancel();
+        cancellations.get((params as { handle?: unknown } | null)?.handle)?.cancel();
     });
 
     const withProgress = <R>(
@@ -41,8 +40,8 @@ export function createProgressApi(rpc: SubprocessRpc): Pick<typeof vscode.window
     ): Thenable<R> => {
         const handle = nextHandle++;
         const cancellable = options.cancellable === true;
-        const source = cancellable ? new CancellationTokenSource() : undefined;
-        if (source !== undefined) cancellations.set(handle, source);
+        const source = new CancellationTokenSource();
+        cancellations.set(handle, source);
         rpc.notify("window.progress.start", {
             handle,
             title: options.title ?? "",
@@ -58,20 +57,18 @@ export function createProgressApi(rpc: SubprocessRpc): Pick<typeof vscode.window
                 rpc.notify("window.progress.report", {
                     handle,
                     ...(typeof v.message === "string" ? { message: v.message } : {}),
-                    ...(typeof v.increment === "number" && Number.isFinite(v.increment)
-                        ? { increment: v.increment }
-                        : {}),
+                    ...(Number.isFinite(v.increment) ? { increment: v.increment as number } : {}),
                 });
             },
         };
         const done = (): void => {
             cancellations.delete(handle);
-            source?.dispose();
+            source.dispose();
             rpc.notify("window.progress.end", { handle });
         };
         // `new Promise` turns a synchronous throw into a rejection, so `done` still runs.
         return new Promise<R>((resolve) => {
-            resolve(task(progress, source?.token ?? NEVER_CANCELLED_TOKEN));
+            resolve(task(progress, cancellable ? source.token : NEVER_CANCELLED_TOKEN));
         }).finally(done);
     };
     return { withProgress };

@@ -110,6 +110,7 @@ describe("WindowNamespace — window.withProgress (real)", () => {
         [{ viewId: "explorer" }, { viewId: "explorer" }],
         [99, "window"],
         [{ viewId: 3 }, "window"],
+        [null, "window"],
     ])("[api:window.withProgress] location %o goes on the wire as %o", async (location, wire) => {
         const { stub, window } = makeWindow();
         await window.withProgress({ location: location as never, cancellable: true }, () => Promise.resolve(0));
@@ -190,6 +191,22 @@ describe("WindowNamespace — window.withProgress (real)", () => {
         await result;
 
         expect(seen).toEqual([]);
+    });
+
+    it("a cancel after the task finished does not reach the token the task kept", async () => {
+        const { stub, window } = makeWindow();
+        let kept!: { isCancellationRequested: boolean };
+        await window.withProgress(
+            { location: ProgressLocation.Notification as never, cancellable: true },
+            (_p, token) => {
+                kept = token;
+                return Promise.resolve(0);
+            },
+        );
+
+        stub.fire("window.progress.cancel", { handle: 1 });
+
+        expect(kept.isCancellationRequested).toBe(false);
     });
 
     it("[api:window.withProgress] a synchronous throw still sends end and rejects", async () => {

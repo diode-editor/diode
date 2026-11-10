@@ -60,9 +60,7 @@ export class ExtensionProgressAdapter implements IProgressSink {
                 entry.toast = null;
                 if (entry.ended) return;
                 this.window.start(handle, options, onCancel);
-                if (entry.message !== undefined || entry.percent !== undefined) {
-                    this.window.report(handle, entry.message, entry.percent);
-                }
+                this.window.report(handle, entry.message, entry.percent);
             },
         });
         setTimeout(() => {
@@ -83,10 +81,7 @@ export class ExtensionProgressAdapter implements IProgressSink {
             this.window.report(handle, message, increment);
             return;
         }
-        entry.toast.update({
-            message: entry.text(),
-            ...(entry.percent === undefined ? {} : { percent: entry.percent }),
-        });
+        entry.toast.update({ message: entry.text(), percent: entry.percent });
     }
 
     public end(handle: number): void {

@@ -43,7 +43,7 @@ export interface INotificationMessage {
 export interface IActiveNotification extends INotificationMessage {
     readonly id: number;
     /** Set on a progress notification (upstream `INotification.progress`); `percent` absent means infinite. */
-    readonly progress?: { readonly percent?: number };
+    readonly progress?: { readonly percent?: number | undefined };
 }
 
 /** Upstream's progress button label (`localize('cancel', "Cancel")`). */
@@ -52,7 +52,7 @@ export const PROGRESS_CANCEL_LABEL = "Cancel";
 export interface IProgressNotificationState {
     readonly message: string;
     /** 0–100; absent means infinite (a spinner). */
-    readonly percent?: number;
+    readonly percent?: number | undefined;
 }
 
 export interface IProgressNotificationOptions extends IProgressNotificationState {
@@ -333,6 +333,6 @@ function progressNotification(
         message: state.message,
         modal: false,
         items: cancellable ? [PROGRESS_CANCEL_LABEL] : [],
-        progress: state.percent === undefined ? {} : { percent: state.percent },
+        progress: { percent: state.percent },
     };
 }
