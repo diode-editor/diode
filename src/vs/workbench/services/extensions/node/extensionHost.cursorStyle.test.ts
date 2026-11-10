@@ -103,9 +103,13 @@ describe("ExtensionHost — TextEditor.options.cursorStyle", () => {
         expect(cursorIn(1)).toEqual({ shape: "block", blinking: true });
     });
 
-    it("unset everywhere, the getter has no style and the terminal keeps its own shape", async () => {
-        const { cursorIn, get } = await setup({});
-        expect(await get(1)).toBeUndefined();
+    it("[api:TextEditor.options] unset everywhere, the getter reads upstream's Line while the terminal keeps its own shape", async () => {
+        const { cursorIn, set, get } = await setup({});
+        expect(await get(1)).toBe(LINE);
+        expect(cursorIn(1)).toBeNull();
+
+        // Line is the style the getter already has: no change, so the terminal's shape stays.
+        expect(await set(1, LINE)).toBe(LINE);
         expect(cursorIn(1)).toBeNull();
     });
 

@@ -58,7 +58,7 @@ describe("WindowNamespace — TextEditor.options from the snapshot", () => {
             { ...tab(B), tabSize: 8, insertSpaces: true },
             { ...tab(A, { isActive: true }), tabSize: 2, insertSpaces: false },
         ]);
-        expect(editor.options).toEqual({ tabSize: 2, insertSpaces: false });
+        expect(editor.options).toMatchObject({ tabSize: 2, insertSpaces: false });
     });
 
     it("a tab without indentation in the snapshot gives no keys", () => {

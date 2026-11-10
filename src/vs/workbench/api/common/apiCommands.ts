@@ -21,12 +21,15 @@ export interface IApiCommandsDeps {
         itemResolveCount: number | undefined,
     ): Promise<(vscode.CodeAction | vscode.Command)[]>;
     getActiveTextEditor(): vscode.TextEditor | undefined;
+    /** The core's own command, bypassing the API commands. */
+    executeHostCommand(id: string, args: readonly unknown[]): Thenable<unknown>;
 }
 
 /** Registered locally, never sent to the host registry (upstream's `registerCommand(false, …)`). */
 export function createApiCommands(deps: IApiCommandsDeps): ReadonlyMap<string, ApiCommandHandler> {
     return new Map<string, ApiCommandHandler>([
         ["vscode.open", (...args) => open(deps, args)],
+        ["vscode.diff", (...args) => diff(deps, args)],
         ["vscode.executeLinkProvider", (...args) => executeLinkProvider(args)],
         ["vscode.executeCompletionItemProvider", (...args) => executeCompletionItemProvider(deps, args)],
         ["vscode.executeCodeActionProvider", (...args) => executeCodeActionProvider(deps, args)],
@@ -74,6 +77,17 @@ async function open(deps: IApiCommandsDeps, args: readonly unknown[]): Promise<v
           ? { viewColumn: columnOrOptions as vscode.ViewColumn }
           : (columnOrOptions as vscode.TextDocumentShowOptions);
     await deps.showTextDocument(resource, showOptions);
+}
+
+/** Upstream's argument checks, then the core's `vscode.diff` (upstream's `_workbench.diff`) opens the pair. */
+async function diff(deps: IApiCommandsDeps, args: readonly unknown[]): Promise<void> {
+    const [left, right, title, columnOrOptions] = args;
+    const validate = validatorOf("vscode.diff");
+    validate("left", left, Uri.isUri(left));
+    validate("right", right, Uri.isUri(right));
+    validate("title", title, isOptional(title, "string"));
+    validate("columnOrOptions", columnOrOptions, columnOrOptions === undefined || typeof columnOrOptions === "object");
+    await deps.executeHostCommand("vscode.diff", args);
 }
 
 function isHttpString(value: unknown): boolean {

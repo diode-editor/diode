@@ -35,6 +35,8 @@ import {
     StatusBarAlignment,
     TabInputText,
     TabInputTextDiff,
+    TextEditorCursorStyle,
+    TextEditorLineNumbersStyle,
     Uri,
 } from "./vscodeTypes.ts";
 import { createWebviewNoopMembers } from "./webviewNoop.ts";
@@ -482,20 +484,25 @@ export function createWindowNamespace(
         let storedOptions: vscode.TextEditorOptions = {};
         /** Lives with this object: a closed tab drops it from the cache, so a reopened one starts clean. */
         let cursorStyleOverride: vscode.TextEditorCursorStyle | undefined;
-        // Upstream resolves the style from the code editor; unset in Diode means the terminal's own shape.
-        const effectiveCursorStyle = (): vscode.TextEditorCursorStyle | undefined =>
+        // Upstream resolves the style from the code editor, whose default is `line`. Deviation: an unset
+        // `editor.cursorStyle` leaves the terminal's own shape on screen, yet reads as `Line`, as upstream.
+        const effectiveCursorStyle = (): vscode.TextEditorCursorStyle =>
             cursorStyleOverride ??
-            cursorStyleToApi(ctx.configStore.get("editor.cursorStyle", undefined, document.languageId));
+            cursorStyleToApi(ctx.configStore.get("editor.cursorStyle", undefined, document.languageId)) ??
+            TextEditorCursorStyle.Line;
         const editorData: vscode.TextEditor = {
             get options(): vscode.TextEditorOptions {
-                const cursorStyle = effectiveCursorStyle();
                 const tab = layoutGroup(groupId)?.tabs.find((candidate) => candidate.uri === document.uri.toString());
                 return {
                     // Upstream's getter is always resolved: vsc-python-indent computes the next indent from `tabSize`.
                     ...(tab?.tabSize === undefined ? {} : { tabSize: tab.tabSize }),
                     ...(tab?.insertSpaces === undefined ? {} : { insertSpaces: tab.insertSpaces }),
+                    // Deviation: Diode always draws plain line numbers; the style is only reported.
+                    lineNumbers: lineNumbersToApi(
+                        ctx.configStore.get("editor.lineNumbers", undefined, document.languageId),
+                    ),
                     ...storedOptions,
-                    ...(cursorStyle === undefined ? {} : { cursorStyle }),
+                    cursorStyle: effectiveCursorStyle(),
                 };
             },
             document,
@@ -1123,6 +1130,20 @@ function normalizeIndentSize(value: number | string): number | undefined {
     if (value === "tabSize") return undefined;
     const parsed = Number.parseInt(value, 10);
     return Number.isNaN(parsed) ? undefined : Math.max(1, parsed);
+}
+
+/** Upstream `MainThreadTextEditorProperties`: `editor.lineNumbers` as the API enum, anything unknown is `On`. */
+function lineNumbersToApi(setting: unknown): vscode.TextEditorLineNumbersStyle {
+    switch (setting) {
+        case "off":
+            return TextEditorLineNumbersStyle.Off;
+        case "relative":
+            return TextEditorLineNumbersStyle.Relative;
+        case "interval":
+            return TextEditorLineNumbersStyle.Interval;
+        default:
+            return TextEditorLineNumbersStyle.On;
+    }
 }
 
 function toWireDialogFilters(filters: Readonly<Record<string, string[]>> | undefined): IWireDialogFilter[] | undefined {

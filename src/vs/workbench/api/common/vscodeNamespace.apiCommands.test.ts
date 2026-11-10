@@ -70,3 +70,24 @@ describe("vscode.commands: built-in vscode.open", () => {
         ]);
     });
 });
+
+describe("vscode.commands: built-in vscode.diff", () => {
+    it("[api:commands.executeCommand] Uris go to the core's vscode.diff, bad arguments reject without a request", async () => {
+        const stub = makeStubRpc();
+        const { namespace } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk());
+        const left = Uri.parse("sc:a");
+        const right = Uri.parse("sc:b");
+
+        await expect(namespace.commands.executeCommand("vscode.diff")).rejects.toThrow(
+            "Invalid argument 'left' when running 'vscode.diff'",
+        );
+        await expect(namespace.commands.executeCommand("vscode.diff", 1, 2, 3)).rejects.toThrow(
+            "Invalid argument 'left' when running 'vscode.diff'",
+        );
+        await expect(namespace.commands.executeCommand("vscode.diff", left, right, "DIFF")).resolves.toBeUndefined();
+
+        expect(stub.requests).toEqual([
+            { method: "commands.executeCommand", params: { id: "vscode.diff", args: [left, right, "DIFF"] } },
+        ]);
+    });
+});

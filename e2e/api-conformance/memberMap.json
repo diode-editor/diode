@@ -1,4 +1,8 @@
 {
+    "commands vscode API - commands api-command: vscode.diff": [
+        "commands.executeCommand",
+        "workspace.registerTextDocumentContentProvider"
+    ],
     "commands vscode API - commands api-command: vscode.open": [
         "commands.executeCommand",
         "window.tabGroups",
@@ -20,6 +24,11 @@
     ],
     "editor vscode API - editors extEditor.selection can be empty #18075": [
         "TextEditor.selection",
+        "window.showTextDocument",
+        "workspace.openTextDocument"
+    ],
+    "editor vscode API - editors issue #16573: Extension API: insertSpaces and tabSize are undefined": [
+        "TextEditor.options",
         "window.showTextDocument",
         "workspace.openTextDocument"
     ],

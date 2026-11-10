@@ -12,6 +12,7 @@ function setup(): { open: (...args: unknown[]) => Promise<unknown>; deps: IApiCo
         executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
         executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
         getActiveTextEditor: () => undefined,
+        executeHostCommand: vi.fn(() => Promise.resolve(undefined)),
     };
     const handler = createApiCommands(deps).get("vscode.open");
     if (handler === undefined) throw new Error("vscode.open is not registered");
@@ -113,6 +114,7 @@ describe("apiCommands — editor.action.insertSnippet", () => {
             executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
             executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
             getActiveTextEditor: () => editor,
+            executeHostCommand: vi.fn(() => Promise.resolve(undefined)),
         };
         const handler = createApiCommands(deps).get("editor.action.insertSnippet");
         if (handler === undefined) throw new Error("editor.action.insertSnippet is not registered");
@@ -156,6 +158,7 @@ describe("apiCommands — vscode.execute*", () => {
             executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
             executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
             getActiveTextEditor: () => undefined,
+            executeHostCommand: vi.fn(() => Promise.resolve(undefined)),
         };
         const handler = createApiCommands(deps).get(id);
         if (handler === undefined) throw new Error(`${id} is not registered`);
@@ -210,5 +213,56 @@ describe("apiCommands — vscode.execute*", () => {
             `Invalid argument '${name}' when running '${id}', received: ${received} `,
         );
         expect(deps.openTextDocument).not.toHaveBeenCalled();
+    });
+});
+
+describe("apiCommands — vscode.diff", () => {
+    function setupDiff(): { diff: (...args: unknown[]) => Promise<unknown>; deps: IApiCommandsDeps } {
+        const deps: IApiCommandsDeps = {
+            showTextDocument: vi.fn(() => Promise.resolve({})),
+            openExternal: vi.fn(() => Promise.resolve(true)),
+            openTextDocument: vi.fn(() => Promise.resolve({} as vscode.TextDocument)),
+            executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
+            executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+            getActiveTextEditor: () => undefined,
+            executeHostCommand: vi.fn(() => Promise.resolve("host result")),
+        };
+        const handler = createApiCommands(deps).get("vscode.diff");
+        if (handler === undefined) throw new Error("vscode.diff is not registered");
+        return { diff: async (...args) => handler(...args), deps };
+    }
+
+    const left = Uri.parse("sc:a");
+    const right = Uri.parse("sc:b");
+
+    it("[api:commands.executeCommand] valid arguments go to the core's vscode.diff as is, the result is void", async () => {
+        const { diff, deps } = setupDiff();
+        const options = { selection: new Range(new Position(1, 1), new Position(1, 2)) };
+
+        await expect(diff(left, right)).resolves.toBeUndefined();
+        await expect(diff(left, right, "Title", options)).resolves.toBeUndefined();
+        await expect(diff(left, right, null, undefined)).resolves.toBeUndefined();
+
+        expect(vi.mocked(deps.executeHostCommand).mock.calls).toEqual([
+            ["vscode.diff", [left, right]],
+            ["vscode.diff", [left, right, "Title", options]],
+            ["vscode.diff", [left, right, null, undefined]],
+        ]);
+    });
+
+    it.each([
+        [[], "left", "undefined"],
+        [[1, 2, 3], "left", "1"],
+        [[left, "sc:b"], "right", "sc:b"],
+        [[left, right, 3], "title", "3"],
+        // Unlike vscode.open, a bare column is refused, as upstream.
+        [[left, right, "Title", 2], "columnOrOptions", "2"],
+    ])("[api:commands.executeCommand] refuses a bad argument %#, nothing is opened", async (args, name, received) => {
+        const { diff, deps } = setupDiff();
+
+        await expect(diff(...args)).rejects.toThrow(
+            `Invalid argument '${name}' when running 'vscode.diff', received: ${received} `,
+        );
+        expect(deps.executeHostCommand).not.toHaveBeenCalled();
     });
 });

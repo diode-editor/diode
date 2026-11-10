@@ -14,9 +14,9 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1213 |
+| ok | 1219 |
 | A | 4 |
-| B | 217 |
+| B | 211 |
 | C | 547 |
 | X | 234 |
 
@@ -260,10 +260,10 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `vscjava.vscode-spring-boot-dashboard` | 0.15.0 | 539,981 |  | 102 | 8 | 0 | 2 | 5 | 1 |
 | `ms-toolsai.vscode-jupyter-cell-tags` | 0.1.9 | 8,947,433 |  | 22 | 9 | 0 | 1 | 0 | 8 |
 | `cweijan.vscode-office` | 4.2.3 | 2,348,119 |  | 107 | 9 | 0 | 4 | 2 | 3 |
+| `vscodevim.vim` | 1.32.4 | 1,989,577 |  | 66 | 9 | 0 | 3 | 6 | 0 |
 | `mtxr.sqltools` | 0.28.6 | 1,134,650 |  | 160 | 9 | 0 | 5 | 3 | 1 |
 | `coderabbit.coderabbit-vscode` | 0.25.0 | 820,812 |  | 75 | 9 | 0 | 3 | 5 | 1 |
 | `robertpiosik.gemini-coder` | 2026.1030.308 | 603,271 |  | 86 | 10 | 0 | 8 | 0 | 2 |
-| `vscodevim.vim` | 1.32.4 | 1,989,577 |  | 66 | 11 | 0 | 5 | 6 | 0 |
 | `ms-kubernetes-tools.vscode-kubernetes-tools` | 1.4.1 | 1,255,998 |  | 110 | 11 | 0 | 7 | 3 | 1 |
 | `eclipse-cdt.cdt-gdb-vscode` | 2.9.1 | 1,006,438 |  | 27 | 11 | 0 | 0 | 10 | 1 |
 | `Continue.continue` | 2.1.0 | 1,747,795 |  | 102 | 12 | 0 | 5 | 2 | 5 |
@@ -2275,15 +2275,15 @@ Proposed API or a false hit: class X when real.
 | `TextEditorEdit.insert` | ok | yes | 0 | 0 |  |
 | `TextEditorEdit.replace` | ok | yes | 0 | 0 |  |
 | `TextEditorEdit.setEndOfLine` | ok | yes | 0 | 0 |  |
-| `TextEditorLineNumbersStyle` | B |  | 0 | 0 |  |
-| `TextEditorLineNumbersStyle.Interval` | B |  | 0 | 0 |  |
-| `TextEditorLineNumbersStyle.Off` | B |  | 0 | 0 |  |
-| `TextEditorLineNumbersStyle.On` | B |  | 1 | 1,989,577 |  |
-| `TextEditorLineNumbersStyle.Relative` | B |  | 1 | 1,989,577 |  |
+| `TextEditorLineNumbersStyle` | ok |  | 0 | 0 |  |
+| `TextEditorLineNumbersStyle.Interval` | ok |  | 0 | 0 |  |
+| `TextEditorLineNumbersStyle.Off` | ok |  | 0 | 0 |  |
+| `TextEditorLineNumbersStyle.On` | ok |  | 1 | 1,989,577 |  |
+| `TextEditorLineNumbersStyle.Relative` | ok |  | 1 | 1,989,577 |  |
 | `TextEditorOptions.cursorStyle` | ok |  | 0 | 0 |  |
 | `TextEditorOptions.indentSize` | ok |  | 0 | 0 |  |
 | `TextEditorOptions.insertSpaces` | ok |  | 0 | 0 |  |
-| `TextEditorOptions.lineNumbers` | B |  | 0 | 0 |  |
+| `TextEditorOptions.lineNumbers` | ok |  | 0 | 0 |  |
 | `TextEditorOptions.tabSize` | ok |  | 0 | 0 |  |
 | `TextEditorOptionsChangeEvent.options` | B |  | 0 | 0 |  |
 | `TextEditorOptionsChangeEvent.textEditor` | B |  | 0 | 0 |  |

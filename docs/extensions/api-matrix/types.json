@@ -6102,24 +6102,19 @@
       "class": "ok"
     },
     "TextEditorLineNumbersStyle": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorLineNumbersStyle.Interval": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorLineNumbersStyle.Off": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorLineNumbersStyle.On": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorLineNumbersStyle.Relative": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TextEditorOptions.cursorStyle": {
       "class": "ok"
@@ -6131,8 +6126,8 @@
       "class": "ok"
     },
     "TextEditorOptions.lineNumbers": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok",
+      "note": "read from editor.lineNumbers and assignable; Diode always draws plain line numbers, so the style is only reported"
     },
     "TextEditorOptions.tabSize": {
       "class": "ok"
