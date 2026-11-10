@@ -493,20 +493,22 @@ describe("ConfigurationService — live reload", () => {
         fs.writeFileSync(file, content);
     }
 
-    it("watches the user settings.json for the default profile", async () => {
+    it("watches the user settings.json and tasks.json for the default profile", async () => {
         const watcher = new FakeFileWatcher();
         await loadCfg(paths(), undefined, watcher);
         expect(watcher.isWatching(userSettingsPath())).toBe(true);
-        expect(watcher.watchedCount).toBe(1);
+        expect(watcher.isWatching(path.join(path.dirname(userSettingsPath()), "tasks.json"))).toBe(true);
+        expect(watcher.watchedCount).toBe(2);
     });
 
-    it("watches both user and profile settings for a named profile", async () => {
+    it("watches both user and profile settings and the profile's tasks.json for a named profile", async () => {
         const watcher = new FakeFileWatcher();
         const p = paths("compact");
         await loadCfg(p, undefined, watcher);
         expect(watcher.isWatching(userSettingsPath("compact"))).toBe(true);
         expect(watcher.isWatching(p.settingsFile)).toBe(true);
-        expect(watcher.watchedCount).toBe(2);
+        expect(watcher.isWatching(path.join(path.dirname(p.settingsFile), "tasks.json"))).toBe(true);
+        expect(watcher.watchedCount).toBe(3);
     });
 
     it("does not set up watching when no watcher is provided", async () => {

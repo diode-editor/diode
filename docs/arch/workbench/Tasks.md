@@ -25,7 +25,9 @@
   определения (`createCustomizedTask` ≈ `createCustomTask`: `label`, `detail`, `hide`, `group`,
   `isBackground`, матчеры, `presentation`, `options`, `runOptions` записи поверх; id, определение и
   исполнение — провайдера); не дал провайдер такой задачи — ошибка эталона в лог, `resolveTask`
-  провайдера не спрашивается. Файл перечитывается на каждом запросе
+  провайдера не спрашивается. Тот же файл — раздел `tasks` настроек ([Configuration.md](../Configuration.md),
+  слой воркспейса): `getConfiguration('tasks').update('tasks', […], Workspace)` расширения пишет сюда,
+  и `fetchTasks` видит задачу. Файл перечитывается на каждом запросе
   задач (дёшево; правка применяется без вотчера), о проблемах одного и того же текста говорится
   один раз.
 - **Переменные** (`common/taskVariables.ts`) — с нуля по `variableResolver.ts` эталона:
