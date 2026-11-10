@@ -2,11 +2,21 @@ import { getCharDisplayWidth } from "@tuidom/core/common/unicodeWidth";
 import { describe, expect, it } from "vitest";
 
 import { CODICON_GLYPHS } from "./codicons.generated.ts";
-import { codicon, iconGlyph, renderCodicons } from "./codicons.ts";
+import { codicon, iconGlyph, renderCodicons, stripCodicons } from "./codicons.ts";
 import { CODICON_UNICODE } from "./codiconsUnicode.ts";
 
 const CHECK = CODICON_GLYPHS.check;
 const SYNC = CODICON_GLYPHS.sync;
+
+describe("stripCodicons", () => {
+    it("drops known and unknown icons with modifiers, keeps an escaped one literal", () => {
+        expect(stripCodicons("$(sync~spin) Indexing $(nope) \\$(check) done")).toBe(" Indexing  $(check) done");
+    });
+
+    it("text without markup is unchanged", () => {
+        expect(stripCodicons("plain $ (x)")).toBe("plain $ (x)");
+    });
+});
 
 describe("renderCodicons", () => {
     it("leaves text without markup as is", () => {

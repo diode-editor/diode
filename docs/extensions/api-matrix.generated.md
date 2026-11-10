@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 171 |
+| test | 172 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -32,7 +32,7 @@ Members with a gap, by the downloads of the extensions using them (top 100).
 
 | member | class | extensions | downloads | note |
 | --- | --- | --- | --- | --- |
-| `window.withProgress` | B | 124 | 944,816,089 | cancellation token never fires, location is ignored |
+| `window.withProgress` | B | 124 | 944,816,089 | Notification is a progress toast with Cancel; SourceControl and view locations still fall back to the status bar |
 | `workspace.openTextDocument` | B | 104 | 814,693,192 | A file is a live model without a tab; an explicit encoding decodes a separate read until the encodings cluster. untitled: uris as upstream, except that a relative or host uri has no path to write to: Ctrl+S asks through Save As, TextDocument.save gives false. |
 | `InlineValueEvaluatableExpression` | C | 71 | 603,512,722 | needs a debugger |
 | `InlineValueVariableLookup` | C | 71 | 603,512,722 | needs a debugger |
@@ -2544,7 +2544,7 @@ Proposed API or a false hit: class X when real.
 | `window.terminals` | ok | yes | 23 | 355,498,590 |  |
 | `window.visibleNotebookEditors` | X |  | 6 | 24,331,125 |  |
 | `window.visibleTextEditors` | ok | yes | 69 | 596,976,815 | biomejs.biome, bradlc.vscode-tailwindcss, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, shardulm94.trailing-spaces, vscode.merge-conflict, yzhang.markdown-all-in-one |
-| `window.withProgress` | B |  | 124 | 944,816,089 | biomejs.biome, svelte.svelte-vscode |
+| `window.withProgress` | B | yes | 124 | 944,816,089 | biomejs.biome, svelte.svelte-vscode |
 | `window.withScmProgress` | C |  | 0 | 0 |  |
 | `WindowState.active` | ok |  | 0 | 0 |  |
 | `WindowState.focused` | ok |  | 0 | 0 |  |

@@ -3,8 +3,10 @@ import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { wrapText } from "@tuidom/elements/completionlist/completionDetailsElement";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
+import type { VStackElement } from "@tuidom/elements/layout/vStackElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
+import { SPINNER_FRAMES } from "../../../../platform/progress/common/progressService.ts";
 import { type IProductIconService, NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import type {
     IActiveNotification,
@@ -40,6 +42,9 @@ export const TOAST_MAX_LINES = 6;
 /** Like the "×" on an upstream toast (`notification.clear`). */
 export const TOAST_CLOSE_LABEL = "×";
 
+/** Same pace as the status bar spinner. */
+export const TOAST_SPINNER_INTERVAL_MS = 100;
+
 export const TOAST_HINT_FOCUSED = "←/→ · Enter — choose · Esc — close";
 
 /**
@@ -64,10 +69,15 @@ export class NotificationToast extends DialogComponent {
     /** Closed without a choice (Escape). */
     public onClose?: () => void;
 
-    public readonly notification: IActiveNotification;
+    public notification: IActiveNotification;
     private readonly buttons: readonly ButtonElement[];
     private hint: TextLabelElement | null = null;
     private readonly unfocusedHint: string;
+    private readonly stack: VStackElement;
+    /** Rows after the message: progress, spacer, buttons, hint. */
+    private readonly tail: readonly (TextLabelElement | HFlexElement)[];
+    private readonly progressLabel: TextLabelElement | null;
+    private spinnerFrame = 0;
 
     public constructor(
         notification: IActiveNotification,
@@ -80,9 +90,29 @@ export class NotificationToast extends DialogComponent {
 
         const header = SEVERITY_HEADERS[notification.severity];
         const stack = this.buildFrame(icons.renderCodicons(header.title), header.fg);
+        this.stack = stack;
+        const tail: (TextLabelElement | HFlexElement)[] = [];
+        this.tail = tail;
 
-        for (const line of toastLines(notification.message)) {
-            stack.addChild(new TextLabelElement(line), { width: "stretch", height: 1 });
+        // Upstream shows a progress bar under the message: here a spinner, then the percent as text.
+        this.progressLabel = notification.progress === undefined ? null : new TextLabelElement(SPINNER_FRAMES[0]);
+        if (this.progressLabel !== null) {
+            this.progressLabel.style = { fg: TOAST_STYLES.descriptionFg };
+            tail.push(this.progressLabel);
+            // Upstream animates only an infinite progress: the ticker stops at the first percent.
+            const timer = setInterval(() => {
+                if (this.percent !== undefined) {
+                    clearInterval(timer);
+                    return;
+                }
+                this.spinnerFrame = (this.spinnerFrame + 1) % SPINNER_FRAMES.length;
+                this.renderProgress();
+            }, TOAST_SPINNER_INTERVAL_MS);
+            this.register({
+                dispose: () => {
+                    clearInterval(timer);
+                },
+            });
         }
 
         const answerButtons: ButtonElement[] = notification.items.map((title, index) => {
@@ -90,23 +120,24 @@ export class NotificationToast extends DialogComponent {
             button.onActivate = () => this.onSelect?.(index);
             return button;
         });
-        // EVERY toast has it, as upstream: a message must be dismissable right away,
-        // without waiting for the timeout or opening the palette.
+        // Every toast has it, as upstream: a message must be dismissable right away,
+        // without waiting for the timeout or opening the palette. A running progress has none
+        // (upstream `notificationsViewer.ts`: `canClose` is false while there is progress).
         const closeButton = new ButtonElement(TOAST_CLOSE_LABEL);
         closeButton.onActivate = () => this.onClose?.();
-        const buttons = [...answerButtons, closeButton];
+        const buttons = notification.progress === undefined ? [...answerButtons, closeButton] : answerButtons;
         this.buttons = buttons;
 
-        // Stryker disable next-line StringLiteral: row width spec — an empty string gives the same layout, the frame does not change
-        stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
-        for (const row of splitIntoRows(buttons)) {
-            stack.addChild(buildButtonRow(row), { width: "stretch", height: 1 });
+        if (buttons.length > 0) {
+            // Stryker disable next-line StringLiteral: row width spec — an empty string gives the same layout, the frame does not change
+            tail.push(new TextLabelElement(""));
+            for (const row of splitIntoRows(buttons)) tail.push(buildButtonRow(row));
         }
         if (answerButtons.length > 0) {
             const hint = new TextLabelElement(this.unfocusedHint);
             hint.style = { fg: TOAST_STYLES.descriptionFg };
             this.hint = hint;
-            stack.addChild(hint, { width: "stretch", height: 1 });
+            tail.push(hint);
             // When moving between buttons blur arrives before focus, so check the whole row.
             for (const button of buttons) {
                 button.addEventListener("focus", () => {
@@ -117,6 +148,45 @@ export class NotificationToast extends DialogComponent {
                 });
             }
         }
+        this.layoutRows();
+    }
+
+    /**
+     * A progress notification changes in place (upstream `updateMessage`, `progress.worked`):
+     * rebuilding the toast would take the focus off its Cancel button on every report.
+     */
+    public update(notification: IActiveNotification): void {
+        const sameMessage = notification.message === this.notification.message;
+        this.notification = notification;
+        // A bare `increment` is the common report: only the percent line changes.
+        if (sameMessage) {
+            this.renderProgress();
+            return;
+        }
+        const focused = this.buttons.find((button) => button.isFocused);
+        this.layoutRows();
+        focused?.focus();
+    }
+
+    /** The message may rewrap to another line count, so the rows are laid out anew. */
+    private layoutRows(): void {
+        const lines = toastLines(this.notification.message).map((line) => new TextLabelElement(line));
+        this.stack.replaceChildren([]);
+        for (const row of [...lines, ...this.tail]) {
+            this.stack.addChild(row, { width: "stretch", height: 1 });
+        }
+        this.renderProgress();
+    }
+
+    private get percent(): number | undefined {
+        return this.notification.progress?.percent;
+    }
+
+    private renderProgress(): void {
+        const percent = this.percent;
+        this.progressLabel?.setText(
+            percent === undefined ? SPINNER_FRAMES[this.spinnerFrame] : `${String(Math.round(percent))}%`,
+        );
     }
 
     /** Every toast has a close button; it does not make the toast a question. */
@@ -124,7 +194,7 @@ export class NotificationToast extends DialogComponent {
         return this.notification.items.length > 0;
     }
 
-    /** The row is never empty: even a passive toast has the close button. */
+    /** Called on a question or an interactive progress toast: both have a button. */
     public focusDefault(): void {
         this.buttons[0].focus();
     }

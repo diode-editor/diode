@@ -189,7 +189,7 @@
     },
     "window.withProgress": {
       "class": "B",
-      "note": "cancellation token never fires, location is ignored"
+      "note": "Notification is a progress toast with Cancel; SourceControl and view locations still fall back to the status bar"
     },
     "window.withScmProgress": {
       "class": "C",
