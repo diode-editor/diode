@@ -36,10 +36,8 @@
 - [ ] `extensionHost.vitestExplorer.test.ts`, стоковый vitest.explorer (#1068): прогон vitest расширения вывел
   `DEV` без `FAIL` в initial test run Stryker'а мутационного гейта (run 42741891573, PR #1117, дифф — sash
   списка вкладок терминала); юнит-job того же прогона зелёный.
-- [ ] `fileSearchService.integration.test.ts`, «"wbc": WorkbenchComponent.ts ties for the top score»: ничья не
-  сошлась в юнит-job (run 42745526700, PR #1119, дифф — тест и доки `onDidChangeWorkspaceFolders`).
 - [ ] `e2e/bench/xlargeBudget.bench.ts`: `undoInsert` median 16 > 16 на ubuntu, ровно на границе бюджета (run
-  42745526700, PR #1119, тот же дифф). Бенч, не юнит — в `test-flakes.json` не стоит.
+  42745526700, PR #1119, дифф — тест и доки `onDidChangeWorkspaceFolders`). Бенч, не юнит — в `test-flakes.json` не стоит.
 - [ ] `testResultsOutput.test.ts`, «a new subject starts from a clean surface»: на экране пусто вместо `new` в
   initial test run Stryker'а мутационного гейта (run 42538740300, PR #1094, дифф — вьюлет Extensions); юнит-job
   того же прогона зелёный.
@@ -51,6 +49,8 @@
 - [ ] Сценарий `typescript-navigation`: `waitUntil(the linked tag ranges) timed out after 60000ms` — в `tag.tsx`
   подсветка связанных тегов не пришла за минуту. Ubuntu: `main` e082b0a6 (run 41632750011) и PR #1045 дважды подряд
   (run 41649556011 и его `--failed`), дифф — переменные сниппетов; на той же базе PR #1045 при 29c0db1b зелёный.
+  Ещё: `main` fab4d676 (run 42736514194) и PR #1119 (run 42751223918, дифф — тест и доки
+  `onDidChangeWorkspaceFolders`); следующий `main` e03f2ec7 зелёный.
 - [ ] `workbench.workspaceSymbols.accept.test.ts`, «a large answer renders and Enter takes the first row»: 20000
   символов под покрытием упёрлись в таймаут 5 с (run 41405396154, PR #1015); локально 1,1 с и с правкой
   `matchSymbol` этого PR, и без неё. Повторилось в run 41408127273, PR #1017, дифф — redhat.java и references-view. И в run 41578220575 (PR #1042, дифф — сниппеты) все повторы подряд; на `main` тот же тест под покрытием идёт 4,7 с при таймауте 5 с (run 41570204078) — тест на грани, а не случайный флак. Дан явный таймаут 15 с в PR #1042 (замер на `main` и на ветке
@@ -65,6 +65,8 @@
   соседние прогоны `main` зелёные.
 - [ ] e2e `quick-input-validation` и `extension-untitled-uri`, только windows-latest: `waitUntil(screen text predicate)`
   не дождался за 10 с (run 41255028793, PR #959, дифф — inlay hints); на ubuntu и при перезапуске зелёные.
+  `extension-untitled-uri` теперь и на ubuntu: `main` fab4d676 (run 42736514194) и PR #1119 (run 42751223918), снят
+  фильтр `platforms` в `test-flakes.json`.
 - [ ] `workbench.saveConflict.test.ts`, последний тест перед ошибкой — «saves without a prompt when the file was not
   changed externally»: все тесты зелёные, но прогон красный от необработанного rejection `FileOperationError … ENOENT,
   lstat …/diode-saveconflict-*/doc.txt`, похоже, фоновая проверка файла пережила удаление временного каталога.

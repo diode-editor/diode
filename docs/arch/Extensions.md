@@ -1243,6 +1243,10 @@
   сразу поднимает новый спавн. Субпроцесса нет (или до барьера старта) — перезапускать нечего,
   остаётся проход `workspaceContains:` по новым папкам. Окно при этом не перезагружается: вкладки,
   раскладка и терминалы живут дальше.
+  Поэтому API-событие `vscode.workspace.onDidChangeWorkspaceFolders` молчит, как у эталона вне
+  multi-root: там оно стреляет только при смене папок на месте в состоянии WORKSPACE, а из
+  EMPTY/FOLDER смена идёт через перезапуск хоста (`abstractWorkspaceEditingService.ts`). Тест —
+  `extensionHost.onDidChangeWorkspaceFolders.test.ts`.
 - **Владелец цикла — `ExtensionService`** (`services/extensions/node/extensionService.ts`, интерфейс
   `IExtensionService` и токен — `services/extensions/common/extensions.ts`; аналог vscode
   `IExtensionService`, узкий срез). Политика «что и когда активировать» — у сервиса, механика (RPC,
