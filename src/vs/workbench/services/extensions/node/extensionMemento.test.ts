@@ -73,6 +73,46 @@ describe("createExtensionMemento", () => {
         expect(done).toBe(true);
     });
 
+    describe("[api:Memento.update] objects are stored as their JSON round trip, as upstream", () => {
+        it("a later change to the passed object does not reach the stored value", async () => {
+            const { m, persisted } = memento();
+            const value = { list: [1, { deep: true }] };
+            await m.update("k", value);
+            value.list.push(2);
+
+            expect(m.get("k")).toEqual({ list: [1, { deep: true }] });
+            expect(m.get("k")).not.toBe(value);
+            expect(persisted).toEqual([{ k: { list: [1, { deep: true }] } }]);
+        });
+
+        it("a toJSON result is what is kept: an array of dates becomes strings", async () => {
+            const { m } = memento();
+            await m.update("k", [new Date(0)]);
+
+            expect(m.get("k")).toEqual(["1970-01-01T00:00:00.000Z"]);
+        });
+
+        it("a cycle throws synchronously and leaves the previous value", async () => {
+            const { m, persisted } = memento();
+            await m.update("k", "before");
+            const cycle: { self?: unknown } = {};
+            cycle.self = cycle;
+
+            expect(() => void m.update("k", cycle)).toThrow(TypeError);
+            expect(m.get("k")).toBe("before");
+            expect(persisted).toHaveLength(1);
+        });
+
+        it("primitives and null are stored as they are", async () => {
+            const { m } = memento();
+            await m.update("null", null);
+            await m.update("text", "x");
+
+            expect(m.get("null", "fallback")).toBeNull();
+            expect(m.get("text")).toBe("x");
+        });
+    });
+
     it("setKeysForSync exists only on the globalState variant and does not throw", () => {
         const globalState = memento({ withSync: true }).m;
         const workspaceState = memento({ withSync: false }).m;

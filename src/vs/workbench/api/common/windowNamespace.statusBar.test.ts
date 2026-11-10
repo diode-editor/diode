@@ -40,6 +40,12 @@ function lastUpdate(stub: IStubRpc): IWireStatusBarItem {
     return last.params;
 }
 
+/** The id the bar sees (`<owner>.<id>`), not the public `item.id`: shows the item and reads the last update. */
+function wireId(stub: IStubRpc, item: vscode.StatusBarItem): string {
+    item.show();
+    return lastUpdate(stub).id;
+}
+
 describe("window.createStatusBarItem: item state in the subprocess", () => {
     it("an item created but not shown does not appear on the wire", () => {
         const { stub, window } = makeWindow();
@@ -113,35 +119,34 @@ describe("window.createStatusBarItem: item state in the subprocess", () => {
         item.name = "Name ignored, id set explicitly";
         item.show();
 
-        expect(item.id).toBe("my.item");
         expect(item.priority).toBe(7);
         expect(item.alignment).toBe(StatusBarAlignment.Right);
         expect(lastUpdate(stub)).toMatchObject({ id: "my.item", alignment: "right", priority: 7 });
     });
 
     it("without a name the id is synthesized from a counter and differs between two items", () => {
-        const { window } = makeWindow();
+        const { stub, window } = makeWindow();
         const first = window.createStatusBarItem();
         const second = window.createStatusBarItem();
 
-        expect(first.id).toBe("item-1");
-        expect(second.id).toBe("item-2");
+        expect(wireId(stub, first)).toBe("item-1");
+        expect(wireId(stub, second)).toBe("item-2");
     });
 
     it("name-based id is stable: same name, same id (survives restart)", () => {
-        const { window } = makeWindow();
+        const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.name = "Status Bar Demo";
 
-        expect(item.id).toBe("status-bar-demo");
+        expect(wireId(stub, item)).toBe("status-bar-demo");
     });
 
     it("a name without Latin letters or digits does not yield an empty id", () => {
-        const { window } = makeWindow();
+        const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.name = "\u041f\u0440\u0438\u0432\u0435\u0442"; // "Privet": no Latin letters or digits
 
-        expect(item.id).toBe("item-1");
+        expect(wireId(stub, item)).toBe("item-1");
     });
 
     it("set fields read back (extensions do exactly that)", () => {
@@ -306,43 +311,67 @@ describe("window.createStatusBarItem: item state in the subprocess", () => {
         expect(lastUpdate(stub).priority).toBeUndefined();
     });
 
-    describe("owner-qualified id `<extension id>.<item id>`, like asStatusBarItemIdentifier", () => {
-        it("explicit id is prefixed with the owner, both in item.id and on the wire", () => {
+    describe("wire id `<extension id>.<item id>`, like asStatusBarItemIdentifier", () => {
+        it("explicit id is prefixed with the owner on the wire", () => {
             const { stub, window, owner } = makeWindow();
             const item = owner.runAs("pub.ext", () => window.createStatusBarItem("my.item"));
-            item.show();
 
-            expect(item.id).toBe("pub.ext.my.item");
-            expect(lastUpdate(stub).id).toBe("pub.ext.my.item");
+            expect(wireId(stub, item)).toBe("pub.ext.my.item");
         });
 
         it("without a name: owner and counter", () => {
-            const { window, owner } = makeWindow();
+            const { stub, window, owner } = makeWindow();
             const item = owner.runAs("pub.ext", () => window.createStatusBarItem());
 
-            expect(item.id).toBe("pub.ext.item-1");
+            expect(wireId(stub, item)).toBe("pub.ext.item-1");
         });
 
         it("owner is fixed at creation: a name set later outside the call keeps the id", () => {
-            const { window, owner } = makeWindow();
+            const { stub, window, owner } = makeWindow();
             const item = owner.runAs("pub.ext", () => window.createStatusBarItem());
             item.name = "Status Bar Demo";
-            expect(item.id).toBe("pub.ext.status-bar-demo");
+            expect(wireId(stub, item)).toBe("pub.ext.status-bar-demo");
 
             owner.runAs("other.ext", () => {
                 item.name = "Renamed";
             });
-            expect(item.id).toBe("pub.ext.renamed");
+            expect(lastUpdate(stub).id).toBe("pub.ext.renamed");
         });
 
         it("same names in different extensions yield different ids", () => {
-            const { window, owner } = makeWindow();
+            const { stub, window, owner } = makeWindow();
             const a = owner.runAs("a.one", () => window.createStatusBarItem());
             const b = owner.runAs("b.two", () => window.createStatusBarItem());
             a.name = "Demo";
             b.name = "Demo";
 
-            expect([a.id, b.id]).toEqual(["a.one.demo", "b.two.demo"]);
+            expect([wireId(stub, a), wireId(stub, b)]).toEqual(["a.one.demo", "b.two.demo"]);
+        });
+    });
+
+    describe("[api:StatusBarItem.id] public id, as upstream extHostStatusBar", () => {
+        it("without an explicit id it is the extension id, however the item is named", () => {
+            const { window, owner } = makeWindow();
+            const item = owner.runAs("pub.ext", () => window.createStatusBarItem());
+            item.name = "Status Bar Demo";
+
+            expect(item.id).toBe("pub.ext");
+        });
+
+        it("an explicit id is returned as given, without the owner prefix", () => {
+            const { window, owner } = makeWindow();
+            const item = owner.runAs("pub.ext", () => window.createStatusBarItem("my.item"));
+
+            expect(item.id).toBe("my.item");
+        });
+
+        it("is read-only: assigning it throws in strict code", () => {
+            const { window, owner } = makeWindow();
+            const item = owner.runAs("pub.ext", () => window.createStatusBarItem());
+
+            expect(() => {
+                (item as { id: string }).id = "other";
+            }).toThrow(TypeError);
         });
     });
 });

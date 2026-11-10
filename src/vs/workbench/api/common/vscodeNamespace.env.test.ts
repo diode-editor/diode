@@ -5,7 +5,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
-import { UIKind } from "./vscodeTypes.ts";
+import { UIKind, Uri } from "./vscodeTypes.ts";
 
 /** First crash of the stock `redhat.java`: `reading 'Desktop'` in `switch (env.uiKind)` right inside `activate()`. */
 
@@ -61,5 +61,31 @@ describe("vscode.env — environment and telemetry", () => {
         expect(env.appHost).toBe("desktop");
         expect(env.uriScheme).toBe("diode");
         expect(env.language).toBe("en");
+    });
+});
+
+describe("[api:env.asExternalUri] desktop without a remote, as upstream", () => {
+    it.each([
+        "diode://pub.ext/did-authenticate?key=value&other=false",
+        "https://example.com/path?q=1#frag",
+        "file:///home/user/a.txt",
+        "mailto:someone@example.com",
+    ])("%s comes back as an equal copy, without the host being asked", async (text) => {
+        const stub = makeStubRpc();
+        const env = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace.env;
+        const target = Uri.parse(text);
+
+        const result = await env.asExternalUri(target);
+
+        expect(result.toString()).toBe(target.toString());
+        expect(result).toBeInstanceOf(Uri);
+        expect(result).not.toBe(target);
+        expect(stub.requests).toEqual([]);
+    });
+
+    it.each(["", "  "])("a plain object with the scheme %j is refused with upstream's message", async (scheme) => {
+        const target = { scheme, authority: "", path: "/a", query: "", fragment: "" } as unknown as vscode.Uri;
+
+        await expect(makeEnv().asExternalUri(target)).rejects.toThrow("Invalid scheme - cannot be empty");
     });
 });

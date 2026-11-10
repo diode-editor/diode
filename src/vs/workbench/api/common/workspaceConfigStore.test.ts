@@ -150,3 +150,66 @@ describe("WorkspaceConfigStore — workspace layer", () => {
         expect(store.get("editor.tabSize")).toBe(8);
     });
 });
+
+describe("WorkspaceConfigStore — `get('[lang]')`, the language section as upstream `contents` keep it", () => {
+    it("[api:WorkspaceConfiguration.get] merges the section of all layers, keyed by setting ids", () => {
+        // As the host sends it: `toRaw` of a layer with the section already a nested tree.
+        const store = storeWith(
+            { editor: { tabSize: 4 }, "[abcLang]": { editor: { lineNumbers: "off", tabSize: 2 } } },
+            { "[abcLang]": { editor: { tabSize: 8 }, files: { trimTrailingWhitespace: true } } },
+        );
+
+        expect(store.get("[abcLang]")).toEqual({
+            "editor.lineNumbers": "off",
+            "editor.tabSize": 8,
+            "files.trimTrailingWhitespace": true,
+        });
+        expect(store.has("[abcLang]")).toBe(true);
+    });
+
+    it("a language without a section has none, the default value answers", () => {
+        const store = storeWith({ "[abcLang]": { editor: { tabSize: 2 } } }, {});
+
+        expect(store.get("[other]")).toBeUndefined();
+        expect(store.get("[other]", "fallback")).toBe("fallback");
+        expect(store.has("[other]")).toBe(false);
+    });
+
+    it("an empty section is an empty object, not missing", () => {
+        expect(storeWith({ "[abcLang]": {} }, {}).get("[abcLang]")).toEqual({});
+    });
+
+    it("object values whose keys are not setting names stay whole: globs, an empty object, an array", () => {
+        const store = storeWith(
+            {
+                "[abcLang]": {
+                    files: { exclude: { "**/out": true } },
+                    editor: { codeActionsOnSave: {}, rulers: [80, 120] },
+                },
+            },
+            {},
+        );
+
+        expect(store.get("[abcLang]")).toEqual({
+            "files.exclude": { "**/out": true },
+            "editor.codeActionsOnSave": {},
+            "editor.rulers": [80, 120],
+        });
+    });
+
+    it("an object with setting-like keys is taken for a group (the known deviation)", () => {
+        const store = storeWith(
+            { "[abcLang]": { editor: { quickSuggestions: { other: "on", "my-key_2": "off" } } } },
+            {},
+        );
+
+        expect(store.get("[abcLang]")).toEqual({
+            "editor.quickSuggestions.other": "on",
+            "editor.quickSuggestions.my-key_2": "off",
+        });
+    });
+
+    it("a key that only looks like a language is read from the main tree", () => {
+        expect(storeWith({ "[abcLang]x": 1 }, {}).get("[abcLang]x")).toBe(1);
+    });
+});

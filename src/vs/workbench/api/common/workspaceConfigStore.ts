@@ -1,4 +1,4 @@
-import { ConfigurationModel } from "../../../platform/configuration/common/configurationModel.ts";
+import { ConfigurationModel, isOverrideKey } from "../../../platform/configuration/common/configurationModel.ts";
 
 /**
  * `get` is synchronous in extensions, so main-process layers arrive via push
@@ -34,11 +34,11 @@ export class WorkspaceConfigStore {
     }
 
     public get(dottedKey: string, defaultValue?: unknown, languageId?: string): unknown {
-        return this.model(languageId).get(dottedKey) ?? defaultValue;
+        return this.value(dottedKey, languageId) ?? defaultValue;
     }
 
     public has(dottedKey: string, languageId?: string): boolean {
-        return this.model(languageId).get(dottedKey) !== undefined;
+        return this.value(dottedKey, languageId) !== undefined;
     }
 
     public inspect(dottedKey: string, languageId?: string): IConfigInspectResult {
@@ -67,10 +67,46 @@ export class WorkspaceConfigStore {
         return this[layer].getOverride(languageId).get(dottedKey) !== undefined;
     }
 
+    private value(dottedKey: string, languageId: string | undefined): unknown {
+        return isOverrideKey(dottedKey) ? this.languageSection(dottedKey) : this.model(languageId).get(dottedKey);
+    }
+
+    /**
+     * Upstream keeps `[lang]` in `contents`, so `get('[go]')` is the merged section keyed by setting ids.
+     * Here the section arrives as a nested tree, and the ids are restored by {@link collectSettings}.
+     * A combined `[a][b]` key is split into its languages on the way, so it has no section of its own.
+     */
+    private languageSection(key: string): Record<string, unknown> | undefined {
+        const identifier = key.slice(1, -1);
+        if (!this.merged.getOverrideIdentifiers().includes(identifier)) return undefined;
+        const section: Record<string, unknown> = {};
+        collectSettings(this.merged.getOverride(identifier).getValue() as Record<string, unknown>, "", section);
+        return section;
+    }
+
     private model(languageId: string | undefined): ConfigurationModel {
         // Stryker disable next-line ConditionalExpression: override() without a section returns the same model anyway — the branch is only for the type
         return languageId === undefined ? this.merged : this.merged.override(languageId);
     }
+}
+
+/**
+ * Without the schemas a setting id is guessed from the tree: a non-empty object whose keys all look
+ * like name segments is a group, anything else is a value. Deviation: an object-valued setting with
+ * such keys (`editor.quickSuggestions`) comes out split into its fields.
+ */
+function collectSettings(group: Readonly<Record<string, unknown>>, prefix: string, out: Record<string, unknown>): void {
+    for (const [key, value] of Object.entries(group)) {
+        const id = prefix + key;
+        if (isSettingGroup(value)) collectSettings(value, `${id}.`, out);
+        else out[id] = value;
+    }
+}
+
+function isSettingGroup(value: unknown): value is Record<string, unknown> {
+    if (!isPlainObject(value)) return false;
+    const keys = Object.keys(value);
+    return keys.length > 0 && keys.every((key) => /^[A-Za-z][\w-]*$/.test(key));
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
