@@ -15,6 +15,11 @@ import type { ContextMenuService } from "../../../../platform/contextview/browse
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
+    type IStateDescriptor,
+    type IStateService,
+    StateServiceDIToken,
+} from "../../../../platform/state/common/iStateService.ts";
+import {
     type IProductIconService,
     NERD_FONT_ICONS,
     ProductIconServiceDIToken,
@@ -29,7 +34,7 @@ import {
 } from "./terminalColorsService.ts";
 import type { ITerminalInstance, TerminalService } from "./terminalService.ts";
 import { TERMINAL_VIEW_ID, TerminalServiceDIToken } from "./terminalService.ts";
-import { TerminalTabbedViewElement } from "./terminalTabbedViewElement.ts";
+import { TerminalTabbedViewElement, terminalTabsColumns } from "./terminalTabbedViewElement.ts";
 import {
     SWITCH_TERMINAL_SHOW_TABS,
     TERMINAL_TABS_WIDTH,
@@ -57,6 +62,28 @@ export const SWITCH_TERMINAL_COMMAND_ID = "workbench.action.terminal.switchTermi
 export const TERMINAL_ACTIVE_TAB_ID = "terminalActiveTab";
 
 /**
+ * Upstream `TerminalStorageKeys.TabsListWidth{Horizontal,Vertical}` (`StorageScope.PROFILE`):
+ * the list width with the terminal in the panel and at the side. `unknown` — the value is
+ * validated on read ({@link readTabsWidth}).
+ */
+export const TERMINAL_TABS_WIDTH_HORIZONTAL_STATE: IStateDescriptor<unknown> = {
+    key: "terminal.tabs-list-width-horizontal",
+    scope: "global",
+    default: TERMINAL_TABS_WIDTH,
+};
+export const TERMINAL_TABS_WIDTH_VERTICAL_STATE: IStateDescriptor<unknown> = {
+    key: "terminal.tabs-list-width-vertical",
+    scope: "global",
+    default: TERMINAL_TABS_WIDTH,
+};
+
+/** A hand-edited or corrupt value (not a positive whole number) falls back to the default. */
+function readTabsWidth(state: IStateService, descriptor: IStateDescriptor<unknown>): number {
+    const value = state.get(descriptor);
+    return Number.isInteger(value) && (value as number) > 0 ? (value as number) : TERMINAL_TABS_WIDTH;
+}
+
+/**
  * Not a `Component` subclass: there is no root control — the body and title widget
  * reach the panel via ViewsService. TUIElement has no unmount hooks, so the
  * component disposes widgets itself — when an instance closes and in its own dispose().
@@ -71,6 +98,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         CommandRegistryDIToken,
         TerminalColorsServiceDIToken,
         TerminalWidgetFactoryDIToken,
+        StateServiceDIToken,
         ProductIconServiceDIToken,
     ] as const;
 
@@ -84,6 +112,8 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
     /** Click target of {@link activeTabLabel}. */
     private activeTabInstanceId = 0;
     private readonly switcher = new SelectBoxElement();
+    /** Where the list width of the terminal's current location is kept. */
+    private tabsWidthState: IStateDescriptor<unknown>;
 
     public constructor(
         private readonly terminalService: TerminalService,
@@ -94,6 +124,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         private readonly commands: CommandRegistry,
         private readonly colors: TerminalColorsService,
         private readonly createWidget: TerminalWidgetFactory,
+        private readonly state: IStateService,
         private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
@@ -120,7 +151,30 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
                 this.syncChrome();
             }),
         );
-        this.view = new TerminalTabbedViewElement(this.tabs.list, TERMINAL_TABS_WIDTH);
+        this.tabsWidthState = this.currentTabsWidthState();
+        this.view = new TerminalTabbedViewElement(this.tabs.list, readTabsWidth(state, this.tabsWidthState));
+        this.view.onDidChangeTabsWidth = (width) => {
+            state.store(this.tabsWidthState, width);
+        };
+        this.view.onDidResetTabsWidth = () => {
+            this.fitTabsWidth();
+        };
+        this.register(
+            viewsService.onDidChangeLocations(() => {
+                this.syncTabsWidthState();
+            }),
+        );
+        // Like the workbench sashes (`SashSettingsController`): the delay applies live.
+        const applySashHoverDelay = (): void => {
+            this.view.setSashHoverDelay(configuration.get("workbench.sash.hoverDelay"));
+        };
+        applySashHoverDelay();
+        this.register(
+            configuration.onDidChangeConfiguration((event) => {
+                // Stryker disable next-line ConditionalExpression: equivalent — re-applying the unchanged delay on another key's change is a no-op
+                if (event.affectsConfiguration("workbench.sash.hoverDelay")) applySashHoverDelay();
+            }),
+        );
         this.activeTabLabel.id = TERMINAL_ACTIVE_TAB_ID;
         this.activeTabLabel.style = { fg: "descriptionForeground" };
         // Clicking the name opens the tab menu, as in upstream (there it's a button with a dropdown).
@@ -203,6 +257,34 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         else this.terminalService.focusActive();
     }
 
+    /** Upstream's horizontal orientation is the panel; a side bar is vertical. */
+    private currentTabsWidthState(): IStateDescriptor<unknown> {
+        const container = this.viewsService.getViewContainerByViewId(TERMINAL_VIEW_ID);
+        const location = container === null ? null : this.viewsService.getViewContainerLocation(container);
+        return location === "sidebar" || location === "auxiliarybar"
+            ? TERMINAL_TABS_WIDTH_VERTICAL_STATE
+            : TERMINAL_TABS_WIDTH_HORIZONTAL_STATE;
+    }
+
+    /**
+     * The terminal moved between the panel and a side bar — the other orientation's width.
+     * Also from {@link syncChrome}: the startup restore of view locations fires no event.
+     */
+    private syncTabsWidthState(): void {
+        const next = this.currentTabsWidthState();
+        if (next === this.tabsWidthState) return;
+        this.tabsWidthState = next;
+        this.view.setTabsWidth(readTabsWidth(this.state, next));
+    }
+
+    /** Double-click on the sash: as wide as the widest tab; already so — nothing (we have no narrow mode to shrink to). */
+    private fitTabsWidth(): void {
+        const width = terminalTabsColumns(this.tabs.idealWidth(), this.view.layoutSize.width);
+        if (width === this.view.tabsColumns) return;
+        this.view.setTabsWidth(width);
+        this.state.store(this.tabsWidthState, width);
+    }
+
     private handleOpen(instance: ITerminalInstance): void {
         const widget = this.createWidget(instance);
         widget.addEventListener("focus", () => {
@@ -257,6 +339,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         const hadTabsFocus = this.tabs.list.isFocused;
         this.tabs.setInstances(instances, active?.id ?? null);
         this.view.setLocation(this.configuration.get("terminal.integrated.tabs.location"));
+        this.syncTabsWidthState();
         const showTabs = this.shouldShowTabs(instances.length);
         this.view.setTabsVisible(showTabs);
         // The focused list got hidden — focus goes to the terminal, or,

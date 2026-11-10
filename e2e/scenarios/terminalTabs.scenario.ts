@@ -44,6 +44,34 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("shell-three"));
         await editor.capture("three-tabs");
 
+        // The divider left of the list is a sash: hover lights it, a drag resizes the list, a double-click fits it.
+        const list = await editor.waitForNode("#terminalTabsList");
+        const waitForListWidth = async (width: number): Promise<void> => {
+            const deadline = Date.now() + 5000;
+            for (;;) {
+                const current = (await editor.waitForNode("#terminalTabsList")).box.width;
+                if (current === width) return;
+                if (Date.now() > deadline) throw new Error(`the tabs list is ${current} wide, expected ${width}`);
+            }
+        };
+        const dividerX = list.box.x - 1;
+        const midY = list.box.y + 2;
+        // `workbench.sash.hoverDelay` defaults to 0: the line is lit at once.
+        await editor.sendMouse({ action: "move", x: dividerX, y: midY });
+        await editor.capture("sash-hover");
+
+        await editor.sendMouse({ action: "press", button: "left", x: dividerX, y: midY });
+        await editor.sendMouse({ action: "move", button: "left", x: dividerX - 10, y: midY });
+        await editor.sendMouse({ action: "release", button: "left", x: dividerX - 10, y: midY });
+        await waitForListWidth(list.box.width + 10);
+        await editor.capture("sash-dragged");
+
+        // Short names ("bash"): the fitted list is the 10-column minimum.
+        await editor.click(dividerX - 10, midY);
+        await editor.click(dividerX - 10, midY);
+        await waitForListWidth(10);
+        await editor.capture("sash-fitted");
+
         // Click the first row — the first shell is back on screen.
         await editor.clickNode(rowOf(1));
         await editor.waitForText((t) => t.includes("shell-one") && !t.includes("shell-three"));
