@@ -97,6 +97,19 @@ describe("decodeForResource — upstream getPreferredReadEncoding", () => {
         expect(await decodeForResource(text, garbage, undefined)).toBe("Hellö Wörld, schön");
     });
 
+    it("files.candidateGuessEncodings narrows the guess: Cyrillic bytes read as windows-1252", async () => {
+        // "Privet, mir" in Cyrillic, windows-1251.
+        const cp1251 = Buffer.from([0xcf, 0xf0, 0xe8, 0xe2, 0xe5, 0xf2, 0x2c, 0x20, 0xec, 0xe8, 0xf0]);
+        const guess = (candidates: unknown) =>
+            decodeForResource(
+                cp1251,
+                context({ "files.autoGuessEncoding": true, "files.candidateGuessEncodings": candidates }),
+                undefined,
+            );
+        expect(await guess([])).toBe("\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440");
+        expect(await guess(["windows1252", 7])).toBe(cp1251.toString("latin1"));
+    });
+
     it("binary content throws upstream's message, with or without an explicit encoding", async () => {
         const binary = Buffer.from([0, 0, 0, 0]);
         await expect(decodeForResource(binary, context(), undefined)).rejects.toThrow(BINARY_CONTENT_MESSAGE);

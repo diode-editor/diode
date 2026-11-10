@@ -38,7 +38,6 @@ export function detectEncodingFromBuffer(buffer: Uint8Array): IDetectedEncoding 
         // UTF-16 LE: 0xAA 0x00; UTF-16 BE: 0x00 0xAA.
         couldBeUTF16LE &&= isOdd === isZero;
         couldBeUTF16BE &&= isOdd !== isZero;
-        if (isZero && !couldBeUTF16LE && !couldBeUTF16BE) break;
     }
     if (!containsZeroByte) return { encoding: byBOM, seemsBinary: false };
     if (couldBeUTF16LE) return { encoding: "utf16le", seemsBinary: false };
@@ -91,8 +90,7 @@ async function guessEncodingByBuffer(
             detectEncodings.length > 0 ? { detectEncodings } : undefined,
         ).encoding;
     } catch {
-        // jschardet throws on some input (microsoft/vscode#239928).
-        return null;
+        // jschardet throws on some input (microsoft/vscode#239928): no guess, as with no answer.
     }
     if (!guessed || IGNORED_GUESSES.has(guessed.toLowerCase())) return null;
     const normalized = normalizeEncodingName(guessed);

@@ -9,7 +9,7 @@ const utf16be = (text: string): Buffer => Buffer.from(text, "utf16le").swap16();
 
 /** "Hellö Wörld" in windows-1252. */
 const CP1252 = Buffer.from([72, 101, 108, 108, 0xf6, 32, 87, 0xf6, 114, 108, 100]);
-/** "Привет, как дела? Всё хорошо." in windows-1251. */
+/** "Privet, kak dela? Vse horosho." in Cyrillic, windows-1251. */
 const CP1251 = Buffer.from([
     0xcf, 0xf0, 0xe8, 0xe2, 0xe5, 0xf2, 0x2c, 0x20, 0xea, 0xe0, 0xea, 0x20, 0xe4, 0xe5, 0xeb, 0xe0, 0x3f, 0x20, 0xc2,
     0xf1, 0xb8, 0x20, 0xf5, 0xee, 0xf0, 0xee, 0xf8, 0xee, 0x2e,
@@ -119,7 +119,7 @@ describe("detectEncoding — guessing with jschardet", () => {
 
     it("candidates narrow the guess; names are normalized, unguessable ones are dropped", async () => {
         const detect = stubJschardet(() => ({ encoding: "windows-1251", confidence: 1 }));
-        await detectEncoding(CP1251, true, ["Windows-1251", "cp437", "koi8r"]);
+        await detectEncoding(CP1251, true, ["Windows-1251", "cp437", "nope", "koi8r"]);
         expect(detect).toHaveBeenLastCalledWith(expect.anything(), { detectEncodings: ["windows-1251", "KOI8-R"] });
         await detectEncoding(CP1251, true, ["cp437"]);
         expect(detect).toHaveBeenLastCalledWith(expect.anything(), undefined);

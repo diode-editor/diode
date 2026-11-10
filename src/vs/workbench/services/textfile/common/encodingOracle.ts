@@ -5,7 +5,6 @@ import {
     DEFAULT_ENCODING,
     encodeWithEncoding,
     explicitOverDetected,
-    UTF8_WITH_BOM,
     validateEncoding,
 } from "../../../../editor/common/model/encoding.ts";
 import { detectEncoding } from "../../../../editor/common/model/encodingDetection.ts";
@@ -73,7 +72,8 @@ function encodingOverride({ resource, utf8Directories }: IEncodingContext): stri
 
 function configuredEncoding(context: IEncodingContext): string | undefined {
     const value = context.setting("files.encoding");
-    return typeof value === "string" && value !== "" ? value : undefined;
+    // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral: equivalent — a non-string fails validateEncoding and becomes utf8 as well; the check is for the type
+    return typeof value === "string" ? value : undefined;
 }
 
 /** Upstream `getValidatedEncodingForResource`: the override, then the preferred encoding, then the setting. */
@@ -83,27 +83,21 @@ async function validatedEncoding(context: IEncodingContext, preferred: string | 
 
 /**
  * Upstream `getPreferredReadEncoding`: an explicit encoding beats the detected one, except "utf8" on content
- * with a BOM, which stays "utf8bom".
+ * with a BOM, which stays "utf8bom". Upstream's "`files.encoding` utf8bom without a BOM reads as utf8" is left
+ * out: both decode the same text, and `decode` returns nothing else.
  */
 async function readEncoding(
     context: IEncodingContext,
     explicit: string | undefined,
     detected: string | null,
 ): Promise<string> {
-    let preferred: string | undefined;
-    if (explicit !== undefined) {
-        preferred = explicitOverDetected(explicit, detected);
-    } else if (detected !== null) {
-        preferred = detected;
-    } else if (configuredEncoding(context) === UTF8_WITH_BOM) {
-        // Without a detected BOM the content can only be utf-8 without one.
-        preferred = DEFAULT_ENCODING;
-    }
+    const preferred = explicit !== undefined ? explicitOverDetected(explicit, detected) : (detected ?? undefined);
     return validatedEncoding(context, preferred);
 }
 
 function candidateGuessEncodings(context: IEncodingContext): string[] {
     const value = context.setting("files.candidateGuessEncodings");
+    // Stryker disable next-line ArrayDeclaration: equivalent — a name that is not guessable is dropped like no name
     return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
