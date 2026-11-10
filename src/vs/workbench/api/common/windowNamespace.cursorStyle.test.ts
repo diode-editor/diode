@@ -170,12 +170,14 @@ describe("WindowNamespace — TextEditor.options assigned in place, as vscodevim
     it("[api:TextEditor.options] a kept options object reads the editor now, and its writes apply", () => {
         const { stub, configStore, editor } = makeCtx();
         const options = editor.options;
+        expect("tabSize" in options).toBe(false);
         configStore.setData({ user: { "editor.lineNumbers": "off", "editor.cursorStyle": "underline" } });
         expect(options.lineNumbers).toBe(TextEditorLineNumbersStyle.Off);
         expect(options.cursorStyle).toBe(TextEditorCursorStyle.Underline);
 
         options.tabSize = 2;
         expect(options.tabSize).toBe(2);
+        expect("tabSize" in options).toBe(true);
         expect(stub.requests.at(-1)).toEqual({
             method: "editor.setOptions",
             params: { tabSize: 2, uri: URI, groupId: 1 },

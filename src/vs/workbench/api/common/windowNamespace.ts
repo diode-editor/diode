@@ -513,18 +513,14 @@ export function createWindowNamespace(
             } = {};
             const kept = { ...patch };
             delete kept.tabSize;
-            if (patch.tabSize !== undefined) {
-                // As upstream `_validateTabSize`: a value that is not a number is no change.
-                const tabSize = normalizeTabSize(patch.tabSize);
-                if (tabSize !== undefined) normalized.tabSize = kept.tabSize = tabSize;
-            }
+            // As upstream `_validateTabSize`: a value that is not a number (absent included) is no change.
+            const tabSize = normalizeTabSize(patch.tabSize);
+            if (tabSize !== undefined) normalized.tabSize = kept.tabSize = tabSize;
             if (patch.insertSpaces !== undefined) {
                 normalized.insertSpaces = normalizeInsertSpaces(patch.insertSpaces);
             }
-            if (patch.indentSize !== undefined) {
-                const indentSize = normalizeIndentSize(patch.indentSize);
-                if (indentSize !== undefined) normalized.indentSize = indentSize;
-            }
+            const indentSize = normalizeIndentSize(patch.indentSize);
+            if (indentSize !== undefined) normalized.indentSize = indentSize;
             // As upstream `_setOptions`: only a change goes out, so a read-modify-write of
             // `options` for `tabSize` does not pin the configured style as an override.
             if (cursorStyleFromApi(patch.cursorStyle) !== undefined && patch.cursorStyle !== effectiveCursorStyle()) {
@@ -1129,9 +1125,9 @@ export function openBeforeShow(
 }
 
 /** `undefined` for a string that is not a number (`"auto"` included: Diode does not re-detect on request). */
-function normalizeTabSize(value: number | string): number | undefined {
+function normalizeTabSize(value: unknown): number | undefined {
     if (typeof value === "number") return Math.max(1, Math.floor(value));
-    const parsed = Number.parseInt(value, 10);
+    const parsed = Number.parseInt(String(value), 10);
     return Number.isNaN(parsed) ? undefined : Math.max(1, parsed);
 }
 
@@ -1142,10 +1138,10 @@ function normalizeInsertSpaces(value: boolean | string): boolean {
 }
 
 /** `indentSize` is either a number or `"tabSize"` (same as tabSize, so skipped). */
-function normalizeIndentSize(value: number | string): number | undefined {
+function normalizeIndentSize(value: unknown): number | undefined {
     if (typeof value === "number") return Math.max(1, Math.floor(value));
     if (value === "tabSize") return undefined;
-    const parsed = Number.parseInt(value, 10);
+    const parsed = Number.parseInt(String(value), 10);
     return Number.isNaN(parsed) ? undefined : Math.max(1, parsed);
 }
 
