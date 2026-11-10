@@ -10,16 +10,16 @@ export const UTF8_WITH_BOM = "utf8bom";
 
 const encodingsById = new Map(SUPPORTED_ENCODINGS.map((info) => [info.id, info]));
 
-function requireEncodingInfo(id: string): IEncodingInfo {
-    const info = encodingsById.get(id);
-    /* v8 ignore start -- only called with table ids (explicit is checked by has(), sniffed/DEFAULT are table entries); the throw is an unreachable invariant guard */
-    if (info === undefined) throw new Error(`No encoding info for id: ${id}`);
-    /* v8 ignore stop */
-    return info;
-}
-
 export function getEncodingInfo(id: string): IEncodingInfo | undefined {
     return encodingsById.get(id);
+}
+
+/**
+ * A validated name ({@link validateEncoding}) outside the table ("cp1252") is its own label and iconv name: the
+ * model keeps it verbatim, as upstream's `TextFileEditorModel` does.
+ */
+export function encodingInfoOf(encoding: string): IEncodingInfo {
+    return encodingsById.get(encoding) ?? { id: encoding, label: encoding, statusLabel: encoding, iconvName: encoding };
 }
 
 function startsWithBytes(buffer: Uint8Array, bytes: readonly number[]): boolean {
@@ -40,7 +40,7 @@ export function detectEncodingByBOM(buffer: Uint8Array): string | null {
 
 export interface IDecodedText {
     readonly text: string;
-    /** Id from the {@link SUPPORTED_ENCODINGS} table, not the iconv name. */
+    /** Id from the {@link SUPPORTED_ENCODINGS} table, or a validated name outside it ("cp1252"). */
     readonly encoding: string;
 }
 
@@ -82,18 +82,14 @@ export function explicitOverDetected(explicit: string, detected: string | null):
     return explicit === DEFAULT_ENCODING && detected === UTF8_WITH_BOM ? UTF8_WITH_BOM : explicit;
 }
 
+/** `explicitEncoding` must be validated ({@link validateEncoding}); without it the BOM decides, otherwise utf-8. */
 export function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefined): IEncodingInfo {
     const sniffed = detectEncodingByBOM(buffer);
-    // Stryker disable next-line ConditionalExpression: has(undefined) is false anyway; the check is for types, not behavior
-    if (explicitEncoding !== undefined && encodingsById.has(explicitEncoding)) {
-        return requireEncodingInfo(explicitOverDetected(explicitEncoding, sniffed));
-    }
-    return requireEncodingInfo(sniffed ?? DEFAULT_ENCODING);
-}
-
-/** An unknown id falls back to utf-8. */
-export function resolveEncodeEncoding(encoding: string): IEncodingInfo {
-    return encodingsById.get(encoding) ?? requireEncodingInfo(DEFAULT_ENCODING);
+    return encodingInfoOf(
+        explicitEncoding !== undefined
+            ? explicitOverDetected(explicitEncoding, sniffed)
+            : (sniffed ?? DEFAULT_ENCODING),
+    );
 }
 
 export function stripBOM(buffer: Buffer, info: IEncodingInfo): Buffer {
@@ -113,17 +109,18 @@ export function decodeBufferByBOM(buffer: Buffer): IDecodedText {
 
 /**
  * `explicitEncoding` beats sniffing, except "utf8" on a buffer with a BOM: that becomes
- * "utf8bom" so the BOM survives saving. Without an explicit encoding the synchronous
- * {@link decodeBufferByBOM} gives the same result.
+ * "utf8bom" so the BOM survives saving. A name iconv does not know is utf-8, as upstream.
+ * Without an explicit encoding the synchronous {@link decodeBufferByBOM} gives the same result.
  */
 export async function decodeBuffer(buffer: Buffer, explicitEncoding?: string): Promise<IDecodedText> {
-    const { id } = resolveDecodeEncoding(buffer, explicitEncoding);
+    const explicit = explicitEncoding === undefined ? undefined : await validateEncoding(explicitEncoding);
+    const { id } = resolveDecodeEncoding(buffer, explicit);
     return { text: await decodeWithEncoding(buffer, id), encoding: id };
 }
 
-/** An id outside the table becomes utf-8: the model shows and saves only table encodings. */
-export function encodeText(text: string, encoding: string): Promise<Buffer> {
-    return encodeWithEncoding(text, resolveEncodeEncoding(encoding).id);
+/** A name iconv does not know becomes utf-8. */
+export async function encodeText(text: string, encoding: string): Promise<Buffer> {
+    return encodeWithEncoding(text, await validateEncoding(encoding));
 }
 
 /** iconv does not tell utf-8 with a BOM from one without (upstream `toNodeEncoding`). */
@@ -133,11 +130,11 @@ function toIconvName(encoding: string): string {
 
 /**
  * Any name iconv-lite knows ("cp1252", "UTF-8"), not only the table's ids (upstream `encodingExists`).
- * The native ones do not load iconv.
+ * The table's ids and the native names do not load iconv.
  */
 export async function encodingExists(encoding: string): Promise<boolean> {
     const name = toIconvName(encoding);
-    return NATIVE_CODECS.has(name) || (await loadIconv()).encodingExists(name);
+    return encodingsById.has(encoding) || NATIVE_CODECS.has(name) || (await loadIconv()).encodingExists(name);
 }
 
 /** Upstream `getValidatedEncodingForResource`: a name iconv does not know becomes utf-8, not the setting. */

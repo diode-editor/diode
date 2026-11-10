@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FakeFileWatcher } from "../../../../../TestUtils/configurationLayersFixture.ts";
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
@@ -375,8 +375,12 @@ describe("TextFileModel — follow: the file under the document on disk grows", 
             const latin = await open("latin.log", "a\n");
             await latin.model.reopenWithEncoding("iso88591");
             grow(latin.path, "b\n");
+            // The chosen encoding is read asynchronously (iconv), as "Reopen with Encoding".
+            await vi.waitFor(() => {
+                expect(latin.model.document.getText()).toBe("a\nb\n");
+            });
             expect(latin.changes.at(-1)).toMatchObject({ isFlush: true });
-            expect(latin.model.document.getText()).toBe("a\nb\n");
+            expect(latin.model.encoding).toBe("iso88591");
             latin.model.dispose();
         });
     });

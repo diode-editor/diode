@@ -50,7 +50,10 @@ function setup() {
         getLayoutSnapshot: () => LAYOUT,
         onDidChangeLayout: (cb) => layout.event(cb),
         flushPendingLayout: () => log.push("flush"),
-        openTextDocument: () => Promise.resolve(null),
+        openTextDocument: (params) => {
+            log.push(["openTextDocument", params]);
+            return Promise.resolve(null);
+        },
         showTextDocument: (params) => {
             log.push(["show", params]);
             return Promise.resolve({ viewColumn: 1 } as never);
@@ -387,6 +390,20 @@ describe("EditorCustomer — subprocess requests", () => {
         expect(h.log).toEqual([
             ["createUntitled", { content: "x", encoding: "utf8" }],
             ["createUntitled", {}],
+        ]);
+    });
+
+    it("workspace.openTextDocument: the encoding reaches the port; junk is rejected", async () => {
+        const h = setup();
+        h.attachTo();
+        await h.peer.request("workspace.openTextDocument", { uri: "file:///a", encoding: "cp1252" });
+        await h.peer.request("workspace.openTextDocument", { uri: "file:///a", encoding: 1 } as never);
+        await expect(h.peer.request("workspace.openTextDocument", null as never)).rejects.toThrow(
+            "workspace.openTextDocument: malformed params",
+        );
+        expect(h.log).toEqual([
+            ["openTextDocument", { uri: "file:///a", encoding: "cp1252" }],
+            ["openTextDocument", { uri: "file:///a" }],
         ]);
     });
 });
