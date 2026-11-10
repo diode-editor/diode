@@ -82,13 +82,34 @@ node-pty на Unix — `pty.node` + бинарь `spawn-helper` (нужен то
 - Kill и выход шелла — активным становится сосед с тем же индексом (`removeGroup` эталона); последний
   закрытый прячет панель (`hideOnLastClosed`). Имя — `basename` шелла, без дедупликации, как у эталона.
 - Групп (сплитов) нет: группа эталона здесь — один терминал (`singleGroup` = `singleTerminal`).
-- Ширина списка фиксирована (`TERMINAL_TABS_WIDTH`), узкого иконочного режима и sash'а нет. **Не
-  поддержаны** ключи `tabs.showActions`, `tabs.title`/`description`/`separator` (нет трекинга процесса и
+- Ширина списка меняется sash'ем — ниже, «Ширина списка вкладок». **Не поддержаны** ключи `tabs.showActions`, `tabs.title`/`description`/`separator` (нет трекинга процесса и
   cwd), `tabs.defaultIcon`/`defaultColor`, `tabs.enableAnimation`, `tabs.allowAgentCliTitle`,
   `confirmOnKill`.
 - **Терминалы расширений** — те же инстансы сервиса: опции шелла расширения, фоновые инстансы для
   `hideFromUser`, `sendText` с нормализацией Enter, причина закрытия и код выхода — мост
   `ExtensionTerminalAdapter` ([../Extensions.md](../Extensions.md)).
+
+### Ширина списка вкладок
+
+Эталон — `SplitView` в `terminalTabbedView.ts` с `proportionalLayout: false`, размеры —
+`TerminalTabsListSizes` (пиксели → ячейки по 8 px).
+
+- Колонка `│` между терминалом и списком — `SashElement` (`TerminalTabbedViewElement`) с
+  `restColorVar = "panel.border"`: в покое кадр тот же, при наведении — `sash.hoverBorder` после
+  `workbench.sash.hoverDelay` (применяется живо), курсор `ew-resize`. Скрытый список прячет и sash.
+- Протяжка левой кнопкой; ресайз панели меняет терминал, список держит ширину. Раскладка зажимает
+  ширину (`terminalTabsColumns`) в [10, 62] и так, чтобы терминалу осталось ≥ 15; где 10 + 1 + 15 не
+  помещается — не больше половины панели. Нижняя граница — эталонная `WideViewMinimumWidth`: узкого
+  режима нет (трекер).
+- Двойной клик по sash — ширина по самой широкой строке списка плюс колонка отступа
+  (`TerminalTabsList.idealWidth`); уже такая — ничего (сжимать в узкий режим некуда).
+- Ширина — `IStateService`, scope `global` (аналог `StorageScope.PROFILE`), ключи
+  `terminal.tabs-list-width-horizontal` (терминал в панели) и `…-vertical` (в боковой или вторичной
+  боковой); пишется на каждом изменении протяжкой или двойным кликом, без значения или с мусором — 20
+  (`TERMINAL_TABS_WIDTH`, отступление от эталонных 120 px и narrow у вертикали). Хранится заданное
+  пользователем, зажатие — только в раскладке. Ключ сверяется по `onDidChangeLocations` —
+  его шлёт и стартовое восстановление расположения видов (`attachRegisteredContainers`): компонент
+  терминала создаётся раньше.
 
 ## Терминал в области редакторов (`TerminalLocation.Editor`)
 

@@ -38,7 +38,10 @@
   `separator` с `${process}`, `${cwdFolder}` (нужен трекинг процесса и cwd).
 - [ ] Иконки и цвета вкладок (`tabs.defaultIcon`, `tabs.defaultColor`, Change Icon/Color), статусы
   вкладок (`tabs.enableAnimation`).
-- [ ] Ширина списка вкладок: sash и узкий режим (`singleTerminalOrNarrow`), `tabs.showActions`.
+- [x] Ширина списка вкладок — sash: протяжка, двойной клик по ширине вкладок, ширина в состоянии профиля
+  (#1100, [Terminal.md](../arch/workbench/Terminal.md#ширина-списка-вкладок)).
+- [ ] Узкий режим списка вкладок (только иконки, прилипание к 46 px, `terminalTabsNarrow`,
+  `singleTerminalOrNarrow`), `tabs.showActions`.
 - [ ] Мышь в списке вкладок: средний клик — kill, мультивыделение, drag-and-drop.
 - [ ] Остальная цветовая механика xterm.js: `terminal.integrated.minimumContrastRatio` (дефолт 4.5),
   `drawBoldTextInBrightColors`, `terminalCursor.*`.

@@ -1,3 +1,4 @@
+import { measureTextWidth } from "@tuidom/core/common/measureTextWidth";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
@@ -10,9 +11,9 @@ import type { ITerminalInstance } from "./terminalService.ts";
 export const TERMINAL_TABS_LIST_ID = "terminalTabsList";
 
 /**
- * Tab list width in columns. Upstream's list defaults to 120px
- * (≈15 chars) and is resized with a sash; we have no draggable width or "narrow" mode
- * (icons only at ≤63px) — see docs/TODO/IntegratedTerminal.md.
+ * Default tab list width in columns, until the user drags the sash (`TerminalTabbedViewElement`).
+ * Upstream defaults to 120px (≈15 chars) in the panel and to the narrow width at the side; we keep
+ * 20 for both and have no "narrow" mode (icons only at ≤63px) — see docs/TODO/IntegratedTerminal.md.
  */
 export const TERMINAL_TABS_WIDTH = 20;
 
@@ -52,6 +53,11 @@ export class TerminalTabsList {
     // No rows before the first setInstances, so onSelect never fires — the initial value has no effect.
     // Stryker disable next-line BooleanLiteral: the initial value is unobservable — see above
     private syncing = false;
+    /**
+     * Upstream `_handleOnDidSashReset`: the widest row plus padding — a column on the right
+     * to match the leading one.
+     */
+    public idealWidth = 0;
     public constructor(
         handlers: ITerminalTabsListHandlers,
         /** `diode.icons.nerdFont`; the owner re-syncs the rows after a change. */
@@ -73,8 +79,11 @@ export class TerminalTabsList {
     public setInstances(instances: readonly ITerminalInstance[], activeId: number | null): void {
         this.syncing = true;
         this.list.clear();
+        this.idealWidth = 0;
         for (const instance of instances) {
-            const row = new TextLabelElement(` ${terminalTabLabel(instance, this.nerdFont)}`);
+            const label = ` ${terminalTabLabel(instance, this.nerdFont)}`;
+            this.idealWidth = Math.max(this.idealWidth, measureTextWidth(label) + 1);
+            const row = new TextLabelElement(label);
             row.id = terminalTabRowId(instance.id);
             // No `label`: only typeahead needs it, and typeahead is off.
             this.list.appendRow(row);
