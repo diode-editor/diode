@@ -24,5 +24,7 @@
     "workspace vscode API - workspace Support creating binary files in a WorkspaceEdit": "virtual files, deferred by the epic #912: the test creates a fake-fs:/ file; bytes on plain files are covered by workspaceEditService.workspaceEdit.test.ts",
     "workspace vscode API - workspace applyEdit \"edit A -> rename A to B (different case)\" -> edit B": "harness layout: on plain files the test uppercases the whole path, /TMP/... cannot be created; upstream runs it on an in-memory fake-fs",
     "commands vscode API - commands api-command: vscode.diff": "other cause: needs a diff of registerTextDocumentContentProvider documents, the cluster of #916",
-    "editor vscode API - editors issue #16573: Extension API: insertSpaces and tabSize are undefined": "other cause: TextEditor.options is not resolved from the editor, #924"
+    "editor vscode API - editors issue #16573: Extension API: insertSpaces and tabSize are undefined": "other cause: TextEditor.options is not resolved from the editor, #924",
+    "window vscode API - window createStatusBar - static": "proposed API: contribStatusBarItems",
+    "window vscode API - window createStatusBar - static, CANNOT change some props": "proposed API: contribStatusBarItems"
 }

@@ -58,6 +58,11 @@ export interface IWireWorkspaceFolder {
 
 export interface IWireWorkspaceInitialize {
     readonly configuration: IConfigurationData;
+    /**
+     * Ids of the registered settings, core and extensions' (upstream `IConfigurationInitData.configurationScopes`):
+     * the layers carry `[lang]` sections as nested trees, and `get('[lang]')` restores the ids by them.
+     */
+    readonly settingIds: readonly string[];
     readonly workspaceFolders: readonly IWireWorkspaceFolder[];
     /** Absent when the window is not opened from a `.code-workspace`. */
     readonly workspaceFile?: string;
@@ -67,6 +72,11 @@ export interface IWireWorkspaceInitialize {
 
 export interface IWireConfigurationChanged {
     readonly configuration: IConfigurationData;
+    /**
+     * Ids of the registered settings, core and extensions' (upstream `IConfigurationInitData.configurationScopes`):
+     * the layers carry `[lang]` sections as nested trees, and `get('[lang]')` restores the ids by them.
+     */
+    readonly settingIds: readonly string[];
     readonly affectedKeys: readonly string[];
 }
 

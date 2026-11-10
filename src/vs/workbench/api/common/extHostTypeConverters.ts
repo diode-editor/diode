@@ -336,11 +336,19 @@ export function serializeHoverContents(raw: unknown): string[] {
     return blocks;
 }
 
+/**
+ * With `supportThemeIcons` upstream draws `$(name)` as an icon and an escaped `\\$(name)` (what `appendText`
+ * writes) as the literal `$(name)`. The hover draws no icons, so the escape's own backslash goes here, before
+ * the markdown loses the flag; parentheses may be markdown-escaped too (`\\$\(name\)`).
+ */
+const ESCAPED_THEME_ICON = /\\\\(\$\\?\([A-Za-z0-9-]+(?:~[A-Za-z]+)?\\?\))/g;
+
 function readHoverBlock(block: unknown): string | null {
     if (typeof block === "string") return block;
     if (block === null) return null;
-    const b = block as { value?: unknown; language?: unknown };
+    const b = block as { value?: unknown; language?: unknown; supportThemeIcons?: unknown };
     if (typeof b.value !== "string") return null;
+    if (b.supportThemeIcons === true) return b.value.replace(ESCAPED_THEME_ICON, "$1");
     // Legacy `MarkedString` goes into a fence so the UI can tell code from prose.
     if (typeof b.language !== "string" || b.language === "") return b.value;
     return `\`\`\`${b.language}\n${b.value}\n\`\`\``;

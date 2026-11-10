@@ -715,9 +715,11 @@ export function createWindowNamespace(
             rpc.notify("window.statusBarItem.dispose", { handle });
         };
 
+        // Upstream `extHostStatusBar`: the public id is the explicit one or the extension id, not the wire id.
+        const publicId = explicitId ?? owner.current ?? "";
         const item: vscode.StatusBarItem = {
             get id(): string {
-                return currentId();
+                return publicId;
             },
             get alignment(): vscode.StatusBarAlignment {
                 return alignment ?? StatusBarAlignment.Left;

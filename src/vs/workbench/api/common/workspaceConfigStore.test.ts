@@ -150,3 +150,101 @@ describe("WorkspaceConfigStore — workspace layer", () => {
         expect(store.get("editor.tabSize")).toBe(8);
     });
 });
+
+describe("WorkspaceConfigStore — `get('[lang]')`, the language section as upstream `contents` keep it", () => {
+    it("[api:WorkspaceConfiguration.get] merges the section of all layers, keyed by setting ids", () => {
+        // As the host sends it: `toRaw` of a layer with the section already a nested tree.
+        const store = storeWith(
+            { editor: { tabSize: 4 }, "[abcLang]": { editor: { lineNumbers: "off", tabSize: 2 } } },
+            { "[abcLang]": { editor: { tabSize: 8 }, files: { trimTrailingWhitespace: true } } },
+        );
+
+        expect(store.get("[abcLang]")).toEqual({
+            "editor.lineNumbers": "off",
+            "editor.tabSize": 8,
+            "files.trimTrailingWhitespace": true,
+        });
+        expect(store.has("[abcLang]")).toBe(true);
+    });
+
+    it("a language without a section has none, the default value answers", () => {
+        const store = storeWith({ "[abcLang]": { editor: { tabSize: 2 } } }, {});
+
+        expect(store.get("[other]")).toBeUndefined();
+        expect(store.get("[other]", "fallback")).toBe("fallback");
+        expect(store.has("[other]")).toBe(false);
+    });
+
+    it("an empty section is an empty object, not missing", () => {
+        expect(storeWith({ "[abcLang]": {} }, {}).get("[abcLang]")).toEqual({});
+    });
+
+    it("object values with any key that is not a setting name stay whole; null, an empty object, an array too", () => {
+        const values = {
+            exclude: { build: true, "**/out": true },
+            watcherExclude: { "src/**": true },
+            numbered: { "1x": true },
+            hidden: { _private: true },
+        };
+        const store = storeWith(
+            { "[abcLang]": { files: values, editor: { codeActionsOnSave: {}, rulers: [80, 120], font: null } } },
+            {},
+        );
+
+        expect(store.get("[abcLang]")).toEqual({
+            "files.exclude": values.exclude,
+            "files.watcherExclude": values.watcherExclude,
+            "files.numbered": values.numbered,
+            "files.hidden": values.hidden,
+            "editor.codeActionsOnSave": {},
+            "editor.rulers": [80, 120],
+            "editor.font": null,
+        });
+    });
+
+    it("a registered setting stays whole whatever its value; an unregistered key is guessed from its shape", () => {
+        const store = new WorkspaceConfigStore();
+        const section = { other: "on", "my-key_2": "off" };
+        store.setData(
+            { defaults: { "[abcLang]": { editor: { quickSuggestions: section }, leftover: { quick: section } } } },
+            ["editor.quickSuggestions", 42],
+        );
+
+        expect(store.get("[abcLang]")).toEqual({
+            "editor.quickSuggestions": section,
+            "leftover.quick.other": "on",
+            "leftover.quick.my-key_2": "off",
+        });
+    });
+
+    it("setData returns the `[lang]` keys whose merged section changed, whatever layer changed it", () => {
+        const store = new WorkspaceConfigStore();
+        expect(store.setData({ defaults: { "[a]": { x: 1 }, "[b]": { y: 1 } } })).toEqual(["[a]", "[b]"]);
+        expect(store.setData({ defaults: { "[a]": { x: 1 }, "[b]": { y: 1 } }, user: { "[b]": { y: 2 } } })).toEqual([
+            "[b]",
+        ]);
+        expect(store.setData({ defaults: { "[a]": { x: 1 } }, user: { "[b]": { y: 2 } } })).toEqual([]);
+        expect(store.setData({})).toEqual(["[a]", "[b]"]);
+    });
+
+    it("ids that are not an array are no ids", () => {
+        const store = new WorkspaceConfigStore();
+        const data = { defaults: { "[abcLang]": { editor: { quickSuggestions: { other: "on" } } } } };
+        store.setData(data, { "editor.quickSuggestions": true });
+
+        expect(store.get("[abcLang]")).toEqual({ "editor.quickSuggestions.other": "on" });
+    });
+
+    it("the ids are replaced with each setData", () => {
+        const store = new WorkspaceConfigStore();
+        const data = { defaults: { "[abcLang]": { editor: { quickSuggestions: { other: "on" } } } } };
+        store.setData(data, ["editor.quickSuggestions"]);
+        store.setData(data);
+
+        expect(store.get("[abcLang]")).toEqual({ "editor.quickSuggestions.other": "on" });
+    });
+
+    it("a key that only looks like a language is read from the main tree", () => {
+        expect(storeWith({ "[abcLang]x": 1 }, {}).get("[abcLang]x")).toBe(1);
+    });
+});

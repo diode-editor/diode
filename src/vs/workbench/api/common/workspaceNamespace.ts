@@ -367,11 +367,12 @@ export function createWorkspaceNamespace(
     rpc.handleNotification("workspace.initialize", (params) => {
         const p: {
             configuration?: unknown;
+            settingIds?: unknown;
             workspaceFolders?: readonly IWireWorkspaceFolder[];
             workspaceFile?: unknown;
             userRoamingDataHome?: unknown;
         } = params;
-        configStore.setData(p.configuration);
+        configStore.setData(p.configuration, p.settingIds);
         workspaceFile = typeof p.workspaceFile === "string" ? Uri.parse(p.workspaceFile) : undefined;
         userRoamingDataHome = typeof p.userRoamingDataHome === "string" ? p.userRoamingDataHome : undefined;
         workspaceFolders = (p.workspaceFolders ?? []).map((f) => ({
@@ -382,9 +383,9 @@ export function createWorkspaceNamespace(
     });
 
     rpc.handleNotification("workspace.configurationChanged", (params) => {
-        const p: { configuration?: unknown; affectedKeys?: readonly string[] } = params;
-        configStore.setData(p.configuration);
-        const affectedKeys = p.affectedKeys ?? [];
+        const p: { configuration?: unknown; settingIds?: unknown; affectedKeys?: readonly string[] } = params;
+        const affectedKeys = configStore.setData(p.configuration, p.settingIds);
+        if (p.affectedKeys !== undefined) affectedKeys.push(...p.affectedKeys);
         onDidChangeConfigurationEmitter.fire({
             affectsConfiguration: (section: string): boolean =>
                 affectedKeys.some((key) => key === section || key.startsWith(section + ".")),
