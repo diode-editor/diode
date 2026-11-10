@@ -838,9 +838,14 @@
 - **Прогресс:** настоящий `window.withProgress` (`api/common/extHostProgress.ts`) — notify
   `window.progress.{start,report,end}`; `start` несёт `location` и `cancellable` → опция
   `ExtensionHost.progressSink` → `ExtensionProgressAdapter`: `Notification` — тост-прогресс
-  (`NotificationService.showProgress`, [Notifications.md](workbench/Notifications.md)), всё
-  остальное — `ProgressStatusBarAdapter` (запись статус-бара со спиннером; SourceControl и view id
-  пока тоже сюда). Cancel тоста возвращается в subprocess уведомлением `window.progress.cancel`
+  (`NotificationService.showProgress`, [Notifications.md](workbench/Notifications.md)), `Window` —
+  `ProgressStatusBarAdapter` (запись статус-бара со спиннером), SourceControl и `{ viewId }` —
+  `ExtensionViewProgressAdapter`: операция `ProgressService` с местом `"view"` и `passive` (спиннер
+  в заголовке вида; `isBusy` и `operationProgress` её не видят — git-команды и кнопка Commit не
+  блокируются и не перенимают заголовок). Порядок разбора id — как в
+  эталонном `handleStringLocation`: id контейнера → его первый вид, id вида → он сам, иначе
+  `Bad progress location` в лог и никакого UI; SourceControl — вид `workbench.scm.changes`
+  (эталон: `workbench.scm`). Только индикатор: `message`, `increment` и Cancel вид не показывает. Cancel тоста возвращается в subprocess уведомлением `window.progress.cancel`
   (эталонный `$acceptProgressCanceled`) и стреляет токен; без `cancellable` токен — «никогда».
   `end` уходит при resolve, reject и синхронном throw задачи; на смерть subprocess'а host гасит
   живые handle'ы.
