@@ -306,6 +306,24 @@ describe("ViewsService — persisting moves (views.customizations)", () => {
         expect(customizations(h)).toEqual({ viewContainerLocations: {}, viewLocations: { terminal: OUTPUT } });
     });
 
+    it("the startup restore announces the locations: a view's owner created earlier learns where it is", () => {
+        const h = makeViewsHarness();
+        h.stored.set(VIEWS_CUSTOMIZATIONS_STATE.key, {
+            viewContainerLocations: {},
+            viewLocations: { terminal: OUTPUT },
+        });
+        h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
+        h.service.registerContainer({ id: TERMINAL, title: "TERMINAL", location: "panel" });
+        h.service.registerView(testView("output", OUTPUT, 10, { canMoveView: true }));
+        h.service.registerView(testView("terminal", TERMINAL, 10, { canMoveView: true }));
+        const seen: (string | null)[] = [];
+        h.service.onDidChangeLocations(() => seen.push(h.service.getViewContainerByViewId("terminal")));
+        h.service.attachRegisteredContainers();
+        expect(seen).toEqual([OUTPUT]);
+        // Attaching is not a user move: the store is not rewritten.
+        expect(customizations(h)).toEqual({ viewContainerLocations: {}, viewLocations: { terminal: OUTPUT } });
+    });
+
     it("switching the workspace before the first restore touches nothing", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
