@@ -119,8 +119,8 @@ export function parseWireShowTextDocumentParams(raw: unknown): IWireShowTextDocu
 
 /** A wrong-shaped encoding is dropped: the document opens as if none were asked. */
 export function parseWireOpenTextDocumentParams(raw: unknown): IWireOpenTextDocumentParams | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const obj = raw as Record<string, unknown>;
+    // Primitives aren't rejected separately: their fields read as undefined.
+    const obj = (raw ?? {}) as Record<string, unknown>;
     if (typeof obj.uri !== "string") return null;
     return { uri: obj.uri, ...(typeof obj.encoding === "string" ? { encoding: obj.encoding } : {}) };
 }

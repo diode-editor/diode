@@ -220,8 +220,8 @@ export function decodeStreamByBOM(bytes: Iterable<Buffer>): IDecodedStream {
  * Async only to load iconv-lite: bytes are read while iterating {@link IDecodedStream.text}. A name iconv
  * does not know is utf-8, as upstream.
  */
-export async function decodeStream(bytes: Iterable<Buffer>, explicitEncoding?: string): Promise<IDecodedStream> {
-    const explicit = explicitEncoding === undefined ? undefined : await validateEncoding(explicitEncoding);
+export async function decodeStream(bytes: Iterable<Buffer>, explicitEncoding: string): Promise<IDecodedStream> {
+    const explicit = await validateEncoding(explicitEncoding);
     const source = bytes[Symbol.iterator]();
     const head = readHead(source);
     const info = resolveDecodeEncoding(head, explicit);

@@ -373,10 +373,14 @@ describe("WorkspaceNamespace — openTextDocument and the live model", () => {
 describe("WorkspaceNamespace — openTextDocument with an encoding", () => {
     const FILE = Uri.parse(URI);
 
-    /** The host rereads the model in the asked encoding: the state goes out before the reply. */
+    /**
+     * The host rereads the model in the asked encoding: the state goes out before the reply. Asynchronously, as
+     * over the real channel: a request made meanwhile finds no open document yet.
+     */
     function reopenOnHost(stub: ReturnType<typeof makeCtx>["stub"]): void {
-        stub.responder = (method, params) => {
+        stub.responder = async (method, params) => {
             if (method !== "workspace.openTextDocument") return null;
+            await new Promise((resolve) => setTimeout(resolve, 0));
             const { encoding } = params as { encoding?: string };
             stub.fire("editor.didOpen", openParams());
             if (encoding !== undefined) {

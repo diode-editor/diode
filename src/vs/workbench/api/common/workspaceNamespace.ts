@@ -559,14 +559,14 @@ export function createWorkspaceNamespace(
         return loadDocument(uri, requestedEncoding);
     }
 
-    /** A load in flight without the encoding asked for is followed by one with it (upstream `ensureDocumentData`). */
+    /**
+     * A request that finds a load in flight is asked again after it: the open document answers it, or a reread when
+     * it asked for another encoding (upstream `ensureDocumentData`).
+     */
     function loadDocument(uri: Uri, encoding: string | undefined): Promise<vscode.TextDocument> {
         const key = uri.toString();
         const pending = documentLoads.get(key);
-        if (pending !== undefined) {
-            if (encoding === undefined) return pending;
-            return pending.then((doc) => (doc.encoding === encoding ? doc : openTextDocument(uri, { encoding })));
-        }
+        if (pending !== undefined) return pending.then(() => openTextDocument(uri, { encoding }));
         const load = requestDocument(uri, encoding).finally(() => documentLoads.delete(key));
         documentLoads.set(key, load);
         return load;

@@ -85,6 +85,14 @@ describe("EditorService — file models without an editor", () => {
             expect(model.encoding).toBe("utf8");
         });
 
+        it("without an encoding a dirty model opens as it is", async () => {
+            const model = hold("a.txt");
+            edit(model, "X");
+
+            expect(await service().openTextDocumentWithoutEditor(Uri.file(ws.path("a.txt")))).toBe(true);
+            expect(model.getText()).toBe("Xa");
+        });
+
         it("a dirty model refuses with upstream's message and keeps its text", async () => {
             const model = hold("a.txt");
             edit(model, "X");
