@@ -4,6 +4,7 @@ import * as path from "node:path";
 
 import iconv from "iconv-lite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as vscode from "vscode";
 
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
@@ -78,6 +79,25 @@ describe("WorkspaceNamespace — configuration", () => {
 
         stub.fire("workspace.initialize", { configuration, settingIds: [], workspaceFolders: [] });
         expect(workspace.getConfiguration().get("[abcLang]")).toEqual({ "editor.quickSuggestions.other": "on" });
+    });
+
+    it("onDidChangeConfiguration: the host's keys and the changed `[lang]` sections; no keys from the host is no keys", () => {
+        const { stub, workspace } = makeCtx();
+        const events: vscode.ConfigurationChangeEvent[] = [];
+        workspace.onDidChangeConfiguration((event) => events.push(event));
+
+        stub.fire("workspace.configurationChanged", {
+            configuration: { user: { "[plaintext]": { editor: { tabSize: 5 } } } },
+            affectedKeys: ["editor.tabSize"],
+        });
+        stub.fire("workspace.configurationChanged", {
+            configuration: { user: { "[plaintext]": { editor: { tabSize: 5 } } } },
+        });
+
+        expect(events.map((e) => [e.affectsConfiguration("[plaintext]"), e.affectsConfiguration("editor")])).toEqual([
+            [true, true],
+            [false, false],
+        ]);
     });
 
     it("scope with languageId (TextDocument or { languageId }) picks the language section", () => {

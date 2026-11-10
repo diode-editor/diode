@@ -23,15 +23,15 @@ export class WorkspaceConfigStore {
     private workspace = ConfigurationModel.EMPTY;
     private workspaceFolder = ConfigurationModel.EMPTY;
     private merged = ConfigurationModel.EMPTY;
-    private settingIds: ReadonlySet<string> = new Set();
+    private settingIds: ReadonlySet<unknown> = new Set();
 
     /**
-     * Anything that is not an object becomes an empty layer; anything but strings among the ids is dropped.
+     * Anything that is not an object becomes an empty layer, and anything but an array no ids.
      * Returns the `[lang]` keys whose section changed: upstream counts them among the event's keys.
      */
     public setData(data: unknown, settingIds?: unknown): string[] {
         const before = this.merged;
-        this.settingIds = new Set(Array.isArray(settingIds) ? settingIds.filter((id) => typeof id === "string") : []);
+        this.settingIds = new Set<unknown>(Array.isArray(settingIds) ? settingIds : undefined);
         const layers = isPlainObject(data) ? data : {};
         this.defaults = ConfigurationModel.fromRaw(layers.defaults);
         this.user = ConfigurationModel.fromRaw(layers.user);

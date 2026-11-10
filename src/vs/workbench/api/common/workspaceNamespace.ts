@@ -384,7 +384,8 @@ export function createWorkspaceNamespace(
 
     rpc.handleNotification("workspace.configurationChanged", (params) => {
         const p: { configuration?: unknown; settingIds?: unknown; affectedKeys?: readonly string[] } = params;
-        const affectedKeys = [...(p.affectedKeys ?? []), ...configStore.setData(p.configuration, p.settingIds)];
+        const affectedKeys = configStore.setData(p.configuration, p.settingIds);
+        if (p.affectedKeys !== undefined) affectedKeys.push(...p.affectedKeys);
         onDidChangeConfigurationEmitter.fire({
             affectsConfiguration: (section: string): boolean =>
                 affectedKeys.some((key) => key === section || key.startsWith(section + ".")),

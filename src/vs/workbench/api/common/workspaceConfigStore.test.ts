@@ -179,21 +179,26 @@ describe("WorkspaceConfigStore — `get('[lang]')`, the language section as upst
         expect(storeWith({ "[abcLang]": {} }, {}).get("[abcLang]")).toEqual({});
     });
 
-    it("object values whose keys are not setting names stay whole: globs, an empty object, an array", () => {
+    it("object values with any key that is not a setting name stay whole; null, an empty object, an array too", () => {
+        const values = {
+            exclude: { build: true, "**/out": true },
+            watcherExclude: { "src/**": true },
+            numbered: { "1x": true },
+            hidden: { _private: true },
+        };
         const store = storeWith(
-            {
-                "[abcLang]": {
-                    files: { exclude: { "**/out": true } },
-                    editor: { codeActionsOnSave: {}, rulers: [80, 120] },
-                },
-            },
+            { "[abcLang]": { files: values, editor: { codeActionsOnSave: {}, rulers: [80, 120], font: null } } },
             {},
         );
 
         expect(store.get("[abcLang]")).toEqual({
-            "files.exclude": { "**/out": true },
+            "files.exclude": values.exclude,
+            "files.watcherExclude": values.watcherExclude,
+            "files.numbered": values.numbered,
+            "files.hidden": values.hidden,
             "editor.codeActionsOnSave": {},
             "editor.rulers": [80, 120],
+            "editor.font": null,
         });
     });
 
@@ -220,6 +225,14 @@ describe("WorkspaceConfigStore — `get('[lang]')`, the language section as upst
         ]);
         expect(store.setData({ defaults: { "[a]": { x: 1 } }, user: { "[b]": { y: 2 } } })).toEqual([]);
         expect(store.setData({})).toEqual(["[a]", "[b]"]);
+    });
+
+    it("ids that are not an array are no ids", () => {
+        const store = new WorkspaceConfigStore();
+        const data = { defaults: { "[abcLang]": { editor: { quickSuggestions: { other: "on" } } } } };
+        store.setData(data, { "editor.quickSuggestions": true });
+
+        expect(store.get("[abcLang]")).toEqual({ "editor.quickSuggestions.other": "on" });
     });
 
     it("the ids are replaced with each setData", () => {

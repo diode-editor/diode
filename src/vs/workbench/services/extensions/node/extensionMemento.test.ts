@@ -103,13 +103,15 @@ describe("createExtensionMemento", () => {
             expect(persisted).toHaveLength(1);
         });
 
-        it("primitives and null are stored as they are", async () => {
+        it("primitives and null are stored as they are: NaN stays NaN, though JSON would make it null", async () => {
             const { m } = memento();
             await m.update("null", null);
             await m.update("text", "x");
+            await m.update("nan", Number.NaN);
 
             expect(m.get("null", "fallback")).toBeNull();
             expect(m.get("text")).toBe("x");
+            expect(m.get("nan")).toBeNaN();
         });
     });
 

@@ -23,8 +23,8 @@ export function createExtensionMemento(options: IExtensionMementoOptions): IExte
             // vscode semantics: update(key, undefined) deletes the key.
             if (value === undefined) store.delete(key);
             // As upstream: an object is stored as its JSON round trip (a Date becomes a string, a class
-            // instance a plain object), and a cycle throws right here, before the promise.
-            else if (typeof value === "object" && value !== null) store.set(key, JSON.parse(JSON.stringify(value)));
+            // instance a plain object, null stays null), and a cycle throws right here, before the promise.
+            else if (typeof value === "object") store.set(key, JSON.parse(JSON.stringify(value)));
             else store.set(key, value);
             return options.persist(Object.fromEntries(store));
         },

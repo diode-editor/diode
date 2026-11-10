@@ -1312,7 +1312,7 @@ export class MarkdownString implements vscode.MarkdownString {
     /** Upstream `htmlContent.ts`: the text shows literally, a newline starts a paragraph. */
     public appendText(value: string): this {
         this.value += escapeMarkdownSyntaxTokens(this.supportThemeIcons === true ? escapeIcons(value) : value)
-            .replace(/[ \t]+/g, (run) => "&nbsp;".repeat(run.length))
+            .replace(/[ \t]/g, "&nbsp;")
             .replace(/>/g, "\\>")
             .replace(/\n/g, "\n\n");
         return this;

@@ -365,6 +365,12 @@ describe("window.createStatusBarItem: item state in the subprocess", () => {
             expect(item.id).toBe("my.item");
         });
 
+        it("an item made outside any extension (the host's own, like the status message) has an empty id", () => {
+            const { window } = makeWindow();
+
+            expect(window.createStatusBarItem().id).toBe("");
+        });
+
         it("is read-only: assigning it throws in strict code", () => {
             const { window, owner } = makeWindow();
             const item = owner.runAs("pub.ext", () => window.createStatusBarItem());
