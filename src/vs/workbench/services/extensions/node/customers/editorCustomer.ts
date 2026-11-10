@@ -24,6 +24,7 @@ import {
     parseWireCloseTabsParams,
     parseWireCreateUntitledParams,
     parseWireEditorEdits,
+    parseWireOpenTextDocumentParams,
     parseWireShowTextDocumentParams,
 } from "../hostWireParsers.ts";
 
@@ -193,9 +194,11 @@ export class EditorCustomer implements IExtensionHostCustomer {
         );
         // `editor.didOpen` goes out synchronously during opening — the reply doesn't overtake it.
         store.add(
-            rpc.handleRequest("workspace.openTextDocument", (params) =>
-                this.editorLayout.openTextDocument({ uri: params.uri }),
-            ),
+            rpc.handleRequest("workspace.openTextDocument", (params) => {
+                const parsed = parseWireOpenTextDocumentParams(params);
+                if (parsed === null) throw new Error("workspace.openTextDocument: malformed params");
+                return this.editorLayout.openTextDocument(parsed);
+            }),
         );
         // `editor.didOpen` goes out synchronously during creation — the reply doesn't overtake it.
         store.add(

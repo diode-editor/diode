@@ -1,0 +1,20 @@
+{
+    "name": "open-encoding-demo",
+    "displayName": "Open Encoding Demo",
+    "description": "workspace.openTextDocument(file, { encoding: 'cp1252' }): an extension opens a Windows-1252 file on the live model and shows it.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["onCommand:openEncodingDemo.open"],
+    "contributes": {
+        "commands": [
+            {
+                "command": "openEncodingDemo.open",
+                "title": "Open Encoding Demo: Open"
+            }
+        ]
+    }
+}

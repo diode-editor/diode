@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
@@ -24,6 +25,7 @@ import {
     decodeStream,
     decodeStreamByBOM,
     encodeStream,
+    hasNativeCodec,
     type IDecodedStream,
 } from "../../../../editor/common/model/encodingStream.ts";
 import {
@@ -106,6 +108,11 @@ export class TextFileModel extends BaseTextEditorModel {
      * and not part of isModified, as in VS Code.
      */
     private encodingValue: string = DEFAULT_ENCODING;
+    /**
+     * Upstream `preferredEncoding`: chosen by the user or an extension (reopen or save with an encoding), it
+     * outlives a reload from disk, which otherwise sniffs the BOM and falls back to utf-8.
+     */
+    private preferredEncoding: string | null = null;
     private readonly onDidChangeEncodingEmitter = this.register(new Emitter<void>());
     /** Tells an external change from our own write. `null`: the file did not exist when opened. */
     private diskStat: IDiskStat | null = null;
@@ -357,6 +364,8 @@ export class TextFileModel extends BaseTextEditorModel {
             throw new Error(`TextFileModel.openFile: expected a file: uri, got ${uri.scheme}:`);
         }
         this.uriValue = uri;
+        // The choice belonged to the previous file.
+        this.preferredEncoding = null;
         const filePath = uri.fsPath;
         // Above the size threshold the document stays on disk and the mode is on by construction; otherwise
         // the file is read into memory and the line-count axis decides.
@@ -631,13 +640,18 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     /**
-     * The encoding is re-detected (BOM sniff, otherwise utf-8), like reload in VS Code; an explicit one is
-     * {@link reopenWithEncoding}. A reload of a model in the large-file mode goes back on disk when the file is
+     * The encoding is re-detected (BOM sniff, otherwise utf-8), like reload in VS Code, unless one that needs iconv
+     * was chosen ({@link preferredEncoding}): then it is read in that one, asynchronously, as
+     * {@link reopenWithEncoding}. A chosen utf-8 or UTF-16 is what the sniff finds in a file we wrote. A reload of a model in the large-file mode goes back on disk when the file is
      * still above the threshold (a reload never turns the mode on: upstream's "decided once"). A large file in
      * memory (editing enabled) streams in, like "Enable Editing": a synchronous read of 500 MB froze the editor for
      * seconds on every external change. The text is replaced in one flush, not diffed (docs/arch/Editor.md).
      */
     private loadDocumentFromDisk(filePath: string): void {
+        if (this.preferredEncoding !== null && !hasNativeCodec(this.preferredEncoding)) {
+            this.reopenWithEncoding(this.preferredEncoding).catch(onUnexpectedError);
+            return;
+        }
         if (this.isTooLargeForTokenization && this.openOnDisk(filePath)) return;
         const opener = this.streamsOnReload(filePath);
         if (opener !== null) {
@@ -753,6 +767,7 @@ export class TextFileModel extends BaseTextEditorModel {
     /** "no-file": the caller falls back to Save As; the encoding is already set by then. */
     public async saveWithEncoding(encoding: string, options?: { overwrite?: boolean }): Promise<SaveOutcome> {
         this.setEncoding(encoding);
+        this.preferredEncoding = this.encodingValue;
         return this.save(options);
     }
 
@@ -782,11 +797,14 @@ export class TextFileModel extends BaseTextEditorModel {
 
     /**
      * The caller asks for confirmation on a dirty buffer. `false`: no file, or another
-     * reload overtook this one (non-Unicode decoding waits for iconv).
+     * reload overtook this one (non-Unicode decoding waits for iconv). Any name iconv knows
+     * ("cp1252") is kept verbatim; an unknown one reads as utf-8. Later reloads keep the encoding.
      */
     public async reopenWithEncoding(encoding: string): Promise<boolean> {
         const filePath = this.filePath;
         if (filePath === null) return false;
+        // Before the read, as upstream `updatePreferredEncoding`: a reload that overtakes this one reads the same way.
+        this.preferredEncoding = encoding;
         const chunks = this.readDiskChunks(filePath);
         const generation = this.loadGeneration;
         const decoded = await decodeStream(chunks, encoding);
@@ -796,6 +814,8 @@ export class TextFileModel extends BaseTextEditorModel {
             return false;
         }
         this.applyDecoded(filePath, decoded);
+        // The encoding actually read: "utf8" on a file with a BOM is "utf8bom", an unknown name is "utf8".
+        this.preferredEncoding = decoded.encoding;
         return true;
     }
 

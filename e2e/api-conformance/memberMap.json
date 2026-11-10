@@ -653,6 +653,12 @@
         "tasks.fetchTasks",
         "tasks.registerTaskProvider"
     ],
+    "workspace.tasks vscode API - tasks Tasks CustomExecution A task can be fetched with default task group information": [
+        "Task.group",
+        "WorkspaceConfiguration.update",
+        "tasks.fetchTasks",
+        "workspace.getConfiguration"
+    ],
     "workspace.tasks vscode API - tasks Tasks CustomExecution Tasks can be run back to back": [
         "CustomExecution",
         "EventEmitter",
@@ -795,5 +801,22 @@
         "StatusBarItem.priority",
         "StatusBarItem.tooltip",
         "window.createStatusBarItem"
+    ],
+    "workspace vscode API - workspace encoding: openTextDocument": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding"
+    ],
+    "workspace vscode API - workspace encoding: openTextDocument - throws for dirty documents": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding",
+        "TextDocument.isDirty"
+    ],
+    "workspace vscode API - workspace encoding: openTextDocument - multiple requests with different encoding work": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding"
+    ],
+    "workspace vscode API - workspace encoding: save text document with a different encoding": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding"
     ]
 }

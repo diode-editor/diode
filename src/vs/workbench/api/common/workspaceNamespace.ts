@@ -231,7 +231,8 @@ export function createWorkspaceNamespace(
      * Deviation: upstream closes such a model after a while, here it lives until the tab that shows it closes.
      */
     const documentsWithoutModel = new Set<string>();
-    const virtualDocumentsLoading = new Map<string, Promise<vscode.TextDocument>>();
+    /** Upstream `_documentLoader`: one load per uri in flight, a virtual document's or a model's. */
+    const documentLoads = new Map<string, Promise<vscode.TextDocument>>();
     let virtualDocumentRefresh = Promise.resolve();
 
     /** One at a time, as upstream's `lastEvent`: a slow answer must not overwrite a newer one. */
@@ -260,7 +261,7 @@ export function createWorkspaceNamespace(
 
     function openVirtualDocument(uri: vscode.Uri): Promise<vscode.TextDocument> {
         const key = uri.toString();
-        const loading = virtualDocumentsLoading.get(key);
+        const loading = documentLoads.get(key);
         if (loading !== undefined) return loading;
         const opened = contentProviders
             .provide(uri)
@@ -272,9 +273,9 @@ export function createWorkspaceNamespace(
                 return documentSync.open({ uri: key, text, ...(languageId !== undefined ? { languageId } : {}) });
             })
             .finally(() => {
-                virtualDocumentsLoading.delete(key);
+                documentLoads.delete(key);
             });
-        virtualDocumentsLoading.set(key, opened);
+        documentLoads.set(key, opened);
         return opened;
     }
 
@@ -535,22 +536,14 @@ export function createWorkspaceNamespace(
         const requestedEncoding = options?.encoding;
         // A closed document stays in the registry for the references extensions keep; it is not open.
         if (open !== undefined && !open.isClosed) {
-            // Upstream `ensureDocumentData`: another encoding goes to the main side. Files are a later cluster.
-            const changesEncoding =
-                uri.scheme === "untitled" && requestedEncoding !== undefined && open.encoding !== requestedEncoding;
-            if (!changesEncoding) return open;
+            // Upstream `ensureDocumentData`: another encoding goes to the main side.
+            if (requestedEncoding === undefined || open.encoding === requestedEncoding) return open;
         } else if (uri.scheme === "untitled" || uri.scheme === "file") {
             // As upstream's document map: what opens now is a new document, a held closed one stays closed.
             registry.forget(uri);
         }
 
-        if (uri.scheme === "untitled") {
-            const { uri: opened } = await rpc.request("workspace.createUntitledDocument", {
-                uri: uri.toString(),
-                ...(requestedEncoding === undefined ? {} : { encoding: requestedEncoding }),
-            });
-            return registry.get(Uri.parse(opened)) ?? makeEphemeralDocument(uri, "", "utf8");
-        }
+        if (uri.scheme === "untitled") return loadDocument(uri, requestedEncoding);
 
         const isVirtual = contentProviders.has(uri.scheme);
 
@@ -558,27 +551,56 @@ export function createWorkspaceNamespace(
 
         const fsProvider = fsProviders.get(uri.scheme);
         if (fsProvider !== undefined) {
-            const { text, encoding } = await decodeBuffer(
-                Buffer.from(await fsProvider.readFile(uri)),
-                options?.encoding,
-            );
-            return makeEphemeralDocument(uri, text, encoding, await languageOfDocumentWithoutModel(uri));
+            return ephemeralDocumentOfBytes(uri, Buffer.from(await fsProvider.readFile(uri)), requestedEncoding);
         }
 
         // For non-file schemes `fsPath` is not a path; do not pass it to node:fs.
         if (uri.scheme !== "file") throw FileSystemError.Unavailable(uri);
 
-        // The live model: edits reach this very object, a save writes the file. An explicit encoding decodes
-        // this read only, as before: the model has one encoding, and opening with another is a separate feature.
-        if (options?.encoding === undefined) {
-            await rpc.request("workspace.openTextDocument", { uri: uri.toString() });
-            const live = registry.get(uri);
-            if (live !== undefined && !live.isClosed) return live;
-        }
+        return loadDocument(uri, requestedEncoding);
+    }
 
-        const buffer = await ctx.disk.readFile(uri.fsPath);
-        const { text, encoding } = await decodeBuffer(buffer, options?.encoding);
-        return makeEphemeralDocument(uri, text, encoding, await languageOfDocumentWithoutModel(uri));
+    /**
+     * A request that finds a load in flight is asked again after it: the open document answers it, or a reread when
+     * it asked for another encoding (upstream `ensureDocumentData`).
+     */
+    function loadDocument(uri: Uri, encoding: string | undefined): Promise<vscode.TextDocument> {
+        const key = uri.toString();
+        const pending = documentLoads.get(key);
+        if (pending !== undefined) return pending.then(() => openTextDocument(uri, { encoding }));
+        const load = requestDocument(uri, encoding).finally(() => documentLoads.delete(key));
+        documentLoads.set(key, load);
+        return load;
+    }
+
+    /**
+     * The live model: edits reach this very object, a save writes the file. `editor.didOpen` (and the state after
+     * a reread in another encoding) arrives before the response.
+     */
+    async function requestDocument(uri: Uri, encoding: string | undefined): Promise<vscode.TextDocument> {
+        const withEncoding = encoding === undefined ? {} : { encoding };
+        if (uri.scheme === "untitled") {
+            const { uri: opened } = await rpc.request("workspace.createUntitledDocument", {
+                uri: uri.toString(),
+                ...withEncoding,
+            });
+            return registry.get(Uri.parse(opened)) ?? makeEphemeralDocument(uri, "", "utf8");
+        }
+        await rpc.request("workspace.openTextDocument", { uri: uri.toString(), ...withEncoding });
+        const live = registry.get(uri);
+        if (live !== undefined && !live.isClosed) return live;
+
+        // No live document: not a readable file (the read reports why) or above the sync limit.
+        return ephemeralDocumentOfBytes(uri, await ctx.disk.readFile(uri.fsPath), encoding);
+    }
+
+    async function ephemeralDocumentOfBytes(
+        uri: Uri,
+        bytes: Buffer,
+        encoding: string | undefined,
+    ): Promise<ExtHostTextDocument> {
+        const { text, encoding: read } = await decodeBuffer(bytes, encoding);
+        return makeEphemeralDocument(uri, text, read, await languageOfDocumentWithoutModel(uri));
     }
 
     /**

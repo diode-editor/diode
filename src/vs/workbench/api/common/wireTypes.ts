@@ -272,6 +272,13 @@ export interface IWireShowTextDocumentParams {
     readonly selection?: IWireSelection;
 }
 
+/** Upstream `$tryOpenDocument(uri, { encoding })`: a file document without a tab. */
+export interface IWireOpenTextDocumentParams {
+    readonly uri: string;
+    /** Rereads the file in it; unvalidated, the host turns a name iconv does not know into utf-8. */
+    readonly encoding?: string;
+}
+
 /** Upstream `$tryCreateDocument`: an untitled document without a tab; the reply is {@link IWireUriParams}. */
 export interface IWireCreateUntitledParams {
     /** `openTextDocument(untitled:…)`; without it the host picks the next `Untitled-N`. */

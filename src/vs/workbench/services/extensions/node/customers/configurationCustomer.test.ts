@@ -179,6 +179,22 @@ describe("ConfigurationCustomer — configuration.update", () => {
         expect(h.service.getConfigurationData().user).toMatchObject({ "[go]": { editor: { tabSize: 8 } } });
     });
 
+    it("the standalone tasks section is writable without registration in every target, as upstream", async () => {
+        const h = setupWrite();
+        await h.update({ key: "tasks.version", value: "2.0.0" });
+        await h.update({ key: "tasks", value: { version: "2.0.0" }, target: "user" });
+        await h.update({
+            key: "tasks.tasks",
+            value: [],
+            target: "workspaceFolder",
+            resource: Uri.file("/ws").toString(),
+        });
+        expect(h.targets).toEqual(["workspace", "user", "workspaceFolder"]);
+        await expect(h.update({ key: "tasksX", value: 1 })).rejects.toThrow(
+            "tasksX is not a registered configuration.",
+        );
+    });
+
     it("application/machine to the workspace — the service rejection arrives with the upstream text", async () => {
         const h = setupWrite();
         await expect(h.update({ key: "t.machine", value: 2 })).rejects.toThrow(
