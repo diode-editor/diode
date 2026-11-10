@@ -37,6 +37,7 @@ import { EditorLayoutServiceAdapter } from "../../workbench/api/browser/editorLa
 import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorOptionsServiceAdapter.ts";
 import { ExtensionLanguageStatusAdapter } from "../../workbench/api/browser/extensionLanguageStatusAdapter.ts";
 import { ExtensionOutputAdapter } from "../../workbench/api/browser/extensionOutputAdapter.ts";
+import { ExtensionProgressAdapter } from "../../workbench/api/browser/extensionProgressAdapter.ts";
 import { ExtensionStatusBarAdapter } from "../../workbench/api/browser/extensionStatusBarAdapter.ts";
 import { ExtensionTreeViewsAdapter } from "../../workbench/api/browser/extensionTreeViewsAdapter.ts";
 import { ExtensionViewWelcomesDIToken } from "../../workbench/api/browser/extensionViewWelcomes.ts";
@@ -342,7 +343,10 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             diagnosticsSink,
             markers: markerService,
             languageConfigurations: container.get(LanguageConfigurationServiceDIToken),
-            progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken), undefined, icons),
+            progressSink: new ExtensionProgressAdapter(
+                new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken), undefined, icons),
+                container.get(NotificationServiceDIToken),
+            ),
             statusBarItemSink: new ExtensionStatusBarAdapter(
                 container.get(StatusBarServiceDIToken),
                 commandAdapter,
