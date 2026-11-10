@@ -1,1 +1,4 @@
+vscode API - tree TreeView - element already registered
+vscode API - tree TreeView - element already registered after rapid root refresh
 vscode API - tree TreeView - element already registered after refresh
+vscode API - tree TreeView - element already registered during switch and update
