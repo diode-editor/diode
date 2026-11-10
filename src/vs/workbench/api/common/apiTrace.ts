@@ -178,17 +178,12 @@ interface INamespaceDescriptor {
 }
 
 /**
- * A copy of the descriptors, so `Object.keys` and getter liveness stay as they are. A frozen
- * namespace (`env`, as upstream) stays frozen: the copy is configurable only until it is wrapped.
+ * Every own member is redefined in source order, so `Object.keys` and getter liveness stay as they are.
+ * A frozen namespace (`env`, as upstream) stays frozen.
  */
 export function tracedNamespace<T extends object>(source: T, name: string, extension: string, trace: ApiTrace): T {
     const descriptors = Object.getOwnPropertyDescriptors(source) as Record<string, INamespaceDescriptor>;
-    const traced = Object.create(
-        source,
-        Object.fromEntries(
-            Object.entries(descriptors).map(([key, descriptor]) => [key, { ...descriptor, configurable: true }]),
-        ),
-    ) as T;
+    const traced = Object.create(source) as T;
     for (const [key, descriptor] of Object.entries(descriptors)) {
         const member = `${name}.${key}`;
         const { enumerable, value: initial, get: getter, set: setter } = descriptor;

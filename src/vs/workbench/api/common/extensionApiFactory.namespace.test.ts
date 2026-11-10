@@ -169,11 +169,12 @@ describe("overlay with the call journal", () => {
     });
 });
 
-/** Test files are ES modules, so strict mode: an assignment to a frozen or getter-only member throws, as in an upstream test. */
+// Test files are ES modules, so strict mode: an assignment to a frozen or getter-only member throws, as in an upstream test.
+
 describe.each([
     ["without", undefined],
     ["with", new ApiTrace({ write: () => undefined, schedule: () => undefined, onError: () => undefined })],
-])("readonly members, %s the call journal", (_label, trace) => {
+])("env is readonly, %s the call journal", (_label, trace) => {
     it("[api:env.language][api:env.appRoot][api:env.appName][api:env.machineId][api:env.sessionId][api:env.shell] every env member refuses assignment, clipboard and openExternal still reach the host", async () => {
         const { namespace, owner, stub } = build();
         stub.responder = (method) => (method === "env.clipboard.readText" ? { text: "from host" } : { opened: true });
@@ -203,14 +204,16 @@ describe.each([
         await expect(api.env.openExternal(Uri.parse("https://example.com"))).resolves.toBe(true);
         expect(stub.requests.map((r) => r.method)).toEqual(["env.clipboard.readText", "env.openExternal"]);
     });
+});
 
+describe("the configuration object is readonly", () => {
     it("[api:workspace.getConfiguration] the configuration object refuses assignment, get/has/inspect/update work as before", async () => {
         const { namespace, owner, stub } = build();
         stub.fire("workspace.initialize", {
             configuration: { defaults: { farboo: { config4: "", get: "get-prop" } }, user: {} },
             workspaceFolders: [],
         });
-        const config = createExtensionApi(namespace, owner, "pub.a", trace).workspace.getConfiguration("farboo");
+        const config = createExtensionApi(namespace, owner, "pub.a").workspace.getConfiguration("farboo");
         const mutable = config as unknown as Record<string, unknown>;
         expect(() => {
             mutable.config4 = "valuevalue";
