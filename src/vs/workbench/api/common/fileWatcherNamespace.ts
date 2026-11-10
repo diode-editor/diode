@@ -1,6 +1,7 @@
 import type * as vscode from "vscode";
 
-import { matchGlob } from "../../../base/common/glob.ts";
+import { matchRelativeGlob } from "../../../base/common/glob.ts";
+import { DisposableStore } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 
 import { EventEmitter, FileChangeType, RelativePattern } from "./vscodeTypes.ts";
@@ -86,30 +87,29 @@ export function watchProviderFiles(
     flags: IWatcherIgnoreFlags,
     watcherExcludes: readonly string[],
 ): vscode.FileSystemWatcher {
-    const onDidCreate = new EventEmitter<vscode.Uri>();
-    const onDidChange = new EventEmitter<vscode.Uri>();
-    const onDidDelete = new EventEmitter<vscode.Uri>();
-    const byType = new Map<vscode.FileChangeType, EventEmitter<vscode.Uri> | undefined>([
-        [FileChangeType.Created, flags.ignoreCreateEvents ? undefined : onDidCreate],
-        [FileChangeType.Changed, flags.ignoreChangeEvents ? undefined : onDidChange],
-        [FileChangeType.Deleted, flags.ignoreDeleteEvents ? undefined : onDidDelete],
-    ]);
-    const prefix = target.base.path.endsWith("/") ? target.base.path : `${target.base.path}/`;
-    const subscription = provider.onDidChangeFile((events) => {
-        for (const { type, uri } of events) {
-            if (!uri.path.startsWith(prefix) || !matchGlob(target.pattern, uri.path.slice(prefix.length))) continue;
-            byType.get(type)?.fire(uri);
-        }
-    });
+    const store = new DisposableStore();
+    const onDidCreate = store.add(new EventEmitter<vscode.Uri>());
+    const onDidChange = store.add(new EventEmitter<vscode.Uri>());
+    const onDidDelete = store.add(new EventEmitter<vscode.Uri>());
+    const byType = new Map<vscode.FileChangeType, EventEmitter<vscode.Uri>>();
+    if (!flags.ignoreCreateEvents) byType.set(FileChangeType.Created, onDidCreate);
+    if (!flags.ignoreChangeEvents) byType.set(FileChangeType.Changed, onDidChange);
+    if (!flags.ignoreDeleteEvents) byType.set(FileChangeType.Deleted, onDidDelete);
+    const relativePattern = { base: target.base.path, pattern: target.pattern };
+    store.add(
+        provider.onDidChangeFile((events) => {
+            for (const { type, uri } of events) {
+                if (matchRelativeGlob(relativePattern, uri.path)) byType.get(type)?.fire(uri);
+            }
+        }),
+    );
     const recursive = isRecursiveWatchPattern(target.pattern);
-    let watching: vscode.Disposable | undefined;
-    let disposed = false;
     // Never synchronously: upstream's `watch` arrives after an RPC round trip, and callers (upstream's own
     // `workspace-watcher` test) subscribe to the provider's side only after `createFileSystemWatcher` returns.
     queueMicrotask(() => {
-        if (disposed) return;
+        if (store.isDisposed) return;
         try {
-            watching = provider.watch(target.base, { recursive, excludes: recursive ? [...watcherExcludes] : [] });
+            store.add(provider.watch(target.base, { recursive, excludes: recursive ? watcherExcludes : [] }));
         } catch {
             // The provider may belong to another extension: its failure must not throw into the caller,
             // upstream only logs it on the main side. The watcher stays valid and hears `onDidChangeFile`.
@@ -121,13 +121,7 @@ export function watchProviderFiles(
         onDidChange: onDidChange.event,
         onDidDelete: onDidDelete.event,
         dispose: () => {
-            if (disposed) return;
-            disposed = true;
-            subscription.dispose();
-            watching?.dispose();
-            onDidCreate.dispose();
-            onDidChange.dispose();
-            onDidDelete.dispose();
+            store.dispose();
         },
     };
 }
