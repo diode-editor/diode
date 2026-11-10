@@ -11,12 +11,10 @@
       "class": "ok"
     },
     "workspace.decode": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "workspace.encode": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "workspace.findFiles": {
       "class": "ok"

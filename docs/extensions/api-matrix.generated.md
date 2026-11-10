@@ -14,15 +14,15 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1209 |
+| ok | 1211 |
 | A | 4 |
-| B | 221 |
+| B | 219 |
 | C | 547 |
 | X | 234 |
 
 | mark | members |
 | --- | --- |
-| test | 166 |
+| test | 168 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -349,7 +349,7 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `dotnetdev-kr-custom.csharp` | 11.7.18 | 579,875 |  | 248 | 32 | 0 | 9 | 12 | 11 |
 | `quarto.quarto` | 1.139.0 | 4,721,611 |  | 256 | 33 | 0 | 8 | 7 | 18 |
 | `malloydata.malloy-vscode` | 0.3.1793323135 | 667,347 |  | 206 | 33 | 0 | 3 | 4 | 26 |
-| `eamodio.gitlens` | 2026.10.300511 | 18,726,545 |  | 208 | 36 | 0 | 17 | 11 | 8 |
+| `eamodio.gitlens` | 2026.10.300511 | 18,726,545 |  | 208 | 35 | 0 | 16 | 11 | 8 |
 | `GitHub.vscode-pull-request-github` | 0.174.0 | 6,666,160 |  | 147 | 36 | 0 | 16 | 13 | 7 |
 | `devsense.phptools-vscode` | 1.76.19462 | 42,465,202 |  | 235 | 38 | 0 | 5 | 23 | 10 |
 | `GitLab.gitlab-workflow` | 7.3.5 | 2,950,329 |  | 252 | 38 | 0 | 13 | 12 | 13 |
@@ -2551,8 +2551,8 @@ Proposed API or a false hit: class X when real.
 | `workspace.applyEdit` | ok | yes | 106 | 886,030,083 | timonwong.shellcheck, yzhang.markdown-all-in-one |
 | `workspace.asRelativePath` | ok | yes | 53 | 542,990,002 |  |
 | `workspace.createFileSystemWatcher` | ok |  | 117 | 944,215,757 | biomejs.biome, bradlc.vscode-tailwindcss, redhat.vscode-yaml, svelte.svelte-vscode, vscjava.vscode-maven |
-| `workspace.decode` | B |  | 1 | 18,726,545 |  |
-| `workspace.encode` | B |  | 0 | 0 |  |
+| `workspace.decode` | ok | yes | 1 | 18,726,545 |  |
+| `workspace.encode` | ok | yes | 0 | 0 |  |
 | `workspace.findFiles` | ok | yes | 72 | 686,973,290 | bradlc.vscode-tailwindcss, svelte.svelte-vscode, vscjava.vscode-maven |
 | `workspace.fs` | ok | yes | 138 | 914,256,103 | biomejs.biome, bradlc.vscode-tailwindcss, tamasfe.even-better-toml, timonwong.shellcheck, yzhang.markdown-all-in-one |
 | `workspace.getConfiguration` | ok | yes | 176 | 1,135,915,147 | biomejs.biome, bradlc.vscode-tailwindcss, christian-kohler.npm-intellisense, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, shardulm94.trailing-spaces, svelte.svelte-vscode, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven, vscode.merge-conflict, yzhang.markdown-all-in-one |

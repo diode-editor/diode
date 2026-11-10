@@ -19,6 +19,7 @@ export function createEnvironmentService(
         logsDir: paths.logsDir,
         registry: cli.registry,
         userHome,
+        userRoamingDataHome: paths.userDir,
         settingsResource: paths.settingsFile,
         keybindingsResource: paths.keybindingsFile,
         globalStorageDir: paths.globalStorageDir,

@@ -61,6 +61,8 @@ export interface IWireWorkspaceInitialize {
     readonly workspaceFolders: readonly IWireWorkspaceFolder[];
     /** Absent when the window is not opened from a `.code-workspace`. */
     readonly workspaceFile?: string;
+    /** A path, not a uri: `user-data/User`, where settings are always utf-8 for `workspace.decode`/`encode`. */
+    readonly userRoamingDataHome?: string;
 }
 
 export interface IWireConfigurationChanged {

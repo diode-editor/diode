@@ -185,6 +185,8 @@ export interface IExtensionHarnessOptions {
     readonly workspaceConfiguration?: Readonly<Record<string, unknown>>;
     /** `uri.toString()`; absent — a folder window. */
     readonly workspaceFile?: string;
+    /** The app's `IEnvironmentService.userRoamingDataHome`; absent — none. */
+    readonly userRoamingDataHome?: string;
     /** What the host injects in the app (`builtinConfigInjection`); the harness collects manifest defaults itself. */
     readonly configurationDefaults?: Readonly<Record<string, unknown>>;
     /** CORE settings (`EditorService`, onSave participants) — not the subprocess `configuration`. */
@@ -328,6 +330,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         configurationRegistry,
         () => folders,
         () => options.workspaceFile,
+        options.userRoamingDataHome,
     );
     const editorLayout = new EditorLayoutServiceAdapter(
         group,

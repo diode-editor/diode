@@ -1622,8 +1622,24 @@ Runtime-значение может опережать типовую декла
 осью encoding ядра (`src/vs/editor/common/model/encoding.ts`): explicit-кодировка побеждает
 BOM-сниф, неизвестный id молча откатывается к дефолту (контракт vscode.d.ts); эфемерный документ
 детектит и `encoding`, и `eol`. `ExtHostTextDocument.encoding`/`.eol` — живые: обновляются метой
-`editor.activeEditorChanged` и снапшотом will-save (`IWireWillSaveParams.encoding`). Дормантные
-`workspace.decode`/`encode` не раскомментированы (не понадобились).
+`editor.activeEditorChanged` и снапшотом will-save (`IWireWillSaveParams.encoding`).
+
+**`workspace.decode`/`encode` (#1102)** — как `ExtHostWorkspace.decode`/`encode` эталона, но кодировку
+выбирает сам ext host, без RPC: у него сырые слои настроек, а язык ресурса (для секции `"[lang]"`)
+спрашивается тем же `languages.getLanguageOfDocument`, что у `openTextDocument`. Выбор — порт
+`EncodingOracle` эталона в `workbench/services/textfile/common/encodingOracle.ts` (без DI, чтобы его
+взял и редактор): override → явная кодировка (явный `utf8` на содержимом с BOM — `utf8bom`) →
+найденная по BOM, по нулевым байтам (UTF-16 без BOM) или угаданная jschardet при
+`files.autoGuessEncoding` → `files.encoding` → utf8. Override — каталоги настроек, всегда utf8:
+`user-data/User` (`IEnvironmentService.userRoamingDataHome`, едет полем `userRoamingDataHome` в
+`workspace.initialize`), `.vscode/` и наш `.diode/` каждой папки, любой `*.code-workspace`. Имя
+кодировки — любое, которое знает iconv-lite (`'cp1252'` остаётся `'cp1252'`), неизвестное — utf8
+(`validateEncoding`, `encodeWithEncoding`, `decodeWithEncoding` в `encoding.ts`). Бинарное содержимое
+(нули вне шаблона UTF-16) — исключение с текстом эталона. Детекция по нулям и угадывание —
+`encodingDetection.ts`, отдельным модулем: пока их зовёт только `decode`, и в общий с ядром код
+ext host (бюджет `roles/extension-host`) они не входят; jschardet — ленивый кусок. Настройки
+`files.encoding`/`autoGuessEncoding`/`candidateGuessEncodings` зарегистрированы дословно, но
+открытие и сохранение файлов редактором их пока не читает (пункт в `docs/TODO/README.md`).
 
 **Зависимости:** Extensions → Editor (через `ILanguageService`, `TextMateGrammarLoader`,
 `TokenizationRegistry`), Common. Host-адаптеры (`workbench/api/browser/`) **дополнительно →

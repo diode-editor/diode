@@ -149,9 +149,14 @@ export function extensionHostConfigProvider(
     configService: IConfigurationService,
     configurationRegistry: ConfigurationRegistry,
     workspaceContext: IWorkspaceContextService,
+    userRoamingDataHome?: string,
 ): IExtensionHostConfigProvider {
-    return configProviderOver(configService, configurationRegistry, workspaceFoldersProvider(workspaceContext), () =>
-        workspaceContext.getWorkspace().configuration?.toString(),
+    return configProviderOver(
+        configService,
+        configurationRegistry,
+        workspaceFoldersProvider(workspaceContext),
+        () => workspaceContext.getWorkspace().configuration?.toString(),
+        userRoamingDataHome,
     );
 }
 
@@ -161,11 +166,13 @@ export function configProviderOver(
     configurationRegistry: ConfigurationRegistry,
     getWorkspaceFolders: () => readonly IWorkspaceFolderInfo[],
     getWorkspaceFile: () => string | undefined,
+    userRoamingDataHome?: string,
 ): IExtensionHostConfigProvider {
     return {
         getSnapshot: () => configService.getConfigurationData(),
         getWorkspaceFolders,
         getWorkspaceFile,
+        userRoamingDataHome,
         onDidChange: (cb) =>
             configService.onDidChangeConfiguration((event) => {
                 cb(event.affectedKeys);
@@ -262,6 +269,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             configService,
             container.get(ConfigurationRegistryDIToken),
             workspaceContext,
+            environment.userRoamingDataHome,
         );
 
         const markerService = container.get(MarkerServiceDIToken);

@@ -30,7 +30,7 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 | surface | status | members |
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 19/40 |
-| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 24/45 |
+| [`vscode.workspace`](#vscodeworkspace) | 🟡 | 26/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 35/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
@@ -93,7 +93,7 @@ registration but are not called yet.
 
 ## vscode.workspace
 
-🟡 **24/45.** Documents, configuration, saving and its events, file watchers, disk access, file
+🟡 **26/45.** Documents, configuration, saving and its events, file watchers, disk access, file
 search by glob and bulk `applyEdit` (including closed files and file operations) work; the notebook
 surface does not.
 
@@ -121,7 +121,8 @@ surface does not.
 | `saveAll` | 🟡 | saves all unsaved files in all groups and documents without a tab; a file changed on disk is not overwritten and a write failure gives `false` while the others are still saved. Deviation: `includeUntitled` does not open Save As, untitled buffers stay unsaved and the result is `false` |
 | `save` | ✅ | saves the open document (a clean one too), with or without a tab, and returns its `Uri`; not open, untitled, a disk conflict or a write failure give `undefined` |
 | `rootPath` | ✅ | deprecated upstream: the first workspace folder |
-| `saveAs`, `decode`, `encode` | 🕐 | |
+| `decode`, `encode` | ✅ | the encoding is picked as VS Code does: an explicit one, then the BOM or UTF-16 without one (by zero bytes), a guess with `files.autoGuessEncoding`, then `files.encoding` (its language section by the `uri`); any name iconv-lite knows, an unknown one is UTF-8; settings files (`.vscode/`, `.diode/`, the user data folder, `*.code-workspace`) are always UTF-8. Binary content makes `decode` throw; `encode` returns a Node `Buffer` |
+| `saveAs` | 🕐 | |
 | `updateWorkspaceFolders` | 🟡 | VS Code's checks (duplicates, bounds, "nothing changes" gives `false`). There is no multi-root: an outcome of exactly one folder is carried out like File: Open Folder and restarts extensions (VS Code reloads the window); two or more folders, or none, give `false` and an error toast; the folder `name` is ignored |
 
 ## vscode.window

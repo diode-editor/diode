@@ -23,11 +23,13 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
      */
     public pushInitialState(): void {
         const workspaceFile = this.configuration.getWorkspaceFile();
+        const { userRoamingDataHome } = this.configuration;
         this.rpc?.notify("workspace.initialize", {
             configuration: this.configuration.getSnapshot(),
             workspaceFolders: this.configuration.getWorkspaceFolders(),
             // A folder window has no such field: the structured-clone wire would carry an `undefined` one.
             ...(workspaceFile !== undefined ? { workspaceFile } : {}),
+            ...(userRoamingDataHome !== undefined ? { userRoamingDataHome } : {}),
         });
     }
 

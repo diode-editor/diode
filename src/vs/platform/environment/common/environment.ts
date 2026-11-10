@@ -14,6 +14,8 @@ export interface IEnvironmentService {
     readonly registry: string | undefined;
     /** For `~` in user-typed paths. */
     readonly userHome: string;
+    /** `user-data/User`: every profile lives under it (upstream `userRoamingDataHome`). */
+    readonly userRoamingDataHome: string;
 
     readonly settingsResource: string;
     readonly keybindingsResource: string;

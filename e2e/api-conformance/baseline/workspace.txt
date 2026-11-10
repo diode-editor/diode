@@ -20,9 +20,12 @@ vscode API - workspace applyEdit "edit A -> rename A to B -> edit B"
 vscode API - workspace applyEdit should fail when editing deleted resource
 vscode API - workspace applyEdit should fail when editing renamed from resource
 vscode API - workspace applyEdit should fail when renaming deleted resource
+vscode API - workspace encoding: decode
+vscode API - workspace encoding: encode
 vscode API - workspace encoding: openTextDocument - can change the encoding of an existing untitled document
 vscode API - workspace encoding: openTextDocument - invalid encoding falls back to default
 vscode API - workspace encoding: text document encodings
+vscode API - workspace encoding: utf8bom does not explode (https://github.com/microsoft/vscode/issues/242132)
 vscode API - workspace eol, change via applyEdit
 vscode API - workspace eol, change via editor
 vscode API - workspace eol, change via onWillSave
