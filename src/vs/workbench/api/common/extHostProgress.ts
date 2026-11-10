@@ -13,11 +13,9 @@ interface ProgressStep {
 export function toWireProgressLocation(location: unknown): WireProgressLocation {
     if (location === ProgressLocation.Notification) return "notification";
     if (location === ProgressLocation.SourceControl) return "sourceControl";
-    if (typeof location === "object" && location !== null) {
-        const { viewId } = location as { viewId?: unknown };
-        if (typeof viewId === "string") return { viewId };
-    }
-    return "window";
+    // A number or a string has no `viewId` either.
+    const viewId = (location as { viewId?: unknown } | null | undefined)?.viewId;
+    return typeof viewId === "string" ? { viewId } : "window";
 }
 
 /**
@@ -62,8 +60,8 @@ export function createProgressApi(rpc: SubprocessRpc): Pick<typeof vscode.window
             },
         };
         const done = (): void => {
+            // Out of the map, the source and its listeners go with the task.
             cancellations.delete(handle);
-            source.dispose();
             rpc.notify("window.progress.end", { handle });
         };
         // `new Promise` turns a synchronous throw into a rejection, so `done` still runs.
