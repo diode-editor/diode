@@ -261,13 +261,15 @@ describe("extension terminals — over the wire", () => {
         h.service.dispose();
     });
 
-    it("before the seed no opened, closed or activeChanged is sent", async () => {
+    it("before the seed no opened, closed, activeChanged, interaction or titleChanged is sent", async () => {
         const h = setup({ pushInitialState: false });
         const sent: string[] = [];
         vi.spyOn(h.hostRpc, "notify").mockImplementation((method) => {
             sent.push(method);
         });
         h.service.newTerminal();
+        h.sessions[0].write("k");
+        h.service.renameInstance(h.service.getActiveInstance()?.id, "renamed");
         h.service.closeInstance(h.service.getActiveInstance()?.id);
         expect(sent).toStrictEqual([]);
         h.customer.pushInitialState();

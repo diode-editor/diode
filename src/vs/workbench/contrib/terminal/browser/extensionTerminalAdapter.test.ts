@@ -169,7 +169,13 @@ describe("ExtensionTerminalAdapter", () => {
         h.adapter.ptyName({ extHostId: 1 }, "bar");
         expect(h.service.getInstance(pty.id)?.title).toBe("bar");
         expect(h.events.titleChanged.mock.calls).toStrictEqual([[pty.id, "bar"]]);
-        expect(h.adapter.snapshot().terminals[0].name).toBe("bar");
+        // A pty has no shell type and has not been typed into: neither key is on the wire.
+        expect(h.adapter.snapshot().terminals[0]).toStrictEqual({
+            id: pty.id,
+            extHostId: 1,
+            name: "bar",
+            launch: { name: "bar", shellPath: "foo", cwd: process.cwd() },
+        });
         h.service.dispose();
     });
 
