@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 187 |
+| test | 202 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -980,7 +980,7 @@ Proposed API or a false hit: class X when real.
 | `env.appHost` | ok |  | 19 | 129,890,756 | redhat.vscode-yaml |
 | `env.appName` | ok | yes | 105 | 904,185,553 | biomejs.biome, bradlc.vscode-tailwindcss, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, svelte.svelte-vscode, tamasfe.even-better-toml |
 | `env.appRoot` | ok | yes | 22 | 135,779,926 |  |
-| `env.asExternalUri` | ok |  | 23 | 111,109,501 |  |
+| `env.asExternalUri` | ok | yes | 23 | 111,109,501 |  |
 | `env.clipboard` | ok |  | 73 | 420,753,210 | tamasfe.even-better-toml |
 | `env.createTelemetryLogger` | ok |  | 7 | 57,102,796 | vscjava.vscode-maven, vscode.merge-conflict |
 | `env.isAppPortable` | B |  | 0 | 0 |  |
@@ -996,8 +996,8 @@ Proposed API or a false hit: class X when real.
 | `env.remoteName` | ok |  | 46 | 390,229,901 | redhat.vscode-yaml |
 | `env.sessionId` | ok | yes | 39 | 483,965,689 |  |
 | `env.shell` | ok | yes | 21 | 356,487,352 | vscjava.vscode-maven |
-| `env.uiKind` | ok |  | 34 | 294,260,468 | redhat.vscode-yaml |
-| `env.uriScheme` | ok |  | 22 | 133,366,099 |  |
+| `env.uiKind` | ok | yes | 34 | 294,260,468 | redhat.vscode-yaml |
+| `env.uriScheme` | ok | yes | 22 | 133,366,099 |  |
 | `EnvironmentVariableCollection.append` | ok | yes | 0 | 0 |  |
 | `EnvironmentVariableCollection.clear` | ok |  | 0 | 0 |  |
 | `EnvironmentVariableCollection.delete` | ok |  | 0 | 0 |  |
@@ -1435,13 +1435,13 @@ Proposed API or a false hit: class X when real.
 | `LogOutputChannel.warn` | ok |  | 0 | 0 |  |
 | `MarkdownString` | ok | yes | 114 | 848,856,487 |  |
 | `MarkdownString.appendCodeblock` | ok |  | 0 | 0 |  |
-| `MarkdownString.appendMarkdown` | ok |  | 0 | 0 |  |
+| `MarkdownString.appendMarkdown` | ok | yes | 0 | 0 |  |
 | `MarkdownString.appendText` | ok | yes | 0 | 0 |  |
 | `MarkdownString.baseUri` | ok |  | 0 | 0 |  |
-| `MarkdownString.isTrusted` | ok |  | 0 | 0 |  |
+| `MarkdownString.isTrusted` | ok | yes | 0 | 0 |  |
 | `MarkdownString.supportHtml` | ok |  | 0 | 0 |  |
 | `MarkdownString.supportThemeIcons` | ok |  | 0 | 0 |  |
-| `MarkdownString.value` | ok |  | 0 | 0 |  |
+| `MarkdownString.value` | ok | yes | 0 | 0 |  |
 | `McpHttpServerDefinition` | C |  | 3 | 43,662,466 |  |
 | `McpHttpServerDefinition.headers` | C |  | 0 | 0 |  |
 | `McpHttpServerDefinition.label` | C |  | 0 | 0 |  |
@@ -1457,9 +1457,9 @@ Proposed API or a false hit: class X when real.
 | `McpStdioServerDefinition.env` | C |  | 0 | 0 |  |
 | `McpStdioServerDefinition.label` | C |  | 0 | 0 |  |
 | `McpStdioServerDefinition.version` | C |  | 0 | 0 |  |
-| `Memento.get` | ok |  | 0 | 0 |  |
-| `Memento.keys` | ok |  | 0 | 0 |  |
-| `Memento.update` | ok |  | 0 | 0 |  |
+| `Memento.get` | ok | yes | 0 | 0 |  |
+| `Memento.keys` | ok | yes | 0 | 0 |  |
+| `Memento.update` | ok | yes | 0 | 0 |  |
 | `MessageItem.isCloseAffordance` | ok |  | 0 | 0 |  |
 | `MessageItem.title` | ok |  | 0 | 0 |  |
 | `MessageOptions.detail` | ok |  | 0 | 0 |  |
@@ -1884,18 +1884,18 @@ Proposed API or a false hit: class X when real.
 | `StatusBarAlignment.Left` | ok |  | 53 | 372,659,436 |  |
 | `StatusBarAlignment.Right` | ok |  | 46 | 448,757,032 |  |
 | `StatusBarItem.accessibilityInformation` | B |  | 0 | 0 |  |
-| `StatusBarItem.alignment` | ok |  | 0 | 0 |  |
+| `StatusBarItem.alignment` | ok | yes | 0 | 0 |  |
 | `StatusBarItem.backgroundColor` | B |  | 0 | 0 |  |
 | `StatusBarItem.color` | B |  | 0 | 0 |  |
 | `StatusBarItem.command` | ok |  | 0 | 0 |  |
 | `StatusBarItem.dispose` | ok |  | 0 | 0 |  |
 | `StatusBarItem.hide` | ok |  | 0 | 0 |  |
-| `StatusBarItem.id` | ok |  | 0 | 0 |  |
-| `StatusBarItem.name` | ok |  | 0 | 0 |  |
-| `StatusBarItem.priority` | ok |  | 0 | 0 |  |
+| `StatusBarItem.id` | ok | yes | 0 | 0 |  |
+| `StatusBarItem.name` | ok | yes | 0 | 0 |  |
+| `StatusBarItem.priority` | ok | yes | 0 | 0 |  |
 | `StatusBarItem.show` | ok |  | 0 | 0 |  |
 | `StatusBarItem.text` | ok |  | 0 | 0 |  |
-| `StatusBarItem.tooltip` | B |  | 0 | 0 |  |
+| `StatusBarItem.tooltip` | B | yes | 0 | 0 |  |
 | `SymbolInformation` | ok |  | 84 | 635,989,694 |  |
 | `SymbolInformation.containerName` | ok |  | 0 | 0 |  |
 | `SymbolInformation.kind` | ok |  | 0 | 0 |  |
@@ -2496,7 +2496,7 @@ Proposed API or a false hit: class X when real.
 | `window.createInputBox` | ok | yes | 27 | 437,973,972 |  |
 | `window.createOutputChannel` | ok |  | 144 | 1,097,202,143 | biomejs.biome, bradlc.vscode-tailwindcss, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, svelte.svelte-vscode, tamasfe.even-better-toml, timonwong.shellcheck, vscjava.vscode-maven |
 | `window.createQuickPick` | ok | yes | 57 | 660,652,049 |  |
-| `window.createStatusBarItem` | ok |  | 86 | 651,676,549 | biomejs.biome, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, tamasfe.even-better-toml, timonwong.shellcheck |
+| `window.createStatusBarItem` | ok | yes | 86 | 651,676,549 | biomejs.biome, llvm-vs-code-extensions.vscode-clangd, redhat.vscode-yaml, tamasfe.even-better-toml, timonwong.shellcheck |
 | `window.createTerminal` | ok | yes | 59 | 442,493,421 | vscjava.vscode-maven |
 | `window.createTextEditorDecorationType` | C | yes | 56 | 481,992,789 | bradlc.vscode-tailwindcss, shardulm94.trailing-spaces, vscode.merge-conflict, yzhang.markdown-all-in-one |
 | `window.createTreeView` | ok | yes | 47 | 432,182,103 | llvm-vs-code-extensions.vscode-clangd, vscjava.vscode-maven |

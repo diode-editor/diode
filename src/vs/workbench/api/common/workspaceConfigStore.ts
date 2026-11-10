@@ -22,9 +22,11 @@ export class WorkspaceConfigStore {
     private workspace = ConfigurationModel.EMPTY;
     private workspaceFolder = ConfigurationModel.EMPTY;
     private merged = ConfigurationModel.EMPTY;
+    private settingIds: ReadonlySet<string> = new Set();
 
-    /** Anything that is not an object becomes an empty layer. */
-    public setData(data: unknown): void {
+    /** Anything that is not an object becomes an empty layer; anything but strings among the ids is dropped. */
+    public setData(data: unknown, settingIds?: unknown): void {
+        this.settingIds = new Set(Array.isArray(settingIds) ? settingIds.filter((id) => typeof id === "string") : []);
         const layers = isPlainObject(data) ? data : {};
         this.defaults = ConfigurationModel.fromRaw(layers.defaults);
         this.user = ConfigurationModel.fromRaw(layers.user);
@@ -73,15 +75,28 @@ export class WorkspaceConfigStore {
 
     /**
      * Upstream keeps `[lang]` in `contents`, so `get('[go]')` is the merged section keyed by setting ids.
-     * Here the section arrives as a nested tree, and the ids are restored by {@link collectSettings}.
+     * Here the section arrives as a nested tree: a registered id is a setting whatever its value, and
+     * an unregistered key (a removed extension's leftover) is guessed by {@link isSettingGroup}.
      * A combined `[a][b]` key is split into its languages on the way, so it has no section of its own.
      */
     private languageSection(key: string): Record<string, unknown> | undefined {
         const identifier = key.slice(1, -1);
         if (!this.merged.getOverrideIdentifiers().includes(identifier)) return undefined;
         const section: Record<string, unknown> = {};
-        collectSettings(this.merged.getOverride(identifier).getValue() as Record<string, unknown>, "", section);
+        this.collectSettings(this.merged.getOverride(identifier).getValue() as Record<string, unknown>, "", section);
         return section;
+    }
+
+    private collectSettings(
+        group: Readonly<Record<string, unknown>>,
+        prefix: string,
+        out: Record<string, unknown>,
+    ): void {
+        for (const [key, value] of Object.entries(group)) {
+            const id = prefix + key;
+            if (!this.settingIds.has(id) && isSettingGroup(value)) this.collectSettings(value, `${id}.`, out);
+            else out[id] = value;
+        }
     }
 
     private model(languageId: string | undefined): ConfigurationModel {
@@ -91,18 +106,9 @@ export class WorkspaceConfigStore {
 }
 
 /**
- * Without the schemas a setting id is guessed from the tree: a non-empty object whose keys all look
- * like name segments is a group, anything else is a value. Deviation: an object-valued setting with
- * such keys (`editor.quickSuggestions`) comes out split into its fields.
+ * For an unregistered key: a non-empty object whose keys all look like name segments is a group,
+ * anything else is a value. An unregistered object-valued setting with such keys comes out split.
  */
-function collectSettings(group: Readonly<Record<string, unknown>>, prefix: string, out: Record<string, unknown>): void {
-    for (const [key, value] of Object.entries(group)) {
-        const id = prefix + key;
-        if (isSettingGroup(value)) collectSettings(value, `${id}.`, out);
-        else out[id] = value;
-    }
-}
-
 function isSettingGroup(value: unknown): value is Record<string, unknown> {
     if (!isPlainObject(value)) return false;
     const keys = Object.keys(value);

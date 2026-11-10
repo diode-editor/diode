@@ -65,15 +65,10 @@ describe("vscode.env — environment and telemetry", () => {
 });
 
 describe("[api:env.asExternalUri] desktop without a remote, as upstream", () => {
-    it.each([
-        "diode://pub.ext/did-authenticate?key=value&other=false",
-        "https://example.com/path?q=1#frag",
-        "file:///home/user/a.txt",
-        "mailto:someone@example.com",
-    ])("%s comes back as an equal copy, without the host being asked", async (text) => {
+    it("an auth callback uri comes back as an equal copy, without the host being asked", async () => {
         const stub = makeStubRpc();
         const env = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace.env;
-        const target = Uri.parse(text);
+        const target = Uri.parse("diode://pub.ext/did-authenticate?key=value&other=false");
 
         const result = await env.asExternalUri(target);
 

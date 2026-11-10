@@ -1,2 +1,3 @@
 vscode API - configuration configuration, defaults
 vscode API - configuration configuration, name vs property
+vscode API - configuration configurations, language defaults

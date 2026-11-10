@@ -63,6 +63,23 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(workspace.getConfiguration().get("editor.tabSize")).toBe(2);
     });
 
+    it("[api:WorkspaceConfiguration.get] get('[lang]') keeps registered settings whole, by the ids of each push", () => {
+        const { stub, workspace } = makeCtx();
+        const configuration = { defaults: { "[abcLang]": { editor: { quickSuggestions: { other: "on" } } } } };
+        stub.fire("workspace.initialize", { configuration, workspaceFolders: [] });
+        expect(workspace.getConfiguration().get("[abcLang]")).toEqual({ "editor.quickSuggestions.other": "on" });
+
+        stub.fire("workspace.configurationChanged", {
+            configuration,
+            settingIds: ["editor.quickSuggestions"],
+            affectedKeys: [],
+        });
+        expect(workspace.getConfiguration().get("[abcLang]")).toEqual({ "editor.quickSuggestions": { other: "on" } });
+
+        stub.fire("workspace.initialize", { configuration, settingIds: [], workspaceFolders: [] });
+        expect(workspace.getConfiguration().get("[abcLang]")).toEqual({ "editor.quickSuggestions.other": "on" });
+    });
+
     it("scope with languageId (TextDocument or { languageId }) picks the language section", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {

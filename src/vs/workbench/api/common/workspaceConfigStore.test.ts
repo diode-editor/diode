@@ -197,16 +197,28 @@ describe("WorkspaceConfigStore — `get('[lang]')`, the language section as upst
         });
     });
 
-    it("an object with setting-like keys is taken for a group (the known deviation)", () => {
-        const store = storeWith(
-            { "[abcLang]": { editor: { quickSuggestions: { other: "on", "my-key_2": "off" } } } },
-            {},
+    it("a registered setting stays whole whatever its value; an unregistered key is guessed from its shape", () => {
+        const store = new WorkspaceConfigStore();
+        const section = { other: "on", "my-key_2": "off" };
+        store.setData(
+            { defaults: { "[abcLang]": { editor: { quickSuggestions: section }, leftover: { quick: section } } } },
+            ["editor.quickSuggestions", 42],
         );
 
         expect(store.get("[abcLang]")).toEqual({
-            "editor.quickSuggestions.other": "on",
-            "editor.quickSuggestions.my-key_2": "off",
+            "editor.quickSuggestions": section,
+            "leftover.quick.other": "on",
+            "leftover.quick.my-key_2": "off",
         });
+    });
+
+    it("the ids are replaced with each setData", () => {
+        const store = new WorkspaceConfigStore();
+        const data = { defaults: { "[abcLang]": { editor: { quickSuggestions: { other: "on" } } } } };
+        store.setData(data, ["editor.quickSuggestions"]);
+        store.setData(data);
+
+        expect(store.get("[abcLang]")).toEqual({ "editor.quickSuggestions.other": "on" });
     });
 
     it("a key that only looks like a language is read from the main tree", () => {

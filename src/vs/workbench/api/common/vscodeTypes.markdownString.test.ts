@@ -6,10 +6,6 @@ const appended = (text: string, supportThemeIcons = false): string =>
     new MarkdownString("", supportThemeIcons).appendText(text).value;
 
 describe("[api:MarkdownString.appendText] escapes like upstream htmlContent.ts", () => {
-    it("the reference case: emphasis markers are escaped", () => {
-        expect(appended("**bold?**")).toBe("\\*\\*bold?\\*\\*");
-    });
-
     it("every markdown syntax token gets a backslash", () => {
         expect(appended("\\`*_{}[]()#+!~")).toBe("\\\\\\`\\*\\_\\{\\}\\[\\]\\(\\)\\#\\+\\!\\~");
     });

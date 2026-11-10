@@ -26,6 +26,7 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
         const { userRoamingDataHome } = this.configuration;
         this.rpc?.notify("workspace.initialize", {
             configuration: this.configuration.getSnapshot(),
+            settingIds: this.settingIds(),
             workspaceFolders: this.configuration.getWorkspaceFolders(),
             // A folder window has no such field: the structured-clone wire would carry an `undefined` one.
             ...(workspaceFile !== undefined ? { workspaceFile } : {}),
@@ -40,6 +41,7 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
             this.configuration.onDidChange((affectedKeys) => {
                 rpc.notify("workspace.configurationChanged", {
                     configuration: this.configuration.getSnapshot(),
+                    settingIds: this.settingIds(),
                     affectedKeys,
                 });
             }),
@@ -62,6 +64,10 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
             },
         });
         return store;
+    }
+
+    private settingIds(): string[] {
+        return [...this.configuration.getConfigurationScopes().keys()];
     }
 
     /**
