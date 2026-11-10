@@ -134,7 +134,8 @@ export class CodeLensController extends Disposable {
         super();
         this.provideScheduler = this.register(
             new RunOnceScheduler(() => {
-                this.providing = this.provide();
+                // A failure of our own is reported, not left to reject where nobody awaits.
+                this.providing = this.provide().catch(onUnexpectedError);
             }, MIN_DELAY),
         );
         this.resolveScheduler = this.register(

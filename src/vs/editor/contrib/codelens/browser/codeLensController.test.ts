@@ -786,7 +786,7 @@ describe("CodeLensController", () => {
         it("the list of a held row lives while the row shows its commands: an extension runs them by it", async () => {
             const round = rounds();
             round.state.lenses = [lens(1), lens(3, command("now"))];
-            const { zones, settle } = setup();
+            const { controller, zones, settle } = setup();
             round.release();
             await settle();
             round.ask();
@@ -796,6 +796,9 @@ describe("CodeLensController", () => {
             round.release();
             await settle();
             expect(round.disposed).toEqual([0]);
+            // Each list goes once.
+            controller.dispose();
+            expect(round.disposed).toEqual([0, 1]);
         });
 
         it("a list no row holds goes at the next answer", async () => {
