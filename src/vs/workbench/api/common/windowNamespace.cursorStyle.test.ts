@@ -147,3 +147,23 @@ describe("WindowNamespace — TextEditor.options.lineNumbers", () => {
         expect(stub.requests).toEqual([]);
     });
 });
+
+describe("WindowNamespace — TextEditor.options assigned in place, as vscodevim does", () => {
+    // vscodevim 1.32.4 writes `editor.options.lineNumbers = Relative` (vim.smartRelativeLine) and
+    // `editor.options.cursorStyle = style` on every mode change. Upstream's `options` is a live
+    // object whose setters apply the value, so writing a member equals reassigning `options`.
+    it("[api:TextEditor.options] writing options.lineNumbers on the getter's object reads back", () => {
+        const { editor } = makeCtx();
+        editor.options.lineNumbers = TextEditorLineNumbersStyle.Relative;
+        expect(editor.options.lineNumbers).toBe(TextEditorLineNumbersStyle.Relative);
+    });
+
+    it("[api:TextEditor.options] writing options.cursorStyle on the getter's object reaches the terminal cursor", () => {
+        const { editor, cursorRequests } = makeCtx();
+        editor.options.cursorStyle = TextEditorCursorStyle.Block;
+        expect(editor.options.cursorStyle).toBe(TextEditorCursorStyle.Block);
+        expect(cursorRequests().map((request) => request.params)).toEqual([
+            { cursorStyle: TextEditorCursorStyle.Block, uri: URI, groupId: 1 },
+        ]);
+    });
+});
