@@ -793,6 +793,42 @@
         "WorkspaceConfiguration.has",
         "workspace.getConfiguration"
     ],
+    "configuration vscode API - configuration configurations, language defaults": [
+        "WorkspaceConfiguration.get",
+        "workspace.getConfiguration"
+    ],
+    "env vscode API - env env.uiKind": [
+        "env.asExternalUri",
+        "env.uiKind",
+        "env.uriScheme"
+    ],
+    "env vscode API - env env.asExternalUri - with env.uriScheme": [
+        "env.asExternalUri",
+        "env.uiKind",
+        "env.uriScheme"
+    ],
+    "workspace vscode API - workspace MarkdownString": [
+        "MarkdownString",
+        "MarkdownString.appendMarkdown",
+        "MarkdownString.appendText",
+        "MarkdownString.isTrusted",
+        "MarkdownString.value"
+    ],
+    "state vscode API - globalState / workspaceState state - handling of objects": [
+        "ExtensionContext.globalState",
+        "ExtensionContext.workspaceState",
+        "Memento.get",
+        "Memento.keys",
+        "Memento.update"
+    ],
+    "window vscode API - window createStatusBar": [
+        "StatusBarItem.alignment",
+        "StatusBarItem.id",
+        "StatusBarItem.name",
+        "StatusBarItem.priority",
+        "StatusBarItem.tooltip",
+        "window.createStatusBarItem"
+    ],
     "workspace vscode API - workspace encoding: openTextDocument": [
         "workspace.openTextDocument",
         "TextDocument.encoding"

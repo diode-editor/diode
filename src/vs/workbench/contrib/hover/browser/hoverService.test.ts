@@ -17,6 +17,8 @@ import { EditorViewState } from "../../../../editor/common/viewModel/editorViewS
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 import { MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
+import { serializeHoverContents } from "../../../api/common/extHostTypeConverters.ts";
+import { MarkdownString } from "../../../api/common/vscodeTypes.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracker.ts";
 
@@ -470,6 +472,33 @@ describe("HoverService — showing and closing the popup", () => {
         h.testApp.render();
 
         expect(h.testApp.backend.screenToString()).toContain("│ .bg-\\[\\#ff0000\\] {");
+    });
+
+    it("[api:MarkdownString.appendText] text appended by an extension reaches the frame literally", async () => {
+        const text = new MarkdownString("Literal: ").appendText("**x** > a `b` [c](d)\n- e");
+        useHovers(hoverOf([text.value]));
+
+        await service().showHover();
+        h.testApp.render();
+
+        const frame = h.testApp.backend.screenToString();
+        expect(frame).toContain("Literal: **x** > a `b` [c](d)");
+        expect(frame).toContain("│ - e");
+    });
+
+    it("[api:MarkdownString.appendText] with supportThemeIcons an icon appended as text shows as `$(zap)`, without a backslash", async () => {
+        // Upstream: appendText escapes the icon (`\$(zap)`), the markdown renderer drops the escape's
+        // backslash and renderLabelWithIcons shows an escaped icon as its literal `$(zap)`.
+        const text = new MarkdownString("", true).appendText("icon $(zap) end");
+        // As the extension host sends it: the converter still sees the flag.
+        useHovers(hoverOf(serializeHoverContents(text)));
+
+        await service().showHover();
+        h.testApp.render();
+
+        const frame = h.testApp.backend.screenToString();
+        expect(frame).toContain("│ icon $(zap) end");
+        expect(frame).not.toContain("\\$(zap)");
     });
 
     it("a code block keeps its indentation in the frame: Tailwind's CSS declaration", async () => {
