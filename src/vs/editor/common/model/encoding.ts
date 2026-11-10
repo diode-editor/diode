@@ -2,7 +2,7 @@ import type IconvLiteModule from "iconv-lite";
 
 import { importLazyModule } from "../../../base/common/lazyModule.ts";
 
-import { BOM_UTF16BE, BOM_UTF16LE, BOM_UTF8, type IEncodingInfo, SUPPORTED_ENCODINGS } from "./supportedEncodings.ts";
+import { BOM_UTF8, BOM_UTF16BE, BOM_UTF16LE, type IEncodingInfo, SUPPORTED_ENCODINGS } from "./supportedEncodings.ts";
 
 export const DEFAULT_ENCODING = "utf8";
 const UTF8_WITH_BOM = "utf8bom";

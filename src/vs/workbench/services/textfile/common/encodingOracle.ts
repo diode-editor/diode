@@ -1,8 +1,8 @@
 import * as nodePath from "node:path";
 
 import {
-    DEFAULT_ENCODING,
     decodeWithEncoding,
+    DEFAULT_ENCODING,
     encodeWithEncoding,
     validateEncoding,
 } from "../../../../editor/common/model/encoding.ts";

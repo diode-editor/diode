@@ -90,7 +90,9 @@ describe("ExtensionHost — workspace.decode / workspace.encode (subprocess)", (
         expect(await decode(CP1252, { encoding: "cp1252" })).toEqual({ text: "Hellö Wörld" });
         expect(await decode(HELLO_UTF8, { encoding: "foobar123" })).toEqual({ text: "Hellö" });
         // An explicit encoding is no reason to read binary content.
-        expect(await decode([0, 0, 0, 0], { encoding: "utf8" })).toMatchObject({ error: expect.any(String) });
+        expect(await decode([0, 0, 0, 0], { encoding: "utf8" })).toEqual({
+            error: "Stream is binary but only text is accepted for decoding",
+        });
     });
 
     it.each([

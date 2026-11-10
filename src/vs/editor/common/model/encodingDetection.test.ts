@@ -147,6 +147,6 @@ describe("detectEncoding — guessing with jschardet", () => {
     it("jschardet sees at most 64 KB", async () => {
         const detect = stubJschardet(() => ({ encoding: "ascii", confidence: 1 }));
         await detectEncoding(Buffer.alloc(100 * 1024, 0x61), true, []);
-        expect((detect.mock.calls[0]?.[0] as Buffer).length).toBe(64 * 1024);
+        expect(detect).toHaveBeenCalledWith(expect.objectContaining({ length: 64 * 1024 }), undefined);
     });
 });
