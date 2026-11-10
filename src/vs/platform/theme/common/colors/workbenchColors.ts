@@ -174,4 +174,41 @@ export const workbenchColors = {
         defaults: { dark: "#F14C4C", light: "#E51400" },
         description: "Background color of the error activity badge",
     },
+    // Upstream `settingsEditorColorRegistry.ts`. Transparent upstream defaults are baked over the editor background.
+    "settings.headerForeground": {
+        defaults: { dark: "#E7E7E7", light: "#444444" },
+        description: "The foreground color for a section header or active title.",
+    },
+    "settings.modifiedItemIndicator": {
+        defaults: { dark: "#0C7D9D", light: "#66AFE0" },
+        description: "The color of the modified setting indicator.",
+    },
+    "settings.headerBorder": {
+        defaults: { dark: "#2B2B2B", light: "#E5E5E5" },
+        description: "The color of the header container border.",
+    },
+    "settings.sashBorder": {
+        defaults: { dark: "#2B2B2B", light: "#E5E5E5" },
+        description: "The color of the Settings editor splitview sash border.",
+    },
+    "settings.checkboxBackground": {
+        defaults: { dark: "#3C3C3C", light: "#FFFFFF" },
+        description: "Settings editor checkbox background.",
+    },
+    "settings.checkboxForeground": {
+        defaults: { dark: "#F0F0F0", light: "#616161" },
+        description: "Settings editor checkbox foreground.",
+    },
+    "settings.focusedRowBackground": {
+        defaults: { dark: "#232526", light: "#F7F7F7" },
+        description: "The background color of a settings row when focused.",
+    },
+    "settings.rowHoverBackground": {
+        defaults: { dark: "#202122", light: "#FBFBFB" },
+        description: "The background color of a settings row when hovered.",
+    },
+    "settings.focusedRowBorder": {
+        defaults: { dark: "#007FD4", light: "#0090F1" },
+        description: "The color of the row's top and bottom border when the row is focused.",
+    },
 } as const satisfies ColorContribution;

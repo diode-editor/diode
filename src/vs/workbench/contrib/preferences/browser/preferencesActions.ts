@@ -4,6 +4,8 @@ import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { workspaceSettingsPath } from "../../../../platform/configuration/common/workspaceSettings.ts";
+import { ConfigurationRegistryDIToken } from "../../../../platform/configuration/common/configurationRegistryDIToken.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { IEnvironmentServiceDIToken } from "../../../../platform/environment/common/environment.ts";
@@ -21,6 +23,7 @@ import { KeybindingsEditorServiceDIToken } from "../../../services/keybinding/co
 
 import { KeybindingRecorderComponentDIToken } from "./keybindingRecorderComponent.ts";
 import { KeybindingsEditorPane, KeybindingsEditorTargetDIToken } from "./keybindingsEditorPane.ts";
+import { SettingsEditorPane } from "./settingsEditor/settingsEditorPane.ts";
 
 /** The file may not exist yet: create it from a skeleton so Ctrl+S doesn't fail with ENOENT — as VS Code does. */
 async function openUserConfigFile(accessor: ServiceAccessor, resource: string, skeleton: string): Promise<void> {
@@ -149,7 +152,25 @@ export const openKeybindingsFileAction: CommandAction = {
     },
 };
 
+/** SPIKE: the Settings UI (upstream `workbench.action.openSettings2`). */
+export const openSettings2Action: CommandAction = {
+    id: "workbench.action.openSettings2",
+    title: "Preferences: Open Settings (UI)",
+    run(accessor) {
+        const pane = new SettingsEditorPane(
+            accessor.get(ConfigurationRegistryDIToken),
+            accessor.get(IConfigurationServiceDIToken),
+            accessor.get(CommandRegistryDIToken),
+            accessor.get(ContextMenuServiceDIToken),
+            accessor.get(ClipboardDIToken),
+            accessor.get(IWorkspaceContextServiceDIToken).getWorkspace().folders.length > 0,
+        );
+        accessor.get(KeybindingsEditorTargetDIToken).openPane(pane, { focus: true });
+    },
+};
+
 export const PREFERENCES_ACTIONS: readonly CommandAction[] = [
+    openSettings2Action,
     openSettingsAction,
     openSettingsJsonAction,
     openWorkspaceSettingsAction,

@@ -28,4 +28,8 @@ export const baseColors = {
         defaults: { dark: "#3794FF", light: "#006AB1" },
         description: "Foreground color for links in text.",
     },
+    "textPreformat.foreground": {
+        defaults: { dark: "#D7BA7D", light: "#A31515" },
+        description: "Foreground color for preformatted text segments.",
+    },
 } as const satisfies ColorContribution;
