@@ -220,6 +220,8 @@ export interface IExtensionHostConfigProvider {
     getWorkspaceFolders(): readonly IWorkspaceFolderInfo[];
     /** `undefined` when a folder is opened directly or the window is empty. */
     getWorkspaceFile(): string | undefined;
+    /** Settings under it are always utf-8 for `workspace.decode`/`encode` (upstream `getDefaultEncodingOverrides`). */
+    readonly userRoamingDataHome?: string;
     onDidChange(cb: (affectedKeys: readonly string[]) => void): IDisposable;
     /** By the time the promise resolves, {@link onDidChange} has already fired with the new value. */
     updateValue(key: string, value: unknown, target: ConfigurationTarget): Promise<void>;

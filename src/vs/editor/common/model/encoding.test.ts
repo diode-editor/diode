@@ -10,8 +10,8 @@ import {
     detectEncodingByBOM,
     encodeText,
     getEncodingInfo,
-    SUPPORTED_ENCODINGS,
 } from "./encoding.ts";
+import { SUPPORTED_ENCODINGS } from "./supportedEncodings.ts";
 
 describe("SUPPORTED_ENCODINGS", () => {
     it("every iconvName exists in iconv-lite", () => {
