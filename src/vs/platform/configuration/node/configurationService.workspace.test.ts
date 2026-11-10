@@ -303,14 +303,18 @@ describe("ConfigurationService — workspace layer", () => {
         it("folder change moves the watch; no folder — no watch", async () => {
             const watcher = new FakeFileWatcher();
             const cfg = await load({ watcher });
-            const userFile = paths().settingsFile;
-            expect(watcher.watched()).toEqual([userFile]);
+            const userFiles = [paths().settingsFile, path.join(path.dirname(paths().settingsFile), "tasks.json")];
+            expect(watcher.watched()).toEqual(userFiles);
 
             await cfg.setWorkspace([folder.dir]);
-            expect(watcher.watched()).toEqual([userFile, path.join(folder.dir, ".diode", "settings.json")]);
+            expect(watcher.watched()).toEqual([
+                ...userFiles,
+                path.join(folder.dir, ".diode", "settings.json"),
+                path.join(folder.dir, ".diode", "tasks.json"),
+            ]);
 
             await cfg.setWorkspace([]);
-            expect(watcher.watched()).toEqual([userFile]);
+            expect(watcher.watched()).toEqual(userFiles);
         });
 
         it("reload() rereads the workspace layer too", async () => {

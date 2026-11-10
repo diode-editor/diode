@@ -48,6 +48,7 @@ import {
     type IWireMementoUpdate,
     type IWireMessageItem,
     type IWireOpenDialogRequest,
+    type IWireOpenTextDocumentParams,
     type IWireOutputAppend,
     type IWireOutputShow,
     type IWireProgressEnd,
@@ -115,6 +116,14 @@ export function parseWireShowTextDocumentParams(raw: unknown): IWireShowTextDocu
             ? { selection: parseWireSelections([selections])[0] }
             : {}),
     };
+}
+
+/** A wrong-shaped encoding is dropped: the document opens as if none were asked. */
+export function parseWireOpenTextDocumentParams(raw: unknown): IWireOpenTextDocumentParams | null {
+    // Primitives aren't rejected separately: their fields read as undefined.
+    const obj = (raw ?? {}) as Record<string, unknown>;
+    if (typeof obj.uri !== "string") return null;
+    return { uri: obj.uri, ...(typeof obj.encoding === "string" ? { encoding: obj.encoding } : {}) };
 }
 
 /** A field of the wrong shape is dropped. */
@@ -408,7 +417,7 @@ export function parseWireProgressStart(raw: unknown): IWireProgressStart | null 
     };
 }
 
-/** Anything unknown is `window`: the status bar entry is shown for every location. */
+/** Anything unknown is `window`, as upstream falls back for an unknown number. */
 function parseWireProgressLocation(raw: unknown): WireProgressLocation {
     if (raw === "notification" || raw === "sourceControl") return raw;
     if (typeof raw === "object" && raw !== null) {

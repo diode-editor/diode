@@ -5,6 +5,7 @@ import { Uri } from "../../../../../base/common/uri.ts";
 import { isOverrideKey } from "../../../../../platform/configuration/common/configurationModel.ts";
 import type { ConfigurationScope } from "../../../../../platform/configuration/common/configurationRegistry.ts";
 import type { ConfigurationTarget } from "../../../../../platform/configuration/common/iConfigurationService.ts";
+import { tasksJsonPath } from "../../../../../platform/configuration/common/workspaceSettings.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IWireConfigurationUpdate, WireConfigurationTarget } from "../../../../api/common/wireTypes.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
@@ -74,8 +75,8 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
         const scope = scopes.get(key);
         const target: WireConfigurationTarget =
             request.target ?? this.deriveConfigurationTarget(scope, request.resource);
-        // Only a registered key can be written; removal and language sections are allowed for any key.
-        if (value !== undefined && !scopes.has(key) && !isOverrideKey(key)) {
+        // Only a registered key can be written; removal, language sections and the standalone `tasks` are allowed for any key.
+        if (value !== undefined && !scopes.has(key) && !isOverrideKey(key) && tasksJsonPath(key) === undefined) {
             throw new Error(
                 `Unable to write to ${targetLabel(target)} because ${key} is not a registered configuration.`,
             );

@@ -1,4 +1,11 @@
-import { type IconvLite, loadIconv, resolveDecodeEncoding, resolveEncodeEncoding, stripBOM } from "./encoding.ts";
+import {
+    encodingInfoOf,
+    type IconvLite,
+    loadIconv,
+    resolveDecodeEncoding,
+    stripBOM,
+    validateEncoding,
+} from "./encoding.ts";
 import type { IEncodingInfo } from "./supportedEncodings.ts";
 
 // A module separate from `encoding.ts` so the extension host, which only needs one-shot
@@ -152,7 +159,7 @@ function iconvEncoder(iconv: IconvLite, iconvName: string): IChunkEncoder {
 }
 
 export interface IDecodedStream {
-    /** Id from the `SUPPORTED_ENCODINGS` table, not the iconv name. */
+    /** Id from the `SUPPORTED_ENCODINGS` table, or a validated name outside it ("cp1252"). */
     readonly encoding: string;
     /** Lazy and single-pass: iteration pulls byte chunks. */
     readonly text: Iterable<string>;
@@ -193,6 +200,14 @@ function streamCodec(info: IEncodingInfo): IStreamCodec {
     return codec;
 }
 
+/**
+ * utf-8 and UTF-16 decode without iconv, synchronously. They are also all a BOM sniff can find; we write
+ * utf8bom and UTF-16 with a BOM.
+ */
+export function hasNativeCodec(encoding: string): boolean {
+    return STREAM_CODECS.has(encodingInfoOf(encoding).iconvName);
+}
+
 /** Synchronous and iconv-free: sniffing yields only utf-8 or UTF-16. */
 export function decodeStreamByBOM(bytes: Iterable<Buffer>): IDecodedStream {
     const source = bytes[Symbol.iterator]();
@@ -201,11 +216,15 @@ export function decodeStreamByBOM(bytes: Iterable<Buffer>): IDecodedStream {
     return { encoding: info.id, text: decodeChunks(stripBOM(head, info), source, streamCodec(info).createDecoder()) };
 }
 
-/** Async only to load iconv-lite: bytes are read while iterating {@link IDecodedStream.text}. */
-export async function decodeStream(bytes: Iterable<Buffer>, explicitEncoding?: string): Promise<IDecodedStream> {
+/**
+ * Async only to load iconv-lite: bytes are read while iterating {@link IDecodedStream.text}. A name iconv
+ * does not know is utf-8, as upstream.
+ */
+export async function decodeStream(bytes: Iterable<Buffer>, explicitEncoding: string): Promise<IDecodedStream> {
+    const explicit = await validateEncoding(explicitEncoding);
     const source = bytes[Symbol.iterator]();
     const head = readHead(source);
-    const info = resolveDecodeEncoding(head, explicitEncoding);
+    const info = resolveDecodeEncoding(head, explicit);
     const codec = STREAM_CODECS.get(info.iconvName);
     let decoder: IChunkDecoder;
     try {
@@ -223,7 +242,7 @@ export async function decodeStream(bytes: Iterable<Buffer>, explicitEncoding?: s
  * its bytes asynchronously (OpenPerformance 4.5). Native codecs only — that document is UTF-8.
  */
 export function createStreamDecoder(encoding: string): IChunkDecoder {
-    const codec = STREAM_CODECS.get(resolveEncodeEncoding(encoding).iconvName);
+    const codec = STREAM_CODECS.get(encodingInfoOf(encoding).iconvName);
     if (codec === undefined) throw new Error(`No native codec for streaming: ${encoding}`);
     return codec.createDecoder();
 }
@@ -237,7 +256,7 @@ export const ENCODED_CHUNK_SIZE = 1024 * 1024;
  * the bytes are consumed, so the snapshot must already be taken. Non-Unicode encodings still encode at once.
  */
 export async function* encodeStream(chunks: Iterable<string>, encoding: string): AsyncGenerator<Buffer> {
-    const info = resolveEncodeEncoding(encoding);
+    const info = encodingInfoOf(await validateEncoding(encoding));
     const codec = STREAM_CODECS.get(info.iconvName);
     // Like stripBOM in decodeBuffer, addBOM is a no-op for non-Unicode codecs.
     const encoder = codec !== undefined ? codec.createEncoder() : iconvEncoder(await loadIconv(), info.iconvName);

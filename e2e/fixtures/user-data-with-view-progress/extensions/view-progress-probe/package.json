@@ -1,0 +1,27 @@
+{
+    "name": "view-progress-probe",
+    "displayName": "View Progress Probe",
+    "description": "E2E demo extension: window.withProgress in its own view by id and in Source Control, held for a few seconds.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "viewsContainers": {
+            "activitybar": [{ "id": "progressProbe", "title": "Progress Probe", "icon": "media/probe.svg" }]
+        },
+        "views": {
+            "progressProbe": [
+                { "id": "progressProbe.items", "name": "Indexed Items" },
+                { "id": "progressProbe.log", "name": "Probe Log" }
+            ]
+        },
+        "commands": [
+            { "command": "progressProbe.inView", "title": "Progress Probe: Index in View" },
+            { "command": "progressProbe.inScm", "title": "Progress Probe: Index in Source Control" }
+        ]
+    }
+}

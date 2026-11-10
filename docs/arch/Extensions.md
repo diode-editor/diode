@@ -838,9 +838,14 @@
 - **Прогресс:** настоящий `window.withProgress` (`api/common/extHostProgress.ts`) — notify
   `window.progress.{start,report,end}`; `start` несёт `location` и `cancellable` → опция
   `ExtensionHost.progressSink` → `ExtensionProgressAdapter`: `Notification` — тост-прогресс
-  (`NotificationService.showProgress`, [Notifications.md](workbench/Notifications.md)), всё
-  остальное — `ProgressStatusBarAdapter` (запись статус-бара со спиннером; SourceControl и view id
-  пока тоже сюда). Cancel тоста возвращается в subprocess уведомлением `window.progress.cancel`
+  (`NotificationService.showProgress`, [Notifications.md](workbench/Notifications.md)), `Window` —
+  `ProgressStatusBarAdapter` (запись статус-бара со спиннером), SourceControl и `{ viewId }` —
+  `ExtensionViewProgressAdapter`: операция `ProgressService` с местом `"view"` и `passive` (спиннер
+  в заголовке вида; `isBusy` и `operationProgress` её не видят — git-команды и кнопка Commit не
+  блокируются и не перенимают заголовок). Порядок разбора id — как в
+  эталонном `handleStringLocation`: id контейнера → его первый вид, id вида → он сам, иначе
+  `Bad progress location` в лог и никакого UI; SourceControl — вид `workbench.scm.changes`
+  (эталон: `workbench.scm`). Только индикатор: `message`, `increment` и Cancel вид не показывает. Cancel тоста возвращается в subprocess уведомлением `window.progress.cancel`
   (эталонный `$acceptProgressCanceled`) и стреляет токен; без `cancellable` токен — «никогда».
   `end` уходит при resolve, reject и синхронном throw задачи; на смерть subprocess'а host гасит
   живые handle'ы.
@@ -1622,11 +1627,22 @@ Runtime-значение может опережать типовую декла
 | `TextEditorOptions.cursorStyle` | Getter — `undefined`, пока стиль не задали ни расширение, ни `editor.cursorStyle` (форма терминала, решение человека по #887). Сеттер шлёт только изменение и только 1..6, в редактор по `uri` + `groupId` (не в активный); на хосте это `TextEditorPane.cursorStyleOverride` — переопределение сессии поверх настройки, живёт с вкладкой, в settings.json не пишется (#888). |
 | Namespaces / value-типы | Рантайм может опережать типы (лишние члены разрешены); отставание ловит компилятор — поверхность собирается в `api/common/*Namespace.ts` и проверяется `implementsApi<typeof vscode.*>()`. Где отставание осознанное (новый функционал не сделан), стоит точечный каст с комментарием-причиной. |
 
-**Кодировки (#106).** `workspace.openTextDocument(…, { encoding })` реально декодирует не-utf8 файлы
-осью encoding ядра (`src/vs/editor/common/model/encoding.ts`): explicit-кодировка побеждает
-BOM-сниф, неизвестный id молча откатывается к дефолту (контракт vscode.d.ts); эфемерный документ
-детектит и `encoding`, и `eol`. `ExtHostTextDocument.encoding`/`.eol` — живые: обновляются метой
-`editor.activeEditorChanged` и снапшотом will-save (`IWireWillSaveParams.encoding`).
+**Кодировки (#106, #1103).** `workspace.openTextDocument(file, { encoding })` — как
+`ensureDocumentData` + `MainThreadDocuments._handleAsResourceInput` эталона. Ext host отдаёт открытый
+документ, только если кодировку не просили или она уже такая; иначе — `workspace.openTextDocument`
+с полем `encoding`. Загрузка uri в полёте одна на всех (`documentLoads`, `_documentLoader` эталона):
+запрос с другой кодировкой ждёт её и, если документ пришёл не в той, повторяется. Main-сторона
+(`EditorService.openTextDocumentWithoutEditor`): грязная модель — отказ с текстом эталона дословно;
+иначе имя валидируется (`validateEncoding`: неизвестное — utf8) и модель перечитывается
+`reopenWithEncoding`, если кодировка новая. Смена кодировки уходит `editor.didChangeDocumentState`
+до ответа — у расширения тот же объект и `onDidChangeTextDocument` (`$acceptEncodingChanged`).
+Модель хранит любое имя, которое знает iconv (`cp1252` остаётся `cp1252`): `encodingInfoOf` даёт
+вне таблицы запись с самим именем, статус-бар показывает его как есть. Выбранная кодировка
+(«Reopen/Save with Encoding», расширение) — `preferredEncoding` модели, как в эталоне: перезагрузка
+с диска (внешняя запись, revert) читает в ней, асинхронно, а не снифом BOM; новый файл в модели её
+сбрасывает. Документ сверх лимита синхронизации — по-прежнему разовое чтение с диска.
+`ExtHostTextDocument.encoding`/`.eol` — живые: обновляются метой `editor.activeEditorChanged`,
+`editor.didChangeDocumentState` и снапшотом will-save (`IWireWillSaveParams.encoding`).
 
 **`workspace.decode`/`encode` (#1102)** — как `ExtHostWorkspace.decode`/`encode` эталона, но кодировку
 выбирает сам ext host, без RPC: у него сырые слои настроек, а язык ресурса (для секции `"[lang]"`)

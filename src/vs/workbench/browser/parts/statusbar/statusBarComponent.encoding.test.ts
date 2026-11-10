@@ -49,6 +49,15 @@ describe("StatusBarComponent — encoding & EOL segments", () => {
         expect(itemTexts(component)).toContain("Windows 1251");
     });
 
+    it("a name outside the table (cp1252 from an extension) is shown as is, as upstream", () => {
+        const { component, source } = createStatusBarHarness();
+        const editor = source.openEditor();
+
+        editor.setEncoding("cp1252");
+
+        expect(itemTexts(component)).toContain("cp1252");
+    });
+
     it("the EOL segment tracks setEol without a manual update", () => {
         const { component, source } = createStatusBarHarness();
         const editor = source.openEditor();

@@ -7,6 +7,7 @@ import type {
     IWireCloseTabsParams,
     IWireCreateUntitledParams,
     IWireEditorLayout,
+    IWireOpenTextDocumentParams,
     IWireShowTextDocumentParams,
     IWireShowTextDocumentResult,
     IWireUriParams,
@@ -37,7 +38,7 @@ export interface IEditorLayoutService {
     /** Upstream `$changeLanguage`. Throws on an unknown language. A document without a model gets it when one appears. */
     changeDocumentLanguage(params: IWireChangeLanguageParams): IWireChangeLanguageResult;
     /** A live model without a tab, upstream `$tryOpenDocument`. `null`: not a readable file. */
-    openTextDocument(params: IWireUriParams): Promise<IWireUriParams | null>;
+    openTextDocument(params: IWireOpenTextDocumentParams): Promise<IWireUriParams | null>;
 
     /** `false`: the user cancelled the confirm dialog. */
     closeTabs(params: IWireCloseTabsParams): Promise<boolean>;
