@@ -86,7 +86,9 @@ export function explicitOverDetected(explicit: string, detected: string | null):
 export function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefined): IEncodingInfo {
     const sniffed = detectEncodingByBOM(buffer);
     return encodingInfoOf(
-        explicitEncoding !== undefined ? explicitOverDetected(explicitEncoding, sniffed) : (sniffed ?? DEFAULT_ENCODING),
+        explicitEncoding !== undefined
+            ? explicitOverDetected(explicitEncoding, sniffed)
+            : (sniffed ?? DEFAULT_ENCODING),
     );
 }
 
