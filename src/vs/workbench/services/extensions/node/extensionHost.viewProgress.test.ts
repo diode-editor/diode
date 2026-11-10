@@ -45,6 +45,7 @@ describe("ExtensionHost — withProgress in a view", () => {
                 name: "viewProgress",
                 publisher: "test",
                 version: "0.0.1",
+                engines: { vscode: "^1.0.0" },
                 contributes: {
                     viewsContainers: { activitybar: [{ id: "probe", title: "Probe", icon: "x" }] },
                     views: {
