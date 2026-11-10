@@ -27,7 +27,7 @@ function makeWorkspace({ user = {}, folders = [Uri.file(FOLDER).toString()], use
     const stub = makeStubRpc();
     stub.responder = (method, params) =>
         method === "languages.getLanguageOfDocument"
-            ? { languageId: String((params as { uri: string }).uri).endsWith(".txt") ? "plaintext" : null }
+            ? { languageId: (params as { uri: string }).uri.endsWith(".txt") ? "plaintext" : null }
             : undefined;
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {

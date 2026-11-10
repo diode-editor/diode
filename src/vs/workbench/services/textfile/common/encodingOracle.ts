@@ -70,10 +70,9 @@ function encodingOverride({ resource, utf8Directories }: IEncodingContext): stri
     return hasWorkspaceFileExtension(resource.path) ? DEFAULT_ENCODING : undefined;
 }
 
+/** Unvalidated, as upstream's `getValue`: `validateEncoding` turns whatever iconv does not know into utf8. */
 function configuredEncoding(context: IEncodingContext): string | undefined {
-    const value = context.setting("files.encoding");
-    // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral: equivalent — a non-string fails validateEncoding and becomes utf8 as well; the check is for the type
-    return typeof value === "string" ? value : undefined;
+    return context.setting("files.encoding") as string | undefined;
 }
 
 /** Upstream `getValidatedEncodingForResource`: the override, then the preferred encoding, then the setting. */
