@@ -40,6 +40,7 @@ import { ExtensionOutputAdapter } from "../../workbench/api/browser/extensionOut
 import { ExtensionProgressAdapter } from "../../workbench/api/browser/extensionProgressAdapter.ts";
 import { ExtensionStatusBarAdapter } from "../../workbench/api/browser/extensionStatusBarAdapter.ts";
 import { ExtensionTreeViewsAdapter } from "../../workbench/api/browser/extensionTreeViewsAdapter.ts";
+import { ExtensionViewProgressAdapter } from "../../workbench/api/browser/extensionViewProgressAdapter.ts";
 import { ExtensionViewWelcomesDIToken } from "../../workbench/api/browser/extensionViewWelcomes.ts";
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
 import { FileDialogExtensionAdapter } from "../../workbench/api/browser/fileDialogExtensionAdapter.ts";
@@ -63,6 +64,7 @@ import {
     WorkspaceEditServiceDIToken,
 } from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
+import { SCM_CHANGES_VIEW_ID } from "../../workbench/contrib/scm/common/scmViews.ts";
 import { WorkspaceFolderOpenerDIToken } from "../../workbench/contrib/files/browser/fileActions.ts";
 import {
     bindExtensionTasks,
@@ -346,6 +348,12 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             progressSink: new ExtensionProgressAdapter(
                 new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken), undefined, icons),
                 container.get(NotificationServiceDIToken),
+                new ExtensionViewProgressAdapter(
+                    container.get(ViewsServiceDIToken),
+                    container.get(ProgressServiceDIToken),
+                    logger,
+                    SCM_CHANGES_VIEW_ID,
+                ),
             ),
             statusBarItemSink: new ExtensionStatusBarAdapter(
                 container.get(StatusBarServiceDIToken),

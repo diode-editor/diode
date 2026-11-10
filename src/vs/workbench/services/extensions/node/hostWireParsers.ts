@@ -407,7 +407,7 @@ export function parseWireProgressStart(raw: unknown): IWireProgressStart | null 
     };
 }
 
-/** Anything unknown is `window`: the status bar entry is shown for every location. */
+/** Anything unknown is `window`, as upstream falls back for an unknown number. */
 function parseWireProgressLocation(raw: unknown): WireProgressLocation {
     if (raw === "notification" || raw === "sourceControl") return raw;
     if (typeof raw === "object" && raw !== null) {

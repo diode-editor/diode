@@ -25,7 +25,10 @@ function makeWorkbench() {
     const component = new NotificationsComponent(notifications, new KeybindingRegistry(), new ContextKeyService());
     const statusBar = new StatusBarService(NULL_STATE_SERVICE);
     const window = new ProgressStatusBarAdapter(statusBar, 100);
-    const adapter = new ExtensionProgressAdapter(window, notifications);
+    const adapter = new ExtensionProgressAdapter(window, notifications, {
+        start: () => undefined,
+        end: () => undefined,
+    });
     const body = new BodyElement();
     // Stands in for the editor: where focus is before "Focus Message" and must return to after.
     const editor = new ButtonElement("editor");

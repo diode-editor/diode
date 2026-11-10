@@ -19,9 +19,13 @@ const SHOW_DELAY_MS = 300;
 
 const MIN_VISIBLE_MS = 500;
 
-/** `view` is a spinner in a section header, `window` is a status bar entry. */
+/**
+ * `view` is a spinner in a section header, `window` is a status bar entry. A `passive` view entry only
+ * spins: {@link ProgressService.isBusy} ignores it, so an extension's progress in the SCM view doesn't
+ * disable git commands (upstream `operationInProgress` is the git extension's own key).
+ */
 export type IProgressOptions =
-    | { readonly location: "view"; readonly viewId: string; readonly title: string }
+    | { readonly location: "view"; readonly viewId: string; readonly title: string; readonly passive?: boolean }
     | { readonly location: "window"; readonly title: string };
 
 export interface IProgressFrame {
@@ -46,6 +50,7 @@ class ProgressEntry {
     public constructor(
         public readonly scope: string | null,
         public readonly title: string,
+        public readonly passive: boolean,
     ) {}
 }
 
@@ -89,7 +94,7 @@ export class ProgressService extends Disposable {
     /** Includes entries not shown yet: buttons must disable immediately, not after the show delay. */
     public isBusy(viewId?: string): boolean {
         for (const entry of this.entries) {
-            if (entry.endRequested) continue;
+            if (entry.endRequested || entry.passive) continue;
             if (viewId === undefined || entry.scope === viewId) return true;
         }
         return false;
@@ -122,7 +127,10 @@ export class ProgressService extends Disposable {
     }
 
     private start(options: IProgressOptions): ProgressEntry {
-        const entry = new ProgressEntry(options.location === "view" ? options.viewId : null, options.title);
+        const entry =
+            options.location === "view"
+                ? new ProgressEntry(options.viewId, options.title, options.passive === true)
+                : new ProgressEntry(null, options.title, false);
         entry.delayTimer = setTimeout(() => {
             entry.delayTimer = undefined;
             entry.visible = true;

@@ -188,8 +188,8 @@
       "class": "ok"
     },
     "window.withProgress": {
-      "class": "B",
-      "note": "Notification is a progress toast with Cancel; SourceControl and view locations still fall back to the status bar"
+      "class": "ok",
+      "note": "deviation: SourceControl and view locations show the view header spinner, not upstream's progress bar at the top of the view"
     },
     "window.withScmProgress": {
       "class": "C",

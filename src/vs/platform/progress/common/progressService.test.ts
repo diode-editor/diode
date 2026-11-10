@@ -217,6 +217,22 @@ describe("ProgressService", () => {
         expect(service.viewProgress().size).toBe(0);
     });
 
+    it("a passive operation spins its section but does not make it busy", async () => {
+        const task = deferred();
+        const running = service.withProgress(
+            { location: "view", viewId: VIEW, title: "Indexing", passive: true },
+            () => task.promise,
+        );
+
+        vi.advanceTimersByTime(300);
+        expect(service.viewProgress().get(VIEW)?.title).toBe("Indexing");
+        expect(service.isBusy(VIEW)).toBe(false);
+        expect(service.isBusy()).toBe(false);
+
+        task.resolve();
+        await running;
+    });
+
     it("a task error propagates and closes the progress", async () => {
         const task = deferred();
         const running = service.withProgress({ location: "view", viewId: VIEW, title: "Pushing…" }, () => task.promise);

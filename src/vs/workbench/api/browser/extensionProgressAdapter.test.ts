@@ -16,6 +16,7 @@ describe("ExtensionProgressAdapter", () => {
     let notifications: NotificationService;
     let adapter: ExtensionProgressAdapter;
     let cancels: number;
+    let viewCalls: unknown[][];
 
     const bar = (): string[] => statusBar.entries().map((e) => e.text.slice(2));
     const toasts = () => notifications.passive();
@@ -30,7 +31,11 @@ describe("ExtensionProgressAdapter", () => {
         statusBar = new StatusBarService(NULL_STATE_SERVICE);
         window = new ProgressStatusBarAdapter(statusBar, 100);
         notifications = new NotificationService();
-        adapter = new ExtensionProgressAdapter(window, notifications);
+        viewCalls = [];
+        adapter = new ExtensionProgressAdapter(window, notifications, {
+            start: (handle, location, title) => viewCalls.push(["start", handle, location, title]),
+            end: (handle) => viewCalls.push(["end", handle]),
+        });
         cancels = 0;
     });
 
@@ -40,19 +45,37 @@ describe("ExtensionProgressAdapter", () => {
         vi.useRealTimers();
     });
 
-    it.each([
-        ["window", "window"],
-        ["sourceControl", "sourceControl"],
-        ["a view", { viewId: "explorer" }],
-    ] as const)("%s goes to the status bar, as before", (_name, location) => {
-        start(1, { title: "Build", location, cancellable: true });
+    it("Window goes to the status bar", () => {
+        start(1, { title: "Build", location: "window", cancellable: true });
         adapter.report(1, "step", 42);
 
         expect(bar()).toEqual(["Build · step (42%)"]);
         expect(toasts()).toEqual([]);
+        expect(viewCalls).toEqual([]);
 
         adapter.end(1);
         expect(bar()).toEqual([]);
+    });
+
+    it.each([
+        ["sourceControl", "sourceControl"],
+        ["a view", { viewId: "explorer" }],
+    ] as const)("%s goes to the view sink, which shows only the indicator", (_name, location) => {
+        start(1, { title: "Build", location, cancellable: true });
+        adapter.report(1, "step", 42);
+
+        expect(viewCalls).toEqual([["start", 1, location, "Build"]]);
+        expect(bar()).toEqual([]);
+        expect(toasts()).toEqual([]);
+
+        adapter.end(1);
+        expect(viewCalls).toEqual([
+            ["start", 1, location, "Build"],
+            ["end", 1],
+        ]);
+        // The handle is forgotten: a late end goes to the status bar sink, which ignores it.
+        adapter.end(1);
+        expect(viewCalls).toHaveLength(2);
     });
 
     it("[api:window.withProgress] Notification: a toast with `title: message`, percent summed and clamped", () => {
