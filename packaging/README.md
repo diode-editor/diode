@@ -11,7 +11,7 @@
 | apt | [`deb/build-deb.sh`](deb/build-deb.sh), [`apt/fetch-history.sh`](apt/fetch-history.sh), [`apt/build-repo.sh`](apt/build-repo.sh), [`apt/gen-key.sh`](apt/gen-key.sh) | job `packages` в `release.yml` |
 | npm | [`npm/`](npm/) — пакет `@diode-editor/diode` | job `npm` |
 | Homebrew | [`render.mjs`](render.mjs) → `Casks/diode.rb` в `diode-editor/homebrew-tap` (cask, не формула: формула без бутылки требует CLT на macOS) | job `brew` |
-| winget | [`render.mjs`](render.mjs) → манифесты `DiodeEditor.Diode` | первая подача руками, дальше job `winget` |
+| winget | [`render.mjs`](render.mjs) → манифесты `DiodeEditor.Diode` (первая подача, руками) | раз в неделю [`winget.yml`](../.github/workflows/winget.yml), не на каждый релиз |
 | Сайт | версия в футере `diode-editor.github.io` (`scripts/set-diode-version.mjs` репозитория сайта) | job `site` → [`site-version.yml`](../.github/workflows/site-version.yml) |
 
 ## Локальная проверка
@@ -38,14 +38,14 @@ node packaging/render.mjs --version 0.3.0 --from-github
 
 ## Секреты
 
-Каждая джоба `release.yml` без своего секрета молча пропускается — кроме `site`, она горит красным.
+Каждая джоба `release.yml` без своего секрета молча пропускается — кроме `site`, она горит красным. `winget.yml` без секрета тоже молча пропускается.
 
 | Секрет | Джоба | Что это |
 |---|---|---|
 | `APT_GPG_PRIVATE_KEY`, `APT_GPG_PASSPHRASE` | `packages` | ключ подписи apt-репозитория (см. «Ключ apt-репозитория») |
 | — | `npm` | секрета нет: Trusted Publishing (OIDC), у версий SLSA-provenance |
 | `REPOSITORY_PAT` | `brew` | push в `diode-editor/homebrew-tap`. Classic со scope `repo` покрывает все репозитории организации, fine-grained — только перечисленные в «Repository access» с Contents: read and write |
-| `WINGET_TOKEN` | `winget` | PAT с `public_repo`, заводится после мержа первой подачи |
+| `WINGET_TOKEN` | `winget.yml` | classic PAT с `public_repo` и `workflow` от владельца форка `winget-pkgs` (без `workflow` `wingetcreate` не синхронизирует форк) |
 | `SITE_PAT` | `site` | fine-grained PAT на `diode-editor.github.io` (см. «Сайт») |
 
 Homebrew — **cask** со стансами `os`/`arch`, один на macOS и Linux: формулу без бутылки Homebrew
@@ -80,7 +80,14 @@ organization `diode-editor`, repository `diode`, workflow filename `release.yml`
    в `manifests/d/DiodeEditor/Diode/X.Y.Z/`, проверить `winget validate <папка>`, открыть PR.
    Коммит в форк удобнее через Git Data API: частичный клон (`--filter=tree:0`) при push
    дотягивает всё дерево огромного репозитория.
-3. После мержа — секрет `WINGET_TOKEN` (PAT с `public_repo`), и следующие версии подаёт `release.yml`.
+3. После мержа — секрет `WINGET_TOKEN`, и дальше версии подаёт `winget.yml`.
+
+## winget: подача раз в неделю
+
+Релизы выходят почти каждый день, а PR в `winget-pkgs` ждёт модератора (`Moderator-Approved`)
+несколько дней — PR на каждый релиз копились бы в их очереди. Поэтому `winget.yml` по понедельникам
+подаёт только последний релиз, и только если он новее версии в `winget-pkgs` и открытого PR
+`DiodeEditor.Diode` там нет. Срочный фикс — ручной запуск: `gh workflow run winget.yml`.
 
 ## Сайт: версия на лендинге
 

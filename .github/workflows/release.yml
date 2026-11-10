@@ -8,8 +8,8 @@ name: Release
 # goes out to the channels (packaging/README.md):
 #   npm      — @diode-editor/diode (a thin wrapper that downloads the binary from the release; OIDC, no token);
 #   brew     — a cask in diode-editor/homebrew-tap (not a formula: a formula without a bottle requires CLT on macOS);
-#   winget   — a PR to microsoft/winget-pkgs;
 #   site     — the version in the diode-editor.github.io footer (site-version.yml).
+# winget is not here: winget.yml submits the latest release once a week.
 # A failed packages holds the release back (no Latest without apt metadata): `gh run rerun --failed`.
 # Each channel is a separate job: a failed npm doesn't block brew. A channel is silently skipped
 # when its secret isn't set (env HAS_* below), so a release works without all the keys.
@@ -25,7 +25,6 @@ permissions:
 env:
   HAS_APT_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY != '' }}
   HAS_TAP_TOKEN: ${{ secrets.REPOSITORY_PAT != '' }}
-  HAS_WINGET_TOKEN: ${{ secrets.WINGET_TOKEN != '' }}
 
 jobs:
   # Build the binaries with the reusable workflow.
@@ -190,24 +189,6 @@ jobs:
           git diff --cached --quiet && { echo "cask unchanged"; exit 0; }
           git commit -m "diode ${GITHUB_REF_NAME}"
           git push
-
-  # Updates the existing DiodeEditor.Diode package: wingetcreate forks
-  # microsoft/winget-pkgs and opens a PR itself. The first submission is by hand from packaging/out/winget
-  # (see packaging/README.md); until it is merged this job is expected to fail.
-  winget:
-    needs: release
-    runs-on: windows-latest
-    steps:
-      - name: Submit to winget-pkgs
-        if: env.HAS_WINGET_TOKEN == 'true'
-        shell: pwsh
-        run: |
-          $version = $env:GITHUB_REF_NAME.TrimStart("v")
-          $url = "https://github.com/diode-editor/diode/releases/download/$env:GITHUB_REF_NAME/diode-windows-x64.exe"
-          Invoke-WebRequest -Uri https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
-          .\wingetcreate.exe update DiodeEditor.Diode --urls $url --version $version --submit --token $env:WINGET_TOKEN
-        env:
-          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
 
   # The version on the landing page. A separate workflow so it can be republished by hand.
   site:

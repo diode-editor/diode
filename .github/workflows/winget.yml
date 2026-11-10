@@ -1,0 +1,75 @@
+name: Winget
+
+# Submits the latest diode release to microsoft/winget-pkgs (package DiodeEditor.Diode).
+#
+# Not tied to release.yml on purpose: we release almost daily, while a winget-pkgs PR waits days
+# for a moderator. A PR per release would pile up in their queue. Instead, once a week we submit
+# the latest release, and only when it is newer than what winget already has and no PR for
+# DiodeEditor.Diode is still open. By hand (workflow_dispatch) — the same checks, e.g. to ship an
+# urgent fix without waiting for Monday.
+#
+# wingetcreate forks microsoft/winget-pkgs into the account of the WINGET_TOKEN owner, syncs the
+# fork and opens the PR from there. WINGET_TOKEN is a classic PAT with `public_repo` and
+# `workflow` (without `workflow` the fork sync fails once upstream changes its workflows).
+# Without the secret the workflow is silently skipped.
+on:
+  schedule:
+    # Mondays, 06:00 UTC.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PACKAGE: DiodeEditor.Diode
+  MANIFESTS: manifests/d/DiodeEditor/Diode
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.decide.outputs.tag }}
+    steps:
+      - name: Decide what to submit
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_WINGET_TOKEN: ${{ secrets.WINGET_TOKEN != '' }}
+        run: |
+          if [ "$HAS_WINGET_TOKEN" != "true" ]; then
+            echo "::notice::WINGET_TOKEN is not set, skipping"
+            exit 0
+          fi
+          tag=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          latest=${tag#v}
+          published=$(gh api "repos/microsoft/winget-pkgs/contents/$MANIFESTS" --jq '.[].name' | sort -V | tail -n1)
+          echo "latest release: $latest, in winget: ${published:-none}"
+          if [ "$(printf '%s\n%s\n' "$published" "$latest" | sort -V | tail -n1)" != "$latest" ] || [ "$published" = "$latest" ]; then
+            echo "::notice::winget already has $published, nothing to submit"
+            exit 0
+          fi
+          open=$(gh pr list -R microsoft/winget-pkgs --state open --search "$PACKAGE in:title" --json number,title \
+            --jq "[.[] | select(.title | contains(\"$PACKAGE \"))] | map(\"#\(.number) \(.title)\") | join(\", \")")
+          if [ -n "$open" ]; then
+            echo "::notice::A PR is still waiting for moderation ($open), skipping $latest"
+            exit 0
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  submit:
+    needs: check
+    if: needs.check.outputs.tag != ''
+    runs-on: windows-latest
+    steps:
+      - name: Submit to winget-pkgs
+        shell: pwsh
+        run: |
+          $tag = "${{ needs.check.outputs.tag }}"
+          $version = $tag.TrimStart("v")
+          $url = "https://github.com/${{ github.repository }}/releases/download/$tag/diode-windows-x64.exe"
+          Invoke-WebRequest -Uri https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          .\wingetcreate.exe update $env:PACKAGE --urls $url --version $version --submit --token $env:WINGET_TOKEN
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}

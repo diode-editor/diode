@@ -22,7 +22,7 @@ gh release view vX.Y.Z --json url,assets --jq '.url, (.assets | length)'
 
 - Тип по умолчанию — `patch`. `minor` выбирай, только если человек его назвал.
 - «Просто тегни» / «просто на main» значит без отдельного PR: bump-коммит идёт прямо в `main`.
-- Упала одна job канала в `release.yml` (npm, brew, winget, site) — это не повод выпускать новую
+- Упала одна job канала в `release.yml` (npm, brew, site) — это не повод выпускать новую
   версию: `gh run rerun <id> --failed`. Каналы независимы, а без секрета job молча пропускается.
 - Порядок job: `build` → `packages` (.deb и apt-репозиторий артефактом) → `release` (релиз сразу со
   всеми файлами) → каналы. Упавший `packages` держит релиз: тот не становится Latest без
