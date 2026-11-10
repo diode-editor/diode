@@ -171,15 +171,19 @@ function tracedFunction(
 /** `PropertyDescriptor` with `unknown` instead of `any`, and accessors callable with any `this`. */
 interface INamespaceDescriptor {
     readonly enumerable?: boolean;
+    readonly writable?: boolean;
     readonly value?: unknown;
     readonly get?: (this: unknown) => unknown;
     readonly set?: (this: unknown, next: unknown) => void;
 }
 
-/** A copy of the descriptors, so `Object.keys` and getter liveness stay as they are. */
+/**
+ * Every own member is redefined in source order, so `Object.keys` and getter liveness stay as they are.
+ * A frozen namespace (`env`, as upstream) stays frozen.
+ */
 export function tracedNamespace<T extends object>(source: T, name: string, extension: string, trace: ApiTrace): T {
     const descriptors = Object.getOwnPropertyDescriptors(source) as Record<string, INamespaceDescriptor>;
-    const traced = Object.create(source, descriptors as PropertyDescriptorMap) as T;
+    const traced = Object.create(source) as T;
     for (const [key, descriptor] of Object.entries(descriptors)) {
         const member = `${name}.${key}`;
         const { enumerable, value: initial, get: getter, set: setter } = descriptor;
@@ -209,10 +213,13 @@ export function tracedNamespace<T extends object>(source: T, name: string, exten
                 trace.record(extension, member, "read");
                 return value;
             },
-            set(next: unknown): void {
-                value = next;
-            },
+            set:
+                descriptor.writable === false
+                    ? undefined
+                    : (next: unknown): void => {
+                          value = next;
+                      },
         });
     }
-    return traced;
+    return Object.isFrozen(source) ? Object.freeze(traced) : traced;
 }
