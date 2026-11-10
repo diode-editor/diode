@@ -846,13 +846,36 @@ export interface IWireTerminalLaunch {
     readonly hideFromUser?: boolean;
 }
 
-/** `extHostId` only for this subprocess's terminals; `pid` only for a real shell. */
+/**
+ * `extHostId` only for this subprocess's terminals; `pid` only for a real shell. `shellType` — upstream's
+ * `TerminalShellType` guessed from the shell executable (`terminal.state.shell`); absent when unknown.
+ * `isInteractedWith` — only `true`: input reached it before this subprocess learned of it (snapshot).
+ */
 export interface IWireTerminalOpened {
     readonly id: number;
     readonly extHostId?: number;
     readonly name: string;
     readonly pid?: number;
+    readonly shellType?: string;
+    readonly isInteractedWith?: true;
     readonly launch: IWireTerminalLaunch;
+}
+
+/** Upstream `$acceptTerminalInteraction`: the first input (keys or `sendText`) into the instance. */
+export interface IWireTerminalInteraction {
+    readonly id: number;
+}
+
+/** Upstream `$acceptTerminalTitleChange`: the instance was renamed (a pty's `onDidChangeName`, a task rerun). */
+export interface IWireTerminalTitleChanged {
+    readonly id: number;
+    readonly name: string;
+}
+
+/** Upstream `$sendProcessProperty(Title)`: the pty's `onDidChangeName` renames its terminal. */
+export interface IWireTerminalPtyName {
+    readonly terminal: IWireTerminalRef;
+    readonly name: string;
 }
 
 export interface IWireTerminalPtyData {
@@ -889,14 +912,6 @@ export interface IWireTerminalActive {
     readonly id: number | null;
 }
 
-const WIRE_TERMINAL_EXIT_REASONS: readonly WireTerminalExitReason[] = [
-    "unknown",
-    "shutdown",
-    "process",
-    "user",
-    "extension",
-];
-
 export function parseWireStringRecord(raw: unknown): Record<string, string | null> | undefined {
     if (typeof raw !== "object" || raw === null) return undefined;
     const out: Record<string, string | null> = {};
@@ -908,64 +923,6 @@ export function parseWireStringRecord(raw: unknown): Record<string, string | nul
 
 export function parseWireStringArray(raw: unknown): string[] | undefined {
     return Array.isArray(raw) ? raw.filter((a): a is string => typeof a === "string") : undefined;
-}
-
-/** Fields are read via optional chaining: a primitive lacks them just like `null` does. */
-type WireEnvelope = Readonly<Record<string, unknown>> | null | undefined;
-
-function parseWireTerminalLaunch(raw: unknown): IWireTerminalLaunch {
-    const p = raw as WireEnvelope;
-    const shellArgs = parseWireStringArray(p?.shellArgs);
-    const env = parseWireStringRecord(p?.env);
-    return {
-        ...(typeof p?.name === "string" ? { name: p.name } : {}),
-        ...(typeof p?.shellPath === "string" ? { shellPath: p.shellPath } : {}),
-        ...(shellArgs !== undefined ? { shellArgs } : {}),
-        ...(typeof p?.cwd === "string" ? { cwd: p.cwd } : {}),
-        ...(env !== undefined ? { env } : {}),
-        ...(typeof p?.hideFromUser === "boolean" ? { hideFromUser: p.hideFromUser } : {}),
-    };
-}
-
-export function parseWireTerminalOpened(raw: unknown): IWireTerminalOpened | null {
-    const p = raw as WireEnvelope;
-    if (typeof p?.id !== "number" || typeof p.name !== "string") return null;
-    return {
-        id: p.id,
-        name: p.name,
-        ...(typeof p.extHostId === "number" ? { extHostId: p.extHostId } : {}),
-        ...(typeof p.pid === "number" ? { pid: p.pid } : {}),
-        launch: parseWireTerminalLaunch(p.launch),
-    };
-}
-
-/** An unfamiliar reason (newer host) becomes `unknown`. */
-export function parseWireTerminalClosed(raw: unknown): IWireTerminalClosed | null {
-    const p = raw as WireEnvelope;
-    if (typeof p?.id !== "number") return null;
-    const reason = WIRE_TERMINAL_EXIT_REASONS.find((r) => r === p.reason) ?? "unknown";
-    return { id: p.id, ...(typeof p.code === "number" ? { code: p.code } : {}), reason };
-}
-
-export function parseWireTerminalPtyDimensions(raw: unknown): IWireTerminalPtyDimensions | null {
-    const p = raw as WireEnvelope;
-    if (typeof p?.id !== "number" || !isPositiveInteger(p.cols) || !isPositiveInteger(p.rows)) return null;
-    return { id: p.id, cols: p.cols, rows: p.rows };
-}
-
-function isPositiveInteger(v: unknown): v is number {
-    return Number.isInteger(v) && (v as number) > 0;
-}
-
-export function parseWireTerminalPtyInput(raw: unknown): IWireTerminalPtyInput | null {
-    const p = raw as WireEnvelope;
-    if (typeof p?.id !== "number" || typeof p.data !== "string") return null;
-    return { id: p.id, data: p.data };
-}
-
-export function parseWireTerminalActive(raw: unknown): IWireTerminalActive {
-    const id = (raw as WireEnvelope)?.id;
-    return { id: typeof id === "number" ? id : null };
 }
 
 /** `severity` is `vscode.DiagnosticSeverity` (0=Error…3=Hint); the sink's consumer maps it to `MarkerSeverity`. */

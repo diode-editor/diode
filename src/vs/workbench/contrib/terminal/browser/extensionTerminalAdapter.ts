@@ -98,6 +98,16 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
                 events.activeChanged(instance === null ? null : instance.id);
             }),
         );
+        store.add(
+            this.terminals.onDidInteractWithInstance((instance) => {
+                events.interaction(instance.id);
+            }),
+        );
+        store.add(
+            this.terminals.onDidChangeInstanceTitle((instance) => {
+                events.titleChanged(instance.id, instance.title);
+            }),
+        );
         return store;
     }
 
@@ -164,6 +174,10 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         if (code === undefined) this.ptyExitedWithoutCode.add(id);
         else this.ptyExitedWithoutCode.delete(id);
         session.exit(code);
+    }
+
+    public ptyName(terminal: IWireTerminalRef, name: string): void {
+        this.terminals.renameInstance(this.resolve(terminal), name);
     }
 
     /**
@@ -258,6 +272,8 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
             ...(extHostId !== undefined ? { extHostId } : {}),
             name: instance.title,
             ...(instance.processId !== undefined ? { pid: instance.processId } : {}),
+            ...(instance.shellType !== undefined ? { shellType: instance.shellType } : {}),
+            ...(instance.isInteractedWith ? { isInteractedWith: true } : {}),
             launch: toWireLaunch(instance),
         };
     }

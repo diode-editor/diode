@@ -65,8 +65,7 @@
       "note": "never fires"
     },
     "window.onDidChangeTerminalState": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "window.onDidChangeTextEditorOptions": {
       "class": "B",
