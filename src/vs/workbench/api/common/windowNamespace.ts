@@ -497,7 +497,9 @@ export function createWindowNamespace(
                 ...(tab?.tabSize === undefined ? {} : { tabSize: tab.tabSize }),
                 ...(tab?.insertSpaces === undefined ? {} : { insertSpaces: tab.insertSpaces }),
                 // Deviation: Diode always draws plain line numbers; the style is only reported.
-                lineNumbers: lineNumbersToApi(ctx.configStore.get("editor.lineNumbers", undefined, document.languageId)),
+                lineNumbers: lineNumbersToApi(
+                    ctx.configStore.get("editor.lineNumbers", undefined, document.languageId),
+                ),
                 ...storedOptions,
                 cursorStyle: effectiveCursorStyle(),
             };
@@ -542,7 +544,7 @@ export function createWindowNamespace(
              */
             get options(): vscode.TextEditorOptions {
                 return new Proxy(resolvedOptions(), {
-                    get: (_target, key) => Reflect.get(resolvedOptions(), key),
+                    get: (_target, key) => Reflect.get(resolvedOptions(), key) as unknown,
                     set: (_target, key, value: unknown): boolean => {
                         setOptions({ [key]: value });
                         return true;
