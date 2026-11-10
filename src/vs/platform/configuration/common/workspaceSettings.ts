@@ -63,6 +63,10 @@ export const TASKS_FILE_NAME = "tasks.json";
 /** Upstream `TASKS_DEFAULT`: the content a missing tasks file is created with before the edit. */
 export const TASKS_DEFAULT = '{\n\t"version": "2.0.0",\n\t"tasks": []\n}';
 
+/** Wording of upstream's `ERROR_INVALID_CONFIGURATION` for the tasks file. */
+export const TASKS_INVALID_CONFIGURATION_ERROR =
+    "Unable to write into the tasks configuration file. Please open it to correct errors/warnings in it and try again.";
+
 export function workspaceTasksPath(folderPath: string): string {
     return path.join(folderPath, workspaceConfigFilePath(TASKS_FILE_NAME));
 }

@@ -36,6 +36,7 @@ import {
     TASKS_CONFIGURATION_KEY,
     TASKS_DEFAULT,
     TASKS_FILE_NAME,
+    TASKS_INVALID_CONFIGURATION_ERROR,
     tasksJsonPath,
     WORKSPACE_SCOPES,
     workspaceScopeWriteError,
@@ -378,8 +379,12 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
             if (tasksFile === undefined) throw new Error(NO_WORKSPACE_OPENED_ERROR);
         }
         if (tasksFile === undefined) return;
-        // Upstream creates a missing file with `TASKS_DEFAULT` (tab-indented) before the edit.
-        await editJsonFile(tasksFile, jsonPath, value, TASKS_DEFAULT);
+        // Upstream creates a missing file with `TASKS_DEFAULT` (tab-indented) before the edit, and refuses to edit a
+        // file with parse errors unless the edit replaces it whole (`hasParseErrors`).
+        await editJsonFile(tasksFile, jsonPath, value, {
+            missingContent: TASKS_DEFAULT,
+            invalidContentError: jsonPath.length > 0 ? TASKS_INVALID_CONFIGURATION_ERROR : undefined,
+        });
         await this.reload();
     }
 }
@@ -436,34 +441,53 @@ async function writeSettingsKey(
     section?: string,
 ): Promise<ConfigurationModel> {
     // A flat dotted key, as VS Code writes it: ONE JSONPath segment, not `key.split(".")`.
-    const next = await editJsonFile(filePath, section === undefined ? [key] : [section, key], value, "");
+    const next = await editJsonFile(filePath, section === undefined ? [key] : [section, key], value, {
+        missingContent: "",
+        invalidContentError: undefined,
+    });
     // Stryker disable next-line ArrayDeclaration,ObjectLiteral,BooleanLiteral: parse errors are not read here, and the parser tolerates a trailing comma without the option too, so the model is the same
     return ConfigurationModel.fromRaw(sectionOf(parseJsonc(next, [], { allowTrailingComma: true }), section));
 }
 
-/** The edit keeps the file's indentation, as upstream's edit through the text model: tabs when a line starts with one. */
 async function editJsonFile(
     filePath: string,
     jsonPath: readonly string[],
     value: unknown,
-    missingContent: string,
+    options: {
+        readonly missingContent: string;
+        /** Defined: a file with parse errors is refused with this message instead of being edited. */
+        readonly invalidContentError: string | undefined;
+    },
 ): Promise<string> {
-    let content = missingContent;
+    let content = options.missingContent;
     try {
         content = await fs.promises.readFile(filePath, "utf-8");
     } catch (err) {
         if (!isFileNotFound(err)) throw err;
     }
+    if (options.invalidContentError !== undefined) {
+        const errors: ParseError[] = [];
+        parseJsonc(content, errors, { allowTrailingComma: true, allowEmptyContent: true });
+        if (errors.length > 0) throw new Error(options.invalidContentError);
+    }
 
-    const edits = modify(content, [...jsonPath], value, {
-        formattingOptions: { insertSpaces: !/^\t/m.test(content), tabSize: 4 },
-    });
+    const edits = modify(content, [...jsonPath], value, { formattingOptions: indentationOf(content) });
     const next = applyEdits(content, edits);
 
     await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
     // Stryker disable next-line StringLiteral: an empty encoding for writeFile is the same default utf-8
     await fs.promises.writeFile(filePath, next, "utf-8");
     return next;
+}
+
+/**
+ * The edit keeps the file's indentation, as upstream's edit through the text model with detected indentation: the
+ * first indented line tells tabs or the number of spaces; a file without one gets 4 spaces.
+ */
+function indentationOf(content: string): { insertSpaces: boolean; tabSize: number } {
+    const indent = /^([ \t]+)\S/m.exec(content)?.[1] ?? "    ";
+    // For tabs `tabSize` does not matter.
+    return { insertSpaces: !indent.startsWith("\t"), tabSize: indent.length };
 }
 
 function sectionOf(parsed: unknown, section: string | undefined): unknown {

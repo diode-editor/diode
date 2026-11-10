@@ -3,15 +3,17 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { FakeFileWatcher, testRegistry } from "../../../../TestUtils/configurationLayersFixture.ts";
+import { FakeFileWatcher, makeLogger, testRegistry } from "../../../../TestUtils/configurationLayersFixture.ts";
 import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../../TestUtils/disposableLeaks.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { resolveUserDataPaths } from "../../environment/node/userDataPaths.ts";
 import type { IFileWatcher } from "../../files/common/iFileWatcher.ts";
+import type { ILogger } from "../../log/common/iLogger.ts";
+import { ConfigurationModel } from "../common/configurationModel.ts";
 import type { IConfigurationChangeEvent } from "../common/iConfigurationService.ts";
 import { NO_WORKSPACE_OPENED_ERROR } from "../common/workspaceSettings.ts";
 
-import { type ConfigurationService, loadConfiguration } from "./configurationService.ts";
+import { ConfigurationService, loadConfiguration } from "./configurationService.ts";
 
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -38,11 +40,17 @@ describe("ConfigurationService — the standalone tasks section", () => {
     }
 
     async function load(
-        options: { folder?: string; configuration?: string; watcher?: IFileWatcher; profile?: string } = {},
+        options: {
+            folder?: string;
+            configuration?: string;
+            watcher?: IFileWatcher;
+            profile?: string;
+            logger?: ILogger;
+        } = {},
     ): Promise<ConfigurationService> {
         const cfg = await loadConfiguration(
             paths(options.profile),
-            undefined,
+            options.logger,
             options.watcher,
             testRegistry(),
             options.folder === undefined ? undefined : { folder: options.folder, configuration: options.configuration },
@@ -77,16 +85,29 @@ describe("ConfigurationService — the standalone tasks section", () => {
             const cfg = await load({ folder: folder.dir });
 
             expect(cfg.get("tasks")).toBeUndefined();
-            expect(cfg.getConfigurationData().workspace).toEqual({});
+            // Not even an undefined `tasks` key: it would travel to the extension host.
+            expect(cfg.getConfigurationData().workspace).toStrictEqual({});
         });
 
         it("a .code-workspace window reads the folder's tasks.json into the folder layer", async () => {
             const workspaceFile = folder.writeFile("web.code-workspace", `{ "folders": [{ "path": "." }] }`);
             folder.writeFile(".diode/tasks.json", `{ "version": "2.0.0" }`);
 
-            const cfg = await load({ folder: folder.dir, configuration: workspaceFile });
+            const logger = makeLogger();
+            const watcher = new FakeFileWatcher();
+
+            const cfg = await load({ folder: folder.dir, configuration: workspaceFile, logger, watcher });
 
             expect(cfg.inspect("tasks.version")).toMatchObject({ workspace: undefined, workspaceFolder: "2.0.0" });
+            // The workspace file has no tasks file of its own: nothing else is read or watched.
+            expect(logger.error).not.toHaveBeenCalled();
+            expect(watcher.watched()).toEqual([
+                paths().settingsFile,
+                path.join(path.dirname(paths().settingsFile), "tasks.json"),
+                workspaceFile,
+                folder.path(".diode/settings.json"),
+                tasksFile,
+            ]);
         });
 
         it("the profile's tasks.json is the tasks section of the user layer; a named profile has its own", async () => {
@@ -100,10 +121,12 @@ describe("ConfigurationService — the standalone tasks section", () => {
             fs.mkdirSync(path.dirname(profileTasks), { recursive: true });
             fs.writeFileSync(profileTasks, `{ "version": "2.0.0" }`);
 
-            expect((await load({ profile: "work" })).inspect("tasks.version")).toMatchObject({
+            const logger = makeLogger();
+            expect((await load({ profile: "work", logger })).inspect("tasks.version")).toMatchObject({
                 user: undefined,
                 profile: "2.0.0",
             });
+            expect(logger.error).not.toHaveBeenCalled();
         });
     });
 
@@ -160,6 +183,52 @@ describe("ConfigurationService — the standalone tasks section", () => {
             expect(JSON.parse(fs.readFileSync(tasksFile, "utf-8"))).toEqual({ version: "2.0.0", tasks: [BUILD_TASK] });
             expect(fs.readFileSync(workspaceFile, "utf-8")).toBe(`{ "folders": [{ "path": "." }] }`);
             expect(cfg.inspect("tasks.tasks").workspaceFolder).toEqual([BUILD_TASK]);
+        });
+
+        it("a one-line file gets 4-space indentation, a 2-space one keeps 2 spaces", async () => {
+            folder.writeFile(".diode/tasks.json", `{ "version": "2.0.0" }`);
+            const cfg = await load({ folder: folder.dir });
+
+            await cfg.updateValue("tasks.options", { cwd: "src" }, "workspace");
+            expect(fs.readFileSync(tasksFile, "utf-8")).toBe(
+                `{\n    "version": "2.0.0",\n    "options": {\n        "cwd": "src"\n    }\n}`,
+            );
+
+            folder.writeFile(".diode/tasks.json", `{\n  "version": "2.0.0"\n}`);
+            await cfg.updateValue("tasks.tasks", [], "workspace");
+            expect(fs.readFileSync(tasksFile, "utf-8")).toBe(`{\n  "version": "2.0.0",\n  "tasks": []\n}`);
+        });
+
+        it("a tasks.json with parse errors is refused with the upstream text; an empty one is edited", async () => {
+            folder.writeFile(".diode/tasks.json", `{ "version": `);
+            const cfg = await load({ folder: folder.dir });
+
+            await expect(cfg.updateValue("tasks.version", "2.0.0", "workspace")).rejects.toThrow(
+                "Unable to write into the tasks configuration file. Please open it to correct errors/warnings in it and try again.",
+            );
+
+            folder.writeFile(".diode/tasks.json", "");
+            await cfg.updateValue("tasks.version", "2.0.0", "workspace");
+            expect(cfg.get("tasks.version")).toBe("2.0.0");
+
+            // A trailing comma is not an error, as upstream's `allowTrailingComma`.
+            folder.writeFile(".diode/tasks.json", `{ "version": "1.0.0", }`);
+            await cfg.updateValue("tasks.version", "2.0.0", "workspace");
+            expect(cfg.get("tasks.version")).toBe("2.0.0");
+        });
+
+        it("a service without a write target ignores a User write, like a settings key", async () => {
+            const cfg = disposables.add(
+                new ConfigurationService({
+                    defaultsLayer: ConfigurationModel.EMPTY,
+                    userLayer: ConfigurationModel.EMPTY,
+                    profileLayer: ConfigurationModel.EMPTY,
+                }),
+            );
+
+            await cfg.updateValue("tasks.version", "2.0.0", "user");
+
+            expect(cfg.get("tasks")).toBeUndefined();
         });
 
         it("Workspace without a folder is refused as upstream", async () => {
