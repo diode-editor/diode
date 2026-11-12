@@ -227,6 +227,9 @@ import { TerminalServiceDIToken } from "./contrib/terminal/browser/terminalServi
 import { TERMINAL_LINK_ACTIONS } from "./contrib/terminalContrib/links/browser/terminalLinkActions.ts";
 import { TERMINAL_SELECTION_ACTIONS } from "./contrib/terminalContrib/selection/browser/terminalSelectionActions.ts";
 import { TerminalSelectionServiceDIToken } from "./contrib/terminalContrib/selection/browser/terminalSelectionService.ts";
+import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugActions.ts";
+import { DebugViewsComponentDIToken } from "./contrib/debug/browser/debugViews.ts";
+import { ReplComponentDIToken } from "./contrib/debug/browser/replView.ts";
 import { TESTING_ACTIONS } from "./contrib/testing/browser/testingActions.ts";
 import { TestingDecorationsDIToken } from "./contrib/testing/browser/testingDecorations.ts";
 import { TESTING_EDITOR_ACTIONS } from "./contrib/testing/browser/testingEditorActions.ts";
@@ -263,6 +266,9 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: TestingExplorerComponentDIToken, phase: "blockStartup" },
     // Its container, too; the view comes with the first result.
     { token: TestResultsComponentDIToken, phase: "blockStartup" },
+    // SPIKE: the debug views over a fake session.
+    { token: DebugViewsComponentDIToken, phase: "blockStartup" },
+    { token: ReplComponentDIToken, phase: "blockStartup" },
     { token: QuickOpenServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (CompletionService in the next entry holds it) — the entry only hands lifetime ownership to the registry, which a unit test can't observe
     { token: SuggestComponentDIToken, phase: "blockStartup" },
@@ -512,6 +518,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...TASKS_ACTIONS,
     ...TESTING_ACTIONS,
     ...TESTING_EDITOR_ACTIONS,
+    ...DEBUG_ACTIONS,
     clearNotificationsAction,
     focusNotificationAction,
     ...COMPARE_ACTIONS,

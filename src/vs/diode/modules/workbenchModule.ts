@@ -377,6 +377,9 @@ import {
     TerminalSelectionService,
     TerminalSelectionServiceDIToken,
 } from "../../workbench/contrib/terminalContrib/selection/browser/terminalSelectionService.ts";
+import { DebugStubModel, DebugStubModelDIToken } from "../../workbench/contrib/debug/common/debugStubModel.ts";
+import { DebugViewsComponent, DebugViewsComponentDIToken } from "../../workbench/contrib/debug/browser/debugViews.ts";
+import { ReplComponent, ReplComponentDIToken } from "../../workbench/contrib/debug/browser/replView.ts";
 import {
     TestingDecorations,
     TestingDecorationsDIToken,
@@ -693,6 +696,10 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);
     container.bind(TestResultsComponentDIToken, TestResultsComponent);
+    // SPIKE: the debug views over a fake session.
+    container.bind(DebugStubModelDIToken, DebugStubModel);
+    container.bind(DebugViewsComponentDIToken, DebugViewsComponent);
+    container.bind(ReplComponentDIToken, ReplComponent);
     container.bind(TestMessageDiffFactoryDIToken, TestMessageDiffFactory);
     // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-explorer
     container.bind(TestingRevealTargetDIToken, () => container.get(EditorServiceDIToken));
