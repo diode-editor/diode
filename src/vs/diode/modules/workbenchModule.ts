@@ -425,6 +425,10 @@ import {
     ThemeConfigContributionDIToken,
 } from "../../workbench/contrib/themes/browser/themeConfigContribution.ts";
 import { UserDataProfileWorkspaceOpener } from "../../workbench/contrib/userDataProfile/browser/userDataProfileWorkspaceOpener.ts";
+import {
+    ConfigurationResolverService,
+    ConfigurationResolverServiceDIToken,
+} from "../../workbench/services/configurationResolver/browser/configurationResolverService.ts";
 import { DialogService, DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import {
     FileDialogService,
@@ -686,6 +690,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(DefaultShellResolverDIToken, () => () => getSystemShell());
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding (the test profile binds a ready registry of its own); end-to-end — e2e scenario tsc-problem-matcher-task
     container.bind(ProblemMatcherRegistryDIToken, () => new ProblemMatcherRegistry());
+    container.bind(ConfigurationResolverServiceDIToken, ConfigurationResolverService);
     container.bind(TaskServiceDIToken, TaskService);
     container.bind(TestResultServiceDIToken, TestResultService);
     container.bind(TestRunUiDIToken, TestRunUi);

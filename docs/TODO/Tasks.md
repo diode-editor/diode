@@ -43,8 +43,7 @@
 - [ ] `dependsOn` / `dependsOrder` — задача с ними запускается без зависимостей, warn в лог `tasks`.
 - [ ] Автозапуск: `runOptions.runOn: folderOpen`, `task.allowAutomaticTasks`, Manage Automatic Tasks.
 - [ ] История «recently used» в пикере (`task.quickOpen.history`).
-- [ ] `inputs` / `${input:…}` / `${command:…}` — задача с ними падает с явной ошибкой
-  «переменная не поддержана», а не запускается с литералом.
+- [x] `inputs` / `${input:…}` / `${command:…}` — общий резолвер `services/configurationResolver/` (#1137).
 - [x] Configure Task (`workbench.action.tasks.configureTaskRunner`) и шаблоны tasks.json
   («Create tasks.json file from template»), «Configure a Task» в пустом Run Task.
 - [ ] User Tasks (Open User Tasks), Open Workspace Tasks, кнопка «Configure Task» у строк Run Task.

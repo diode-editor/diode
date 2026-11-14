@@ -34,7 +34,6 @@ import {
     type ITask,
     type ShellQuoting,
 } from "../common/tasks.ts";
-import { type ITaskVariableContext, resolveVariables } from "../common/taskVariables.ts";
 
 export type ITaskEvent =
     | { readonly kind: "changed" }
@@ -147,7 +146,8 @@ export interface ITaskProblemsHost extends IProblemCollectorHost {
 export type ITaskEditorTerminals = Pick<TerminalEditorService, "reveal">;
 
 export interface ITaskRunContext {
-    readonly variables: ITaskVariableContext;
+    /** Substitutes the variables of a string; an unresolvable one throws. */
+    readonly resolve: (value: string) => string;
     readonly platform: TaskPlatform;
 }
 
@@ -240,6 +240,11 @@ export class TerminalTaskSystem extends Disposable {
         const running = this.active.get(getMapKey(task));
         if (running !== undefined) return { kind: "active", task: running.task, promise: running.summary.promise };
         return this.execute(task, this.launchOf(task, context));
+    }
+
+    /** The task {@link rerun} runs. */
+    public getLastTask(): ITask | undefined {
+        return this.lastTask?.task;
     }
 
     /** With `reevaluateOnRerun` variables are recomputed; without it, the run reuses the previous launch. */
@@ -502,7 +507,7 @@ export class TerminalTaskSystem extends Disposable {
 
     private launchOf(task: ITask, context: ITaskRunContext): ILaunch {
         const { command } = task;
-        const resolve = (value: string): string => resolveVariables(value, context.variables);
+        const { resolve } = context;
         const waitOnExit = waitOnExitOf(command.presentation, task.isBackground);
         const name = task.name;
         const resolvedDefinition = resolveDeep(task.definition, resolve);

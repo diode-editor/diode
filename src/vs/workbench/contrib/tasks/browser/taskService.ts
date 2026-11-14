@@ -31,6 +31,8 @@ import {
 } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { type ViewsService, ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
+import { ConfigurationResolverServiceDIToken } from "../../../services/configurationResolver/browser/configurationResolverService.ts";
+import type { IConfigurationResolverService } from "../../../services/configurationResolver/common/configurationResolver.ts";
 import { type DialogService, DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import { EditorServiceDIToken, type IEditorService } from "../../../services/editor/common/editorService.ts";
 import {
@@ -55,7 +57,14 @@ import {
     parseTasksJson,
     type TaskPlatform,
 } from "../common/taskConfiguration.ts";
-import { compareTasks, type IConfiguringTask, type ITask, taskMatches } from "../common/tasks.ts";
+import {
+    compareTasks,
+    getMapKey,
+    getTaskFolder,
+    type IConfiguringTask,
+    type ITask,
+    taskMatches,
+} from "../common/tasks.ts";
 
 import {
     type ITaskEditorTerminals,
@@ -94,12 +103,25 @@ const TASKS_LOG_CHANNEL = "tasks";
 export interface IWorkspaceTaskConfiguration {
     readonly tasks: readonly ITask[];
     readonly configuring: readonly IConfiguringTask[];
+    /** The `inputs` section of tasks.json. */
+    readonly inputs?: readonly unknown[];
 }
 
 const NO_WORKSPACE_TASKS: IWorkspaceTaskConfiguration = { tasks: [], configuring: [] };
 
 function messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * What the task system resolves variables in: the command, the definition and the `filePrefix` of inline matchers
+ * (a named matcher brings no `${input:…}`; its variables are resolved at launch).
+ */
+function variableSourcesOf(task: ITask): unknown {
+    const prefixes = task.problemMatchers.map((matcher) =>
+        typeof matcher === "string" ? undefined : matcher.filePrefix,
+    );
+    return [task.command, task.definition, prefixes];
 }
 
 /** Installs the extension host bridge; `undefined` means providers of all types. */
@@ -138,6 +160,7 @@ export class TaskService extends Disposable {
         TerminalEditorServiceDIToken,
         MarkerServiceDIToken,
         ProblemMatcherRegistryDIToken,
+        ConfigurationResolverServiceDIToken,
     ] as const;
 
     private readonly system: TerminalTaskSystem;
@@ -172,6 +195,7 @@ export class TaskService extends Disposable {
         editorTerminals: ITaskEditorTerminals,
         markers: MarkerService,
         private readonly problemMatchers: ProblemMatcherRegistry,
+        private readonly resolver: IConfigurationResolverService,
     ) {
         super();
         // Stryker disable next-line StringLiteral,ObjectLiteral: log channel name and label are wiring; the e2e tasks scenario sees "Tasks"
@@ -284,7 +308,7 @@ export class TaskService extends Disposable {
         }
         // A matcher of tasks.json may refer to a contributed pattern or base (upstream's `_computeWorkspaceFolderTasks`).
         await this.problemMatchers.onReady();
-        const { tasks, configuring, problems } = parseTasksJson(
+        const { tasks, configuring, problems, inputs } = parseTasksJson(
             text,
             folder,
             this.platform,
@@ -299,7 +323,7 @@ export class TaskService extends Disposable {
             // Errors (not warnings) also get a toast (upstream's `_showOutput`).
             if (problems.some((problem) => problem.startsWith("Error:"))) this.promptToShowOutput();
         }
-        return { tasks, configuring };
+        return { tasks, configuring, ...(inputs !== undefined ? { inputs } : {}) };
     }
 
     public tasksJsonUri(): Uri | undefined {
@@ -425,7 +449,12 @@ export class TaskService extends Disposable {
             await this.saveBeforeRun();
             // A task run before the extensions' matchers are registered waits for them (upstream's `_executeTask`).
             await this.problemMatchers.onReady();
-            return await this.handleExecuteResult(this.system.run(task, this.runContext()));
+            // A running task asks for no inputs: its instancePolicy decides (upstream checks before acquiring input).
+            const running = this.system.getActiveTasks().some((active) => getMapKey(active) === getMapKey(task));
+            const context = running ? this.contextWith(task, new Map()) : await this.acquireInput(task);
+            // A cancelled input or command cancels the run.
+            if (context === undefined) return undefined;
+            return await this.handleExecuteResult(this.system.run(task, context));
         } catch (error) {
             this.handleError(error);
             throw error;
@@ -437,7 +466,14 @@ export class TaskService extends Disposable {
         await this.editors.saveAll();
         let result: ITaskExecuteResult | undefined;
         try {
-            result = this.system.rerun(this.runContext());
+            const last = this.system.getLastTask();
+            // Without reevaluation the previous launch is reused and the context is not looked at.
+            const context =
+                last?.runOptions.reevaluateOnRerun === true
+                    ? await this.acquireInput(last)
+                    : this.contextWith(last, new Map());
+            if (context === undefined) return;
+            result = this.system.rerun(context);
         } catch (error) {
             this.handleError(error);
             return;
@@ -605,22 +641,31 @@ export class TaskService extends Disposable {
         await this.editors.saveAll();
     }
 
-    private runContext(): ITaskRunContext {
-        const folder = this.folder();
-        const editor = this.editors.getActiveTabEditor();
-        const file = editor?.uri.scheme === "file" ? editor : undefined;
+    /**
+     * Upstream's `_acquireInput`: the task's commands and inputs are asked for (each once) before it starts, along
+     * with all its other variables; `undefined` — the user cancelled.
+     */
+    private async acquireInput(task: ITask): Promise<ITaskRunContext | undefined> {
+        const values = await this.resolver.resolveWithInteraction(
+            this.folderOf(task),
+            variableSourcesOf(task),
+            "tasks",
+            undefined,
+            async () => (await this.getWorkspaceConfiguration()).inputs,
+        );
+        return values === undefined ? undefined : this.contextWith(task, values);
+    }
+
+    private contextWith(task: ITask | undefined, values: ReadonlyMap<string, string>): ITaskRunContext {
+        const folder = task === undefined ? undefined : this.folderOf(task);
         return {
             platform: this.platform,
-            variables: {
-                folderPath: folder?.uri.fsPath,
-                filePath: file?.uri.fsPath,
-                lineNumber: file === undefined ? undefined : file.primaryCursorLine + 1,
-                env: process.env,
-                userHome: process.env.HOME ?? process.env.USERPROFILE,
-                cwd: process.cwd(),
-                getConfiguration: (key) => this.configuration.get(key),
-            },
+            resolve: (value) => this.resolver.resolveWithValues(folder, value, values),
         };
+    }
+
+    private folderOf(task: ITask): IWorkspaceFolder | undefined {
+        return getTaskFolder(task) ?? this.folder();
     }
 
     private folder(): IWorkspaceFolder | undefined {

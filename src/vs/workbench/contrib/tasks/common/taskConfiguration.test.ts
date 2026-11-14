@@ -237,14 +237,15 @@ describe("parseTasksJson — unsupported and errors", () => {
         ]);
     });
 
-    it("dependsOn, runOn folderOpen, instanceLimit > 1, inputs — warnings, the task stays", () => {
-        const { task, problems } = one(
-            { label: "t", command: "x", dependsOn: ["a"], runOptions: { runOn: "folderOpen", instanceLimit: 3 } },
-            { inputs: [] },
-        );
+    it("dependsOn, runOn folderOpen, instanceLimit > 1 — warnings, the task stays", () => {
+        const { task, problems } = one({
+            label: "t",
+            command: "x",
+            dependsOn: ["a"],
+            runOptions: { runOn: "folderOpen", instanceLimit: 3 },
+        });
         expect(task?.runOptions.instanceLimit).toBe(1);
         expect(problems).toStrictEqual([
-            "Warning: tasks.json inputs are not supported; tasks that use ${input:...} fail to start.",
             "Warning: task 't': dependsOn is not supported; the task runs without its dependencies.",
             "Warning: task 't': runOptions.runOn \"folderOpen\" is not supported; the task runs only when started.",
             "Warning: task 't': runOptions.instanceLimit greater than 1 is not supported; one instance runs at a time.",
@@ -254,6 +255,14 @@ describe("parseTasksJson — unsupported and errors", () => {
         ).toStrictEqual([]);
         expect(one({ label: "t", command: "x", runOptions: { instanceLimit: "5" } }).problems).toStrictEqual([]);
         expect(one({ label: "t", command: "x", options: { env: { A: "1" } } }).problems).toStrictEqual([]);
+    });
+
+    it("inputs — handed over as they are when an array, no warning; otherwise absent", () => {
+        const inputs = [{ id: "name", type: "promptString", description: "Name" }, 3];
+        const parsed = parse({ version: "2.0.0", inputs, tasks: [] });
+        expect(parsed.inputs).toStrictEqual(inputs);
+        expect(parsed.problems).toStrictEqual([]);
+        expect("inputs" in parse({ version: "2.0.0", inputs: {}, tasks: [] })).toBe(false);
     });
 
     it("broken JSON — no tasks and an error with a code; comments and trailing commas are allowed", () => {

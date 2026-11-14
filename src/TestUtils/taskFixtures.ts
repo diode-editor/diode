@@ -3,6 +3,7 @@ import { expect } from "vitest";
 import { Uri } from "../vs/base/common/uri.ts";
 import type { IWorkspaceFolder } from "../vs/platform/workspace/common/iWorkspaceContextService.ts";
 import { contributedTaskId, createTaskIdentifier } from "../vs/workbench/api/common/taskIdentity.ts";
+import type { ITaskRunContext } from "../vs/workbench/contrib/tasks/browser/terminalTaskSystem.ts";
 import {
     DEFAULT_PRESENTATION,
     DEFAULT_RUN_OPTIONS,
@@ -12,7 +13,10 @@ import {
     type ITask,
     type TaskProblemMatcher,
 } from "../vs/workbench/contrib/tasks/common/tasks.ts";
-import type { ITaskVariableContext } from "../vs/workbench/contrib/tasks/common/taskVariables.ts";
+import {
+    type IVariableResolveContext,
+    resolveVariables,
+} from "../vs/workbench/services/configurationResolver/common/variableResolver.ts";
 
 export const TASK_FOLDER: IWorkspaceFolder = { uri: Uri.file("/ws"), name: "ws", index: 0 };
 
@@ -77,15 +81,29 @@ export function makeTask(options: ITaskFixtureOptions = {}): ITask {
     };
 }
 
-export function taskVariables(overrides: Partial<ITaskVariableContext> = {}): ITaskVariableContext {
+export function taskVariables(overrides: Partial<IVariableResolveContext> = {}): IVariableResolveContext {
     return {
         folderPath: TASK_FOLDER.uri.fsPath,
+        getFolderPath: (name) => (name === TASK_FOLDER.name ? TASK_FOLDER.uri.fsPath : undefined),
+        workspaceFolderCount: 1,
         filePath: undefined,
+        fileFolderPath: undefined,
         lineNumber: undefined,
+        columnNumber: undefined,
+        selectedText: undefined,
         env: {},
         userHome: "/home/u",
         cwd: "/cwd",
+        execPath: undefined,
+        execInstallFolder: undefined,
         getConfiguration: () => undefined,
+        getExtensionLocation: () => undefined,
         ...overrides,
     };
+}
+
+/** A run context that resolves the variables without interaction. */
+export function taskRunContext(overrides: Partial<IVariableResolveContext> = {}): ITaskRunContext {
+    const variables = taskVariables(overrides);
+    return { platform: "linux", resolve: (value) => resolveVariables(value, variables) };
 }
