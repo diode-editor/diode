@@ -146,3 +146,16 @@ export function spliceInChunks<T>(target: T[], start: number, deleteCount: numbe
         target.splice(start + i, 0, ...items.slice(i, i + SPLICE_CHUNK));
     }
 }
+
+export function distinct<T>(array: readonly T[], keyFn: (value: T) => unknown = (value) => value): T[] {
+    const seen = new Set<unknown>();
+
+    return array.filter((element) => {
+        const key = keyFn(element);
+        if (seen.has(key)) {
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
+}

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { RunOnceScheduler, runWhenGlobalIdle } from "./async.ts";
+import { DeferredPromise, RunOnceScheduler, runWhenGlobalIdle } from "./async.ts";
 import { setUnexpectedErrorHandler } from "./errors.ts";
 import { setTimeout0 } from "./platform.ts";
 
@@ -141,5 +141,14 @@ describe("setTimeout0", () => {
         order.push("sync");
         await new Promise<void>((resolve) => setImmediate(resolve));
         expect(order).toEqual(["sync", "microtask", "macrotask"]);
+    });
+});
+
+describe("DeferredPromise", () => {
+    it("resolves its promise from outside", async () => {
+        const deferred = new DeferredPromise<number>();
+        deferred.complete(1);
+        deferred.complete(2);
+        await expect(deferred.p).resolves.toBe(1);
     });
 });
