@@ -74,6 +74,7 @@ describe("ExtensionsWorkbenchService.installVsix", () => {
         const result = await service.installVsix(await vsix("with-deps", { extensionDependencies: ["acme.base"] }));
 
         expect(result.needsReload).toBe(true);
+        expect(warnings).toEqual([]);
         expect(service.getEntries().find((e) => e.id === "acme.base")?.needsReload).toBe(true);
         expect(service.getEntries().find((e) => e.id === "vadimcn.vscode-lldb")?.needsReload).toBe(false);
     });

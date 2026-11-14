@@ -21,7 +21,8 @@ describe("vsixPathsOf", () => {
             "/tmp/a.vsix",
             "/tmp/b.vsix",
         ]);
-        expect(vsixPathsOf("/tmp/c.vsix")).toEqual(["/tmp/c.vsix"]);
+        // A string is a path as is, not a URI to parse: `#` and `%` stay in the file name.
+        expect(vsixPathsOf("/tmp/v 100%#1.vsix")).toEqual(["/tmp/v 100%#1.vsix"]);
     });
 
     it.each([

@@ -3,16 +3,17 @@ import * as fs from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
-import { typeText } from "../../../TestUtils/domQueries.ts";
 import { buildVsix } from "../../../TestUtils/extensionUpdatesFixture.ts";
+import { fileDialogDriver } from "../../../TestUtils/fileDialogDriver.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { settle } from "../../../TestUtils/timing.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { INSTALL_FROM_VSIX_COMMAND_ID } from "../contrib/extensions/browser/extensionVsixActions.ts";
 import { NotificationServiceDIToken } from "../services/notification/browser/notificationService.ts";
 
 /**
  * `installFromVSIX` (#1134) over the real marketplace service and a real extensions directory: what CodeLLDB
- * calls for its platform package, and the palette's "Extensions: Install from VSIX...".
+ * calls for its platform package, and the palette's "Extensions: Install from VSIX..." over the open dialog.
  */
 describe("Workbench — install from VSIX", () => {
     let ws: ITempWorkspace | undefined;
@@ -67,6 +68,18 @@ describe("Workbench — install from VSIX", () => {
         });
     });
 
+    it("closing the notification does not reload the window", async () => {
+        const { h, vsix } = await setup();
+        await h.commands.execute(INSTALL_FROM_VSIX_COMMAND_ID, vsix);
+        const execute = vi.spyOn(h.commands, "execute");
+
+        const notifications = h.container.get(NotificationServiceDIToken);
+        notifications.dismiss(notifications.current()!.id);
+        await settle(0);
+
+        expect(execute).not.toHaveBeenCalledWith("workbench.action.reloadWindow");
+    });
+
     it("a broken vsix rejects the command with the reason and installs nothing", async () => {
         const { h, ws } = await setup();
         fs.writeFileSync(ws.path("broken.vsix"), "not a zip");
@@ -77,13 +90,23 @@ describe("Workbench — install from VSIX", () => {
         expect(fs.readdirSync(ws.path("extensions"))).toEqual([]);
     });
 
-    it("the palette asks for the path in a quick input and installs the typed file", async () => {
+    /** The palette command opens the terminal open dialog; the path is typed like a human would. */
+    async function pickInDialog(harness: IAppHarness, target: string): Promise<void> {
+        harness.commands.execute("workbench.extensions.action.installVSIX");
+        const dialog = fileDialogDriver(harness);
+        await vi.waitFor(() => {
+            expect(dialog.component.isOpen()).toBe(true);
+        });
+        expect(screen(harness)).toContain("Install from VSIX");
+        dialog.replaceQuery(target);
+        await dialog.settle({ query: target });
+        dialog.key("Enter");
+    }
+
+    it("the palette picks the file in the open dialog and installs it", async () => {
         const { h, ws, vsix } = await setup();
 
-        h.commands.execute("workbench.extensions.action.installVSIX");
-        expect(screen(h)).toContain("Path to a .vsix file");
-        typeText(h.testApp, vsix);
-        h.testApp.sendKey("Enter");
+        await pickInDialog(h, vsix);
 
         await vi.waitFor(() => {
             expect(screen(h)).toContain("Completed installing extension. Please reload");
@@ -93,24 +116,26 @@ describe("Workbench — install from VSIX", () => {
 
     it("the palette shows a failed install as an error notification", async () => {
         const { h, ws } = await setup();
+        fs.writeFileSync(ws.path("broken.vsix"), "not a zip");
 
-        h.commands.execute("workbench.extensions.action.installVSIX");
-        typeText(h.testApp, ws.path("missing.vsix"));
-        h.testApp.sendKey("Enter");
+        await pickInDialog(h, ws.path("broken.vsix"));
 
         await vi.waitFor(() => {
             expect(screen(h)).toContain("Not a valid .vsix (zip) archive");
         });
     });
 
-    it("an empty path is a cancel: nothing is installed, nothing is shown", async () => {
+    it("Escape in the dialog is a cancel: nothing is installed, nothing is shown", async () => {
         const { h, ws } = await setup();
-
         h.commands.execute("workbench.extensions.action.installVSIX");
-        typeText(h.testApp, "  ");
-        h.testApp.sendKey("Enter");
+        const dialog = fileDialogDriver(h);
         await vi.waitFor(() => {
-            expect(screen(h)).not.toContain("Path to a .vsix file");
+            expect(dialog.component.isOpen()).toBe(true);
+        });
+
+        dialog.key("Escape");
+        await vi.waitFor(() => {
+            expect(dialog.component.isOpen()).toBe(false);
         });
 
         const notifications = h.container.get(NotificationServiceDIToken);

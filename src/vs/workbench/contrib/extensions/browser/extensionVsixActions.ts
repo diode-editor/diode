@@ -5,8 +5,8 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken, token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { reviveWireUri } from "../../../api/common/wireTypes.ts";
-import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
+import { FileDialogServiceDIToken } from "../../../services/dialogs/browser/fileDialogService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../common/extensionsWorkbench.ts";
 
@@ -61,22 +61,23 @@ export async function installFromVsix(accessor: ServiceAccessor, resources: unkn
 }
 
 /**
- * Upstream `workbench.extensions.action.installVSIX` opens a file dialog; a terminal has none, so the path is typed
- * in a quick input (deviation). A failure is a notification: nobody awaits a palette command.
+ * Upstream `workbench.extensions.action.installVSIX`: the open dialog (ours is the terminal one, with `~`, completion
+ * and the `.vsix` filter), then the install command. A failure is a notification: nobody awaits a palette command.
  */
 export const installVsixAction: CommandAction = {
     id: "workbench.extensions.action.installVSIX",
     title: "Extensions: Install from VSIX...",
     async run(accessor) {
-        const input = await accessor.get(QuickInputServiceDIToken).input({
+        const vsixs = await accessor.get(FileDialogServiceDIToken).showOpenDialog({
             title: "Install from VSIX",
-            placeholder: "Path to a .vsix file",
+            filters: [{ name: "VSIX Extensions", extensions: ["vsix"] }],
+            canSelectFiles: true,
+            canSelectMany: true,
+            openLabel: "Install",
         });
-        // An empty path is a cancel, like closing the dialog.
-        const vsixPath = input?.trim() ?? "";
-        if (vsixPath === "") return;
+        if (vsixs === undefined) return;
         try {
-            await installFromVsix(accessor, vsixPath);
+            await installFromVsix(accessor, vsixs);
         } catch (error) {
             notifyError(accessor, error instanceof Error ? error.message : String(error));
         }

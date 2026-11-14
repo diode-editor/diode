@@ -3,8 +3,8 @@ import * as fs from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
-import { typeText } from "../../../TestUtils/domQueries.ts";
 import { buildVsix } from "../../../TestUtils/extensionUpdatesFixture.ts";
+import { fileDialogDriver } from "../../../TestUtils/fileDialogDriver.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { INSTALL_FROM_VSIX_COMMAND_ID } from "../contrib/extensions/browser/extensionVsixActions.ts";
 
@@ -58,8 +58,13 @@ describe("Workbench — install from VSIX, edge cases", () => {
         );
 
         h.commands.execute("workbench.extensions.action.installVSIX");
-        typeText(h.testApp, "~/tools.vsix");
-        h.testApp.sendKey("Enter");
+        // The palette opens the open dialog: the typed `~/` path replaces the folder it starts in.
+        const dialog = fileDialogDriver(h);
+        await vi.waitFor(() => {
+            expect(dialog.component.isOpen()).toBe(true);
+        });
+        dialog.replaceQuery("~/tools.vsix");
+        dialog.key("Enter");
 
         await vi.waitFor(() => {
             expect(screen(h)).toContain("Completed installing extension");

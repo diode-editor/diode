@@ -215,8 +215,9 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         }
         this.profile.add([installed], { pinned: true, dependencies });
         for (const dep of dependencies) this.pendingReload.add(dep.id);
-        // The host runs what the profile pointed to at startup, unless this session has changed it since.
-        const running = !this.pendingReload.has(id) && before.some((e) => e.id === id && e.dir === dir);
+        // The host runs what the profile pointed to at startup, unless this session has changed it since. The
+        // directory names the id and the version.
+        const running = !this.pendingReload.has(id) && before.some((e) => e.dir === dir);
         if (running) this.reloadInstalled();
         else this.markChanged(id);
         return { needsReload: !running || dependencies.length > 0 };

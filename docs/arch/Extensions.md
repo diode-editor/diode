@@ -142,8 +142,8 @@
     ставится.
   - **Установка `.vsix` из редактора** — команда эталона `workbench.extensions.command.installFromVSIX`
     (`contrib/extensions/browser/extensionVsixActions.ts`, аргумент `Uri`/`Uri[]`/путь; из расширения
-    `Uri` приезжает structured clone'ом) и палитровая «Extensions: Install from VSIX...» (вместо диалога
-    файлов — quick input с путём, отступление). Тот же путь, что `--install-extension foo.vsix`
+    `Uri` приезжает structured clone'ом) и палитровая «Extensions: Install from VSIX...» (терминальный диалог
+    открытия `FileDialogService` с фильтром `.vsix`, как эталонный `showOpenDialog`). Тот же путь, что `--install-extension foo.vsix`
     (`installVsixWithDependencies`), версия закрепляется. Каталог у нас `<id>-<version>` без суффикса
     платформы (у эталона он есть), поэтому платформенный пакет той же версии встаёт **на место**
     запущенного: CodeLLDB находит `adapter/` по своему `extensionPath` без перезагрузки, и уведомление
