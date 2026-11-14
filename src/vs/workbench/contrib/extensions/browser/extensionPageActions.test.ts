@@ -48,6 +48,7 @@ function fakeService(
             return Promise.resolve(results.setPinned ?? { ok: true });
         },
         onDidReadCatalog: () => ({ dispose: () => {} }),
+        installVsix: () => Promise.reject(new Error("not used")),
         getCompatibleVersions: () =>
             results.versions instanceof Error
                 ? Promise.reject(results.versions)

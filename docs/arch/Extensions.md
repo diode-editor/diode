@@ -140,6 +140,15 @@
     зависимостях молчит. `--install-extension foo.vsix` тоже тянет зависимости из реестра; сбой —
     предупреждение, само расширение остаётся (как у эталона для VSIX). `extensionPack` пока не
     ставится.
+  - **Установка `.vsix` из редактора** — команда эталона `workbench.extensions.command.installFromVSIX`
+    (`contrib/extensions/browser/extensionVsixActions.ts`, аргумент `Uri`/`Uri[]`/путь; из расширения
+    `Uri` приезжает structured clone'ом) и палитровая «Extensions: Install from VSIX...» (терминальный диалог
+    открытия `FileDialogService` с фильтром `.vsix`, как эталонный `showOpenDialog`). Тот же путь, что `--install-extension foo.vsix`
+    (`installVsixWithDependencies`), версия закрепляется. Каталог у нас `<id>-<version>` без суффикса
+    платформы (у эталона он есть), поэтому платформенный пакет той же версии встаёт **на место**
+    запущенного: CodeLLDB находит `adapter/` по своему `extensionPath` без перезагрузки, и уведомление
+    — «Completed installing extension.» без кнопки. Новое расширение, другая версия или поставленные
+    зависимости — «Please reload Diode» с «Reload Now», как у эталона (#1134).
 
 ## Extensions/Host/ — extension host (real subprocess)
 **Журнал вызовов API** (`DIODE_API_TRACE=<файл>`, `api/common/apiTrace.ts`, запись — `api/node/apiTraceFile.ts`): слой поверх оверлея расширения для отметки «подтверждён» в матрице. Без переменной не создаётся ни одна обёртка. Формат, виды записей и границы → [docs/extensions/README.md](../extensions/README.md#журнал-вызовов).

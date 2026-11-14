@@ -81,6 +81,7 @@ function fakeService(entries: readonly IExtensionListEntry[]): IExtensionsWorkbe
         setPinned: () => Promise.resolve({ ok: true }),
         onDidReadCatalog: () => ({ dispose: () => undefined }),
         getCompatibleVersions: () => Promise.resolve([]),
+        installVsix: () => Promise.reject(new Error("not used")),
         onDidChange: () => ({ dispose: () => {} }),
     };
 }

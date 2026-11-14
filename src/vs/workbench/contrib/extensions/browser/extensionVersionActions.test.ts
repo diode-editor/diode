@@ -98,6 +98,7 @@ function harness(
         updateExtensions: () => Promise.resolve({ updated: [], failed: [] }),
         setPinned: () => Promise.resolve({ ok: true }),
         onDidReadCatalog: () => ({ dispose: () => undefined }),
+        installVsix: () => Promise.reject(new Error("not used")),
         getCompatibleVersions: () => Promise.resolve([]),
         install: () => Promise.resolve({ ok: true, version: "1.0.0" }),
         uninstall: () => Promise.resolve({ ok: true }),
