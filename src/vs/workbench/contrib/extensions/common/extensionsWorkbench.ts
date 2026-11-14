@@ -69,6 +69,14 @@ export interface IExtensionInstallOptions {
     readonly version?: string;
 }
 
+export interface IVsixInstallResult {
+    /**
+     * `false` only when the extension runs from the directory the install just refreshed (a platform package of
+     * the running version): its code finds the new files in place. Anything else waits for a window reload.
+     */
+    readonly needsReload: boolean;
+}
+
 export type IExtensionInstallResult =
     | { readonly ok: true; readonly version: string }
     | { readonly ok: false; readonly error: string };
@@ -148,6 +156,12 @@ export interface IExtensionsWorkbenchService {
      * Empty when the registry doesn't know the id; a network failure is thrown, like {@link getMeta}.
      */
     getCompatibleVersions(id: string): Promise<readonly IRegistryVersion[]>;
+
+    /**
+     * Upstream `install(vsix, { installGivenVersion: true })`: pinned in the profile, the same version is replaced
+     * (whatever its `targetPlatform`), dependencies come from the registry. A failure is thrown with its reason.
+     */
+    installVsix(vsixPath: string): Promise<IVsixInstallResult>;
 
     /** From this profile; the files go on the next start, when no profile needs the extension. */
     uninstall(id: string): Promise<IExtensionOperationResult>;

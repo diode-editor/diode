@@ -66,6 +66,12 @@ To go back to an older version, press **Install Specific Version...** on the ext
 the versions that work with your build. A version chosen this way is pinned in the profile, like in
 VS Code: auto-update leaves it alone until you check **Auto Update** again.
 
+To install a `.vsix` file, run **Extensions: Install from VSIX...** and pick it in the open dialog
+(`~` and path completion work, only `.vsix` files are listed). The version is pinned, like with `--install-extension`. Extensions can
+do the same with the `workbench.extensions.command.installFromVSIX` command: CodeLLDB installs its
+platform package this way on first activation, and keeps working without a reload, because the
+package replaces the files of the running version in place.
+
 ## From the command line
 
 ```sh

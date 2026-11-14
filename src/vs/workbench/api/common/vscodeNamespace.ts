@@ -33,6 +33,21 @@ import { createExtHostTesting } from "./extHostTesting.ts";
 import { createExtHostTreeViews } from "./extHostTreeViews.ts";
 import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
+import { createLmNoop } from "./lmNoop.ts";
+import {
+    LanguageModelChatMessage,
+    LanguageModelChatMessageRole,
+    LanguageModelChatToolMode,
+    LanguageModelDataPart,
+    LanguageModelError,
+    LanguageModelPromptTsxPart,
+    LanguageModelTextPart,
+    LanguageModelToolCallPart,
+    LanguageModelToolResult,
+    LanguageModelToolResultPart,
+    McpHttpServerDefinition,
+    McpStdioServerDefinition,
+} from "./lmTypes.ts";
 import { QuickInputButtonLocation, QuickInputButtons } from "./quickInputButtons.ts";
 import { createTasksNamespace } from "./tasksNamespace.ts";
 import { createTelemetryLogger } from "./telemetryLogger.ts";
@@ -468,6 +483,20 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         Breakpoint,
         SourceBreakpoint,
         FunctionBreakpoint,
+        // No language models, but CodeLLDB registers its LM tools in `activate()`.
+        lm: createLmNoop(rpc, ctx.owner),
+        LanguageModelChatMessageRole,
+        LanguageModelChatMessage,
+        LanguageModelError,
+        LanguageModelChatToolMode,
+        LanguageModelToolCallPart,
+        LanguageModelToolResultPart,
+        LanguageModelTextPart,
+        LanguageModelPromptTsxPart,
+        LanguageModelToolResult,
+        LanguageModelDataPart,
+        McpStdioServerDefinition,
+        McpHttpServerDefinition,
         tests: testing.tests,
         TestRunProfileKind,
         TestTag,
