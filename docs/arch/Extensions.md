@@ -900,6 +900,14 @@
   Поведение — «сессий нет»: `register*` — `Disposable`, события не стреляют, `startDebugging` —
   `false`, `asDebugSourceUri` честный. Человеку — одна warn-строка в Output на тип отладчика (как у
   comments). События активации `onDebug*` не стреляют.
+- **Языковые модели как null-объект (`lmNoop.ts`, #1133):** моделей и чата в Diode нет, но
+  CodeLLDB зовёт `vscode.lm.registerTool` посреди `activate()` — без namespace'а активация обрывалась
+  `TypeError`, и команды `lldb.*` не появлялись. Декларации `vscode.lm` и замыкание типов подняты в
+  `vscode.d.ts` целиком (`vscode.chat` — нет), значения-типы — эталонные (`lmTypes.ts`).
+  Поведение — «ни моделей, ни инструментов»: `register*` — `Disposable`, `tools` и
+  `selectChatModels` пусты, `invokeTool` — отказ с причиной, событие не стреляет. Человеку — одна
+  warn-строка в Output на расширение: `register*` входят в `OWNED_MEMBERS.lm` оверлея ровно ради
+  имени расширения в этой строке.
 - **Тесты расширений (Testing, #1068):** цепочка эталона `ExtHostTesting` ↔ `MainThreadTesting` →
   `TestService`. **Объекты расширения живут только в субпроцессе** (`api/common/extHostTesting.ts`,
   `extHostTestItem.ts`); его `ExtHostTestItemCollection` — порт `TestItemCollection` эталона — шлёт

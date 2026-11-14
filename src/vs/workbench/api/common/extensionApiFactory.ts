@@ -64,12 +64,15 @@ export const OWNED_MEMBERS = {
     // `executeTask` too: the task source and the provider's task id come from the caller.
     tasks: ["registerTaskProvider", "executeTask"],
     workspace: ["registerTaskProvider", "updateWorkspaceFolders"],
+    // Only for the Output warning: `lm` registrations are ignored, but the line names the extension.
+    lm: ["registerTool", "registerMcpServerDefinitionProvider", "registerLanguageModelChatProvider"],
 } as const satisfies {
     readonly window: readonly (keyof typeof vscode.window)[];
     readonly languages: readonly (keyof typeof vscode.languages)[];
     readonly commands: readonly (keyof typeof vscode.commands)[];
     readonly tasks: readonly (keyof typeof vscode.tasks)[];
     readonly workspace: readonly (keyof typeof vscode.workspace)[];
+    readonly lm: readonly (keyof typeof vscode.lm)[];
 };
 
 export const VSCODE_ESM_URL = "diode-vscode:api";
@@ -118,6 +121,7 @@ export function createExtensionApi(
         commands: { value: ownedNamespace(shared.commands, OWNED_MEMBERS.commands, owner, id) },
         tasks: { value: ownedNamespace(shared.tasks, OWNED_MEMBERS.tasks, owner, id) },
         workspace: { value: ownedNamespace(shared.workspace, OWNED_MEMBERS.workspace, owner, id) },
+        lm: { value: ownedNamespace(shared.lm, OWNED_MEMBERS.lm, owner, id) },
     });
     if (trace !== undefined) traceNamespaces(api, id, trace);
     return api;
