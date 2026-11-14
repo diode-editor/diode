@@ -34,6 +34,7 @@
 - [~] [Suggest](Suggest.md) — автодополнение работает, авто-открытие по эталону (`editor.quickSuggestions`, уступает призраку); дальше — сниппет-сессия с табстопами, markdown в описании, скролл панели
 - [~] [InlineCompletions](InlineCompletions.md) — призрачные подсказки (ghost text) v1 сделаны end-to-end (`registerInlineCompletionItemProvider`, Tab/Esc, view zones); открыты люфты (mid-line, partial accept, lifecycle-хуки, `selectedCompletionInfo`/augmentation под попапом) и часть 2 — реальный LLM-провайдер
 - [~] [E2E](E2E.md) — инфраструктура готова; открыто — кросс-платформенность Phase 1.x и найденный дефект фокуса (find + вторая вкладка)
+- [~] [Debugger](Debugger.md) — отладчик через DAP: эпик #1132 (веха 1 — C/C++ через CodeLLDB и minor-релиз, веха 2 — полнота по эталону, веха 3 — Node через js-debug), исследование и спайк видов (`spike/debug-views`)
 - [ ] [TestFlakes](TestFlakes.md) — живой список флаков (пополняется прямо в `main`) и открытые ходы по цене полного прогона гейтов: таймауты `vi.waitFor`, сужение dry run, шардинг мутаций, `vitest.related: false`; плюс остаток мутационного долга после линт-прогона #333
 - [~] [ReadonlyEditor](ReadonlyEditor.md) — read-only редактор готов; далее — конфиг-слой `files.readonly*`, сообщение при попытке правки
 - [~] [Logging](Logging.md) — ILogService + Output UI и CLI-флаги уровней (`--log`, `--verbose`) готовы; далее — inner tracing extension host, `--log-file`, фильтры/Clear в Output
