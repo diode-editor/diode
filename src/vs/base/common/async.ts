@@ -59,3 +59,15 @@ export function runWhenGlobalIdle(callback: (idle: IdleDeadline) => void): IDisp
         },
     };
 }
+
+/** Upstream `DeferredPromise`, narrowed to what the debug model uses: resolve a promise from outside. */
+export class DeferredPromise<T> {
+    public readonly complete: (value: T) => void;
+    public readonly p: Promise<T>;
+
+    public constructor() {
+        const { promise, resolve } = Promise.withResolvers<T>();
+        this.p = promise;
+        this.complete = resolve;
+    }
+}

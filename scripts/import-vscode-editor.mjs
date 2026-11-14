@@ -79,6 +79,9 @@ const FILES = [
     "src/vs/editor/common/tokens/contiguousTokensEditing.ts",
     "src/vs/editor/common/languages/nullTokenize.ts",
 
+    // The Debug Adapter Protocol declarations, verbatim like vscode.d.ts.
+    "src/vs/workbench/contrib/debug/common/debugProtocol.d.ts",
+
     "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeBase.ts",
     "src/vs/editor/common/model/pieceTreeTextBuffer/rbTreeBase.ts",
     "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.ts",
@@ -155,6 +158,7 @@ const SPARSE_PATHS = [
     // A single file needs a leading slash in non-cone mode, otherwise git
     // treats the path as a name glob and warns (NON-CONE PROBLEMS).
     "/src/vs/base/common/charCode.ts",
+    "/src/vs/workbench/contrib/debug/common/debugProtocol.d.ts",
     "/src/vs/base/common/stopwatch.ts",
     "/src/vs/editor/common/model/textModelTokens.ts",
     "/src/vs/editor/common/model/fixedArray.ts",
