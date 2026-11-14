@@ -21,6 +21,16 @@
 
 ## Где мы сейчас
 
+- #1135: `src/vs/workbench/contrib/debug/common/` — модель эталона (`debugModel.ts`: выражения и переменные с ленивыми
+  детьми и кусками `[0..99]`, кадры, потоки, скоупы, брейкпоинты всех видов, watch), `debugViewModel.ts`,
+  `debugSource.ts`, `debugUtils.ts`, `breakpoints.ts`, `debugStorage.ts` (ключи эталона в scope `workspace` у
+  `IStateService`), `debugProtocol.d.ts` дословно, контекст-ключи `CONTEXT_*` в `ContextKeyTypes`, цвета — в
+  `platform/theme/common/colors/debugColors.ts`. Модель 1-based, как DAP и эталон (`editor/common/core/range.ts`);
+  ±1 — на стыке с редактором. Отступления записаны в шапке каждого файла: нет `IUriIdentityService`, `ITextFileService`
+  сужен до `ITextFileDirtyState`, хранилище без observables (перечитывается на `onDidOpenWorkspace`), нет памяти,
+  визуализаторов и дизассемблера; `openInEditor`, `IDebugService`, `ILaunch`, `convertToDAPaths` и прочее приходят
+  со своими задачами серии. Сервисы модели создаёт `DebugService` (#1136), DI-биндингов пока нет.
+
 - `vscode.debug` поднят целиком (18/18), но это null-объект (`src/vs/workbench/api/common/debugNoop.ts`):
   сессии не стартуют, `onDebug*` не стреляют.
 - **Противоречие в доках:** [docs/arch/Extensions.md](../arch/Extensions.md) («Отладка как null-объект») пишет «DAP не

@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../TestUtils/disposableLeaks.ts";
 
 import { setUnexpectedErrorHandler } from "./errors.ts";
-import { Emitter, Event } from "./event.ts";
-import { Disposable } from "./lifecycle.ts";
+import { Emitter, Event, trackSetChanges } from "./event.ts";
+import { Disposable, toDisposable } from "./lifecycle.ts";
 
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -248,5 +248,37 @@ describe("Event.once", () => {
         expect(unsubscribe).toHaveBeenCalledOnce();
         fireNow?.(9);
         expect(fn).toHaveBeenCalledOnce();
+    });
+});
+
+describe("trackSetChanges", () => {
+    it("handles the initial items, then only the added ones, and disposes the removed ones", () => {
+        const changed = new Emitter<void>();
+        let data = new Set(["a", "b"]);
+        const handled: string[] = [];
+        const disposed: string[] = [];
+        const tracker = trackSetChanges(
+            () => data,
+            changed.event,
+            (item) => {
+                handled.push(item);
+                return toDisposable(() => disposed.push(item));
+            },
+        );
+        expect(handled).toEqual(["a", "b"]);
+
+        data = new Set(["b", "c"]);
+        changed.fire();
+        expect(handled).toEqual(["a", "b", "c"]);
+        expect(disposed).toEqual(["a"]);
+
+        changed.fire();
+        expect(handled).toEqual(["a", "b", "c"]);
+
+        tracker.dispose();
+        expect(disposed).toEqual(["a", "b", "c"]);
+        changed.fire();
+        expect(handled).toEqual(["a", "b", "c"]);
+        changed.dispose();
     });
 });

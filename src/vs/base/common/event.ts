@@ -5,7 +5,7 @@
 // queue: a nested `fire` is delivered depth-first.
 
 import { onUnexpectedError } from "./errors.ts";
-import { Disposable, type IDisposable, toDisposable } from "./lifecycle.ts";
+import { Disposable, DisposableMap, DisposableStore, type IDisposable, toDisposable } from "./lifecycle.ts";
 
 export type Event<T> = (listener: (e: T) => unknown) => IDisposable;
 
@@ -90,4 +90,36 @@ export class Emitter<T> implements IDisposable {
         this.listeners = [];
         this.options.onDidRemoveLastListener?.();
     }
+}
+
+/**
+ * Calls `handleItem` for each item of the set `getData` returns, then again for the items added on every
+ * `onDidChangeData`; the disposable an item got is disposed when the item leaves the set.
+ */
+export function trackSetChanges<T>(
+    getData: () => ReadonlySet<T>,
+    onDidChangeData: Event<unknown>,
+    handleItem: (d: T) => IDisposable,
+): IDisposable {
+    const map = new DisposableMap<T, IDisposable>();
+    let oldData = new Set(getData());
+    for (const d of oldData) {
+        map.set(d, handleItem(d));
+    }
+
+    const store = new DisposableStore();
+    store.add(
+        onDidChangeData(() => {
+            const newData = getData();
+            for (const r of oldData) {
+                if (!newData.has(r)) map.deleteAndDispose(r);
+            }
+            for (const a of newData) {
+                if (!oldData.has(a)) map.set(a, handleItem(a));
+            }
+            oldData = new Set(newData);
+        }),
+    );
+    store.add(map);
+    return store;
 }
