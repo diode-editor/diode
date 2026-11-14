@@ -100,4 +100,20 @@ export const debugColors = {
         defaults: { dark: "#89D185", light: "#388A34" },
         description: "Debug toolbar icon for restart.",
     },
+    "debugIcon.pauseForeground": {
+        defaults: { dark: "#75BEFF", light: "#007ACC" },
+        description: "Debug toolbar icon for pause.",
+    },
+    "debugIcon.stepOverForeground": {
+        defaults: { dark: "#75BEFF", light: "#007ACC" },
+        description: "Debug toolbar icon for step over.",
+    },
+    "debugIcon.stepIntoForeground": {
+        defaults: { dark: "#75BEFF", light: "#007ACC" },
+        description: "Debug toolbar icon for step into.",
+    },
+    "debugIcon.stepOutForeground": {
+        defaults: { dark: "#75BEFF", light: "#007ACC" },
+        description: "Debug toolbar icon for step out.",
+    },
 } as const satisfies ColorContribution;

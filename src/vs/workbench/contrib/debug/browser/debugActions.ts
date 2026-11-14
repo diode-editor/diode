@@ -18,8 +18,7 @@ import { REPL_VIEW_ID, ReplComponentDIToken } from "./replView.ts";
 
 /**
  * SPIKE: upstream's debug commands (`debugCommands.ts`, `debugActionViewItems.ts`) over the fake session. The
- * toolbar is docked into the Run and Debug viewlet's title (upstream `debug.toolBarLocation: docked`): a terminal
- * has no floating toolbar.
+ * toolbar is `debugToolbar.ts` in the editor area; the viewlet's title keeps only Start Debugging.
  */
 
 function icon(name: string, fallback: string): IProductIcon {
@@ -57,7 +56,6 @@ export const continueAction: CommandAction = {
     title: "Debug: Continue",
     shortTitle: "Continue",
     keybinding: { keys: parseKeybinding("f5"), when: STOPPED },
-    menus: [inToolbar(10, icon("debug-continue", "▶"), STOPPED)],
     run(accessor) {
         accessor.get(DebugStubModelDIToken).continue();
     },
@@ -68,7 +66,6 @@ export const pauseAction: CommandAction = {
     title: "Debug: Pause",
     shortTitle: "Pause",
     keybinding: { keys: parseKeybinding("f6"), when: RUNNING },
-    menus: [inToolbar(10, icon("debug-pause", "‖"), RUNNING)],
     run(accessor) {
         accessor.get(DebugStubModelDIToken).pause();
     },
@@ -79,7 +76,6 @@ export const stepOverAction: CommandAction = {
     title: "Debug: Step Over",
     shortTitle: "Step Over",
     keybinding: { keys: parseKeybinding("f10"), when: STOPPED },
-    menus: [inToolbar(20, icon("debug-step-over", "↷"), IN_DEBUG)],
     enablement: STOPPED,
     run(accessor) {
         accessor.get(DebugStubModelDIToken).step("over");
@@ -91,7 +87,6 @@ export const stepIntoAction: CommandAction = {
     title: "Debug: Step Into",
     shortTitle: "Step Into",
     keybinding: { keys: parseKeybinding("f11"), when: STOPPED },
-    menus: [inToolbar(30, icon("debug-step-into", "↓"), IN_DEBUG)],
     enablement: STOPPED,
     run(accessor) {
         accessor.get(DebugStubModelDIToken).step("into");
@@ -103,7 +98,6 @@ export const stepOutAction: CommandAction = {
     title: "Debug: Step Out",
     shortTitle: "Step Out",
     keybinding: { keys: parseKeybinding("shift+f11"), when: STOPPED },
-    menus: [inToolbar(40, icon("debug-step-out", "↑"), IN_DEBUG)],
     enablement: STOPPED,
     run(accessor) {
         accessor.get(DebugStubModelDIToken).step("out");
@@ -115,7 +109,6 @@ export const restartAction: CommandAction = {
     title: "Debug: Restart",
     shortTitle: "Restart",
     keybinding: { keys: parseKeybinding("ctrl+shift+f5"), when: IN_DEBUG },
-    menus: [inToolbar(50, icon("debug-restart", "↻"), IN_DEBUG)],
     run(accessor) {
         accessor.get(DebugStubModelDIToken).restart();
     },
@@ -126,7 +119,6 @@ export const stopAction: CommandAction = {
     title: "Debug: Stop",
     shortTitle: "Stop",
     keybinding: { keys: parseKeybinding("shift+f5"), when: IN_DEBUG },
-    menus: [inToolbar(60, icon("debug-stop", "■"), IN_DEBUG)],
     run(accessor) {
         accessor.get(DebugStubModelDIToken).terminate();
     },

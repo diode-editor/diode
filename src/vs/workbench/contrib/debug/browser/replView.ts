@@ -1,6 +1,7 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
-import { HFlexElement, hflexFill, hflexFit } from "@tuidom/elements/layout/hFlexElement";
+import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
+import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
@@ -98,10 +99,14 @@ export class ReplComponent extends Component {
         const prompt = new TextLabelElement(`${icons.glyph(INPUT_ICON)} `);
         prompt.style = { fg: "debugConsoleInputIcon.foreground" };
         const inputRow = new HFlexElement();
+        inputRow.addChild(new TextLabelElement(""), { width: hflexFixed(1), height: 1 });
         inputRow.addChild(prompt, { width: hflexFit(), height: 1 });
         inputRow.addChild(this.input, { width: hflexFill(), height: 1 });
         const root = new VFlexElement();
-        root.addChild(new ScrollBarDecorator(this.tree.list), { height: vflexFill(), width: "fill" });
+        root.addChild(new PaddingContainerElement(new ScrollBarDecorator(this.tree.list), { left: 1, right: 1 }), {
+            height: vflexFill(),
+            width: "fill",
+        });
         root.addChild(inputRow, { height: vflexFixed(1), width: "fill" });
         root.id = "debugReplView";
         this.view = root;

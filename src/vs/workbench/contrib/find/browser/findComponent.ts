@@ -54,6 +54,9 @@ export class FindWidget extends Disposable {
     private host: OverlayHostElement | null = null;
     private session: OverlaySessionHandle | null = null;
 
+    /** SPIKE: rows taken above the widget by the debug toolbar of the same group; the widget stacks under it. */
+    public topInset: () => number = () => 0;
+
     public constructor() {
         super();
 
@@ -170,6 +173,11 @@ export class FindWidget extends Disposable {
         if (this.session?.isOpen()) this.session.close();
     }
 
+    /** SPIKE: the debug toolbar came or went above an open widget. */
+    public reposition(): void {
+        if (this.isOpen()) this.updatePosition();
+    }
+
     private refreshCounter(): void {
         const counter = this.counterText();
         this.counterLabel.setText(counter);
@@ -204,7 +212,7 @@ export class FindWidget extends Disposable {
         this.preferredWidth = widgetW;
         this.view.setPreferredWidth(widgetW);
         const px = Math.max(0, groupWidth - widgetW - 1); // right-align with a 1-col margin to the group's edge
-        const py = 1; // the host is the editor group; its row 0 is the tab strip
+        const py = 1 + this.topInset(); // the host is the editor group; its row 0 is the tab strip
         this.session?.setPosition(new Point(px, py));
     }
 }
@@ -224,6 +232,8 @@ export class FindComponent extends Disposable {
     public onClose: ((groupId: GroupId) => void) | null = null;
 
     private readonly widgets = new Map<GroupId, FindWidget>();
+    /** SPIKE: the group the debug toolbar stands in and its height. */
+    private inset: { readonly groupId: GroupId; readonly rows: number } | null = null;
 
     public constructor(private readonly hosts: IGroupOverlayHosts) {
         super();
@@ -236,6 +246,7 @@ export class FindComponent extends Disposable {
         const host = this.hosts.groupOverlayHost(groupId);
         if (host === null) return null;
         const widget = this.register(new FindWidget());
+        widget.topInset = () => (this.inset?.groupId === groupId ? this.inset.rows : 0);
         widget.attachHost(host);
         widget.onQueryChange = (query) => this.onQueryChange?.(groupId, query);
         widget.onNext = () => this.onNext?.(groupId);
@@ -243,6 +254,12 @@ export class FindComponent extends Disposable {
         widget.onClose = () => this.onClose?.(groupId);
         this.widgets.set(groupId, widget);
         return widget;
+    }
+
+    /** SPIKE: the debug toolbar takes `rows` at the top right of the group; an open widget moves under it. */
+    public setTopInset(inset: { readonly groupId: GroupId; readonly rows: number } | null): void {
+        this.inset = inset;
+        for (const widget of this.widgets.values()) widget.reposition();
     }
 
     public widgetIfExists(groupId: GroupId): FindWidget | null {

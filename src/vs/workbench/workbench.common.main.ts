@@ -228,6 +228,7 @@ import { TERMINAL_LINK_ACTIONS } from "./contrib/terminalContrib/links/browser/t
 import { TERMINAL_SELECTION_ACTIONS } from "./contrib/terminalContrib/selection/browser/terminalSelectionActions.ts";
 import { TerminalSelectionServiceDIToken } from "./contrib/terminalContrib/selection/browser/terminalSelectionService.ts";
 import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugActions.ts";
+import { DebugToolbarComponentDIToken } from "./contrib/debug/browser/debugToolbar.ts";
 import { DebugViewsComponentDIToken } from "./contrib/debug/browser/debugViews.ts";
 import { ReplComponentDIToken } from "./contrib/debug/browser/replView.ts";
 import { TESTING_ACTIONS } from "./contrib/testing/browser/testingActions.ts";
@@ -269,6 +270,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // SPIKE: the debug views over a fake session.
     { token: DebugViewsComponentDIToken, phase: "blockStartup" },
     { token: ReplComponentDIToken, phase: "blockStartup" },
+    { token: DebugToolbarComponentDIToken, phase: "eventually" },
     { token: QuickOpenServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (CompletionService in the next entry holds it) — the entry only hands lifetime ownership to the registry, which a unit test can't observe
     { token: SuggestComponentDIToken, phase: "blockStartup" },

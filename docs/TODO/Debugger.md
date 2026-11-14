@@ -84,7 +84,13 @@ F10/F11/Shift+F11 — шаги, F5 — continue, F6 — pause, Shift+F5 — stop
 - `browser/debugViews.ts` — контейнер `workbench.view.debug` (RUN AND DEBUG): VARIABLES, WATCH, CALL STACK,
   BREAKPOINTS.
 - `browser/replView.ts` — панель `workbench.panel.repl` (DEBUG CONSOLE): дерево вывода + строка ввода.
-- `browser/debugActions.ts` — команды с id эталона; тулбар — в заголовке вьюлета (`debug.toolBarLocation: docked`).
+- `browser/debugActions.ts` — команды с id эталона; в заголовке вьюлета осталась только Start Debugging.
+- `browser/debugToolbar.ts` — тулбар отладки в области редактора (решение человека, 2026-11-14): на месте find-виджета,
+  сверху справа активной группы, в той же рамке `editorWidget`; кнопки с подписями (`▶ Continue ↷ Over ↓ Into ↑ Out
+  ↻ Restart ■ Stop`), в узкой группе — только глифы. С открытым find встают стопкой: тулбар сверху, find под ним
+  (`FindComponent.setTopInset`). Отступление: у эталона тулбар плавает по центру над всем окном.
+- Кнопка «Run and Debug» пустого состояния — на всю ширину, как Commit у Source Control (`ScmActionButtonElement`);
+  у строк всех видов отступ в колонку слева и справа.
 - `src/vs/platform/theme/common/colors/debugColors.ts` — токены цветов эталона.
 - Подключение: `workbenchModule.ts`, `workbench.common.main.ts` (помечено `SPIKE`).
 
@@ -112,8 +118,9 @@ F10/F11/Shift+F11 — шаги, F5 — continue, F6 — pause, Shift+F5 — stop
 - [ ] Контекстные меню: Copy Value, Copy as Expression, Set Value (F2), Add to Watch, Break on Value Change;
       Edit Condition у брейкпоинта.
 - [ ] Inline-редактирование watch-выражения (сейчас добавление через quick input).
-- [ ] Тулбар где-то ещё, кроме заголовка вьюлета (статус-бар? заголовок Debug Console?); цвет статус-бара
-      во время отладки (`statusBar.debuggingBackground`).
+- [ ] Тулбар: стоит в активной группе и переезжает за ней — проверить, не раздражает ли; ширину выровнять с find;
+      цвет статус-бара во время отладки (`statusBar.debuggingBackground`).
+- [ ] `ScmActionButtonElement` переиспользован из `contrib/scm` — для влития вынести общую кнопку в `browser/parts/views/`.
 - [ ] Выпадающий выбор конфигурации запуска в заголовке Run and Debug (эталон: ▷ + список `launch.json`).
 - [ ] Редактор (вне этого спайка): глифы брейкпоинтов в гаттере, подсветка текущей строки
       (`editor.stackFrameHighlightBackground`), hover значений, inline values.

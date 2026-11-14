@@ -1,8 +1,12 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
+import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
+import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { codicon, type IProductIcon } from "../../../../base/common/codicons.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
+import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
     type IProductIconService,
@@ -10,7 +14,8 @@ import {
 } from "../../../../platform/theme/common/productIconService.ts";
 import { Component } from "../../../browser/component.ts";
 import { type ViewsService, ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
-import type { IViewWelcomeBlock } from "../../../browser/parts/views/viewWelcomeElement.ts";
+import { type IViewWelcomeBlock, ViewWelcomeElement } from "../../../browser/parts/views/viewWelcomeElement.ts";
+import { ScmActionButtonElement } from "../../scm/browser/scmInputComponent.ts";
 import {
     type DebugStubModel,
     DebugStubModelDIToken,
@@ -35,9 +40,7 @@ export const BREAKPOINTS_VIEW_ID = "workbench.debug.breakPointsView";
 export const DebugViewsComponentDIToken = token<DebugViewsComponent>("DebugViewsComponent");
 
 /** Upstream's `debug.contribution.ts` welcome of the Run and Debug viewlet without a `launch.json`. */
-const WELCOME: readonly IViewWelcomeBlock[] = [
-    { kind: "button", label: "Run and Debug", command: "workbench.action.debug.start" },
-    { kind: "text", text: "" },
+const WELCOME_TEXT: readonly IViewWelcomeBlock[] = [
     { kind: "text", text: "To customize Run and Debug, create a launch.json file." },
     { kind: "text", text: "" },
     { kind: "text", text: "(spike: F5 starts a fake C++ session under CodeLLDB)" },
@@ -80,7 +83,12 @@ const INITIAL_FRAMES = 20;
  * upstream's `variablesView.ts`, `watchExpressionsView.ts`, `callStackView.ts` and `breakpointsView.ts`.
  */
 export class DebugViewsComponent extends Component {
-    public static dependencies = [DebugStubModelDIToken, ViewsServiceDIToken, ProductIconServiceDIToken] as const;
+    public static dependencies = [
+        DebugStubModelDIToken,
+        ViewsServiceDIToken,
+        ProductIconServiceDIToken,
+        CommandRegistryDIToken,
+    ] as const;
 
     public readonly view: TUIElement;
     public readonly variables: DebugTreeList<IDebugValue>;
@@ -89,6 +97,8 @@ export class DebugViewsComponent extends Component {
     public readonly breakpoints: DebugTreeList<BreakpointItem>;
     private readonly variablesBody: TUIElement;
     private readonly callStackBody: TUIElement;
+    private readonly welcomeBody: TUIElement;
+    public readonly runButton = new ScmActionButtonElement();
     private highlightChanges = false;
     private highlightTimer: ReturnType<typeof setTimeout> | undefined;
     /** Threads whose remaining frames the user asked for. */
@@ -98,6 +108,7 @@ export class DebugViewsComponent extends Component {
         private readonly model: DebugStubModel,
         private readonly views: ViewsService,
         private readonly icons: IProductIconService,
+        private readonly commands: CommandRegistry,
     ) {
         super();
         this.variables = new DebugTreeList<IDebugValue>("var", {
@@ -177,9 +188,28 @@ export class DebugViewsComponent extends Component {
             }
         });
 
-        this.variablesBody = new ScrollBarDecorator(this.variables.list);
-        this.callStackBody = new ScrollBarDecorator(this.callStack.list);
+        this.variablesBody = padded(this.variables.list);
+        this.callStackBody = padded(this.callStack.list);
         this.view = this.variablesBody;
+        // Upstream's welcome: a full-width button, as Source Control's Commit.
+        this.runButton.setLabel("Run and Debug");
+        this.runButton.onActivate = () => {
+            void Promise.resolve(this.commands.execute("workbench.action.debug.start")).catch(onUnexpectedError);
+        };
+        const welcome = new VFlexElement();
+        welcome.addChild(new TextLabelElement(""), { height: vflexFixed(1), width: "fill" });
+        welcome.addChild(new PaddingContainerElement(this.runButton, { left: 1, right: 1 }), {
+            height: vflexFixed(1),
+            width: "fill",
+        });
+        welcome.addChild(new TextLabelElement(""), { height: vflexFixed(1), width: "fill" });
+        welcome.addChild(
+            new ViewWelcomeElement(WELCOME_TEXT, () => {
+                // Text only: no links or buttons.
+            }),
+            { height: vflexFill(), width: "fill" },
+        );
+        this.welcomeBody = welcome;
 
         views.registerContainer({
             id: DEBUG_VIEWLET_ID,
@@ -194,11 +224,11 @@ export class DebugViewsComponent extends Component {
             containerId: DEBUG_VIEWLET_ID,
             title: "VARIABLES",
             order: 10,
-            body: null,
-            placeholder: WELCOME,
+            body: this.welcomeBody,
             canMoveView: true,
             focus: () => {
-                this.variables.list.focus();
+                if (this.model.state === "inactive") this.runButton.focus();
+                else this.variables.list.focus();
             },
         });
         views.registerView({
@@ -206,7 +236,7 @@ export class DebugViewsComponent extends Component {
             containerId: DEBUG_VIEWLET_ID,
             title: "WATCH",
             order: 20,
-            body: new ScrollBarDecorator(this.watch.list),
+            body: padded(this.watch.list),
             canMoveView: true,
             focus: () => {
                 this.watch.list.focus();
@@ -229,7 +259,7 @@ export class DebugViewsComponent extends Component {
             containerId: DEBUG_VIEWLET_ID,
             title: "BREAKPOINTS",
             order: 40,
-            body: new ScrollBarDecorator(this.breakpoints.list),
+            body: padded(this.breakpoints.list),
             canMoveView: true,
             focus: () => {
                 this.breakpoints.list.focus();
@@ -278,7 +308,7 @@ export class DebugViewsComponent extends Component {
 
     private onStateChanged(): void {
         const state = this.model.state;
-        this.views.setViewBody(VARIABLES_VIEW_ID, state === "inactive" ? null : this.variablesBody);
+        this.views.setViewBody(VARIABLES_VIEW_ID, state === "inactive" ? this.welcomeBody : this.variablesBody);
         this.views.setViewBody(CALLSTACK_VIEW_ID, state === "inactive" ? null : this.callStackBody);
         if (state === "stopped") {
             this.fullThreads.clear();
@@ -398,4 +428,9 @@ export class DebugViewsComponent extends Component {
         if (bp.logMessage !== undefined) left.push({ text: `  log "${bp.logMessage}"`, fg: "descriptionForeground", italic: true });
         return splitRow(left, bp.line === 0 ? [] : [{ text: String(bp.line), fg: "descriptionForeground" }]);
     }
+}
+
+/** A column of air on both sides of the rows, as the other viewlets' content. */
+function padded(list: TUIElement & ConstructorParameters<typeof ScrollBarDecorator>[0]): TUIElement {
+    return new PaddingContainerElement(new ScrollBarDecorator(list), { left: 1, right: 1 });
 }
