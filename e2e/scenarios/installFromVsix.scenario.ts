@@ -20,7 +20,11 @@ export default defineScenario({
     prepare() {
         const packed = spawnSync(
             process.execPath,
-            [resolve(repoRoot, "scripts", "pack-vsix.mjs"), resolve(repoRoot, "e2e", "marketplace", "sample-extension"), vsix],
+            [
+                resolve(repoRoot, "scripts", "pack-vsix.mjs"),
+                resolve(repoRoot, "e2e", "marketplace", "sample-extension"),
+                vsix,
+            ],
             { encoding: "utf8" },
         );
         if (packed.status !== 0) throw new Error(`pack-vsix failed: ${packed.stderr}`);
