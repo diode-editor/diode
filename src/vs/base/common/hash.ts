@@ -5,7 +5,7 @@
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/hash.ts
 // Narrow extraction: the string hash the debug model builds stable scope ids from.
 
-export function numberHash(val: number, initialHashVal: number): number {
+function numberHash(val: number, initialHashVal: number): number {
     return ((initialHashVal << 5) - initialHashVal + val) | 0; // hashVal * 31 + ch, keep as int32
 }
 

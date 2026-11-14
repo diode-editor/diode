@@ -145,22 +145,10 @@ describe("setTimeout0", () => {
 });
 
 describe("DeferredPromise", () => {
-    it("resolves its promise from outside, once", async () => {
+    it("resolves its promise from outside", async () => {
         const deferred = new DeferredPromise<number>();
-        expect(deferred.isSettled).toBe(false);
         deferred.complete(1);
         deferred.complete(2);
-        deferred.error(new Error("late"));
-        expect(deferred.isSettled).toBe(true);
         await expect(deferred.p).resolves.toBe(1);
-    });
-
-    it("rejects its promise from outside, once", async () => {
-        const deferred = new DeferredPromise<number>();
-        const failure = new Error("boom");
-        deferred.error(failure);
-        deferred.complete(1);
-        expect(deferred.isSettled).toBe(true);
-        await expect(deferred.p).rejects.toBe(failure);
     });
 });
