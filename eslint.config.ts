@@ -10,6 +10,8 @@ export default tseslint.config(
             "node_modules/",
             "*.config.*",
             "src/vscode-dts/vscode.d.ts",
+            // Upstream DAP declarations, verbatim like vscode.d.ts.
+            "src/vs/workbench/contrib/debug/common/debugProtocol.d.ts",
             "src/vs/workbench/services/extensions/node/__fixtures__/*.cjs",
             "extensions/*/out/",
             // Vendored copy of upstream: by definition its findings must not be fixed.

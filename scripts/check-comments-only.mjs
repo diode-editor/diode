@@ -35,7 +35,7 @@ const MARKERS = [
     /^(?:TODO|FIXME|HACK|XXX)\b/,
 ];
 const FILE_MARKERS = [/^\/\/\/ <reference/gm, /^#!/g];
-const FROZEN = [/\/vscode\.d\.ts$/, /\/vscode-dts\//];
+const FROZEN = [/\/vscode\.d\.ts$/, /\/vscode-dts\//, /\/debugProtocol\.d\.ts$/];
 
 // Walks getChildren, not forEachChild: the latter doesn't see tokens, and a comment
 // before the `}` of an empty block (`catch { /* c8 ignore next */ }`) would be lost.

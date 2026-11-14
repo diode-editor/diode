@@ -59,3 +59,35 @@ export function runWhenGlobalIdle(callback: (idle: IdleDeadline) => void): IDisp
         },
     };
 }
+
+/** Upstream `DeferredPromise`, narrowed to what the debug model uses: settle a promise from outside. */
+export class DeferredPromise<T> {
+    private completeCallback!: (value: T) => void;
+    private errorCallback!: (err: unknown) => void;
+    private settled = false;
+
+    public readonly p: Promise<T>;
+
+    public constructor() {
+        this.p = new Promise<T>((c, e) => {
+            this.completeCallback = c;
+            this.errorCallback = e;
+        });
+    }
+
+    public get isSettled(): boolean {
+        return this.settled;
+    }
+
+    public complete(value: T): void {
+        if (this.settled) return;
+        this.settled = true;
+        this.completeCallback(value);
+    }
+
+    public error(err: unknown): void {
+        if (this.settled) return;
+        this.settled = true;
+        this.errorCallback(err);
+    }
+}

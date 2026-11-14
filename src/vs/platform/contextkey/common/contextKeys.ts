@@ -163,6 +163,134 @@ export interface ContextKeyTypes {
     /** The message shown in TEST RESULTS has a stack trace: Collapse Stack Frames has something to do. */
     "testing.peekHasStack": boolean;
 
+    /** Upstream `CONTEXT_*` keys of `contrib/debug/common/debug.ts`, with their descriptions. */
+    /** Debug type of the active debug session. For example 'python'. */
+    debugType: string;
+    /** Debug type of the selected launch configuration. For example 'python'. */
+    debugConfigurationType: string;
+    /** State that the focused debug session is in. One of the following: 'inactive', 'initializing', 'stopped' or 'running'. */
+    debugState: string;
+    /** Debug UX state. When there are no debug configurations it is 'simple', otherwise 'default'. Used to decide when to show welcome views in the debug viewlet. */
+    debugUx: string;
+    /** True when a debug session has been started at least once, false otherwise. */
+    hasDebugged: boolean;
+    /** True when debugging, false otherwise. */
+    inDebugMode: boolean;
+    /** True when focus is in the debug console, false otherwise. */
+    inDebugRepl: boolean;
+    /** True when breakpoint editor zone widget is visible, false otherwise. */
+    breakpointWidgetVisible: boolean;
+    /** True when focus is in the breakpoint editor zone widget, false otherwise. */
+    inBreakpointWidget: boolean;
+    /** True when the BREAKPOINTS view is focused, false otherwise. */
+    breakpointsFocused: boolean;
+    /** True when the WATCH view is focused, false otherwise. */
+    watchExpressionsFocused: boolean;
+    /** True when at least one watch expression exists, false otherwise. */
+    watchExpressionsExist: boolean;
+    /** True when the VARIABLES views is focused, false otherwise */
+    variablesFocused: boolean;
+    /** True when an expression input box is open in either the WATCH or the VARIABLES view, false otherwise. */
+    expressionSelected: boolean;
+    /** True when the input box has focus in the BREAKPOINTS view. */
+    breakpointInputFocused: boolean;
+    /** Represents the item type of the focused element in the CALL STACK view. For example: 'session', 'thread', 'stackFrame' */
+    callStackItemType: string;
+    /** True when the session in the CALL STACK view is attach, false otherwise. Used internally for inline menus in the CALL STACK view. */
+    callStackSessionIsAttach: boolean;
+    /** True when the focused item in the CALL STACK is stopped. Used internally for inline menus in the CALL STACK view. */
+    callStackItemStopped: boolean;
+    /** True when the focused session in the CALL STACK view has exactly one thread. Used internally for inline menus in the CALL STACK view. */
+    callStackSessionHasOneThread: boolean;
+    /** True when the CALLSTACK view is focused, false otherwise. */
+    callStackFocused: boolean;
+    /** Represents the item type of the focused element in the WATCH view. For example: 'expression', 'variable' */
+    watchItemType: string;
+    /** Indicates whether the item in the view has an associated memory reference. */
+    canViewMemory: boolean;
+    /** Represents the item type of the focused element in the BREAKPOINTS view. For example: 'breakpoint', 'exceptionBreakpoint', 'functionBreakpoint', 'dataBreakpoint' */
+    breakpointItemType: string;
+    /** Whether the breakpoint item is a data breakpoint on a byte range. */
+    breakpointItemBytes: boolean;
+    /** Whether the breakpoint has multiple modes it can switch to. */
+    breakpointHasModes: boolean;
+    /** True when the focused breakpoint supports conditions. */
+    breakpointSupportsCondition: boolean;
+    /** True when the focused sessions supports the LOADED SCRIPTS view */
+    loadedScriptsSupported: boolean;
+    /** Represents the item type of the focused element in the LOADED SCRIPTS view. */
+    loadedScriptsItemType: string;
+    /** True when the focused session is 'attach'. */
+    focusedSessionIsAttach: boolean;
+    /** True when the focused session is run without debugging. */
+    focusedSessionIsNoDebug: boolean;
+    /** True when the focused session supports 'stepBack' requests. */
+    stepBackSupported: boolean;
+    /** True when the focused session supports 'restartFrame' requests. */
+    restartFrameSupported: boolean;
+    /** True when the focused stack frame supports 'restartFrame'. */
+    stackFrameSupportsRestart: boolean;
+    /** True when the focused session supports 'jumpToCursor' request. */
+    jumpToCursorSupported: boolean;
+    /** True when the focused session supports 'stepIntoTargets' request. */
+    stepIntoTargetsSupported: boolean;
+    /** True when at least one breakpoint exists. */
+    breakpointsExist: boolean;
+    /** True when there is at least one debug extensions active. */
+    debuggersAvailable: boolean;
+    /** True when there is at least one debug extension installed and enabled. */
+    debugExtensionAvailable: boolean;
+    /** Represents the context the debug adapter sets on the focused variable in the VARIABLES view. */
+    debugProtocolVariableMenuContext: string;
+    /** True when the focused session supports 'setVariable' request. */
+    debugSetVariableSupported: boolean;
+    /** True when the focused session supports 'getBreakpointInfo' request on an address. */
+    debugSetDataBreakpointAddressSupported: boolean;
+    /** True when the focused session supports 'setExpression' request. */
+    debugSetExpressionSupported: boolean;
+    /** True when the focused session supports to break when value changes. */
+    breakWhenValueChangesSupported: boolean;
+    /** True when the focused breakpoint supports to break when value is accessed. */
+    breakWhenValueIsAccessedSupported: boolean;
+    /** True when the focused breakpoint supports to break when value is read. */
+    breakWhenValueIsReadSupported: boolean;
+    /** True when the focused session supports the terminate debuggee capability. */
+    terminateDebuggeeSupported: boolean;
+    /** True when the focused session supports the suspend debuggee capability. */
+    suspendDebuggeeSupported: boolean;
+    /** True when the focused session supports the terminate threads capability. */
+    terminateThreadsSupported: boolean;
+    /** True when the focused variable has an 'evaluateName' field set. */
+    variableEvaluateNamePresent: boolean;
+    /** True when the focused variable is read-only. */
+    variableIsReadonly: boolean;
+    /** Value of the variable, present for debug visualization clauses. */
+    variableValue: string;
+    /** Type of the variable, present for debug visualization clauses. */
+    variableType: string;
+    /** Any interfaces or contracts that the variable satisfies, present for debug visualization clauses. */
+    variableInterfaces: readonly string[];
+    /** Name of the variable, present for debug visualization clauses. */
+    variableName: string;
+    /** Language of the variable source, present for debug visualization clauses. */
+    variableLanguage: string;
+    /** Extension ID of the variable source, present for debug visualization clauses. */
+    variableExtensionId: string;
+    /** True when the exception widget is visible. */
+    exceptionWidgetVisible: boolean;
+    /** True when there is more than 1 debug console. */
+    multiSessionRepl: boolean;
+    /** True when there is more than 1 active debug session. */
+    multiSessionDebug: boolean;
+    /** True when the focused sessions supports disassemble request. */
+    disassembleRequestSupported: boolean;
+    /** True when the Disassembly View is focused. */
+    disassemblyViewFocus: boolean;
+    /** True when the language in the current editor supports disassemble request. */
+    languageSupportsDisassembleRequest: boolean;
+    /** True when the focused stack frame has instruction pointer reference. */
+    focusedStackFrameHasInstructionReference: boolean;
+
     searchViewletVisible: boolean;
     searchViewletFocus: boolean;
     searchInputBoxFocus: boolean;
