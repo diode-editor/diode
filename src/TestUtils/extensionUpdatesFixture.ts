@@ -67,10 +67,12 @@ export class FakeSource implements IExtensionRegistrySource {
     }
 }
 
-function buildVsix(file: string, manifest: object): Promise<void> {
+/** `files` are extra archive entries, by their name in the archive (`extension/...`). */
+export function buildVsix(file: string, manifest: object, files: Readonly<Record<string, string>> = {}): Promise<void> {
     return new Promise((resolve, reject) => {
         const zip = new yazl.ZipFile();
         zip.addBuffer(Buffer.from(JSON.stringify(manifest)), "extension/package.json");
+        for (const [name, content] of Object.entries(files)) zip.addBuffer(Buffer.from(content), name);
         const out = fs.createWriteStream(file);
         out.on("close", () => {
             resolve();

@@ -471,6 +471,7 @@
     "workbench.extensions.action.install.specificVersion",
     "workbench.extensions.action.checkForUpdates",
     "workbench.extensions.action.updateAllExtensions",
+    "workbench.extensions.action.installVSIX",
     "workbench.extensions.action.installedExtensions",
     "workbench.extensions.action.extensionUpdates",
     "extensions.actions.searchByCategory.AI",

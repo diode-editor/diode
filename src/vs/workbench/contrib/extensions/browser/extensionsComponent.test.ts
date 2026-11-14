@@ -141,6 +141,10 @@ class FakeService implements IExtensionsWorkbenchService {
         return { dispose: () => undefined };
     }
 
+    public installVsix(): Promise<never> {
+        return Promise.reject(new Error("not used"));
+    }
+
     public getCatalogError(): string | null {
         return this.error;
     }

@@ -289,7 +289,35 @@ export async function installFromRegistry(
     });
 }
 
-/** For `--install-extension foo.vsix`: a dependency failure doesn't uninstall the extension (upstream only warns). */
+export interface IInstallVsixResult extends IInstallFromRegistryResult {
+    /** The extension stays installed, as upstream: a failed dependency install is only a warning. */
+    readonly dependencyError?: string;
+}
+
+/**
+ * `--install-extension foo.vsix` and `workbench.extensions.command.installFromVSIX`. The registry is asked for
+ * only when the manifest has dependencies: a vsix without them installs offline.
+ */
+export async function installVsixWithDependencies(
+    registry: () => IExtensionRegistrySource,
+    vsixPath: string,
+    options: IInstallFromRegistryOptions,
+): Promise<IInstallVsixResult> {
+    const installed = await installVsix(vsixPath, options.extensionsDir);
+    const manifest = await readVsixManifest(vsixPath);
+    const none: IDependencyInstallResult = { dependencies: [], missingDependencies: [] };
+    if (readExtensionDependencies(manifest).length === 0) return { ...installed, ...none };
+    try {
+        return {
+            ...installed,
+            ...(await installDependenciesFromRegistry(registry(), installed.id, manifest, options)),
+        };
+    } catch (err) {
+        return { ...installed, ...none, dependencyError: err instanceof Error ? err.message : String(err) };
+    }
+}
+
+/** For a `.vsix`: a dependency failure doesn't uninstall the extension (upstream only warns). */
 export function installDependenciesFromRegistry(
     source: IExtensionRegistrySource,
     extensionId: string,

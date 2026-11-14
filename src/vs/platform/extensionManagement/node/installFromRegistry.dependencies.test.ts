@@ -15,6 +15,7 @@ import {
     describeDependencyInstall,
     installDependenciesFromRegistry,
     installFromRegistry,
+    installVsixWithDependencies,
     sha256File,
 } from "./installFromRegistry.ts";
 
@@ -373,5 +374,78 @@ describe("installDependenciesFromRegistry (extension installed from a .vsix)", (
             installDependenciesFromRegistry(source(), "acme.local", manifest, { extensionsDir, host: HOST }),
         ).rejects.toThrow('Cannot install acme.local: its dependency "acme.base" cannot be installed');
         expect(installed()).toEqual([]);
+    });
+});
+
+describe("installVsixWithDependencies", () => {
+    async function writeVsix(manifest: object): Promise<string> {
+        const vsixPath = path.join(tempRoot, "local.vsix");
+        await fs.promises.writeFile(vsixPath, await buildVsixBuffer(manifest));
+        return vsixPath;
+    }
+    const unreachable = (): IExtensionRegistrySource => {
+        throw new Error("the registry was asked for");
+    };
+
+    it("without dependencies installs offline: the registry is never asked for", async () => {
+        const vsixPath = await writeVsix({ publisher: "acme", name: "local", version: "2.0.0" });
+
+        const result = await installVsixWithDependencies(unreachable, vsixPath, { extensionsDir, host: HOST });
+
+        expect(result).toEqual({
+            id: "acme.local",
+            version: "2.0.0",
+            dir: path.join(extensionsDir, "acme.local-2.0.0"),
+            dependencies: [],
+            missingDependencies: [],
+        });
+        expect(installed()).toEqual(["acme.local@2.0.0"]);
+    });
+
+    it("installs the dependencies from the registry and names the missing ones", async () => {
+        await seed("acme.base");
+        const vsixPath = await writeVsix({
+            publisher: "acme",
+            name: "local",
+            version: "1.0.0",
+            extensionDependencies: ["acme.base", "x.y"],
+        });
+
+        const result = await installVsixWithDependencies(source, vsixPath, { extensionsDir, host: HOST });
+
+        expect(result.dependencies.map((d) => d.id)).toEqual(["acme.base"]);
+        expect(result.missingDependencies).toEqual(["x.y"]);
+        expect(result.dependencyError).toBeUndefined();
+        expect(installed()).toEqual(["acme.base@1.0.0", "acme.local@1.0.0"]);
+    });
+
+    it("a failed dependency install keeps the extension and reports the reason", async () => {
+        const vsixPath = await writeVsix({
+            publisher: "acme",
+            name: "local",
+            version: "1.0.0",
+            extensionDependencies: ["acme.base"],
+        });
+
+        const result = await installVsixWithDependencies(unreachable, vsixPath, { extensionsDir, host: HOST });
+
+        expect(result).toEqual({
+            id: "acme.local",
+            version: "1.0.0",
+            dir: path.join(extensionsDir, "acme.local-1.0.0"),
+            dependencies: [],
+            missingDependencies: [],
+            dependencyError: "the registry was asked for",
+        });
+        expect(installed()).toEqual(["acme.local@1.0.0"]);
+    });
+
+    it("a broken archive is a failure, not a warning", async () => {
+        const vsixPath = path.join(tempRoot, "broken.vsix");
+        await fs.promises.writeFile(vsixPath, "not a zip");
+
+        await expect(installVsixWithDependencies(unreachable, vsixPath, { extensionsDir, host: HOST })).rejects.toThrow(
+            "Not a valid .vsix (zip) archive",
+        );
     });
 });

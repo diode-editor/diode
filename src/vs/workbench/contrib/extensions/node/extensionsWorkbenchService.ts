@@ -15,7 +15,10 @@ import {
     compatibleVersions,
     resolveCompatibleVersion,
 } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
-import { installFromRegistry } from "../../../../platform/extensionManagement/node/installFromRegistry.ts";
+import {
+    installFromRegistry,
+    installVsixWithDependencies,
+} from "../../../../platform/extensionManagement/node/installFromRegistry.ts";
 import type {
     IProfileExtension,
     ProfileExtensions,
@@ -30,6 +33,7 @@ import type {
     IExtensionOperationResult,
     IExtensionsWorkbenchService,
     IExtensionUpdateAllResult,
+    IVsixInstallResult,
 } from "../common/extensionsWorkbench.ts";
 
 /**
@@ -192,6 +196,30 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         } finally {
             this.installing.delete(id);
         }
+    }
+
+    /**
+     * Our directory is `<id>-<version>` with no platform suffix (upstream adds it), so a platform package of the
+     * running version lands where the running extension looks: CodeLLDB finds `adapter/` with no reload, while
+     * upstream installs next to it and asks for one.
+     */
+    public async installVsix(vsixPath: string): Promise<IVsixInstallResult> {
+        const before = this.profile.list();
+        const installed = await installVsixWithDependencies(() => this.source, vsixPath, {
+            extensionsDir: this.profile.extensionsDir,
+            host: this.host,
+        });
+        const { id, version, dir, dependencies, dependencyError } = installed;
+        if (dependencyError !== undefined) {
+            this.logger.warn(`Could not install the dependencies of ${id}: ${dependencyError}`);
+        }
+        this.profile.add([installed], { pinned: true, dependencies });
+        for (const dep of dependencies) this.pendingReload.add(dep.id);
+        // The host runs what the profile pointed to at startup, unless this session has changed it since.
+        const running = !this.pendingReload.has(id) && before.some((e) => e.id === id && e.dir === dir);
+        if (running) this.reloadInstalled();
+        else this.markChanged(id);
+        return { id, version, needsReload: !running || dependencies.length > 0 };
     }
 
     public async getCompatibleVersions(id: string): Promise<readonly IRegistryVersion[]> {

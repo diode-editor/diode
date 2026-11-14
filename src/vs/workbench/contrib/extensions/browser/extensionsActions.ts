@@ -10,6 +10,7 @@ import { EXTENSION_FILTER_ACTIONS } from "./extensionFilterActions.ts";
 import { EXTENSIONS_VIEW_ID, EXTENSIONS_VIEWLET_ID, ExtensionsComponentDIToken } from "./extensionsComponent.ts";
 import { checkForUpdatesAction, updateAllExtensionsAction } from "./extensionUpdateActions.ts";
 import { installSpecificVersionOfExtensionAction } from "./extensionVersionActions.ts";
+import { installVsixAction } from "./extensionVsixActions.ts";
 
 const REFRESH_ICON = codicon("refresh");
 
@@ -56,5 +57,7 @@ export const EXTENSIONS_ACTIONS: readonly CommandAction[] = [
     installSpecificVersionOfExtensionAction,
     checkForUpdatesAction,
     updateAllExtensionsAction,
+    // Upstream order: after Update All, before the search filters.
+    installVsixAction,
     ...EXTENSION_FILTER_ACTIONS,
 ];
