@@ -74,6 +74,15 @@ describe("TaskService — ${input:…} and ${command:…}", () => {
         h.dispose();
     });
 
+    it("the window is read at the start: ${selectedText} of the active file editor", async () => {
+        const h = buildTaskServiceHarness();
+        h.setActiveEditor("/ws/a.ts");
+        await expect(h.service.run(makeTask({ command: { name: "echo ${selectedText}" } }))).rejects.toThrow(
+            "Make sure to have some text selected in the active editor.",
+        );
+        h.dispose();
+    });
+
     it("an input without an inputs section — a toast with the upstream text, the task does not start", async () => {
         const h = buildTaskServiceHarness();
         await expect(h.service.run(makeTask({ command: { name: "echo ${input:name}" } }))).rejects.toThrow(

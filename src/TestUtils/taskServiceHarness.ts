@@ -83,7 +83,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
     const folder = options.folder === null ? undefined : (options.folder ?? TASK_FOLDER);
     const workspace = {
         getWorkspace: () => ({ id: folder === undefined ? null : "ws", folders: folder === undefined ? [] : [folder] }),
-        getWorkspaceFolder: () => folder ?? null,
+        getWorkspaceFolder: () => folder,
     } as unknown as IWorkspaceContextService;
     let dirty: unknown[] = [];
     let activeEditor: {
