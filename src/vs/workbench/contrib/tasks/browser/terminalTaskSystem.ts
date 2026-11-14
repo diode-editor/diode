@@ -146,8 +146,8 @@ export interface ITaskProblemsHost extends IProblemCollectorHost {
 export type ITaskEditorTerminals = Pick<TerminalEditorService, "reveal">;
 
 export interface ITaskRunContext {
-    /** Substitutes the variables of a string; an unresolvable one throws. */
-    readonly resolve: (value: string) => string;
+    /** Substitutes the variables of a string or a JSON tree (a copy); an unresolvable one throws. */
+    readonly resolve: <T>(value: T) => T;
     readonly platform: TaskPlatform;
 }
 
@@ -236,22 +236,25 @@ export class TerminalTaskSystem extends Disposable {
      * If the same task is already running, returns `active` with its promise; the service decides (`instancePolicy`).
      * A variable that cannot be resolved is a refusal.
      */
+    public isActive(task: ITask): boolean {
+        return this.active.has(getMapKey(task));
+    }
+
     public run(task: ITask, context: ITaskRunContext): ITaskExecuteResult {
         const running = this.active.get(getMapKey(task));
         if (running !== undefined) return { kind: "active", task: running.task, promise: running.summary.promise };
         return this.execute(task, this.launchOf(task, context));
     }
 
-    /** The task {@link rerun} runs. */
+    /** The task {@link rerun} runs; with `reevaluateOnRerun` the service runs it anew instead. */
     public getLastTask(): ITask | undefined {
         return this.lastTask?.task;
     }
 
-    /** With `reevaluateOnRerun` variables are recomputed; without it, the run reuses the previous launch. */
-    public rerun(context: ITaskRunContext): ITaskExecuteResult | undefined {
+    /** Runs the last task again with its previous launch, variables included. */
+    public rerun(): ITaskExecuteResult | undefined {
         if (this.lastTask === undefined) return undefined;
         const { task, launch } = this.lastTask;
-        if (task.runOptions.reevaluateOnRerun) return this.run(task, context);
         const running = this.active.get(getMapKey(task));
         if (running !== undefined) return { kind: "active", task: running.task, promise: running.summary.promise };
         return this.execute(task, launch);
@@ -510,7 +513,7 @@ export class TerminalTaskSystem extends Disposable {
         const { resolve } = context;
         const waitOnExit = waitOnExitOf(command.presentation, task.isBackground);
         const name = task.name;
-        const resolvedDefinition = resolveDeep(task.definition, resolve);
+        const { _key: _ignored, ...resolvedDefinition } = resolve(task.definition);
         const matchers = this.resolveMatchers(task, resolve);
         if (command.runtime === "custom") {
             return {
@@ -524,7 +527,7 @@ export class TerminalTaskSystem extends Disposable {
         }
         const options = command.options ?? {};
         const cwd = this.cwdOf(task, options.cwd === undefined ? undefined : resolve(options.cwd));
-        const env = options.env === undefined ? undefined : resolveRecord(options.env, resolve);
+        const env = options.env === undefined ? undefined : resolve(options.env);
         const unresolvedCommand = command.name ?? "";
         const commandName = resolveCommandString(unresolvedCommand, resolve);
         const args = (command.args ?? []).map((arg) => resolveCommandString(arg, resolve));
@@ -623,31 +626,19 @@ function commandValue(value: CommandString): string {
     return typeof value === "string" ? value : value.value;
 }
 
+/**
+ * What {@link TerminalTaskSystem} resolves variables in (upstream's `_collectTaskVariables`): the command with its
+ * options, the definition and the `filePrefix` of inline matchers. A named matcher brings no `${input:…}`.
+ */
+export function variableSourcesOf(task: ITask): unknown {
+    const prefixes = task.problemMatchers.map((matcher) =>
+        typeof matcher === "string" ? undefined : matcher.filePrefix,
+    );
+    return [task.command, task.definition, prefixes];
+}
+
 function resolveCommandString(value: CommandString, resolve: (v: string) => string): CommandString {
     return typeof value === "string" ? resolve(value) : { value: resolve(value.value), quoting: value.quoting };
-}
-
-function resolveRecord(
-    record: Readonly<Record<string, string>>,
-    resolve: (v: string) => string,
-): Record<string, string> {
-    return Object.fromEntries(Object.entries(record).map(([k, v]) => [k, resolve(v)]));
-}
-
-function resolveDeep(
-    value: Readonly<Record<string, unknown>>,
-    resolve: (v: string) => string,
-): Record<string, unknown> {
-    const walk = (v: unknown): unknown => {
-        if (typeof v === "string") return resolve(v);
-        if (Array.isArray(v)) return v.map(walk);
-        if (typeof v === "object" && v !== null) {
-            return Object.fromEntries(Object.entries(v).map(([k, inner]) => [k, walk(inner)]));
-        }
-        return v;
-    };
-    const { _key: _ignored, ...definition } = value;
-    return walk(definition) as Record<string, unknown>;
 }
 
 /** By the shell's OS (upstream uses the process OS, which is the same thing). */

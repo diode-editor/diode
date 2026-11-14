@@ -636,39 +636,33 @@ describe("TerminalTaskSystem — stopping", () => {
 });
 
 describe("TerminalTaskSystem — rerunning the last task", () => {
-    it("nothing to rerun — undefined", () => {
+    it("nothing to rerun — undefined, no last task", () => {
         const h = buildTerminalTaskSystemHarness();
-        expect(h.system.rerun(h.context())).toBeUndefined();
+        expect(h.system.rerun()).toBeUndefined();
+        expect(h.system.getLastTask()).toBeUndefined();
         h.dispose();
     });
 
-    it("reevaluateOnRerun — variables resolved anew; without it — the same as last time", () => {
+    it("the previous launch is replayed, variables as they were (reevaluation is the service's run)", () => {
         const h = buildTerminalTaskSystemHarness();
         h.setVariables({ env: { V: "1" } });
-        h.system.run(makeTask({ label: "a", command: { name: "echo ${env:V}" } }), h.context());
+        const task = makeTask({ label: "b", command: { name: "echo ${env:V}" } });
+        h.system.run(task, h.context());
         h.sessions[0].emitExit(0);
         h.setVariables({ env: { V: "2" } });
-        h.system.rerun(h.context());
-        expect(h.sessions[0].relaunches[0].args).toStrictEqual(["-c", "echo 2"]);
-        h.sessions[0].emitExit(0);
-
-        h.setVariables({ env: { V: "1" } });
-        h.system.run(
-            makeTask({ label: "b", command: { name: "echo ${env:V}" }, runOptions: { reevaluateOnRerun: false } }),
-            h.context(),
-        );
-        h.sessions[0].emitExit(0);
-        h.setVariables({ env: { V: "2" } });
-        const result = h.system.rerun(h.context());
+        expect(h.system.getLastTask()).toBe(task);
+        const result = h.system.rerun();
         expect(result?.kind).toBe("started");
         expect(h.sessions[0].relaunches.at(-1)?.args).toStrictEqual(["-c", "echo 1"]);
         h.dispose();
     });
 
-    it("rerunning a running task without reevaluation — `active`, no new terminal", () => {
+    it("rerunning a running task — `active`, no new terminal; isActive by the task's key", () => {
         const h = buildTerminalTaskSystemHarness();
-        const run = h.system.run(makeTask({ runOptions: { reevaluateOnRerun: false } }), h.context());
-        const again = h.system.rerun(h.context());
+        const run = h.system.run(makeTask(), h.context());
+        expect(h.system.isActive(makeTask())).toBe(true);
+        expect(h.system.isActive(makeTask({ label: "other" }))).toBe(false);
+        const again = h.system.rerun();
         expect(again?.kind).toBe("active");
         expect(again?.promise).toBe(run.promise);
         expect(h.factoryCalls).toHaveLength(1);

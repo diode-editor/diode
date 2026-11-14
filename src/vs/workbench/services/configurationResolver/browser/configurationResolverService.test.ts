@@ -9,7 +9,7 @@ import { createTestConfigurationService } from "../../../../../TestUtils/testCon
 import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
-import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
+import { StateFileStore } from "../../../../platform/state/node/stateService.ts";
 import type {
     IWorkspaceContextService,
     IWorkspaceFolder,
@@ -41,17 +41,6 @@ const INPUTS = [
     { id: "input4", type: "command", command: "command1", args: { value: "arg for command" } },
 ];
 
-function memoryState(): IStateService {
-    const values = new Map<string, unknown>();
-    return {
-        get: <T>(descriptor: IStateDescriptor<T>): T =>
-            (values.get(descriptor.key) as T | undefined) ?? descriptor.default,
-        store: <T>(descriptor: IStateDescriptor<T>, value: T): void => {
-            values.set(descriptor.key, value);
-        },
-    } as IStateService;
-}
-
 interface IEditorFixture {
     readonly path: string;
     readonly scheme?: string;
@@ -60,6 +49,8 @@ interface IEditorFixture {
     readonly selections?: string[];
 }
 
+const inputs = (list: readonly unknown[] | undefined) => () => Promise.resolve(list);
+
 function harness(options: { folders?: readonly IWorkspaceFolder[]; editor?: IEditorFixture | null } = {}) {
     const folders = options.folders ?? [FOLDER];
     const workspace = {
@@ -67,6 +58,7 @@ function harness(options: { folders?: readonly IWorkspaceFolder[]; editor?: IEdi
         getWorkspaceFolder: (uri: Uri) => folders.find((folder) => uri.fsPath.startsWith(folder.uri.fsPath)) ?? null,
     } as unknown as IWorkspaceContextService;
     const editor = options.editor === undefined ? { path: "/VSCode/workspaceLocation/file" } : options.editor;
+    let selectionReads = 0;
     const editors = {
         getActiveTabEditor: () =>
             editor === null
@@ -78,7 +70,10 @@ function harness(options: { folders?: readonly IWorkspaceFolder[]; editor?: IEdi
                               : Uri.from({ scheme: editor.scheme, path: editor.path }),
                       primaryCursorLine: editor.line ?? 9,
                       primaryCursorColumn: editor.column ?? 0,
-                      getSelectedTexts: () => editor.selections ?? [""],
+                      getSelectedTexts: () => {
+                          selectionReads++;
+                          return editor.selections ?? [""];
+                      },
                   },
     } as unknown as IEditorService;
     const commands = new CommandRegistry();
@@ -110,12 +105,42 @@ function harness(options: { folders?: readonly IWorkspaceFolder[]; editor?: IEdi
         }),
     } as unknown as QuickInputService;
     const configuration = createTestConfigurationService({ "editor.tabSize": 3 });
-    const state = memoryState();
+    const state = new StateFileStore(undefined);
     const service = new ConfigurationResolverService(configuration, workspace, editors, commands, quickInput, state);
-    return { service, commands, commandCalls, mockCommand, shownInputs, typed, shownPicks, picked, quickInput, state };
+    /** Resolves with interaction in the `tasks` section with these inputs. */
+    const ask = (
+        config: unknown,
+        list: readonly unknown[] | undefined = INPUTS,
+        options: { folder?: IWorkspaceFolder; section?: string; variables?: Record<string, string> } = {},
+    ) =>
+        service.resolveWithInteraction(
+            "folder" in options ? options.folder : FOLDER,
+            config,
+            options.section ?? "tasks",
+            options.variables,
+            inputs(list),
+        );
+    /** {@link ask} that returns the resolved configuration. */
+    const askReplace = <T>(
+        config: T,
+        list: readonly unknown[] | undefined = INPUTS,
+        folder: IWorkspaceFolder | undefined = FOLDER,
+    ) => service.resolveWithInteractionReplace(folder, config, "tasks", undefined, inputs(list));
+    return {
+        service,
+        editors,
+        selectionReads: () => selectionReads,
+        commands,
+        commandCalls,
+        shownInputs,
+        typed,
+        shownPicks,
+        picked,
+        quickInput,
+        ask,
+        askReplace,
+    };
 }
-
-const inputs = (list: readonly unknown[] | undefined) => () => Promise.resolve(list);
 
 const ATTACH = {
     name: "Attach to Process",
@@ -210,13 +235,7 @@ describe("ConfigurationResolverService — inputs", () => {
 
     it("a single prompt input variable: prompt, default value, no command", async () => {
         const h = harness();
-        const result = await h.service.resolveWithInteractionReplace(
-            FOLDER,
-            withInput("input1"),
-            "tasks",
-            undefined,
-            inputs(INPUTS),
-        );
+        const result = await h.askReplace(withInput("input1"));
         expect(result).toStrictEqual({ ...ATTACH, processId: "resolvedEnterinput1" });
         expect(h.shownInputs).toStrictEqual([{ prompt: "Enterinput1", value: "default input1", password: false }]);
         expect(h.commandCalls).toStrictEqual([]);
@@ -224,13 +243,7 @@ describe("ConfigurationResolverService — inputs", () => {
 
     it("a single pick input variable: the default first and marked", async () => {
         const h = harness();
-        const result = await h.service.resolveWithInteractionReplace(
-            FOLDER,
-            withInput("input2"),
-            "tasks",
-            undefined,
-            inputs(INPUTS),
-        );
+        const result = await h.askReplace(withInput("input2"));
         expect(result).toStrictEqual({ ...ATTACH, processId: "option3" });
         expect(h.shownPicks).toStrictEqual([
             {
@@ -250,9 +263,7 @@ describe("ConfigurationResolverService — inputs", () => {
         const list = [
             { id: "p", type: "pickString", description: "D", options: [{ label: "A", value: "a" }, { value: "b" }] },
         ];
-        expect(
-            await h.service.resolveWithInteractionReplace(FOLDER, "${input:p}", "tasks", undefined, inputs(list)),
-        ).toBe("b");
+        expect(await h.askReplace("${input:p}", list)).toBe("b");
         expect(h.shownPicks[0].items).toStrictEqual([
             { label: "A: a", value: "a" },
             { label: "b", value: "b" },
@@ -261,13 +272,7 @@ describe("ConfigurationResolverService — inputs", () => {
 
     it("a single command input variable: the command with its args", async () => {
         const h = harness();
-        const result = await h.service.resolveWithInteractionReplace(
-            FOLDER,
-            withInput("input4"),
-            "tasks",
-            undefined,
-            inputs(INPUTS),
-        );
+        const result = await h.askReplace(withInput("input4"));
         expect(result).toStrictEqual({ ...ATTACH, processId: "arg for command" });
         expect(h.commandCalls).toStrictEqual([["command1", { value: "arg for command" }]]);
     });
@@ -281,13 +286,7 @@ describe("ConfigurationResolverService — inputs", () => {
             processId: "${input:input2}",
             command: "${input:input4}",
         };
-        const result = await h.service.resolveWithInteractionReplace(
-            undefined,
-            config,
-            "tasks",
-            undefined,
-            inputs(INPUTS),
-        );
+        const result = await h.askReplace(config, INPUTS, undefined);
         expect(result).toStrictEqual({
             name: "resolvedEnterinput3",
             type: "command1-result",
@@ -319,19 +318,11 @@ describe("ConfigurationResolverService — inputs", () => {
     it("canceled input — the whole resolution is cancelled, nothing after it is asked", async () => {
         const h = harness();
         h.typed.push(undefined);
-        const result = await h.service.resolveWithInteractionReplace(
-            FOLDER,
-            ["${input:input1}", "${input:input3}"],
-            "tasks",
-            undefined,
-            inputs(INPUTS),
-        );
+        const result = await h.askReplace(["${input:input1}", "${input:input3}"]);
         expect(result).toBeUndefined();
         expect(h.shownInputs).toHaveLength(1);
         h.picked.push(undefined);
-        expect(
-            await h.service.resolveWithInteraction(FOLDER, "${input:input2}", "tasks", undefined, inputs(INPUTS)),
-        ).toBeUndefined();
+        expect(await h.ask("${input:input2}")).toBeUndefined();
     });
 
     it("a command input returning nothing leaves the variable as is; a non-string is an error", async () => {
@@ -342,12 +333,8 @@ describe("ConfigurationResolverService — inputs", () => {
             { id: "n", type: "command", command: "nothing" },
             { id: "x", type: "command", command: "number" },
         ];
-        expect(
-            await h.service.resolveWithInteractionReplace(FOLDER, "${input:n}!", "tasks", undefined, inputs(list)),
-        ).toBe("${input:n}!");
-        await expect(
-            h.service.resolveWithInteraction(FOLDER, "${input:x}", "tasks", undefined, inputs(list)),
-        ).rejects.toStrictEqual(
+        expect(await h.askReplace("${input:n}!", list)).toBe("${input:n}!");
+        await expect(h.ask("${input:x}", list)).rejects.toStrictEqual(
             new VariableError(
                 "Cannot substitute input variable 'x' because command 'number' did not return a result of type string.",
             ),
@@ -357,17 +344,17 @@ describe("ConfigurationResolverService — inputs", () => {
     it("refusals with upstream texts: no section, undefined input, bad type, missing attributes", async () => {
         const h = harness();
         const fails = async (list: readonly unknown[] | undefined, message: string): Promise<void> => {
-            await expect(
-                h.service.resolveWithInteraction(FOLDER, "${input:i}", "tasks", undefined, inputs(list)),
-            ).rejects.toStrictEqual(new VariableError(message));
+            await expect(h.ask("${input:i}", list)).rejects.toStrictEqual(new VariableError(message));
         };
-        await fails(
-            undefined,
-            "Variable 'i' must be defined in an 'inputs' section of the debug or task configuration.",
-        );
-        await expect(h.service.resolveWithInteraction(FOLDER, "${input:i}")).rejects.toThrow(
-            "must be defined in an 'inputs' section",
-        );
+        for (const read of [inputs(undefined), undefined]) {
+            await expect(
+                h.service.resolveWithInteraction(FOLDER, "${input:i}", "tasks", undefined, read),
+            ).rejects.toStrictEqual(
+                new VariableError(
+                    "Variable 'i' must be defined in an 'inputs' section of the debug or task configuration.",
+                ),
+            );
+        }
         await fails(
             [null, { id: "other" }],
             "Undefined input variable 'i' encountered. Remove or define 'i' to continue.",
@@ -402,26 +389,22 @@ describe("ConfigurationResolverService — inputs", () => {
             { id: "i", type: "radio" },
             { id: "i", type: "promptString", description: "d" },
         ];
-        expect(
-            await h.service.resolveWithInteractionReplace(FOLDER, "${input:i}", "tasks", undefined, inputs(twice)),
-        ).toBe("v");
+        expect(await h.askReplace("${input:i}", twice)).toBe("v");
     });
 
     it("the last value of an input is the next default (per section, not for passwords); aliases come first", async () => {
         const h = harness();
-        const ask = (value: string, section = "tasks", variables?: Record<string, string>) =>
-            h.service.resolveWithInteraction(FOLDER, value, section, variables, inputs(INPUTS));
         h.typed.push("typed", "secret");
-        await ask("${input:input1} ${input:input3}");
+        await h.ask("${input:input1} ${input:input3}");
         h.picked.push("option1");
-        await ask("${input:input2}");
-        await ask("${input:input1} ${input:input3} ${input:input2}");
+        await h.ask("${input:input2}");
+        await h.ask("${input:input1} ${input:input3} ${input:input2}");
         expect(h.shownInputs.slice(2).map((opts) => opts.value)).toStrictEqual(["typed", "default input3"]);
         // The default stays first; the remembered one goes right after it.
         expect(h.shownPicks[1].items.map((item) => item.label)).toStrictEqual(["option2", "option1", "option3"]);
-        await ask("${input:input1}", "launch");
+        await h.ask("${input:input1}", INPUTS, { section: "launch" });
         expect(h.shownInputs.at(-1)?.value).toBe("default input1");
-        await ask("${input:input1}", "tasks", { "input:input1": "preset" });
+        await h.ask("${input:input1}", INPUTS, { variables: { "input:input1": "preset" } });
         expect(h.shownInputs.at(-1)?.value).toBe("preset");
     });
 
@@ -430,12 +413,12 @@ describe("ConfigurationResolverService — inputs", () => {
         const list = ["a", "b", "c", "d", "e", "f"].map((id) => ({ id, type: "promptString", description: id }));
         for (const id of ["a", "b", "c", "d", "e", "a", "f"]) {
             h.typed.push(`${id}!`);
-            await h.service.resolveWithInteraction(FOLDER, `\${input:${id}}`, "tasks", undefined, inputs(list));
+            await h.ask(`\${input:${id}}`, list);
         }
         h.typed.push(undefined);
-        await h.service.resolveWithInteraction(FOLDER, "${input:b}", "tasks", undefined, inputs(list));
+        await h.ask("${input:b}", list);
         expect(h.shownInputs.at(-1)?.value).toBeUndefined();
-        await h.service.resolveWithInteraction(FOLDER, "${input:a}", "tasks", undefined, inputs(list));
+        await h.ask("${input:a}", list);
         expect(h.shownInputs.at(-1)?.value).toBe("a!");
     });
 
@@ -447,8 +430,8 @@ describe("ConfigurationResolverService — inputs", () => {
             shown++;
             return shown === 1 ? first.promise : Promise.resolve("second");
         });
-        const a = h.service.resolveWithInteraction(FOLDER, "${input:input1}", "tasks", undefined, inputs(INPUTS));
-        const b = h.service.resolveWithInteraction(FOLDER, "${input:input3}", "tasks", undefined, inputs(INPUTS));
+        const a = h.ask("${input:input1}");
+        const b = h.ask("${input:input3}");
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(shown).toBe(1);
         first.resolve("first");
@@ -456,13 +439,8 @@ describe("ConfigurationResolverService — inputs", () => {
         expect((await b)?.get("input:input3")).toBe("second");
         // A failed show does not block the next ones.
         vi.mocked(h.quickInput.input).mockImplementationOnce(() => Promise.reject(new Error("boom")));
-        await expect(
-            h.service.resolveWithInteraction(FOLDER, "${input:input1}", "tasks", undefined, inputs(INPUTS)),
-        ).rejects.toThrow("boom");
-        expect(
-            (await h.service.resolveWithInteraction(FOLDER, "${input:input1}", "tasks", undefined, inputs(INPUTS)))
-                ?.size,
-        ).toBe(1);
+        await expect(h.ask("${input:input1}")).rejects.toThrow("boom");
+        expect((await h.ask("${input:input1}"))?.size).toBe(1);
     });
 });
 
@@ -505,19 +483,13 @@ describe("ConfigurationResolverService — the window behind the variables", () 
     it("an editor of another scheme is no file; no editor is none either", () => {
         for (const editor of [{ path: "/x", scheme: "untitled" }, null]) {
             const h = harness({ editor });
-            expect(() => h.service.resolveWithValues(FOLDER, "${file}", new Map())).toThrow("Please open an editor.");
-            expect(() => h.service.resolveWithValues(FOLDER, "${lineNumber}", new Map())).toThrow(
-                "have a line selected",
-            );
-            expect(() => h.service.resolveWithValues(FOLDER, "${columnNumber}", new Map())).toThrow(
-                "have a column selected",
-            );
-            expect(() => h.service.resolveWithValues(FOLDER, "${selectedText}", new Map())).toThrow(
-                "have some text selected",
-            );
+            expect(() => h.service.resolveWithValues(FOLDER, "${file}")).toThrow("Please open an editor.");
+            expect(() => h.service.resolveWithValues(FOLDER, "${lineNumber}")).toThrow("have a line selected");
+            expect(() => h.service.resolveWithValues(FOLDER, "${columnNumber}")).toThrow("have a column selected");
+            expect(() => h.service.resolveWithValues(FOLDER, "${selectedText}")).toThrow("have some text selected");
         }
         const outside = harness({ editor: { path: "/elsewhere/a.ts" } });
-        expect(() => outside.service.resolveWithValues(FOLDER, "${fileWorkspaceFolder}", new Map())).toThrow(
+        expect(() => outside.service.resolveWithValues(FOLDER, "${fileWorkspaceFolder}")).toThrow(
             "can not find workspace folder of 'a.ts'",
         );
     });
@@ -525,36 +497,40 @@ describe("ConfigurationResolverService — the window behind the variables", () 
     it("folders by name and their count; settings; environment, home, cwd, executable", () => {
         const other: IWorkspaceFolder = { uri: Uri.file("/other"), name: "other", index: 1 };
         const h = harness({ folders: [FOLDER, other] });
-        expect(h.service.resolveWithValues(FOLDER, "${workspaceFolder:other}", new Map())).toBe(other.uri.fsPath);
-        expect(() => h.service.resolveWithValues(undefined, "${workspaceFolder}", new Map())).toThrow(
-            "multi folder workspace",
-        );
-        expect(h.service.resolveWithValues(FOLDER, "${config:editor.tabSize}", new Map())).toBe("3");
+        expect(h.service.resolveWithValues(FOLDER, "${workspaceFolder:other}")).toBe(other.uri.fsPath);
+        expect(() => h.service.resolveWithValues(undefined, "${workspaceFolder}")).toThrow("multi folder workspace");
+        expect(h.service.resolveWithValues(FOLDER, "${config:editor.tabSize}")).toBe("3");
         vi.stubEnv("DIODE_RESOLVER_VAR", "v");
         vi.stubEnv("HOME", "/home/me");
-        expect(h.service.resolveWithValues(undefined, "${env:DIODE_RESOLVER_VAR}|${userHome}|${cwd}", new Map())).toBe(
+        expect(h.service.resolveWithValues(undefined, "${env:DIODE_RESOLVER_VAR}|${userHome}|${cwd}")).toBe(
             `v|/home/me|${process.cwd()}`,
         );
         vi.stubEnv("HOME", undefined);
         vi.stubEnv("USERPROFILE", "C:\\Users\\me");
-        expect(h.service.resolveWithValues(undefined, "${userHome}", new Map())).toBe("C:\\Users\\me");
+        expect(h.service.resolveWithValues(undefined, "${userHome}")).toBe("C:\\Users\\me");
         vi.unstubAllEnvs();
-        expect(h.service.resolveWithValues(undefined, "${execPath}|${execInstallFolder}", new Map())).toBe(
+        expect(h.service.resolveWithValues(undefined, "${execPath}|${execInstallFolder}")).toBe(
             `${process.execPath}|${paths.dirname(process.execPath)}`,
         );
     });
 
-    it("extension folders once the extensions are set, until that registration is disposed", () => {
+    it("extension folders once the extension host has set its lookup", () => {
         const h = harness();
-        const resolve = () => h.service.resolveWithValues(FOLDER, "${extensionInstallFolder:pub.ext}", new Map());
+        const resolve = () => h.service.resolveWithValues(FOLDER, "${extensionInstallFolder:pub.ext}");
         expect(resolve).toThrow("the extension pub.ext is not installed");
         const extension = { id: "pub.ext", location: "/ext/pub.ext" } as IExtension;
-        const first = h.service.setExtensions((id) => (id === extension.id ? extension : undefined));
+        h.service.setExtensions((id) => (id === extension.id ? extension : undefined));
         expect(resolve()).toBe("/ext/pub.ext");
-        const second = h.service.setExtensions(() => ({ ...extension, location: "/ext/2" }));
-        first.dispose();
-        expect(resolve()).toBe("/ext/2");
-        second.dispose();
-        expect(resolve).toThrow("not installed");
+        expect(() => h.service.resolveWithValues(FOLDER, "${extensionInstallFolder:x.y}")).toThrow("not installed");
+    });
+
+    it("the window is read only when a variable needs it, the selection only for ${selectedText}", () => {
+        const h = harness();
+        const getActiveTabEditor = vi.spyOn(h.editors, "getActiveTabEditor");
+        expect(h.service.resolveWithValues(FOLDER, "${input:a} plain", new Map([["input:a", "A"]]))).toBe("A plain");
+        expect(getActiveTabEditor).not.toHaveBeenCalled();
+        h.service.resolveWithValues(FOLDER, "${file} ${lineNumber}");
+        expect(getActiveTabEditor).toHaveBeenCalledTimes(1);
+        expect(h.selectionReads()).toBe(0);
     });
 });

@@ -22,8 +22,8 @@ export interface IVariableResolveContext {
     readonly lineNumber: number | undefined;
     /** 1-based. */
     readonly columnNumber: number | undefined;
-    /** Of the primary selection; empty — none. */
-    readonly selectedText: string | undefined;
+    /** Of the primary selection; empty — none. Read only for `${selectedText}`: a selection may be huge. */
+    getSelectedText(): string | undefined;
     readonly env: Readonly<Record<string, string | undefined>>;
     readonly userHome: string | undefined;
     readonly cwd: string;
@@ -36,16 +36,19 @@ export interface IVariableResolveContext {
 
 /**
  * Resolves the variables of a copy of `config` (a string or a JSON tree); `values` (keyed `name:arg`) come first:
- * the commands and inputs acquired with interaction.
+ * the commands and inputs acquired with interaction. The context is taken once, on the first variable `values`
+ * does not have.
  */
 export function resolveVariables<T>(
     config: T,
-    context: IVariableResolveContext,
+    context: () => IVariableResolveContext,
     values: ReadonlyMap<string, string> = new Map(),
 ): T {
     const expression = ConfigurationResolverExpression.parse(config);
+    let snapshot: IVariableResolveContext | undefined;
     for (const replacement of expression.unresolved()) {
-        expression.resolve(replacement, values.get(replacement.inner) ?? evaluateVariable(replacement, context));
+        const value = values.get(replacement.inner) ?? evaluateVariable(replacement, (snapshot ??= context()));
+        expression.resolve(replacement, value);
     }
     return expression.toObject();
 }
@@ -121,11 +124,13 @@ export function evaluateVariable(replacement: IReplacement, context: IVariableRe
             throw new VariableError(
                 `Variable ${id} can not be resolved. Make sure to have a column selected in the active editor.`,
             );
-        case "selectedText":
-            if (context.selectedText) return context.selectedText;
+        case "selectedText": {
+            const selectedText = context.getSelectedText();
+            if (selectedText) return selectedText;
             throw new VariableError(
                 `Variable ${id} can not be resolved. Make sure to have some text selected in the active editor.`,
             );
+        }
         case "file":
             return filePath();
         case "fileWorkspaceFolder":

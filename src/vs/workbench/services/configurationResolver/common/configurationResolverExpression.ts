@@ -124,13 +124,13 @@ export class ConfigurationResolverExpression<T> {
             const at: IPropertyLocation = { object, propertyName, replaceKeyName };
             location.locations.push(at);
             this.locations.set(replacement.id, location);
-            if (location.resolved !== undefined) this.resolveAt(replacement, at, location.resolved, [...path]);
+            if (location.resolved !== undefined) this.resolveAt(replacement, at, location.resolved, path);
             else for (const notify of this.newReplacementNotifiers) notify(replacement);
         }
     }
 
-    private resolveAt(replacement: IReplacement, at: IPropertyLocation, value: string, path: string[]): void {
-        path.push(replacement.id);
+    private resolveAt(replacement: IReplacement, at: IPropertyLocation, value: string, path: readonly string[]): void {
+        const scanned = [...path, replacement.id];
         const { object, propertyName } = at;
         if (at.replaceKeyName) {
             const key = String(propertyName);
@@ -141,12 +141,11 @@ export class ConfigurationResolverExpression<T> {
             object[newKey] = property;
             this.renameKey(object, key, newKey);
             // Only the substituted text is scanned again, not the whole string.
-            this.parseString(object, newKey, value, true, path);
+            this.parseString(object, newKey, value, true, scanned);
         } else {
             object[propertyName] = (object[propertyName] as string).replaceAll(replacement.id, value);
-            this.parseString(object, propertyName, value, false, path);
+            this.parseString(object, propertyName, value, false, scanned);
         }
-        path.pop();
     }
 
     private renameKey(object: object, oldKey: string, newKey: string): void {

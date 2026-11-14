@@ -12,7 +12,7 @@ import type { IExtension } from "../../../../platform/extensions/common/iExtensi
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
     type IStateDescriptor,
-    type IStateService,
+    type IStateStore,
     StateServiceDIToken,
 } from "../../../../platform/state/common/iStateService.ts";
 import type {
@@ -70,31 +70,26 @@ export class ConfigurationResolverService implements IConfigurationResolverServi
         private readonly editors: IEditorService,
         private readonly commands: CommandRegistry,
         private readonly quickInput: QuickInputService,
-        private readonly state: IStateService,
+        private readonly state: IStateStore,
     ) {}
 
     /** The extension host is not part of every window; until it is, `${extensionInstallFolder:…}` finds nothing. */
-    public setExtensions(lookup: ExtensionLookup): IDisposable {
+    public setExtensions(lookup: ExtensionLookup): void {
         this.extensions = lookup;
-        return {
-            dispose: () => {
-                if (this.extensions === lookup) this.extensions = () => undefined;
-            },
-        };
     }
 
     public resolveAsync<T>(folder: IWorkspaceFolder | undefined, config: T): Promise<T> {
         return new Promise((resolve) => {
-            resolve(this.resolveWithValues(folder, config, new Map()));
+            resolve(this.resolveWithValues(folder, config));
         });
     }
 
     public resolveWithValues<T>(
         folder: IWorkspaceFolder | undefined,
         config: T,
-        values: ReadonlyMap<string, string>,
+        values?: ReadonlyMap<string, string>,
     ): T {
-        return resolveVariables(config, this.context(folder), values);
+        return resolveVariables(config, () => this.context(folder), values);
     }
 
     public async resolveWithInteractionReplace<T>(
@@ -116,19 +111,21 @@ export class ConfigurationResolverService implements IConfigurationResolverServi
         inputs?: () => Promise<readonly unknown[] | undefined>,
     ): Promise<Map<string, string> | undefined> {
         const expression = ConfigurationResolverExpression.parse(config);
-        const context = this.context(folder);
+        let context: IVariableResolveContext | undefined;
         let configuredInputs: Promise<readonly unknown[] | undefined> | undefined;
         for (const variable of expression.unresolved()) {
-            let value: string | undefined;
+            let value: string;
             if (variable.name === "command") {
                 const id = variable.arg ?? "";
                 const result = await this.executeCommand(variables?.[id] ?? id, expression.toObject());
-                if (result !== undefined && result !== null && typeof result !== "string") {
+                // Cancelling any input or command cancels the whole resolution.
+                if (result === undefined || result === null) return undefined;
+                if (typeof result !== "string") {
                     throw new VariableError(
                         `Cannot substitute command variable '${id}' because command did not return a result of type string.`,
                     );
                 }
-                value = result ?? undefined;
+                value = result;
             } else if (variable.name === "input") {
                 configuredInputs ??= inputs?.() ?? Promise.resolve(undefined);
                 const input = await this.showUserInput(
@@ -142,10 +139,8 @@ export class ConfigurationResolverService implements IConfigurationResolverServi
                 if (input.value === undefined) continue;
                 value = input.value;
             } else {
-                value = evaluateVariable(variable, context);
+                value = evaluateVariable(variable, (context ??= this.context(folder)));
             }
-            // Cancelling any input or command cancels the whole resolution.
-            if (value === undefined) return undefined;
             expression.resolve(variable, value);
         }
         return expression.resolvedValues();
@@ -170,7 +165,7 @@ export class ConfigurationResolverService implements IConfigurationResolverServi
             fileFolderPath: fileFolder?.uri.fsPath,
             lineNumber: file === undefined ? undefined : file.primaryCursorLine + 1,
             columnNumber: file === undefined ? undefined : file.primaryCursorColumn + 1,
-            selectedText: file?.getSelectedTexts()[0],
+            getSelectedText: () => file?.getSelectedTexts()[0],
             env: process.env,
             userHome: process.env.HOME ?? process.env.USERPROFILE,
             cwd: process.cwd(),

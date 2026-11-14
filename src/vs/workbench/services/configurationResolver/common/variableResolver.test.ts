@@ -17,7 +17,7 @@ function context(overrides: Partial<IVariableResolveContext> = {}): IVariableRes
         fileFolderPath: "/ws/proj",
         lineNumber: 7,
         columnNumber: 3,
-        selectedText: "sel",
+        getSelectedText: () => "sel",
         env: { HOME: "/home/u", EMPTY: "" },
         userHome: "/home/u",
         cwd: "/proc/cwd",
@@ -30,7 +30,7 @@ function context(overrides: Partial<IVariableResolveContext> = {}): IVariableRes
 }
 
 const resolve = (value: string, overrides?: Partial<IVariableResolveContext>): string =>
-    resolveVariables(value, context(overrides));
+    resolveVariables(value, () => context(overrides));
 
 describe("resolveVariables — values", () => {
     it("workspace folder and its name (with deprecated aliases), a folder by name", () => {
@@ -103,7 +103,7 @@ describe("resolveVariables — values", () => {
             ["command:pick", "42"],
             ["workspaceFolder", "/elsewhere"],
         ]);
-        expect(resolveVariables("${input:name} ${command:pick} ${workspaceFolder}", context(), values)).toBe(
+        expect(resolveVariables("${input:name} ${command:pick} ${workspaceFolder}", () => context(), values)).toBe(
             "N 42 /elsewhere",
         );
     });
@@ -115,7 +115,7 @@ describe("resolveVariables — values", () => {
             env: { "${workspaceFolderBasename}_DIR": "${workspaceFolder}/out" },
             flag: true,
         };
-        expect(resolveVariables(config, context())).toStrictEqual({
+        expect(resolveVariables(config, () => context())).toStrictEqual({
             name: "/home/u",
             list: ["proj", 1, null, { deep: ["7"] }],
             env: { proj_DIR: "/ws/proj/out" },
@@ -217,7 +217,7 @@ describe("resolveVariables — refusals (upstream texts)", () => {
             fails(
                 "${selectedText}",
                 "Variable ${selectedText} can not be resolved. Make sure to have some text selected in the active editor.",
-                { selectedText },
+                { getSelectedText: () => selectedText },
             );
         }
     });

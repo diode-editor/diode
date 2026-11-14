@@ -9,9 +9,19 @@ function tasksJson(task: Record<string, unknown>, inputs: readonly unknown[] = [
     return JSON.stringify({ version: "2.0.0", tasks: [{ label: "greet", type: "shell", ...task }], inputs });
 }
 
-async function workspaceTask(h: ReturnType<typeof buildTaskServiceHarness>) {
+type Harness = ReturnType<typeof buildTaskServiceHarness>;
+
+async function workspaceTask(h: Harness) {
     const [task] = await h.service.getWorkspaceTasks();
     return task;
+}
+
+/** Runs the task in the background and waits until it has a terminal session. */
+async function startTask(h: Harness, task: Parameters<Harness["service"]["run"]>[0]): Promise<void> {
+    void h.service.run(task);
+    await vi.waitFor(() => {
+        expect(h.sessions).toHaveLength(1);
+    });
 }
 
 describe("TaskService — ${input:…} and ${command:…}", () => {
@@ -20,10 +30,7 @@ describe("TaskService — ${input:…} and ${command:…}", () => {
             tasksJson: tasksJson({ command: "echo", args: ["${input:name}", "again ${input:name}"] }),
         });
         h.answerInputs("Ann");
-        void h.service.run(await workspaceTask(h));
-        await vi.waitFor(() => {
-            expect(h.sessions).toHaveLength(1);
-        });
+        await startTask(h, await workspaceTask(h));
         expect(h.inputs).toStrictEqual([{ prompt: "Your name", value: "world", password: false }]);
         expect(h.terminals.getInstances()[0].launch.shellArgs).toStrictEqual(["-c", "echo Ann 'again Ann'"]);
         h.dispose();
@@ -38,10 +45,7 @@ describe("TaskService — ${input:…} and ${command:…}", () => {
             ),
         });
         h.answerPicks("release");
-        void h.service.run(await workspaceTask(h));
-        await vi.waitFor(() => {
-            expect(h.sessions).toHaveLength(1);
-        });
+        await startTask(h, await workspaceTask(h));
         const { launch } = h.terminals.getInstances()[0];
         expect([launch.cwd, launch.env]).toStrictEqual(["/ws/release", { MODE: "release" }]);
         expect(h.picks).toHaveLength(1);
@@ -61,10 +65,7 @@ describe("TaskService — ${input:…} and ${command:…}", () => {
         const h = buildTaskServiceHarness();
         const pick = vi.fn(() => Promise.resolve("4242"));
         h.commands.register("lldb.pickMyProcess", pick);
-        void h.service.run(makeTask({ command: { name: "attach ${command:lldb.pickMyProcess}" } }));
-        await vi.waitFor(() => {
-            expect(h.sessions).toHaveLength(1);
-        });
+        await startTask(h, makeTask({ command: { name: "attach ${command:lldb.pickMyProcess}" } }));
         expect(pick).toHaveBeenCalledTimes(1);
         expect(h.terminals.getInstances()[0].launch.shellArgs).toStrictEqual(["-c", "attach 4242"]);
         h.dispose();
@@ -84,10 +85,7 @@ describe("TaskService — ${input:…} and ${command:…}", () => {
         const h = buildTaskServiceHarness({ tasksJson: tasksJson({ command: "x" }) });
         h.answerInputs("sub");
         const matcher = { owner: "o", filePrefix: "${input:name}", pattern: [{ regexp: "^(.*)$", file: 1 }] };
-        void h.service.run(makeTask({ problemMatchers: [matcher as never] }));
-        await vi.waitFor(() => {
-            expect(h.sessions).toHaveLength(1);
-        });
+        await startTask(h, makeTask({ problemMatchers: [matcher as never] }));
         expect(h.inputs).toHaveLength(1);
         h.dispose();
     });
@@ -98,10 +96,7 @@ describe("TaskService — ${input:…} and ${command:…}", () => {
         });
         h.answerInputs("Ann");
         const task = await workspaceTask(h);
-        void h.service.run(task);
-        await vi.waitFor(() => {
-            expect(h.sessions).toHaveLength(1);
-        });
+        await startTask(h, task);
         void h.service.run(task);
         await vi.waitFor(() => {
             expect(h.notifications.passive()).toHaveLength(1);
@@ -114,10 +109,7 @@ describe("TaskService — ${input:…} and ${command:…}", () => {
         const h = buildTaskServiceHarness({ tasksJson: tasksJson({ command: "echo ${input:name}" }) });
         const openRunTask = vi.fn(() => Promise.resolve());
         h.answerInputs("Ann", "Bob", undefined);
-        void h.service.run(await workspaceTask(h));
-        await vi.waitFor(() => {
-            expect(h.sessions).toHaveLength(1);
-        });
+        await startTask(h, await workspaceTask(h));
         h.sessions[0].emitExit(0);
         await h.service.rerun(openRunTask);
         expect(h.sessions[0].relaunches.at(-1)?.args).toStrictEqual(["-c", "echo Bob"]);
@@ -132,10 +124,7 @@ describe("TaskService — ${input:…} and ${command:…}", () => {
             tasksJson: tasksJson({ command: "echo ${input:name}", runOptions: { reevaluateOnRerun: false } }),
         });
         fixed.answerInputs("Ann");
-        void fixed.service.run(await workspaceTask(fixed));
-        await vi.waitFor(() => {
-            expect(fixed.sessions).toHaveLength(1);
-        });
+        await startTask(fixed, await workspaceTask(fixed));
         fixed.sessions[0].emitExit(0);
         await fixed.service.rerun(openRunTask);
         expect(fixed.sessions[0].relaunches.at(-1)?.args).toStrictEqual(["-c", "echo Ann"]);

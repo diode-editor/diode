@@ -57,14 +57,7 @@ import {
     parseTasksJson,
     type TaskPlatform,
 } from "../common/taskConfiguration.ts";
-import {
-    compareTasks,
-    getMapKey,
-    getTaskFolder,
-    type IConfiguringTask,
-    type ITask,
-    taskMatches,
-} from "../common/tasks.ts";
+import { compareTasks, getTaskFolder, type IConfiguringTask, type ITask, taskMatches } from "../common/tasks.ts";
 
 import {
     type ITaskEditorTerminals,
@@ -73,6 +66,7 @@ import {
     type ITaskRunContext,
     type ITaskSummary,
     TerminalTaskSystem,
+    variableSourcesOf,
 } from "./terminalTaskSystem.ts";
 
 export type { ITaskEvent, ITaskSummary } from "./terminalTaskSystem.ts";
@@ -103,25 +97,14 @@ const TASKS_LOG_CHANNEL = "tasks";
 export interface IWorkspaceTaskConfiguration {
     readonly tasks: readonly ITask[];
     readonly configuring: readonly IConfiguringTask[];
-    /** The `inputs` section of tasks.json. */
-    readonly inputs?: readonly unknown[];
+    /** The `inputs` section of tasks.json, if it is an array. */
+    readonly inputs: readonly unknown[] | undefined;
 }
 
-const NO_WORKSPACE_TASKS: IWorkspaceTaskConfiguration = { tasks: [], configuring: [] };
+const NO_WORKSPACE_TASKS: IWorkspaceTaskConfiguration = { tasks: [], configuring: [], inputs: undefined };
 
 function messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
-}
-
-/**
- * What the task system resolves variables in: the command, the definition and the `filePrefix` of inline matchers
- * (a named matcher brings no `${input:…}`; its variables are resolved at launch).
- */
-function variableSourcesOf(task: ITask): unknown {
-    const prefixes = task.problemMatchers.map((matcher) =>
-        typeof matcher === "string" ? undefined : matcher.filePrefix,
-    );
-    return [task.command, task.definition, prefixes];
 }
 
 /** Installs the extension host bridge; `undefined` means providers of all types. */
@@ -323,7 +306,7 @@ export class TaskService extends Disposable {
             // Errors (not warnings) also get a toast (upstream's `_showOutput`).
             if (problems.some((problem) => problem.startsWith("Error:"))) this.promptToShowOutput();
         }
-        return { tasks, configuring, ...(inputs !== undefined ? { inputs } : {}) };
+        return { tasks, configuring, inputs };
     }
 
     public tasksJsonUri(): Uri | undefined {
@@ -450,8 +433,9 @@ export class TaskService extends Disposable {
             // A task run before the extensions' matchers are registered waits for them (upstream's `_executeTask`).
             await this.problemMatchers.onReady();
             // A running task asks for no inputs: its instancePolicy decides (upstream checks before acquiring input).
-            const running = this.system.getActiveTasks().some((active) => getMapKey(active) === getMapKey(task));
-            const context = running ? this.contextWith(task, new Map()) : await this.acquireInput(task);
+            const context = this.system.isActive(task)
+                ? this.contextWith(task, new Map())
+                : await this.acquireInput(task);
             // A cancelled input or command cancels the run.
             if (context === undefined) return undefined;
             return await this.handleExecuteResult(this.system.run(task, context));
@@ -467,13 +451,13 @@ export class TaskService extends Disposable {
         let result: ITaskExecuteResult | undefined;
         try {
             const last = this.system.getLastTask();
-            // Without reevaluation the previous launch is reused and the context is not looked at.
-            const context =
-                last?.runOptions.reevaluateOnRerun === true
-                    ? await this.acquireInput(last)
-                    : this.contextWith(last, new Map());
-            if (context === undefined) return;
-            result = this.system.rerun(context);
+            if (last?.runOptions.reevaluateOnRerun === true) {
+                const context = await this.acquireInput(last);
+                if (context === undefined) return;
+                result = this.system.run(last, context);
+            } else {
+                result = this.system.rerun();
+            }
         } catch (error) {
             this.handleError(error);
             return;
@@ -656,8 +640,8 @@ export class TaskService extends Disposable {
         return values === undefined ? undefined : this.contextWith(task, values);
     }
 
-    private contextWith(task: ITask | undefined, values: ReadonlyMap<string, string>): ITaskRunContext {
-        const folder = task === undefined ? undefined : this.folderOf(task);
+    private contextWith(task: ITask, values: ReadonlyMap<string, string>): ITaskRunContext {
+        const folder = this.folderOf(task);
         return {
             platform: this.platform,
             resolve: (value) => this.resolver.resolveWithValues(folder, value, values),

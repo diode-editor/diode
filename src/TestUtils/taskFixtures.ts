@@ -90,7 +90,7 @@ export function taskVariables(overrides: Partial<IVariableResolveContext> = {}):
         fileFolderPath: undefined,
         lineNumber: undefined,
         columnNumber: undefined,
-        selectedText: undefined,
+        getSelectedText: () => undefined,
         env: {},
         userHome: "/home/u",
         cwd: "/cwd",
@@ -105,5 +105,5 @@ export function taskVariables(overrides: Partial<IVariableResolveContext> = {}):
 /** A run context that resolves the variables without interaction. */
 export function taskRunContext(overrides: Partial<IVariableResolveContext> = {}): ITaskRunContext {
     const variables = taskVariables(overrides);
-    return { platform: "linux", resolve: (value) => resolveVariables(value, variables) };
+    return { platform: "linux", resolve: (value) => resolveVariables(value, () => variables) };
 }
