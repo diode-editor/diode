@@ -439,4 +439,21 @@ describe("installVsixWithDependencies", () => {
         });
         expect(installed()).toEqual(["acme.local@1.0.0"]);
     });
+
+    it("a registry that throws something other than an Error is reported as text", async () => {
+        const vsixPath = await writeVsix({
+            publisher: "acme",
+            name: "local",
+            version: "1.0.0",
+            extensionDependencies: ["a.b"],
+        });
+        const throwsText = (): IExtensionRegistrySource => {
+            // eslint-disable-next-line @typescript-eslint/only-throw-error -- the point: a source that throws a non-Error
+            throw "registry is down";
+        };
+
+        const result = await installVsixWithDependencies(throwsText, vsixPath, { extensionsDir, host: HOST });
+
+        expect(result.dependencyError).toBe("registry is down");
+    });
 });

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
+import { FileDialogServiceDIToken } from "../../../services/dialogs/browser/fileDialogService.ts";
+import type { IOpenDialogOptions } from "../../../services/dialogs/browser/simpleFileDialog.ts";
 import {
     NotificationService,
     NotificationServiceDIToken,
@@ -10,7 +12,12 @@ import {
 import type { IExtensionsWorkbenchService, IVsixInstallResult } from "../common/extensionsWorkbench.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../common/extensionsWorkbench.ts";
 
-import { ExtensionVsixContribution, INSTALL_FROM_VSIX_COMMAND_ID, vsixPathsOf } from "./extensionVsixActions.ts";
+import {
+    ExtensionVsixContribution,
+    INSTALL_FROM_VSIX_COMMAND_ID,
+    installVsixAction,
+    vsixPathsOf,
+} from "./extensionVsixActions.ts";
 
 describe("vsixPathsOf", () => {
     it("takes a URI, a list of them, their structured clone or JSON, and plain paths", () => {
@@ -93,5 +100,73 @@ describe("workbench.extensions.command.installFromVSIX — the announcement", ()
         await run(["/a.vsix", "/b.vsix"]);
 
         expect(shown()).toMatchObject({ message: "Completed installing extensions." });
+    });
+});
+
+describe("Extensions: Install from VSIX... (palette)", () => {
+    function setup(picked: Uri[] | undefined, installVsix: (vsixPath: string) => Promise<IVsixInstallResult>) {
+        const container = new Container();
+        const notifications = new NotificationService();
+        const dialogs: IOpenDialogOptions[] = [];
+        const installed: string[] = [];
+        container.bind(NotificationServiceDIToken, () => notifications);
+        container.bind(FileDialogServiceDIToken, () => ({
+            showOpenDialog: (options?: IOpenDialogOptions) => {
+                dialogs.push(options ?? {});
+                return Promise.resolve(picked);
+            },
+            showSaveDialog: () => Promise.resolve(undefined),
+        }));
+        container.bind(
+            ExtensionsWorkbenchServiceDIToken,
+            () =>
+                ({
+                    installVsix: (vsixPath: string) => {
+                        installed.push(vsixPath);
+                        return installVsix(vsixPath);
+                    },
+                }) as unknown as IExtensionsWorkbenchService,
+        );
+        return {
+            run: () => installVsixAction.run(container) as Promise<void>,
+            dialogs,
+            installed,
+            shown: () => notifications.current() ?? notifications.passive()[0],
+        };
+    }
+
+    it("opens upstream's dialog: several .vsix files, the Install button; installs what was picked", async () => {
+        const h = setup([Uri.file("/a.vsix"), Uri.file("/b.vsix")], () => Promise.resolve({ needsReload: true }));
+
+        await h.run();
+
+        expect(h.dialogs).toEqual([
+            {
+                title: "Install from VSIX",
+                filters: [{ name: "VSIX Extensions", extensions: ["vsix"] }],
+                canSelectFiles: true,
+                canSelectMany: true,
+                openLabel: "Install",
+            },
+        ]);
+        expect(h.installed).toEqual(["/a.vsix", "/b.vsix"]);
+    });
+
+    it("a cancelled dialog installs nothing and shows nothing", async () => {
+        const h = setup(undefined, () => Promise.resolve({ needsReload: true }));
+
+        await h.run();
+
+        expect(h.installed).toEqual([]);
+        expect(h.shown()).toBeUndefined();
+    });
+
+    it("a failure is an error notification, whatever the rejection carries", async () => {
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the point: a layer that rejects with a non-Error
+        const h = setup([Uri.file("/a.vsix")], () => Promise.reject("disk is full"));
+
+        await h.run();
+
+        expect(h.shown()).toMatchObject({ severity: "error", message: "disk is full" });
     });
 });

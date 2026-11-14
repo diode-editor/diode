@@ -137,6 +137,7 @@ describe("Workbench — install from VSIX", () => {
         await vi.waitFor(() => {
             expect(dialog.component.isOpen()).toBe(false);
         });
+        await settle(0);
 
         const notifications = h.container.get(NotificationServiceDIToken);
         expect(notifications.current()).toBeNull();
