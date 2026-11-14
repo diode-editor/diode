@@ -227,6 +227,7 @@ describe("ConfigurationResolverService — commands", () => {
         await expect(h.service.resolveWithInteraction(undefined, "${command:nope}")).rejects.toThrow(
             "command 'nope' not found",
         );
+        await expect(h.service.resolveWithInteraction(undefined, "${command}")).rejects.toThrow("command '' not found");
     });
 });
 
@@ -257,16 +258,16 @@ describe("ConfigurationResolverService — inputs", () => {
         ]);
     });
 
-    it("pick options as {label, value}: `label: value`; a value without a label as is", async () => {
+    it("pick options as {label, value}: `label: value`; a value without a label (or an empty one) as is", async () => {
         const h = harness();
         h.picked.push("b");
-        const list = [
-            { id: "p", type: "pickString", description: "D", options: [{ label: "A", value: "a" }, { value: "b" }] },
-        ];
+        const options = [{ label: "A", value: "a" }, { value: "b" }, { label: "", value: "c" }];
+        const list = [{ id: "p", type: "pickString", description: "D", options }];
         expect(await h.askReplace("${input:p}", list)).toBe("b");
         expect(h.shownPicks[0].items).toStrictEqual([
             { label: "A: a", value: "a" },
             { label: "b", value: "b" },
+            { label: "c", value: "c" },
         ]);
     });
 
@@ -328,12 +329,14 @@ describe("ConfigurationResolverService — inputs", () => {
     it("a command input returning nothing leaves the variable as is; a non-string is an error", async () => {
         const h = harness();
         h.commands.register("nothing", () => undefined);
+        h.commands.register("null", () => null);
         h.commands.register("number", () => 1);
         const list = [
             { id: "n", type: "command", command: "nothing" },
+            { id: "z", type: "command", command: "null" },
             { id: "x", type: "command", command: "number" },
         ];
-        expect(await h.askReplace("${input:n}!", list)).toBe("${input:n}!");
+        expect(await h.askReplace("${input:n}! ${input:z}?", list)).toBe("${input:n}! ${input:z}?");
         await expect(h.ask("${input:x}", list)).rejects.toStrictEqual(
             new VariableError(
                 "Cannot substitute input variable 'x' because command 'number' did not return a result of type string.",
@@ -346,9 +349,15 @@ describe("ConfigurationResolverService — inputs", () => {
         const fails = async (list: readonly unknown[] | undefined, message: string): Promise<void> => {
             await expect(h.ask("${input:i}", list)).rejects.toStrictEqual(new VariableError(message));
         };
-        for (const read of [inputs(undefined), undefined]) {
+        // Without a section the inputs are not looked for (upstream's `resolveInputs`).
+        const cases = [
+            ["tasks", inputs(undefined)],
+            ["tasks", undefined],
+            [undefined, inputs([{ id: "i", type: "promptString", description: "d" }])],
+        ] as const;
+        for (const [section, read] of cases) {
             await expect(
-                h.service.resolveWithInteraction(FOLDER, "${input:i}", "tasks", undefined, read),
+                h.service.resolveWithInteraction(FOLDER, "${input:i}", section, undefined, read),
             ).rejects.toStrictEqual(
                 new VariableError(
                     "Variable 'i' must be defined in an 'inputs' section of the debug or task configuration.",
@@ -358,6 +367,9 @@ describe("ConfigurationResolverService — inputs", () => {
         await fails(
             [null, { id: "other" }],
             "Undefined input variable 'i' encountered. Remove or define 'i' to continue.",
+        );
+        await expect(h.ask("${input}")).rejects.toStrictEqual(
+            new VariableError("Undefined input variable '' encountered. Remove or define '' to continue."),
         );
         await fails(
             [{ id: "i", type: "radio" }],
@@ -380,6 +392,10 @@ describe("ConfigurationResolverService — inputs", () => {
             "Input variable 'i' is of type 'pickString' and must include 'value'.",
         );
         await fails(
+            [{ id: "i", type: "pickString", description: "d", options: [null] }],
+            "Input variable 'i' is of type 'pickString' and must include 'value'.",
+        );
+        await fails(
             [{ id: "i", type: "command" }],
             "Input variable 'i' is of type 'command' and must include 'command'.",
         );
@@ -396,12 +412,15 @@ describe("ConfigurationResolverService — inputs", () => {
         const h = harness();
         h.typed.push("typed", "secret");
         await h.ask("${input:input1} ${input:input3}");
-        h.picked.push("option1");
+        h.picked.push("option3");
         await h.ask("${input:input2}");
+        // A cancelled prompt forgets nothing.
+        h.typed.push(undefined);
+        await h.ask("${input:input1}");
         await h.ask("${input:input1} ${input:input3} ${input:input2}");
-        expect(h.shownInputs.slice(2).map((opts) => opts.value)).toStrictEqual(["typed", "default input3"]);
-        // The default stays first; the remembered one goes right after it.
-        expect(h.shownPicks[1].items.map((item) => item.label)).toStrictEqual(["option2", "option1", "option3"]);
+        expect(h.shownInputs.slice(3).map((opts) => opts.value)).toStrictEqual(["typed", "default input3"]);
+        // The default and the remembered one are moved to the top in option order (upstream's `unshift`).
+        expect(h.shownPicks[1].items.map((item) => item.label)).toStrictEqual(["option3", "option2", "option1"]);
         await h.ask("${input:input1}", INPUTS, { section: "launch" });
         expect(h.shownInputs.at(-1)?.value).toBe("default input1");
         await h.ask("${input:input1}", INPUTS, { variables: { "input:input1": "preset" } });
@@ -498,6 +517,7 @@ describe("ConfigurationResolverService — the window behind the variables", () 
         const other: IWorkspaceFolder = { uri: Uri.file("/other"), name: "other", index: 1 };
         const h = harness({ folders: [FOLDER, other] });
         expect(h.service.resolveWithValues(FOLDER, "${workspaceFolder:other}")).toBe(other.uri.fsPath);
+        expect(() => h.service.resolveWithValues(FOLDER, "${workspaceFolder:nope}")).toThrow("No such folder 'nope'");
         expect(() => h.service.resolveWithValues(undefined, "${workspaceFolder}")).toThrow("multi folder workspace");
         expect(h.service.resolveWithValues(FOLDER, "${config:editor.tabSize}")).toBe("3");
         vi.stubEnv("DIODE_RESOLVER_VAR", "v");

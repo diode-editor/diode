@@ -13,8 +13,8 @@ export interface IReplacement {
 }
 
 interface IPropertyLocation {
-    readonly object: Record<string | number, unknown>;
-    propertyName: string | number;
+    readonly object: Record<string, unknown>;
+    propertyName: string;
     readonly replaceKeyName: boolean;
 }
 
@@ -26,14 +26,12 @@ interface IReplacementLocation {
 
 export class ConfigurationResolverExpression<T> {
     private readonly locations = new Map<string, IReplacementLocation>();
-    private readonly root: Record<string | number, unknown>;
+    private readonly root: Record<string, unknown>;
     private readonly stringRoot: boolean;
-    /** Lets {@link unresolved} pick up variables that a resolved value brings in. */
-    private readonly newReplacementNotifiers = new Set<(replacement: IReplacement) => void>();
 
     private constructor(object: T) {
         this.stringRoot = typeof object === "string";
-        this.root = this.stringRoot ? { value: object } : (structuredClone(object) as Record<string | number, unknown>);
+        this.root = this.stringRoot ? { value: object } : (structuredClone(object) as Record<string, unknown>);
     }
 
     public static parse<T>(object: T): ConfigurationResolverExpression<T> {
@@ -42,23 +40,16 @@ export class ConfigurationResolverExpression<T> {
         return expression;
     }
 
-    /** Includes variables found in resolved values while iterating; each id once. */
+    /** Includes variables found in resolved values while iterating (they are appended); each id once. */
     public *unresolved(): Generator<IReplacement> {
-        const pending = new Map<string, IReplacement>();
-        for (const location of this.locations.values()) {
-            if (location.resolved === undefined) pending.set(location.replacement.id, location.replacement);
-        }
-        const notifier = (replacement: IReplacement): void => {
-            pending.set(replacement.id, replacement);
-        };
-        this.newReplacementNotifiers.add(notifier);
-        try {
-            for (let next = first(pending); next !== undefined; next = first(pending)) {
-                pending.delete(next.id);
-                yield next;
-            }
-        } finally {
-            this.newReplacementNotifiers.delete(notifier);
+        const yielded = new Set<string>();
+        for (;;) {
+            const next = [...this.locations.values()].find(
+                ({ replacement, resolved }) => resolved === undefined && !yielded.has(replacement.id),
+            );
+            if (next === undefined) return;
+            yielded.add(next.replacement.id);
+            yield next.replacement;
         }
     }
 
@@ -76,7 +67,7 @@ export class ConfigurationResolverExpression<T> {
         const location = this.locations.get(replacement.id);
         if (location === undefined) return;
         location.resolved = value;
-        for (const at of location.locations) this.resolveAt(replacement, at, value, []);
+        for (const at of location.locations) this.resolveAt(replacement, at, value, NO_PATH);
     }
 
     /** Unresolved variables stay as they are. */
@@ -84,27 +75,21 @@ export class ConfigurationResolverExpression<T> {
         return (this.stringRoot ? this.root.value : this.root) as T;
     }
 
+    /** Arrays too: their indexes are keys without variables. */
     private parseObject(object: unknown): void {
         if (typeof object !== "object" || object === null) return;
-        const record = object as Record<string | number, unknown>;
-        if (Array.isArray(object)) {
-            object.forEach((value: unknown, index) => {
-                if (typeof value === "string") this.parseString(record, index, value, false, []);
-                else this.parseObject(value);
-            });
-            return;
-        }
+        const record = object as Record<string, unknown>;
         for (const [key, value] of Object.entries(record)) {
-            this.parseString(record, key, key, true, []);
-            if (typeof value === "string") this.parseString(record, key, value, false, []);
+            this.parseString(record, key, key, true, NO_PATH);
+            if (typeof value === "string") this.parseString(record, key, value, false, NO_PATH);
             else this.parseObject(value);
         }
     }
 
     /** `path`: the variables whose values are being scanned, against `${env:A}` = `${env:A}` cycles. */
     private parseString(
-        object: Record<string | number, unknown>,
-        propertyName: string | number,
+        object: Record<string, unknown>,
+        propertyName: string,
         value: string,
         replaceKeyName: boolean,
         path: readonly string[],
@@ -125,7 +110,6 @@ export class ConfigurationResolverExpression<T> {
             location.locations.push(at);
             this.locations.set(replacement.id, location);
             if (location.resolved !== undefined) this.resolveAt(replacement, at, location.resolved, path);
-            else for (const notify of this.newReplacementNotifiers) notify(replacement);
         }
     }
 
@@ -133,7 +117,7 @@ export class ConfigurationResolverExpression<T> {
         const scanned = [...path, replacement.id];
         const { object, propertyName } = at;
         if (at.replaceKeyName) {
-            const key = String(propertyName);
+            const key = propertyName;
             const newKey = key.replaceAll(replacement.id, value);
             const property = object[key];
             // Re-added below under the new name: the key moves to the end, as upstream.
@@ -157,13 +141,13 @@ export class ConfigurationResolverExpression<T> {
     }
 }
 
-function first(pending: ReadonlyMap<string, IReplacement>): IReplacement | undefined {
-    return pending.values().next().value;
-}
+// Stryker disable next-line ArrayDeclaration: equivalent: no variable has the id a mutant puts here
+const NO_PATH: readonly string[] = [];
 
 /** `${…}` with balanced braces from `start`; `undefined` if it is never closed. */
 function parseVariable(text: string, start: number): IReplacement | undefined {
     let depth = 0;
+    // Stryker disable next-line EqualityOperator: equivalent: `text[text.length]` is no brace
     for (let end = start + 1; end < text.length; end++) {
         if (text[end] === "{") depth++;
         else if (text[end] === "}" && --depth === 0) {

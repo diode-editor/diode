@@ -130,6 +130,22 @@ describe("ConfigurationResolverExpression", () => {
         expect(expression.toObject()).toStrictEqual({ "the-key": "the-value", keep: 1 });
     });
 
+    it("resolved variables are not listed again; skipped ones are listed by the next pass", () => {
+        const expression = ConfigurationResolverExpression.parse(["${env:A}", "${env:B}"]);
+        for (const r of expression.unresolved()) if (r.arg === "A") expression.resolve(r, "a");
+        expect([...expression.unresolved()]).toStrictEqual([env("B")]);
+        expression.resolve(env("B"), "b");
+        expect([...expression.unresolved()]).toStrictEqual([]);
+        expect(expression.toObject()).toStrictEqual(["a", "b"]);
+    });
+
+    it("renaming a key moves only the locations in that key", () => {
+        const expression = ConfigurationResolverExpression.parse({ "${env:A}": "x", other: "${env:B}" });
+        expression.resolve(env("A"), "renamed");
+        expression.resolve(env("B"), "b");
+        expect(expression.toObject()).toStrictEqual({ renamed: "x", other: "b" });
+    });
+
     it("a value naming its own variable is not expanded again", () => {
         const expression = ConfigurationResolverExpression.parse({ a: "${env:A}", b: ["${env:A}"] });
         for (const r of expression.unresolved()) expression.resolve(r, "<${env:A}>");

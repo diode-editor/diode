@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { makeTask } from "../../../../../TestUtils/taskFixtures.ts";
 import { buildTaskServiceHarness } from "../../../../../TestUtils/taskServiceHarness.ts";
+import { LAST_INPUTS } from "../../../services/configurationResolver/browser/configurationResolverService.ts";
 
 const NAME_INPUT = { id: "name", type: "promptString", description: "Your name", default: "world" };
 
@@ -33,6 +34,8 @@ describe("TaskService — ${input:…} and ${command:…}", () => {
         await startTask(h, await workspaceTask(h));
         expect(h.inputs).toStrictEqual([{ prompt: "Your name", value: "world", password: false }]);
         expect(h.terminals.getInstances()[0].launch.shellArgs).toStrictEqual(["-c", "echo Ann 'again Ann'"]);
+        // Remembered under the `tasks` section, as upstream.
+        expect(h.state.get(LAST_INPUTS)).toStrictEqual([["tasks.name", "Ann"]]);
         h.dispose();
     });
 
@@ -118,6 +121,7 @@ describe("TaskService — ${input:…} and ${command:…}", () => {
         expect(h.sessions[0].relaunches).toHaveLength(1);
         expect(h.inputs).toHaveLength(3);
         expect(openRunTask).not.toHaveBeenCalled();
+        expect(h.notifications.passive()).toStrictEqual([]);
         h.dispose();
 
         const fixed = buildTaskServiceHarness({

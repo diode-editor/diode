@@ -6,7 +6,7 @@ import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeySe
 import type { IFileContent, IFileService } from "../vs/platform/files/common/files.ts";
 import type { ILogService } from "../vs/platform/log/common/iLogService.ts";
 import { MarkerService } from "../vs/platform/markers/common/markerService.ts";
-import { NULL_STATE_SERVICE } from "../vs/platform/state/common/nullStateService.ts";
+import { StateFileStore } from "../vs/platform/state/node/stateService.ts";
 import type {
     IWorkspaceContextService,
     IWorkspaceFolder,
@@ -129,6 +129,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
     });
     const quickInput = { quickPick, input } as unknown as QuickInputService;
     const commands = new CommandRegistry();
+    const state = new StateFileStore(undefined);
     const contextKeys = new ContextKeyService();
     const logger = createLoggerSpy();
     const logService = { createLogger: () => logger } as unknown as ILogService;
@@ -152,7 +153,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         editorTerminals,
         markers,
         new ProblemMatcherRegistry(),
-        new ConfigurationResolverService(configuration, workspace, editors, commands, quickInput, NULL_STATE_SERVICE),
+        new ConfigurationResolverService(configuration, workspace, editors, commands, quickInput, state),
     );
     const matcherProblems: string[] = [];
     const registerMatchers = (extensions: readonly IContributingExtension[]): void => {
@@ -196,6 +197,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         quickPick,
         inputs,
         commands,
+        state,
         /** Answers of the input boxes in order; `undefined` — Escape. */
         answerInputs: (...values: (string | undefined)[]): void => {
             typed.push(...values);

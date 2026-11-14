@@ -57,7 +57,7 @@ import {
     parseTasksJson,
     type TaskPlatform,
 } from "../common/taskConfiguration.ts";
-import { compareTasks, getTaskFolder, type IConfiguringTask, type ITask, taskMatches } from "../common/tasks.ts";
+import { compareTasks, type IConfiguringTask, type ITask, taskMatches } from "../common/tasks.ts";
 
 import {
     type ITaskEditorTerminals,
@@ -433,9 +433,7 @@ export class TaskService extends Disposable {
             // A task run before the extensions' matchers are registered waits for them (upstream's `_executeTask`).
             await this.problemMatchers.onReady();
             // A running task asks for no inputs: its instancePolicy decides (upstream checks before acquiring input).
-            const context = this.system.isActive(task)
-                ? this.contextWith(task, new Map())
-                : await this.acquireInput(task);
+            const context = this.system.isActive(task) ? this.contextWith(new Map()) : await this.acquireInput(task);
             // A cancelled input or command cancels the run.
             if (context === undefined) return undefined;
             return await this.handleExecuteResult(this.system.run(task, context));
@@ -626,30 +624,27 @@ export class TaskService extends Disposable {
     }
 
     /**
-     * Upstream's `_acquireInput`: the task's commands and inputs are asked for (each once) before it starts, along
+     * Upstream's `_acquireInput` (variables are resolved against the first folder: no multi-root,
+     * `docs/TODO/MultiRoot.md`): the task's commands and inputs are asked for (each once) before it starts, along
      * with all its other variables; `undefined` — the user cancelled.
      */
     private async acquireInput(task: ITask): Promise<ITaskRunContext | undefined> {
         const values = await this.resolver.resolveWithInteraction(
-            this.folderOf(task),
+            this.folder(),
             variableSourcesOf(task),
             "tasks",
             undefined,
             async () => (await this.getWorkspaceConfiguration()).inputs,
         );
-        return values === undefined ? undefined : this.contextWith(task, values);
+        return values === undefined ? undefined : this.contextWith(values);
     }
 
-    private contextWith(task: ITask, values: ReadonlyMap<string, string>): ITaskRunContext {
-        const folder = this.folderOf(task);
+    private contextWith(values: ReadonlyMap<string, string>): ITaskRunContext {
+        const folder = this.folder();
         return {
             platform: this.platform,
             resolve: (value) => this.resolver.resolveWithValues(folder, value, values),
         };
-    }
-
-    private folderOf(task: ITask): IWorkspaceFolder | undefined {
-        return getTaskFolder(task) ?? this.folder();
     }
 
     private folder(): IWorkspaceFolder | undefined {

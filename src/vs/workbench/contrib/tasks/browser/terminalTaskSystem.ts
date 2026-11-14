@@ -527,7 +527,7 @@ export class TerminalTaskSystem extends Disposable {
         }
         const options = command.options ?? {};
         const cwd = this.cwdOf(task, options.cwd === undefined ? undefined : resolve(options.cwd));
-        const env = options.env === undefined ? undefined : resolve(options.env);
+        const env = resolve(options.env);
         const unresolvedCommand = command.name ?? "";
         const commandName = resolveCommandString(unresolvedCommand, resolve);
         const args = (command.args ?? []).map((arg) => resolveCommandString(arg, resolve));
@@ -632,6 +632,7 @@ function commandValue(value: CommandString): string {
  */
 export function variableSourcesOf(task: ITask): unknown {
     const prefixes = task.problemMatchers.map((matcher) =>
+        // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent: a string has no `filePrefix` either
         typeof matcher === "string" ? undefined : matcher.filePrefix,
     );
     return [task.command, task.definition, prefixes];

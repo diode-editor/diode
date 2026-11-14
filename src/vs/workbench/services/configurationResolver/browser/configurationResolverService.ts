@@ -35,7 +35,7 @@ import { ConfigurationResolverExpression } from "../common/configurationResolver
 import { evaluateVariable, type IVariableResolveContext, resolveVariables } from "../common/variableResolver.ts";
 
 /** Upstream's `configResolveInputLru`: the last values of the inputs, by `section.id`, most recent last. */
-const LAST_INPUTS: IStateDescriptor<readonly (readonly [string, string])[]> = {
+export const LAST_INPUTS: IStateDescriptor<readonly (readonly [string, string])[]> = {
     key: "configResolveInputLru",
     scope: "workspace",
     default: [],
@@ -128,12 +128,7 @@ export class ConfigurationResolverService implements IConfigurationResolverServi
                 value = result;
             } else if (variable.name === "input") {
                 configuredInputs ??= inputs?.() ?? Promise.resolve(undefined);
-                const input = await this.showUserInput(
-                    section ?? "",
-                    variable.arg ?? "",
-                    await configuredInputs,
-                    variables,
-                );
+                const input = await this.showUserInput(section, variable.arg ?? "", await configuredInputs, variables);
                 if (input === undefined) return undefined;
                 // A `command` input that returns nothing leaves the variable as is (upstream).
                 if (input.value === undefined) continue;
@@ -176,14 +171,14 @@ export class ConfigurationResolverService implements IConfigurationResolverServi
         };
     }
 
-    /** `undefined` — cancelled; `value: undefined` — a `command` input returned nothing. */
+    /** `undefined` — cancelled; no `value` — a `command` input returned nothing. Inputs need a section (upstream). */
     private async showUserInput(
-        section: string,
+        section: string | undefined,
         id: string,
         inputs: readonly unknown[] | undefined,
         variables: Readonly<Record<string, string>> | undefined,
-    ): Promise<{ readonly value: string | undefined } | undefined> {
-        if (inputs === undefined) {
+    ): Promise<{ readonly value?: string } | undefined> {
+        if (section === undefined || inputs === undefined) {
             throw new VariableError(
                 `Variable '${id}' must be defined in an 'inputs' section of the debug or task configuration.`,
             );
@@ -251,7 +246,7 @@ export class ConfigurationResolverService implements IConfigurationResolverServi
             case "command": {
                 if (typeof info.command !== "string") throw missing("command");
                 const result = await this.queueInput(() => this.executeCommand(info.command, info.args));
-                if (result === undefined || result === null) return { value: undefined };
+                if (result === undefined || result === null) return {};
                 if (typeof result === "string") return { value: result };
                 throw new VariableError(
                     `Cannot substitute input variable '${id}' because command '${info.command}' did not return a result of type string.`,
