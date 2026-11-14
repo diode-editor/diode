@@ -19,7 +19,7 @@ function warnings(stub: ReturnType<typeof makeStubRpc>): string[] {
         .map((p) => `${p.channel}/${p.label}/${p.level}: ${p.value}`);
 }
 
-const tool = { invoke: vi.fn(), prepareInvocation: vi.fn() };
+const makeTool = () => ({ invoke: vi.fn(), prepareInvocation: vi.fn() });
 
 describe("vscode.lm — null object: there are no language models and no tools", () => {
     it("nothing is available: no tools, no chat models", async () => {
@@ -38,6 +38,7 @@ describe("vscode.lm — null object: there are no language models and no tools",
 
     it("register* return a Disposable; nobody calls the tool or the providers; tools stay empty", () => {
         const { vscode } = makeVscode();
+        const tool = makeTool();
         const mcp = { provideMcpServerDefinitions: vi.fn() };
         const chat = {
             provideLanguageModelChatInformation: vi.fn(),
@@ -54,7 +55,6 @@ describe("vscode.lm — null object: there are no language models and no tools",
                 disposable.dispose();
             }).not.toThrow();
         }
-        expect(vscode.lm.tools).toEqual([]);
         for (const fn of [tool.invoke, tool.prepareInvocation, mcp.provideMcpServerDefinitions]) {
             expect(fn).not.toHaveBeenCalled();
         }
@@ -63,7 +63,9 @@ describe("vscode.lm — null object: there are no language models and no tools",
 
     it("invokeTool is refused with a reason, even for a tool that was registered", async () => {
         const { vscode } = makeVscode();
+        const tool = makeTool();
         vscode.lm.registerTool("codelldb", tool);
+        expect(vscode.lm.tools).toEqual([]);
         const options = { toolInvocationToken: undefined, input: {} };
         await expect(vscode.lm.invokeTool("codelldb", options)).rejects.toThrow(
             'cannot invoke language model tool "codelldb": no language model tools in Diode',
@@ -73,6 +75,7 @@ describe("vscode.lm — null object: there are no language models and no tools",
 
     it("the user gets one line per extension, naming it", () => {
         const { stub, apiOf } = makeVscode();
+        const tool = makeTool();
         const lldb = apiOf("vadimcn.vscode-lldb");
         lldb.lm.registerTool("codelldb_session_info", tool);
         lldb.lm.registerTool("codelldb", tool);
@@ -92,6 +95,7 @@ describe("vscode.lm — null object: there are no language models and no tools",
 
     it("outside an extension's overlay the line names nobody, once", () => {
         const { stub, vscode } = makeVscode();
+        const tool = makeTool();
         vscode.lm.registerTool("a", tool);
         vscode.lm.registerTool("b", tool);
         expect(warnings(stub)).toEqual([

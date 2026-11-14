@@ -64,7 +64,7 @@ export const OWNED_MEMBERS = {
     // `executeTask` too: the task source and the provider's task id come from the caller.
     tasks: ["registerTaskProvider", "executeTask"],
     workspace: ["registerTaskProvider", "updateWorkspaceFolders"],
-    // Only for the Output warning: `lm` registrations are ignored, but the line names the extension.
+    // Registrations are ignored; the owner names the extension in the Output warning.
     lm: ["registerTool", "registerMcpServerDefinitionProvider", "registerLanguageModelChatProvider"],
 } as const satisfies {
     readonly window: readonly (keyof typeof vscode.window)[];

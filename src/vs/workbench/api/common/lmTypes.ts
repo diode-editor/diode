@@ -75,7 +75,7 @@ export class LanguageModelChatMessage implements vscode.LanguageModelChatMessage
         return new LanguageModelChatMessage(LanguageModelChatMessageRole.Assistant, content, name);
     }
 
-    private parts: vscode.LanguageModelInputPart[] = [];
+    private parts: vscode.LanguageModelInputPart[];
     public name: string | undefined;
 
     public constructor(
@@ -83,18 +83,22 @@ export class LanguageModelChatMessage implements vscode.LanguageModelChatMessage
         content: string | vscode.LanguageModelInputPart[],
         name?: string,
     ) {
-        this.content = content;
+        this.parts = toParts(content);
         this.name = name;
     }
 
     // Upstream keeps accepting a string here: the property used to be `string`.
     public set content(value: string | vscode.LanguageModelInputPart[]) {
-        this.parts = typeof value === "string" ? [new LanguageModelTextPart(value)] : value;
+        this.parts = toParts(value);
     }
 
     public get content(): vscode.LanguageModelInputPart[] {
         return this.parts;
     }
+}
+
+function toParts(content: string | vscode.LanguageModelInputPart[]): vscode.LanguageModelInputPart[] {
+    return typeof content === "string" ? [new LanguageModelTextPart(content)] : content;
 }
 
 export class LanguageModelError extends Error implements vscode.LanguageModelError {

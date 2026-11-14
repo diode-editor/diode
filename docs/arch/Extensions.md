@@ -205,10 +205,12 @@
   расширения — **тонкий оверлей** поверх общего namespace (`api/common/extensionApiFactory.ts`), а
   не своя копия неймспейсов: собственные свойства — дескрипторы общего (геттеры вроде
   `window.activeTextEditor` живые, value-типы общие: `api1.Position === api2.Position`), перекрыты
-  лишь `window`/`languages`/`commands`, где явный список синхронных «создающих» членов
-  (`createOutputChannel`, `createStatusBarItem`, активные `register*Provider`,
-  `createDiagnosticCollection`, `registerCommand`, …) обёрнут в `ExtensionOwner.runAs(id, …)` —
-  «окружающего владельца» из общего контекста (`IVscodeHostContext.owner`). Импортёр вне известных
+  лишь `window`/`languages`/`commands`/`tasks`/`workspace`/`lm`, где явный список синхронных
+  «создающих» членов (`OWNED_MEMBERS`: `createOutputChannel`, `createStatusBarItem`, активные
+  `register*Provider`, `createDiagnosticCollection`, `registerCommand`, …) обёрнут в
+  `ExtensionOwner.runAs(id, …)` — «окружающего владельца» из общего контекста
+  (`IVscodeHostContext.owner`). Это и есть общий способ узнать, какое расширение зовёт член: для
+  владения ресурсом или чтобы назвать расширение в строке Output (`registerUriHandler`, `lm.register*`). Импортёр вне известных
   корней получает общий namespace и одно предупреждение в stderr. Полную фабрику API на расширение
   (как `createApiFactoryAndRegisterActors` эталона) не делаем: обработчики RPC живут внутри фабрик
   неймспейсов, и копия на расширение их бы размножила — переписывание тысяч строк ради того, что
@@ -906,8 +908,7 @@
   `vscode.d.ts` целиком (`vscode.chat` — нет), значения-типы — эталонные (`lmTypes.ts`).
   Поведение — «ни моделей, ни инструментов»: `register*` — `Disposable`, `tools` и
   `selectChatModels` пусты, `invokeTool` — отказ с причиной, событие не стреляет. Человеку — одна
-  warn-строка в Output на расширение: `register*` входят в `OWNED_MEMBERS.lm` оверлея ровно ради
-  имени расширения в этой строке.
+  warn-строка в Output на расширение (имя — от оверлея, `OWNED_MEMBERS.lm`).
 - **Тесты расширений (Testing, #1068):** цепочка эталона `ExtHostTesting` ↔ `MainThreadTesting` →
   `TestService`. **Объекты расширения живут только в субпроцессе** (`api/common/extHostTesting.ts`,
   `extHostTestItem.ts`); его `ExtHostTestItemCollection` — порт `TestItemCollection` эталона — шлёт
