@@ -209,7 +209,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             extensionsDir: this.profile.extensionsDir,
             host: this.host,
         });
-        const { id, version, dir, dependencies, dependencyError } = installed;
+        const { id, dir, dependencies, dependencyError } = installed;
         if (dependencyError !== undefined) {
             this.logger.warn(`Could not install the dependencies of ${id}: ${dependencyError}`);
         }
@@ -219,7 +219,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         const running = !this.pendingReload.has(id) && before.some((e) => e.id === id && e.dir === dir);
         if (running) this.reloadInstalled();
         else this.markChanged(id);
-        return { id, version, needsReload: !running || dependencies.length > 0 };
+        return { needsReload: !running || dependencies.length > 0 };
     }
 
     public async getCompatibleVersions(id: string): Promise<readonly IRegistryVersion[]> {

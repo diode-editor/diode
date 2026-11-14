@@ -70,8 +70,6 @@ export interface IExtensionInstallOptions {
 }
 
 export interface IVsixInstallResult {
-    readonly id: string;
-    readonly version: string;
     /**
      * `false` only when the extension runs from the directory the install just refreshed (a platform package of
      * the running version): its code finds the new files in place. Anything else waits for a window reload.

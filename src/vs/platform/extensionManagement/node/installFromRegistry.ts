@@ -304,7 +304,11 @@ export async function installVsixWithDependencies(
     options: IInstallFromRegistryOptions,
 ): Promise<IInstallVsixResult> {
     const installed = await installVsix(vsixPath, options.extensionsDir);
-    const manifest = await readVsixManifest(vsixPath);
+    // From the directory just written, not the archive: a platform package is large to scan twice.
+    const manifest = JSON.parse(fs.readFileSync(path.join(installed.dir, "package.json"), "utf8")) as Record<
+        string,
+        unknown
+    >;
     const none: IDependencyInstallResult = { dependencies: [], missingDependencies: [] };
     if (readExtensionDependencies(manifest).length === 0) return { ...installed, ...none };
     try {

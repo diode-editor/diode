@@ -31,7 +31,7 @@ describe("ExtensionsWorkbenchService.installVsix", () => {
 
         const result = await service.installVsix(platformPackage);
 
-        expect(result).toEqual({ id: "vadimcn.vscode-lldb", version: "1.12.3", needsReload: false });
+        expect(result).toEqual({ needsReload: false });
         // The running extension's `extensionPath` now has the adapter.
         const dir = workspace().path("extensions/vadimcn.vscode-lldb-1.12.3");
         expect(fs.readFileSync(`${dir}/adapter/codelldb`, "utf8")).toBe("binary");
@@ -83,9 +83,8 @@ describe("ExtensionsWorkbenchService.installVsix", () => {
         source.failMeta.add("acme.base");
         const service = createService(source);
 
-        const result = await service.installVsix(await vsix("deps", { extensionDependencies: ["acme.base"] }));
+        await service.installVsix(await vsix("deps", { extensionDependencies: ["acme.base"] }));
 
-        expect(result.id).toBe("vadimcn.vscode-lldb");
         expect(warnings).toEqual([
             "Could not install the dependencies of vadimcn.vscode-lldb: meta of acme.base is unreachable",
         ]);

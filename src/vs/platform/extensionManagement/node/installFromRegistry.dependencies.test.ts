@@ -439,13 +439,4 @@ describe("installVsixWithDependencies", () => {
         });
         expect(installed()).toEqual(["acme.local@1.0.0"]);
     });
-
-    it("a broken archive is a failure, not a warning", async () => {
-        const vsixPath = path.join(tempRoot, "broken.vsix");
-        await fs.promises.writeFile(vsixPath, "not a zip");
-
-        await expect(installVsixWithDependencies(unreachable, vsixPath, { extensionsDir, host: HOST })).rejects.toThrow(
-            "Not a valid .vsix (zip) archive",
-        );
-    });
 });

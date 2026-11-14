@@ -28,7 +28,7 @@ describe("vsixPathsOf", () => {
         [Uri.parse("https://example.com/a.vsix"), "https://example.com/a.vsix"],
         [undefined, "undefined"],
         [null, "null"],
-        [{ scheme: "file" }, '{"scheme":"file"}'],
+        [{ path: "/a.vsix" }, '{"path":"/a.vsix"}'],
     ])("refuses %s: only a file can be installed", (resource, shown) => {
         expect(() => vsixPathsOf(resource)).toThrow(
             `Cannot install a VSIX from ${shown}: expected a file URI or a path`,
@@ -60,8 +60,8 @@ describe("workbench.extensions.command.installFromVSIX — the announcement", ()
         };
     }
 
-    const running: IVsixInstallResult = { id: "vadimcn.vscode-lldb", version: "1.12.3", needsReload: false };
-    const fresh: IVsixInstallResult = { id: "acme.tools", version: "1.0.0", needsReload: true };
+    const running: IVsixInstallResult = { needsReload: false };
+    const fresh: IVsixInstallResult = { needsReload: true };
 
     it("a platform package of the running extension needs no reload: a plain info", async () => {
         const { run, shown } = setup({ "/a.vsix": running });

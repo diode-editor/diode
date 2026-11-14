@@ -1,16 +1,17 @@
 import { Disposable } from "../../../../base/common/lifecycle.ts";
-import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { ServiceAccessorDIToken, token } from "../../../../platform/instantiation/common/diContainer.ts";
+import { reviveWireUri } from "../../../api/common/wireTypes.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../common/extensionsWorkbench.ts";
 
 import { ExtensionPageActionsDIToken } from "./extensionPageActions.ts";
+import { notifyError } from "./extensionVersionActions.ts";
 
 /** Upstream `INSTALL_EXTENSION_FROM_VSIX_COMMAND_ID`: extensions call it (CodeLLDB installs its platform package). */
 export const INSTALL_FROM_VSIX_COMMAND_ID = "workbench.extensions.command.installFromVSIX";
@@ -24,15 +25,11 @@ export function vsixPathsOf(resources: unknown): string[] {
     const list: unknown[] = Array.isArray(resources) ? resources : [resources];
     return list.map((resource) => {
         if (typeof resource === "string") return resource;
-        const uri = isUriLike(resource) ? Uri.from(resource) : undefined;
+        const uri = reviveWireUri(resource);
         if (uri?.scheme === "file") return uri.fsPath;
         const shown = uri?.toString() ?? JSON.stringify(resource);
         throw new Error(`Cannot install a VSIX from ${shown}: expected a file URI or a path`);
     });
-}
-
-function isUriLike(value: unknown): value is Uri {
-    return typeof value === "object" && value !== null && typeof (value as Uri).path === "string";
 }
 
 /**
@@ -49,19 +46,13 @@ export async function installFromVsix(accessor: ServiceAccessor, resources: unkn
         needsReload ||= result.value.needsReload;
     }
     const plural = paths.length > 1;
-    const notifications = accessor.get(NotificationServiceDIToken);
-    if (!needsReload) {
-        const message = plural ? "Completed installing extensions." : "Completed installing extension.";
-        notifications.show({ severity: "info", message, modal: false, items: [] });
-        return;
-    }
-    const handle = notifications.show({
+    const completed = plural ? "Completed installing extensions." : "Completed installing extension.";
+    const reload = plural ? " Please reload Diode to enable them." : " Please reload Diode to enable it.";
+    const handle = accessor.get(NotificationServiceDIToken).show({
         severity: "info",
-        message: plural
-            ? "Completed installing extensions. Please reload Diode to enable them."
-            : "Completed installing extension. Please reload Diode to enable it.",
+        message: needsReload ? completed + reload : completed,
         modal: false,
-        items: ["Reload Now"],
+        items: needsReload ? ["Reload Now"] : [],
     });
     // Not awaited: the install is done, the notification may wait for an answer for long.
     void handle.answered.then((choice) => {
@@ -87,12 +78,7 @@ export const installVsixAction: CommandAction = {
         try {
             await installFromVsix(accessor, vsixPath);
         } catch (error) {
-            accessor.get(NotificationServiceDIToken).show({
-                severity: "error",
-                message: error instanceof Error ? error.message : String(error),
-                modal: false,
-                items: [],
-            });
+            notifyError(accessor, error instanceof Error ? error.message : String(error));
         }
     },
 };
