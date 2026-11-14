@@ -372,19 +372,21 @@ describe("Thread", () => {
         expect(failing.getCallStack()).toEqual([]);
         expect(failing.stoppedDetails?.framesErrorMessage).toBe("bad frame");
 
-        const noDetails = stoppedThread(
-            mockSession({ stackTrace: () => Promise.reject(new Error("x")), getSource }),
-            undefined,
-        );
+        const noDetails = stoppedThread(mockSession({ stackTrace: () => Promise.reject(new Error("x")), getSource }));
+        noDetails.stoppedDetails = undefined;
         await noDetails.fetchCallStack();
         expect(noDetails.getCallStack()).toEqual([]);
 
-        const empty = stoppedThread(
-            mockSession({ stackTrace: () => Promise.resolve(undefined), getSource }),
-            undefined,
-        );
+        const empty = stoppedThread(mockSession({ stackTrace: () => Promise.resolve(undefined), getSource }));
         await empty.fetchCallStack();
         expect(empty.getCallStack()).toEqual([]);
+
+        const answeredWithoutDetails = stoppedThread(
+            mockSession({ stackTrace: stackTraceOf(rawFrames(2), 2), getSource }),
+        );
+        answeredWithoutDetails.stoppedDetails = undefined;
+        await answeredWithoutDetails.fetchCallStack();
+        expect(answeredWithoutDetails.getCallStack()).toHaveLength(2);
     });
 
     it("the top frame skips deemphasized and unavailable frames, unless stopped by a breakpoint or a step", async () => {

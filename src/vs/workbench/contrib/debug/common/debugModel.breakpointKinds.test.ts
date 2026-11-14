@@ -173,7 +173,6 @@ describe("Breakpoint", () => {
             supportsFunctionBreakpoints: false,
             supportsDataBreakpoints: false,
             supportsInstructionBreakpoints: false,
-            sessionId: "",
         });
         expect(bp.adapterData).toBe("own");
         expect(bp.uri.toString(true)).toBe("debug:gen.js?session=s9&ref=4");
@@ -310,6 +309,9 @@ describe("FunctionBreakpoint, DataBreakpoint, InstructionBreakpoint, ExceptionBr
         expect([(fbp as FunctionBreakpoint).toString(), fbp.enabled, fbp.supported]).toEqual(["main", false, true]);
         verify(model, fbp, { verified: true }, { supportsFunctionBreakpoints: false });
         expect(fbp.supported).toBe(false);
+        expect(fbp.verified).toBe(true);
+        verify(model, fbp, { verified: false });
+        expect(fbp.verified).toBe(false);
         expect((fbp as FunctionBreakpoint).toJSON()).toMatchObject({
             name: "main",
             condition: "argc > 1",

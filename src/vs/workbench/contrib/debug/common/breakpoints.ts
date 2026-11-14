@@ -19,6 +19,7 @@ export class Breakpoints {
         private readonly contextKeyService: Pick<ContextKeyService, "evaluate">,
     ) {
         const when = breakpointContribution.when;
+        // Stryker disable next-line ConditionalExpression: `deserializeWhen(undefined)` is undefined too, the scanner throws and the parser catches
         this.breakpointsWhen = typeof when === "string" && deserializeWhen(when) !== undefined ? when : undefined;
     }
 

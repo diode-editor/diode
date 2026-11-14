@@ -663,3 +663,15 @@ describe("Scope", () => {
         });
     });
 });
+
+describe("toDebugProtocolObject", () => {
+    it("an expression or a variable without a reference reports 0", () => {
+        const expression = new Expression("x");
+        expression.reference = undefined;
+        expect(expression.toDebugProtocolObject().variablesReference).toBe(0);
+        const session = mockSession();
+        const v = new Variable(session, 1, rootWith(session, 5), undefined, "v", "v", "1", 0, 0, undefined, undefined);
+        expect(v.toDebugProtocolObject().variablesReference).toBe(0);
+        expect(v.hasChildren).toBe(false);
+    });
+});

@@ -15,8 +15,6 @@ import type { IDebugSession, IExpression, IExpressionContainer, IStackFrame, ITh
 import { isSessionAttach } from "./debugUtils.ts";
 
 export class ViewModel extends Disposable implements IViewModel {
-    public firstSessionStart = true;
-
     private _focusedStackFrame: IStackFrame | undefined;
     private _focusedSession: IDebugSession | undefined;
     private _focusedThread: IThread | undefined;

@@ -269,6 +269,10 @@ describe("debugUtils: what upstream's suite leaves out", () => {
         expect(isUriString(" ab:x")).toBe(false);
     });
 
+    it("an expression ending in non-word characters before the cursor is kept whole", () => {
+        expect(getExactExpressionStartAndEnd("a.b..", 1, 6)).toEqual({ start: 1, end: 5 });
+    });
+
     it("an expression with no match under the cursor is empty", () => {
         expect(getExactExpressionStartAndEnd("a + b", 3, 3)).toEqual({ start: 0, end: 0 });
     });
@@ -304,6 +308,13 @@ describe("debugUtils: what upstream's suite leaves out", () => {
         expect(getEffectiveConfigForPlatform(noPresentation).noDebug).toBe(true);
     });
 
+    it("within a group, configurations with an order come before those without", () => {
+        const ordered: IConfig = { type: "node", request: "launch", name: "o", presentation: { group: "g", order: 3 } };
+        const unordered: IConfig = { type: "node", request: "launch", name: "u", presentation: { group: "g" } };
+        expect(getVisibleAndSorted([unordered, ordered]).map((c) => c.name)).toEqual(["o", "u"]);
+        expect(getVisibleAndSorted([ordered, unordered]).map((c) => c.name)).toEqual(["o", "u"]);
+    });
+
     it("getVisibleAndSorted puts configurations without a presentation last, in their order", () => {
         const configs: IConfig[] = [
             { type: "node", request: "launch", name: "x" },
@@ -313,5 +324,44 @@ describe("debugUtils: what upstream's suite leaves out", () => {
             { type: "node", request: "launch", name: "v" },
         ];
         expect(getVisibleAndSorted(configs).map((c) => c.name)).toEqual(["z", "y", "w", "x", "v"]);
+    });
+});
+
+describe("debugUtils: more edges", () => {
+    it("a session without a type is no extension host session, even under one", () => {
+        const host = session("launch", "extensionHost");
+        expect(getExtensionHostDebugSession(session("launch", "", host))).toBeUndefined();
+    });
+
+    it("only Live Share reads the adapter proxy's type", () => {
+        const proxied = (type: string, adapterProxy: unknown): IDebugSession =>
+            mockSession({ configuration: { type, request: "launch", name: "x", adapterProxy } as IConfig });
+        expect(
+            getExtensionHostDebugSession(proxied("node", { configuration: { type: "extensionHost" } })),
+        ).toBeUndefined();
+        expect(getExtensionHostDebugSession(proxied("vslsShare", {}))).toBeUndefined();
+        expect(getExtensionHostDebugSession(proxied("vslsShare", { configuration: {} }))).toBeUndefined();
+    });
+
+    it("three dots inside an expression are not a spread", () => {
+        expect(getExactExpressionStartAndEnd("a...b", 1, 1)).toEqual({ start: 1, end: 1 });
+    });
+
+    it("the cursor at the end of a part stops the expression there", () => {
+        expect(getExactExpressionStartAndEnd("a.b.c", 1, 5)).toEqual({ start: 1, end: 3 });
+    });
+
+    it("a configuration with a presentation comes before one without, a group before no group, lower order first", () => {
+        const withPresentation: IConfig = { type: "node", request: "launch", name: "p", presentation: { order: 1 } };
+        const without: IConfig = { type: "node", request: "launch", name: "n" };
+        const grouped: IConfig = { type: "node", request: "launch", name: "g", presentation: { group: "a" } };
+        const late: IConfig = { type: "node", request: "launch", name: "late", presentation: { order: 5 } };
+        const names = (configs: IConfig[]) => getVisibleAndSorted(configs).map((c) => c.name);
+        expect(names([without, withPresentation])).toEqual(["p", "n"]);
+        expect(names([withPresentation, without])).toEqual(["p", "n"]);
+        expect(names([withPresentation, grouped])).toEqual(["g", "p"]);
+        expect(names([grouped, withPresentation])).toEqual(["g", "p"]);
+        expect(names([late, withPresentation])).toEqual(["p", "late"]);
+        expect(names([withPresentation, late])).toEqual(["p", "late"]);
     });
 });

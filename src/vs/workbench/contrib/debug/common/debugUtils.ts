@@ -16,7 +16,7 @@ const _formatPIIRegexp = /{([^}]+)}/g;
 
 export function formatPII(value: string, excludePII: boolean, args: Record<string, string> | undefined): string {
     return value.replace(_formatPIIRegexp, function (match, group: string) {
-        if (excludePII && group.length > 0 && !group.startsWith("_")) {
+        if (excludePII && !group.startsWith("_")) {
             return match;
         }
 
@@ -89,18 +89,16 @@ export function getExactExpressionStartAndEnd(
         }
     }
 
-    // Handle spread syntax: if the expression starts with '...', extract just the identifier
     if (matchingExpression) {
+        // Handle spread syntax: if the expression starts with '...', extract just the identifier
         const spreadMatch = /^\.\.\.(.+)/.exec(matchingExpression);
         if (spreadMatch) {
             matchingExpression = spreadMatch[1];
             startOffset += 3; // Skip the '...' prefix
         }
-    }
 
-    // If there are non-word characters after the cursor, we want to truncate the expression then.
-    // For example in expression 'a.b.c.d', if the focus was under 'b', 'a.b' would be evaluated.
-    if (matchingExpression) {
+        // If there are non-word characters after the cursor, we want to truncate the expression then.
+        // For example in expression 'a.b.c.d', if the focus was under 'b', 'a.b' would be evaluated.
         const subExpression = /(\w|\p{L})+/gu;
         let subExpressionResult: RegExpExecArray | null;
         while ((subExpressionResult = subExpression.exec(matchingExpression))) {

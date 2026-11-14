@@ -139,3 +139,22 @@ describe("DebugStorage", () => {
         expect(storage.loadWatchExpressions().map((e) => e.name)).toEqual(["y"]);
     });
 });
+
+describe("DebugStorage: a broken entry names its kind", () => {
+    const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+
+    it.each([
+        ["debug.breakpoint", "breakpoints", (s: DebugStorage) => s.loadBreakpoints()],
+        ["debug.functionbreakpoint", "function breakpoints", (s: DebugStorage) => s.loadFunctionBreakpoints()],
+        ["debug.exceptionbreakpoint", "exception breakpoints", (s: DebugStorage) => s.loadExceptionBreakpoints()],
+        ["debug.databreakpoint", "data breakpoints", (s: DebugStorage) => s.loadDataBreakpoints()],
+        ["debug.watchexpressions", "watch expressions", (s: DebugStorage) => s.loadWatchExpressions()],
+    ] as const)("%s", (key, what, load) => {
+        const state = mockStateService();
+        const logger = { ...NULL_LOGGER, error: vi.fn() };
+        const storage = disposables.add(new DebugStorage(state, NO_DIRTY_FILES, logger));
+        state.values.set(key, "not a list");
+        expect(load(storage)).toEqual([]);
+        expect(logger.error).toHaveBeenCalledWith(`Failed to load ${what} from storage`, expect.any(TypeError));
+    });
+});

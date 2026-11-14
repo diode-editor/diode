@@ -49,14 +49,13 @@ export function createMockDebugModel(
 }
 
 /**
- * Upstream `MockSession`: id `mock`, label `mockname`, stopped, no capabilities. A member the test does not give is
+ * Upstream `MockSession`: id `mock`, name `mockname`, stopped, no capabilities. A member the test does not give is
  * missing: calling it fails, as upstream's "not implemented". The session is the test's object itself, so what the
  * test assigns later is what the model reads.
  */
 export function mockSession(overrides: Partial<IDebugSession> = {}): IDebugSession {
     const defaults: Partial<IDebugSession> = {
         getId: () => "mock",
-        getLabel: () => "mockname",
         name: "mockname",
         configuration: { type: "mock", name: "mock", request: "launch" },
         state: State.Stopped,

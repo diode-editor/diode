@@ -43,6 +43,7 @@ export class Source {
             path = this.raw.path || this.raw.name || "";
             this.available = true;
         } else {
+            // Stryker disable next-line ObjectLiteral: without the name, `name` falls back to the uri's basename, the same label
             this.raw = { name: UNKNOWN_SOURCE_LABEL };
             this.available = false;
             path = `${DEBUG_SCHEME}:${UNKNOWN_SOURCE_LABEL}`;
@@ -86,25 +87,24 @@ export class Source {
             case "file":
                 path = normalize(modelUri.fsPath);
                 break;
-            case DEBUG_SCHEME:
+            case DEBUG_SCHEME: {
                 path = modelUri.path;
-                if (modelUri.query) {
-                    const keyvalues = modelUri.query.split("&");
-                    for (const keyvalue of keyvalues) {
-                        const pair = keyvalue.split("=");
-                        if (pair.length === 2) {
-                            switch (pair[0]) {
-                                case "session":
-                                    sessionId = pair[1];
-                                    break;
-                                case "ref":
-                                    sourceReference = parseInt(pair[1]);
-                                    break;
-                            }
+                const keyvalues = modelUri.query.split("&");
+                for (const keyvalue of keyvalues) {
+                    const pair = keyvalue.split("=");
+                    if (pair.length === 2) {
+                        switch (pair[0]) {
+                            case "session":
+                                sessionId = pair[1];
+                                break;
+                            case "ref":
+                                sourceReference = parseInt(pair[1]);
+                                break;
                         }
                     }
                 }
                 break;
+            }
             default:
                 path = modelUri.toString();
                 break;
@@ -126,7 +126,7 @@ export function getUriFromSource(
     logService: ILogger,
 ): URI {
     const _getUriFromSource = (path: string | undefined): URI => {
-        if (typeof raw.sourceReference === "number" && raw.sourceReference > 0) {
+        if ((raw.sourceReference ?? 0) > 0) {
             return URI.from({
                 scheme: DEBUG_SCHEME,
                 path: path?.replace(/^\/+/g, "/"), // #174054

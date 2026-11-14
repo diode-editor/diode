@@ -79,7 +79,7 @@ export class ExpressionContainer implements IExpressionContainer {
         public namedVariables: number | undefined = 0,
         public indexedVariables: number | undefined = 0,
         public memoryReference?: string | undefined,
-        private startOfVariables: number | undefined = 0,
+        private startOfVariables = 0,
         public presentationHint?: DebugProtocol.VariablePresentationHint | undefined,
         public valueLocationReference?: number | undefined,
     ) {}
@@ -152,7 +152,7 @@ export class ExpressionContainer implements IExpressionContainer {
             // There are a lot of children, create fake intermediate values that represent chunks #9537
             const numberOfChunks = Math.ceil(this.indexedVariables / chunkSize);
             for (let i = 0; i < numberOfChunks; i++) {
-                const start = (this.startOfVariables ?? 0) + i * chunkSize;
+                const start = this.startOfVariables + i * chunkSize;
                 const count = Math.min(chunkSize, this.indexedVariables - i * chunkSize);
                 children.push(
                     new Variable(
@@ -215,7 +215,14 @@ export class ExpressionContainer implements IExpressionContainer {
     ): Promise<Variable[]> {
         try {
             const session = assertReturnsDefined(this.session);
-            const response = await session.variables(this.reference ?? 0, this.threadId, filter, start, count);
+            // Only a container with children fetches them: its reference is positive.
+            const response = await session.variables(
+                assertReturnsDefined(this.reference),
+                this.threadId,
+                filter,
+                start,
+                count,
+            );
             if (!response) {
                 return [];
             }
@@ -329,7 +336,7 @@ export class ExpressionContainer implements IExpressionContainer {
                 location,
             );
 
-            if (response?.body) {
+            if (response) {
                 this.value = response.body.result || "";
                 this.reference = response.body.variablesReference;
                 this.namedVariables = response.body.namedVariables;
@@ -359,8 +366,8 @@ function handleSetResponse(
     expression: ExpressionContainer,
     response: DebugProtocol.SetVariableResponse | DebugProtocol.SetExpressionResponse | undefined,
 ): void {
-    if (response?.body) {
-        expression.value = response.body.value || "";
+    if (response) {
+        expression.value = response.body.value;
         expression.type = response.body.type ?? expression.type;
         expression.reference = response.body.variablesReference;
         expression.namedVariables = response.body.namedVariables;
@@ -655,11 +662,7 @@ export class StackFrame implements IStackFrame {
     public async getMostSpecificScopes(range: IRange): Promise<IScope[]> {
         const scopes = await this.getScopes();
         const nonExpensiveScopes = scopes.filter((s) => !s.expensive);
-        const haveRangeInfo = nonExpensiveScopes.some((s) => !!s.range);
-        if (!haveRangeInfo) {
-            return nonExpensiveScopes;
-        }
-
+        // Upstream returns early when no scope has a range; the filter below then finds none and falls back the same.
         const height = (scope: IScope): number =>
             assertReturnsDefined(scope.range).endLineNumber - assertReturnsDefined(scope.range).startLineNumber;
         const scopesContainingRange = nonExpensiveScopes
@@ -695,7 +698,7 @@ export class StackFrame implements IStackFrame {
     }
 }
 
-const KEEP_SUBTLE_FRAME_AT_TOP_REASONS: readonly string[] = ["breakpoint", "step", "function breakpoint"];
+const KEEP_SUBTLE_FRAME_AT_TOP_REASONS: readonly (string | undefined)[] = ["breakpoint", "step", "function breakpoint"];
 
 export class Thread implements IThread {
     private callStack: IStackFrame[];
@@ -725,10 +728,9 @@ export class Thread implements IThread {
             this.staleCallStack = this.callStack;
         }
         this.callStack = [];
-        // Upstream `dispose(true)`: cancel, then dispose.
+        // Upstream `dispose(true)`; cancelling already drops the listeners, there is nothing else to dispose.
         this.callStackCancellationTokens.forEach((c) => {
             c.cancel();
-            c.dispose();
         });
         this.callStackCancellationTokens = [];
     }
@@ -752,8 +754,7 @@ export class Thread implements IThread {
             (sf) =>
                 (instructionStop && sf.instructionPointerReference !== undefined) ||
                 (sf.source.available &&
-                    ((stopReason !== undefined && KEEP_SUBTLE_FRAME_AT_TOP_REASONS.includes(stopReason)) ||
-                        !isFrameDeemphasized(sf))),
+                    (KEEP_SUBTLE_FRAME_AT_TOP_REASONS.includes(stopReason) || !isFrameDeemphasized(sf))),
         );
         return firstAvailableStackFrame;
     }
@@ -783,10 +784,8 @@ export class Thread implements IThread {
             const start = this.callStack.length;
             const callStack = await this.getCallStackImpl(start, levels);
             this.reachedEndOfCallStack = callStack.length < levels;
-            if (start < this.callStack.length) {
-                // Set the stack frames for exact position we requested. To make sure no concurrent requests create duplicate stack frames #30660
-                this.callStack.splice(start, this.callStack.length - start);
-            }
+            // Set the stack frames for exact position we requested. To make sure no concurrent requests create duplicate stack frames #30660
+            this.callStack.splice(start);
             this.callStack = this.callStack.concat(callStack);
             if (
                 typeof this.stoppedDetails?.totalFrames === "number" &&
@@ -802,7 +801,7 @@ export class Thread implements IThread {
             const tokenSource = new CancellationTokenSource();
             this.callStackCancellationTokens.push(tokenSource);
             const response = await this.session.stackTrace(this.threadId, startFrame, levels, tokenSource.token);
-            if (!response?.body || tokenSource.token.isCancellationRequested) {
+            if (!response || tokenSource.token.isCancellationRequested) {
                 return [];
             }
 
@@ -907,7 +906,7 @@ interface IBreakpointSessionData extends DebugProtocol.Breakpoint {
 function toBreakpointSessionData(
     data: DebugProtocol.Breakpoint,
     capabilities: DebugProtocol.Capabilities,
-): IBreakpointSessionData {
+): Omit<IBreakpointSessionData, "sessionId"> {
     return {
         supportsConditionalBreakpoints: !!capabilities.supportsConditionalBreakpoints,
         supportsHitConditionalBreakpoints: !!capabilities.supportsHitConditionalBreakpoints,
@@ -915,7 +914,6 @@ function toBreakpointSessionData(
         supportsFunctionBreakpoints: !!capabilities.supportsFunctionBreakpoints,
         supportsDataBreakpoints: !!capabilities.supportsDataBreakpoints,
         supportsInstructionBreakpoints: !!capabilities.supportsInstructionBreakpoints,
-        sessionId: "",
         ...data,
     };
 }
@@ -947,12 +945,11 @@ export abstract class BaseBreakpoint extends Enablement implements IBaseBreakpoi
         this.modeLabel = opts.modeLabel;
     }
 
-    public setSessionData(sessionId: string, data: IBreakpointSessionData | undefined): void {
+    public setSessionData(sessionId: string, data: Omit<IBreakpointSessionData, "sessionId"> | undefined): void {
         if (!data) {
             this.sessionData.delete(sessionId);
         } else {
-            data.sessionId = sessionId;
-            this.sessionData.set(sessionId, data);
+            this.sessionData.set(sessionId, { ...data, sessionId });
         }
 
         const allData = Array.from(this.sessionData.values());
@@ -1150,7 +1147,10 @@ export class Breakpoint extends BaseBreakpoint implements IBreakpoint {
         return true;
     }
 
-    public override setSessionData(sessionId: string, data: IBreakpointSessionData | undefined): void {
+    public override setSessionData(
+        sessionId: string,
+        data: Omit<IBreakpointSessionData, "sessionId"> | undefined,
+    ): void {
         super.setSessionData(sessionId, data);
         this._adapterData ??= this.adapterData;
     }
@@ -1349,7 +1349,7 @@ export class ExceptionBreakpoint extends BaseBreakpoint implements IExceptionBre
     public readonly supportsCondition: boolean;
     public readonly description: string | undefined;
     public readonly conditionDescription: string | undefined;
-    private fallback = false;
+    private fallback: boolean;
 
     public constructor(opts: IExceptionBreakpointOptions, id = generateUuid()) {
         super(id, opts);
@@ -1558,10 +1558,7 @@ export class DebugModel extends Disposable implements IDebugModel {
     }
 
     public getSession(sessionId: string | undefined, includeInactive = false): IDebugSession | undefined {
-        if (sessionId) {
-            return this.getSessions(includeInactive).find((s) => s.getId() === sessionId);
-        }
-        return undefined;
+        return this.getSessions(includeInactive).find((s) => s.getId() === sessionId);
     }
 
     public getSessions(includeInactive = false): IDebugSession[] {
@@ -1665,14 +1662,15 @@ export class DebugModel extends Disposable implements IDebugModel {
         }
 
         const totalFrames = thread.stoppedDetails?.totalFrames;
-        const remainingFrames =
-            typeof totalFrames === "number" ? totalFrames - thread.getCallStack().length : undefined;
-
-        if (!levels || (remainingFrames && levels > remainingFrames)) {
-            levels = remainingFrames;
+        if (totalFrames !== undefined) {
+            const remainingFrames = totalFrames - thread.getCallStack().length;
+            // Stryker disable next-line EqualityOperator: at levels === remainingFrames both keep the same number
+            if (!levels || (remainingFrames !== 0 && levels > remainingFrames)) {
+                levels = remainingFrames;
+            }
         }
 
-        if (levels && levels > 0) {
+        if ((levels ?? 0) > 0) {
             await (thread as Thread).fetchCallStack(levels);
             this._onDidChangeCallStack.fire();
         }
@@ -1705,10 +1703,9 @@ export class DebugModel extends Disposable implements IDebugModel {
                                     .then(() => {
                                         const stale = thread.getStaleCallStack();
                                         const current = thread.getCallStack();
-                                        let bottomOfCallStackChanged = stale.length !== current.length;
-                                        for (let i = 1; i < stale.length && !bottomOfCallStackChanged; i++) {
-                                            bottomOfCallStackChanged = !stale[i].equals(current[i]);
-                                        }
+                                        const bottomOfCallStackChanged =
+                                            stale.length !== current.length ||
+                                            stale.some((frame, i) => i > 0 && !frame.equals(current[i]));
 
                                         if (bottomOfCallStackChanged) {
                                             this._onDidChangeCallStack.fire();
@@ -1861,7 +1858,7 @@ export class DebugModel extends Disposable implements IDebugModel {
                     uri,
                     lineNumber: rawBp.lineNumber,
                     column: rawBp.column,
-                    enabled: rawBp.enabled ?? true,
+                    enabled: rawBp.enabled,
                     condition: rawBp.condition,
                     hitCondition: rawBp.hitCondition,
                     logMessage: rawBp.logMessage,
@@ -1981,6 +1978,7 @@ export class DebugModel extends Disposable implements IDebugModel {
                 return UriUtils.basenameOrAuthority(first.uri).localeCompare(UriUtils.basenameOrAuthority(second.uri));
             }
             if (first.lineNumber === second.lineNumber) {
+                // Stryker disable next-line ConditionalExpression,LogicalOperator: without a column the result is 1 or NaN (taken as 0), both keep the order the sort gives
                 if (first.column && second.column) {
                     return first.column - second.column;
                 }

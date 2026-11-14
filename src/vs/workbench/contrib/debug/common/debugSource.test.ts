@@ -168,3 +168,14 @@ describe("Source: what upstream's suite leaves out", () => {
         expect(logger.error).toHaveBeenCalledWith("Invalid path from debug adapter: ab:////x");
     });
 });
+
+describe("getUriFromSource: details", () => {
+    it("a source reference without a path is the session's root, only leading slashes collapse", () => {
+        expect(getUriFromSource({ sourceReference: 2 }, undefined, "s", NULL_LOGGER).toString(true)).toBe(
+            "debug:?session=s&ref=2",
+        );
+        expect(getUriFromSource({ sourceReference: 2 }, "//a//b.js", "s", NULL_LOGGER).toString(true)).toBe(
+            "debug:/a//b.js?session=s&ref=2",
+        );
+    });
+});
