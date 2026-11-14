@@ -41,11 +41,11 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 | [`vscode.comments`](#vscodecomments) | 🟡 | 1/1 |
 | [`vscode.debug`](#vscodedebug) | 🟡 | 18/18 |
 | [`vscode.tests`](#vscodetests) | 🟡 | 1/1 |
+| [`vscode.lm`](#vscodelm) | 🟡 | 7/7 |
 | [`vscode.scm`](#namespaces-not-yet-exposed) | 🕐 | 0/2 |
 | [`vscode.notebooks`](#namespaces-not-yet-exposed) | 🕐 | 0/3 |
 | [`vscode.chat`](#namespaces-not-yet-exposed) | 🕐 | 0/1 |
-| [`vscode.lm`](#namespaces-not-yet-exposed) | 🕐 | 0/7 |
-| [types and classes](#types-with-a-partial-surface) | — | 262/424 |
+| [types and classes](#types-with-a-partial-surface) | — | 304/424 |
 | [activation events](#activation-events-activationevents) | 🟡 | 8/32 |
 
 ## vscode.languages
@@ -295,6 +295,26 @@ The value types are VS Code's: `DebugAdapterExecutable`, `DebugAdapterServer`,
 `DebugConsoleMode`, `DebugConfigurationProviderTriggerKind`. The `onDebug*` activation events do not
 fire (see the table below).
 
+## vscode.lm
+
+🟡 **7/7.** Declared, the runtime is a null object: Diode has no language models and no chat.
+Extensions that register language model tools in `activate()` (CodeLLDB) keep working.
+
+| member | status | comment |
+| --- | :-: | --- |
+| `registerTool`, `registerMcpServerDefinitionProvider`, `registerLanguageModelChatProvider` | 🟡 | a `Disposable`; the tool or provider is never called; one line per extension in Output → Extensions |
+| `tools` | 🟡 | empty, registered tools are not listed |
+| `selectChatModels` | 🟡 | an empty list |
+| `invokeTool` | 🟡 | a rejection saying there are no language model tools in Diode |
+| `onDidChangeChatModels` | 🟡 | a valid event that never fires |
+
+The value types are VS Code's: `LanguageModelChatMessage`, `LanguageModelError`,
+`LanguageModelToolResult`, `LanguageModelTextPart`, `LanguageModelPromptTsxPart`,
+`LanguageModelDataPart`, `LanguageModelToolCallPart`, `LanguageModelToolResultPart`,
+`McpStdioServerDefinition`, `McpHttpServerDefinition`, the enums `LanguageModelChatMessageRole`,
+`LanguageModelChatToolMode`. The `onLanguageModelTool:<id>` and `onLanguageModelChatProvider:<id>`
+activation events do not fire (see the table below).
+
 ## vscode.tests
 
 🟡 **1/1.** Controllers reach the editor core, the **Testing** view in the sidebar shows their tests and runs them, the **Test Results** panel shows the runs, their output and the failures' messages, the editor shows the failures after their lines.
@@ -342,7 +362,7 @@ unsupported ones are grouped by the surface they wait for.
 | --- | :-: | --- |
 | `vscode.scm` | 🕐 | source control |
 | `vscode.notebooks` | 🕐 | serialization is possible; cell renderers are webview and will not be supported |
-| `vscode.chat`, `vscode.lm` | 🕐 | text-based by nature, nothing stops them from working in a terminal |
+| `vscode.chat` | 🕐 | text-based by nature, nothing stops it from working in a terminal |
 
 ## Not supported by design
 
@@ -361,7 +381,7 @@ change the ⛔ status.
 
 ## Types with a partial surface
 
-268 of 424 upstream types and classes are declared. The declared ones are complete, except those
+304 of 424 upstream types and classes are declared. The declared ones are complete, except those
 listed below, where only a subset of members is declared. `TextDocument` is listed for a different
 reason: everything is declared and implemented, but `save` is a 🟡 stub.
 
