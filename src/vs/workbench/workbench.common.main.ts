@@ -150,6 +150,7 @@ import { EXTENSIONS_ACTIONS } from "./contrib/extensions/browser/extensionsActio
 import { ExtensionsComponentDIToken } from "./contrib/extensions/browser/extensionsComponent.ts";
 import { ExtensionUpdateContributionDIToken } from "./contrib/extensions/browser/extensionUpdateActions.ts";
 import { ExtensionVersionContributionDIToken } from "./contrib/extensions/browser/extensionVersionActions.ts";
+import { ExtensionVsixContributionDIToken } from "./contrib/extensions/browser/extensionVsixActions.ts";
 import { AutoRevealContributionDIToken } from "./contrib/files/browser/autoRevealContribution.ts";
 import { ExplorerComponentDIToken } from "./contrib/files/browser/explorerComponent.ts";
 import { ExplorerServiceDIToken } from "./contrib/files/browser/explorerService.ts";
@@ -257,6 +258,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: SearchComponentDIToken, phase: "blockStartup" },
     { token: ExtensionsComponentDIToken, phase: "blockStartup" },
     { token: ExtensionVersionContributionDIToken, phase: "blockStartup" },
+    // Before extensions activate: CodeLLDB calls the command on `onStartupFinished`.
+    { token: ExtensionVsixContributionDIToken, phase: "blockStartup" },
     { token: ExtensionUpdateContributionDIToken, phase: "blockStartup" },
     { token: ReferencesComponentDIToken, phase: "blockStartup" },
     // Its container must be registered before `mount()` builds the sidebar; the view comes with the first controller.

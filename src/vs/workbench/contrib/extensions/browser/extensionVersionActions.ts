@@ -30,7 +30,7 @@ export function canInstallSpecificVersion(entries: readonly IExtensionListEntry[
     return entries.some((e) => e.installedVersion !== null && (e.latestVersion !== null || !catalogRead));
 }
 
-function notifyError(accessor: ServiceAccessor, message: string): void {
+export function notifyError(accessor: ServiceAccessor, message: string): void {
     accessor.get(NotificationServiceDIToken).show({ severity: "error", message, modal: false, items: [] });
 }
 

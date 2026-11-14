@@ -128,7 +128,13 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
     return new Promise((resolve, reject) => {
         yauzl.open(vsixPath, { lazyEntries: true }, (openErr, zipfile) => {
             if (openErr !== null) {
-                reject(new Error(`Not a valid .vsix (zip) archive: ${vsixPath}`));
+                // A missing file is not a broken archive: the user mistyped the path.
+                const missing = (openErr as NodeJS.ErrnoException).code === "ENOENT";
+                reject(
+                    new Error(
+                        missing ? `VSIX file not found: ${vsixPath}` : `Not a valid .vsix (zip) archive: ${vsixPath}`,
+                    ),
+                );
                 return;
             }
 
