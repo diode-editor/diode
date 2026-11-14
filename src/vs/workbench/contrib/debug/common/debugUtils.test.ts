@@ -363,5 +363,7 @@ describe("debugUtils: more edges", () => {
         expect(names([grouped, withPresentation])).toEqual(["g", "p"]);
         expect(names([late, withPresentation])).toEqual(["p", "late"]);
         expect(names([withPresentation, late])).toEqual(["p", "late"]);
+        const groupedLate: IConfig = { type: "node", request: "launch", name: "z", presentation: { group: "z" } };
+        expect(names([withPresentation, groupedLate])).toEqual(["z", "p"]);
     });
 });

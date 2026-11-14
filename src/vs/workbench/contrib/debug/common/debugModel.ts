@@ -205,7 +205,7 @@ export class ExpressionContainer implements IExpressionContainer {
 
     public get hasChildren(): boolean {
         // only variables with reference > 0 have children.
-        return !!this.reference && this.reference > 0 && !this.presentationHint?.lazy;
+        return (this.reference ?? 0) > 0 && !this.presentationHint?.lazy;
     }
 
     private async fetchVariables(
@@ -1662,6 +1662,7 @@ export class DebugModel extends Disposable implements IDebugModel {
         }
 
         const totalFrames = thread.stoppedDetails?.totalFrames;
+        // Stryker disable next-line ConditionalExpression: without a total the remainder is NaN, which neither replaces given levels nor makes missing ones positive
         if (totalFrames !== undefined) {
             const remainingFrames = totalFrames - thread.getCallStack().length;
             // Stryker disable next-line EqualityOperator: at levels === remainingFrames both keep the same number

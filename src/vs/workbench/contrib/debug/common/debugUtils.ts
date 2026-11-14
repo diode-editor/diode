@@ -132,6 +132,7 @@ export function getVisibleAndSorted<T extends { presentation?: IConfigPresentati
         .filter((config) => !config.presentation?.hidden)
         .sort((first, second) => {
             if (!first.presentation) {
+                // Stryker disable next-line ConditionalExpression,BlockStatement,BooleanLiteral: 0 and 1 both keep the later element after (V8 sorts by binary insertion on `< 0`)
                 if (!second.presentation) {
                     return 0;
                 }
@@ -159,6 +160,7 @@ export function getVisibleAndSorted<T extends { presentation?: IConfigPresentati
 
 function compareOrders(first: number | undefined, second: number | undefined): number {
     if (typeof first !== "number") {
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral,BlockStatement: 0 and 1 both keep the later element after (V8 sorts by binary insertion on `< 0`)
         if (typeof second !== "number") {
             return 0;
         }

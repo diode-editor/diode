@@ -171,7 +171,7 @@ describe("scopes: ids and ranges", () => {
             expensive: false,
             ...(line === undefined ? {} : { line, column: 1, endLine, endColumn: 99 }),
         });
-        const frame = scopesFrame([scope("Function", 1, 20), scope("NoRange"), scope("Block", 3, 5)]);
+        const frame = scopesFrame([scope("Function", 1, 10), scope("NoRange"), scope("Block", 4, 12)]);
         expect((await frame.getMostSpecificScopes(RANGE)).map((s) => s.name)).toEqual(["Block", "Function"]);
     });
 });
@@ -353,6 +353,7 @@ describe("DebugModel: details", () => {
     it("a lookup by line keeps breakpoints with a column; an update re-sorts and reports a change", () => {
         model.addBreakpoints(FILE, [{ lineNumber: 1, column: 5 }, { lineNumber: 3 }]);
         expect(model.getBreakpoints({ lineNumber: 1 })).toHaveLength(1);
+        expect(model.getBreakpoints({ column: 5 })).toHaveLength(1);
         const [first] = model.getBreakpoints();
         model.updateBreakpoints(new Map([[first.getId(), { lineNumber: 9 }]]));
         expect(events).toHaveBeenLastCalledWith({ changed: [first], sessionOnly: false });
@@ -543,10 +544,14 @@ describe("DebugModel: details", () => {
             await vi.advanceTimersByTimeAsync(0);
             expect(otherDone).toBe(false);
 
+            const before = stackTrace.mock.calls.length;
             const again = model.refreshTopOfCallstack(one);
             await vi.advanceTimersByTimeAsync(420);
             await again.wholeCallStack;
             expect(otherDone).toBe(true);
+            expect(
+                stackTrace.mock.calls.slice(before).map(([threadId, , levels]) => [threadId, levels]),
+            ).toContainEqual([1, 19]);
         });
 
         it("a second clear within 100 ms does not postpone the call stack event", async () => {
