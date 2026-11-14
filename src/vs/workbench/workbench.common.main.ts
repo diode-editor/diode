@@ -231,6 +231,7 @@ import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugActions.ts";
 import { DebugToolbarComponentDIToken } from "./contrib/debug/browser/debugToolbar.ts";
 import { DebugViewsComponentDIToken } from "./contrib/debug/browser/debugViews.ts";
 import { ReplComponentDIToken } from "./contrib/debug/browser/replView.ts";
+import { StatusBarColorProviderDIToken } from "./contrib/debug/browser/statusbarColorProvider.ts";
 import { TESTING_ACTIONS } from "./contrib/testing/browser/testingActions.ts";
 import { TestingDecorationsDIToken } from "./contrib/testing/browser/testingDecorations.ts";
 import { TESTING_EDITOR_ACTIONS } from "./contrib/testing/browser/testingEditorActions.ts";
@@ -271,6 +272,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: DebugViewsComponentDIToken, phase: "blockStartup" },
     { token: ReplComponentDIToken, phase: "blockStartup" },
     { token: DebugToolbarComponentDIToken, phase: "eventually" },
+    { token: StatusBarColorProviderDIToken, phase: "eventually" },
     { token: QuickOpenServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (CompletionService in the next entry holds it) — the entry only hands lifetime ownership to the registry, which a unit test can't observe
     { token: SuggestComponentDIToken, phase: "blockStartup" },

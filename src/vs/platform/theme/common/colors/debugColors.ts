@@ -116,4 +116,14 @@ export const debugColors = {
         defaults: { dark: "#75BEFF", light: "#007ACC" },
         description: "Debug toolbar icon for step out.",
     },
+    "statusBar.debuggingBackground": {
+        defaults: { dark: "#CC6633", light: "#CC6633" },
+        description:
+            "Status bar background color when a program is being debugged. The status bar is shown in the bottom of the window",
+    },
+    "statusBar.debuggingForeground": {
+        defaults: { dark: "statusBar.foreground", light: "statusBar.foreground" },
+        description:
+            "Status bar foreground color when a program is being debugged. The status bar is shown in the bottom of the window",
+    },
 } as const satisfies ColorContribution;

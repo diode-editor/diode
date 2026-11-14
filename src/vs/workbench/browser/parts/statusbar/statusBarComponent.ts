@@ -66,6 +66,14 @@ export class StatusBarComponent extends Component {
         this.renderEntries();
     }
 
+    /**
+     * SPIKE: upstream's `IStatusbarService.overrideStyle` as used by `StatusBarColorProvider` — the debug session
+     * paints the whole bar; `null` goes back to the theme's colors.
+     */
+    public overrideColors(colors: { readonly fg: string; readonly bg: string } | null): void {
+        this.view.style = colors ?? { fg: "statusBar.foreground", bg: "statusBar.background" };
+    }
+
     private renderEntries(): void {
         const entries = this.statusBarService.entries();
         const left = entries.filter((entry) => entry.alignment !== "right");

@@ -381,6 +381,7 @@ import { DebugStubModel, DebugStubModelDIToken } from "../../workbench/contrib/d
 import { DebugToolbarComponent, DebugToolbarComponentDIToken } from "../../workbench/contrib/debug/browser/debugToolbar.ts";
 import { DebugViewsComponent, DebugViewsComponentDIToken } from "../../workbench/contrib/debug/browser/debugViews.ts";
 import { ReplComponent, ReplComponentDIToken } from "../../workbench/contrib/debug/browser/replView.ts";
+import { StatusBarColorProvider, StatusBarColorProviderDIToken } from "../../workbench/contrib/debug/browser/statusbarColorProvider.ts";
 import {
     TestingDecorations,
     TestingDecorationsDIToken,
@@ -702,6 +703,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(DebugViewsComponentDIToken, DebugViewsComponent);
     container.bind(ReplComponentDIToken, ReplComponent);
     container.bind(DebugToolbarComponentDIToken, DebugToolbarComponent);
+    container.bind(StatusBarColorProviderDIToken, StatusBarColorProvider);
     container.bind(TestMessageDiffFactoryDIToken, TestMessageDiffFactory);
     // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario testing-explorer
     container.bind(TestingRevealTargetDIToken, () => container.get(EditorServiceDIToken));
