@@ -118,8 +118,10 @@ F10/F11/Shift+F11 — шаги, F5 — continue, F6 — pause, Shift+F5 — stop
 - [ ] Контекстные меню: Copy Value, Copy as Expression, Set Value (F2), Add to Watch, Break on Value Change;
       Edit Condition у брейкпоинта.
 - [ ] Inline-редактирование watch-выражения (сейчас добавление через quick input).
-- [ ] Тулбар: стоит в активной группе и переезжает за ней — проверить, не раздражает ли; ширину выровнять с find;
-      цвет статус-бара во время отладки (`statusBar.debuggingBackground`).
+- [ ] Тулбар: стоит в активной группе и переезжает за ней — проверить, не раздражает ли; ширину выровнять с find.
+- [x] Цвет статус-бара во время сессии — `statusbarColorProvider.ts` (порт эталона) + `StatusBarComponent.overrideColors`
+      (SPIKE-шов; у эталона — `IStatusbarService.overrideStyle`). Цвет — из темы: Dark Modern синий `#0078D4`,
+      запасной `#CC6633`.
 - [ ] `ScmActionButtonElement` переиспользован из `contrib/scm` — для влития вынести общую кнопку в `browser/parts/views/`.
 - [ ] Выпадающий выбор конфигурации запуска в заголовке Run and Debug (эталон: ▷ + список `launch.json`).
 - [ ] Редактор (вне этого спайка): глифы брейкпоинтов в гаттере, подсветка текущей строки
