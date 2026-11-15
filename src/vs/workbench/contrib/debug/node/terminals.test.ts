@@ -1,0 +1,63 @@
+import { type ChildProcess, spawn } from "node:child_process";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
+
+import { hasChildProcesses } from "./terminals.ts";
+
+const children: ChildProcess[] = [];
+const dirs: string[] = [];
+
+afterEach(() => {
+    // Detached: the group goes with its children (the `sleep` would outlive its shell).
+    for (const child of children.splice(0)) process.kill(-(child.pid ?? 0), "SIGKILL");
+    for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+function fakePgrep(output: string): string {
+    const dir = mkdtempSync(join(tmpdir(), "diode-pgrep-"));
+    dirs.push(dir);
+    const path = join(dir, "pgrep");
+    writeFileSync(path, `#!/bin/sh\nprintf '%s' '${output}'\n`);
+    chmodSync(path, 0o755);
+    return path;
+}
+
+describe("hasChildProcesses", () => {
+    it("without a process id the shell counts as busy", async () => {
+        await expect(hasChildProcesses(undefined)).resolves.toBe(true);
+        await expect(hasChildProcesses(0, "/nonexistent/pgrep")).resolves.toBe(true);
+    });
+
+    describe.skipIf(process.platform === "win32")("pgrep", () => {
+        it("a shell running a program is busy, an idle one is not", async () => {
+            const busy = spawn("/bin/sh", ["-c", "sleep 30; true"], { stdio: "ignore", detached: true });
+            const idle = spawn("/bin/sh", ["-c", "read x"], { stdio: ["pipe", "ignore", "ignore"], detached: true });
+            children.push(busy, idle);
+            await expect.poll(() => hasChildProcesses(busy.pid)).toBe(true);
+            await expect(hasChildProcesses(idle.pid)).resolves.toBe(false);
+        });
+
+        it("asks pgrep for the children of the process", async () => {
+            const dir = mkdtempSync(join(tmpdir(), "diode-pgrep-"));
+            dirs.push(dir);
+            const path = join(dir, "pgrep");
+            writeFileSync(path, `#!/bin/sh\n[ "$1 $2" = "-lP 4242" ] && echo '7 sleep'\n`);
+            chmodSync(path, 0o755);
+            await expect(hasChildProcesses(4242, path)).resolves.toBe(true);
+            await expect(hasChildProcesses(4243, path)).resolves.toBe(false);
+        });
+
+        it("a tmux child doesn't make the shell busy; blanks are no children", async () => {
+            await expect(hasChildProcesses(1, fakePgrep("12 tmux"))).resolves.toBe(false);
+            await expect(hasChildProcesses(1, fakePgrep("  \n"))).resolves.toBe(false);
+            await expect(hasChildProcesses(1, fakePgrep("12 vim"))).resolves.toBe(true);
+        });
+
+        it("no pgrep: busy", async () => {
+            await expect(hasChildProcesses(1, "/nonexistent/pgrep")).resolves.toBe(true);
+        });
+    });
+});

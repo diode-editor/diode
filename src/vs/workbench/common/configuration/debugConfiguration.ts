@@ -2,7 +2,7 @@ import type { IConfigurationNode } from "../../../platform/configuration/common/
 
 /**
  * Verbatim from upstream's `contrib/debug/browser/debug.contribution.ts` (no `scope` there: window). Only the keys
- * the ported code reads: the Debug Console model (`replModel.ts`). The rest of `debug.*` comes with the task that
+ * the ported code reads: the Debug Console model (`replModel.ts`), the terminal of `runInTerminal` (`debugTerminal.ts`). The rest of `debug.*` comes with the task that
  * implements it (the views, the toolbar, launch.json), the unsupported ones are declared by the settings task (#1158).
  */
 export const debugConfiguration = {
@@ -21,6 +21,13 @@ export const debugConfiguration = {
             type: "number",
             description: "Controls the maximum number of lines in the Debug Console.",
             default: 10000,
+        },
+        "debug.terminal.clearBeforeReusing": {
+            scope: "window",
+            type: "boolean",
+            description:
+                "Before starting a new debug session in an integrated or external terminal, clear the terminal.",
+            default: false,
         },
     },
 } as const satisfies IConfigurationNode;

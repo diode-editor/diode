@@ -6,7 +6,7 @@ import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { NULL_LOGGER } from "../vs/platform/log/common/nullLogService.ts";
 import type { IStateDescriptor, IStateService } from "../vs/platform/state/common/iStateService.ts";
 import type { WorkspaceId } from "../vs/platform/workspace/common/iWorkspaceContextService.ts";
-import { type IDebugSession, State } from "../vs/workbench/contrib/debug/common/debug.ts";
+import { type IDebugSession, type IDebugTerminalLauncher, State } from "../vs/workbench/contrib/debug/common/debug.ts";
 import { DebugModel, type ITextFileDirtyState } from "../vs/workbench/contrib/debug/common/debugModel.ts";
 import { DebugStorage } from "../vs/workbench/contrib/debug/common/debugStorage.ts";
 
@@ -38,6 +38,9 @@ export function mockStateService(): MockStateService {
 }
 
 export const NO_DIRTY_FILES: ITextFileDirtyState = { isDirty: () => false };
+
+/** A terminal launcher for tests that don't run anything in a terminal: no process id. */
+export const NO_TERMINAL_LAUNCHER: IDebugTerminalLauncher = { runInTerminal: () => Promise.resolve(undefined) };
 
 export function createMockDebugModel(
     disposables: { add<T extends IDisposable>(o: T): T },

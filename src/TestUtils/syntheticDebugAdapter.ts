@@ -3,7 +3,8 @@
 // frames on the main one (the first 20 come in a page, then "Load More"), Locals/Static/Global/Registers, `nums` of
 // 1000 (chunked by the model), a linked list, a `std::map`, a value that is an error, an exception on the third
 // step over, stdout/stderr/console output and a latency on `variables`/`evaluate`. Tests, e2e and the views of the
-// debugger series run on it.
+// debugger series run on it. A launch configuration with CodeLLDB's `terminal: "integrated" | "external"` runs its
+// `program` with `args`, `cwd` and `env` through the `runInTerminal` reverse request before it answers `launch`.
 
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { AbstractDebugAdapter } from "../vs/workbench/contrib/debug/common/abstractDebugAdapter.ts";
@@ -137,6 +138,9 @@ class Program {
 export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     /** Every request the session sent, in order. */
     public readonly requests: DebugProtocol.Request[] = [];
+    /** The session's answers to the adapter's reverse requests, in order. */
+    public readonly responses: DebugProtocol.Response[] = [];
+    private readonly pendingReverse = new Map<number, (response: DebugProtocol.Response) => void>();
     private readonly program = new Program();
     private readonly handles = new Map<number, Children>();
     private nextHandle = 1;
@@ -165,6 +169,11 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             const request = message as DebugProtocol.Request;
             this.requests.push(request);
             this.dispatch(request);
+        } else if (message.type === "response") {
+            const response = message as DebugProtocol.Response;
+            this.responses.push(response);
+            this.pendingReverse.get(response.request_seq)?.(response);
+            this.pendingReverse.delete(response.request_seq);
         }
     }
 
@@ -208,6 +217,26 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
         } as DebugProtocol.Response);
     }
 
+    private reverseRequest(command: string, args: unknown): Promise<DebugProtocol.Response> {
+        const seq = this.seq++;
+        return new Promise((resolve) => {
+            this.pendingReverse.set(seq, resolve);
+            this.acceptMessage({ type: "request", seq, command, arguments: args } as DebugProtocol.Request);
+        });
+    }
+
+    /** CodeLLDB's `terminal` launch setting: the debuggee runs in the client's terminal. */
+    private async runInTerminal(kind: "integrated" | "external", config: Record<string, unknown>): Promise<void> {
+        const args: DebugProtocol.RunInTerminalRequestArguments = {
+            kind,
+            title: config.name as string,
+            cwd: (config.cwd as string | undefined) ?? SYNTHETIC_PROGRAM_ROOT,
+            args: [config.program as string, ...((config.args as string[] | undefined) ?? [])],
+            env: config.env as Record<string, string | null> | undefined,
+        };
+        await this.reverseRequest("runInTerminal", args);
+    }
+
     private event(event: string, body?: unknown): void {
         this.acceptMessage({ type: "event", seq: this.seq++, event, body } as DebugProtocol.Event);
     }
@@ -225,6 +254,14 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
         return { name: file, path: `${SYNTHETIC_PROGRAM_ROOT}/src/${file}` };
     }
 
+    private launch(request: DebugProtocol.Request): void {
+        this.launched = true;
+        this.respond(request);
+        this.output("console", "Launching: /home/user/hello/build/hello --verbose input.txt");
+        this.output("console", "Launched process 48213 from '/home/user/hello/build/hello'");
+        this.startIfReady();
+    }
+
     private dispatch(request: DebugProtocol.Request): void {
         const args = (request.arguments ?? {}) as Record<string, unknown>;
         switch (request.command) {
@@ -233,12 +270,16 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 this.event("initialized");
                 return;
             case "launch":
+                if (args.terminal === "integrated" || args.terminal === "external") {
+                    void this.runInTerminal(args.terminal, args).then(() => {
+                        this.launch(request);
+                    });
+                    return;
+                }
+                this.launch(request);
+                return;
             case "attach":
-                this.launched = true;
-                this.respond(request);
-                this.output("console", "Launching: /home/user/hello/build/hello --verbose input.txt");
-                this.output("console", "Launched process 48213 from '/home/user/hello/build/hello'");
-                this.startIfReady();
+                this.launch(request);
                 return;
             case "configurationDone":
                 this.configured = true;
@@ -715,10 +756,6 @@ export class SyntheticDebugAdapterFactory implements IDebugAdapterFactory {
 
     public substituteVariables(_folder: unknown, config: IConfig): Promise<IConfig> {
         return Promise.resolve(config);
-    }
-
-    public runInTerminal(): Promise<number | undefined> {
-        return Promise.resolve(undefined);
     }
 }
 

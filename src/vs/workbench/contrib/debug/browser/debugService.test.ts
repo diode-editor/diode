@@ -60,7 +60,6 @@ describe("DebugService", () => {
         fx.service.getAdapterManager().registerDebugAdapterFactory([type], {
             createDebugAdapter: () => adapter,
             substituteVariables: (_folder, config) => Promise.resolve(config),
-            runInTerminal: () => Promise.resolve(undefined),
         });
     }
 
@@ -298,7 +297,6 @@ describe("DebugService", () => {
                 fx.service.getAdapterManager().registerDebugAdapterFactory(["subst"], {
                     createDebugAdapter: () => factory.createDebugAdapter(),
                     substituteVariables: spy,
-                    runInTerminal: () => Promise.resolve(undefined),
                 });
                 return spy;
             }
@@ -719,7 +717,6 @@ describe("DebugService", () => {
             fx.service.getAdapterManager().registerDebugAdapterFactory(["slow"], {
                 createDebugAdapter: () => slow,
                 substituteVariables: (_folder, config) => Promise.resolve(config),
-                runInTerminal: () => Promise.resolve(undefined),
             });
             const session = await startStopped({ ...SYNTHETIC_LAUNCH_CONFIG, type: "slow" });
             await vi.waitFor(() => {

@@ -787,7 +787,7 @@ export interface IDebugAdapter extends IDisposable {
     stopSession(): Promise<void>;
 }
 
-export interface IDebugAdapterFactory extends ITerminalLauncher {
+export interface IDebugAdapterFactory {
     createDebugAdapter(session: IDebugSession): IDebugAdapter;
     substituteVariables(folder: IWorkspaceFolder | undefined, config: IConfig): Promise<IConfig>;
 }
@@ -875,8 +875,15 @@ export interface IDebugAdapterDescriptorFactory {
     createDebugAdapterDescriptor(session: IDebugSession): Promise<IAdapterDescriptor>;
 }
 
-interface ITerminalLauncher {
-    runInTerminal(args: DebugProtocol.RunInTerminalRequestArguments, sessionId: string): Promise<number | undefined>;
+/**
+ * Ours: where the adapter's `runInTerminal` reverse request runs. Upstream's adapter factory (the extension host)
+ * answers it through `vscode.window` terminals; the terminals are the core's here, so the core answers it.
+ */
+export interface IDebugTerminalLauncher {
+    runInTerminal(
+        args: DebugProtocol.RunInTerminalRequestArguments,
+        session: IDebugSession,
+    ): Promise<number | undefined>;
 }
 
 /** Upstream `enum DebuggerString`: only its value is used, as a key of `strings`. */
@@ -904,11 +911,8 @@ export interface IAdapterManager {
     registerDebugAdapterFactory(debugTypes: string[], debugAdapterFactory: IDebugAdapterFactory): IDisposable;
     createDebugAdapter(session: IDebugSession): IDebugAdapter | undefined;
     substituteVariables(debugType: string, folder: IWorkspaceFolder | undefined, config: IConfig): Promise<IConfig>;
-    runInTerminal(
-        debugType: string,
-        args: DebugProtocol.RunInTerminalRequestArguments,
-        sessionId: string,
-    ): Promise<number | undefined>;
+    /** Upstream also takes the debug type, to ask that type's adapter factory: here the core answers for all types. */
+    runInTerminal(args: DebugProtocol.RunInTerminalRequestArguments, sessionId: string): Promise<number | undefined>;
 }
 
 /** Upstream `IDebugService`, the part the sessions and the commands of this layer use. */

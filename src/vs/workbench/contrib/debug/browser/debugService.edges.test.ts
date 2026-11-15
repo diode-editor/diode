@@ -47,7 +47,6 @@ describe("DebugService edges", () => {
                 return adapter;
             },
             substituteVariables: (_folder, config) => Promise.resolve(config),
-            runInTerminal: () => Promise.resolve(undefined),
         });
     }
 
@@ -110,7 +109,6 @@ describe("DebugService edges", () => {
                         resolve(config);
                     };
                 }),
-            runInTerminal: () => Promise.resolve(undefined),
         });
         const started = fx.service.startDebugging(undefined, { type: "slow", name: "s", request: "launch" });
         await settle(5);
