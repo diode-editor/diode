@@ -604,8 +604,8 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             return;
         }
         const trimmed = expression.trim();
-        const top = this.program.frame(1000);
-        const locals = top === undefined ? [] : this.locals(top);
+        // In the scope of the main thread's top frame.
+        const locals = this.locals(this.program.frames(1)[0]);
         const byName = new Map(locals.map((v) => [v.name, v]));
         const direct = byName.get(trimmed);
         if (direct !== undefined) {
@@ -655,7 +655,8 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             this.fail(request, `Cannot set '${args.name}'`);
             return;
         }
-        this.program.overrides.set(owner.evaluateName ?? owner.name, args.value);
+        // Every variable of the program has its `evaluateName`.
+        this.program.overrides.set(String(owner.evaluateName), args.value);
         this.respond(request, { value: args.value, type: owner.type });
     }
 }

@@ -363,7 +363,7 @@ export class DebugSession implements IDebugSession {
             );
 
             await this.raw.start();
-            this.registerListeners();
+            this.registerListeners(this.raw);
             await this.raw.initialize({
                 clientID: "vscode",
                 clientName: "Diode",
@@ -1090,17 +1090,12 @@ export class DebugSession implements IDebugSession {
 
     public initializeForTest(raw: RawDebugSession): void {
         this.raw = raw;
-        this.registerListeners();
+        this.registerListeners(raw);
     }
 
     //---- private
 
-    private registerListeners(): void {
-        const raw = this.raw;
-        if (!raw) {
-            return;
-        }
-
+    private registerListeners(raw: RawDebugSession): void {
         this.rawSubscriptions.add(
             raw.onDidInitialize(async () => {
                 const sendConfigurationDone = async (): Promise<void> => {
@@ -1155,8 +1150,8 @@ export class DebugSession implements IDebugSession {
             raw.onDidTerminateDebugee(async (event) => {
                 if (event.body?.restart) {
                     await this.debugService.restartSession(this, event.body.restart);
-                } else if (this.raw) {
-                    await this.raw.disconnect({ terminateDebuggee: false });
+                } else {
+                    await raw.disconnect({ terminateDebuggee: false });
                 }
             }),
         );
@@ -1293,9 +1288,6 @@ export class DebugSession implements IDebugSession {
             return;
         }
         outputQueue.queue(() => {
-            if (!this.raw) {
-                return Promise.resolve();
-            }
             // Telemetry output is not shown: the extension's telemetry endpoint is not supported.
             if (event.body.category === "telemetry") {
                 return Promise.resolve();
@@ -1344,10 +1336,9 @@ export class DebugSession implements IDebugSession {
                 ],
                 false,
             );
-            if (bps.length === 1) {
-                const data = new Map<string, DebugProtocol.Breakpoint>([[bps[0].getId(), event.body.breakpoint]]);
-                this.model.setBreakpointSessionData(sessionId, this.capabilities, data);
-            }
+            // One breakpoint in, one out: upstream's check of the count always holds.
+            const data = new Map<string, DebugProtocol.Breakpoint>([[bps[0].getId(), event.body.breakpoint]]);
+            this.model.setBreakpointSessionData(sessionId, this.capabilities, data);
         }
 
         if (event.body.reason === "removed") {

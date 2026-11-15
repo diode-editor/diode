@@ -45,10 +45,8 @@ export class RawDebugSession implements IDisposable {
     private capabilitiesValue: DebugProtocol.Capabilities = {};
 
     // shutdown
-    private debugAdapterStopped = false;
     private inShutdown = false;
     private terminated = false;
-    private firedAdapterExitEvent = false;
 
     private didReceiveStoppedEvent = false;
 
@@ -630,11 +628,10 @@ export class RawDebugSession implements IDisposable {
         if (this.inShutdown) {
             return;
         }
+        // Only a shutdown lets go of the adapter, so it is still here.
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        const da = this.debugAdapter!;
         this.inShutdown = true;
-        if (!this.debugAdapter) {
-            await this.stopAdapter(error);
-            return;
-        }
         try {
             const args: DebugProtocol.DisconnectArguments = { restart };
             if (typeof terminateDebuggee === "boolean") {
@@ -648,28 +645,20 @@ export class RawDebugSession implements IDisposable {
         } catch {
             // Catch the potential 'disconnect' error - no need to show it to the user since the adapter is shutting down
         } finally {
-            await this.stopAdapter(error);
+            await this.stopAdapter(da, error);
         }
     }
 
-    private async stopAdapter(error?: Error): Promise<void> {
+    /** Once, from the shutdown: upstream's guards against a second stop and a second exit event are not needed. */
+    private async stopAdapter(da: IDebugAdapter, error?: Error): Promise<void> {
+        let stopped = false;
         try {
-            if (this.debugAdapter) {
-                const da = this.debugAdapter;
-                this.debugAdapter = null;
-                await da.stopSession();
-                this.debugAdapterStopped = true;
-            }
+            this.debugAdapter = null;
+            await da.stopSession();
+            stopped = true;
         } finally {
-            this.fireAdapterExitEvent(error);
-        }
-    }
-
-    private fireAdapterExitEvent(error?: Error): void {
-        if (!this.firedAdapterExitEvent) {
-            this.firedAdapterExitEvent = true;
             const e: AdapterEndEvent = { emittedStopped: this.didReceiveStoppedEvent, sessionLengthInSeconds: 0 };
-            if (error && !this.debugAdapterStopped) {
+            if (error && !stopped) {
                 e.error = error;
             }
             this.onDidExitAdapterEmitter.fire(e);
@@ -731,12 +720,8 @@ export class RawDebugSession implements IDisposable {
     ): Promise<R | undefined> {
         return new Promise<R | undefined>((completeDispatch, errorDispatch) => {
             if (!this.debugAdapter) {
-                if (this.inShutdown) {
-                    // We are in shutdown silently complete
-                    completeDispatch(undefined);
-                } else {
-                    errorDispatch(new Error(`No debugger available found. Can not send '${command}'.`));
-                }
+                // Only a shutdown lets go of the adapter: we are in shutdown, silently complete
+                completeDispatch(undefined);
                 return;
             }
 

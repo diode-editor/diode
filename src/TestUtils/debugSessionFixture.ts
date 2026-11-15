@@ -3,6 +3,7 @@
 
 import { vi } from "vitest";
 
+import { Event } from "../vs/base/common/event.ts";
 import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeyService.ts";
 import { NULL_LOGGER } from "../vs/platform/log/common/nullLogService.ts";
 import { DebugSession, type IDebugSessionServices } from "../vs/workbench/contrib/debug/browser/debugSession.ts";
@@ -77,13 +78,11 @@ export function testDebugService(model: DebugModel): TestDebugService {
         viewModel,
         contextKeys,
         state: 0,
-        onDidChangeState: () => ({ dispose: () => undefined }),
-        onWillNewSession: () => ({ dispose: () => undefined }),
-        onDidNewSession: () => ({ dispose: () => undefined }),
-        onDidEndSession: () => ({ dispose: () => undefined }),
-        getAdapterManager: () => {
-            throw new Error("not in the fixture");
-        },
+        onDidChangeState: Event.None,
+        onWillNewSession: Event.None,
+        onDidNewSession: Event.None,
+        onDidEndSession: Event.None,
+        getAdapterManager: vi.fn(),
         getModel: () => model,
         getViewModel: () => viewModel,
         focusStackFrame: vi.fn(focusStackFrame),
@@ -95,11 +94,11 @@ export function testDebugService(model: DebugModel): TestDebugService {
                 model.setExceptionBreakpointsForSession(session.getId(), filters);
             },
         ),
-        sendAllBreakpoints: vi.fn(() => Promise.resolve()),
-        sendBreakpoints: vi.fn(() => Promise.resolve()),
-        startDebugging: vi.fn(() => Promise.resolve(true)),
-        restartSession: vi.fn(() => Promise.resolve()),
-        stopSession: vi.fn(() => Promise.resolve()),
+        sendAllBreakpoints: vi.fn().mockResolvedValue(undefined),
+        sendBreakpoints: vi.fn().mockResolvedValue(undefined),
+        startDebugging: vi.fn().mockResolvedValue(true),
+        restartSession: vi.fn().mockResolvedValue(undefined),
+        stopSession: vi.fn().mockResolvedValue(undefined),
     };
 }
 

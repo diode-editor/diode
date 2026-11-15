@@ -712,6 +712,9 @@ describe("RawDebugSession", () => {
             await session.disconnect({});
 
             expect(await session.threads()).toBeUndefined();
+            expect(await session.initialize({ adapterID: "mock" })).toBeUndefined();
+            expect(await session.launchOrAttach({ type: "m", name: "n", request: "launch" })).toBeUndefined();
+            expect(session.capabilities).toEqual({});
             expect(adapter.sent("threads")).toEqual([]);
         });
 

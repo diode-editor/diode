@@ -184,11 +184,8 @@ function findNextVisibleFrame(
     callStack: readonly IStackFrame[],
     startIndex: number,
 ): IStackFrame | undefined {
-    if (startIndex >= callStack.length) {
-        startIndex = callStack.length - 1;
-    } else if (startIndex < 0) {
-        startIndex = 0;
-    }
+    // Upstream clamps the start into the stack; only a frame no longer in it (index -1) is below.
+    startIndex = Math.max(startIndex, 0);
 
     let index = startIndex;
     let currFrame;

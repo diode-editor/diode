@@ -85,20 +85,18 @@ export abstract class AbstractDebugAdapter implements IDebugAdapter {
         }
         this.internalSend("request", request);
         if (typeof timeout === "number") {
+            // A response or a cancel clears the timer, so the request is still pending when it fires.
             const timer = setTimeout(() => {
                 this.pendingRequestTimers.delete(request.seq);
-                const pending = this.pendingRequests.get(request.seq);
-                if (pending) {
-                    this.pendingRequests.delete(request.seq);
-                    pending({
-                        type: "response",
-                        seq: 0,
-                        request_seq: request.seq,
-                        success: false,
-                        command,
-                        message: `Timeout after ${String(timeout)} ms for '${command}'`,
-                    });
-                }
+                this.pendingRequests.delete(request.seq);
+                clb({
+                    type: "response",
+                    seq: 0,
+                    request_seq: request.seq,
+                    success: false,
+                    command,
+                    message: `Timeout after ${String(timeout)} ms for '${command}'`,
+                });
             }, timeout);
             this.pendingRequestTimers.set(request.seq, timer);
         }

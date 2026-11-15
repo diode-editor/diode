@@ -318,19 +318,9 @@ export class ReplModel {
             return;
         }
 
-        // For simple output without line breaks, use the original logic
-        if (
-            config.collapseIdenticalLines &&
-            previousElement instanceof ReplOutputElement &&
-            previousElement.severity === sev &&
-            areSourcesEqual(previousElement.sourceData, source) &&
-            previousElement.value === output
-        ) {
-            previousElement.count++;
-            // No need to fire an event, just the count updates and badge will adjust automatically
-            return;
-        }
-
+        // Upstream collapses output without a line break into an identical previous element here; such an
+        // element is either complete (it ends with a line break, the output does not) or incomplete (and taken
+        // by the concatenation above), so the case never comes.
         this.addReplElement(new ReplOutputElement(session, getUniqueId(), output, sev, source));
     }
 

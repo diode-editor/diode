@@ -34,7 +34,8 @@ export class MockDebugAdapter extends AbstractDebugAdapter {
             setTimeout(() => {
                 this.answer(request);
             }, 0);
-        } else if (message.type === "response") {
+        } else {
+            // The client sends requests, and responses to the reverse requests.
             const response = message as DebugProtocol.Response;
             this.pendingResponses.get(response.command)?.complete(response);
         }
@@ -91,10 +92,6 @@ export class MockDebugAdapter extends AbstractDebugAdapter {
     }
 
     public waitForResponseFromClient(command: string): Promise<DebugProtocol.Response> {
-        const pending = this.pendingResponses.get(command);
-        if (pending) {
-            return pending.p;
-        }
         const deferred = new DeferredPromise<DebugProtocol.Response>();
         this.pendingResponses.set(command, deferred);
         return deferred.p;

@@ -161,7 +161,8 @@ export class DebugService implements IDebugService {
     }
 
     private notify(severity: ReplSeverity, message: string): void {
-        const kind = severity === "error" ? "error" : severity === "warning" ? "warn" : "info";
+        // Errors, and `important` output, which is info.
+        const kind = severity === "error" ? "error" : "info";
         this.ports.notifications.show({ severity: kind, message, modal: false, items: [] });
     }
 
@@ -337,66 +338,61 @@ export class DebugService implements IDebugService {
             return false;
         }
 
-        try {
-            const resolvedConfig = await this.substituteVariables(launch, configByProviders);
-            if (!resolvedConfig) {
-                // User cancelled resolving of interactive variables, silently return
-                return false;
-            }
-
-            if (initCancellationToken.token.isCancellationRequested) {
-                // User cancelled, silently return
-                return false;
-            }
-
-            // Check for concurrent sessions before running preLaunchTask to avoid running the task if user cancels.
-            // Upstream asks again when the session is created, in case one started during the task; with the task
-            // (#1138) that second check comes back.
-            if (options?.startedByUser && resolvedConfig.suppressMultipleSessionWarning !== true) {
-                // Check if there's already a session with the same launch configuration
-                const existingSession = this.findSameSession(resolvedConfig, launch?.workspace);
-                if (existingSession) {
-                    // There is already a session with the same configuration, prompt user before running preLaunchTask
-                    if (!(await this.confirmConcurrentSession(existingSession.getLabel()))) {
-                        return false;
-                    }
-                }
-            }
-
-            // The pre-launch task (#1138) and the resolution with substituted variables (#1139) come here.
-
-            const dbg = this.adapterManager.getDebugger(resolvedConfig.type);
-            if (!dbg || (configByProviders.request !== "attach" && configByProviders.request !== "launch")) {
-                let message: string;
-                if (configByProviders.request !== "attach" && configByProviders.request !== "launch") {
-                    message = configByProviders.request
-                        ? `Attribute 'request' has an unsupported value '${configByProviders.request}' in the chosen debug configuration.`
-                        : "Attribute 'request' is missing from the chosen debug configuration.";
-                } else {
-                    message = `Configured debug type '${resolvedConfig.type}' is not supported.`;
-                }
-
-                this.showError(message);
-                return false;
-            }
-
-            if (!dbg.enabled) {
-                this.showError(
-                    `Configured debug type '${dbg.type}' is installed but not supported in this environment.`,
-                );
-                return false;
-            }
-
-            return await this.doCreateSession(
-                sessionId,
-                launch?.workspace,
-                { resolved: resolvedConfig, unresolved: unresolvedConfig },
-                options,
-            );
-        } catch (err) {
-            this.showError((err as Error).message);
+        // Upstream catches what the steps throw; each of ours reports its own failure (the pre-launch task and the
+        // providers, #1138/#1139, bring the catch back).
+        const resolvedConfig = await this.substituteVariables(launch, configByProviders);
+        if (!resolvedConfig) {
+            // User cancelled resolving of interactive variables, silently return
             return false;
         }
+
+        if (initCancellationToken.token.isCancellationRequested) {
+            // User cancelled, silently return
+            return false;
+        }
+
+        // Check for concurrent sessions before running preLaunchTask to avoid running the task if user cancels.
+        // Upstream asks again when the session is created, in case one started during the task; with the task
+        // (#1138) that second check comes back.
+        if (options?.startedByUser && resolvedConfig.suppressMultipleSessionWarning !== true) {
+            // Check if there's already a session with the same launch configuration
+            const existingSession = this.findSameSession(resolvedConfig, launch?.workspace);
+            if (existingSession) {
+                // There is already a session with the same configuration, prompt user before running preLaunchTask
+                if (!(await this.confirmConcurrentSession(existingSession.getLabel()))) {
+                    return false;
+                }
+            }
+        }
+
+        // The pre-launch task (#1138) and the resolution with substituted variables (#1139) come here.
+
+        const dbg = this.adapterManager.getDebugger(resolvedConfig.type);
+        if (!dbg || (configByProviders.request !== "attach" && configByProviders.request !== "launch")) {
+            let message: string;
+            if (configByProviders.request !== "attach" && configByProviders.request !== "launch") {
+                message = configByProviders.request
+                    ? `Attribute 'request' has an unsupported value '${configByProviders.request}' in the chosen debug configuration.`
+                    : "Attribute 'request' is missing from the chosen debug configuration.";
+            } else {
+                message = `Configured debug type '${resolvedConfig.type}' is not supported.`;
+            }
+
+            this.showError(message);
+            return false;
+        }
+
+        if (!dbg.enabled) {
+            this.showError(`Configured debug type '${dbg.type}' is installed but not supported in this environment.`);
+            return false;
+        }
+
+        return await this.doCreateSession(
+            sessionId,
+            launch?.workspace,
+            { resolved: resolvedConfig, unresolved: unresolvedConfig },
+            options,
+        );
     }
 
     private findSameSession(config: IConfig, root: IWorkspaceFolder | undefined): IDebugSession | undefined {
