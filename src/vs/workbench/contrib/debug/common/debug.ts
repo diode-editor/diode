@@ -5,9 +5,11 @@
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/common/debug.ts
 // The model's half of upstream `debug.ts`: the raw and model interfaces, `State`, breakpoints, launch
 // configurations and the adapter contract. The `CONTEXT_*` keys are typed keys of `ContextKeyTypes`
-// (platform/contextkey/common/contextKeys.ts) under the upstream names. Not here yet, each with the task that
-// implements it: `IDebugService`, `IConfigurationManager`, `IAdapterManager`, `ILaunch`, the configuration providers
-// (session, launch.json and `vscode.debug`),
+// (platform/contextkey/common/contextKeys.ts) under the upstream names. `IDebugService`, `IAdapterManager` and
+// `ILaunch` carry what the session and its commands use; the rest comes with the task that implements it: the
+// breakpoint and watch editing of `IDebugService` (views, gutter), `IConfigurationManager` and the rest of `ILaunch`
+// (launch.json), the configuration providers (session, launch.json and `vscode.debug`), the descriptor factories
+// and `guessDebugger` of `IAdapterManager` (`vscode.debug`),
 // the editor contributions, `openInEditor` of frames and sources (with the editor service they need),
 // compounds (`DebugCompoundRoot`), the test run a session is correlated with. Not planned: the memory view
 // (`getMemory`, webview) and debug visualizers (proposed API).
@@ -879,3 +881,85 @@ interface ITerminalLauncher {
 
 /** Upstream `enum DebuggerString`: only its value is used, as a key of `strings`. */
 export type DebuggerString = "unverifiedBreakpoints";
+
+/**
+ * Upstream `ILaunch`, as far as starting a session reads it: the folder and a configuration by name. The rest
+ * (`uri`, compounds, `openConfigFile`) comes with launch.json (#1138).
+ */
+export interface ILaunch {
+    readonly workspace: IWorkspaceFolder | undefined;
+    getConfiguration(name: string): IConfig | undefined;
+}
+
+/** Upstream `IAdapterManager`: where the debuggers and the adapters of a debug type are registered. */
+export interface IAdapterManager {
+    readonly onDidRegisterDebugger: Event<void>;
+    hasEnabledDebuggers(): boolean;
+    getDebugger(type: string): (IDebugger & IDebuggerMetadata) | undefined;
+    /**
+     * Ours: the `debuggers` extension point of upstream's adapter manager as a call — `contributes.debuggers` of
+     * extensions (#1139) and the tests register a debug type through it.
+     */
+    registerDebugger(contribution: IDebuggerContribution): IDisposable;
+    registerDebugAdapterFactory(debugTypes: string[], debugAdapterFactory: IDebugAdapterFactory): IDisposable;
+    createDebugAdapter(session: IDebugSession): IDebugAdapter | undefined;
+    substituteVariables(debugType: string, folder: IWorkspaceFolder | undefined, config: IConfig): Promise<IConfig>;
+    runInTerminal(
+        debugType: string,
+        args: DebugProtocol.RunInTerminalRequestArguments,
+        sessionId: string,
+    ): Promise<number | undefined>;
+}
+
+/** Upstream `IDebugService`, the part the sessions and the commands of this layer use. */
+export interface IDebugService {
+    /** Gets the current debug state. */
+    readonly state: State;
+    readonly initializingOptions?: IDebugSessionOptions | undefined;
+    readonly onDidChangeState: Event<State>;
+    /** Before the session is launched: it is in the model already. Does not go to extensions. */
+    readonly onWillNewSession: Event<IDebugSession>;
+    /** The session answered `launch`/`attach`. */
+    readonly onDidNewSession: Event<IDebugSession>;
+    readonly onDidEndSession: Event<{ session: IDebugSession; restart: boolean }>;
+
+    getAdapterManager(): IAdapterManager;
+    getModel(): IDebugModel;
+    getViewModel(): IViewModel;
+
+    /** Sets the focused stack frame and evaluates all expressions against the newly focused stack frame. */
+    focusStackFrame(
+        focusedStackFrame: IStackFrame | undefined,
+        thread?: IThread,
+        session?: IDebugSession,
+        options?: { explicit?: boolean; preserveFocus?: boolean; sideBySide?: boolean; pinned?: boolean },
+    ): Promise<void>;
+
+    setExceptionBreakpointsForSession(
+        session: IDebugSession,
+        filters: DebugProtocol.ExceptionBreakpointsFilter[],
+    ): void;
+    sendAllBreakpoints(session?: IDebugSession): Promise<void>;
+    sendBreakpoints(modelUri: uri, sourceModified?: boolean, session?: IDebugSession): Promise<void>;
+
+    /**
+     * Starts debugging. If the configOrName is not passed uses the selected configuration in the debug dropdown.
+     * Also saves all files, manages if compounds are present in the configuration and resolves configurations
+     * via DebugConfigurationProviders.
+     *
+     * Returns true if the start debugging was successful. For compound launches, all configurations have to be
+     * started successfully for it to return success. On errors, startDebugging will throw an error, however some
+     * error and cancelations are handled and in that case will simply return false.
+     */
+    startDebugging(
+        launch: ILaunch | undefined,
+        configOrName?: IConfig | string,
+        options?: IDebugSessionOptions,
+    ): Promise<boolean>;
+
+    /** Restarts a session or creates a new one if there is no active session. */
+    restartSession(session: IDebugSession, restartData?: unknown): Promise<void>;
+
+    /** Stops the session. If no session is specified then all sessions are stopped. */
+    stopSession(session: IDebugSession | undefined, disconnect?: boolean, suspend?: boolean): Promise<void>;
+}
