@@ -36,8 +36,9 @@ export function toChokidarPath(fsPath: string): string {
  * service (`chokidarFileWatcher.atomicSave.test.ts`). The directory inode doesn't change.
  *
  * **No directory** (`.diode/settings.json` before the first write): watch the nearest
- * existing ancestor and move closer to the file as segments appear. A file that already
- * appeared by the time we move counts as a change: `ignoreInitial` would not report it.
+ * existing ancestor and move closer to the file as segments appear, also when one appeared
+ * during the initial scan. A file that already appeared by the time we move counts as a
+ * change: `ignoreInitial` would not report it.
  */
 export const WATCH_COALESCE_MS = 50;
 
@@ -91,6 +92,11 @@ export class ChokidarFileWatcher implements IFileWatcher {
             } else {
                 created.on("addDir", () => {
                     rearm(true);
+                });
+                // A directory made between `watch()` and the end of the initial scan is part of that scan:
+                // `ignoreInitial` swallows its `addDir`, and the watch would stay on the ancestor for good.
+                created.on("ready", () => {
+                    if (this.exists(awaited)) rearm(true);
                 });
             }
 
