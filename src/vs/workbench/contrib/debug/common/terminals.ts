@@ -21,7 +21,8 @@ export function shellTypeOf(
     shell: string,
     isWindowsOS: boolean = currentOperatingSystem() === OperatingSystem.Windows,
 ): ShellType {
-    shell = shell.trim().toLowerCase();
+    // Upstream also trims: `includes` doesn't care about the blanks around the path.
+    shell = shell.toLowerCase();
     if (shell.includes("powershell") || shell.includes("pwsh")) {
         return "powershell";
     } else if (shell.includes("cmd.exe")) {

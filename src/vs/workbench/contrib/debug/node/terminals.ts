@@ -17,16 +17,16 @@ export function hasChildProcesses(processId: number | undefined, pgrep = "/usr/b
         return Promise.resolve(true);
     }
     // if shell has at least one child process, assume that shell is busy
-    const child = spawn(pgrep, ["-lP", String(processId)], { stdio: ["ignore", "pipe", "ignore"] });
+    const child = spawn(pgrep, ["-lP", String(processId)]);
+    // Stryker disable next-line StringLiteral,BooleanLiteral: no logger here — the label never reaches a log; `waitForStdio` ends on `close` so output still in the pipe after `exit` isn't lost — a race no test can force
     const guard = new GuardedChildProcess(child, { label: "pgrep", waitForStdio: true });
     let stdout = "";
-    child.stdout.setEncoding("utf8");
-    child.stdout.on("data", (data: string) => {
-        stdout += data;
+    child.stdout.on("data", (data: Buffer) => {
+        stdout += data.toString();
     });
     return new Promise<boolean>((resolve) => {
+        // The process has ended: nothing to kill, the guard goes with the child.
         guard.onDidEnd((end) => {
-            guard.dispose();
             if (end.error !== undefined) {
                 resolve(true);
                 return;

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { prepareCommand } from "./terminals.ts";
+import { prepareCommand, shellTypeOf } from "./terminals.ts";
 
 // Upstream's `test/node/terminals.test.ts` verbatim, then the cwd/env prefixes and the OS defaults it doesn't cover.
 
@@ -103,6 +103,40 @@ describe("Debug - prepareCommand", () => {
     it("an unknown shell is cmd on Windows and bash elsewhere", () => {
         expect(prepareCommand("/bin/zsh", ["a b"], false, undefined, undefined, true)).toBe(' "a b" ');
         expect(prepareCommand("/bin/zsh", ["a b"], false, undefined, undefined, false)).toBe(" a\\ b ");
+    });
+
+    it("bash: an empty argument is a pair of quotes", () => {
+        expect(run("bash", ["a", ""], false)).toBe('a ""');
+    });
+
+    it("bash is bash on Windows too; case doesn't matter", () => {
+        expect(prepareCommand("C:\\Git\\bin\\Bash.exe", ["a b"], false, undefined, undefined, true)).toBe(" a\\ b ");
+        expect(run("C:\\Windows\\System32\\WindowsPowerShell\\PowerShell.exe", ["x"], false)).toBe(`& 'x'`);
+    });
+
+    it("an empty cwd is no cd, in every shell", () => {
+        expect(prepareCommand("powershell", ["x"], false, "", undefined, true)).toBe(" & 'x' ");
+        expect(prepareCommand("cmd.exe", ["x"], false, "", undefined, true)).toBe(" x ");
+    });
+
+    it("a drive is a letter and a colon at the start of the path only", () => {
+        expect(prepareCommand("powershell", ["x"], false, "/a:b", undefined, true)).toBe(" cd '/a:b'; & 'x' ");
+        expect(prepareCommand("cmd.exe", ["x"], false, "/a:b", undefined, true)).toBe(" cd /a:b && x ");
+    });
+
+    it("powershell: & only before a quoted program, not before one that merely ends with a quote", () => {
+        expect(run("powershell", ["x'"], true)).toBe("x'");
+        expect(run("powershell", ["'my prog'"], true)).toBe("& 'my prog'");
+    });
+
+    it("on Windows an unknown shell defaults to cmd", () => {
+        const platform = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+        try {
+            expect(prepareCommand("/bin/zsh", ["a b"], false)).toBe(' "a b" ');
+            expect(shellTypeOf("/bin/zsh")).toBe("cmd");
+        } finally {
+            platform.mockRestore();
+        }
     });
 
     it("defaults to the OS of the process", () => {

@@ -58,18 +58,14 @@ interface ITerminalInfo {
 }
 
 class DebugTerminalCollection {
-    private readonly terminalInstances = new Map<number, ITerminalInfo>();
+    private readonly terminalInstances = new Map<ITerminalInstance, ITerminalInfo>();
 
-    public constructor(
-        private readonly terminals: Pick<TerminalService, "getInstance">,
-        private readonly hasChildProcesses: HasChildProcesses,
-    ) {}
+    public constructor(private readonly hasChildProcesses: HasChildProcesses) {}
 
     public async checkout(config: string, name: string): Promise<ITerminalInstance | undefined> {
-        for (const [id, termInfo] of [...this.terminalInstances]) {
-            const terminal = this.terminals.getInstance(id);
+        for (const [terminal, termInfo] of [...this.terminalInstances]) {
             // Only allow terminals that match the title.  See #123189
-            if (terminal?.title !== name) {
+            if (terminal.title !== name) {
                 continue;
             }
 
@@ -90,18 +86,18 @@ class DebugTerminalCollection {
     }
 
     public insert(terminal: ITerminalInstance, termConfig: string): void {
-        this.terminalInstances.set(terminal.id, { lastUsedAt: Date.now(), config: termConfig });
+        this.terminalInstances.set(terminal, { lastUsedAt: Date.now(), config: termConfig });
     }
 
     public free(terminal: ITerminalInstance): void {
-        const info = this.terminalInstances.get(terminal.id);
+        const info = this.terminalInstances.get(terminal);
         if (info) {
             info.lastUsedAt = -1;
         }
     }
 
     public onTerminalClosed(terminal: ITerminalInstance): void {
-        this.terminalInstances.delete(terminal.id);
+        this.terminalInstances.delete(terminal);
     }
 }
 
@@ -119,7 +115,7 @@ export class DebugTerminalLauncher extends Disposable implements IDebugTerminalL
     public constructor(
         private readonly terminals: Pick<
             TerminalService,
-            "createInstance" | "getInstance" | "showInstance" | "sendText" | "onDidDisposeInstance"
+            "createInstance" | "showInstance" | "sendText" | "onDidDisposeInstance"
         >,
         private readonly views: Pick<ViewsService, "openView">,
         private readonly defaultShell: DefaultShellResolver,
@@ -127,7 +123,7 @@ export class DebugTerminalLauncher extends Disposable implements IDebugTerminalL
         hasChildProcesses: HasChildProcesses,
     ) {
         super();
-        this.integratedTerminalInstances = new DebugTerminalCollection(terminals, hasChildProcesses);
+        this.integratedTerminalInstances = new DebugTerminalCollection(hasChildProcesses);
         // React on terminal disposed and check if that is the debug terminal #12956
         this.register(
             terminals.onDidDisposeInstance((terminal) => {

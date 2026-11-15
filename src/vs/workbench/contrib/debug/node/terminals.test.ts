@@ -3,7 +3,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { hasChildProcesses } from "./terminals.ts";
 
@@ -27,11 +27,6 @@ function fakePgrep(script: string): string {
 }
 
 describe("hasChildProcesses", () => {
-    it("without a process id the shell counts as busy", async () => {
-        await expect(hasChildProcesses(undefined)).resolves.toBe(true);
-        await expect(hasChildProcesses(0, "/nonexistent/pgrep")).resolves.toBe(true);
-    });
-
     describe.skipIf(process.platform === "win32")("pgrep", () => {
         it("a shell running a program is busy, an idle one is not", async () => {
             const busy = spawn("/bin/sh", ["-c", "sleep 30; true"], { stdio: "ignore", detached: true });
@@ -51,6 +46,19 @@ describe("hasChildProcesses", () => {
             await expect(hasChildProcesses(1, fakePgrep("printf '%s' '12 tmux'"))).resolves.toBe(false);
             await expect(hasChildProcesses(1, fakePgrep("printf '%s' '  \n'"))).resolves.toBe(false);
             await expect(hasChildProcesses(1, fakePgrep("printf '%s' '12 vim'"))).resolves.toBe(true);
+        });
+
+        it("without a process id, or on Windows, the shell counts as busy without asking", async () => {
+            const idle = fakePgrep("true");
+            await expect(hasChildProcesses(1, idle)).resolves.toBe(false);
+            await expect(hasChildProcesses(undefined, idle)).resolves.toBe(true);
+            await expect(hasChildProcesses(0, idle)).resolves.toBe(true);
+            const platform = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+            try {
+                await expect(hasChildProcesses(1, idle)).resolves.toBe(true);
+            } finally {
+                platform.mockRestore();
+            }
         });
 
         it("no pgrep: busy", async () => {

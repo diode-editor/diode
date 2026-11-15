@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { mockSession } from "../../../../../TestUtils/mockDebug.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
+import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import type { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
@@ -146,6 +147,9 @@ describe("DebugTerminalLauncher", () => {
         await vi.advanceTimersByTimeAsync(100);
         expect(surface.writes).toHaveLength(1);
         expect(answered).toBe(true);
+        // The 5 s limit is cancelled and later output no longer matters.
+        surface.emitUpdate();
+        expect(vi.getTimerCount()).toBe(0);
     });
 
     it("a shell that never goes quiet gets the command after 5 s", async () => {
@@ -245,13 +249,62 @@ describe("DebugTerminalLauncher", () => {
             expect(surfaces[0].writes).toHaveLength(3);
         });
 
-        it("a new terminal isn't a candidate for a second", async () => {
+        it("a new terminal is a candidate a second after it was made, not before", async () => {
+            const made = Date.now();
             await run(ARGS, testSession().session);
-            vi.setSystemTime(Date.now() - 4500);
 
+            vi.setSystemTime(made + 999);
+            await run(ARGS, testSession().session);
+            expect(terminals.getInstances()).toHaveLength(2);
+
+            vi.setSystemTime(made + 1000);
+            await run(ARGS, testSession().session);
+            expect(terminals.getInstances()).toHaveLength(2);
+            expect(surfaces[0].writes).toHaveLength(3);
+        });
+
+        it("a reused terminal becomes the active one again", async () => {
+            const first = testSession();
+            await run(ARGS, first.session);
+            first.end();
+            terminals.newTerminal();
+            expect(terminals.getActiveInstance()?.processId).toBe(101);
+
+            await run(ARGS, testSession().session);
+
+            expect(terminals.getActiveInstance()?.processId).toBe(100);
+        });
+
+        it("a session frees its terminal once: a later end of it doesn't free the terminal of the next session", async () => {
+            const first = testSession();
+            await run(ARGS, first.session);
+            first.end();
+            await run(ARGS, testSession().session);
+            busy.add(100);
+
+            first.end();
+            await vi.advanceTimersByTimeAsync(1000);
             await run(ARGS, testSession().session);
 
             expect(terminals.getInstances()).toHaveLength(2);
+        });
+
+        it("a terminal closed before its session ends: the end changes nothing", async () => {
+            const errors: unknown[] = [];
+            setUnexpectedErrorHandler((e) => errors.push(e));
+            try {
+                const first = testSession();
+                await run(ARGS, first.session);
+                terminals.closeInstance(terminals.getInstances()[0].id);
+
+                first.end();
+
+                expect(errors).toEqual([]);
+            } finally {
+                setUnexpectedErrorHandler((e) => {
+                    console.error(e);
+                });
+            }
         });
 
         it("only a terminal with the same title, shell and cwd", async () => {
