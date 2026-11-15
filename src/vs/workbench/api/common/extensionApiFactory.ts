@@ -26,6 +26,7 @@ export const OWNED_MEMBERS = {
         "createTextEditorDecorationType",
         "createTreeView",
         "registerFileDecorationProvider",
+        "registerTerminalProfileProvider",
         "registerTreeDataProvider",
         "registerUriHandler",
     ],

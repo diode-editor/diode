@@ -1265,6 +1265,15 @@ declare module "vscode" {
 		export function registerFileDecorationProvider(provider: FileDecorationProvider): Disposable;
 
 		/**
+		 * Registers a provider for a contributed terminal profile.
+		 *
+		 * @param id The ID of the contributed terminal profile.
+		 * @param provider The terminal profile provider.
+		 * @returns A {@link Disposable disposable} that unregisters the provider.
+		 */
+		export function registerTerminalProfileProvider(id: string, provider: TerminalProfileProvider): Disposable;
+
+		/**
 		 * The currently active color theme as configured in the settings. The active
 		 * theme can be changed via the `workbench.colorTheme` setting.
 		 */
@@ -9946,6 +9955,35 @@ declare module "vscode" {
 		 */
 		value: string;
 	};
+
+	/**
+	 * Provides a terminal profile for the contributed terminal profile when launched via the UI or
+	 * command.
+	 */
+	export interface TerminalProfileProvider {
+		/**
+		 * Provide the terminal profile.
+		 * @param token A cancellation token that indicates the result is no longer needed.
+		 * @returns The terminal profile.
+		 */
+		provideTerminalProfile(token: CancellationToken): ProviderResult<TerminalProfile>;
+	}
+
+	/**
+	 * A terminal profile defines how a terminal will be launched.
+	 */
+	export class TerminalProfile {
+		/**
+		 * The options that the terminal will launch with.
+		 */
+		options: TerminalOptions | ExtensionTerminalOptions;
+
+		/**
+		 * Creates a new terminal profile.
+		 * @param options The options that the terminal will launch with.
+		 */
+		constructor(options: TerminalOptions | ExtensionTerminalOptions);
+	}
 
 	/**
 	 * A file decoration represents metadata that can be rendered with a file.
