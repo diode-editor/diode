@@ -53,6 +53,15 @@
             "note": "waitUntil(screen text predicate) timed out after 10000ms on windows-latest (run 41255028793, PR #959, whose diff is inlay hints); green on ubuntu and on the rerun"
         },
         {
+            "file": "e2e/scenarios/installFromVsix.scenario.ts",
+            "test": "install-from-vsix",
+            "action": "retry",
+            "platforms": [
+                "win32"
+            ],
+            "note": "waitUntil(screen text predicate) timed out after 10000ms on windows-latest: PR #1172 (run 43708145083, diff is debug launch.json, green on rerun) and PR #1174 (run 43751747031, diff is profile removal); green on ubuntu"
+        },
+        {
             "file": "e2e/scenarios/extensionUntitledUri.scenario.ts",
             "test": "extension-untitled-uri",
             "action": "retry",

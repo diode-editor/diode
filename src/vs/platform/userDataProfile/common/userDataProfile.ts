@@ -105,6 +105,17 @@ export const USER_DATA_PROFILES_STATE: IStateDescriptor<readonly StoredUserDataP
     default: [],
 };
 
+/**
+ * Directories (ids) of removed profiles, deleted again on the next start before the migration: the window of the
+ * removed profile still writes into it until it closes. No entries removes the key. Not upstream's: its `cleanUp()`
+ * deletes every directory without an entry.
+ */
+export const REMOVED_PROFILE_FOLDERS_STATE: IStateDescriptor<readonly string[]> = {
+    key: "removedProfileFolders",
+    scope: "application",
+    default: [],
+};
+
 /** No associations removes the key. */
 export const PROFILE_ASSOCIATIONS_STATE: IStateDescriptor<StoredProfileAssociations> = {
     key: "profileAssociations",
