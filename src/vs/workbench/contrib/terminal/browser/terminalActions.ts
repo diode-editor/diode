@@ -178,8 +178,8 @@ export const newWithProfileAction: CommandAction = {
             });
             return;
         }
+        // The focus change (the panel's terminal, or the new editor tab) refreshes the keys.
         if (!editor) showPanel(accessor);
-        refreshContextKeys(accessor);
     },
 };
 

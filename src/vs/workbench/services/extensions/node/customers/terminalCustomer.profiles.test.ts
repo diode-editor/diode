@@ -134,8 +134,9 @@ describe("contributed terminal profiles — over the wire", () => {
         h.service.dispose();
     });
 
-    // The RPC endpoint swallows a handler's throw, so the handlers are called directly here.
-    it("junk registrations neither throw nor reach the profile service", () => {
+    // The RPC endpoint swallows a handler's throw, and the subprocess itself refuses an unregistered id with the
+    // same message, so the host's own bookkeeping is pinned with the handlers called directly.
+    function directHandlers(): { rpc: HostRpc; call: (method: string, params: unknown) => void } {
         const handlers = new Map<string, (params: unknown) => void>();
         const rpc = {
             handleNotification: (method: string, handler: (params: unknown) => void) => {
@@ -144,20 +145,45 @@ describe("contributed terminal profiles — over the wire", () => {
             },
             handleRequest: () => ({ dispose: () => undefined }),
         } as unknown as HostRpc;
-        const registered: string[] = [];
+        return {
+            rpc,
+            call: (method, params) => {
+                const handler = handlers.get(method);
+                if (handler === undefined) throw new Error(`no handler for ${method}`);
+                handler(params);
+            },
+        };
+    }
+
+    it("the host registers and unregisters by id; junk neither throws nor reaches the profile service", () => {
+        const { rpc, call } = directHandlers();
+        const log: string[] = [];
         const customer = new TerminalCustomer(undefined, {
             registerProvider: (id) => {
-                registered.push(id);
-                return { dispose: () => undefined };
+                log.push(`register ${id}`);
+                return { dispose: () => log.push(`dispose ${id}`) };
             },
         });
         customer.attach({ rpc, logger: undefined });
         for (const junk of [null, 7, { id: 7 }, {}]) {
-            expect(() => handlers.get("terminal.registerProfileProvider")?.(junk)).not.toThrow();
-            expect(() => handlers.get("terminal.unregisterProfileProvider")?.(junk)).not.toThrow();
+            expect(() => {
+                call("terminal.registerProfileProvider", junk);
+            }).not.toThrow();
+            expect(() => {
+                call("terminal.unregisterProfileProvider", junk);
+            }).not.toThrow();
         }
-        handlers.get("terminal.registerProfileProvider")?.({ id: "ok" });
-        expect(registered).toStrictEqual(["ok"]);
+        call("terminal.registerProfileProvider", { id: "ok" });
+        call("terminal.unregisterProfileProvider", { id: "ok" });
+        expect(log).toStrictEqual(["register ok", "dispose ok"]);
+    });
+
+    it("without a profile sink the registrations are not listened to", () => {
+        const { rpc, call } = directHandlers();
+        new TerminalCustomer(undefined).attach({ rpc, logger: undefined });
+        expect(() => {
+            call("terminal.registerProfileProvider", { id: "ok" });
+        }).toThrow("no handler for terminal.registerProfileProvider");
     });
 
     it("a repeated registration of the same id replaces the host's entry", async () => {

@@ -31,6 +31,10 @@ describe("TerminalProfileService.createContributedTerminalProfile", () => {
         ]);
     });
 
+    it("starts with no contributed profiles", () => {
+        expect(new TerminalProfileService().contributedProfiles).toStrictEqual([]);
+    });
+
     it("without an activator the registered provider is used directly", async () => {
         const service = new TerminalProfileService();
         const create = vi.fn(() => Promise.resolve());
