@@ -34,10 +34,7 @@ export class VariablesView extends Disposable {
     private scopes: readonly IScope[] = [];
     private readonly updateTreeScheduler: RunOnceScheduler;
 
-    public constructor(
-        private readonly debugService: IDebugService,
-        renderer: DebugExpressionRenderer,
-    ) {
+    public constructor(debugService: IDebugService, renderer: DebugExpressionRenderer) {
         super();
         this.tree = new LazyTreeControl<IExpression | IScope>(
             {

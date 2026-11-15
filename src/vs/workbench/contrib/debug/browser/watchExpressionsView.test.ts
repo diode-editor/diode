@@ -2,7 +2,7 @@ import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createDebugServiceFixture, type IDebugServiceFixture } from "../../../../../TestUtils/debugServiceFixture.ts";
-import { TestVariable } from "../../../../../TestUtils/debugViewsFixture.ts";
+import { testExpressionRenderer, TestVariable } from "../../../../../TestUtils/debugViewsFixture.ts";
 import {
     NO_DELAY_TIMING,
     registerSyntheticDebugger,
@@ -16,7 +16,6 @@ import { StaticProductIconService } from "../../../../platform/theme/common/prod
 import type { InputBoxOptions } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { State } from "../common/debug.ts";
 
-import { DebugExpressionRenderer } from "./debugExpressionRenderer.ts";
 import { WATCH_REFRESH_DELAY_MS, WatchExpressionsView } from "./watchExpressionsView.ts";
 
 describe("WatchExpressionsView", () => {
@@ -33,11 +32,7 @@ describe("WatchExpressionsView", () => {
         factory = registerSyntheticDebugger(fx.service.getAdapterManager(), NO_DELAY_TIMING).factory;
         answers = [];
         asked = [];
-        const renderer = new DebugExpressionRenderer({
-            icons: { glyph: () => "◉" },
-            showVariableTypes: () => false,
-            onHighlightsExpired: () => undefined,
-        });
+        const renderer = testExpressionRenderer();
         view = new WatchExpressionsView(fx.service, renderer, fx.contextKeys, {
             input: (options) => {
                 asked.push(options ?? {});

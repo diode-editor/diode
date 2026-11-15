@@ -35,7 +35,6 @@ import type { NotificationService } from "../../../services/notification/browser
 import {
     getStateLabel,
     type IConfig,
-    type IDebugConfiguration,
     type IDebugModel,
     type IDebugService,
     type IDebugSession,
@@ -54,11 +53,9 @@ import { ViewModel } from "../common/debugViewModel.ts";
 import type { IReplConsoleConfiguration } from "../common/replModel.ts";
 
 import { AdapterManager } from "./debugAdapterManager.ts";
-import { DebugSession, type IDebugSessionServices } from "./debugSession.ts";
+import { DebugSession, type IDebugServiceConfiguration, type IDebugSessionServices } from "./debugSession.ts";
 
 export const DebugServiceDIToken = token<DebugService>("DebugService");
-
-export type IDebugServiceConfiguration = Pick<IDebugConfiguration, "openDebug" | "autoExpandLazyVariables">;
 
 /** What the debug service talks to; the DI module builds it from the workbench services. */
 export interface IDebugServicePorts {
@@ -72,7 +69,6 @@ export interface IDebugServicePorts {
     readonly replConfiguration: () => IReplConsoleConfiguration;
     /** The adapters' `runInTerminal`: the integrated terminal. */
     readonly terminalLauncher: IDebugTerminalLauncher;
-    /** The `debug.*` settings the service and its sessions read. */
     readonly debugConfiguration: () => IDebugServiceConfiguration;
     /** Upstream's `openPaneComposite(VIEWLET_ID, Sidebar)`: shows Run and Debug without taking the focus. */
     readonly openViewlet: () => void;

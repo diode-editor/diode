@@ -6,11 +6,8 @@ import { vi } from "vitest";
 import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeyService.ts";
 import { NULL_LOGGER } from "../vs/platform/log/common/nullLogService.ts";
 import type { IWorkspaceFolder } from "../vs/platform/workspace/common/iWorkspaceContextService.ts";
-import {
-    DebugService,
-    type IDebugServiceConfiguration,
-    type IDebugServicePorts,
-} from "../vs/workbench/contrib/debug/browser/debugService.ts";
+import { DebugService, type IDebugServicePorts } from "../vs/workbench/contrib/debug/browser/debugService.ts";
+import type { IDebugServiceConfiguration } from "../vs/workbench/contrib/debug/browser/debugSession.ts";
 import type {
     INotificationHandle,
     INotificationMessage,

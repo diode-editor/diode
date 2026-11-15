@@ -7,6 +7,7 @@ import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
+import { typeText } from "../../../../../TestUtils/domQueries.ts";
 import {
     NO_DELAY_TIMING,
     registerSyntheticDebugger,
@@ -74,10 +75,6 @@ describe("Run and Debug viewlet in the workbench", () => {
         return computeThemeVars(h.container.get(ThemeServiceDIToken).theme);
     }
 
-    function type(text: string): void {
-        for (const ch of text) h.testApp.sendKey(ch);
-    }
-
     async function startStopped(): Promise<void> {
         registration = registerSyntheticDebugger(
             h.container.get(DebugServiceDIToken).getAdapterManager(),
@@ -117,7 +114,7 @@ describe("Run and Debug viewlet in the workbench", () => {
     it("Add Expression asks for the expression; without a session it is not available", async () => {
         await h.commands.execute("workbench.view.debug");
         await h.commands.execute("workbench.debug.viewlet.action.addWatchExpression");
-        type("total / count");
+        typeText(h.testApp, "total / count");
         h.testApp.sendKey("Enter");
 
         await vi.waitFor(() => {
@@ -209,7 +206,7 @@ describe("Run and Debug viewlet in the workbench", () => {
     it("WATCH evaluates in the focused frame: the division by zero is an error; F2 edits, Delete removes", async () => {
         await startStopped();
         await h.commands.execute("workbench.debug.viewlet.action.addWatchExpression");
-        type("total / count");
+        typeText(h.testApp, "total / count");
         h.testApp.sendKey("Enter");
 
         // The sidebar cuts the row; the model holds the whole message.
@@ -232,7 +229,7 @@ describe("Run and Debug viewlet in the workbench", () => {
         await vi.waitFor(() => {
             expect(h.container.get(ContextKeyServiceDIToken).getRaw("expressionSelected")).toBe(true);
         });
-        type(" + 1");
+        typeText(h.testApp, " + 1");
         h.testApp.sendKey("Enter");
         // The input starts with the whole expression selected: typing replaced it.
         await vi.waitFor(() => {
@@ -339,8 +336,8 @@ describe("Run and Debug viewlet in the workbench", () => {
 
     it("a change of the glyph set redraws the rows", async () => {
         const component = h.container.get(DebugViewletComponentDIToken);
-        const refresh = vi.spyOn(component.watch, "refresh");
-        const variables = vi.spyOn(component.variables, "refresh");
+        const refresh = vi.spyOn(component.watch.tree, "rerender");
+        const variables = vi.spyOn(component.variables.tree, "rerender");
 
         const nerdFont = h.container.get(ProductIconServiceDIToken).nerdFont;
         await h.container

@@ -79,18 +79,15 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         quickInput: QuickInputService,
     ) {
         super();
-        const renderer = new DebugExpressionRenderer({
-            icons,
-            showVariableTypes: () => configuration.get("debug.showVariableTypes"),
-            onHighlightsExpired: () => {
-                this.refresh();
-            },
-        });
-        this.register({
-            dispose: () => {
-                renderer.dispose();
-            },
-        });
+        const renderer = this.register(
+            new DebugExpressionRenderer({
+                icons,
+                showVariableTypes: () => configuration.get("debug.showVariableTypes"),
+                onHighlightsExpired: () => {
+                    this.rerender();
+                },
+            }),
+        );
         this.variables = this.register(new VariablesView(debugService, renderer));
         this.watch = this.register(new WatchExpressionsView(debugService, renderer, contextKeys, quickInput));
         this.view = this.variables.tree.element;
@@ -151,12 +148,12 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         );
         this.register(
             configuration.onDidChangeConfiguration((e) => {
-                if (e.affectsConfiguration("debug.showVariableTypes")) this.refresh();
+                if (e.affectsConfiguration("debug.showVariableTypes")) this.rerender();
             }),
         );
         this.register(
             icons.onDidChange(() => {
-                this.refresh();
+                this.rerender();
             }),
         );
     }
@@ -176,8 +173,9 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         return this.debugService.state === State.Inactive ? this.welcome : this.variables.tree.element;
     }
 
-    private refresh(): void {
-        this.variables.refresh();
-        this.watch.refresh();
+    /** The look changed, not the data: no adapter request. */
+    private rerender(): void {
+        this.variables.tree.rerender();
+        this.watch.tree.rerender();
     }
 }

@@ -6,8 +6,11 @@ import { vi } from "vitest";
 import { Event } from "../vs/base/common/event.ts";
 import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeyService.ts";
 import { NULL_LOGGER } from "../vs/platform/log/common/nullLogService.ts";
-import type { IDebugServiceConfiguration } from "../vs/workbench/contrib/debug/browser/debugService.ts";
-import { DebugSession, type IDebugSessionServices } from "../vs/workbench/contrib/debug/browser/debugSession.ts";
+import {
+    DebugSession,
+    type IDebugServiceConfiguration,
+    type IDebugSessionServices,
+} from "../vs/workbench/contrib/debug/browser/debugSession.ts";
 import type {
     IConfig,
     IDebugService,

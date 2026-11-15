@@ -6,7 +6,7 @@ import type { ServiceAccessor } from "../../instantiation/common/diContainer.ts"
 import { token } from "../../instantiation/common/diContainer.ts";
 import type { Keybinding, KeybindingChord, KeybindingRegistry } from "../../keybinding/common/keybindingRegistry.ts";
 
-import type { MenuId } from "./menuId.ts";
+import { MenuId } from "./menuId.ts";
 
 /** Per-binding `when` is AND-ed with the action-wide `when`. */
 export interface ConditionalKeybinding {
@@ -50,6 +50,9 @@ export interface CommandAction {
     readonly menus?: readonly CommandMenuPlacement[];
     run(accessor: ServiceAccessor, ...args: unknown[]): unknown;
 }
+
+/** Upstream `f1: false`: a command with keys or menu items that the palette does not list. */
+export const HIDDEN_FROM_PALETTE: readonly CommandMenuPlacement[] = [{ menuId: MenuId.CommandPalette, when: "false" }];
 
 export const CommandActionsDIToken = token<readonly CommandAction[]>("CommandActions");
 

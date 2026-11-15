@@ -57,6 +57,9 @@ import { bodyOf, type IRawDebugSessionNotifier, RawDebugSession } from "./rawDeb
 const TRIGGERED_BREAKPOINT_MAX_DELAY = 1500;
 
 /** What a session needs besides the debug service: where errors and `important` output go, its log, the console. */
+/** The `debug.*` settings the service and its sessions read. */
+export type IDebugServiceConfiguration = Pick<IDebugConfiguration, "openDebug" | "autoExpandLazyVariables">;
+
 export interface IDebugSessionServices {
     readonly notifier: IRawDebugSessionNotifier & {
         notify(message: string, severity: ReplSeverity, source: string): void;
@@ -64,7 +67,7 @@ export interface IDebugSessionServices {
     readonly logger: ILogger;
     readonly replConfiguration: () => IReplConsoleConfiguration;
     /** `debug.openDebug` and `debug.autoExpandLazyVariables`. */
-    readonly debugConfiguration: () => Pick<IDebugConfiguration, "openDebug" | "autoExpandLazyVariables">;
+    readonly debugConfiguration: () => IDebugServiceConfiguration;
     /** Shows Run and Debug without taking the focus (`openOnDebugBreak`). */
     readonly openViewlet: () => void;
 }

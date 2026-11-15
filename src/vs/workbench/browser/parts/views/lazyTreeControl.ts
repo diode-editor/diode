@@ -127,9 +127,16 @@ export class LazyTreeControl<T> {
     /** Upstream's `expand` of a node whose children appeared later (a lazy variable once evaluated): reads them now. */
     public expand(element: T): void {
         const key = this.source.getKey(element);
+        // Another tree's node (both debug views hear of every lazy variable).
+        if (![...this.items.values()].some((item) => this.source.getKey(item) === key)) return;
         this.expansion.set(key, true);
         this.children.delete(key);
         this.loading.delete(key);
+        this.rebuild();
+    }
+
+    /** Paints the rows again from the data already read: for what changes the look, not the data. */
+    public rerender(): void {
         this.rebuild();
     }
 

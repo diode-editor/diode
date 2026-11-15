@@ -4,7 +4,7 @@
 // Ctrl+K B shows the viewlet everywhere (Ctrl+K D, the free letter of the other viewlets, is Compare with Saved).
 
 import { codicon } from "../../../../base/common/codicons.ts";
-import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { type CommandAction, HIDDEN_FROM_PALETTE } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -25,7 +25,6 @@ export const EDIT_EXPRESSION_COMMAND_ID = "debug.renameWatchExpression";
 export const REMOVE_EXPRESSION_COMMAND_ID = "debug.removeWatchExpression";
 
 const COLLAPSE_ICON = codicon("collapse-all");
-const HIDDEN_FROM_PALETTE = [{ menuId: MenuId.CommandPalette, when: "false" }] as const;
 
 /** The expression a WATCH command acts on: its argument (a row of a menu), else the focused row of the view. */
 function watchExpressionOf(accessor: ServiceAccessor, arg: unknown): Expression | undefined {
@@ -152,9 +151,7 @@ export const removeWatchExpressionAction: CommandAction = {
     keybinding: {
         keys: parseKeybinding("delete"),
         when: "watchExpressionsFocused && !expressionSelected",
-        // Upstream's WorkbenchContrib ties with Kill Terminal's Delete, which upstream settles by registration order;
-        // the contexts never meet, one more makes the order explicit.
-        weight: KeybindingWeight.WorkbenchContrib + 1,
+        weight: KeybindingWeight.WorkbenchContrib,
     },
     menus: HIDDEN_FROM_PALETTE,
     run(accessor, expression) {

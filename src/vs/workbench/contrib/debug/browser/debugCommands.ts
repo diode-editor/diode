@@ -11,7 +11,7 @@
 // the instruction stepping of the disassembly view is not planned. The editor's, the views' and the console's
 // commands come with their tasks.
 
-import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { type CommandAction, HIDDEN_FROM_PALETTE } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -64,8 +64,6 @@ function paletteItem(when?: string, enablement?: string): CommandAction["menus"]
         },
     ];
 }
-
-const HIDDEN_FROM_PALETTE: CommandAction["menus"] = [{ menuId: MenuId.CommandPalette, when: "false" }];
 
 interface CallStackContext {
     sessionId: string;

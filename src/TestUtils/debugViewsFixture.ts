@@ -1,8 +1,18 @@
 // Stack frames, scopes and variables for the tests of the debug views without an adapter: the children are given,
 // a lazy variable resolves to what the test says.
 
+import { DebugExpressionRenderer } from "../vs/workbench/contrib/debug/browser/debugExpressionRenderer.ts";
 import type { IExpression, IScope, IStackFrame } from "../vs/workbench/contrib/debug/common/debug.ts";
 import { ErrorScope, Scope, Variable } from "../vs/workbench/contrib/debug/common/debugModel.ts";
+
+/** Rows without types, the eye as `◉`, highlights that end without a rerender. */
+export function testExpressionRenderer(): DebugExpressionRenderer {
+    return new DebugExpressionRenderer({
+        icons: { glyph: () => "◉" },
+        showVariableTypes: () => false,
+        onHighlightsExpired: () => undefined,
+    });
+}
 
 const NO_PARENT = { getId: () => "root" } as never;
 

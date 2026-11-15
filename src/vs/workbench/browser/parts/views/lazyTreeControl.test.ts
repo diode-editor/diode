@@ -346,6 +346,24 @@ describe("LazyTreeControl — lazy children", () => {
         expect(screen()).not.toContain("a: 1");
     });
 
+    it("expand of a node the tree does not show changes nothing; rerender paints anew without reading", async () => {
+        const source = scope([{ key: "x", name: "x", value: "1" }], true);
+        const { tree, screen } = await mount(source);
+        const renders = source.renders;
+
+        tree.expand({ key: "elsewhere", name: "elsewhere", children: [] });
+        await flush();
+        expect(source.renders).toBe(renders);
+        expect(source.reads).toEqual(["scope"]);
+
+        tree.rerender();
+        await flush();
+        // Both rows are painted again from what was read: no read.
+        expect(source.renders).toBe(renders + 2);
+        expect(source.reads).toEqual(["scope"]);
+        expect(screen()).toContain("x: 1");
+    });
+
     it("collapsing by hand drops the children: reopening reads them anew", async () => {
         const source = localsSource();
         const { app, screen } = await mount(source);

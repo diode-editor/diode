@@ -2,7 +2,12 @@ import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type TestDebugService, testDebugService } from "../../../../../TestUtils/debugSessionFixture.ts";
-import { type ITestFrame, testFrame, TestVariable } from "../../../../../TestUtils/debugViewsFixture.ts";
+import {
+    type ITestFrame,
+    testExpressionRenderer,
+    testFrame,
+    TestVariable,
+} from "../../../../../TestUtils/debugViewsFixture.ts";
 import { createMockDebugModel } from "../../../../../TestUtils/mockDebug.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
@@ -13,7 +18,6 @@ import { StaticProductIconService } from "../../../../platform/theme/common/prod
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 
-import { DebugExpressionRenderer } from "./debugExpressionRenderer.ts";
 import { expressionAndScopeLabel, VARIABLES_REFRESH_DELAY_MS, VariablesView } from "./variablesView.ts";
 
 const vars = computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
@@ -27,11 +31,7 @@ describe("VariablesView", () => {
     beforeEach(() => {
         vi.useFakeTimers();
         debugService = testDebugService(createMockDebugModel(disposables));
-        const renderer = new DebugExpressionRenderer({
-            icons: { glyph: () => "◉" },
-            showVariableTypes: () => false,
-            onHighlightsExpired: () => undefined,
-        });
+        const renderer = testExpressionRenderer();
         view = disposables.add(new VariablesView(debugService, renderer));
         app = TestApp.createWithContent(view.tree.element, new Size(40, 12));
         bindWidgetGlyphs(app.root, new StaticProductIconService(false));
