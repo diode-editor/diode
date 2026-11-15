@@ -17,6 +17,7 @@ import { CancellationError } from "../../../../base/common/errorSerialization.ts
 import { Uri } from "../../../../base/common/uri.ts";
 import { DataBreakpointSetType, type IConfig, type IDebugSession, State } from "../common/debug.ts";
 import type { Thread } from "../common/debugModel.ts";
+import type { ViewModel } from "../common/debugViewModel.ts";
 
 import { DebugRequestError } from "./rawDebugSession.ts";
 
@@ -102,6 +103,18 @@ describe("DebugService", () => {
 
             expect(states).toEqual(["initializing", "running", "stopped", "inactive"]);
             expect(key("inDebugMode")).toBe(false);
+            expect(key("debugUx")).toBe("simple");
+        });
+
+        it("debugState follows the focused session even when the focused frame stays the same", async () => {
+            const session = await startStopped();
+            const viewModel = fx.service.getViewModel() as ViewModel;
+            viewModel.setFocus(undefined, undefined, session, false);
+            expect(key("debugState")).toBe("stopped");
+
+            viewModel.setFocus(undefined, undefined, undefined, false);
+
+            expect(key("debugState")).toBe("inactive");
         });
 
         it("capability keys follow the focused session", async () => {
@@ -235,6 +248,7 @@ describe("DebugService", () => {
 
         it.each([
             [{ type: "nope", request: "launch" }, "Configured debug type 'nope' is not supported."],
+            [{ type: "nope", request: "attach" }, "Configured debug type 'nope' is not supported."],
             [
                 { type: SYNTHETIC_DEBUG_TYPE, request: "run" },
                 "Attribute 'request' has an unsupported value 'run' in the chosen debug configuration.",
