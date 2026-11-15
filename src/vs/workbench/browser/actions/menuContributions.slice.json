@@ -410,8 +410,8 @@
             "workbench.view.extension.test",
             "workbench.actions.view.problems",
             "workbench.action.output.toggleOutput",
-            "workbench.action.terminal.toggleTerminal",
             "workbench.debug.action.toggleRepl",
+            "workbench.action.terminal.toggleTerminal",
             "workbench.action.toggleSidebarVisibility",
             "workbench.action.toggleAuxiliaryBar",
             "workbench.action.togglePanel"
