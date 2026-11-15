@@ -82,6 +82,7 @@ import { ExtensionTestingAdapter } from "../../workbench/contrib/testing/browser
 import { TestProfileServiceDIToken } from "../../workbench/contrib/testing/common/testProfileService.ts";
 import { TestResultServiceDIToken } from "../../workbench/contrib/testing/common/testResultService.ts";
 import { TestServiceDIToken } from "../../workbench/contrib/testing/common/testService.ts";
+import { ConfigurationResolverServiceDIToken } from "../../workbench/services/configurationResolver/browser/configurationResolverService.ts";
 import { DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import { FileDialogServiceDIToken } from "../../workbench/services/dialogs/browser/fileDialogService.ts";
 import {
@@ -489,6 +490,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // Stryker disable next-line StringLiteral,ObjectLiteral: the task log channel name and label are wiring; the "Tasks" channel shows up in the tasks e2e scenario
             logService.createLogger("tasks", { label: "Tasks" }),
         );
+        // Stryker disable next-line CallExpression,ArrowFunction: production module wiring; `${extensionInstallFolder:…}` is covered by the resolver unit tests
+        container.get(ConfigurationResolverServiceDIToken).setExtensions((id) => service.getExtension(id));
 
         // Running extensions saw the old folders and storage, so the subprocess restarts (like the upstream window reload).
         // Stryker disable CallExpression,BlockStatement,StringLiteral: production module wiring (like `storageHomes`/`secrets` above) — the decision lives in `ExtensionHost.restartForWorkspaceChange`, covered by its unit tests; end-to-end — e2e scenarios activation-workspace-contains and workspaceFile

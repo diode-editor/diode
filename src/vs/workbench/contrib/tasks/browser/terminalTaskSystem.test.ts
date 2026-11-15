@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FakeEditorTerminals } from "../../../../../TestUtils/FakeEditorTerminals.ts";
 import { FakeExtensionPtySession } from "../../../../../TestUtils/FakeExtensionPtySession.ts";
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
-import { type ITaskFixtureOptions, makeTask, taskVariables } from "../../../../../TestUtils/taskFixtures.ts";
+import { type ITaskFixtureOptions, makeTask, taskRunContext } from "../../../../../TestUtils/taskFixtures.ts";
 import {
     buildTerminalTaskSystemHarness,
     describeTaskEvent,
@@ -11,9 +11,9 @@ import {
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
+import { VariableError } from "../../../services/configurationResolver/common/configurationResolver.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "../../terminal/browser/terminalService.ts";
 import type { IExtensionPtyTerminalOptions } from "../../terminal/common/extensionPtyTerminals.ts";
-import { TaskVariableError } from "../common/taskVariables.ts";
 
 import { type ITaskEvent, TerminalTaskSystem, waitOnExitOf } from "./terminalTaskSystem.ts";
 
@@ -64,10 +64,7 @@ describe("TerminalTaskSystem — running a shell task", () => {
                     none: null,
                 },
             }),
-            {
-                variables: taskVariables({ env: { A: "a" } }),
-                platform: "linux",
-            },
+            taskRunContext({ env: { A: "a" } }),
         );
         const start = h.raw.find((e) => e.kind === "start");
         expect(start?.kind === "start" ? start.resolvedDefinition : undefined).toStrictEqual({
@@ -94,7 +91,7 @@ describe("TerminalTaskSystem — running a shell task", () => {
                     },
                 },
             }),
-            { variables: taskVariables({ env: { TOOL: "make", DIR: "d", Q: "x", SH: "zsh" } }), platform: "linux" },
+            taskRunContext({ env: { TOOL: "make", DIR: "d", Q: "x", SH: "zsh" } }),
         );
         expect(h.factoryCalls[0]).toStrictEqual({
             cols: 80,
@@ -182,13 +179,14 @@ describe("TerminalTaskSystem — running a shell task", () => {
 
     it("unresolvable variable — throws before the terminal is created, no events", () => {
         const h = buildTerminalTaskSystemHarness();
-        expect(() => h.system.run(makeTask({ command: { name: "${input:x}" } }), h.context())).toThrow(
-            TaskVariableError,
-        );
         // The default variables of the harness know no settings.
         expect(() =>
             h.system.run(makeTask({ command: { name: "echo ${config:editor.tabSize}" } }), h.context()),
-        ).toThrow("setting 'editor.tabSize' not found");
+        ).toThrow(
+            new VariableError(
+                "Variable ${config:editor.tabSize} can not be resolved because setting 'editor.tabSize' not found.",
+            ),
+        );
         expect(h.factoryCalls).toStrictEqual([]);
         expect(h.events).toStrictEqual([]);
         h.dispose();
@@ -638,39 +636,33 @@ describe("TerminalTaskSystem — stopping", () => {
 });
 
 describe("TerminalTaskSystem — rerunning the last task", () => {
-    it("nothing to rerun — undefined", () => {
+    it("nothing to rerun — undefined, no last task", () => {
         const h = buildTerminalTaskSystemHarness();
-        expect(h.system.rerun(h.context())).toBeUndefined();
+        expect(h.system.rerun()).toBeUndefined();
+        expect(h.system.getLastTask()).toBeUndefined();
         h.dispose();
     });
 
-    it("reevaluateOnRerun — variables resolved anew; without it — the same as last time", () => {
+    it("the previous launch is replayed, variables as they were (reevaluation is the service's run)", () => {
         const h = buildTerminalTaskSystemHarness();
         h.setVariables({ env: { V: "1" } });
-        h.system.run(makeTask({ label: "a", command: { name: "echo ${env:V}" } }), h.context());
+        const task = makeTask({ label: "b", command: { name: "echo ${env:V}" } });
+        h.system.run(task, h.context());
         h.sessions[0].emitExit(0);
         h.setVariables({ env: { V: "2" } });
-        h.system.rerun(h.context());
-        expect(h.sessions[0].relaunches[0].args).toStrictEqual(["-c", "echo 2"]);
-        h.sessions[0].emitExit(0);
-
-        h.setVariables({ env: { V: "1" } });
-        h.system.run(
-            makeTask({ label: "b", command: { name: "echo ${env:V}" }, runOptions: { reevaluateOnRerun: false } }),
-            h.context(),
-        );
-        h.sessions[0].emitExit(0);
-        h.setVariables({ env: { V: "2" } });
-        const result = h.system.rerun(h.context());
+        expect(h.system.getLastTask()).toBe(task);
+        const result = h.system.rerun();
         expect(result?.kind).toBe("started");
         expect(h.sessions[0].relaunches.at(-1)?.args).toStrictEqual(["-c", "echo 1"]);
         h.dispose();
     });
 
-    it("rerunning a running task without reevaluation — `active`, no new terminal", () => {
+    it("rerunning a running task — `active`, no new terminal; isActive by the task's key", () => {
         const h = buildTerminalTaskSystemHarness();
-        const run = h.system.run(makeTask({ runOptions: { reevaluateOnRerun: false } }), h.context());
-        const again = h.system.rerun(h.context());
+        const run = h.system.run(makeTask(), h.context());
+        expect(h.system.isActive(makeTask())).toBe(true);
+        expect(h.system.isActive(makeTask({ label: "other" }))).toBe(false);
+        const again = h.system.rerun();
         expect(again?.kind).toBe("active");
         expect(again?.promise).toBe(run.promise);
         expect(h.factoryCalls).toHaveLength(1);

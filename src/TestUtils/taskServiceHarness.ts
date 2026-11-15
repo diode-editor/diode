@@ -1,15 +1,18 @@
 import { vi } from "vitest";
 
 import { Uri } from "../vs/base/common/uri.ts";
+import { CommandRegistry } from "../vs/platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeyService.ts";
 import type { IFileContent, IFileService } from "../vs/platform/files/common/files.ts";
 import type { ILogService } from "../vs/platform/log/common/iLogService.ts";
 import { MarkerService } from "../vs/platform/markers/common/markerService.ts";
+import { StateFileStore } from "../vs/platform/state/node/stateService.ts";
 import type {
     IWorkspaceContextService,
     IWorkspaceFolder,
 } from "../vs/platform/workspace/common/iWorkspaceContextService.ts";
 import type {
+    InputBoxOptions,
     QuickInputService,
     QuickPickOptions,
 } from "../vs/workbench/browser/parts/quickinput/quickInputService.ts";
@@ -21,6 +24,7 @@ import {
     ProblemMatcherRegistry,
 } from "../vs/workbench/contrib/tasks/common/problemMatcherRegistry.ts";
 import { TerminalService } from "../vs/workbench/contrib/terminal/browser/terminalService.ts";
+import { ConfigurationResolverService } from "../vs/workbench/services/configurationResolver/browser/configurationResolverService.ts";
 import type { DialogService } from "../vs/workbench/services/dialogs/browser/dialogService.ts";
 import type { IEditorService } from "../vs/workbench/services/editor/common/editorService.ts";
 import { NotificationService } from "../vs/workbench/services/notification/browser/notificationService.ts";
@@ -79,9 +83,15 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
     const folder = options.folder === null ? undefined : (options.folder ?? TASK_FOLDER);
     const workspace = {
         getWorkspace: () => ({ id: folder === undefined ? null : "ws", folders: folder === undefined ? [] : [folder] }),
+        getWorkspaceFolder: () => folder,
     } as unknown as IWorkspaceContextService;
     let dirty: unknown[] = [];
-    let activeEditor: { uri: Uri; primaryCursorLine: number } | null = null;
+    let activeEditor: {
+        uri: Uri;
+        primaryCursorLine: number;
+        primaryCursorColumn: number;
+        getSelectedTexts: () => string[];
+    } | null = null;
     const saveAll = vi.fn(() => Promise.resolve());
     let opened: IFakeOpenedEditor | null = null;
     let openFails = false;
@@ -111,7 +121,15 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         const label = answers.shift();
         return Promise.resolve(label === undefined ? undefined : opts.items.find((item) => item.label === label));
     });
-    const quickInput = { quickPick } as unknown as QuickInputService;
+    const inputs: InputBoxOptions[] = [];
+    const typed: (string | undefined)[] = [];
+    const input = vi.fn((opts: InputBoxOptions): Promise<string | undefined> => {
+        inputs.push(opts);
+        return Promise.resolve(typed.shift());
+    });
+    const quickInput = { quickPick, input } as unknown as QuickInputService;
+    const commands = new CommandRegistry();
+    const state = new StateFileStore(undefined);
     const contextKeys = new ContextKeyService();
     const logger = createLoggerSpy();
     const logService = { createLogger: () => logger } as unknown as ILogService;
@@ -135,6 +153,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         editorTerminals,
         markers,
         new ProblemMatcherRegistry(),
+        new ConfigurationResolverService(configuration, workspace, editors, commands, quickInput, state),
     );
     const matcherProblems: string[] = [];
     const registerMatchers = (extensions: readonly IContributingExtension[]): void => {
@@ -176,6 +195,13 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         picks,
         quickInput,
         quickPick,
+        inputs,
+        commands,
+        state,
+        /** Answers of the input boxes in order; `undefined` — Escape. */
+        answerInputs: (...values: (string | undefined)[]): void => {
+            typed.push(...values);
+        },
         contextKeys,
         logger,
         service,
@@ -193,7 +219,12 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
             activeEditor =
                 path === null
                     ? null
-                    : { uri: path.includes(":") ? Uri.parse(path) : Uri.file(path), primaryCursorLine: line };
+                    : {
+                          uri: path.includes(":") ? Uri.parse(path) : Uri.file(path),
+                          primaryCursorLine: line,
+                          primaryCursorColumn: 0,
+                          getSelectedTexts: () => [""],
+                      };
         },
         lastPickLabels: (): string[] => (picks.at(-1)?.items ?? []).map((item) => item.label),
         dispose: (): void => {

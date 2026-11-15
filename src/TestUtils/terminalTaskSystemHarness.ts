@@ -5,13 +5,12 @@ import { makeViewsHarness, testView } from "../vs/workbench/browser/parts/views/
 import { PROBLEMS_VIEW_ID } from "../vs/workbench/contrib/markers/browser/problemsComponent.ts";
 import { type ITaskEvent, TerminalTaskSystem } from "../vs/workbench/contrib/tasks/browser/terminalTaskSystem.ts";
 import { getBuiltinProblemMatcher } from "../vs/workbench/contrib/tasks/common/problemMatcher.ts";
-import type { ITaskVariableContext } from "../vs/workbench/contrib/tasks/common/taskVariables.ts";
 import { TerminalService } from "../vs/workbench/contrib/terminal/browser/terminalService.ts";
 import type { ITerminalSessionOptions } from "../vs/workbench/contrib/terminal/common/terminalSessionFactory.ts";
 
 import { FakeEditorTerminals } from "./FakeEditorTerminals.ts";
 import { FakeTerminalSurface } from "./FakeTerminalSurface.ts";
-import { taskVariables } from "./taskFixtures.ts";
+import { taskRunContext } from "./taskFixtures.ts";
 import { createTestConfigurationService } from "./testConfigurationService.ts";
 
 export function buildTerminalTaskSystemHarness() {
@@ -58,10 +57,9 @@ export function buildTerminalTaskSystemHarness() {
     });
     const focus = vi.fn();
     terminals.onDidRequestFocus(focus);
-    let variables = taskVariables();
-    const context = () => ({ variables, platform: "linux" as const });
-    const setVariables = (overrides: Partial<ITaskVariableContext>): void => {
-        variables = taskVariables(overrides);
+    let context = taskRunContext();
+    const setVariables = (overrides: Parameters<typeof taskRunContext>[0]): void => {
+        context = taskRunContext(overrides);
     };
     const dispose = (): void => {
         system.dispose();
@@ -81,7 +79,7 @@ export function buildTerminalTaskSystemHarness() {
         events,
         raw,
         focus,
-        context,
+        context: () => context,
         setVariables,
         dispose,
     };
