@@ -11,7 +11,8 @@
 // approved look of the debug views spike, decision 2026-11-14): a frame reads "name, then `file:line` muted", not
 // upstream's `file line:col` pinned to the right, which a narrow sidebar would let eat the name; the frame the
 // editor marks carries the marker of the editor's glyph margin in front; "Load More" says how many frames are left
-// when the adapter tells the total. Not here yet: opening the focused frame in the editor (#1148), the inline
+// when the adapter tells the total; a `label` frame is italic but not centered (the engine's flex cannot center).
+// Not here yet: opening the focused frame in the editor (#1148), the inline
 // actions and the context menu of the rows (Restart Frame, the session's stop, Copy Call Stack: #1150).
 
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
@@ -405,7 +406,8 @@ export class CallStackView extends Disposable {
         if (element instanceof Thread) {
             stoppedDetails = element.stoppedDetails;
         } else if (isDebugSession(element)) {
-            stoppedDetails = element.getStoppedDetails() ?? element.getAllThreads().find((t) => t.stopped)?.stoppedDetails;
+            stoppedDetails =
+                element.getStoppedDetails() ?? element.getAllThreads().find((t) => t.stopped)?.stoppedDetails;
         } else {
             return [];
         }

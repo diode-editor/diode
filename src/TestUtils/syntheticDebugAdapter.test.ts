@@ -195,9 +195,9 @@ describe("SyntheticDebugAdapter", () => {
                 { id: 2, verified: true, line: 9 },
             ],
         });
-        expect(await body("setBreakpoints", { source: { path: "/elsewhere/a.cpp" }, breakpoints: [{ line: 1 }] })).toEqual(
-            { breakpoints: [{ id: 3, verified: false, line: 1 }] },
-        );
+        expect(
+            await body("setBreakpoints", { source: { path: "/elsewhere/a.cpp" }, breakpoints: [{ line: 1 }] }),
+        ).toEqual({ breakpoints: [{ id: 3, verified: false, line: 1 }] });
         expect(await body("setBreakpoints", { source: {} })).toEqual({ breakpoints: [] });
         expect(await body("setExceptionBreakpoints", { filters: [] })).toEqual({});
     });

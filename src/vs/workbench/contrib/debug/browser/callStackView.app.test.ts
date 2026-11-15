@@ -11,12 +11,11 @@ import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import { CALLSTACK_VIEW_ID, VARIABLES_VIEW_ID } from "../common/debug.ts";
-
 import { ThreadAndSessionIds } from "../common/debugModel.ts";
 
 import { type CallStackItem, isDebugSession } from "./callStackView.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
-import { DebugViewletComponentDIToken } from "./debugViewlet.ts";
+import { type DebugViewletComponent, DebugViewletComponentDIToken } from "./debugViewlet.ts";
 
 describe("CALL STACK in the workbench", () => {
     let t: IDebugViewletHarness;
@@ -34,7 +33,7 @@ describe("CALL STACK in the workbench", () => {
         await t.dispose();
     });
 
-    function component(): ReturnType<typeof t.h.container.get<typeof DebugViewletComponentDIToken>> {
+    function component(): DebugViewletComponent {
         return t.h.container.get(DebugViewletComponentDIToken);
     }
 

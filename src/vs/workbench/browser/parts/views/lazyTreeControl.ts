@@ -281,10 +281,7 @@ export class LazyTreeControl<T> {
                 const key = this.source.getKey(item);
                 const id = `${this.options.idPrefix}:${key}`;
                 const spans = this.source.renderRow(item);
-                const row = buildRow(
-                    spans,
-                    this.source.renderTrailing?.(item) ?? [],
-                );
+                const row = buildRow(spans, this.source.renderTrailing?.(item) ?? []);
                 row.id = id;
                 this.items.set(row, item);
                 this.parentOf.set(id, parentId);

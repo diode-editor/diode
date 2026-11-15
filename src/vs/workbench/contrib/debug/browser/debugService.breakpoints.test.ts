@@ -13,7 +13,7 @@ import {
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import { State } from "../common/debug.ts";
+import { DataBreakpointSetType, State } from "../common/debug.ts";
 import type { DebugModel } from "../common/debugModel.ts";
 
 const MAIN = Uri.file(`${SYNTHETIC_PROGRAM_ROOT}/src/main.cpp`);
@@ -97,7 +97,7 @@ describe("DebugService breakpoint editing", () => {
         await fx.service.addFunctionBreakpoint({ name: "accumulate" });
         model().addDataBreakpoint({
             description: "sum",
-            src: { type: "variable", dataId: "sum" },
+            src: { type: DataBreakpointSetType.Variable, dataId: "sum" },
             canPersist: true,
             accessTypes: undefined,
             accessType: "write",
@@ -192,11 +192,19 @@ describe("DebugService breakpoint editing", () => {
         expect(stored("debug.functionbreakpoint")).toEqual([expect.objectContaining({ name: "accumulate" })]);
 
         await fx.service.addFunctionBreakpoint();
-        expect(model().getFunctionBreakpoints().map((bp) => bp.name)).toEqual(["accumulate", ""]);
+        expect(
+            model()
+                .getFunctionBreakpoints()
+                .map((bp) => bp.name),
+        ).toEqual(["accumulate", ""]);
         expect(sent(adapter, "setFunctionBreakpoints")).toHaveLength(1);
 
         await fx.service.removeFunctionBreakpoints(model().getFunctionBreakpoints()[0].getId());
-        expect(model().getFunctionBreakpoints().map((bp) => bp.name)).toEqual([""]);
+        expect(
+            model()
+                .getFunctionBreakpoints()
+                .map((bp) => bp.name),
+        ).toEqual([""]);
         expect(sent(adapter, "setFunctionBreakpoints")).toHaveLength(2);
         expect(stored("debug.functionbreakpoint")).toEqual([expect.objectContaining({ name: "" })]);
     });
@@ -204,7 +212,7 @@ describe("DebugService breakpoint editing", () => {
     it("data and instruction breakpoints are removed and sent", async () => {
         model().addDataBreakpoint({
             description: "sum",
-            src: { type: "variable", dataId: "sum" },
+            src: { type: DataBreakpointSetType.Variable, dataId: "sum" },
             canPersist: true,
             accessTypes: undefined,
             accessType: "write",

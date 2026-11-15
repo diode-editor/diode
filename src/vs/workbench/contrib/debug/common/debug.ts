@@ -1030,7 +1030,7 @@ export interface IDebugService {
     /**
      * Adds a new function breakpoint for the given name.
      */
-    addFunctionBreakpoint(opts?: IFunctionBreakpointOptions, id?: string): void;
+    addFunctionBreakpoint(opts?: IFunctionBreakpointOptions, id?: string): Promise<void>;
 
     /**
      * Removes all function breakpoints. If id is passed only removes the function breakpoint with the passed id.

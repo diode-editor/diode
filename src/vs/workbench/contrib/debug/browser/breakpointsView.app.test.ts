@@ -20,7 +20,7 @@ import { BREAKPOINTS_VIEW_ID, type IBreakpointData } from "../common/debug.ts";
 import type { DebugModel } from "../common/debugModel.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
-import { DebugViewletComponentDIToken } from "./debugViewlet.ts";
+import { type DebugViewletComponent, DebugViewletComponentDIToken } from "./debugViewlet.ts";
 
 const repoRoot = process.cwd();
 const sample = Uri.file(resolve(repoRoot, "e2e", "fixtures", "sample.ts"));
@@ -51,7 +51,7 @@ describe("BREAKPOINTS in the workbench", () => {
         await t.h.container.get(DebugServiceDIToken).sendBreakpoints(uri);
     }
 
-    function view(): ReturnType<typeof t.h.container.get<typeof DebugViewletComponentDIToken>>["breakpoints"] {
+    function view(): DebugViewletComponent["breakpoints"] {
         return t.h.container.get(DebugViewletComponentDIToken).breakpoints;
     }
 
@@ -119,7 +119,11 @@ describe("BREAKPOINTS in the workbench", () => {
         t.h.testApp.sendKey(" ");
 
         await vi.waitFor(() => {
-            expect(model().getBreakpoints().find((bp) => bp.lineNumber === 3)?.enabled).toBe(false);
+            expect(
+                model()
+                    .getBreakpoints()
+                    .find((bp) => bp.lineNumber === 3)?.enabled,
+            ).toBe(false);
         });
         await vi.waitFor(() => {
             expect(t.screen()).toContain("[ ] ● sample.ts");
@@ -133,7 +137,11 @@ describe("BREAKPOINTS in the workbench", () => {
         t.h.testApp.sendKey("Delete");
 
         await vi.waitFor(() => {
-            expect(model().getBreakpoints().map((bp) => bp.lineNumber)).toEqual([2]);
+            expect(
+                model()
+                    .getBreakpoints()
+                    .map((bp) => bp.lineNumber),
+            ).toEqual([2]);
         });
         await vi.waitFor(() => {
             expect(t.screen()).not.toContain("[ ] ● sample.ts");
@@ -189,7 +197,11 @@ describe("BREAKPOINTS in the workbench", () => {
         await vi.waitFor(() => {
             expect(t.screen()).toContain("[✓] ▲ accumulate");
         });
-        expect(model().getFunctionBreakpoints().map((bp) => bp.name)).toEqual(["accumulate"]);
+        expect(
+            model()
+                .getFunctionBreakpoints()
+                .map((bp) => bp.name),
+        ).toEqual(["accumulate"]);
 
         // An empty name adds nothing.
         void t.h.commands.execute("workbench.debug.viewlet.action.addFunctionBreakpointAction");
@@ -264,7 +276,11 @@ describe("BREAKPOINTS in the workbench", () => {
         click(folder);
 
         await vi.waitFor(() => {
-            expect(model().getBreakpoints().every((bp) => bp.enabled)).toBe(true);
+            expect(
+                model()
+                    .getBreakpoints()
+                    .every((bp) => bp.enabled),
+            ).toBe(true);
         });
         await vi.waitFor(() => {
             expect(t.screen()).toContain("[✓] sample.ts e2e/fixtures");
@@ -292,7 +308,9 @@ describe("BREAKPOINTS in the workbench", () => {
         await vi.waitFor(() => {
             expect(t.screen()).toContain("○ sample.ts");
         });
-        expect(t.h.testApp.backend.getFgAt(t.find("○ sample.ts"))).toBe(vars["debugIcon.breakpointUnverifiedForeground"]);
+        expect(t.h.testApp.backend.getFgAt(t.find("○ sample.ts"))).toBe(
+            vars["debugIcon.breakpointUnverifiedForeground"],
+        );
         expect(t.h.testApp.backend.getFgAt(at(t.find("○ sample.ts"), 2))).toBe(vars.descriptionForeground);
         expect(t.screen()).toContain("● main.cpp");
         await vi.waitFor(() => {
@@ -306,7 +324,11 @@ describe("BREAKPOINTS in the workbench", () => {
         });
         const adapter = t.h.container.get(DebugServiceDIToken).getViewModel().focusedSession;
         expect(adapter).toBeDefined();
-        expect(model().getExceptionBreakpoints().find((e) => e.filter === "cpp_throw")?.enabled).toBe(true);
+        expect(
+            model()
+                .getExceptionBreakpoints()
+                .find((e) => e.filter === "cpp_throw")?.enabled,
+        ).toBe(true);
     });
 });
 

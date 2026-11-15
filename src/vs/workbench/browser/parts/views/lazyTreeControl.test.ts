@@ -237,7 +237,10 @@ describe("LazyTreeControl — rows", () => {
 
 describe("LazyTreeControl — row parts", () => {
     /** Leaves rendered by the test: a checkbox span that counts clicks, and a badge on the right. */
-    function partsSource(clicks: string[], options: { checkbox: boolean; badge: string } = { checkbox: true, badge: "" }) {
+    function partsSource(
+        clicks: string[],
+        options: { checkbox: boolean; badge: string } = { checkbox: true, badge: "" },
+    ) {
         return {
             getRoots: () => leaves("a", 2),
             getChildren: () => [],
@@ -248,7 +251,9 @@ describe("LazyTreeControl — row parts", () => {
                 { text: node.name, fg: "debugTokenExpression.name" },
             ],
             renderTrailing: (node: INode) =>
-                options.badge === "" ? [] : [{ text: `${options.badge}${node.value ?? ""}`, fg: "descriptionForeground" }],
+                options.badge === ""
+                    ? []
+                    : [{ text: `${options.badge}${node.value ?? ""}`, fg: "descriptionForeground" }],
         };
     }
 

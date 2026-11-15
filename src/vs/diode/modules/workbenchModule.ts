@@ -128,6 +128,8 @@ import {
 } from "../../workbench/common/workbenchContributionsRegistry.ts";
 import { BulkEditBuffers } from "../../workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { IBulkEditBuffersDIToken } from "../../workbench/contrib/bulkEdit/common/iBulkEditBuffers.ts";
+import { BreakpointSources } from "../../workbench/contrib/debug/browser/breakpointSources.ts";
+import { BreakpointSourcesDIToken } from "../../workbench/contrib/debug/browser/breakpointsView.ts";
 import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
 import {
     DebugQuickAccessProviderDIToken,
@@ -145,8 +147,6 @@ import {
     DebugTerminalLauncherDIToken,
     HasChildProcessesDIToken,
 } from "../../workbench/contrib/debug/browser/debugTerminal.ts";
-import { BreakpointSources } from "../../workbench/contrib/debug/browser/breakpointSources.ts";
-import { BreakpointSourcesDIToken } from "../../workbench/contrib/debug/browser/breakpointsView.ts";
 import {
     DebugViewletComponent,
     DebugViewletComponentDIToken,

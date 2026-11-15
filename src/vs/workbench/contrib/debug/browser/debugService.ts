@@ -7,7 +7,7 @@
 // configuration or compound, resolution by the providers, variable substitution, the pre-launch task, resolution with
 // substituted variables, then the session. Its steps that belong to later tasks are the identity here, each named at
 // its place: providers (#1139), choosing a debugger for a configuration without a type (#1156). Not here yet:
-// adding and editing breakpoints (gutter, conditions, data breakpoints: #1146–#1148), opening the console on a session (`debug.internalConsoleOptions`,
+// adding and editing breakpoints (the gutter: #1148; conditions, data breakpoints), opening the console on a session (`debug.internalConsoleOptions`,
 // `debug.console.closeOnEnd`, `debug.openExplorerOnEnd`), opening the focused frame in the editor (#1148). The
 // activity badge of the view container (active sessions) is not here: the container switcher has no badges. Errors
 // show as a modal notification, without the "Open launch.json" and "Install Extension" buttons. Not planned:
