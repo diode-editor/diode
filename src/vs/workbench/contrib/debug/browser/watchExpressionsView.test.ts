@@ -14,7 +14,8 @@ import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { bindWidgetGlyphs } from "../../../../platform/theme/browser/widgetGlyphs.ts";
 import { StaticProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import type { InputBoxOptions } from "../../../browser/parts/quickinput/quickInputService.ts";
-import { State } from "../common/debug.ts";
+import { type IStackFrame, State } from "../common/debug.ts";
+import type { ViewModel } from "../common/debugViewModel.ts";
 
 import { WATCH_REFRESH_DELAY_MS, WatchExpressionsView } from "./watchExpressionsView.ts";
 
@@ -179,6 +180,24 @@ describe("WatchExpressionsView", () => {
         await vi.waitFor(() => {
             expect(evaluations().slice(before)).toEqual(["total", "total"]);
         });
+    });
+
+    it("frame changes coalesce: one refresh 50 ms after the first, not postponed by the next", () => {
+        vi.useFakeTimers();
+        try {
+            const refresh = vi.spyOn(view, "refresh");
+            const viewModel = fx.service.getViewModel() as ViewModel;
+            const frame = (id: string): IStackFrame => ({ getId: () => id }) as IStackFrame;
+
+            viewModel.setFocus(frame("a"), undefined, undefined, false);
+            vi.advanceTimersByTime(WATCH_REFRESH_DELAY_MS - 10);
+            viewModel.setFocus(frame("b"), undefined, undefined, false);
+            vi.advanceTimersByTime(10);
+
+            expect(refresh).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it("Enter on a lazy child resolves it and opens it; on anything else it does nothing", async () => {

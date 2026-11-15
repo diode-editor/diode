@@ -103,7 +103,7 @@ describe("VariablesView", () => {
     });
 
     it("a scope that failed is its message in the error color", async () => {
-        focus(testFrame([{ name: "Unable to read the scopes", error: true }]), true);
+        focus(testFrame([{ name: "Unable to read the scopes", error: true, variables: [] }]), true);
         await vi.advanceTimersByTimeAsync(0);
         await settle();
 
