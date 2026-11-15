@@ -2,7 +2,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
-import { createDebugServiceFixture, type IDebugServiceFixture } from "../../../../../TestUtils/debugServiceFixture.ts";
+import {
+    createDebugServiceFixture,
+    fakeLaunch,
+    type IDebugServiceFixture,
+} from "../../../../../TestUtils/debugServiceFixture.ts";
 import { MockDebugAdapter, NO_RESPONSE } from "../../../../../TestUtils/mockDebugAdapter.ts";
 import {
     NO_DELAY_TIMING,
@@ -197,10 +201,10 @@ describe("DebugService", () => {
         });
 
         it("starts a configuration of the launch by its name, in the launch's folder", async () => {
-            const launch = {
+            const launch = fakeLaunch({
                 workspace: FOLDER,
                 getConfiguration: (name: string) => (name === "hello" ? { ...SYNTHETIC_LAUNCH_CONFIG } : undefined),
-            };
+            });
 
             expect(await fx.service.startDebugging(launch, "hello")).toBe(true);
 
@@ -208,7 +212,7 @@ describe("DebugService", () => {
         });
 
         it("a missing configuration of a launch is an error", async () => {
-            const launch = { workspace: FOLDER, getConfiguration: () => undefined };
+            const launch = fakeLaunch({ workspace: FOLDER, getConfiguration: () => undefined });
 
             await expect(fx.service.startDebugging(launch, "nope")).rejects.toThrow(
                 "Configuration 'nope' is missing in 'launch.json'.",
@@ -310,10 +314,10 @@ describe("DebugService", () => {
 
                 await fx.service.startDebugging(undefined, { ...config });
                 const other = { uri: Uri.file("/other"), name: "other", index: 0 };
-                await fx.service.startDebugging(
-                    { workspace: other, getConfiguration: () => undefined },
-                    { ...config, name: "m" },
-                );
+                await fx.service.startDebugging(fakeLaunch({ workspace: other, getConfiguration: () => undefined }), {
+                    ...config,
+                    name: "m",
+                });
                 fx.folders = [FOLDER, other];
                 await fx.service.startDebugging(undefined, { ...config, name: "k" });
 

@@ -239,8 +239,8 @@ export class NotificationsComponent extends Component {
         if (current === null) return;
         const widget = current.modal ? new MessageDialog(current, this.icons) : this.makeToast(current);
         const element = current.modal ? widget.view : fixedWidth(widget.view);
-        widget.onSelect = (index) => {
-            this.notifications.answer(current.id, index);
+        widget.onSelect = (index, checkboxChecked) => {
+            this.notifications.answer(current.id, index, checkboxChecked);
         };
         widget.onClose = () => {
             this.notifications.dismiss(current.id);

@@ -72,6 +72,30 @@ export function workspaceTasksPath(folderPath: string): string {
 }
 
 /**
+ * Upstream `LAUNCH_CONFIGURATION_KEY`: a standalone section of the workspace only (upstream has no user launch.json;
+ * a user `launch` is an ordinary key of `settings.json`). The folder's `.diode/launch.json` and the top-level `launch`
+ * block of a `.code-workspace` file are read as its value.
+ */
+export const LAUNCH_CONFIGURATION_KEY = "launch";
+
+export const LAUNCH_FILE_NAME = "launch.json";
+
+/** Wording of upstream's `ERROR_INVALID_CONFIGURATION` for the launch file. */
+export const LAUNCH_INVALID_CONFIGURATION_ERROR =
+    "Unable to write into the launch configuration file. Please open it to correct errors/warnings in it and try again.";
+
+export function workspaceLaunchPath(folderPath: string): string {
+    return path.join(folderPath, workspaceConfigFilePath(LAUNCH_FILE_NAME));
+}
+
+/** The JSON path of a `launch` key inside the launch file, as {@link tasksJsonPath}; any other key is not one. */
+export function launchJsonPath(key: string): string[] | undefined {
+    if (key === LAUNCH_CONFIGURATION_KEY) return [];
+    const prefix = `${LAUNCH_CONFIGURATION_KEY}.`;
+    return key.startsWith(prefix) ? [key.slice(prefix.length)] : undefined;
+}
+
+/**
  * The JSON path of a `tasks` key inside the tasks file (upstream `getConfigurationEditOperation`): `tasks` is the
  * whole file, `tasks.<x>` is the top-level `<x>`; any other key is not standalone.
  */

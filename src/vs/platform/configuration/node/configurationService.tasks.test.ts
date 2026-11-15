@@ -107,6 +107,7 @@ describe("ConfigurationService — the standalone tasks section", () => {
                 workspaceFile,
                 folder.path(".diode/settings.json"),
                 tasksFile,
+                folder.path(".diode/launch.json"),
             ]);
         });
 

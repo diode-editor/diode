@@ -5,8 +5,9 @@
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/common/debugger.ts
 // A debug type: its contribution and the way to an adapter. Not here yet, each with its task: merging the
 // contributions of several extensions, the activation events and the extension descriptor (`vscode.debug`, #1139),
-// interactive variables (`resolveWithInteractionReplace`, #1137), the configuration schema and the initial
-// launch.json content (#1138). Not planned: the telemetry endpoint.
+// interactive variables (`resolveWithInteractionReplace`, #1137), the configuration schema (IntelliSense in
+// launch.json). The initial launch.json content is written with tabs and a `\n` end of line; the configuration
+// manager turns the tabs into the editor's spaces. Not planned: the telemetry endpoint.
 
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
@@ -77,7 +78,30 @@ export class Debugger implements IDebugger, IDebuggerMetadata {
         return !!this.contribution.languages?.includes(languageId);
     }
 
-    public getInitialConfigurationContent(): Promise<string> {
-        return Promise.reject(new Error("launch.json is not supported yet"));
+    public getInitialConfigurationContent(initialConfigs?: IConfig[]): Promise<string> {
+        // at this point we got some configs from the package.json and/or from registered DebugConfigurationProviders
+        let initialConfigurations = this.contribution.initialConfigurations ?? [];
+        if (initialConfigs) {
+            initialConfigurations = initialConfigurations.concat(initialConfigs);
+        }
+        return Promise.resolve(initialConfigurationContent(initialConfigurations));
     }
+}
+
+/** Upstream's launch.json skeleton around the given configurations (`Debugger.getInitialConfigurationContent`). */
+export function initialConfigurationContent(initialConfigurations: readonly unknown[]): string {
+    const configs = JSON.stringify(initialConfigurations, null, "\t")
+        .split("\n")
+        .map((line) => "\t" + line)
+        .join("\n")
+        .trim();
+    return [
+        "{",
+        "\t// Use IntelliSense to learn about possible attributes.",
+        "\t// Hover to view descriptions of existing attributes.",
+        "\t// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387",
+        '\t"version": "0.2.0",',
+        `\t"configurations": ${configs}`,
+        "}",
+    ].join("\n");
 }

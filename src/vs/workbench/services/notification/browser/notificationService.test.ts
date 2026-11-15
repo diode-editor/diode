@@ -517,3 +517,21 @@ describe("NotificationService — clearAll", () => {
         expect(seen).toHaveBeenCalledTimes(1);
     });
 });
+
+describe("NotificationService: a question with a checkbox", () => {
+    it("tells whether the checkbox was checked with the answer; a question without one has no such reading", async () => {
+        const service = new NotificationService();
+        const checked = service.show(message({ modal: true, items: ["Yes"], checkbox: { label: "Remember" } }));
+        const unchecked = service.show(message({ modal: true, items: ["Yes"], checkbox: { label: "Remember" } }));
+        const plain = service.show(message({ modal: true, items: ["Yes"] }));
+
+        service.answer(checked.id, 0, true);
+        service.answer(unchecked.id, 0);
+        service.answer(plain.id, 0, true);
+
+        await expect(checked.answered).resolves.toBe(0);
+        expect(checked.checkboxChecked?.()).toBe(true);
+        expect(unchecked.checkboxChecked?.()).toBe(false);
+        expect(plain.checkboxChecked).toBeUndefined();
+    });
+});

@@ -136,7 +136,7 @@ describe("MessageDialog — response", () => {
         buttons[1].focus();
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
 
-        expect(onSelect).toHaveBeenCalledWith(1);
+        expect(onSelect).toHaveBeenCalledWith(1, false);
     });
 
     it("focusDefault moves focus to the first button", () => {
@@ -155,7 +155,7 @@ describe("MessageDialog — response", () => {
 
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Escape" }));
 
-        expect(onSelect).toHaveBeenCalledWith(1);
+        expect(onSelect).toHaveBeenCalledWith(1, false);
         expect(onClose).not.toHaveBeenCalled();
     });
 
@@ -214,5 +214,47 @@ describe("MessageDialog — response", () => {
     it("the button row is built with ONE stretching spacer (two throw in the engine)", () => {
         // Centering with two fill children crashed the window on build, and the failure reached the extension.
         expect(() => mount({ items: ["One", "Two", "Three"] })).not.toThrow();
+    });
+});
+
+describe("MessageDialog — checkbox", () => {
+    it("shows the label unchecked under the buttons; Enter toggles it and the answer carries its state", () => {
+        const { dialog, testApp, buttons } = mount({
+            items: ["Debug Anyway", "Abort"],
+            checkbox: { label: "Remember my choice" },
+        });
+        const onSelect = vi.fn();
+        dialog.onSelect = onSelect;
+        const rows = screen(testApp).split("\n");
+        const buttonRow = rows.findIndex((row) => row.includes("Debug Anyway"));
+        expect(rows[buttonRow + 1]).toMatch(/\[ \] \[ Remember my choice \]/u);
+
+        buttons[2].focus();
+        testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
+        expect(screen(testApp)).toContain("[x] [ Remember my choice ]");
+        // The arrows reach it after the last button, and back.
+        testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "ArrowLeft" }));
+        testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
+
+        expect(onSelect).toHaveBeenCalledWith(1, true);
+    });
+
+    it("toggled twice it is unchecked again; Escape answers with its state too", () => {
+        const { dialog, testApp, buttons } = mount({
+            items: ["Debug Anyway", "Abort"],
+            closeAffordance: 1,
+            checkbox: { label: "Remember" },
+        });
+        const onSelect = vi.fn();
+        dialog.onSelect = onSelect;
+
+        buttons[2].focus();
+        testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
+        testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
+        expect(screen(testApp)).toContain("[ ] [ Remember ]");
+        testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
+        testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Escape" }));
+
+        expect(onSelect).toHaveBeenCalledWith(1, true);
     });
 });

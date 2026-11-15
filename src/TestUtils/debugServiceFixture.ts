@@ -1,12 +1,24 @@
 // A `DebugService` over in-memory ports: context keys, the workspace store, notifications that record what they
-// showed and answer modal questions with `answer`.
+// showed and answer modal questions with `answer`, an in-memory configuration (launch.json is the `launch` key of
+// its workspace layer), and tasks the test lists in `tasks` and finishes through `runTask`.
 
 import { vi } from "vitest";
 
+import { Emitter } from "../vs/base/common/event.ts";
+import { Uri } from "../vs/base/common/uri.ts";
+import { ConfigurationRegistry } from "../vs/platform/configuration/common/configurationRegistry.ts";
+import { InMemoryConfigurationService } from "../vs/platform/configuration/common/inMemoryConfigurationService.ts";
 import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeyService.ts";
 import { NULL_LOGGER } from "../vs/platform/log/common/nullLogService.ts";
-import type { IWorkspaceFolder } from "../vs/platform/workspace/common/iWorkspaceContextService.ts";
+import type { IMarker } from "../vs/platform/markers/common/iMarker.ts";
+import type { IWorkspaceFolder, WorkbenchState } from "../vs/platform/workspace/common/iWorkspaceContextService.ts";
+import { debugConfiguration } from "../vs/workbench/common/configuration/debugConfiguration.ts";
+import type { IConfigurationManagerPorts } from "../vs/workbench/contrib/debug/browser/debugConfigurationManager.ts";
 import { DebugService, type IDebugServicePorts } from "../vs/workbench/contrib/debug/browser/debugService.ts";
+import type { IDebugTaskRunnerPorts } from "../vs/workbench/contrib/debug/browser/debugTaskRunner.ts";
+import type { ILaunch } from "../vs/workbench/contrib/debug/common/debug.ts";
+import type { ITaskEvent, ITaskSummary } from "../vs/workbench/contrib/tasks/browser/taskService.ts";
+import { type ITask, taskMatches } from "../vs/workbench/contrib/tasks/common/tasks.ts";
 import type {
     INotificationHandle,
     INotificationMessage,
@@ -15,42 +27,176 @@ import type {
 import { DEFAULT_REPL_CONFIGURATION } from "./debugSessionFixture.ts";
 import { type MockStateService, mockStateService, NO_DIRTY_FILES } from "./mockDebug.ts";
 
+export const USER_SETTINGS = Uri.file("/user/settings.json");
+
+/** A launch of the test's own: by default no configurations, no compounds, nothing to open. */
+export function fakeLaunch(launch: Partial<ILaunch> & Pick<ILaunch, "workspace" | "getConfiguration">): ILaunch {
+    return {
+        uri: Uri.file("/w/.diode/launch.json"),
+        name: "w",
+        hidden: false,
+        getCompound: () => undefined,
+        getConfigurationNames: () => [],
+        openConfigFile: () => Promise.resolve({ opened: true, created: false }),
+        ...launch,
+    };
+}
+
 export interface IDebugServiceFixture {
     readonly service: DebugService;
     readonly contextKeys: ContextKeyService;
     readonly state: MockStateService;
+    readonly configuration: InMemoryConfigurationService;
     readonly shown: INotificationMessage[];
     readonly activated: string[];
     /** The answer to the next modal questions: a button index, or `undefined` for closed. */
     answer: number | undefined;
+    /** Whether the checkbox of the next questions is checked when they are answered. */
+    checkboxChecked: boolean;
     folders: IWorkspaceFolder[];
+    workbenchState: WorkbenchState;
+    /** Fires the folders change for what `folders` holds now. */
+    changeFolders(): void;
+    /** The tasks the task service knows; `runTask` starts one and gives the way to end it. */
+    tasks: ITask[];
+    readonly ran: string[];
+    /** Ends the last run of the task with the exit code (`undefined`: the terminal was closed). */
+    endTask(label: string, exitCode: number | undefined): void;
+    /** Ran tasks resolve at once with this exit code, unless it is `"pending"`. */
+    taskExitCode: number | undefined | "pending";
+    markers: IMarker[];
+    readonly opened: { resource: string; line?: number; preserveFocus: boolean }[];
+    readonly saves: number[];
+    readonly commands: string[];
+    readonly dismissed: number[];
 }
 
-export function createDebugServiceFixture(): IDebugServiceFixture {
+export function createDebugServiceFixture(options: { readonly workspaceLaunch?: unknown } = {}): IDebugServiceFixture {
     const contextKeys = new ContextKeyService();
     const state = mockStateService();
     const shown: INotificationMessage[] = [];
     const activated: string[] = [];
+    const ran: string[] = [];
+    const runs = new Map<string, PromiseWithResolvers<ITaskSummary | undefined>>();
+    const taskEvents = new Emitter<ITaskEvent>();
+    const foldersChange = new Emitter<void>();
+    const configuration = new InMemoryConfigurationService(
+        new ConfigurationRegistry([debugConfiguration]),
+        {},
+        options.workspaceLaunch === undefined ? {} : { launch: options.workspaceLaunch },
+    );
     let id = 0;
     const fixture = {
         contextKeys,
         state,
+        configuration,
         shown,
         activated,
+        ran,
         answer: undefined as number | undefined,
+        checkboxChecked: false,
         folders: [] as IWorkspaceFolder[],
+        workbenchState: "folder" as WorkbenchState,
+        changeFolders: () => {
+            foldersChange.fire();
+        },
+        tasks: [] as ITask[],
+        taskExitCode: 0 as number | undefined | "pending",
+        markers: [] as IMarker[],
+        opened: [] as { resource: string; line?: number; preserveFocus: boolean }[],
+        saves: [] as number[],
+        commands: [] as string[],
+        dismissed: [] as number[],
+        endTask: (label: string, exitCode: number | undefined) => {
+            const task = fixture.tasks.find((t) => t._label === label);
+            if (task === undefined) throw new Error(`no task ${label}`);
+            taskEvents.fire({ kind: "processEnded", task, terminalId: 1, exitCode });
+            taskEvents.fire({ kind: "inactive", task, terminalId: 1 });
+            runs.get(label)?.resolve({ exitCode });
+        },
+    };
+    const notifications = {
+        show: vi.fn((message: INotificationMessage): INotificationHandle => {
+            shown.push(message);
+            const handle = { id: ++id, answered: Promise.resolve(message.modal ? fixture.answer : undefined) };
+            if (message.checkbox === undefined) return handle;
+            const checked = fixture.checkboxChecked;
+            return { ...handle, checkboxChecked: () => checked };
+        }),
+        dismiss: (notificationId: number) => {
+            fixture.dismissed.push(notificationId);
+        },
+    };
+    const workspace = {
+        getWorkspace: () => ({ id: "w" as never, folders: fixture.folders }),
+        getWorkbenchState: () => fixture.workbenchState,
+        onDidChangeWorkspaceFolders: (listener: () => void) => foldersChange.event(listener),
+    };
+    const configurationManager: IConfigurationManagerPorts = {
+        configuration,
+        workspace,
+        state,
+        contextKeys,
+        files: {
+            readFile: () => Promise.reject(new Error("no file")),
+            writeFile: () => Promise.resolve({} as never),
+            exists: () => Promise.resolve(true),
+            createFolder: () => Promise.resolve({} as never),
+        },
+        openEditor: (resource, { preserveFocus, line }) => {
+            fixture.opened.push({ resource: resource.toString(), line, preserveFocus });
+            return Promise.resolve();
+        },
+        userSettings: {
+            resource: USER_SETTINGS,
+            open: () => {
+                fixture.opened.push({ resource: USER_SETTINGS.toString(), preserveFocus: false });
+                return Promise.resolve();
+            },
+        },
+    };
+    const tasks: IDebugTaskRunnerPorts = {
+        tasks: {
+            groupedTasks: () => Promise.resolve(fixture.tasks),
+            taskIdentifierOf: (arg: unknown) =>
+                typeof arg === "string" ? arg : { ...(arg as { type: string }), _key: JSON.stringify(arg) },
+            findTask: (all, identifier) => all.find((task) => taskMatches(task, identifier)),
+            run: (task) => {
+                ran.push(task._label);
+                const run = Promise.withResolvers<ITaskSummary | undefined>();
+                runs.set(task._label, run);
+                taskEvents.fire({ kind: "start", task, terminalId: 1, resolvedDefinition: {} });
+                taskEvents.fire({ kind: "active", task, terminalId: 1 });
+                if (fixture.taskExitCode !== "pending") {
+                    fixture.endTask(task._label, fixture.taskExitCode);
+                }
+                return run.promise;
+            },
+            terminate: (task) => {
+                fixture.endTask(task._label, undefined);
+                return Promise.resolve(true);
+            },
+            getActiveTasks: () => [],
+            onDidStateChange: taskEvents.event,
+        },
+        markers: { read: () => fixture.markers },
+        configuration,
+        notifications,
+        state,
+        openProblemsView: () => {
+            fixture.commands.push("problems");
+        },
+        configureTask: () => {
+            fixture.commands.push("configureTask");
+            return Promise.resolve();
+        },
     };
     const ports: IDebugServicePorts = {
         contextKeys,
         state,
         textFiles: NO_DIRTY_FILES,
         logger: NULL_LOGGER,
-        notifications: {
-            show: vi.fn((message: INotificationMessage): INotificationHandle => {
-                shown.push(message);
-                return { id: ++id, answered: Promise.resolve(message.modal ? fixture.answer : undefined) };
-            }),
-        },
+        notifications,
         extensions: {
             activateByEvent: (event) => {
                 activated.push(event);
@@ -61,8 +207,14 @@ export function createDebugServiceFixture(): IDebugServiceFixture {
                 return Promise.resolve();
             },
         },
-        workspace: { getWorkspace: () => ({ id: "w" as never, folders: fixture.folders }) },
+        workspace,
         replConfiguration: () => DEFAULT_REPL_CONFIGURATION,
+        configurationManager,
+        tasks,
+        saveAllBeforeStart: () => {
+            fixture.saves.push(fixture.saves.length);
+            return Promise.resolve();
+        },
     };
     return Object.assign(fixture, { service: new DebugService(ports) });
 }
