@@ -378,16 +378,15 @@ describe("Run and Debug viewlet in the workbench", () => {
         expect(session()).toBe(true);
     });
 
-    it("Enter on the Run and Debug button starts debugging; the WATCH section takes the focus into its tree", async () => {
-        const start = vi.spyOn(h.container.get(DebugServiceDIToken), "startDebugging");
+    it("Enter on the Run and Debug button runs Start Debugging; the WATCH section takes the focus into its tree", async () => {
+        const execute = vi.spyOn(h.commands, "execute");
         h.testApp.sendKey("Ctrl+k");
         h.testApp.sendKey("b");
 
         h.testApp.sendKey("Enter");
 
-        await vi.waitFor(() => {
-            expect(start).toHaveBeenCalled();
-        });
+        // Without a launch.json the start asks for the configuration, as F5 does.
+        expect(execute).toHaveBeenCalledWith("workbench.action.debug.start");
         h.container.get(ViewsServiceDIToken).openView(WATCH_VIEW_ID, true);
         h.container.get(WorkbenchContextKeysDIToken).update();
         expect(h.container.get(ContextKeyServiceDIToken).getRaw("watchExpressionsFocused")).toBe(true);
