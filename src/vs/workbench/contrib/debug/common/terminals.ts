@@ -9,14 +9,19 @@
 
 import { currentOperatingSystem, OperatingSystem } from "../../../../base/common/platform.ts";
 
-type ShellType = "cmd" | "powershell" | "bash";
+export type ShellType = "cmd" | "powershell" | "bash";
 
 /** Upstream `extpath.getDriveLetter`. */
 function getDriveLetter(path: string, isWindowsOS: boolean): string | undefined {
     return isWindowsOS && /^[a-zA-Z]:/u.test(path) ? path[0] : undefined;
 }
 
-function shellTypeOf(shell: string, isWindowsOS: boolean): ShellType {
+/** Upstream inlines this ladder in `prepareCommand` and again for the `clear` command of a reused terminal. */
+export function shellTypeOf(
+    shell: string,
+    isWindowsOS: boolean = currentOperatingSystem() === OperatingSystem.Windows,
+): ShellType {
+    shell = shell.trim().toLowerCase();
     if (shell.includes("powershell") || shell.includes("pwsh")) {
         return "powershell";
     } else if (shell.includes("cmd.exe")) {
@@ -37,7 +42,7 @@ export function prepareCommand(
     isWindowsOS: boolean = currentOperatingSystem() === OperatingSystem.Windows,
 ): string {
     // try to determine the shell type
-    const shellType = shellTypeOf(shell.trim().toLowerCase(), isWindowsOS);
+    const shellType = shellTypeOf(shell, isWindowsOS);
 
     // begin command with a space to avoid polluting shell history
     let command = " ";

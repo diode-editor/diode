@@ -140,7 +140,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     public readonly requests: DebugProtocol.Request[] = [];
     /** The session's answers to the adapter's reverse requests, in order. */
     public readonly responses: DebugProtocol.Response[] = [];
-    private readonly pendingReverse = new Map<number, (response: DebugProtocol.Response) => void>();
+    private readonly pendingReverse = new Map<number, () => void>();
     private readonly program = new Program();
     private readonly handles = new Map<number, Children>();
     private nextHandle = 1;
@@ -172,7 +172,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
         } else if (message.type === "response") {
             const response = message as DebugProtocol.Response;
             this.responses.push(response);
-            this.pendingReverse.get(response.request_seq)?.(response);
+            this.pendingReverse.get(response.request_seq)?.();
             this.pendingReverse.delete(response.request_seq);
         }
     }
@@ -217,16 +217,16 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
         } as DebugProtocol.Response);
     }
 
-    private reverseRequest(command: string, args: unknown): Promise<DebugProtocol.Response> {
+    /** CodeLLDB's `terminal` launch setting: the debuggee runs in the client's terminal, `launch` is answered after. */
+    private launchInTerminal(
+        request: DebugProtocol.Request,
+        kind: "integrated" | "external",
+        config: Record<string, unknown>,
+    ): void {
         const seq = this.seq++;
-        return new Promise((resolve) => {
-            this.pendingReverse.set(seq, resolve);
-            this.acceptMessage({ type: "request", seq, command, arguments: args } as DebugProtocol.Request);
+        this.pendingReverse.set(seq, () => {
+            this.launch(request);
         });
-    }
-
-    /** CodeLLDB's `terminal` launch setting: the debuggee runs in the client's terminal. */
-    private async runInTerminal(kind: "integrated" | "external", config: Record<string, unknown>): Promise<void> {
         const args: DebugProtocol.RunInTerminalRequestArguments = {
             kind,
             title: config.name as string,
@@ -234,7 +234,12 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             args: [config.program as string, ...((config.args as string[] | undefined) ?? [])],
             env: config.env as Record<string, string | null> | undefined,
         };
-        await this.reverseRequest("runInTerminal", args);
+        this.acceptMessage({
+            type: "request",
+            seq,
+            command: "runInTerminal",
+            arguments: args,
+        } as DebugProtocol.Request);
     }
 
     private event(event: string, body?: unknown): void {
@@ -271,13 +276,10 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 return;
             case "launch":
                 if (args.terminal === "integrated" || args.terminal === "external") {
-                    void this.runInTerminal(args.terminal, args).then(() => {
-                        this.launch(request);
-                    });
+                    this.launchInTerminal(request, args.terminal, args);
                     return;
                 }
-                this.launch(request);
-                return;
+            // falls through
             case "attach":
                 this.launch(request);
                 return;

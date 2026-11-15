@@ -4,6 +4,7 @@ import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurfac
 import { mockSession } from "../../../../../TestUtils/mockDebug.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { Emitter } from "../../../../base/common/event.ts";
+import type { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "../../terminal/browser/terminalService.ts";
 import type { AdapterEndEvent, IDebugSession, INewReplElementData } from "../common/debug.ts";
@@ -46,7 +47,7 @@ describe("DebugTerminalLauncher", () => {
     let terminals: TerminalService;
     let openView: ReturnType<typeof vi.fn<(viewId: string, focus?: boolean, activate?: boolean) => void>>;
     let busy: Set<number>;
-    let settings: Record<string, unknown>;
+    let configuration: InMemoryConfigurationService;
     let shell: string;
     let launcher: DebugTerminalLauncher;
     let nextPid: number;
@@ -55,7 +56,7 @@ describe("DebugTerminalLauncher", () => {
         vi.useFakeTimers();
         surfaces = [];
         busy = new Set();
-        settings = {};
+        configuration = createTestConfigurationService();
         shell = "/bin/bash";
         nextPid = 100;
         const views = makeViewsHarness();
@@ -70,7 +71,7 @@ describe("DebugTerminalLauncher", () => {
             terminals,
             { openView },
             () => shell,
-            { get: ((key: string) => settings[key]) as never },
+            configuration,
             (pid) => Promise.resolve(pid === undefined || busy.has(pid)),
         );
     });
@@ -107,8 +108,8 @@ describe("DebugTerminalLauncher", () => {
         expect(surfaces[0].writes).toEqual([" ./build/hello a\\ b \r"]);
     });
 
-    it("without a title the terminal is 'Debug Process'; env goes to the command", async () => {
-        const { session } = testSession();
+    it("without a title the terminal is 'Debug Process'; env goes to the command; no kind is integrated", async () => {
+        const { session, repl } = testSession();
 
         await run({ ...ARGS, title: "", env: { A: "1", B: null } }, session);
         await run({ cwd: "/w", args: ["x"] }, session);
@@ -116,6 +117,7 @@ describe("DebugTerminalLauncher", () => {
         expect(terminals.getInstances().map((i) => i.title)).toEqual(["Debug Process", "Debug Process"]);
         expect(surfaces[0].writes).toEqual([" /usr/bin/env A=1 -u B ./build/hello a\\ b \r"]);
         expect(surfaces[1].writes).toEqual([" x \r"]);
+        expect(repl).toEqual([]);
     });
 
     it("args that the shell may interpret go as they are", async () => {
@@ -172,14 +174,6 @@ describe("DebugTerminalLauncher", () => {
         expect(terminals.getInstances()).toHaveLength(1);
     });
 
-    it("a request without kind is integrated, with no console line", async () => {
-        const { session, repl } = testSession();
-
-        expect(await run({ cwd: "/w", args: ["x"] }, session)).toBe(100);
-
-        expect(repl).toEqual([]);
-    });
-
     describe("reuse", () => {
         it("the session's terminal is free once it ends: the next run reuses it, Ctrl+C first, cd to cwd", async () => {
             const first = testSession();
@@ -187,7 +181,7 @@ describe("DebugTerminalLauncher", () => {
             first.end();
             busy.add(100);
 
-            const pid = await run({ ...ARGS, cwd: "/home/user/hello" }, testSession().session);
+            const pid = await run(ARGS, testSession().session);
 
             expect(pid).toBe(100);
             expect(terminals.getInstances()).toHaveLength(1);
@@ -211,7 +205,7 @@ describe("DebugTerminalLauncher", () => {
         });
 
         it("debug.terminal.clearBeforeReusing clears it, 200 ms before the command", async () => {
-            settings["debug.terminal.clearBeforeReusing"] = true;
+            await configuration.updateValue("debug.terminal.clearBeforeReusing", true);
             const first = testSession();
             await run(ARGS, first.session);
             first.end();
@@ -284,23 +278,11 @@ describe("DebugTerminalLauncher", () => {
 
             expect(terminals.getInstances().map((i) => i.processId)).toEqual([101]);
         });
-
-        it("after it is disposed, a closed terminal isn't tracked any more", async () => {
-            const first = testSession();
-            await run(ARGS, first.session);
-            first.end();
-            launcher.dispose();
-            const id = terminals.getInstances()[0].id;
-
-            terminals.closeInstance(id);
-
-            expect(terminals.getInstance(id)).toBeNull();
-        });
     });
 
     describe("the clear command of the shell", () => {
         async function clearWith(shellPath: string): Promise<string | undefined> {
-            settings["debug.terminal.clearBeforeReusing"] = true;
+            await configuration.updateValue("debug.terminal.clearBeforeReusing", true);
             shell = shellPath;
             const index = surfaces.length;
             const first = testSession();

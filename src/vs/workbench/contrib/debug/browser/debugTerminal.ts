@@ -12,7 +12,7 @@
 // integration: the readiness of a new shell is the 500 ms of quiet, a reused one always takes the Ctrl+C and the
 // `clear` path. Checking the free terminals runs one after another, not in parallel.
 
-import { RunOnceScheduler } from "../../../../base/common/async.ts";
+import { disposableTimeout, RunOnceScheduler, timeout } from "../../../../base/common/async.ts";
 import { Disposable, DisposableStore } from "../../../../base/common/lifecycle.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -27,7 +27,7 @@ import {
 } from "../../terminal/browser/terminalService.ts";
 import { type DefaultShellResolver, DefaultShellResolverDIToken } from "../../terminal/common/defaultShell.ts";
 import type { IDebugSession, IDebugTerminalLauncher } from "../common/debug.ts";
-import { prepareCommand } from "../common/terminals.ts";
+import { prepareCommand, shellTypeOf } from "../common/terminals.ts";
 
 /** `node/terminals.ts`: whether the shell runs a program, i.e. the terminal is busy. */
 export type HasChildProcesses = (processId: number | undefined) => Promise<boolean>;
@@ -50,10 +50,6 @@ const Timing = {
     /** Delay before a new terminal is a candidate for reuse. See #71850 */
     MinUseDelay: 1000,
 } as const;
-
-function timeout(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 interface ITerminalInfo {
     /** `-1`: free — its session has ended. */
@@ -215,12 +211,7 @@ export class DebugTerminalLauncher extends Disposable implements IDebugTerminalL
                     scheduler.schedule();
                 }),
             );
-            const max = setTimeout(resolve, Timing.MaxDelay);
-            ds.add({
-                dispose: () => {
-                    clearTimeout(max);
-                },
-            });
+            ds.add(disposableTimeout(resolve, Timing.MaxDelay));
         }).finally(() => {
             ds.dispose();
         });
@@ -228,10 +219,5 @@ export class DebugTerminalLauncher extends Disposable implements IDebugTerminalL
 }
 
 function clearCommandOf(shell: string): string {
-    if (shell.includes("powershell") || shell.includes("pwsh") || shell.includes("cmd.exe")) {
-        return "cls";
-    } else if (shell.includes("bash")) {
-        return "clear";
-    }
-    return process.platform === "win32" ? "cls" : "clear";
+    return shellTypeOf(shell) === "bash" ? "clear" : "cls";
 }

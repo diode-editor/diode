@@ -16,11 +16,12 @@ afterEach(() => {
     for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-function fakePgrep(output: string): string {
+/** A `pgrep` that runs `script`. */
+function fakePgrep(script: string): string {
     const dir = mkdtempSync(join(tmpdir(), "diode-pgrep-"));
     dirs.push(dir);
     const path = join(dir, "pgrep");
-    writeFileSync(path, `#!/bin/sh\nprintf '%s' '${output}'\n`);
+    writeFileSync(path, `#!/bin/sh\n${script}\n`);
     chmodSync(path, 0o755);
     return path;
 }
@@ -41,19 +42,15 @@ describe("hasChildProcesses", () => {
         });
 
         it("asks pgrep for the children of the process", async () => {
-            const dir = mkdtempSync(join(tmpdir(), "diode-pgrep-"));
-            dirs.push(dir);
-            const path = join(dir, "pgrep");
-            writeFileSync(path, `#!/bin/sh\n[ "$1 $2" = "-lP 4242" ] && echo '7 sleep'\n`);
-            chmodSync(path, 0o755);
+            const path = fakePgrep(`[ "$1 $2" = "-lP 4242" ] && echo '7 sleep'`);
             await expect(hasChildProcesses(4242, path)).resolves.toBe(true);
             await expect(hasChildProcesses(4243, path)).resolves.toBe(false);
         });
 
         it("a tmux child doesn't make the shell busy; blanks are no children", async () => {
-            await expect(hasChildProcesses(1, fakePgrep("12 tmux"))).resolves.toBe(false);
-            await expect(hasChildProcesses(1, fakePgrep("  \n"))).resolves.toBe(false);
-            await expect(hasChildProcesses(1, fakePgrep("12 vim"))).resolves.toBe(true);
+            await expect(hasChildProcesses(1, fakePgrep("printf '%s' '12 tmux'"))).resolves.toBe(false);
+            await expect(hasChildProcesses(1, fakePgrep("printf '%s' '  \n'"))).resolves.toBe(false);
+            await expect(hasChildProcesses(1, fakePgrep("printf '%s' '12 vim'"))).resolves.toBe(true);
         });
 
         it("no pgrep: busy", async () => {

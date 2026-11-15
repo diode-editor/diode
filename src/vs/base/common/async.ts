@@ -1,5 +1,18 @@
-import type { IDisposable } from "./lifecycle.ts";
+import { type IDisposable, toDisposable } from "./lifecycle.ts";
 import { setTimeout0 } from "./platform.ts";
+
+/** Upstream `timeout` without its cancellation token (no caller needs one yet). */
+export function timeout(millis: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, millis));
+}
+
+/** Upstream `disposableTimeout` without its `store`: disposing the result cancels the handler. */
+export function disposableTimeout(handler: () => void, timeout = 0): IDisposable {
+    const timer = setTimeout(handler, timeout);
+    return toDisposable(() => {
+        clearTimeout(timer);
+    });
+}
 
 export class RunOnceScheduler implements IDisposable {
     private timeoutToken: ReturnType<typeof setTimeout> | undefined;
