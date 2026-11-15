@@ -29,7 +29,19 @@
   ±1 — на стыке с редактором. Отступления записаны в шапке каждого файла: нет `IUriIdentityService`, `ITextFileService`
   сужен до `ITextFileDirtyState`, хранилище без observables (перечитывается на `onDidOpenWorkspace`), нет памяти,
   визуализаторов и дизассемблера; `openInEditor`, `IDebugService`, `ILaunch`, `convertToDAPaths` и прочее приходят
-  со своими задачами серии. Сервисы модели создаёт `DebugService` (#1136), DI-биндингов пока нет.
+  со своими задачами серии.
+- #1136: сессия и сервис. `common/abstractDebugAdapter.ts` (DAP-обмен: номера, таймауты, очередь сообщений по задаче на
+  сообщение), `common/replModel.ts` (модель Debug Console с ключами `debug.console.collapseIdenticalLines` и
+  `debug.console.maximumLines`; вид — #1146), `common/debugger.ts`; в `browser/` — `rawDebugSession.ts`,
+  `debugSession.ts` (+ `ThreadStatusScheduler`), `debugService.ts` (`DebugServiceDIToken`, порты — `IDebugServicePorts`,
+  контрибуция фазы `afterRestored`), `debugAdapterManager.ts`, `debugCommands.ts` (`DEBUG_ACTIONS`: id, клавиши и
+  палитра эталона; F6 паузы — вес выше «Notifications: Focus Message»). **Шов для адаптеров расширений** —
+  `debugService.getAdapterManager()`: `registerDebugger(contribution)` (тип отладчика, вместо точки расширения
+  `debuggers` эталона — её позовёт #1139) и `registerDebugAdapterFactory(types, factory)` (адаптер — #1140).
+  `startDebugging` идёт по последовательности эталона; шаги будущих задач (провайдеры, `launch.json`, задачи, выбор
+  отладчика без `type`) там — тождество с комментарием. **Синтетический адаптер** — `src/TestUtils/syntheticDebugAdapter.ts`
+  (`registerSyntheticDebugger`, тип `synthetic`, данные спайка, `SPIKE_TIMING`/`NO_DELAY_TIMING`); на нём
+  `debug.app.test.ts` гоняет весь workbench: `debug.startFromConfig`, `debugState`, клавиши.
 
 - `vscode.debug` поднят целиком (18/18), но это null-объект (`src/vs/workbench/api/common/debugNoop.ts`):
   сессии не стартуют, `onDebug*` не стреляют.
