@@ -895,6 +895,20 @@ export interface IWireTerminalPtyName {
     readonly name: string;
 }
 
+/**
+ * Upstream `$registerProfileProvider`: `id` is the `contributes.terminal.profiles` id, unique across extensions
+ * (the subprocess refuses a second provider), so it alone addresses the provider.
+ */
+export interface IWireTerminalProfileProvider {
+    readonly id: string;
+}
+
+/** Upstream `$createContributedProfileTerminal`; `location` overrides the profile's own, as upstream's internal options. */
+export interface IWireCreateContributedProfileTerminal {
+    readonly id: string;
+    readonly location: 1 | 2;
+}
+
 export interface IWireTerminalPtyData {
     readonly terminal: IWireTerminalRef;
     readonly data: string;

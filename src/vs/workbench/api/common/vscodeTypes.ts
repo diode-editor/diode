@@ -861,6 +861,12 @@ export enum TerminalLocation {
     Editor = 2,
 }
 
+export class TerminalProfile implements vscode.TerminalProfile {
+    public constructor(public options: vscode.TerminalOptions | vscode.ExtensionTerminalOptions) {
+        if (typeof options !== "object") throw new Error("Illegal argument: options");
+    }
+}
+
 /** Values match the wire (`platform/terminal/common/environmentVariable.ts`). */
 export enum EnvironmentVariableMutatorType {
     Replace = 1,

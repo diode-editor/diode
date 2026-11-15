@@ -38,6 +38,30 @@ function makeCtx() {
 }
 
 describe("WindowNamespace", () => {
+    it("registerTerminalLinkProvider is an inert no-op: a disposable, nothing sent to the host", () => {
+        const { stub, window } = makeCtx();
+        const register = (window as unknown as { registerTerminalLinkProvider: (p: unknown) => vscode.Disposable })
+            .registerTerminalLinkProvider;
+        const registration = register({ provideTerminalLinks: () => [] });
+        expect(() => {
+            registration.dispose();
+        }).not.toThrow();
+        expect(stub.notifies).toStrictEqual([]);
+        expect(stub.requests).toStrictEqual([]);
+    });
+
+    // On Windows the profile of an extension whose identity the subprocess did not resolve was never found.
+    it("registerTerminalProfileProvider addresses the provider by the profile id, with or without a known extension", () => {
+        const { stub, ctx, window } = makeCtx();
+        const provider: vscode.TerminalProfileProvider = { provideTerminalProfile: () => undefined };
+        ctx.owner.runAs("ms-vscode.js-debug", () => window.registerTerminalProfileProvider("debug", provider));
+        window.registerTerminalProfileProvider("anonymous", provider);
+        expect(stub.notifies.filter((n) => n.method === "terminal.registerProfileProvider")).toStrictEqual([
+            { method: "terminal.registerProfileProvider", params: { id: "debug" } },
+            { method: "terminal.registerProfileProvider", params: { id: "anonymous" } },
+        ]);
+    });
+
     it("terminals: createTerminal, terminals, activeTerminal and events are shared on window", () => {
         const { stub, window } = makeCtx();
         const opened: vscode.Terminal[] = [];

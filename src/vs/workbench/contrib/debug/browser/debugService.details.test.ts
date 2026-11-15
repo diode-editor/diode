@@ -164,6 +164,15 @@ describe("DebugService details", () => {
             expect(viewModel().focusedSession).toBe(child);
         });
 
+        it("a compact child of a session that is not focused does not take the focus", async () => {
+            const first = await start();
+            const second = await start({ name: "second" });
+
+            await start({ name: "child" }, { parentSession: second, compact: true });
+
+            expect(viewModel().focusedSession).toBe(first);
+        });
+
         it("a child that is not compact does not take the focus", async () => {
             const first = await start();
 

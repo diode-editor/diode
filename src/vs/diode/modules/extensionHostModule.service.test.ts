@@ -11,6 +11,7 @@ import type { LogEntry } from "../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { LogService } from "../../platform/log/common/logService.ts";
+import { DebugExtensionActivatorDIToken } from "../../workbench/contrib/debug/browser/debugService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { ExtensionServiceDIToken } from "../../workbench/services/extensions/common/extensions.ts";
 import { LanguageRegistry } from "../../workbench/services/language/common/languageRegistry.ts";
@@ -61,6 +62,14 @@ describe("extensionHostModule — extension service", () => {
 
     it("service gets the set from the module context", () => {
         expect(h.container.get(ExtensionServiceDIToken).extensions).toEqual([BROKEN_BUILTIN]);
+    });
+
+    it("debug activation events (`onDebug` and others) go to the extension service", () => {
+        const activate = vi.spyOn(h.container.get(ExtensionServiceDIToken), "activateByEvent");
+
+        void h.container.get(DebugExtensionActivatorDIToken).activateByEvent("onDebug");
+
+        expect(activate.mock.calls).toEqual([["onDebug"]]);
     });
 
     it("a language first needed by a model requests onLanguage:<id> and bare onLanguage — once per language", () => {
