@@ -13,7 +13,7 @@ import type {
 } from "../vs/workbench/services/notification/browser/notificationService.ts";
 
 import { DEFAULT_REPL_CONFIGURATION } from "./debugSessionFixture.ts";
-import { type MockStateService, mockStateService, NO_DIRTY_FILES } from "./mockDebug.ts";
+import { type MockStateService, mockStateService, NO_DIRTY_FILES, NO_TERMINAL_LAUNCHER } from "./mockDebug.ts";
 
 export interface IDebugServiceFixture {
     readonly service: DebugService;
@@ -63,6 +63,7 @@ export function createDebugServiceFixture(): IDebugServiceFixture {
         },
         workspace: { getWorkspace: () => ({ id: "w" as never, folders: fixture.folders }) },
         replConfiguration: () => DEFAULT_REPL_CONFIGURATION,
+        terminalLauncher: NO_TERMINAL_LAUNCHER,
     };
     return Object.assign(fixture, { service: new DebugService(ports) });
 }

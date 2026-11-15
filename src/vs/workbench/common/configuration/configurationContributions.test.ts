@@ -149,6 +149,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "testing.followRunningTest": "window",
     "debug.console.collapseIdenticalLines": "window",
     "debug.console.maximumLines": "window",
+    "debug.terminal.clearBeforeReusing": "window",
     "testing.gutterEnabled": "window",
     "testing.resultsView.layout": "window",
     "testing.saveBeforeTest": "window",

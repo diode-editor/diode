@@ -39,6 +39,7 @@ import {
     type IDebugService,
     type IDebugSession,
     type IDebugSessionOptions,
+    type IDebugTerminalLauncher,
     type ILaunch,
     type IStackFrame,
     type IThread,
@@ -66,6 +67,8 @@ export interface IDebugServicePorts {
     readonly extensions: Pick<IExtensionService, "activateByEvent" | "whenInstalledExtensionsRegistered">;
     readonly workspace: Pick<IWorkspaceContextService, "getWorkspace">;
     readonly replConfiguration: () => IReplConsoleConfiguration;
+    /** The adapters' `runInTerminal`: the integrated terminal. */
+    readonly terminalLauncher: IDebugTerminalLauncher;
 }
 export const DebugServicePortsDIToken = token<IDebugServicePorts>("DebugServicePorts");
 
@@ -103,7 +106,7 @@ export class DebugService implements IDebugService {
 
     public constructor(private readonly ports: IDebugServicePorts) {
         const contextKeys = ports.contextKeys;
-        this.adapterManager = this.disposables.add(new AdapterManager(() => this, contextKeys));
+        this.adapterManager = this.disposables.add(new AdapterManager(() => this, contextKeys, ports.terminalLauncher));
         this.debugStorage = this.disposables.add(new DebugStorage(ports.state, ports.textFiles, ports.logger));
         this.model = this.disposables.add(new DebugModel(this.debugStorage, ports.textFiles, ports.logger));
         this.viewModel = this.disposables.add(new ViewModel(contextKeys));

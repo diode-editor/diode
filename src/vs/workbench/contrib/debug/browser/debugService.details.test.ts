@@ -44,7 +44,6 @@ describe("DebugService details", () => {
                 return adapter;
             },
             substituteVariables: (_folder, config) => Promise.resolve(config),
-            runInTerminal: () => Promise.resolve(undefined),
         });
     });
 
@@ -327,7 +326,6 @@ describe("DebugService details", () => {
                     return adapter;
                 },
                 substituteVariables: (_folder, c) => Promise.resolve(c),
-                runInTerminal: () => Promise.resolve(undefined),
             });
             await start();
             const launch =
@@ -360,7 +358,6 @@ describe("DebugService details", () => {
                             resolve(config);
                         };
                     }),
-                runInTerminal: () => Promise.resolve(undefined),
             });
             const slow = fx.service.startDebugging(undefined, { type: "slow", name: "s", request: "launch" });
             await settle(5);
