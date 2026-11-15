@@ -8,9 +8,10 @@
 // `TerminalService` — the adapter sees the same. Deviations: `kind: external` runs in the integrated terminal too
 // (a TUI has no external terminal to open) after a line in the Debug Console; a request without `kind` is
 // `integrated`, the protocol's default (upstream runs nothing); the shell is the default one, not the automation
-// profile (there are no profiles), and the terminal has no debug icon (terminals have no icons). There is no shell
-// integration: the readiness of a new shell is the 500 ms of quiet, a reused one always takes the Ctrl+C and the
-// `clear` path. Checking the free terminals runs one after another, not in parallel.
+// profile (`terminal.integrated.automationProfile.*` is not supported), and the terminal has no debug icon
+// (terminals have no icons). There is no shell integration: the readiness of a new shell is the 500 ms of quiet, a
+// reused one always takes the Ctrl+C and the `clear` path. Checking the free terminals runs one after another, not
+// in parallel.
 
 import { disposableTimeout, RunOnceScheduler, timeout } from "../../../../base/common/async.ts";
 import { Disposable, DisposableStore } from "../../../../base/common/lifecycle.ts";
