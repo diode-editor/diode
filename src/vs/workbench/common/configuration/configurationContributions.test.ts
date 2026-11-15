@@ -156,6 +156,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "debug.hideSlowPreLaunchWarning": "window",
     "debug.terminal.clearBeforeReusing": "window",
     "debug.showVariableTypes": "window",
+    "debug.breakpointsView.presentation": "window",
     "debug.openDebug": "window",
     "debug.autoExpandLazyVariables": "window",
     "testing.gutterEnabled": "window",

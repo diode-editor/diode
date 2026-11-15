@@ -1,6 +1,7 @@
 import type { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { HFlexElement, hflexFill, hflexFit } from "@tuidom/elements/layout/hFlexElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
@@ -15,6 +16,8 @@ export interface IRowSpan {
     readonly bg?: StyleColor;
     /** Italic for an unavailable value, as upstream's `.unavailable`. */
     readonly style?: StyleFlags;
+    /** An inline control (upstream's checkbox of a breakpoint): a click on it does this instead of picking the row. */
+    readonly onClick?: () => void;
 }
 
 /** Upstream's `IAsyncDataSource` with the renderer folded in: what the tree asks of its owner. */
@@ -27,6 +30,8 @@ export interface ILazyTreeSource<T> {
     /** Expanded on first sight unless the user collapsed it (upstream auto-expands the first scope). */
     isInitiallyExpanded?(element: T): boolean;
     renderRow(element: T): readonly IRowSpan[];
+    /** Pinned to the right edge, as upstream's badges: a thread's state, a breakpoint's line. Clipped first. */
+    renderTrailing?(element: T): readonly IRowSpan[];
     /** Typeahead text; the joined spans when omitted. */
     getLabel?(element: T): string;
 }
@@ -42,14 +47,63 @@ export interface ILazyTreeOptions {
 export const LOADING_LABEL = "Loading...";
 const PLACEHOLDER_SUFFIX = "#loading";
 
+function joined(spans: readonly IRowSpan[]): string {
+    return spans.map((span) => span.text).join("");
+}
+
 function spansLabel(spans: readonly IRowSpan[]): TextLabelElement {
-    const label = new TextLabelElement(spans.map((span) => span.text).join(""));
+    const label = new TextLabelElement(joined(spans));
     let offset = 0;
     for (const span of spans) {
         // UTF-16 units, as the label indexes its chars.
         for (const _unit of span.text.split("")) label.setCharStyle(offset++, span);
     }
     return label;
+}
+
+/** A span the user clicks: the list hands the click to the row, and the consumed click picks no row. */
+function clickableLabel(span: IRowSpan, onClick: () => void): TextLabelElement {
+    const label = spansLabel([span]);
+    label.addEventListener("click", (event) => {
+        event.preventDefault();
+        onClick();
+    });
+    // The pair of a double click must not open the row either.
+    label.addEventListener("dblclick", (event) => {
+        event.preventDefault();
+    });
+    return label;
+}
+
+/**
+ * One label for a plain row; a row with inline controls or a right part is a flex of labels laid out from the left
+ * (the flex clamps its children in order): the text keeps its width before the right part does, and a gap pushes
+ * the right part to the edge when there is room.
+ */
+function buildRow(spans: readonly IRowSpan[], trailing: readonly IRowSpan[]): TUIElement {
+    if (trailing.length === 0 && spans.every((span) => span.onClick === undefined)) {
+        return spansLabel(spans);
+    }
+    const row = new HFlexElement();
+    let run: IRowSpan[] = [];
+    const flush = (): void => {
+        if (run.length > 0) row.addChild(spansLabel(run), { width: hflexFit(), height: 1 });
+        run = [];
+    };
+    for (const span of spans) {
+        if (span.onClick === undefined) {
+            run.push(span);
+            continue;
+        }
+        flush();
+        row.addChild(clickableLabel(span, span.onClick), { width: hflexFit(), height: 1 });
+    }
+    flush();
+    if (trailing.length > 0) {
+        row.addChild(new TextLabelElement(""), { width: hflexFill(), height: 1 });
+        row.addChild(spansLabel(trailing), { width: hflexFit(), height: 1 });
+    }
+    return row;
 }
 
 /**
@@ -67,6 +121,8 @@ export class LazyTreeControl<T> {
         right: 1,
     });
     public onActivate: (element: T) => void = () => undefined;
+    /** The cursor moved to a row by the user; a rebuild or {@link reveal} moving it says nothing. */
+    public onSelect: (element: T) => void = () => undefined;
 
     private roots: readonly T[] = [];
     /** The user's word on a node; a node without one follows {@link ILazyTreeSource.isInitiallyExpanded}. */
@@ -81,6 +137,8 @@ export class LazyTreeControl<T> {
     private parentOf = new Map<string, string | undefined>();
     private refreshToken = {};
     private rebuildScheduled = false;
+    /** The tree itself moves the cursor: not the user's pick. */
+    private movingCursor = false;
 
     public constructor(
         private readonly source: ILazyTreeSource<T>,
@@ -92,6 +150,10 @@ export class LazyTreeControl<T> {
         this.list.onActivate = (row) => {
             const item = this.items.get(row);
             if (item !== undefined) this.onActivate(item);
+        };
+        this.list.onSelect = (row) => {
+            const item = this.items.get(row);
+            if (!this.movingCursor && item !== undefined) this.onSelect(item);
         };
     }
 
@@ -138,6 +200,12 @@ export class LazyTreeControl<T> {
     /** Paints the rows again from the data already read: for what changes the look, not the data. */
     public rerender(): void {
         this.rebuild();
+    }
+
+    /** Puts the cursor on the row of the element (upstream's `setSelection` and `reveal`), if the tree shows it. */
+    public reveal(element: T): void {
+        const id = `${this.options.idPrefix}:${this.source.getKey(element)}`;
+        if (this.parentOf.has(id)) this.moveCursor(id);
     }
 
     public collapseAll(): void {
@@ -190,6 +258,15 @@ export class LazyTreeControl<T> {
             });
     }
 
+    private moveCursor(id: string): void {
+        this.movingCursor = true;
+        try {
+            this.list.setCursorTo(id);
+        } finally {
+            this.movingCursor = false;
+        }
+    }
+
     private rebuild(): void {
         const list = this.list;
         const cursorId = list.getCursorElement()?.id;
@@ -203,12 +280,16 @@ export class LazyTreeControl<T> {
             for (const item of items) {
                 const key = this.source.getKey(item);
                 const id = `${this.options.idPrefix}:${key}`;
-                const row = spansLabel(this.source.renderRow(item));
+                const spans = this.source.renderRow(item);
+                const row = buildRow(
+                    spans,
+                    this.source.renderTrailing?.(item) ?? [],
+                );
                 row.id = id;
                 this.items.set(row, item);
                 this.parentOf.set(id, parentId);
                 const expanded = this.isExpanded(item, key);
-                const label = this.source.getLabel?.(item) ?? row.getText();
+                const label = this.source.getLabel?.(item) ?? joined(spans);
                 list.appendRow(row, { label, parentId, collapsed: !expanded });
                 if (!this.source.hasChildren(item)) continue;
                 const read = expanded ? this.children.get(key) : undefined;
@@ -229,7 +310,7 @@ export class LazyTreeControl<T> {
         append(this.roots, undefined);
         let target = cursorId;
         while (target !== undefined && !this.parentOf.has(target)) target = previousParents.get(target);
-        if (target !== undefined) list.setCursorTo(target);
+        if (target !== undefined) this.moveCursor(target);
         // Raw, not scrollTo: the next layout clamps and snaps it against the viewport it actually gets.
         list.scrollTop = this.options.stickyTail === true && tailVisible ? Number.MAX_SAFE_INTEGER : scrollTop;
     }

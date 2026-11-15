@@ -7,7 +7,7 @@
 // configuration or compound, resolution by the providers, variable substitution, the pre-launch task, resolution with
 // substituted variables, then the session. Its steps that belong to later tasks are the identity here, each named at
 // its place: providers (#1139), choosing a debugger for a configuration without a type (#1156). Not here yet:
-// breakpoint editing (views, gutter: #1145–#1148), opening the console on a session (`debug.internalConsoleOptions`,
+// adding and editing breakpoints (gutter, conditions, data breakpoints: #1146–#1148), opening the console on a session (`debug.internalConsoleOptions`,
 // `debug.console.closeOnEnd`, `debug.openExplorerOnEnd`), opening the focused frame in the editor (#1148). The
 // activity badge of the view container (active sessions) is not here: the container switcher has no badges. Errors
 // show as a modal notification, without the "Open launch.json" and "Install Extension" buttons. Not planned:
@@ -34,6 +34,7 @@ import type { NotificationService } from "../../../services/notification/browser
 import {
     type AdapterEndEvent,
     getStateLabel,
+    type IBreakpoint,
     type ICompound,
     type IConfig,
     type IDebugModel,
@@ -41,6 +42,7 @@ import {
     type IDebugSession,
     type IDebugSessionOptions,
     type IDebugTerminalLauncher,
+    type IEnablement,
     type ILaunch,
     type IStackFrame,
     type IThread,
@@ -49,7 +51,15 @@ import {
     State,
 } from "../common/debug.ts";
 import { DebugCompoundRoot } from "../common/debugCompoundRoot.ts";
-import { DebugModel, type ITextFileDirtyState } from "../common/debugModel.ts";
+import {
+    Breakpoint,
+    DataBreakpoint,
+    DebugModel,
+    FunctionBreakpoint,
+    type IFunctionBreakpointOptions,
+    InstructionBreakpoint,
+    type ITextFileDirtyState,
+} from "../common/debugModel.ts";
 import { DebugStorage } from "../common/debugStorage.ts";
 import { ViewModel } from "../common/debugViewModel.ts";
 import type { IReplConsoleConfiguration } from "../common/replModel.ts";
@@ -920,6 +930,122 @@ export class DebugService implements IDebugService {
     }
 
     //---- breakpoints
+
+    public async enableOrDisableBreakpoints(enable: boolean, breakpoint?: IEnablement): Promise<void> {
+        if (breakpoint) {
+            this.model.setEnablement(breakpoint, enable);
+            this.debugStorage.storeBreakpoints(this.model);
+            if (breakpoint instanceof Breakpoint) {
+                await this.makeTriggeredBreakpointsMatchEnablement(enable, breakpoint);
+                await this.sendBreakpoints(breakpoint.originalUri);
+            } else if (breakpoint instanceof FunctionBreakpoint) {
+                await this.sendFunctionBreakpoints();
+            } else if (breakpoint instanceof DataBreakpoint) {
+                await this.sendDataBreakpoints();
+            } else if (breakpoint instanceof InstructionBreakpoint) {
+                await this.sendInstructionBreakpoints();
+            } else {
+                await this.sendExceptionBreakpoints();
+            }
+        } else {
+            this.model.enableOrDisableAllBreakpoints(enable);
+            this.debugStorage.storeBreakpoints(this.model);
+            await this.sendAllBreakpoints();
+        }
+        this.debugStorage.storeBreakpoints(this.model);
+    }
+
+    public async removeBreakpoints(id?: string | string[]): Promise<void> {
+        const breakpoints = this.model.getBreakpoints();
+        const toRemove =
+            id === undefined
+                ? breakpoints
+                : Array.isArray(id)
+                  ? breakpoints.filter((bp) => id.includes(bp.getId()))
+                  : breakpoints.filter((bp) => bp.getId() === id);
+        // Upstream keeps the uris as strings to make them distinct; a map by the string keeps the uri itself.
+        const urisToClear = new Map(toRemove.map((bp) => [bp.originalUri.toString(), bp.originalUri]));
+
+        this.model.removeBreakpoints(toRemove);
+        for (const uri of this.unlinkTriggeredBreakpoints(breakpoints, toRemove)) urisToClear.set(uri.toString(), uri);
+
+        this.debugStorage.storeBreakpoints(this.model);
+        await Promise.all([...urisToClear.values()].map((uri) => this.sendBreakpoints(uri)));
+    }
+
+    public setBreakpointsActivated(activated: boolean): Promise<void> {
+        this.model.setBreakpointsActivated(activated);
+        return this.sendAllBreakpoints();
+    }
+
+    public async addFunctionBreakpoint(opts?: IFunctionBreakpointOptions, id?: string): Promise<void> {
+        this.model.addFunctionBreakpoint(opts ?? { name: "" }, id);
+        // If opts not provided, sending the breakpoint is handled by a later to call to `updateFunctionBreakpoint`
+        if (opts) {
+            this.debugStorage.storeBreakpoints(this.model);
+            await this.sendFunctionBreakpoints();
+            this.debugStorage.storeBreakpoints(this.model);
+        }
+    }
+
+    public async removeFunctionBreakpoints(id?: string): Promise<void> {
+        this.model.removeFunctionBreakpoints(id);
+        this.debugStorage.storeBreakpoints(this.model);
+        await this.sendFunctionBreakpoints();
+    }
+
+    public async removeDataBreakpoints(id?: string): Promise<void> {
+        this.model.removeDataBreakpoints(id);
+        this.debugStorage.storeBreakpoints(this.model);
+        await this.sendDataBreakpoints();
+    }
+
+    public async removeInstructionBreakpoints(
+        instructionReference?: string,
+        offset?: number,
+        address?: bigint,
+    ): Promise<void> {
+        this.model.removeInstructionBreakpoints(instructionReference, offset, address);
+        this.debugStorage.storeBreakpoints(this.model);
+        await this.sendInstructionBreakpoints();
+    }
+
+    private unlinkTriggeredBreakpoints(
+        allBreakpoints: readonly IBreakpoint[],
+        removedBreakpoints: readonly IBreakpoint[],
+    ): uri[] {
+        const affectedUris: uri[] = [];
+        for (const removed of removedBreakpoints) {
+            for (const existing of allBreakpoints) {
+                if (!removedBreakpoints.includes(existing) && existing.triggeredBy === removed.getId()) {
+                    this.model.updateBreakpoints(new Map([[existing.getId(), { triggeredBy: undefined }]]));
+                    affectedUris.push(existing.originalUri);
+                }
+            }
+        }
+
+        return affectedUris;
+    }
+
+    private async makeTriggeredBreakpointsMatchEnablement(enable: boolean, breakpoint: Breakpoint): Promise<void> {
+        if (enable) {
+            /** If the breakpoint is being enabled, also ensure its triggerer is enabled */
+            if (breakpoint.triggeredBy) {
+                const trigger = this.model.getBreakpoints().find((bp) => breakpoint.triggeredBy === bp.getId());
+                if (trigger && !trigger.enabled) {
+                    await this.enableOrDisableBreakpoints(enable, trigger);
+                }
+            }
+        }
+
+        /** Makes its triggeree states match the state of this breakpoint */
+        await Promise.all(
+            this.model
+                .getBreakpoints()
+                .filter((bp) => bp.triggeredBy === breakpoint.getId() && bp.enabled !== enable)
+                .map((bp) => this.enableOrDisableBreakpoints(enable, bp)),
+        );
+    }
 
     public setExceptionBreakpointsForSession(
         session: IDebugSession,

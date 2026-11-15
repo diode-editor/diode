@@ -125,6 +125,7 @@ describe("tier gate asymmetry — user-facing contract", () => {
     // Canonical binding under the tier gate and its label on both sides: `command | on legacy | on kitty`.
     // The table is built from the bindings themselves — a new gate must land here deliberately.
     const CONTRACT = [
+        "debug.openBreakpointToSide | Alt+Enter | Ctrl+Enter",
         "deleteWordLeft | Alt+Backspace | Ctrl+Backspace",
         "editor.action.blockComment | Ctrl+K Alt+A | Shift+Alt+A",
         "editor.action.formatDocument | Ctrl+K Ctrl+E | Shift+Alt+F",

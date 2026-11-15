@@ -145,6 +145,8 @@ import {
     DebugTerminalLauncherDIToken,
     HasChildProcessesDIToken,
 } from "../../workbench/contrib/debug/browser/debugTerminal.ts";
+import { BreakpointSources } from "../../workbench/contrib/debug/browser/breakpointSources.ts";
+import { BreakpointSourcesDIToken } from "../../workbench/contrib/debug/browser/breakpointsView.ts";
 import {
     DebugViewletComponent,
     DebugViewletComponentDIToken,
@@ -767,6 +769,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(HasChildProcessesDIToken, () => hasChildProcesses);
     container.bind(DebugTerminalLauncherDIToken, DebugTerminalLauncher);
     container.bind(DebugServiceDIToken, DebugService);
+    container.bind(BreakpointSourcesDIToken, BreakpointSources);
     container.bind(DebugViewletComponentDIToken, DebugViewletComponent);
     container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);

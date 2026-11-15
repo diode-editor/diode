@@ -23,6 +23,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["auto", "on", "off"],
     },
     {
+        key: "debug.breakpointsView.presentation",
+        type: "string",
+        default: "list",
+        description: "Controls whether breakpoints are displayed in a tree view grouped by file, or as a flat list.",
+        enum: ["tree", "list"],
+    },
+    {
         key: "debug.confirmOnExit",
         type: "string",
         default: "never",

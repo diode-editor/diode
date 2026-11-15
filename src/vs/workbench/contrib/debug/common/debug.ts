@@ -7,7 +7,7 @@
 // configurations and the adapter contract. The `CONTEXT_*` keys are typed keys of `ContextKeyTypes`
 // (platform/contextkey/common/contextKeys.ts) under the upstream names. `IDebugService`, `IAdapterManager` and
 // `ILaunch` carry what the session, its commands and the views use; the rest comes with the task that implements
-// it: the breakpoint editing of `IDebugService` (views, gutter), the configuration providers and the dynamic
+// it: the breakpoint editing of `IDebugService` in the editor (adding, conditions, data breakpoints), the configuration providers and the dynamic
 // configurations of `IConfigurationManager` (`vscode.debug`), the descriptor factories and `guessDebugger` of
 // `IAdapterManager` (`vscode.debug`), the editor contributions, `openInEditor` of frames and sources (with the
 // editor service they need), the test run a session is correlated with. Not planned: the memory view (`getMemory`,
@@ -23,6 +23,7 @@ import type { ConfigurationTarget } from "../../../../platform/configuration/com
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
 import type { DebugCompoundRoot } from "./debugCompoundRoot.ts";
+import type { IFunctionBreakpointOptions } from "./debugModel.ts";
 import type { Source } from "./debugSource.ts";
 
 export const DEBUG_SCHEME = "debug";
@@ -31,6 +32,8 @@ export const VIEWLET_ID = "workbench.view.debug";
 
 export const VARIABLES_VIEW_ID = "workbench.debug.variablesView";
 export const WATCH_VIEW_ID = "workbench.debug.watchExpressionsView";
+export const CALLSTACK_VIEW_ID = "workbench.debug.callStackView";
+export const BREAKPOINTS_VIEW_ID = "workbench.debug.breakPointsView";
 
 // raw
 
@@ -1005,6 +1008,47 @@ export interface IDebugService {
     ): void;
     sendAllBreakpoints(session?: IDebugSession): Promise<void>;
     sendBreakpoints(modelUri: uri, sourceModified?: boolean, session?: IDebugSession): Promise<void>;
+
+    /**
+     * Enables or disables all breakpoints. If breakpoint is passed only enables or disables the passed breakpoint.
+     * Notifies debug adapter of breakpoint changes.
+     */
+    enableOrDisableBreakpoints(enable: boolean, breakpoint?: IEnablement): Promise<void>;
+
+    /**
+     * Sets the global activated property for all breakpoints.
+     * Notifies debug adapter of breakpoint changes.
+     */
+    setBreakpointsActivated(activated: boolean): Promise<void>;
+
+    /**
+     * Removes all breakpoints. If id is passed only removes the breakpoint associated with that id.
+     * Notifies debug adapter of breakpoint changes.
+     */
+    removeBreakpoints(id?: string | string[]): Promise<void>;
+
+    /**
+     * Adds a new function breakpoint for the given name.
+     */
+    addFunctionBreakpoint(opts?: IFunctionBreakpointOptions, id?: string): void;
+
+    /**
+     * Removes all function breakpoints. If id is passed only removes the function breakpoint with the passed id.
+     * Notifies debug adapter of breakpoint changes.
+     */
+    removeFunctionBreakpoints(id?: string): Promise<void>;
+
+    /**
+     * Removes all data breakpoints. If id is passed only removes the data breakpoint with the passed id.
+     * Notifies debug adapter of breakpoint changes.
+     */
+    removeDataBreakpoints(id?: string): Promise<void>;
+
+    /**
+     * Removes the instruction breakpoints at the reference (and the `offset` when specified). When no arguments are
+     * provided, all instruction breakpoints are removed. Notifies the debug adapter of breakpoint changes.
+     */
+    removeInstructionBreakpoints(instructionReference?: string, offset?: number, address?: bigint): Promise<void>;
 
     /**
      * Adds a new watch expression and evaluates it against the debug adapter.

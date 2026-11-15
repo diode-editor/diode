@@ -1,5 +1,5 @@
 // The Run and Debug viewlet (upstream `debug.contribution.ts`: the container with `order: 3`, after Source Control
-// and before Extensions; the VARIABLES and WATCH views, CALL STACK and BREAKPOINTS come with #1145). Without a
+// and before Extensions; the VARIABLES, WATCH, CALL STACK and BREAKPOINTS views). Without a
 // session VARIABLES shows upstream's welcome: the full-width Run and Debug button (as Source Control's Commit,
 // decision 2026-11-14) and the launch.json hint. Deviations: the welcome lives in VARIABLES, not in a view of its
 // own under `debugUx == simple`, and WATCH stays visible without a session; the button starts the debugging without
@@ -31,9 +31,28 @@ import {
 import { ActionButtonElement } from "../../../browser/parts/views/actionButtonElement.ts";
 import { type ViewsService, ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { type IViewWelcomeBlock, ViewWelcomeElement } from "../../../browser/parts/views/viewWelcomeElement.ts";
-import { State, VARIABLES_VIEW_ID, VIEWLET_ID, WATCH_VIEW_ID } from "../common/debug.ts";
-import { Expression } from "../common/debugModel.ts";
+import {
+    BREAKPOINTS_VIEW_ID,
+    CALLSTACK_VIEW_ID,
+    State,
+    VARIABLES_VIEW_ID,
+    VIEWLET_ID,
+    WATCH_VIEW_ID,
+} from "../common/debug.ts";
+import {
+    Breakpoint,
+    DataBreakpoint,
+    ExceptionBreakpoint,
+    Expression,
+    FunctionBreakpoint,
+    InstructionBreakpoint,
+    StackFrame,
+    Thread,
+} from "../common/debugModel.ts";
+import { isSessionAttach } from "../common/debugUtils.ts";
 
+import { BreakpointSourcesDIToken, BreakpointsView, type IBreakpointSources } from "./breakpointsView.ts";
+import { CallStackView, isDebugSession } from "./callStackView.ts";
 import { DEBUG_START_COMMAND_ID } from "./debugCommands.ts";
 import { DebugExpressionRenderer } from "./debugExpressionRenderer.ts";
 import { type DebugService, DebugServiceDIToken } from "./debugService.ts";
@@ -60,11 +79,14 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         IConfigurationServiceDIToken,
         ProductIconServiceDIToken,
         QuickInputServiceDIToken,
+        BreakpointSourcesDIToken,
     ] as const;
 
     public readonly view: TUIElement;
     public readonly variables: VariablesView;
     public readonly watch: WatchExpressionsView;
+    public readonly callStack: CallStackView;
+    public readonly breakpoints: BreakpointsView;
     public readonly runButton = new ActionButtonElement();
     private readonly welcome: TUIElement;
 
@@ -76,6 +98,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         configuration: IConfigurationService,
         icons: IProductIconService,
         quickInput: QuickInputService,
+        breakpointSources: IBreakpointSources,
     ) {
         super();
         const renderer = this.register(
@@ -89,6 +112,18 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         );
         this.variables = this.register(new VariablesView(debugService, renderer));
         this.watch = this.register(new WatchExpressionsView(debugService, renderer, contextKeys, quickInput));
+        this.callStack = this.register(
+            new CallStackView(debugService, icons, (message) => {
+                views.setViewTitle(CALLSTACK_VIEW_ID, undefined, message ?? null);
+            }),
+        );
+        this.breakpoints = this.register(
+            new BreakpointsView(debugService, {
+                ...breakpointSources,
+                icons,
+                presentation: () => configuration.get("debug.breakpointsView.presentation"),
+            }),
+        );
         this.view = this.variables.tree.element;
 
         this.runButton.setLabel("Run and Debug");
@@ -139,6 +174,29 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
             },
         });
 
+        views.registerView({
+            id: CALLSTACK_VIEW_ID,
+            containerId: VIEWLET_ID,
+            title: "CALL STACK",
+            order: 30,
+            body: this.callStack.tree.element,
+            canMoveView: true,
+            focus: () => {
+                this.callStack.focus();
+            },
+        });
+        views.registerView({
+            id: BREAKPOINTS_VIEW_ID,
+            containerId: VIEWLET_ID,
+            title: "BREAKPOINTS",
+            order: 40,
+            body: this.breakpoints.tree.element,
+            canMoveView: true,
+            focus: () => {
+                this.breakpoints.focus();
+            },
+        });
+
         this.register(
             debugService.onDidChangeState(() => {
                 views.setViewBody(VARIABLES_VIEW_ID, this.variablesBody());
@@ -146,7 +204,8 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         );
         this.register(
             // `debug.showVariableTypes` among others: redrawing two trees' rows on a rare settings change is cheap.
-            configuration.onDidChangeConfiguration(() => {
+            configuration.onDidChangeConfiguration((event) => {
+                if (event.affectsConfiguration("debug.breakpointsView.presentation")) this.breakpoints.refresh();
                 this.rerender();
             }),
         );
@@ -166,6 +225,31 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
             "watchItemType",
             item === undefined ? "" : item instanceof Expression ? "expression" : "variable",
         );
+        this.updateCallStackContextKeys(contextKeys, active);
+        const breakpointsFocused = contains(this.breakpoints.tree.list, active);
+        contextKeys.set("breakpointsFocused", breakpointsFocused);
+        contextKeys.set(
+            "breakpointItemType",
+            breakpointItemType(breakpointsFocused ? this.breakpoints.tree.focused : undefined),
+        );
+    }
+
+    /** Upstream's overlay keys of a row, here of the row under the cursor of the focused view. */
+    private updateCallStackContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
+        const focused = contains(this.callStack.tree.list, active);
+        contextKeys.set("callStackFocused", focused);
+        const item = focused ? this.callStack.tree.focused : undefined;
+        if (isDebugSession(item)) {
+            contextKeys.set("callStackItemType", "session");
+            contextKeys.set("callStackSessionIsAttach", isSessionAttach(item));
+            contextKeys.set("callStackItemStopped", item.state === State.Stopped);
+            contextKeys.set("callStackSessionHasOneThread", item.getAllThreads().length === 1);
+        } else if (item instanceof Thread) {
+            contextKeys.set("callStackItemType", "thread");
+            contextKeys.set("callStackItemStopped", item.stopped);
+        } else {
+            contextKeys.set("callStackItemType", item instanceof StackFrame ? "stackFrame" : "");
+        }
     }
 
     private variablesBody(): TUIElement {
@@ -176,5 +260,17 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
     private rerender(): void {
         this.variables.tree.rerender();
         this.watch.tree.rerender();
+        this.callStack.tree.rerender();
+        this.breakpoints.tree.rerender();
     }
+}
+
+/** Upstream's `breakpointItemType` of the row under the cursor. */
+function breakpointItemType(element: unknown): string {
+    if (element instanceof Breakpoint) return "breakpoint";
+    if (element instanceof ExceptionBreakpoint) return "exceptionBreakpoint";
+    if (element instanceof FunctionBreakpoint) return "functionBreakpoint";
+    if (element instanceof DataBreakpoint) return "dataBreakpoint";
+    if (element instanceof InstructionBreakpoint) return "instructionBreakpoint";
+    return element === undefined ? "" : "breakpointFolder";
 }
