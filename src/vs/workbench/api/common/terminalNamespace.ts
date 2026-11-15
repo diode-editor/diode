@@ -10,7 +10,8 @@ import {
     parseWireTerminalPtyInput,
     parseWireTerminalTitleChanged,
 } from "./terminalWireParsers.ts";
-import { EventEmitter, TerminalExitReason, Uri } from "./vscodeTypes.ts";
+import { callWithVscodeToken } from "./vscodeCancellation.ts";
+import { DisposableImpl, EventEmitter, TerminalExitReason, Uri } from "./vscodeTypes.ts";
 import {
     type IWireTerminalCreate,
     type IWireTerminalLaunch,
@@ -34,6 +35,12 @@ export interface ITerminalNamespace {
     createTerminal(options: vscode.TerminalOptions | vscode.ExtensionTerminalOptions): vscode.Terminal;
     /** The previous pty of the same terminal (task rerun) is detached without `close()`: it has already closed itself. */
     attachPty(terminalId: number, pty: vscode.Pseudoterminal): void;
+    /** Upstream `registerProfileProvider`: one provider per profile id across all extensions. */
+    registerProfileProvider(
+        extensionId: string,
+        id: string,
+        provider: vscode.TerminalProfileProvider,
+    ): vscode.Disposable;
 }
 
 /** As upstream `TerminalDataBufferer`. */
@@ -377,6 +384,8 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
         nameOrOptions?: string | vscode.TerminalOptions | vscode.ExtensionTerminalOptions,
         shellPath?: string,
         shellArgs?: readonly string[] | string,
+        /** Upstream's internal `location`: the place the person picked wins over the profile's own. */
+        locationOverride?: IWireTerminalLocation,
     ): vscode.Terminal {
         const extHostId = nextExtHostId++;
         if (typeof nameOrOptions === "object" && "pty" in nameOrOptions) {
@@ -384,7 +393,7 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
             record.pty = new ExtensionPty(nameOrOptions.pty, { extHostId }, rpc);
             byExtHostId.set(extHostId, record);
             order.push(record);
-            const location = toWireLocation(nameOrOptions.location, refOf);
+            const location = locationOverride ?? toWireLocation(nameOrOptions.location, refOf);
             rpc.notify("terminal.create", {
                 extHostId,
                 pty: true,
@@ -395,7 +404,7 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
         }
         const options = normalizeOptions(nameOrOptions, shellPath, shellArgs);
         // Resolve the parent before creating the record: a terminal cannot be its own parent.
-        const location = toWireLocation(options.location, refOf);
+        const location = locationOverride ?? toWireLocation(options.location, refOf);
         const record = new TerminalRecord({ extHostId }, options.name ?? "", options, rpc);
         byExtHostId.set(extHostId, record);
         order.push(record);
@@ -418,8 +427,39 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
         record.pty.start(cols, rows);
     }
 
+    const profileProviders = new Map<string, vscode.TerminalProfileProvider>();
+
+    rpc.handleRequest("terminal.createContributedProfile", async ({ id, location }, token): Promise<null> => {
+        const provider = profileProviders.get(id);
+        if (provider === undefined) throw new Error(`No terminal profile provider registered for id "${id}"`);
+        const profile = await callWithVscodeToken(token, (vsToken) => provider.provideTerminalProfile(vsToken));
+        // Upstream also takes bare options in place of a `TerminalProfile`.
+        const options =
+            profile !== null && profile !== undefined && !("options" in profile)
+                ? (profile as vscode.TerminalOptions | vscode.ExtensionTerminalOptions)
+                : profile?.options;
+        if (options === undefined) throw new Error(`No terminal profile options provided for id "${id}"`);
+        createTerminal(options, undefined, undefined, location);
+        return null;
+    });
+
+    function registerProfileProvider(
+        extensionId: string,
+        id: string,
+        provider: vscode.TerminalProfileProvider,
+    ): vscode.Disposable {
+        if (profileProviders.has(id)) throw new Error(`Terminal profile provider "${id}" already registered`);
+        profileProviders.set(id, provider);
+        rpc.notify("terminal.registerProfileProvider", { id, extensionId });
+        return new DisposableImpl(() => {
+            profileProviders.delete(id);
+            rpc.notify("terminal.unregisterProfileProvider", { id, extensionId });
+        });
+    }
+
     return {
         attachPty,
+        registerProfileProvider,
         get terminals(): readonly vscode.Terminal[] {
             return order.map((r) => r.value);
         },

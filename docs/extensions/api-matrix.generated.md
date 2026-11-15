@@ -14,9 +14,9 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1222 |
+| ok | 1226 |
 | A | 4 |
-| B | 208 |
+| B | 204 |
 | C | 547 |
 | X | 234 |
 
@@ -325,16 +325,16 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `vitest.explorer` | 1.52.2 | 873,636 |  | 79 | 21 | 0 | 1 | 19 | 1 |
 | `salesforce.salesforcedx-vscode-lwc` | 68.7.3 | 611,798 |  | 189 | 21 | 0 | 0 | 13 | 8 |
 | `vscjava.vscode-java-debug` | 0.60.0 | 28,235,473 |  | 88 | 22 | 0 | 1 | 21 | 0 |
+| `streetsidesoftware.code-spell-checker` | 4.10.0 | 2,195,179 |  | 235 | 22 | 0 | 2 | 5 | 15 |
 | `ms-vscode.powershell` | 2025.4.0 | 2,680,851 |  | 216 | 23 | 0 | 0 | 15 | 8 |
 | `SonarSource.sonarlint-vscode` | 6.2.0 | 2,183,069 |  | 225 | 23 | 0 | 2 | 9 | 12 |
 | `MermaidChart.vscode-mermaid-chart` | 2.8.3 | 2,099,821 |  | 111 | 23 | 0 | 3 | 18 | 2 |
 | `atlassian.atlascode` | 4.1.204 | 823,062 |  | 221 | 23 | 0 | 4 | 9 | 10 |
-| `streetsidesoftware.code-spell-checker` | 4.10.0 | 2,195,179 |  | 235 | 24 | 0 | 4 | 5 | 15 |
+| `ms-vscode.js-debug` | 1.140.0 | 3,217,541 |  | 101 | 25 | 0 | 5 | 19 | 1 |
 | `denoland.vscode-deno` | 3.53.1 | 488,760 |  | 205 | 25 | 0 | 2 | 13 | 10 |
 | `ms-vscode.cmake-tools` | 1.24.42 | 2,271,738 |  | 120 | 26 | 0 | 3 | 22 | 1 |
 | `redhat.ansible` | 26.8.2 | 700,254 |  | 229 | 26 | 0 | 6 | 9 | 11 |
 | `rust-lang.rust-analyzer` | 0.4.3101 | 7,519,413 |  | 224 | 27 | 0 | 6 | 12 | 9 |
-| `ms-vscode.js-debug` | 1.140.0 | 3,217,541 |  | 101 | 27 | 0 | 7 | 19 | 1 |
 | `ms-azuretools.vscode-containers` | 2.4.5 | 14,894,897 |  | 238 | 28 | 0 | 7 | 12 | 9 |
 | `muhammad-sammy.csharp` | 2.160.9-g01198ecc1f | 1,291,943 |  | 246 | 28 | 0 | 6 | 11 | 11 |
 | `quarto.quarto` | 1.139.0 | 4,721,611 |  | 256 | 29 | 0 | 4 | 7 | 18 |
@@ -347,7 +347,7 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `golang.Go` | 0.58.0 | 43,153,897 | yes | 251 | 37 | 0 | 5 | 21 | 11 |
 | `Shopify.ruby-lsp` | 0.10.8 | 44,640,277 |  | 234 | 39 | 0 | 2 | 27 | 10 |
 | `Oracle.oracle-java` | 27.0.0 | 853,283 |  | 231 | 39 | 0 | 2 | 18 | 19 |
-| `REditorSupport.r` | 3.3.20261027 | 2,232,798 |  | 265 | 45 | 0 | 4 | 6 | 35 |
+| `REditorSupport.r` | 3.3.20261027 | 2,232,798 |  | 265 | 44 | 0 | 3 | 6 | 35 |
 | `amazonwebservices.aws-toolkit-vscode` | 4.18.0 | 3,840,104 |  | 286 | 46 | 0 | 7 | 9 | 30 |
 | `Dart-Code.dart-code` | 3.147.20261029 | 6,090,051 |  | 266 | 50 | 0 | 5 | 34 | 11 |
 | `ms-python.python` | 2026.4.0 | 61,892,209 |  | 282 | 56 | 0 | 7 | 33 | 16 |
@@ -2085,9 +2085,9 @@ Proposed API or a false hit: class X when real.
 | `TerminalOptions.shellIntegrationNonce` | ok |  | 0 | 0 |  |
 | `TerminalOptions.shellPath` | ok |  | 0 | 0 |  |
 | `TerminalOptions.strictEnv` | ok |  | 0 | 0 |  |
-| `TerminalProfile` | B |  | 2 | 5,412,720 |  |
-| `TerminalProfile.options` | B |  | 0 | 0 |  |
-| `TerminalProfileProvider.provideTerminalProfile` | B |  | 0 | 0 |  |
+| `TerminalProfile` | ok |  | 2 | 5,412,720 |  |
+| `TerminalProfile.options` | ok |  | 0 | 0 |  |
+| `TerminalProfileProvider.provideTerminalProfile` | ok |  | 0 | 0 |  |
 | `TerminalShellExecution.commandLine` | B |  | 0 | 0 |  |
 | `TerminalShellExecution.cwd` | B |  | 0 | 0 |  |
 | `TerminalShellExecution.read` | B |  | 0 | 0 |  |
@@ -2514,7 +2514,7 @@ Proposed API or a false hit: class X when real.
 | `window.registerCustomEditorProvider` | X |  | 19 | 170,663,832 |  |
 | `window.registerFileDecorationProvider` | ok |  | 11 | 113,066,366 |  |
 | `window.registerTerminalLinkProvider` | B |  | 9 | 128,601,447 |  |
-| `window.registerTerminalProfileProvider` | B |  | 3 | 7,645,518 |  |
+| `window.registerTerminalProfileProvider` | ok |  | 3 | 7,645,518 |  |
 | `window.registerTreeDataProvider` | ok |  | 21 | 116,751,405 |  |
 | `window.registerUriHandler` | ok |  | 29 | 154,696,228 |  |
 | `window.registerWebviewPanelSerializer` | X |  | 22 | 185,880,430 |  |

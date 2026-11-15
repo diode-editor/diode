@@ -92,6 +92,7 @@ import type {
     IWireCompletionParams,
     IWireConfigurationChanged,
     IWireConfigurationUpdate,
+    IWireCreateContributedProfileTerminal,
     IWireCreateDecorationType,
     IWireCreateUntitledParams,
     IWireDefinitionParams,
@@ -204,6 +205,7 @@ import type {
     IWireTerminalCreate,
     IWireTerminalInteraction,
     IWireTerminalOpened,
+    IWireTerminalProfileProvider,
     IWireTerminalPtyData,
     IWireTerminalPtyDimensions,
     IWireTerminalPtyExit,
@@ -332,6 +334,9 @@ export interface IHostToSubprocess {
         readonly "window.handleUri": readonly [IWireHandleUri, null];
 
         readonly "tasks.provideTasks": readonly [IWireTaskProviderHandle, IWireTask[]];
+
+        /** Upstream `$createContributedProfileTerminal`: responds once the profile's terminal is created; rejects without a provider or options. */
+        readonly "terminal.createContributedProfile": readonly [IWireCreateContributedProfileTerminal, null];
 
         /** Upstream `$getChildren`; rejects for a view that is not registered in the subprocess. */
         readonly "treeView.getChildren": readonly [IWireTreeViewGetChildren, IWireTreeItem[]];
@@ -536,6 +541,8 @@ export interface ISubprocessToHost {
         readonly "terminal.pty.data": IWireTerminalPtyData;
         readonly "terminal.pty.exit": IWireTerminalPtyExit;
         readonly "terminal.pty.name": IWireTerminalPtyName;
+        readonly "terminal.registerProfileProvider": IWireTerminalProfileProvider;
+        readonly "terminal.unregisterProfileProvider": IWireTerminalProfileProvider;
 
         readonly "tasks.registerProvider": IWireTaskProviderRegistration;
         readonly "tasks.unregisterProvider": IWireTaskProviderHandle;

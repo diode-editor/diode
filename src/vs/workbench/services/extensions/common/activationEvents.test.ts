@@ -58,6 +58,16 @@ describe("computeActivationEvents", () => {
         ).toEqual(["onStartupFinished", "onTaskType:bazel", "onTaskType:npm"]);
     });
 
+    it("each contributes.terminal.profiles entry adds an IMPLICIT onTerminalProfile:<id>; junk yields nothing", () => {
+        const events = (terminal: unknown): readonly string[] =>
+            computeActivationEvents({ activationEvents: ["onStartupFinished"], contributes: { terminal } }, "pub.ext");
+        expect(
+            events({ profiles: [{ id: "debugTerminal" }, null, {}, { id: "" }, { id: 7 }, { id: "second" }] }),
+        ).toEqual(["onStartupFinished", "onTerminalProfile:debugTerminal", "onTerminalProfile:second"]);
+        expect(events({ profiles: { id: "notAList" } })).toEqual(["onStartupFinished"]);
+        expect(events(undefined)).toEqual(["onStartupFinished"]);
+    });
+
     it("each contributes.views entry adds an IMPLICIT onView:<id>; junk lists and ids yield nothing", () => {
         expect(
             computeActivationEvents(
@@ -121,6 +131,7 @@ describe("computeActivationEvents", () => {
             "languages",
             "views",
             "taskDefinitions",
+            "terminal",
         ]);
     });
 });

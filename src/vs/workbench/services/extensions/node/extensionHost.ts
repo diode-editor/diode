@@ -115,6 +115,7 @@ import type { IExtensionTestingSink } from "../../../api/common/iExtensionTestin
 import type { IExtensionTreeViewsSink } from "../../../api/common/iExtensionTreeViewsSink.ts";
 import type {
     DiagnosticsSink,
+    IExtensionTerminalProfileSink,
     IExtensionTerminalSink,
     IFileDialogSink,
     INotificationSink,
@@ -261,6 +262,7 @@ export interface IExtensionHostOptions {
     /** When the subprocess dies, the host itself calls `clear()`: its items go with it. */
     readonly languageStatusSink?: ILanguageStatusSink;
     readonly terminalSink?: IExtensionTerminalSink;
+    readonly terminalProfileSink?: IExtensionTerminalProfileSink;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     readonly taskSink?: IExtensionTaskSink;
     /** When the subprocess dies, the host itself calls `reset()`: every extension tree goes back to an empty section. */
@@ -392,7 +394,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             options.icons,
         );
         this.fileSystem = this.register(new FileSystemCustomer(options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER));
-        this.terminals = new TerminalCustomer(options.terminalSink);
+        this.terminals = new TerminalCustomer(options.terminalSink, options.terminalProfileSink);
         this.environmentVariableCollections = new EnvironmentVariableCollectionsCustomer(
             options.environmentVariableCollections ?? createInMemoryEnvironmentVariableCollectionStore(),
         );

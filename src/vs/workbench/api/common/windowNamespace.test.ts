@@ -38,6 +38,17 @@ function makeCtx() {
 }
 
 describe("WindowNamespace", () => {
+    it("registerTerminalProfileProvider names the calling extension to the host; none outside an extension", () => {
+        const { stub, ctx, window } = makeCtx();
+        const provider: vscode.TerminalProfileProvider = { provideTerminalProfile: () => undefined };
+        ctx.owner.runAs("ms-vscode.js-debug", () => window.registerTerminalProfileProvider("debug", provider));
+        window.registerTerminalProfileProvider("anonymous", provider);
+        expect(stub.notifies.filter((n) => n.method === "terminal.registerProfileProvider")).toStrictEqual([
+            { method: "terminal.registerProfileProvider", params: { id: "debug", extensionId: "ms-vscode.js-debug" } },
+            { method: "terminal.registerProfileProvider", params: { id: "anonymous", extensionId: "" } },
+        ]);
+    });
+
     it("terminals: createTerminal, terminals, activeTerminal and events are shared on window", () => {
         const { stub, window } = makeCtx();
         const opened: vscode.Terminal[] = [];

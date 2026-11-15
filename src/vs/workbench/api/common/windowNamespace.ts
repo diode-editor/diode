@@ -898,6 +898,8 @@ export function createWindowNamespace(
         onDidCloseTerminal: terminals.onDidCloseTerminal,
         onDidChangeActiveTerminal: terminals.onDidChangeActiveTerminal,
         onDidChangeTerminalState: terminals.onDidChangeTerminalState,
+        registerTerminalProfileProvider: (id: string, provider: vscode.TerminalProfileProvider): vscode.Disposable =>
+            terminals.registerProfileProvider(owner.current ?? "", id, provider),
         // No shell integration, so these events never fire: after a 3 s wait Claude Code
         // falls back to `sendText`.
         onDidChangeTerminalShellIntegration: new EventEmitter<vscode.TerminalShellIntegrationChangeEvent>().event,

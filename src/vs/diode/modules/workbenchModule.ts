@@ -346,6 +346,10 @@ import {
     TerminalPanelComponent,
     TerminalPanelComponentDIToken,
 } from "../../workbench/contrib/terminal/browser/terminalPanelComponent.ts";
+import {
+    TerminalProfileService,
+    TerminalProfileServiceDIToken,
+} from "../../workbench/contrib/terminal/browser/terminalProfileService.ts";
 import { TerminalService, TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
 import {
     createDecoratedTerminalWidget,
@@ -686,6 +690,7 @@ export const workbenchModule: ContainerModule = (container) => {
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding without a unit test; end-to-end — e2e scenario extension-terminal
     container.bind(ExtensionPtySessionFactoryDIToken, () => (options) => new ExtensionPtySession(options));
     container.bind(TerminalServiceDIToken, TerminalService);
+    container.bind(TerminalProfileServiceDIToken, TerminalProfileService);
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding without a unit test (the test profile sets its own shell); end-to-end — e2e scenario tasks
     container.bind(DefaultShellResolverDIToken, () => () => getSystemShell());
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding (the test profile binds a ready registry of its own); end-to-end — e2e scenario tsc-problem-matcher-task

@@ -70,6 +70,16 @@ export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationE
             }
         },
     },
+    {
+        point: "terminal",
+        *generate(contributes) {
+            const profiles = (contributes.terminal as { readonly profiles?: unknown } | undefined)?.profiles;
+            if (!Array.isArray(profiles)) return;
+            for (const profile of profiles as readonly ({ readonly id?: unknown } | null)[]) {
+                if (typeof profile?.id === "string" && profile.id !== "") yield `onTerminalProfile:${profile.id}`;
+            }
+        },
+    },
 ];
 
 /**

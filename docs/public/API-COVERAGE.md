@@ -31,7 +31,7 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 | --- | :-: | --- |
 | [`vscode.languages`](#vscodelanguages) | 🟡 | 19/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 26/45 |
-| [`vscode.window`](#vscodewindow) | 🟡 | 35/57 |
+| [`vscode.window`](#vscodewindow) | 🟡 | 36/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 4/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
@@ -45,8 +45,8 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 | [`vscode.scm`](#namespaces-not-yet-exposed) | 🕐 | 0/2 |
 | [`vscode.notebooks`](#namespaces-not-yet-exposed) | 🕐 | 0/3 |
 | [`vscode.chat`](#namespaces-not-yet-exposed) | 🕐 | 0/1 |
-| [types and classes](#types-with-a-partial-surface) | — | 304/424 |
-| [activation events](#activation-events-activationevents) | 🟡 | 8/32 |
+| [types and classes](#types-with-a-partial-surface) | — | 306/424 |
+| [activation events](#activation-events-activationevents) | 🟡 | 9/32 |
 
 ## vscode.languages
 
@@ -155,7 +155,8 @@ extension terminals and tree views work; webview is the ceiling.
 | `setStatusBarMessage` | ✅ | all three overloads; one shared "Extension Status" item for all extensions, messages form a stack |
 | `createTerminal`, `terminals`, `activeTerminal`, `onDidOpenTerminal`, `onDidCloseTerminal`, `onDidChangeActiveTerminal`, `onDidChangeTerminalState` | 🟡 | a real shell of the integrated terminal, in the panel or in the editor area (`location`: `TerminalLocation.Editor`, `{ viewColumn, preserveFocus }`, `{ parentTerminal }`, else `terminal.integrated.defaultLocation`). `TerminalOptions`: `name`, `shellPath`, `shellArgs`, `cwd`, `env` (`null` unsets), `strictEnv`, `hideFromUser`, `message`. `Terminal`: `sendText`, `show`, `hide`, `dispose`, `processId`, `exitStatus` with a reason; methods throw after `dispose()`. `ExtensionTerminalOptions` (`pty`): `onDidWrite` is drawn, `open` (initial size 80×24, the real size follows in `setDimensions`), `handleInput`, `onDidClose`, `close()`, `onDidChangeName` renames the terminal and its tab, over the `name` it was created with. `state`: `isInteractedWith` turns `true` (with `onDidChangeTerminalState`) after the first input — typed keys or `sendText`; `shell` is guessed from the shell executable's name when the terminal is created, as in VS Code, and arrives as a state change right after `onDidOpenTerminal`. `terminals` and the events cover shells opened by a person too. Not supported: `color`, `iconPath`, `shellIntegrationNonce`, `isTransient` (accepted, ignored), `onDidOverrideDimensions`; a terminal in the editor area never becomes `activeTerminal`; string `shellArgs` are split on spaces; the name does not follow the process title, and `state.shell` does not follow a sub-shell started inside the terminal |
 | `onDidChangeTerminalShellIntegration`, `onDidStartTerminalShellExecution`, `onDidEndTerminalShellExecution` | 🟡 | no shell integration: `Terminal.shellIntegration` is always `undefined`, the events never fire |
-| `registerTerminalLinkProvider`, `registerTerminalProfileProvider` | 🕐 | |
+| `registerTerminalProfileProvider` | 🟡 | a profile from `contributes.terminal.profiles` (`id`, `title`, `icon` as a codicon; an unknown one is the terminal icon) is listed under "contributed" by **Terminal: Create New Terminal (With Profile)**, next to the default shell; picking it starts the extension (`onTerminalProfile:<id>`) and creates the terminal from the provider's `TerminalProfile` (shell options or a `pty`) in the panel or, with `terminal.integrated.defaultLocation: editor`, in the editor area. No provider for the id, or no profile from it, is an error notification. Not supported: the profile in the "+" dropdown and the tab list's empty-area menu, the command's `profileName` argument, `titleTemplate` and `color`, setting a contributed profile as the default, user profiles (`terminal.integrated.profiles.*`) |
+| `registerTerminalLinkProvider` | 🕐 | |
 | trees (`registerTreeDataProvider`, `createTreeView`) | 🟡 | the tree is drawn in the view's section: `contributes.views` gives it one in Explorer, Source Control, a panel tab or the extension's own `contributes.viewsContainers` container (listed by the view switcher on the sidebar title, Diode's stand-in for the activity bar); the view's `when` is followed live. Until the extension registers its tree, and while its root is empty and there is no `message`, the section shows the view's `contributes.viewsWelcome`: every entry whose `when` holds (`"default"` only when none does), a line that is one link is a button, other links are underlined in the text (Tab, Enter, click); `command:<id>?<JSON args>` runs the command, `http(s):` opens outside, other schemes do nothing; `when` and `enablement` follow context keys and `config.*` live; `group` (proposed) is ignored, `$(icon)` in the text is drawn as written, entries for built-in views (`explorer`, `scm`, …) are not shown. Rows: label (a `TreeItemLabel`'s text; `highlights` are not drawn), dimmed `description` (`true` — the resource's folder relative to the workspace), chevron by `collapsibleState` (`Expanded` opens on first show), a `ThemeIcon` as its codicon in its theme color, a `resourceUri` without an icon gets the file icon as in Explorer; an SVG/PNG `iconPath` is not drawn. The root is read when the section is visible, children on expand; Enter or a click (`workbench.list.openMode`) runs `TreeItem.command` with its arguments, a failure is an error toast; `onDidChangeTreeData` rereads the root or the changed rows (debounced as in VS Code), expansion and the cursor survive by handle. `contributes.menus["view/item/context"]`: a right click, Shift+F10 or the Menu key opens the row's context menu (items whose `when` holds with `view` = the view id and `viewItem` = the row's `contextValue`, groups apart, `navigation` first; no items — no menu), `group: "inline"` items are glyph buttons on the right of the cursor, hovered and selected rows (the command's `$(icon)`, else its title); the command gets the provider's own element, and in a `canSelectMany` selection of several, with the clicked row in it, the selected elements second and only the items every selected row has; a failure is an error toast. `TreeView`: `visible`/`onDidChangeVisibility`, `selection`/`onDidChangeSelection` (`canSelectMany`), `onDidExpandElement`/`onDidCollapseElement`, `reveal` (rejects without `getParent` and when the element itself can't be resolved, as VS Code; an unresolvable parent is only logged; `reveal(undefined)` opens and expands the section, also right after a `setContext` that shows it), `title`, `description`, `message`, `showCollapseAll`, `dispose` work; `badge` is kept but not drawn (no activity bar). Not supported: checkboxes (`TreeItemCheckboxState`, `manageCheckboxStateManually`), drag and drop, `resolveTreeItem`, `tooltip` (no hovers); `visibility: hidden` and view icons are not applied; `type: "webview"` views are not shown. Deviation: a tree for a view nobody contributed is an Output line, not an error |
 | `onDidChangeTextEditorSelection` | ✅ | every cursor or selection change; `kind` is `Keyboard`, `Mouse`, `Command` or `undefined` (undo/redo, find, folding, programmatic edits) as VS Code allows; a selection the extension set itself fires with `Command` unless it is unchanged; every visible editor reports, not only the active one; a tab becoming visible with a restored cursor fires with `kind` `undefined`, after `onDidChangeActiveTextEditor` |
 | editor events (`onDidChangeTextEditorVisibleRanges`, `onDidChangeTextEditorOptions`) | 🕐 | |
@@ -353,7 +354,8 @@ unsupported ones are grouped by the surface they wait for.
 | `onNotebook:<type>` | 🕐 | together with `vscode.notebooks` |
 | `onAuthenticationRequest:<id>` | 🕐 | together with real `vscode.authentication` providers |
 | `onChatParticipant:<id>`, `onChatContextProvider:<id>`, `onLanguageModelChatProvider:<id>`, `onLanguageModelTool:<id>` | 🕐 | together with `vscode.chat` / `vscode.lm` |
-| `onTerminal`, `onTerminalProfile:<id>`, `onTerminalQuickFixRequest:<id>`, `onTerminalShellIntegration` | 🕐 | together with the corresponding terminal contributions |
+| `onTerminalProfile:<id>` | ✅ | picking the contributed profile in **Terminal: Create New Terminal (With Profile)** starts the extension before its provider is asked; plus the implicit `onTerminalProfile:<id>` from `contributes.terminal.profiles` |
+| `onTerminal`, `onTerminalQuickFixRequest:<id>`, `onTerminalShellIntegration` | 🕐 | together with the corresponding terminal contributions |
 | `onFileSystem:<scheme>`, `onSearch:<scheme>`, `onEditSession:<scheme>`, `onIssueReporterOpened` | 🕐 | |
 
 ## Namespaces not yet exposed
@@ -381,7 +383,7 @@ change the ⛔ status.
 
 ## Types with a partial surface
 
-304 of 424 upstream types and classes are declared. The declared ones are complete, except those
+306 of 424 upstream types and classes are declared. The declared ones are complete, except those
 listed below, where only a subset of members is declared. `TextDocument` is listed for a different
 reason: everything is declared and implemented, but `save` is a 🟡 stub.
 

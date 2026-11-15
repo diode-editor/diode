@@ -88,6 +88,10 @@ node-pty на Unix — `pty.node` + бинарь `spawn-helper` (нужен то
 - **Терминалы расширений** — те же инстансы сервиса: опции шелла расширения, фоновые инстансы для
   `hideFromUser`, `sendText` с нормализацией Enter, причина закрытия и код выхода — мост
   `ExtensionTerminalAdapter` ([../Extensions.md](../Extensions.md)).
+- **Профили** — только шелл по умолчанию и профили расширений (`contributes.terminal.profiles`):
+  **Terminal: Create New Terminal (With Profile)** (`newWithProfile`), реестр — `TerminalProfileService`
+  ([../Extensions.md](../Extensions.md)). Не поддержаны `terminal.integrated.profiles.*`/`defaultProfile.*`,
+  профили в выпадашке «+» и в меню пустого места списка вкладок.
 
 ### Ширина списка вкладок
 

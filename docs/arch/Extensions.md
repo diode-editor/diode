@@ -1348,7 +1348,8 @@
   (`activationEvents.ts`, как `activationEventsGenerator` у дескрипторов точек эталона):
   `contributes.commands` ⇒ `onCommand:<id>` (иначе видимая в палитре команда не-eager расширения
   была бы вечным no-op'ом), `contributes.languages` ⇒ `onLanguage:<id>`,
-  `contributes.taskDefinitions` ⇒ `onTaskType:<type>`. Полный набор (`computeActivationEvents`:
+  `contributes.taskDefinitions` ⇒ `onTaskType:<type>`, `contributes.terminal.profiles` ⇒
+  `onTerminalProfile:<id>`. Полный набор (`computeActivationEvents`:
   объявленные + неявные) считается **один раз при сборке регистрации** (`toExtensionRegistration`) и
   лежит в `IExtensionRegistration.activationEvents`; хост только сравнивает строки и про
   `contributes` не знает. Голое `onUri` манифеста там же становится `onUri:<id в нижнем регистре>`
@@ -1749,6 +1750,22 @@ Workbench** (адаптеры над `EditorService`; мост файловых 
 поэтому `sendText` сразу после `createTerminal` приходит уже после `open` (как в эталоне); размер
 виджета — `terminal.pty.resize` → `setDimensions`. Закрытие инстанса по любой причине зовёт
 `pty.close()`; на смерти субпроцесса его pty-терминалы закрываются.
+
+**Профили терминала расширений (`contributes.terminal.profiles`, `window.registerTerminalProfileProvider`).**
+Устроено как `TerminalContributionService` + `TerminalProfileService` эталона. Профили манифестов
+(`id`, `title`, `icon`; разбор — `contrib/terminal/common/terminalExtensionPoints.ts`) кладёт в
+`TerminalProfileService` `bindExtensionTerminalProfiles` при сборке хоста расширений — без активации.
+Провайдер живёт в субпроцессе (`terminalNamespace.ts`, один на id на все расширения — как эталон, второй
+бросает); `terminal.registerProfileProvider`/`unregisterProfileProvider` несут id и расширение,
+`TerminalCustomer` регистрирует на хосте колбэк, который зовёт запрос
+`terminal.createContributedProfile` (`$createContributedProfileTerminal`). Команда
+`workbench.action.terminal.newWithProfile` показывает шелл по умолчанию (группа `profiles`) и профили
+расширений (группа `contributed`, по заголовку; метка группы — `hint` первой строки, разделителей в нашем
+пикере нет); выбор поднимает `onTerminalProfile:<id>`, ищет провайдер по паре (расширение, id) и
+просит субпроцесс создать терминал из `TerminalProfile` обычным `createTerminal` — место (панель или
+область редактора по `terminal.integrated.defaultLocation`) перекрывает `location` самого профиля, как
+внутренние опции эталона. Отказ (нет провайдера, нет опций) — тост ошибки. Своих профилей
+(`terminal.integrated.profiles.*`) у нас нет: «встроенный» профиль один — шелл по умолчанию.
 
 **Обработчики URI расширений (`window.registerUriHandler`).** Устроено как `ExtHostUrls` ↔
 `MainThreadUrls` + `ExtensionUrlHandler` эталона. Субпроцесс (`api/common/uriHandlers.ts`) держит по

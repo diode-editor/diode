@@ -1,9 +1,13 @@
 import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
-import type { IExtensionTerminalSink } from "../../../../api/common/iExtensionWindowSinks.ts";
+import type {
+    IExtensionTerminalProfileSink,
+    IExtensionTerminalSink,
+} from "../../../../api/common/iExtensionWindowSinks.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
     parseWireTerminalCreate,
+    parseWireTerminalProfileProvider,
     parseWireTerminalPtyData,
     parseWireTerminalPtyExit,
     parseWireTerminalPtyName,
@@ -30,10 +34,14 @@ export class TerminalCustomer implements IExtensionHostCustomer {
         alive: boolean;
     } | null = null;
 
-    public constructor(private readonly sink: IExtensionTerminalSink | undefined) {}
+    public constructor(
+        private readonly sink: IExtensionTerminalSink | undefined,
+        private readonly profiles?: IExtensionTerminalProfileSink,
+    ) {}
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
         const store = new DisposableStore();
+        if (this.profiles !== undefined) store.add(attachProfileProviders(rpc, this.profiles));
         const sink = this.sink;
         if (sink === undefined) return store;
         const spawn = { rpc, sink, ready: false, alive: true };
@@ -140,4 +148,38 @@ export class TerminalCustomer implements IExtensionHostCustomer {
         spawn.rpc.notify("terminal.activeChanged", { id: activeId });
         spawn.ready = true;
     }
+}
+
+/** Upstream `$registerProfileProvider`/`$unregisterProfileProvider`; the registrations die with the spawn. */
+function attachProfileProviders(rpc: HostRpc, profiles: IExtensionTerminalProfileSink): IDisposable {
+    const store = new DisposableStore();
+    const providers = new Map<string, IDisposable>();
+    store.add({
+        dispose: () => {
+            for (const registration of providers.values()) registration.dispose();
+        },
+    });
+    store.add(
+        rpc.handleNotification("terminal.registerProfileProvider", (params) => {
+            const request = parseWireTerminalProfileProvider(params);
+            if (request === null) return;
+            const { id, extensionId } = request;
+            providers.get(id)?.dispose();
+            providers.set(
+                id,
+                profiles.registerProvider(extensionId, id, async (location) => {
+                    await rpc.request("terminal.createContributedProfile", { id, location });
+                }),
+            );
+        }),
+    );
+    store.add(
+        rpc.handleNotification("terminal.unregisterProfileProvider", (params) => {
+            const request = parseWireTerminalProfileProvider(params);
+            if (request === null) return;
+            providers.get(request.id)?.dispose();
+            providers.delete(request.id);
+        }),
+    );
+    return store;
 }

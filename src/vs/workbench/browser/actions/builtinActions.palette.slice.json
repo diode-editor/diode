@@ -324,6 +324,7 @@
     "workbench.action.output.toggleOutput",
     "workbench.action.terminal.toggleTerminal",
     "workbench.action.terminal.new",
+    "workbench.action.terminal.newWithProfile",
     "workbench.action.createTerminalEditor",
     "workbench.action.createTerminalEditorSide",
     "workbench.action.terminal.moveToEditor",

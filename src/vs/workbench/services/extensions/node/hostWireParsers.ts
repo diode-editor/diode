@@ -69,6 +69,7 @@ import {
     type IWireStatusBarItemDispose,
     type IWireTerminalCreate,
     type IWireTerminalLocation,
+    type IWireTerminalProfileProvider,
     type IWireTerminalPtyData,
     type IWireTerminalPtyExit,
     type IWireTerminalPtyName,
@@ -551,6 +552,11 @@ export function parseWireTerminalPtyName(raw: unknown): IWireTerminalPtyName | n
     if (target === null) return null;
     const { name } = raw as Record<string, unknown>;
     return typeof name === "string" ? { terminal: target.terminal, name } : null;
+}
+
+export function parseWireTerminalProfileProvider(raw: unknown): IWireTerminalProfileProvider | null {
+    const { id, extensionId } = (raw ?? {}) as Record<string, unknown>;
+    return typeof id === "string" && typeof extensionId === "string" ? { id, extensionId } : null;
 }
 
 export function parseWireTerminalSendText(raw: unknown): IWireTerminalSendText | null {
