@@ -229,6 +229,8 @@ export function createDebugServiceFixture(
         debugConfiguration: () => ({
             openDebug: configuration.get("debug.openDebug"),
             autoExpandLazyVariables: configuration.get("debug.autoExpandLazyVariables"),
+            internalConsoleOptions: configuration.get("debug.internalConsoleOptions"),
+            console: { closeOnEnd: configuration.get("debug.console.closeOnEnd") },
         }),
         openViewlet: () => {
             fixture.viewletOpenings++;

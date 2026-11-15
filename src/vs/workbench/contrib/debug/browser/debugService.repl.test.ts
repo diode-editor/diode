@@ -60,7 +60,7 @@ describe("DebugService for the Debug Console", () => {
         });
 
         it("openOnSessionStart: on every start", async () => {
-            fx.configuration.internalConsoleOptions = "openOnSessionStart";
+            await fx.configuration.updateValue("debug.internalConsoleOptions", "openOnSessionStart");
 
             await start();
             await stop();
@@ -70,7 +70,7 @@ describe("DebugService for the Debug Console", () => {
         });
 
         it("neverOpen keeps it closed; the launch configuration's own option wins over the setting", async () => {
-            fx.configuration.internalConsoleOptions = "neverOpen";
+            await fx.configuration.updateValue("debug.internalConsoleOptions", "neverOpen");
             await start();
             await stop();
             expect(fx.replOpenings).toBe(0);
@@ -79,7 +79,7 @@ describe("DebugService for the Debug Console", () => {
             expect(fx.replOpenings).toBe(1);
             await stop();
 
-            fx.configuration.internalConsoleOptions = "openOnSessionStart";
+            await fx.configuration.updateValue("debug.internalConsoleOptions", "openOnSessionStart");
             await start({ internalConsoleOptions: "neverOpen" });
             expect(fx.replOpenings).toBe(1);
         });
@@ -103,7 +103,7 @@ describe("DebugService for the Debug Console", () => {
         }
 
         it("shows the console when the adapter logged something there", async () => {
-            fx.configuration.internalConsoleOptions = "neverOpen";
+            await fx.configuration.updateValue("debug.internalConsoleOptions", "neverOpen");
             registerMock("cannot find ./hello\n");
 
             expect(await fx.service.startDebugging(undefined, { type: "mock", name: "m", request: "launch" })).toBe(
@@ -126,7 +126,7 @@ describe("DebugService for the Debug Console", () => {
 
     describe("debug.console.closeOnEnd", () => {
         it("closes the console when the last session ends", async () => {
-            fx.configuration = { ...fx.configuration, console: { closeOnEnd: true } };
+            await fx.configuration.updateValue("debug.console.closeOnEnd", true);
             await start();
             await start();
             const [first] = fx.service.getModel().getSessions();
