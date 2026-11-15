@@ -375,20 +375,34 @@ describe("UserDataProfilesService", () => {
             expect(state.get(REMOVED_PROFILE_FOLDERS_STATE)).toEqual([]);
         });
 
+        it("a removed directory nobody recreated: nothing to delete, no error, the list is cleared", async () => {
+            const svc = service();
+            await svc.removeProfile(await svc.createNamedProfile("scratch"));
+            expect(svc.migrateProfileDirectories()).toEqual([]);
+            expect(logger.error).not.toHaveBeenCalled();
+            expect(state.get(REMOVED_PROFILE_FOLDERS_STATE)).toEqual([]);
+        });
+
         it("a removed directory that fails to delete stays listed and unregistered until a later start", async () => {
             const svc = service();
             const scratch = await svc.createNamedProfile("scratch");
+            const old = await svc.createNamedProfile("old");
             await svc.removeProfile(scratch);
-            fs.mkdirSync(scratch.location, { recursive: true });
-            // A read-only profiles/ keeps its entries.
-            fs.chmodSync(profilesHome, 0o500);
+            await svc.removeProfile(old);
+            fs.mkdirSync(old.location, { recursive: true });
+            // A read-only subdirectory keeps its entries, so `scratch/` fails to delete; `old/` goes.
+            const locked = path.join(scratch.location, "locked");
+            fs.mkdirSync(locked, { recursive: true });
+            fs.writeFileSync(path.join(locked, "state.json"), "{}");
+            fs.chmodSync(locked, 0o500);
             try {
                 expect(svc.migrateProfileDirectories()).toEqual([]);
             } finally {
-                fs.chmodSync(profilesHome, 0o700);
+                fs.chmodSync(locked, 0o700);
             }
             expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("scratch"), expect.anything());
             expect(state.get(REMOVED_PROFILE_FOLDERS_STATE)).toEqual(["scratch"]);
+            expect(fs.existsSync(old.location)).toBe(false);
             expect(svc.migrateProfileDirectories()).toEqual([]);
             expect(fs.existsSync(scratch.location)).toBe(false);
         });
