@@ -68,13 +68,20 @@ export interface IDebugServiceFixture {
     markers: IMarker[];
     readonly opened: { resource: string; line?: number; preserveFocus: boolean }[];
     readonly saves: number[];
+    /** How many times Run and Debug was shown. */
+    viewletOpenings: number;
 }
 
+/** `state`: the workspace store of an earlier service, as a window that opens the same folder again. */
 export function createDebugServiceFixture(
-    options: { readonly workspaceLaunch?: unknown; readonly folders?: IWorkspaceFolder[] } = {},
+    options: {
+        readonly workspaceLaunch?: unknown;
+        readonly folders?: IWorkspaceFolder[];
+        readonly state?: MockStateService;
+    } = {},
 ): IDebugServiceFixture {
     const contextKeys = new ContextKeyService();
-    const state = mockStateService();
+    const state = options.state ?? mockStateService();
     const shown: INotificationMessage[] = [];
     const activated: string[] = [];
     const ran: string[] = [];
@@ -103,6 +110,7 @@ export function createDebugServiceFixture(
         markers: [] as IMarker[],
         opened: [] as { resource: string; line?: number; preserveFocus: boolean }[],
         saves: [] as number[],
+        viewletOpenings: 0,
         endTask: (label: string, exitCode: number | undefined) => {
             const task = fixture.tasks.find((t) => t._label === label);
             /* v8 ignore start -- test helper: a test ends only the tasks it listed */
@@ -213,6 +221,13 @@ export function createDebugServiceFixture(
             return Promise.resolve();
         },
         terminalLauncher: NO_TERMINAL_LAUNCHER,
+        debugConfiguration: () => ({
+            openDebug: configuration.get("debug.openDebug"),
+            autoExpandLazyVariables: configuration.get("debug.autoExpandLazyVariables"),
+        }),
+        openViewlet: () => {
+            fixture.viewletOpenings++;
+        },
     };
     return Object.assign(fixture, { ports, service: new DebugService(ports) });
 }

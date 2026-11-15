@@ -145,6 +145,11 @@ import {
     DebugTerminalLauncherDIToken,
     HasChildProcessesDIToken,
 } from "../../workbench/contrib/debug/browser/debugTerminal.ts";
+import {
+    DebugViewletComponent,
+    DebugViewletComponentDIToken,
+} from "../../workbench/contrib/debug/browser/debugViewlet.ts";
+import { VIEWLET_ID } from "../../workbench/contrib/debug/common/debug.ts";
 import { hasChildProcesses } from "../../workbench/contrib/debug/node/terminals.ts";
 import { createDiffEditorPaneFactory } from "../../workbench/contrib/diff/browser/diffEditorPaneFactory.ts";
 import {
@@ -747,6 +752,13 @@ export const workbenchModule: ContainerModule = (container) => {
             tasks: debugTaskRunnerPorts(container),
             saveAllBeforeStart: () => saveAllBeforeDebugStart(container),
             terminalLauncher: container.get(DebugTerminalLauncherDIToken),
+            debugConfiguration: () => ({
+                openDebug: configuration.get("debug.openDebug"),
+                autoExpandLazyVariables: configuration.get("debug.autoExpandLazyVariables"),
+            }),
+            openViewlet: () => {
+                container.get(ViewsServiceDIToken).openViewContainer(VIEWLET_ID);
+            },
         };
     });
     container.bind(DebugQuickAccessProviderDIToken, StartDebugQuickAccessProvider);
@@ -755,6 +767,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(HasChildProcessesDIToken, () => hasChildProcesses);
     container.bind(DebugTerminalLauncherDIToken, DebugTerminalLauncher);
     container.bind(DebugServiceDIToken, DebugService);
+    container.bind(DebugViewletComponentDIToken, DebugViewletComponent);
     container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);
     container.bind(TestResultsComponentDIToken, TestResultsComponent);

@@ -7,11 +7,11 @@
 // configuration or compound, resolution by the providers, variable substitution, the pre-launch task, resolution with
 // substituted variables, then the session. Its steps that belong to later tasks are the identity here, each named at
 // its place: providers (#1139), choosing a debugger for a configuration without a type (#1156). Not here yet:
-// breakpoint and watch editing (views, gutter: #1144–#1148), opening the views and the console on a session
-// (`debug.openDebug`, `debug.internalConsoleOptions`, `debug.console.closeOnEnd`, `debug.openExplorerOnEnd`),
-// opening the focused frame in the editor (#1148), the activity badge of the view container (#1144). Errors show
-// as a modal notification, without the "Open launch.json" and "Install Extension" buttons. Not planned: workspace
-// trust (diode has none), telemetry, extension host debugging, the memory and disassembly views.
+// breakpoint editing (views, gutter: #1145–#1148), opening the console on a session (`debug.internalConsoleOptions`,
+// `debug.console.closeOnEnd`, `debug.openExplorerOnEnd`), opening the focused frame in the editor (#1148). The
+// activity badge of the view container (active sessions) is not here: the container switcher has no badges. Errors
+// show as a modal notification, without the "Open launch.json" and "Install Extension" buttons. Not planned:
+// workspace trust (diode has none), telemetry, extension host debugging, the memory and disassembly views.
 
 import { distinct } from "../../../../base/common/arrays.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
@@ -56,7 +56,7 @@ import type { IReplConsoleConfiguration } from "../common/replModel.ts";
 
 import { AdapterManager } from "./debugAdapterManager.ts";
 import { ConfigurationManager, type IConfigurationManagerPorts } from "./debugConfigurationManager.ts";
-import { DebugSession, type IDebugSessionServices } from "./debugSession.ts";
+import { DebugSession, type IDebugServiceConfiguration, type IDebugSessionServices } from "./debugSession.ts";
 import { DebugTaskRunner, type IDebugTaskRunnerPorts, TaskRunResult } from "./debugTaskRunner.ts";
 
 export const DebugServiceDIToken = token<DebugService>("DebugService");
@@ -77,6 +77,9 @@ export interface IDebugServicePorts {
     readonly saveAllBeforeStart: () => Promise<void>;
     /** The adapters' `runInTerminal`: the integrated terminal. */
     readonly terminalLauncher: IDebugTerminalLauncher;
+    readonly debugConfiguration: () => IDebugServiceConfiguration;
+    /** Upstream's `openPaneComposite(VIEWLET_ID, Sidebar)`: shows Run and Debug without taking the focus. */
+    readonly openViewlet: () => void;
 }
 export const DebugServicePortsDIToken = token<IDebugServicePorts>("DebugServicePorts");
 
@@ -135,6 +138,8 @@ export class DebugService implements IDebugService {
             },
             logger: ports.logger,
             replConfiguration: ports.replConfiguration,
+            debugConfiguration: ports.debugConfiguration,
+            openViewlet: ports.openViewlet,
         };
 
         this.disposables.add(
@@ -206,6 +211,31 @@ export class DebugService implements IDebugService {
 
     public dispose(): void {
         this.disposables.dispose();
+    }
+
+    //---- watches
+
+    public addWatchExpression(name?: string): void {
+        const we = this.model.addWatchExpression(name);
+        if (!name) {
+            this.viewModel.setSelectedExpression(we, false);
+        }
+        this.debugStorage.storeWatchExpressions(this.model.getWatchExpressions());
+    }
+
+    public renameWatchExpression(id: string, newName: string): void {
+        this.model.renameWatchExpression(id, newName);
+        this.debugStorage.storeWatchExpressions(this.model.getWatchExpressions());
+    }
+
+    public moveWatchExpression(id: string, position: number): void {
+        this.model.moveWatchExpression(id, position);
+        this.debugStorage.storeWatchExpressions(this.model.getWatchExpressions());
+    }
+
+    public removeWatchExpressions(id?: string): void {
+        this.model.removeWatchExpressions(id);
+        this.debugStorage.storeWatchExpressions(this.model.getWatchExpressions());
     }
 
     //---- state management
@@ -553,9 +583,22 @@ export class DebugService implements IDebugService {
         // this event doesn't go to extensions
         this.onWillNewSessionEmitter.fire(session);
 
+        const openDebug = this.ports.debugConfiguration().openDebug;
+        // Open debug viewlet based on the visibility of the side bar and openDebug setting. Do not open for 'run without debug'.
+        // Note: 'openOnDebugBreak' is intentionally excluded here - that case is handled in debugSession when a breakpoint is hit.
+        if (
+            !configuration.resolved.noDebug &&
+            (openDebug === "openOnSessionStart" ||
+                (openDebug === "openOnFirstSessionStart" && this.viewModel.firstSessionStart)) &&
+            !session.suppressDebugView
+        ) {
+            this.ports.openViewlet();
+        }
+
         try {
             await this.launchOrAttachToSession(session);
 
+            this.viewModel.firstSessionStart = false;
             // `debug.showSubSessionsInToolBar` (#1147) is off: only the root sessions count.
             if (this.model.getSessions().filter((s) => !s.parentSession).length > 1) {
                 this.viewModel.setMultiSessionView(true);

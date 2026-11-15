@@ -144,6 +144,7 @@ import { COMMENT_ACTIONS } from "./contrib/comment/browser/commentActions.ts";
 import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
 import { DebugLifecycleDIToken } from "./contrib/debug/browser/debugLifecycle.ts";
 import { DebugServiceDIToken } from "./contrib/debug/browser/debugService.ts";
+import { DebugViewletComponentDIToken } from "./contrib/debug/browser/debugViewlet.ts";
 import { COMPARE_ACTIONS } from "./contrib/diff/browser/compareActions.ts";
 import { DiffSnapshotRefreshContributionDIToken } from "./contrib/diff/browser/diffSnapshotRefreshContribution.ts";
 import { VscodeDiffCommandContributionDIToken } from "./contrib/diff/browser/vscodeDiffCommandContribution.ts";
@@ -269,6 +270,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: TestingExplorerComponentDIToken, phase: "blockStartup" },
     // Its container, too; the view comes with the first result.
     { token: TestResultsComponentDIToken, phase: "blockStartup" },
+    // Its container must be registered before `mount()` builds the sidebar.
+    { token: DebugViewletComponentDIToken, phase: "blockStartup" },
     { token: QuickOpenServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (CompletionService in the next entry holds it) — the entry only hands lifetime ownership to the registry, which a unit test can't observe
     { token: SuggestComponentDIToken, phase: "blockStartup" },
@@ -557,6 +560,7 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     ExplorerComponentDIToken,
     OpenEditorsViewDIToken,
     ScmInputComponentDIToken,
+    DebugViewletComponentDIToken,
     TerminalServiceDIToken,
     TerminalPanelComponentDIToken,
     TerminalEditorServiceDIToken,

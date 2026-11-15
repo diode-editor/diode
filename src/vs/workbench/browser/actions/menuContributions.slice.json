@@ -50,6 +50,13 @@
             "workbench.action.debug.callStackDown",
             "debug.startFromConfig",
             "workbench.action.debug.focusProcess",
+            "variables.collapse",
+            "workbench.debug.viewlet.action.addWatchExpression",
+            "workbench.debug.viewlet.action.removeAllWatchExpressions",
+            "watch.collapse",
+            "workbench.debug.viewlet.action.copyAllWatchExpressions",
+            "debug.renameWatchExpression",
+            "debug.removeWatchExpression",
             "extensions.actions.searchByCategory.AI",
             "extensions.actions.searchByCategory.Azure",
             "extensions.actions.searchByCategory.Chat",
@@ -400,6 +407,7 @@
             "workbench.view.explorer",
             "workbench.view.search",
             "workbench.view.scm",
+            "workbench.view.debug",
             "workbench.view.extensions",
             "workbench.view.references",
             "workbench.view.extension.test",
@@ -519,6 +527,7 @@
             "testing.clearTestResults"
         ],
         "navigation": [
+            "variables.collapse",
             "workbench.action.toggleEditorGroupLayout",
             "explorer.newFile",
             "search.action.collapseSearchResults",
@@ -526,6 +535,7 @@
             "workbench.action.terminal.new",
             "testing.refreshTests",
             "testing.cancelTestRefresh",
+            "workbench.debug.viewlet.action.addWatchExpression",
             "git.refresh",
             "scm.graph.refresh",
             "extensions.refresh",
@@ -543,12 +553,14 @@
             "testing.toggleResultsViewLayout",
             "workbench.action.files.saveAll",
             "explorer.newFolder",
+            "workbench.debug.viewlet.action.removeAllWatchExpressions",
             "references-view.clear",
             "references-view.removeCallItem",
             "references-view.removeTypeItem",
             "workbench.files.action.refreshFilesExplorer",
             "openEditors.closeAll",
-            "workbench.action.terminal.kill"
+            "workbench.action.terminal.kill",
+            "watch.collapse"
         ],
         "sortBy": [
             "testing.sortByDuration",

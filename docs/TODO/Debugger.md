@@ -42,6 +42,18 @@
   отладчика без `type`) там — тождество с комментарием. **Синтетический адаптер** — `src/TestUtils/syntheticDebugAdapter.ts`
   (`registerSyntheticDebugger`, тип `synthetic`, данные спайка, `SPIKE_TIMING`/`NO_DELAY_TIMING`); на нём
   `debug.app.test.ts` гоняет весь workbench: `debug.startFromConfig`, `debugState`, клавиши.
+- #1144: вьюлет Run and Debug (`browser/debugViewlet.ts`, `DebugViewletComponentDIToken`; контейнер `workbench.view.debug`
+  между Source Control и Extensions, `Ctrl+Shift+D` и досягаемый везде `Ctrl+K B`). Без сессии VARIABLES показывает
+  welcome эталона: кнопка «Run and Debug» на всю ширину — общая `ActionButtonElement`
+  (`browser/parts/views/actionButtonElement.ts`, та же у Commit в Source Control) — и подсказка про launch.json.
+  `variablesView.ts` — скоупы фокус-кадра (первый недорогой раскрыт, обновление через 400 мс при шагах и сразу при
+  явном выборе кадра), ленивые переменные — Enter по строке с глазом; `watchExpressionsView.ts` — выражения
+  воркспейса в фокус-кадре, ввод выражения — quick input (отступление: у эталона поле на строке), Escape/пусто
+  убирает новую строку. Строки рисует `debugExpressionRenderer.ts` (`name: value`, цвета `debugTokenExpression.*`,
+  подсветка изменённого значения на 1 с). Команды — `debugViewActions.ts` (входят в `DEBUG_ACTIONS`). Настройки
+  `debug.showVariableTypes`, `debug.openDebug` (порт `openViewlet` у сервиса и сессии), `debug.autoExpandLazyVariables`
+  (`auto` = выключено: нет режима скринридера). Живой сессии в бинаре пока нет (адаптеры расширений — #1139/#1140):
+  виды остановки проверяет `debugViewlet.app.test.ts` на синтетике, сценарий `run-and-debug` — пустое состояние.
 
 - #1138: `launch.json`. `browser/debugConfigurationManager.ts` (порт `ConfigurationManager` эталона: launch папки —
   `.diode/launch.json`, блок `launch` файла `.code-workspace`, `launch` пользовательских настроек; выбранная конфигурация
