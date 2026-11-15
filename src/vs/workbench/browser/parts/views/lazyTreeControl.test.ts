@@ -235,6 +235,96 @@ describe("LazyTreeControl — rows", () => {
     });
 });
 
+describe("LazyTreeControl — row parts", () => {
+    /** Leaves rendered by the test: a checkbox span that counts clicks, and a badge on the right. */
+    function partsSource(clicks: string[], options: { checkbox: boolean; badge: string } = { checkbox: true, badge: "" }) {
+        return {
+            getRoots: () => leaves("a", 2),
+            getChildren: () => [],
+            getKey: (node: INode) => node.key,
+            hasChildren: () => false,
+            renderRow: (node: INode) => [
+                ...(options.checkbox ? [{ text: "[x] ", onClick: () => clicks.push(node.key) }] : []),
+                { text: node.name, fg: "debugTokenExpression.name" },
+            ],
+            renderTrailing: (node: INode) =>
+                options.badge === "" ? [] : [{ text: `${options.badge}${node.value ?? ""}`, fg: "descriptionForeground" }],
+        };
+    }
+
+    function clickAt(app: TestApp, point: Point, type: "press" | "double" = "press"): void {
+        const times = type === "double" ? 2 : 1;
+        for (let i = 0; i < times; i++) {
+            for (const action of ["press", "release"] as const) {
+                app.backend.simulateMouse({
+                    kind: "mouse",
+                    button: "left",
+                    action,
+                    x: point.x + 1,
+                    y: point.y + 1,
+                    shiftKey: false,
+                    altKey: false,
+                    ctrlKey: false,
+                    raw: "",
+                });
+            }
+        }
+    }
+
+    it("a right part sits at the right edge; when the row is short of room it is cut, not the text", async () => {
+        const wide = await mount(partsSource([], { checkbox: false, badge: "line " }));
+        // 30 columns: padding, the text, the gap, the badge, padding.
+        expect(wide.app.backend.screenToString().split("\n")[0]).toBe(` a0${" ".repeat(20)}line 0 `);
+        expect(wide.app.backend.getFgAt(lineOf(wide.app, "line 0"))).toBe(vars.descriptionForeground);
+
+        const narrow = await mount(partsSource([], { checkbox: false, badge: "x".repeat(40) }));
+        expect(narrow.app.backend.screenToString().split("\n")[0]).toMatch(/^ a0x+/u);
+    });
+
+    it("a click on a clickable span runs it and leaves the row alone; elsewhere the row is picked", async () => {
+        const clicks: string[] = [];
+        const { app, tree } = await mount(partsSource(clicks));
+        const activated: string[] = [];
+        tree.onActivate = (node) => activated.push(node.key);
+        const box = lineOf(app, "[x] a1");
+
+        clickAt(app, box);
+
+        expect(clicks).toEqual(["a1"]);
+        expect(tree.focused?.key).toBe("a0");
+        // Nor does a double click open it.
+        clickAt(app, box, "double");
+        expect(activated).toEqual([]);
+        expect(clicks).toEqual(["a1", "a1", "a1"]);
+
+        clickAt(app, new Point(box.x + 5, box.y));
+        expect(tree.focused?.key).toBe("a1");
+        expect(clicks).toHaveLength(3);
+        // The text keeps its own colors next to the control.
+        expect(app.backend.getFgAt(new Point(box.x + 4, box.y))).toBe(vars["debugTokenExpression.name"]);
+    });
+
+    it("onSelect hears the user's moves of the cursor, not a rebuild's nor reveal's", async () => {
+        const { app, tree } = await mount(new Source(leaves("a", 3)));
+        const selected: string[] = [];
+        tree.onSelect = (node) => selected.push(node.key);
+
+        app.sendKey("ArrowDown");
+        expect(selected).toEqual(["a1"]);
+
+        await tree.refresh();
+        tree.reveal({ key: "a2", name: "a2" });
+        expect(tree.focused?.key).toBe("a2");
+        // A node the tree does not show moves nothing.
+        tree.reveal({ key: "zz", name: "zz" });
+        expect(tree.focused?.key).toBe("a2");
+        expect(selected).toEqual(["a1"]);
+
+        app.sendKey("ArrowUp");
+        expect(selected).toEqual(["a1", "a1"]);
+    });
+});
+
 describe("LazyTreeControl — lazy children", () => {
     const localsSource = (): Source => scope([{ key: "x", name: "x", value: "1" }]);
 

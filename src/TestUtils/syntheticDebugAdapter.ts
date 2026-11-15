@@ -48,6 +48,9 @@ export const SYNTHETIC_CAPABILITIES: DebugProtocol.Capabilities = {
     supportsTerminateThreadsRequest: true,
     supportsEvaluateForHovers: true,
     supportsDelayedStackTraceLoading: true,
+    supportsFunctionBreakpoints: true,
+    supportsDataBreakpoints: true,
+    supportsInstructionBreakpoints: true,
     exceptionBreakpointFilters: [
         { filter: "cpp_throw", label: "C++: on throw", default: false },
         { filter: "cpp_catch", label: "C++: on catch", default: false },
@@ -293,6 +296,16 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 return;
             case "setBreakpoints":
                 this.setBreakpoints(request, args as unknown as DebugProtocol.SetBreakpointsArguments);
+                return;
+            case "setFunctionBreakpoints":
+            case "setDataBreakpoints":
+            case "setInstructionBreakpoints":
+                this.respond(request, {
+                    breakpoints: ((args.breakpoints ?? []) as unknown[]).map(() => ({
+                        id: this.nextBreakpointId++,
+                        verified: true,
+                    })),
+                });
                 return;
             case "setExceptionBreakpoints":
             case "disconnect":

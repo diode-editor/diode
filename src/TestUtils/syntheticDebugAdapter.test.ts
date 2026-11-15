@@ -14,6 +14,7 @@ import {
     SYNTHETIC_CAPABILITIES,
     SYNTHETIC_DEBUG_TYPE,
     SYNTHETIC_LAUNCH_CONFIG,
+    SYNTHETIC_PROGRAM_ROOT,
     SyntheticDebugAdapter,
     SyntheticDebugAdapterFactory,
 } from "./syntheticDebugAdapter.ts";
@@ -186,15 +187,36 @@ describe("SyntheticDebugAdapter", () => {
         await stopped();
     });
 
-    it("verifies every breakpoint it gets", async () => {
-        expect(await body("setBreakpoints", { source: {}, breakpoints: [{ line: 3 }, { line: 9 }] })).toEqual({
+    it("verifies the breakpoints in the program's files, not elsewhere", async () => {
+        const main = { path: `${SYNTHETIC_PROGRAM_ROOT}/src/main.cpp` };
+        expect(await body("setBreakpoints", { source: main, breakpoints: [{ line: 3 }, { line: 9 }] })).toEqual({
             breakpoints: [
                 { id: 1, verified: true, line: 3 },
                 { id: 2, verified: true, line: 9 },
             ],
         });
+        expect(await body("setBreakpoints", { source: { path: "/elsewhere/a.cpp" }, breakpoints: [{ line: 1 }] })).toEqual(
+            { breakpoints: [{ id: 3, verified: false, line: 1 }] },
+        );
         expect(await body("setBreakpoints", { source: {} })).toEqual({ breakpoints: [] });
         expect(await body("setExceptionBreakpoints", { filters: [] })).toEqual({});
+    });
+
+    it("verifies every function, data and instruction breakpoint", async () => {
+        for (const command of ["setFunctionBreakpoints", "setDataBreakpoints", "setInstructionBreakpoints"]) {
+            expect(await body(command, { breakpoints: [{}] })).toMatchObject({ breakpoints: [{ verified: true }] });
+            expect(await body(command, {})).toEqual({ breakpoints: [] });
+        }
+    });
+
+    it("a stop on a breakpoint names the breakpoints at its line; a new set for the file replaces them", async () => {
+        const main = { path: `${SYNTHETIC_PROGRAM_ROOT}/src/main.cpp` };
+        await body("setBreakpoints", { source: main, breakpoints: [{ line: 27 }, { line: 27 }, { line: 40 }] });
+        await body("setBreakpoints", { source: main, breakpoints: [{ line: 27 }, { line: 31 }] });
+
+        await launchStopped();
+
+        expect(eventsOf("stopped")[0].hitBreakpointIds).toEqual([4]);
     });
 
     it("has three threads and their stacks: 26 frames on the main one, frames without a source subtle", async () => {
