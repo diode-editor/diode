@@ -20,7 +20,7 @@ function setup(sessions: IDebugSession[], confirmOnExit: "always" | "never", con
             },
         },
         { getModel: () => ({ getSessions: () => sessions }) as never },
-        { get: (() => confirmOnExit) as never },
+        { get: ((key: string) => (key === "debug.confirmOnExit" ? confirmOnExit : undefined)) as never },
         { confirm },
     );
     return { lifecycle, confirm, dispose, veto: (reason: ShutdownReason) => veto?.(reason) };

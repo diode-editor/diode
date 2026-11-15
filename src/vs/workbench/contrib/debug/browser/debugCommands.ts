@@ -543,13 +543,14 @@ function addLaunchConfiguration(accessor: ServiceAccessor, editor: TextEditorPan
                     text: edit.content,
                 },
             ],
+            // Stryker disable next-line StringLiteral: the label of an undo step is shown nowhere
             "Add Configuration",
         );
         // The array is the one the edit has just written (upstream parses the file again).
         configurationsArrayOffset = edit.offset + edit.content.indexOf("[") + 1;
     }
 
-    editor.focusEditor();
+    // Upstream focuses the editor here; `openConfigFile` without preserveFocus has already done it.
     const text = editor.getText();
     const position = positionAt(text, configurationsArrayOffset);
     // Check if there are more characters on a line after a "configurations": [, if yes enter a newline

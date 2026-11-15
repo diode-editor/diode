@@ -38,10 +38,6 @@ const DEBUG_ANYWAY_LABEL = "Debug Anyway";
 const CONFIGURE_TASK_LABEL = "Configure Task";
 export const SLOW_TASK_WARNING_DELAY_MS = 10_000;
 
-interface IRunnerTaskSummary extends ITaskSummary {
-    cancelled?: boolean;
-}
-
 /** What the runner talks to; the DI module builds it from the workbench services. */
 export interface IDebugTaskRunnerPorts {
     readonly tasks: Pick<
@@ -69,31 +65,36 @@ export class DebugTaskRunner implements IDisposable {
 
     public constructor(private readonly ports: IDebugTaskRunnerPorts) {}
 
+    // A cancelled source has no listeners left to release: upstream's `dispose(true)` is the `cancel()` here.
     public cancel(): void {
         this.globalCancellation.cancel();
-        this.globalCancellation.dispose();
         this.globalCancellation = new CancellationTokenSource();
     }
 
     public dispose(): void {
         this.globalCancellation.cancel();
-        this.globalCancellation.dispose();
     }
 
     public async runTaskAndCheckErrors(
         root: IWorkspaceFolder | IWorkspace | undefined,
         taskId: string | ITaskIdentifier | undefined,
     ): Promise<TaskRunResult> {
+        // Without a task there is nothing to check (upstream reads the problems only for a task).
+        if (!taskId) {
+            return TaskRunResult.Success;
+        }
         try {
             const taskSummary = await this.runTask(root, taskId, this.globalCancellation.token);
-            if (taskSummary && (taskSummary.exitCode === undefined || taskSummary.cancelled)) {
-                // User canceled, either debugging, or the prelaunch task
+            if (taskSummary && taskSummary.exitCode === undefined) {
+                // User canceled, either debugging, or the prelaunch task (upstream also marks it `cancelled`)
                 return TaskRunResult.Failure;
             }
 
-            const errorCount = taskId ? this.ports.markers.read({ severities: [MarkerSeverity.Error] }).length : 0;
-            const successExitCode = taskSummary?.exitCode === 0;
-            const failureExitCode = taskSummary && taskSummary.exitCode !== 0;
+            const errorCount = this.ports.markers.read({ severities: [MarkerSeverity.Error] }).length;
+            // A task that was already running and ready has no summary: no exit code to judge by.
+            const exitCode = taskSummary?.exitCode;
+            const successExitCode = exitCode === 0;
+            const failureExitCode = taskSummary && exitCode !== 0;
             const onTaskErrors = this.ports.configuration.get("debug.onTaskErrors");
             if (successExitCode || onTaskErrors === "debugAnyway" || (errorCount === 0 && !failureExitCode)) {
                 return TaskRunResult.Success;
@@ -108,13 +109,13 @@ export class DebugTaskRunner implements IDisposable {
 
             // Here a task ran: without errors it failed by its exit code. Upstream also has "The preLaunchTask '{0}'
             // terminated." for a summary without a code, which ends above as a cancel.
-            const taskLabel = typeof taskId === "string" ? taskId : String(taskId?.name);
+            const taskLabel = typeof taskId === "string" ? taskId : String(taskId.name);
             const message =
                 errorCount > 1
                     ? `Errors exist after running preLaunchTask '${taskLabel}'.`
                     : errorCount === 1
                       ? `Error exists after running preLaunchTask '${taskLabel}'.`
-                      : `The preLaunchTask '${taskLabel}' terminated with exit code ${String(taskSummary?.exitCode)}.`;
+                      : `The preLaunchTask '${taskLabel}' terminated with exit code ${String(exitCode)}.`;
 
             // Upstream's buttons, with the cancel button last.
             const handle = this.ports.notifications.show({
@@ -128,6 +129,7 @@ export class DebugTaskRunner implements IDisposable {
             const result = await handle.answered;
             const debugAnyway = result === CHOICE_DEBUG_ANYWAY;
             const abort = result !== CHOICE_DEBUG_ANYWAY && result !== CHOICE_SHOW_ERRORS;
+            // Stryker disable next-line OptionalChaining: equivalent, NotificationService.show gives a message with a checkbox its `checkboxChecked`
             if (handle.checkboxChecked?.() === true) {
                 void this.ports.configuration.updateValue(
                     "debug.onTaskErrors",
@@ -164,6 +166,7 @@ export class DebugTaskRunner implements IDisposable {
                 checkbox: { label: "Remember my choice for this task" },
             });
             choice = (await handle.answered) ?? CHOICE_CANCEL;
+            // Stryker disable next-line OptionalChaining: equivalent, NotificationService.show gives a message with a checkbox its `checkboxChecked`
             if (handle.checkboxChecked?.() === true) {
                 this.ports.state.store(DEBUG_TASK_ERROR_CHOICE_KEY, { ...choiceMap, [err.message]: choice });
             }
@@ -180,7 +183,7 @@ export class DebugTaskRunner implements IDisposable {
         root: IWorkspace | IWorkspaceFolder | undefined,
         taskId: string | ITaskIdentifier | undefined,
         token: ICancellationToken = this.globalCancellation.token,
-    ): Promise<IRunnerTaskSummary | null | undefined> {
+    ): Promise<ITaskSummary | null | undefined> {
         if (!taskId) {
             return null;
         }
@@ -204,11 +207,11 @@ export class DebugTaskRunner implements IDisposable {
         const taskKey = getMapKey(task);
         const ofTask = (e: ITaskEvent): boolean => "task" in e && getMapKey(e.task) === taskKey;
         const inactivePromise = new Promise<ITaskSummary | null>((resolve) => {
-            const listener = store.add(
+            // The listener goes with the store when the run is over.
+            store.add(
                 tasks.onDidStateChange((e) => {
                     // The process end comes before `inactive` and carries the exit code.
                     if (e.kind === "processEnded" && ofTask(e)) {
-                        listener.dispose();
                         resolve({ exitCode: e.exitCode });
                     }
                 }),
@@ -237,12 +240,13 @@ export class DebugTaskRunner implements IDisposable {
             return task.isBackground ? inactivePromise : taskPromise;
         });
 
-        const result = new Promise<IRunnerTaskSummary | null | undefined>((resolve, reject) => {
+        const result = new Promise<ITaskSummary | null | undefined>((resolve, reject) => {
             taskDonePromise.then(resolve, reject);
 
             store.add(
                 token.onCancellationRequested(() => {
-                    resolve({ exitCode: undefined, cancelled: true });
+                    // Stryker disable next-line ObjectLiteral: equivalent, `{}` has no exit code either
+                    resolve({ exitCode: undefined });
                     tasks.terminate(task).catch(() => undefined);
                 }),
             );
@@ -273,11 +277,7 @@ export class DebugTaskRunner implements IDisposable {
         }
     }
 
-    private showSlowTaskWarning(
-        task: ITask,
-        store: DisposableStore,
-        resolve: (summary: IRunnerTaskSummary) => void,
-    ): void {
+    private showSlowTaskWarning(task: ITask, store: DisposableStore, resolve: (summary: ITaskSummary) => void): void {
         const canConfigure = task.source.kind === "workspace";
         const items = canConfigure
             ? [DEBUG_ANYWAY_LABEL, CONFIGURE_TASK_LABEL, ABORT_LABEL]
@@ -302,7 +302,8 @@ export class DebugTaskRunner implements IDisposable {
                 resolve({ exitCode: 0 });
             } else {
                 // abort or configure
-                resolve({ exitCode: undefined, cancelled: true });
+                // Stryker disable next-line ObjectLiteral: equivalent, `{}` has no exit code either
+                resolve({ exitCode: undefined });
                 this.ports.tasks.terminate(task).catch(() => undefined);
                 if (canConfigure && choice === 1) {
                     void this.ports.configureTask();
@@ -317,6 +318,7 @@ export class DebugTaskRunner implements IDisposable {
         if (key === undefined) {
             return undefined;
         }
+        // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent, a string has no `type` either
         const tasks = await this.ports.tasks.groupedTasks(typeof taskId === "string" ? undefined : taskId.type);
         return this.ports.tasks.findTask(tasks, key);
     }

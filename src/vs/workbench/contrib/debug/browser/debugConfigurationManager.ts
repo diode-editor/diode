@@ -121,6 +121,7 @@ export class ConfigurationManager implements IConfigurationManager {
         );
         this.toDispose.add(
             this.ports.configuration.onDidChangeConfiguration((e) => {
+                // Stryker disable next-line ConditionalExpression: equivalent, selecting again over an unchanged launch section changes nothing, fires nothing and stores nothing
                 if (e.affectsConfiguration("launch")) {
                     // A change happen in the launch.json. If there is already a launch configuration selected, do not change the selection.
                     void this.selectConfiguration(undefined);
@@ -295,22 +296,17 @@ abstract class AbstractLaunch implements ILaunch {
     /** Upstream's: the named entries, a repeated name numbered; without a config, none (upstream: `undefined`). */
     private getDeduplicatedConfig(): Pick<IGlobalConfig, "compounds" | "configurations"> {
         const original = this.getConfig();
-        const compounds = Array.isArray(original?.compounds) ? original.compounds.filter(isNamed) : [];
-        const configurations = Array.isArray(original?.configurations) ? original.configurations.filter(isNamed) : [];
         return {
-            compounds: distinguishConfigsByName(compounds),
-            configurations: distinguishConfigsByName(configurations),
+            compounds: distinguishConfigsByName(namedEntries<ICompound>(original?.compounds)),
+            configurations: distinguishConfigsByName(namedEntries<IConfig>(original?.configurations)),
         };
     }
 }
 
-/** launch.json is hand-written: an entry may be anything. */
-function isNamed(candidate: unknown): boolean {
-    return (
-        typeof candidate === "object" &&
-        candidate !== null &&
-        typeof (candidate as { name?: unknown }).name === "string"
-    );
+/** launch.json is hand-written: a section may be anything, and so may its entries. */
+function namedEntries<T>(section: unknown): T[] {
+    const isNamed = (entry: unknown): boolean => typeof (entry as { name?: unknown } | null)?.name === "string";
+    return Array.isArray(section) ? ((section as unknown[]).filter(isNamed) as T[]) : [];
 }
 
 function distinguishConfigsByName<T extends { name: string }>(things: readonly T[]): T[] {
@@ -381,7 +377,9 @@ class Launch extends AbstractLaunch {
             }
         }
 
-        const index = content.indexOf(`"${this.configurationManager.selectedConfiguration.name ?? ""}"`);
+        // As upstream, without a selection this looks for `"undefined"`.
+        const index = content.indexOf(`"${String(this.configurationManager.selectedConfiguration.name)}"`);
+        // Stryker disable next-line EqualityOperator: equivalent, offset 0 is on line 0 either way
         const line = index < 0 ? 0 : positionAt(content, index).line;
 
         await this.ports.openEditor(resource, { preserveFocus, line: line > 0 ? line : undefined });
@@ -399,9 +397,7 @@ class WorkspaceLaunch extends AbstractLaunch {
         super(configurationManager);
     }
 
-    public get workspace(): undefined {
-        return undefined;
-    }
+    public readonly workspace = undefined;
 
     public get uri(): Uri {
         // Only a `.code-workspace` window has this launch.
@@ -431,9 +427,7 @@ class UserLaunch extends AbstractLaunch {
         super(configurationManager);
     }
 
-    public get workspace(): undefined {
-        return undefined;
-    }
+    public readonly workspace = undefined;
 
     public get uri(): Uri {
         return this.ports.userSettings.resource;

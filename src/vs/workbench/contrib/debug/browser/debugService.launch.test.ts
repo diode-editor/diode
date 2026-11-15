@@ -92,11 +92,26 @@ describe("DebugService with launch.json", () => {
             expect(fx.contextKeys.getRaw("debugState")).toBe("inactive");
         });
 
-        it("without launch configurations and debuggers the ux stays simple", () => {
+        it("without launch configurations the ux is simple; a configuration in launch.json makes it the default", async () => {
             fx = createDebugServiceFixture({ folders: [FOLDER] });
             factory = registerSyntheticDebugger(fx.service.getAdapterManager(), NO_DELAY_TIMING).factory;
-
             expect(fx.contextKeys.getRaw("debugUx")).toBe("simple");
+
+            await fx.configuration.updateValue("launch", { configurations: [synthetic("Run")] }, "workspace");
+
+            expect(fx.contextKeys.getRaw("debugUx")).toBe("default");
+        });
+
+        it("the ux stays the default after a session of launch.json ends", async () => {
+            create({ configurations: [synthetic("Run")] });
+            await fx.service.startDebugging(folderLaunch(), "Run");
+
+            await fx.service.stopSession(await stopped("Run"));
+            await vi.waitFor(() => {
+                expect(fx.service.state).toBe(State.Inactive);
+            });
+
+            expect(fx.contextKeys.getRaw("debugUx")).toBe("default");
         });
     });
 
@@ -262,6 +277,28 @@ describe("DebugService with launch.json", () => {
                 expect(looseClient.state).toBe(State.Inactive);
             });
             expect(looseServer.state).toBe(State.Stopped);
+        });
+
+        it("with stopAll, a restart of one keeps the others; a disconnect of one stops them", async () => {
+            create({
+                configurations: [synthetic("Server"), synthetic("Client")],
+                compounds: [{ name: "Linked", configurations: ["Server", "Client"], stopAll: true }],
+            });
+            await fx.service.startDebugging(folderLaunch(), "Linked");
+            const server = await stopped("Server");
+            const client = await stopped("Client");
+
+            await fx.service.restartSession(client);
+            await stopped("Client");
+            await fx.service.restartSession(client, { auto: true });
+            await stopped("Client");
+            expect(server.state).toBe(State.Stopped);
+
+            await fx.service.stopSession(client, true);
+
+            await vi.waitFor(() => {
+                expect(server.state).toBe(State.Inactive);
+            });
         });
 
         it("a compound of a launch without a folder runs its preLaunchTask in the workspace", async () => {

@@ -557,16 +557,40 @@ describe("DebugService", () => {
             adapter.dispose();
         });
 
-        it("the focus moves to another session", async () => {
+        it("the focus moves to another session, not explicitly; the multi-session view lasts while two run", async () => {
             const first = await startStopped();
             await fx.service.startDebugging(undefined, { ...SYNTHETIC_LAUNCH_CONFIG, name: "second" });
             await fx.service.focusStackFrame(undefined, undefined, first);
+            const focusEvents: boolean[] = [];
+            fx.service.getViewModel().onDidFocusStackFrame((e) => focusEvents.push(e.explicit));
 
             await fx.service.stopSession(first);
 
             await vi.waitFor(() => {
                 expect(fx.service.getViewModel().focusedSession?.name).toBe("second");
             });
+            expect(focusEvents.every((explicit) => !explicit)).toBe(true);
+            expect(focusEvents.length).toBeGreaterThan(0);
+            expect(key("multiSessionDebug")).toBe(true);
+            await fx.service.stopSession(fx.service.getViewModel().focusedSession);
+            await vi.waitFor(() => {
+                expect(key("multiSessionDebug")).toBe(false);
+            });
+        });
+
+        it("a session that is not focused ends without moving the focus", async () => {
+            await startStopped();
+            const second = await startStopped({ ...SYNTHETIC_LAUNCH_CONFIG, name: "second" });
+            const third = await startStopped({ ...SYNTHETIC_LAUNCH_CONFIG, name: "third" });
+            await fx.service.focusStackFrame(undefined, undefined, second);
+
+            await fx.service.stopSession(third);
+            await vi.waitFor(() => {
+                expect(fx.service.getModel().getSessions()).toHaveLength(2);
+            });
+
+            // Refocusing would take the first stopped session.
+            expect(fx.service.getViewModel().focusedSession).toBe(second);
         });
     });
 

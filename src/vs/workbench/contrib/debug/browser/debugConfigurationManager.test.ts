@@ -276,6 +276,14 @@ describe("ConfigurationManager", () => {
             expect(user.getCompound("C")).toBeUndefined();
         });
 
+        it("entries without a string name are skipped, whatever they are", () => {
+            layers = {
+                workspace: { configurations: [null, 5, "Run", {}, { name: 1 }, config("Run")], compounds: [null] },
+            };
+
+            expect(create().getLaunches()[0].getConfigurationNames()).toEqual(["Run"]);
+        });
+
         it("a configuration renamed by its platform block is listed by the new name but not offered, as upstream", () => {
             const renamed = { name: "Other" };
             layers = {
@@ -404,6 +412,33 @@ describe("ConfigurationManager", () => {
             expect(contextKeys.get("debugConfigurationType")).toBe("dyn");
         });
 
+        it("a passed configuration gives its type even when the launch has a selected one", async () => {
+            layers = { workspace: { configurations: [config("Run")] } };
+            const manager = create();
+
+            await manager.selectConfiguration(manager.getLaunches()[0], "Dynamic", {
+                type: "dyn",
+                request: "launch",
+                name: "Dynamic",
+            });
+
+            expect(manager.selectedConfiguration.name).toBe("Run");
+            expect(contextKeys.get("debugConfigurationType")).toBe("dyn");
+        });
+
+        it("a disposed manager no longer follows launch.json", () => {
+            layers = { workspace: { configurations: [config("Run")] } };
+            const manager = create();
+            const selected = vi.fn();
+            manager.onDidSelectConfiguration(selected);
+
+            manager.dispose();
+            changeLaunch({ workspace: { configurations: [config("Other")] } });
+
+            expect(manager.selectedConfiguration.name).toBe("Run");
+            expect(selected).not.toHaveBeenCalled();
+        });
+
         it("an edit of launch.json keeps a selection that is still there, else takes the first", () => {
             layers = { workspace: { configurations: [config("Run"), config("Test")] } };
             const manager = create();
@@ -493,9 +528,11 @@ describe("ConfigurationManager", () => {
         it("a file that cannot be written is an error with upstream's text", async () => {
             vi.mocked(ports.files.writeFile).mockRejectedValueOnce(new Error("EACCES"));
 
-            await expect(create().getLaunches()[0].openConfigFile({ preserveFocus: false })).rejects.toThrow(
+            const failure = create().getLaunches()[0].openConfigFile({ preserveFocus: false });
+            await expect(failure).rejects.toThrow(
                 "Unable to create 'launch.json' file inside the '.diode' folder (EACCES).",
             );
+            await expect(failure).rejects.toHaveProperty("cause", new Error("EACCES"));
             expect(opened).toEqual([]);
         });
 

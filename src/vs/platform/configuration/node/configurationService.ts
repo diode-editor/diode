@@ -425,9 +425,10 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
      * missing file is created by the edit itself: upstream has no default content for it.
      */
     private async updateLaunchValue(jsonPath: readonly string[], value: unknown): Promise<void> {
-        const source = this.folderSource ?? this.workspaceSource;
-        if (source === undefined || source.launch === "section") throw new Error(NO_WORKSPACE_OPENED_ERROR);
-        await editJsonFile(source.launch.file, jsonPath, value, {
+        // A workspace file's own launch block comes with a folder, and the edit goes to the folder's launch.json.
+        const launch = this.folderSource?.launch ?? this.workspaceSource?.launch;
+        if (typeof launch !== "object") throw new Error(NO_WORKSPACE_OPENED_ERROR);
+        await editJsonFile(launch.file, jsonPath, value, {
             missingContent: "",
             invalidContentError: jsonPath.length > 0 ? LAUNCH_INVALID_CONFIGURATION_ERROR : undefined,
         });

@@ -209,6 +209,9 @@ describe("MessageDialog — response", () => {
 
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "ArrowRight" }));
         expect(testApp.focusedElement).toBe(buttons[1]);
+        // Without a checkbox the last button is the end of the row.
+        testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "ArrowRight" }));
+        expect(testApp.focusedElement).toBe(buttons[1]);
     });
 
     it("the button row is built with ONE stretching spacer (two throw in the engine)", () => {
@@ -227,7 +230,7 @@ describe("MessageDialog — checkbox", () => {
         dialog.onSelect = onSelect;
         const rows = screen(testApp).split("\n");
         const buttonRow = rows.findIndex((row) => row.includes("Debug Anyway"));
-        expect(rows[buttonRow - 2]).toMatch(/\[ \] \[ Remember my choice \]/u);
+        expect(rows[buttonRow - 2].replace(/│/gu, "").trim()).toBe("[ ] [ Remember my choice ]");
         expect(rows[buttonRow - 1].replace(/[│\s]/gu, "")).toBe("");
 
         buttons.find((b) => b.getLabel() === "Remember my choice")!.focus();
@@ -249,10 +252,14 @@ describe("MessageDialog — checkbox", () => {
         const onSelect = vi.fn();
         dialog.onSelect = onSelect;
 
-        buttons.find((b) => b.getLabel() === "Remember")!.focus();
+        const remember = buttons.find((b) => b.getLabel() === "Remember")!;
+        remember.focus();
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
+        // The checked toggle also looks like one (the primary button colors).
+        expect(remember.hasStyleState("checked")).toBe(true);
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         expect(screen(testApp)).toContain("[ ] [ Remember ]");
+        expect(remember.hasStyleState("checked")).toBe(false);
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Escape" }));
 

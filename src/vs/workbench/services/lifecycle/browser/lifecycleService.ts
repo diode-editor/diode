@@ -135,7 +135,8 @@ export class LifecycleService {
         }
         for (const veto of this.vetoes) {
             const vetoed = veto(reason);
-            if (vetoed === true || (vetoed !== false && (await vetoed))) return;
+            // A sync `false` does not await: without vetoing ones the shutdown stays synchronous.
+            if (vetoed !== false && (await vetoed)) return;
         }
         await onProceed();
     }

@@ -41,6 +41,8 @@ describe("DebugTaskRunner", () => {
     let runner: DebugTaskRunner;
     let autoEnd: number | undefined | "pending";
     let terminateFails: boolean;
+    /** The task's terminal never reports its start. */
+    let noStart: boolean;
 
     function end(task: ITask, exitCode: number | undefined): void {
         events.fire({ kind: "processEnded", task, terminalId: 1, exitCode });
@@ -54,6 +56,7 @@ describe("DebugTaskRunner", () => {
         ran = [];
         terminated = [];
         terminateFails = false;
+        noStart = false;
         runs = new Map();
         events = new Emitter();
         markers = [];
@@ -85,7 +88,7 @@ describe("DebugTaskRunner", () => {
                     ran.push(task._label);
                     const run = Promise.withResolvers<ITaskSummary | undefined>();
                     runs.set(task._label, run);
-                    events.fire({ kind: "start", task, terminalId: 1, resolvedDefinition: {} });
+                    if (!noStart) events.fire({ kind: "start", task, terminalId: 1, resolvedDefinition: {} });
                     events.fire({ kind: "active", task, terminalId: 1 });
                     if (autoEnd !== "pending") end(task, autoEnd);
                     return run.promise;
@@ -375,6 +378,19 @@ describe("DebugTaskRunner", () => {
             expect(await runner.runTaskAndCheckErrors(TASK_FOLDER, "build")).toBe(TaskRunResult.Success);
         });
 
+        it("disposing the runner ends the wait and the task, as a cancel", async () => {
+            autoEnd = "pending";
+            const result = runner.runTaskAndCheckErrors(TASK_FOLDER, "build");
+            await vi.waitFor(() => {
+                expect(ran).toEqual(["build"]);
+            });
+
+            runner.dispose();
+
+            expect(await result).toBe(TaskRunResult.Failure);
+            expect(terminated).toEqual(["build"]);
+        });
+
         it("a task that fails to terminate: cancel still ends the wait, quietly", async () => {
             autoEnd = "pending";
             terminateFails = true;
@@ -417,6 +433,16 @@ describe("DebugTaskRunner", () => {
 
             expect(await waiting).toEqual({ exitCode: 0 });
             expect(ran).toEqual([]);
+        });
+
+        it("an already running background task starts the session: no exit code, no problems, no question", async () => {
+            const watch = makeTask({ label: "watch", isBackground: true });
+            tasks = [watch];
+            active = [watch];
+
+            expect(await runner.runTaskAndCheckErrors(TASK_FOLDER, "watch")).toBe(TaskRunResult.Success);
+
+            expect(shown).toEqual([]);
         });
     });
 
@@ -511,6 +537,16 @@ describe("DebugTaskRunner", () => {
 
             await vi.advanceTimersByTimeAsync(SLOW_TASK_WARNING_DELAY_MS * 2);
             expect(shown).toEqual([]);
+        });
+
+        it("the delay counts from the task's start: a task that never starts shows no warning", async () => {
+            noStart = true;
+            const { result } = await startSlow();
+            await vi.advanceTimersByTimeAsync(SLOW_TASK_WARNING_DELAY_MS * 2);
+
+            expect(shown).toEqual([]);
+            end(tasks[0], 0);
+            expect(await result).toBe(TaskRunResult.Success);
         });
 
         it("an already running task warns too", async () => {

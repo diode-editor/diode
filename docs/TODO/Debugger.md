@@ -59,7 +59,7 @@
   'launch.json' в палитре без предусловия `debugUx != 'simple'` (нет welcome-вида — #1144); Add Configuration без
   сниппетов (веха 2); фоновые задачи ждут конца процесса (problem matcher'ов у фоновых задач нет). Живой сессии в
   бинаре нет до #1139/#1140 (тип отладчика приходит только из расширения): e2e `launch-json` показывает задачу и
-  сообщение «not supported», полный F5 на синтетике — `debug.launch.app.test.ts`.
+  сообщение «not supported», полный F5 на синтетике — `debugCommands.launch.app.test.ts`.
 
 - `vscode.debug` поднят целиком (18/18), но это null-объект (`src/vs/workbench/api/common/debugNoop.ts`):
   сессии не стартуют, `onDebug*` не стреляют.

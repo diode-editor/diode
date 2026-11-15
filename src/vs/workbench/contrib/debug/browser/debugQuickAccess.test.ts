@@ -63,6 +63,19 @@ describe("StartDebugQuickAccessProvider", () => {
         expect(provider.getPlaceholder()).toBe("Type the name of a launch configuration to run.");
     });
 
+    it("of two configurations with the selected name only the one of the selected launch is the most recent", async () => {
+        const provider = create({ configurations: [{ ...SYNTHETIC_LAUNCH_CONFIG, name: "Run" }] });
+        await fx.configuration.updateValue(
+            "launch",
+            { configurations: [{ ...SYNTHETIC_LAUNCH_CONFIG, name: "Run" }] },
+            "user",
+        );
+        const manager = fx.service.getConfigurationManager();
+        await manager.selectConfiguration(manager.getLaunches()[0], "Run");
+
+        expect(provider.getItems("debug ").map((i) => i.hint)).toEqual(["most recent", undefined, undefined]);
+    });
+
     it("filters the configurations by the text after the prefix, with the matched characters", () => {
         const provider = create(twoConfigs);
 

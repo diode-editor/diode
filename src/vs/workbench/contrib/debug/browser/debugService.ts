@@ -311,19 +311,18 @@ export class DebugService implements IDebugService {
             await this.ports.extensions.whenInstalledExtensionsRegistered();
 
             let config: IConfig | undefined;
-            let compound: ICompound | undefined;
             configOrName ??= this.configurationManager.selectedConfiguration.name;
             if (typeof configOrName === "string" && launch) {
+                // A compound of the name wins over a configuration of the same name.
+                const compound = launch.getCompound(configOrName);
+                if (compound) {
+                    const result = await this.startCompound(launch, compound, options);
+                    this.endInitializingState();
+                    return result;
+                }
                 config = launch.getConfiguration(configOrName);
-                compound = launch.getCompound(configOrName);
             } else if (typeof configOrName !== "string") {
                 config = configOrName;
-            }
-
-            if (compound) {
-                const result = await this.startCompound(launch, compound, options);
-                this.endInitializingState();
-                return result;
             }
 
             // A passed configuration object is `config` itself: only a name can be missing.
@@ -347,19 +346,18 @@ export class DebugService implements IDebugService {
 
     /** We are starting a compound debug, first do some error checking and than start each configuration in the compound. */
     private async startCompound(
-        launch: ILaunch | undefined,
+        launch: ILaunch,
         compound: ICompound,
         options: IDebugSessionOptions | undefined,
     ): Promise<boolean> {
-        // Upstream checks that `configurations` is set: a launch lists only compounds with configurations.
-        if (compound.preLaunchTask) {
-            const taskResult = await this.taskRunner.runTaskAndCheckErrors(
-                launch?.workspace ?? this.ports.workspace.getWorkspace(),
-                compound.preLaunchTask,
-            );
-            if (taskResult === TaskRunResult.Failure) {
-                return false;
-            }
+        // Upstream checks that `configurations` is set: a launch lists only compounds with configurations. Without a
+        // preLaunchTask the run is a success at once.
+        const taskResult = await this.taskRunner.runTaskAndCheckErrors(
+            launch.workspace ?? this.ports.workspace.getWorkspace(),
+            compound.preLaunchTask,
+        );
+        if (taskResult === TaskRunResult.Failure) {
+            return false;
         }
         if (compound.stopAll) {
             options = { ...options, compoundRoot: new DebugCompoundRoot() };
@@ -379,7 +377,7 @@ export class DebugService implements IDebugService {
                         .filter((l) => !!l.getConfiguration(name));
                     if (launchesContainingName.length === 1) {
                         launchForName = launchesContainingName[0];
-                    } else if (launch && launchesContainingName.length > 1 && launchesContainingName.includes(launch)) {
+                    } else if (launchesContainingName.includes(launch)) {
                         // If there are multiple launches containing the configuration give priority to the configuration in the current launch
                         launchForName = launch;
                     } else {
@@ -668,13 +666,12 @@ export class DebugService implements IDebugService {
             this.notify("error", `Debug adapter process has terminated unexpectedly (${error.message})`);
         }
 
-        if (session.configuration.postDebugTask) {
-            const root = session.root ?? this.ports.workspace.getWorkspace();
-            try {
-                await this.taskRunner.runTask(root, session.configuration.postDebugTask);
-            } catch (err) {
-                this.notify("error", (err as Error).message);
-            }
+        // Without a postDebugTask `runTask` has nothing to run.
+        const root = session.root ?? this.ports.workspace.getWorkspace();
+        try {
+            await this.taskRunner.runTask(root, session.configuration.postDebugTask);
+        } catch (err) {
+            this.notify("error", (err as Error).message);
         }
         this.endInitializingState();
         // The token of a started session's start cancels nothing any more (upstream cancels it): it is only let go.

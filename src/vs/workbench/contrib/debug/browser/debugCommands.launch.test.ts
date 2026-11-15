@@ -1,6 +1,6 @@
 // The launch configuration commands on the debug service: Start Debugging with the selected configuration, Select
 // and Start Debugging, Open 'launch.json' and Add Configuration (what they open; the edit of the file is in
-// debug.launch.app.test.ts).
+// debugCommands.launch.app.test.ts).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -148,6 +148,20 @@ describe("launch configuration commands", () => {
             expect(picks).toEqual([]);
         });
 
+        it("a configuration selected in the user settings opens them, though their launch is hidden", async () => {
+            create();
+            await fx.configuration.updateValue(
+                "launch",
+                { configurations: [{ ...SYNTHETIC_LAUNCH_CONFIG, name: "Mine" }] },
+                "user",
+            );
+            expect(fx.service.getConfigurationManager().selectedConfiguration.name).toBe("Mine");
+
+            await configureAction.run(accessor);
+
+            expect(fx.opened.map((o) => o.resource)).toEqual(["file:///user/settings.json"]);
+        });
+
         it("without a selection opens the only visible launch: the folder's", async () => {
             create();
 
@@ -190,7 +204,10 @@ describe("launch configuration commands", () => {
             await addConfigurationAction.run(accessor, "file:///user/settings.json");
             await addConfigurationAction.run(accessor);
 
-            expect(fx.opened.map((o) => o.resource)).toEqual(["file:///user/settings.json", LAUNCH_JSON]);
+            expect(fx.opened).toEqual([
+                { resource: "file:///user/settings.json", preserveFocus: false },
+                { resource: LAUNCH_JSON, preserveFocus: false },
+            ]);
         });
 
         it("an unknown uri without a selected launch opens nothing", async () => {
