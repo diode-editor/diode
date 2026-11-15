@@ -184,7 +184,8 @@ export class BreakpointsView extends Disposable {
         this.tree = new LazyTreeControl<BreakpointTreeElement>(
             {
                 getRoots: () => this.getTreeElements(),
-                getChildren: (element) => (element instanceof BreakpointsFolderItem ? element.breakpoints : []),
+                // Only a file row has children.
+                getChildren: (element) => (element as BreakpointsFolderItem).breakpoints,
                 getKey: (element) => element.getId(),
                 hasChildren: (element) => element instanceof BreakpointsFolderItem,
                 // Items are expanded by default.

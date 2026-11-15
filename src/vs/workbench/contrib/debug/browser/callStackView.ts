@@ -191,7 +191,7 @@ export class CallStackDataSource {
 
 export class CallStackView extends Disposable {
     public readonly tree: LazyTreeControl<CallStackItem>;
-    public readonly dataSource: CallStackDataSource;
+    private readonly dataSource: CallStackDataSource;
     private readonly onCallStackChangeScheduler: RunOnceScheduler;
     private selectionNeedsUpdate = false;
     /** The view's own focus change: the cursor is already there. */

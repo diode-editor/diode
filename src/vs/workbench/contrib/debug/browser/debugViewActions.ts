@@ -192,11 +192,7 @@ export const collapseCallStackAction: CommandAction = {
     },
 };
 
-/** The row under the cursor of BREAKPOINTS: upstream's focused element of the last focused list. */
-function focusedBreakpoint(accessor: ServiceAccessor): ReturnType<typeof breakpointsView>["focusedBreakpoint"] {
-    return breakpointsView(accessor).focusedBreakpoint;
-}
-
+/** BREAKPOINTS, whose row under the cursor is upstream's focused element of the last focused list. */
 function breakpointsView(accessor: ServiceAccessor): DebugViewletComponent["breakpoints"] {
     return accessor.get(DebugViewletComponentDIToken).breakpoints;
 }
@@ -211,7 +207,7 @@ export const toggleBreakpointAction: CommandAction = {
     },
     menus: HIDDEN_FROM_PALETTE,
     run(accessor) {
-        const focused = focusedBreakpoint(accessor);
+        const focused = breakpointsView(accessor).focusedBreakpoint;
         if (focused) return accessor.get(DebugServiceDIToken).enableOrDisableBreakpoints(!focused.enabled, focused);
         return undefined;
     },
@@ -228,7 +224,7 @@ export const removeFocusedBreakpointAction: CommandAction = {
     menus: HIDDEN_FROM_PALETTE,
     run(accessor) {
         const debugService = accessor.get(DebugServiceDIToken);
-        const element = focusedBreakpoint(accessor);
+        const element = breakpointsView(accessor).focusedBreakpoint;
         if (element instanceof Breakpoint) return debugService.removeBreakpoints(element.getId());
         if (element instanceof FunctionBreakpoint) return debugService.removeFunctionBreakpoints(element.getId());
         if (element instanceof DataBreakpoint) return debugService.removeDataBreakpoints(element.getId());
@@ -244,7 +240,7 @@ export const openBreakpointToSideAction: CommandAction = {
     weight: KeybindingWeight.WorkbenchContrib,
     menus: HIDDEN_FROM_PALETTE,
     run(accessor) {
-        const focused = focusedBreakpoint(accessor);
+        const focused = breakpointsView(accessor).focusedBreakpoint;
         if (focused instanceof Breakpoint) return breakpointsView(accessor).openBreakpoint(focused, true);
         return undefined;
     },
