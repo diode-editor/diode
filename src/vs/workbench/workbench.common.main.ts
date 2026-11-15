@@ -141,6 +141,8 @@ import { UndoRefusalNotificationContributionDIToken } from "./browser/undoRefusa
 import type { IWorkbenchContributionRegistration } from "./common/iWorkbenchContribution.ts";
 import { CODE_ACTION_ACTIONS } from "./contrib/codeAction/browser/codeActionActions.ts";
 import { COMMENT_ACTIONS } from "./contrib/comment/browser/commentActions.ts";
+import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
+import { DebugServiceDIToken } from "./contrib/debug/browser/debugService.ts";
 import { COMPARE_ACTIONS } from "./contrib/diff/browser/compareActions.ts";
 import { DiffSnapshotRefreshContributionDIToken } from "./contrib/diff/browser/diffSnapshotRefreshContribution.ts";
 import { VscodeDiffCommandContributionDIToken } from "./contrib/diff/browser/vscodeDiffCommandContribution.ts";
@@ -360,6 +362,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Stryker disable next-line ObjectLiteral,StringLiteral: see HistoryService above — removing the entry is unobservable in a unit test, the wiring is checked by app startup
     { token: ScmBusyContextContributionDIToken, phase: "ready" },
     { token: TaskStatusBarContributionDIToken, phase: "afterRestored" },
+    // The debug context keys (`debugState`, `debuggersAvailable`) hold from the first frame the user acts on.
+    { token: DebugServiceDIToken, phase: "afterRestored" },
     // The run glyphs of the restored editors' tests.
     { token: TestingDecorationsDIToken, phase: "afterRestored" },
     // The failures of the restored editors' files; "Peek Error" of the glyphs' menu.
@@ -515,6 +519,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...TASKS_ACTIONS,
     ...TESTING_ACTIONS,
     ...TESTING_EDITOR_ACTIONS,
+    ...DEBUG_ACTIONS,
     clearNotificationsAction,
     focusNotificationAction,
     ...COMPARE_ACTIONS,

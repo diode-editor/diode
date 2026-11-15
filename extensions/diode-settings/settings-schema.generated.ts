@@ -15,6 +15,19 @@ export interface ISettingSchemaEntry {
 
 export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {
+        key: "debug.console.collapseIdenticalLines",
+        type: "boolean",
+        default: true,
+        description:
+            "Controls if the Debug Console should collapse identical lines and show a number of occurrences with a badge.",
+    },
+    {
+        key: "debug.console.maximumLines",
+        type: "number",
+        default: 10000,
+        description: "Controls the maximum number of lines in the Debug Console.",
+    },
+    {
         key: "diode.editor.inlayHints.fontStyle",
         type: "string",
         default: "normal",

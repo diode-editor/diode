@@ -63,6 +63,7 @@ import {
     type WorkspaceEditService,
     WorkspaceEditServiceDIToken,
 } from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
+import { DebugExtensionActivatorDIToken } from "../../workbench/contrib/debug/browser/debugService.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
 import { WorkspaceFolderOpenerDIToken } from "../../workbench/contrib/files/browser/fileActions.ts";
 import { SCM_CHANGES_VIEW_ID } from "../../workbench/contrib/scm/common/scmViews.ts";
@@ -458,6 +459,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         return host;
     });
 
+    // `onDebug` and the other debug activation events reach the extensions.
+    container.bind(DebugExtensionActivatorDIToken, () => container.get(ExtensionServiceDIToken));
     container.bind(ExtensionServiceDIToken, () => {
         const logService = container.get(ILogServiceDIToken);
         const logger = logService.createLogger("extensions");
