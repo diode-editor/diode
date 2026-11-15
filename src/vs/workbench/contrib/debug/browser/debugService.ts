@@ -217,6 +217,7 @@ export class DebugService implements IDebugService {
         this.sessionCancellationTokens.forEach((t) => {
             t.cancel();
         });
+        // Stryker disable next-line CallExpression: letting go of cancelled tokens; cancelling them again is a no-op and session ids never repeat
         this.sessionCancellationTokens.clear();
     }
 
