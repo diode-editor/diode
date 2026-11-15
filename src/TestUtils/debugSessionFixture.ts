@@ -104,6 +104,7 @@ export function testDebugService(model: DebugModel): TestDebugService {
         onDidNewSession: Event.None,
         onDidEndSession: Event.None,
         getAdapterManager: vi.fn(),
+        getConfigurationManager: vi.fn(),
         getModel: () => model,
         getViewModel: () => viewModel,
         focusStackFrame: vi.fn(focusStackFrame),

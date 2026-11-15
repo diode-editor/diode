@@ -172,3 +172,31 @@ describe("NotificationsComponent — binding label in the hint", () => {
         expect(screen(testApp)).toContain("Notifications: Focus Message");
     });
 });
+
+describe("NotificationsComponent — a modal question with a checkbox", () => {
+    it("the answer from the dialog carries the checkbox the user checked", async () => {
+        const { notifications, component } = makeComponent();
+        const { testApp } = mountHost(component);
+        const handle = notifications.show({
+            severity: "warn",
+            message: "go on?",
+            modal: true,
+            items: ["Yes", "No"],
+            checkbox: { label: "Remember" },
+        });
+        expect(screen(testApp)).toContain("[ ] [ Remember ]");
+
+        // The dialog takes focus on the first button: right twice reaches the checkbox.
+        const key = (k: string): void => {
+            testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: k }));
+        };
+        key("ArrowRight");
+        key("ArrowRight");
+        key("Enter");
+        key("ArrowLeft");
+        key("Enter");
+
+        await expect(handle.answered).resolves.toBe(1);
+        expect(handle.checkboxChecked?.()).toBe(true);
+    });
+});

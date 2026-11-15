@@ -95,7 +95,7 @@ describe("DebugService for the views", () => {
         it("the expressions of the workspace come back with a new service", () => {
             fx.service.addWatchExpression("total / count");
 
-            const again = createDebugServiceFixture(fx.state);
+            const again = createDebugServiceFixture({ state: fx.state });
 
             expect(
                 again.service
@@ -121,7 +121,7 @@ describe("DebugService for the views", () => {
         });
 
         it("openOnSessionStart: on every start, before the stop", async () => {
-            fx.configuration.openDebug = "openOnSessionStart";
+            await fx.configuration.updateValue("debug.openDebug", "openOnSessionStart");
             const opened: number[] = [];
             fx.service.onDidNewSession(() => opened.push(fx.viewletOpenings));
 
@@ -135,7 +135,7 @@ describe("DebugService for the views", () => {
         });
 
         it("openOnFirstSessionStart: only the first session of the window", async () => {
-            fx.configuration.openDebug = "openOnFirstSessionStart";
+            await fx.configuration.updateValue("debug.openDebug", "openOnFirstSessionStart");
 
             await start();
             await fx.service.stopSession(undefined);
@@ -145,7 +145,7 @@ describe("DebugService for the views", () => {
         });
 
         it("neverOpen, a run without debugging and a session that suppresses the view do not open it", async () => {
-            fx.configuration.openDebug = "openOnSessionStart";
+            await fx.configuration.updateValue("debug.openDebug", "openOnSessionStart");
             await start({ noDebug: true });
             await fx.service.stopSession(undefined);
             expect(
@@ -155,7 +155,7 @@ describe("DebugService for the views", () => {
                 expect(fx.service.state).toBe(State.Stopped);
             });
             await fx.service.stopSession(undefined);
-            fx.configuration.openDebug = "neverOpen";
+            await fx.configuration.updateValue("debug.openDebug", "neverOpen");
             await start();
 
             expect(fx.viewletOpenings).toBe(0);

@@ -31,6 +31,9 @@ import {
     APPLICATION_SCOPES,
     FOLDER_SCOPES,
     folderScopeWriteError,
+    LAUNCH_CONFIGURATION_KEY,
+    LAUNCH_INVALID_CONFIGURATION_ERROR,
+    launchJsonPath,
     NO_WORKSPACE_OPENED_ERROR,
     PROFILE_SCOPES,
     TASKS_CONFIGURATION_KEY,
@@ -39,6 +42,7 @@ import {
     TASKS_INVALID_CONFIGURATION_ERROR,
     tasksJsonPath,
     WORKSPACE_SCOPES,
+    workspaceLaunchPath,
     workspaceScopeWriteError,
     workspaceSettingsPath,
     workspaceTasksPath,
@@ -52,6 +56,11 @@ interface ISettingsSource {
     readonly ignoredReason: string;
     /** The folder's `.diode/tasks.json`: the `tasks` section of the same layer (a `.code-workspace` file has none). */
     readonly tasksFile: string | undefined;
+    /**
+     * Where the layer's `launch` section comes from: the folder's `.diode/launch.json`, or the top-level `launch`
+     * block of the `.code-workspace` file itself (upstream's standalone `launch` of `WorkspaceConfiguration`).
+     */
+    readonly launch: { readonly file: string } | "section";
 }
 
 /**
@@ -63,7 +72,8 @@ interface ISettingsSource {
  *   5. workspaceFolder: only for a `.code-workspace` window: the folder's file, `FOLDER_SCOPES` keys.
  *
  * The `tasks` section is standalone, as upstream's `WORKSPACE_STANDALONE_CONFIGURATIONS`: the layer of a folder
- * (and of the profile) takes it from its `tasks.json` next to `settings.json`, on top of the settings file.
+ * (and of the profile) takes it from its `tasks.json` next to `settings.json`, on top of the settings file. So is
+ * `launch`, of the workspace layers only: the folder's `launch.json`, the `launch` block of a `.code-workspace` file.
  *
  * Broken JSONC yields an empty layer and a logged error: bootstrap must not fail because of settings.json.
  */
@@ -193,6 +203,10 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         );
     }
 
+    public reloadConfiguration(): Promise<void> {
+        return this.reload();
+    }
+
     public async reload(): Promise<void> {
         const prev = this.snapshot;
         if (this.userSettingsPath !== undefined) {
@@ -258,7 +272,9 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     private watchSource(source: ISettingsSource | undefined): IDisposable | undefined {
         const fileWatcher = this.fileWatcher;
         if (source === undefined || fileWatcher === undefined) return undefined;
-        const files = source.tasksFile === undefined ? [source.file] : [source.file, source.tasksFile];
+        const files = [source.file];
+        if (source.tasksFile !== undefined) files.push(source.tasksFile);
+        if (source.launch !== "section") files.push(source.launch.file);
         return combinedDisposable(
             ...files.map((file) =>
                 fileWatcher.watchFile(file, () => {
@@ -287,8 +303,15 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
 
     private async loadSourceLayer(source: ISettingsSource | undefined): Promise<ConfigurationModel> {
         if (source === undefined) return ConfigurationModel.EMPTY;
+        // The settings file, its tasks.json and its launch.json are read together; a workspace file is read once
+        // for both its `settings` and its `launch` block.
+        const [parsed, tasksLayer, launchFile] = await Promise.all([
+            readJsoncFile(source.file, this.logger),
+            source.tasksFile === undefined ? ConfigurationModel.EMPTY : loadTasksLayer(source.tasksFile, this.logger),
+            source.launch === "section" ? undefined : readJsoncFile(source.launch.file, this.logger),
+        ]);
         const { model, excludedKeys } = filterWorkspaceSettings(
-            await loadSettingsLayer(source.file, this.logger, source.section),
+            ConfigurationModel.fromRaw(sectionOf(parsed, source.section)),
             this.scopes,
             source.scopes,
         );
@@ -297,8 +320,12 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
                 `${source.file}: ignored settings that ${source.ignoredReason}: ${excludedKeys.join(", ")}`,
             );
         }
-        if (source.tasksFile === undefined) return model;
-        return ConfigurationModel.merge(model, await loadTasksLayer(source.tasksFile, this.logger));
+        const launch = source.launch === "section" ? sectionOf(parsed, LAUNCH_CONFIGURATION_KEY) : launchFile;
+        const launchLayer =
+            launch === undefined
+                ? ConfigurationModel.EMPTY
+                : ConfigurationModel.fromRaw({ [LAUNCH_CONFIGURATION_KEY]: launch });
+        return ConfigurationModel.merge(model, tasksLayer, launchLayer);
     }
 
     /** An empty diff fires no event: reload after our own write stays silent. */
@@ -321,6 +348,11 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         const jsonPath = tasksJsonPath(key);
         if (jsonPath !== undefined) {
             await this.updateTasksValue(jsonPath, value, target);
+            return;
+        }
+        const launchPath = launchJsonPath(key);
+        if (launchPath !== undefined && (target === "workspace" || target === "workspaceFolder")) {
+            await this.updateLaunchValue(launchPath, value);
             return;
         }
         if (target === "workspace" || target === "workspaceFolder") {
@@ -387,6 +419,21 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         });
         await this.reload();
     }
+
+    /**
+     * As {@link updateTasksValue} for the launch file of the folder (a user `launch` is an ordinary settings key). A
+     * missing file is created by the edit itself: upstream has no default content for it.
+     */
+    private async updateLaunchValue(jsonPath: readonly string[], value: unknown): Promise<void> {
+        // A workspace file's own launch block comes with a folder, and the edit goes to the folder's launch.json.
+        const launch = this.folderSource?.launch ?? this.workspaceSource?.launch;
+        if (typeof launch !== "object") throw new Error(NO_WORKSPACE_OPENED_ERROR);
+        await editJsonFile(launch.file, jsonPath, value, {
+            missingContent: "",
+            invalidContentError: jsonPath.length > 0 ? LAUNCH_INVALID_CONFIGURATION_ERROR : undefined,
+        });
+        await this.reload();
+    }
 }
 
 function workspaceSources(
@@ -408,6 +455,7 @@ function workspaceSources(
                 scopes: WORKSPACE_SCOPES,
                 ignoredReason: userOnly,
                 tasksFile: workspaceTasksPath(path.resolve(folder)),
+                launch: { file: workspaceLaunchPath(path.resolve(folder)) },
             },
         };
     }
@@ -418,6 +466,7 @@ function workspaceSources(
             scopes: WORKSPACE_SCOPES,
             ignoredReason: userOnly,
             tasksFile: undefined,
+            launch: "section",
         },
         folder: {
             file: folderSettings,
@@ -425,6 +474,7 @@ function workspaceSources(
             scopes: FOLDER_SCOPES,
             ignoredReason: "cannot be applied in this workspace (set them in the workspace file)",
             tasksFile: workspaceTasksPath(path.resolve(folder)),
+            launch: { file: workspaceLaunchPath(path.resolve(folder)) },
         },
     };
 }
@@ -551,12 +601,8 @@ async function loadTasksLayer(filePath: string, logger: ILogger | undefined): Pr
     return ConfigurationModel.fromRaw({ [TASKS_CONFIGURATION_KEY]: content });
 }
 
-async function loadSettingsLayer(
-    filePath: string,
-    logger: ILogger | undefined,
-    section?: string,
-): Promise<ConfigurationModel> {
-    return ConfigurationModel.fromRaw(sectionOf(await readJsoncFile(filePath, logger), section));
+async function loadSettingsLayer(filePath: string, logger: ILogger | undefined): Promise<ConfigurationModel> {
+    return ConfigurationModel.fromRaw(await readJsoncFile(filePath, logger));
 }
 
 /** `undefined` when the file is missing or unreadable. */

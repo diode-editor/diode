@@ -44,6 +44,13 @@ function parseObject(text: string): Json | undefined {
     return root as Json;
 }
 
+/** The 0-based line and character of an offset into a JSON text (the files are edited as text, without a model). */
+export function positionAt(text: string, offset: number): { line: number; character: number } {
+    const before = text.slice(0, offset);
+    const lineStart = before.lastIndexOf("\n") + 1;
+    return { line: before.split("\n").length - 1, character: offset - lineStart };
+}
+
 export function isWritableTasksJson(text: string): boolean {
     return text.trim() === "" || parseObject(text) !== undefined;
 }

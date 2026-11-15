@@ -2,7 +2,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
-import { createDebugServiceFixture, type IDebugServiceFixture } from "../../../../../TestUtils/debugServiceFixture.ts";
+import {
+    createDebugServiceFixture,
+    fakeLaunch,
+    type IDebugServiceFixture,
+} from "../../../../../TestUtils/debugServiceFixture.ts";
 import { MockDebugAdapter, NO_RESPONSE } from "../../../../../TestUtils/mockDebugAdapter.ts";
 import {
     NO_DELAY_TIMING,
@@ -12,6 +16,7 @@ import {
     SyntheticDebugAdapter,
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
+import { makeTask } from "../../../../../TestUtils/taskFixtures.ts";
 import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import { CancellationError } from "../../../../base/common/errorSerialization.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -218,10 +223,10 @@ describe("DebugService", () => {
         });
 
         it("starts a configuration of the launch by its name, in the launch's folder", async () => {
-            const launch = {
+            const launch = fakeLaunch({
                 workspace: FOLDER,
                 getConfiguration: (name: string) => (name === "hello" ? { ...SYNTHETIC_LAUNCH_CONFIG } : undefined),
-            };
+            });
 
             expect(await fx.service.startDebugging(launch, "hello")).toBe(true);
 
@@ -229,7 +234,7 @@ describe("DebugService", () => {
         });
 
         it("a missing configuration of a launch is an error", async () => {
-            const launch = { workspace: FOLDER, getConfiguration: () => undefined };
+            const launch = fakeLaunch({ workspace: FOLDER, getConfiguration: () => undefined });
 
             await expect(fx.service.startDebugging(launch, "nope")).rejects.toThrow(
                 "Configuration 'nope' is missing in 'launch.json'.",
@@ -331,10 +336,10 @@ describe("DebugService", () => {
 
                 await fx.service.startDebugging(undefined, { ...config });
                 const other = { uri: Uri.file("/other"), name: "other", index: 0 };
-                await fx.service.startDebugging(
-                    { workspace: other, getConfiguration: () => undefined },
-                    { ...config, name: "m" },
-                );
+                await fx.service.startDebugging(fakeLaunch({ workspace: other, getConfiguration: () => undefined }), {
+                    ...config,
+                    name: "m",
+                });
                 fx.folders = [FOLDER, other];
                 await fx.service.startDebugging(undefined, { ...config, name: "k" });
 
@@ -501,6 +506,32 @@ describe("DebugService", () => {
     });
 
     describe("the end of a session", () => {
+        it("a session that ends before it was ever focused still drops the data breakpoints that cannot persist", async () => {
+            const adapter = new MockDebugAdapter();
+            adapter.handlers.set("initialize", () => NO_RESPONSE);
+            registerMock("mock", adapter);
+            const model = fx.service.getModel() as unknown as { addDataBreakpoint(opts: unknown): void };
+            model.addDataBreakpoint({
+                description: "x",
+                src: { type: DataBreakpointSetType.Variable, dataId: "x" },
+                canPersist: false,
+                accessTypes: undefined,
+                accessType: "write",
+            });
+            void fx.service.startDebugging(undefined, { type: "mock", name: "m", request: "launch" });
+            await vi.waitFor(() => {
+                expect(fx.service.getModel().getSessions()).toHaveLength(1);
+            });
+            expect(fx.service.getViewModel().focusedSession).toBeUndefined();
+
+            adapter.fireExit(0);
+
+            await vi.waitFor(() => {
+                expect(fx.service.getModel().getDataBreakpoints()).toEqual([]);
+            });
+            adapter.dispose();
+        });
+
         it("reports the end, drops its exception breakpoints and the data breakpoints that cannot persist", async () => {
             const session = await startStopped();
             const model = fx.service.getModel() as unknown as {
@@ -552,16 +583,40 @@ describe("DebugService", () => {
             adapter.dispose();
         });
 
-        it("the focus moves to another session", async () => {
+        it("the focus moves to another session, not explicitly; the multi-session view lasts while two run", async () => {
             const first = await startStopped();
             await fx.service.startDebugging(undefined, { ...SYNTHETIC_LAUNCH_CONFIG, name: "second" });
             await fx.service.focusStackFrame(undefined, undefined, first);
+            const focusEvents: boolean[] = [];
+            fx.service.getViewModel().onDidFocusStackFrame((e) => focusEvents.push(e.explicit));
 
             await fx.service.stopSession(first);
 
             await vi.waitFor(() => {
                 expect(fx.service.getViewModel().focusedSession?.name).toBe("second");
             });
+            expect(focusEvents.every((explicit) => !explicit)).toBe(true);
+            expect(focusEvents.length).toBeGreaterThan(0);
+            expect(key("multiSessionDebug")).toBe(true);
+            await fx.service.stopSession(fx.service.getViewModel().focusedSession);
+            await vi.waitFor(() => {
+                expect(key("multiSessionDebug")).toBe(false);
+            });
+        });
+
+        it("a session that is not focused ends without moving the focus", async () => {
+            await startStopped();
+            const second = await startStopped({ ...SYNTHETIC_LAUNCH_CONFIG, name: "second" });
+            const third = await startStopped({ ...SYNTHETIC_LAUNCH_CONFIG, name: "third" });
+            await fx.service.focusStackFrame(undefined, undefined, second);
+
+            await fx.service.stopSession(third);
+            await vi.waitFor(() => {
+                expect(fx.service.getModel().getSessions()).toHaveLength(2);
+            });
+
+            // Refocusing would take the first stopped session.
+            expect(fx.service.getViewModel().focusedSession).toBe(second);
         });
     });
 
@@ -663,6 +718,47 @@ describe("DebugService", () => {
             expect(adapter.sent("restart")).toHaveLength(1);
             expect(adapter.sent("terminate")).toEqual([]);
             adapter.dispose();
+        });
+
+        it("a failing preLaunchTask keeps the adapter from restarting", async () => {
+            const adapter = new MockDebugAdapter();
+            adapter.handlers.set("initialize", () => ({ supportsRestartRequest: true }));
+            registerMock("mock", adapter);
+            fx.tasks = [makeTask({ label: "pre" })];
+            await fx.service.startDebugging(undefined, {
+                type: "mock",
+                name: "m",
+                request: "launch",
+                preLaunchTask: "pre",
+            });
+            const session = fx.service.getModel().getSessions()[0];
+            fx.ran.length = 0;
+            fx.taskExitCode = 1;
+            fx.answer = 2;
+
+            await fx.service.restartSession(session);
+
+            expect(fx.ran).toEqual(["pre"]);
+            expect(adapter.sent("restart")).toEqual([]);
+            adapter.dispose();
+        });
+
+        it("a session started without saveBeforeRestart restarts without saving", async () => {
+            expect(
+                await fx.service.startDebugging(
+                    undefined,
+                    { ...SYNTHETIC_LAUNCH_CONFIG },
+                    { saveBeforeRestart: false },
+                ),
+            ).toBe(true);
+            await vi.waitFor(() => {
+                expect(fx.service.state).toBe(State.Stopped);
+            });
+            const saves = fx.saves.length;
+
+            await fx.service.restartSession(fx.service.getModel().getSessions()[0]);
+
+            expect(fx.saves).toHaveLength(saves);
         });
 
         it("a failed restart is a final end", async () => {

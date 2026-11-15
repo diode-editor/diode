@@ -3,7 +3,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createDebugServiceFixture, type IDebugServiceFixture } from "../../../../../TestUtils/debugServiceFixture.ts";
+import {
+    createDebugServiceFixture,
+    fakeLaunch,
+    type IDebugServiceFixture,
+} from "../../../../../TestUtils/debugServiceFixture.ts";
 import { MockDebugAdapter, NO_RESPONSE } from "../../../../../TestUtils/mockDebugAdapter.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -330,7 +334,10 @@ describe("DebugService details", () => {
             await start();
             const launch =
                 what === "another root"
-                    ? { workspace: { uri: Uri.file("/w"), name: "w", index: 0 }, getConfiguration: () => undefined }
+                    ? fakeLaunch({
+                          workspace: { uri: Uri.file("/w"), name: "w", index: 0 },
+                          getConfiguration: () => undefined,
+                      })
                     : undefined;
 
             await fx.service.startDebugging(

@@ -311,6 +311,7 @@ describe("ConfigurationService — workspace layer", () => {
                 ...userFiles,
                 path.join(folder.dir, ".diode", "settings.json"),
                 path.join(folder.dir, ".diode", "tasks.json"),
+                path.join(folder.dir, ".diode", "launch.json"),
             ]);
 
             await cfg.setWorkspace([]);

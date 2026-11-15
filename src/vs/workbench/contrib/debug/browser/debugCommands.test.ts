@@ -10,6 +10,7 @@ import {
     SYNTHETIC_LAUNCH_CONFIG,
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
+import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor, Token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 import { type IDebugSession, type IStackFrame, State } from "../common/debug.ts";
@@ -28,7 +29,6 @@ import {
     pauseAction,
     restartFrameAction,
     restartSessionAction,
-    runAction,
     startAction,
     startFromConfigAction,
     stepIntoAction,
@@ -37,21 +37,27 @@ import {
     stopAction,
     terminateThreadAction,
 } from "./debugCommands.ts";
-import { DebugServiceDIToken } from "./debugService.ts";
+import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
 
 describe("debug commands", () => {
     let fx: IDebugServiceFixture;
     let factory: SyntheticDebugAdapterFactory;
     let accessor: ServiceAccessor;
     const notifications = { show: vi.fn() };
+    let executed: unknown[][];
 
     beforeEach(() => {
         fx = createDebugServiceFixture();
         factory = registerSyntheticDebugger(fx.service.getAdapterManager(), NO_DELAY_TIMING).factory;
         notifications.show.mockReset();
+        executed = [];
         accessor = {
             get: <T>(token: Token<T>): T => {
                 if (token === (DebugServiceDIToken as Token<unknown>)) return fx.service as T;
+                if (token === (DebugServicePortsDIToken as Token<unknown>)) return fx.ports as T;
+                if (token === (CommandRegistryDIToken as Token<unknown>)) {
+                    return { execute: (...args: unknown[]) => executed.push(args) } as T;
+                }
                 if (token === (NotificationServiceDIToken as Token<unknown>)) return notifications as T;
                 throw new Error(`unexpected ${token.id}`);
             },
@@ -229,28 +235,25 @@ describe("debug commands", () => {
             expect(factory.adapters).toHaveLength(2);
         });
 
-        it("restart without a session starts one: nothing yet without launch.json", async () => {
+        it("restart without a session starts the selected configuration", async () => {
             const start = vi.spyOn(fx.service, "startDebugging");
 
             await restartSessionAction.run(accessor);
 
-            expect(start).toHaveBeenCalledWith(undefined, undefined, { noDebug: false, startedByUser: true });
+            const { launch, name } = fx.service.getConfigurationManager().selectedConfiguration;
+            expect(start).toHaveBeenCalledWith(launch, name, { noDebug: false, startedByUser: true });
         });
     });
 
     describe("start", () => {
-        it("Start Debugging and Start Without Debugging start the selected configuration, by the user", async () => {
+        it("without a selected configuration Start Debugging opens Select and Start Debugging", async () => {
             const start = vi.spyOn(fx.service, "startDebugging");
 
             await startAction.run(accessor);
-            await startAction.run(accessor, { noDebug: true });
-            await runAction.run(accessor);
 
-            expect(start.mock.calls).toEqual([
-                [undefined, undefined, { noDebug: undefined, startedByUser: true }],
-                [undefined, undefined, { noDebug: true, startedByUser: true }],
-                [undefined, undefined, { noDebug: true, startedByUser: true }],
-            ]);
+            expect(start).not.toHaveBeenCalled();
+            expect(executed).toEqual([["workbench.action.debug.selectandstart"]]);
+            expect(fx.saves).toHaveLength(1);
         });
     });
 
