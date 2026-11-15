@@ -145,8 +145,9 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
             }),
         );
         this.register(
-            configuration.onDidChangeConfiguration((e) => {
-                if (e.affectsConfiguration("debug.showVariableTypes")) this.rerender();
+            // `debug.showVariableTypes` among others: redrawing two trees' rows on a rare settings change is cheap.
+            configuration.onDidChangeConfiguration(() => {
+                this.rerender();
             }),
         );
         this.register(
