@@ -140,12 +140,31 @@ describe("VariablesView", () => {
 
         expect(screen()).toContain("getter: {a}");
         expect(screen()).toContain("a: 1");
-        // Enter on a plain variable does nothing.
-        app.sendKey("ArrowDown");
+    });
+
+    it("Enter on a scope or a plain variable resolves nothing", async () => {
+        const evaluate = vi.spyOn(debugService.viewModel, "evaluateLazyExpression");
+        focus(testFrame([{ name: "Locals", variables: [new TestVariable("plain", "2")] }]), true);
+        await vi.advanceTimersByTimeAsync(0);
+        await settle();
+
+        app.sendKey("Enter");
         app.sendKey("ArrowDown");
         app.sendKey("Enter");
         await settle();
-        expect(screen()).toContain("plain: 2");
+
+        expect(view.tree.focused?.name).toBe("plain");
+        expect(evaluate).not.toHaveBeenCalled();
+    });
+
+    it("a view made while a frame is focused shows it at once", async () => {
+        focus(locals(), true);
+        const late = disposables.add(new VariablesView(debugService, testExpressionRenderer()));
+        const lateApp = TestApp.createWithContent(late.tree.element, new Size(40, 12));
+        await settle();
+
+        lateApp.render();
+        expect(lateApp.backend.screenToString()).toContain("i: 5");
     });
 
     it("a value changed since the last stop has the highlight background until its second is over", async () => {

@@ -30,8 +30,8 @@ export function expressionAndScopeLabel(e: IExpression | IScope): string {
 export class VariablesView extends Disposable {
     public readonly tree: LazyTreeControl<IExpression | IScope>;
     private stackFrame: IStackFrame | undefined;
-    /** The scopes of the frame on screen: the first non-expensive one starts expanded. */
-    private scopes: readonly IScope[] = [];
+    /** The first non-expensive scope of the frame on screen: it starts expanded. */
+    private initiallyExpanded: IScope | undefined;
     private readonly updateTreeScheduler: RunOnceScheduler;
 
     public constructor(debugService: IDebugService, renderer: DebugExpressionRenderer) {
@@ -39,13 +39,14 @@ export class VariablesView extends Disposable {
         this.tree = new LazyTreeControl<IExpression | IScope>(
             {
                 getRoots: async () => {
-                    this.scopes = (await this.stackFrame?.getScopes()) ?? [];
-                    return this.scopes;
+                    const scopes = (await this.stackFrame?.getScopes()) ?? [];
+                    this.initiallyExpanded = scopes.find((scope) => !scope.expensive);
+                    return scopes;
                 },
                 getChildren: (element) => element.getChildren(),
                 getKey: (element) => element.getId(),
                 hasChildren: (element) => element.hasChildren,
-                isInitiallyExpanded: (element) => element === this.scopes.find((scope) => !scope.expensive),
+                isInitiallyExpanded: (element) => element === this.initiallyExpanded,
                 renderRow: (element) => {
                     if (element instanceof ErrorScope) {
                         return [{ text: element.name, fg: "debugTokenExpression.error" }];

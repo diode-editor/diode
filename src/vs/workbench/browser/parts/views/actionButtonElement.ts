@@ -35,7 +35,6 @@ export class ActionButtonElement extends TUIElement {
     }
 
     public setLabel(label: string): void {
-        if (label === this.label) return;
         this.label = label;
         this.markDirty();
     }
@@ -45,7 +44,6 @@ export class ActionButtonElement extends TUIElement {
     }
 
     public setDisabled(disabled: boolean): void {
-        if (disabled === this.disabledState) return;
         this.disabledState = disabled;
         this.focusable = !disabled;
         this.markDirty();
@@ -83,8 +81,7 @@ export class ActionButtonElement extends TUIElement {
             ? { fg: this.styleVar("button.secondaryForeground"), bg: this.styleVar("button.secondaryBackground") }
             : { fg, bg };
         const width = this.layoutSize.width;
-        for (let x = 0; x < width; x++) context.setCell(x, 0, { char: " ", ...colors });
-        const start = Math.max(0, Math.floor((width - this.label.length) / 2));
-        context.drawText(start, 0, this.label, colors, { maxWidth: width });
+        context.drawText(0, 0, " ".repeat(width), colors);
+        context.drawText(Math.max(0, Math.floor((width - this.label.length) / 2)), 0, this.label, colors);
     }
 }

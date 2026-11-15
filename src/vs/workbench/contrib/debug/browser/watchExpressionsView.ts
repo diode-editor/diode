@@ -145,6 +145,7 @@ export class WatchExpressionsView extends Disposable {
         } else if (!expression.name) {
             this.debugService.removeWatchExpressions(expression.getId());
         }
+        // Stryker disable next-line BooleanLiteral: without an expression the view model keeps no settingWatch flag
         this.debugService.getViewModel().setSelectedExpression(undefined, false);
     }
 }

@@ -8,7 +8,6 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
-import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -97,12 +96,11 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
             Promise.resolve(commands.execute(DEBUG_START_COMMAND_ID)).catch(onUnexpectedError);
         };
         const welcome = new VFlexElement();
-        welcome.addChild(new TextLabelElement(""), { height: vflexFixed(1), width: "fill" });
-        welcome.addChild(new PaddingContainerElement(this.runButton, { left: 1, right: 1 }), {
-            height: vflexFixed(1),
+        // A blank row above the button; the fixed height leaves one below it.
+        welcome.addChild(new PaddingContainerElement(this.runButton, { top: 1, right: 1, left: 1 }), {
+            height: vflexFixed(3),
             width: "fill",
         });
-        welcome.addChild(new TextLabelElement(""), { height: vflexFixed(1), width: "fill" });
         welcome.addChild(new ViewWelcomeElement(WELCOME_TEXT, onUnexpectedError), {
             height: vflexFill(),
             width: "fill",

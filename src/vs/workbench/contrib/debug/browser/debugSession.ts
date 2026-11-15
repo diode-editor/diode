@@ -1449,6 +1449,7 @@ export class DebugSession implements IDebugSession {
                             if (
                                 // Stryker disable next-line ConditionalExpression: a continue cancels the token and clears the thread's stoppedDetails together, the reason check stops it as well
                                 !isCancelled(token) &&
+                                // Stryker disable next-line OptionalChaining: past an uncancelled token the thread still holds the details of this stop
                                 thread.stoppedDetails?.reason === "breakpoint" &&
                                 this.services.debugConfiguration().openDebug === "openOnDebugBreak" &&
                                 !this.suppressDebugView

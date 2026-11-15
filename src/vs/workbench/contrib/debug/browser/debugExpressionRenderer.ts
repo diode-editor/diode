@@ -50,7 +50,7 @@ function valueColor(expression: IExpressionValue, value: string, colorize: boole
     if (expression.type === "number") return "debugTokenExpression.number";
     if (expression.type === "boolean") return "debugTokenExpression.boolean";
     if (expression.type === "string") return "debugTokenExpression.string";
-    if (!isNaN(+value)) return "debugTokenExpression.number";
+    if (!isNaN(Number(value))) return "debugTokenExpression.number";
     if (booleanRegex.test(value)) return "debugTokenExpression.boolean";
     if (stringRegex.test(value)) return "debugTokenExpression.string";
     return "debugTokenExpression.value";
@@ -72,13 +72,13 @@ export class DebugExpressionRenderer {
         const spans: IRowSpan[] = [];
         if (isAvailable(variable)) {
             spans.push({ text: variable.name, fg: "debugTokenExpression.name" });
-            if (variable.value && typeof variable.name === "string") {
+            if (variable.value) {
                 spans.push({ text: ": " });
                 if (variable.type && this.host.showVariableTypes()) {
                     spans.push({ text: variable.type, fg: "debugTokenExpression.type" }, { text: " = " });
                 }
             }
-        } else if (variable.value && typeof variable.name === "string" && variable.name) {
+        } else if (variable.value && variable.name) {
             spans.push({ text: ": " });
         }
         if (variable.presentationHint?.lazy) {
