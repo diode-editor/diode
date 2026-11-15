@@ -89,12 +89,10 @@ export class DebugExpressionRenderer {
 
     /** Upstream `WatchExpressionsRenderer.renderExpression`: the expression as typed, then its value. */
     public renderWatchExpression(expression: IExpression): IRowSpan[] {
-        const spans: IRowSpan[] = [{ text: expression.name, fg: "debugTokenExpression.name" }];
-        if (typeof expression.value === "string") {
-            spans.push({ text: ": " });
-            if (expression.type && this.host.showVariableTypes()) {
-                spans.push({ text: expression.type, fg: "debugTokenExpression.type" }, { text: " = " });
-            }
+        // Upstream checks `typeof value === 'string'`: an expression's value always is.
+        const spans: IRowSpan[] = [{ text: expression.name, fg: "debugTokenExpression.name" }, { text: ": " }];
+        if (expression.type && this.host.showVariableTypes()) {
+            spans.push({ text: expression.type, fg: "debugTokenExpression.type" }, { text: " = " });
         }
         return [...spans, ...this.renderValue(expression, { showChanged: true, colorize: true })];
     }

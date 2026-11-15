@@ -86,7 +86,8 @@ export class VariablesView extends Disposable {
         );
         this.register(
             viewModel.onDidEvaluateLazyExpression((e) => {
-                if (e instanceof Variable) this.tree.expand(e);
+                // Only variables are lazy; the tree ignores one it does not show.
+                this.tree.expand(e as IExpression);
             }),
         );
         this.stackFrame = viewModel.focusedStackFrame;

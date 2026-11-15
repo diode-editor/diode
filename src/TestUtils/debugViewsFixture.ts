@@ -86,12 +86,11 @@ export interface ITestScopeSpec {
 }
 
 /** A frame of thread 1 whose scopes are the given ones. */
-export function testFrame(id: string, scopes: readonly ITestScopeSpec[]): ITestFrame {
+export function testFrame(scopes: readonly ITestScopeSpec[]): ITestFrame {
     const frame = {
         forgotten: 0,
         reads: 0,
         thread: { session: undefined, threadId: 1 },
-        getId: () => id,
         getScopes: (): Promise<IScope[]> => {
             frame.reads++;
             return Promise.resolve(built);

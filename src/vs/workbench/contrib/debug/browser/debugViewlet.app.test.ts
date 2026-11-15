@@ -334,6 +334,65 @@ describe("Run and Debug viewlet in the workbench", () => {
         expect(screen()).not.toContain("count: int = 0");
     });
 
+    it("Enter on the Run and Debug button starts debugging; the WATCH section takes the focus into its tree", async () => {
+        const start = vi.spyOn(h.container.get(DebugServiceDIToken), "startDebugging");
+        h.testApp.sendKey("Ctrl+k");
+        h.testApp.sendKey("b");
+
+        h.testApp.sendKey("Enter");
+
+        await vi.waitFor(() => {
+            expect(start).toHaveBeenCalled();
+        });
+        h.container.get(ViewsServiceDIToken).openView(WATCH_VIEW_ID, true);
+        h.container.get(WorkbenchContextKeysDIToken).update();
+        expect(h.container.get(ContextKeyServiceDIToken).getRaw("watchExpressionsFocused")).toBe(true);
+    });
+
+    it("Edit and Remove Expression act on the expression they are given, and leave a child variable alone", async () => {
+        const debugService = h.container.get(DebugServiceDIToken);
+        debugService.addWatchExpression("a");
+        debugService.addWatchExpression("p");
+        const [a] = debugService.getModel().getWatchExpressions();
+
+        await h.commands.execute("debug.renameWatchExpression", a);
+        await vi.waitFor(() => {
+            expect(h.container.get(ContextKeyServiceDIToken).getRaw("expressionSelected")).toBe(true);
+        });
+        h.testApp.sendKey("Escape");
+        await h.commands.execute("debug.removeWatchExpression", a);
+        expect(
+            debugService
+                .getModel()
+                .getWatchExpressions()
+                .map((we) => we.name),
+        ).toEqual(["p"]);
+
+        // The focused row is a child of `p`: not an expression, nothing to do.
+        await startStopped();
+        const component = h.container.get(DebugViewletComponentDIToken);
+        component.watch.focus();
+        await vi.waitFor(() => {
+            expect(screen()).toContain("p: {x:1.5");
+        });
+        h.testApp.sendKey("Home");
+        h.testApp.sendKey("ArrowRight");
+        await vi.waitFor(() => {
+            expect(screen()).toContain("x: 1.5");
+        });
+        h.testApp.sendKey("ArrowDown");
+        expect(component.watch.tree.focused?.name).toBe("x");
+        await h.commands.execute("debug.removeWatchExpression");
+        await h.commands.execute("debug.renameWatchExpression");
+        expect(
+            debugService
+                .getModel()
+                .getWatchExpressions()
+                .map((we) => we.name),
+        ).toEqual(["p"]);
+        expect(h.container.get(ContextKeyServiceDIToken).getRaw("expressionSelected")).toBe(false);
+    });
+
     it("a change of the glyph set redraws the rows", async () => {
         const component = h.container.get(DebugViewletComponentDIToken);
         const refresh = vi.spyOn(component.watch.tree, "rerender");

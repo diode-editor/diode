@@ -1445,14 +1445,15 @@ export class DebugSession implements IDebugSession {
                                 await this.debugService.focusStackFrame(undefined, thread);
                             }
 
-                            if (thread.stoppedDetails && !isCancelled(token)) {
-                                if (
-                                    thread.stoppedDetails.reason === "breakpoint" &&
-                                    this.services.debugConfiguration().openDebug === "openOnDebugBreak" &&
-                                    !this.suppressDebugView
-                                ) {
-                                    this.services.openViewlet();
-                                }
+                            // Upstream also checks `thread.stoppedDetails`: a stopped event always sets them.
+                            if (
+                                // Stryker disable next-line ConditionalExpression: a continue cancels the token and clears the thread's stoppedDetails together, the reason check stops it as well
+                                !isCancelled(token) &&
+                                thread.stoppedDetails?.reason === "breakpoint" &&
+                                this.services.debugConfiguration().openDebug === "openOnDebugBreak" &&
+                                !this.suppressDebugView
+                            ) {
+                                this.services.openViewlet();
                             }
                         }
                     };

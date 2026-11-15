@@ -18,6 +18,7 @@ import { StaticProductIconService } from "../../../../platform/theme/common/prod
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 
+import { VALUE_CHANGED_HIGHLIGHT_MS } from "./debugExpressionRenderer.ts";
 import { expressionAndScopeLabel, VARIABLES_REFRESH_DELAY_MS, VariablesView } from "./variablesView.ts";
 
 const vars = computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
@@ -58,7 +59,7 @@ describe("VariablesView", () => {
     }
 
     const locals = (): ITestFrame =>
-        testFrame("f1", [
+        testFrame([
             { name: "Registers", expensive: true, variables: [new TestVariable("rax", "0x1")] },
             { name: "Locals", variables: [new TestVariable("i", "5"), new TestVariable("name", '"x"')] },
             { name: "Globals", variables: [new TestVariable("g", "1")] },
@@ -102,7 +103,7 @@ describe("VariablesView", () => {
     });
 
     it("a scope that failed is its message in the error color", async () => {
-        focus(testFrame("f", [{ name: "Unable to read the scopes", error: true }]), true);
+        focus(testFrame([{ name: "Unable to read the scopes", error: true }]), true);
         await vi.advanceTimersByTimeAsync(0);
         await settle();
 
@@ -128,7 +129,7 @@ describe("VariablesView", () => {
 
     it("Enter on a lazy variable resolves it and opens its children", async () => {
         const getter = new TestVariable("getter", "(...)", [new TestVariable("a", "1")], { lazy: { value: "{a}" } });
-        focus(testFrame("f", [{ name: "Locals", variables: [getter, new TestVariable("plain", "2")] }]), true);
+        focus(testFrame([{ name: "Locals", variables: [getter, new TestVariable("plain", "2")] }]), true);
         await vi.advanceTimersByTimeAsync(0);
         await settle();
         expect(screen()).toContain("getter: ◉ (...)");
@@ -145,6 +146,25 @@ describe("VariablesView", () => {
         app.sendKey("Enter");
         await settle();
         expect(screen()).toContain("plain: 2");
+    });
+
+    it("a value changed since the last stop has the highlight background until its second is over", async () => {
+        const sum = new TestVariable("sum", "1");
+        sum.value = "3";
+        focus(testFrame([{ name: "Locals", variables: [sum] }]), true);
+        await vi.advanceTimersByTimeAsync(0);
+        await settle();
+        const background = (): number => {
+            const rows = screen().split("\n");
+            const y = rows.findIndex((row) => row.includes("sum: 3"));
+            return app.backend.getBgAt(new Point(rows[y].indexOf("3"), y));
+        };
+        expect(background()).toBe(vars["debugView.valueChangedHighlight"]);
+
+        await vi.advanceTimersByTimeAsync(VALUE_CHANGED_HIGHLIGHT_MS);
+        view.tree.rerender();
+
+        expect(background()).not.toBe(vars["debugView.valueChangedHighlight"]);
     });
 
     it("typeahead reads `name: value`", () => {
