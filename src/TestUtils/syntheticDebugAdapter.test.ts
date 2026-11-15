@@ -6,6 +6,7 @@ import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeySe
 import { AdapterManager } from "../vs/workbench/contrib/debug/browser/debugAdapterManager.ts";
 import type { IDebugService } from "../vs/workbench/contrib/debug/common/debug.ts";
 
+import { NO_TERMINAL_LAUNCHER } from "./mockDebug.ts";
 import {
     NO_DELAY_TIMING,
     numAt,
@@ -73,6 +74,85 @@ describe("SyntheticDebugAdapter", () => {
         const [scope] = await scopes(1000);
         return new Map((await variablesOf(scope.variablesReference)).map((v) => [v.name, v]));
     }
+
+    describe("terminal: CodeLLDB's launch in the client's terminal", () => {
+        let reverse: DebugProtocol.Request[];
+
+        beforeEach(() => {
+            reverse = [];
+            adapter.onRequest((r) => reverse.push(r));
+        });
+
+        function answer(r: DebugProtocol.Request, success = true): void {
+            adapter.sendResponse({
+                type: "response",
+                seq: 0,
+                request_seq: r.seq,
+                command: r.command,
+                success,
+                body: { shellProcessId: 7 },
+            });
+        }
+
+        it("asks runInTerminal for the program, its args, cwd and env, and answers launch after the client", async () => {
+            await body("initialize");
+            let launched = false;
+            const launch = request("launch", {
+                ...SYNTHETIC_LAUNCH_CONFIG,
+                terminal: "external",
+                program: "/bin/prog",
+                args: ["a", "b"],
+                cwd: "/w",
+                env: { A: "1" },
+            }).then((r) => {
+                launched = true;
+                return r;
+            });
+
+            await vi.waitFor(() => {
+                expect(reverse).toHaveLength(1);
+            });
+            expect(reverse[0].command).toBe("runInTerminal");
+            expect(reverse[0].arguments).toEqual({
+                kind: "external",
+                title: SYNTHETIC_LAUNCH_CONFIG.name,
+                cwd: "/w",
+                args: ["/bin/prog", "a", "b"],
+                env: { A: "1" },
+            });
+            await Promise.resolve();
+            expect(launched).toBe(false);
+
+            answer(reverse[0]);
+            expect((await launch).success).toBe(true);
+            expect(adapter.responses).toMatchObject([{ command: "runInTerminal", body: { shellProcessId: 7 } }]);
+        });
+
+        it("integrated: the program root is the default cwd, no args; a failed runInTerminal still launches", async () => {
+            await body("initialize");
+            const launch = request("launch", { ...SYNTHETIC_LAUNCH_CONFIG, terminal: "integrated", program: "p" });
+
+            await vi.waitFor(() => {
+                expect(reverse).toHaveLength(1);
+            });
+            expect(reverse[0].arguments).toMatchObject({ kind: "integrated", cwd: "/home/user/hello", args: ["p"] });
+            answer(reverse[0], false);
+            expect((await launch).success).toBe(true);
+        });
+
+        it("without terminal, or with another value, nothing is asked", async () => {
+            await launchStopped();
+            await body("launch", { ...SYNTHETIC_LAUNCH_CONFIG, terminal: "console" });
+
+            expect(reverse).toEqual([]);
+        });
+
+        it("an answer to nothing asked is only recorded", () => {
+            adapter.sendResponse({ type: "response", seq: 0, request_seq: 999, command: "x", success: true });
+
+            expect(adapter.responses).toHaveLength(1);
+        });
+    });
 
     it("initialize answers the capabilities, then `initialized`", async () => {
         expect(await body("initialize")).toEqual(SYNTHETIC_CAPABILITIES);
@@ -470,7 +550,7 @@ describe("SyntheticDebugAdapter", () => {
 
 describe("registerSyntheticDebugger", () => {
     it("registers the debug type and a factory of fresh adapters, until disposed", async () => {
-        const manager = new AdapterManager(() => ({}) as IDebugService, new ContextKeyService());
+        const manager = new AdapterManager(() => ({}) as IDebugService, new ContextKeyService(), NO_TERMINAL_LAUNCHER);
         const registration = registerSyntheticDebugger(manager);
 
         const session = { configuration: SYNTHETIC_LAUNCH_CONFIG } as never;
@@ -482,7 +562,6 @@ describe("registerSyntheticDebugger", () => {
         expect(await manager.substituteVariables(SYNTHETIC_DEBUG_TYPE, undefined, SYNTHETIC_LAUNCH_CONFIG)).toBe(
             SYNTHETIC_LAUNCH_CONFIG,
         );
-        expect(await manager.runInTerminal(SYNTHETIC_DEBUG_TYPE, { cwd: "/", args: [] }, "s")).toBeUndefined();
 
         registration.dispose();
         expect(manager.getDebugger(SYNTHETIC_DEBUG_TYPE)).toBeUndefined();

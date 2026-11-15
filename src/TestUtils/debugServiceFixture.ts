@@ -25,7 +25,7 @@ import type {
 } from "../vs/workbench/services/notification/browser/notificationService.ts";
 
 import { DEFAULT_REPL_CONFIGURATION } from "./debugSessionFixture.ts";
-import { type MockStateService, mockStateService, NO_DIRTY_FILES } from "./mockDebug.ts";
+import { type MockStateService, mockStateService, NO_DIRTY_FILES, NO_TERMINAL_LAUNCHER } from "./mockDebug.ts";
 
 export const USER_SETTINGS = Uri.file("/user/settings.json");
 
@@ -212,6 +212,7 @@ export function createDebugServiceFixture(
             fixture.saves.push(fixture.saves.length);
             return Promise.resolve();
         },
+        terminalLauncher: NO_TERMINAL_LAUNCHER,
     };
     return Object.assign(fixture, { ports, service: new DebugService(ports) });
 }

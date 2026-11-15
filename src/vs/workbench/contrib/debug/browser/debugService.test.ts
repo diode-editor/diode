@@ -60,13 +60,21 @@ describe("DebugService", () => {
         return fx.service.getModel().getSessions().at(-1)!;
     }
 
+    it("a debuggee in the terminal: the adapter asks the launcher and launches after its answer", async () => {
+        const inTerminal = { ...SYNTHETIC_LAUNCH_CONFIG, terminal: "integrated", program: "/bin/prog" };
+        await startStopped(inTerminal);
+
+        const [adapter] = factory.adapters;
+        expect(adapter.responses).toMatchObject([{ command: "runInTerminal", success: true, body: {} }]);
+        expect(adapter.requests.map((r) => r.command)).toContain("launch");
+    });
+
     /** Registers a debug type whose adapter is the given mock. */
     function registerMock(type: string, adapter: MockDebugAdapter): void {
         fx.service.getAdapterManager().registerDebugger({ type });
         fx.service.getAdapterManager().registerDebugAdapterFactory([type], {
             createDebugAdapter: () => adapter,
             substituteVariables: (_folder, config) => Promise.resolve(config),
-            runInTerminal: () => Promise.resolve(undefined),
         });
     }
 
@@ -317,7 +325,6 @@ describe("DebugService", () => {
                 fx.service.getAdapterManager().registerDebugAdapterFactory(["subst"], {
                     createDebugAdapter: () => factory.createDebugAdapter(),
                     substituteVariables: spy,
-                    runInTerminal: () => Promise.resolve(undefined),
                 });
                 return spy;
             }
@@ -779,7 +786,6 @@ describe("DebugService", () => {
             fx.service.getAdapterManager().registerDebugAdapterFactory(["slow"], {
                 createDebugAdapter: () => slow,
                 substituteVariables: (_folder, config) => Promise.resolve(config),
-                runInTerminal: () => Promise.resolve(undefined),
             });
             const session = await startStopped({ ...SYNTHETIC_LAUNCH_CONFIG, type: "slow" });
             await vi.waitFor(() => {

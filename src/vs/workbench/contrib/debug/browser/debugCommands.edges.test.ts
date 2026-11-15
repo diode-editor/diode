@@ -51,7 +51,6 @@ describe("call stack navigation edges", () => {
                 return adapter;
             },
             substituteVariables: (_folder, config) => Promise.resolve(config),
-            runInTerminal: () => Promise.resolve(undefined),
         });
         await fx.service.startDebugging(undefined, { type: "mock", name: "m", request: "launch" });
         mocks[0].sendEventBody("stopped", { reason: "pause", threadId: 1 });

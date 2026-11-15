@@ -8,6 +8,7 @@
 // each with its task: the descriptor factories, activation events and `guessDebugger` (`vscode.debug`, #1139–#1140),
 // the launch.json schema and the task labels in it (#1138, #1157), `canSetBreakpointsIn` (gutter, #1148). A
 // debugger's `when` is evaluated when asked: `debuggersAvailable` follows registrations, not the keys in `when`.
+// `runInTerminal` goes to the core's terminal launcher, not to the adapter factory of the debug type (#1142).
 
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
@@ -21,6 +22,7 @@ import type {
     IDebuggerContribution,
     IDebugService,
     IDebugSession,
+    IDebugTerminalLauncher,
 } from "../common/debug.ts";
 import { Debugger } from "../common/debugger.ts";
 
@@ -32,6 +34,7 @@ export class AdapterManager extends Disposable implements IAdapterManager {
     public constructor(
         private readonly debugService: () => IDebugService,
         private readonly contextKeys: Pick<ContextKeyService, "set" | "evaluate">,
+        private readonly terminalLauncher: IDebugTerminalLauncher,
     ) {
         super();
         this.updateContextKeys();
@@ -89,12 +92,14 @@ export class AdapterManager extends Disposable implements IAdapterManager {
     }
 
     public runInTerminal(
-        debugType: string,
         args: DebugProtocol.RunInTerminalRequestArguments,
         sessionId: string,
     ): Promise<number | undefined> {
-        const factory = this.debugAdapterFactories.get(debugType);
-        return factory ? factory.runInTerminal(args, sessionId) : Promise.resolve(undefined);
+        const session = this.debugService().getModel().getSession(sessionId);
+        if (!session) {
+            return Promise.reject(new Error(`Unknown debug session '${sessionId}'.`));
+        }
+        return this.terminalLauncher.runInTerminal(args, session);
     }
 
     public getDebugger(type: string): Debugger | undefined {

@@ -3,7 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockSession } from "../../../../../TestUtils/mockDebug.ts";
 import { MockDebugAdapter } from "../../../../../TestUtils/mockDebugAdapter.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import type { IConfig, IDebugAdapterFactory, IDebugService, IDebugSession } from "../common/debug.ts";
+import type {
+    IConfig,
+    IDebugAdapterFactory,
+    IDebugService,
+    IDebugSession,
+    IDebugTerminalLauncher,
+} from "../common/debug.ts";
 
 import { AdapterManager } from "./debugAdapterManager.ts";
 
@@ -15,15 +21,23 @@ describe("AdapterManager", () => {
     let contextKeys: ContextKeyService;
     let manager: AdapterManager;
     let debugService: Pick<IDebugService, "getModel" | "startDebugging">;
+    const launched: { args: DebugProtocol.RunInTerminalRequestArguments; session: IDebugSession }[] = [];
+    const terminalLauncher: IDebugTerminalLauncher = {
+        runInTerminal: (args, session) => {
+            launched.push({ args, session });
+            return Promise.resolve(42);
+        },
+    };
 
     beforeEach(() => {
         contextKeys = new ContextKeyService();
+        launched.length = 0;
         debugService = {
             getModel: () =>
                 ({ getSession: (id: string | undefined) => (id === "parent" ? sessionOf("p") : undefined) }) as never,
             startDebugging: vi.fn(() => Promise.resolve(true)),
         };
-        manager = new AdapterManager(() => debugService as IDebugService, contextKeys);
+        manager = new AdapterManager(() => debugService as IDebugService, contextKeys, terminalLauncher);
     });
 
     afterEach(() => {
@@ -36,7 +50,6 @@ describe("AdapterManager", () => {
             adapter,
             createDebugAdapter: () => adapter,
             substituteVariables: (_folder, config) => Promise.resolve({ ...config, name: "substituted" }),
-            runInTerminal: () => Promise.resolve(42),
         };
     }
 
@@ -99,16 +112,25 @@ describe("AdapterManager", () => {
         f.adapter.dispose();
     });
 
-    it("substitutes variables and runs in a terminal through the type's factory, as is without one", async () => {
+    it("substitutes variables through the type's factory, as is without one", async () => {
         const f = factory();
         manager.registerDebugAdapterFactory(["lldb"], f);
         const config: IConfig = { type: "lldb", name: "n", request: "launch" };
 
         expect(await manager.substituteVariables("lldb", undefined, config)).toMatchObject({ name: "substituted" });
         expect(await manager.substituteVariables("gdb", undefined, config)).toBe(config);
-        expect(await manager.runInTerminal("lldb", { cwd: "/", args: [] }, "s")).toBe(42);
-        expect(await manager.runInTerminal("gdb", { cwd: "/", args: [] }, "s")).toBeUndefined();
         f.adapter.dispose();
+    });
+
+    it("runs in a terminal through the core's launcher, with the session of the request, for any type", async () => {
+        const args = { cwd: "/", args: ["a.out"] };
+
+        expect(await manager.runInTerminal(args, "parent")).toBe(42);
+        expect(launched).toHaveLength(1);
+        expect(launched[0].args).toBe(args);
+        expect(launched[0].session.configuration.type).toBe("p");
+        await expect(manager.runInTerminal(args, "gone")).rejects.toThrow("Unknown debug session 'gone'.");
+        expect(launched).toHaveLength(1);
     });
 
     describe("Debugger", () => {
@@ -151,7 +173,7 @@ describe("AdapterManager", () => {
             f.adapter.dispose();
         });
 
-        it("substitutes variables and runs in a terminal through its type", async () => {
+        it("substitutes variables through its type, runs in a terminal through the manager", async () => {
             const f = factory();
             manager.registerDebugger({ type: "lldb" });
             manager.registerDebugAdapterFactory(["lldb"], f);
@@ -162,7 +184,7 @@ describe("AdapterManager", () => {
             ).toMatchObject({
                 name: "substituted",
             });
-            expect(await dbg?.runInTerminal({ cwd: "/", args: [] }, "s")).toBe(42);
+            expect(await dbg?.runInTerminal({ cwd: "/", args: [] }, "parent")).toBe(42);
             f.adapter.dispose();
         });
 

@@ -140,6 +140,12 @@ import {
     DebugServicePortsDIToken,
     NO_DEBUG_EXTENSIONS,
 } from "../../workbench/contrib/debug/browser/debugService.ts";
+import {
+    DebugTerminalLauncher,
+    DebugTerminalLauncherDIToken,
+    HasChildProcessesDIToken,
+} from "../../workbench/contrib/debug/browser/debugTerminal.ts";
+import { hasChildProcesses } from "../../workbench/contrib/debug/node/terminals.ts";
 import { createDiffEditorPaneFactory } from "../../workbench/contrib/diff/browser/diffEditorPaneFactory.ts";
 import {
     DiffSnapshotRefreshContribution,
@@ -740,10 +746,14 @@ export const workbenchModule: ContainerModule = (container) => {
             configurationManager: configurationManagerPorts(container),
             tasks: debugTaskRunnerPorts(container),
             saveAllBeforeStart: () => saveAllBeforeDebugStart(container),
+            terminalLauncher: container.get(DebugTerminalLauncherDIToken),
         };
     });
     container.bind(DebugQuickAccessProviderDIToken, StartDebugQuickAccessProvider);
     container.bind(DebugLifecycleDIToken, DebugLifecycle);
+    // Stryker disable next-line ArrowFunction: DI binding; the function itself is tested in `node/terminals.test.ts`
+    container.bind(HasChildProcessesDIToken, () => hasChildProcesses);
+    container.bind(DebugTerminalLauncherDIToken, DebugTerminalLauncher);
     container.bind(DebugServiceDIToken, DebugService);
     container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);

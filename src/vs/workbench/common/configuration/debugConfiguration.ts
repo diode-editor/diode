@@ -2,10 +2,11 @@ import type { IConfigurationNode } from "../../../platform/configuration/common/
 
 /**
  * Verbatim from upstream's `contrib/debug/browser/debug.contribution.ts` (no `scope` there: window). Only the keys
- * the ported code reads: the Debug Console model (`replModel.ts`), launch.json and the debug tasks
- * (`debugConfigurationManager.ts`, `debugTaskRunner.ts`, `debugService.ts`). The rest of `debug.*` comes with the
- * task that implements it (the views, the toolbar), the unsupported ones are declared by the settings task (#1158).
- * `launch` has no JSON schema of its configurations yet (IntelliSense in launch.json is a task of its own).
+ * the ported code reads: the Debug Console model (`replModel.ts`), the terminal of `runInTerminal` (`debugTerminal.ts`),
+ * launch.json and the debug tasks (`debugConfigurationManager.ts`, `debugTaskRunner.ts`, `debugService.ts`). The rest
+ * of `debug.*` comes with the task that implements it (the views, the toolbar), the unsupported ones are declared by
+ * the settings task (#1158). `launch` has no JSON schema of its configurations yet (IntelliSense in launch.json is a
+ * task of its own).
  */
 export const debugConfiguration = {
     id: "debug",
@@ -68,6 +69,13 @@ export const debugConfiguration = {
             scope: "window",
             type: "boolean",
             description: "Hide the warning shown when a `preLaunchTask` has been running for a while.",
+            default: false,
+        },
+        "debug.terminal.clearBeforeReusing": {
+            scope: "window",
+            type: "boolean",
+            description:
+                "Before starting a new debug session in an integrated or external terminal, clear the terminal.",
             default: false,
         },
     },

@@ -55,6 +55,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["allEditorsInActiveGroup", "nonUntitledEditorsInActiveGroup", "none"],
     },
     {
+        key: "debug.terminal.clearBeforeReusing",
+        type: "boolean",
+        default: false,
+        description: "Before starting a new debug session in an integrated or external terminal, clear the terminal.",
+    },
+    {
         key: "diode.editor.inlayHints.fontStyle",
         type: "string",
         default: "normal",

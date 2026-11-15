@@ -40,6 +40,7 @@ import {
     type IDebugService,
     type IDebugSession,
     type IDebugSessionOptions,
+    type IDebugTerminalLauncher,
     type ILaunch,
     type IStackFrame,
     type IThread,
@@ -74,6 +75,8 @@ export interface IDebugServicePorts {
     readonly tasks: IDebugTaskRunnerPorts;
     /** Upstream `saveAllBeforeDebugStart`: saves the editors as `debug.saveBeforeStart` says. */
     readonly saveAllBeforeStart: () => Promise<void>;
+    /** The adapters' `runInTerminal`: the integrated terminal. */
+    readonly terminalLauncher: IDebugTerminalLauncher;
 }
 export const DebugServicePortsDIToken = token<IDebugServicePorts>("DebugServicePorts");
 
@@ -113,7 +116,7 @@ export class DebugService implements IDebugService {
 
     public constructor(private readonly ports: IDebugServicePorts) {
         const contextKeys = ports.contextKeys;
-        this.adapterManager = this.disposables.add(new AdapterManager(() => this, contextKeys));
+        this.adapterManager = this.disposables.add(new AdapterManager(() => this, contextKeys, ports.terminalLauncher));
         this.configurationManager = this.disposables.add(
             new ConfigurationManager(this.adapterManager, ports.configurationManager),
         );

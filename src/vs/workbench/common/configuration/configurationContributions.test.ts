@@ -154,6 +154,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "debug.saveBeforeStart": "language-overridable",
     "debug.confirmOnExit": "window",
     "debug.hideSlowPreLaunchWarning": "window",
+    "debug.terminal.clearBeforeReusing": "window",
     "testing.gutterEnabled": "window",
     "testing.resultsView.layout": "window",
     "testing.saveBeforeTest": "window",

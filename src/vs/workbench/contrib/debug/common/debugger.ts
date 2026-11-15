@@ -53,7 +53,7 @@ export class Debugger implements IDebugger, IDebuggerMetadata {
         args: DebugProtocol.RunInTerminalRequestArguments,
         sessionId: string,
     ): Promise<number | undefined> {
-        return this.adapterManager.runInTerminal(this.type, args, sessionId);
+        return this.adapterManager.runInTerminal(args, sessionId);
     }
 
     public get label(): string {
