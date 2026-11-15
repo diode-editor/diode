@@ -72,6 +72,11 @@ export class Debugger implements IDebugger, IDebuggerMetadata {
         return this.contribution.type;
     }
 
+    /** The context-key condition of the contribution, as written. */
+    public get when(): string | undefined {
+        return this.contribution.when;
+    }
+
     public get enabled(): boolean {
         return this.contribution.when === undefined || this.evaluateWhen(this.contribution.when);
     }

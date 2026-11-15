@@ -64,7 +64,7 @@ export const DebugServiceDIToken = token<DebugService>("DebugService");
 
 /** What the debug service talks to; the DI module builds it from the workbench services. */
 export interface IDebugServicePorts {
-    readonly contextKeys: Pick<ContextKeyService, "set" | "get" | "reset" | "evaluate">;
+    readonly contextKeys: Pick<ContextKeyService, "set" | "get" | "reset" | "evaluate" | "onDidChange">;
     readonly state: Pick<IStateService, "get" | "store" | "remove" | "onDidOpenWorkspace">;
     readonly textFiles: ITextFileDirtyState;
     readonly logger: ILogger;

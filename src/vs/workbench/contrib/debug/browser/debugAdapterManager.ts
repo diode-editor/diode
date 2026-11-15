@@ -9,12 +9,13 @@
 // a `*` contribution merges into every type. Not here yet, each with its task: the descriptor factories and
 // `guessDebugger` (`vscode.debug`, #1140, #1156), the launch.json schema and the task labels in it (#1157),
 // `canSetBreakpointsIn` (gutter, #1148). A debugger's `when` is evaluated when asked: `debuggersAvailable` follows
-// registrations, not the keys in `when`. `runInTerminal` goes to the core's terminal launcher, not to the adapter
+// registrations and every change of a key in the `when` of a debugger, as upstream's. `runInTerminal` goes to the core's terminal launcher, not to the adapter
 // factory of the debug type (#1142). Deviation: upstream lets a built-in extension's contribution win a key; diode
 // has no built-in debuggers.
 
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { deserializeWhen, whenKeys } from "../../../../platform/contextkey/common/contextKeyExpr.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IExtensionService } from "../../../services/extensions/common/extensions.ts";
@@ -33,7 +34,7 @@ import { Debugger } from "../common/debugger.ts";
 
 /** What the adapter manager talks to besides the debug service. */
 export interface IAdapterManagerPorts {
-    readonly contextKeys: Pick<ContextKeyService, "set" | "evaluate">;
+    readonly contextKeys: Pick<ContextKeyService, "set" | "evaluate" | "onDidChange">;
     readonly terminalLauncher: IDebugTerminalLauncher;
     readonly extensions: Pick<IExtensionService, "activateByEvent">;
     readonly variables: IDebugVariableResolver;
@@ -42,6 +43,8 @@ export interface IAdapterManagerPorts {
 export class AdapterManager extends Disposable implements IAdapterManager {
     private readonly contributions: IDebuggerContribution[] = [];
     private debuggers: Debugger[] = [];
+    /** The context keys the `when` of the debuggers read: a change of one may enable or disable a debugger. */
+    private debuggerWhenKeys = new Set<string>();
     private readonly debugAdapterFactories = new Map<string, IDebugAdapterFactory>();
     private readonly onDidRegisterDebuggerEmitter = this.register(new Emitter<void>());
 
@@ -51,6 +54,13 @@ export class AdapterManager extends Disposable implements IAdapterManager {
     ) {
         super();
         this.updateContextKeys();
+        this.register(
+            this.ports.contextKeys.onDidChange((changed) => {
+                if ([...changed].some((key) => this.debuggerWhenKeys.has(key))) {
+                    this.ports.contextKeys.set("debuggersAvailable", this.hasEnabledDebuggers());
+                }
+            }),
+        );
     }
 
     public get onDidRegisterDebugger(): Event<void> {
@@ -91,6 +101,12 @@ export class AdapterManager extends Disposable implements IAdapterManager {
                     (when) => this.ports.contextKeys.evaluate(when),
                     this.ports.variables,
                 ),
+        );
+        this.debuggerWhenKeys = new Set(
+            this.debuggers.flatMap((dbg) => {
+                const when = dbg.when === undefined ? undefined : deserializeWhen(dbg.when);
+                return when === undefined ? [] : whenKeys(when);
+            }),
         );
         this.updateContextKeys();
     }
