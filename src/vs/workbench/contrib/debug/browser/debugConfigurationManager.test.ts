@@ -276,6 +276,19 @@ describe("ConfigurationManager", () => {
             expect(user.getCompound("C")).toBeUndefined();
         });
 
+        it("a configuration renamed by its platform block is listed by the new name but not offered, as upstream", () => {
+            const renamed = { name: "Other" };
+            layers = {
+                workspace: {
+                    configurations: [config("Run", { linux: renamed, osx: renamed, windows: renamed } as never)],
+                },
+            };
+            const manager = create();
+
+            expect(manager.getLaunches()[0].getConfigurationNames()).toEqual(["Other"]);
+            expect(manager.getAllConfigurations()).toEqual([]);
+        });
+
         it("all configurations of the window: the visible ones of each launch with their presentation", () => {
             layers = {
                 workspace: {
@@ -467,6 +480,14 @@ describe("ConfigurationManager", () => {
 
             expect(ports.files.createFolder).not.toHaveBeenCalled();
             expect(files.get(LAUNCH_JSON)).toBe("{\n\t// synthetic\n}");
+        });
+
+        it("spaces without a tab size indent the skeleton by 4", async () => {
+            settings = { "editor.insertSpaces": true };
+
+            await create().getLaunches()[0].openConfigFile({ preserveFocus: false });
+
+            expect(files.get(LAUNCH_JSON)).toContain('\n    "version": "0.2.0",');
         });
 
         it("a file that cannot be written is an error with upstream's text", async () => {

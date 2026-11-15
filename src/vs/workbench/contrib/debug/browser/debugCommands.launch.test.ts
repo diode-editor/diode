@@ -192,6 +192,19 @@ describe("launch configuration commands", () => {
 
             expect(fx.opened.map((o) => o.resource)).toEqual(["file:///user/settings.json", LAUNCH_JSON]);
         });
+
+        it("an unknown uri without a selected launch opens nothing", async () => {
+            create();
+            const manager = fx.service.getConfigurationManager();
+            vi.spyOn(manager, "selectedConfiguration", "get").mockReturnValue({
+                ...manager.selectedConfiguration,
+                launch: undefined,
+            });
+
+            await addConfigurationAction.run(accessor, "file:///nowhere/launch.json");
+
+            expect(fx.opened).toEqual([]);
+        });
     });
 
     it("the palette lists them with upstream's titles while debuggers are available", () => {

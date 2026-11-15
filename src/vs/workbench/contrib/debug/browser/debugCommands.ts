@@ -472,7 +472,7 @@ export const configureAction: CommandAction = {
     id: DEBUG_CONFIGURE_COMMAND_ID,
     title: "Debug: Open 'launch.json'",
     menus: paletteItem(),
-    async run(accessor, opts) {
+    async run(accessor) {
         const debugService = accessor.get(DebugServiceDIToken);
         const configurationManager = debugService.getConfigurationManager();
         let launch: ILaunch | undefined;
@@ -493,13 +493,8 @@ export const configureAction: CommandAction = {
             }
         }
 
-        if (launch) {
-            const { opened } = await launch.openConfigFile({ preserveFocus: false });
-            const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
-            if (opened && (opts as { addNew?: boolean } | undefined)?.addNew && editor) {
-                addLaunchConfiguration(accessor, editor);
-            }
-        }
+        // Upstream's `addNew` comes from the debug view's start dropdown, which diode does not have yet.
+        await launch?.openConfigFile({ preserveFocus: false });
     },
 };
 
@@ -550,11 +545,8 @@ function addLaunchConfiguration(accessor: ServiceAccessor, editor: TextEditorPan
             ],
             "Add Configuration",
         );
-        // Go through the file again since we've edited it
-        configurationsArrayOffset = configurationsArrayStart(editor.getText(), isLaunchJson);
-    }
-    if (configurationsArrayOffset === undefined) {
-        return;
+        // The array is the one the edit has just written (upstream parses the file again).
+        configurationsArrayOffset = edit.offset + edit.content.indexOf("[") + 1;
     }
 
     editor.focusEditor();

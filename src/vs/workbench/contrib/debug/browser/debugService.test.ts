@@ -16,6 +16,7 @@ import {
     SyntheticDebugAdapter,
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
+import { makeTask } from "../../../../../TestUtils/taskFixtures.ts";
 import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import { CancellationError } from "../../../../base/common/errorSerialization.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -660,6 +661,47 @@ describe("DebugService", () => {
             expect(adapter.sent("restart")).toHaveLength(1);
             expect(adapter.sent("terminate")).toEqual([]);
             adapter.dispose();
+        });
+
+        it("a failing preLaunchTask keeps the adapter from restarting", async () => {
+            const adapter = new MockDebugAdapter();
+            adapter.handlers.set("initialize", () => ({ supportsRestartRequest: true }));
+            registerMock("mock", adapter);
+            fx.tasks = [makeTask({ label: "pre" })];
+            await fx.service.startDebugging(undefined, {
+                type: "mock",
+                name: "m",
+                request: "launch",
+                preLaunchTask: "pre",
+            });
+            const session = fx.service.getModel().getSessions()[0];
+            fx.ran.length = 0;
+            fx.taskExitCode = 1;
+            fx.answer = 2;
+
+            await fx.service.restartSession(session);
+
+            expect(fx.ran).toEqual(["pre"]);
+            expect(adapter.sent("restart")).toEqual([]);
+            adapter.dispose();
+        });
+
+        it("a session started without saveBeforeRestart restarts without saving", async () => {
+            expect(
+                await fx.service.startDebugging(
+                    undefined,
+                    { ...SYNTHETIC_LAUNCH_CONFIG },
+                    { saveBeforeRestart: false },
+                ),
+            ).toBe(true);
+            await vi.waitFor(() => {
+                expect(fx.service.state).toBe(State.Stopped);
+            });
+            const saves = fx.saves.length;
+
+            await fx.service.restartSession(fx.service.getModel().getSessions()[0]);
+
+            expect(fx.saves).toHaveLength(saves);
         });
 
         it("a failed restart is a final end", async () => {

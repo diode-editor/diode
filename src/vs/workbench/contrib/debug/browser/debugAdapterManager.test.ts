@@ -208,5 +208,18 @@ describe("AdapterManager", () => {
             );
             expect(await manager.getDebugger("lldb")?.getInitialConfigurationContent()).toContain('"name": "a"');
         });
+
+        it("a contribution without initial configurations writes only the given ones", async () => {
+            manager.registerDebugger({ type: "gdb" });
+
+            const content = await manager
+                .getDebugger("gdb")
+                ?.getInitialConfigurationContent([{ type: "gdb", request: "launch", name: "b" }]);
+
+            expect(content).toContain('\t"configurations": [\n\t\t{\n\t\t\t"type": "gdb",');
+            expect(await manager.getDebugger("gdb")?.getInitialConfigurationContent()).toContain(
+                '\t"configurations": []',
+            );
+        });
     });
 });

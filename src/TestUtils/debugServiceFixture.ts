@@ -36,8 +36,10 @@ export function fakeLaunch(launch: Partial<ILaunch> & Pick<ILaunch, "workspace" 
         name: "w",
         hidden: false,
         getCompound: () => undefined,
+        /* v8 ignore start -- test helper: the defaults of what a test does not ask */
         getConfigurationNames: () => [],
         openConfigFile: () => Promise.resolve({ opened: true, created: false }),
+        /* v8 ignore stop */
         ...launch,
     };
 }
@@ -56,8 +58,6 @@ export interface IDebugServiceFixture {
     checkboxChecked: boolean;
     folders: IWorkspaceFolder[];
     workbenchState: WorkbenchState;
-    /** Fires the folders change for what `folders` holds now. */
-    changeFolders(): void;
     /** The tasks the task service knows; `runTask` starts one and gives the way to end it. */
     tasks: ITask[];
     readonly ran: string[];
@@ -68,8 +68,6 @@ export interface IDebugServiceFixture {
     markers: IMarker[];
     readonly opened: { resource: string; line?: number; preserveFocus: boolean }[];
     readonly saves: number[];
-    readonly commands: string[];
-    readonly dismissed: number[];
 }
 
 export function createDebugServiceFixture(
@@ -82,7 +80,7 @@ export function createDebugServiceFixture(
     const ran: string[] = [];
     const runs = new Map<string, PromiseWithResolvers<ITaskSummary | undefined>>();
     const taskEvents = new Emitter<ITaskEvent>();
-    const foldersChange = new Emitter<void>();
+    const foldersChange = new Emitter<void>(); // never fires: the tests keep their folders
     const configuration = new InMemoryConfigurationService(
         new ConfigurationRegistry([debugConfiguration]),
         {},
@@ -100,19 +98,16 @@ export function createDebugServiceFixture(
         checkboxChecked: false,
         folders: options.folders ?? [],
         workbenchState: "folder" as WorkbenchState,
-        changeFolders: () => {
-            foldersChange.fire();
-        },
         tasks: [] as ITask[],
         taskExitCode: 0 as number | undefined | "pending",
         markers: [] as IMarker[],
         opened: [] as { resource: string; line?: number; preserveFocus: boolean }[],
         saves: [] as number[],
-        commands: [] as string[],
-        dismissed: [] as number[],
         endTask: (label: string, exitCode: number | undefined) => {
             const task = fixture.tasks.find((t) => t._label === label);
+            /* v8 ignore start -- test helper: a test ends only the tasks it listed */
             if (task === undefined) throw new Error(`no task ${label}`);
+            /* v8 ignore stop */
             taskEvents.fire({ kind: "processEnded", task, terminalId: 1, exitCode });
             taskEvents.fire({ kind: "inactive", task, terminalId: 1 });
             runs.get(label)?.resolve({ exitCode });
@@ -126,9 +121,9 @@ export function createDebugServiceFixture(
             const checked = fixture.checkboxChecked;
             return { ...handle, checkboxChecked: () => checked };
         }),
-        dismiss: (notificationId: number) => {
-            fixture.dismissed.push(notificationId);
-        },
+        /* v8 ignore start -- test helper: the slow-task warning is debugTaskRunner.test's */
+        dismiss: () => undefined,
+        /* v8 ignore stop */
     };
     const workspace = {
         getWorkspace: () => ({ id: "w" as never, folders: fixture.folders }),
@@ -144,7 +139,9 @@ export function createDebugServiceFixture(
             readFile: () => Promise.reject(new Error("no file")),
             writeFile: () => Promise.resolve({} as never),
             exists: () => Promise.resolve(true),
+            /* v8 ignore start -- test helper: the launch.json is never created here */
             createFolder: () => Promise.resolve({} as never),
+            /* v8 ignore stop */
         },
         openEditor: (resource, { preserveFocus, line }) => {
             fixture.opened.push({ resource: resource.toString(), line, preserveFocus });
@@ -161,8 +158,8 @@ export function createDebugServiceFixture(
     const tasks: IDebugTaskRunnerPorts = {
         tasks: {
             groupedTasks: () => Promise.resolve(fixture.tasks),
-            taskIdentifierOf: (arg: unknown) =>
-                typeof arg === "string" ? arg : { ...(arg as { type: string }), _key: JSON.stringify(arg) },
+            // The tests here name their tasks by label; definitions are debugTaskRunner.test's.
+            taskIdentifierOf: (arg: unknown) => arg as string,
             findTask: (all, identifier) => all.find((task) => taskMatches(task, identifier)),
             run: (task) => {
                 ran.push(task._label);
@@ -186,13 +183,10 @@ export function createDebugServiceFixture(
         configuration,
         notifications,
         state,
-        openProblemsView: () => {
-            fixture.commands.push("problems");
-        },
-        configureTask: () => {
-            fixture.commands.push("configureTask");
-            return Promise.resolve();
-        },
+        /* v8 ignore start -- test helper: these answers of the task errors are debugTaskRunner.test's */
+        openProblemsView: () => undefined,
+        configureTask: () => Promise.resolve(),
+        /* v8 ignore stop */
     };
     const ports: IDebugServicePorts = {
         contextKeys,

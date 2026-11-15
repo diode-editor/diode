@@ -142,13 +142,17 @@ describe("DebugService with launch.json", () => {
             });
         });
 
-        it("a configuration without a folder runs its task in the workspace", async () => {
+        it("a configuration without a folder runs its tasks in the workspace", async () => {
             create({});
-            fx.tasks = [makeTask({ label: "build" })];
+            fx.tasks = [makeTask({ label: "build" }), makeTask({ label: "clean" })];
 
-            expect(await fx.service.startDebugging(undefined, synthetic("Run", { preLaunchTask: "build" }))).toBe(true);
+            const config = synthetic("Run", { preLaunchTask: "build", postDebugTask: "clean" });
+            expect(await fx.service.startDebugging(undefined, config)).toBe(true);
+            await fx.service.stopSession(await stopped("Run"));
 
-            expect(fx.ran).toEqual(["build"]);
+            await vi.waitFor(() => {
+                expect(fx.ran).toEqual(["build", "clean"]);
+            });
         });
 
         it("stopping with no session cancels a preLaunchTask that is still running", async () => {
@@ -183,6 +187,24 @@ describe("DebugService with launch.json", () => {
             expect(await started).toBe(false);
             expect(messages()).toEqual(["'Run' is already running. Do you want to start another instance?"]);
             expect(sessions()).toHaveLength(1);
+        });
+
+        it("a session started while the task ran: a yes to the question starts the second one", async () => {
+            create({ configurations: [synthetic("Run", { preLaunchTask: "build" })] });
+            fx.tasks = [makeTask({ label: "build" })];
+            fx.taskExitCode = "pending";
+            fx.answer = 0;
+            const started = fx.service.startDebugging(folderLaunch(), "Run", { startedByUser: true });
+            await vi.waitFor(() => {
+                expect(fx.ran).toEqual(["build"]);
+            });
+            await fx.service.startDebugging(folderLaunch(), synthetic("Run"));
+            await stopped("Run");
+
+            fx.endTask("build", 0);
+
+            expect(await started).toBe(true);
+            expect(sessions()).toHaveLength(2);
         });
     });
 
@@ -240,6 +262,21 @@ describe("DebugService with launch.json", () => {
                 expect(looseClient.state).toBe(State.Inactive);
             });
             expect(looseServer.state).toBe(State.Stopped);
+        });
+
+        it("a compound of a launch without a folder runs its preLaunchTask in the workspace", async () => {
+            create({ configurations: [synthetic("Run")] });
+            fx.tasks = [makeTask({ label: "build" })];
+            const user = fakeLaunch({
+                workspace: undefined,
+                getConfiguration: (name) => (name === "Run" ? synthetic("Run") : undefined),
+                getCompound: () => ({ name: "Both", configurations: ["Run"], preLaunchTask: "build" }),
+            });
+
+            expect(await fx.service.startDebugging(user, "Both")).toBe(true);
+
+            expect(fx.ran).toEqual(["build"]);
+            await stopped("Run");
         });
 
         it("a compound naming itself starts nothing for that entry, and is not a success", async () => {
@@ -350,6 +387,27 @@ describe("DebugService with launch.json", () => {
             await stopped("Run");
 
             expect((session.configuration as IConfig & { args: string[] }).args).toEqual(["2"]);
+        });
+
+        it("an edited launch.json whose variables fail to resolve ends the session with the error", async () => {
+            create({ configurations: [synthetic("Run")] });
+            await fx.service.startDebugging(folderLaunch(), "Run");
+            const session = await stopped("Run");
+            const debuggerOfRun = fx.service.getAdapterManager().getDebugger(SYNTHETIC_LAUNCH_CONFIG.type)!;
+            vi.spyOn(debuggerOfRun, "substituteVariables").mockRejectedValue(new Error("Variable 'x' is unknown."));
+            await fx.configuration.updateValue(
+                "launch",
+                { configurations: [synthetic("Run", { args: ["2"] } as Partial<IConfig>)] },
+                "workspace",
+            );
+            const ends: boolean[] = [];
+            fx.service.onDidEndSession((e) => ends.push(e.restart));
+
+            await fx.service.restartSession(session);
+
+            expect(messages()).toEqual(["Variable 'x' is unknown."]);
+            expect(ends.at(-1)).toBe(false);
+            expect(session.state).toBe(State.Inactive);
         });
     });
 });

@@ -3,6 +3,7 @@
 // it in the editor.
 
 import * as fs from "node:fs";
+import * as path from "node:path";
 
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -192,10 +193,70 @@ describe("launch.json in the workbench", () => {
         await h.commands.execute("debug.addConfiguration");
 
         await vi.waitFor(() => {
+            expect(h.activeEditor().getLinesContent()).toEqual([
+                "{",
+                '    "version": "0.2.0",',
+                '    "configurations": [',
+                "        ",
+                "        ",
+                "    ]",
+                "}",
+            ]);
+        });
+        expect(h.activeEditor().viewState.selections[0].active.line).toBe(3);
+    });
+
+    it("Add Configuration on an empty launch.json writes the array; a [ ending its line needs no line break", async () => {
+        await boot({ ".diode/launch.json": "" });
+
+        await h.commands.execute("debug.addConfiguration");
+
+        await vi.waitFor(() => {
             expect(h.activeEditor().getText()).toContain('"configurations": [');
         });
-        const lines = h.activeEditor().getLinesContent();
-        const at = lines.findIndex((l) => l.includes('"configurations": ['));
-        expect(h.activeEditor().viewState.selections[0].active.line).toBe(at + 1);
+        h.dispose();
+        ws.dispose();
+        userData.dispose();
+        await boot({ ".diode/launch.json": '{\n    "configurations": [\n        { "name": "a" }\n    ]\n}' });
+
+        await h.commands.execute("debug.addConfiguration");
+
+        await vi.waitFor(() => {
+            expect(h.activeEditor().getLinesContent()).toEqual([
+                "{",
+                '    "configurations": [',
+                "        ",
+                '        { "name": "a" }',
+                "    ]",
+                "}",
+            ]);
+        });
+    });
+
+    it("Add Configuration on the user settings adds the launch block", async () => {
+        await boot({});
+        const user = debugService()
+            .getConfigurationManager()
+            .getLaunches()
+            .find((l) => l.workspace === undefined && l.uri.path.endsWith("/settings.json"))!;
+        fs.mkdirSync(path.dirname(user.uri.fsPath), { recursive: true });
+        fs.writeFileSync(user.uri.fsPath, '{\n    "editor.tabSize": 4\n}');
+
+        await h.commands.execute("debug.addConfiguration", user.uri.toString());
+
+        await vi.waitFor(() => {
+            expect(h.activeEditor().getLinesContent()).toEqual([
+                "{",
+                '    "editor.tabSize": 4,',
+                '    "launch": {',
+                '        "configurations": [',
+                "            ",
+                "            ",
+                "        ]",
+                "    }",
+                "}",
+            ]);
+        });
+        expect(h.activeEditor().viewState.selections[0].active.line).toBe(4);
     });
 });

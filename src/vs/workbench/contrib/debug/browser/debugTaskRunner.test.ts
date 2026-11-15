@@ -40,6 +40,7 @@ describe("DebugTaskRunner", () => {
     let groupedTypes: (string | undefined)[];
     let runner: DebugTaskRunner;
     let autoEnd: number | undefined | "pending";
+    let terminateFails: boolean;
 
     function end(task: ITask, exitCode: number | undefined): void {
         events.fire({ kind: "processEnded", task, terminalId: 1, exitCode });
@@ -52,6 +53,7 @@ describe("DebugTaskRunner", () => {
         active = [];
         ran = [];
         terminated = [];
+        terminateFails = false;
         runs = new Map();
         events = new Emitter();
         markers = [];
@@ -90,6 +92,7 @@ describe("DebugTaskRunner", () => {
                 },
                 terminate: (task) => {
                     terminated.push(task._label);
+                    if (terminateFails) return Promise.reject(new Error("the terminal is gone"));
                     end(task, undefined);
                     return Promise.resolve(true);
                 },
@@ -372,6 +375,20 @@ describe("DebugTaskRunner", () => {
             expect(await runner.runTaskAndCheckErrors(TASK_FOLDER, "build")).toBe(TaskRunResult.Success);
         });
 
+        it("a task that fails to terminate: cancel still ends the wait, quietly", async () => {
+            autoEnd = "pending";
+            terminateFails = true;
+            const result = runner.runTaskAndCheckErrors(TASK_FOLDER, "build");
+            await vi.waitFor(() => {
+                expect(ran).toEqual(["build"]);
+            });
+
+            runner.cancel();
+
+            expect(await result).toBe(TaskRunResult.Failure);
+            expect([terminated, shown]).toEqual([["build"], []]);
+        });
+
         it("a background task is waited for until its process ends, with its exit code", async () => {
             autoEnd = "pending";
             tasks = [makeTask({ label: "watch", isBackground: true })];
@@ -447,6 +464,16 @@ describe("DebugTaskRunner", () => {
             await vi.advanceTimersByTimeAsync(SLOW_TASK_WARNING_DELAY_MS);
             expect(await configured).toBe(TaskRunResult.Failure);
             expect([terminated, calls]).toEqual([["build", "build"], ["configureTask"]]);
+        });
+
+        it("Abort of a task that fails to terminate does not start, quietly", async () => {
+            answers = [2];
+            terminateFails = true;
+            const { result } = await startSlow();
+            await vi.advanceTimersByTimeAsync(SLOW_TASK_WARNING_DELAY_MS);
+
+            expect(await result).toBe(TaskRunResult.Failure);
+            expect([terminated, shown.length]).toEqual([["build"], 1]);
         });
 
         it("a task of an extension cannot be configured: Debug Anyway / Abort", async () => {

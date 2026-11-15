@@ -323,9 +323,10 @@ export class DebugService implements IDebugService {
                 return result;
             }
 
-            if (configOrName && !config) {
+            // A passed configuration object is `config` itself: only a name can be missing.
+            if (typeof configOrName === "string" && !config) {
                 const message = launch
-                    ? `Configuration '${typeof configOrName === "string" ? configOrName : configOrName.name}' is missing in 'launch.json'.`
+                    ? `Configuration '${configOrName}' is missing in 'launch.json'.`
                     : "'launch.json' does not exist for passed workspace folder.";
                 throw new Error(message);
             }

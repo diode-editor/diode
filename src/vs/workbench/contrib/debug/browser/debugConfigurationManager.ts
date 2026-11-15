@@ -72,7 +72,8 @@ export class ConfigurationManager implements IConfigurationManager {
     private launches!: AbstractLaunch[];
     private selectedName: string | undefined;
     private selectedLaunch: ILaunch | undefined;
-    private getSelectedConfig: () => Promise<IConfig | undefined> = () => Promise.resolve(undefined);
+    // Set by the selection in the constructor.
+    private getSelectedConfig!: () => Promise<IConfig | undefined>;
     private readonly toDispose = new DisposableStore();
     private readonly onDidSelectConfigurationNameEmitter = this.toDispose.add(new Emitter<void>());
 
