@@ -77,7 +77,7 @@ describe("contributed terminal profiles — over the wire", () => {
     it("a provider registered by the extension creates its pty terminal in the panel, and the pty opens", async () => {
         const h = setup();
         const opened: string[] = [];
-        h.ns.registerProfileProvider("test.profiles", "demo", ptyProfile("Demo Pty", opened));
+        h.ns.registerProfileProvider("demo", ptyProfile("Demo Pty", opened));
         await flush();
 
         await h.profiles.createContributedTerminalProfile(PROFILE, "panel");
@@ -92,7 +92,7 @@ describe("contributed terminal profiles — over the wire", () => {
 
     it("the editor target puts the profile's terminal into the editor area", async () => {
         const h = setup();
-        h.ns.registerProfileProvider("test.profiles", "demo", {
+        h.ns.registerProfileProvider("demo", {
             provideTerminalProfile: () => new TerminalProfile({ name: "In Editor", shellPath: "/bin/zsh" }),
         });
         await flush();
@@ -105,7 +105,7 @@ describe("contributed terminal profiles — over the wire", () => {
 
     it("the subprocess's rejection reaches the caller with its message", async () => {
         const h = setup();
-        h.ns.registerProfileProvider("test.profiles", "demo", { provideTerminalProfile: () => undefined });
+        h.ns.registerProfileProvider("demo", { provideTerminalProfile: () => undefined });
         await flush();
         await expect(h.profiles.createContributedTerminalProfile(PROFILE, "panel")).rejects.toThrow(
             'No terminal profile options provided for id "demo"',
@@ -115,7 +115,7 @@ describe("contributed terminal profiles — over the wire", () => {
 
     it("unregistering, a junk notification, and the subprocess's death all leave no provider behind", async () => {
         const h = setup();
-        const registration = h.ns.registerProfileProvider("test.profiles", "demo", ptyProfile("A", []));
+        const registration = h.ns.registerProfileProvider("demo", ptyProfile("A", []));
         h.subRpc.notify("terminal.registerProfileProvider", { id: 7 } as never);
         h.subRpc.notify("terminal.unregisterProfileProvider", null as never);
         await flush();
@@ -125,7 +125,7 @@ describe("contributed terminal profiles — over the wire", () => {
             'No terminal profile provider registered for id "demo"',
         );
 
-        h.ns.registerProfileProvider("test.profiles", "demo", ptyProfile("B", []));
+        h.ns.registerProfileProvider("demo", ptyProfile("B", []));
         await flush();
         h.attached.dispose();
         await expect(h.profiles.createContributedTerminalProfile(PROFILE, "panel")).rejects.toThrow(
@@ -134,10 +134,36 @@ describe("contributed terminal profiles — over the wire", () => {
         h.service.dispose();
     });
 
+    // The RPC endpoint swallows a handler's throw, so the handlers are called directly here.
+    it("junk registrations neither throw nor reach the profile service", () => {
+        const handlers = new Map<string, (params: unknown) => void>();
+        const rpc = {
+            handleNotification: (method: string, handler: (params: unknown) => void) => {
+                handlers.set(method, handler);
+                return { dispose: () => undefined };
+            },
+            handleRequest: () => ({ dispose: () => undefined }),
+        } as unknown as HostRpc;
+        const registered: string[] = [];
+        const customer = new TerminalCustomer(undefined, {
+            registerProvider: (id) => {
+                registered.push(id);
+                return { dispose: () => undefined };
+            },
+        });
+        customer.attach({ rpc, logger: undefined });
+        for (const junk of [null, 7, { id: 7 }, {}]) {
+            expect(() => handlers.get("terminal.registerProfileProvider")?.(junk)).not.toThrow();
+            expect(() => handlers.get("terminal.unregisterProfileProvider")?.(junk)).not.toThrow();
+        }
+        handlers.get("terminal.registerProfileProvider")?.({ id: "ok" });
+        expect(registered).toStrictEqual(["ok"]);
+    });
+
     it("a repeated registration of the same id replaces the host's entry", async () => {
         const h = setup();
-        h.subRpc.notify("terminal.registerProfileProvider", { id: "demo", extensionId: "test.profiles" });
-        h.ns.registerProfileProvider("test.profiles", "demo", ptyProfile("Live", []));
+        h.subRpc.notify("terminal.registerProfileProvider", { id: "demo" });
+        h.ns.registerProfileProvider("demo", ptyProfile("Live", []));
         await flush();
         await h.profiles.createContributedTerminalProfile(PROFILE, "panel");
         await flush();

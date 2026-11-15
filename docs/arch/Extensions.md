@@ -1756,12 +1756,12 @@ Workbench** (адаптеры над `EditorService`; мост файловых 
 (`id`, `title`, `icon`; разбор — `contrib/terminal/common/terminalExtensionPoints.ts`) кладёт в
 `TerminalProfileService` `bindExtensionTerminalProfiles` при сборке хоста расширений — без активации.
 Провайдер живёт в субпроцессе (`terminalNamespace.ts`, один на id на все расширения — как эталон, второй
-бросает); `terminal.registerProfileProvider`/`unregisterProfileProvider` несут id и расширение,
+бросает); `terminal.registerProfileProvider`/`unregisterProfileProvider` несут только id,
 `TerminalCustomer` регистрирует на хосте колбэк, который зовёт запрос
 `terminal.createContributedProfile` (`$createContributedProfileTerminal`). Команда
 `workbench.action.terminal.newWithProfile` показывает шелл по умолчанию (группа `profiles`) и профили
 расширений (группа `contributed`, по заголовку; метка группы — `hint` первой строки, разделителей в нашем
-пикере нет); выбор поднимает `onTerminalProfile:<id>`, ищет провайдер по паре (расширение, id) и
+пикере нет); выбор поднимает `onTerminalProfile:<id>`, ищет провайдер по одному id (отступление: у эталона пара «расширение, id», а у нас личность расширения в субпроцессе выводится из пути модуля, и на Windows профиль не находился) и
 просит субпроцесс создать терминал из `TerminalProfile` обычным `createTerminal` — место (панель или
 область редактора по `terminal.integrated.defaultLocation`) перекрывает `location` самого профиля, как
 внутренние опции эталона. Отказ (нет провайдера, нет опций) — тост ошибки. Своих профилей

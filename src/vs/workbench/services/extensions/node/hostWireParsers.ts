@@ -555,8 +555,8 @@ export function parseWireTerminalPtyName(raw: unknown): IWireTerminalPtyName | n
 }
 
 export function parseWireTerminalProfileProvider(raw: unknown): IWireTerminalProfileProvider | null {
-    const { id, extensionId } = (raw ?? {}) as Record<string, unknown>;
-    return typeof id === "string" && typeof extensionId === "string" ? { id, extensionId } : null;
+    const { id } = (raw ?? {}) as Record<string, unknown>;
+    return typeof id === "string" ? { id } : null;
 }
 
 export function parseWireTerminalSendText(raw: unknown): IWireTerminalSendText | null {

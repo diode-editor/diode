@@ -35,12 +35,11 @@ export interface ITerminalNamespace {
     createTerminal(options: vscode.TerminalOptions | vscode.ExtensionTerminalOptions): vscode.Terminal;
     /** The previous pty of the same terminal (task rerun) is detached without `close()`: it has already closed itself. */
     attachPty(terminalId: number, pty: vscode.Pseudoterminal): void;
-    /** Upstream `registerProfileProvider`: one provider per profile id across all extensions. */
-    registerProfileProvider(
-        extensionId: string,
-        id: string,
-        provider: vscode.TerminalProfileProvider,
-    ): vscode.Disposable;
+    /**
+     * Upstream `registerProfileProvider`: one provider per profile id across all extensions, so the id alone
+     * addresses it (the host does not depend on knowing the calling extension).
+     */
+    registerProfileProvider(id: string, provider: vscode.TerminalProfileProvider): vscode.Disposable;
 }
 
 /** As upstream `TerminalDataBufferer`. */
@@ -443,17 +442,13 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
         return null;
     });
 
-    function registerProfileProvider(
-        extensionId: string,
-        id: string,
-        provider: vscode.TerminalProfileProvider,
-    ): vscode.Disposable {
+    function registerProfileProvider(id: string, provider: vscode.TerminalProfileProvider): vscode.Disposable {
         if (profileProviders.has(id)) throw new Error(`Terminal profile provider "${id}" already registered`);
         profileProviders.set(id, provider);
-        rpc.notify("terminal.registerProfileProvider", { id, extensionId });
+        rpc.notify("terminal.registerProfileProvider", { id });
         return new DisposableImpl(() => {
             profileProviders.delete(id);
-            rpc.notify("terminal.unregisterProfileProvider", { id, extensionId });
+            rpc.notify("terminal.unregisterProfileProvider", { id });
         });
     }
 

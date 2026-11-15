@@ -21,26 +21,22 @@ function provider(result: vscode.ProviderResult<vscode.TerminalProfile>): vscode
 }
 
 describe("window.registerTerminalProfileProvider", () => {
-    it("tells the host the profile id and the owning extension, and takes it back on dispose", () => {
+    it("tells the host the profile id, and takes it back on dispose", () => {
         const { ns, sent } = setup();
-        const registration = ns.registerProfileProvider("ms-vscode.js-debug", "debugTerminal", provider(undefined));
-        expect(sent("terminal.registerProfileProvider")).toStrictEqual([
-            { id: "debugTerminal", extensionId: "ms-vscode.js-debug" },
-        ]);
+        const registration = ns.registerProfileProvider("debugTerminal", provider(undefined));
+        expect(sent("terminal.registerProfileProvider")).toStrictEqual([{ id: "debugTerminal" }]);
         registration.dispose();
-        expect(sent("terminal.unregisterProfileProvider")).toStrictEqual([
-            { id: "debugTerminal", extensionId: "ms-vscode.js-debug" },
-        ]);
+        expect(sent("terminal.unregisterProfileProvider")).toStrictEqual([{ id: "debugTerminal" }]);
     });
 
     it("a second provider for the same id throws until the first is disposed", () => {
         const { ns } = setup();
-        const first = ns.registerProfileProvider("a.one", "shared", provider(undefined));
-        expect(() => ns.registerProfileProvider("b.two", "shared", provider(undefined))).toThrow(
+        const first = ns.registerProfileProvider("shared", provider(undefined));
+        expect(() => ns.registerProfileProvider("shared", provider(undefined))).toThrow(
             'Terminal profile provider "shared" already registered',
         );
         first.dispose();
-        expect(() => ns.registerProfileProvider("b.two", "shared", provider(undefined))).not.toThrow();
+        expect(() => ns.registerProfileProvider("shared", provider(undefined))).not.toThrow();
     });
 });
 
@@ -48,7 +44,7 @@ describe("terminal.createContributedProfile — the host asks for the profile's 
     it("a TerminalProfile with shell options creates the terminal where the person picked, not where the profile says", async () => {
         const { ns, sent, create } = setup();
         const options: vscode.TerminalOptions = { name: "Debug", shellPath: "/bin/zsh", location: 2 };
-        ns.registerProfileProvider("x.y", "debug", provider(new TerminalProfile(options)));
+        ns.registerProfileProvider("debug", provider(new TerminalProfile(options)));
         await expect(create("debug", 1)).resolves.toBeNull();
         expect(sent("terminal.create")).toStrictEqual([
             { extHostId: 1, name: "Debug", shellPath: "/bin/zsh", location: 1 },
@@ -67,7 +63,7 @@ describe("terminal.createContributedProfile — the host asks for the profile's 
             },
             close: () => undefined,
         };
-        ns.registerProfileProvider("x.y", "pty", provider(Promise.resolve(new TerminalProfile({ name: "Pty", pty }))));
+        ns.registerProfileProvider("pty", provider(Promise.resolve(new TerminalProfile({ name: "Pty", pty }))));
         await create("pty", 2);
         expect(sent("terminal.create")).toStrictEqual([{ extHostId: 1, pty: true, name: "Pty", location: 2 }]);
         stub.fire("terminal.opened", { id: 5, extHostId: 1, name: "Pty", launch: {} });
@@ -77,7 +73,7 @@ describe("terminal.createContributedProfile — the host asks for the profile's 
 
     it("bare options in place of a TerminalProfile are taken as its options, as upstream", async () => {
         const { ns, sent, create } = setup();
-        ns.registerProfileProvider("x.y", "bare", provider({ name: "Bare" } as unknown as vscode.TerminalProfile));
+        ns.registerProfileProvider("bare", provider({ name: "Bare" } as unknown as vscode.TerminalProfile));
         await create("bare");
         expect(sent("terminal.create")).toStrictEqual([{ extHostId: 1, name: "Bare", location: 1 }]);
     });
@@ -85,7 +81,7 @@ describe("terminal.createContributedProfile — the host asks for the profile's 
     it("the provider gets a live token: cancelling the host request cancels it", async () => {
         const { ns, stub } = setup();
         let seen: vscode.CancellationToken | undefined;
-        ns.registerProfileProvider("x.y", "slow", {
+        ns.registerProfileProvider("slow", {
             provideTerminalProfile: (token) => {
                 seen = token;
                 return new TerminalProfile({});
@@ -101,10 +97,10 @@ describe("terminal.createContributedProfile — the host asks for the profile's 
     it("rejects with upstream's messages: no provider for the id, no profile from the provider", async () => {
         const { ns, sent, create } = setup();
         await expect(create("nobody")).rejects.toThrow('No terminal profile provider registered for id "nobody"');
-        ns.registerProfileProvider("x.y", "empty", provider(undefined)).dispose();
+        ns.registerProfileProvider("empty", provider(undefined)).dispose();
         await expect(create("empty")).rejects.toThrow('No terminal profile provider registered for id "empty"');
-        ns.registerProfileProvider("x.y", "none", provider(undefined));
-        ns.registerProfileProvider("x.y", "null", provider(null));
+        ns.registerProfileProvider("none", provider(undefined));
+        ns.registerProfileProvider("null", provider(null));
         await expect(create("none")).rejects.toThrow('No terminal profile options provided for id "none"');
         await expect(create("null")).rejects.toThrow('No terminal profile options provided for id "null"');
         expect(sent("terminal.create")).toStrictEqual([]);

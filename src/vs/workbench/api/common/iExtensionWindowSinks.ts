@@ -98,7 +98,7 @@ export interface IQuickInputBoxRequest extends IWireInputBoxRequest {
  * `create` asks the subprocess for the profile and resolves once its terminal exists.
  */
 export interface IExtensionTerminalProfileSink {
-    registerProvider(extensionId: string, id: string, create: ContributedProfileCreator): IDisposable;
+    registerProvider(id: string, create: ContributedProfileCreator): IDisposable;
 }
 
 export type ContributedProfileCreator = (target: "panel" | "editor") => Promise<void>;

@@ -15,7 +15,7 @@ describe("TerminalProfileService.createContributedTerminalProfile", () => {
         const calls: string[] = [];
         service.setActivator((event) => {
             calls.push(event);
-            service.registerProvider(PROFILE.extensionIdentifier, PROFILE.id, (location) => {
+            service.registerProvider(PROFILE.id, (location) => {
                 calls.push(`create ${location}`);
                 return Promise.resolve();
             });
@@ -34,16 +34,15 @@ describe("TerminalProfileService.createContributedTerminalProfile", () => {
     it("without an activator the registered provider is used directly", async () => {
         const service = new TerminalProfileService();
         const create = vi.fn(() => Promise.resolve());
-        service.registerProvider("ms-vscode.js-debug", "debug", create);
+        service.registerProvider("debug", create);
         await service.createContributedTerminalProfile(PROFILE, "panel");
         expect(create).toHaveBeenCalledWith("panel");
     });
 
-    it("a provider of another extension or another id does not answer; the rejection names the id", async () => {
+    it("a provider of another id does not answer; the rejection names the id", async () => {
         const service = new TerminalProfileService();
         const create = vi.fn(() => Promise.resolve());
-        service.registerProvider("someone.else", "debug", create);
-        service.registerProvider("ms-vscode.js-debug", "other", create);
+        service.registerProvider("other", create);
         await expect(service.createContributedTerminalProfile(PROFILE, "panel")).rejects.toThrow(
             'No terminal profile provider registered for id "debug"',
         );
@@ -52,7 +51,7 @@ describe("TerminalProfileService.createContributedTerminalProfile", () => {
 
     it("the provider's failure is the caller's rejection", async () => {
         const service = new TerminalProfileService();
-        service.registerProvider("ms-vscode.js-debug", "debug", () => Promise.reject(new Error("no options")));
+        service.registerProvider("debug", () => Promise.reject(new Error("no options")));
         await expect(service.createContributedTerminalProfile(PROFILE, "panel")).rejects.toThrow("no options");
     });
 
@@ -60,11 +59,11 @@ describe("TerminalProfileService.createContributedTerminalProfile", () => {
         const service = new TerminalProfileService();
         const older = vi.fn(() => Promise.resolve());
         const newer = vi.fn(() => Promise.resolve());
-        const first = service.registerProvider("ms-vscode.js-debug", "debug", older);
+        const first = service.registerProvider("debug", older);
         first.dispose();
         await expect(service.createContributedTerminalProfile(PROFILE, "panel")).rejects.toThrow();
-        const second = service.registerProvider("ms-vscode.js-debug", "debug", older);
-        service.registerProvider("ms-vscode.js-debug", "debug", newer);
+        const second = service.registerProvider("debug", older);
+        service.registerProvider("debug", newer);
         second.dispose();
         await service.createContributedTerminalProfile(PROFILE, "panel");
         expect(newer).toHaveBeenCalledOnce();

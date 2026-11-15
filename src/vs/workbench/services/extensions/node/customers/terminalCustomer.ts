@@ -158,10 +158,10 @@ function attachProfileProviders(rpc: HostRpc, profiles: IExtensionTerminalProfil
         rpc.handleNotification("terminal.registerProfileProvider", (params) => {
             const request = parseWireTerminalProfileProvider(params);
             if (request === null) return;
-            const { id, extensionId } = request;
+            const { id } = request;
             providers.set(
                 id,
-                profiles.registerProvider(extensionId, id, async (target) => {
+                profiles.registerProvider(id, async (target) => {
                     await rpc.request("terminal.createContributedProfile", {
                         id,
                         location: target === "editor" ? 2 : 1,

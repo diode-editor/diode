@@ -50,14 +50,15 @@ describe("WindowNamespace", () => {
         expect(stub.requests).toStrictEqual([]);
     });
 
-    it("registerTerminalProfileProvider names the calling extension to the host; none outside an extension", () => {
+    // On Windows the profile of an extension whose identity the subprocess did not resolve was never found.
+    it("registerTerminalProfileProvider addresses the provider by the profile id, with or without a known extension", () => {
         const { stub, ctx, window } = makeCtx();
         const provider: vscode.TerminalProfileProvider = { provideTerminalProfile: () => undefined };
         ctx.owner.runAs("ms-vscode.js-debug", () => window.registerTerminalProfileProvider("debug", provider));
         window.registerTerminalProfileProvider("anonymous", provider);
         expect(stub.notifies.filter((n) => n.method === "terminal.registerProfileProvider")).toStrictEqual([
-            { method: "terminal.registerProfileProvider", params: { id: "debug", extensionId: "ms-vscode.js-debug" } },
-            { method: "terminal.registerProfileProvider", params: { id: "anonymous", extensionId: "" } },
+            { method: "terminal.registerProfileProvider", params: { id: "debug" } },
+            { method: "terminal.registerProfileProvider", params: { id: "anonymous" } },
         ]);
     });
 

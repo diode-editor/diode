@@ -169,9 +169,10 @@ export const newWithProfileAction: CommandAction = {
         try {
             await profiles.createContributedTerminalProfile(profile, editor ? "editor" : "panel");
         } catch (error) {
+            // Both the service and the RPC reject with an `Error`.
             accessor.get(NotificationServiceDIToken).show({
                 severity: "error",
-                message: error instanceof Error ? error.message : String(error),
+                message: (error as Error).message,
                 modal: false,
                 items: [],
             });

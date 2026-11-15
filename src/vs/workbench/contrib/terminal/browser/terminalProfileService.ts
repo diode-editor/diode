@@ -21,8 +21,13 @@ export class TerminalProfileService implements IExtensionTerminalProfileSink {
     public static dependencies = [] as const;
 
     private contributed: readonly IExtensionTerminalProfile[] = [];
-    /** Keyed by extension id, then by profile id, as upstream. */
-    private readonly providers = new Map<string, Map<string, ContributedProfileCreator>>();
+    /**
+     * By profile id alone, like upstream `MainThreadTerminalService`: the subprocess keeps the id unique across
+     * extensions. Deviation from upstream's (extension, id) lookup — the extension's identity in the subprocess comes
+     * from the importing module's path and is not a reliable key.
+     */
+    private readonly providers = new Map<string, ContributedProfileCreator>();
+    // Stryker disable next-line ArrowFunction: equivalent — awaiting `undefined` is the same as awaiting a resolved promise
     private activate: (event: string) => Promise<void> = () => Promise.resolve();
 
     public get contributedProfiles(): readonly IExtensionTerminalProfile[] {
@@ -38,16 +43,10 @@ export class TerminalProfileService implements IExtensionTerminalProfileSink {
         this.activate = activate;
     }
 
-    public registerProvider(extensionId: string, id: string, create: ContributedProfileCreator): IDisposable {
-        let byId = this.providers.get(extensionId);
-        if (byId === undefined) {
-            byId = new Map();
-            this.providers.set(extensionId, byId);
-        }
-        byId.set(id, create);
-        const registered = byId;
+    public registerProvider(id: string, create: ContributedProfileCreator): IDisposable {
+        this.providers.set(id, create);
         return toDisposable(() => {
-            if (registered.get(id) === create) registered.delete(id);
+            if (this.providers.get(id) === create) this.providers.delete(id);
         });
     }
 
@@ -57,7 +56,7 @@ export class TerminalProfileService implements IExtensionTerminalProfileSink {
         target: TerminalTarget,
     ): Promise<void> {
         await this.activate(`${ON_TERMINAL_PROFILE_PREFIX}${profile.id}`);
-        const create = this.providers.get(profile.extensionIdentifier)?.get(profile.id);
+        const create = this.providers.get(profile.id);
         if (create === undefined) throw new Error(`No terminal profile provider registered for id "${profile.id}"`);
         await create(target);
     }

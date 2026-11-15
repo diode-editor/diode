@@ -6,6 +6,7 @@ import { typeText } from "../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { ProductIconServiceDIToken } from "../../platform/theme/common/productIconService.ts";
 import { ExtensionTerminalAdapter } from "../contrib/terminal/browser/extensionTerminalAdapter.ts";
 import { TerminalEditorServiceDIToken } from "../contrib/terminal/browser/terminalEditorService.ts";
@@ -19,6 +20,7 @@ import {
     TerminalServiceDIToken,
 } from "../contrib/terminal/browser/terminalService.ts";
 import { ExtensionPtySessionFactoryDIToken } from "../contrib/terminal/common/terminalSessionFactory.ts";
+import { NotificationServiceDIToken } from "../services/notification/browser/notificationService.ts";
 
 import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
 import { ViewsServiceDIToken } from "./parts/views/viewsService.ts";
@@ -36,6 +38,8 @@ describe("Workbench — Create New Terminal (With Profile)", () => {
     let h: IAppHarness;
     let terminal: TerminalService;
     let profiles: TerminalProfileService;
+    /** Where the host asked the provider to put each terminal. */
+    let targets: string[];
 
     function boot(settings: Readonly<Record<string, unknown>> = {}): void {
         ws = createTempWorkspace({ prefix: "diode-terminal-profiles-", files: { "alpha.txt": "Alpha" } });
@@ -57,10 +61,13 @@ describe("Workbench — Create New Terminal (With Profile)", () => {
         profiles.setContributedProfiles([
             { extensionIdentifier: JS_DEBUG, id: DEBUG_TERMINAL, title: "JavaScript Debug Terminal", icon: "$(debug)" },
             { extensionIdentifier: "test.other", id: "unanswered", title: "Another Profile", icon: "no-such-icon" },
-            { extensionIdentifier: "test.other", id: "spin", title: "Spinning Profile", icon: "$(sync~spin)" },
+            // A bare id, with a modifier: drawn as `$(sync~spin)` would be.
+            { extensionIdentifier: "test.other", id: "spin", title: "Spinning Profile", icon: "sync~spin" },
         ]);
         let nextExtHostId = 1;
-        profiles.registerProvider(JS_DEBUG, DEBUG_TERMINAL, (target) => {
+        targets = [];
+        profiles.registerProvider(DEBUG_TERMINAL, (target) => {
+            targets.push(target);
             adapter.create({
                 extHostId: nextExtHostId++,
                 pty: true,
@@ -117,6 +124,9 @@ describe("Workbench — Create New Terminal (With Profile)", () => {
         typeText(h.testApp, "JavaScript");
         h.testApp.sendKey("Enter");
         await run;
+        // The command refreshes the keys itself: no render has happened since the terminal opened.
+        expect(h.container.get(ContextKeyServiceDIToken).get("terminalCount")).toBe(1);
+        expect(targets).toStrictEqual(["panel"]);
         expect(terminal.getInstances().map((instance) => instance.title)).toStrictEqual(["JavaScript Debug Terminal"]);
         expect(terminal.getActiveInstance()?.title).toBe("JavaScript Debug Terminal");
         expect(h.container.get(PanelServiceDIToken).getActiveViewId()).toBe(TERMINAL_VIEW_ID);
@@ -131,11 +141,14 @@ describe("Workbench — Create New Terminal (With Profile)", () => {
         typeText(h.testApp, "JavaScript");
         h.testApp.sendKey("Enter");
         await run;
+        expect(targets).toStrictEqual(["editor"]);
         expect(terminal.getInstances()).toStrictEqual([]);
         expect(terminal.getEditorInstances().map((instance) => instance.title)).toStrictEqual([
             "JavaScript Debug Terminal",
         ]);
         expect(screen()).toContain("JavaScript Debug Terminal");
+        // The TERMINAL panel stays as it was: the terminal lives in the editor area.
+        expect(h.container.get(PanelServiceDIToken).getActiveViewId()).not.toBe(TERMINAL_VIEW_ID);
     });
 
     it("picking the default shell is Create New Terminal", async () => {
@@ -160,6 +173,10 @@ describe("Workbench — Create New Terminal (With Profile)", () => {
         expect(screen().replace(/\s*│\s*/gu, " ")).toMatch(
             /No terminal profile provider registered for id\s+"unanswered"/u,
         );
+        // A toast with only the close button, not a modal dialog.
+        const notifications = h.container.get(NotificationServiceDIToken);
+        expect(notifications.current()).toBeNull();
+        expect(notifications.passive()).toMatchObject([{ severity: "error", modal: false, items: [] }]);
         expect(terminal.getInstances()).toStrictEqual([]);
         expect(h.container.get(PanelServiceDIToken).getActiveViewId()).not.toBe(TERMINAL_VIEW_ID);
     });
