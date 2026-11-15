@@ -13,7 +13,9 @@ import { MenuRegistry, MenuRegistryDIToken } from "../../platform/actions/common
 import { MenuService, MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyContributorsDIToken } from "../../platform/contextkey/common/contextKeyContributor.ts";
+import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import {
     ContextMenuService,
     ContextMenuServiceDIToken,
@@ -21,6 +23,7 @@ import {
 import { type ContainerModule, ServiceAccessorDIToken } from "../../platform/instantiation/common/diContainer.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { ProgressService, ProgressServiceDIToken } from "../../platform/progress/common/progressService.ts";
+import { StateServiceDIToken } from "../../platform/state/common/iStateService.ts";
 import { URLService, URLServiceDIToken } from "../../platform/url/common/url.ts";
 import { IUserDataProfilesServiceDIToken } from "../../platform/userDataProfile/common/userDataProfile.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
@@ -125,6 +128,13 @@ import {
 } from "../../workbench/common/workbenchContributionsRegistry.ts";
 import { BulkEditBuffers } from "../../workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { IBulkEditBuffersDIToken } from "../../workbench/contrib/bulkEdit/common/iBulkEditBuffers.ts";
+import {
+    DebugExtensionActivatorDIToken,
+    DebugService,
+    DebugServiceDIToken,
+    DebugServicePortsDIToken,
+    NO_DEBUG_EXTENSIONS,
+} from "../../workbench/contrib/debug/browser/debugService.ts";
 import { createDiffEditorPaneFactory } from "../../workbench/contrib/diff/browser/diffEditorPaneFactory.ts";
 import {
     DiffSnapshotRefreshContribution,
@@ -695,6 +705,26 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TestResultServiceDIToken, TestResultService);
     container.bind(TestRunUiDIToken, TestRunUi);
     container.bind(TestServiceDIToken, TestService);
+    // The extension host module replaces it with the extension service.
+    container.bind(DebugExtensionActivatorDIToken, () => NO_DEBUG_EXTENSIONS);
+    container.bind(DebugServicePortsDIToken, () => {
+        const configuration = container.get(IConfigurationServiceDIToken);
+        const textFiles = container.get(TextFileModelServiceDIToken);
+        return {
+            contextKeys: container.get(ContextKeyServiceDIToken),
+            state: container.get(StateServiceDIToken),
+            textFiles: { isDirty: (resource) => textFiles.get(resource)?.isModified ?? false },
+            logger: container.get(ILogServiceDIToken).createLogger("debug", { label: "Debug" }),
+            notifications: container.get(NotificationServiceDIToken),
+            extensions: container.get(DebugExtensionActivatorDIToken),
+            workspace: container.get(IWorkspaceContextServiceDIToken),
+            replConfiguration: () => ({
+                collapseIdenticalLines: configuration.get("debug.console.collapseIdenticalLines"),
+                maximumLines: configuration.get("debug.console.maximumLines"),
+            }),
+        };
+    });
+    container.bind(DebugServiceDIToken, DebugService);
     container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);
     container.bind(TestResultsComponentDIToken, TestResultsComponent);

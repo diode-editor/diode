@@ -1,5 +1,6 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
+import { debugConfiguration } from "./debugConfiguration.ts";
 import { editorConfiguration } from "./editorConfiguration.ts";
 import { explorerConfiguration } from "./explorerConfiguration.ts";
 import { extensionsConfiguration } from "./extensionsConfiguration.ts";
@@ -27,6 +28,7 @@ export const CONFIGURATION_CONTRIBUTIONS = [
     terminalConfiguration,
     tasksConfiguration,
     testingConfiguration,
+    debugConfiguration,
     extensionsConfiguration,
 ] as const satisfies readonly IConfigurationNode[];
 
