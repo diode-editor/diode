@@ -10,6 +10,7 @@ import {
     DEFAULT_PROFILE_ID,
     type DidChangeProfilesEvent,
     PROFILE_ASSOCIATIONS_STATE,
+    REMOVED_PROFILE_FOLDERS_STATE,
     type StoredUserDataProfile,
     USER_DATA_PROFILES_STATE,
 } from "../common/userDataProfile.ts";
@@ -177,9 +178,10 @@ describe("UserDataProfilesService", () => {
             expect(state.get(USER_DATA_PROFILES_STATE)).toEqual([]);
             expect(state.get(PROFILE_ASSOCIATIONS_STATE)).toEqual({});
             state.flushSync();
-            expect(JSON.parse(fs.readFileSync(path.join(userDir, "globalStorage", "storage.json"), "utf-8"))).toEqual(
-                {},
-            );
+            // Until the next start only the list of directories to delete again is left.
+            expect(JSON.parse(fs.readFileSync(path.join(userDir, "globalStorage", "storage.json"), "utf-8"))).toEqual({
+                removedProfileFolders: ["work"],
+            });
         });
 
         it("a directory already deleted by hand: removal succeeds without logging an error", async () => {
@@ -332,6 +334,77 @@ describe("UserDataProfilesService", () => {
             fs.mkdirSync(path.join(profilesHome, "Work"), { recursive: true });
             const added = svc.migrateProfileDirectories();
             expect(added.map((p) => [p.id, p.name])).toEqual([["Work", "Work (Work)"]]);
+        });
+
+        it("the directory of a removed profile, recreated by a late write, is deleted on the next start, not registered", async () => {
+            const svc = service();
+            const scratch = await svc.createNamedProfile("scratch");
+            await svc.removeProfile(scratch);
+            // The removed profile's window flushes its workspace state on its way out.
+            fs.mkdirSync(path.join(scratch.location, "workspaceStorage", "w"), { recursive: true });
+            fs.writeFileSync(path.join(scratch.location, "workspaceStorage", "w", "state.json"), "{}");
+            expect(svc.migrateProfileDirectories()).toEqual([]);
+            expect(svc.profiles.map((p) => p.name)).toEqual(["Default"]);
+            expect(fs.existsSync(scratch.location)).toBe(false);
+            state.flushSync();
+            expect(JSON.parse(fs.readFileSync(path.join(userDir, "globalStorage", "storage.json"), "utf-8"))).toEqual(
+                {},
+            );
+        });
+
+        it("a profile created again under the removed one's id keeps its directory", async () => {
+            const svc = service();
+            await svc.removeProfile(await svc.createNamedProfile("scratch"));
+            const again = await svc.createNamedProfile("scratch");
+            expect(again.id).toBe("scratch");
+            expect(svc.migrateProfileDirectories()).toEqual([]);
+            expect(fs.existsSync(again.extensionsResource)).toBe(true);
+            expect(state.get(REMOVED_PROFILE_FOLDERS_STATE)).toEqual([]);
+        });
+
+        it("removing the same id twice lists it once; an entry that is not an id is dropped untouched", async () => {
+            const svc = service();
+            await svc.removeProfile(await svc.createNamedProfile("scratch"));
+            await svc.removeProfile(await svc.createNamedProfile("scratch"));
+            expect(state.get(REMOVED_PROFILE_FOLDERS_STATE)).toEqual(["scratch"]);
+            fs.mkdirSync(userDir, { recursive: true });
+            fs.writeFileSync(path.join(userDir, "settings.json"), "{}");
+            state.store(REMOVED_PROFILE_FOLDERS_STATE, [".."]);
+            expect(svc.migrateProfileDirectories()).toEqual([]);
+            expect(fs.existsSync(path.join(userDir, "settings.json"))).toBe(true);
+            expect(state.get(REMOVED_PROFILE_FOLDERS_STATE)).toEqual([]);
+        });
+
+        it("a removed directory nobody recreated: nothing to delete, no error, the list is cleared", async () => {
+            const svc = service();
+            await svc.removeProfile(await svc.createNamedProfile("scratch"));
+            expect(svc.migrateProfileDirectories()).toEqual([]);
+            expect(logger.error).not.toHaveBeenCalled();
+            expect(state.get(REMOVED_PROFILE_FOLDERS_STATE)).toEqual([]);
+        });
+
+        it("a removed directory that fails to delete stays listed and unregistered until a later start", async () => {
+            const svc = service();
+            const scratch = await svc.createNamedProfile("scratch");
+            const old = await svc.createNamedProfile("old");
+            await svc.removeProfile(scratch);
+            await svc.removeProfile(old);
+            fs.mkdirSync(old.location, { recursive: true });
+            // A read-only subdirectory keeps its entries, so `scratch/` fails to delete; `old/` goes.
+            const locked = path.join(scratch.location, "locked");
+            fs.mkdirSync(locked, { recursive: true });
+            fs.writeFileSync(path.join(locked, "state.json"), "{}");
+            fs.chmodSync(locked, 0o500);
+            try {
+                expect(svc.migrateProfileDirectories()).toEqual([]);
+            } finally {
+                fs.chmodSync(locked, 0o700);
+            }
+            expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("scratch"), expect.anything());
+            expect(state.get(REMOVED_PROFILE_FOLDERS_STATE)).toEqual(["scratch"]);
+            expect(fs.existsSync(old.location)).toBe(false);
+            expect(svc.migrateProfileDirectories()).toEqual([]);
+            expect(fs.existsSync(scratch.location)).toBe(false);
         });
 
         it("readdir failing with something other than ENOENT logs an error and returns empty", () => {
