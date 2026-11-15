@@ -23,7 +23,12 @@ describe("TerminalProfileService.createContributedTerminalProfile", () => {
         });
         await service.createContributedTerminalProfile(PROFILE, "panel");
         await service.createContributedTerminalProfile(PROFILE, "editor");
-        expect(calls).toStrictEqual(["onTerminalProfile:debug", "create 1", "onTerminalProfile:debug", "create 2"]);
+        expect(calls).toStrictEqual([
+            "onTerminalProfile:debug",
+            "create panel",
+            "onTerminalProfile:debug",
+            "create editor",
+        ]);
     });
 
     it("without an activator the registered provider is used directly", async () => {
@@ -31,7 +36,7 @@ describe("TerminalProfileService.createContributedTerminalProfile", () => {
         const create = vi.fn(() => Promise.resolve());
         service.registerProvider("ms-vscode.js-debug", "debug", create);
         await service.createContributedTerminalProfile(PROFILE, "panel");
-        expect(create).toHaveBeenCalledWith(1);
+        expect(create).toHaveBeenCalledWith("panel");
     });
 
     it("a provider of another extension or another id does not answer; the rejection names the id", async () => {

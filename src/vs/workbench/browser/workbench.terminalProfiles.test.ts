@@ -57,10 +57,16 @@ describe("Workbench — Create New Terminal (With Profile)", () => {
         profiles.setContributedProfiles([
             { extensionIdentifier: JS_DEBUG, id: DEBUG_TERMINAL, title: "JavaScript Debug Terminal", icon: "$(debug)" },
             { extensionIdentifier: "test.other", id: "unanswered", title: "Another Profile", icon: "no-such-icon" },
+            { extensionIdentifier: "test.other", id: "spin", title: "Spinning Profile", icon: "$(sync~spin)" },
         ]);
         let nextExtHostId = 1;
-        profiles.registerProvider(JS_DEBUG, DEBUG_TERMINAL, (location) => {
-            adapter.create({ extHostId: nextExtHostId++, pty: true, name: "JavaScript Debug Terminal", location });
+        profiles.registerProvider(JS_DEBUG, DEBUG_TERMINAL, (target) => {
+            adapter.create({
+                extHostId: nextExtHostId++,
+                pty: true,
+                name: "JavaScript Debug Terminal",
+                location: target === "editor" ? 2 : 1,
+            });
             return Promise.resolve();
         });
     }
@@ -97,6 +103,8 @@ describe("Workbench — Create New Terminal (With Profile)", () => {
         expect(pickerRow("JavaScript Debug Terminal")).not.toContain("contributed");
         expect(row(" bash")).toBeLessThan(row("Another Profile"));
         expect(row("Another Profile")).toBeLessThan(row("JavaScript Debug Terminal"));
+        // The modifier is dropped, as wherever `$(name~spin)` is drawn.
+        expect(pickerRow("Spinning Profile")).toContain(`${icons.codicon("sync")} Spinning Profile`);
         h.testApp.sendKey("Escape");
         await run;
         expect(terminal.getInstances()).toStrictEqual([]);

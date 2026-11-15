@@ -10,8 +10,6 @@ export interface IExtensionTerminalProfile {
     readonly icon?: string;
 }
 
-export const ON_TERMINAL_PROFILE_PREFIX = "onTerminalProfile:";
-
 /** The value of `contributes.terminal`; anything but an object or an array of `profiles` gives nothing. */
 export function parseTerminalProfiles(
     extensionId: string,

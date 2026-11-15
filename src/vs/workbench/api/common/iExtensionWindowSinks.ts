@@ -95,11 +95,13 @@ export interface IQuickInputBoxRequest extends IWireInputBoxRequest {
 
 /**
  * Upstream `ITerminalProfileService.registerTerminalProfileProvider` as `MainThreadTerminalService` calls it:
- * `create` asks the subprocess for the profile and resolves once its terminal exists (1 = panel, 2 = editor area).
+ * `create` asks the subprocess for the profile and resolves once its terminal exists.
  */
 export interface IExtensionTerminalProfileSink {
-    registerProvider(extensionId: string, id: string, create: (location: 1 | 2) => Promise<void>): IDisposable;
+    registerProvider(extensionId: string, id: string, create: ContributedProfileCreator): IDisposable;
 }
+
+export type ContributedProfileCreator = (target: "panel" | "editor") => Promise<void>;
 
 /** Upstream `$acceptTerminal*`. */
 export interface IExtensionTerminalEvents {

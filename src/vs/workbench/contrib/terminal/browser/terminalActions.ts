@@ -26,6 +26,7 @@ import { EditorGroupsServiceDIToken } from "../../../services/editor/common/edit
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 import { DefaultShellResolverDIToken } from "../common/defaultShell.ts";
+import type { IExtensionTerminalProfile } from "../common/terminalExtensionPoints.ts";
 
 import { TERMINAL_EDITOR_SCHEME, TerminalEditorPane } from "./terminalEditorPane.ts";
 import { TerminalEditorServiceDIToken } from "./terminalEditorService.ts";
@@ -123,10 +124,8 @@ const DEFAULT_PROFILE_ICON = "terminal";
 
 /** Upstream `TerminalProfileQuickpick`: a `$(id)` or bare id that names no codicon falls back to the terminal icon. */
 function profileLabel(icons: IProductIconService, icon: string | undefined, title: string): string {
-    const name = icon?.startsWith("$(") === true ? icon.slice(2, -1) : icon;
-    const glyph =
-        name === undefined || icons.codicon(name) === "" ? icons.codicon(DEFAULT_PROFILE_ICON) : icons.codicon(name);
-    return `${glyph} ${title}`;
+    const glyph = icon === undefined ? "" : icons.renderCodicons(icon.startsWith("$(") ? icon : `$(${icon})`);
+    return `${glyph === "" ? icons.codicon(DEFAULT_PROFILE_ICON) : glyph} ${title}`;
 }
 
 /**
@@ -141,27 +140,34 @@ export const newWithProfileAction: CommandAction = {
         const profiles = accessor.get(TerminalProfileServiceDIToken);
         const shell = accessor.get(DefaultShellResolverDIToken)();
         const contributed = [...profiles.contributedProfiles].sort((a, b) => a.title.localeCompare(b.title));
-        const items: QuickPickItem[] = [
-            { label: profileLabel(icons, undefined, basename(shell)), description: shell, hint: "profiles" },
-            ...contributed.map((profile, index) => ({
-                label: profileLabel(icons, profile.icon, profile.title),
-                ...(index === 0 ? { hint: "contributed" } : {}),
-            })),
-        ];
+        const shellItem: QuickPickItem = {
+            label: profileLabel(icons, undefined, basename(shell)),
+            description: shell,
+            hint: "profiles",
+        };
+        const contributedItems = new Map<QuickPickItem, IExtensionTerminalProfile>(
+            contributed.map((profile, index) => [
+                {
+                    label: profileLabel(icons, profile.icon, profile.title),
+                    ...(index === 0 ? { hint: "contributed" } : {}),
+                },
+                profile,
+            ]),
+        );
         const picked = await accessor.get(QuickInputServiceDIToken).quickPick({
             placeholder: "Select the terminal profile to create",
-            items,
+            items: [shellItem, ...contributedItems.keys()],
         });
         if (picked === undefined) return;
-        const index = items.indexOf(picked);
-        if (index === 0) {
+        const profile = contributedItems.get(picked);
+        if (profile === undefined) {
             newTerminalAction.run(accessor);
             return;
         }
         const editor =
             accessor.get(IConfigurationServiceDIToken).get("terminal.integrated.defaultLocation") === "editor";
         try {
-            await profiles.createContributedTerminalProfile(contributed[index - 1], editor ? "editor" : "panel");
+            await profiles.createContributedTerminalProfile(profile, editor ? "editor" : "panel");
         } catch (error) {
             accessor.get(NotificationServiceDIToken).show({
                 severity: "error",

@@ -1,4 +1,4 @@
-import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
+import { DisposableMap, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type {
     IExtensionTerminalProfileSink,
@@ -153,22 +153,19 @@ export class TerminalCustomer implements IExtensionHostCustomer {
 /** Upstream `$registerProfileProvider`/`$unregisterProfileProvider`; the registrations die with the spawn. */
 function attachProfileProviders(rpc: HostRpc, profiles: IExtensionTerminalProfileSink): IDisposable {
     const store = new DisposableStore();
-    const providers = new Map<string, IDisposable>();
-    store.add({
-        dispose: () => {
-            for (const registration of providers.values()) registration.dispose();
-        },
-    });
+    const providers = store.add(new DisposableMap<string>());
     store.add(
         rpc.handleNotification("terminal.registerProfileProvider", (params) => {
             const request = parseWireTerminalProfileProvider(params);
             if (request === null) return;
             const { id, extensionId } = request;
-            providers.get(id)?.dispose();
             providers.set(
                 id,
-                profiles.registerProvider(extensionId, id, async (location) => {
-                    await rpc.request("terminal.createContributedProfile", { id, location });
+                profiles.registerProvider(extensionId, id, async (target) => {
+                    await rpc.request("terminal.createContributedProfile", {
+                        id,
+                        location: target === "editor" ? 2 : 1,
+                    });
                 }),
             );
         }),
@@ -176,9 +173,7 @@ function attachProfileProviders(rpc: HostRpc, profiles: IExtensionTerminalProfil
     store.add(
         rpc.handleNotification("terminal.unregisterProfileProvider", (params) => {
             const request = parseWireTerminalProfileProvider(params);
-            if (request === null) return;
-            providers.get(request.id)?.dispose();
-            providers.delete(request.id);
+            if (request !== null) providers.deleteAndDispose(request.id);
         }),
     );
     return store;
