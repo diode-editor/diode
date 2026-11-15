@@ -53,8 +53,7 @@ describe("RawDebugSession", () => {
             } satisfies DebugProtocol.StartDebuggingRequestArguments);
             const response = await adapter.waitForResponseFromClient("startDebugging");
 
-            expect(response.command).toBe("startDebugging");
-            expect(response.success).toBe(true);
+            expect(response).toMatchObject({ type: "response", command: "startDebugging", success: true });
             expect(dbgr.startDebugging).toHaveBeenCalledWith(
                 { type: "mock-debug", request: "launch", name: "name" },
                 "sessionId",
@@ -94,7 +93,8 @@ describe("RawDebugSession", () => {
             adapter.sendRequestBody("runInTerminal", { cwd: "/", args: [] });
             const response = await adapter.waitForResponseFromClient("runInTerminal");
 
-            expect(response).toMatchObject({ success: true, body: {} });
+            expect(response.success).toBe(true);
+            expect(response.body).toStrictEqual({});
         });
 
         it("answers a failed reverse request with its error", async () => {
@@ -422,6 +422,37 @@ describe("RawDebugSession", () => {
         ]);
     });
 
+    it("a continued event of one thread is remembered for the next continue without a word", async () => {
+        adapter.sendEventBody("continued", { threadId: 3, allThreadsContinued: false });
+        await settle(0);
+        adapter.handlers.set("continue", () => ({}));
+        const continued: DebugProtocol.ContinuedEvent["body"][] = [];
+        session.onDidContinued((e) => continued.push(e.body));
+
+        await session.continue({ threadId: 3 });
+
+        expect(continued).toEqual([{ threadId: 3, allThreadsContinued: false }]);
+    });
+
+    it("a step after the shutdown completes with nothing and no continue", async () => {
+        await session.disconnect({});
+        const continued = vi.fn();
+        session.onDidContinued(continued);
+
+        expect(await session.continue({ threadId: 1 })).toBeUndefined();
+    });
+
+    it("after dispose no event reaches a listener", async () => {
+        const stopped = vi.fn();
+        session.onDidStop(stopped);
+
+        session.dispose();
+        adapter.sendEventBody("stopped", { reason: "pause" });
+        await settle(0);
+
+        expect(stopped).not.toHaveBeenCalled();
+    });
+
     it("a continued event that says nothing about all threads leaves them continued", async () => {
         adapter.handlers.set("continue", () => ({ allThreadsContinued: false }));
         await session.continue({ threadId: 3 });
@@ -522,6 +553,14 @@ describe("RawDebugSession", () => {
             expect(await result).toBeInstanceOf(CancellationError);
         });
 
+        it("a 'canceled' message of another command is an error", async () => {
+            adapter.handlers.set("evaluate", () => new Error("canceled"));
+
+            expect(await session.evaluate({ expression: "a" }).catch((e: unknown) => e)).toBeInstanceOf(
+                DebugRequestError,
+            );
+        });
+
         it("a failure of the 'canceled' command with another message is an error", async () => {
             adapter.handlers.set("evaluate", () => NO_RESPONSE);
             const result = session.evaluate({ expression: "a" }).catch((e: unknown) => e);
@@ -604,7 +643,7 @@ describe("RawDebugSession", () => {
 
             await session.disconnect({ terminateDebuggee: true, suspendDebuggee: true });
 
-            expect(adapter.sent("disconnect")[0].arguments).toEqual({ restart: false });
+            expect(adapter.sent("disconnect")[0].arguments).toStrictEqual({ restart: false });
         });
 
         it("suspends only with terminate-debuggee support", async () => {
@@ -612,7 +651,7 @@ describe("RawDebugSession", () => {
 
             await session.disconnect({ terminateDebuggee: true, suspendDebuggee: true });
 
-            expect(adapter.sent("disconnect")[0].arguments).toEqual({ restart: false, terminateDebuggee: true });
+            expect(adapter.sent("disconnect")[0].arguments).toStrictEqual({ restart: false, terminateDebuggee: true });
         });
 
         it("remembers that the debugger stopped", async () => {
@@ -695,6 +734,20 @@ describe("RawDebugSession", () => {
                 });
             }
 
+            expect(unexpected).toEqual([new Error("stuck")]);
+        });
+
+        it("a clean exit of an adapter that fails to stop carries no error", async () => {
+            const unexpected: unknown[] = [];
+            setUnexpectedErrorHandler((e) => unexpected.push(e));
+            adapter.stopSession = () => Promise.reject(new Error("stuck"));
+            const ends: AdapterEndEvent[] = [];
+            session.onDidExitAdapter((e) => ends.push(e));
+
+            adapter.fireExit(0);
+            await vi.waitFor(() => {
+                expect(ends).toStrictEqual([{ emittedStopped: false, sessionLengthInSeconds: 0 }]);
+            });
             expect(unexpected).toEqual([new Error("stuck")]);
         });
 

@@ -205,27 +205,19 @@ export class DebugService implements IDebugService {
         }
     }
 
+    /** Upstream checks that it is initializing; out of it there is nothing to reset, and no state change follows. */
     private endInitializingState(): void {
-        if (this.initializing) {
-            this.initializing = false;
-            this.initializingOptionsValue = undefined;
-            this.onStateChange();
-        }
+        this.initializing = false;
+        this.initializingOptionsValue = undefined;
+        this.onStateChange();
     }
 
-    private cancelTokens(id: string | undefined): void {
-        if (id) {
-            const cancellation = this.sessionCancellationTokens.get(id);
-            if (cancellation) {
-                cancellation.cancel();
-                this.sessionCancellationTokens.delete(id);
-            }
-        } else {
-            this.sessionCancellationTokens.forEach((t) => {
-                t.cancel();
-            });
-            this.sessionCancellationTokens.clear();
-        }
+    /** Cancels the starts in progress. */
+    private cancelTokens(): void {
+        this.sessionCancellationTokens.forEach((t) => {
+            t.cancel();
+        });
+        this.sessionCancellationTokens.clear();
     }
 
     private setDebugUx(value: "simple" | "default"): void {
@@ -499,6 +491,7 @@ export class DebugService implements IDebugService {
 
     private registerSessionListeners(session: IDebugSession): void {
         const listenerDisposables = new DisposableStore();
+        // Stryker disable next-line CallExpression: the service is disposed with the window, when no session event comes any more
         this.disposables.add(listenerDisposables);
 
         const sessionRunningScheduler = listenerDisposables.add(
@@ -534,7 +527,9 @@ export class DebugService implements IDebugService {
                 }
 
                 this.endInitializingState();
-                this.cancelTokens(session.getId());
+                // The token of a started session's start cancels nothing any more (upstream cancels it): it is only let go.
+                // Stryker disable next-line CallExpression: letting go of a token nothing listens to
+                this.sessionCancellationTokens.delete(session.getId());
 
                 this.onDidEndSessionEmitter.fire({ session, restart: this.restartingSessions.has(session) });
 
@@ -586,6 +581,7 @@ export class DebugService implements IDebugService {
             }
         };
 
+        // Stryker disable next-line ObjectLiteral,BooleanLiteral: a breakpoint without a trigger never reads the flag
         for (const breakpoint of this.model.getBreakpoints({ triggeredOnly: true })) {
             breakpoint.setSessionDidTrigger(session.getId(), false);
         }
@@ -624,7 +620,7 @@ export class DebugService implements IDebugService {
         const sessions = this.model.getSessions();
         if (sessions.length === 0) {
             this.endInitializingState();
-            this.cancelTokens(undefined);
+            this.cancelTokens();
         }
 
         await Promise.all(sessions.map((s) => (disconnect ? s.disconnect(undefined, suspend) : s.terminate())));

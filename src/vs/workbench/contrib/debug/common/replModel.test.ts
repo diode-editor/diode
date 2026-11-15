@@ -331,7 +331,11 @@ describe("Debug - REPL", () => {
 
             repl.appendToRepl(session, { output: "a\n", sev: "info" });
             repl.appendToRepl(session, { output: "a", sev: "info" });
+            const changes: (IReplElement | undefined)[] = [];
+            repl.onDidChangeElements((e) => changes.push(e));
             repl.appendToRepl(session, { output: "\nb\nb", sev: "info" });
+
+            expect(changes.map((e) => e?.toString())).toEqual([undefined, "b\n", "b", undefined]);
 
             expect(outputs(repl).map((e) => [e.value, e.count])).toEqual([
                 ["a\n", 2],
@@ -470,6 +474,56 @@ describe("Debug - REPL", () => {
             repl.endGroup();
 
             expect(outputs(repl).map((e) => e.value)).toEqual(["text"]);
+        });
+
+        it("removing a non-empty console fires once", () => {
+            const session = disposables.add(createTestDebugSession(model));
+            const repl = newRepl();
+            repl.appendToRepl(session, { output: "x\n", sev: "info" });
+            let changes = 0;
+            repl.onDidChangeElements(() => ++changes);
+
+            repl.removeReplExpressions();
+
+            expect(changes).toBe(1);
+        });
+
+        it("an empty output is an element of its own", () => {
+            const session = disposables.add(createTestDebugSession(model));
+            const repl = newRepl();
+            repl.appendToRepl(session, { output: "x\n", sev: "info" });
+
+            repl.appendToRepl(session, { output: "", sev: "info" });
+
+            expect(outputs(repl).map((e) => e.value)).toEqual(["x\n", ""]);
+        });
+
+        it("identical lines of another severity stay apart", () => {
+            const session = disposables.add(createTestDebugSession(model));
+            const repl = newRepl();
+
+            repl.appendToRepl(session, { output: "x\n", sev: "error" });
+            repl.appendToRepl(session, { output: "x\n", sev: "info" });
+
+            expect(outputs(repl).map((e) => [e.severity, e.count])).toEqual([
+                ["error", 1],
+                ["info", 1],
+            ]);
+        });
+
+        it("without collapsing a completed line stays apart from the identical one before", () => {
+            config = { collapseIdenticalLines: false, maximumLines: 10000 };
+            const session = disposables.add(createTestDebugSession(model));
+            const repl = newRepl();
+
+            repl.appendToRepl(session, { output: "tick\n", sev: "info" });
+            repl.appendToRepl(session, { output: "ti", sev: "info" });
+            repl.appendToRepl(session, { output: "ck\n", sev: "info" });
+
+            expect(outputs(repl).map((e) => [e.value, e.count])).toEqual([
+                ["tick\n", 1],
+                ["tick\n", 1],
+            ]);
         });
 
         it("removing from an empty console fires nothing", () => {

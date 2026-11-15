@@ -62,6 +62,16 @@ describe("AdapterManager", () => {
         expect(contextKeys.getRaw("debuggersAvailable")).toBe(false);
     });
 
+    it("disposing a registration twice leaves the other debuggers", () => {
+        const first = manager.registerDebugger({ type: "lldb" });
+        manager.registerDebugger({ type: "gdb" });
+
+        first.dispose();
+        first.dispose();
+
+        expect(manager.getDebugger("gdb")?.type).toBe("gdb");
+    });
+
     it("a debugger whose `when` does not hold is installed but not available", () => {
         manager.registerDebugger({ type: "lldb", when: "isLinux && false" });
 

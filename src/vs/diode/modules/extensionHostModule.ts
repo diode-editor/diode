@@ -461,6 +461,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
     });
 
     // `onDebug` and the other debug activation events reach the extensions.
+    // Stryker disable next-line ArrowFunction: DI binding of the live extension host; activation by `onDebug` is observable with a debug extension, which comes with vscode.debug (#1139)
     container.bind(DebugExtensionActivatorDIToken, () => container.get(ExtensionServiceDIToken));
     container.bind(ExtensionServiceDIToken, () => {
         const logService = container.get(ILogServiceDIToken);

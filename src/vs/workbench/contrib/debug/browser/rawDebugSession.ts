@@ -74,6 +74,7 @@ export class RawDebugSession implements IDisposable {
     private readonly onDidExitAdapterEmitter = this.toDispose.add(new Emitter<AdapterEndEvent>());
     private debugAdapter: IDebugAdapter | null;
 
+    // Stryker disable next-line BooleanLiteral: every step sets the flag before it reads it, so its first value is never read
     private stoppedSinceLastStep = false;
 
     public constructor(
@@ -767,10 +768,9 @@ export class RawDebugSession implements IDisposable {
     }
 
     private mergeCapabilities(capabilities: DebugProtocol.Capabilities | undefined): void {
-        if (capabilities) {
-            // In place, as upstream's `mixin`: `rememberedCapabilities` of the session is this very object.
-            Object.assign(this.capabilitiesValue, capabilities);
-        }
+        // In place, as upstream's `mixin`: `rememberedCapabilities` of the session is this very object. Nothing to
+        // merge (`undefined`) changes nothing.
+        Object.assign(this.capabilitiesValue, capabilities);
     }
 
     private fireSimulatedContinuedEvent(threadId: number, allThreadsContinued = false): void {

@@ -7,6 +7,7 @@
 // queue that hands incoming messages to the session one task at a time. Missing is how an adapter talks to its
 // process: the extension host bridge (#1140) and the in-process synthetic adapter of the tests subclass it.
 
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 
 import type { IDebugAdapter } from "./debug.ts";
@@ -111,8 +112,8 @@ export abstract class AbstractDebugAdapter implements IDebugAdapter {
         } else {
             this.queue.push(message);
             if (this.queue.length === 1) {
-                // first item = need to start processing loop
-                void this.processQueue();
+                // first item = need to start processing loop; a callback that throws is reported, not lost
+                this.processQueue().catch(onUnexpectedError);
             }
         }
     }
@@ -191,6 +192,7 @@ export abstract class AbstractDebugAdapter implements IDebugAdapter {
 
     private clearPendingRequestTimer(requestSeq: number): void {
         clearTimeout(this.pendingRequestTimers.get(requestSeq));
+        // Stryker disable next-line CallExpression: the map only holds timer handles; a cleared one left in it is never fired or read
         this.pendingRequestTimers.delete(requestSeq);
     }
 

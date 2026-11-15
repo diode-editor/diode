@@ -146,8 +146,9 @@ describe("debug commands", () => {
             expect(sent("terminateThreads").map((r) => r.arguments as unknown)).toEqual([{ threadIds: [3] }]);
         });
 
-        it("from a session row: its first thread", async () => {
+        it("from a session row: its first thread, not the focused one", async () => {
             const session = await startStopped();
+            await fx.service.focusStackFrame(undefined, session.getThread(2), session);
 
             await stepOverAction.run(accessor, undefined, { sessionId: session.getId() });
 
@@ -274,6 +275,46 @@ describe("debug commands", () => {
             ]);
         });
 
+        it("a frame row of another thread restarts that thread's frame", async () => {
+            const session = await startStopped();
+            const worker = session.getThread(2) as Thread;
+            await worker.fetchCallStack();
+            const frame = worker.getCallStack()[0];
+            expect(frame.name).toBe("__futex_abstimed_wait_common");
+            const restart = vi.spyOn(frame, "restart").mockResolvedValue();
+
+            await restartFrameAction.run(accessor, undefined, {
+                sessionId: session.getId(),
+                threadId: worker.getId(),
+                frameId: frame.getId(),
+            });
+
+            expect(restart).toHaveBeenCalledTimes(1);
+        });
+
+        it("a thread row without a frame restarts the focused frame", async () => {
+            await startStopped();
+
+            await restartFrameAction.run(accessor, undefined, { sessionId: "any", threadId: "any" });
+
+            expect(sent("restartFrame").map((r) => r.arguments as unknown)).toEqual([{ frameId: 1000 }]);
+        });
+
+        it("without a frame restarts nothing and says nothing", async () => {
+            await restartFrameAction.run(accessor);
+
+            expect(notifications.show).not.toHaveBeenCalled();
+        });
+
+        it("down in the middle of the loaded stack loads no more frames", async () => {
+            await startStopped();
+            const stackTraces = sent("stackTrace").length;
+
+            await callStackDownAction.run(accessor);
+
+            expect(sent("stackTrace")).toHaveLength(stackTraces);
+        });
+
         it("a frame row of a thread that is gone restarts nothing", async () => {
             const session = await startStopped();
 
@@ -348,13 +389,17 @@ describe("debug commands", () => {
         });
     });
 
-    it("focus session focuses the session and its stopped thread", async () => {
+    it("focus session focuses the session and its stopped thread, explicitly", async () => {
         const first = await startStopped("first");
-        await startStopped("second");
+        const second = await startStopped("second");
+        await fx.service.focusStackFrame(undefined, undefined, second);
+        const explicit: boolean[] = [];
+        fx.service.getViewModel().onDidFocusStackFrame((e) => explicit.push(e.explicit));
 
         await focusSessionAction.run(accessor, first);
 
         expect(fx.service.getViewModel().focusedSession).toBe(first);
         expect(fx.service.getViewModel().focusedThread?.threadId).toBe(1);
+        expect(explicit).toEqual([true]);
     });
 });

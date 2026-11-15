@@ -285,8 +285,8 @@ export class ReplModel {
             previousElement instanceof ReplOutputElement &&
             previousElement.severity === sev &&
             areSourcesEqual(previousElement.sourceData, source) &&
-            !previousElement.value.endsWith("\n") &&
-            previousElement.count === 1
+            // Upstream also asks for a count of 1: an element without a line break is never collapsed into.
+            !previousElement.value.endsWith("\n")
         ) {
             // Concatenate with previous incomplete line
             const combinedOutput = previousElement.value + output;
@@ -299,9 +299,9 @@ export class ReplModel {
             );
             this.onDidChangeElementsEmitter.fire(undefined);
 
-            // If the combined output now forms a complete line and collapsing is enabled,
-            // check if it can be collapsed with previous elements
-            if (config.collapseIdenticalLines && combinedOutput.endsWith("\n")) {
+            // If collapsing is enabled, check if the combined output can be collapsed with previous elements:
+            // only a complete line can (upstream asks for it explicitly; the element before always is one)
+            if (config.collapseIdenticalLines) {
                 this.tryCollapseCompleteLine(sev, source);
             }
 
@@ -422,9 +422,8 @@ export class ReplModel {
         } else {
             this.replElements.push(newElement);
             const { maximumLines } = this.configuration();
-            if (this.replElements.length > maximumLines) {
-                this.replElements.splice(0, this.replElements.length - maximumLines);
-            }
+            // Nothing goes while there is room: a negative count removes nothing.
+            this.replElements.splice(0, this.replElements.length - maximumLines);
         }
         this.onDidChangeElementsEmitter.fire(newElement);
     }

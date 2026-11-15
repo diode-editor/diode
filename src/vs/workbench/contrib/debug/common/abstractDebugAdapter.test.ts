@@ -140,7 +140,7 @@ describe("Debug - AbstractDebugAdapter", () => {
         adapter.sendResponse(response);
         adapter.sendResponse(response);
 
-        expect(response.seq).toBe(1);
+        expect(response).toMatchObject({ seq: 1, type: "response" });
         expect(errors).toEqual(["attempt to send more than one response for command runInTerminal"]);
     });
 
@@ -217,18 +217,37 @@ describe("Debug - AbstractDebugAdapter", () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-    it("on dispose drops the timers and the queued messages", async () => {
+    it("on dispose drops the timers, the queued messages and the listeners", async () => {
         vi.useFakeTimers();
         const events: string[] = [];
+        const responses: DebugProtocol.Response[] = [];
+        const errors = vi.fn();
+        const exits = vi.fn();
         adapter.onEvent((e) => events.push(e.event));
+        adapter.onError(errors);
+        adapter.onExit(exits);
         adapter.handlers.set("threads", () => NO_RESPONSE);
-        adapter.sendRequest("threads", {}, () => undefined, 100);
+        adapter.sendRequest("threads", {}, (r) => responses.push(r), 100);
         adapter.sendEventBody("output", {});
 
         adapter.dispose();
         await vi.advanceTimersByTimeAsync(1000);
+        adapter.fireError(new Error("late"));
+        adapter.fireExit(1);
 
         expect(events).toEqual([]);
+        expect(responses).toEqual([]);
         expect(vi.getTimerCount()).toBe(0);
+        expect(errors).not.toHaveBeenCalled();
+        expect(exits).not.toHaveBeenCalled();
+    });
+
+    it("without callbacks the adapter's events and requests go nowhere", async () => {
+        adapter.sendEventBody("output", {});
+        adapter.sendRequestBody("runInTerminal", {});
+        await settle(0);
+        await settle(0);
+
+        expect(adapter.getPendingRequestIds()).toEqual([]);
     });
 });

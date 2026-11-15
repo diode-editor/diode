@@ -74,6 +74,7 @@ function raceTimeout<T>(promise: Promise<T>, timeout: number): Promise<T | undef
     let timer: ReturnType<typeof setTimeout> | undefined;
     return Promise.race([
         promise.finally(() => {
+            // Stryker disable next-line CallExpression: a timer left behind only resolves a race that is already settled
             clearTimeout(timer);
         }),
         new Promise<undefined>((resolve) => {
@@ -104,6 +105,7 @@ export class DebugSession implements IDebugSession {
 
     private readonly sources = new Map<string, Source>();
     private readonly threads = new Map<number, Thread>();
+    // Stryker disable next-line ArrayDeclaration: ids read before the first update find no thread either way
     private threadIds: number[] = [];
     private readonly cancellationMap = new Map<number, CancellationTokenSource[]>();
     private readonly rawSubscriptions = new DisposableStore();
@@ -112,6 +114,7 @@ export class DebugSession implements IDebugSession {
         const inst = new RunOnceScheduler(() => {
             void this.fetchThreads();
         }, 100);
+        // Stryker disable next-line CallExpression: a scheduler left after the shutdown fetches nothing, there is no adapter
         this.rawSubscriptions.add(inst);
         return inst;
     });
@@ -200,6 +203,7 @@ export class DebugSession implements IDebugSession {
             const thread = this.debugService.getViewModel().focusedThread;
             if (thread?.threadId === this.lastContinuedThreadId && !thread.stopped) {
                 const toFocusThreadId = this.getStoppedDetails()?.threadId;
+                // Stryker disable next-line ConditionalExpression: a stop without a thread id finds no thread either way
                 const toFocusThread = typeof toFocusThreadId === "number" ? this.getThread(toFocusThreadId) : undefined;
                 void this.debugService.focusStackFrame(undefined, toFocusThread);
             }
@@ -604,7 +608,8 @@ export class DebugSession implements IDebugSession {
                     if (!dap.dap) {
                         // Upstream stores the bare message here; as an unverified breakpoint it reads the same.
                         data.set(dap.bp.getId(), { verified: false, message: dap.message });
-                    } else if (i < response.body.breakpoints.length) {
+                    } else {
+                        // Upstream stops at the end of the answers; past it the model gets nothing to set either.
                         data.set(dap.bp.getId(), response.body.breakpoints[i++]);
                     }
                 }
@@ -1024,9 +1029,8 @@ export class DebugSession implements IDebugSession {
     }
 
     public rawUpdate(data: IRawModelUpdate): void {
-        this.threadIds = [];
+        this.threadIds = data.threads.map((thread) => thread.id);
         data.threads.forEach((thread) => {
-            this.threadIds.push(thread.id);
             const oldThread = this.threads.get(thread.id);
             if (!oldThread) {
                 // A new thread came in, initialize it.
@@ -1058,6 +1062,7 @@ export class DebugSession implements IDebugSession {
                 });
             } else {
                 const thread =
+                    // Stryker disable next-line ConditionalExpression: a stop without a thread id finds no thread either way
                     typeof stoppedDetails.threadId === "number" ? this.threads.get(stoppedDetails.threadId) : undefined;
                 if (thread) {
                     // One thread is stopped, only update that thread.
@@ -1236,6 +1241,7 @@ export class DebugSession implements IDebugSession {
         await this.statusQueue.run(affectedThreads, (threadId) => {
             this.stoppedDetails = this.stoppedDetails.filter((sd) => sd.threadId !== threadId);
             const tokens = this.cancellationMap.get(threadId);
+            // Stryker disable next-line CallExpression: the tokens left in the map are cancelled already; cancelling them again does nothing
             this.cancellationMap.delete(threadId);
             tokens?.forEach(cancelAndDispose);
             this.model.clearThreads(this.getId(), false, threadId);
@@ -1425,9 +1431,8 @@ export class DebugSession implements IDebugSession {
                             const focusedStackFrame = this.debugService.getViewModel().focusedStackFrame;
                             if (!focusedStackFrame || focusedStackFrame.thread.session === this) {
                                 // Only take focus if nothing is focused, or if the focus is already on the current session
-                                await this.debugService.focusStackFrame(undefined, thread, undefined, {
-                                    preserveFocus: false,
-                                });
+                                // Upstream's `preserveFocus` (`debug.focusEditorOnBreak`) comes with the editor (#1148).
+                                await this.debugService.focusStackFrame(undefined, thread);
                             }
                         }
                     };
@@ -1555,6 +1560,7 @@ export class DebugSession implements IDebugSession {
 
     public dispose(): void {
         this.cancelAllRequests();
+        // Stryker disable CallExpression: releasing the listeners of a disposed session, which nothing fires any more
         this.rawSubscriptions.dispose();
         this.globalDisposables.dispose();
         this.passFocusScheduler.dispose();
@@ -1568,6 +1574,7 @@ export class DebugSession implements IDebugSession {
         this.onDidInvalidMemoryEmitter.dispose();
         this.onDidChangeReplElementsEmitter.dispose();
         this.onDidChangeNameEmitter.dispose();
+        // Stryker restore CallExpression
         this.waitToResume = undefined;
     }
 

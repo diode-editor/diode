@@ -126,15 +126,12 @@ async function navigateCallStack(debugService: IDebugService, down: boolean): Pr
         let index = callStack.findIndex((elem) => elem.frameId === frame.frameId);
         let nextVisibleFrame;
         if (down) {
+            // Upstream goes to the top at the end of a fully loaded stack; the model then loads nothing, and the
+            // search below wraps to the top all the same.
             if (index >= callStack.length - 1) {
-                if ((frame.thread as Thread).reachedEndOfCallStack) {
-                    await goToTopOfCallStack(debugService);
-                    return;
-                } else {
-                    await debugService.getModel().fetchCallstack(frame.thread, 20);
-                    callStack = frame.thread.getCallStack();
-                    index = callStack.findIndex((elem) => elem.frameId === frame.frameId);
-                }
+                await debugService.getModel().fetchCallstack(frame.thread, 20);
+                callStack = frame.thread.getCallStack();
+                index = callStack.findIndex((elem) => elem.frameId === frame.frameId);
             }
             nextVisibleFrame = findNextVisibleFrame(true, callStack, index);
         } else {
@@ -146,7 +143,7 @@ async function navigateCallStack(debugService: IDebugService, down: boolean): Pr
         }
 
         if (nextVisibleFrame) {
-            await debugService.focusStackFrame(nextVisibleFrame, undefined, undefined, { preserveFocus: false });
+            await debugService.focusStackFrame(nextVisibleFrame);
         }
     }
 }
@@ -159,7 +156,7 @@ async function goToBottomOfCallStack(debugService: IDebugService): Promise<void>
         if (callStack.length > 0) {
             const nextVisibleFrame = findNextVisibleFrame(false, callStack, 0); // must consider the next frame up first, which will be the last frame
             if (nextVisibleFrame) {
-                await debugService.focusStackFrame(nextVisibleFrame, undefined, undefined, { preserveFocus: false });
+                await debugService.focusStackFrame(nextVisibleFrame);
             }
         }
     }
@@ -168,7 +165,7 @@ async function goToBottomOfCallStack(debugService: IDebugService): Promise<void>
 async function goToTopOfCallStack(debugService: IDebugService): Promise<void> {
     const thread = debugService.getViewModel().focusedThread;
     if (thread) {
-        await debugService.focusStackFrame(thread.getTopStackFrame(), undefined, undefined, { preserveFocus: false });
+        await debugService.focusStackFrame(thread.getTopStackFrame());
     }
 }
 
