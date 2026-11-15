@@ -43,7 +43,9 @@ describe("WindowNamespace", () => {
         const register = (window as unknown as { registerTerminalLinkProvider: (p: unknown) => vscode.Disposable })
             .registerTerminalLinkProvider;
         const registration = register({ provideTerminalLinks: () => [] });
-        expect(() => registration.dispose()).not.toThrow();
+        expect(() => {
+            registration.dispose();
+        }).not.toThrow();
         expect(stub.notifies).toStrictEqual([]);
         expect(stub.requests).toStrictEqual([]);
     });
