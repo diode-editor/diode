@@ -218,7 +218,7 @@ describe("MessageDialog — response", () => {
 });
 
 describe("MessageDialog — checkbox", () => {
-    it("shows the label unchecked under the buttons; Enter toggles it and the answer carries its state", () => {
+    it("shows the label unchecked above the buttons; Enter toggles it and the answer carries its state", () => {
         const { dialog, testApp, buttons } = mount({
             items: ["Debug Anyway", "Abort"],
             checkbox: { label: "Remember my choice" },
@@ -227,9 +227,10 @@ describe("MessageDialog — checkbox", () => {
         dialog.onSelect = onSelect;
         const rows = screen(testApp).split("\n");
         const buttonRow = rows.findIndex((row) => row.includes("Debug Anyway"));
-        expect(rows[buttonRow + 1]).toMatch(/\[ \] \[ Remember my choice \]/u);
+        expect(rows[buttonRow - 2]).toMatch(/\[ \] \[ Remember my choice \]/u);
+        expect(rows[buttonRow - 1].replace(/[│\s]/gu, "")).toBe("");
 
-        buttons[2].focus();
+        buttons.find((b) => b.getLabel() === "Remember my choice")!.focus();
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         expect(screen(testApp)).toContain("[x] [ Remember my choice ]");
         // The arrows reach it after the last button, and back.
@@ -248,7 +249,7 @@ describe("MessageDialog — checkbox", () => {
         const onSelect = vi.fn();
         dialog.onSelect = onSelect;
 
-        buttons[2].focus();
+        buttons.find((b) => b.getLabel() === "Remember")!.focus();
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         expect(screen(testApp)).toContain("[ ] [ Remember ]");

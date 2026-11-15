@@ -44,6 +44,7 @@ export function fakeLaunch(launch: Partial<ILaunch> & Pick<ILaunch, "workspace" 
 
 export interface IDebugServiceFixture {
     readonly service: DebugService;
+    readonly ports: IDebugServicePorts;
     readonly contextKeys: ContextKeyService;
     readonly state: MockStateService;
     readonly configuration: InMemoryConfigurationService;
@@ -71,7 +72,9 @@ export interface IDebugServiceFixture {
     readonly dismissed: number[];
 }
 
-export function createDebugServiceFixture(options: { readonly workspaceLaunch?: unknown } = {}): IDebugServiceFixture {
+export function createDebugServiceFixture(
+    options: { readonly workspaceLaunch?: unknown; readonly folders?: IWorkspaceFolder[] } = {},
+): IDebugServiceFixture {
     const contextKeys = new ContextKeyService();
     const state = mockStateService();
     const shown: INotificationMessage[] = [];
@@ -95,7 +98,7 @@ export function createDebugServiceFixture(options: { readonly workspaceLaunch?: 
         ran,
         answer: undefined as number | undefined,
         checkboxChecked: false,
-        folders: [] as IWorkspaceFolder[],
+        folders: options.folders ?? [],
         workbenchState: "folder" as WorkbenchState,
         changeFolders: () => {
             foldersChange.fire();
@@ -216,5 +219,5 @@ export function createDebugServiceFixture(options: { readonly workspaceLaunch?: 
             return Promise.resolve();
         },
     };
-    return Object.assign(fixture, { service: new DebugService(ports) });
+    return Object.assign(fixture, { ports, service: new DebugService(ports) });
 }

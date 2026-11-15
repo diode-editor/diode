@@ -128,6 +128,7 @@ import {
 } from "../../workbench/common/workbenchContributionsRegistry.ts";
 import { BulkEditBuffers } from "../../workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { IBulkEditBuffersDIToken } from "../../workbench/contrib/bulkEdit/common/iBulkEditBuffers.ts";
+import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
 import {
     DebugQuickAccessProviderDIToken,
     StartDebugQuickAccessProvider,
@@ -737,6 +738,7 @@ export const workbenchModule: ContainerModule = (container) => {
         };
     });
     container.bind(DebugQuickAccessProviderDIToken, StartDebugQuickAccessProvider);
+    container.bind(DebugLifecycleDIToken, DebugLifecycle);
     container.bind(DebugServiceDIToken, DebugService);
     container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);

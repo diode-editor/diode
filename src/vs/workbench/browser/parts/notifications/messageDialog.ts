@@ -72,14 +72,8 @@ export class MessageDialog extends DialogComponent {
                 : [makeCloseButton(() => this.onClose?.())];
         this.buttons = buttons;
 
-        // Use the ACTUAL window width, not the maximum: for a short message an offset
-        // computed from the maximum would push the buttons to the right edge.
-        const innerWidth = Math.max(0, ...messageLines.map((line) => line.length), ...detailLines.map((l) => l.length));
-        // Stryker disable next-line StringLiteral: same row width spec
-        stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
-        stack.addChild(buildCenteredRow(buttons, innerWidth), { width: "stretch", height: 1 });
-
-        // Upstream's dialog checkbox: a toggle under the buttons; the arrows reach it after the last button.
+        // Upstream's dialog checkbox: a toggle under the text, above the buttons; the arrows reach it after the
+        // last button.
         if (notification.checkbox !== undefined) {
             const mark = new TextLabelElement(CHECKBOX_OFF);
             const checkbox = new ButtonElement(notification.checkbox.label);
@@ -93,8 +87,17 @@ export class MessageDialog extends DialogComponent {
             row.addChild(mark, { width: hflexFit(), height: 1 });
             row.addChild(checkbox, { width: hflexFit(), height: 1 });
             row.addChild(new TextLabelElement(""), { width: hflexFill(), height: 1 });
+            // Stryker disable next-line StringLiteral: same row width spec
+            stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
             stack.addChild(row, { width: "stretch", height: 1 });
         }
+
+        // Use the ACTUAL window width, not the maximum: for a short message an offset
+        // computed from the maximum would push the buttons to the right edge.
+        const innerWidth = Math.max(0, ...messageLines.map((line) => line.length), ...detailLines.map((l) => l.length));
+        // Stryker disable next-line StringLiteral: same row width spec
+        stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
+        stack.addChild(buildCenteredRow(buttons, innerWidth), { width: "stretch", height: 1 });
     }
 
     /** There is always a button: the constructor gives a message without buttons an "OK". */

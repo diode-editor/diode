@@ -139,11 +139,9 @@ export class ConfigurationManager implements IConfigurationManager {
         if (workspace.getWorkbenchState() === "workspace") {
             this.launches.push(new WorkspaceLaunch(this, this.adapterManager, this.ports));
         }
+        // Upstream selects again here when the selected launch is gone; its only caller after the constructor
+        // selects again anyway.
         this.launches.push(new UserLaunch(this, this.adapterManager, this.ports));
-
-        if (this.selectedLaunch && !this.launches.includes(this.selectedLaunch as AbstractLaunch)) {
-            void this.selectConfiguration(undefined);
-        }
     }
 
     public getLaunches(): ILaunch[] {
@@ -169,14 +167,6 @@ export class ConfigurationManager implements IConfigurationManager {
 
     public get onDidSelectConfiguration(): Event<void> {
         return this.onDidSelectConfigurationNameEmitter.event;
-    }
-
-    public getWorkspaceLaunch(): ILaunch | undefined {
-        if (this.ports.workspace.getWorkbenchState() === "workspace") {
-            return this.launches[this.launches.length - 1];
-        }
-
-        return undefined;
     }
 
     public selectConfiguration(launch: ILaunch | undefined, name?: string, config?: IConfig): Promise<void> {

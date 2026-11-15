@@ -142,6 +142,7 @@ import type { IWorkbenchContributionRegistration } from "./common/iWorkbenchCont
 import { CODE_ACTION_ACTIONS } from "./contrib/codeAction/browser/codeActionActions.ts";
 import { COMMENT_ACTIONS } from "./contrib/comment/browser/commentActions.ts";
 import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
+import { DebugLifecycleDIToken } from "./contrib/debug/browser/debugLifecycle.ts";
 import { DebugServiceDIToken } from "./contrib/debug/browser/debugService.ts";
 import { COMPARE_ACTIONS } from "./contrib/diff/browser/compareActions.ts";
 import { DiffSnapshotRefreshContributionDIToken } from "./contrib/diff/browser/diffSnapshotRefreshContribution.ts";
@@ -364,6 +365,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: TaskStatusBarContributionDIToken, phase: "afterRestored" },
     // The debug context keys (`debugState`, `debuggersAvailable`) hold from the first frame the user acts on.
     { token: DebugServiceDIToken, phase: "afterRestored" },
+    // `debug.confirmOnExit`: asks before the window closes with debug sessions.
+    { token: DebugLifecycleDIToken, phase: "afterRestored" },
     // The run glyphs of the restored editors' tests.
     { token: TestingDecorationsDIToken, phase: "afterRestored" },
     // The failures of the restored editors' files; "Peek Error" of the glyphs' menu.

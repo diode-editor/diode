@@ -104,15 +104,15 @@ export class DebugTaskRunner implements IDisposable {
                 return TaskRunResult.Failure;
             }
 
-            const taskLabel = typeof taskId === "string" ? taskId : taskId ? (taskId.name as string) : "";
+            // Here a task ran: without errors it failed by its exit code. Upstream also has "The preLaunchTask '{0}'
+            // terminated." for a summary without a code, which ends above as a cancel.
+            const taskLabel = typeof taskId === "string" ? taskId : String(taskId?.name);
             const message =
                 errorCount > 1
                     ? `Errors exist after running preLaunchTask '${taskLabel}'.`
                     : errorCount === 1
                       ? `Error exists after running preLaunchTask '${taskLabel}'.`
-                      : taskSummary && typeof taskSummary.exitCode === "number"
-                        ? `The preLaunchTask '${taskLabel}' terminated with exit code ${taskSummary.exitCode}.`
-                        : `The preLaunchTask '${taskLabel}' terminated.`;
+                      : `The preLaunchTask '${taskLabel}' terminated with exit code ${String(taskSummary?.exitCode)}.`;
 
             // Upstream's buttons, with the cancel button last: Debug Anyway, Show Errors, Abort.
             const handle = this.ports.notifications.show({
@@ -178,7 +178,7 @@ export class DebugTaskRunner implements IDisposable {
         root: IWorkspace | IWorkspaceFolder | undefined,
         taskId: string | ITaskIdentifier | undefined,
         token: ICancellationToken = this.globalCancellation.token,
-    ): Promise<IRunnerTaskSummary | null> {
+    ): Promise<IRunnerTaskSummary | null | undefined> {
         if (!taskId) {
             return null;
         }
@@ -222,17 +222,20 @@ export class DebugTaskRunner implements IDisposable {
             }),
         );
 
-        let taskDonePromise: Promise<ITaskSummary | null>;
-        if (tasks.getActiveTasks().some((t) => getMapKey(t) === taskKey)) {
-            didAcquireInput.fire();
-            // A running background task is ready; a running task of another kind is waited for.
-            taskDonePromise = task.isBackground ? Promise.resolve(null) : inactivePromise;
-        } else {
-            const taskPromise = tasks.run(task);
-            taskDonePromise = task.isBackground ? inactivePromise : taskPromise.then((x) => x ?? null);
-        }
+        // As upstream, the task starts a tick later: the listeners of the warning below are in place by then.
+        // A run with a cancelled input has no summary (upstream: `null`).
+        const taskDonePromise = Promise.resolve().then((): Promise<ITaskSummary | null | undefined> => {
+            if (tasks.getActiveTasks().some((t) => getMapKey(t) === taskKey)) {
+                didAcquireInput.fire();
+                // A running background task is ready; a running task of another kind is waited for.
+                return task.isBackground ? Promise.resolve(null) : inactivePromise;
+            }
 
-        const result = new Promise<IRunnerTaskSummary | null>((resolve, reject) => {
+            const taskPromise = tasks.run(task);
+            return task.isBackground ? inactivePromise : taskPromise;
+        });
+
+        const result = new Promise<IRunnerTaskSummary | null | undefined>((resolve, reject) => {
             taskDonePromise.then(resolve, reject);
 
             store.add(
