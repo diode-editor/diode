@@ -57,20 +57,17 @@
       "note": "needs a debugger"
     },
     "debug.registerDebugConfigurationProvider": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.removeBreakpoints": {
       "class": "C",
       "note": "needs a debugger"
     },
     "debug.startDebugging": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.stopDebugging": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     }
   }
 }

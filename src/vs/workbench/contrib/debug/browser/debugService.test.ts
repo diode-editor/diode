@@ -174,15 +174,21 @@ describe("DebugService", () => {
     });
 
     describe("start", () => {
-        it("follows upstream's sequence: activation, then the session; announced before and after the launch", async () => {
+        it("follows upstream's sequence: activation, resolution by the providers, then the session; announced before and after the launch", async () => {
             const events: string[] = [];
             fx.service.onWillNewSession(() => events.push(`will:${String(fx.activated.length)}`));
             fx.service.onDidNewSession((s) => events.push(`did:${s.configuration.name}`));
 
             await startStopped();
 
-            expect(fx.activated).toEqual(["onDebug", "<registered>"]);
-            expect(events).toEqual(["will:2", "did:Launch hello (lldb)"]);
+            expect(fx.activated).toEqual([
+                "onDebug",
+                "<registered>",
+                "onDebugResolve",
+                "onDebug",
+                "onDebugResolve:synthetic",
+            ]);
+            expect(events).toEqual(["will:5", "did:Launch hello (lldb)"]);
         });
 
         it("talks to the adapter in DAP order", async () => {

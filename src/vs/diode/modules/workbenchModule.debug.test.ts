@@ -33,10 +33,25 @@ describe("workbenchModule — the ports of the debug service", () => {
         expect(ports.state).toBe(container.get(StateServiceDIToken));
         expect(ports.notifications).toBe(container.get(NotificationServiceDIToken));
         expect(ports.workspace).toBe(container.get(IWorkspaceContextServiceDIToken));
-        expect(ports.extensions).toBe(NO_DEBUG_EXTENSIONS);
         expect(container.get(DebugExtensionActivatorDIToken)).toBe(NO_DEBUG_EXTENSIONS);
         await expect(ports.extensions.activateByEvent("onDebug")).resolves.toBeUndefined();
         await expect(ports.extensions.whenInstalledExtensionsRegistered()).resolves.toBeUndefined();
+    });
+
+    it("the activation port asks the activator bound when it is used: the extension host binds its own later", async () => {
+        const { container } = createTestContainer();
+        const ports = container.get(DebugServicePortsDIToken);
+        const activator = {
+            activateByEvent: vi.fn(() => Promise.resolve()),
+            whenInstalledExtensionsRegistered: vi.fn(() => Promise.resolve()),
+        };
+        container.bind(DebugExtensionActivatorDIToken, () => activator);
+
+        await ports.extensions.activateByEvent("onDebugResolve:lldb");
+        await ports.extensions.whenInstalledExtensionsRegistered();
+
+        expect(activator.activateByEvent).toHaveBeenCalledWith("onDebugResolve:lldb");
+        expect(activator.whenInstalledExtensionsRegistered).toHaveBeenCalledTimes(1);
     });
 
     it("launch.json, the debug tasks, saving, Select and Start Debugging and the exit confirmation are wired", async () => {

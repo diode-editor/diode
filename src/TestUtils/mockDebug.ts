@@ -3,10 +3,17 @@
 
 import { Emitter } from "../vs/base/common/event.ts";
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
+import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeyService.ts";
 import { NULL_LOGGER } from "../vs/platform/log/common/nullLogService.ts";
 import type { IStateDescriptor, IStateService } from "../vs/platform/state/common/iStateService.ts";
 import type { WorkspaceId } from "../vs/platform/workspace/common/iWorkspaceContextService.ts";
-import { type IDebugSession, type IDebugTerminalLauncher, State } from "../vs/workbench/contrib/debug/common/debug.ts";
+import type { IAdapterManagerPorts } from "../vs/workbench/contrib/debug/browser/debugAdapterManager.ts";
+import {
+    type IDebugSession,
+    type IDebugTerminalLauncher,
+    type IDebugVariableResolver,
+    State,
+} from "../vs/workbench/contrib/debug/common/debug.ts";
 import { DebugModel, type ITextFileDirtyState } from "../vs/workbench/contrib/debug/common/debugModel.ts";
 import { DebugStorage } from "../vs/workbench/contrib/debug/common/debugStorage.ts";
 
@@ -41,6 +48,20 @@ export const NO_DIRTY_FILES: ITextFileDirtyState = { isDirty: () => false };
 
 /** A terminal launcher for tests that don't run anything in a terminal: no process id. */
 export const NO_TERMINAL_LAUNCHER: IDebugTerminalLauncher = { runInTerminal: () => Promise.resolve(undefined) };
+
+/** A configuration resolver for tests whose configurations have no variables: the configuration as is. */
+export const NO_VARIABLES: IDebugVariableResolver = (_folder, config) => Promise.resolve(config);
+
+/** The adapter manager's ports for tests: no extensions to activate, no terminal, no variables. */
+export function adapterManagerPorts(overrides: Partial<IAdapterManagerPorts> = {}): IAdapterManagerPorts {
+    return {
+        contextKeys: new ContextKeyService(),
+        terminalLauncher: NO_TERMINAL_LAUNCHER,
+        extensions: { activateByEvent: () => Promise.resolve() },
+        variables: NO_VARIABLES,
+        ...overrides,
+    };
+}
 
 export function createMockDebugModel(
     disposables: { add<T extends IDisposable>(o: T): T },

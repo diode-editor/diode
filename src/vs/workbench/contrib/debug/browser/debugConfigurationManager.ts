@@ -5,14 +5,16 @@
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/browser/debugConfigurationManager.ts
 // The launch configurations of the window: one launch per folder (its `.diode/launch.json`, upstream
 // `.vscode/launch.json`), the `launch` block of a `.code-workspace` file, and `launch` of the user settings. The
-// selected configuration is remembered per workspace under upstream's keys. Not here yet, each with its task: the
-// configuration providers and the dynamic configurations of extensions (#1139), the launch.json schema
-// (IntelliSense in launch.json), choosing a debugger for a new launch.json (#1156: it is created with an empty
-// `configurations`). Deviations: there is no last active folder (one folder per window); a `.code-workspace` file
+// selected configuration is remembered per workspace under upstream's keys. The configuration providers of extensions
+// resolve a configuration before and after its variables are substituted, and the `Initial` ones fill a new
+// launch.json. Not here yet, each with its task: the dynamic configurations of Select and Start Debugging, the
+// launch.json schema (IntelliSense in launch.json), choosing a debugger for a new launch.json (#1156: without a type
+// it is created with an empty `configurations`). Deviations: there is no last active folder (one folder per window); a `.code-workspace` file
 // without a `launch` block is opened as is, nothing is written into it.
 
+import { CancellationTokenNone, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
-import { DisposableStore } from "../../../../base/common/lifecycle.ts";
+import { DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { LAUNCH_FILE_NAME } from "../../../../platform/configuration/common/workspaceSettings.ts";
@@ -25,17 +27,19 @@ import type {
 } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { workspaceConfigFilePath } from "../../../../platform/workspace/common/workspaceConfigFolder.ts";
 import { positionAt } from "../../tasks/common/tasksJsonEdits.ts";
-import type {
-    IAdapterManager,
-    ICompound,
-    IConfig,
-    IConfigPresentation,
-    IConfigurationManager,
-    IGlobalConfig,
-    ILaunch,
-    IOpenConfigFileResult,
+import {
+    DebugConfigurationProviderTriggerKind,
+    type IAdapterManager,
+    type ICompound,
+    type IConfig,
+    type IConfigPresentation,
+    type IConfigurationManager,
+    type IDebugConfigurationProvider,
+    type IGlobalConfig,
+    type ILaunch,
+    type IOpenConfigFileResult,
+    isDebugConfig,
 } from "../common/debug.ts";
-import { isDebugConfig } from "../common/debug.ts";
 import { initialConfigurationContent } from "../common/debugger.ts";
 import { getEffectiveConfigForPlatform, getVisibleAndSorted } from "../common/debugUtils.ts";
 
@@ -76,6 +80,8 @@ export class ConfigurationManager implements IConfigurationManager {
     private getSelectedConfig!: () => Promise<IConfig | undefined>;
     private readonly toDispose = new DisposableStore();
     private readonly onDidSelectConfigurationNameEmitter = this.toDispose.add(new Emitter<void>());
+    private readonly onDidChangeConfigurationProvidersEmitter = this.toDispose.add(new Emitter<void>());
+    private readonly configProviders: IDebugConfigurationProvider[] = [];
 
     public constructor(
         private readonly adapterManager: IAdapterManager,
@@ -84,6 +90,118 @@ export class ConfigurationManager implements IConfigurationManager {
         this.initLaunches();
         this.registerListeners();
         this.restoreSelection();
+    }
+
+    public get onDidChangeConfigurationProviders(): Event<void> {
+        return this.onDidChangeConfigurationProvidersEmitter.event;
+    }
+
+    public registerDebugConfigurationProvider(debugConfigurationProvider: IDebugConfigurationProvider): IDisposable {
+        this.configProviders.push(debugConfigurationProvider);
+        this.onDidChangeConfigurationProvidersEmitter.fire();
+        return {
+            dispose: () => {
+                this.unregisterDebugConfigurationProvider(debugConfigurationProvider);
+                this.onDidChangeConfigurationProvidersEmitter.fire();
+            },
+        };
+    }
+
+    private unregisterDebugConfigurationProvider(debugConfigurationProvider: IDebugConfigurationProvider): void {
+        const ix = this.configProviders.indexOf(debugConfigurationProvider);
+        if (ix >= 0) {
+            this.configProviders.splice(ix, 1);
+        }
+    }
+
+    /** If no trigger kind is given, `Initial` is assumed. */
+    public hasDebugConfigurationProvider(
+        debugType: string,
+        triggerKind: DebugConfigurationProviderTriggerKind = DebugConfigurationProviderTriggerKind.Initial,
+    ): boolean {
+        // check if there are providers for the given type that contribute a provideDebugConfigurations method
+        return this.configProviders.some(
+            (p) => p.provideDebugConfigurations !== undefined && p.type === debugType && p.triggerKind === triggerKind,
+        );
+    }
+
+    public async resolveConfigurationByProviders(
+        folderUri: Uri | undefined,
+        type: string | undefined,
+        config: IConfig,
+        token: ICancellationToken,
+    ): Promise<IConfig | null | undefined> {
+        const resolveDebugConfigurationForType = async (
+            forType: string | undefined,
+            forConfig: IConfig | null | undefined,
+        ): Promise<IConfig | null | undefined> => {
+            if (forType !== "*") {
+                await this.adapterManager.activateDebuggers("onDebugResolve", forType);
+            }
+
+            let result = forConfig;
+            for (const p of this.configProviders) {
+                const resolve = p.resolveDebugConfiguration?.bind(p);
+                if (p.type === forType && resolve && result) {
+                    result = await resolve(folderUri, result, token);
+                }
+            }
+
+            return result;
+        };
+
+        // launch.json is hand-written: a configuration may have no type.
+        let resolvedType = (config.type as string | undefined) ?? type;
+        let result: IConfig | null | undefined = config;
+        for (const seen = new Set<string | undefined>(); result && !seen.has(resolvedType); ) {
+            seen.add(resolvedType);
+            result = await resolveDebugConfigurationForType(resolvedType, result);
+            result = await resolveDebugConfigurationForType("*", result);
+            resolvedType = result?.type ?? type;
+        }
+
+        return result;
+    }
+
+    public async resolveDebugConfigurationWithSubstitutedVariables(
+        folderUri: Uri | undefined,
+        type: string | undefined,
+        config: IConfig,
+        token: ICancellationToken,
+    ): Promise<IConfig | null | undefined> {
+        // pipe the config through the promises sequentially. Append at the end the '*' types
+        const resolversOf = (forType: string | undefined) =>
+            this.configProviders
+                .filter((p) => p.type === forType)
+                .map((p) => p.resolveDebugConfigurationWithSubstitutedVariables?.bind(p))
+                .filter((resolve) => resolve !== undefined);
+        const resolvers = resolversOf(type).concat(resolversOf("*"));
+
+        let result: IConfig | null | undefined = config;
+        for (const resolve of resolvers) {
+            // If any provider returned undefined or null make sure to respect that and do not pass the result to more resolver
+            if (!result) break;
+            result = await resolve(folderUri, result, token);
+        }
+
+        return result;
+    }
+
+    public async provideDebugConfigurations(
+        folderUri: Uri | undefined,
+        type: string,
+        token: ICancellationToken,
+    ): Promise<IConfig[]> {
+        await this.adapterManager.activateDebuggers("onDebugInitialConfigurations");
+        const results = await Promise.all(
+            this.configProviders
+                .filter((p) => p.type === type && p.triggerKind === DebugConfigurationProviderTriggerKind.Initial)
+                .map((p) => p.provideDebugConfigurations?.bind(p))
+                .filter((provide) => provide !== undefined)
+                .map((provide) => provide(folderUri, token)),
+        );
+
+        return results.flat();
     }
 
     /** Upstream reads the stored selection once, in its constructor; ours again when the window opens a workspace. */
@@ -229,10 +347,26 @@ export class ConfigurationManager implements IConfigurationManager {
         }
     }
 
-    /** Upstream's debugger and its configuration providers fill a new launch.json; without a type it is empty (#1156). */
-    public async getInitialConfigurationContent(type: string | undefined): Promise<string> {
+    /**
+     * Upstream's: the debugger's `initialConfigurations` and the configurations of its `Initial` providers fill a new
+     * launch.json; without a type it is empty (#1156).
+     */
+    public async getInitialConfigurationContent(
+        folderUri: Uri | undefined,
+        type: string | undefined,
+        useInitialConfigs: boolean,
+        token: ICancellationToken = CancellationTokenNone,
+    ): Promise<string> {
         const dbg = type === undefined ? undefined : this.adapterManager.getDebugger(type);
-        const content = dbg ? await dbg.getInitialConfigurationContent() : initialConfigurationContent([]);
+        let content: string;
+        if (dbg) {
+            const initialConfigs = useInitialConfigs
+                ? await this.provideDebugConfigurations(folderUri, dbg.type, token)
+                : [];
+            content = await dbg.getInitialConfigurationContent(initialConfigs);
+        } else {
+            content = initialConfigurationContent([]);
+        }
         // fix formatting
         if (this.ports.configuration.get<boolean>("editor.insertSpaces") === true) {
             const tabSize = this.ports.configuration.get<number>("editor.tabSize") ?? 4;
@@ -348,6 +482,7 @@ class Launch extends AbstractLaunch {
     public async openConfigFile({
         preserveFocus,
         type,
+        suppressInitialConfigs,
     }: {
         preserveFocus: boolean;
         type?: string;
@@ -361,7 +496,11 @@ class Launch extends AbstractLaunch {
             content = new TextDecoder().decode(fileContent.value);
         } catch {
             // launch.json not found: create one by collecting launch configs from debugConfigProviders
-            content = await this.configurationManager.getInitialConfigurationContent(type);
+            content = await this.configurationManager.getInitialConfigurationContent(
+                this.workspace.uri,
+                type,
+                !suppressInitialConfigs,
+            );
             created = true; // pin only if config file is created #8727
             try {
                 const folder = Uri.joinPath(resource, "..");

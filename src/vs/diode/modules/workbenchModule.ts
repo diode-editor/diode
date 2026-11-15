@@ -540,7 +540,12 @@ import {
     WORKBENCH_CONTRIBUTIONS,
 } from "../../workbench/workbench.common.main.ts";
 
-import { configurationManagerPorts, debugTaskRunnerPorts, saveAllBeforeDebugStart } from "./debugPorts.ts";
+import {
+    configurationManagerPorts,
+    debugTaskRunnerPorts,
+    debugVariableResolver,
+    saveAllBeforeDebugStart,
+} from "./debugPorts.ts";
 
 const EDITOR_PANE_FACTORIES: readonly EditorPaneFactoryCtor[] = [
     createKeybindingsEditorPaneFactory,
@@ -737,7 +742,13 @@ export const workbenchModule: ContainerModule = (container) => {
             textFiles: { isDirty: (resource) => textFiles.get(resource)?.isModified ?? false },
             logger: container.get(ILogServiceDIToken).createLogger("debug", { label: "Debug" }),
             notifications: container.get(NotificationServiceDIToken),
-            extensions: container.get(DebugExtensionActivatorDIToken),
+            // Looked up when used: the extension service of the full app is built with the extension host, whose debug
+            // sink and `contributes.debuggers` need this service.
+            extensions: {
+                activateByEvent: (event) => container.get(DebugExtensionActivatorDIToken).activateByEvent(event),
+                whenInstalledExtensionsRegistered: () =>
+                    container.get(DebugExtensionActivatorDIToken).whenInstalledExtensionsRegistered(),
+            },
             workspace: container.get(IWorkspaceContextServiceDIToken),
             replConfiguration: () => ({
                 collapseIdenticalLines: configuration.get("debug.console.collapseIdenticalLines"),
@@ -747,6 +758,7 @@ export const workbenchModule: ContainerModule = (container) => {
             tasks: debugTaskRunnerPorts(container),
             saveAllBeforeStart: () => saveAllBeforeDebugStart(container),
             terminalLauncher: container.get(DebugTerminalLauncherDIToken),
+            variables: debugVariableResolver(container),
         };
     });
     container.bind(DebugQuickAccessProviderDIToken, StartDebugQuickAccessProvider);

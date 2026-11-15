@@ -109,6 +109,7 @@ import {
 } from "../../../api/common/iEditorDecorationsService.ts";
 import { type IEditorLayoutService, NULL_EDITOR_LAYOUT_SERVICE } from "../../../api/common/iEditorLayoutService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
+import type { IExtensionDebugSink } from "../../../api/common/iExtensionDebugSink.ts";
 import { type IExtensionFileWatcher, NULL_EXTENSION_FILE_WATCHER } from "../../../api/common/iExtensionFileWatcher.ts";
 import type { IExtensionTaskSink } from "../../../api/common/iExtensionTaskSink.ts";
 import type { IExtensionTestingSink } from "../../../api/common/iExtensionTestingSink.ts";
@@ -160,6 +161,7 @@ import type { IExtensionUriHandlers } from "../common/extensionUrlHandler.ts";
 
 import { CommandsCustomer } from "./customers/commandsCustomer.ts";
 import { ConfigurationCustomer } from "./customers/configurationCustomer.ts";
+import { DebugCustomer } from "./customers/debugCustomer.ts";
 import { DecorationsCustomer } from "./customers/decorationsCustomer.ts";
 import { DiagnosticsCustomer, type IMarkerReader } from "./customers/diagnosticsCustomer.ts";
 import { DocumentsCustomer, MAX_SYNCED_DOCUMENT_CHARS } from "./customers/documentsCustomer.ts";
@@ -265,6 +267,8 @@ export interface IExtensionHostOptions {
     readonly terminalProfileSink?: IExtensionTerminalProfileSink;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     readonly taskSink?: IExtensionTaskSink;
+    /** Configuration providers and `startDebugging`/`stopDebugging`; without it nothing starts. */
+    readonly debugSink?: IExtensionDebugSink;
     /** When the subprocess dies, the host itself calls `reset()`: every extension tree goes back to an empty section. */
     readonly treeViewsSink?: IExtensionTreeViewsSink;
     /** When the subprocess dies, the host itself calls `reset()`: its test controllers go with their trees. */
@@ -431,6 +435,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             this.terminals,
             this.environmentVariableCollections,
             new TasksCustomer(options.taskSink),
+            new DebugCustomer(options.debugSink),
             new TreeViewsCustomer(options.treeViewsSink),
             new TestingCustomer(options.testingSink),
             new LanguageConfigurationCustomer(options.languageConfigurations ?? NULL_LANGUAGE_CONFIGURATION_SERVICE),
