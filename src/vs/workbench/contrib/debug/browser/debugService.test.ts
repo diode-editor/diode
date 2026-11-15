@@ -506,6 +506,32 @@ describe("DebugService", () => {
     });
 
     describe("the end of a session", () => {
+        it("a session that ends before it was ever focused still drops the data breakpoints that cannot persist", async () => {
+            const adapter = new MockDebugAdapter();
+            adapter.handlers.set("initialize", () => NO_RESPONSE);
+            registerMock("mock", adapter);
+            const model = fx.service.getModel() as unknown as { addDataBreakpoint(opts: unknown): void };
+            model.addDataBreakpoint({
+                description: "x",
+                src: { type: DataBreakpointSetType.Variable, dataId: "x" },
+                canPersist: false,
+                accessTypes: undefined,
+                accessType: "write",
+            });
+            void fx.service.startDebugging(undefined, { type: "mock", name: "m", request: "launch" });
+            await vi.waitFor(() => {
+                expect(fx.service.getModel().getSessions()).toHaveLength(1);
+            });
+            expect(fx.service.getViewModel().focusedSession).toBeUndefined();
+
+            adapter.fireExit(0);
+
+            await vi.waitFor(() => {
+                expect(fx.service.getModel().getDataBreakpoints()).toEqual([]);
+            });
+            adapter.dispose();
+        });
+
         it("reports the end, drops its exception breakpoints and the data breakpoints that cannot persist", async () => {
             const session = await startStopped();
             const model = fx.service.getModel() as unknown as {

@@ -435,6 +435,16 @@ describe("DebugTaskRunner", () => {
             expect(ran).toEqual([]);
         });
 
+        it("another running task does not count: this one runs", async () => {
+            const watch = makeTask({ label: "watch", isBackground: true });
+            tasks = [watch, makeTask({ label: "build" })];
+            active = [watch];
+
+            expect(await runner.runTaskAndCheckErrors(TASK_FOLDER, "build")).toBe(TaskRunResult.Success);
+
+            expect(ran).toEqual(["build"]);
+        });
+
         it("an already running background task starts the session: no exit code, no problems, no question", async () => {
             const watch = makeTask({ label: "watch", isBackground: true });
             tasks = [watch];

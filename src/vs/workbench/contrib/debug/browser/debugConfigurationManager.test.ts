@@ -402,6 +402,20 @@ describe("ConfigurationManager", () => {
             expect(manager.selectedConfiguration.name).toBeUndefined();
         });
 
+        it("the same name in another launch is another selection", async () => {
+            layers = { workspace: { configurations: [config("Run")] }, user: { configurations: [config("Run")] } };
+            const manager = create();
+            const [folder, user] = manager.getLaunches();
+            await manager.selectConfiguration(folder, "Run");
+            const fired = vi.fn();
+            manager.onDidSelectConfiguration(fired);
+
+            await manager.selectConfiguration(user, "Run");
+
+            expect(fired).toHaveBeenCalledTimes(1);
+            expect(manager.selectedConfiguration.launch).toBe(user);
+        });
+
         it("a passed configuration is the selected one when the launch has no such name", async () => {
             const manager = create();
             const passed = { type: "dyn", request: "launch", name: "Dynamic" };

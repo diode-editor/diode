@@ -93,10 +93,9 @@ export class DebugTaskRunner implements IDisposable {
             const errorCount = this.ports.markers.read({ severities: [MarkerSeverity.Error] }).length;
             // A task that was already running and ready has no summary: no exit code to judge by.
             const exitCode = taskSummary?.exitCode;
-            const successExitCode = exitCode === 0;
-            const failureExitCode = taskSummary && exitCode !== 0;
             const onTaskErrors = this.ports.configuration.get("debug.onTaskErrors");
-            if (successExitCode || onTaskErrors === "debugAnyway" || (errorCount === 0 && !failureExitCode)) {
+            // A summary here has an exit code (an undefined one ended above): 0 succeeds, any other fails.
+            if (exitCode === 0 || onTaskErrors === "debugAnyway" || (errorCount === 0 && !taskSummary)) {
                 return TaskRunResult.Success;
             }
             if (onTaskErrors === "showErrors") {
