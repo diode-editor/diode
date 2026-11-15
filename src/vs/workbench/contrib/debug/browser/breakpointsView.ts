@@ -82,8 +82,8 @@ export interface IBreakpointSources {
 }
 export const BreakpointSourcesDIToken = token<IBreakpointSources>("BreakpointSources");
 
-/** What the view needs besides the debug service. */
-export interface IBreakpointsViewHost extends IBreakpointSources {
+/** How the view draws: the glyphs and `debug.breakpointsView.presentation`. */
+export interface IBreakpointsViewLook {
     readonly icons: Pick<IProductIconService, "glyph">;
     presentation(): "tree" | "list";
 }
@@ -172,7 +172,8 @@ export class BreakpointsView extends Disposable {
 
     public constructor(
         private readonly debugService: IDebugService,
-        private readonly host: IBreakpointsViewHost,
+        private readonly sources: IBreakpointSources,
+        private readonly look: IBreakpointsViewLook,
     ) {
         super();
         this.tree = new LazyTreeControl<BreakpointTreeElement>(
@@ -225,7 +226,7 @@ export class BreakpointsView extends Disposable {
     /** Upstream `openBreakpointSource`: a source the adapter gave lives only as long as the debugging. */
     public async openBreakpoint(breakpoint: IBreakpoint, sideBySide: boolean): Promise<void> {
         if (breakpoint.uri.scheme === DEBUG_SCHEME && this.debugService.state === State.Inactive) return;
-        await this.host.openBreakpoint(breakpoint, sideBySide);
+        await this.sources.openBreakpoint(breakpoint, sideBySide);
     }
 
     /** The breakpoint under the cursor; a file row is not one. */
@@ -267,7 +268,7 @@ export class BreakpointsView extends Disposable {
 
         // Source breakpoints - group by file if showAsTree is enabled
         const sourceBreakpoints = model.getBreakpoints();
-        if (this.host.presentation() === "tree") {
+        if (this.look.presentation() === "tree") {
             const breakpointsByUri = new Map<string, IBreakpoint[]>();
             for (const bp of sourceBreakpoints) {
                 const key = bp.uri.toString();
@@ -323,7 +324,7 @@ export class BreakpointsView extends Disposable {
             ];
         }
         const icon = getBreakpointIcon(this.debugService.state, model.areBreakpointsActivated(), element, model);
-        const glyph: IRowSpan = { text: `${this.host.icons.glyph(codicon(icon))} `, fg: iconColor(icon) };
+        const glyph: IRowSpan = { text: `${this.look.icons.glyph(codicon(icon))} `, fg: iconColor(icon) };
         const muted = this.isMuted(element);
         const text = (value: string): IRowSpan => ({ text: value, ...(muted ? { fg: MUTED } : {}) });
         if (element instanceof FunctionBreakpoint) {
@@ -348,10 +349,10 @@ export class BreakpointsView extends Disposable {
             ...italicNote(breakpoint.condition === undefined ? undefined : `if ${breakpoint.condition}`),
             ...italicNote(breakpoint.logMessage === undefined ? undefined : `log "${breakpoint.logMessage}"`),
         ];
-        if (this.host.presentation() === "tree") {
+        if (this.look.presentation() === "tree") {
             return [check, glyph, text(this.lineContent(breakpoint)), ...notes];
         }
-        const dir = this.host.uriLabel(UriUtils.dirname(breakpoint.uri));
+        const dir = this.sources.uriLabel(UriUtils.dirname(breakpoint.uri));
         return [
             check,
             glyph,
@@ -373,7 +374,7 @@ export class BreakpointsView extends Disposable {
         return [
             check,
             { text: UriUtils.basenameOrAuthority(folder.uri), ...(activated ? {} : { fg: MUTED }) },
-            { text: ` ${this.host.uriLabel(UriUtils.dirname(folder.uri))}`, fg: MUTED },
+            { text: ` ${this.sources.uriLabel(UriUtils.dirname(folder.uri))}`, fg: MUTED },
         ];
     }
 
@@ -407,7 +408,7 @@ export class BreakpointsView extends Disposable {
         const lines = this.lines.get(key);
         if (lines === undefined) {
             this.lines.set(key, "loading");
-            this.host.readLines(breakpoint.uri).then(
+            this.sources.readLines(breakpoint.uri).then(
                 (read) => {
                     this.lines.set(key, read);
                     this.tree.rerender();

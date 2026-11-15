@@ -118,8 +118,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
             }),
         );
         this.breakpoints = this.register(
-            new BreakpointsView(debugService, {
-                ...breakpointSources,
+            new BreakpointsView(debugService, breakpointSources, {
                 icons,
                 presentation: () => configuration.get("debug.breakpointsView.presentation"),
             }),

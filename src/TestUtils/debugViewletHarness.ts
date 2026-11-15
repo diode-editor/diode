@@ -1,13 +1,16 @@
-// The whole workbench with the synthetic debugger for the tests of the Run and Debug views: the screen as text,
-// where a text is on it, the theme colors, and a session stopped at its first breakpoint.
+// The whole workbench with the synthetic debugger for the tests of the Run and Debug views: the viewlet open in a
+// wide sidebar with plain glyphs, the screen as text, where a text is on it, the theme colors, and a session stopped
+// at its first breakpoint.
 
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { expect, vi } from "vitest";
 
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
+import { IConfigurationServiceDIToken } from "../vs/platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyServiceDIToken } from "../vs/platform/contextkey/common/contextKeyService.ts";
 import { computeThemeVars } from "../vs/platform/theme/browser/themeStyleVars.ts";
 import { DebugServiceDIToken } from "../vs/workbench/contrib/debug/browser/debugService.ts";
+import { LayoutServiceDIToken } from "../vs/workbench/services/layout/browser/layoutService.ts";
 import { ThemeServiceDIToken } from "../vs/workbench/services/themes/common/themeTokens.ts";
 
 import { createAppTestHarness, type IAppHarness } from "./AppTestHarness.ts";
@@ -25,16 +28,30 @@ export interface IDebugViewletHarness {
     /** Where `text` starts on screen; fails the test if it is not there. */
     find(text: string): Point;
     vars(): Record<string, number>;
+    /** The synthetic debug type, as an extension contributing a debugger would register it. */
+    registerDebugger(): SyntheticDebugAdapterFactory;
     /** Starts the synthetic program and waits for its stop at the breakpoint. */
     startStopped(): Promise<SyntheticDebugAdapterFactory>;
     dispose(): Promise<void>;
 }
 
-export async function createDebugViewletHarness(size = new Size(120, 50)): Promise<IDebugViewletHarness> {
-    const h = createAppTestHarness({ size });
+export async function createDebugViewletHarness(workspaceFolder?: string): Promise<IDebugViewletHarness> {
+    const h = createAppTestHarness({ size: new Size(120, 50), workspaceFolder });
     await h.workbench.activate();
+    // Plain glyphs: the icons are characters the screen text shows.
+    await h.container.get(IConfigurationServiceDIToken).updateValue("diode.icons.nerdFont", "off");
+    await h.commands.execute("workbench.view.debug");
+    // Room for a row and what follows its name.
+    h.container.get(LayoutServiceDIToken).nudgeSidebarWidth(30);
     let registration: (IDisposable & { factory: SyntheticDebugAdapterFactory }) | undefined;
 
+    const registerDebugger = (): SyntheticDebugAdapterFactory => {
+        registration ??= registerSyntheticDebugger(
+            h.container.get(DebugServiceDIToken).getAdapterManager(),
+            NO_DELAY_TIMING,
+        );
+        return registration.factory;
+    };
     const lines = (): string[] => {
         h.testApp.render();
         return h.testApp.backend.screenToString().split("\n");
@@ -50,16 +67,14 @@ export async function createDebugViewletHarness(size = new Size(120, 50)): Promi
             return new Point(rows[y].indexOf(text), y);
         },
         vars: () => computeThemeVars(h.container.get(ThemeServiceDIToken).theme),
+        registerDebugger,
         startStopped: async () => {
-            registration = registerSyntheticDebugger(
-                h.container.get(DebugServiceDIToken).getAdapterManager(),
-                NO_DELAY_TIMING,
-            );
+            const factory = registerDebugger();
             await h.commands.execute("debug.startFromConfig", { ...SYNTHETIC_LAUNCH_CONFIG });
             await vi.waitFor(() => {
                 expect(h.container.get(ContextKeyServiceDIToken).getRaw("debugState")).toBe("stopped");
             });
-            return registration.factory;
+            return factory;
         },
         dispose: async () => {
             await h.container.get(DebugServiceDIToken).stopSession(undefined);

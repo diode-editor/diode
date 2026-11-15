@@ -145,6 +145,8 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     private readonly handles = new Map<number, Children>();
     private nextHandle = 1;
     private nextBreakpointId = 1;
+    /** The ids of the breakpoints set at `path:line`: a stop on a breakpoint names the ones at its line. */
+    private readonly breakpointsAt = new Map<string, number[]>();
     private seq = 1;
     private readonly timers = new Set<ReturnType<typeof setTimeout>>();
     private launched = false;
@@ -290,13 +292,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 this.startIfReady();
                 return;
             case "setBreakpoints":
-                this.respond(request, {
-                    breakpoints: ((args.breakpoints ?? []) as DebugProtocol.SourceBreakpoint[]).map((bp) => ({
-                        id: this.nextBreakpointId++,
-                        verified: true,
-                        line: bp.line,
-                    })),
-                });
+                this.setBreakpoints(request, args as unknown as DebugProtocol.SetBreakpointsArguments);
                 return;
             case "setExceptionBreakpoints":
             case "disconnect":
@@ -439,7 +435,27 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             allThreadsStopped: true,
             text,
             description: reason === "exception" ? "Exception has occurred." : undefined,
+            hitBreakpointIds:
+                reason === "breakpoint"
+                    ? this.breakpointsAt.get(`${this.source(MAIN_CPP).path ?? ""}:${String(this.program.line)}`)
+                    : undefined,
         });
+    }
+
+    /** A file of the program verifies its breakpoints; any other has no code to break in. */
+    private setBreakpoints(request: DebugProtocol.Request, args: DebugProtocol.SetBreakpointsArguments): void {
+        const path = args.source.path ?? "";
+        const known = path.startsWith(`${SYNTHETIC_PROGRAM_ROOT}/`);
+        for (const key of [...this.breakpointsAt.keys()]) {
+            if (key.startsWith(`${path}:`)) this.breakpointsAt.delete(key);
+        }
+        const breakpoints = (args.breakpoints ?? []).map((bp) => {
+            const id = this.nextBreakpointId++;
+            const key = `${path}:${String(bp.line)}`;
+            if (known) this.breakpointsAt.set(key, [...(this.breakpointsAt.get(key) ?? []), id]);
+            return { id, verified: known, line: bp.line };
+        });
+        this.respond(request, { breakpoints });
     }
 
     private stackTrace(request: DebugProtocol.Request, args: DebugProtocol.StackTraceArguments): void {

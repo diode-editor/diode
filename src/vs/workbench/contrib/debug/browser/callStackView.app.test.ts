@@ -7,9 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createDebugViewletHarness, type IDebugViewletHarness } from "../../../../../TestUtils/debugViewletHarness.ts";
 import { SYNTHETIC_LAUNCH_CONFIG } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
-import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import { CALLSTACK_VIEW_ID, VARIABLES_VIEW_ID } from "../common/debug.ts";
@@ -25,11 +23,6 @@ describe("CALL STACK in the workbench", () => {
 
     beforeEach(async () => {
         t = await createDebugViewletHarness();
-        // Plain glyphs: the frame marker is a character the screen text shows.
-        await t.h.container.get(IConfigurationServiceDIToken).updateValue("diode.icons.nerdFont", "off");
-        await t.h.commands.execute("workbench.view.debug");
-        // Room for a frame and its location.
-        t.h.container.get(LayoutServiceDIToken).nudgeSidebarWidth(30);
         // CALL STACK alone in the sidebar: room for all the frames.
         const views = t.h.container.get(ViewsServiceDIToken);
         for (const id of views.getContainerViews("workbench.view.debug").map((v) => v.id)) {
