@@ -169,7 +169,8 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             const request = message as DebugProtocol.Request;
             this.requests.push(request);
             this.dispatch(request);
-        } else if (message.type === "response") {
+        } else {
+            // The client sends requests and the answers to the adapter's reverse requests.
             const response = message as DebugProtocol.Response;
             this.responses.push(response);
             this.pendingReverse.get(response.request_seq)?.();

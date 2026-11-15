@@ -55,6 +55,14 @@ describe("DebugService", () => {
         return fx.service.getModel().getSessions().at(-1)!;
     }
 
+    it("a debuggee in the terminal: the adapter asks the launcher and launches after its answer", async () => {
+        await startStopped({ ...SYNTHETIC_LAUNCH_CONFIG, terminal: "integrated", program: "/bin/prog" });
+
+        const [adapter] = factory.adapters;
+        expect(adapter.responses).toMatchObject([{ command: "runInTerminal", success: true, body: {} }]);
+        expect(adapter.requests.map((r) => r.command)).toContain("launch");
+    });
+
     /** Registers a debug type whose adapter is the given mock. */
     function registerMock(type: string, adapter: MockDebugAdapter): void {
         fx.service.getAdapterManager().registerDebugger({ type });
