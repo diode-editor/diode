@@ -56,7 +56,8 @@ describe("DebugService", () => {
     }
 
     it("a debuggee in the terminal: the adapter asks the launcher and launches after its answer", async () => {
-        await startStopped({ ...SYNTHETIC_LAUNCH_CONFIG, terminal: "integrated", program: "/bin/prog" });
+        const inTerminal = { ...SYNTHETIC_LAUNCH_CONFIG, terminal: "integrated", program: "/bin/prog" };
+        await startStopped(inTerminal);
 
         const [adapter] = factory.adapters;
         expect(adapter.responses).toMatchObject([{ command: "runInTerminal", success: true, body: {} }]);
