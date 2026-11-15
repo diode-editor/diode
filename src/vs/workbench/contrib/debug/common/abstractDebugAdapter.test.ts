@@ -8,10 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MockDebugAdapter, NO_RESPONSE } from "../../../../../TestUtils/mockDebugAdapter.ts";
-
-function nextTask(): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, 0));
-}
+import { settle } from "../../../../../TestUtils/timing.ts";
 
 describe("Debug - AbstractDebugAdapter", () => {
     let adapter: MockDebugAdapter;
@@ -44,14 +41,14 @@ describe("Debug - AbstractDebugAdapter", () => {
 
         it("inserts task boundary before response", async () => {
             await evaluate("before.foo");
-            await nextTask();
+            await settle(0);
 
             expect(output).toEqual(["before.foo", "--end microtask--", "=before.foo", "--end microtask--"]);
         });
 
         it("inserts task boundary after response", async () => {
             await evaluate("after.foo");
-            await nextTask();
+            await settle(0);
 
             expect(output).toEqual(["=after.foo", "--end microtask--", "after.foo", "--end microtask--"]);
         });
@@ -60,7 +57,7 @@ describe("Debug - AbstractDebugAdapter", () => {
             adapter.sendEventBody("output", { output: "a" });
             adapter.sendEventBody("output", { output: "b" });
             adapter.sendEventBody("output", { output: "c" });
-            await nextTask();
+            await settle(0);
 
             expect(output).toEqual(["a", "b", "c", "--end microtask--", "--end microtask--", "--end microtask--"]);
         });
@@ -82,7 +79,7 @@ describe("Debug - AbstractDebugAdapter", () => {
         adapter.onRequest((request) => requests.push(request.command));
 
         adapter.sendRequestBody("runInTerminal", {});
-        await nextTask();
+        await settle(0);
 
         expect(requests).toEqual(["runInTerminal"]);
     });
@@ -186,11 +183,11 @@ describe("Debug - AbstractDebugAdapter", () => {
     it("ignores a response nobody waits for", async () => {
         const responses: DebugProtocol.Response[] = [];
         adapter.sendRequest("threads", {}, (r) => responses.push(r));
-        await nextTask();
-        await nextTask();
+        await settle(0);
+        await settle(0);
 
         adapter.sendResponseBody({ type: "request", seq: 1, command: "threads" }, {});
-        await nextTask();
+        await settle(0);
 
         expect(responses).toHaveLength(1);
     });

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { mockSession } from "../../../../../TestUtils/mockDebug.ts";
 import { MockDebugAdapter } from "../../../../../TestUtils/mockDebugAdapter.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IConfig, IDebugAdapterFactory, IDebugService, IDebugSession } from "../common/debug.ts";
@@ -7,7 +8,7 @@ import type { IConfig, IDebugAdapterFactory, IDebugService, IDebugSession } from
 import { AdapterManager } from "./debugAdapterManager.ts";
 
 function sessionOf(type: string): IDebugSession {
-    return { configuration: { type, name: "n", request: "launch" } } as IDebugSession;
+    return mockSession({ configuration: { type, name: "n", request: "launch" } });
 }
 
 describe("AdapterManager", () => {
@@ -161,16 +162,11 @@ describe("AdapterManager", () => {
 
             expect(await manager.getDebugger("lldb")?.startDebugging(config, "parent")).toBe(true);
 
-            expect(debugService.startDebugging).toHaveBeenCalledWith(
-                undefined,
-                config,
-                {
-                    parentSession: expect.objectContaining({
-                        configuration: expect.objectContaining({ type: "p" }) as unknown,
-                    }) as unknown,
-                },
-                undefined,
-            );
+            expect(debugService.startDebugging).toHaveBeenCalledWith(undefined, config, {
+                parentSession: expect.objectContaining({
+                    configuration: expect.objectContaining({ type: "p" }) as unknown,
+                }) as unknown,
+            });
         });
 
         it("has no initial launch.json content yet", async () => {

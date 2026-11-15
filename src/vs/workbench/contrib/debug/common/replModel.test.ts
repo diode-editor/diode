@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestDebugSession, DEFAULT_REPL_CONFIGURATION } from "../../../../../TestUtils/debugSessionFixture.ts";
 import { createMockDebugModel } from "../../../../../TestUtils/mockDebug.ts";
 import { MockDebugAdapter } from "../../../../../TestUtils/mockDebugAdapter.ts";
+import { settle } from "../../../../../TestUtils/timing.ts";
 import { DisposableStore } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { NULL_LOGGER } from "../../../../platform/log/common/nullLogService.ts";
@@ -27,10 +28,6 @@ import {
     ReplOutputElement,
     ReplVariableElement,
 } from "./replModel.ts";
-
-function nextTask(): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, 0));
-}
 
 function outputs(repl: ReplModel): ReplOutputElement[] {
     return repl.getReplElements() as ReplOutputElement[];
@@ -212,7 +209,7 @@ describe("Debug - REPL", () => {
         expect((session.getReplElements()[2] as ReplEvaluationResult).value).toBe("=before.1");
 
         await session.addReplExpression(undefined, "after.2");
-        await nextTask();
+        await settle(0);
         expect(session.getReplElements().length).toBe(6);
         expect((session.getReplElements()[3] as ReplEvaluationInput).value).toBe("after.2");
         expect((session.getReplElements()[4] as ReplEvaluationResult).value).toBe("=after.2");

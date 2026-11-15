@@ -208,11 +208,16 @@ function findNextVisibleFrame(
     return undefined;
 }
 
-async function stopHandler(accessor: ServiceAccessor, context: unknown, disconnect: boolean): Promise<void> {
-    const debugService = accessor.get(DebugServiceDIToken);
-    const session = isSessionContext(context)
+/** The session of a call stack row, or the focused one. */
+function sessionOf(debugService: IDebugService, context: unknown): IDebugSession | undefined {
+    return isSessionContext(context)
         ? debugService.getModel().getSession(context.sessionId)
         : debugService.getViewModel().focusedSession;
+}
+
+async function stopHandler(accessor: ServiceAccessor, context: unknown, disconnect: boolean): Promise<void> {
+    const debugService = accessor.get(DebugServiceDIToken);
+    const session = sessionOf(debugService, context);
     // Child sessions (milestone 3) send the stop to the root parent while `debug.showSubSessionsInToolBar` is off.
     await debugService.stopSession(session, disconnect);
 }
@@ -228,9 +233,7 @@ export const restartSessionAction: CommandAction = {
     menus: paletteItem(),
     async run(accessor, _, context) {
         const debugService = accessor.get(DebugServiceDIToken);
-        const session = isSessionContext(context)
-            ? debugService.getModel().getSession(context.sessionId)
-            : debugService.getViewModel().focusedSession;
+        const session = sessionOf(debugService, context);
         if (!session) {
             // Upstream starts the selected launch configuration here (launch.json, #1138).
             await debugService.startDebugging(undefined, undefined, { noDebug: false, startedByUser: true });
@@ -425,7 +428,7 @@ export const startAction: CommandAction = {
     },
     menus: paletteItem(NOT_INITIALIZING),
     async run(accessor, debugStartOptions) {
-        const options = debugStartOptions as { config?: Partial<IConfig>; noDebug?: boolean } | undefined;
+        const options = debugStartOptions as { noDebug?: boolean } | undefined;
         // Upstream starts the selected launch configuration merged with `options.config` (launch.json, #1138).
         await accessor
             .get(DebugServiceDIToken)

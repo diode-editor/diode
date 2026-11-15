@@ -955,7 +955,6 @@ export interface IDebugService {
         launch: ILaunch | undefined,
         configOrName?: IConfig | string,
         options?: IDebugSessionOptions,
-        saveBeforeStart?: boolean,
     ): Promise<boolean>;
 
     /** Restarts a session or creates a new one if there is no active session. */

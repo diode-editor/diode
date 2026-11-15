@@ -21,21 +21,19 @@ import type {
     IDebugSession,
 } from "./debug.ts";
 
-/** The context-key check of a debugger's `when`. */
-export type DebuggerWhenEvaluator = (when: string) => boolean;
-
 export class Debugger implements IDebugger, IDebuggerMetadata {
     public constructor(
         private readonly adapterManager: IAdapterManager,
         private readonly contribution: IDebuggerContribution,
         private readonly debugService: () => IDebugService,
-        private readonly evaluateWhen: DebuggerWhenEvaluator,
+        /** The context-key check of the debugger's `when`. */
+        private readonly evaluateWhen: (when: string) => boolean,
     ) {}
 
     public async startDebugging(configuration: IConfig, parentSessionId: string): Promise<boolean> {
         const debugService = this.debugService();
         const parentSession = debugService.getModel().getSession(parentSessionId);
-        return await debugService.startDebugging(undefined, configuration, { parentSession }, undefined);
+        return await debugService.startDebugging(undefined, configuration, { parentSession });
     }
 
     public createDebugAdapter(session: IDebugSession): Promise<IDebugAdapter> {

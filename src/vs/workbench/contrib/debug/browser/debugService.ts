@@ -160,8 +160,8 @@ export class DebugService implements IDebugService {
         this.disposables.add(this.model.onDidChangeBreakpoints(setBreakpointsExistContext));
     }
 
-    private notify(severity: ReplSeverity | "warn", message: string): void {
-        const kind = severity === "error" ? "error" : severity === "warning" || severity === "warn" ? "warn" : "info";
+    private notify(severity: ReplSeverity, message: string): void {
+        const kind = severity === "error" ? "error" : severity === "warning" ? "warn" : "info";
         this.ports.notifications.show({ severity: kind, message, modal: false, items: [] });
     }
 
@@ -228,6 +228,9 @@ export class DebugService implements IDebugService {
     }
 
     private setDebugUx(value: "simple" | "default"): void {
+        if (this.ports.contextKeys.get("debugUx") === value) {
+            return;
+        }
         this.ports.contextKeys.set("debugUx", value);
         this.debugStorage.storeDebugUxState(value);
     }
@@ -346,8 +349,9 @@ export class DebugService implements IDebugService {
                 return false;
             }
 
-            // Check for concurrent sessions before running preLaunchTask to avoid running the task if user cancels
-            let userConfirmedConcurrentSession = false;
+            // Check for concurrent sessions before running preLaunchTask to avoid running the task if user cancels.
+            // Upstream asks again when the session is created, in case one started during the task; with the task
+            // (#1138) that second check comes back.
             if (options?.startedByUser && resolvedConfig.suppressMultipleSessionWarning !== true) {
                 // Check if there's already a session with the same launch configuration
                 const existingSession = this.findSameSession(resolvedConfig, launch?.workspace);
@@ -356,7 +360,6 @@ export class DebugService implements IDebugService {
                     if (!(await this.confirmConcurrentSession(existingSession.getLabel()))) {
                         return false;
                     }
-                    userConfirmedConcurrentSession = true;
                 }
             }
 
@@ -389,7 +392,6 @@ export class DebugService implements IDebugService {
                 launch?.workspace,
                 { resolved: resolvedConfig, unresolved: unresolvedConfig },
                 options,
-                userConfirmedConcurrentSession,
             );
         } catch (err) {
             this.showError((err as Error).message);
@@ -417,7 +419,6 @@ export class DebugService implements IDebugService {
         root: IWorkspaceFolder | undefined,
         configuration: { resolved: IConfig; unresolved: IConfig | undefined },
         options: IDebugSessionOptions | undefined,
-        userConfirmedConcurrentSession: boolean,
     ): Promise<boolean> {
         const session = new DebugSession(
             sessionId,
@@ -428,17 +429,6 @@ export class DebugService implements IDebugService {
             this,
             this.sessionServices,
         );
-        if (
-            !userConfirmedConcurrentSession &&
-            options?.startedByUser &&
-            configuration.resolved.suppressMultipleSessionWarning !== true &&
-            this.findSameSession(configuration.resolved, root)
-        ) {
-            // There is already a session with the same configuration, prompt user #127721
-            if (!(await this.confirmConcurrentSession(session.getLabel()))) {
-                return false;
-            }
-        }
 
         this.model.addSession(session);
         // since the Session is now properly registered under its ID and hooked, we can announce it

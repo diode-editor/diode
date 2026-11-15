@@ -9,16 +9,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MockDebugAdapter, NO_RESPONSE } from "../../../../../TestUtils/mockDebugAdapter.ts";
+import { settle } from "../../../../../TestUtils/timing.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import { CancellationError } from "../../../../base/common/errorSerialization.ts";
 import type { AdapterEndEvent, IDebugger } from "../common/debug.ts";
 
 import { DebugRequestError, RawDebugSession } from "./rawDebugSession.ts";
-
-function nextTask(): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, 0));
-}
 
 describe("RawDebugSession", () => {
     let adapter: MockDebugAdapter;
@@ -122,7 +119,7 @@ describe("RawDebugSession", () => {
         adapter.handlers.set("launch", () => ({ supportsRestartRequest: true }));
         await session.launchOrAttach({ type: "mock", name: "n", request: "launch" });
         adapter.sendEventBody("capabilities", { capabilities: { supportsStepBack: false } });
-        await nextTask();
+        await settle(0);
 
         expect(session.capabilities).toEqual({ supportsStepBack: false, supportsRestartRequest: true });
         expect(adapter.sent("launch")[0].arguments).toEqual({ type: "mock", name: "n", request: "launch" });
@@ -133,7 +130,7 @@ describe("RawDebugSession", () => {
         await withCapabilities({ supportsStepBack: true });
         const remembered = session.capabilities;
         adapter.sendEventBody("capabilities", { capabilities: { supportsRestartFrame: true } });
-        await nextTask();
+        await settle(0);
 
         expect(remembered).toEqual({ supportsStepBack: true, supportsRestartFrame: true });
     });
@@ -151,7 +148,7 @@ describe("RawDebugSession", () => {
         expect(session.readyForBreakpoints).toBe(false);
 
         adapter.sendEventBody("initialized");
-        await nextTask();
+        await settle(0);
 
         expect(session.readyForBreakpoints).toBe(true);
         expect(initialized).toHaveBeenCalledTimes(1);
@@ -180,7 +177,7 @@ describe("RawDebugSession", () => {
         const body = { threadId: 1, allThreadsContinued: true };
 
         adapter.sendEventBody(event, body);
-        await nextTask();
+        await settle(0);
 
         expect(fired).toHaveBeenCalledWith(expect.objectContaining({ event, body }));
         expect(any).toHaveBeenCalledWith(expect.objectContaining({ event }));
@@ -193,7 +190,7 @@ describe("RawDebugSession", () => {
         session.onDidEvent(any);
 
         adapter.sendEventBody(event, {});
-        await nextTask();
+        await settle(0);
 
         expect(custom).not.toHaveBeenCalled();
         expect(any).toHaveBeenCalledTimes(1);
@@ -413,7 +410,7 @@ describe("RawDebugSession", () => {
         adapter.handlers.set("continue", () => ({ allThreadsContinued: false }));
         await session.continue({ threadId: 3 });
         adapter.sendEventBody("continued", { threadId: 3 });
-        await nextTask();
+        await settle(0);
         adapter.handlers.set("continue", () => undefined);
         await session.continue({ threadId: 3 });
 
@@ -429,7 +426,7 @@ describe("RawDebugSession", () => {
         adapter.handlers.set("continue", () => ({ allThreadsContinued: false }));
         await session.continue({ threadId: 3 });
         adapter.sendEventBody("continued", { threadId: 3, allThreadsContinued: true });
-        await nextTask();
+        await settle(0);
         adapter.handlers.set("continue", () => ({}));
         const continued: DebugProtocol.ContinuedEvent["body"][] = [];
         session.onDidContinued((e) => continued.push(e.body));
@@ -466,7 +463,7 @@ describe("RawDebugSession", () => {
         it("formats the structured error and shows it when asked to", async () => {
             adapter.handlers.set("evaluate", () => NO_RESPONSE);
             const result = session.evaluate({ expression: "a" }).catch((e: unknown) => e);
-            await nextTask();
+            await settle(0);
             adapter.sendErrorResponse(adapter.sent("evaluate")[0], "short", {
                 error: { id: 1, format: "cannot read {name}", variables: { name: "x" }, showUser: true },
             });
@@ -481,7 +478,7 @@ describe("RawDebugSession", () => {
             adapter.handlers.set("launch", () => NO_RESPONSE);
             const init = session.initialize({ adapterID: "mock" }).catch((e: unknown) => e);
             const launch = session.launchOrAttach({ type: "m", name: "n", request: "launch" }).catch((e: unknown) => e);
-            await nextTask();
+            await settle(0);
             adapter.sendErrorResponse(adapter.sent("initialize")[0], "", error);
             adapter.sendErrorResponse(adapter.sent("launch")[0], "", error);
 
@@ -493,7 +490,7 @@ describe("RawDebugSession", () => {
         it("a structured error the adapter keeps to itself is not shown", async () => {
             adapter.handlers.set("evaluate", () => NO_RESPONSE);
             const result = session.evaluate({ expression: "a" }).catch((e: unknown) => e);
-            await nextTask();
+            await settle(0);
             adapter.sendErrorResponse(adapter.sent("evaluate")[0], "", { error: { id: 1, format: "quiet" } });
 
             expect(await result).toMatchObject({ message: "quiet", showUser: undefined });
@@ -503,7 +500,7 @@ describe("RawDebugSession", () => {
         it("a failure without a message is an empty message", async () => {
             adapter.handlers.set("evaluate", () => NO_RESPONSE);
             const result = session.evaluate({ expression: "a" }).catch((e: unknown) => e);
-            await nextTask();
+            await settle(0);
             const failure: DebugProtocol.Response = {
                 type: "response",
                 seq: 9,
@@ -519,7 +516,7 @@ describe("RawDebugSession", () => {
         it("a cancelled request rejects as cancelled", async () => {
             adapter.handlers.set("evaluate", () => NO_RESPONSE);
             const result = session.evaluate({ expression: "a" }).catch((e: unknown) => e);
-            await nextTask();
+            await settle(0);
             adapter.sendErrorResponse({ ...adapter.sent("evaluate")[0], command: "canceled" }, "canceled");
 
             expect(await result).toBeInstanceOf(CancellationError);
@@ -528,7 +525,7 @@ describe("RawDebugSession", () => {
         it("a failure of the 'canceled' command with another message is an error", async () => {
             adapter.handlers.set("evaluate", () => NO_RESPONSE);
             const result = session.evaluate({ expression: "a" }).catch((e: unknown) => e);
-            await nextTask();
+            await settle(0);
             adapter.sendErrorResponse({ ...adapter.sent("evaluate")[0], command: "canceled" }, "other");
 
             expect(await result).toBeInstanceOf(DebugRequestError);
@@ -622,7 +619,7 @@ describe("RawDebugSession", () => {
             const ends: AdapterEndEvent[] = [];
             session.onDidExitAdapter((e) => ends.push(e));
             adapter.sendEventBody("stopped", { reason: "entry" });
-            await nextTask();
+            await settle(0);
 
             await session.disconnect({});
 
@@ -723,8 +720,8 @@ describe("RawDebugSession", () => {
             const sent = vi.spyOn(adapter, "sendResponse");
 
             adapter.sendRequestBody("unknownReverse", {});
-            await nextTask();
-            await nextTask();
+            await settle(0);
+            await settle(0);
 
             expect(sent).not.toHaveBeenCalled();
         });

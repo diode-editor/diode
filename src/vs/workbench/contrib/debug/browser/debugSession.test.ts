@@ -17,6 +17,7 @@ import {
     SYNTHETIC_PROGRAM_ROOT,
     SyntheticDebugAdapter,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
+import { settle } from "../../../../../TestUtils/timing.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { isCancellationError } from "../../../../base/common/errorSerialization.ts";
 import { DisposableStore } from "../../../../base/common/lifecycle.ts";
@@ -30,10 +31,6 @@ import type { ReplOutputElement } from "../common/replModel.ts";
 import type { DebugSession } from "./debugSession.ts";
 
 const MAIN_CPP = Uri.file(`${SYNTHETIC_PROGRAM_ROOT}/src/main.cpp`);
-
-function nextTask(): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, 0));
-}
 
 function debuggerOf(adapter: AbstractDebugAdapter, overrides: Partial<IDebugger> = {}): IDebugger {
     return {
@@ -703,7 +700,7 @@ describe("DebugSession", () => {
             adapter.handlers.set("dataBreakpointInfo", () => ({ dataId: "d", description: "x" }));
             await expect(session.dataBreakpointInfo("x", 2, 3)).rejects.toThrow("Session is not ready for breakpoints");
             adapter.sendEventBody("initialized");
-            await nextTask();
+            await settle(0);
 
             expect(await session.dataBreakpointInfo("x", 2, 3)).toEqual({ dataId: "d", description: "x" });
             await session.dataBytesBreakpointInfo("0x10", 4);
@@ -843,7 +840,7 @@ describe("DebugSession", () => {
             await vi.waitFor(() => {
                 expect(session.getThread(1)!.getCallStack()).toHaveLength(1);
             });
-            await nextTask();
+            await settle(0);
 
             expect(debugService.viewModel.focusedThread).toBeUndefined();
         });
@@ -1053,8 +1050,8 @@ describe("DebugSession", () => {
                 reason: "new",
                 breakpoint: { id: 7, verified: true, source: { path: "/a.c" } },
             });
-            await nextTask();
-            await nextTask();
+            await settle(0);
+            await settle(0);
 
             expect(model.getBreakpoints()).toEqual([]);
         });
@@ -1208,7 +1205,7 @@ describe("DebugSession", () => {
             adapter.handlers.set("initialize", () => capabilities);
             const session = await launch(adapter);
             adapter.sendEventBody("initialized");
-            await nextTask();
+            await settle(0);
             return { session, adapter };
         }
 
@@ -1413,7 +1410,7 @@ describe("DebugSession", () => {
             await vi.waitFor(() => {
                 expect(debugService.viewModel.focusedThread?.threadId).toBe(1);
             });
-            await nextTask();
+            await settle(0);
 
             expect(debugService.sendBreakpoints).not.toHaveBeenCalled();
         });
