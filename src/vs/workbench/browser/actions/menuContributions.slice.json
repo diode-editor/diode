@@ -411,6 +411,7 @@
             "workbench.actions.view.problems",
             "workbench.action.output.toggleOutput",
             "workbench.action.terminal.toggleTerminal",
+            "workbench.debug.action.toggleRepl",
             "workbench.action.toggleSidebarVisibility",
             "workbench.action.toggleAuxiliaryBar",
             "workbench.action.togglePanel"
@@ -557,7 +558,8 @@
             "workbench.files.action.refreshFilesExplorer",
             "openEditors.closeAll",
             "workbench.action.terminal.kill",
-            "watch.collapse"
+            "watch.collapse",
+            "workbench.debug.panel.action.clearReplAction"
         ],
         "sortBy": [
             "testing.sortByDuration",

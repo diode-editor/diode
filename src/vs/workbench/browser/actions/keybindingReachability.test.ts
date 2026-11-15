@@ -161,6 +161,7 @@ describe("tier gate asymmetry — user-facing contract", () => {
         "workbench.action.terminal.toggleTerminal | Ctrl+K T | Ctrl+`",
         "workbench.action.toggleEditorGroupLayout | Ctrl+K Alt+0 | Shift+Alt+0",
         "workbench.actions.view.problems | Ctrl+K M | Ctrl+Shift+M",
+        "workbench.debug.action.toggleRepl | Ctrl+K Y | Ctrl+Shift+Y",
         "workbench.view.debug | Ctrl+K B | Ctrl+Shift+D",
         "workbench.view.explorer | Ctrl+K E | Ctrl+Shift+E",
         "workbench.view.extensions | Ctrl+K X | Ctrl+Shift+X",

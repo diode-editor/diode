@@ -68,6 +68,8 @@ describe.skipIf(process.platform === "win32")("runInTerminal in the workbench", 
             await h.commands.execute("debug.startFromConfig", {
                 ...SYNTHETIC_LAUNCH_CONFIG,
                 terminal: "integrated",
+                // As upstream, the Debug Console opens after the launch and would take the panel from the terminal.
+                internalConsoleOptions: "neverOpen",
                 program: "/bin/sh",
                 args: ["-c", 'read line; echo "got: $line"'],
                 cwd: ws.dir,

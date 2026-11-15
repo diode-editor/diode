@@ -255,7 +255,8 @@ export class PanelContainerElement extends TUIElement {
         if (actions != null) {
             const available = Math.max(0, containerSize.width - CLOSE_WIDTH);
             const actionsWidth = Math.min(actions.getMaxIntrinsicWidth(1), available);
-            const x = Math.max(this.tabsEnd(), available - actionsWidth);
+            // Tabs wider than the panel leave the actions no room: they stay inside it, zero wide.
+            const x = Math.min(available, Math.max(this.tabsEnd(), available - actionsWidth));
             this.layoutChild(actions, x, this.tabRow, BoxConstraints.tight(new Size(Math.max(0, available - x), 1)));
         }
         const content = this.activeView()?.content;

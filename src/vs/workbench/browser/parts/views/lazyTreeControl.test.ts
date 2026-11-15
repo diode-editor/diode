@@ -188,6 +188,34 @@ describe("LazyTreeControl — rows", () => {
         expect(line).toBe(` ${"x".repeat(28)} `);
     });
 
+    it("the end of a row is pinned to the right edge in its own color; the label is clipped before it", async () => {
+        const roots = [
+            { key: "a", name: "short" },
+            { key: "b", name: "y".repeat(40) },
+            { key: "c", name: "plain" },
+        ];
+        const { app, tree } = await mount({
+            getRoots: () => roots,
+            getChildren: () => [],
+            getKey: (node) => node.key,
+            hasChildren: () => false,
+            renderRow: (node) => [{ text: node.name }],
+            renderRowEnd: (node) =>
+                node.key === "c" ? [] : [{ text: "main.cpp:7", fg: "debugConsole.sourceForeground" }],
+        });
+
+        const [first, second, third] = app.backend.screenToString().split("\n");
+        // 30 columns: padding, the label, a column, the end, padding.
+        expect(first).toBe(` short${" ".repeat(12)} main.cpp:7 `);
+        expect(second).toBe(` ${"y".repeat(17)} main.cpp:7 `);
+        expect(third.trimEnd()).toBe(" plain");
+        const end = lineOf(app, "main.cpp:7");
+        expect(app.backend.getFgAt(end)).toBe(vars["debugConsole.sourceForeground"]);
+        // Typeahead goes by the label.
+        app.sendKey("p");
+        expect(tree.focused?.key).toBe("c");
+    });
+
     it("activation and typeahead reach the owner's element", async () => {
         const { app, tree } = await mount(new Source([...leaves("a", 2), { key: "b", name: "beta" }]));
         const activated: string[] = [];

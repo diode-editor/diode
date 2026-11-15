@@ -2,6 +2,7 @@ import { Point } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { RenderContext } from "@tuidom/core/dom/tuiElement";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { validateTree } from "@tuidom/core/dom/validateTree";
 import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
@@ -94,6 +95,17 @@ describe("PanelContainerElement: tab controls in the header", () => {
         const row = backend.getTextAt(new Point(0, 1), 30);
         expect(row).toContain("PROBLEMS");
         expect(row).toContain("OUTPUT");
+    });
+
+    it("tabs wider than the panel leave the controls inside it, without room", () => {
+        // PROBLEMS and OUTPUT end past 12 columns: the tree validator of an app frame throws on a child outside.
+        const actions = new LabelStub("Bootstrap");
+        const { panel, text } = panelWithActions(actions, 12);
+
+        // A panel outside an app is no root: only the geometry is checked.
+        expect(validateTree(panel).filter((problem) => !problem.includes("getRoot()"))).toEqual([]);
+        expect(actions.layoutSize.width).toBe(0);
+        expect(text).not.toContain("Bootstrap");
     });
 
     it("controls are drawn even when there are no tabs yet", () => {

@@ -29,6 +29,9 @@ export interface IDebugServiceFixture {
     configuration: IDebugServiceConfiguration;
     /** How many times Run and Debug was shown. */
     viewletOpenings: number;
+    /** How many times the Debug Console was shown, and asked to close. */
+    replOpenings: number;
+    replClosings: number;
 }
 
 /** `state`: the workspace store of an earlier service, as a window that opens the same folder again. */
@@ -46,6 +49,8 @@ export function createDebugServiceFixture(state: MockStateService = mockStateSer
         folders: [] as IWorkspaceFolder[],
         configuration: { ...DEFAULT_DEBUG_CONFIGURATION },
         viewletOpenings: 0,
+        replOpenings: 0,
+        replClosings: 0,
     };
     const ports: IDebugServicePorts = {
         contextKeys,
@@ -74,6 +79,12 @@ export function createDebugServiceFixture(state: MockStateService = mockStateSer
         debugConfiguration: () => fixture.configuration,
         openViewlet: () => {
             fixture.viewletOpenings++;
+        },
+        openRepl: () => {
+            fixture.replOpenings++;
+        },
+        closeRepl: () => {
+            fixture.replClosings++;
         },
     };
     return Object.assign(fixture, { service: new DebugService(ports) });

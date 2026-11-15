@@ -1,11 +1,12 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
 /**
- * Verbatim from upstream's `contrib/debug/browser/debug.contribution.ts` (no `scope` there: window; `debug.openDebug`
- * has no `type` there either: a string). Only the keys the ported code reads: the Debug Console model
- * (`replModel.ts`), the terminal of `runInTerminal` (`debugTerminal.ts`), the Run and Debug views (opening them,
- * types and lazy variables). The rest of `debug.*` comes with the task that
- * implements it (the views, the toolbar, launch.json), the unsupported ones are declared by the settings task (#1158).
+ * Verbatim from upstream's `contrib/debug/browser/debug.contribution.ts` (no `scope` there: window;
+ * `debug.openDebug` and `debug.internalConsoleOptions` have no `type` there either: a string). Only the keys the
+ * ported code reads: the Debug Console (`replModel.ts`, opening and closing its view), the terminal of
+ * `runInTerminal` (`debugTerminal.ts`), the Run and Debug views (opening them, types and lazy variables). The rest
+ * of `debug.*` comes with the task that implements it (the toolbar, launch.json), the unsupported ones are declared
+ * by the settings task (#1158).
  */
 export const debugConfiguration = {
     id: "debug",
@@ -23,6 +24,19 @@ export const debugConfiguration = {
             enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart", "openOnDebugBreak"],
             default: "openOnDebugBreak",
             description: "Controls when the debug view should open.",
+        },
+        "debug.internalConsoleOptions": {
+            scope: "window",
+            type: "string",
+            enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart"],
+            default: "openOnFirstSessionStart",
+            description: "Controls when the internal Debug Console should open.",
+        },
+        "debug.console.closeOnEnd": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls if the Debug Console should be automatically closed when the debug session ends.",
+            default: false,
         },
         "debug.console.collapseIdenticalLines": {
             scope: "window",

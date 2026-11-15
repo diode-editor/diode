@@ -32,6 +32,8 @@ export const DEFAULT_REPL_CONFIGURATION: IReplConsoleConfiguration = {
 export const DEFAULT_DEBUG_CONFIGURATION: IDebugServiceConfiguration = {
     openDebug: "openOnDebugBreak",
     autoExpandLazyVariables: "auto",
+    internalConsoleOptions: "openOnFirstSessionStart",
+    console: { closeOnEnd: false },
 };
 
 export interface ITestSessionServices extends IDebugSessionServices {

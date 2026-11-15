@@ -7,8 +7,7 @@
 // substitution, the pre-launch task, resolution with substituted variables, then the session. Its steps that belong
 // to later tasks are the identity here, each named at its place: providers (#1139), launch.json, its selected
 // configuration, compounds and the debug tasks (#1138), choosing a debugger for a configuration without a type
-// (#1156). Not here yet: breakpoint editing (views, gutter: #1145–#1148), opening the console on a session
-// (`debug.internalConsoleOptions`, `debug.console.closeOnEnd`, `debug.openExplorerOnEnd`), saving before a start
+// (#1156). Not here yet: breakpoint editing (views, gutter: #1145–#1148), `debug.openExplorerOnEnd`, saving before a start
 // (`debug.saveBeforeStart`), opening the focused frame in the editor (#1148). The activity badge of the view
 // container (active sessions) is not here: the container switcher has no badges. Errors show as a modal
 // notification, without the "Open launch.json" button. Not planned: workspace trust (diode has none), telemetry,
@@ -72,6 +71,10 @@ export interface IDebugServicePorts {
     readonly debugConfiguration: () => IDebugServiceConfiguration;
     /** Upstream's `openPaneComposite(VIEWLET_ID, Sidebar)`: shows Run and Debug without taking the focus. */
     readonly openViewlet: () => void;
+    /** Upstream's `openView(REPL_VIEW_ID, false)`: shows the Debug Console without taking the focus. */
+    readonly openRepl: () => void;
+    /** Upstream's `closeViewContainer` of the Debug Console's container when it is visible. */
+    readonly closeRepl: () => void;
 }
 export const DebugServicePortsDIToken = token<IDebugServicePorts>("DebugServicePorts");
 
@@ -472,6 +475,15 @@ export class DebugService implements IDebugService {
         try {
             await this.launchOrAttachToSession(session);
 
+            const internalConsoleOptions =
+                session.configuration.internalConsoleOptions ?? this.ports.debugConfiguration().internalConsoleOptions;
+            if (
+                internalConsoleOptions === "openOnSessionStart" ||
+                (this.viewModel.firstSessionStart && internalConsoleOptions === "openOnFirstSessionStart")
+            ) {
+                this.ports.openRepl();
+            }
+
             this.viewModel.firstSessionStart = false;
             // `debug.showSubSessionsInToolBar` (#1147) is off: only the root sessions count.
             if (this.model.getSessions().filter((s) => !s.parentSession).length > 1) {
@@ -486,6 +498,11 @@ export class DebugService implements IDebugService {
             if (isCancellationError(error)) {
                 // don't show 'canceled' error messages to the user #7906
                 return false;
+            }
+
+            // Show the repl if some error got logged there #5870
+            if (session.getReplElements().length > 0) {
+                this.ports.openRepl();
             }
 
             if (session.configuration.request === "attach" && session.configuration.__autoAttach) {
@@ -600,6 +617,10 @@ export class DebugService implements IDebugService {
                     dataBreakpoints.forEach((dbp) => {
                         this.model.removeDataBreakpoints(dbp.getId());
                     });
+
+                    if (this.ports.debugConfiguration().console.closeOnEnd) {
+                        this.ports.closeRepl();
+                    }
                 }
 
                 this.model.removeExceptionBreakpointsForSession(session.getId());

@@ -18,6 +18,7 @@ import type { IProductIconService } from "../../../../platform/theme/common/prod
 import type { IRowSpan } from "../../../browser/parts/views/lazyTreeControl.ts";
 import type { IExpression, IExpressionValue } from "../common/debug.ts";
 import { Expression, Variable } from "../common/debugModel.ts";
+import { ReplEvaluationResult } from "../common/replModel.ts";
 
 const MAX_VALUE_RENDER_LENGTH_IN_VIEWLET = 1024;
 /** How long a changed value stays highlighted: upstream's `debugViewletValueChanged` animation. */
@@ -41,7 +42,13 @@ export interface IDebugExpressionRendererHost {
 }
 
 function isAvailable(expression: IExpressionValue): boolean {
-    return !(expression instanceof Expression || expression instanceof Variable) || expression.available;
+    return (
+        !(
+            expression instanceof Expression ||
+            expression instanceof Variable ||
+            expression instanceof ReplEvaluationResult
+        ) || expression.available
+    );
 }
 
 /** Upstream's color classes of a value, as the theme color of the class. */

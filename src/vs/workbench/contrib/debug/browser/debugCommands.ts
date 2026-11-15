@@ -30,6 +30,7 @@ import { resolveChildSession } from "../common/debugUtils.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
 import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
+import { REPL_ACTIONS } from "./replActions.ts";
 
 export const RESTART_SESSION_ID = "workbench.action.debug.restart";
 export const TERMINATE_THREAD_ID = "workbench.action.debug.terminateThread";
@@ -463,4 +464,5 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     startFromConfigAction,
     focusSessionAction,
     ...DEBUG_VIEW_ACTIONS,
+    ...REPL_ACTIONS,
 ];

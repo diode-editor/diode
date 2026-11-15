@@ -30,6 +30,8 @@ export const VIEWLET_ID = "workbench.view.debug";
 
 export const VARIABLES_VIEW_ID = "workbench.debug.variablesView";
 export const WATCH_VIEW_ID = "workbench.debug.watchExpressionsView";
+export const DEBUG_PANEL_ID = "workbench.panel.repl";
+export const REPL_VIEW_ID = "workbench.panel.repl.view";
 
 // raw
 

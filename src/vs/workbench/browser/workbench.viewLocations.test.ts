@@ -135,13 +135,13 @@ describe("Workbench: moving views with commands", () => {
         h.container.get(PanelServiceDIToken).setActiveView(OUTPUT_VIEW_ID);
         void h.commands.execute("workbench.action.movePanelToSecondarySideBar");
         expect(panelTabs(h)).toEqual([]);
-        expect(auxiliaryTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "TERMINAL"]);
+        expect(auxiliaryTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "DEBUG CONSOLE", "TERMINAL"]);
         expect(h.container.get(AuxiliaryBarServiceDIToken).visible).toBe(true);
         expect(h.container.get(AuxiliaryBarServiceDIToken).getActiveViewId()).toBe(OUTPUT_VIEW_ID);
 
         void h.commands.execute("workbench.action.moveSecondarySideBarToPanel");
         expect(auxiliaryTabs(h)).toEqual([]);
-        expect(panelTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "TERMINAL"]);
+        expect(panelTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "DEBUG CONSOLE", "TERMINAL"]);
         expect(h.container.get(PanelServiceDIToken).visible).toBe(true);
     });
 
@@ -154,7 +154,7 @@ describe("Workbench: moving views with commands", () => {
         void h.commands.execute("workbench.action.movePanelToSecondarySideBar");
         void h.commands.execute("workbench.action.resetViewLocations");
         expect(auxiliaryTabs(h)).toEqual([]);
-        expect(panelTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "TERMINAL"]);
+        expect(panelTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "DEBUG CONSOLE", "TERMINAL"]);
     });
 
     it("Reset Focused View Location returns the focused view home", () => {

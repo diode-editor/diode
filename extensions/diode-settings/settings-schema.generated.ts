@@ -23,6 +23,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["auto", "on", "off"],
     },
     {
+        key: "debug.console.closeOnEnd",
+        type: "boolean",
+        default: false,
+        description: "Controls if the Debug Console should be automatically closed when the debug session ends.",
+    },
+    {
         key: "debug.console.collapseIdenticalLines",
         type: "boolean",
         default: true,
@@ -34,6 +40,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "number",
         default: 10000,
         description: "Controls the maximum number of lines in the Debug Console.",
+    },
+    {
+        key: "debug.internalConsoleOptions",
+        type: "string",
+        default: "openOnFirstSessionStart",
+        description: "Controls when the internal Debug Console should open.",
+        enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart"],
     },
     {
         key: "debug.openDebug",

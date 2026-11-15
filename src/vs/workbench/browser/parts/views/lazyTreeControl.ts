@@ -1,6 +1,7 @@
 import type { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { HFlexElement, hflexFill, hflexFit } from "@tuidom/elements/layout/hFlexElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
@@ -27,6 +28,8 @@ export interface ILazyTreeSource<T> {
     /** Expanded on first sight unless the user collapsed it (upstream auto-expands the first scope). */
     isInitiallyExpanded?(element: T): boolean;
     renderRow(element: T): readonly IRowSpan[];
+    /** A part pinned to the right edge (upstream's source of a console line, its count badge); the row's label wins the room. */
+    renderRowEnd?(element: T): readonly IRowSpan[];
     /** Typeahead text; the joined spans when omitted. */
     getLabel?(element: T): string;
 }
@@ -50,6 +53,14 @@ function spansLabel(spans: readonly IRowSpan[]): TextLabelElement {
         for (const _unit of span.text.split("")) label.setCharStyle(offset++, span);
     }
     return label;
+}
+
+/** The label fills the row, the end keeps its width and a column before it. */
+function splitRow(spans: readonly IRowSpan[], end: readonly IRowSpan[]): TUIElement {
+    const row = new HFlexElement();
+    row.addChild(spansLabel(spans), { width: hflexFill(), height: 1 });
+    row.addChild(spansLabel([{ text: " " }, ...end]), { width: hflexFit(), height: 1 });
+    return row;
 }
 
 /**
@@ -203,12 +214,14 @@ export class LazyTreeControl<T> {
             for (const item of items) {
                 const key = this.source.getKey(item);
                 const id = `${this.options.idPrefix}:${key}`;
-                const row = spansLabel(this.source.renderRow(item));
+                const spans = this.source.renderRow(item);
+                const end = this.source.renderRowEnd?.(item) ?? [];
+                const row = end.length === 0 ? spansLabel(spans) : splitRow(spans, end);
                 row.id = id;
                 this.items.set(row, item);
                 this.parentOf.set(id, parentId);
                 const expanded = this.isExpanded(item, key);
-                const label = this.source.getLabel?.(item) ?? row.getText();
+                const label = this.source.getLabel?.(item) ?? spans.map((span) => span.text).join("");
                 list.appendRow(row, { label, parentId, collapsed: !expanded });
                 if (!this.source.hasChildren(item)) continue;
                 const read = expanded ? this.children.get(key) : undefined;
