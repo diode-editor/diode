@@ -21,7 +21,11 @@ describe("StartDebugQuickAccessProvider", () => {
     let factory: SyntheticDebugAdapterFactory | undefined;
     let executed: unknown[][];
 
-    function create(launch: unknown, state: WorkbenchState = "folder", debuggers = true): StartDebugQuickAccessProvider {
+    function create(
+        launch: unknown,
+        state: WorkbenchState = "folder",
+        debuggers = true,
+    ): StartDebugQuickAccessProvider {
         fx = createDebugServiceFixture({ workspaceLaunch: launch, folders: [FOLDER] });
         factory = debuggers
             ? registerSyntheticDebugger(fx.service.getAdapterManager(), NO_DELAY_TIMING).factory

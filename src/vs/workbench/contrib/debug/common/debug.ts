@@ -937,7 +937,7 @@ export interface IConfigurationManager {
 
     selectConfiguration(launch: ILaunch | undefined, name?: string, config?: IConfig): Promise<void>;
 
-    getLaunches(): ReadonlyArray<ILaunch>;
+    getLaunches(): readonly ILaunch[];
     getLaunch(workspaceUri: uri | undefined): ILaunch | undefined;
     getAllConfigurations(): { launch: ILaunch; name: string; presentation?: IConfigPresentation }[];
 
