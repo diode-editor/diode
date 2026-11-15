@@ -1,4 +1,6 @@
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
@@ -19,6 +21,15 @@ function button(label: string): { element: ActionButtonElement; activations: () 
         count++;
     };
     return { element, activations: () => count };
+}
+
+function mouse(button: MouseToken["button"], action: MouseToken["action"]): MouseToken {
+    return { kind: "mouse", button, action, x: 3, y: 1, shiftKey: false, altKey: false, ctrlKey: false, raw: "" };
+}
+
+function click(app: TestApp): void {
+    app.backend.simulateMouse(mouse("left", "press"));
+    app.backend.simulateMouse(mouse("left", "release"));
 }
 
 describe("ActionButtonElement", () => {
@@ -65,20 +76,69 @@ describe("ActionButtonElement", () => {
         app.sendKey("a");
         expect(activations()).toBe(2);
 
-        for (const action of ["press", "release"] as const) {
-            app.backend.simulateMouse({
-                kind: "mouse",
-                button: "left",
-                x: 3,
-                y: 1,
-                action,
-                shiftKey: false,
-                altKey: false,
-                ctrlKey: false,
-                raw: "",
-            });
-        }
+        click(app);
         expect(activations()).toBe(3);
         expect(element.getLabel()).toBe("Run and Debug");
+    });
+
+    it("a new button is focusable with an empty label: a blank bar until the view sets one", () => {
+        const element = new ActionButtonElement();
+        const backend = renderElement(element, 6, 1, { themeVars: true });
+
+        expect(element.focusable).toBe(true);
+        expect(element.getLabel()).toBe("");
+        expect(backend.getTextAt(new Point(0, 0), 6)).toBe("      ");
+    });
+
+    it("a new label and enabling again are drawn on the next frame", () => {
+        const { element } = button("Commit");
+        element.setDisabled(true);
+        const app = TestApp.createWithContent(element, new Size(10, 1));
+
+        element.setLabel("Sync");
+        app.render();
+        expect(app.backend.getTextAt(new Point(0, 0), 10)).toBe("   Sync   ");
+
+        element.setDisabled(false);
+        app.render();
+        expect(app.backend.getBgAt(new Point(0, 0))).toBe(vars["button.background"]);
+    });
+
+    it("the hovered button takes the hover background", () => {
+        const { element } = button("Run");
+        const app = TestApp.createWithContent(element, new Size(10, 1));
+        app.backend.simulateMouse(mouse("none", "move"));
+        app.render();
+
+        expect(app.backend.getBgAt(new Point(0, 0))).toBe(vars["button.hoverBackground"]);
+    });
+
+    it("Enter is consumed by the button; a disabled one lets it through", () => {
+        const { element } = button("Run");
+
+        expect(element.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }))).toBe(false);
+        element.setDisabled(true);
+        expect(element.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }))).toBe(true);
+    });
+
+    it("without a handler Enter and a click do nothing", () => {
+        const element = new ActionButtonElement();
+        const app = TestApp.createWithContent(element, new Size(10, 1));
+        element.focus();
+
+        expect(() => {
+            app.sendKey("Enter");
+            click(app);
+        }).not.toThrow();
+    });
+
+    it("a click on a disabled button does not activate it", () => {
+        const { element, activations } = button("Commit");
+        element.setDisabled(true);
+        const app = TestApp.createWithContent(element, new Size(10, 1));
+
+        click(app);
+
+        expect(activations()).toBe(0);
     });
 });

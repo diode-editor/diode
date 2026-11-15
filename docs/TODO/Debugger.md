@@ -65,6 +65,24 @@
   Focus, Accept Input, Clear Console); `debug.internalConsoleOptions` и `debug.console.closeOnEnd` — порты
   `openRepl`/`closeRepl` сервиса. Не здесь: ANSI, перенос, автодополнение, фильтр, группы как фича, меню.
 
+- #1138: `launch.json`. `browser/debugConfigurationManager.ts` (порт `ConfigurationManager` эталона: launch папки —
+  `.diode/launch.json`, блок `launch` файла `.code-workspace`, `launch` пользовательских настроек; выбранная конфигурация
+  — ключи эталона `debug.selectedconfigname`/`debug.selectedroot` в scope `workspace`; дубли имён нумеруются, `presentation`
+  сортирует и прячет), раздел `launch` сервиса настроек ([Configuration.md](../arch/Configuration.md)),
+  `browser/debugTaskRunner.ts` (`preLaunchTask`/`postDebugTask`/`preRestartTask`/`postRestartTask`, `debug.onTaskErrors`
+  с диалогом и чекбоксом «Remember my choice», запомненный выбор для ненайденной задачи — `debug.taskerrorchoice`,
+  предупреждение о медленной задаче через 10 с, `debug.hideSlowPreLaunchWarning`), compounds (`common/debugCompoundRoot.ts`,
+  `stopAll`, `preLaunchTask` compound'а), `debug.saveBeforeStart` (порт `saveAllBeforeStart`, затем
+  `reloadConfiguration`), `debug.confirmOnExit` (`browser/debugLifecycle.ts` — вето `LifecycleService.registerShutdownVeto`),
+  команды Select and Start Debugging (quick access `debug `, `browser/debugQuickAccess.ts`), Open 'launch.json'
+  (создаёт пустой скелет эталона), Add Configuration (пустая строка в `configurations`, курсор на ней). Порты DI —
+  `src/vs/diode/modules/debugPorts.ts`. Чекбокс модального сообщения — `INotificationMessage.checkbox`. Отступления:
+  F5 без выбранной конфигурации открывает Select and Start Debugging (эталон угадывает отладчик — #1156); Open
+  'launch.json' в палитре без предусловия `debugUx != 'simple'` (нет welcome-вида — #1144); Add Configuration без
+  сниппетов (веха 2); фоновые задачи ждут конца процесса (problem matcher'ов у фоновых задач нет). Живой сессии в
+  бинаре нет до #1139/#1140 (тип отладчика приходит только из расширения): e2e `launch-json` показывает задачу и
+  сообщение «not supported», полный F5 на синтетике — `debugCommands.launch.app.test.ts`.
+
 - `vscode.debug` поднят целиком (18/18), но это null-объект (`src/vs/workbench/api/common/debugNoop.ts`):
   сессии не стартуют, `onDebug*` не стреляют.
 - **Противоречие в доках:** [docs/arch/Extensions.md](../arch/Extensions.md) («Отладка как null-объект») пишет «DAP не

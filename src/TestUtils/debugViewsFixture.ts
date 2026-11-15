@@ -28,7 +28,8 @@ export class TestVariable extends Variable {
             undefined,
             1,
             NO_PARENT,
-            kids.length > 0 && options.lazy === undefined ? 1 : 0,
+            // Any positive reference has children; a lazy hint hides them until evaluated.
+            kids.length,
             name,
             name,
             value,
@@ -38,10 +39,10 @@ export class TestVariable extends Variable {
             options.lazy === undefined ? undefined : { lazy: true },
             options.type,
         );
-        this.resolved = options.lazy?.value;
+        this.resolved = options.lazy?.value ?? value;
     }
 
-    private readonly resolved: string | undefined;
+    private readonly resolved: string;
 
     public override getChildren(): Promise<IExpression[]> {
         return Promise.resolve([...this.kids]);
@@ -49,8 +50,8 @@ export class TestVariable extends Variable {
 
     public override evaluateLazy(): Promise<void> {
         this.presentationHint = undefined;
-        this.value = this.resolved ?? this.value;
-        this.reference = this.kids.length > 0 ? 1 : 0;
+        this.value = this.resolved;
+        this.reference = this.kids.length;
         return Promise.resolve();
     }
 }
@@ -63,7 +64,7 @@ class TestScope extends Scope {
         expensive: boolean,
         private readonly kids: readonly IExpression[],
     ) {
-        super(frame, index, name, kids.length > 0 ? 1 : 0, expensive);
+        super(frame, index, name, kids.length, expensive);
     }
 
     public override getChildren(): Promise<IExpression[]> {
@@ -82,16 +83,15 @@ export interface ITestScopeSpec {
     readonly name: string;
     readonly expensive?: boolean;
     readonly error?: boolean;
-    readonly variables?: readonly IExpression[];
+    readonly variables: readonly IExpression[];
 }
 
 /** A frame of thread 1 whose scopes are the given ones. */
-export function testFrame(id: string, scopes: readonly ITestScopeSpec[]): ITestFrame {
+export function testFrame(scopes: readonly ITestScopeSpec[]): ITestFrame {
     const frame = {
         forgotten: 0,
         reads: 0,
         thread: { session: undefined, threadId: 1 },
-        getId: () => id,
         getScopes: (): Promise<IScope[]> => {
             frame.reads++;
             return Promise.resolve(built);
@@ -103,7 +103,7 @@ export function testFrame(id: string, scopes: readonly ITestScopeSpec[]): ITestF
     const built: IScope[] = scopes.map((spec, index) =>
         spec.error === true
             ? new ErrorScope(frame as never, index, spec.name)
-            : new TestScope(frame as never, index, spec.name, spec.expensive ?? false, spec.variables ?? []),
+            : new TestScope(frame as never, index, spec.name, spec.expensive === true, spec.variables),
     );
     return frame as unknown as ITestFrame;
 }

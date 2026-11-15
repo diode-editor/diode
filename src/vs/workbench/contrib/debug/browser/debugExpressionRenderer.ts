@@ -57,7 +57,7 @@ function valueColor(expression: IExpressionValue, value: string, colorize: boole
     if (expression.type === "number") return "debugTokenExpression.number";
     if (expression.type === "boolean") return "debugTokenExpression.boolean";
     if (expression.type === "string") return "debugTokenExpression.string";
-    if (!isNaN(+value)) return "debugTokenExpression.number";
+    if (!isNaN(Number(value))) return "debugTokenExpression.number";
     if (booleanRegex.test(value)) return "debugTokenExpression.boolean";
     if (stringRegex.test(value)) return "debugTokenExpression.string";
     return "debugTokenExpression.value";
@@ -79,13 +79,13 @@ export class DebugExpressionRenderer {
         const spans: IRowSpan[] = [];
         if (isAvailable(variable)) {
             spans.push({ text: variable.name, fg: "debugTokenExpression.name" });
-            if (variable.value && typeof variable.name === "string") {
+            if (variable.value) {
                 spans.push({ text: ": " });
                 if (variable.type && this.host.showVariableTypes()) {
                     spans.push({ text: variable.type, fg: "debugTokenExpression.type" }, { text: " = " });
                 }
             }
-        } else if (variable.value && typeof variable.name === "string" && variable.name) {
+        } else if (variable.value && variable.name) {
             spans.push({ text: ": " });
         }
         if (variable.presentationHint?.lazy) {
@@ -96,12 +96,10 @@ export class DebugExpressionRenderer {
 
     /** Upstream `WatchExpressionsRenderer.renderExpression`: the expression as typed, then its value. */
     public renderWatchExpression(expression: IExpression): IRowSpan[] {
-        const spans: IRowSpan[] = [{ text: expression.name, fg: "debugTokenExpression.name" }];
-        if (typeof expression.value === "string") {
-            spans.push({ text: ": " });
-            if (expression.type && this.host.showVariableTypes()) {
-                spans.push({ text: expression.type, fg: "debugTokenExpression.type" }, { text: " = " });
-            }
+        // Upstream checks `typeof value === 'string'`: an expression's value always is.
+        const spans: IRowSpan[] = [{ text: expression.name, fg: "debugTokenExpression.name" }, { text: ": " }];
+        if (expression.type && this.host.showVariableTypes()) {
+            spans.push({ text: expression.type, fg: "debugTokenExpression.type" }, { text: " = " });
         }
         return [...spans, ...this.renderValue(expression, { showChanged: true, colorize: true })];
     }

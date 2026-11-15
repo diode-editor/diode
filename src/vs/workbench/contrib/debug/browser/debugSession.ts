@@ -6,7 +6,7 @@
 // Deviations: the services come in as one object, not by injection; the label is the name alone (one folder per
 // window, upstream adds the folder only with several); `debug.autoExpandLazyVariables: auto` is off (no screen
 // reader mode); breakpoint paths go out without the Windows drive-letter normalization. Not here yet, each with its
-// task: compounds (#1138), the test run a session is correlated with (#1162). Not planned: telemetry, aria
+// task: the test run a session is correlated with (#1162). Not planned: telemetry, aria
 // announcements, focusing the OS window on a break, the memory view (`getMemory`).
 
 import { distinct } from "../../../../base/common/arrays.ts";
@@ -179,6 +179,15 @@ export class DebugSession implements IDebugSession {
         this.passFocusScheduler = new RunOnceScheduler(() => {
             this.passFocus();
         }, 800);
+
+        const compoundRoot = this.options.compoundRoot;
+        if (compoundRoot) {
+            toDispose.add(
+                compoundRoot.onDidSessionStop(() => {
+                    void this.terminate();
+                }),
+            );
+        }
 
         const parent = this.options.parentSession;
         if (parent) {
@@ -459,6 +468,10 @@ export class DebugSession implements IDebugSession {
                 await this.raw.disconnect({ restart, terminateDebuggee: true });
             }
         }
+
+        if (!restart) {
+            this.options.compoundRoot?.sessionStopped();
+        }
     }
 
     /**
@@ -476,6 +489,10 @@ export class DebugSession implements IDebugSession {
         } else if (this.raw) {
             // TODO terminateDebuggee should be undefined by default?
             await this.raw.disconnect({ restart, terminateDebuggee: false, suspendDebuggee: suspend });
+        }
+
+        if (!restart) {
+            this.options.compoundRoot?.sessionStopped();
         }
     }
 
@@ -1448,14 +1465,16 @@ export class DebugSession implements IDebugSession {
                                 await this.debugService.focusStackFrame(undefined, thread);
                             }
 
-                            if (thread.stoppedDetails && !isCancelled(token)) {
-                                if (
-                                    thread.stoppedDetails.reason === "breakpoint" &&
-                                    this.services.debugConfiguration().openDebug === "openOnDebugBreak" &&
-                                    !this.suppressDebugView
-                                ) {
-                                    this.services.openViewlet();
-                                }
+                            // Upstream also checks `thread.stoppedDetails`: a stopped event always sets them.
+                            if (
+                                // Stryker disable next-line ConditionalExpression: a continue cancels the token and clears the thread's stoppedDetails together, the reason check stops it as well
+                                !isCancelled(token) &&
+                                // Stryker disable next-line OptionalChaining: past an uncancelled token the thread still holds the details of this stop
+                                thread.stoppedDetails?.reason === "breakpoint" &&
+                                this.services.debugConfiguration().openDebug === "openOnDebugBreak" &&
+                                !this.suppressDebugView
+                            ) {
+                                this.services.openViewlet();
                             }
                         }
                     };

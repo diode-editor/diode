@@ -3,24 +3,37 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/browser/debugCommands.ts
-// The session commands of upstream's `debugCommands.ts` with their Linux keys and `when`, and their palette entries
-// of `debug.contribution.ts` ("Debug: …", shown only with `debuggersAvailable`). A command run from a call stack row
-// gets the row as `{ sessionId, threadId, frameId }` after the resource argument, as upstream; from a key or the
-// palette it acts on the focused thread. Deviations: the start commands take no selected launch configuration yet
-// (launch.json, #1138), so F5 starts nothing until then; Focus Session does not open the frame in the editor (#1148);
-// the instruction stepping of the disassembly view is not planned. The editor's, the views' and the console's
-// commands come with their tasks.
+// The session and launch configuration commands of upstream's `debugCommands.ts` and `debugViewlet.ts` with their
+// Linux keys and `when`, and their palette entries of `debug.contribution.ts` ("Debug: …", shown only with
+// `debuggersAvailable`). A command run from a call stack row gets the row as `{ sessionId, threadId, frameId }`
+// after the resource argument, as upstream; from a key or the palette it acts on the focused thread. Deviations: F5
+// without a selected configuration opens Select and Start Debugging (upstream guesses a debugger, #1156); Open
+// 'launch.json' is in the palette without upstream's `debugUx != 'simple'` precondition (there is no Run and Debug
+// welcome view to create launch.json from yet, #1144); Add Configuration inserts an empty line in `configurations`
+// without the snippet suggestions (milestone 2); Focus Session does not open the frame in the editor (#1148); the
+// instruction stepping of the disassembly view is not planned. The editor's, the views' and the console's commands
+// come with their tasks.
+
+import { findNodeAtLocation, modify, parseTree } from "jsonc-parser";
 
 import { type CommandAction, HIDDEN_FROM_PALETTE } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import { LAUNCH_FILE_NAME } from "../../../../platform/configuration/common/workspaceSettings.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
+import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
+import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
+import { QuickOpenServiceDIToken } from "../../quickaccess/browser/quickOpenService.ts";
+import { positionAt } from "../../tasks/common/tasksJsonEdits.ts";
 import {
     type IConfig,
     type IDebugService,
     type IDebugSession,
+    type ILaunch,
     isFrameDeemphasized,
     type IStackFrame,
     type IThread,
@@ -28,7 +41,8 @@ import {
 import type { Thread } from "../common/debugModel.ts";
 import { resolveChildSession } from "../common/debugUtils.ts";
 
-import { DebugServiceDIToken } from "./debugService.ts";
+import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
+import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
 import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
 import { REPL_ACTIONS } from "./replActions.ts";
 
@@ -50,6 +64,8 @@ export const CALLSTACK_BOTTOM_ID = "workbench.action.debug.callStackBottom";
 export const CALLSTACK_UP_ID = "workbench.action.debug.callStackUp";
 export const CALLSTACK_DOWN_ID = "workbench.action.debug.callStackDown";
 export const START_FROM_CONFIG_ID = "debug.startFromConfig";
+export const SELECT_AND_START_ID = "workbench.action.debug.selectandstart";
+export const DEBUG_CONFIGURE_COMMAND_ID = "workbench.action.debug.configure";
 
 const IN_DEBUG_MODE = "inDebugMode";
 const STOPPED = "debugState == 'stopped'";
@@ -229,8 +245,8 @@ export const restartSessionAction: CommandAction = {
         const debugService = accessor.get(DebugServiceDIToken);
         const session = sessionOf(debugService, context);
         if (!session) {
-            // Upstream starts the selected launch configuration here (launch.json, #1138).
-            await debugService.startDebugging(undefined, undefined, { noDebug: false, startedByUser: true });
+            const { launch, name } = debugService.getConfigurationManager().selectedConfiguration;
+            await debugService.startDebugging(launch, name, { noDebug: false, startedByUser: true });
         } else {
             session.removeReplExpressions();
             await debugService.restartSession(session);
@@ -422,13 +438,140 @@ export const startAction: CommandAction = {
     },
     menus: paletteItem(NOT_INITIALIZING),
     async run(accessor, debugStartOptions) {
-        const options = debugStartOptions as { noDebug?: boolean } | undefined;
-        // Upstream starts the selected launch configuration merged with `options.config` (launch.json, #1138).
-        await accessor
-            .get(DebugServiceDIToken)
-            .startDebugging(undefined, undefined, { noDebug: options?.noDebug, startedByUser: true });
+        const options = debugStartOptions as { config?: Partial<IConfig>; noDebug?: boolean } | undefined;
+        const debugService = accessor.get(DebugServiceDIToken);
+        await accessor.get(DebugServicePortsDIToken).saveAllBeforeStart();
+        const { launch, name, getConfig } = debugService.getConfigurationManager().selectedConfiguration;
+        const config = await getConfig();
+        if (!config && !name) {
+            accessor.get(CommandRegistryDIToken).execute(SELECT_AND_START_ID);
+            return;
+        }
+        const configOrName = config ? Object.assign(structuredClone(config), options?.config) : name;
+        await debugService.startDebugging(
+            launch,
+            configOrName,
+            { noDebug: options?.noDebug, startedByUser: true },
+            false,
+        );
     },
 };
+
+export const selectAndStartAction: CommandAction = {
+    id: SELECT_AND_START_ID,
+    title: "Debug: Select and Start Debugging",
+    menus: paletteItem(NOT_INITIALIZING),
+    run(accessor) {
+        // A debug type picks among its dynamic configurations first (#1139).
+        accessor.get(QuickOpenServiceDIToken).show(StartDebugQuickAccessProvider.PREFIX);
+        return Promise.resolve();
+    },
+};
+
+export const configureAction: CommandAction = {
+    id: DEBUG_CONFIGURE_COMMAND_ID,
+    title: "Debug: Open 'launch.json'",
+    menus: paletteItem(),
+    async run(accessor) {
+        const debugService = accessor.get(DebugServiceDIToken);
+        const configurationManager = debugService.getConfigurationManager();
+        let launch: ILaunch | undefined;
+        if (configurationManager.selectedConfiguration.name) {
+            launch = configurationManager.selectedConfiguration.launch;
+        } else {
+            const launches = configurationManager.getLaunches().filter((l) => !l.hidden);
+            if (launches.length === 1) {
+                launch = launches[0];
+            } else {
+                const picks = launches.map((l) => ({ label: l.name, launch: l }));
+                const picked = (await accessor.get(QuickInputServiceDIToken).quickPick({
+                    placeholder:
+                        "Select a workspace folder to create a launch.json file in or add it to the workspace config file",
+                    items: picks,
+                })) as { launch: ILaunch } | undefined;
+                launch = picked?.launch;
+            }
+        }
+
+        // Upstream's `addNew` comes from the debug view's start dropdown, which diode does not have yet.
+        await launch?.openConfigFile({ preserveFocus: false });
+    },
+};
+
+export const addConfigurationAction: CommandAction = {
+    id: ADD_CONFIGURATION_ID,
+    title: "Debug: Add Configuration...",
+    menus: paletteItem(),
+    async run(accessor, launchUri) {
+        const manager = accessor.get(DebugServiceDIToken).getConfigurationManager();
+
+        const launch =
+            manager.getLaunches().find((l) => l.uri.toString() === launchUri) ?? manager.selectedConfiguration.launch;
+        if (launch) {
+            const { opened, created } = await launch.openConfigFile({ preserveFocus: false });
+            const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+            if (opened && !created && editor?.uri.toString() === launch.uri.toString()) {
+                addLaunchConfiguration(accessor, editor);
+            }
+        }
+    },
+};
+
+/**
+ * Upstream `DebugEditorContribution.addLaunchConfiguration`: a new line at the start of the `configurations` array
+ * (the array is added first when it is missing), with the caret on it. Upstream then opens the snippet suggestions.
+ */
+function addLaunchConfiguration(accessor: ServiceAccessor, editor: TextEditorPane): void {
+    const original = editor.getText();
+    const isLaunchJson = editor.uri.path.endsWith(`/${LAUNCH_FILE_NAME}`);
+    let configurationsArrayOffset = configurationsArrayStart(original, isLaunchJson);
+    if (configurationsArrayOffset === undefined) {
+        // "configurations" array doesn't exist. Add it here.
+        const text = original;
+        const edit = modify(
+            text,
+            isLaunchJson ? ["configurations"] : ["launch"],
+            isLaunchJson ? [] : { configurations: [] },
+            {
+                formattingOptions: { tabSize: editor.viewState.tabSize, insertSpaces: editor.viewState.insertSpaces },
+            },
+        )[0];
+        editor.applyExternalEdits(
+            [
+                {
+                    range: { start: positionAt(text, edit.offset), end: positionAt(text, edit.offset + edit.length) },
+                    text: edit.content,
+                },
+            ],
+            // Stryker disable next-line StringLiteral: the label of an undo step is shown nowhere
+            "Add Configuration",
+        );
+        // The array is the one the edit has just written (upstream parses the file again).
+        configurationsArrayOffset = edit.offset + edit.content.indexOf("[") + 1;
+    }
+
+    // Upstream focuses the editor here; `openConfigFile` without preserveFocus has already done it.
+    const text = editor.getText();
+    const position = positionAt(text, configurationsArrayOffset);
+    // Check if there are more characters on a line after a "configurations": [, if yes enter a newline
+    const line = editor.getLinesContent()[position.line];
+    editor.goToPosition(position.line, position.character);
+    if (line.slice(position.character).trim().length > 0) {
+        editor.insertLineBreak();
+        editor.goToPosition(position.line, position.character);
+    }
+    accessor.get(CommandRegistryDIToken).execute("editor.action.insertLineAfter");
+}
+
+/**
+ * The offset just after the `[` of `configurations` (`launch.configurations` in a settings file). Upstream visits the
+ * text and takes the last `configurations` array it meets; the JSON path does not take the one of a compound.
+ */
+function configurationsArrayStart(text: string, isLaunchJson: boolean): number | undefined {
+    const tree = parseTree(text);
+    const node = tree && findNodeAtLocation(tree, isLaunchJson ? ["configurations"] : ["launch", "configurations"]);
+    return node?.type === "array" ? node.offset + 1 : undefined;
+}
 
 export const runAction: CommandAction = {
     id: DEBUG_RUN_COMMAND_ID,
@@ -447,6 +590,9 @@ export const runAction: CommandAction = {
 export const DEBUG_ACTIONS: readonly CommandAction[] = [
     startAction,
     runAction,
+    selectAndStartAction,
+    configureAction,
+    addConfigurationAction,
     restartSessionAction,
     stepOverAction,
     stepIntoAction,

@@ -38,6 +38,8 @@ export interface INotificationMessage {
      * non-modal messages, as upstream.
      */
     readonly closeAffordance?: number;
+    /** Upstream `IPromptOptions.checkbox` ("Remember my choice"); shown only for modal messages. */
+    readonly checkbox?: { readonly label: string };
 }
 
 export interface IActiveNotification extends INotificationMessage {
@@ -78,6 +80,8 @@ export interface INotificationHandle {
     readonly id: number;
     /** `undefined` means closed without a choice. */
     readonly answered: Promise<number | undefined>;
+    /** A message with a checkbox: whether it was checked when a button was pressed. */
+    readonly checkboxChecked?: () => boolean;
 }
 
 interface IPassiveEntry {
@@ -94,6 +98,8 @@ interface IPassiveEntry {
 interface IAskEntry {
     readonly notification: IActiveNotification;
     readonly resolve: (index: number | undefined) => void;
+    /** The answer came with the checkbox checked. */
+    readonly check: () => void;
     /** Modal messages have no timer. */
     timer: ReturnType<typeof setTimeout> | null;
 }
@@ -142,12 +148,17 @@ export class NotificationService extends Disposable {
             this.fire();
             return { id: notification.id, answered: Promise.resolve(undefined) };
         }
+        let checked = false;
+        const check = (): void => {
+            checked = true;
+        };
         const answered = new Promise<number | undefined>((resolve) => {
-            this.askList.push({ notification, resolve, timer: null });
+            this.askList.push({ notification, resolve, check, timer: null });
         });
         this.armAskTimer();
         this.fire();
-        return { id: notification.id, answered };
+        if (message.checkbox === undefined) return { id: notification.id, answered };
+        return { id: notification.id, answered, checkboxChecked: () => checked };
     }
 
     /**
@@ -205,8 +216,11 @@ export class NotificationService extends Disposable {
         return Math.max(0, this.askList.length - 1);
     }
 
-    /** An index outside the buttons means close: the answer isn't about this message. */
-    public answer(id: number, index: number): void {
+    /**
+     * An index outside the buttons means close: the answer isn't about this message. `checkboxChecked` is the state
+     * of the message's checkbox when the button was pressed.
+     */
+    public answer(id: number, index: number, checkboxChecked = false): void {
         const at = this.askList.findIndex((e) => e.notification.id === id);
         if (at < 0) {
             const passive = this.passiveList.find((e) => e.notification.id === id);
@@ -216,6 +230,7 @@ export class NotificationService extends Disposable {
             return;
         }
         const { items } = this.askList[at].notification;
+        if (checkboxChecked) this.askList[at].check();
         this.settleAsk(at, index >= 0 && index < items.length ? index : undefined);
     }
 

@@ -100,6 +100,36 @@ describe("DebugSession for the views", () => {
             });
         });
 
+        it("a stop that the program left while it was being focused does not show it", async () => {
+            const { adapter } = await launch();
+            const pending: (() => void)[] = [];
+            const focused = (): void => {
+                for (const resolve of pending.splice(0)) resolve();
+            };
+            vi.mocked(debugService.focusStackFrame).mockImplementation(
+                () =>
+                    new Promise<void>((resolve) => {
+                        pending.push(resolve);
+                    }),
+            );
+            adapter.sendEventBody("stopped", { reason: "breakpoint", threadId: 1, allThreadsStopped: true });
+            await vi.waitFor(() => {
+                expect(debugService.focusStackFrame).toHaveBeenCalled();
+            });
+
+            adapter.sendEventBody("continued", { threadId: 1, allThreadsContinued: true });
+            await vi
+                .waitFor(() => {
+                    expect(debugService.viewModel.focusedThread).toBeUndefined();
+                })
+                .catch(() => undefined);
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            focused();
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
+            expect(services.viewletOpenings).toBe(0);
+        });
+
         it("other values, or a session that suppresses the view, leave it alone", async () => {
             services.configuration.openDebug = "openOnSessionStart";
             const { adapter } = await launch();

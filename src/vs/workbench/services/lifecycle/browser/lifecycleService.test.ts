@@ -142,3 +142,55 @@ describe("LifecycleService", () => {
         expect(onQuit).toHaveBeenCalledOnce();
     });
 });
+
+describe("LifecycleService — vetoes", () => {
+    it("a sync false keeps the shutdown synchronous; the veto hears the reason, quit by default", async () => {
+        const { lifecycle } = makeServices();
+        const onQuit = vi.fn();
+        const veto = vi.fn(() => false);
+        lifecycle.registerShutdownVeto(veto);
+
+        const request = lifecycle.requestShutdown(onQuit);
+
+        expect(onQuit).toHaveBeenCalledOnce();
+        await request;
+        await lifecycle.requestShutdown(onQuit, "reload");
+        expect(veto.mock.calls).toEqual([["quit"], ["reload"]]);
+    });
+
+    it("a sync or async true keeps the window open; an async false lets it close", async () => {
+        const { lifecycle } = makeServices();
+        const onQuit = vi.fn();
+        let answer: boolean | Promise<boolean> = true;
+        lifecycle.registerShutdownVeto(() => answer);
+
+        await lifecycle.requestShutdown(onQuit);
+        answer = Promise.resolve(true);
+        await lifecycle.requestShutdown(onQuit);
+        expect(onQuit).not.toHaveBeenCalled();
+
+        answer = Promise.resolve(false);
+        await lifecycle.requestShutdown(onQuit);
+        expect(onQuit).toHaveBeenCalledOnce();
+    });
+
+    it("is asked after the dirty items; a disposed veto is not asked", async () => {
+        const { dialogService, lifecycle } = makeServices();
+        const onQuit = vi.fn();
+        const veto = vi.fn(() => true);
+        const registration = lifecycle.registerShutdownVeto(veto);
+        lifecycle.registerShutdownParticipant({ collectDirty: () => [dirtyItem("a.txt")] });
+
+        const request = lifecycle.requestShutdown(onQuit);
+        expect(veto).not.toHaveBeenCalled();
+        dialogService.getOpenConfirmSaveDialog()!.onDontSave?.();
+        await request;
+        expect(veto).toHaveBeenCalledOnce();
+
+        registration.dispose();
+        const next = lifecycle.requestShutdown(onQuit);
+        dialogService.getOpenConfirmSaveDialog()!.onDontSave?.();
+        await next;
+        expect(onQuit).toHaveBeenCalledOnce();
+    });
+});

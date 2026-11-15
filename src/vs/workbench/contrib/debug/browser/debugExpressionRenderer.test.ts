@@ -159,9 +159,34 @@ describe("DebugExpressionRenderer", () => {
         showTypes = true;
 
         expect(text(renderer.renderWatchExpression(expression))).toBe("sum: long = 45");
+        expect(renderer.renderWatchExpression(expression)[2]).toEqual({
+            text: "long",
+            fg: "debugTokenExpression.type",
+        });
         expression.type = undefined;
         expect(text(renderer.renderWatchExpression(expression))).toBe("sum: 45");
         expect(text(renderer.renderWatchExpression(new Expression("")))).toBe(": ");
+    });
+
+    it("a watch value is colored by its kind and highlighted for a second after it changes", () => {
+        vi.useFakeTimers();
+        const expression = new Expression("count");
+        expression.available = true;
+        expression.value = "3";
+
+        expect(renderer.renderWatchExpression(expression)[2]).toEqual({ text: "3", fg: "debugTokenExpression.number" });
+        expression.value = "4";
+        expect(renderer.renderWatchExpression(expression)[2]).toEqual({
+            text: "4",
+            fg: "editor.background",
+            bg: "debugView.valueChangedHighlight",
+        });
+    });
+
+    it("a plain value, not a debug model object, is always available", () => {
+        expect(renderer.renderValue({ value: "3" }, { colorize: true })).toEqual([
+            { text: "3", fg: "debugTokenExpression.number" },
+        ]);
     });
 
     it("a value longer than 1024 is cut with an ellipsis", () => {

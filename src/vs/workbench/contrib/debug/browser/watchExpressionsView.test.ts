@@ -1,4 +1,4 @@
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createDebugServiceFixture, type IDebugServiceFixture } from "../../../../../TestUtils/debugServiceFixture.ts";
@@ -11,12 +11,19 @@ import {
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import { computeThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import { bindWidgetGlyphs } from "../../../../platform/theme/browser/widgetGlyphs.ts";
 import { StaticProductIconService } from "../../../../platform/theme/common/productIconService.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { InputBoxOptions } from "../../../browser/parts/quickinput/quickInputService.ts";
-import { State } from "../common/debug.ts";
+import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
+import { type IStackFrame, State } from "../common/debug.ts";
+import type { Expression } from "../common/debugModel.ts";
+import type { ViewModel } from "../common/debugViewModel.ts";
 
 import { WATCH_REFRESH_DELAY_MS, WatchExpressionsView } from "./watchExpressionsView.ts";
+
+const vars = computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
 
 describe("WatchExpressionsView", () => {
     let fx: IDebugServiceFixture;
@@ -96,6 +103,14 @@ describe("WatchExpressionsView", () => {
             expect(screen()).toContain("nums[5]: 67");
         });
         expect(evaluations()).toEqual(expect.arrayContaining(["p", "nums[5]"]));
+        const contexts = factory.adapters.flatMap((adapter) =>
+            adapter.requests
+                .filter((request) => request.command === "evaluate")
+                .map((request) => (request.arguments as { context?: string }).context),
+        );
+        expect(new Set(contexts)).toEqual(new Set(["watch"]));
+        // Row ids of their own: the VARIABLES tree sits in the same window.
+        expect(String(view.tree.list.getCursorElement()?.id)).toMatch(/^watch:/);
 
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
@@ -104,10 +119,40 @@ describe("WatchExpressionsView", () => {
         expect(view.tree.focused?.name).toBe("p");
     });
 
-    it("Add Expression: an empty row is not evaluated; the answer names it and evaluates it once", async () => {
+    it("a child whose value changed since the last stop is highlighted", async () => {
+        fx.service.addWatchExpression("p");
+        await start();
+        await vi.waitFor(() => {
+            expect(screen()).toContain("p: {x:1.5, y:-2}");
+        });
+        app.sendKey("ArrowRight");
+        await vi.waitFor(() => {
+            expect(screen()).toContain("x: 1.5");
+        });
+        const viewModel = fx.service.getViewModel();
+        const [p] = fx.service.getModel().getWatchExpressions();
+        // Behind the model's back, as the program itself would change it.
+        await viewModel.focusedSession!.setVariable((p as Expression).reference, "x", "2");
+
+        await viewModel.focusedThread!.next();
+
+        await vi.waitFor(() => {
+            app.render();
+            const rows = app.backend.screenToString().split("\n");
+            const y = rows.findIndex((row) => row.includes("x: 2"));
+            expect(y).toBeGreaterThanOrEqual(0);
+            expect(app.backend.getBgAt(new Point(rows[y].indexOf("x: 2") + 3, y))).toBe(
+                vars["debugView.valueChangedHighlight"],
+            );
+        });
+    });
+
+    it("Add Expression: the new empty row evaluates nothing; the answer names it and evaluates the list once", async () => {
+        fx.service.addWatchExpression("a");
         await start();
         // The refresh that follows the focus of the stop is behind us.
         await new Promise((resolve) => setTimeout(resolve, WATCH_REFRESH_DELAY_MS * 2));
+        const before = evaluations().length;
         answers.push("sum");
 
         fx.service.addWatchExpression();
@@ -116,7 +161,7 @@ describe("WatchExpressionsView", () => {
             expect(screen()).toContain("sum: 0");
         });
         expect(asked).toEqual([{ placeholder: "Expression to watch", value: "" }]);
-        expect(evaluations()).toEqual(["sum"]);
+        expect(evaluations().slice(before)).toEqual(["a", "sum"]);
         expect(fx.contextKeys.getRaw("expressionSelected")).toBe(false);
     });
 
@@ -166,6 +211,7 @@ describe("WatchExpressionsView", () => {
         });
         const [sum] = fx.service.getModel().getWatchExpressions();
         const before = evaluations().length;
+        const updateViews = vi.spyOn(fx.service.getViewModel(), "updateViews");
         answers.push("total");
 
         fx.service.getViewModel().setSelectedExpression(sum, false);
@@ -174,11 +220,57 @@ describe("WatchExpressionsView", () => {
         });
         await flushMicrotasks(10);
         expect(evaluations().slice(before)).toEqual(["total"]);
+        // The other views still hear of the rename.
+        expect(updateViews).toHaveBeenCalledTimes(1);
 
         fx.service.getViewModel().updateViews();
         await vi.waitFor(() => {
             expect(evaluations().slice(before)).toEqual(["total", "total"]);
         });
+    });
+
+    it("a view made in a stop evaluates at once, and updateViews evaluates again", async () => {
+        fx.service.addWatchExpression("p");
+        await start();
+        await vi.waitFor(() => {
+            expect(screen()).toContain("p: {x:1.5, y:-2}");
+        });
+        await new Promise((resolve) => setTimeout(resolve, WATCH_REFRESH_DELAY_MS * 2));
+        const before = evaluations().length;
+
+        const late = new WatchExpressionsView(fx.service, testExpressionRenderer(), fx.contextKeys, {
+            input: () => Promise.resolve(undefined),
+        });
+        try {
+            await vi.waitFor(() => {
+                expect(evaluations().slice(before)).toEqual(["p"]);
+            });
+
+            fx.service.getViewModel().updateViews();
+            await vi.waitFor(() => {
+                expect(evaluations().slice(before)).toEqual(["p", "p", "p"]);
+            });
+        } finally {
+            late.dispose();
+        }
+    });
+
+    it("frame changes coalesce: one refresh 50 ms after the first, not postponed by the next", () => {
+        vi.useFakeTimers();
+        try {
+            const refresh = vi.spyOn(view, "refresh");
+            const viewModel = fx.service.getViewModel() as ViewModel;
+            const frame = (id: string): IStackFrame => ({ getId: () => id }) as IStackFrame;
+
+            viewModel.setFocus(frame("a"), undefined, undefined, false);
+            vi.advanceTimersByTime(WATCH_REFRESH_DELAY_MS - 10);
+            viewModel.setFocus(frame("b"), undefined, undefined, false);
+            vi.advanceTimersByTime(10);
+
+            expect(refresh).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it("Enter on a lazy child resolves it and opens it; on anything else it does nothing", async () => {

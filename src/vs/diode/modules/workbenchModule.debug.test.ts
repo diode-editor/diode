@@ -6,11 +6,15 @@ import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/conte
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { StateServiceDIToken } from "../../platform/state/common/iStateService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
+import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
+import { DebugQuickAccessProviderDIToken } from "../../workbench/contrib/debug/browser/debugQuickAccess.ts";
 import {
     DebugExtensionActivatorDIToken,
     DebugServicePortsDIToken,
     NO_DEBUG_EXTENSIONS,
 } from "../../workbench/contrib/debug/browser/debugService.ts";
+import { QuickAccessRegistryDIToken } from "../../workbench/contrib/quickaccess/common/quickAccessRegistry.ts";
+import { TaskServiceDIToken } from "../../workbench/contrib/tasks/browser/taskService.ts";
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
 import { TextFileModelServiceDIToken } from "../../workbench/services/textfile/common/textFileModelService.ts";
 
@@ -33,6 +37,19 @@ describe("workbenchModule — the ports of the debug service", () => {
         expect(container.get(DebugExtensionActivatorDIToken)).toBe(NO_DEBUG_EXTENSIONS);
         await expect(ports.extensions.activateByEvent("onDebug")).resolves.toBeUndefined();
         await expect(ports.extensions.whenInstalledExtensionsRegistered()).resolves.toBeUndefined();
+    });
+
+    it("launch.json, the debug tasks, saving, Select and Start Debugging and the exit confirmation are wired", async () => {
+        const { container } = createTestContainer();
+        const ports = container.get(DebugServicePortsDIToken);
+
+        expect(ports.configurationManager.configuration).toBe(container.get(IConfigurationServiceDIToken));
+        expect(ports.tasks.tasks).toBe(container.get(TaskServiceDIToken));
+        await expect(ports.saveAllBeforeStart()).resolves.toBeUndefined();
+        expect(container.get(QuickAccessRegistryDIToken).getProvider("debug run").provider).toBe(
+            container.get(DebugQuickAccessProviderDIToken),
+        );
+        expect(container.get(DebugLifecycleDIToken)).toBeInstanceOf(DebugLifecycle);
     });
 
     it("a file is dirty while its open model is modified", () => {

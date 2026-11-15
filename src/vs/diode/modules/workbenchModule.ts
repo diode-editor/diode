@@ -128,6 +128,11 @@ import {
 } from "../../workbench/common/workbenchContributionsRegistry.ts";
 import { BulkEditBuffers } from "../../workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { IBulkEditBuffersDIToken } from "../../workbench/contrib/bulkEdit/common/iBulkEditBuffers.ts";
+import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
+import {
+    DebugQuickAccessProviderDIToken,
+    StartDebugQuickAccessProvider,
+} from "../../workbench/contrib/debug/browser/debugQuickAccess.ts";
 import {
     DebugExtensionActivatorDIToken,
     DebugService,
@@ -541,6 +546,8 @@ import {
     WORKBENCH_CONTRIBUTIONS,
 } from "../../workbench/workbench.common.main.ts";
 
+import { configurationManagerPorts, debugTaskRunnerPorts, saveAllBeforeDebugStart } from "./debugPorts.ts";
+
 const EDITOR_PANE_FACTORIES: readonly EditorPaneFactoryCtor[] = [
     createKeybindingsEditorPaneFactory,
     createDiffEditorPaneFactory,
@@ -609,7 +616,10 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(GotoSymbolQuickAccessProviderDIToken, GotoSymbolQuickAccessProvider);
     container.bind(OpenEditorsQuickAccessProviderDIToken, OpenEditorsQuickAccessProvider);
     container.bind(WorkspaceSymbolsQuickAccessProviderDIToken, WorkspaceSymbolsQuickAccessProvider);
-    container.bind(QuickAccessProvidersDIToken, () => QUICK_ACCESS_PROVIDERS);
+    container.bind(QuickAccessProvidersDIToken, () => [
+        ...QUICK_ACCESS_PROVIDERS,
+        { prefix: StartDebugQuickAccessProvider.PREFIX, provider: DebugQuickAccessProviderDIToken },
+    ]);
     container.bind(QuickAccessRegistryDIToken, QuickAccessRegistry);
     container.bind(QuickOpenServiceDIToken, QuickOpenService);
     // A new folder with a different profile reloads the window into it instead of switching folders: the profile is fixed per process.
@@ -739,6 +749,9 @@ export const workbenchModule: ContainerModule = (container) => {
                 collapseIdenticalLines: configuration.get("debug.console.collapseIdenticalLines"),
                 maximumLines: configuration.get("debug.console.maximumLines"),
             }),
+            configurationManager: configurationManagerPorts(container),
+            tasks: debugTaskRunnerPorts(container),
+            saveAllBeforeStart: () => saveAllBeforeDebugStart(container),
             terminalLauncher: container.get(DebugTerminalLauncherDIToken),
             debugConfiguration: () => ({
                 openDebug: configuration.get("debug.openDebug"),
@@ -758,6 +771,8 @@ export const workbenchModule: ContainerModule = (container) => {
             },
         };
     });
+    container.bind(DebugQuickAccessProviderDIToken, StartDebugQuickAccessProvider);
+    container.bind(DebugLifecycleDIToken, DebugLifecycle);
     // Stryker disable next-line ArrowFunction: DI binding; the function itself is tested in `node/terminals.test.ts`
     container.bind(HasChildProcessesDIToken, () => hasChildProcesses);
     container.bind(DebugTerminalLauncherDIToken, DebugTerminalLauncher);

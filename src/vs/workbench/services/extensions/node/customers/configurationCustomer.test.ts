@@ -195,6 +195,16 @@ describe("ConfigurationCustomer — configuration.update", () => {
         );
     });
 
+    it("so is the standalone launch section", async () => {
+        const h = setupWrite();
+        await h.update({ key: "launch.configurations", value: [] });
+        await h.update({ key: "launch", value: { version: "0.2.0" }, target: "workspace" });
+        expect(h.targets).toEqual(["workspace", "workspace"]);
+        await expect(h.update({ key: "launchX", value: 1 })).rejects.toThrow(
+            "launchX is not a registered configuration.",
+        );
+    });
+
     it("application/machine to the workspace — the service rejection arrives with the upstream text", async () => {
         const h = setupWrite();
         await expect(h.update({ key: "t.machine", value: 2 })).rejects.toThrow(

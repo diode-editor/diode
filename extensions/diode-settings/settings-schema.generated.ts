@@ -23,6 +23,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["auto", "on", "off"],
     },
     {
+        key: "debug.confirmOnExit",
+        type: "string",
+        default: "never",
+        description: "Controls whether to confirm when the window closes if there are active debug sessions.",
+        enum: ["never", "always"],
+    },
+    {
         key: "debug.console.closeOnEnd",
         type: "boolean",
         default: false,
@@ -42,6 +49,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Controls the maximum number of lines in the Debug Console.",
     },
     {
+        key: "debug.hideSlowPreLaunchWarning",
+        type: "boolean",
+        default: false,
+        description: "Hide the warning shown when a `preLaunchTask` has been running for a while.",
+    },
+    {
         key: "debug.internalConsoleOptions",
         type: "string",
         default: "openOnFirstSessionStart",
@@ -49,11 +62,25 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart"],
     },
     {
+        key: "debug.onTaskErrors",
+        type: "string",
+        default: "prompt",
+        description: "Controls what to do when errors are encountered after running a preLaunchTask.",
+        enum: ["debugAnyway", "showErrors", "prompt", "abort"],
+    },
+    {
         key: "debug.openDebug",
         type: "string",
         default: "openOnDebugBreak",
         description: "Controls when the debug view should open.",
         enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart", "openOnDebugBreak"],
+    },
+    {
+        key: "debug.saveBeforeStart",
+        type: "string",
+        default: "allEditorsInActiveGroup",
+        description: "Controls what editors to save before starting a debug session.",
+        enum: ["allEditorsInActiveGroup", "nonUntitledEditorsInActiveGroup", "none"],
     },
     {
         key: "debug.showVariableTypes",
@@ -872,6 +899,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description:
             'Keyboard platform: "auto" detects it (LC_DIODE_PLATFORM, the terminal, the local OS); set it when detection guesses wrong, e.g. over ssh from a Mac.',
         enum: ["auto", "mac", "linux", "windows"],
+    },
+    {
+        key: "launch",
+        type: "object",
+        default: { configurations: [], compounds: [] },
+        description:
+            "Global debug launch configuration. Should be used as an alternative to 'launch.json' that is shared across workspaces.",
     },
     {
         key: "merge-conflict.autoNavigateNextConflict.enabled",
