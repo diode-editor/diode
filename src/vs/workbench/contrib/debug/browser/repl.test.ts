@@ -1,26 +1,33 @@
 // The Debug Console view on its own, over a debug service with the synthetic debugger: which session's console it
 // shows (upstream `selectSession`), the rows of groups and nameless objects, the input's hint and keys.
 
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { TestApp as TuidomTestApp } from "@tuidom/testing/TestApp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createDebugServiceFixture, type IDebugServiceFixture } from "../../../../../TestUtils/debugServiceFixture.ts";
 import { TestVariable } from "../../../../../TestUtils/debugViewsFixture.ts";
 import { mockStateService } from "../../../../../TestUtils/mockDebug.ts";
+import { MockDebugAdapter } from "../../../../../TestUtils/mockDebugAdapter.ts";
 import {
     NO_DELAY_TIMING,
     registerSyntheticDebugger,
     SYNTHETIC_LAUNCH_CONFIG,
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
-import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import type { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { computeThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { IViewContainerDescriptor, IViewDescriptor } from "../../../browser/parts/views/viewsService.ts";
+import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { DEBUG_PANEL_ID, type IDebugSession, REPL_VIEW_ID, State } from "../common/debug.ts";
 
 import { Repl, START_DEBUG_FIRST } from "./repl.ts";
+
+const PROMPT_COLOR = 0xff0000;
 
 describe("Repl", () => {
     let fx: IDebugServiceFixture;
@@ -33,6 +40,10 @@ describe("Repl", () => {
     let shown: boolean;
     let repl: Repl;
     let app: TestApp;
+    let showVariableTypes: boolean;
+    /** What a keydown in the console left for the workbench: whether the console took it. */
+    let prevented: Map<string, boolean>;
+    const mocks: MockDebugAdapter[] = [];
 
     beforeEach(() => {
         fx = createDebugServiceFixture();
@@ -41,6 +52,8 @@ describe("Repl", () => {
         views = [];
         glyphs = ">";
         shown = true;
+        showVariableTypes = false;
+        prevented = new Map();
         const icons = { glyph: () => glyphs, onDidChange: iconsChanged.event } as unknown as IProductIconService;
         repl = new Repl(
             fx.service,
@@ -50,16 +63,27 @@ describe("Repl", () => {
                 isViewShown: () => shown,
                 onDidShowView: viewShown.event,
             } as never,
-            { get: () => false, onDidChangeConfiguration: () => ({ dispose: () => undefined }) } as never,
+            {
+                get: (key: string) => key === "debug.showVariableTypes" && showVariableTypes,
+                onDidChangeConfiguration: () => ({ dispose: () => undefined }),
+            } as never,
             icons,
             mockStateService(),
         );
-        app = TestApp.createWithContent(repl.view, new Size(60, 12));
+        // The prompt's own color differs from the plain foreground it defaults to in the bundled themes.
+        app = TuidomTestApp.createWithContent(repl.view, new Size(60, 12), {
+            ...computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
+            "debugConsoleInputIcon.foreground": PROMPT_COLOR,
+        });
+        repl.view.addEventListener("keydown", (event) => {
+            prevented.set(event.key, event.defaultPrevented);
+        });
     });
 
     afterEach(async () => {
         await fx.service.stopSession(undefined);
         for (const adapter of factory.adapters) adapter.dispose();
+        for (const adapter of mocks.splice(0)) adapter.dispose();
         repl.dispose();
         fx.service.dispose();
     });
@@ -127,6 +151,45 @@ describe("Repl", () => {
         expect(repl.shownSession).toBeDefined();
     });
 
+    /** A session of an adapter that launches and never stops: nothing focuses it. */
+    async function startRunning(name: string): Promise<IDebugSession> {
+        if (!fx.service.getAdapterManager().getDebugger("mock")) {
+            fx.service.getAdapterManager().registerDebugger({ type: "mock" });
+            fx.service.getAdapterManager().registerDebugAdapterFactory(["mock"], {
+                createDebugAdapter: () => {
+                    const adapter = new MockDebugAdapter();
+                    mocks.push(adapter);
+                    return adapter;
+                },
+                substituteVariables: (_folder, config) => Promise.resolve(config),
+            });
+        }
+        expect(await fx.service.startDebugging(undefined, { type: "mock", request: "launch", name })).toBe(true);
+        const session = fx.service
+            .getModel()
+            .getSessions()
+            .find((s) => s.name === name);
+        if (!session) throw new Error(`no session ${name}`);
+        return session;
+    }
+
+    it("a starting session takes over only an empty or ended console, as it is announced", async () => {
+        // Registered after the console's own listener: it sees what the console did, before any focus change.
+        const shownOnStart: (string | undefined)[] = [];
+        fx.service.onWillNewSession(() => shownOnStart.push(repl.shownSession?.name));
+
+        await startRunning("first");
+        // The first one runs: the console stays on it.
+        await startRunning("second");
+        await fx.service.stopSession(undefined);
+        await vi.waitFor(() => {
+            expect(fx.service.getModel().getSessions()).toHaveLength(0);
+        });
+        await startRunning("third");
+
+        expect(shownOnStart).toEqual(["first", "first", "third"]);
+    });
+
     it("a new session takes over the console only from an ended one", async () => {
         const first = await start("first");
         await fx.service.stopSession(first);
@@ -158,6 +221,93 @@ describe("Repl", () => {
         expect(screen()).not.toContain("while hidden");
         viewShown.fire(REPL_VIEW_ID);
         await shows("while hidden");
+    });
+
+    it("the input's prompt is drawn in its theme color", () => {
+        const rows = screen().split("\n");
+        const y = rows.length - 1;
+
+        expect(rows[y].indexOf(">")).toBe(1);
+        expect(app.backend.getFgAt(new Point(1, y))).toBe(PROMPT_COLOR);
+    });
+
+    it("the console registers its view movable, as upstream", () => {
+        expect(views[0]).toMatchObject({ order: 10, canMoveView: true });
+    });
+
+    it("the input's hint comes back when the shown session ends while another one keeps the focus", async () => {
+        const first = await start("first");
+        const second = await start("second");
+        await fx.service.focusStackFrame(undefined, undefined, second, { explicit: true });
+        repl.selectSession(first);
+        expect(repl.input.placeholder).toBeUndefined();
+
+        await fx.service.stopSession(first);
+
+        await vi.waitFor(() => {
+            expect(first.state).toBe(State.Inactive);
+        });
+        expect(fx.service.getViewModel().focusedSession?.name).toBe("second");
+        expect(repl.input.placeholder).toBe(START_DEBUG_FIRST);
+    });
+
+    it("the console takes Enter, Up, Down and Escape on a non-empty input; Escape on an empty one goes on", async () => {
+        repl.focus();
+        app.sendKey("Escape");
+        expect(prevented.get("Escape")).toBe(false);
+        app.sendKey("a");
+        app.sendKey("Escape");
+        expect(prevented.get("Escape")).toBe(true);
+        expect(repl.input.inputState.value).toBe("");
+        for (const key of ["ArrowUp", "ArrowDown", "Enter"]) {
+            app.sendKey(key);
+            expect(prevented.get(key), key).toBe(true);
+        }
+    });
+
+    it("a focus change within the shown session keeps the user's scroll position", async () => {
+        const session = await start("s");
+        for (let i = 0; i < 40; i++) session.appendToRepl({ output: `line ${String(i)}\n`, sev: "info" });
+        await shows("line 39");
+        repl.tree.list.focus();
+        app.sendKey("Home");
+        expect(screen()).not.toContain("line 39");
+
+        repl.selectSession(session);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        expect(screen()).not.toContain("line 39");
+    });
+
+    it("rows carry the console's id prefix", async () => {
+        const session = await start("s");
+        await shows("Launching:");
+        repl.tree.list.focus();
+        app.sendKey("Home");
+
+        expect(String(repl.tree.list.getCursorElement()?.id)).toMatch(/^repl:/u);
+        expect(session).toBeDefined();
+    });
+
+    it("new output is drawn after upstream's 50 ms; a cleared console at once", async () => {
+        const session = await start("s");
+        await shows("Launching:");
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        try {
+            session.appendToRepl({ output: "late line\n", sev: "info" });
+            await vi.advanceTimersByTimeAsync(40);
+            expect(screen()).not.toContain("late line");
+            // More output while a refresh is pending does not postpone it.
+            session.appendToRepl({ output: "later line\n", sev: "info" });
+            await vi.advanceTimersByTimeAsync(15);
+            expect(screen()).toContain("later line");
+
+            session.removeReplExpressions();
+            await vi.advanceTimersByTimeAsync(1);
+            expect(screen()).not.toContain("late line");
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it("clearing an ended session's console hides that session", async () => {
@@ -248,6 +398,51 @@ describe("Repl", () => {
         }
     });
 
+    it("debug.showVariableTypes shows the types of an object's children", async () => {
+        showVariableTypes = true;
+        const session = await start("s");
+        session.appendToRepl({
+            output: "",
+            expression: new TestVariable("p", "{x=1}", [new TestVariable("x", "1", [], { type: "int" })]),
+            sev: "info",
+        });
+        await shows("{x=1}");
+        repl.tree.list.focus();
+        app.sendKey("End");
+        app.sendKey("ArrowRight");
+
+        await shows("x: int = 1");
+    });
+
+    it("an object logged with a source shows no source: only output lines and groups have one", async () => {
+        const session = await start("s");
+        const source = session.getSource({ name: "obj.cpp", path: "/w/obj.cpp" });
+        session.appendToRepl({
+            output: "",
+            expression: new TestVariable("p", "{y=2}"),
+            sev: "info",
+            source: { lineNumber: 9, column: 1, source },
+        });
+
+        await shows("{y=2}");
+        expect(screen()).not.toContain("obj.cpp");
+    });
+
+    it("an output element with several lines (collapsing off) keeps its inner line break", async () => {
+        await fx.configuration.updateValue("debug.console.collapseIdenticalLines", false);
+        const session = await start("s");
+        session.appendToRepl({ output: "alpha\nbeta\n", sev: "info" });
+
+        session.appendToRepl({ output: "gamma\r\n", sev: "info" });
+
+        await shows("alpha beta");
+        expect(
+            screen()
+                .split("\n")
+                .some((row) => row.trimEnd() === " gamma"),
+        ).toBe(true);
+    });
+
     it("a group shows its name and its children when it opens expanded; a collapsed one has its chevron", async () => {
         const session = await start("s");
         session.appendToRepl({ output: "", sev: "info" });
@@ -321,6 +516,7 @@ describe("Repl", () => {
 
         await shows("main.cpp:4");
         expect(screen()).not.toContain("work");
+        expect(screen()).not.toContain("src/");
     });
 
     it("the input's hint follows the shown session's state", async () => {

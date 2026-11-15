@@ -129,6 +129,8 @@ describe("Debug Console in the workbench", () => {
         await startStopped();
 
         expect(consoleShown()).toBe(true);
+        // Upstream opens it without taking the focus.
+        expect(h.container.get(ReplDIToken).input.isFocused).toBe(false);
         await vi.waitFor(() => {
             expect(screen()).toContain("Hello from hello 1.2.0!");
         });
@@ -185,11 +187,14 @@ describe("Debug Console in the workbench", () => {
     it("an arithmetic result is a number in the focused frame; the input keeps the focus", async () => {
         await startStopped();
 
-        await evaluate("nums[3] + 1");
+        await evaluate("6 * 7");
 
         await vi.waitFor(() => {
-            expect(screen()).toContain(echo("nums[3] + 1"));
+            expect(lines()[find(echo("6 * 7")).y + 1].trim()).toMatch(/^\d+$/u);
         });
+        const y = find(echo("6 * 7")).y + 1;
+        const result = new Point(lines()[y].search(/\d/u), y);
+        expect(h.testApp.backend.getFgAt(result)).toBe(vars()["debugTokenExpression.number"]);
         expect(h.container.get(ReplDIToken).input.isFocused).toBe(true);
     });
 
@@ -267,12 +272,14 @@ describe("Debug Console in the workbench", () => {
         expect(fg("main.cpp:35")).toBe(vars()["debugConsole.sourceForeground"]);
 
         session.appendToRepl({ output: "boom\nboom\nboom\n", sev: "error" });
+        session.appendToRepl({ output: "twice\ntwice\n", sev: "info" });
         session.appendToRepl({ output: "Console note\n", sev: "ignore" });
         await vi.waitFor(() => {
             expect(screen()).toContain("Console note");
         });
         const badge = find(" 3 ");
         expect(rowOf("boom")).toContain(" 3  boom");
+        expect(rowOf("twice")).toContain(" 2  twice");
         expect(h.testApp.backend.getBgAt(new Point(badge.x + 1, badge.y))).toBe(vars()["badge.background"]);
         expect(fg("boom")).toBe(vars()["debugConsole.errorForeground"]);
         expect(h.testApp.app.screen.getCell(find("Console note")).style & StyleFlags.Italic).toBe(StyleFlags.Italic);
@@ -281,11 +288,13 @@ describe("Debug Console in the workbench", () => {
     it("an object the adapter logged (`variablesReference`) expands in the output", async () => {
         const session = await startStopped();
 
+        // A logged number is colored as one.
+        session.appendToRepl({ output: "", expression: new TestVariable("n", "4242"), sev: "info" });
         session.appendToRepl({
             output: "",
             expression: new TestVariable("point", "{x=1, y=2}", [
                 // A child without a name shows its value alone.
-                new TestVariable("", "<extra 7>"),
+                new TestVariable("", "777"),
                 new TestVariable("x", "1"),
                 new TestVariable("y", "2"),
             ]),
@@ -294,6 +303,7 @@ describe("Debug Console in the workbench", () => {
         await vi.waitFor(() => {
             expect(screen()).toContain("{x=1, y=2}");
         });
+        expect(fg("4242")).toBe(vars()["debugTokenExpression.number"]);
         const console = h.container.get(ReplDIToken);
         console.tree.list.focus();
         h.testApp.sendKey("End");
@@ -303,7 +313,7 @@ describe("Debug Console in the workbench", () => {
             expect(screen()).toContain("x: 1");
         });
         expect(screen()).toContain("y: 2");
-        expect(lines().some((row) => row.trim() === "<extra 7>")).toBe(true);
+        expect(fg("777")).toBe(vars()["debugTokenExpression.number"]);
     });
 
     it("an evaluation scrolls to the tail even after the user scrolled up; new output alone does not", async () => {

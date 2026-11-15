@@ -24,7 +24,6 @@ import type {
     INotificationMessage,
 } from "../vs/workbench/services/notification/browser/notificationService.ts";
 
-import { DEFAULT_REPL_CONFIGURATION } from "./debugSessionFixture.ts";
 import { type MockStateService, mockStateService, NO_DIRTY_FILES, NO_TERMINAL_LAUNCHER } from "./mockDebug.ts";
 
 export const USER_SETTINGS = Uri.file("/user/settings.json");
@@ -218,7 +217,10 @@ export function createDebugServiceFixture(
             },
         },
         workspace,
-        replConfiguration: () => DEFAULT_REPL_CONFIGURATION,
+        replConfiguration: () => ({
+            collapseIdenticalLines: configuration.get("debug.console.collapseIdenticalLines"),
+            maximumLines: configuration.get("debug.console.maximumLines"),
+        }),
         configurationManager,
         tasks,
         saveAllBeforeStart: () => {

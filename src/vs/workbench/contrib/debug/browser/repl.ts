@@ -26,7 +26,7 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { codicon } from "../../../../base/common/codicons.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
-import { type IDisposable, MutableDisposable } from "../../../../base/common/lifecycle.ts";
+import { combinedDisposable, type IDisposable, MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
@@ -88,6 +88,11 @@ const SEVERITY_SPAN: Readonly<Record<ReplSeverity, Omit<IRowSpan, "text">>> = {
     ignore: { style: StyleFlags.Italic },
 };
 
+/** A row is one line: the element's own line break goes, the inner ones (collapsing off) become spaces. */
+function oneLine(value: string): string {
+    return value.replace(/\r?\n$/u, "").replace(/\r?\n/gu, " ");
+}
+
 function isNesting(element: IReplElement): element is INestingReplElement {
     return (element as Partial<INestingReplElement>).hasChildren === true;
 }
@@ -116,11 +121,12 @@ export class Repl extends Component implements IContextKeyContributor {
     private session: IDebugSession | undefined;
     /** Sessions cleared after they ended: no longer shown. */
     private readonly sessionsToIgnore = new Set<IDebugSession>();
-    private readonly replElementsChangeListener = this.register(new MutableDisposable<IDisposable>());
+    private readonly sessionListeners = this.register(new MutableDisposable<IDisposable>());
     /** Evaluations without a running session: the input and the hint, after the shown console. */
     private readonly orphans: IReplElement[] = [];
     /** Where Up/Down stand in the history; its length (or more: a history loaded from the store) is past the newest entry. */
     private historyIndex = Number.MAX_SAFE_INTEGER;
+    // Stryker disable next-line BooleanLiteral: equivalent — every refresh with rows to reveal follows a selectSession or an evaluation, which set it themselves
     private revealLast = false;
     /** Output came while the console was hidden. */
     private stale = false;
@@ -229,11 +235,6 @@ export class Repl extends Component implements IContextKeyContributor {
             }),
         );
         this.register(
-            debugService.onDidChangeState(() => {
-                this.updateInput();
-            }),
-        );
-        this.register(
             icons.onDidChange(() => {
                 prompt.setText(icons.glyph(EVALUATION_PROMPT_ICON));
                 this.tree.rerender();
@@ -271,9 +272,15 @@ export class Repl extends Component implements IContextKeyContributor {
         }
         if (session && this.session !== session) {
             const shown = session;
-            this.replElementsChangeListener.value = shown.onDidChangeReplElements(() => {
-                this.refreshReplElements(shown.getReplElements().length === 0);
-            });
+            this.sessionListeners.value = combinedDisposable(
+                shown.onDidChangeReplElements(() => {
+                    this.refreshReplElements(shown.getReplElements().length === 0);
+                }),
+                // The shown session may end without the focus moving: the hint follows its own state.
+                shown.onDidChangeState(() => {
+                    this.updateInput();
+                }),
+            );
             this.session = shown;
             this.orphans.length = 0;
             this.revealLast = true;
@@ -388,7 +395,7 @@ export class Repl extends Component implements IContextKeyContributor {
                           { text: " " },
                       ]
                     : [];
-            return [...badge, { text: element.value.replace(/\r?\n$/u, ""), ...SEVERITY_SPAN[element.severity] }];
+            return [...badge, { text: oneLine(element.value), ...SEVERITY_SPAN[element.severity] }];
         }
         if (element instanceof ReplGroup) return [{ text: element.name }];
         if (element instanceof ReplVariableElement) {
