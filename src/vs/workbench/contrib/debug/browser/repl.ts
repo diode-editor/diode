@@ -118,8 +118,8 @@ export class Repl extends Component implements IContextKeyContributor {
     private readonly replElementsChangeListener = this.register(new MutableDisposable<IDisposable>());
     /** Evaluations without a running session: the input and the hint, after the shown console. */
     private readonly orphans: IReplElement[] = [];
-    /** Where Up/Down stand in the history; its length is past the newest entry. */
-    private historyIndex = 0;
+    /** Where Up/Down stand in the history; its length (or more: a history loaded from the store) is past the newest entry. */
+    private historyIndex = Number.MAX_SAFE_INTEGER;
     private revealLast = false;
     /** Output came while the console was hidden. */
     private stale = false;
