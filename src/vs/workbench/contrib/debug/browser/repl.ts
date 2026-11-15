@@ -121,11 +121,13 @@ export class Repl extends Component implements IContextKeyContributor {
     /** Where Up/Down stand in the history; its length is past the newest entry. */
     private historyIndex = 0;
     private revealLast = false;
+    /** Output came while the console was hidden. */
+    private stale = false;
     private readonly refreshScheduler: RunOnceScheduler;
 
     public constructor(
         private readonly debugService: DebugService,
-        views: ViewsService,
+        private readonly views: ViewsService,
         configuration: IConfigurationService,
         private readonly icons: IProductIconService,
         private readonly state: Pick<IStateService, "get" | "store">,
@@ -202,6 +204,11 @@ export class Repl extends Component implements IContextKeyContributor {
             },
         });
 
+        this.register(
+            views.onDidShowView((id) => {
+                if (id === REPL_VIEW_ID && this.stale) this.refresh();
+            }),
+        );
         const viewModel = debugService.getViewModel();
         this.register(
             viewModel.onDidFocusSession((session) => {
@@ -260,17 +267,15 @@ export class Repl extends Component implements IContextKeyContributor {
                     .find((s) => !this.sessionsToIgnore.has(s));
             }
         }
-        if (session) {
+        if (session && this.session !== session) {
             const shown = session;
             this.replElementsChangeListener.value = shown.onDidChangeReplElements(() => {
-                this.refreshScheduler.schedule(shown.getReplElements().length === 0 ? 0 : undefined);
+                this.refreshReplElements(shown.getReplElements().length === 0);
             });
-            if (this.session !== shown) {
-                this.session = shown;
-                this.orphans.length = 0;
-                this.revealLast = true;
-                this.refresh();
-            }
+            this.session = shown;
+            this.orphans.length = 0;
+            this.revealLast = true;
+            this.refresh();
         }
         this.updateInput();
     }
@@ -341,7 +346,18 @@ export class Repl extends Component implements IContextKeyContributor {
         this.input.markDirty();
     }
 
+    /** Upstream: a hidden console is refreshed when it shows; a pending refresh takes the later output too. */
+    private refreshReplElements(noDelay: boolean): void {
+        if (!this.views.isViewShown(REPL_VIEW_ID)) {
+            this.stale = true;
+            return;
+        }
+        if (this.refreshScheduler.isScheduled()) return;
+        this.refreshScheduler.schedule(noDelay ? 0 : undefined);
+    }
+
     private refresh(): void {
+        this.stale = false;
         this.refreshScheduler.cancel();
         const reveal = this.revealLast;
         this.revealLast = false;
@@ -363,14 +379,14 @@ export class Repl extends Component implements IContextKeyContributor {
         }
         if (element instanceof ReplEvaluationResult) return this.renderer.renderValue(element, { colorize: true });
         if (element instanceof ReplOutputElement) {
-            const spans: IRowSpan[] = [];
-            if (element.count >= 2) {
-                spans.push(
-                    { text: ` ${String(element.count)} `, fg: "badge.foreground", bg: "badge.background" },
-                    { text: " " },
-                );
-            }
-            return [...spans, { text: element.value.replace(/\r?\n$/u, ""), ...SEVERITY_SPAN[element.severity] }];
+            const badge: IRowSpan[] =
+                element.count >= 2
+                    ? [
+                          { text: ` ${String(element.count)} `, fg: "badge.foreground", bg: "badge.background" },
+                          { text: " " },
+                      ]
+                    : [];
+            return [...badge, { text: element.value.replace(/\r?\n$/u, ""), ...SEVERITY_SPAN[element.severity] }];
         }
         if (element instanceof ReplGroup) return [{ text: element.name }];
         if (element instanceof ReplVariableElement) {

@@ -28,11 +28,11 @@ import { computeThemeVars } from "../../../../platform/theme/browser/themeStyleV
 import { ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
-import { REPL_VIEW_ID } from "../common/debug.ts";
+import { type IDebugSession, REPL_VIEW_ID } from "../common/debug.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
 import { ReplDIToken, START_DEBUG_FIRST } from "./repl.ts";
-import { CLEAR_REPL_ID } from "./replActions.ts";
+import { CLEAR_REPL_ID, FOCUS_REPL_ID } from "./replActions.ts";
 
 describe("Debug Console in the workbench", () => {
     let h: IAppHarness;
@@ -96,7 +96,11 @@ describe("Debug Console in the workbench", () => {
         return h.testApp.backend.getFgAt(find(text));
     }
 
-    async function startStopped(): Promise<void> {
+    function consoleShown(): boolean {
+        return h.container.get(ViewsServiceDIToken).isViewShown(REPL_VIEW_ID);
+    }
+
+    async function startStopped(): Promise<IDebugSession> {
         registration = registerSyntheticDebugger(
             h.container.get(DebugServiceDIToken).getAdapterManager(),
             NO_DELAY_TIMING,
@@ -105,6 +109,9 @@ describe("Debug Console in the workbench", () => {
         await vi.waitFor(() => {
             expect(h.container.get(ContextKeyServiceDIToken).getRaw("debugState")).toBe("stopped");
         });
+        const session = h.container.get(DebugServiceDIToken).getViewModel().focusedSession;
+        if (!session) throw new Error("no session");
+        return session;
     }
 
     async function evaluate(expression: string): Promise<void> {
@@ -117,11 +124,11 @@ describe("Debug Console in the workbench", () => {
     }
 
     it("the first session opens it with the start's output: the adapter's lines in the warning color", async () => {
-        expect(h.container.get(ViewsServiceDIToken).isViewShown(REPL_VIEW_ID)).toBe(false);
+        expect(consoleShown()).toBe(false);
 
         await startStopped();
 
-        expect(h.container.get(ViewsServiceDIToken).isViewShown(REPL_VIEW_ID)).toBe(true);
+        expect(consoleShown()).toBe(true);
         await vi.waitFor(() => {
             expect(screen()).toContain("Hello from hello 1.2.0!");
         });
@@ -212,12 +219,12 @@ describe("Debug Console in the workbench", () => {
         h.testApp.sendKey("Escape");
         expect(input.inputState.value).toBe("");
         expect(input.isFocused).toBe(true);
-        expect(h.container.get(ViewsServiceDIToken).isViewShown(REPL_VIEW_ID)).toBe(true);
+        expect(consoleShown()).toBe(true);
     });
 
     it("without a session the input shows the hint and Enter answers with it", async () => {
-        await h.commands.execute("workbench.debug.action.focusRepl");
-        expect(h.container.get(ViewsServiceDIToken).isViewShown(REPL_VIEW_ID)).toBe(true);
+        await h.commands.execute(FOCUS_REPL_ID);
+        expect(consoleShown()).toBe(true);
         expect(screen()).toContain(START_DEBUG_FIRST);
 
         typeText(h.testApp, "sum");
@@ -235,9 +242,7 @@ describe("Debug Console in the workbench", () => {
     });
 
     it("output of the adapter: stderr in the error color, the source on the right, repeats as a count", async () => {
-        await startStopped();
-        const session = h.container.get(DebugServiceDIToken).getViewModel().focusedSession;
-        if (!session) throw new Error("no session");
+        const session = await startStopped();
 
         // F5: the program runs to the breakpoint again and logs `sum=… i=…` at main.cpp:35.
         h.testApp.sendKey("F5");
@@ -261,9 +266,7 @@ describe("Debug Console in the workbench", () => {
     });
 
     it("an object the adapter logged (`variablesReference`) expands in the output", async () => {
-        await startStopped();
-        const session = h.container.get(DebugServiceDIToken).getViewModel().focusedSession;
-        if (!session) throw new Error("no session");
+        const session = await startStopped();
 
         session.appendToRepl({
             output: "",
@@ -288,9 +291,7 @@ describe("Debug Console in the workbench", () => {
     });
 
     it("an evaluation scrolls to the tail even after the user scrolled up; new output alone does not", async () => {
-        await startStopped();
-        const session = h.container.get(DebugServiceDIToken).getViewModel().focusedSession;
-        if (!session) throw new Error("no session");
+        const session = await startStopped();
         for (let i = 0; i < 60; i++) session.appendToRepl({ output: `line ${String(i)}\n`, sev: "info" });
         await vi.waitFor(() => {
             expect(screen()).toContain("line 59");
@@ -302,9 +303,7 @@ describe("Debug Console in the workbench", () => {
         expect(screen()).not.toContain("line 59");
         session.appendToRepl({ output: "line 60\n", sev: "info" });
         await vi.waitFor(() => {
-            expect(h.container.get(DebugServiceDIToken).getViewModel().focusedSession?.getReplElements().length).toBe(
-                66,
-            );
+            expect(session.getReplElements()).toHaveLength(66);
         });
         await new Promise((resolve) => setTimeout(resolve, 100));
         expect(screen()).not.toContain("line 60");
@@ -330,10 +329,10 @@ describe("Debug Console in the workbench", () => {
 
         h.testApp.sendKey("Ctrl+k");
         h.testApp.sendKey("y");
-        expect(h.container.get(ViewsServiceDIToken).isViewShown(REPL_VIEW_ID)).toBe(false);
+        expect(consoleShown()).toBe(false);
         h.testApp.sendKey("Ctrl+k");
         h.testApp.sendKey("y");
-        expect(h.container.get(ViewsServiceDIToken).isViewShown(REPL_VIEW_ID)).toBe(true);
+        expect(consoleShown()).toBe(true);
         expect(h.container.get(ReplDIToken).input.isFocused).toBe(true);
     });
 
@@ -350,12 +349,12 @@ describe("Debug Console in the workbench", () => {
     it("debug.console.closeOnEnd closes it when the session ends", async () => {
         await h.container.get(IConfigurationServiceDIToken).updateValue("debug.console.closeOnEnd", true);
         await startStopped();
-        expect(h.container.get(ViewsServiceDIToken).isViewShown(REPL_VIEW_ID)).toBe(true);
+        expect(consoleShown()).toBe(true);
 
         await h.container.get(DebugServiceDIToken).stopSession(undefined);
 
         await vi.waitFor(() => {
-            expect(h.container.get(ViewsServiceDIToken).isViewShown(REPL_VIEW_ID)).toBe(false);
+            expect(consoleShown()).toBe(false);
         });
     });
 });

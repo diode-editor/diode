@@ -45,8 +45,12 @@ export interface ILazyTreeOptions {
 export const LOADING_LABEL = "Loading...";
 const PLACEHOLDER_SUFFIX = "#loading";
 
+function spansText(spans: readonly IRowSpan[]): string {
+    return spans.map((span) => span.text).join("");
+}
+
 function spansLabel(spans: readonly IRowSpan[]): TextLabelElement {
-    const label = new TextLabelElement(spans.map((span) => span.text).join(""));
+    const label = new TextLabelElement(spansText(spans));
     let offset = 0;
     for (const span of spans) {
         // UTF-16 units, as the label indexes its chars.
@@ -116,10 +120,13 @@ export class LazyTreeControl<T> {
         this.refreshToken = token;
         const children = new Map<string, readonly T[]>();
         const visit = async (items: readonly T[]): Promise<void> => {
+            // Only the open nodes: a console holds thousands of rows without children.
+            const open = items.filter(
+                (item) => this.source.hasChildren(item) && this.isExpanded(item, this.source.getKey(item)),
+            );
             await Promise.all(
-                items.map(async (item) => {
+                open.map(async (item) => {
                     const key = this.source.getKey(item);
-                    if (!this.source.hasChildren(item) || !this.isExpanded(item, key)) return;
                     const read = await this.source.getChildren(item);
                     children.set(key, read);
                     await visit(read);
@@ -221,7 +228,7 @@ export class LazyTreeControl<T> {
                 this.items.set(row, item);
                 this.parentOf.set(id, parentId);
                 const expanded = this.isExpanded(item, key);
-                const label = this.source.getLabel?.(item) ?? spans.map((span) => span.text).join("");
+                const label = this.source.getLabel?.(item) ?? spansText(spans);
                 list.appendRow(row, { label, parentId, collapsed: !expanded });
                 if (!this.source.hasChildren(item)) continue;
                 const read = expanded ? this.children.get(key) : undefined;

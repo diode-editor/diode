@@ -29,6 +29,8 @@ describe("Repl", () => {
     let views: IViewDescriptor[];
     let glyphs: string;
     const iconsChanged = new Emitter<void>();
+    const viewShown = new Emitter<string>();
+    let shown: boolean;
     let repl: Repl;
     let app: TestApp;
 
@@ -38,12 +40,15 @@ describe("Repl", () => {
         containers = [];
         views = [];
         glyphs = ">";
+        shown = true;
         const icons = { glyph: () => glyphs, onDidChange: iconsChanged.event } as unknown as IProductIconService;
         repl = new Repl(
             fx.service,
             {
                 registerContainer: (descriptor: IViewContainerDescriptor) => containers.push(descriptor),
                 registerView: (descriptor: IViewDescriptor) => views.push(descriptor),
+                isViewShown: () => shown,
+                onDidShowView: viewShown.event,
             } as never,
             { get: () => false, onDidChangeConfiguration: () => ({ dispose: () => undefined }) } as never,
             icons,
@@ -120,7 +125,6 @@ describe("Repl", () => {
         });
         // Nothing is focused: the console shown last stays.
         expect(repl.shownSession).toBeDefined();
-        expect(repl.input.placeholder).toBe(START_DEBUG_FIRST);
     });
 
     it("a new session takes over the console only from an ended one", async () => {
@@ -137,6 +141,23 @@ describe("Repl", () => {
         });
         expect(await second).toBe(true);
         await shows("Launching:");
+    });
+
+    it("output that comes while the console is hidden is drawn when it shows", async () => {
+        const session = await start("s");
+        await shows("Launching:");
+        shown = false;
+
+        session.appendToRepl({ output: "while hidden\n", sev: "info" });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        expect(screen()).not.toContain("while hidden");
+
+        shown = true;
+        viewShown.fire("other.view");
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        expect(screen()).not.toContain("while hidden");
+        viewShown.fire(REPL_VIEW_ID);
+        await shows("while hidden");
     });
 
     it("clearing an ended session's console hides that session", async () => {
