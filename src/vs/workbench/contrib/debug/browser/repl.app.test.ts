@@ -32,7 +32,7 @@ import { type IDebugSession, REPL_VIEW_ID } from "../common/debug.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
 import { ReplDIToken, START_DEBUG_FIRST } from "./repl.ts";
-import { CLEAR_REPL_ID, FOCUS_REPL_ID } from "./replActions.ts";
+import { ACCEPT_REPL_INPUT_ID, CLEAR_REPL_ID, FOCUS_REPL_ID } from "./replActions.ts";
 
 describe("Debug Console in the workbench", () => {
     let h: IAppHarness;
@@ -191,6 +191,19 @@ describe("Debug Console in the workbench", () => {
             expect(screen()).toContain(echo("nums[3] + 1"));
         });
         expect(h.container.get(ReplDIToken).input.isFocused).toBe(true);
+    });
+
+    it("Debug Console: Accept Input evaluates what the input holds", async () => {
+        await startStopped();
+        h.container.get(ReplDIToken).focus();
+        typeText(h.testApp, "cfg");
+
+        await h.commands.execute(ACCEPT_REPL_INPUT_ID);
+
+        await vi.waitFor(() => {
+            expect(screen()).toContain(echo("cfg"));
+        });
+        expect(h.container.get(ReplDIToken).input.inputState.value).toBe("");
     });
 
     it("Up and Down walk the history of the input, Escape clears it", async () => {
