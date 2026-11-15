@@ -42,6 +42,8 @@ export interface ITaskConfigurationParseResult {
     readonly tasks: readonly ITask[];
     readonly configuring: readonly IConfiguringTask[];
     readonly problems: readonly string[];
+    /** The `inputs` section, if it is an array. */
+    readonly inputs?: readonly unknown[];
 }
 
 export type TaskDefinitionLookup = (type: string) => ITaskDefinitionSchema | undefined;
@@ -294,9 +296,6 @@ export function parseTasksJson(
         problems.push(`Error: tasks.json version '${String(root.version)}' is not supported. Use version "2.0.0".`);
         return { tasks: [], configuring: [], problems };
     }
-    if (root.inputs !== undefined) {
-        problems.push("Warning: tasks.json inputs are not supported; tasks that use ${input:...} fail to start.");
-    }
     const globalParts = withPlatform(commandPartsFrom(root, problems), root, platform, problems);
     const globals: IGlobals = { options: globalParts.options, presentation: globalParts.presentation };
     const tasks: ITask[] = [];
@@ -322,7 +321,13 @@ export function parseTasksJson(
         const task = taskFrom(external, runtime, folder, platform, globals, index, matchers, problems);
         if (task !== undefined) tasks.push(task);
     });
-    return { tasks, configuring, problems };
+    // Read by the variable resolver on the first `${input:…}`; validated there, as upstream.
+    return {
+        tasks,
+        configuring,
+        problems,
+        ...(Array.isArray(root.inputs) ? { inputs: root.inputs as unknown[] } : {}),
+    };
 }
 
 /** A type without a schema is an upstream error. */

@@ -240,7 +240,7 @@ describe("Run Task — two-level picker", () => {
     });
 
     it("a run refusal does not reject the command", async () => {
-        const h = build({ tasksJson: tasksJsonOf([{ label: "bad", command: "${input:x}" }]) });
+        const h = build({ tasksJson: tasksJsonOf([{ label: "bad", command: "${config:nope}" }]) });
         await expect(runTaskAction.run(h.accessor, "bad")).resolves.toBeUndefined();
         expect(h.notifications.passive()).toHaveLength(1);
         h.notifications.clearAll();

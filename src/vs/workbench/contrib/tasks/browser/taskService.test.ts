@@ -300,13 +300,15 @@ describe("TaskService — running", () => {
 
     it("run refusal — a toast with the error text, a log line, the promise is rejected", async () => {
         const h = buildTaskServiceHarness();
-        await expect(h.service.run(makeTask({ command: { name: "${input:x}" } }))).rejects.toThrow(
-            "Variable ${input:x} is not supported in tasks yet.",
+        await expect(h.service.run(makeTask({ command: { name: "${config:nope}" } }))).rejects.toThrow(
+            "Variable ${config:nope} can not be resolved because setting 'nope' not found.",
         );
         expect(h.notifications.passive().map((n) => [n.severity, n.message])).toStrictEqual([
-            ["error", "Variable ${input:x} is not supported in tasks yet."],
+            ["error", "Variable ${config:nope} can not be resolved because setting 'nope' not found."],
         ]);
-        expect(h.logger.error).toHaveBeenCalledWith("Variable ${input:x} is not supported in tasks yet.");
+        expect(h.logger.error).toHaveBeenCalledWith(
+            "Variable ${config:nope} can not be resolved because setting 'nope' not found.",
+        );
         h.dispose();
     });
 
@@ -651,14 +653,14 @@ describe("TaskService — rerun and restart", () => {
         await vi.waitFor(() => {
             expect(h.sessions).toHaveLength(1);
         });
-        h.setTasksJson(tasksJsonOf([{ label: "a", type: "shell", command: "${input:x}" }]));
+        h.setTasksJson(tasksJsonOf([{ label: "a", type: "shell", command: "${config:nope}" }]));
         await h.service.restart(task);
         await vi.waitFor(() => {
             expect(h.notifications.passive()).toHaveLength(1);
         });
         expect(h.notifications.passive()[0]).toMatchObject({
             severity: "error",
-            message: expect.stringContaining("${input:x}") as string,
+            message: expect.stringContaining("${config:nope}") as string,
         });
         expect(h.sessions).toHaveLength(1);
         h.dispose();
