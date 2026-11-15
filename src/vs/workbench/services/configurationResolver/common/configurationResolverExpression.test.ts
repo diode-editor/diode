@@ -139,11 +139,15 @@ describe("ConfigurationResolverExpression", () => {
         expect(expression.toObject()).toStrictEqual(["a", "b"]);
     });
 
-    it("renaming a key moves only the locations in that key", () => {
+    it("renaming a key moves only the locations in that key of that object", () => {
         const expression = ConfigurationResolverExpression.parse({ "${env:A}": "x", other: "${env:B}" });
         expression.resolve(env("A"), "renamed");
         expression.resolve(env("B"), "b");
         expect(expression.toObject()).toStrictEqual({ renamed: "x", other: "b" });
+        const nested = ConfigurationResolverExpression.parse({ a: { "${env:A}": 1 }, b: { "${env:A}": "${env:B}" } });
+        nested.resolve(env("A"), "k");
+        nested.resolve(env("B"), "v");
+        expect(nested.toObject()).toStrictEqual({ a: { k: 1 }, b: { k: "v" } });
     });
 
     it("a value naming its own variable is not expanded again", () => {

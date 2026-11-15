@@ -529,8 +529,8 @@ export class TerminalTaskSystem extends Disposable {
         const cwd = this.cwdOf(task, options.cwd === undefined ? undefined : resolve(options.cwd));
         const env = resolve(options.env);
         const unresolvedCommand = command.name ?? "";
-        const commandName = resolveCommandString(unresolvedCommand, resolve);
-        const args = (command.args ?? []).map((arg) => resolveCommandString(arg, resolve));
+        const commandName = resolve(unresolvedCommand);
+        const args = resolve(command.args ?? []);
         const base = {
             kind: "process" as const,
             name,
@@ -636,10 +636,6 @@ export function variableSourcesOf(task: ITask): unknown {
         typeof matcher === "string" ? undefined : matcher.filePrefix,
     );
     return [task.command, task.definition, prefixes];
-}
-
-function resolveCommandString(value: CommandString, resolve: (v: string) => string): CommandString {
-    return typeof value === "string" ? resolve(value) : { value: resolve(value.value), quoting: value.quoting };
 }
 
 /** By the shell's OS (upstream uses the process OS, which is the same thing). */
