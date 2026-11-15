@@ -136,6 +136,17 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("[✓] scratch"));
         await editor.sendKey("Enter").catch(() => undefined);
         await reloaded(editor);
+        {
+            const fsx = await import("node:fs");
+            const os = await import("node:os");
+            const roots = fsx.readdirSync(os.tmpdir()).filter((d) => d.startsWith("diode-e2e-")).map((d) => resolve(os.tmpdir(), d));
+            for (const r of roots) {
+                const dir = resolve(r, "user-data-dir/user-data/User/profiles");
+                if (!fsx.existsSync(dir)) continue;
+                const walk = (d: string): string[] => fsx.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(resolve(d, e.name)) : [resolve(d, e.name) + " " + fsx.statSync(resolve(d, e.name)).mtime.toISOString()]);
+                console.log("DIAG", walk(dir).join("\nDIAG "));
+            }
+        }
         await runCommand(editor, "Profiles: Switch Profile...");
         await editor.waitForText((t) => t.includes("Select Profile") && hasRow(t, "work") && !hasRow(t, "scratch"));
         await editor.capture("deleted");
