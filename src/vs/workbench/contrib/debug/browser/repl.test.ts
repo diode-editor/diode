@@ -178,6 +178,76 @@ describe("Repl", () => {
         expect(repl.input.isFocused).toBe(true);
     });
 
+    it("clearing an ended console moves on to another ended session that is not cleared", async () => {
+        const first = await start("first");
+        const second = await start("second");
+        await fx.service.focusStackFrame(undefined, undefined, second, { explicit: true });
+        await vi.waitFor(() => {
+            expect(repl.shownSession?.name).toBe("second");
+        });
+        await fx.service.stopSession(undefined);
+        await vi.waitFor(() => {
+            expect(first.state).toBe(State.Inactive);
+            expect(second.state).toBe(State.Inactive);
+        });
+
+        repl.clearRepl();
+
+        expect(repl.shownSession?.name).toBe("first");
+    });
+
+    it("clearing an ended console that is shown beside a focused session goes to the focused one", async () => {
+        const first = await start("first");
+        const second = await start("second");
+        await fx.service.focusStackFrame(undefined, undefined, second, { explicit: true });
+        repl.selectSession(first);
+        await fx.service.stopSession(first);
+        await vi.waitFor(() => {
+            expect(first.state).toBe(State.Inactive);
+        });
+        expect(repl.shownSession?.name).toBe("first");
+
+        repl.clearRepl();
+
+        expect(repl.shownSession?.name).toBe("second");
+    });
+
+    it("a lazy variable evaluated elsewhere opens in the console; another container is left alone", async () => {
+        const expand = vi.spyOn(repl.tree, "expand");
+        const lazy = new TestVariable("getter", "(...)", [new TestVariable("x", "1")], { lazy: { value: "{x=1}" } });
+
+        await fx.service.getViewModel().evaluateLazyExpression(lazy);
+        await fx.service.getViewModel().evaluateLazyExpression({ evaluateLazy: () => Promise.resolve() } as never);
+
+        expect(expand.mock.calls).toEqual([[lazy]]);
+    });
+
+    it("a changed child value is highlighted, then the rows are painted again", async () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+        try {
+            const session = await start("s");
+            const child = new TestVariable("x", "2");
+            child.valueChanged = true;
+            session.appendToRepl({
+                output: "",
+                expression: new TestVariable("p", "{x=2}", [child]),
+                sev: "info",
+            });
+            await shows("{x=2}");
+            repl.tree.list.focus();
+            app.sendKey("End");
+            app.sendKey("ArrowRight");
+            await shows("x: 2");
+            const rerender = vi.spyOn(repl.tree, "rerender");
+
+            await vi.advanceTimersByTimeAsync(1100);
+
+            expect(rerender).toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("a group shows its name and its children when it opens expanded; a collapsed one has its chevron", async () => {
         const session = await start("s");
         session.appendToRepl({ output: "", sev: "info" });
@@ -229,6 +299,28 @@ describe("Repl", () => {
 
         expect(session.getReplElements()).toHaveLength(before);
         expect(repl.input.inputState.value).toBe(" x");
+    });
+
+    it("without a session Clear Console takes away the answers given to the input", async () => {
+        repl.focus();
+        app.sendKey("a");
+        app.sendKey("Enter");
+        await shows("> a");
+
+        repl.clearRepl();
+
+        await vi.waitFor(() => {
+            expect(screen()).not.toContain("> a");
+        });
+    });
+
+    it("a source given as a path shows its file name", async () => {
+        const session = await start("s");
+        const source = session.getSource({ name: "C:\\work\\src/main.cpp", path: "/w/main.cpp" });
+        session.appendToRepl({ output: "with path\n", sev: "info", source: { lineNumber: 4, column: 1, source } });
+
+        await shows("main.cpp:4");
+        expect(screen()).not.toContain("work");
     });
 
     it("the input's hint follows the shown session's state", async () => {

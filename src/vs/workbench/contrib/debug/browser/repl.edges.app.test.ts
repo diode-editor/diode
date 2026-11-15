@@ -137,13 +137,13 @@ describe("Debug Console edge cases in the workbench", () => {
         const borderRow = before.findLastIndex((r) => r.includes("Hello from hello"));
         const width = before[borderRow].length;
 
-        session.appendToRepl({ output: "привет 世界 🎉 end\n", sev: "info" });
+        session.appendToRepl({ output: "héllo 世界 🎉 end\n", sev: "info" });
         await evaluate("世界");
 
         await vi.waitFor(() => {
             expect(screen()).toContain(echo("世界"));
         });
-        expect(screen()).toContain("привет 世界 🎉 end");
+        expect(screen()).toContain("héllo 世界 🎉 end");
         for (const row of lines()) expect(row.length).toBeLessThanOrEqual(width + 8);
     });
 

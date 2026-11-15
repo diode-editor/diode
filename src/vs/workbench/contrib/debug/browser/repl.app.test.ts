@@ -284,6 +284,8 @@ describe("Debug Console in the workbench", () => {
         session.appendToRepl({
             output: "",
             expression: new TestVariable("point", "{x=1, y=2}", [
+                // A child without a name shows its value alone.
+                new TestVariable("", "<extra 7>"),
                 new TestVariable("x", "1"),
                 new TestVariable("y", "2"),
             ]),
@@ -301,6 +303,7 @@ describe("Debug Console in the workbench", () => {
             expect(screen()).toContain("x: 1");
         });
         expect(screen()).toContain("y: 2");
+        expect(lines().some((row) => row.trim() === "<extra 7>")).toBe(true);
     });
 
     it("an evaluation scrolls to the tail even after the user scrolled up; new output alone does not", async () => {

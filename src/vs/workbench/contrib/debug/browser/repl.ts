@@ -95,7 +95,8 @@ function isNesting(element: IReplElement): element is INestingReplElement {
 /** Upstream `SourceWidget`: `name:line`, its own color; a click that opens it is not here yet. */
 function sourceSpan(source: IReplElementSource | undefined): IRowSpan[] {
     if (source === undefined) return [];
-    const name = source.source.name.split(/[\\/]/u).at(-1) ?? "";
+    const path = source.source.name;
+    const name = path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1);
     return [{ text: `${name}:${String(source.lineNumber)}`, fg: "debugConsole.sourceForeground" }];
 }
 
@@ -145,7 +146,8 @@ export class Repl extends Component implements IContextKeyContributor {
         this.tree = new LazyTreeControl<IReplElement>(
             {
                 getRoots: () => [...(this.session?.getReplElements() ?? []), ...this.orphans],
-                getChildren: (element) => (isNesting(element) ? element.getChildren() : []),
+                // The tree asks only the elements it was told have children.
+                getChildren: (element) => (element as INestingReplElement).getChildren(),
                 getKey: (element) => element.getId(),
                 hasChildren: isNesting,
                 isInitiallyExpanded: (element) => element instanceof ReplGroup && element.autoExpand,
