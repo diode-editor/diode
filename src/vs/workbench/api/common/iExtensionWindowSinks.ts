@@ -93,6 +93,16 @@ export interface IQuickInputBoxRequest extends IWireInputBoxRequest {
     readonly validate?: (value: string) => Promise<IWireValidationMessage | null>;
 }
 
+/**
+ * Upstream `ITerminalProfileService.registerTerminalProfileProvider` as `MainThreadTerminalService` calls it:
+ * `create` asks the subprocess for the profile and resolves once its terminal exists.
+ */
+export interface IExtensionTerminalProfileSink {
+    registerProvider(id: string, create: ContributedProfileCreator): IDisposable;
+}
+
+export type ContributedProfileCreator = (target: "panel" | "editor") => Promise<void>;
+
 /** Upstream `$acceptTerminal*`. */
 export interface IExtensionTerminalEvents {
     opened(terminal: IWireTerminalOpened): void;

@@ -898,6 +898,10 @@ export function createWindowNamespace(
         onDidCloseTerminal: terminals.onDidCloseTerminal,
         onDidChangeActiveTerminal: terminals.onDidChangeActiveTerminal,
         onDidChangeTerminalState: terminals.onDidChangeTerminalState,
+        // Not declared: there are no terminal links to ask for yet. Without the member js-debug's `activate()` failed
+        // halfway, and its JavaScript Debug Terminal profile never answered.
+        registerTerminalLinkProvider: (): vscode.Disposable => new DisposableImpl(() => undefined),
+        registerTerminalProfileProvider: terminals.registerProfileProvider.bind(terminals),
         // No shell integration, so these events never fire: after a 3 s wait Claude Code
         // falls back to `sendText`.
         onDidChangeTerminalShellIntegration: new EventEmitter<vscode.TerminalShellIntegrationChangeEvent>().event,

@@ -74,6 +74,10 @@ import {
 import { TaskServiceDIToken } from "../../workbench/contrib/tasks/browser/taskService.ts";
 import { ExtensionTerminalAdapter } from "../../workbench/contrib/terminal/browser/extensionTerminalAdapter.ts";
 import { TerminalEditorServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalEditorService.ts";
+import {
+    bindExtensionTerminalProfiles,
+    TerminalProfileServiceDIToken,
+} from "../../workbench/contrib/terminal/browser/terminalProfileService.ts";
 import { TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
 import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import { EnvironmentVariableServiceDIToken } from "../../workbench/contrib/terminal/common/environmentVariableService.ts";
@@ -397,6 +401,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 icons,
             ),
             terminalSink: terminals(),
+            terminalProfileSink: container.get(TerminalProfileServiceDIToken),
             environmentVariableCollections: container.get(EnvironmentVariableServiceDIToken),
             // Stryker disable ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,BooleanLiteral,ArrayDeclaration,CallExpression: production module wiring — the decisions live in ExtensionTreeViewsAdapter/ExtensionTreeView, covered by unit tests; end-to-end — e2e scenario extension-tree-view
             treeViewsSink: new ExtensionTreeViewsAdapter({
@@ -461,7 +466,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
     });
 
     // `onDebug` and the other debug activation events reach the extensions.
-    // Stryker disable next-line ArrowFunction: DI binding of the live extension host; activation by `onDebug` is observable with a debug extension, which comes with vscode.debug (#1139)
     container.bind(DebugExtensionActivatorDIToken, () => container.get(ExtensionServiceDIToken));
     container.bind(ExtensionServiceDIToken, () => {
         const logService = container.get(ILogServiceDIToken);
@@ -491,6 +495,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // Stryker disable next-line StringLiteral,ObjectLiteral: the task log channel name and label are wiring; the "Tasks" channel shows up in the tasks e2e scenario
             logService.createLogger("tasks", { label: "Tasks" }),
         );
+        // Stryker disable next-line CallExpression,StringLiteral,ObjectLiteral: production module wiring; behavior is covered by bindExtensionTerminalProfiles unit tests and the extension-terminal-profile e2e scenario
+        bindExtensionTerminalProfiles(container.get(TerminalProfileServiceDIToken), service, logger);
         // Stryker disable next-line CallExpression,ArrowFunction: production module wiring; `${extensionInstallFolder:…}` is covered by the resolver unit tests
         container.get(ConfigurationResolverServiceDIToken).setExtensions((id) => service.getExtension(id));
 

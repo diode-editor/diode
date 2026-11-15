@@ -117,8 +117,7 @@
       "note": "not declared in vscode.d.ts"
     },
     "window.registerTerminalProfileProvider": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "window.registerTreeDataProvider": {
       "class": "ok"

@@ -5452,16 +5452,13 @@
       "class": "ok"
     },
     "TerminalProfile": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TerminalProfile.options": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TerminalProfileProvider.provideTerminalProfile": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "TerminalShellExecution.commandLine": {
       "class": "B",

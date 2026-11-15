@@ -1,9 +1,13 @@
-import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
+import { DisposableMap, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
-import type { IExtensionTerminalSink } from "../../../../api/common/iExtensionWindowSinks.ts";
+import type {
+    IExtensionTerminalProfileSink,
+    IExtensionTerminalSink,
+} from "../../../../api/common/iExtensionWindowSinks.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
     parseWireTerminalCreate,
+    parseWireTerminalProfileProvider,
     parseWireTerminalPtyData,
     parseWireTerminalPtyExit,
     parseWireTerminalPtyName,
@@ -30,10 +34,14 @@ export class TerminalCustomer implements IExtensionHostCustomer {
         alive: boolean;
     } | null = null;
 
-    public constructor(private readonly sink: IExtensionTerminalSink | undefined) {}
+    public constructor(
+        private readonly sink: IExtensionTerminalSink | undefined,
+        private readonly profiles?: IExtensionTerminalProfileSink,
+    ) {}
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
         const store = new DisposableStore();
+        if (this.profiles !== undefined) store.add(attachProfileProviders(rpc, this.profiles));
         const sink = this.sink;
         if (sink === undefined) return store;
         const spawn = { rpc, sink, ready: false, alive: true };
@@ -140,4 +148,33 @@ export class TerminalCustomer implements IExtensionHostCustomer {
         spawn.rpc.notify("terminal.activeChanged", { id: activeId });
         spawn.ready = true;
     }
+}
+
+/** Upstream `$registerProfileProvider`/`$unregisterProfileProvider`; the registrations die with the spawn. */
+function attachProfileProviders(rpc: HostRpc, profiles: IExtensionTerminalProfileSink): IDisposable {
+    const store = new DisposableStore();
+    const providers = store.add(new DisposableMap<string>());
+    store.add(
+        rpc.handleNotification("terminal.registerProfileProvider", (params) => {
+            const request = parseWireTerminalProfileProvider(params);
+            if (request === null) return;
+            const { id } = request;
+            providers.set(
+                id,
+                profiles.registerProvider(id, async (target) => {
+                    await rpc.request("terminal.createContributedProfile", {
+                        id,
+                        location: target === "editor" ? 2 : 1,
+                    });
+                }),
+            );
+        }),
+    );
+    store.add(
+        rpc.handleNotification("terminal.unregisterProfileProvider", (params) => {
+            const request = parseWireTerminalProfileProvider(params);
+            if (request !== null) providers.deleteAndDispose(request.id);
+        }),
+    );
+    return store;
 }
