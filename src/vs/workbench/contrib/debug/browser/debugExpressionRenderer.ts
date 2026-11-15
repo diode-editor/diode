@@ -57,8 +57,8 @@ function valueColor(expression: IExpressionValue, value: string, colorize: boole
 }
 
 export class DebugExpressionRenderer {
-    /** Expression id → when its highlight ends. */
-    private readonly highlightedUntil = new Map<string, number>();
+    /** Ids of the expressions whose changed value is highlighted now. */
+    private readonly highlighted = new Set<string>();
     private highlightTimer: ReturnType<typeof setTimeout> | undefined;
 
     public constructor(private readonly host: IDebugExpressionRendererHost) {}
@@ -120,27 +120,26 @@ export class DebugExpressionRenderer {
         return value === "" ? [] : [{ text: value, ...span }];
     }
 
-    /** Upstream resets `valueChanged` on the first render; the highlight holds for its second from then. */
+    /**
+     * Upstream resets `valueChanged` on the first render; the highlight holds until a second has passed since the
+     * latest one began.
+     */
     private isHighlighted(expression: IExpressionValue): boolean {
         if (!(expression instanceof Expression || expression instanceof Variable)) return false;
         const id = expression.getId();
-        const now = Date.now();
         if (expression.valueChanged && expression.value !== Expression.DEFAULT_VALUE) {
             expression.valueChanged = false;
-            this.highlightedUntil.set(id, now + VALUE_CHANGED_HIGHLIGHT_MS);
+            this.highlighted.add(id);
             this.scheduleExpiry();
         }
-        return (this.highlightedUntil.get(id) ?? 0) > now;
+        return this.highlighted.has(id);
     }
 
+    /** One timer from the latest highlight: it ends last, so every highlight is over when it fires. */
     private scheduleExpiry(): void {
         clearTimeout(this.highlightTimer);
         this.highlightTimer = setTimeout(() => {
-            const now = Date.now();
-            for (const [id, until] of this.highlightedUntil) {
-                if (until <= now) this.highlightedUntil.delete(id);
-            }
-            if (this.highlightedUntil.size > 0) this.scheduleExpiry();
+            this.highlighted.clear();
             this.host.onHighlightsExpired();
         }, VALUE_CHANGED_HIGHLIGHT_MS);
     }

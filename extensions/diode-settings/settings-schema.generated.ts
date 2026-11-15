@@ -15,6 +15,14 @@ export interface ISettingSchemaEntry {
 
 export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {
+        key: "debug.autoExpandLazyVariables",
+        type: "string",
+        default: "auto",
+        description:
+            "Controls whether variables that are lazily resolved, such as getters, are automatically resolved and expanded by the debugger.",
+        enum: ["auto", "on", "off"],
+    },
+    {
         key: "debug.console.collapseIdenticalLines",
         type: "boolean",
         default: true,
@@ -26,6 +34,19 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "number",
         default: 10000,
         description: "Controls the maximum number of lines in the Debug Console.",
+    },
+    {
+        key: "debug.openDebug",
+        type: "string",
+        default: "openOnDebugBreak",
+        description: "Controls when the debug view should open.",
+        enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart", "openOnDebugBreak"],
+    },
+    {
+        key: "debug.showVariableTypes",
+        type: "boolean",
+        default: false,
+        description: "Show variable type in variable pane during debug session",
     },
     {
         key: "debug.terminal.clearBeforeReusing",

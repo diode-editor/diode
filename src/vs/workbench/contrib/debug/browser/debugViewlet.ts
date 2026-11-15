@@ -49,7 +49,7 @@ const WELCOME_TEXT: readonly IViewWelcomeBlock[] = [
 ];
 
 function contains(element: TUIElement, active: TUIElement | null): boolean {
-    return active !== null && active.getAncestorPath().includes(element);
+    return active?.getAncestorPath().includes(element) === true;
 }
 
 export class DebugViewletComponent extends Component implements IContextKeyContributor {
@@ -86,7 +86,11 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
                 this.refresh();
             },
         });
-        this.register({ dispose: () => renderer.dispose() });
+        this.register({
+            dispose: () => {
+                renderer.dispose();
+            },
+        });
         this.variables = this.register(new VariablesView(debugService, renderer));
         this.watch = this.register(new WatchExpressionsView(debugService, renderer, contextKeys, quickInput));
         this.view = this.variables.tree.element;

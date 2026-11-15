@@ -11,8 +11,8 @@
 // (#1150). Not planned: debug visualizers, the memory view (`View Binary Data`).
 
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
-import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
+import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { LazyTreeControl } from "../../../browser/parts/views/lazyTreeControl.ts";
 import type { IDebugService, IExpression, IScope, IStackFrame } from "../common/debug.ts";
 import { ErrorScope, Scope, Variable } from "../common/debugModel.ts";

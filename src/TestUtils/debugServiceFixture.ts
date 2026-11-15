@@ -34,9 +34,9 @@ export interface IDebugServiceFixture {
     viewletOpenings: number;
 }
 
-export function createDebugServiceFixture(): IDebugServiceFixture {
+/** `state`: the workspace store of an earlier service, as a window that opens the same folder again. */
+export function createDebugServiceFixture(state: MockStateService = mockStateService()): IDebugServiceFixture {
     const contextKeys = new ContextKeyService();
-    const state = mockStateService();
     const shown: INotificationMessage[] = [];
     const activated: string[] = [];
     let id = 0;

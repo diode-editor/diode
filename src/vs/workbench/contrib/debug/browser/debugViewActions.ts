@@ -134,7 +134,11 @@ export const copyAllWatchExpressionsAction: CommandAction = {
 export const renameWatchExpressionAction: CommandAction = {
     id: EDIT_EXPRESSION_COMMAND_ID,
     title: "Edit Expression",
-    keybinding: { keys: parseKeybinding("f2"), when: "watchExpressionsFocused", weight: KeybindingWeight.WorkbenchContrib + 5 },
+    keybinding: {
+        keys: parseKeybinding("f2"),
+        when: "watchExpressionsFocused",
+        weight: KeybindingWeight.WorkbenchContrib + 5,
+    },
     menus: HIDDEN_FROM_PALETTE,
     run(accessor, expression) {
         const target = watchExpressionOf(accessor, expression);
@@ -148,7 +152,9 @@ export const removeWatchExpressionAction: CommandAction = {
     keybinding: {
         keys: parseKeybinding("delete"),
         when: "watchExpressionsFocused && !expressionSelected",
-        weight: KeybindingWeight.WorkbenchContrib,
+        // Upstream's WorkbenchContrib ties with Kill Terminal's Delete, which upstream settles by registration order;
+        // the contexts never meet, one more makes the order explicit.
+        weight: KeybindingWeight.WorkbenchContrib + 1,
     },
     menus: HIDDEN_FROM_PALETTE,
     run(accessor, expression) {

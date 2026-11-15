@@ -40,6 +40,7 @@ the chord works at every level:
 | Explorer | `Ctrl+Shift+E` | `Ctrl+K E` |
 | Search in files | `Ctrl+Shift+F` | `Ctrl+K F` |
 | Source control | `Ctrl+Shift+G` | `Ctrl+K G` |
+| Run and Debug | `Ctrl+Shift+D` | `Ctrl+K B` |
 | Problems | `Ctrl+Shift+M` | `Ctrl+K M` |
 | Extensions | `Ctrl+Shift+X` | `Ctrl+K X` |
 | Terminal | ``Ctrl+` `` | `Ctrl+K T` |

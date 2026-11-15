@@ -318,6 +318,34 @@ describe("LazyTreeControl — lazy children", () => {
         expect(screen()).not.toContain("x: 1");
     });
 
+    it("expand opens a node whose children came later and reads them, even if it was read open before", async () => {
+        const getter: { key: string; name: string; value: string; children?: INode[] } = {
+            key: "getter",
+            name: "getter",
+            value: "(...)",
+        };
+        const source = scope([getter], true);
+        const { tree, screen } = await mount(source);
+        expect(screen()).toContain("getter: (...)");
+        expect(source.reads).toEqual(["scope"]);
+
+        // A lazy variable once evaluated: its value and its children are there now.
+        getter.value = "{...}";
+        getter.children = [{ key: "a", name: "a", value: "1" }];
+        tree.expand(getter);
+        await flush();
+
+        expect(source.reads).toEqual(["scope", "getter"]);
+        expect(text(screen())).toContain("▾ getter: {...}");
+        expect(screen()).toContain("a: 1");
+
+        getter.children = [{ key: "b", name: "b", value: "2" }];
+        tree.expand(getter);
+        await flush();
+        expect(screen()).toContain("b: 2");
+        expect(screen()).not.toContain("a: 1");
+    });
+
     it("collapsing by hand drops the children: reopening reads them anew", async () => {
         const source = localsSource();
         const { app, screen } = await mount(source);
