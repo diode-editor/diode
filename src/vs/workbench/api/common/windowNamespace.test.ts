@@ -38,6 +38,16 @@ function makeCtx() {
 }
 
 describe("WindowNamespace", () => {
+    it("registerTerminalLinkProvider is an inert no-op: a disposable, nothing sent to the host", () => {
+        const { stub, window } = makeCtx();
+        const register = (window as unknown as { registerTerminalLinkProvider: (p: unknown) => vscode.Disposable })
+            .registerTerminalLinkProvider;
+        const registration = register({ provideTerminalLinks: () => [] });
+        expect(() => registration.dispose()).not.toThrow();
+        expect(stub.notifies).toStrictEqual([]);
+        expect(stub.requests).toStrictEqual([]);
+    });
+
     it("registerTerminalProfileProvider names the calling extension to the host; none outside an extension", () => {
         const { stub, ctx, window } = makeCtx();
         const provider: vscode.TerminalProfileProvider = { provideTerminalProfile: () => undefined };

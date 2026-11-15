@@ -1766,6 +1766,9 @@ Workbench** (адаптеры над `EditorService`; мост файловых 
 область редактора по `terminal.integrated.defaultLocation`) перекрывает `location` самого профиля, как
 внутренние опции эталона. Отказ (нет провайдера, нет опций) — тост ошибки. Своих профилей
 (`terminal.integrated.profiles.*`) у нас нет: «встроенный» профиль один — шелл по умолчанию.
+`window.registerTerminalLinkProvider` не объявлен, но в рантайме есть как null-объект: без него
+`activate()` js-debug падал раньше регистрации своих сервисов, и запрос профиля
+«JavaScript Debug Terminal» висел без ответа.
 
 **Обработчики URI расширений (`window.registerUriHandler`).** Устроено как `ExtHostUrls` ↔
 `MainThreadUrls` + `ExtensionUrlHandler` эталона. Субпроцесс (`api/common/uriHandlers.ts`) держит по
