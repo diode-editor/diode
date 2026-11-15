@@ -6,7 +6,11 @@ import { vi } from "vitest";
 import { Event } from "../vs/base/common/event.ts";
 import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeyService.ts";
 import { NULL_LOGGER } from "../vs/platform/log/common/nullLogService.ts";
-import { DebugSession, type IDebugSessionServices } from "../vs/workbench/contrib/debug/browser/debugSession.ts";
+import {
+    DebugSession,
+    type IDebugServiceConfiguration,
+    type IDebugSessionServices,
+} from "../vs/workbench/contrib/debug/browser/debugSession.ts";
 import type {
     IConfig,
     IDebugService,
@@ -24,26 +28,43 @@ export const DEFAULT_REPL_CONFIGURATION: IReplConsoleConfiguration = {
     maximumLines: 10000,
 };
 
+/** Upstream's defaults of `debug.openDebug` and `debug.autoExpandLazyVariables`. */
+export const DEFAULT_DEBUG_CONFIGURATION: IDebugServiceConfiguration = {
+    openDebug: "openOnDebugBreak",
+    autoExpandLazyVariables: "auto",
+};
+
 export interface ITestSessionServices extends IDebugSessionServices {
     readonly errors: string[];
     readonly notifications: { message: string; severity: ReplSeverity; source: string }[];
+    /** What `debugConfiguration()` answers; tests change it in place. */
+    configuration: IDebugServiceConfiguration;
+    /** How many times Run and Debug was shown. */
+    readonly viewletOpenings: number;
 }
 
 export function testSessionServices(
     replConfiguration: IReplConsoleConfiguration = DEFAULT_REPL_CONFIGURATION,
 ): ITestSessionServices {
-    const errors: string[] = [];
     const notifications: ITestSessionServices["notifications"] = [];
-    return {
-        errors,
+    const services = {
+        errors: [] as string[],
         notifications,
         notifier: {
-            error: (message) => errors.push(message),
-            notify: (message, severity, source) => notifications.push({ message, severity, source }),
+            error: (message: string) => services.errors.push(message),
+            notify: (message: string, severity: ReplSeverity, source: string) =>
+                notifications.push({ message, severity, source }),
         },
         logger: NULL_LOGGER,
         replConfiguration: () => replConfiguration,
+        configuration: { ...DEFAULT_DEBUG_CONFIGURATION },
+        viewletOpenings: 0,
+        debugConfiguration: () => services.configuration,
+        openViewlet: () => {
+            services.viewletOpenings++;
+        },
     };
+    return services;
 }
 
 export type TestDebugService = IDebugService & {
@@ -100,6 +121,10 @@ export function testDebugService(model: DebugModel): TestDebugService {
         startDebugging: vi.fn().mockResolvedValue(true),
         restartSession: vi.fn().mockResolvedValue(undefined),
         stopSession: vi.fn().mockResolvedValue(undefined),
+        addWatchExpression: vi.fn(),
+        renameWatchExpression: vi.fn(),
+        moveWatchExpression: vi.fn(),
+        removeWatchExpressions: vi.fn(),
     };
 }
 

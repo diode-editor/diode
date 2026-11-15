@@ -6,8 +6,8 @@
 // The model's half of upstream `debug.ts`: the raw and model interfaces, `State`, breakpoints, launch
 // configurations and the adapter contract. The `CONTEXT_*` keys are typed keys of `ContextKeyTypes`
 // (platform/contextkey/common/contextKeys.ts) under the upstream names. `IDebugService`, `IAdapterManager` and
-// `ILaunch` carry what the session and its commands use; the rest comes with the task that implements it: the
-// breakpoint and watch editing of `IDebugService` (views, gutter), the dynamic configurations of
+// `ILaunch` carry what the session, its commands and the views use; the rest comes with the task that implements
+// it: the breakpoint editing of `IDebugService` (views, gutter), the dynamic configurations of
 // `IConfigurationManager` (Select and Start Debugging), the descriptor factories and `guessDebugger` of
 // `IAdapterManager` (`vscode.debug`), the editor contributions, `openInEditor` of frames and sources (with the
 // editor service they need), the test run a session is correlated with. Not planned: the memory view (`getMemory`,
@@ -26,6 +26,11 @@ import type { DebugCompoundRoot } from "./debugCompoundRoot.ts";
 import type { Source } from "./debugSource.ts";
 
 export const DEBUG_SCHEME = "debug";
+
+export const VIEWLET_ID = "workbench.view.debug";
+
+export const VARIABLES_VIEW_ID = "workbench.debug.variablesView";
+export const WATCH_VIEW_ID = "workbench.debug.watchExpressionsView";
 
 // raw
 
@@ -1064,6 +1069,26 @@ export interface IDebugService {
     ): void;
     sendAllBreakpoints(session?: IDebugSession): Promise<void>;
     sendBreakpoints(modelUri: uri, sourceModified?: boolean, session?: IDebugSession): Promise<void>;
+
+    /**
+     * Adds a new watch expression and evaluates it against the debug adapter.
+     */
+    addWatchExpression(name?: string): void;
+
+    /**
+     * Renames a watch expression and evaluates it against the debug adapter.
+     */
+    renameWatchExpression(id: string, newName: string): void;
+
+    /**
+     * Moves a watch expression to a new possition. Used for reordering watch expressions.
+     */
+    moveWatchExpression(id: string, position: number): void;
+
+    /**
+     * Removes all watch expressions. If id is passed only removes the watch expression with the passed id.
+     */
+    removeWatchExpressions(id?: string): void;
 
     /**
      * Starts debugging. If the configOrName is not passed uses the selected configuration in the debug dropdown.

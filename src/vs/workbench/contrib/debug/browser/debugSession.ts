@@ -4,10 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/browser/debugSession.ts
 // Deviations: the services come in as one object, not by injection; the label is the name alone (one folder per
-// window, upstream adds the folder only with several); `autoExpandLazyVariables` is off (no screen reader mode; the
-// `on` value comes with the Variables view, #1144); breakpoint paths go out without the Windows drive-letter
-// normalization. Not here yet, each with its task: opening the Run and Debug view on a break (`debug.openDebug`,
-// #1144), the test run a session is correlated with (#1162). Not planned: telemetry, aria
+// window, upstream adds the folder only with several); `debug.autoExpandLazyVariables: auto` is off (no screen
+// reader mode); breakpoint paths go out without the Windows drive-letter normalization. Not here yet, each with its
+// task: the test run a session is correlated with (#1162). Not planned: telemetry, aria
 // announcements, focusing the OS window on a break, the memory view (`getMemory`).
 
 import { distinct } from "../../../../base/common/arrays.ts";
@@ -28,6 +27,7 @@ import {
     type IConfig,
     type IDataBreakpoint,
     type IDataBreakpointInfoResponse,
+    type IDebugConfiguration,
     type IDebugger,
     type IDebugLocationReferenced,
     type IDebugService,
@@ -57,12 +57,19 @@ import { bodyOf, type IRawDebugSessionNotifier, RawDebugSession } from "./rawDeb
 const TRIGGERED_BREAKPOINT_MAX_DELAY = 1500;
 
 /** What a session needs besides the debug service: where errors and `important` output go, its log, the console. */
+/** The `debug.*` settings the service and its sessions read. */
+export type IDebugServiceConfiguration = Pick<IDebugConfiguration, "openDebug" | "autoExpandLazyVariables">;
+
 export interface IDebugSessionServices {
     readonly notifier: IRawDebugSessionNotifier & {
         notify(message: string, severity: ReplSeverity, source: string): void;
     };
     readonly logger: ILogger;
     readonly replConfiguration: () => IReplConsoleConfiguration;
+    /** `debug.openDebug` and `debug.autoExpandLazyVariables`. */
+    readonly debugConfiguration: () => IDebugServiceConfiguration;
+    /** Shows Run and Debug without taking the focus (`openOnDebugBreak`). */
+    readonly openViewlet: () => void;
 }
 
 function noDebugAdapter(what: string): Error {
@@ -268,7 +275,10 @@ export class DebugSession implements IDebugSession {
         return this.options.suppressDebugView ?? false;
     }
 
-    public readonly autoExpandLazyVariables = false;
+    public get autoExpandLazyVariables(): boolean {
+        // `auto` follows the screen reader optimized mode, which diode does not have.
+        return this.services.debugConfiguration().autoExpandLazyVariables === "on";
+    }
 
     public setConfiguration(configuration: { resolved: IConfig; unresolved: IConfig | undefined }): void {
         this.configurationValue = configuration;
@@ -1450,6 +1460,18 @@ export class DebugSession implements IDebugSession {
                                 // Only take focus if nothing is focused, or if the focus is already on the current session
                                 // Upstream's `preserveFocus` (`debug.focusEditorOnBreak`) comes with the editor (#1148).
                                 await this.debugService.focusStackFrame(undefined, thread);
+                            }
+
+                            // Upstream also checks `thread.stoppedDetails`: a stopped event always sets them.
+                            if (
+                                // Stryker disable next-line ConditionalExpression: a continue cancels the token and clears the thread's stoppedDetails together, the reason check stops it as well
+                                !isCancelled(token) &&
+                                // Stryker disable next-line OptionalChaining: past an uncancelled token the thread still holds the details of this stop
+                                thread.stoppedDetails?.reason === "breakpoint" &&
+                                this.services.debugConfiguration().openDebug === "openOnDebugBreak" &&
+                                !this.suppressDebugView
+                            ) {
+                                this.services.openViewlet();
                             }
                         }
                     };

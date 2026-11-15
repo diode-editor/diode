@@ -15,6 +15,14 @@ export interface ISettingSchemaEntry {
 
 export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {
+        key: "debug.autoExpandLazyVariables",
+        type: "string",
+        default: "auto",
+        description:
+            "Controls whether variables that are lazily resolved, such as getters, are automatically resolved and expanded by the debugger.",
+        enum: ["auto", "on", "off"],
+    },
+    {
         key: "debug.confirmOnExit",
         type: "string",
         default: "never",
@@ -48,11 +56,24 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["debugAnyway", "showErrors", "prompt", "abort"],
     },
     {
+        key: "debug.openDebug",
+        type: "string",
+        default: "openOnDebugBreak",
+        description: "Controls when the debug view should open.",
+        enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart", "openOnDebugBreak"],
+    },
+    {
         key: "debug.saveBeforeStart",
         type: "string",
         default: "allEditorsInActiveGroup",
         description: "Controls what editors to save before starting a debug session.",
         enum: ["allEditorsInActiveGroup", "nonUntitledEditorsInActiveGroup", "none"],
+    },
+    {
+        key: "debug.showVariableTypes",
+        type: "boolean",
+        default: false,
+        description: "Show variable type in variable pane during debug session",
     },
     {
         key: "debug.terminal.clearBeforeReusing",

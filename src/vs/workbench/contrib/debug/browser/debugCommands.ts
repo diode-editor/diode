@@ -16,7 +16,7 @@
 
 import { findNodeAtLocation, modify, parseTree } from "jsonc-parser";
 
-import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { type CommandAction, HIDDEN_FROM_PALETTE } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { LAUNCH_FILE_NAME } from "../../../../platform/configuration/common/workspaceSettings.ts";
@@ -43,6 +43,7 @@ import { resolveChildSession } from "../common/debugUtils.ts";
 
 import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
+import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
 
 export const RESTART_SESSION_ID = "workbench.action.debug.restart";
 export const TERMINATE_THREAD_ID = "workbench.action.debug.terminateThread";
@@ -79,8 +80,6 @@ function paletteItem(when?: string, enablement?: string): CommandAction["menus"]
         },
     ];
 }
-
-const HIDDEN_FROM_PALETTE: CommandAction["menus"] = [{ menuId: MenuId.CommandPalette, when: "false" }];
 
 interface CallStackContext {
     sessionId: string;
@@ -609,4 +608,5 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     callStackDownAction,
     startFromConfigAction,
     focusSessionAction,
+    ...DEBUG_VIEW_ACTIONS,
 ];
