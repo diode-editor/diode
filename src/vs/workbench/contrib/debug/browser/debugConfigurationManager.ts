@@ -15,6 +15,7 @@ import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { DisposableStore } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { LAUNCH_FILE_NAME } from "../../../../platform/configuration/common/workspaceSettings.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IFileService } from "../../../../platform/files/common/files.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
@@ -23,6 +24,7 @@ import type {
     IWorkspaceFolder,
 } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { workspaceConfigFilePath } from "../../../../platform/workspace/common/workspaceConfigFolder.ts";
+import { positionAt } from "../../tasks/common/tasksJsonEdits.ts";
 import type {
     IAdapterManager,
     ICompound,
@@ -37,7 +39,7 @@ import { isDebugConfig } from "../common/debug.ts";
 import { initialConfigurationContent } from "../common/debugger.ts";
 import { getEffectiveConfigForPlatform, getVisibleAndSorted } from "../common/debugUtils.ts";
 
-export const LAUNCH_JSON_PATH = workspaceConfigFilePath("launch.json");
+export const LAUNCH_JSON_PATH = workspaceConfigFilePath(LAUNCH_FILE_NAME);
 
 const DEBUG_SELECTED_CONFIG_NAME_KEY: IStateDescriptor<string | undefined> = {
     key: "debug.selectedconfigname",
@@ -133,15 +135,13 @@ export class ConfigurationManager implements IConfigurationManager {
 
     private initLaunches(): void {
         const workspace = this.ports.workspace;
-        this.launches = workspace
-            .getWorkspace()
-            .folders.map((folder) => new Launch(this, this.adapterManager, folder, this.ports));
+        this.launches = workspace.getWorkspace().folders.map((folder) => new Launch(this, folder, this.ports));
         if (workspace.getWorkbenchState() === "workspace") {
-            this.launches.push(new WorkspaceLaunch(this, this.adapterManager, this.ports));
+            this.launches.push(new WorkspaceLaunch(this, this.ports));
         }
         // Upstream selects again here when the selected launch is gone; its only caller after the constructor
         // selects again anyway.
-        this.launches.push(new UserLaunch(this, this.adapterManager, this.ports));
+        this.launches.push(new UserLaunch(this, this.ports));
     }
 
     public getLaunches(): ILaunch[] {
@@ -255,10 +255,7 @@ abstract class AbstractLaunch implements ILaunch {
         suppressInitialConfigs?: boolean;
     }): Promise<IOpenConfigFileResult>;
 
-    public constructor(
-        protected readonly configurationManager: ConfigurationManager,
-        protected readonly adapterManager: IAdapterManager,
-    ) {}
+    public constructor(protected readonly configurationManager: ConfigurationManager) {}
 
     public getCompound(name: string): ICompound | undefined {
         return this.getDeduplicatedConfig().compounds.find((compound) => compound.name === name);
@@ -329,11 +326,10 @@ class Launch extends AbstractLaunch {
 
     public constructor(
         configurationManager: ConfigurationManager,
-        adapterManager: IAdapterManager,
         public readonly workspace: IWorkspaceFolder,
         private readonly ports: IConfigurationManagerPorts,
     ) {
-        super(configurationManager, adapterManager);
+        super(configurationManager);
     }
 
     public get uri(): Uri {
@@ -385,12 +381,7 @@ class Launch extends AbstractLaunch {
         }
 
         const index = content.indexOf(`"${this.configurationManager.selectedConfiguration.name ?? ""}"`);
-        let line = 0;
-        for (let i = 0; i < index; i++) {
-            if (content.charAt(i) === "\n") {
-                line++;
-            }
-        }
+        const line = index < 0 ? 0 : positionAt(content, index).line;
 
         await this.ports.openEditor(resource, { preserveFocus, line: line > 0 ? line : undefined });
         return { opened: true, created };
@@ -402,10 +393,9 @@ class WorkspaceLaunch extends AbstractLaunch {
 
     public constructor(
         configurationManager: ConfigurationManager,
-        adapterManager: IAdapterManager,
         private readonly ports: IConfigurationManagerPorts,
     ) {
-        super(configurationManager, adapterManager);
+        super(configurationManager);
     }
 
     public get workspace(): undefined {
@@ -435,10 +425,9 @@ class UserLaunch extends AbstractLaunch {
 
     public constructor(
         configurationManager: ConfigurationManager,
-        adapterManager: IAdapterManager,
         private readonly ports: IConfigurationManagerPorts,
     ) {
-        super(configurationManager, adapterManager);
+        super(configurationManager);
     }
 
     public get workspace(): undefined {

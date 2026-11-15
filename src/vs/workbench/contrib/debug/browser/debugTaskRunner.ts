@@ -12,7 +12,7 @@
 
 import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { Emitter } from "../../../../base/common/event.ts";
-import { DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { DisposableStore, type IDisposable, toDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 import type { MarkerService } from "../../../../platform/markers/common/markerService.ts";
@@ -57,8 +57,10 @@ export interface IDebugTaskRunnerPorts {
     readonly configureTask: () => Promise<void>;
 }
 
-/** The buttons of the dialog for a task that could not run. */
+/** The buttons of the dialogs: of a task that failed (…, Show Errors, Abort) and of one that could not run. */
 const CHOICE_DEBUG_ANYWAY = 0;
+const CHOICE_SHOW_ERRORS = 1;
+const CHOICE_ABORT = 2;
 const CHOICE_CONFIGURE_TASK = 1;
 const CHOICE_CANCEL = 2;
 
@@ -114,18 +116,18 @@ export class DebugTaskRunner implements IDisposable {
                       ? `Error exists after running preLaunchTask '${taskLabel}'.`
                       : `The preLaunchTask '${taskLabel}' terminated with exit code ${String(taskSummary?.exitCode)}.`;
 
-            // Upstream's buttons, with the cancel button last: Debug Anyway, Show Errors, Abort.
+            // Upstream's buttons, with the cancel button last.
             const handle = this.ports.notifications.show({
                 severity: "warn",
                 message,
                 modal: true,
                 items: [DEBUG_ANYWAY_LABEL, "Show Errors", ABORT_LABEL],
-                closeAffordance: 2,
+                closeAffordance: CHOICE_ABORT,
                 checkbox: { label: "Remember my choice in user settings" },
             });
             const result = await handle.answered;
-            const debugAnyway = result === 0;
-            const abort = result !== 0 && result !== 1;
+            const debugAnyway = result === CHOICE_DEBUG_ANYWAY;
+            const abort = result !== CHOICE_DEBUG_ANYWAY && result !== CHOICE_SHOW_ERRORS;
             if (handle.checkboxChecked?.() === true) {
                 void this.ports.configuration.updateValue(
                     "debug.onTaskErrors",
@@ -255,11 +257,11 @@ export class DebugTaskRunner implements IDisposable {
                     const timer = setTimeout(() => {
                         this.showSlowTaskWarning(task, store, resolve);
                     }, SLOW_TASK_WARNING_DELAY_MS);
-                    store.add({
-                        dispose: () => {
+                    store.add(
+                        toDisposable(() => {
                             clearTimeout(timer);
-                        },
-                    });
+                        }),
+                    );
                 }),
             );
         });
@@ -287,11 +289,11 @@ export class DebugTaskRunner implements IDisposable {
             items,
         });
         // The task finished first: the warning goes away with it.
-        store.add({
-            dispose: () => {
+        store.add(
+            toDisposable(() => {
                 this.ports.notifications.dismiss(handle.id);
-            },
-        });
+            }),
+        );
         void handle.answered.then((choice) => {
             if (choice === undefined) {
                 // no-op, keep waiting

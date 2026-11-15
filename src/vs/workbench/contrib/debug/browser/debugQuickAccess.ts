@@ -20,7 +20,6 @@ import type { IDebugService } from "../common/debug.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
 
-export const DEBUG_QUICK_ACCESS_PREFIX = "debug ";
 export const ADD_CONFIGURATION_ID = "debug.addConfiguration";
 
 export const DebugQuickAccessProviderDIToken = token<StartDebugQuickAccessProvider>("StartDebugQuickAccessProvider");
@@ -29,7 +28,7 @@ export const NO_DEBUG_RESULTS = "No matching launch configurations";
 export const MOST_RECENT_HINT = "most recent";
 
 export class StartDebugQuickAccessProvider implements IQuickAccessProvider {
-    public static readonly PREFIX = DEBUG_QUICK_ACCESS_PREFIX;
+    public static readonly PREFIX = "debug ";
 
     public static dependencies = [
         DebugServiceDIToken,
@@ -48,7 +47,7 @@ export class StartDebugQuickAccessProvider implements IQuickAccessProvider {
     }
 
     public getItems(query: string): QuickAccessItem[] {
-        const picks = this.getPicks(prepareQuery(query.slice(DEBUG_QUICK_ACCESS_PREFIX.length)));
+        const picks = this.getPicks(prepareQuery(query.slice(StartDebugQuickAccessProvider.PREFIX.length)));
         return picks.length > 0 ? picks : [{ label: NO_DEBUG_RESULTS }];
     }
 

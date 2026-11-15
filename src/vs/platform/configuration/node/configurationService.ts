@@ -303,8 +303,15 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
 
     private async loadSourceLayer(source: ISettingsSource | undefined): Promise<ConfigurationModel> {
         if (source === undefined) return ConfigurationModel.EMPTY;
+        // The settings file, its tasks.json and its launch.json are read together; a workspace file is read once
+        // for both its `settings` and its `launch` block.
+        const [parsed, tasksLayer, launchFile] = await Promise.all([
+            readJsoncFile(source.file, this.logger),
+            source.tasksFile === undefined ? ConfigurationModel.EMPTY : loadTasksLayer(source.tasksFile, this.logger),
+            source.launch === "section" ? undefined : readJsoncFile(source.launch.file, this.logger),
+        ]);
         const { model, excludedKeys } = filterWorkspaceSettings(
-            await loadSettingsLayer(source.file, this.logger, source.section),
+            ConfigurationModel.fromRaw(sectionOf(parsed, source.section)),
             this.scopes,
             source.scopes,
         );
@@ -313,18 +320,11 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
                 `${source.file}: ignored settings that ${source.ignoredReason}: ${excludedKeys.join(", ")}`,
             );
         }
-        const launch =
-            source.launch === "section"
-                ? sectionOf(await readJsoncFile(source.file, this.logger), LAUNCH_CONFIGURATION_KEY)
-                : await readJsoncFile(source.launch.file, this.logger);
+        const launch = source.launch === "section" ? sectionOf(parsed, LAUNCH_CONFIGURATION_KEY) : launchFile;
         const launchLayer =
             launch === undefined
                 ? ConfigurationModel.EMPTY
                 : ConfigurationModel.fromRaw({ [LAUNCH_CONFIGURATION_KEY]: launch });
-        const tasksLayer =
-            source.tasksFile === undefined
-                ? ConfigurationModel.EMPTY
-                : await loadTasksLayer(source.tasksFile, this.logger);
         return ConfigurationModel.merge(model, tasksLayer, launchLayer);
     }
 
@@ -600,12 +600,8 @@ async function loadTasksLayer(filePath: string, logger: ILogger | undefined): Pr
     return ConfigurationModel.fromRaw({ [TASKS_CONFIGURATION_KEY]: content });
 }
 
-async function loadSettingsLayer(
-    filePath: string,
-    logger: ILogger | undefined,
-    section?: string,
-): Promise<ConfigurationModel> {
-    return ConfigurationModel.fromRaw(sectionOf(await readJsoncFile(filePath, logger), section));
+async function loadSettingsLayer(filePath: string, logger: ILogger | undefined): Promise<ConfigurationModel> {
+    return ConfigurationModel.fromRaw(await readJsoncFile(filePath, logger));
 }
 
 /** `undefined` when the file is missing or unreadable. */

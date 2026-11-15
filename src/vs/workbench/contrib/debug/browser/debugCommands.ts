@@ -14,11 +14,12 @@
 // instruction stepping of the disassembly view is not planned. The editor's, the views' and the console's commands
 // come with their tasks.
 
-import { modify, visit } from "jsonc-parser";
+import { findNodeAtLocation, modify, parseTree } from "jsonc-parser";
 
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import { LAUNCH_FILE_NAME } from "../../../../platform/configuration/common/workspaceSettings.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
@@ -27,6 +28,7 @@ import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quic
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 import { QuickOpenServiceDIToken } from "../../quickaccess/browser/quickOpenService.ts";
+import { positionAt } from "../../tasks/common/tasksJsonEdits.ts";
 import {
     type IConfig,
     type IDebugService,
@@ -39,7 +41,7 @@ import {
 import type { Thread } from "../common/debugModel.ts";
 import { resolveChildSession } from "../common/debugUtils.ts";
 
-import { ADD_CONFIGURATION_ID, DEBUG_QUICK_ACCESS_PREFIX } from "./debugQuickAccess.ts";
+import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
 
 export const RESTART_SESSION_ID = "workbench.action.debug.restart";
@@ -62,7 +64,6 @@ export const CALLSTACK_DOWN_ID = "workbench.action.debug.callStackDown";
 export const START_FROM_CONFIG_ID = "debug.startFromConfig";
 export const SELECT_AND_START_ID = "workbench.action.debug.selectandstart";
 export const DEBUG_CONFIGURE_COMMAND_ID = "workbench.action.debug.configure";
-export { ADD_CONFIGURATION_ID };
 
 const IN_DEBUG_MODE = "inDebugMode";
 const STOPPED = "debugState == 'stopped'";
@@ -462,7 +463,7 @@ export const selectAndStartAction: CommandAction = {
     menus: paletteItem(NOT_INITIALIZING),
     run(accessor) {
         // A debug type picks among its dynamic configurations first (#1139).
-        accessor.get(QuickOpenServiceDIToken).show(DEBUG_QUICK_ACCESS_PREFIX);
+        accessor.get(QuickOpenServiceDIToken).show(StartDebugQuickAccessProvider.PREFIX);
         return Promise.resolve();
     },
 };
@@ -496,7 +497,7 @@ export const configureAction: CommandAction = {
             const { opened } = await launch.openConfigFile({ preserveFocus: false });
             const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
             if (opened && (opts as { addNew?: boolean } | undefined)?.addNew && editor) {
-                await addLaunchConfiguration(accessor, editor);
+                addLaunchConfiguration(accessor, editor);
             }
         }
     },
@@ -515,7 +516,7 @@ export const addConfigurationAction: CommandAction = {
             const { opened, created } = await launch.openConfigFile({ preserveFocus: false });
             const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
             if (opened && !created && editor?.uri.toString() === launch.uri.toString()) {
-                await addLaunchConfiguration(accessor, editor);
+                addLaunchConfiguration(accessor, editor);
             }
         }
     },
@@ -525,12 +526,13 @@ export const addConfigurationAction: CommandAction = {
  * Upstream `DebugEditorContribution.addLaunchConfiguration`: a new line at the start of the `configurations` array
  * (the array is added first when it is missing), with the caret on it. Upstream then opens the snippet suggestions.
  */
-async function addLaunchConfiguration(accessor: ServiceAccessor, editor: TextEditorPane): Promise<void> {
-    let configurationsArrayOffset = configurationsArrayStart(editor.getText());
+function addLaunchConfiguration(accessor: ServiceAccessor, editor: TextEditorPane): void {
+    const original = editor.getText();
+    const isLaunchJson = editor.uri.path.endsWith(`/${LAUNCH_FILE_NAME}`);
+    let configurationsArrayOffset = configurationsArrayStart(original, isLaunchJson);
     if (configurationsArrayOffset === undefined) {
         // "configurations" array doesn't exist. Add it here.
-        const text = editor.getText();
-        const isLaunchJson = editor.uri.path.endsWith("/launch.json");
+        const text = original;
         const edit = modify(
             text,
             isLaunchJson ? ["configurations"] : ["launch"],
@@ -549,7 +551,7 @@ async function addLaunchConfiguration(accessor: ServiceAccessor, editor: TextEdi
             "Add Configuration",
         );
         // Go through the file again since we've edited it
-        configurationsArrayOffset = configurationsArrayStart(editor.getText());
+        configurationsArrayOffset = configurationsArrayStart(editor.getText(), isLaunchJson);
     }
     if (configurationsArrayOffset === undefined) {
         return;
@@ -566,35 +568,16 @@ async function addLaunchConfiguration(accessor: ServiceAccessor, editor: TextEdi
         editor.goToPosition(position.line, position.character);
     }
     accessor.get(CommandRegistryDIToken).execute("editor.action.insertLineAfter");
-    return Promise.resolve();
 }
 
-/** The offset just after the `[` of the top-level `configurations` array (`launch.configurations` in settings). */
-function configurationsArrayStart(text: string): number | undefined {
-    let lastProperty: string | undefined;
-    let depthInArray = 0;
-    let position: number | undefined;
-    visit(text, {
-        onObjectProperty: (property) => {
-            lastProperty = property;
-        },
-        onArrayBegin: (offset) => {
-            if (lastProperty === "configurations" && depthInArray === 0) {
-                position = offset + 1;
-            }
-            depthInArray++;
-        },
-        onArrayEnd: () => {
-            depthInArray--;
-        },
-    });
-    return position;
-}
-
-function positionAt(text: string, offset: number): { line: number; character: number } {
-    const before = text.slice(0, offset);
-    const lineStart = before.lastIndexOf("\n") + 1;
-    return { line: before.split("\n").length - 1, character: offset - lineStart };
+/**
+ * The offset just after the `[` of `configurations` (`launch.configurations` in a settings file). Upstream visits the
+ * text and takes the last `configurations` array it meets; the JSON path does not take the one of a compound.
+ */
+function configurationsArrayStart(text: string, isLaunchJson: boolean): number | undefined {
+    const tree = parseTree(text);
+    const node = tree && findNodeAtLocation(tree, isLaunchJson ? ["configurations"] : ["launch", "configurations"]);
+    return node?.type === "array" ? node.offset + 1 : undefined;
 }
 
 export const runAction: CommandAction = {
