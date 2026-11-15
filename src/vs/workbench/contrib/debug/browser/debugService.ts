@@ -3,16 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/browser/debugService.ts
-// `startDebugging` follows upstream's sequence: `onDebug` activation, resolution by the providers, variable
-// substitution, the pre-launch task, resolution with substituted variables, then the session. Its steps that belong
-// to later tasks are the identity here, each named at its place: providers (#1139), launch.json, its selected
-// configuration, compounds and the debug tasks (#1138), choosing a debugger for a configuration without a type
-// (#1156). Not here yet: breakpoint and watch editing (views, gutter: #1144–#1148), opening the views and the
-// console on a session (`debug.openDebug`, `debug.internalConsoleOptions`, `debug.console.closeOnEnd`,
-// `debug.openExplorerOnEnd`), saving before a start (`debug.saveBeforeStart`), opening the focused frame in the
-// editor (#1148), the activity badge of the view container (#1144). Errors show as a modal notification, without
-// the "Open launch.json" button. Not planned: workspace trust (diode has none), telemetry, extension host
-// debugging, the memory and disassembly views.
+// `startDebugging` follows upstream's sequence: `onDebug` activation, saving the editors, the selected launch
+// configuration or compound, resolution by the providers, variable substitution, the pre-launch task, resolution with
+// substituted variables, then the session. Its steps that belong to later tasks are the identity here, each named at
+// its place: providers (#1139), choosing a debugger for a configuration without a type (#1156). Not here yet:
+// breakpoint and watch editing (views, gutter: #1144–#1148), opening the views and the console on a session
+// (`debug.openDebug`, `debug.internalConsoleOptions`, `debug.console.closeOnEnd`, `debug.openExplorerOnEnd`),
+// opening the focused frame in the editor (#1148), the activity badge of the view container (#1144). Errors show
+// as a modal notification, without the "Open launch.json" and "Install Extension" buttons. Not planned: workspace
+// trust (diode has none), telemetry, extension host debugging, the memory and disassembly views.
 
 import { distinct } from "../../../../base/common/arrays.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
@@ -33,7 +32,9 @@ import type {
 import type { IExtensionService } from "../../../services/extensions/common/extensions.ts";
 import type { NotificationService } from "../../../services/notification/browser/notificationService.ts";
 import {
+    type AdapterEndEvent,
     getStateLabel,
+    type ICompound,
     type IConfig,
     type IDebugModel,
     type IDebugService,
@@ -47,13 +48,16 @@ import {
     type ReplSeverity,
     State,
 } from "../common/debug.ts";
+import { DebugCompoundRoot } from "../common/debugCompoundRoot.ts";
 import { DebugModel, type ITextFileDirtyState } from "../common/debugModel.ts";
 import { DebugStorage } from "../common/debugStorage.ts";
 import { ViewModel } from "../common/debugViewModel.ts";
 import type { IReplConsoleConfiguration } from "../common/replModel.ts";
 
 import { AdapterManager } from "./debugAdapterManager.ts";
+import { ConfigurationManager, type IConfigurationManagerPorts } from "./debugConfigurationManager.ts";
 import { DebugSession, type IDebugSessionServices } from "./debugSession.ts";
+import { DebugTaskRunner, type IDebugTaskRunnerPorts, TaskRunResult } from "./debugTaskRunner.ts";
 
 export const DebugServiceDIToken = token<DebugService>("DebugService");
 
@@ -67,6 +71,10 @@ export interface IDebugServicePorts {
     readonly extensions: Pick<IExtensionService, "activateByEvent" | "whenInstalledExtensionsRegistered">;
     readonly workspace: Pick<IWorkspaceContextService, "getWorkspace">;
     readonly replConfiguration: () => IReplConsoleConfiguration;
+    readonly configurationManager: IConfigurationManagerPorts;
+    readonly tasks: IDebugTaskRunnerPorts;
+    /** Upstream `saveAllBeforeDebugStart`: saves the editors as `debug.saveBeforeStart` says. */
+    readonly saveAllBeforeStart: () => Promise<void>;
     /** The adapters' `runInTerminal`: the integrated terminal. */
     readonly terminalLauncher: IDebugTerminalLauncher;
 }
@@ -98,6 +106,8 @@ export class DebugService implements IDebugService {
     private readonly model: DebugModel;
     private readonly viewModel: ViewModel;
     private readonly adapterManager: AdapterManager;
+    private readonly configurationManager: ConfigurationManager;
+    private readonly taskRunner: DebugTaskRunner;
     private initializing = false;
     private initializingOptionsValue: IDebugSessionOptions | undefined;
     private previousState: State | undefined;
@@ -107,6 +117,10 @@ export class DebugService implements IDebugService {
     public constructor(private readonly ports: IDebugServicePorts) {
         const contextKeys = ports.contextKeys;
         this.adapterManager = this.disposables.add(new AdapterManager(() => this, contextKeys, ports.terminalLauncher));
+        this.configurationManager = this.disposables.add(
+            new ConfigurationManager(this.adapterManager, ports.configurationManager),
+        );
+        this.taskRunner = this.disposables.add(new DebugTaskRunner(ports.tasks));
         this.debugStorage = this.disposables.add(new DebugStorage(ports.state, ports.textFiles, ports.logger));
         this.model = this.disposables.add(new DebugModel(this.debugStorage, ports.textFiles, ports.logger));
         this.viewModel = this.disposables.add(new ViewModel(contextKeys));
@@ -138,12 +152,17 @@ export class DebugService implements IDebugService {
                 }
             }),
         );
-        this.disposables.add(
-            this.adapterManager.onDidRegisterDebugger(() => {
-                // Upstream also counts the launch configurations; there are none before launch.json (#1138).
-                this.setDebugUx(this.state !== State.Inactive ? "default" : "simple");
-            }),
-        );
+        const updateDebugUx = (): void => {
+            this.setDebugUx(
+                this.state !== State.Inactive ||
+                    (this.configurationManager.getAllConfigurations().length > 0 &&
+                        this.adapterManager.hasEnabledDebuggers())
+                    ? "default"
+                    : "simple",
+            );
+        };
+        this.disposables.add(this.adapterManager.onDidRegisterDebugger(updateDebugUx));
+        this.disposables.add(this.configurationManager.onDidSelectConfiguration(updateDebugUx));
 
         contextKeys.set("debugState", getStateLabel(State.Inactive));
         contextKeys.set("inDebugMode", false);
@@ -179,6 +198,10 @@ export class DebugService implements IDebugService {
 
     public getAdapterManager(): AdapterManager {
         return this.adapterManager;
+    }
+
+    public getConfigurationManager(): ConfigurationManager {
+        return this.configurationManager;
     }
 
     public dispose(): void {
@@ -238,7 +261,12 @@ export class DebugService implements IDebugService {
             this.ports.contextKeys.set("debugState", getStateLabel(state));
             this.ports.contextKeys.set("inDebugMode", state !== State.Inactive);
             // Only show the simple ux if debug is not yet started and if no launch.json exists
-            this.setDebugUx(state !== State.Inactive && state !== State.Initializing ? "default" : "simple");
+            this.setDebugUx(
+                (state !== State.Inactive && state !== State.Initializing) ||
+                    (this.adapterManager.hasEnabledDebuggers() && this.configurationManager.selectedConfiguration.name)
+                    ? "default"
+                    : "simple",
+            );
             this.previousState = state;
             this.onDidChangeStateEmitter.fire(state);
         }
@@ -270,24 +298,37 @@ export class DebugService implements IDebugService {
         launch: ILaunch | undefined,
         configOrName?: IConfig | string,
         options?: IDebugSessionOptions,
+        saveBeforeStart = !options?.parentSession,
     ): Promise<boolean> {
         this.startInitializingState(options);
         this.ports.contextKeys.set("hasDebugged", true);
         try {
-            // make sure the configuration is up to date
+            // make sure to save all files and that the configuration is up to date
             await this.ports.extensions.activateByEvent("onDebug");
+            if (saveBeforeStart) {
+                await this.ports.saveAllBeforeStart();
+            }
             await this.ports.extensions.whenInstalledExtensionsRegistered();
+
             let config: IConfig | undefined;
-            if (typeof configOrName === "string") {
-                // A name without launch.json is upstream's "'launch.json' does not exist" below.
-                config = launch?.getConfiguration(configOrName);
-            } else {
+            configOrName ??= this.configurationManager.selectedConfiguration.name;
+            if (typeof configOrName === "string" && launch) {
+                // A compound of the name wins over a configuration of the same name.
+                const compound = launch.getCompound(configOrName);
+                if (compound) {
+                    const result = await this.startCompound(launch, compound, options);
+                    this.endInitializingState();
+                    return result;
+                }
+                config = launch.getConfiguration(configOrName);
+            } else if (typeof configOrName !== "string") {
                 config = configOrName;
             }
 
-            if (configOrName && !config) {
+            // A passed configuration object is `config` itself: only a name can be missing.
+            if (typeof configOrName === "string" && !config) {
                 const message = launch
-                    ? `Configuration '${configOrName as string}' is missing in 'launch.json'.`
+                    ? `Configuration '${configOrName}' is missing in 'launch.json'.`
                     : "'launch.json' does not exist for passed workspace folder.";
                 throw new Error(message);
             }
@@ -301,6 +342,72 @@ export class DebugService implements IDebugService {
             this.endInitializingState();
             throw err;
         }
+    }
+
+    /** We are starting a compound debug, first do some error checking and than start each configuration in the compound. */
+    private async startCompound(
+        launch: ILaunch,
+        compound: ICompound,
+        options: IDebugSessionOptions | undefined,
+    ): Promise<boolean> {
+        // Upstream checks that `configurations` is set: a launch lists only compounds with configurations. Without a
+        // preLaunchTask the run is a success at once.
+        const taskResult = await this.taskRunner.runTaskAndCheckErrors(
+            launch.workspace ?? this.ports.workspace.getWorkspace(),
+            compound.preLaunchTask,
+        );
+        if (taskResult === TaskRunResult.Failure) {
+            return false;
+        }
+        if (compound.stopAll) {
+            options = { ...options, compoundRoot: new DebugCompoundRoot() };
+        }
+
+        const values = await Promise.all(
+            compound.configurations.map((configData) => {
+                const name = typeof configData === "string" ? configData : configData.name;
+                if (name === compound.name) {
+                    return Promise.resolve(false);
+                }
+
+                let launchForName: ILaunch | undefined;
+                if (typeof configData === "string") {
+                    const launchesContainingName = this.configurationManager
+                        .getLaunches()
+                        .filter((l) => !!l.getConfiguration(name));
+                    if (launchesContainingName.length === 1) {
+                        launchForName = launchesContainingName[0];
+                    } else if (launchesContainingName.includes(launch)) {
+                        // If there are multiple launches containing the configuration give priority to the configuration in the current launch
+                        launchForName = launch;
+                    } else {
+                        throw new Error(
+                            launchesContainingName.length === 0
+                                ? `Could not find launch configuration '${name}' in the workspace.`
+                                : `There are multiple launch configurations '${name}' in the workspace. Use folder name to qualify the configuration.`,
+                        );
+                    }
+                } else {
+                    const launchesMatchingConfigData = this.configurationManager
+                        .getLaunches()
+                        .filter(
+                            (l) => l.workspace?.name === configData.folder && !!l.getConfiguration(configData.name),
+                        );
+                    if (launchesMatchingConfigData.length === 1) {
+                        launchForName = launchesMatchingConfigData[0];
+                    } else {
+                        throw new Error(
+                            `Can not find folder with name '${configData.folder}' for configuration '${configData.name}' in compound '${compound.name}'.`,
+                        );
+                    }
+                }
+
+                return this.createSession(launchForName, launchForName.getConfiguration(name), options);
+            }),
+        );
+
+        // Compound launch is a success only if each configuration launched successfully
+        return values.every((success) => success);
     }
 
     /**
@@ -334,8 +441,8 @@ export class DebugService implements IDebugService {
             return false;
         }
 
-        // Upstream catches what the steps throw; each of ours reports its own failure (the pre-launch task and the
-        // providers, #1138/#1139, bring the catch back).
+        // Upstream catches what the steps throw; each of ours reports its own failure (the providers, #1139, bring the
+        // catch back).
         const resolvedConfig = await this.substituteVariables(launch, configByProviders);
         if (!resolvedConfig) {
             // User cancelled resolving of interactive variables, silently return
@@ -347,9 +454,8 @@ export class DebugService implements IDebugService {
             return false;
         }
 
-        // Check for concurrent sessions before running preLaunchTask to avoid running the task if user cancels.
-        // Upstream asks again when the session is created, in case one started during the task; with the task
-        // (#1138) that second check comes back.
+        // Check for concurrent sessions before running preLaunchTask to avoid running the task if user cancels
+        let userConfirmedConcurrentSession = false;
         if (options?.startedByUser && resolvedConfig.suppressMultipleSessionWarning !== true) {
             // Check if there's already a session with the same launch configuration
             const existingSession = this.findSameSession(resolvedConfig, launch?.workspace);
@@ -358,10 +464,17 @@ export class DebugService implements IDebugService {
                 if (!(await this.confirmConcurrentSession(existingSession.getLabel()))) {
                     return false;
                 }
+                userConfirmedConcurrentSession = true;
             }
         }
 
-        // The pre-launch task (#1138) and the resolution with substituted variables (#1139) come here.
+        const workspace = launch?.workspace ?? this.ports.workspace.getWorkspace();
+        const taskResult = await this.taskRunner.runTaskAndCheckErrors(workspace, resolvedConfig.preLaunchTask);
+        if (taskResult === TaskRunResult.Failure) {
+            return false;
+        }
+
+        // The resolution with substituted variables (#1139) comes here.
 
         const dbg = this.adapterManager.getDebugger(resolvedConfig.type);
         if (!dbg || (configByProviders.request !== "attach" && configByProviders.request !== "launch")) {
@@ -388,6 +501,7 @@ export class DebugService implements IDebugService {
             launch?.workspace,
             { resolved: resolvedConfig, unresolved: unresolvedConfig },
             options,
+            userConfirmedConcurrentSession,
         );
     }
 
@@ -411,6 +525,7 @@ export class DebugService implements IDebugService {
         root: IWorkspaceFolder | undefined,
         configuration: { resolved: IConfig; unresolved: IConfig | undefined },
         options: IDebugSessionOptions | undefined,
+        userConfirmedConcurrentSession: boolean,
     ): Promise<boolean> {
         const session = new DebugSession(
             sessionId,
@@ -421,6 +536,17 @@ export class DebugService implements IDebugService {
             this,
             this.sessionServices,
         );
+        if (
+            !userConfirmedConcurrentSession &&
+            options?.startedByUser &&
+            this.findSameSession(configuration.resolved, root) &&
+            configuration.resolved.suppressMultipleSessionWarning !== true
+        ) {
+            // There is already a session with the same configuration, prompt user #127721
+            if (!(await this.confirmConcurrentSession(session.getLabel()))) {
+                return false;
+            }
+        }
 
         this.model.addSession(session);
         // since the Session is now properly registered under its ID and hooked, we can announce it
@@ -525,48 +651,105 @@ export class DebugService implements IDebugService {
         );
         listenerDisposables.add(
             session.onDidEndAdapter((adapterExitEvent) => {
-                const error = adapterExitEvent?.error;
-                if (error) {
-                    this.notify("error", `Debug adapter process has terminated unexpectedly (${error.message})`);
-                }
-
-                this.endInitializingState();
-                // The token of a started session's start cancels nothing any more (upstream cancels it): it is only let go.
-                // Stryker disable next-line CallExpression: letting go of a token nothing listens to
-                this.sessionCancellationTokens.delete(session.getId());
-
-                this.onDidEndSessionEmitter.fire({ session, restart: this.restartingSessions.has(session) });
-
-                const focusedSession = this.viewModel.focusedSession;
-                if (focusedSession?.getId() === session.getId()) {
-                    const focus = getStackFrameThreadAndSessionToFocus(
-                        this.model,
-                        undefined,
-                        undefined,
-                        undefined,
-                        focusedSession,
-                    );
-                    this.viewModel.setFocus(focus.stackFrame, focus.thread, focus.session, false);
-                }
-
-                if (this.model.getSessions().length === 0) {
-                    this.viewModel.setMultiSessionView(false);
-
-                    // Data breakpoints that can not be persisted should be cleared when a session ends
-                    const dataBreakpoints = this.model.getDataBreakpoints().filter((dbp) => !dbp.canPersist);
-                    dataBreakpoints.forEach((dbp) => {
-                        this.model.removeDataBreakpoints(dbp.getId());
-                    });
-                }
-
-                this.model.removeExceptionBreakpointsForSession(session.getId());
+                void this.onDidEndAdapter(session, adapterExitEvent);
             }),
         );
     }
 
+    /** Without a `postDebugTask` it runs to the end at once, as upstream's async listener. */
+    private async onDidEndAdapter(
+        session: IDebugSession,
+        adapterExitEvent: AdapterEndEvent | undefined,
+    ): Promise<void> {
+        const error = adapterExitEvent?.error;
+        if (error) {
+            this.notify("error", `Debug adapter process has terminated unexpectedly (${error.message})`);
+        }
+
+        // Without a postDebugTask `runTask` has nothing to run.
+        const root = session.root ?? this.ports.workspace.getWorkspace();
+        try {
+            await this.taskRunner.runTask(root, session.configuration.postDebugTask);
+        } catch (err) {
+            this.notify("error", (err as Error).message);
+        }
+        this.endInitializingState();
+        // The token of a started session's start cancels nothing any more (upstream cancels it): it is only let go.
+        // Stryker disable next-line CallExpression: letting go of a token nothing listens to
+        this.sessionCancellationTokens.delete(session.getId());
+
+        this.onDidEndSessionEmitter.fire({ session, restart: this.restartingSessions.has(session) });
+
+        const focusedSession = this.viewModel.focusedSession;
+        if (focusedSession?.getId() === session.getId()) {
+            const focus = getStackFrameThreadAndSessionToFocus(
+                this.model,
+                undefined,
+                undefined,
+                undefined,
+                focusedSession,
+            );
+            this.viewModel.setFocus(focus.stackFrame, focus.thread, focus.session, false);
+        }
+
+        if (this.model.getSessions().length === 0) {
+            this.viewModel.setMultiSessionView(false);
+
+            // Data breakpoints that can not be persisted should be cleared when a session ends
+            const dataBreakpoints = this.model.getDataBreakpoints().filter((dbp) => !dbp.canPersist);
+            dataBreakpoints.forEach((dbp) => {
+                this.model.removeDataBreakpoints(dbp.getId());
+            });
+        }
+
+        this.model.removeExceptionBreakpointsForSession(session.getId());
+    }
+
     public async restartSession(session: IDebugSession, restartData?: unknown): Promise<void> {
-        // The restart tasks (`preRestartTask`, `postDebugTask`, `preLaunchTask`, `postRestartTask`) and reading
-        // launch.json anew come with launch.json (#1138): the session restarts with its own configuration.
+        if (session.saveBeforeRestart) {
+            await this.ports.saveAllBeforeStart();
+        }
+
+        const isAutoRestart = !!restartData;
+
+        const runTasks = async (): Promise<TaskRunResult> => {
+            if (isAutoRestart) {
+                // Do not run preLaunch and postDebug tasks for automatic restarts
+                return TaskRunResult.Success;
+            }
+
+            const root = session.root ?? this.ports.workspace.getWorkspace();
+            await this.taskRunner.runTask(root, session.configuration.preRestartTask);
+            await this.taskRunner.runTask(root, session.configuration.postDebugTask);
+
+            const taskResult1 = await this.taskRunner.runTaskAndCheckErrors(root, session.configuration.preLaunchTask);
+            if (taskResult1 !== TaskRunResult.Success) {
+                return taskResult1;
+            }
+
+            return this.taskRunner.runTaskAndCheckErrors(root, session.configuration.postRestartTask);
+        };
+
+        // Read the configuration again if a launch.json has been changed, if not just use the inmemory configuration
+        let needsToSubstitute = false;
+        let unresolved: IConfig | undefined;
+        const launch = session.root ? this.configurationManager.getLaunch(session.root.uri) : undefined;
+        if (launch) {
+            unresolved = launch.getConfiguration(session.configuration.name);
+            if (unresolved && JSON.stringify(unresolved) !== JSON.stringify(session.unresolvedConfiguration)) {
+                unresolved.noDebug = session.configuration.noDebug;
+                needsToSubstitute = true;
+            }
+        }
+
+        let resolved: IConfig | undefined = session.configuration;
+        if (launch && needsToSubstitute && unresolved) {
+            // Resolution by the providers, before and after the substitution, is the identity until #1139.
+            resolved = await this.substituteVariables(launch, unresolved);
+        }
+        if (resolved) {
+            session.setConfiguration({ resolved, unresolved });
+        }
         session.configuration.__restart = restartData;
 
         const doRestart = async (fn: () => Promise<boolean>): Promise<void> => {
@@ -591,15 +774,17 @@ export class DebugService implements IDebugService {
         }
 
         if (session.capabilities.supportsRestartRequest) {
-            await doRestart(async () => {
-                await session.restart();
-                return true;
-            });
+            const taskResult = await runTasks();
+            if (taskResult === TaskRunResult.Success) {
+                await doRestart(async () => {
+                    await session.restart();
+                    return true;
+                });
+            }
             return;
         }
 
         const shouldFocus = session.getId() === this.viewModel.focusedSession?.getId();
-        const isAutoRestart = !!restartData;
         await doRestart(async () => {
             // If the restart is automatic  -> disconnect, otherwise -> terminate #55064
             if (isAutoRestart) {
@@ -609,6 +794,13 @@ export class DebugService implements IDebugService {
             }
 
             await new Promise((resolve) => setTimeout(resolve, RESTART_DELAY_MS));
+            const taskResult = await runTasks();
+            if (taskResult !== TaskRunResult.Success) {
+                return false;
+            }
+            if (!resolved) {
+                return false;
+            }
             await this.launchOrAttachToSession(session, shouldFocus);
             this.onDidNewSessionEmitter.fire(session);
             return true;
@@ -623,6 +815,7 @@ export class DebugService implements IDebugService {
 
         const sessions = this.model.getSessions();
         if (sessions.length === 0) {
+            this.taskRunner.cancel();
             this.endInitializingState();
             this.cancelTokens();
         }

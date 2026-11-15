@@ -7,7 +7,7 @@
 // window, upstream adds the folder only with several); `autoExpandLazyVariables` is off (no screen reader mode; the
 // `on` value comes with the Variables view, #1144); breakpoint paths go out without the Windows drive-letter
 // normalization. Not here yet, each with its task: opening the Run and Debug view on a break (`debug.openDebug`,
-// #1144), compounds (#1138), the test run a session is correlated with (#1162). Not planned: telemetry, aria
+// #1144), the test run a session is correlated with (#1162). Not planned: telemetry, aria
 // announcements, focusing the OS window on a break, the memory view (`getMemory`).
 
 import { distinct } from "../../../../base/common/arrays.ts";
@@ -169,6 +169,15 @@ export class DebugSession implements IDebugSession {
         this.passFocusScheduler = new RunOnceScheduler(() => {
             this.passFocus();
         }, 800);
+
+        const compoundRoot = this.options.compoundRoot;
+        if (compoundRoot) {
+            toDispose.add(
+                compoundRoot.onDidSessionStop(() => {
+                    void this.terminate();
+                }),
+            );
+        }
 
         const parent = this.options.parentSession;
         if (parent) {
@@ -446,6 +455,10 @@ export class DebugSession implements IDebugSession {
                 await this.raw.disconnect({ restart, terminateDebuggee: true });
             }
         }
+
+        if (!restart) {
+            this.options.compoundRoot?.sessionStopped();
+        }
     }
 
     /**
@@ -463,6 +476,10 @@ export class DebugSession implements IDebugSession {
         } else if (this.raw) {
             // TODO terminateDebuggee should be undefined by default?
             await this.raw.disconnect({ restart, terminateDebuggee: false, suspendDebuggee: suspend });
+        }
+
+        if (!restart) {
+            this.options.compoundRoot?.sessionStopped();
         }
     }
 

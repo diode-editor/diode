@@ -19,6 +19,7 @@ import {
     customizationEntryOf,
     isWritableTasksJson,
     type ITasksJsonIndentation,
+    positionAt,
     taskEntryRange,
     tasksJsonHasTasks,
 } from "../common/tasksJsonEdits.ts";
@@ -150,12 +151,6 @@ async function openAtEntry(context: IConfigureContext, uri: Uri, text: string, i
     const start = positionAt(text, range.start);
     editor.goToPosition(start.line, start.character);
     editor.revealRange({ start, end: positionAt(text, range.end) });
-}
-
-function positionAt(text: string, offset: number): { line: number; character: number } {
-    const before = text.slice(0, offset);
-    const lineStart = before.lastIndexOf("\n") + 1;
-    return { line: before.split("\n").length - 1, character: offset - lineStart };
 }
 
 function indentationOf(configuration: IConfigurationService): ITasksJsonIndentation {

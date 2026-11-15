@@ -7,12 +7,11 @@
 // configurations and the adapter contract. The `CONTEXT_*` keys are typed keys of `ContextKeyTypes`
 // (platform/contextkey/common/contextKeys.ts) under the upstream names. `IDebugService`, `IAdapterManager` and
 // `ILaunch` carry what the session and its commands use; the rest comes with the task that implements it: the
-// breakpoint and watch editing of `IDebugService` (views, gutter), `IConfigurationManager` and the rest of `ILaunch`
-// (launch.json), the configuration providers (session, launch.json and `vscode.debug`), the descriptor factories
-// and `guessDebugger` of `IAdapterManager` (`vscode.debug`),
-// the editor contributions, `openInEditor` of frames and sources (with the editor service they need),
-// compounds (`DebugCompoundRoot`), the test run a session is correlated with. Not planned: the memory view
-// (`getMemory`, webview) and debug visualizers (proposed API).
+// breakpoint and watch editing of `IDebugService` (views, gutter), the configuration providers and the dynamic
+// configurations of `IConfigurationManager` (`vscode.debug`), the descriptor factories and `guessDebugger` of
+// `IAdapterManager` (`vscode.debug`), the editor contributions, `openInEditor` of frames and sources (with the
+// editor service they need), the test run a session is correlated with. Not planned: the memory view (`getMemory`,
+// webview) and debug visualizers (proposed API).
 
 import type { ICancellationToken as CancellationToken } from "../../../../base/common/cancellation.ts";
 import type { Event } from "../../../../base/common/event.ts";
@@ -20,8 +19,10 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri as uri } from "../../../../base/common/uri.ts";
 import type { IPosition, Position } from "../../../../editor/common/core/position.ts";
 import type { IRange } from "../../../../editor/common/core/range.ts";
+import type { ConfigurationTarget } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
+import type { DebugCompoundRoot } from "./debugCompoundRoot.ts";
 import type { Source } from "./debugSource.ts";
 
 export const DEBUG_SCHEME = "debug";
@@ -150,6 +151,7 @@ export interface IDebugSessionOptions {
     suppressDebugToolbar?: boolean;
     suppressDebugStatusbar?: boolean;
     suppressDebugView?: boolean;
+    compoundRoot?: DebugCompoundRoot;
 }
 
 export interface IDataBreakpointInfoResponse {
@@ -755,6 +757,7 @@ export interface IConfig extends IEnvConfig {
     __sessionId?: string;
     __restart?: unknown;
     __autoAttach?: boolean;
+    __configurationTarget?: ConfigurationTarget;
     port?: number; // TODO
 }
 
@@ -889,13 +892,64 @@ export interface IDebugTerminalLauncher {
 /** Upstream `enum DebuggerString`: only its value is used, as a key of `strings`. */
 export type DebuggerString = "unverifiedBreakpoints";
 
-/**
- * Upstream `ILaunch`, as far as starting a session reads it: the folder and a configuration by name. The rest
- * (`uri`, compounds, `openConfigFile`) comes with launch.json (#1138).
- */
+/** Upstream's `{ editor, created }`: `opened` stands for a non-null editor. */
+export interface IOpenConfigFileResult {
+    readonly opened: boolean;
+    readonly created: boolean;
+}
+
 export interface ILaunch {
+    /** Resource pointing to the launch.json this object is wrapping. */
+    readonly uri: uri;
+
+    /** Name of the launch. */
+    readonly name: string;
+
+    /** Workspace of the launch. Can be undefined. */
     readonly workspace: IWorkspaceFolder | undefined;
+
+    /** Should this launch be shown in the debug dropdown. */
+    readonly hidden: boolean;
+
+    /** Returns a configuration with the specified name. Returns undefined if there is no configuration with the specified name. */
     getConfiguration(name: string): IConfig | undefined;
+
+    /** Returns a compound with the specified name. Returns undefined if there is no compound with the specified name. */
+    getCompound(name: string): ICompound | undefined;
+
+    /** Returns the names of all configurations and compounds. Ignores configurations which are invalid. */
+    getConfigurationNames(ignoreCompoundsAndPresentation?: boolean): string[];
+
+    /**
+     * Opens the launch.json file. Creates if it does not exist. Upstream gives back the editor pane; ours tells
+     * whether one was opened.
+     */
+    openConfigFile(options: {
+        preserveFocus: boolean;
+        type?: string;
+        suppressInitialConfigs?: boolean;
+    }): Promise<IOpenConfigFileResult>;
+}
+
+/** Upstream `IConfigurationManager`, without the configuration providers and the dynamic configurations (#1139). */
+export interface IConfigurationManager {
+    /** Returns an object containing the selected launch configuration and the selected configuration name. */
+    readonly selectedConfiguration: {
+        launch: ILaunch | undefined;
+        getConfig: () => Promise<IConfig | undefined>;
+        name: string | undefined;
+        /** Only dynamic configurations have a type set (#1139). */
+        type: string | undefined;
+    };
+
+    selectConfiguration(launch: ILaunch | undefined, name?: string, config?: IConfig): Promise<void>;
+
+    getLaunches(): readonly ILaunch[];
+    getLaunch(workspaceUri: uri | undefined): ILaunch | undefined;
+    getAllConfigurations(): { launch: ILaunch; name: string; presentation?: IConfigPresentation }[];
+
+    /** Allows to register on change of selected debug configuration. */
+    readonly onDidSelectConfiguration: Event<void>;
 }
 
 /** Upstream `IAdapterManager`: where the debuggers and the adapters of a debug type are registered. */
@@ -928,6 +982,7 @@ export interface IDebugService {
     readonly onDidEndSession: Event<{ session: IDebugSession; restart: boolean }>;
 
     getAdapterManager(): IAdapterManager;
+    getConfigurationManager(): IConfigurationManager;
     getModel(): IDebugModel;
     getViewModel(): IViewModel;
 
@@ -959,6 +1014,7 @@ export interface IDebugService {
         launch: ILaunch | undefined,
         configOrName?: IConfig | string,
         options?: IDebugSessionOptions,
+        saveBeforeStart?: boolean,
     ): Promise<boolean>;
 
     /** Restarts a session or creates a new one if there is no active session. */

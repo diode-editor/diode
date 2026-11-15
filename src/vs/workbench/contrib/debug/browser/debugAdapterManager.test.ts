@@ -201,11 +201,46 @@ describe("AdapterManager", () => {
             });
         });
 
-        it("has no initial launch.json content yet", async () => {
-            manager.registerDebugger({ type: "lldb" });
+        it("writes the contribution's initial configurations and the given ones into upstream's launch.json skeleton", async () => {
+            manager.registerDebugger({ type: "lldb", initialConfigurations: [{ name: "a" }] });
 
-            await expect(manager.getDebugger("lldb")?.getInitialConfigurationContent()).rejects.toThrow(
-                "launch.json is not supported yet",
+            const content = await manager
+                .getDebugger("lldb")
+                ?.getInitialConfigurationContent([{ type: "lldb", request: "launch", name: "b" }]);
+
+            expect(content).toBe(
+                [
+                    "{",
+                    "\t// Use IntelliSense to learn about possible attributes.",
+                    "\t// Hover to view descriptions of existing attributes.",
+                    "\t// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387",
+                    '\t"version": "0.2.0",',
+                    '\t"configurations": [',
+                    "\t\t{",
+                    '\t\t\t"name": "a"',
+                    "\t\t},",
+                    "\t\t{",
+                    '\t\t\t"type": "lldb",',
+                    '\t\t\t"request": "launch",',
+                    '\t\t\t"name": "b"',
+                    "\t\t}",
+                    "\t]",
+                    "}",
+                ].join("\n"),
+            );
+            expect(await manager.getDebugger("lldb")?.getInitialConfigurationContent()).toContain('"name": "a"');
+        });
+
+        it("a contribution without initial configurations writes only the given ones", async () => {
+            manager.registerDebugger({ type: "gdb" });
+
+            const content = await manager
+                .getDebugger("gdb")
+                ?.getInitialConfigurationContent([{ type: "gdb", request: "launch", name: "b" }]);
+
+            expect(content).toContain('\t"configurations": [\n\t\t{\n\t\t\t"type": "gdb",');
+            expect(await manager.getDebugger("gdb")?.getInitialConfigurationContent()).toContain(
+                '\t"configurations": []',
             );
         });
     });
