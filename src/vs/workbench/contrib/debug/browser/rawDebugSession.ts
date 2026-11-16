@@ -6,7 +6,8 @@
 // Deviations: an error with a `url` is reported by its message alone, without the "More Info" action (there is no
 // opener of links in error notifications yet); `launchVSCode` (an extension development host window) is not
 // planned and answers as an unknown request; telemetry is not kept. `startDebugging` (child sessions, milestone 3)
-// goes to the debugger, which refuses it until that task.
+// goes to the debugger, which refuses it until that task. The end event carries `failure` — the error of an adapter
+// that went away by itself — for the debug service to write to the Debug Console.
 
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
@@ -661,6 +662,10 @@ export class RawDebugSession implements IDisposable {
             const e: AdapterEndEvent = { emittedStopped: this.didReceiveStoppedEvent, sessionLengthInSeconds: 0 };
             if (error && !stopped) {
                 e.error = error;
+            }
+            // Only an adapter's error or exit shuts down with an error: it went away by itself.
+            if (error) {
+                e.failure = error;
             }
             this.onDidExitAdapterEmitter.fire(e);
         }

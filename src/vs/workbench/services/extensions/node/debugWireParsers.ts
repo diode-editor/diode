@@ -1,4 +1,8 @@
+import type { SerializedError } from "../../../../base/common/errorSerialization.ts";
 import type {
+    IWireDebugAdapterError,
+    IWireDebugAdapterExit,
+    IWireDebugAdapterMessage,
     IWireDebugConfigurationProvider,
     IWireDebugProviderHandle,
     IWireDebugStartDebugging,
@@ -98,4 +102,40 @@ export function parseWireDebugStartDebugging(raw: unknown): IWireDebugStartDebug
 
 export function parseWireDebugStopDebugging(raw: unknown): IWireDebugStopDebugging {
     return { sessionId: optionalString(fields(raw)?.sessionId) };
+}
+
+/** Upstream `$registerDebugTypes`: entries that are not strings are dropped. */
+export function parseWireDebugTypes(raw: unknown): string[] {
+    const types = fields(raw)?.types;
+    return Array.isArray(types) ? (types as readonly unknown[]).filter((type) => typeof type === "string") : [];
+}
+
+/** A DAP message is any object with a `type`; the session checks the rest, as upstream's. */
+export function parseWireDebugAdapterMessage(raw: unknown): IWireDebugAdapterMessage | null {
+    const p = fields(raw);
+    const message = fields(p?.message);
+    if (!isFiniteNumber(p?.handle) || typeof message?.type !== "string") return null;
+    return { handle: p.handle, message };
+}
+
+/** The error must look serialized (`$isError`, string name and message, a stack if any); the rest is its own. */
+export function parseWireDebugAdapterError(raw: unknown): IWireDebugAdapterError | null {
+    const p = fields(raw);
+    const error = fields(p?.error);
+    if (
+        !isFiniteNumber(p?.handle) ||
+        error?.$isError !== true ||
+        typeof error.name !== "string" ||
+        typeof error.message !== "string" ||
+        !["string", "undefined"].includes(typeof error.stack)
+    ) {
+        return null;
+    }
+    return { handle: p.handle, error: error as unknown as SerializedError };
+}
+
+export function parseWireDebugAdapterExit(raw: unknown): IWireDebugAdapterExit | null {
+    const p = fields(raw);
+    if (!isFiniteNumber(p?.handle)) return null;
+    return { handle: p.handle, ...(isFiniteNumber(p.code) ? { code: p.code } : {}) };
 }

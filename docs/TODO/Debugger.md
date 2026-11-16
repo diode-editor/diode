@@ -98,6 +98,20 @@
   Select and Start Debugging (`onDebugDynamicConfigurations`, «недавние», кнопка «в launch.json») — отдельным
   PR. Живой F5 по типу расширения доходит до сессии и падает на «Cannot find debug adapter» — адаптер #1140;
   e2e `debug-provider` (расширение Debug Demo в `e2e/fixtures/user-data-with-debug-demo`).
+- #1140: адаптеры расширений. Субпроцесс — фабрики дескрипторов и трекеры в `api/common/debugNamespace.ts`,
+  исполняемый файл из `contributes.debuggers` — `api/common/debugAdapterExecutable.ts`, адаптеры:
+  inline — `api/common/extHostDebugAdapter.ts`, процесс/TCP/пайп — `api/node/extHostDebugAdapters.ts`; провод —
+  `debug.registerDebugTypes`, `debug.startAdapter`/`stopAdapter`, `debug.sendAdapterMessage`,
+  `debug.acceptAdapterMessage`/`Error`/`Exit`; ядро — `ExtensionHostDebugAdapter` в
+  `browser/extensionDebugAdapter.ts`. `Debugger.createDebugAdapter` шлёт `onDebugAdapterProtocolTracker:<type>`.
+  Пространство `debug` получило владельца в `extensionApiFactory.ts` (фабрику регистрирует только расширение,
+  определяющее тип; заодно провайдеры #1139 теперь приходят с id расширения). Отступления: адаптер, ушедший сам
+  (ошибка, выход с кодом ≠ 0, смерть субпроцесса), пишет «Debug adapter process has terminated unexpectedly (…)»
+  в Debug Console (`AdapterEndEvent.failure`, эталон молчит); путей в DAP-сообщениях не переводим; `handshake` —
+  «no signer». Отдельно починено: `fetchThreads` после `configurationDone` у умершего адаптера отменяется без
+  необработанного отказа. Тесты: `extensionHost.debugAdapters.test.ts` (настоящий субпроцесс, адаптер каждого вида,
+  фикстура `__fixtures__/debugAdapters/`), сценарий `debug-adapter` (Debug Demo с inline-адаптером).
+
 - **Противоречие в доках:** [docs/arch/Extensions.md](../arch/Extensions.md) («Отладка как null-объект») пишет «DAP не
   планируется (решение человека)», а `GOAL.md` и `docs/public/STATUS.md` — «направление на потом / planned».
   Если берёмся — поправить формулировку в Extensions.md.

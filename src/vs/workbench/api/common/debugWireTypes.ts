@@ -1,6 +1,8 @@
 // The `debug.*` messages between the core and the extension subprocess (upstream `MainThreadDebugServiceShape` /
-// `ExtHostDebugServiceShape`): the configuration providers and starting and stopping sessions. Adapters and sessions
-// come with their tasks (#1140, #1141).
+// `ExtHostDebugServiceShape`): the configuration providers, starting and stopping sessions, and the debug adapters
+// that live in the subprocess. Session objects and events come with their task (#1141).
+
+import type { SerializedError } from "../../../base/common/errorSerialization.ts";
 
 /**
  * A launch configuration as JSON: `type`, `name`, `request` and whatever the debugger reads. The core checks the
@@ -67,4 +69,50 @@ export interface IWireDebugStartDebugging {
 /** Upstream `$stopDebugging(sessionId)`: without a session every session stops. */
 export interface IWireDebugStopDebugging {
     readonly sessionId?: string;
+}
+
+/** Upstream `$registerDebugTypes`: the types of the main debugger contributions, adapters of the subprocess. */
+export interface IWireDebugTypes {
+    readonly types: readonly string[];
+}
+
+/**
+ * Upstream `IDebugSessionFullDto`: what the subprocess needs of a session to create its adapter. `folder` — the uri
+ * string of the session's workspace folder, `parentId` — the id of the parent session.
+ */
+export interface IWireDebugSession {
+    readonly id: string;
+    readonly type: string;
+    readonly name: string;
+    readonly folder?: string;
+    readonly configuration: WireDebugConfiguration;
+    readonly parentId?: string;
+}
+
+/** Upstream `$startDASession(handle, session)`: the handle names the adapter in every later message. */
+export interface IWireDebugStartAdapter {
+    readonly handle: number;
+    readonly session: IWireDebugSession;
+}
+
+export interface IWireDebugAdapterHandle {
+    readonly handle: number;
+}
+
+/** A DAP message (request, response or event) of the adapter `handle`, in either direction. */
+export interface IWireDebugAdapterMessage {
+    readonly handle: number;
+    readonly message: object;
+}
+
+/** Upstream `$acceptDAError`: the error as the RPC serializes a rejection (name, message, stack, code, cause). */
+export interface IWireDebugAdapterError {
+    readonly handle: number;
+    readonly error: SerializedError;
+}
+
+/** Upstream `$acceptDAExit`: no `code` — the adapter has none (a connection, an inline adapter). */
+export interface IWireDebugAdapterExit {
+    readonly handle: number;
+    readonly code?: number;
 }

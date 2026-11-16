@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    parseWireDebugAdapterError,
+    parseWireDebugAdapterExit,
+    parseWireDebugAdapterMessage,
     parseWireDebugConfiguration,
     parseWireDebugConfigurationProvider,
     parseWireDebugConfigurations,
@@ -8,6 +11,7 @@ import {
     parseWireDebugResolveResult,
     parseWireDebugStartDebugging,
     parseWireDebugStopDebugging,
+    parseWireDebugTypes,
 } from "./debugWireParsers.ts";
 
 const CONFIG = { type: "lldb", request: "launch", name: "Launch" };
@@ -128,5 +132,52 @@ describe("debugWireParsers — debug messages from the subprocess", () => {
         expect(parseWireDebugStopDebugging({ sessionId: "s" })).toEqual({ sessionId: "s" });
         expect(parseWireDebugStopDebugging({ sessionId: 1 })).toEqual({});
         expect(parseWireDebugStopDebugging(null)).toEqual({});
+    });
+
+    it("debug types: the strings of `types`; anything else is none", () => {
+        expect(parseWireDebugTypes({ types: ["lldb", 1, null, "go"] })).toEqual(["lldb", "go"]);
+        for (const raw of [null, {}, { types: "lldb" }]) expect(parseWireDebugTypes(raw)).toEqual([]);
+    });
+
+    it("an adapter message needs a numeric handle and an object with a string `type`", () => {
+        const message = { seq: 1, type: "event", event: "stopped" };
+        expect(parseWireDebugAdapterMessage({ handle: 2, message })).toEqual({ handle: 2, message });
+        for (const raw of [
+            null,
+            { message },
+            { handle: "2", message },
+            { handle: 2 },
+            { handle: 2, message: { seq: 1 } },
+            { handle: 2, message: { type: 1 } },
+            { handle: 2, message: [message] },
+        ]) {
+            expect(parseWireDebugAdapterMessage(raw)).toBeNull();
+        }
+    });
+
+    it("an adapter error is a serialized error: `$isError`, a string name and message, a string stack or none", () => {
+        const error = { $isError: true, name: "TypeError", message: "m", stack: "s", code: "ENOENT" };
+        expect(parseWireDebugAdapterError({ handle: 1, error })).toEqual({ handle: 1, error });
+        const noStack = { $isError: true, name: "Error", message: "m" };
+        expect(parseWireDebugAdapterError({ handle: 1, error: noStack })).toEqual({ handle: 1, error: noStack });
+        for (const raw of [
+            null,
+            { error },
+            { handle: "1", error },
+            { handle: 1 },
+            { handle: 1, error: { ...error, $isError: 1 } },
+            { handle: 1, error: { ...error, name: 1 } },
+            { handle: 1, error: { ...error, message: null } },
+            { handle: 1, error: { ...error, stack: 2 } },
+        ]) {
+            expect(parseWireDebugAdapterError(raw)).toBeNull();
+        }
+    });
+
+    it("an adapter exit: a numeric code or none", () => {
+        expect(parseWireDebugAdapterExit({ handle: 1, code: 0 })).toEqual({ handle: 1, code: 0 });
+        expect(parseWireDebugAdapterExit({ handle: 1, code: "1" })).toEqual({ handle: 1 });
+        expect(parseWireDebugAdapterExit({ code: 1 })).toBeNull();
+        expect(parseWireDebugAdapterExit(null)).toBeNull();
     });
 });

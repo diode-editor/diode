@@ -136,6 +136,12 @@ export function getStateLabel(state: State): string {
 
 export interface AdapterEndEvent {
     error?: Error;
+    /**
+     * Diode: the adapter went away by itself — an error, or an exit with a code other than 0 — before the session
+     * shut it down (`error` is set only when it also failed to stop). Upstream ends such a session silently; diode
+     * writes it to the Debug Console.
+     */
+    failure?: Error;
     sessionLengthInSeconds: number;
     emittedStopped: boolean;
 }

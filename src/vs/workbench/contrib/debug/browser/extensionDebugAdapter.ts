@@ -4,22 +4,27 @@ import type { IExtension } from "../../../../platform/extensions/common/iExtensi
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { IWireDebugStartDebugging } from "../../../api/common/debugWireTypes.ts";
 import type {
+    IExtensionDebugAdapterConnection,
+    IExtensionDebugAdapterHost,
     IExtensionDebugConfigurationProvider,
     IExtensionDebugSink,
 } from "../../../api/common/iExtensionDebugSink.ts";
+import { AbstractDebugAdapter } from "../common/abstractDebugAdapter.ts";
 import type {
     IConfig,
     IDebugConfigurationProvider,
     IDebuggerContribution,
     IDebugService,
+    IDebugSession,
     IDebugSessionOptions,
 } from "../common/debug.ts";
 import { isSessionAttach } from "../common/debugUtils.ts";
 
 /**
  * Upstream `MainThreadDebugService` over the debug service: the providers of extensions join the configuration
- * manager, `startDebugging` and `stopDebugging` go to the service. Configurations cross the wire as JSON; the
- * service checks them when it starts a session.
+ * manager, `startDebugging` and `stopDebugging` go to the service, the debug types of the subprocess get its adapters
+ * (`ExtensionHostDebugAdapter`). Configurations cross the wire as JSON; the service checks them when it starts a
+ * session.
  */
 export class ExtensionDebugAdapter implements IExtensionDebugSink {
     public constructor(private readonly getDebugService: () => IDebugService) {}
@@ -50,6 +55,17 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
                 (await resolve2(folder(folderUri), config, token)) as IConfig | null | undefined;
         }
         return this.debugService.getConfigurationManager().registerDebugConfigurationProvider(core);
+    }
+
+    /**
+     * Upstream `$registerDebugTypes`: the adapter of a session of these types is one in the subprocess. Variables are
+     * substituted by the core's resolver alone (no `$substituteVariables`, see `debugNamespace.ts`).
+     */
+    public registerDebugTypes(types: readonly string[], host: IExtensionDebugAdapterHost): IDisposable {
+        return this.debugService.getAdapterManager().registerDebugAdapterFactory([...types], {
+            createDebugAdapter: (session) => new ExtensionHostDebugAdapter(host, session),
+            substituteVariables: (_folder, config) => Promise.resolve(config),
+        });
     }
 
     /** Upstream `$startDebugging`. */
@@ -87,6 +103,51 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
             return this.debugService.stopSession(session, isSessionAttach(session));
         }
         return Promise.reject(new Error("debug session not found"));
+    }
+}
+
+/** Upstream `ExtensionHostDebugAdapter`: a debug adapter in the subprocess, its DAP messages over the wire. */
+export class ExtensionHostDebugAdapter extends AbstractDebugAdapter {
+    private readonly connection: IExtensionDebugAdapterConnection;
+
+    public constructor(host: IExtensionDebugAdapterHost, session: IDebugSession) {
+        super();
+        const folder = session.root?.uri.toString();
+        const parentId = session.parentSession?.getId();
+        this.connection = host.createAdapter(
+            {
+                id: session.getId(),
+                type: session.configuration.type,
+                name: session.name,
+                ...(folder === undefined ? {} : { folder }),
+                configuration: session.configuration,
+                ...(parentId === undefined ? {} : { parentId }),
+            },
+            {
+                onMessage: (message) => {
+                    this.acceptMessage(message);
+                },
+                onError: (error) => {
+                    this.onErrorEmitter.fire(error);
+                },
+                onExit: (code) => {
+                    this.onExitEmitter.fire(code ?? null);
+                },
+            },
+        );
+    }
+
+    public startSession(): Promise<void> {
+        return this.connection.start();
+    }
+
+    public sendMessage(message: DebugProtocol.ProtocolMessage): void {
+        this.connection.send(message);
+    }
+
+    public async stopSession(): Promise<void> {
+        await this.cancelPendingRequests();
+        await this.connection.stop();
     }
 }
 

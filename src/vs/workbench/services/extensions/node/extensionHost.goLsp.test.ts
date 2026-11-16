@@ -102,7 +102,8 @@ describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
                     // setLanguageConfiguration is the last step of activate().
                     expect(layers.map((layer) => layer.languageId)).toContain("go");
                     const warnings = outputLines.filter((line) => line.level === "warn").map((line) => line.value);
-                    expect(warnings).toContainEqual(expect.stringContaining('debugging "go"'));
+                    // Its debug adapter factory is taken (#1140): no warn line about debugging any more.
+                    expect(warnings).not.toContainEqual(expect.stringContaining('debugging "go"'));
                     // The test controller reaches the core (#1068): no warn line about it any more.
                     expect(warnings).not.toContainEqual(expect.stringContaining('tests "go"'));
 

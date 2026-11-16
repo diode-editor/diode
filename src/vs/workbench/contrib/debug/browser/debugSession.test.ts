@@ -1173,8 +1173,12 @@ describe("DebugSession", () => {
 
             adapter.fireExit(1);
             await vi.waitFor(() => {
-                // The adapter stopped cleanly after all, so no error goes with the end.
-                expect(ended).toHaveBeenCalledWith({ emittedStopped: false, sessionLengthInSeconds: 0 });
+                // The adapter stopped cleanly after all, so no error goes with the end; it did go away by itself.
+                expect(ended).toHaveBeenCalledWith({
+                    emittedStopped: false,
+                    sessionLengthInSeconds: 0,
+                    failure: new Error("exit code: 1"),
+                });
             });
 
             expect(model.getBreakpoints()[0].getIdFromAdapter(session.getId())).toBeUndefined();

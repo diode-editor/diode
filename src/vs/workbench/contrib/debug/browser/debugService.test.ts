@@ -174,7 +174,7 @@ describe("DebugService", () => {
     });
 
     describe("start", () => {
-        it("follows upstream's sequence: activation, resolution by the providers, then the session; announced before and after the launch", async () => {
+        it("follows upstream's sequence: activation, resolution by the providers, the trackers' activation before the adapter, then the session; announced before and after the launch", async () => {
             const events: string[] = [];
             fx.service.onWillNewSession(() => events.push(`will:${String(fx.activated.length)}`));
             fx.service.onDidNewSession((s) => events.push(`did:${s.configuration.name}`));
@@ -187,6 +187,9 @@ describe("DebugService", () => {
                 "onDebugResolve",
                 "onDebug",
                 "onDebugResolve:synthetic",
+                "onDebugAdapterProtocolTracker",
+                "onDebug",
+                "onDebugAdapterProtocolTracker:synthetic",
             ]);
             expect(events).toEqual(["will:5", "did:Launch hello (lldb)"]);
         });
@@ -586,6 +589,37 @@ describe("DebugService", () => {
             await vi.waitFor(() => {
                 expect(errors()).toContain("Debug adapter process has terminated unexpectedly (segfault)");
             });
+            adapter.dispose();
+        });
+
+        it("an adapter that goes away by itself ends its session with the reason in the Debug Console, not a notification", async () => {
+            const adapter = new MockDebugAdapter();
+            registerMock("mock", adapter);
+            await fx.service.startDebugging(undefined, { type: "mock", name: "m", request: "launch" });
+            const [session] = fx.service.getModel().getSessions();
+
+            adapter.fireExit(1);
+            await vi.waitFor(() => {
+                expect(fx.service.getModel().getSessions()).toEqual([]);
+            });
+
+            const [last] = session.getReplElements().slice(-1);
+            expect(last.toString()).toBe("Debug adapter process has terminated unexpectedly (exit code: 1)\n");
+            expect((last as { severity?: unknown }).severity).toBe("error");
+            expect(errors()).toEqual([]);
+            adapter.dispose();
+        });
+
+        it("an adapter stopped by the session writes nothing to the Debug Console", async () => {
+            const adapter = new MockDebugAdapter();
+            registerMock("mock", adapter);
+            await fx.service.startDebugging(undefined, { type: "mock", name: "m", request: "launch" });
+            const [session] = fx.service.getModel().getSessions();
+            const before = session.getReplElements().length;
+
+            await fx.service.stopSession(session);
+
+            expect(session.getReplElements()).toHaveLength(before);
             adapter.dispose();
         });
 

@@ -1,7 +1,7 @@
 {
     "name": "debug-demo",
     "displayName": "Debug Demo",
-    "description": "A debugger extension shaped like CodeLLDB: the `demo` debug type, its configuration provider and `${command:pickProgram}`. It has no adapter: a start ends with the core's message about it.",
+    "description": "A debugger extension shaped like CodeLLDB: the `demo` debug type, its configuration provider, `${command:pickProgram}`, an inline adapter that stops on entry and a tracker.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",
