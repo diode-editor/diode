@@ -17,6 +17,8 @@ import type { WorkbenchComponent } from "../vs/workbench/browser/workbenchCompon
 import { WorkbenchComponentDIToken } from "../vs/workbench/browser/workbenchComponent.ts";
 import { EditorServiceDIToken } from "../vs/workbench/services/editor/common/editorService.ts";
 import { LifecycleServiceDIToken } from "../vs/workbench/services/lifecycle/browser/lifecycleService.ts";
+import { FileSearchServiceDIToken } from "../vs/workbench/services/search/common/fileSearch.ts";
+import { FileSearchEngine } from "../vs/workbench/services/search/node/fileSearchEngine.ts";
 import { ThemeServiceDIToken } from "../vs/workbench/services/themes/common/themeTokens.ts";
 
 import { TestApp } from "./TestApp.ts";
@@ -44,7 +46,10 @@ export interface IAppHarness {
     dispose(): void;
 }
 
-/** Synchronous: `await workbench.activate()` and `fileIndexReady` are left to the test. */
+/**
+ * Synchronous: `await workbench.activate()` is left to the test. There is no extension host here, so Quick Open's
+ * file search runs the same engine in-process; its answers arrive asynchronously (`vi.waitFor` on the rows).
+ */
 export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarness {
     const { container, bindApp } = createTestContainer({ environment: options.environment });
     // Overrides go before WorkbenchComponent is resolved: its constructor reads them.
@@ -57,6 +62,8 @@ export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarn
         container.bind(IConfigurationServiceDIToken, () => configurationService);
     }
     options.containerOverrides?.(container);
+    const fileSearchEngine = new FileSearchEngine();
+    container.get(FileSearchServiceDIToken).registerProvider(fileSearchEngine);
     const workbench = container.get(WorkbenchComponentDIToken);
     if (options.workspaceFolder !== undefined) {
         workbench.setWorkspaceFolder(options.workspaceFolder);
@@ -95,6 +102,7 @@ export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarn
         },
         dispose: () => {
             workbench.dispose();
+            fileSearchEngine.dispose();
             fs.rmSync(userDataRoot, { recursive: true, force: true });
         },
     };

@@ -25,6 +25,7 @@ import type { WorkspaceConfigStore } from "../../../api/common/workspaceConfigSt
 import { openApiTrace } from "../../../api/node/apiTraceFile.ts";
 import { createNodeDebugAdapter } from "../../../api/node/extHostDebugAdapters.ts";
 import { createNodeExtHostDisk } from "../../../api/node/extHostDisk.ts";
+import { registerExtHostFileSearch } from "../../../api/node/extHostFileSearch.ts";
 
 import { deactivateExtension } from "./extensionDeactivation.ts";
 import { createExtensionMemento, type IExtensionMemento } from "./extensionMemento.ts";
@@ -117,6 +118,8 @@ export function runExtensionHostSubprocess(): void {
         paths,
         extensions: catalog,
     } = installVscodeStub(rpc, logger);
+    // Lives as long as the process: nothing to unregister on the way out.
+    registerExtHostFileSearch(rpc);
 
     const extensions = new Map<string, ActivatedExtension>();
 

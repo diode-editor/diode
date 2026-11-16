@@ -103,6 +103,7 @@ import {
     type WireSemanticTokensResult,
     type WireValidationSeverity,
 } from "../../../api/common/wireTypes.ts";
+import type { IFileIndexResult, IFileQueryResult, IRawFileMatch } from "../../search/common/fileSearch.ts";
 
 export function parseWireShowTextDocumentParams(raw: unknown): IWireShowTextDocumentParams | null {
     if (typeof raw !== "object" || raw === null) return null;
@@ -1287,5 +1288,33 @@ export function parseWireSaveDialogRequest(raw: unknown): IWireSaveDialogRequest
         saveLabel: optionalWireString(p.saveLabel),
         filters: parseWireDialogFilters(p.filters),
         title: optionalWireString(p.title),
+    };
+}
+
+export function parseWireFileIndexResult(raw: unknown): IFileIndexResult {
+    if (typeof raw !== "object" || raw === null) throw new Error("search.fileIndex: result must be an object");
+    return { limitHit: (raw as { limitHit?: unknown }).limitHit === true };
+}
+
+/** Throws on a foreign response; a malformed match is dropped, the rest of the list stands. */
+export function parseWireFileQueryResult(raw: unknown): IFileQueryResult {
+    const { matches, complete, limitHit } = (raw ?? {}) as {
+        matches?: unknown;
+        complete?: unknown;
+        limitHit?: unknown;
+    };
+    if (!Array.isArray(matches)) throw new Error("search.fileQuery: the result must carry a matches array");
+    return {
+        matches: matches.flatMap((m: unknown): IRawFileMatch[] => {
+            const { relativePath, score, matchedIndices } = (m ?? {}) as {
+                relativePath?: unknown;
+                score?: unknown;
+                matchedIndices?: unknown;
+            };
+            if (typeof relativePath !== "string" || !isFiniteNumber(score) || !Array.isArray(matchedIndices)) return [];
+            return [{ relativePath, score, matchedIndices: matchedIndices.filter(isFiniteNumber) }];
+        }),
+        complete: complete === true,
+        limitHit: limitHit === true,
     };
 }

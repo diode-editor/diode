@@ -275,7 +275,7 @@ e2e-сценарий на каждую видимую часть) в оценк�
    него). `getRootPath()`/`hasRootPath()` из `ExplorerService` удалены — у него
    остался только корень собственного дерева (`setRootPath`/`onDidChangeRoot`,
    их читает `ExplorerComponent`).
-2. ⏭ **Множественные сигнатуры там, где это бесплатно**: `FileSearchService.activate(roots)`,
+2. ⏭ **Множественные сигнатуры там, где это бесплатно**: `FileSearchService.createSession()` по всем папкам (сейчас `folders.at(0)`),
    `TextSearchService.search(query, folders, …)`, `terminalService.setWorkingDirectories(…)`.
    Образец уже есть — `matchWorkspaceContains(scanner, folders, …)`.
    → **не взято:** если внутри всё равно обрабатывается один корень, ветка
