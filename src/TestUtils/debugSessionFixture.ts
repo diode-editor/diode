@@ -34,6 +34,8 @@ export const DEFAULT_DEBUG_CONFIGURATION: IDebugServiceConfiguration = {
     autoExpandLazyVariables: "auto",
     internalConsoleOptions: "openOnFirstSessionStart",
     console: { closeOnEnd: false },
+    allowBreakpointsEverywhere: false,
+    focusEditorOnBreak: true,
 };
 
 export interface ITestSessionServices extends IDebugSessionServices {

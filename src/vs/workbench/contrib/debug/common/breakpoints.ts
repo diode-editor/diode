@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/common/breakpoints.ts
 
-import { deserializeWhen } from "../../../../platform/contextkey/common/contextKeyExpr.ts";
+import { deserializeWhen, whenKeys } from "../../../../platform/contextkey/common/contextKeyExpr.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 
 import type { IBreakpointContribution } from "./debug.ts";
@@ -25,6 +25,12 @@ export class Breakpoints {
 
     public get language(): string {
         return this.breakpointContribution.language;
+    }
+
+    /** Ours: the context keys of the `when`, whose changes may enable or disable the contribution. */
+    public get whenKeys(): readonly string[] {
+        const when = this.breakpointsWhen === undefined ? undefined : deserializeWhen(this.breakpointsWhen);
+        return when === undefined ? [] : whenKeys(when);
     }
 
     public get enabled(): boolean {

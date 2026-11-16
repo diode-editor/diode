@@ -7,8 +7,9 @@
 // configuration or compound, resolution by the providers, variable substitution, the pre-launch task, resolution with
 // substituted variables, then the session. Choosing a debugger for a configuration without a type (#1156) is not
 // here yet: such a configuration goes to the providers without a type and does not start. Not here yet:
-// adding and editing breakpoints (the gutter: #1148; conditions, data breakpoints), `debug.openExplorerOnEnd`,
-// opening the focused frame in the editor (#1148). The
+// data breakpoints, `debug.openExplorerOnEnd`, removing the breakpoints of a deleted file. The focused frame opens
+// through the `openStackFrame` port (upstream `stackFrame.openInEditor`), and the positions the editor moved
+// breakpoints to are sent on the file's save (upstream: on its change on disk). The
 // activity badge of the view container (active sessions) is not here: the container switcher has no badges. Errors
 // show as a modal notification, without the "Open launch.json" and "Install Extension" buttons. Not planned:
 // workspace trust (diode has none), telemetry, extension host debugging, the memory and disassembly views.
@@ -18,7 +19,7 @@ import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { isCancellationError } from "../../../../base/common/errorSerialization.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
-import { DisposableStore } from "../../../../base/common/lifecycle.ts";
+import { DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri as uri } from "../../../../base/common/uri.ts";
 import { generateUuid } from "../../../../base/common/uuid.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -35,6 +36,8 @@ import {
     type AdapterEndEvent,
     getStateLabel,
     type IBreakpoint,
+    type IBreakpointData,
+    type IBreakpointUpdateData,
     type ICompound,
     type IConfig,
     type IDebugModel,
@@ -97,6 +100,16 @@ export interface IDebugServicePorts {
     readonly openRepl: () => void;
     /** Upstream's `closeViewContainer` of the Debug Console's container when it is visible. */
     readonly closeRepl: () => void;
+    /**
+     * Upstream `stackFrame.openInEditor`: the frame's source at its line, in the active group or beside it; a frame
+     * without an available source opens nothing.
+     */
+    readonly openStackFrame: (
+        stackFrame: IStackFrame,
+        options: { preserveFocus: boolean; sideBySide: boolean; pinned: boolean },
+    ) => Promise<void>;
+    /** A text file was saved: the breakpoints the editor moved in it go to the adapters. */
+    readonly onDidSaveTextFile: (listener: (resource: uri) => void) => IDisposable;
 }
 export const DebugServicePortsDIToken = token<IDebugServicePorts>("DebugServicePorts");
 
@@ -132,6 +145,8 @@ export class DebugService implements IDebugService {
     private initializingOptionsValue: IDebugSessionOptions | undefined;
     private previousState: State | undefined;
     private readonly sessionCancellationTokens = new Map<string, CancellationTokenSource>();
+    /** Upstream keeps a set of uris; a map by the string keeps one entry per file. */
+    private readonly breakpointsToSendOnResourceSaved = new Map<string, uri>();
     private readonly sessionServices: IDebugSessionServices;
 
     public constructor(private readonly ports: IDebugServicePorts) {
@@ -142,6 +157,7 @@ export class DebugService implements IDebugService {
                 terminalLauncher: ports.terminalLauncher,
                 extensions: ports.extensions,
                 variables: ports.variables,
+                allowBreakpointsEverywhere: () => ports.debugConfiguration().allowBreakpointsEverywhere,
             }),
         );
         this.configurationManager = this.disposables.add(
@@ -209,6 +225,11 @@ export class DebugService implements IDebugService {
         };
         setBreakpointsExistContext();
         this.disposables.add(this.model.onDidChangeBreakpoints(setBreakpointsExistContext));
+        this.disposables.add(
+            ports.onDidSaveTextFile((resource) => {
+                this.onDidSaveTextFile(resource);
+            }),
+        );
     }
 
     private notify(severity: ReplSeverity, message: string): void {
@@ -1025,6 +1046,13 @@ export class DebugService implements IDebugService {
             sessionToFocus,
         );
 
+        if (stackFrame) {
+            await this.ports.openStackFrame(stackFrame, {
+                preserveFocus: options?.preserveFocus ?? true,
+                sideBySide: !!options?.sideBySide,
+                pinned: !!options?.pinned,
+            });
+        }
         if (session) {
             this.ports.contextKeys.set("debugType", session.configuration.type);
         } else {
@@ -1032,10 +1060,51 @@ export class DebugService implements IDebugService {
         }
 
         this.viewModel.setFocus(stackFrame, thread, session, !!options?.explicit);
-        return Promise.resolve();
     }
 
     //---- breakpoints
+
+    public sourceIsNotAvailable(uri: uri): void {
+        this.model.sourceIsNotAvailable(uri);
+    }
+
+    /** Upstream takes the text model; here the language of the file is enough. */
+    public canSetBreakpointsIn(languageId: string): boolean {
+        return this.adapterManager.canSetBreakpointsIn(languageId);
+    }
+
+    public async addBreakpoints(uri: uri, rawBreakpoints: IBreakpointData[]): Promise<IBreakpoint[]> {
+        const breakpoints = this.model.addBreakpoints(uri, rawBreakpoints);
+
+        // In some cases we need to store breakpoints before we send them because sending them can take a long time
+        // And after sending them because the debug adapter can attach adapter data to a breakpoint
+        this.debugStorage.storeBreakpoints(this.model);
+        await this.sendBreakpoints(uri);
+        this.debugStorage.storeBreakpoints(this.model);
+        return breakpoints;
+    }
+
+    public async updateBreakpoints(
+        uri: uri,
+        data: Map<string, IBreakpointUpdateData>,
+        sendOnResourceSaved: boolean,
+    ): Promise<void> {
+        this.model.updateBreakpoints(data);
+        this.debugStorage.storeBreakpoints(this.model);
+        if (sendOnResourceSaved) {
+            this.breakpointsToSendOnResourceSaved.set(uri.toString(), uri);
+        } else {
+            await this.sendBreakpoints(uri);
+            this.debugStorage.storeBreakpoints(this.model);
+        }
+    }
+
+    /** Upstream `onFileChanges` with an updated file, from a save in the editor here. */
+    private onDidSaveTextFile(resource: uri): void {
+        const key = resource.toString();
+        if (!this.breakpointsToSendOnResourceSaved.delete(key)) return;
+        void this.sendBreakpoints(resource, true);
+    }
 
     public async enableOrDisableBreakpoints(enable: boolean, breakpoint?: IEnablement): Promise<void> {
         if (breakpoint) {

@@ -80,6 +80,10 @@ export interface IDebugServiceFixture {
     /** How many times the Debug Console was shown, and asked to close. */
     replOpenings: number;
     replClosings: number;
+    /** The stack frames opened in the editor: `name@line` with the options. */
+    readonly openedFrames: { frame: string; preserveFocus: boolean; sideBySide: boolean; pinned: boolean }[];
+    /** Fires the save of a text file. */
+    saveTextFile(resource: Uri): void;
 }
 
 /** `state`: the workspace store of an earlier service, as a window that opens the same folder again. */
@@ -98,6 +102,7 @@ export function createDebugServiceFixture(
     const runs = new Map<string, PromiseWithResolvers<ITaskSummary | undefined>>();
     const taskEvents = new Emitter<ITaskEvent>();
     const foldersChange = new Emitter<void>(); // never fires: the tests keep their folders
+    const textFileSaved = new Emitter<Uri>();
     const configuration = new InMemoryConfigurationService(
         new ConfigurationRegistry([debugConfiguration]),
         {},
@@ -124,6 +129,10 @@ export function createDebugServiceFixture(
         viewletOpenings: 0,
         replOpenings: 0,
         replClosings: 0,
+        openedFrames: [] as { frame: string; preserveFocus: boolean; sideBySide: boolean; pinned: boolean }[],
+        saveTextFile: (resource: Uri) => {
+            textFileSaved.fire(resource);
+        },
         endTask: (label: string, exitCode: number | undefined) => {
             const task = fixture.tasks.find((t) => t._label === label);
             /* v8 ignore start -- test helper: a test ends only the tasks it listed */
@@ -243,6 +252,8 @@ export function createDebugServiceFixture(
             autoExpandLazyVariables: configuration.get("debug.autoExpandLazyVariables"),
             internalConsoleOptions: configuration.get("debug.internalConsoleOptions"),
             console: { closeOnEnd: configuration.get("debug.console.closeOnEnd") },
+            allowBreakpointsEverywhere: configuration.get("debug.allowBreakpointsEverywhere"),
+            focusEditorOnBreak: configuration.get("debug.focusEditorOnBreak"),
         }),
         openViewlet: () => {
             fixture.viewletOpenings++;
@@ -253,6 +264,11 @@ export function createDebugServiceFixture(
         closeRepl: () => {
             fixture.replClosings++;
         },
+        openStackFrame: (stackFrame, options) => {
+            fixture.openedFrames.push({ frame: `${stackFrame.name}@${String(stackFrame.range.startLineNumber)}`, ...options });
+            return Promise.resolve();
+        },
+        onDidSaveTextFile: (listener) => textFileSaved.event(listener),
     };
     return Object.assign(fixture, { ports, service: new DebugService(ports) });
 }

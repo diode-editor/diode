@@ -5,7 +5,8 @@ import type { IConfigurationNode } from "../../../platform/configuration/common/
  * and `debug.internalConsoleOptions` have no `type` there either: a string). Only the keys the ported code reads: the
  * Debug Console (`replModel.ts`, opening and closing its view), the terminal of `runInTerminal` (`debugTerminal.ts`), launch.json and the debug tasks
  * (`debugConfigurationManager.ts`, `debugTaskRunner.ts`, `debugService.ts`), the Run and Debug views (opening them,
- * types, lazy variables and the breakpoints presentation). The rest of `debug.*` comes with the task that implements it (the toolbar), the
+ * types, lazy variables and the breakpoints presentation), the editor's breakpoints and stack frames (the gutter, its
+ * middle click and ruler, focusing the editor on a break). The rest of `debug.*` comes with the task that implements it (the toolbar), the
  * unsupported ones are declared by the settings task (#1158). `launch` has no JSON schema of its configurations yet
  * (IntelliSense in launch.json is a task of its own).
  */
@@ -111,6 +112,37 @@ export const debugConfiguration = {
             type: "boolean",
             description:
                 "Before starting a new debug session in an integrated or external terminal, clear the terminal.",
+            default: false,
+        },
+        "debug.allowBreakpointsEverywhere": {
+            scope: "window",
+            type: "boolean",
+            description: "Allow setting breakpoints in any file.",
+            default: false,
+        },
+        "debug.gutterMiddleClickAction": {
+            scope: "window",
+            type: "string",
+            enum: ["logpoint", "conditionalBreakpoint", "triggeredBreakpoint", "none"],
+            description: "Controls the action to perform when clicking the editor gutter with the middle mouse button.",
+            enumDescriptions: [
+                "Add Logpoint.",
+                "Add Conditional Breakpoint.",
+                "Add Triggered Breakpoint.",
+                "Don't perform any action.",
+            ],
+            default: "logpoint",
+        },
+        "debug.focusEditorOnBreak": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls whether the editor should be focused when the debugger breaks.",
+            default: true,
+        },
+        "debug.showBreakpointsInOverviewRuler": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls whether breakpoints should be shown in the overview ruler.",
             default: false,
         },
         "debug.autoExpandLazyVariables": {

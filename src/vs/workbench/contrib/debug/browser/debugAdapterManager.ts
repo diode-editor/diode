@@ -9,9 +9,10 @@
 // a `*` contribution merges into every type. The adapters of extensions come through `registerDebugAdapterFactory`
 // (upstream's `$registerDebugTypes`); upstream's main-side descriptor factories are not needed, the subprocess asks
 // the extension's factory itself. Not here yet, each with its task: `guessDebugger` (#1156), the launch.json schema
-// and the task labels in it (#1157),
-// `canSetBreakpointsIn` (gutter, #1148). A debugger's `when` is evaluated when asked: `debuggersAvailable` follows
-// registrations and every change of a key in the `when` of a debugger, as upstream's. `runInTerminal` goes to the core's terminal launcher, not to the adapter
+// and the task labels in it (#1157). `contributes.breakpoints` comes through `registerBreakpoints` the same way, and
+// `canSetBreakpointsIn` takes the language of the file (upstream: its text model). A debugger's `when` is evaluated
+// when asked: `debuggersAvailable` follows registrations and every change of a key in the `when` of a debugger, as
+// upstream's; `onDidChangeCanSetBreakpoints` follows those and the `when` of the breakpoint contributions. `runInTerminal` goes to the core's terminal launcher, not to the adapter
 // factory of the debug type (#1142). Deviation: upstream lets a built-in extension's contribution win a key; diode
 // has no built-in debuggers.
 
@@ -21,8 +22,10 @@ import { deserializeWhen, whenKeys } from "../../../../platform/contextkey/commo
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IExtensionService } from "../../../services/extensions/common/extensions.ts";
+import { Breakpoints } from "../common/breakpoints.ts";
 import type {
     IAdapterManager,
+    IBreakpointContribution,
     IConfig,
     IDebugAdapter,
     IDebugAdapterFactory,
@@ -40,6 +43,8 @@ export interface IAdapterManagerPorts {
     readonly terminalLauncher: IDebugTerminalLauncher;
     readonly extensions: Pick<IExtensionService, "activateByEvent">;
     readonly variables: IDebugVariableResolver;
+    /** `debug.allowBreakpointsEverywhere`. */
+    readonly allowBreakpointsEverywhere: () => boolean;
 }
 
 export class AdapterManager extends Disposable implements IAdapterManager {
@@ -49,6 +54,8 @@ export class AdapterManager extends Disposable implements IAdapterManager {
     private debuggerWhenKeys = new Set<string>();
     private readonly debugAdapterFactories = new Map<string, IDebugAdapterFactory>();
     private readonly onDidRegisterDebuggerEmitter = this.register(new Emitter<void>());
+    private breakpointContributions: Breakpoints[] = [];
+    private readonly onDidChangeCanSetBreakpointsEmitter = this.register(new Emitter<void>());
 
     public constructor(
         private readonly debugService: () => IDebugService,
@@ -60,6 +67,9 @@ export class AdapterManager extends Disposable implements IAdapterManager {
             this.ports.contextKeys.onDidChange((changed) => {
                 if ([...changed].some((key) => this.debuggerWhenKeys.has(key))) {
                     this.ports.contextKeys.set("debuggersAvailable", this.hasEnabledDebuggers());
+                    this.onDidChangeCanSetBreakpointsEmitter.fire();
+                } else if ([...changed].some((key) => this.breakpointWhenKeys().has(key))) {
+                    this.onDidChangeCanSetBreakpointsEmitter.fire();
                 }
             }),
         );
@@ -67,6 +77,42 @@ export class AdapterManager extends Disposable implements IAdapterManager {
 
     public get onDidRegisterDebugger(): Event<void> {
         return this.onDidRegisterDebuggerEmitter.event;
+    }
+
+    /** What `canSetBreakpointsIn` and `hasEnabledDebuggers` answer may have changed (not `debug.*` settings). */
+    public get onDidChangeCanSetBreakpoints(): Event<void> {
+        return this.onDidChangeCanSetBreakpointsEmitter.event;
+    }
+
+    /** Upstream's `breakpointsExtPoint` handler, one `contributes.breakpoints` entry at a time. */
+    public registerBreakpoints(contribution: IBreakpointContribution): IDisposable {
+        const breakpoints = new Breakpoints(contribution, this.ports.contextKeys);
+        this.breakpointContributions.push(breakpoints);
+        this.onDidChangeCanSetBreakpointsEmitter.fire();
+        return {
+            dispose: () => {
+                this.breakpointContributions = this.breakpointContributions.filter((entry) => entry !== breakpoints);
+                this.onDidChangeCanSetBreakpointsEmitter.fire();
+            },
+        };
+    }
+
+    private breakpointWhenKeys(): Set<string> {
+        return new Set(this.breakpointContributions.flatMap((breakpoints) => breakpoints.whenKeys));
+    }
+
+    public canSetBreakpointsIn(languageId: string): boolean {
+        if (!languageId || languageId === "jsonc" || languageId === "log") {
+            // do not allow breakpoints in our settings files and output
+            return false;
+        }
+        if (this.ports.allowBreakpointsEverywhere()) {
+            return true;
+        }
+
+        return this.breakpointContributions.some(
+            (breakpoints) => breakpoints.language === languageId && breakpoints.enabled,
+        );
     }
 
     public registerDebugger(contribution: IDebuggerContribution): IDisposable {
@@ -114,6 +160,7 @@ export class AdapterManager extends Disposable implements IAdapterManager {
             }),
         );
         this.updateContextKeys();
+        this.onDidChangeCanSetBreakpointsEmitter.fire();
     }
 
     public async activateDebuggers(activationEvent: string, debugType?: string): Promise<void> {

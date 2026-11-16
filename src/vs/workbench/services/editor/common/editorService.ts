@@ -149,8 +149,10 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     readonly editorConfiguration: TextEditorConfiguration;
     /** `onWillSaveTextDocument`. */
     saveParticipant: SaveParticipant | undefined;
-    /** `registerTextDocumentContentProvider`. */
+    /** `registerTextDocumentContentProvider`; reads add the workbench schemes of {@link registerDocumentSource}. */
     virtualDocumentSource: IVirtualDocumentSource;
+    /** A workbench scheme's documents (`debug:`): read-only, not restored. */
+    registerDocumentSource(scheme: string, provide: (uri: Uri) => Promise<string | null>): IDisposable;
     /** On the provider's `onDidChange`. */
     refreshVirtualDocument(uri: Uri): void;
 }

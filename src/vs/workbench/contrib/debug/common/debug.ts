@@ -1040,6 +1040,12 @@ export interface IAdapterManager {
      * extensions (`bindExtensionDebuggers`) and the tests register a debug type through it.
      */
     registerDebugger(contribution: IDebuggerContribution): IDisposable;
+    /** Ours, like `registerDebugger`: one `contributes.breakpoints` entry of an extension. */
+    registerBreakpoints(contribution: IBreakpointContribution): IDisposable;
+    /** Upstream takes the text model: here its language. */
+    canSetBreakpointsIn(languageId: string): boolean;
+    /** Ours: `canSetBreakpointsIn` or `hasEnabledDebuggers` may answer differently (not for a `debug.*` setting). */
+    readonly onDidChangeCanSetBreakpoints: Event<void>;
     /** `activationEvent`, `onDebug` and, with a type, `activationEvent:type` — all awaited. */
     activateDebuggers(activationEvent: string, debugType?: string): Promise<void>;
     registerDebugAdapterFactory(debugTypes: string[], debugAdapterFactory: IDebugAdapterFactory): IDisposable;
@@ -1078,6 +1084,18 @@ export interface IDebugService {
         session: IDebugSession,
         filters: DebugProtocol.ExceptionBreakpointsFilter[],
     ): void;
+
+    /** The source of the uri cannot be loaded: its frames are not opened again. */
+    sourceIsNotAvailable(uri: uri): void;
+
+    /** Upstream takes the text model: here its language. */
+    canSetBreakpointsIn(languageId: string): boolean;
+
+    /** Adds new breakpoints to the model for the file specified with the uri. Notifies debug adapter of breakpoint changes. */
+    addBreakpoints(uri: uri, rawBreakpoints: IBreakpointData[]): Promise<IBreakpoint[]>;
+
+    /** Updates the breakpoints; with `sendOnResourceSaved` they go to the adapters when the file is saved. */
+    updateBreakpoints(uri: uri, data: Map<string, IBreakpointUpdateData>, sendOnResourceSaved: boolean): Promise<void>;
     sendAllBreakpoints(session?: IDebugSession): Promise<void>;
     sendBreakpoints(modelUri: uri, sourceModified?: boolean, session?: IDebugSession): Promise<void>;
 
