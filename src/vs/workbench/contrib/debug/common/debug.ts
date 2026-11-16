@@ -23,6 +23,7 @@ import type { ConfigurationTarget } from "../../../../platform/configuration/com
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
 import type { DebugCompoundRoot } from "./debugCompoundRoot.ts";
+import type { IFunctionBreakpointOptions } from "./debugModel.ts";
 import type { Source } from "./debugSource.ts";
 
 export const DEBUG_SCHEME = "debug";
@@ -1080,6 +1081,23 @@ export interface IDebugService {
 
     /** Adds new breakpoints to the model for the file specified with the uri. Notifies debug adapter of breakpoint changes. */
     addBreakpoints(uri: uri, rawBreakpoints: IBreakpointData[]): Promise<IBreakpoint[]>;
+
+    /**
+     * Removes all breakpoints. If id is passed only removes the breakpoint associated with that id.
+     * Notifies debug adapter of breakpoint changes.
+     */
+    removeBreakpoints(id?: string | string[]): Promise<void>;
+
+    /**
+     * Adds a new function breakpoint for the given name.
+     */
+    addFunctionBreakpoint(opts?: IFunctionBreakpointOptions, id?: string): Promise<void>;
+
+    /**
+     * Removes all function breakpoints. If id is passed only removes the function breakpoint with the passed id.
+     * Notifies debug adapter of breakpoint changes.
+     */
+    removeFunctionBreakpoints(id?: string): Promise<void>;
 
     /**
      * Adds a new watch expression and evaluates it against the debug adapter.

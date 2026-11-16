@@ -46,7 +46,7 @@ describe("ExtensionHost — the core's debug sessions for an extension", () => {
     async function hear(line: string): Promise<void> {
         await vi.waitFor(async () => {
             heard.push(...((await run("seen")) as string[]));
-            expect(heard, heard.join(" | ")).toContain(line);
+            expect(heard).toContain(line);
         }, WAIT);
     }
 

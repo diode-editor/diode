@@ -51,7 +51,7 @@ import {
     State,
 } from "../common/debug.ts";
 import { DebugCompoundRoot } from "../common/debugCompoundRoot.ts";
-import { DebugModel, type ITextFileDirtyState } from "../common/debugModel.ts";
+import { DebugModel, type IFunctionBreakpointOptions, type ITextFileDirtyState } from "../common/debugModel.ts";
 import { DebugStorage } from "../common/debugStorage.ts";
 import { ViewModel } from "../common/debugViewModel.ts";
 import type { IReplConsoleConfiguration } from "../common/replModel.ts";
@@ -1027,6 +1027,55 @@ export class DebugService implements IDebugService {
     }
 
     //---- breakpoints
+
+    public async removeBreakpoints(id?: string | string[]): Promise<void> {
+        const breakpoints = this.model.getBreakpoints();
+        const toRemove =
+            id === undefined
+                ? breakpoints
+                : Array.isArray(id)
+                  ? breakpoints.filter((bp) => id.includes(bp.getId()))
+                  : breakpoints.filter((bp) => bp.getId() === id);
+        // Upstream keeps the uris as strings to make them distinct; a map by the string keeps the uri itself.
+        const urisToClear = new Map(toRemove.map((bp) => [bp.originalUri.toString(), bp.originalUri]));
+
+        this.model.removeBreakpoints(toRemove);
+        for (const uri of this.unlinkTriggeredBreakpoints(toRemove)) urisToClear.set(uri.toString(), uri);
+
+        this.debugStorage.storeBreakpoints(this.model);
+        await Promise.all([...urisToClear.values()].map((uri) => this.sendBreakpoints(uri)));
+    }
+
+    public async addFunctionBreakpoint(opts?: IFunctionBreakpointOptions, id?: string): Promise<void> {
+        this.model.addFunctionBreakpoint(opts ?? { name: "" }, id);
+        // If opts not provided, sending the breakpoint is handled by a later to call to `updateFunctionBreakpoint`
+        if (opts) {
+            this.debugStorage.storeBreakpoints(this.model);
+            // No store after the answer, unlike upstream: nothing of it goes into a stored function breakpoint.
+            await this.sendFunctionBreakpoints();
+        }
+    }
+
+    public async removeFunctionBreakpoints(id?: string): Promise<void> {
+        this.model.removeFunctionBreakpoints(id);
+        this.debugStorage.storeBreakpoints(this.model);
+        await this.sendFunctionBreakpoints();
+    }
+
+    /** Called after the removal: the breakpoints left are the model's (upstream walks all of them, removed too). */
+    private unlinkTriggeredBreakpoints(removedBreakpoints: readonly IBreakpoint[]): uri[] {
+        const affectedUris: uri[] = [];
+        for (const removed of removedBreakpoints) {
+            for (const existing of this.model.getBreakpoints()) {
+                if (existing.triggeredBy === removed.getId()) {
+                    this.model.updateBreakpoints(new Map([[existing.getId(), { triggeredBy: undefined }]]));
+                    affectedUris.push(existing.originalUri);
+                }
+            }
+        }
+
+        return affectedUris;
+    }
 
     public setExceptionBreakpointsForSession(
         session: IDebugSession,
