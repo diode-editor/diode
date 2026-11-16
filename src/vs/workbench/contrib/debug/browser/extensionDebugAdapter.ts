@@ -1,13 +1,14 @@
-import { DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { DisposableMap, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
-import type {
-    IWireDebugRegisterBreakpoints,
-    IWireDebugSession,
-    IWireDebugStartDebugging,
-    IWireDebugUnregisterBreakpoints,
-    WireDebugBreakpoint,
+import {
+    type IWireDebugRegisterBreakpoints,
+    type IWireDebugSession,
+    type IWireDebugStartDebugging,
+    type IWireDebugUnregisterBreakpoints,
+    wireBreakpointBase,
+    type WireDebugBreakpoint,
 } from "../../../api/common/debugWireTypes.ts";
 import type {
     IExtensionDebugAdapterConnection,
@@ -49,12 +50,7 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
     public subscribe(events: IExtensionDebugEvents): IDisposable {
         const store = new DisposableStore();
         const debugService = this.debugService;
-        const sessionListeners = new Map<IDebugSession, DisposableStore>();
-        store.add({
-            dispose: () => {
-                for (const listeners of sessionListeners.values()) listeners.dispose();
-            },
-        });
+        const sessionListeners = store.add(new DisposableMap<IDebugSession, DisposableStore>());
         // A custom event can come while the session initializes: listened to from before its launch. Upstream adds
         // the name's listener at each `onDidNewSession`, and a restarted session told its new name twice: here both
         // are added once, before the launch.
@@ -83,10 +79,7 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
             debugService.onDidEndSession(({ session, restart }) => {
                 events.sessionTerminated(sessionDto(session));
                 // A restarted session keeps its listeners: its events go on after the restart.
-                if (!restart) {
-                    sessionListeners.get(session)?.dispose();
-                    sessionListeners.delete(session);
-                }
+                if (!restart) sessionListeners.deleteAndDispose(session);
             }),
         );
         const viewModel = debugService.getViewModel();
@@ -97,16 +90,14 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
         );
         const focusChanged = (): void => {
             const stackFrame = viewModel.focusedStackFrame;
-            const thread = viewModel.focusedThread;
-            if (stackFrame) {
-                const { threadId } = stackFrame.thread;
-                const session = sessionDto(stackFrame.thread.session);
-                events.stackFocusChanged({ session, threadId, frameId: stackFrame.frameId });
-            } else if (thread) {
-                events.stackFocusChanged({ session: sessionDto(thread.session), threadId: thread.threadId });
-            } else {
-                events.stackFocusChanged(undefined);
-            }
+            const thread = stackFrame?.thread ?? viewModel.focusedThread;
+            events.stackFocusChanged(
+                thread && {
+                    session: sessionDto(thread.session),
+                    threadId: thread.threadId,
+                    ...(stackFrame ? { frameId: stackFrame.frameId } : {}),
+                },
+            );
         };
         store.add(viewModel.onDidFocusStackFrame(focusChanged));
         store.add(viewModel.onDidFocusThread(focusChanged));
@@ -156,7 +147,7 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
     }
 
     /** Upstream `$registerBreakpoints`: lines and characters become the model's 1-based ones. */
-    public async registerBreakpoints({ breakpoints }: IWireDebugRegisterBreakpoints): Promise<void> {
+    public registerBreakpoints({ breakpoints }: IWireDebugRegisterBreakpoints): void {
         for (const dto of breakpoints) {
             if (dto.type === "sourceMulti") {
                 const raw = dto.lines.map(
@@ -187,17 +178,13 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
                 );
             }
         }
-        return Promise.resolve();
     }
 
     /** Upstream `$unregisterBreakpoints`. */
-    public unregisterBreakpoints({
-        breakpointIds,
-        functionBreakpointIds,
-    }: IWireDebugUnregisterBreakpoints): Promise<void> {
-        for (const id of breakpointIds) void this.debugService.removeBreakpoints(id);
+    public unregisterBreakpoints({ breakpointIds, functionBreakpointIds }: IWireDebugUnregisterBreakpoints): void {
+        // All at once: one store and one `setBreakpoints` per file (upstream removes them one by one).
+        void this.debugService.removeBreakpoints([...breakpointIds]);
         for (const id of functionBreakpointIds) void this.debugService.removeFunctionBreakpoints(id);
-        return Promise.resolve();
     }
 
     public registerConfigurationProvider(
@@ -296,13 +283,7 @@ type ModelBreakpoint = IBreakpoint | IFunctionBreakpoint | IDataBreakpoint | IIn
 function breakpointDtos(bps: readonly ModelBreakpoint[]): WireDebugBreakpoint[] {
     const dtos: WireDebugBreakpoint[] = [];
     for (const bp of bps) {
-        const common = {
-            id: bp.getId(),
-            enabled: bp.enabled,
-            ...(bp.condition === undefined ? {} : { condition: bp.condition }),
-            ...(bp.hitCondition === undefined ? {} : { hitCondition: bp.hitCondition }),
-            ...(bp.logMessage === undefined ? {} : { logMessage: bp.logMessage }),
-        };
+        const common = wireBreakpointBase({ ...bp, id: bp.getId(), enabled: bp.enabled });
         if ("name" in bp) {
             dtos.push({ type: "function", ...common, functionName: bp.name });
         } else if ("uri" in bp) {

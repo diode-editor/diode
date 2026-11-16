@@ -1,24 +1,25 @@
 import type { SerializedError } from "../../../../base/common/errorSerialization.ts";
-import type {
-    IWireDebugAdapterError,
-    IWireDebugAdapterExit,
-    IWireDebugAdapterMessage,
-    IWireDebugBreakpointBase,
-    IWireDebugConfigurationProvider,
-    IWireDebugConsoleAppend,
-    IWireDebugCustomRequest,
-    IWireDebugFunctionBreakpoint,
-    IWireDebugProtocolBreakpointRequest,
-    IWireDebugProviderHandle,
-    IWireDebugRegisterBreakpoints,
-    IWireDebugSetSessionName,
-    IWireDebugSourceLine,
-    IWireDebugSourceMultiBreakpoint,
-    IWireDebugStartDebugging,
-    IWireDebugStartOptions,
-    IWireDebugStopDebugging,
-    IWireDebugUnregisterBreakpoints,
-    WireDebugConfiguration,
+import {
+    type IWireDebugAdapterError,
+    type IWireDebugAdapterExit,
+    type IWireDebugAdapterMessage,
+    type IWireDebugBreakpointBase,
+    type IWireDebugConfigurationProvider,
+    type IWireDebugConsoleAppend,
+    type IWireDebugCustomRequest,
+    type IWireDebugFunctionBreakpoint,
+    type IWireDebugProtocolBreakpointRequest,
+    type IWireDebugProviderHandle,
+    type IWireDebugRegisterBreakpoints,
+    type IWireDebugSetSessionName,
+    type IWireDebugSourceLine,
+    type IWireDebugSourceMultiBreakpoint,
+    type IWireDebugStartDebugging,
+    type IWireDebugStartOptions,
+    type IWireDebugStopDebugging,
+    type IWireDebugUnregisterBreakpoints,
+    wireBreakpointBase,
+    type WireDebugConfiguration,
 } from "../../../api/common/debugWireTypes.ts";
 import { isFiniteNumber } from "../../../api/common/wireTypes.ts";
 
@@ -116,8 +117,7 @@ export function parseWireDebugStopDebugging(raw: unknown): IWireDebugStopDebuggi
 
 /** Upstream `$registerDebugTypes`: entries that are not strings are dropped. */
 export function parseWireDebugTypes(raw: unknown): string[] {
-    const types = fields(raw)?.types;
-    return Array.isArray(types) ? (types as readonly unknown[]).filter((type) => typeof type === "string") : [];
+    return stringList(fields(raw)?.types);
 }
 
 /** A DAP message is any object with a `type`; the session checks the rest, as upstream's. */
@@ -177,18 +177,14 @@ export function parseWireDebugConsoleAppend(raw: unknown): IWireDebugConsoleAppe
 /** `null` — not a breakpoint: no string id or no boolean `enabled`; optional fields of another type are dropped. */
 function parseBreakpointBase(p: Fields): IWireDebugBreakpointBase | null {
     if (typeof p.id !== "string" || typeof p.enabled !== "boolean") return null;
-    const condition = optionalString(p.condition);
-    const hitCondition = optionalString(p.hitCondition);
-    const logMessage = optionalString(p.logMessage);
-    const mode = optionalString(p.mode);
-    return {
+    return wireBreakpointBase({
         id: p.id,
         enabled: p.enabled,
-        ...(condition === undefined ? {} : { condition }),
-        ...(hitCondition === undefined ? {} : { hitCondition }),
-        ...(logMessage === undefined ? {} : { logMessage }),
-        ...(mode === undefined ? {} : { mode }),
-    };
+        condition: optionalString(p.condition),
+        hitCondition: optionalString(p.hitCondition),
+        logMessage: optionalString(p.logMessage),
+        mode: optionalString(p.mode),
+    });
 }
 
 function parseSourceLine(raw: unknown): IWireDebugSourceLine | null {

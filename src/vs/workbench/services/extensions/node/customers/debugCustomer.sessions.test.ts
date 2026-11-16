@@ -51,8 +51,8 @@ function recordingSink() {
         ),
         setSessionName: vi.fn<IExtensionDebugSink["setSessionName"]>(),
         appendDebugConsole: vi.fn<IExtensionDebugSink["appendDebugConsole"]>(),
-        registerBreakpoints: vi.fn<IExtensionDebugSink["registerBreakpoints"]>(() => Promise.resolve()),
-        unregisterBreakpoints: vi.fn<IExtensionDebugSink["unregisterBreakpoints"]>(() => Promise.resolve()),
+        registerBreakpoints: vi.fn<IExtensionDebugSink["registerBreakpoints"]>(),
+        unregisterBreakpoints: vi.fn<IExtensionDebugSink["unregisterBreakpoints"]>(),
     } satisfies IExtensionDebugSink;
     return { sink, subscriptions };
 }

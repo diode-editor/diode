@@ -22,17 +22,18 @@ import {
     setBreakpointId,
     SourceBreakpoint,
 } from "./debugTypes.ts";
-import type {
-    IWireDebugBreakpointBase,
-    IWireDebugFunctionBreakpoint,
-    IWireDebugResolveResult,
-    IWireDebugSession,
-    IWireDebugSourceLine,
-    IWireDebugSourceMultiBreakpoint,
-    IWireDebugStartOptions,
-    WireDebugBreakpoint,
-    WireDebugConfiguration,
-    WireDebugTriggerKind,
+import {
+    type IWireDebugFunctionBreakpoint,
+    type IWireDebugResolveResult,
+    type IWireDebugSession,
+    type IWireDebugSourceBreakpoint,
+    type IWireDebugSourceLine,
+    type IWireDebugSourceMultiBreakpoint,
+    type IWireDebugStartOptions,
+    wireBreakpointBase,
+    type WireDebugBreakpoint,
+    type WireDebugConfiguration,
+    type WireDebugTriggerKind,
 } from "./debugWireTypes.ts";
 import { DirectDebugAdapter, type ExtHostDebugAdapter, type ExtHostNodeDebugAdapters } from "./extHostDebugAdapter.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
@@ -346,12 +347,12 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
                     dtos.push({ type: "sourceMulti", uri, lines });
                 }
                 lines.push({
-                    ...breakpointFields(bp),
+                    ...wireBreakpointBase(bp),
                     line: bp.location.range.start.line,
                     character: bp.location.range.start.character,
                 });
             } else if (bp instanceof FunctionBreakpoint) {
-                dtos.push({ type: "function", ...breakpointFields(bp), functionName: bp.functionName });
+                dtos.push({ type: "function", ...wireBreakpointBase(bp), functionName: bp.functionName });
             }
         }
         await rpc.request("debug.registerBreakpoints", { breakpoints: dtos });
@@ -576,16 +577,8 @@ interface ISessionEntry {
     readonly api: vscode.DebugSession;
 }
 
-/** The fields every breakpoint has on the wire, without the absent ones. */
-function breakpointFields(bp: Breakpoint): IWireDebugBreakpointBase {
-    return {
-        id: bp.id,
-        enabled: bp.enabled,
-        ...(bp.condition === undefined ? {} : { condition: bp.condition }),
-        ...(bp.hitCondition === undefined ? {} : { hitCondition: bp.hitCondition }),
-        ...(bp.logMessage === undefined ? {} : { logMessage: bp.logMessage }),
-        ...(bp.mode === undefined ? {} : { mode: bp.mode }),
-    };
+function locationOf(dto: IWireDebugSourceBreakpoint): Location {
+    return new Location(Uri.parse(dto.uri), new Position(dto.line, dto.character));
 }
 
 /** A breakpoint of the core as the extension's value type. */
@@ -593,8 +586,7 @@ function breakpointOf(dto: WireDebugBreakpoint): Breakpoint {
     if (dto.type === "function") {
         return new FunctionBreakpoint(dto.functionName, dto.enabled, dto.condition, dto.hitCondition, dto.logMessage);
     }
-    const location = new Location(Uri.parse(dto.uri), new Position(dto.line, dto.character));
-    return new SourceBreakpoint(location, dto.enabled, dto.condition, dto.hitCondition, dto.logMessage);
+    return new SourceBreakpoint(locationOf(dto), dto.enabled, dto.condition, dto.hitCondition, dto.logMessage);
 }
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
@@ -608,7 +600,7 @@ function updateBreakpoint(bp: vscode.Breakpoint, dto: WireDebugBreakpoint): void
     if (dto.type === "function") {
         target.functionName = dto.functionName;
     } else {
-        target.location = new Location(Uri.parse(dto.uri), new Position(dto.line, dto.character));
+        target.location = locationOf(dto);
     }
     target.enabled = dto.enabled;
     target.condition = dto.condition;

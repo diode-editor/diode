@@ -150,6 +150,25 @@ export interface IWireDebugBreakpointBase {
     readonly mode?: string;
 }
 
+/** The fields of a breakpoint as they cross the wire: the optional ones only when there are. */
+export function wireBreakpointBase(bp: {
+    readonly id: string;
+    readonly enabled: boolean;
+    readonly condition?: string;
+    readonly hitCondition?: string;
+    readonly logMessage?: string;
+    readonly mode?: string;
+}): IWireDebugBreakpointBase {
+    return {
+        id: bp.id,
+        enabled: bp.enabled,
+        ...(bp.condition === undefined ? {} : { condition: bp.condition }),
+        ...(bp.hitCondition === undefined ? {} : { hitCondition: bp.hitCondition }),
+        ...(bp.logMessage === undefined ? {} : { logMessage: bp.logMessage }),
+        ...(bp.mode === undefined ? {} : { mode: bp.mode }),
+    };
+}
+
 /** Upstream `ISourceBreakpointDto`: `uri` — a uri string, `line`/`character` 0-based. */
 export interface IWireDebugSourceBreakpoint extends IWireDebugBreakpointBase {
     readonly type: "source";

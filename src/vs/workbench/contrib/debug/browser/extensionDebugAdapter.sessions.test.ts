@@ -301,7 +301,7 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
 
         it("breakpoints of an extension join the model under their ids, 1-based; a column 0 is none; removal by id", async () => {
             const model = fx.service.getModel();
-            await sink.registerBreakpoints({
+            sink.registerBreakpoints({
                 breakpoints: [
                     {
                         type: "sourceMulti",
@@ -358,7 +358,7 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
                 model.getFunctionBreakpoints().map((bp) => [bp.getId(), bp.name, bp.condition, bp.enabled, bp.mode]),
             ).toEqual([["f", "main", "x", true, "m"]]);
 
-            await sink.unregisterBreakpoints({ breakpointIds: ["a"], functionBreakpointIds: ["f"] });
+            sink.unregisterBreakpoints({ breakpointIds: ["a"], functionBreakpointIds: ["f"] });
             await vi.waitFor(() => {
                 expect(model.getBreakpoints().map((bp) => bp.getId())).toEqual(["b"]);
             });

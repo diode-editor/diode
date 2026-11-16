@@ -16,6 +16,6 @@ export const SESSIONLESS_DEBUG_SINK: Pick<
     getDebugProtocolBreakpoint: () => Promise.reject(new Error("debug session not found")),
     setSessionName: () => undefined,
     appendDebugConsole: () => undefined,
-    registerBreakpoints: () => Promise.resolve(),
-    unregisterBreakpoints: () => Promise.resolve(),
+    registerBreakpoints: () => undefined,
+    unregisterBreakpoints: () => undefined,
 };

@@ -87,8 +87,9 @@ export interface IExtensionDebugSink {
     setSessionName(sessionId: string, name: string): void;
     /** Into the focused session's Debug Console. */
     appendDebugConsole(value: string): void;
-    registerBreakpoints(request: IWireDebugRegisterBreakpoints): Promise<void>;
-    unregisterBreakpoints(request: IWireDebugUnregisterBreakpoints): Promise<void>;
+    /** The breakpoints are in the model on return; the adapters hear of them later. */
+    registerBreakpoints(request: IWireDebugRegisterBreakpoints): void;
+    unregisterBreakpoints(request: IWireDebugUnregisterBreakpoints): void;
     /** Upstream `$registerDebugTypes`: the adapters of these types live in the subprocess; dispose — not any more. */
     registerDebugTypes(types: readonly string[], host: IExtensionDebugAdapterHost): IDisposable;
     registerConfigurationProvider(extensionId: string, provider: IExtensionDebugConfigurationProvider): IDisposable;

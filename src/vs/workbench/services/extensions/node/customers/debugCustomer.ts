@@ -190,14 +190,14 @@ export class DebugCustomer implements IExtensionHostCustomer {
             }),
         );
         store.add(
-            rpc.handleRequest("debug.registerBreakpoints", async (params) => {
-                await sink.registerBreakpoints(parseWireDebugRegisterBreakpoints(params));
+            rpc.handleRequest("debug.registerBreakpoints", (params) => {
+                sink.registerBreakpoints(parseWireDebugRegisterBreakpoints(params));
                 return null;
             }),
         );
         store.add(
-            rpc.handleRequest("debug.unregisterBreakpoints", async (params) => {
-                await sink.unregisterBreakpoints(parseWireDebugUnregisterBreakpoints(params));
+            rpc.handleRequest("debug.unregisterBreakpoints", (params) => {
+                sink.unregisterBreakpoints(parseWireDebugUnregisterBreakpoints(params));
                 return null;
             }),
         );
