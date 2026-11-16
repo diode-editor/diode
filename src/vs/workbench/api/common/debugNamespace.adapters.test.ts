@@ -173,13 +173,19 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
 
         it("no factory registers nothing: the type stays free for a real one", () => {
             const { debug, as } = setup();
-            debug.registerDebugAdapterDescriptorFactory("t", undefined as never);
+            const none = debug.registerDebugAdapterDescriptorFactory("t", undefined as never);
             debug.registerDebugAdapterTrackerFactory("t", undefined as never).dispose();
             expect(() =>
                 as(EXT, () =>
                     debug.registerDebugAdapterDescriptorFactory("t", { createDebugAdapterDescriptor: () => undefined }),
                 ),
             ).not.toThrow();
+            none.dispose();
+            expect(() =>
+                as(EXT, () =>
+                    debug.registerDebugAdapterDescriptorFactory("t", { createDebugAdapterDescriptor: () => undefined }),
+                ),
+            ).toThrow("once per a type");
         });
     });
 
