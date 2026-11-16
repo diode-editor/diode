@@ -171,7 +171,7 @@ describe("CallStackDataSource", () => {
         const thread = stopped(threadOf(session("s", 2)));
         const user = frame(thread, "user");
         const lib1 = frame(thread, "lib1", { hint: "deemphasize" });
-        const lib2 = frame(thread, "lib2", { src: source({ path: "/x", presentationHint: "subtle" }) });
+        const lib2 = frame(thread, "lib2", { src: source({ path: "/x", presentationHint: "deemphasize" }) });
         const lib3 = frame(thread, "lib3", { hint: "subtle" });
         const lone = frame(thread, "lone", { hint: "deemphasize" });
         setCallStack(thread, [user, lib1, lib2, lib3, user, lone, user]);
