@@ -37,6 +37,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["never", "always"],
     },
     {
+        key: "debug.console.acceptSuggestionOnEnter",
+        type: "string",
+        default: "off",
+        description:
+            "Controls whether suggestions should be accepted on Enter in the Debug Console. Enter is also used to evaluate whatever is typed in the Debug Console.",
+        enum: ["off", "on"],
+    },
+    {
         key: "debug.console.closeOnEnd",
         type: "boolean",
         default: false,
@@ -50,10 +58,41 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Controls if the Debug Console should collapse identical lines and show a number of occurrences with a badge.",
     },
     {
+        key: "debug.console.fontFamily",
+        type: "string",
+        default: "default",
+        description: "Controls the font family in the Debug Console.",
+    },
+    {
+        key: "debug.console.fontSize",
+        type: "number",
+        default: 14,
+        description: "Controls the font size in pixels in the Debug Console.",
+    },
+    {
+        key: "debug.console.historySuggestions",
+        type: "boolean",
+        default: true,
+        description: "Controls if the Debug Console should suggest previously typed input.",
+    },
+    {
+        key: "debug.console.lineHeight",
+        type: "number",
+        default: 0,
+        description:
+            "Controls the line height in pixels in the Debug Console. Use 0 to compute the line height from the font size.",
+    },
+    {
         key: "debug.console.maximumLines",
         type: "number",
         default: 10000,
         description: "Controls the maximum number of lines in the Debug Console.",
+    },
+    {
+        key: "debug.console.wordWrap",
+        type: "boolean",
+        default: true,
+        description: "Controls if the lines should wrap in the Debug Console.",
     },
     {
         key: "debug.hideSlowPreLaunchWarning",

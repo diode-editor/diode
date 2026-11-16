@@ -5,7 +5,9 @@ import type { IConfigurationNode } from "../../../platform/configuration/common/
  * and `debug.internalConsoleOptions` have no `type` there either: a string). Only the keys the ported code reads: the
  * Debug Console (`replModel.ts`, opening and closing its view), the terminal of `runInTerminal` (`debugTerminal.ts`), launch.json and the debug tasks
  * (`debugConfigurationManager.ts`, `debugTaskRunner.ts`, `debugService.ts`), the Run and Debug views (opening them,
- * types, lazy variables and the breakpoints presentation). The rest of `debug.*` comes with the task that implements it (the toolbar), the
+ * types, lazy variables and the breakpoints presentation). `debug.console.fontSize`, `fontFamily` and `lineHeight` are
+ * declared and not applied (the terminal's font); `fontSize` defaults to 14, upstream's on everything but macOS (12).
+ * The rest of `debug.*` comes with the task that implements it (the toolbar), the
  * unsupported ones are declared by the settings task (#1158). `launch` has no JSON schema of its configurations yet
  * (IntelliSense in launch.json is a task of its own).
  */

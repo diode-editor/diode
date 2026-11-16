@@ -110,8 +110,10 @@ class DemoAdapter {
             case "initialize":
                 return { supportsConfigurationDoneRequest: true, supportsCompletionsRequest: true };
             case "completions": {
-                // The locals and `cfg` whose names start with the word before the cursor.
-                const word = /[\w$]*$/u.exec(request.arguments.text.slice(0, request.arguments.column - 1))[0];
+                // The locals and `cfg` whose names start with the word before the cursor (`line` and `column` are
+                // 1-based, in the input's lines).
+                const { text, line = 1, column } = request.arguments;
+                const word = /[\w$]*$/u.exec(text.split("\n")[line - 1].slice(0, column - 1))[0];
                 const targets = ["argc", "program", "cfg", "count"]
                     .filter((name) => name.startsWith(word))
                     .map((label) => ({ label, type: "variable", length: word.length }));
