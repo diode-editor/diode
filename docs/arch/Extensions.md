@@ -913,9 +913,24 @@
   `bindExtensionDebuggers` при старте сервиса расширений; `${command:…}` и `${input:…}` подставляет резолвер
   ядра (`debugVariableResolver` в `debugPorts.ts`), эталонного `$substituteVariables` в субпроцессе нет:
   те же переменные резолвер ядра знает сам. Неявного `onDebugResolve:<type>` из `contributes.debuggers`
-  нет и в эталоне 1.127 — CodeLLDB и js-debug объявляют события сами. Адаптеры и трекеры (#1140),
-  объекты сессий, события и брейкпоинты (#1141) — ещё null-объект: фабрики не зовутся, человеку — одна
-  warn-строка в Output на тип отладчика.
+  нет и в эталоне 1.127 — CodeLLDB и js-debug объявляют события сами.
+  **Адаптеры (#1140)** живут в субпроцессе, как у эталона: с каждым каталогом субпроцесс шлёт
+  `debug.registerDebugTypes` (типы «главных» вкладов — с `label`/`program`/`runtime`), ядро ставит на эти
+  типы фабрику `ExtensionHostDebugAdapter` (наследник `AbstractDebugAdapter`). Сессия просит адаптер
+  (`debug.startAdapter` с handle и DTO сессии), субпроцесс берёт дескриптор: `debugServer` конфигурации,
+  фабрику типа (только от расширения, чей вклад с `label` определяет тип) или исполняемый файл
+  `contributes.debuggers` (`api/common/debugAdapterExecutable.ts`), — ставит трекеры (тип и `*`, не дольше
+  секунды) и запускает адаптер. Inline — `DirectDebugAdapter` (`api/common/extHostDebugAdapter.ts`);
+  процесс, TCP и пайп — `api/node/extHostDebugAdapters.ts` (протокол `Content-Length`, процесс под
+  `GuardedChildProcess`, `node` — форком), их отдаёт `buildVscodeNamespace` третьим аргументом: `api/common`
+  ОС не трогает. DAP-сообщения — `debug.sendAdapterMessage` / `debug.acceptAdapterMessage` по handle,
+  ошибки и выход — `debug.acceptAdapterError`/`Exit`; маршрутизация по handle и «Extension host shut down»
+  живым адаптерам при смерти субпроцесса — в `DebugCustomer`. Перед созданием адаптера —
+  `onDebugAdapterProtocolTracker:<type>`. Отступления: путей в сообщениях не переводим (ядро и субпроцесс на
+  одной ФС, эталонный круг path → uri → path — тождество), `handshake` отклоняется «no signer», адаптер,
+  ушедший сам, пишет «Debug adapter process has terminated unexpectedly (…)» в Debug Console
+  (`AdapterEndEvent.failure`; эталон молчит). Объекты сессий для расширений — пока только то, что видят
+  фабрика и трекер; список сессий, события, брейкпоинты и консоль — #1141.
 - **Языковые модели как null-объект (`lmNoop.ts`, #1133):** моделей и чата в Diode нет, но
   CodeLLDB зовёт `vscode.lm.registerTool` посреди `activate()` — без namespace'а активация обрывалась
   `TypeError`, и команды `lldb.*` не появлялись. Декларации `vscode.lm` и замыкание типов подняты в

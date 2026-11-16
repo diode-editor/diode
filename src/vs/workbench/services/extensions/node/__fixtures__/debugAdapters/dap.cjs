@@ -4,10 +4,10 @@
  * A tiny DAP adapter for extensionHost.debugAdapters.test.ts. `createAdapter(send, name)` answers the requests of a
  * session: after `configurationDone` it prints "hello from <name>" and stops on entry in `<name>_main`. A launch
  * configuration with `crash: true` makes `onCrash` run instead (the process adapter exits with code 3).
- * `connectStream` speaks the DAP base protocol (Content-Length framing) over a pair of streams.
+ * `capabilities` join the answer to `initialize`. `connectStream` speaks the DAP base protocol (Content-Length framing) over a pair of streams.
  */
 
-exports.createAdapter = function createAdapter(send, name, onCrash) {
+exports.createAdapter = function createAdapter(send, name, onCrash, capabilities = {}) {
     let seq = 1;
     let crash = false;
     const respond = (request, body) =>
@@ -17,7 +17,7 @@ exports.createAdapter = function createAdapter(send, name, onCrash) {
         if (message.type !== "request") return;
         switch (message.command) {
             case "initialize":
-                respond(message, { supportsConfigurationDoneRequest: true });
+                respond(message, { supportsConfigurationDoneRequest: true, ...capabilities });
                 break;
             case "launch":
                 crash = message.arguments.crash === true;
@@ -51,12 +51,12 @@ exports.createAdapter = function createAdapter(send, name, onCrash) {
     };
 };
 
-exports.connectStream = function connectStream(readable, writable, name, onCrash) {
+exports.connectStream = function connectStream(readable, writable, name, onCrash, capabilities) {
     const send = (message) => {
         const json = JSON.stringify(message);
         writable.write(`Content-Length: ${Buffer.byteLength(json, "utf8")}\r\n\r\n${json}`, "utf8");
     };
-    const handle = exports.createAdapter(send, name, onCrash);
+    const handle = exports.createAdapter(send, name, onCrash, capabilities);
     let buffer = Buffer.alloc(0);
     readable.on("data", (data) => {
         buffer = Buffer.concat([buffer, data]);

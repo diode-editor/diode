@@ -7,7 +7,9 @@
 // window, upstream adds the folder only with several); `debug.autoExpandLazyVariables: auto` is off (no screen
 // reader mode); breakpoint paths go out without the Windows drive-letter normalization. Not here yet, each with its
 // task: the test run a session is correlated with (#1162). Not planned: telemetry, aria
-// announcements, focusing the OS window on a break, the memory view (`getMemory`).
+// announcements, focusing the OS window on a break, the memory view (`getMemory`). An adapter that went away by
+// itself is a line in the Debug Console ("Debug adapter process has terminated unexpectedly (…)"); upstream ends the
+// session silently.
 
 import { distinct } from "../../../../base/common/arrays.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";

@@ -49,12 +49,10 @@
       "note": "needs a debugger"
     },
     "debug.registerDebugAdapterDescriptorFactory": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.registerDebugAdapterTrackerFactory": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "debug.registerDebugConfigurationProvider": {
       "class": "ok"

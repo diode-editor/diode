@@ -692,7 +692,34 @@ describe("RawDebugSession", () => {
             await vi.advanceTimersByTimeAsync(1);
 
             expect(adapter.stopped).toBe(true);
-            expect(ends).toEqual([{ emittedStopped: false, sessionLengthInSeconds: 0 }]);
+            expect(ends).toEqual([
+                { emittedStopped: false, sessionLengthInSeconds: 0, failure: new Error("crash") },
+            ]);
+        });
+
+        it("only the first error of an adapter that went away by itself is its failure; one after a disconnect is none", async () => {
+            const ends: AdapterEndEvent[] = [];
+            session.onDidExitAdapter((e) => ends.push(e));
+            adapter.fireError(new Error("first"));
+            adapter.fireExit(4);
+            await vi.waitFor(() => {
+                expect(ends).toHaveLength(1);
+            });
+            expect(ends[0].failure).toEqual(new Error("first"));
+
+            const other = new MockDebugAdapter();
+            const second = new RawDebugSession(other, dbgr as unknown as IDebugger, "s2", "name", { error: vi.fn() });
+            const secondEnds: AdapterEndEvent[] = [];
+            second.onDidExitAdapter((e) => secondEnds.push(e));
+            other.handlers.set("disconnect", () => {
+                other.fireError(new Error("read error"));
+                other.fireExit(1);
+                return {};
+            });
+            await second.disconnect({});
+            expect(secondEnds).toStrictEqual([{ emittedStopped: false, sessionLengthInSeconds: 0 }]);
+            second.dispose();
+            other.dispose();
         });
 
         it("an adapter that fails to stop reports the error, and the failure goes to the unexpected errors", async () => {
@@ -714,7 +741,12 @@ describe("RawDebugSession", () => {
             }
 
             expect(ends).toEqual([
-                { emittedStopped: false, sessionLengthInSeconds: 0, error: new Error("exit code: 3") },
+                {
+                    emittedStopped: false,
+                    sessionLengthInSeconds: 0,
+                    error: new Error("exit code: 3"),
+                    failure: new Error("exit code: 3"),
+                },
             ]);
             expect(unexpected).toEqual([new Error("stuck")]);
         });
