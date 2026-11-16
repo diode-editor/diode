@@ -776,9 +776,16 @@ export class DebugService implements IDebugService {
         session: IDebugSession,
         adapterExitEvent: AdapterEndEvent | undefined,
     ): Promise<void> {
+        const terminated = (error: Error): string =>
+            `Debug adapter process has terminated unexpectedly (${error.message})`;
         const error = adapterExitEvent?.error;
         if (error) {
-            this.notify("error", `Debug adapter process has terminated unexpectedly (${error.message})`);
+            this.notify("error", terminated(error));
+        }
+        // Diode: an adapter that went away by itself says so in the Debug Console; upstream ends the session silently.
+        const failure = adapterExitEvent?.failure;
+        if (failure) {
+            session.appendToRepl({ output: `${terminated(failure)}\n`, sev: "error" });
         }
 
         // Without a postDebugTask `runTask` has nothing to run.

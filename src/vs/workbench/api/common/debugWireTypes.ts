@@ -2,6 +2,8 @@
 // `ExtHostDebugServiceShape`): the configuration providers, starting and stopping sessions, and the debug adapters
 // that live in the subprocess. Session objects and events come with their task (#1141).
 
+import type { SerializedError } from "../../../base/common/errorSerialization.ts";
+
 /**
  * A launch configuration as JSON: `type`, `name`, `request` and whatever the debugger reads. The core checks the
  * three when it starts a session, as upstream does; on the wire it is any object.
@@ -103,12 +105,10 @@ export interface IWireDebugAdapterMessage {
     readonly message: object;
 }
 
-/** Upstream `$acceptDAError`. */
+/** Upstream `$acceptDAError`: the error as the RPC serializes a rejection (name, message, stack, code, cause). */
 export interface IWireDebugAdapterError {
     readonly handle: number;
-    readonly name: string;
-    readonly message: string;
-    readonly stack?: string;
+    readonly error: SerializedError;
 }
 
 /** Upstream `$acceptDAExit`: no `code` — the adapter has none (a connection, an inline adapter). */

@@ -592,6 +592,37 @@ describe("DebugService", () => {
             adapter.dispose();
         });
 
+        it("an adapter that goes away by itself ends its session with the reason in the Debug Console, not a notification", async () => {
+            const adapter = new MockDebugAdapter();
+            registerMock("mock", adapter);
+            await fx.service.startDebugging(undefined, { type: "mock", name: "m", request: "launch" });
+            const [session] = fx.service.getModel().getSessions();
+
+            adapter.fireExit(1);
+            await vi.waitFor(() => {
+                expect(fx.service.getModel().getSessions()).toEqual([]);
+            });
+
+            const [last] = session.getReplElements().slice(-1);
+            expect(last.toString()).toBe("Debug adapter process has terminated unexpectedly (exit code: 1)\n");
+            expect((last as { severity?: unknown }).severity).toBe("error");
+            expect(errors()).toEqual([]);
+            adapter.dispose();
+        });
+
+        it("an adapter stopped by the session writes nothing to the Debug Console", async () => {
+            const adapter = new MockDebugAdapter();
+            registerMock("mock", adapter);
+            await fx.service.startDebugging(undefined, { type: "mock", name: "m", request: "launch" });
+            const [session] = fx.service.getModel().getSessions();
+            const before = session.getReplElements().length;
+
+            await fx.service.stopSession(session);
+
+            expect(session.getReplElements()).toHaveLength(before);
+            adapter.dispose();
+        });
+
         it("the focus moves to another session, not explicitly; the multi-session view lasts while two run", async () => {
             const first = await startStopped();
             await fx.service.startDebugging(undefined, { ...SYNTHETIC_LAUNCH_CONFIG, name: "second" });

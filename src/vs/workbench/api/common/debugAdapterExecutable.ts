@@ -46,12 +46,9 @@ export function definesDebugType(extension: IDebuggerExtension | undefined, type
 
 /** Upstream `ExecutableDebugAdapter.extract`: the adapter attributes, relative paths made absolute. */
 function extract(
-    platformContribution: IPlatformSpecificAdapterContribution | undefined,
+    platformContribution: IPlatformSpecificAdapterContribution,
     extensionFolderPath: string,
-): IDebuggerContribution | undefined {
-    if (!platformContribution) {
-        return undefined;
-    }
+): IDebuggerContribution {
     const result = Object.create(null) as Record<string, unknown>;
     const { runtime, runtimeArgs, program, args } = platformContribution;
     if (runtime) {
@@ -68,8 +65,9 @@ function extract(
     }
     const contribution = platformContribution as IDebuggerContribution;
     for (const key of ["win", "winx86", "windows", "osx", "linux"] as const) {
-        if (contribution[key]) {
-            result[key] = extract(contribution[key], extensionFolderPath);
+        const platform = contribution[key];
+        if (platform) {
+            result[key] = extract(platform, extensionFolderPath);
         }
     }
     return result as unknown as IDebuggerContribution;
@@ -90,7 +88,7 @@ export function platformAdapterExecutable(
     for (const extension of extensions) {
         for (const dbg of contributedDebuggers(extension)) {
             if (dbg.type.toLowerCase() !== lowerType) continue;
-            for (const [key, value] of Object.entries(extract(dbg, extension.extensionPath) ?? {})) {
+            for (const [key, value] of Object.entries(extract(dbg, extension.extensionPath))) {
                 if (!(key in result)) result[key] = value;
             }
         }

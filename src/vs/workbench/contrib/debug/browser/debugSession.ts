@@ -7,14 +7,11 @@
 // window, upstream adds the folder only with several); `debug.autoExpandLazyVariables: auto` is off (no screen
 // reader mode); breakpoint paths go out without the Windows drive-letter normalization. Not here yet, each with its
 // task: the test run a session is correlated with (#1162). Not planned: telemetry, aria
-// announcements, focusing the OS window on a break, the memory view (`getMemory`). An adapter that went away by
-// itself is a line in the Debug Console ("Debug adapter process has terminated unexpectedly (…)"); upstream ends the
-// session silently.
+// announcements, focusing the OS window on a break, the memory view (`getMemory`).
 
 import { distinct } from "../../../../base/common/arrays.ts";
-import { RunOnceScheduler } from "../../../../base/common/async.ts";
+import { raceTimeout, RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
-import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { CancellationError, isCancellationError } from "../../../../base/common/errorSerialization.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Lazy } from "../../../../base/common/lazy.ts";
@@ -80,22 +77,6 @@ export interface IDebugSessionServices {
 
 function noDebugAdapter(what: string): Error {
     return new Error(`No debugger available, can not send '${what}'`);
-}
-
-/** Upstream `raceTimeout`: the promise or, after `timeout` ms, `undefined`. */
-function raceTimeout<T>(promise: Promise<T>, timeout: number): Promise<T | undefined> {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    return Promise.race([
-        promise.finally(() => {
-            // Stryker disable next-line CallExpression: a timer left behind only resolves a race that is already settled
-            clearTimeout(timer);
-        }),
-        new Promise<undefined>((resolve) => {
-            timer = setTimeout(() => {
-                resolve(undefined);
-            }, timeout);
-        }),
-    ]);
 }
 
 /** Upstream `Queue<void>` of `base/common/async.ts`: the tasks run one after another, in the order queued. */
@@ -1113,9 +1094,20 @@ export class DebugSession implements IDebugSession {
         }
     }
 
+    /**
+     * An adapter that goes away cancels the request: the threads are gone with it (upstream leaves the rejection
+     * unhandled at every caller).
+     */
     private async fetchThreads(stoppedDetails?: IRawStoppedDetails): Promise<void> {
         if (this.raw) {
-            const threads = bodyOf(await this.raw.threads())?.threads;
+            let response: DebugProtocol.ThreadsResponse | undefined;
+            try {
+                response = await this.raw.threads();
+            } catch (e) {
+                if (isCancellationError(e)) return;
+                throw e;
+            }
+            const threads = bodyOf(response)?.threads;
             if (threads) {
                 this.model.rawUpdate({
                     sessionId: this.getId(),
@@ -1154,11 +1146,7 @@ export class DebugSession implements IDebugSession {
                     await this.debugService.sendAllBreakpoints(this);
                 } finally {
                     await sendConfigurationDone();
-                    // An adapter that goes away right after the configuration cancels the request: upstream leaves the
-                    // rejection unhandled.
-                    await this.fetchThreads().catch((e: unknown) => {
-                        if (!isCancellationError(e)) onUnexpectedError(e);
-                    });
+                    await this.fetchThreads();
                 }
             }),
         );
@@ -1583,12 +1571,6 @@ export class DebugSession implements IDebugSession {
     }
 
     private onDidExitAdapter(event?: AdapterEndEvent): void {
-        if (event?.failure) {
-            this.appendToRepl({
-                output: `Debug adapter process has terminated unexpectedly (${event.failure.message})\n`,
-                sev: "error",
-            });
-        }
         this.initialized = true;
         this.model.setBreakpointSessionData(this.getId(), this.capabilities, undefined);
         this.shutdown();

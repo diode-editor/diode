@@ -481,7 +481,7 @@ export function buildVscodeNamespace(
             rpc,
             owner: ctx.owner,
             workspaceFolders: () => workspace.workspaceFolders,
-            extensions: () => extensions.all,
+            extensions,
             onDidReceiveCatalog,
             nodeAdapters: nodeDebugAdapters,
         }),

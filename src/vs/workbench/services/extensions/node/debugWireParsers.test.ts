@@ -155,20 +155,23 @@ describe("debugWireParsers — debug messages from the subprocess", () => {
         }
     });
 
-    it("an adapter error: name and message default to `Error` and empty, a stack only when it is a string", () => {
-        expect(parseWireDebugAdapterError({ handle: 1, name: "TypeError", message: "m", stack: "s" })).toEqual({
-            handle: 1,
-            name: "TypeError",
-            message: "m",
-            stack: "s",
-        });
-        expect(parseWireDebugAdapterError({ handle: 1, name: 1, message: null, stack: 2 })).toEqual({
-            handle: 1,
-            name: "Error",
-            message: "",
-        });
-        expect(parseWireDebugAdapterError({ name: "E" })).toBeNull();
-        expect(parseWireDebugAdapterError(null)).toBeNull();
+    it("an adapter error is a serialized error: `$isError`, a string name and message, a string stack or none", () => {
+        const error = { $isError: true, name: "TypeError", message: "m", stack: "s", code: "ENOENT" };
+        expect(parseWireDebugAdapterError({ handle: 1, error })).toEqual({ handle: 1, error });
+        const noStack = { $isError: true, name: "Error", message: "m" };
+        expect(parseWireDebugAdapterError({ handle: 1, error: noStack })).toEqual({ handle: 1, error: noStack });
+        for (const raw of [
+            null,
+            { error },
+            { handle: "1", error },
+            { handle: 1 },
+            { handle: 1, error: { ...error, $isError: 1 } },
+            { handle: 1, error: { ...error, name: 1 } },
+            { handle: 1, error: { ...error, message: null } },
+            { handle: 1, error: { ...error, stack: 2 } },
+        ]) {
+            expect(parseWireDebugAdapterError(raw)).toBeNull();
+        }
     });
 
     it("an adapter exit: a numeric code or none", () => {

@@ -60,7 +60,7 @@ function setup(sink: IExtensionDebugSink | null = recordingSink()) {
         rpc: subRpc,
         owner,
         workspaceFolders: () => [FOLDER],
-        extensions: () => [],
+        extensions: { all: [], getExtension: () => undefined },
         onDidReceiveCatalog: new EventEmitter<readonly IDebuggerExtension[]>().event,
     });
     const attach = new DebugCustomer(sink ?? undefined).attach({ rpc: hostRpc, logger: undefined });

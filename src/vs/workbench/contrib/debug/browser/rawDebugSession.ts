@@ -6,8 +6,8 @@
 // Deviations: an error with a `url` is reported by its message alone, without the "More Info" action (there is no
 // opener of links in error notifications yet); `launchVSCode` (an extension development host window) is not
 // planned and answers as an unknown request; telemetry is not kept. `startDebugging` (child sessions, milestone 3)
-// goes to the debugger, which refuses it until that task. The end event carries `failure` — the first error of an
-// adapter that went away by itself, before a shutdown began — for the session to write to the Debug Console.
+// goes to the debugger, which refuses it until that task. The end event carries `failure` — the error of an adapter
+// that went away by itself — for the debug service to write to the Debug Console.
 
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
@@ -47,7 +47,6 @@ export class RawDebugSession implements IDisposable {
 
     // shutdown
     private inShutdown = false;
-    private failure: Error | undefined;
     private terminated = false;
 
     private didReceiveStoppedEvent = false;
@@ -91,7 +90,6 @@ export class RawDebugSession implements IDisposable {
         // An adapter that fails to stop is reported, not left as an unhandled rejection (upstream leaves it).
         this.toDispose.add(
             debugAdapter.onError((err) => {
-                this.noteFailure(err);
                 this.shutdown(err).catch(onUnexpectedError);
             }),
         );
@@ -100,7 +98,6 @@ export class RawDebugSession implements IDisposable {
             debugAdapter.onExit((code) => {
                 // normal exit when the code is 0
                 const error = code !== 0 ? new Error(`exit code: ${String(code)}`) : undefined;
-                this.noteFailure(error);
                 this.shutdown(error).catch(onUnexpectedError);
             }),
         );
@@ -654,11 +651,6 @@ export class RawDebugSession implements IDisposable {
         }
     }
 
-    /** The first error of an adapter the session has not begun to shut down: it went away by itself. */
-    private noteFailure(error: Error | undefined): void {
-        if (!this.inShutdown) this.failure ??= error;
-    }
-
     /** Once, from the shutdown: upstream's guards against a second stop and a second exit event are not needed. */
     private async stopAdapter(da: IDebugAdapter, error?: Error): Promise<void> {
         let stopped = false;
@@ -671,8 +663,9 @@ export class RawDebugSession implements IDisposable {
             if (error && !stopped) {
                 e.error = error;
             }
-            if (this.failure) {
-                e.failure = this.failure;
+            // Only an adapter's error or exit shuts down with an error: it went away by itself.
+            if (error) {
+                e.failure = error;
             }
             this.onDidExitAdapterEmitter.fire(e);
         }

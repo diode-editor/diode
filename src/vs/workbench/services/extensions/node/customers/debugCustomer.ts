@@ -1,4 +1,5 @@
-import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
+import { transformErrorFromSerialization } from "../../../../../base/common/errorSerialization.ts";
+import { DisposableStore, type IDisposable, MutableDisposable } from "../../../../../base/common/lifecycle.ts";
 import type { IWireDebugSession } from "../../../../api/common/debugWireTypes.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type {
@@ -92,18 +93,13 @@ export class DebugCustomer implements IExtensionHostCustomer {
                 providers.delete(request.handle);
             }),
         );
-        const adapters = new AdapterHost(rpc);
-        let debugTypes: IDisposable | undefined;
-        store.add({
-            dispose: () => {
-                debugTypes?.dispose();
-                adapters.dispose();
-            },
-        });
+        const adapters = store.add(new AdapterHost(rpc));
+        const debugTypes = store.add(new MutableDisposable());
         store.add(
             rpc.handleNotification("debug.registerDebugTypes", (params) => {
-                debugTypes?.dispose();
-                debugTypes = sink.registerDebugTypes(parseWireDebugTypes(params), adapters);
+                // The old types go first: their dispose drops whatever factory the types have.
+                debugTypes.clear();
+                debugTypes.value = sink.registerDebugTypes(parseWireDebugTypes(params), adapters);
             }),
         );
         store.add(
@@ -118,10 +114,7 @@ export class DebugCustomer implements IExtensionHostCustomer {
                 const accepted = parseWireDebugAdapterError(params);
                 if (accepted === null) return;
                 // The error as the subprocess had it (upstream folds name and stack into the message).
-                const error = new Error(accepted.message);
-                error.name = accepted.name;
-                if (accepted.stack !== undefined) error.stack = accepted.stack;
-                adapters.listener(accepted.handle)?.onError(error);
+                adapters.listener(accepted.handle)?.onError(transformErrorFromSerialization(accepted.error));
             }),
         );
         store.add(
@@ -153,7 +146,6 @@ class AdapterHost implements IExtensionDebugAdapterHost {
     private nextHandle = 1;
     /** The live adapters by handle: what each tells the core. */
     private readonly live = new Map<number, IExtensionDebugAdapterListener>();
-    private disposed = false;
 
     public constructor(private readonly rpc: HostRpc) {}
 
@@ -172,17 +164,15 @@ class AdapterHost implements IExtensionDebugAdapterHost {
                 await this.rpc.request("debug.startAdapter", { handle, session });
             },
             send: (message) => {
-                if (!this.disposed) this.rpc.notify("debug.sendAdapterMessage", { handle, message });
+                if (this.live.has(handle)) this.rpc.notify("debug.sendAdapterMessage", { handle, message });
             },
             stop: async () => {
-                this.live.delete(handle);
-                if (!this.disposed) await this.rpc.request("debug.stopAdapter", { handle });
+                if (this.live.delete(handle)) await this.rpc.request("debug.stopAdapter", { handle });
             },
         };
     }
 
     public dispose(): void {
-        this.disposed = true;
         for (const listener of this.live.values()) listener.onError(new Error("Extension host shut down"));
         this.live.clear();
     }

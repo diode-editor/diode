@@ -1,5 +1,7 @@
 import type * as vscode from "vscode";
 
+import { raceTimeout } from "../../../base/common/async.ts";
+import { transformErrorForSerialization } from "../../../base/common/errorSerialization.ts";
 import { Uri } from "../../../base/common/uri.ts";
 
 import {
@@ -46,15 +48,19 @@ export interface IDebugNamespaceDeps {
     readonly owner: ExtensionOwner;
     readonly workspaceFolders: () => readonly vscode.WorkspaceFolder[] | undefined;
     /** The extensions of the last catalog: their debuggers say which types and executables there are. */
-    readonly extensions: () => readonly (IDebuggerExtension & { readonly id: string })[];
+    readonly extensions: {
+        readonly all: readonly IDebuggerExtension[];
+        getExtension(id: string): IDebuggerExtension | undefined;
+    };
     readonly onDidReceiveCatalog: vscode.Event<readonly IDebuggerExtension[]>;
     /** The adapters that need the OS; without them only inline adapters are created. */
     readonly nodeAdapters?: ExtHostNodeDebugAdapters;
 }
 
-interface IAdapterFactoryEntry {
-    readonly type: string;
-    readonly factory: vscode.DebugAdapterDescriptorFactory;
+interface IAdapterEntry {
+    readonly adapter: ExtHostDebugAdapter;
+    readonly tracker: vscode.DebugAdapterTracker | undefined;
+    readonly sessionId: string;
 }
 
 interface ITrackerFactoryEntry {
@@ -74,11 +80,11 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
     const { rpc, owner } = deps;
     const configProviders = new Map<number, IConfigProviderEntry>();
     let nextHandle = 0;
-    const adapterFactories = new Set<IAdapterFactoryEntry>();
+    const adapterFactories = new Map<string, vscode.DebugAdapterDescriptorFactory>();
     const trackerFactories = new Set<ITrackerFactoryEntry>();
+    /** The sessions with a live adapter; one goes with its adapter's stop. */
     const sessions = new Map<string, vscode.DebugSession>();
-    const adapters = new Map<number, ExtHostDebugAdapter>();
-    const trackers = new Map<number, vscode.DebugAdapterTracker>();
+    const adapters = new Map<number, IAdapterEntry>();
 
     deps.onDidReceiveCatalog((catalog) => {
         rpc.notify("debug.registerDebugTypes", { types: mainDebugTypes(catalog) });
@@ -148,20 +154,18 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         if (!factory) {
             return new DisposableImpl(() => undefined);
         }
-        const extensionId = owner.current?.toLowerCase();
-        const extension = deps.extensions().find((candidate) => candidate.id.toLowerCase() === extensionId);
+        const extension = owner.current === undefined ? undefined : deps.extensions.getExtension(owner.current);
         if (!definesDebugType(extension, debugType)) {
             throw new Error(
                 `a DebugAdapterDescriptorFactory can only be registered from the extension that defines the '${debugType}' debugger.`,
             );
         }
-        if (factoryOf(debugType)) {
+        if (adapterFactories.has(debugType)) {
             throw new Error("a DebugAdapterDescriptorFactory can only be registered once per a type.");
         }
-        const entry = { type: debugType, factory };
-        adapterFactories.add(entry);
+        adapterFactories.set(debugType, factory);
         return new DisposableImpl(() => {
-            adapterFactories.delete(entry);
+            if (adapterFactories.get(debugType) === factory) adapterFactories.delete(debugType);
         });
     }
 
@@ -177,10 +181,6 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         return new DisposableImpl(() => {
             trackerFactories.delete(entry);
         });
-    }
-
-    function factoryOf(debugType: string): vscode.DebugAdapterDescriptorFactory | undefined {
-        return [...adapterFactories].find((entry) => entry.type === debugType)?.factory;
     }
 
     /** Upstream `getSession`: one object per session id, the parent the one already known. */
@@ -212,8 +212,8 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         if (typeof serverPort === "number") {
             return new DebugAdapterServer(serverPort);
         }
-        const executable = platformAdapterExecutable(deps.extensions(), session.type);
-        const factory = factoryOf(session.type);
+        const executable = platformAdapterExecutable(deps.extensions.all, session.type);
+        const factory = adapterFactories.get(session.type);
         if (factory) {
             return (await factory.createDebugAdapterDescriptor(session, executable)) ?? undefined;
         }
@@ -231,23 +231,11 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
                     return undefined;
                 }
             });
-        let timer: ReturnType<typeof setTimeout> | undefined;
         const all = Promise.all(created).then((results) => {
             const found = results.filter((tracker) => tracker !== undefined);
             return found.length > 0 ? multiTracker(found) : undefined;
         });
-        try {
-            return await Promise.race([
-                all,
-                new Promise<undefined>((resolve) => {
-                    timer = setTimeout(() => {
-                        resolve(undefined);
-                    }, TRACKER_FACTORY_TIMEOUT);
-                }),
-            ]);
-        } finally {
-            clearTimeout(timer);
-        }
+        return raceTimeout(all, TRACKER_FACTORY_TIMEOUT);
     }
 
     function createAdapter(
@@ -272,11 +260,8 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         if (!adapter) {
             throw new Error(`Couldn't create a debug adapter for type '${session.type}'.`);
         }
-        adapters.set(handle, adapter);
         const tracker = await trackerOf(session);
-        if (tracker) {
-            trackers.set(handle, tracker);
-        }
+        adapters.set(handle, { adapter, tracker, sessionId: session.id });
         adapter.onMessage((message) => {
             if (message.type === "request" && (message as DebugProtocol.Request).command === "handshake") {
                 // Upstream signs the adapter's challenge; there is no signing service here.
@@ -296,12 +281,7 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         });
         adapter.onError((error) => {
             tracker?.onError?.(error);
-            rpc.notify("debug.acceptAdapterError", {
-                handle,
-                name: error.name,
-                message: error.message,
-                ...(error.stack === undefined ? {} : { stack: error.stack }),
-            });
+            rpc.notify("debug.acceptAdapterError", { handle, error: transformErrorForSerialization(error) });
         });
         adapter.onExit((code) => {
             tracker?.onExit?.(code ?? undefined, undefined);
@@ -313,19 +293,19 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
     });
 
     rpc.handleNotification("debug.sendAdapterMessage", ({ handle, message }) => {
-        trackers.get(handle)?.onWillReceiveMessage?.(message);
-        adapters.get(handle)?.sendMessage(message as DebugProtocol.ProtocolMessage);
+        const entry = adapters.get(handle);
+        entry?.tracker?.onWillReceiveMessage?.(message);
+        entry?.adapter.sendMessage(message as DebugProtocol.ProtocolMessage);
     });
 
     rpc.handleRequest("debug.stopAdapter", async ({ handle }) => {
-        const tracker = trackers.get(handle);
-        trackers.delete(handle);
-        tracker?.onWillStopSession?.();
-        const adapter = adapters.get(handle);
-        adapters.delete(handle);
-        if (adapter) {
-            await adapter.stopSession();
-            adapter.dispose();
+        const entry = adapters.get(handle);
+        if (entry) {
+            adapters.delete(handle);
+            sessions.delete(entry.sessionId);
+            entry.tracker?.onWillStopSession?.();
+            await entry.adapter.stopSession();
+            entry.adapter.dispose();
         }
         return null;
     });

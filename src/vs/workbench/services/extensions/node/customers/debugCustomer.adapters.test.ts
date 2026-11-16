@@ -80,7 +80,7 @@ function setup() {
         rpc: subRpc,
         owner,
         workspaceFolders: () => [],
-        extensions: () => CATALOG,
+        extensions: { all: CATALOG, getExtension: (id) => CATALOG.find((e) => e.id === id) },
         onDidReceiveCatalog: catalog.event,
     });
     const registrations: IRegistration[] = [];
@@ -166,14 +166,18 @@ describe("DebugCustomer — debug adapters over the wire (upstream $registerDebu
         registrations[0].host.createAdapter(SESSION, first.listener);
         registrations[0].host.createAdapter(SESSION, second.listener);
 
-        subRpc.notify("debug.acceptAdapterError", { handle: 2, name: "TypeError", message: "boom", stack: "at x" });
-        subRpc.notify("debug.acceptAdapterError", { handle: 1, name: "Error", message: "plain" });
+        const serialized = (name: string, message: string, code?: string) =>
+            ({ $isError: true, name, message, stack: `${name}: ${message}\n    at x`, code }) as const;
+        subRpc.notify("debug.acceptAdapterError", { handle: 2, error: serialized("TypeError", "boom", "ENOENT") });
+        subRpc.notify("debug.acceptAdapterError", { handle: 1, error: serialized("Error", "plain") });
         subRpc.notify("debug.acceptAdapterExit", { handle: 1, code: 3 });
         subRpc.notify("debug.acceptAdapterExit", { handle: 2 });
         subRpc.notify("debug.acceptAdapterMessage", { handle: 2, message: { seq: 1, type: "event", event: "e" } });
         await flush();
 
-        expect(second.seen.errors.map((e) => [e.name, e.message, e.stack])).toEqual([["TypeError", "boom", "at x"]]);
+        expect(second.seen.errors.map((e) => [e.name, e.message, e.stack, (e as { code?: string }).code])).toEqual([
+            ["TypeError", "boom", "TypeError: boom\n    at x", "ENOENT"],
+        ]);
         expect(first.seen.errors.map((e) => [e.name, e.message])).toEqual([["Error", "plain"]]);
         expect(first.seen.exits).toEqual([3]);
         expect(second.seen.exits).toEqual([undefined]);
@@ -196,6 +200,7 @@ describe("DebugCustomer — debug adapters over the wire (upstream $registerDebu
             subRpc.notify("debug.acceptAdapterMessage", params as never);
         }
         subRpc.notify("debug.acceptAdapterError", { message: "x" } as never);
+        subRpc.notify("debug.acceptAdapterError", { handle: 1, error: { name: "E", message: "m", stack: "s" } } as never);
         subRpc.notify("debug.acceptAdapterExit", { code: 1 } as never);
         subRpc.notify("debug.registerDebugTypes", { types: ["a", 7, null] } as never);
         await flush();

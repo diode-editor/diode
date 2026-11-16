@@ -10,6 +10,7 @@ import type {
     WireDebugConfiguration,
 } from "../../../api/common/debugWireTypes.ts";
 import { isFiniteNumber } from "../../../api/common/wireTypes.ts";
+import type { SerializedError } from "../../../../base/common/errorSerialization.ts";
 
 // Debug messages from the subprocess (`debug.*`); `null` — a malformed message, ignored (a request: rejected).
 
@@ -117,16 +118,20 @@ export function parseWireDebugAdapterMessage(raw: unknown): IWireDebugAdapterMes
     return { handle: p.handle, message };
 }
 
+/** The error must look serialized (`$isError`, string name and message, a stack if any); the rest is its own. */
 export function parseWireDebugAdapterError(raw: unknown): IWireDebugAdapterError | null {
     const p = fields(raw);
-    if (!isFiniteNumber(p?.handle)) return null;
-    const stack = optionalString(p.stack);
-    return {
-        handle: p.handle,
-        name: optionalString(p.name) ?? "Error",
-        message: optionalString(p.message) ?? "",
-        ...(stack === undefined ? {} : { stack }),
-    };
+    const error = fields(p?.error);
+    if (
+        !isFiniteNumber(p?.handle) ||
+        error?.$isError !== true ||
+        typeof error.name !== "string" ||
+        typeof error.message !== "string" ||
+        !["string", "undefined"].includes(typeof error.stack)
+    ) {
+        return null;
+    }
+    return { handle: p.handle, error: error as unknown as SerializedError };
 }
 
 export function parseWireDebugAdapterExit(raw: unknown): IWireDebugAdapterExit | null {

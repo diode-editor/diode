@@ -26,8 +26,6 @@ export abstract class StreamDebugAdapter extends ExtHostDebugAdapter {
 
     protected connect(readable: Readable, writable: Writable): void {
         this.outputStream = writable;
-        this.rawData = Buffer.alloc(0);
-        this.contentLength = -1;
         readable.on("data", (data: Buffer) => {
             this.handleData(data);
         });
@@ -141,7 +139,7 @@ export class NamedPipeDebugAdapter extends NetworkDebugAdapter {
  * `ELECTRON_RUN_AS_NODE` does upstream. Its stderr is drained and dropped, as upstream's.
  */
 export class ExecutableDebugAdapter extends StreamDebugAdapter {
-    private process: GuardedChildProcess | undefined;
+    private child: cp.ChildProcess | undefined;
 
     public constructor(
         private readonly executable: vscode.DebugAdapterExecutable,
@@ -170,7 +168,7 @@ export class ExecutableDebugAdapter extends StreamDebugAdapter {
                 child = cp.spawn(command, args, { env, cwd: options.cwd });
             }
             const guarded = new GuardedChildProcess(child, { label: `debug adapter ${this.debugType}` });
-            this.process = guarded;
+            this.child = child;
             this.store.add(guarded);
             this.store.add(
                 guarded.onDidEnd(({ code, error }) => {
@@ -200,7 +198,7 @@ export class ExecutableDebugAdapter extends StreamDebugAdapter {
     }
 
     public stopSession(): Promise<void> {
-        this.process?.child.kill("SIGTERM");
+        this.child?.kill("SIGTERM");
         return Promise.resolve();
     }
 }

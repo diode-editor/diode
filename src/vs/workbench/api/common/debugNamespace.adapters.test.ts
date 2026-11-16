@@ -271,8 +271,8 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             adapters[0].exit(2);
             adapters[0].exit(null);
             expect(accepted("debug.acceptAdapterError")).toEqual([
-                { handle: 7, name: "TypeError", message: "boom", stack: error.stack },
-                { handle: 7, name: "Error", message: "plain" },
+                { handle: 7, error: { $isError: true, name: "TypeError", message: "boom", stack: error.stack } },
+                { handle: 7, error: { $isError: true, name: "Error", message: "plain", stack: undefined } },
             ]);
             expect(accepted("debug.acceptAdapterExit")).toEqual([{ handle: 7, code: 2 }, { handle: 7 }]);
         });

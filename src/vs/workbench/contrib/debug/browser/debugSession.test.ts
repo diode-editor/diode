@@ -1160,7 +1160,7 @@ describe("DebugSession", () => {
             },
         );
 
-        it("the adapter's end ends the session: its breakpoint data and threads are dropped; the reason goes to the Debug Console", async () => {
+        it("the adapter's end ends the session: its breakpoint data and threads are dropped", async () => {
             const { session, adapter } = await launchMock();
             model.addBreakpoints(MAIN_CPP, [{ lineNumber: 1 }]);
             model.setBreakpointSessionData(
@@ -1183,9 +1183,6 @@ describe("DebugSession", () => {
 
             expect(model.getBreakpoints()[0].getIdFromAdapter(session.getId())).toBeUndefined();
             expect(session.state).toBe(State.Inactive);
-            const [last] = session.getReplElements().slice(-1);
-            expect(last.toString()).toBe("Debug adapter process has terminated unexpectedly (exit code: 1)\n");
-            expect((last as { severity?: unknown }).severity).toBe("error");
         });
     });
 
