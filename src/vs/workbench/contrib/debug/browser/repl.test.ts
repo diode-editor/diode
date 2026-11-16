@@ -1038,5 +1038,48 @@ describe("Repl", () => {
             expect(rows[alpha]).not.toContain("beta");
             expect(rows[alpha + 1]).toMatch(/^\s+beta\s*$/u);
         });
+
+        /** The list's rows of the frame: below the title row with the filter, above the input. */
+        function listRows(): string[] {
+            return screen().split("\n").slice(1, -1);
+        }
+
+        // Live: the Debug Demo's output wrapped in a wide terminal, then the terminal narrowed until the console
+        // overflows — the last letter of each wrapped row sits under the scroll bar that came with the overflow.
+        it("a wrapped line loses no character under the scroll bar that a narrowed console brings", async () => {
+            settings["debug.console.wordWrap"] = true;
+            app.backend.resize(new Size(100, 40));
+            await start("s");
+            await shows("Launched process 48213");
+
+            app.backend.resize(new Size(60, 12));
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            const rows = listRows();
+            // The synthetic adapter's first two lines, each wrapped onto two rows of the narrowed console.
+            const launching = rows.findIndex((row) => row.includes("Launching:"));
+            const joined = (index: number): string =>
+                rows
+                    .slice(index, index + 2)
+                    .map((row) => row.slice(1, -2).trimEnd())
+                    .join("");
+            expect(joined(launching)).toBe("Launching: /home/user/hello/build/hello --verbose input.txt");
+            expect(joined(launching + 2)).toBe("Launched process 48213 from '/home/user/hello/build/hello'");
+        });
+
+        // Upstream's list draws a row that only partly fits at the bottom; here the rows of the frame below the last
+        // whole row stay blank (live: the Debug Demo in a 70-column terminal, Home in the console - blank rows under
+        // "FAIL none" where the wrapped long line starts).
+        it("with word wrap the console's rows have no blank gap: a tall row that partly fits shows its first lines", async () => {
+            settings["debug.console.wordWrap"] = true;
+            const session = await start("s");
+            for (let i = 0; i < 20; i++) session.appendToRepl({ output: `filler ${String(i)}\n`, sev: "info" });
+            await shows("filler 19");
+            repl.tree.list.focus();
+            app.sendKey("Home");
+            await new Promise((resolve) => setTimeout(resolve, 20));
+
+            const blank = listRows().findIndex((row) => row.slice(0, -3).trim() === "");
+            expect({ blank, rows: listRows() }).toEqual({ blank: -1, rows: listRows() });
+        });
     });
 });
