@@ -30,7 +30,8 @@ export class CornerDockElement extends TUIElement {
         const width = constraints.maxWidth;
         const room = Math.max(0, width - CORNER_RIGHT_MARGIN);
         let height = 0;
-        for (const child of this.getChildren()) {
+        const child = this.getChildren().at(0);
+        if (child !== undefined) {
             const childWidth = Math.min(room, child.getMaxIntrinsicWidth(0));
             height = Math.min(constraints.maxHeight, child.getMaxIntrinsicHeight(childWidth));
             this.layoutChild(child, room - childWidth, 0, BoxConstraints.tight(new Size(childWidth, height)));

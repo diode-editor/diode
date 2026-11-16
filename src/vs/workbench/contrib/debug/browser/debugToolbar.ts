@@ -95,6 +95,8 @@ interface IToolbarButton {
 interface IPlacement {
     readonly groupId: number;
     readonly host: OverlayHostElement;
+    /** The row the session was put on. */
+    top: number;
     readonly session: OverlaySessionHandle;
     readonly slot: IGroupCornerSlot;
 }
@@ -142,8 +144,12 @@ export class DebugToolbar extends Disposable {
         this.register(icons.onDidChange(update));
         const menu = this.register(menus.createMenu(MenuId.DebugToolBar));
         this.register(menu.onDidChange(update));
-        // Any setting (upstream filters `debug.toolBarLocation`): the row is rebuilt only when it changes.
-        this.register(configuration.onDidChangeConfiguration(update));
+        this.register(
+            configuration.onDidChangeConfiguration((e) => {
+                // Stryker disable next-line ConditionalExpression: a fast path — for another key the toolbar resolves to what it shows and changes nothing
+                if (e.affectsConfiguration("debug.toolBarLocation")) update();
+            }),
+        );
         this.register({
             dispose: () => {
                 this.unplace();
@@ -154,9 +160,9 @@ export class DebugToolbar extends Disposable {
 
     private isVisible(): boolean {
         const state = this.debugService.state;
+        if (state === State.Inactive) return false;
         const location = this.configuration.get("debug.toolBarLocation");
         return !(
-            state === State.Inactive ||
             location === "docked" ||
             location === "hidden" ||
             this.debugService
@@ -185,7 +191,12 @@ export class DebugToolbar extends Disposable {
             this.view.setChild(this.toolbar(buttons, withLabels));
         }
         placement.slot.setHeight(TOOLBAR_HEIGHT);
-        placement.session.setPosition(new Point(0, placement.slot.top()));
+        // Context keys change on every cursor move, and a set position repaints the layer even when it is the same.
+        const top = placement.slot.top();
+        if (top !== placement.top) {
+            placement.top = top;
+            placement.session.setPosition(new Point(0, top));
+        }
         placement.session.open();
     }
 
@@ -208,7 +219,13 @@ export class DebugToolbar extends Disposable {
             pointerPolicy: "passthrough",
             capturesKeyboard: false,
         });
-        this.placement = { groupId, host, session, slot: this.corners.addSlot(groupId, CORNER_ORDER.debugToolbar) };
+        this.placement = {
+            groupId,
+            host,
+            session,
+            top: -1,
+            slot: this.corners.addSlot(groupId, CORNER_ORDER.debugToolbar),
+        };
         return this.placement;
     }
 
@@ -224,19 +241,24 @@ export class DebugToolbar extends Disposable {
 
     private buttons(): IToolbarButton[] {
         const navigation = this.menuGroups().find((group) => group.group === NAVIGATION_GROUP);
-        return (navigation?.entries ?? []).filter(isInlineItem).map((entry) => ({
-            id: entry.id,
-            glyph: entry.icon,
-            label: BUILTIN_BUTTONS[entry.id]?.label ?? entry.label,
-            color: BUILTIN_BUTTONS[entry.id]?.color,
-            enabled: entry.enabled,
-        }));
+        return (navigation?.entries ?? []).filter(isInlineItem).map((entry) => {
+            const builtin = BUILTIN_BUTTONS[entry.id];
+            return {
+                id: entry.id,
+                glyph: entry.icon,
+                label: builtin?.label ?? entry.label,
+                color: builtin?.color,
+                enabled: entry.enabled,
+            };
+        });
     }
 
     /** The `editorWidget` box of find around a row of buttons. */
     private toolbar(buttons: readonly IToolbarButton[], withLabels: boolean): SizedBoxElement {
         const box = new BoxContainerElement();
         box.setBg(WIDGET_BG);
+        // In the cascade too: the labels paint their text in it.
+        box.style = { bg: WIDGET_BG };
         box.setBorderFg("editorWidget.border");
         box.setChild(this.row(buttons, withLabels));
         const sized = new SizedBoxElement(toolbarWidth(buttons, withLabels), TOOLBAR_HEIGHT);
@@ -256,12 +278,11 @@ export class DebugToolbar extends Disposable {
 
     private buttonElement(button: IToolbarButton, withLabel: boolean): TextLabelElement {
         const label = new TextLabelElement(withLabel ? `${button.glyph} ${button.label}` : button.glyph);
-        // The label paints its text over the box in the box's color: the box's background is not in the cascade.
         if (!button.enabled) {
-            label.style = { fg: "disabledForeground", bg: WIDGET_BG };
+            label.style = { fg: "disabledForeground" };
             return label;
         }
-        label.style = { bg: WIDGET_BG, when: [{ states: ["hover"], bg: "toolbar.hoverBackground" }] };
+        label.style = { when: [{ states: ["hover"], bg: "toolbar.hoverBackground" }] };
         const color = button.color;
         if (color !== undefined) {
             for (let i = 0; i < button.glyph.length; i++) label.setCharStyle(i, { fg: color });

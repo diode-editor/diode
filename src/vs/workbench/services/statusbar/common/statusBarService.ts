@@ -1,5 +1,5 @@
 import { Emitter } from "../../../../base/common/event.ts";
-import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { type IDisposable, toDisposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
@@ -88,11 +88,9 @@ export class StatusBarService {
     public overrideStyle(style: IStatusBarStyleOverride): IDisposable {
         this.styleOverrides.add(style);
         this.onDidChangeStyleEmitter.fire();
-        return {
-            dispose: () => {
-                if (this.styleOverrides.delete(style)) this.onDidChangeStyleEmitter.fire();
-            },
-        };
+        return toDisposable(() => {
+            if (this.styleOverrides.delete(style)) this.onDidChangeStyleEmitter.fire();
+        });
     }
 
     public readonly onDidChangeStyle = this.onDidChangeStyleEmitter.event;

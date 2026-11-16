@@ -7,7 +7,7 @@
 // command center's `commandCenter.debuggingBackground` (there is no command center) and the border color (the
 // status bar has no border).
 
-import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable, MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -21,7 +21,7 @@ export const StatusBarColorProviderDIToken = token<StatusBarColorProvider>("Stat
 export class StatusBarColorProvider extends Disposable {
     public static dependencies = [DebugServiceDIToken, StatusBarServiceDIToken, IConfigurationServiceDIToken] as const;
 
-    private override: IDisposable | undefined;
+    private readonly override = this.register(new MutableDisposable());
 
     public constructor(
         private readonly debugService: Pick<IDebugService, "state" | "onDidChangeState" | "getModel">,
@@ -35,11 +35,6 @@ export class StatusBarColorProvider extends Disposable {
         this.register(debugService.onDidChangeState(update));
         // Any setting: the update is idempotent (upstream filters `debug.enableStatusBarColor`).
         this.register(configurationService.onDidChangeConfiguration(update));
-        this.register({
-            dispose: () => {
-                this.override?.dispose();
-            },
-        });
         this.update();
     }
 
@@ -47,18 +42,14 @@ export class StatusBarColorProvider extends Disposable {
         const enabled =
             this.configurationService.get("debug.enableStatusBarColor") &&
             isStatusbarInDebugMode(this.debugService.state, this.debugService.getModel().getSessions());
-        const current = this.override;
-        if (current !== undefined) {
-            if (enabled) return;
-            current.dispose();
-            this.override = undefined;
-        } else if (enabled) {
-            this.override = this.statusbarService.overrideStyle({
-                priority: 10,
-                foreground: "statusBar.debuggingForeground",
-                background: "statusBar.debuggingBackground",
-            });
-        }
+        if (enabled === (this.override.value !== undefined)) return;
+        this.override.value = enabled
+            ? this.statusbarService.overrideStyle({
+                  priority: 10,
+                  foreground: "statusBar.debuggingForeground",
+                  background: "statusBar.debuggingBackground",
+              })
+            : undefined;
     }
 }
 

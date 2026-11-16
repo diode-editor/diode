@@ -189,9 +189,10 @@ describe("the debug toolbar in the workbench", () => {
             raw: "",
         });
         t.lines();
-        const vars = t.vars();
-        expect(t.h.testApp.backend.getBgAt(over)).toBe(vars["toolbar.hoverBackground"]);
-        expect(t.h.testApp.backend.getBgAt(buttons)).toBe(vars["editorWidget.background"]);
+        // `toolbar.hoverBackground` is translucent: composed over the box.
+        const widgetBg = t.vars()["editorWidget.background"];
+        expect(t.h.testApp.backend.getBgAt(over)).not.toBe(widgetBg);
+        expect(t.h.testApp.backend.getBgAt(buttons)).toBe(widgetBg);
     });
 
     it("a narrow group gets glyphs only", async () => {

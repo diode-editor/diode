@@ -12,10 +12,11 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { MATCHES_LIMIT } from "../../../../editor/contrib/find/findMatches.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import { CORNER_RIGHT_MARGIN } from "../../../browser/parts/editor/cornerDockElement.ts";
 import { EditorPartComponentDIToken } from "../../../browser/parts/editor/editorPartComponent.ts";
 import {
     CORNER_ORDER,
-    GroupCornerStack,
+    type GroupCornerStack,
     GroupCornerStackDIToken,
     type IGroupCornerSlot,
 } from "../../../browser/parts/editor/groupCornerStack.ts";
@@ -215,7 +216,7 @@ export class FindWidget extends Disposable {
         const widgetW = Math.min(60, Math.max(28, groupWidth - 2));
         this.preferredWidth = widgetW;
         this.view.setPreferredWidth(widgetW);
-        const px = Math.max(0, groupWidth - widgetW - 1); // right-align with a 1-col margin to the group's edge
+        const px = Math.max(0, groupWidth - widgetW - CORNER_RIGHT_MARGIN);
         this.session?.setPosition(new Point(px, this.slot.top()));
     }
 }
@@ -238,7 +239,7 @@ export class FindComponent extends Disposable {
 
     public constructor(
         private readonly hosts: IGroupOverlayHosts,
-        private readonly corners = new GroupCornerStack(),
+        private readonly corners: GroupCornerStack,
     ) {
         super();
         this.register(
