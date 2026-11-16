@@ -167,6 +167,13 @@ describe("Workbench — Run or Debug split button (editor/title/run)", () => {
         keys().setRaw("isJBangFile", true);
         await flush();
         pickFromArrow("Debug JBang");
+        // Upstream's storage key in the workspace scope: what VS Code calls `EditorTitleRun_lastActionId`.
+        const stored: string | undefined = states[0].get<string | undefined>({
+            key: "EditorTitleRun_lastActionId",
+            scope: "workspace",
+            default: undefined,
+        });
+        expect(stored).toBe("jbang.script.debug");
         states[0].flushSync();
 
         harnesses.splice(0).forEach((harness) => {
@@ -192,6 +199,24 @@ describe("Workbench — Run or Debug split button (editor/title/run)", () => {
         runs.length = 0;
         press(tabRow().indexOf(PLAY), 1);
         expect(runs).toStrictEqual(["jbang.script.run"]);
+    });
+
+    it("a pick redraws the button with the picked item's icon at once, with no context change", async () => {
+        boot({
+            commands: [
+                { command: "demo.run", title: "Run Demo", icon: "$(debug-start)" },
+                { command: "demo.debug", title: "Debug Demo", icon: "$(debug-alt)" },
+            ],
+            menus: { "editor/title/run": [{ command: "demo.run" }, { command: "demo.debug" }] },
+        } as IExtensionContributions);
+        await flush();
+        expect(tabRow()).toContain("");
+
+        pickFromArrow("Debug Demo");
+        expect(runs).toStrictEqual(["demo.debug"]);
+        const row = tabRow();
+        expect(row.trimEnd().endsWith(` ${ARROW}`)).toBe(true);
+        expect(row).not.toContain("");
     });
 
     it("an item with a drawable icon lends it to the button", async () => {

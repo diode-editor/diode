@@ -156,6 +156,32 @@ describe("titleMenuEntries — split buttons", () => {
         expect(mem.stored.get("Run")).toBe("b");
     });
 
+    it("an item without onSelect neither throws from the button nor from the arrow, and is still remembered", () => {
+        const mem = memory();
+        const bare: MenuEntry = { label: "bare", id: "bare", enabled: true } as MenuEntry;
+        const groups = split([bare]);
+        runAction(groups, PRIMARY, { memory: mem, showDropdown: () => undefined });
+        const entry = openArrow(groups, mem)[0];
+        if (entry.type === undefined) entry.onSelect?.();
+        expect(mem.stored.get("Run")).toBe("bare");
+    });
+
+    it("an action id of no split button opens no popup and runs nothing", () => {
+        const runs: string[] = [];
+        const shown: MenuEntry[][] = [];
+        const host = {
+            memory: memory(),
+            showDropdown: (entries: MenuEntry[]) => {
+                shown.push(entries);
+            },
+        };
+        const groups = split([command("a", runs)]);
+        runAction(groups, "splitButton.dropdown:Other", host);
+        runAction(groups, "some.command", host);
+        expect(shown).toStrictEqual([]);
+        expect(runs).toStrictEqual([]);
+    });
+
     it("the arrow without a host does nothing", () => {
         const runs: string[] = [];
         runAction(split([command("a", runs)]), DROPDOWN);

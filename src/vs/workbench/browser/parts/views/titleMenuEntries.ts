@@ -141,10 +141,10 @@ function splitButtonOf(entry: ResolvedMenuEntry, memory: ISplitButtonMemory | un
 /** Upstream promotes whatever item the arrow's popup runs, nested submenus included. */
 function remembering(entries: readonly MenuEntry[], submenu: string, memory: ISplitButtonMemory): MenuEntry[] {
     return entries.map((entry): MenuEntry => {
-        if (entry.type === "separator") return entry;
         if (entry.type === "submenu") return { ...entry, entries: remembering(submenuEntries(entry), submenu, memory) };
+        // Separators and entries without an id stay as they are: there is nothing to remember.
+        if (!isCommandItem(entry)) return entry;
         const { id, onSelect } = entry;
-        if (id === undefined) return entry;
         return {
             ...entry,
             onSelect: () => {
@@ -161,5 +161,6 @@ function submenuEntries(entry: MenuSubmenuEntry): MenuEntry[] {
 }
 
 function isCommandItem(entry: MenuEntry): entry is IResolvedMenuItemEntry & { id: string } {
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: the type check is TS narrowing; submenus and separators have no `id` and the next check filters them out
     return entry.type === undefined && typeof entry.id === "string";
 }
