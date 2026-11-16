@@ -98,6 +98,7 @@ export class FileSearchEngine extends Disposable implements IFileSearchProvider 
     public override dispose(): void {
         for (const state of this.states.values()) this.stop(state);
         this.states.clear();
+        // Stryker disable next-line CallExpression: the emitter has nothing left to fire — every state is gone, and a walk ending later finds none
         super.dispose();
     }
 

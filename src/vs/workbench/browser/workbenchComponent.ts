@@ -40,7 +40,6 @@ import type { LayoutService } from "../services/layout/browser/layoutService.ts"
 import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
 import type { LifecycleService } from "../services/lifecycle/browser/lifecycleService.ts";
 import { LifecycleServiceDIToken } from "../services/lifecycle/browser/lifecycleService.ts";
-import { FileSearchServiceDIToken } from "../services/search/common/fileSearch.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import type { ThemeService } from "../services/themes/common/themeService.ts";
@@ -181,8 +180,6 @@ export class WorkbenchComponent extends Component {
         this.view.addEventListener("keypress", this.dispatcher.handleKeyPressCapture, { capture: true });
         this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDown));
         this.view.addEventListener("keyup", this.dispatcher.handleKeyUp);
-        // Owned for disposal: it frees the provider's last index on exit.
-        this.register(accessor.get(FileSearchServiceDIToken));
         const quickInputComponent = this.register(accessor.get(QuickInputComponentDIToken));
         this.quickInput = accessor.get(QuickInputServiceDIToken);
         this.statusBarComponent = this.register(statusBarComponent);

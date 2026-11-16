@@ -155,6 +155,17 @@ describe.skipIf(process.platform === "win32")("FileSearchEngine: walk in progres
         expect(await paths(e, "two")).toEqual(["a.ts"]);
     });
 
+    it("a disposed engine holds no index", async () => {
+        const e = (engine = new FileSearchEngine({ ripgrepPath: fakeRg(["a.ts"], { hang: false }) }));
+        await e.index(request());
+        e.dispose();
+        expect(await e.query({ cacheKey: "k", query: "", maxResults: 10 })).toEqual({
+            matches: [],
+            complete: false,
+            limitHit: false,
+        });
+    });
+
     it("dispose() mid-walk kills rg: the walk settles", async () => {
         const e = (engine = new FileSearchEngine({ ripgrepPath: fakeRg(["a.ts"]) }));
         const pending = e.index(request());

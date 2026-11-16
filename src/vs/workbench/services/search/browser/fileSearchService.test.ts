@@ -381,6 +381,15 @@ describe("FileSearchService", () => {
             provider.fire(provider.walk(0).request.cacheKey);
             expect(changes).toBe(0);
         });
+
+        it("a replaced provider's growth reaches nobody", () => {
+            const session = service.createSession();
+            let changes = 0;
+            session.onDidChange(() => changes++);
+            service.registerProvider(new FakeProvider());
+            provider.fire(provider.walk(0).request.cacheKey);
+            expect(changes).toBe(0);
+        });
     });
 
     describe("without a provider or a folder", () => {
