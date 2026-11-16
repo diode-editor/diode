@@ -89,7 +89,7 @@ registration but are not called yet.
 | other `register*Provider` (1: inlineValues) | 🕐 | registration is accepted as a no-op; the provider is never called |
 | `setLanguageConfiguration` | 🟡 | `wordPattern` (for `TextDocument.getWordRangeAtPosition` and linked editing; not passed to the editor's word selection and completion boundaries), `comments`, `brackets`, `autoClosingPairs`, `onEnterRules` (layered over `language-configuration.json`: a set section replaces the file's, the latest layer wins, dispose removes it). Not applied: `indentationRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, the deprecated `__electricCharacterSupport`/`__characterPairSupport` |
 | `getLanguages`, `setTextDocumentLanguage` | ✅ | The language set on a document without a tab is applied when it gets one. |
-| `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
+| `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | not declared. The `DocumentDropOrPasteEditKind` class is: extensions build kinds at load time and check for the register function before calling it |
 
 ## vscode.workspace
 
@@ -389,7 +389,7 @@ change the ⛔ status.
 
 ## Types with a partial surface
 
-306 of 424 upstream types and classes are declared. The declared ones are complete, except those
+307 of 424 upstream types and classes are declared. The declared ones are complete, except those
 listed below, where only a subset of members is declared. `TextDocument` is listed for a different
 reason: everything is declared and implemented, but `save` is a 🟡 stub.
 

@@ -1073,6 +1073,33 @@ export class CodeActionKind implements vscode.CodeActionKind {
     }
 }
 
+// Upstream extHostTypes.DocumentDropOrPasteEditKind. Diode has no paste/drop edit providers yet, but
+// extensions build kinds at module load (jbang: `Empty.append("jbang", "dependency")` in a static block),
+// so a missing class fails the whole activation.
+export class DocumentDropOrPasteEditKind implements vscode.DocumentDropOrPasteEditKind {
+    public static readonly Empty = new DocumentDropOrPasteEditKind("");
+    public static readonly Text = new DocumentDropOrPasteEditKind("text");
+    public static readonly TextUpdateImports = DocumentDropOrPasteEditKind.Text.append("updateImports");
+
+    public readonly value: string;
+
+    public constructor(value: string) {
+        this.value = value;
+    }
+
+    public append(...parts: string[]): DocumentDropOrPasteEditKind {
+        return new DocumentDropOrPasteEditKind((this.value ? [this.value, ...parts] : parts).join("."));
+    }
+
+    public intersects(other: DocumentDropOrPasteEditKind): boolean {
+        return this.contains(other) || other.contains(this);
+    }
+
+    public contains(other: DocumentDropOrPasteEditKind): boolean {
+        return this.value === other.value || other.value.startsWith(this.value + ".");
+    }
+}
+
 export enum CodeActionTriggerKind {
     Invoke = 1,
     Automatic = 2,
