@@ -18,7 +18,6 @@ import {
     type IWireDebugStartOptions,
     type IWireDebugStopDebugging,
     type IWireDebugUnregisterBreakpoints,
-    wireBreakpointBase,
     type WireDebugConfiguration,
 } from "../../../api/common/debugWireTypes.ts";
 import { isFiniteNumber } from "../../../api/common/wireTypes.ts";
@@ -177,20 +176,21 @@ export function parseWireDebugConsoleAppend(raw: unknown): IWireDebugConsoleAppe
 /** `null` — not a breakpoint: no string id or no boolean `enabled`; optional fields of another type are dropped. */
 function parseBreakpointBase(p: Fields): IWireDebugBreakpointBase | null {
     if (typeof p.id !== "string" || typeof p.enabled !== "boolean") return null;
-    return wireBreakpointBase({
+    return {
         id: p.id,
         enabled: p.enabled,
         condition: optionalString(p.condition),
         hitCondition: optionalString(p.hitCondition),
         logMessage: optionalString(p.logMessage),
         mode: optionalString(p.mode),
-    });
+    };
 }
 
 function parseSourceLine(raw: unknown): IWireDebugSourceLine | null {
     const p = fields(raw);
-    const base = p === null ? null : parseBreakpointBase(p);
-    if (base === null || !isFiniteNumber(p?.line) || !isFiniteNumber(p.character)) return null;
+    if (p === null) return null;
+    const base = parseBreakpointBase(p);
+    if (base === null || !isFiniteNumber(p.line) || !isFiniteNumber(p.character)) return null;
     return { ...base, line: p.line, character: p.character };
 }
 

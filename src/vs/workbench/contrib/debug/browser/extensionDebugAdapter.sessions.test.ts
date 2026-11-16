@@ -227,6 +227,16 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
             await expect(sink.getDebugProtocolBreakpoint("nope", "b")).rejects.toThrow("debug session not found");
         });
 
+        it("an ended session is still found, as upstream: its request fails for want of an adapter", async () => {
+            const ended = await startMock();
+            await stopAll();
+
+            await expect(sink.customRequest(ended.getId(), "x", undefined)).rejects.toThrow(
+                "No debugger available, can not send 'x'",
+            );
+            await expect(sink.getDebugProtocolBreakpoint(ended.getId(), "b")).resolves.toBeUndefined();
+        });
+
         it("setSessionName renames the session; an unknown one is no error", async () => {
             const started = await startMock();
             sink.setSessionName(started.getId(), "From extension");
@@ -267,10 +277,20 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
             expect(journal.map((line) => JSON.parse(line.slice("breakpoints ".length)) as unknown)).toEqual([
                 {
                     added: [{ type: "source", id: id1, enabled: true, condition: "i > 1", uri, line: 2, character: 4 }],
+                    removed: [],
+                    changed: [],
                 },
-                { added: [{ type: "source", id: id2, enabled: false, logMessage: "hi", uri, line: 0, character: 0 }] },
-                { changed: [{ type: "source", id: id2, enabled: true, logMessage: "hi", uri, line: 0, character: 0 }] },
-                { removed: [id1] },
+                {
+                    added: [{ type: "source", id: id2, enabled: false, logMessage: "hi", uri, line: 0, character: 0 }],
+                    removed: [],
+                    changed: [],
+                },
+                {
+                    added: [],
+                    removed: [],
+                    changed: [{ type: "source", id: id2, enabled: true, logMessage: "hi", uri, line: 0, character: 0 }],
+                },
+                { added: [], removed: [id1], changed: [] },
             ]);
         });
 
@@ -288,14 +308,14 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
                 accessTypes: undefined,
                 accessType: "write",
             });
-            expect(journal).toEqual(['breakpoints {"added":[]}']);
+            expect(journal).toEqual(['breakpoints {"added":[],"removed":[],"changed":[]}']);
             expect(fbp.name).toBe("main");
         });
 
         it("a function breakpoint goes with its name", () => {
             debugModel().addFunctionBreakpoint({ name: "main", hitCondition: "2" }, "f1");
             expect(journal).toEqual([
-                `breakpoints ${JSON.stringify({ added: [{ type: "function", id: "f1", enabled: true, hitCondition: "2", functionName: "main" }] })}`,
+                `breakpoints ${JSON.stringify({ added: [{ type: "function", id: "f1", enabled: true, hitCondition: "2", functionName: "main" }], removed: [], changed: [] })}`,
             ]);
         });
 

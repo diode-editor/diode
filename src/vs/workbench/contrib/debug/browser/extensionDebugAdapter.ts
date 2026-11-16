@@ -7,7 +7,6 @@ import {
     type IWireDebugSession,
     type IWireDebugStartDebugging,
     type IWireDebugUnregisterBreakpoints,
-    wireBreakpointBase,
     type WireDebugBreakpoint,
 } from "../../../api/common/debugWireTypes.ts";
 import type {
@@ -107,16 +106,15 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
             model.onDidChangeBreakpoints((e) => {
                 // Session-only changes are the adapter's answers: they are for the views alone.
                 if (!e || e.sessionOnly) return;
-                const delta = {
-                    ...(e.added ? { added: breakpointDtos(e.added) } : {}),
-                    ...(e.removed ? { removed: e.removed.map((bp) => bp.getId()) } : {}),
-                    ...(e.changed ? { changed: breakpointDtos(e.changed) } : {}),
-                };
-                if (delta.added || delta.removed || delta.changed) events.breakpointsChanged(delta);
+                events.breakpointsChanged({
+                    added: breakpointDtos(e.added ?? []),
+                    removed: (e.removed ?? []).map((bp) => bp.getId()),
+                    changed: breakpointDtos(e.changed ?? []),
+                });
             }),
         );
         const existing = breakpointDtos([...model.getBreakpoints(), ...model.getFunctionBreakpoints()]);
-        if (existing.length > 0) events.breakpointsChanged({ added: existing });
+        if (existing.length > 0) events.breakpointsChanged({ added: existing, removed: [], changed: [] });
         return store;
     }
 
@@ -285,14 +283,8 @@ type ModelBreakpoint = IBreakpoint | IFunctionBreakpoint | IDataBreakpoint | IIn
 function breakpointDtos(bps: readonly ModelBreakpoint[]): WireDebugBreakpoint[] {
     const dtos: WireDebugBreakpoint[] = [];
     for (const bp of bps) {
-        const common = wireBreakpointBase({
-            id: bp.getId(),
-            enabled: bp.enabled,
-            condition: bp.condition,
-            hitCondition: bp.hitCondition,
-            logMessage: bp.logMessage,
-            mode: bp.mode,
-        });
+        const { enabled, condition, hitCondition, logMessage, mode } = bp;
+        const common = { id: bp.getId(), enabled, condition, hitCondition, logMessage, mode };
         if ("name" in bp) {
             dtos.push({ type: "function", ...common, functionName: bp.name });
         } else if ("uri" in bp) {
@@ -302,7 +294,8 @@ function breakpointDtos(bps: readonly ModelBreakpoint[]): WireDebugBreakpoint[] 
                 uri: bp.uri.toString(),
                 // The model's lines are 1-based from 1 (upstream guards a 0 that the model never has).
                 line: bp.lineNumber - 1,
-                character: typeof bp.column === "number" && bp.column > 0 ? bp.column - 1 : 0,
+                // No column (a breakpoint of a whole line) is character 0, as upstream.
+                character: (bp.column ?? 1) - 1,
             });
         }
     }

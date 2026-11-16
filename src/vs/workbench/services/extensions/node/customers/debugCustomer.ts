@@ -158,7 +158,7 @@ export class DebugCustomer implements IExtensionHostCustomer {
                     rpc.notify("debug.acceptSessionTerminated", { session });
                 },
                 activeSessionChanged: (session) => {
-                    rpc.notify("debug.acceptActiveSessionChanged", session === undefined ? {} : { session });
+                    rpc.notify("debug.acceptActiveSessionChanged", { session });
                 },
                 sessionNameChanged: (session, name) => {
                     rpc.notify("debug.acceptSessionNameChanged", { session, name });
@@ -170,7 +170,7 @@ export class DebugCustomer implements IExtensionHostCustomer {
                     rpc.notify("debug.acceptBreakpointsDelta", delta);
                 },
                 stackFocusChanged: (focus) => {
-                    rpc.notify("debug.acceptStackFocus", focus === undefined ? {} : { focus });
+                    rpc.notify("debug.acceptStackFocus", { focus });
                 },
             }),
         );
@@ -186,7 +186,7 @@ export class DebugCustomer implements IExtensionHostCustomer {
                 const request = parseWireDebugProtocolBreakpointRequest(params);
                 if (request === null) throw new Error("debug session not found");
                 const breakpoint = await sink.getDebugProtocolBreakpoint(request.sessionId, request.breakpointId);
-                return breakpoint === undefined ? {} : { breakpoint };
+                return { breakpoint };
             }),
         );
         store.add(
@@ -204,12 +204,14 @@ export class DebugCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("debug.setSessionName", (params) => {
                 const request = parseWireDebugSetSessionName(params);
+                // Stryker disable next-line ConditionalExpression: equivalent, the endpoint drops a notification whose handler throws, as it drops a malformed one here
                 if (request !== null) sink.setSessionName(request.sessionId, request.name);
             }),
         );
         store.add(
             rpc.handleNotification("debug.appendDebugConsole", (params) => {
                 const request = parseWireDebugConsoleAppend(params);
+                // Stryker disable next-line ConditionalExpression: equivalent, the endpoint drops a notification whose handler throws, as it drops a malformed one here
                 if (request !== null) sink.appendDebugConsole(request.value);
             }),
         );

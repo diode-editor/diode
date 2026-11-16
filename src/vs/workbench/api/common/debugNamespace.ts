@@ -22,18 +22,18 @@ import {
     setBreakpointId,
     SourceBreakpoint,
 } from "./debugTypes.ts";
-import {
-    type IWireDebugFunctionBreakpoint,
-    type IWireDebugResolveResult,
-    type IWireDebugSession,
-    type IWireDebugSourceBreakpoint,
-    type IWireDebugSourceLine,
-    type IWireDebugSourceMultiBreakpoint,
-    type IWireDebugStartOptions,
-    wireBreakpointBase,
-    type WireDebugBreakpoint,
-    type WireDebugConfiguration,
-    type WireDebugTriggerKind,
+import type {
+    IWireDebugBreakpointBase,
+    IWireDebugFunctionBreakpoint,
+    IWireDebugResolveResult,
+    IWireDebugSession,
+    IWireDebugSourceBreakpoint,
+    IWireDebugSourceLine,
+    IWireDebugSourceMultiBreakpoint,
+    IWireDebugStartOptions,
+    WireDebugBreakpoint,
+    WireDebugConfiguration,
+    WireDebugTriggerKind,
 } from "./debugWireTypes.ts";
 import { DirectDebugAdapter, type ExtHostDebugAdapter, type ExtHostNodeDebugAdapters } from "./extHostDebugAdapter.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
@@ -305,20 +305,20 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         const added: vscode.Breakpoint[] = [];
         const removed: vscode.Breakpoint[] = [];
         const changed: vscode.Breakpoint[] = [];
-        for (const dto of delta.added ?? []) {
+        for (const dto of delta.added) {
             if (breakpoints.has(dto.id)) continue;
             const bp = breakpointOf(dto);
             setBreakpointId(bp, dto.id);
             breakpoints.set(dto.id, bp);
             added.push(bp);
         }
-        for (const id of delta.removed ?? []) {
+        for (const id of delta.removed) {
             const bp = breakpoints.get(id);
             if (bp === undefined) continue;
             breakpoints.delete(id);
             removed.push(bp);
         }
-        for (const dto of delta.changed ?? []) {
+        for (const dto of delta.changed) {
             const bp = breakpoints.get(dto.id);
             if (bp === undefined) continue;
             updateBreakpoint(bp, dto);
@@ -347,12 +347,12 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
                     dtos.push({ type: "sourceMulti", uri, lines });
                 }
                 lines.push({
-                    ...wireBreakpointBase(bp),
+                    ...breakpointBase(bp),
                     line: bp.location.range.start.line,
                     character: bp.location.range.start.character,
                 });
             } else if (bp instanceof FunctionBreakpoint) {
-                dtos.push({ type: "function", ...wireBreakpointBase(bp), functionName: bp.functionName });
+                dtos.push({ type: "function", ...breakpointBase(bp), functionName: bp.functionName });
             }
         }
         await rpc.request("debug.registerBreakpoints", { breakpoints: dtos });
@@ -575,6 +575,12 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
 interface ISessionEntry {
     name: string;
     readonly api: vscode.DebugSession;
+}
+
+/** The fields every breakpoint has on the wire; JSON leaves out the absent ones. */
+function breakpointBase(bp: Breakpoint): IWireDebugBreakpointBase {
+    const { id, enabled, condition, hitCondition, logMessage, mode } = bp;
+    return { id, enabled, condition, hitCondition, logMessage, mode };
 }
 
 function locationOf(dto: IWireDebugSourceBreakpoint): Location {

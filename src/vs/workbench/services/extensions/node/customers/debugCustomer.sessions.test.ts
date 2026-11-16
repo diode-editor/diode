@@ -138,8 +138,10 @@ describe("DebugCustomer — what the core tells extensions about its sessions", 
                 { type: "source", id: "b1", enabled: true, uri: "file:///ws/a.c", line: 2, character: 0 },
                 { type: "function", id: "f1", enabled: true, functionName: "main" },
             ],
+            removed: [],
+            changed: [],
         });
-        events.breakpointsChanged({ removed: ["f1"] });
+        events.breakpointsChanged({ added: [], removed: ["f1"], changed: [] });
         await flush();
         expect(debug.breakpoints.map((bp) => bp.id)).toEqual(["b1"]);
     });

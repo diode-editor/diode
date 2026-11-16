@@ -150,25 +150,6 @@ export interface IWireDebugBreakpointBase {
     readonly mode?: string;
 }
 
-/** The fields of a breakpoint as they cross the wire: the optional ones only when there are. */
-export function wireBreakpointBase(bp: {
-    readonly id: string;
-    readonly enabled: boolean;
-    readonly condition?: string;
-    readonly hitCondition?: string;
-    readonly logMessage?: string;
-    readonly mode?: string;
-}): IWireDebugBreakpointBase {
-    return {
-        id: bp.id,
-        enabled: bp.enabled,
-        ...(bp.condition === undefined ? {} : { condition: bp.condition }),
-        ...(bp.hitCondition === undefined ? {} : { hitCondition: bp.hitCondition }),
-        ...(bp.logMessage === undefined ? {} : { logMessage: bp.logMessage }),
-        ...(bp.mode === undefined ? {} : { mode: bp.mode }),
-    };
-}
-
 /** Upstream `ISourceBreakpointDto`: `uri` — a uri string, `line`/`character` 0-based. */
 export interface IWireDebugSourceBreakpoint extends IWireDebugBreakpointBase {
     readonly type: "source";
@@ -185,11 +166,14 @@ export interface IWireDebugFunctionBreakpoint extends IWireDebugBreakpointBase {
 
 export type WireDebugBreakpoint = IWireDebugSourceBreakpoint | IWireDebugFunctionBreakpoint;
 
-/** Upstream `IBreakpointsDeltaDto`: `removed` — the ids. Data breakpoints do not cross (milestone 2). */
+/**
+ * Upstream `IBreakpointsDeltaDto` with all three lists (upstream leaves out the empty ones): `removed` — the ids.
+ * Data breakpoints do not cross (milestone 2). Absent optional fields of a breakpoint are simply not on the wire.
+ */
 export interface IWireDebugBreakpointsDelta {
-    readonly added?: readonly WireDebugBreakpoint[];
-    readonly removed?: readonly string[];
-    readonly changed?: readonly WireDebugBreakpoint[];
+    readonly added: readonly WireDebugBreakpoint[];
+    readonly removed: readonly string[];
+    readonly changed: readonly WireDebugBreakpoint[];
 }
 
 /** One breakpoint of `IWireDebugSourceMultiBreakpoint`: `line`/`character` 0-based. */

@@ -28,6 +28,9 @@ function awaitable(
     return call as (breakpoints: readonly vscode.Breakpoint[]) => Promise<void>;
 }
 
+/** The core sends all three lists. */
+const delta = (d: object): object => ({ added: [], removed: [], changed: [], ...d });
+
 const SOURCE = {
     type: "source",
     id: "b1",
@@ -43,7 +46,7 @@ describe("vscode.debug — the core's breakpoints", () => {
     it("[api:debug.breakpoints] [api:debug.onDidChangeBreakpoints] added ones keep the core's ids", () => {
         const { stub, vscode, changes } = setup();
 
-        stub.fire("debug.acceptBreakpointsDelta", { added: [SOURCE, FUNCTION] });
+        stub.fire("debug.acceptBreakpointsDelta", delta({ added: [SOURCE, FUNCTION] }));
 
         const [source, fn] = vscode.debug.breakpoints as [vscode.SourceBreakpoint, vscode.FunctionBreakpoint];
         expect(source).toBeInstanceOf(vscode.SourceBreakpoint);
@@ -58,8 +61,8 @@ describe("vscode.debug — the core's breakpoints", () => {
 
     it("a known breakpoint is not added twice; a delta of unknown ids fires nothing", () => {
         const { stub, vscode, changes } = setup();
-        stub.fire("debug.acceptBreakpointsDelta", { added: [SOURCE] });
-        stub.fire("debug.acceptBreakpointsDelta", { added: [SOURCE], removed: ["nope"], changed: [FUNCTION] });
+        stub.fire("debug.acceptBreakpointsDelta", delta({ added: [SOURCE] }));
+        stub.fire("debug.acceptBreakpointsDelta", delta({ added: [SOURCE], removed: ["nope"], changed: [FUNCTION] }));
 
         expect(vscode.debug.breakpoints).toHaveLength(1);
         expect(changes).toHaveLength(1);
@@ -67,15 +70,18 @@ describe("vscode.debug — the core's breakpoints", () => {
 
     it("a changed breakpoint is the same object, updated in place", () => {
         const { stub, vscode, changes } = setup();
-        stub.fire("debug.acceptBreakpointsDelta", { added: [SOURCE, FUNCTION] });
+        stub.fire("debug.acceptBreakpointsDelta", delta({ added: [SOURCE, FUNCTION] }));
         const [source, fn] = vscode.debug.breakpoints as [vscode.SourceBreakpoint, vscode.FunctionBreakpoint];
 
-        stub.fire("debug.acceptBreakpointsDelta", {
-            changed: [
-                { type: "source", id: "b1", enabled: false, logMessage: "hit", uri: FILE, line: 9, character: 2 },
-                { type: "function", id: "f1", enabled: true, functionName: "start" },
-            ],
-        });
+        stub.fire(
+            "debug.acceptBreakpointsDelta",
+            delta({
+                changed: [
+                    { type: "source", id: "b1", enabled: false, logMessage: "hit", uri: FILE, line: 9, character: 2 },
+                    { type: "function", id: "f1", enabled: true, functionName: "start" },
+                ],
+            }),
+        );
 
         expect(source).toMatchObject({ enabled: false, condition: undefined, logMessage: "hit" });
         expect(source.location.range.start).toMatchObject({ line: 9, character: 2 });
@@ -85,10 +91,10 @@ describe("vscode.debug — the core's breakpoints", () => {
 
     it("a removed breakpoint leaves the list", () => {
         const { stub, vscode, changes } = setup();
-        stub.fire("debug.acceptBreakpointsDelta", { added: [SOURCE, FUNCTION] });
+        stub.fire("debug.acceptBreakpointsDelta", delta({ added: [SOURCE, FUNCTION] }));
         const [source, fn] = vscode.debug.breakpoints;
 
-        stub.fire("debug.acceptBreakpointsDelta", { removed: ["b1"] });
+        stub.fire("debug.acceptBreakpointsDelta", delta({ removed: ["b1"] }));
 
         expect(vscode.debug.breakpoints).toEqual([fn]);
         expect(changes[1]).toEqual({ added: [], removed: [source], changed: [] });
@@ -158,7 +164,7 @@ describe("vscode.debug — breakpoints of the extension", () => {
 
     it("[api:debug.removeBreakpoints] removes the known ones and tells the core their ids by kind", async () => {
         const { stub, vscode, changes } = setup();
-        stub.fire("debug.acceptBreakpointsDelta", { added: [SOURCE, FUNCTION] });
+        stub.fire("debug.acceptBreakpointsDelta", delta({ added: [SOURCE, FUNCTION] }));
         const [source, fn] = vscode.debug.breakpoints;
         const unknown = new vscode.FunctionBreakpoint("nope");
 
