@@ -26,6 +26,7 @@ import {
 import { ExtHostEnvironmentVariableCollections } from "./environmentVariableCollection.ts";
 import { createExtensionSecretsFactory, type IExtensionSecretsFactory } from "./extensionSecrets.ts";
 import { createExtensionsNamespace } from "./extensionsNamespace.ts";
+import type { ExtHostNodeDebugAdapters } from "./extHostDebugAdapter.ts";
 import type { IExtHostDisk } from "./extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
@@ -96,6 +97,7 @@ import {
     DiagnosticSeverity,
     DiagnosticTag,
     DisposableImpl,
+    DocumentDropOrPasteEditKind,
     DocumentHighlight,
     DocumentHighlightKind,
     DocumentLink,
@@ -212,7 +214,11 @@ export interface IVscodeHost {
 }
 
 /** Mutating actions go to the host as RPC requests: the shim has no direct reference to host services. */
-export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IVscodeHost {
+export function buildVscodeNamespace(
+    rpc: SubprocessRpc,
+    disk: IExtHostDisk,
+    nodeDebugAdapters?: ExtHostNodeDebugAdapters,
+): IVscodeHost {
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
         rpc,
@@ -388,6 +394,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         CodeAction,
         CodeActionKind,
         CodeActionTriggerKind,
+        DocumentDropOrPasteEditKind,
         DocumentLink,
         DocumentHighlight,
         DocumentHighlightKind,
@@ -472,7 +479,14 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         CommentThreadCollapsibleState,
         CommentMode,
         CommentThreadState,
-        debug: createDebugNamespace({ rpc, owner: ctx.owner, workspaceFolders: () => workspace.workspaceFolders }),
+        debug: createDebugNamespace({
+            rpc,
+            owner: ctx.owner,
+            workspaceFolders: () => workspace.workspaceFolders,
+            extensions,
+            onDidReceiveCatalog,
+            nodeAdapters: nodeDebugAdapters,
+        }),
         DebugAdapterExecutable,
         DebugAdapterServer,
         DebugAdapterNamedPipeServer,

@@ -174,7 +174,7 @@ describe("DebugService", () => {
     });
 
     describe("start", () => {
-        it("follows upstream's sequence: activation, resolution by the providers, then the session; announced before and after the launch", async () => {
+        it("follows upstream's sequence: activation, resolution by the providers, the trackers' activation before the adapter, then the session; announced before and after the launch", async () => {
             const events: string[] = [];
             fx.service.onWillNewSession(() => events.push(`will:${String(fx.activated.length)}`));
             fx.service.onDidNewSession((s) => events.push(`did:${s.configuration.name}`));
@@ -187,6 +187,9 @@ describe("DebugService", () => {
                 "onDebugResolve",
                 "onDebug",
                 "onDebugResolve:synthetic",
+                "onDebugAdapterProtocolTracker",
+                "onDebug",
+                "onDebugAdapterProtocolTracker:synthetic",
             ]);
             expect(events).toEqual(["will:5", "did:Launch hello (lldb)"]);
         });
@@ -195,14 +198,19 @@ describe("DebugService", () => {
             await startStopped();
 
             const commands = factory.adapters[0].requests.map((r) => r.command);
-            expect(commands.slice(0, 5)).toEqual([
-                "initialize",
-                "launch",
-                "setExceptionBreakpoints",
-                "configurationDone",
-                "threads",
-            ]);
-            expect(factory.adapters[0].requests[2].arguments).toEqual({ filters: [] });
+            expect(commands.slice(0, 2)).toEqual(["initialize", "launch"]);
+            // The breakpoints of every kind the adapter supports, in parallel with `configurationDone` support.
+            expect(new Set(commands.slice(2, 6))).toEqual(
+                new Set([
+                    "setFunctionBreakpoints",
+                    "setDataBreakpoints",
+                    "setInstructionBreakpoints",
+                    "setExceptionBreakpoints",
+                ]),
+            );
+            expect(commands.slice(6, 8)).toEqual(["configurationDone", "threads"]);
+            const exceptions = factory.adapters[0].requests.find((r) => r.command === "setExceptionBreakpoints");
+            expect(exceptions?.arguments).toEqual({ filters: [] });
         });
 
         it("sends the breakpoints of the model, then configurationDone", async () => {
@@ -589,6 +597,37 @@ describe("DebugService", () => {
             adapter.dispose();
         });
 
+        it("an adapter that goes away by itself ends its session with the reason in the Debug Console, not a notification", async () => {
+            const adapter = new MockDebugAdapter();
+            registerMock("mock", adapter);
+            await fx.service.startDebugging(undefined, { type: "mock", name: "m", request: "launch" });
+            const [session] = fx.service.getModel().getSessions();
+
+            adapter.fireExit(1);
+            await vi.waitFor(() => {
+                expect(fx.service.getModel().getSessions()).toEqual([]);
+            });
+
+            const [last] = session.getReplElements().slice(-1);
+            expect(last.toString()).toBe("Debug adapter process has terminated unexpectedly (exit code: 1)\n");
+            expect((last as { severity?: unknown }).severity).toBe("error");
+            expect(errors()).toEqual([]);
+            adapter.dispose();
+        });
+
+        it("an adapter stopped by the session writes nothing to the Debug Console", async () => {
+            const adapter = new MockDebugAdapter();
+            registerMock("mock", adapter);
+            await fx.service.startDebugging(undefined, { type: "mock", name: "m", request: "launch" });
+            const [session] = fx.service.getModel().getSessions();
+            const before = session.getReplElements().length;
+
+            await fx.service.stopSession(session);
+
+            expect(session.getReplElements()).toHaveLength(before);
+            adapter.dispose();
+        });
+
         it("the focus moves to another session, not explicitly; the multi-session view lasts while two run", async () => {
             const first = await startStopped();
             await fx.service.startDebugging(undefined, { ...SYNTHETIC_LAUNCH_CONFIG, name: "second" });
@@ -697,6 +736,8 @@ describe("DebugService", () => {
             await vi.advanceTimersByTimeAsync(299);
             expect(factory.adapters).toHaveLength(1);
             await vi.advanceTimersByTimeAsync(10);
+            // The new session's start answers on timers too: let them run before the real clock comes back.
+            await vi.advanceTimersByTimeAsync(100);
             vi.useRealTimers();
             await restarted;
 

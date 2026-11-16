@@ -128,6 +128,8 @@ import {
 } from "../../workbench/common/workbenchContributionsRegistry.ts";
 import { BulkEditBuffers } from "../../workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { IBulkEditBuffersDIToken } from "../../workbench/contrib/bulkEdit/common/iBulkEditBuffers.ts";
+import { BreakpointSources } from "../../workbench/contrib/debug/browser/breakpointSources.ts";
+import { BreakpointSourcesDIToken } from "../../workbench/contrib/debug/browser/breakpointsView.ts";
 import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
 import {
     DebugQuickAccessProviderDIToken,
@@ -789,6 +791,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(HasChildProcessesDIToken, () => hasChildProcesses);
     container.bind(DebugTerminalLauncherDIToken, DebugTerminalLauncher);
     container.bind(DebugServiceDIToken, DebugService);
+    container.bind(BreakpointSourcesDIToken, BreakpointSources);
     container.bind(DebugViewletComponentDIToken, DebugViewletComponent);
     container.bind(ReplDIToken, Repl);
     container.bind(TestProfileServiceDIToken, TestProfileService);

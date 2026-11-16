@@ -59,6 +59,7 @@ function makeShared(owner: ExtensionOwner): {
         languages: withMembers(OWNED_MEMBERS.languages, { match: recorder("match") }),
         commands: withMembers(OWNED_MEMBERS.commands, { executeCommand: recorder("executeCommand") }),
         lm: withMembers(OWNED_MEMBERS.lm, { tools: [] }),
+        debug: withMembers(OWNED_MEMBERS.debug, { activeDebugSession: undefined }),
     } as unknown as typeof vscode;
     return {
         shared,
@@ -155,6 +156,7 @@ describe("createExtensionApi — overlay over the shared namespace", () => {
             ["languages", OWNED_MEMBERS.languages],
             ["commands", OWNED_MEMBERS.commands],
             ["lm", OWNED_MEMBERS.lm],
+            ["debug", OWNED_MEMBERS.debug],
         ] as const;
         for (const [ns, members] of groups) {
             const overlay = api[ns] as unknown as Record<string, (...args: unknown[]) => unknown>;
@@ -180,6 +182,7 @@ describe("createExtensionApi — overlay over the shared namespace", () => {
             tasks: {},
             workspace: {},
             lm: {},
+            debug: {},
         } as unknown as typeof vscode;
         const api = createExtensionApi(shared, owner, "pub.a");
         owner.runAs("pub.outer", () => {

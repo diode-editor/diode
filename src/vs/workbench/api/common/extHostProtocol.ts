@@ -28,13 +28,19 @@ import type {
 } from "../../services/search/common/fileSearch.ts";
 
 import type {
+    IWireDebugAdapterError,
+    IWireDebugAdapterExit,
+    IWireDebugAdapterHandle,
+    IWireDebugAdapterMessage,
     IWireDebugConfigurationProvider,
     IWireDebugProvideConfigurations,
     IWireDebugProviderHandle,
     IWireDebugResolveConfiguration,
     IWireDebugResolveResult,
+    IWireDebugStartAdapter,
     IWireDebugStartDebugging,
     IWireDebugStopDebugging,
+    IWireDebugTypes,
     WireDebugConfiguration,
 } from "./debugWireTypes.ts";
 import type { IActiveEditorMeta, IActiveEditorSelections, IEditorOptionsState } from "./iEditorOptionsService.ts";
@@ -359,6 +365,13 @@ export interface IHostToSubprocess {
             IWireDebugResolveConfiguration,
             IWireDebugResolveResult,
         ];
+        /**
+         * Upstream `$startDASession`: the descriptor of the type's factory (or the executable of `package.json`), the
+         * trackers, then the adapter starts; rejects when there is no adapter or it fails to start.
+         */
+        readonly "debug.startAdapter": readonly [IWireDebugStartAdapter, null];
+        /** Upstream `$stopDASession`: responds once the adapter has stopped; an unknown handle is no error. */
+        readonly "debug.stopAdapter": readonly [IWireDebugAdapterHandle, null];
 
         /** Upstream `$createContributedProfileTerminal`: responds once the profile's terminal is created; rejects without a provider or options. */
         readonly "terminal.createContributedProfile": readonly [IWireCreateContributedProfileTerminal, null];
@@ -441,6 +454,9 @@ export interface IHostToSubprocess {
         readonly "tasks.didStartProcess": IWireTaskProcessStarted;
         readonly "tasks.didEndProcess": IWireTaskProcessEnded;
         readonly "tasks.didEnd": IWireTaskEnded;
+
+        /** Upstream `$sendDAMessage`: core → adapter; a message for an unknown handle is dropped. */
+        readonly "debug.sendAdapterMessage": IWireDebugAdapterMessage;
 
         readonly "treeView.setVisible": IWireTreeViewVisibility;
         readonly "treeView.setExpanded": IWireTreeViewExpansion;
@@ -589,6 +605,12 @@ export interface ISubprocessToHost {
 
         readonly "debug.registerConfigurationProvider": IWireDebugConfigurationProvider;
         readonly "debug.unregisterConfigurationProvider": IWireDebugProviderHandle;
+        /** Sent with every extension catalog; replaces the previous types. */
+        readonly "debug.registerDebugTypes": IWireDebugTypes;
+        /** Upstream `$acceptDAMessage`: adapter → core. */
+        readonly "debug.acceptAdapterMessage": IWireDebugAdapterMessage;
+        readonly "debug.acceptAdapterError": IWireDebugAdapterError;
+        readonly "debug.acceptAdapterExit": IWireDebugAdapterExit;
 
         readonly "treeView.register": IWireTreeViewRegistration;
         readonly "treeView.dispose": IWireTreeViewId;

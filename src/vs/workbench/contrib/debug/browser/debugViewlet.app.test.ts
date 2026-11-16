@@ -26,7 +26,13 @@ import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarSer
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import { ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
-import { VARIABLES_VIEW_ID, VIEWLET_ID, WATCH_VIEW_ID } from "../common/debug.ts";
+import {
+    BREAKPOINTS_VIEW_ID,
+    CALLSTACK_VIEW_ID,
+    VARIABLES_VIEW_ID,
+    VIEWLET_ID,
+    WATCH_VIEW_ID,
+} from "../common/debug.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
 import { DebugViewletComponentDIToken } from "./debugViewlet.ts";
@@ -120,7 +126,7 @@ describe("Run and Debug viewlet in the workbench", () => {
         expect(h.testApp.backend.getBgAt(find("Run and Debug"))).toBe(vars()["button.background"]);
     });
 
-    it("the switcher on the title lists it as Run and Debug; VARIABLES and WATCH can be moved", () => {
+    it("the switcher on the title lists it as Run and Debug; its views can be moved", () => {
         h.testApp.sendKey("Ctrl+k");
         h.testApp.sendKey("b");
         const title = find("RUN AND DEBUG");
@@ -142,6 +148,8 @@ describe("Run and Debug viewlet in the workbench", () => {
         const views = h.container.get(ViewsServiceDIToken);
         expect(views.canMoveView(VARIABLES_VIEW_ID)).toBe(true);
         expect(views.canMoveView(WATCH_VIEW_ID)).toBe(true);
+        expect(views.canMoveView(CALLSTACK_VIEW_ID)).toBe(true);
+        expect(views.canMoveView(BREAKPOINTS_VIEW_ID)).toBe(true);
     });
 
     it("Add Expression asks for the expression; without a session it is not available", async () => {
@@ -452,10 +460,25 @@ describe("Run and Debug viewlet in the workbench", () => {
         expect(h.container.get(ContextKeyServiceDIToken).getRaw("expressionSelected")).toBe(true);
     });
 
+    it("BREAKPOINTS reads its rows anew on a change of its presentation, not of another setting", async () => {
+        const component = h.container.get(DebugViewletComponentDIToken);
+        // A refresh drops the source lines the tree presentation shows: they are read again.
+        const refresh = vi.spyOn(component.breakpoints, "refresh");
+        const configuration = h.container.get(IConfigurationServiceDIToken);
+
+        await configuration.updateValue("debug.showVariableTypes", true);
+        expect(refresh).not.toHaveBeenCalled();
+
+        await configuration.updateValue("debug.breakpointsView.presentation", "tree");
+        expect(refresh).toHaveBeenCalledOnce();
+    });
+
     it("a change of the glyph set redraws the rows", async () => {
         const component = h.container.get(DebugViewletComponentDIToken);
         const refresh = vi.spyOn(component.watch.tree, "rerender");
         const variables = vi.spyOn(component.variables.tree, "rerender");
+        const callStack = vi.spyOn(component.callStack.tree, "rerender");
+        const breakpoints = vi.spyOn(component.breakpoints.tree, "rerender");
 
         const nerdFont = h.container.get(ProductIconServiceDIToken).nerdFont;
         await h.container
@@ -465,6 +488,8 @@ describe("Run and Debug viewlet in the workbench", () => {
         await vi.waitFor(() => {
             expect(refresh).toHaveBeenCalled();
             expect(variables).toHaveBeenCalled();
+            expect(callStack).toHaveBeenCalled();
+            expect(breakpoints).toHaveBeenCalled();
         });
     });
 });

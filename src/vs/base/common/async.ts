@@ -6,6 +6,22 @@ export function timeout(millis: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, millis));
 }
 
+/** Upstream `raceTimeout`: the promise or, after `timeout` ms, `undefined`. */
+export function raceTimeout<T>(promise: Promise<T>, timeout: number): Promise<T | undefined> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    return Promise.race([
+        promise.finally(() => {
+            // Stryker disable next-line CallExpression: a timer left behind only resolves a race that is already settled
+            clearTimeout(timer);
+        }),
+        new Promise<undefined>((resolve) => {
+            timer = setTimeout(() => {
+                resolve(undefined);
+            }, timeout);
+        }),
+    ]);
+}
+
 /** Upstream `disposableTimeout` without its `store`: disposing the result cancels the handler. */
 export function disposableTimeout(handler: () => void, timeout = 0): IDisposable {
     const timer = setTimeout(handler, timeout);

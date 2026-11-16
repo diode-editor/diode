@@ -54,6 +54,21 @@
   `debug.showVariableTypes`, `debug.openDebug` (порт `openViewlet` у сервиса и сессии), `debug.autoExpandLazyVariables`
   (`auto` = выключено: нет режима скринридера). Живой сессии в бинаре пока нет (адаптеры расширений — #1139/#1140):
   виды остановки проверяет `debugViewlet.app.test.ts` на синтетике, сценарий `run-and-debug` — пустое состояние.
+- #1145: CALL STACK (`browser/callStackView.ts`, `CallStackDataSource` эталона: сессии — только при нескольких, потоки —
+  только при нескольких, метка состояния справа цветами `debugView.stateLabel*`/`exceptionLabel*`; состояние
+  единственного потока — в описании заголовка вида; 20 кадров и «Load N More Stack Frames», подряд идущие
+  `subtle`/`deemphasize` — «Show N More Stack Frames»). Кадр — «имя, затем `файл:строка` приглушённо» и стрелка
+  глиф-поля редактора перед верхним кадром фокус-потока и фокус-кадром; курсор на кадре — фокус (VARIABLES и WATCH
+  следуют), открытие кадра в редакторе — #1148. BREAKPOINTS (`browser/breakpointsView.ts`): фильтры исключений
+  сессии, функции, data, исходники, инструкции; чекбокс `[✓]` кликается, иконки `getBreakpointIcon` (выбор иконки
+  `getBreakpointMessageAndIcon` без сообщения — у строк нет ховера) цветами `debugIcon.breakpoint*`; условие и
+  log-сообщение курсивом в строке; `debug.breakpointsView.presentation: tree` — группы по файлу с трёхпозиционным
+  чекбоксом, строки читают исходник (`breakpointSources.ts`, с диска). Space/Delete/Enter/Ctrl+Enter и команды
+  заголовка — `debugViewActions.ts`; правка брейкпоинтов в `DebugService` (`enableOrDisableBreakpoints`,
+  `removeBreakpoints`, `setBreakpointsActivated`, функции/data/инструкции) перенесена дословно. Синтетика теперь
+  поддерживает function/data/instruction брейкпоинты, не верифицирует брейкпоинты вне программы и называет
+  `hitBreakpointIds` остановки. Проверка — `callStackView.app.test.ts`, `breakpointsView.app.test.ts`; сценарий
+  `breakpoints` — функциональный брейкпоинт без сессии (живой сессии в бинаре всё ещё нет).
 - #1146: Debug Console (`browser/repl.ts`, `ReplDIToken`; контейнер панели `workbench.panel.repl` между Output и
   Terminal, вид `workbench.panel.repl.view`). Дерево консоли показанной сессии на `LazyTreeControl` (`stickyTail`,
   правая часть строки `renderRowEnd` — источник `файл:строка` и бейдж повторов `badge.*`), объекты результатов и
@@ -98,17 +113,31 @@
   Select and Start Debugging (`onDebugDynamicConfigurations`, «недавние», кнопка «в launch.json») — отдельным
   PR. Живой F5 по типу расширения доходит до сессии и падает на «Cannot find debug adapter» — адаптер #1140;
   e2e `debug-provider` (расширение Debug Demo в `e2e/fixtures/user-data-with-debug-demo`).
+- #1140: адаптеры расширений. Субпроцесс — фабрики дескрипторов и трекеры в `api/common/debugNamespace.ts`,
+  исполняемый файл из `contributes.debuggers` — `api/common/debugAdapterExecutable.ts`, адаптеры:
+  inline — `api/common/extHostDebugAdapter.ts`, процесс/TCP/пайп — `api/node/extHostDebugAdapters.ts`; провод —
+  `debug.registerDebugTypes`, `debug.startAdapter`/`stopAdapter`, `debug.sendAdapterMessage`,
+  `debug.acceptAdapterMessage`/`Error`/`Exit`; ядро — `ExtensionHostDebugAdapter` в
+  `browser/extensionDebugAdapter.ts`. `Debugger.createDebugAdapter` шлёт `onDebugAdapterProtocolTracker:<type>`.
+  Пространство `debug` получило владельца в `extensionApiFactory.ts` (фабрику регистрирует только расширение,
+  определяющее тип; заодно провайдеры #1139 теперь приходят с id расширения). Отступления: адаптер, ушедший сам
+  (ошибка, выход с кодом ≠ 0, смерть субпроцесса), пишет «Debug adapter process has terminated unexpectedly (…)»
+  в Debug Console (`AdapterEndEvent.failure`, эталон молчит); путей в DAP-сообщениях не переводим; `handshake` —
+  «no signer». Отдельно починено: `fetchThreads` после `configurationDone` у умершего адаптера отменяется без
+  необработанного отказа. Тесты: `extensionHost.debugAdapters.test.ts` (настоящий субпроцесс, адаптер каждого вида,
+  фикстура `__fixtures__/debugAdapters/`), сценарий `debug-adapter` (Debug Demo с inline-адаптером).
+
 - **Противоречие в доках:** [docs/arch/Extensions.md](../arch/Extensions.md) («Отладка как null-объект») пишет «DAP не
   планируется (решение человека)», а `GOAL.md` и `docs/public/STATUS.md` — «направление на потом / planned».
   Если берёмся — поправить формулировку в Extensions.md.
 
 ## Оценка объёма (эталон vscode 1.127, `contrib/debug`)
 
-| слой | строк | переносимость |
-|---|---|---|
+| слой                                                          | строк | переносимость                                                                                                      |
+| ------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------ |
 | `common/` (модель, сессии, брейкпоинты, `debugProtocol.d.ts`) | ~9.5k | в основном переносится: логика без DOM; `debugProtocol.d.ts` — дословно, остальное адаптировать под наш DI/события |
-| `browser/` (виды, редактор, REPL, тулбар) | ~26k | не переносится — DOM; переписываем на tuidom, копируя поведение (как Testing) |
-| ext host (`extHostDebugService` + `mainThreadDebugService`) | ~1.8k | переносится, по образцу `extHostTesting` |
+| `browser/` (виды, редактор, REPL, тулбар)                     | ~26k  | не переносится — DOM; переписываем на tuidom, копируя поведение (как Testing)                                      |
+| ext host (`extHostDebugService` + `mainThreadDebugService`)   | ~1.8k | переносится, по образцу `extHostTesting`                                                                           |
 
 Прецедент: Testing — эталон 21.5k строк, у нас 5.4k, 9 PR за 5 дней. Отладчик — примерно 2–3× Testing:
 **~15–25 PR, 2–3 недели темпом лупа**.
@@ -140,13 +169,13 @@
 - **cpptools (Microsoft)** — нет в Open VSX, и лицензия запрещает использование вне продуктов Microsoft. Не вариант.
 - Open VSX на 2026-11-12:
 
-| расширение | загрузок | лицензия | устройство |
-|---|---|---|---|
-| `vadimcn/vscode-lldb` (CodeLLDB) 1.12.3 | 1.4M | MIT | свой адаптер (Rust) + LLDB внутри, платформенные vsix; C/C++ и Rust |
-| `eclipse-cdt/cdt-gdb-vscode` 3.0.0 | 1.0M | EPL | Node-адаптер поверх gdb/MI (Eclipse Theia) |
-| `KylinIdeTeam/cppdebug` 0.4.0 | 500k | не проверяли | похоже, отладочная часть cpptools (открытый MIEngine) |
-| `llvm-vs-code-extensions/lldb-dap` | 194k | Apache 2.0 + LLVM | официальный LLVM, бинарь `lldb-dap` из системы |
-| `webfreak/debug` (Native Debug) 0.27.0 | 103k | public domain | gdb/lldb через MI, заброшен с 2024-02 |
+| расширение                              | загрузок | лицензия          | устройство                                                          |
+| --------------------------------------- | -------- | ----------------- | ------------------------------------------------------------------- |
+| `vadimcn/vscode-lldb` (CodeLLDB) 1.12.3 | 1.4M     | MIT               | свой адаптер (Rust) + LLDB внутри, платформенные vsix; C/C++ и Rust |
+| `eclipse-cdt/cdt-gdb-vscode` 3.0.0      | 1.0M     | EPL               | Node-адаптер поверх gdb/MI (Eclipse Theia)                          |
+| `KylinIdeTeam/cppdebug` 0.4.0           | 500k     | не проверяли      | похоже, отладочная часть cpptools (открытый MIEngine)               |
+| `llvm-vs-code-extensions/lldb-dap`      | 194k     | Apache 2.0 + LLVM | официальный LLVM, бинарь `lldb-dap` из системы                      |
+| `webfreak/debug` (Native Debug) 0.27.0  | 103k     | public domain     | gdb/lldb через MI, заброшен с 2024-02                               |
 
 - **Решение: целевое расширение — CodeLLDB** (самое популярное, без системных зависимостей, gcc-бинари через
   DWARF понимает, Rust бонусом, путь эталона — отладчик из расширения). Запасной — `cdt-gdb-vscode`.
@@ -165,6 +194,7 @@ F10/F11/Shift+F11 — шаги, F5 — continue, F6 — pause, Shift+F5 — stop
 `Ctrl+Shift+Y` — Debug Console. Третий F10 — остановка по исключению.
 
 Файлы:
+
 - `src/vs/workbench/contrib/debug/common/debugStubModel.ts` — фейковая сессия: потоки/кадры/скоупы/переменные
   с ленивыми детьми (задержка 250 мс), куски `[0..99]` для вектора на 1000, отметка изменений между
   остановками, watch-вычисления, брейкпоинты, REPL. Контекст-ключи `debugState`, `inDebugMode`.
@@ -178,7 +208,7 @@ F10/F11/Shift+F11 — шаги, F5 — continue, F6 — pause, Shift+F5 — stop
 - `browser/debugActions.ts` — команды с id эталона; в заголовке вьюлета осталась только Start Debugging.
 - `browser/debugToolbar.ts` — тулбар отладки в области редактора (решение человека, 2026-11-14): на месте find-виджета,
   сверху справа активной группы, в той же рамке `editorWidget`; кнопки с подписями (`▶ Continue ↷ Over ↓ Into ↑ Out
-  ↻ Restart ■ Stop`), в узкой группе — только глифы. С открытым find встают стопкой: тулбар сверху, find под ним
+↻ Restart ■ Stop`), в узкой группе — только глифы. С открытым find встают стопкой: тулбар сверху, find под ним
   (`FindComponent.setTopInset`). Отступление: у эталона тулбар плавает по центру над всем окном.
 - Кнопка «Run and Debug» пустого состояния — на всю ширину, как Commit у Source Control (`ScmActionButtonElement`);
   у строк всех видов отступ в колонку слева и справа.

@@ -10,7 +10,10 @@ describe("ExtensionHost — file search in the subprocess", () => {
     let harness: IExtensionHarness | undefined;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "diode-exthost-filesearch-", files: { "src/main.ts": "", "README.md": "" } });
+        ws = createTempWorkspace({
+            prefix: "diode-exthost-filesearch-",
+            files: { "src/main.ts": "", "README.md": "" },
+        });
     });
 
     afterEach(async () => {
