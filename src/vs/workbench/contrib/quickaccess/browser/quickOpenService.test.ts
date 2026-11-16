@@ -9,7 +9,6 @@ import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { Emitter } from "../../../../base/common/event.ts";
-import { charMask } from "../../../../base/common/fuzzySearch.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -26,8 +25,12 @@ import { QuickInputComponent } from "../../../browser/parts/quickinput/quickInpu
 import type { QuickPickElement } from "../../../browser/parts/quickinput/quickPickElement.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { NULL_JUMP_RECORDER } from "../../../services/history/browser/historyService.ts";
-import type { FileSearchEntry, FileSearchResult } from "../../../services/search/common/fileSearch.ts";
-import type { FileSearchService } from "../../../services/search/node/fileSearchService.ts";
+import type {
+    FileSearchResult,
+    IFileSearchResults,
+    IFileSearchService,
+    IFileSearchSession,
+} from "../../../services/search/common/fileSearch.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
@@ -63,44 +66,54 @@ function makeGotoLineEditor(lineCount = 100, cursorLine = 4, cursorColumn = 2): 
     };
 }
 
-function makeFileEntry(relativePath: string, absolutePath = `/root/${relativePath}`): FileSearchEntry {
+function makeSearchResult(relativePath: string, matchedIndices: number[] = []): FileSearchResult {
     const basename = relativePath.split("/").pop() ?? relativePath;
-    const basenameLower = basename.toLowerCase();
-    const relativePathLower = relativePath.toLowerCase();
+    return { relativePath, absolutePath: `/root/${relativePath}`, basename, score: 100, matchedIndices };
+}
+
+/** `search` is the sessions' search: answers `results` on the next microtask. */
+interface FileSearchStub extends IFileSearchService {
+    readonly createSession: ReturnType<typeof vi.fn<() => IFileSearchSession>>;
+    readonly search: ReturnType<typeof vi.fn<(query: string, max: number) => Promise<IFileSearchResults>>>;
+    /** The newest session's index grew. */
+    fireIndexChanged(): void;
+    /** The newest session is open (not disposed). */
+    hasOpenSession(): boolean;
+}
+
+function makeFileSearchStub(results: FileSearchResult[] = []): FileSearchStub {
+    const search = vi.fn((_query: string, _max: number) => Promise.resolve({ results, limitHit: false }));
+    let latest: { change: Emitter<void>; disposed: boolean } | undefined;
     return {
-        relativePath,
-        absolutePath,
-        basename,
-        basenameLower,
-        relativePathLower,
-        basenameBits: charMask(basenameLower),
-        relativePathBits: charMask(relativePathLower),
+        search,
+        createSession: vi.fn(() => {
+            const state = { change: new Emitter<void>(), disposed: false };
+            latest = state;
+            return {
+                onDidChange: state.change.event,
+                ready: Promise.resolve(),
+                search,
+                dispose: () => {
+                    state.disposed = true;
+                },
+            };
+        }),
+        registerProvider: vi.fn(() => ({ dispose: () => undefined })),
+        dispose: vi.fn(),
+        fireIndexChanged: () => {
+            latest?.change.fire();
+        },
+        hasOpenSession: () => latest !== undefined && !latest.disposed,
     };
 }
 
-function makeSearchResult(relativePath: string, matchedIndices: number[] = []): FileSearchResult {
-    return { entry: makeFileEntry(relativePath), score: 100, matchedIndices };
-}
-
-function makeFileSearchStub(results: FileSearchResult[] = []): FileSearchService {
-    const indexChanged = new Emitter<void>();
-    return {
-        fireIndexChanged: () => {
-            indexChanged.fire();
-        },
-        hasIndexListeners: () => indexChanged.hasListeners(),
-        search: vi.fn(() => results),
-        activate: vi.fn(),
-        refreshIfStale: vi.fn(),
-        isIndexed: true,
-        onIndexChanged: vi.fn(indexChanged.event),
-        dispose: vi.fn(),
-        register: vi.fn(),
-    } as unknown as FileSearchService;
-}
-
-function fireIndexChanged(fileSearch: FileSearchService): void {
-    (fileSearch as unknown as { fireIndexChanged(): void }).fireIndexChanged();
+/**
+ * As typing does: the input holds the text and the change handler runs. A late file answer refreshes with the
+ * input's query, so a bare `onQueryChange` would refresh with a stale one.
+ */
+function typeQuery(view: QuickPickElement, query: string): void {
+    view.setQuery(query);
+    view.onQueryChange?.(query);
 }
 
 function makeOpenEditorPane(absolutePath: string, modified = false): IEditorPane {
@@ -132,7 +145,7 @@ function workspaceWithRoot(root: string): WorkspaceContextService {
 }
 
 function makeQuickAccessRegistry(deps: {
-    fileSearch: FileSearchService;
+    fileSearch: FileSearchStub;
     commands: CommandRegistry;
     keybindings: KeybindingRegistry;
     contextKeys: ContextKeyService;
@@ -191,7 +204,7 @@ function createService(
     contextKeys: ContextKeyService;
     body: BodyElement;
     testApp: TestApp;
-    fileSearch: FileSearchService;
+    fileSearch: FileSearchStub;
     component: QuickInputComponent;
     view: QuickPickElement;
     gotoSource: MutableGotoLineSource;
@@ -339,7 +352,7 @@ describe("QuickOpenService — open/close", () => {
     it("close() on a never-opened picker is a no-op", () => {
         const { service, fileSearch } = createService();
         service.close();
-        expect(fileSearch.onIndexChanged).not.toHaveBeenCalled();
+        expect(fileSearch.createSession).not.toHaveBeenCalled();
     });
 
     it("close() restores focus to previously focused element", () => {
@@ -359,19 +372,21 @@ describe("QuickOpenService — open/close", () => {
 });
 
 describe("QuickOpenService — files mode", () => {
-    it("open('files') sets empty placeholder", () => {
+    it("open('files') sets empty placeholder", async () => {
         const { service, view } = createService();
         service.show();
+        await flushMicrotasks();
         expect(view.placeholder).toBe("Go to File...");
     });
 
-    it("an empty query lists the recent files without searching the index", () => {
+    it("an empty query lists the recent files without searching the index", async () => {
         const { service, fileSearch, view } = createService(
             [makeSearchResult("src/other.ts")],
             [],
             [Uri.file("/root/src/b.ts"), Uri.file("/root/a.ts")],
         );
         service.show();
+        await flushMicrotasks();
         expect(fileSearch.search).not.toHaveBeenCalled();
         expect(view.items.map((item) => [item.label, item.description])).toEqual([
             ["b.ts", "src"],
@@ -379,58 +394,65 @@ describe("QuickOpenService — files mode", () => {
         ]);
     });
 
-    it("open('files') kicks a throttled background re-index", () => {
+    it("open('files') opens a file search session: the walk starts with the picker", async () => {
         const { service, fileSearch } = createService();
         service.show();
-        expect(fileSearch.refreshIfStale).toHaveBeenCalled();
+        await flushMicrotasks();
+        expect(fileSearch.createSession).toHaveBeenCalledTimes(1);
     });
 
-    it("index growing while open re-runs the current query", () => {
+    it("index growing while open re-runs the current query", async () => {
         const { service, fileSearch, view } = createService();
         service.show();
+        await flushMicrotasks();
         view.setQuery("App");
+        await flushMicrotasks();
         (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
 
-        fireIndexChanged(fileSearch);
+        fileSearch.fireIndexChanged();
+        await flushMicrotasks();
 
         expect(fileSearch.search).toHaveBeenCalledWith("App", 50);
     });
 
-    it("a late index-changed callback after close does not re-run the search", () => {
-        const { service, fileSearch } = createService();
-        service.show();
-        const handler = vi.mocked(fileSearch.onIndexChanged).mock.calls.at(-1)?.[0];
-        expect(handler).toBeDefined();
-
-        service.close();
-        (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
-
-        handler?.(undefined);
-        expect(fileSearch.search).not.toHaveBeenCalled();
-    });
-
-    it("switching to command mode stops live file refreshes", () => {
+    it("a late index-changed callback after close does not re-run the search", async () => {
         const { service, fileSearch, view } = createService();
         service.show();
-        view.onQueryChange?.(">cmd");
+        await flushMicrotasks();
+        view.setQuery("App");
+        await flushMicrotasks();
+
+        service.close();
         (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
 
-        fireIndexChanged(fileSearch);
+        fileSearch.fireIndexChanged();
+        expect(fileSearch.search).not.toHaveBeenCalled();
+    });
+
+    it("switching to command mode stops live file refreshes", async () => {
+        const { service, fileSearch, view } = createService();
+        service.show();
+        await flushMicrotasks();
+        view.onQueryChange?.(">cmd");
+        await flushMicrotasks();
+        (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
+
+        fileSearch.fireIndexChanged();
+        await flushMicrotasks();
 
         expect(fileSearch.search).not.toHaveBeenCalled();
     });
 
-    it("close() unsubscribes from index changes", () => {
+    it("close() disposes the file search session", async () => {
         const { service, fileSearch } = createService();
-        const hasIndexListeners = (): boolean =>
-            (fileSearch as unknown as { hasIndexListeners(): boolean }).hasIndexListeners();
         service.show();
-        expect(hasIndexListeners()).toBe(true);
+        await flushMicrotasks();
+        expect(fileSearch.hasOpenSession()).toBe(true);
         service.close();
-        expect(hasIndexListeners()).toBe(false);
+        expect(fileSearch.hasOpenSession()).toBe(false);
     });
 
-    it("a background index refresh preserves the cursor mid-navigation", () => {
+    it("a background index refresh preserves the cursor mid-navigation", async () => {
         // A huge monorepo: while the index streams in, the list is republished every ~50ms.
         const results = [
             makeSearchResult("src/a.ts"),
@@ -440,98 +462,107 @@ describe("QuickOpenService — files mode", () => {
         ];
         const { service, testApp, fileSearch, view } = createService(results);
         service.show("src");
+        await flushMicrotasks();
 
         testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
         expect(view.selectedIndex).toBe(2);
 
-        fireIndexChanged(fileSearch);
+        fileSearch.fireIndexChanged();
+        await flushMicrotasks();
 
         expect(view.selectedIndex).toBe(2);
         expect(view.items[2].label).toBe("c.ts");
     });
 
-    it("a query change resets the cursor to the top", () => {
+    it("a query change resets the cursor to the top", async () => {
         const results = [makeSearchResult("src/a.ts"), makeSearchResult("src/b.ts"), makeSearchResult("src/c.ts")];
         const { service, testApp, view } = createService(results);
         service.show("src");
+        await flushMicrotasks();
 
         testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
         expect(view.selectedIndex).toBe(2);
 
         view.onQueryChange?.("a");
+
+        await flushMicrotasks();
         expect(view.selectedIndex).toBe(0);
     });
 
-    it("items show basename as label and directory as description", () => {
+    it("items show basename as label and directory as description", async () => {
         const results = [makeSearchResult("src/Controls/AppContainer.ts")];
         const { service, view } = createService(results);
         service.show("app");
+        await flushMicrotasks();
         const items = view.items;
         expect(items[0].label).toBe("AppContainer.ts");
         expect(items[0].description).toBe("src/Controls");
     });
 
-    it("file in root directory has empty description", () => {
+    it("file in root directory has empty description", async () => {
         const results = [makeSearchResult("README.md")];
         const { service, view } = createService(results);
         service.show("readme");
+        await flushMicrotasks();
         expect(view.items[0].description).toBe("");
     });
 
-    it("typing triggers search with new query", () => {
+    it("typing triggers search with new query", async () => {
         const { service, fileSearch, view } = createService();
         service.show();
+        await flushMicrotasks();
         view.onQueryChange?.("App");
+        await flushMicrotasks();
         expect(fileSearch.search).toHaveBeenCalledWith("App", 50);
     });
 
-    it("match indices map to label highlight ranges", () => {
+    it("match indices map to label highlight ranges", async () => {
         // relativePath = "src/App.ts", basename = "App.ts" (offset=4)
         // indices [4, 5, 6] → basename indices [0, 1, 2] → one range [0, 3]
         const results: FileSearchResult[] = [
             {
-                entry: makeFileEntry("src/App.ts"),
-                score: 100,
+                ...makeSearchResult("src/App.ts"),
                 matchedIndices: [4, 5, 6],
             },
         ];
         const { service, view } = createService(results);
         service.show("app");
+        await flushMicrotasks();
         const item = view.items[0];
         expect(item.labelMatchRanges).toEqual([[0, 3]]);
     });
 
-    it("match indices in the directory portion map to description highlight ranges", () => {
+    it("match indices in the directory portion map to description highlight ranges", async () => {
         // relativePath = "src/App.ts", basename = "App.ts" (basenameOffset=4).
         // indices [0,1,2] are all < 4 → directory ("src") → merged range [0,3].
         const results: FileSearchResult[] = [
             {
-                entry: makeFileEntry("src/App.ts"),
-                score: 100,
+                ...makeSearchResult("src/App.ts"),
                 matchedIndices: [0, 1, 2],
             },
         ];
         const { service, view } = createService(results);
         service.show("src");
+        await flushMicrotasks();
         const item = view.items[0];
         expect(item.descriptionMatchRanges).toEqual([[0, 3]]);
         expect(item.labelMatchRanges).toEqual([]);
     });
 
-    it("non-adjacent directory matches produce separate description ranges", () => {
+    it("non-adjacent directory matches produce separate description ranges", async () => {
         // relativePath = "src/App.ts" → directory chars at offsets 0..2 ("src").
         // indices [0, 2] are non-adjacent → two separate ranges.
         const results: FileSearchResult[] = [
             {
-                entry: makeFileEntry("src/App.ts"),
-                score: 100,
+                ...makeSearchResult("src/App.ts"),
                 matchedIndices: [0, 2],
             },
         ];
         const { service, view } = createService(results);
         service.show("sa");
+        await flushMicrotasks();
         const item = view.items[0];
         expect(item.descriptionMatchRanges).toEqual([
             [0, 1],
@@ -539,18 +570,18 @@ describe("QuickOpenService — files mode", () => {
         ]);
     });
 
-    it("matches spanning directory and basename split into both range sets", () => {
+    it("matches spanning directory and basename split into both range sets", async () => {
         // relativePath = "src/App.ts" (length 10), basename "App.ts" offset=4.
         // indices [2,3] → directory range [2,3]; indices [4,5] → label range [0,2].
         const results: FileSearchResult[] = [
             {
-                entry: makeFileEntry("src/App.ts"),
-                score: 100,
+                ...makeSearchResult("src/App.ts"),
                 matchedIndices: [2, 3, 4, 5],
             },
         ];
         const { service, view } = createService(results);
         service.show("cap");
+        await flushMicrotasks();
         const item = view.items[0];
         expect(item.descriptionMatchRanges).toEqual([[2, 4]]);
         expect(item.labelMatchRanges).toEqual([[0, 2]]);
@@ -561,6 +592,7 @@ describe("QuickOpenService — files mode", () => {
         const { service, commands, view } = createService(results);
         const execSpy = vi.spyOn(commands, "execute");
         service.show("main");
+        await flushMicrotasks();
 
         const item = view.items[0] as QuickPickItem & { absolutePath: string };
         view.onAccept?.(item, 0);
@@ -575,6 +607,7 @@ describe("QuickOpenService — files mode", () => {
         const { service, commands, body, view } = createService();
         const execSpy = vi.spyOn(commands, "execute");
         service.show();
+        await flushMicrotasks();
 
         const bareItem: QuickPickItem = { label: "orphan" };
         view.onAccept?.(bareItem, 0);
@@ -590,6 +623,7 @@ describe("QuickOpenService — files mode", () => {
         const results = [makeSearchResult("src/main.ts")];
         const { service, commands, body, view } = createService(results);
         service.show("main");
+        await flushMicrotasks();
         const item = view.items[0];
         view.onAccept?.(item, 0);
         await new Promise<void>((r) => {
@@ -600,18 +634,20 @@ describe("QuickOpenService — files mode", () => {
 });
 
 describe("QuickOpenService — query prefill (show with text, not only a prefix)", () => {
-    it("show('text') prefills the input and immediately filters files by it", () => {
+    it("show('text') prefills the input and immediately filters files by it", async () => {
         const { service, view, fileSearch } = createService([makeSearchResult("src/app.ts")]);
         service.show("app");
+        await flushMicrotasks();
         expect(view.getQuery()).toBe("app");
         expect(fileSearch.search).toHaveBeenCalledWith("app", 50);
     });
 
-    it("show('>text') activates command mode and filters by the text", () => {
+    it("show('>text') activates command mode and filters by the text", async () => {
         const { service, commands, view } = createService();
         commands.register("cmd.match", () => {}, "Open Settings");
         commands.register("cmd.other", () => {}, "Close Editor");
         service.show(">settings");
+        await flushMicrotasks();
         expect(view.getQuery()).toBe(">settings");
         const labels = view.items.map((i) => i.label);
         expect(labels).toContain("Open Settings");
@@ -775,12 +811,13 @@ describe("QuickOpenService — mode switching via '>'", () => {
         expect(labels).toContain("Command A");
     });
 
-    it("removing '>' switches back to file results", () => {
+    it("removing '>' switches back to file results", async () => {
         const results = [makeSearchResult("src/main.ts")];
         const { service, view } = createService(results);
         service.show();
-        view.onQueryChange?.(">foo");
-        view.onQueryChange?.("main");
+        typeQuery(view, ">foo");
+        typeQuery(view, "main");
+        await flushMicrotasks();
         const labels = view.items.map((i) => i.label);
         expect(labels).toContain("main.ts");
     });
@@ -834,13 +871,14 @@ describe("QuickOpenService — open editors mode", () => {
         expect(openEditors.revealed.map((pane) => pane.label)).toEqual(["readme.md"]);
     });
 
-    it("erasing the prefix returns to file search", () => {
+    it("erasing the prefix returns to file search", async () => {
         const results = [makeSearchResult("src/main.ts")];
         const { service, view } = createService(results, [makeOpenEditorPane("/root/only-open.ts")]);
         service.show(OpenEditorsQuickAccessProvider.PREFIX);
         expect(view.items.map((item) => item.label)).toEqual(["only-open.ts"]);
 
         view.onQueryChange?.("main");
+        await flushMicrotasks();
 
         expect(view.placeholder).toBe("Go to File...");
         expect(view.items.map((item) => item.label)).toEqual(["main.ts"]);
@@ -905,7 +943,7 @@ describe("QuickOpenService — position and size", () => {
         expect(component.view.preferredWidth).toBe(60);
         expect(component.isOpen()).toBe(false);
         (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
-        fireIndexChanged(fileSearch);
+        fileSearch.fireIndexChanged();
         expect(fileSearch.search).not.toHaveBeenCalled();
     });
 
@@ -937,7 +975,7 @@ describe("QuickOpenService — file-search debounce", () => {
         expect(fileSearch.search).toHaveBeenLastCalledWith("App", 50);
     });
 
-    it("a burst of keystrokes coalesces into one leading + one trailing run", () => {
+    it("a burst of keystrokes coalesces into one leading + one trailing run", async () => {
         vi.useFakeTimers();
         try {
             const { service, fileSearch, view } = createService();
@@ -952,6 +990,8 @@ describe("QuickOpenService — file-search debounce", () => {
             expect(fileSearch.search).toHaveBeenLastCalledWith("A", 50);
 
             vi.runAllTimers();
+            // The trailing run asks once the answer for "A" lands: one file query at a time.
+            await flushMicrotasks();
 
             expect(fileSearch.search).toHaveBeenCalledTimes(2);
             expect(fileSearch.search).toHaveBeenLastCalledWith("App", 50);
@@ -1138,7 +1178,8 @@ describe("QuickOpenService — file:line suffix", () => {
         const execSpy = vi.spyOn(commands, "execute");
         gotoSource.getActiveEditor = () => editor;
         service.show();
-        view.onQueryChange?.("main:42:8");
+        typeQuery(view, "main:42:8");
+        await flushMicrotasks();
 
         view.onAccept?.(view.items[0], 0);
         await new Promise<void>((r) => {
@@ -1155,7 +1196,8 @@ describe("QuickOpenService — file:line suffix", () => {
         const { service, view, gotoSource } = createService(results);
         gotoSource.getActiveEditor = () => editor;
         service.show();
-        view.onQueryChange?.("main");
+        typeQuery(view, "main");
+        await flushMicrotasks();
 
         view.onAccept?.(view.items[0], 0);
         await new Promise<void>((r) => {

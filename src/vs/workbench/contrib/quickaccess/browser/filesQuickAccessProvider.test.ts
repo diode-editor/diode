@@ -3,13 +3,17 @@ import { describe, expect, it, vi } from "vitest";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { Emitter } from "../../../../base/common/event.ts";
-import { charMask } from "../../../../base/common/fuzzySearch.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { type IProductIconService, NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
-import type { FileSearchResult, IFileSearchService } from "../../../services/search/common/fileSearch.ts";
+import type {
+    FileSearchResult,
+    IFileSearchResults,
+    IFileSearchService,
+    IFileSearchSession,
+} from "../../../services/search/common/fileSearch.ts";
 import type { QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 
 import { FilesQuickAccessProvider } from "./filesQuickAccessProvider.ts";
@@ -18,24 +22,37 @@ import type { ISymbolPickOptions, WorkspaceSymbolsQuickAccessProvider } from "./
 
 function searchResult(relativePath: string, matchedIndices: number[] = []): FileSearchResult {
     const basename = relativePath.split("/").pop() ?? relativePath;
-    return {
-        entry: {
-            relativePath,
-            absolutePath: `/root/${relativePath}`,
-            basename,
-            basenameLower: basename.toLowerCase(),
-            relativePathLower: relativePath.toLowerCase(),
-            basenameBits: charMask(basename.toLowerCase()),
-            relativePathBits: charMask(relativePath.toLowerCase()),
-        },
-        score: 1,
-        matchedIndices,
-    };
+    return { relativePath, absolutePath: `/root/${relativePath}`, basename, score: 1, matchedIndices };
+}
+
+/** Sessions answer on the next microtask with `results`; the test can hold an answer back or fire a change. */
+class FakeFileSearch {
+    public readonly sessions: { disposed: boolean; change: Emitter<void> }[] = [];
+    public readonly search = vi.fn<(query: string, max: number) => Promise<IFileSearchResults>>();
+
+    public constructor(public results: readonly FileSearchResult[]) {
+        this.search.mockImplementation(() => Promise.resolve({ results: [...this.results], limitHit: false }));
+    }
+
+    public createSession(): IFileSearchSession {
+        const state = { disposed: false, change: new Emitter<void>() };
+        this.sessions.push(state);
+        return {
+            onDidChange: state.change.event,
+            ready: Promise.resolve(),
+            search: (query, max) => this.search(query, max),
+            dispose: () => {
+                state.disposed = true;
+            },
+        };
+    }
 }
 
 interface Setup {
     readonly provider: FilesQuickAccessProvider;
-    readonly search: ReturnType<typeof vi.fn<(query: string, max?: number) => FileSearchResult[]>>;
+    readonly search: FakeFileSearch["search"];
+    readonly fileSearch: FakeFileSearch;
+    readonly refresh: ReturnType<typeof vi.fn<(preserveSelection: boolean) => void>>;
     readonly opened: string[];
     readonly editor: IGotoLineEditor & { goToPosition: ReturnType<typeof vi.fn> };
     readonly removeMissing: ReturnType<typeof vi.fn<() => Promise<boolean>>>;
@@ -49,14 +66,10 @@ function setup(
         settings?: Readonly<Record<string, unknown>>;
         icons?: IProductIconService;
         symbols?: Pick<WorkspaceSymbolsQuickAccessProvider, "search" | "cancelSearch">;
+        shown?: boolean;
     } = {},
 ): Setup {
-    const search = vi.fn((_query: string, _max?: number) => [...(options.results ?? [])]);
-    const fileSearch = {
-        search,
-        refreshIfStale: () => undefined,
-        onIndexChanged: new Emitter<void>().event,
-    } as unknown as IFileSearchService;
+    const fileSearch = new FakeFileSearch(options.results ?? []);
     const commands = new CommandRegistry();
     const opened: string[] = [];
     commands.register("workbench.openFile", (absolutePath: unknown) => {
@@ -82,7 +95,7 @@ function setup(
     workspace.setWorkspaceFolder("/root");
     const symbols = options.symbols ?? { search: () => undefined, cancelSearch: () => undefined };
     const provider = new FilesQuickAccessProvider(
-        fileSearch,
+        fileSearch as unknown as IFileSearchService,
         commands,
         { getActiveEditor: () => editor },
         recorder,
@@ -92,11 +105,26 @@ function setup(
         symbols,
         options.icons ?? NERD_FONT_ICONS,
     );
-    return { provider, search, opened, editor, removeMissing, jumps };
+    const refresh = vi.fn<(preserveSelection: boolean) => void>();
+    // Shown, as Quick Open does before the first `getItems`: the file search session lives between show and hide.
+    if (options.shown !== false) provider.onShow(refresh);
+    return { provider, search: fileSearch.search, fileSearch, refresh, opened, editor, removeMissing, jumps };
 }
 
-const rows = (provider: FilesQuickAccessProvider, query: string): string[] =>
-    provider.getItems(query).map((item) => (item.description ? `${item.description}/${item.label}` : item.label));
+/** File rows arrive asynchronously: ask, let the answer land, ask again — as the refresh callback would. */
+async function settled(provider: FilesQuickAccessProvider, query: string): Promise<QuickAccessItem[]> {
+    provider.getItems(query);
+    await flushMicrotasks();
+    return provider.getItems(query);
+}
+
+const rowsOf = (items: readonly QuickAccessItem[]): string[] =>
+    items.map((item) => (item.description ? `${item.description}/${item.label}` : item.label));
+
+const rows = (provider: FilesQuickAccessProvider, query: string): string[] => rowsOf(provider.getItems(query));
+
+const settledRows = async (provider: FilesQuickAccessProvider, query: string): Promise<string[]> =>
+    rowsOf(await settled(provider, query));
 
 describe("FilesQuickAccessProvider — editor history", () => {
     it("an empty query lists the whole history in MRU order and does not search", () => {
@@ -122,22 +150,22 @@ describe("FilesQuickAccessProvider — editor history", () => {
         expect(provider.getItems("")).toEqual([]);
     });
 
-    it("history rows carry the file icon, like the search rows", () => {
+    it("history rows carry the file icon, like the search rows", async () => {
         const { provider } = setup({ history: ["/root/a.ts"], results: [searchResult("b.md")] });
 
-        const [history, file] = provider.getItems("a");
+        const [history, file] = await settled(provider, "a");
         expect(history.icon).toBe(NERD_FONT_ICONS.fileIcon("a.ts")?.icon);
         expect(history.icon).toBeDefined();
         expect(file.icon).toBe(NERD_FONT_ICONS.fileIcon("b.md")?.icon);
     });
 
-    it("a query puts the matching history above the search results, without repeating them", () => {
+    it("a query puts the matching history above the search results, without repeating them", async () => {
         const { provider, search } = setup({
             history: ["/root/src/main.ts", "/root/readme.md", "/root/lib/domain.ts"],
             results: [searchResult("src/main.ts"), searchResult("src/maintenance.ts")],
         });
 
-        expect(rows(provider, "main")).toEqual(["src/main.ts", "lib/domain.ts", "src/maintenance.ts"]);
+        expect(await settledRows(provider, "main")).toEqual(["src/main.ts", "lib/domain.ts", "src/maintenance.ts"]);
         expect(search).toHaveBeenCalledWith("main", 50);
     });
 
@@ -151,14 +179,14 @@ describe("FilesQuickAccessProvider — editor history", () => {
         expect(item.descriptionMatchRanges).toEqual([]);
     });
 
-    it("without an icon for the file type the rows simply have none", () => {
+    it("without an icon for the file type the rows simply have none", async () => {
         const { provider } = setup({
             history: ["/root/a.ts"],
             results: [searchResult("b.md")],
             icons: { ...NERD_FONT_ICONS, fileIcon: () => undefined },
         });
 
-        expect(provider.getItems("a").map((item) => item.icon)).toEqual([undefined, undefined]);
+        expect((await settled(provider, "a")).map((item) => item.icon)).toEqual([undefined, undefined]);
     });
 
     it("a path query does not match a root-level file by a separator it does not have", () => {
@@ -192,7 +220,7 @@ describe("FilesQuickAccessProvider — editor history", () => {
         expect(rows(provider, "abc")).toEqual(["xaxbxc.ts", "abc.ts"]);
     });
 
-    it("includeHistory `false` drops the history from a query, not from the empty list", () => {
+    it("includeHistory `false` drops the history from a query, not from the empty list", async () => {
         const { provider } = setup({
             history: ["/root/src/main.ts"],
             results: [searchResult("src/main.ts")],
@@ -200,7 +228,7 @@ describe("FilesQuickAccessProvider — editor history", () => {
         });
 
         expect(rows(provider, "")).toEqual(["src/main.ts"]);
-        const items = provider.getItems("main");
+        const items = await settled(provider, "main");
         expect(items).toHaveLength(1);
         // The search row: its highlights come from the search, not the history matcher.
         expect(items[0].labelMatchRanges).toEqual([]);
@@ -220,7 +248,7 @@ describe("FilesQuickAccessProvider — editor history", () => {
     });
 
     it("showing the picker drops gone files and refreshes the list only when something dropped", async () => {
-        const { provider, removeMissing } = setup();
+        const { provider, removeMissing } = setup({ shown: false });
         const refresh = vi.fn<(preserveSelection: boolean) => void>();
 
         provider.onShow(refresh);
@@ -249,27 +277,26 @@ describe("FilesQuickAccessProvider — search.quickOpen.includeSymbols", () => {
             },
         );
         const cancelSearch = vi.fn();
-        const { provider } = setup({
+        const { provider, refresh } = setup({
             results,
             settings: { "search.quickOpen.includeSymbols": includeSymbols },
             symbols: { search, cancelSearch },
         });
-        const refresh = vi.fn();
-        provider.onShow(refresh);
         return { provider, search, cancelSearch, refresh, pending };
     }
 
-    it("off: no request and no group name", () => {
+    it("off: no request and no group name", async () => {
         const { provider, search } = symbolSetup(false);
-        const items = provider.getItems("foo");
+        const items = await settled(provider, "foo");
         expect(search).not.toHaveBeenCalled();
         expect(items.map((item) => item.hint)).toEqual([undefined]);
     });
 
-    it("asks with skipLocal, adds the answer after the files keeping the cursor, the group name on the first row", () => {
+    it("asks with skipLocal, adds the answer after the files keeping the cursor, the group name on the first row", async () => {
         const { provider, search, refresh, pending } = symbolSetup();
 
-        const before = provider.getItems("foo");
+        const before = await settled(provider, "foo");
+        refresh.mockClear();
         expect(search).toHaveBeenCalledWith("foo", { skipLocal: true }, expect.any(Function));
         expect(before.map((item) => item.hint)).toEqual(["file and symbol results"]);
 
@@ -287,9 +314,9 @@ describe("FilesQuickAccessProvider — search.quickOpen.includeSymbols", () => {
         expect(provider.getItems("foo").map((item) => item.hint)).toEqual(["file and symbol results"]);
     });
 
-    it("the same filter does not ask again, another one drops the old rows at once", () => {
+    it("the same filter does not ask again, another one drops the old rows at once", async () => {
         const { provider, search, pending } = symbolSetup();
-        provider.getItems("foo");
+        await settled(provider, "foo");
         pending[0]([SYMBOL]);
         provider.getItems("foo");
         expect(search).toHaveBeenCalledTimes(1);
@@ -299,9 +326,9 @@ describe("FilesQuickAccessProvider — search.quickOpen.includeSymbols", () => {
         expect(labels).toEqual(["foo.ts"]);
     });
 
-    it("`:line` is about files: no request, and what was asked is cancelled", () => {
+    it("`:line` is about files: no request, and what was asked is cancelled", async () => {
         const { provider, search, cancelSearch, pending } = symbolSetup();
-        provider.getItems("foo");
+        await settled(provider, "foo");
         pending[0]([SYMBOL]);
         search.mockClear();
 
@@ -323,14 +350,182 @@ describe("FilesQuickAccessProvider — search.quickOpen.includeSymbols", () => {
         expect(cancelSearch).toHaveBeenCalledTimes(1);
     });
 
-    it("closing cancels and forgets the rows", () => {
-        const { provider, search, cancelSearch, pending } = symbolSetup();
-        provider.getItems("foo");
+    it("closing cancels and forgets the rows", async () => {
+        const { provider, search, cancelSearch, pending, refresh } = symbolSetup();
+        await settled(provider, "foo");
         pending[0]([SYMBOL]);
         provider.onHide();
         expect(cancelSearch).toHaveBeenCalled();
 
-        expect(provider.getItems("foo").map((item) => item.label)).toEqual(["foo.ts"]);
+        provider.onShow(refresh);
+        expect((await settled(provider, "foo")).map((item) => item.label)).toEqual(["foo.ts"]);
+        expect(search).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe("FilesQuickAccessProvider — file search session", () => {
+    it("each showing opens a session, hiding disposes it", () => {
+        const { provider, fileSearch, refresh } = setup();
+        expect(fileSearch.sessions).toHaveLength(1);
+        provider.onHide();
+        expect(fileSearch.sessions[0].disposed).toBe(true);
+
+        provider.onShow(refresh);
+        expect(fileSearch.sessions).toHaveLength(2);
+        expect(fileSearch.sessions[1].disposed).toBe(false);
+    });
+
+    it("the answer lands with refresh(true), keeping the cursor", async () => {
+        const { provider, refresh } = setup({ results: [searchResult("src/main.ts")] });
+
+        expect(rows(provider, "main")).toEqual([]);
+        await flushMicrotasks();
+
+        expect(refresh).toHaveBeenCalledWith(true);
+        expect(rows(provider, "main")).toEqual(["src/main.ts"]);
+    });
+
+    it("the same filter asks once; the refresh it causes does not ask again", async () => {
+        const { provider, search } = setup({ results: [searchResult("a.ts")] });
+        await settled(provider, "a");
+        provider.getItems("a");
+        expect(search).toHaveBeenCalledTimes(1);
+        expect(search).toHaveBeenCalledWith("a", 50);
+    });
+
+    it("the previous rows stay until the next answer arrives", async () => {
+        const { provider, fileSearch } = setup({ results: [searchResult("alpha.ts")] });
+        await settled(provider, "al");
+
+        fileSearch.results = [searchResult("alpine.ts")];
+        expect(rows(provider, "alp")).toEqual(["alpha.ts"]);
+        await flushMicrotasks();
+        expect(rows(provider, "alp")).toEqual(["alpine.ts"]);
+    });
+
+    it("a late answer to an older filter is dropped", async () => {
+        const { provider, search } = setup();
+        let answerOld!: (r: IFileSearchResults) => void;
+        search.mockImplementationOnce(() => new Promise((resolve) => (answerOld = resolve)));
+        search.mockImplementationOnce(() => Promise.resolve({ results: [searchResult("new.ts")], limitHit: false }));
+
+        provider.getItems("old");
+        provider.getItems("new");
+        await flushMicrotasks();
+        answerOld({ results: [searchResult("old.ts")], limitHit: false });
+        await flushMicrotasks();
+
+        expect(rows(provider, "new")).toEqual(["new.ts"]);
+    });
+
+    it("one query at a time: filters typed meanwhile collapse into the latest, sent once the answer lands", async () => {
+        const { provider, search } = setup();
+        let answerFirst!: (r: IFileSearchResults) => void;
+        search.mockImplementationOnce(() => new Promise((resolve) => (answerFirst = resolve)));
+        search.mockImplementationOnce(() => Promise.resolve({ results: [searchResult("abc.ts")], limitHit: false }));
+
+        provider.getItems("a");
+        provider.getItems("ab");
+        provider.getItems("abc");
+        expect(search.mock.calls.map(([query]) => query)).toEqual(["a"]);
+
+        answerFirst({ results: [searchResult("a.ts")], limitHit: false });
+        await flushMicrotasks();
+
+        expect(search.mock.calls.map(([query]) => query)).toEqual(["a", "abc"]);
+        // The answer for "a" never landed: the box already said "abc".
+        expect(rows(provider, "abc")).toEqual(["abc.ts"]);
+    });
+
+    it("index growth during a query asks once more after it, not once per growth", async () => {
+        const { provider, search, fileSearch } = setup({ results: [searchResult("a.ts")] });
+        let answerFirst!: (r: IFileSearchResults) => void;
+        search.mockImplementationOnce(() => new Promise((resolve) => (answerFirst = resolve)));
+        provider.getItems("a");
+        for (let i = 0; i < 3; i++) {
+            fileSearch.sessions[0].change.fire();
+            // What the refresh does.
+            provider.getItems("a");
+        }
+        expect(search).toHaveBeenCalledTimes(1);
+
+        answerFirst({ results: [searchResult("a.ts")], limitHit: false });
+        await flushMicrotasks();
+        expect(search).toHaveBeenCalledTimes(2);
+    });
+
+    it("showing again without a hide disposes the previous session", () => {
+        const { provider, fileSearch, refresh } = setup();
+        provider.onShow(refresh);
+        expect(fileSearch.sessions.map((s) => s.disposed)).toEqual([true, false]);
+    });
+
+    it("the box emptied while a query ran: the history shows and nothing is asked after the answer", async () => {
+        const { provider, search, fileSearch } = setup({ results: [searchResult("a.ts")] });
+        let answerFirst!: (r: IFileSearchResults) => void;
+        search.mockImplementationOnce(() => new Promise((resolve) => (answerFirst = resolve)));
+        provider.getItems("a");
+        // The index grows (the filter is forgotten), and the refresh it causes comes with an empty box.
+        fileSearch.sessions[0].change.fire();
+        provider.getItems("ab");
+        fileSearch.sessions[0].change.fire();
+        provider.getItems("");
+
+        answerFirst({ results: [searchResult("a.ts")], limitHit: false });
+        await flushMicrotasks();
+
+        expect(search).toHaveBeenCalledTimes(1);
+    });
+
+    it("an answer arriving after hiding is dropped", async () => {
+        const { provider, search, refresh } = setup();
+        let answer!: (r: IFileSearchResults) => void;
+        search.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+        provider.getItems("main");
+        provider.onHide();
+
+        answer({ results: [searchResult("src/main.ts")], limitHit: false });
+        await flushMicrotasks();
+
+        expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it("a grown index refreshes keeping the cursor, and the refresh re-asks the current query", async () => {
+        const { provider, fileSearch, search, refresh } = setup({ results: [searchResult("a.ts")] });
+        await settled(provider, "a");
+        refresh.mockClear();
+
+        fileSearch.results = [searchResult("a.ts"), searchResult("ab.ts")];
+        fileSearch.sessions[0].change.fire();
+        expect(refresh).toHaveBeenCalledWith(true);
+
+        // The refresh's `getItems` keeps the old rows until the new answer lands.
+        expect(rows(provider, "a")).toEqual(["a.ts"]);
+        await flushMicrotasks();
+        expect(search).toHaveBeenCalledTimes(2);
+        expect(rows(provider, "a")).toEqual(["a.ts", "ab.ts"]);
+    });
+
+    it("a grown index before anything was typed asks nothing", () => {
+        const { fileSearch, search } = setup();
+        fileSearch.sessions[0].change.fire();
+        expect(search).not.toHaveBeenCalled();
+    });
+
+    it("hidden: no session, so a query has no file rows and asks nobody", async () => {
+        const { provider, search } = setup({ results: [searchResult("a.ts")], shown: false });
+        expect(await settledRows(provider, "a")).toEqual([]);
+        expect(search).not.toHaveBeenCalled();
+    });
+
+    it("reopening forgets the previous showing's rows and filter", async () => {
+        const { provider, refresh, search } = setup({ results: [searchResult("a.ts")] });
+        await settled(provider, "a");
+        provider.onHide();
+        provider.onShow(refresh);
+
+        expect(rows(provider, "a")).toEqual([]);
+        await flushMicrotasks();
         expect(search).toHaveBeenCalledTimes(2);
     });
 });

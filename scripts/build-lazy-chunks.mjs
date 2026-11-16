@@ -76,12 +76,14 @@ export const LAZY_CHUNKS = [
     // 163 for the Testing protocol in testingWireTypes, test ids and diff op codes the core's TestService
     // reads too (#1068, 161.3 KB), 166 for encoding.ts: any iconv name for `workspace.decode`/`encode`
     // and the guessable names in its table (#1102, 164.4 KB; detection itself is outside the core), 167 for
-    // encoding.ts keeping any validated iconv name on the live model (`encodingInfoOf`, #1103, 166.0 KB).
+    // encoding.ts keeping any validated iconv name on the live model (`encodingInfoOf`, #1103, 166.0 KB), 184
+    // for Quick Open's file index moving into the subprocess (#1179, 182.5 KB): the fuzzy matcher, the child
+    // process guard and the rg argument builder are the core's too (pickers, text search).
     {
         id: "roles/extension-host",
         reason: "extension host role: vscode API implementation",
         entry: "src/vs/diode/roles/extensionHostRole.ts",
-        sharedBudgetKb: 167,
+        sharedBudgetKb: 184,
     },
     // Shared with the core (63 KB of 75): chokidar, which the core keeps for settings file subscriptions.
     {

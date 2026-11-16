@@ -22,9 +22,6 @@ describe("Workbench — Quick Open accept callbacks", () => {
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
-        // The file index now builds in the background — wait for it so the picker
-        // has entries when the test opens Quick Open.
-        await h.workbench.fileIndexReady;
         h.testApp.render();
     });
 
@@ -41,8 +38,12 @@ describe("Workbench — Quick Open accept callbacks", () => {
         h.testApp.render();
 
         const picker = h.testApp.querySelector("QuickPickElement") as QuickPickElement;
-        const alpha = picker.items.find((i) => i.label === "alpha.txt")!;
-        expect(alpha).toBeDefined();
+        // The walk runs when Quick Open opens; the rows arrive with its answer.
+        const alpha = await vi.waitFor(() => {
+            const found = picker.items.find((i) => i.label === "alpha.txt");
+            expect(found).toBeDefined();
+            return found!;
+        });
 
         picker.onAccept?.(alpha, picker.items.indexOf(alpha));
         await flushMicrotasks(2);
@@ -91,8 +92,10 @@ describe("Workbench — Quick Open accept callbacks", () => {
         expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(true);
 
         const picker = h.testApp.querySelector("QuickPickElement") as QuickPickElement;
-        const first = picker.items[0];
-        expect(first).toBeDefined();
+        const first = await vi.waitFor(() => {
+            expect(picker.items[0]).toBeDefined();
+            return picker.items[0];
+        });
 
         picker.onAccept?.(first, 0);
         await flushMicrotasks(2);
@@ -119,7 +122,6 @@ describe("Workbench — Go to Line", () => {
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
-        await h.workbench.fileIndexReady;
         h.commands.execute("workbench.openFile", ws.path("big.txt"));
         h.testApp.render();
     });
@@ -220,7 +222,6 @@ describe("Workbench: open editors picker (Ctrl+K Ctrl+P)", () => {
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
-        await h.workbench.fileIndexReady;
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
         h.commands.execute("workbench.openFile", ws.path("nested/beta.txt"));
         h.testApp.render();

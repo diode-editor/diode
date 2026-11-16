@@ -171,7 +171,7 @@ it("types with two cursors on the same line", () => {
 ## Тестовые утилиты
 
 ### AppTestHarness (`TestUtils/AppTestHarness.ts`)
-Boot-харнесс интеграционных тестов над `WorkbenchComponent`: `createAppTestHarness({ workspaceFolder?, size?, openFile?, focusEditor? })` собирает тестовый DI-контейнер, монтирует корневой компонент и оборачивает его view в `TestApp`. Возвращает `{ testApp, workbench, commands, container, activeEditor(), dispose() }`. Харнесс синхронный — async-активация (`await workbench.activate()`, `fileIndexReady`) остаётся в тесте. Воркспейсом не владеет — композиция с `createTempWorkspace` (см. канонический сниппет в разделе Workbench).
+Boot-харнесс интеграционных тестов над `WorkbenchComponent`: `createAppTestHarness({ workspaceFolder?, size?, openFile?, focusEditor? })` собирает тестовый DI-контейнер, монтирует корневой компонент и оборачивает его view в `TestApp`. Возвращает `{ testApp, workbench, commands, container, activeEditor(), dispose() }`. Харнесс синхронный — async-активация (`await workbench.activate()`) остаётся в тесте. Субпроцесса расширений нет, поэтому поиск файлов Quick Open идёт тем же `FileSearchEngine` в процессе; файловые строки пикера приходят асинхронно — жди их `vi.waitFor`. Воркспейсом не владеет — композиция с `createTempWorkspace` (см. канонический сниппет в разделе Workbench).
 
 ### TempWorkspace (`TestUtils/TempWorkspace.ts`)
 Временный воркспейс: `createTempWorkspace({ prefix?, files? })` → `{ dir, writeFile(rel, content), path(rel), dispose() }`. Сид-файлы поддерживают вложенные пути; `dispose()` — рекурсивный `rmSync`, безопасен в `afterEach`/`finally`.
@@ -680,8 +680,8 @@ host, и вдвое медленный проход сдвигает его ли
 
 | Бенч | Что меряет |
 | --- | --- |
-| `FileSearchService.bench.ts` → `activate / index N files` | фоновый обход до готовности индекса Quick Open (с уступками event loop) |
-| `FileSearchService.bench.ts` → `search …` | цена одного запроса Quick Open (нажатие) |
+| `fileSearchEngine.bench.ts` → `index N files` | обход `rg --files` до готовности индекса Quick Open |
+| `fileSearchEngine.bench.ts` → `search …` | цена одного запроса Quick Open (нажатие) |
 | `FileTreeDataProvider.bench.ts` → `getChildren …` | раскрытие одного большого каталога |
 | `TreeViewElement.bench.ts` → `refresh / toggleExpand / render` | flatten дерева, O(N)-сканы, кадр вьюпорта |
 

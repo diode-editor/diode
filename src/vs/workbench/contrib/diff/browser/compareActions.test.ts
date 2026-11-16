@@ -15,6 +15,7 @@ import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../../..
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
 import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
+import { FileSearchServiceDIToken } from "../../../services/search/common/fileSearch.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../../scm/browser/commandOriginalResourceProvider.ts";
 import { QUERY_COMMAND } from "../../scm/browser/syncActions.ts";
 
@@ -403,6 +404,37 @@ describe("File compare commands", () => {
             // b.txt is open and in the search index, but it appears once in the list, with a badge.
             expect(bItems).toHaveLength(1);
             expect(bItems[0].badge).toBe("open");
+            h.testApp.sendKey("Escape");
+        });
+
+        it("indexed files come from one file search session, freed once the list is taken; the active file is not offered", async () => {
+            const service = h.container.get(FileSearchServiceDIToken);
+            const sessions: { disposed: boolean }[] = [];
+            const createSession = service.createSession.bind(service);
+            service.createSession = () => {
+                const session = createSession();
+                const state = { disposed: false };
+                sessions.push(state);
+                return {
+                    onDidChange: session.onDidChange,
+                    ready: session.ready,
+                    search: (query, max) => session.search(query, max),
+                    dispose: () => {
+                        state.disposed = true;
+                        session.dispose();
+                    },
+                };
+            };
+            h.commands.execute("workbench.openFile", ws.path("a.txt"));
+            await settle(0);
+
+            h.commands.execute("workbench.files.action.compareFileWith");
+            await settleUntilDiff();
+
+            const picker = quickPickByTitle(h.testApp, "Compare Active File With...");
+            // b.txt is not open: only the index offers it. a.txt is the active file.
+            expect(picker.items.map((i) => i.label)).toEqual(["b.txt"]);
+            expect(sessions).toEqual([{ disposed: true }]);
             h.testApp.sendKey("Escape");
         });
 
