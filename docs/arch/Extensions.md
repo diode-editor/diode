@@ -929,8 +929,21 @@
   `onDebugAdapterProtocolTracker:<type>`. Отступления: путей в сообщениях не переводим (ядро и субпроцесс на
   одной ФС, эталонный круг path → uri → path — тождество), `handshake` отклоняется «no signer», адаптер,
   ушедший сам, пишет «Debug adapter process has terminated unexpectedly (…)» в Debug Console
-  (`AdapterEndEvent.failure`; эталон молчит). Объекты сессий для расширений — пока только то, что видят
-  фабрика и трекер; список сессий, события, брейкпоинты и консоль — #1141.
+  (`AdapterEndEvent.failure`; эталон молчит).
+  **Сессии, брейкпоинты, консоль (#1141).** `ExtensionDebugAdapter.subscribe` — конструктор эталонного
+  `MainThreadDebugService`: старт/конец/фокус сессии, её имя и DAP-события, которых ядро не разбирает само
+  (слушаются с `onWillNewSession`: событие приходит и во время `launch`), фокус потока/кадра, дельты
+  брейкпоинтов (все — при подписке, затем каждая правка модели, кроме `sessionOnly`). Провод —
+  `debug.accept*` ядро → субпроцесс; обратно `debug.customRequest`, `debug.getDebugProtocolBreakpoint`,
+  `debug.registerBreakpoints`/`unregisterBreakpoints` (запросы), `debug.setSessionName`,
+  `debug.appendDebugConsole` (уведомления). В субпроцессе объект `DebugSession` один на id — от первого
+  сообщения о нём (адаптер или событие) до `acceptSessionTerminated`; стоп адаптера его не убивает.
+  Брейкпоинты ядра приходят с его id (`setBreakpointId` в `debugTypes.ts`), правка меняет объект
+  расширения на месте; строки и символы на проводе 0-based, в модели — 1-based, колонка 0 — «нет
+  колонки» (эталон #46784). Отступления: сессия едет целиком в каждом сообщении (нет `$sessionCached`),
+  data-брейкпоинты не пересекают провод (`vscode.DataBreakpoint` не объявлен — веха 2), слушатель имени
+  ставится один раз до `launch` (у эталона — на каждый `onDidNewSession`, и после рестарта имя приходило
+  дважды).
 - **Языковые модели как null-объект (`lmNoop.ts`, #1133):** моделей и чата в Diode нет, но
   CodeLLDB зовёт `vscode.lm.registerTool` посреди `activate()` — без namespace'а активация обрывалась
   `TypeError`, и команды `lldb.*` не появлялись. Декларации `vscode.lm` и замыкание типов подняты в

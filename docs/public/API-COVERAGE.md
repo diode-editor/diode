@@ -23,8 +23,8 @@ not in `vscode.d.ts`, yet they decide whether an extension starts at all.
 ## Summary
 
 The **N/M** counter is how many members of a namespace are *declared and callable* out of those in
-upstream 1.127.0 (overloads count as one). It counts the surface, not what works: `vscode.debug` is
-18/18 while the session objects and events are still missing. The status and the comment of each row say what really
+upstream 1.127.0 (overloads count as one). It counts the surface, not what works: `vscode.lm` is
+7/7 while Diode has no language models at all. The status and the comment of each row say what really
 works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-by-design).
 
 | surface | status | members |
@@ -39,7 +39,7 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 | [`vscode.tasks`](#vscodetasks) | 🟡 | 8/8 |
 | [`vscode.authentication`](#vscodeauthentication) | 🟡 | 4/4 |
 | [`vscode.comments`](#vscodecomments) | 🟡 | 1/1 |
-| [`vscode.debug`](#vscodedebug) | 🟡 | 18/18 |
+| [`vscode.debug`](#vscodedebug) | ✅ | 18/18 |
 | [`vscode.tests`](#vscodetests) | 🟡 | 1/1 |
 | [`vscode.lm`](#vscodelm) | 🟡 | 7/7 |
 | [`vscode.scm`](#namespaces-not-yet-exposed) | 🕐 | 0/2 |
@@ -278,19 +278,24 @@ threads in the gutter or in a Comments panel yet.
 
 ## vscode.debug
 
-🟡 **18/18.** Declared. Configuration providers, starting a launch configuration and the debug adapters of
-extensions work: a debugger extension's session runs with its own adapter. The session objects, their events,
-breakpoints and the console for extensions come next (see [status](STATUS.md)).
+✅ **18/18.** Declared. Configuration providers, starting a launch configuration and the debug adapters of
+extensions work: a debugger extension's session runs with its own adapter. Extensions see the sessions and their
+events, the focused thread or frame, the breakpoints, and write to the Debug Console. Data breakpoints
+(`vscode.DataBreakpoint`) are not declared yet: the ones the core has do not reach extensions.
 
 | member | status | comment |
 | --- | :-: | --- |
 | `registerDebugConfigurationProvider` | ✅ | as in VS Code: F5 (**Debug: Start Debugging**) and **Debug: Select and Start Debugging** ask `resolveDebugConfiguration` of the type's providers, then of the `*` ones (again when a provider changed the type), substitute the variables (`${command:…}` through the debugger's `variables`, `${input:…}`), run the `preLaunchTask`, then ask `resolveDebugConfigurationWithSubstitutedVariables`; `undefined` aborts, `null` aborts and opens launch.json, a rejection is an error. `provideDebugConfigurations` of the `Initial` providers fills a new launch.json. `Dynamic` providers are kept but not offered in Select and Start Debugging yet |
-| `registerDebugAdapterDescriptorFactory` | ✅ | as in VS Code: only the extension whose `contributes.debuggers` defines the type (with a `label`) registers its factory, once per type. A session asks it for the adapter, passing the executable of `contributes.debuggers` (`program`/`runtime`, `args`/`runtimeArgs`, the platform's `linux`/`osx`/`windows`/`win`/`winx86`); without a factory that executable is the adapter, a `debugServer` port in the configuration wins over both. `DebugAdapterExecutable` (`command`, `args`, `options.env`/`cwd`; `node` runs as Node), `DebugAdapterServer`, `DebugAdapterNamedPipeServer` and `DebugAdapterInlineImplementation` run in the extension host, the DAP messages go between it and the core. An adapter that dies ends its session with "Debug adapter process has terminated unexpectedly (…)" in the Debug Console. The adapter's `handshake` request is refused (no signing). The `DebugSession` the factory gets has `id`, `type`, `name`, `workspaceFolder`, `configuration`, `parentSession`; its `customRequest` rejects for now |
+| `registerDebugAdapterDescriptorFactory` | ✅ | as in VS Code: only the extension whose `contributes.debuggers` defines the type (with a `label`) registers its factory, once per type. A session asks it for the adapter, passing the executable of `contributes.debuggers` (`program`/`runtime`, `args`/`runtimeArgs`, the platform's `linux`/`osx`/`windows`/`win`/`winx86`); without a factory that executable is the adapter, a `debugServer` port in the configuration wins over both. `DebugAdapterExecutable` (`command`, `args`, `options.env`/`cwd`; `node` runs as Node), `DebugAdapterServer`, `DebugAdapterNamedPipeServer` and `DebugAdapterInlineImplementation` run in the extension host, the DAP messages go between it and the core. An adapter that dies ends its session with "Debug adapter process has terminated unexpectedly (…)" in the Debug Console. The adapter's `handshake` request is refused (no signing). The `DebugSession` the factory gets is the one of the session events |
 | `registerDebugAdapterTrackerFactory` | ✅ | as in VS Code: the trackers of the session's type and of `*` see `onWillStartSession`, every message both ways (`onWillReceiveMessage`, `onDidSendMessage`), `onWillStopSession`, `onError`, `onExit`; a factory that throws, or all of them taking over a second, leave the session without trackers |
-| `startDebugging` / `stopDebugging` | 🟡 | a configuration of the folder by name, or an object, starts as F5 would and resolves to whether it started (a refusal is an error) / stops every session (the session objects come later) |
-| `activeDebugSession`, `activeStackItem`, `breakpoints`, `activeDebugConsole` | 🟡 | `undefined` / `undefined` / empty / a console whose output is not shown |
-| `onDidChangeActiveDebugSession`, `onDidStartDebugSession`, `onDidReceiveDebugSessionCustomEvent`, `onDidTerminateDebugSession`, `onDidChangeBreakpoints`, `onDidChangeActiveStackItem` | 🟡 | valid events that never fire |
-| `addBreakpoints`, `removeBreakpoints` | 🟡 | no-op |
+| `startDebugging` / `stopDebugging` | ✅ | a configuration of the folder by name, or an object, starts as F5 would and resolves to whether it started (a refusal is an error); a `parentSession` makes a child session / stops the session, or every session without one |
+| `activeDebugSession`, `onDidChangeActiveDebugSession` | ✅ | as in VS Code: the session focused in the core |
+| `onDidStartDebugSession`, `onDidTerminateDebugSession` | ✅ | as in VS Code: a session starts once it answered `launch`/`attach`, terminates when it ends; a restart is an end and a new start of a new session object. A `DebugSession` lives from the first event about it to its end: `id`, `type`, `name` (setting it renames the session in Run and Debug), `workspaceFolder`, `configuration`, `parentSession`; `customRequest(command, args)` sends the request to the session's adapter and resolves to the response's `body` (a failed response rejects with its message); `getDebugProtocolBreakpoint(bp)` is the adapter's breakpoint for it in that session |
+| `onDidReceiveDebugSessionCustomEvent` | ✅ | as in VS Code: the DAP events the core does not handle itself, from the session's launch on |
+| `activeStackItem`, `onDidChangeActiveStackItem` | ✅ | as in VS Code: a `DebugStackFrame` when a frame is focused (a stop, a click in CALL STACK), a `DebugThread` when only a thread is, `undefined` without one |
+| `breakpoints`, `onDidChangeBreakpoints` | ✅ | as in VS Code: the source and function breakpoints of the core, under its ids; a change updates the extension's object in place. Data breakpoints are left out (see above) |
+| `addBreakpoints`, `removeBreakpoints` | ✅ | as in VS Code: `SourceBreakpoint` and `FunctionBreakpoint` join the core's breakpoints (the BREAKPOINTS view, the sessions) under their ids and leave them; `onDidChangeBreakpoints` fires at once |
+| `activeDebugConsole` | ✅ | as in VS Code: `append`/`appendLine` write into the Debug Console of the focused session, in the warning color; without a session the output is dropped |
 | `asDebugSourceUri` | ✅ | a `debug:` uri for `sourceReference`, `file:` for a path |
 
 The value types are VS Code's: `DebugAdapterExecutable`, `DebugAdapterServer`,
