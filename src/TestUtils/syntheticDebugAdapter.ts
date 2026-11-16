@@ -158,7 +158,11 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     private configured = false;
     private running = false;
 
-    public constructor(private readonly timing: ISyntheticTiming = SPIKE_TIMING) {
+    /** `root`: where the program's sources are; a test that opens them in the editor puts real files there. */
+    public constructor(
+        private readonly timing: ISyntheticTiming = SPIKE_TIMING,
+        private readonly root = SYNTHETIC_PROGRAM_ROOT,
+    ) {
         super();
     }
 
@@ -264,7 +268,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     }
 
     private source(file: string): DebugProtocol.Source {
-        return { name: file, path: `${SYNTHETIC_PROGRAM_ROOT}/src/${file}` };
+        return { name: file, path: `${this.root}/src/${file}` };
     }
 
     private launch(request: DebugProtocol.Request): void {
@@ -452,7 +456,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             description: reason === "exception" ? "Exception has occurred." : undefined,
             hitBreakpointIds:
                 reason === "breakpoint"
-                    ? this.breakpointsAt.get(`${SYNTHETIC_PROGRAM_ROOT}/src/${MAIN_CPP}:${String(this.program.line)}`)
+                    ? this.breakpointsAt.get(`${this.root}/src/${MAIN_CPP}:${String(this.program.line)}`)
                     : undefined,
         });
     }
@@ -460,7 +464,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     /** A file of the program verifies its breakpoints; any other has no code to break in. */
     private setBreakpoints(request: DebugProtocol.Request, args: DebugProtocol.SetBreakpointsArguments): void {
         const path = args.source.path ?? "";
-        const known = path.startsWith(`${SYNTHETIC_PROGRAM_ROOT}/`);
+        const known = path.startsWith(`${this.root}/`);
         for (const key of [...this.breakpointsAt.keys()]) {
             if (key.startsWith(`${path}:`)) this.breakpointsAt.delete(key);
         }
@@ -784,10 +788,13 @@ function evaluateArithmetic(text: string): number | undefined {
 export class SyntheticDebugAdapterFactory implements IDebugAdapterFactory {
     public readonly adapters: SyntheticDebugAdapter[] = [];
 
-    public constructor(private readonly timing: ISyntheticTiming = SPIKE_TIMING) {}
+    public constructor(
+        private readonly timing: ISyntheticTiming = SPIKE_TIMING,
+        private readonly root = SYNTHETIC_PROGRAM_ROOT,
+    ) {}
 
     public createDebugAdapter(): SyntheticDebugAdapter {
-        const adapter = new SyntheticDebugAdapter(this.timing);
+        const adapter = new SyntheticDebugAdapter(this.timing, this.root);
         this.adapters.push(adapter);
         return adapter;
     }
@@ -801,8 +808,9 @@ export class SyntheticDebugAdapterFactory implements IDebugAdapterFactory {
 export function registerSyntheticDebugger(
     adapterManager: IAdapterManager,
     timing: ISyntheticTiming = SPIKE_TIMING,
+    root = SYNTHETIC_PROGRAM_ROOT,
 ): { readonly factory: SyntheticDebugAdapterFactory } & IDisposable {
-    const factory = new SyntheticDebugAdapterFactory(timing);
+    const factory = new SyntheticDebugAdapterFactory(timing, root);
     const debuggerRegistration = adapterManager.registerDebugger({
         type: SYNTHETIC_DEBUG_TYPE,
         label: "Synthetic (C++ under CodeLLDB)",
