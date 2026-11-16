@@ -223,12 +223,17 @@ describe("BreakpointsView", () => {
             { lineNumber: 9, mode: "hw", modeLabel: "Hardware" },
         ]);
         exceptionFilters();
-        // The adapter took one filter: the other stays muted.
-        const [uncaught] = model.getExceptionBreakpoints();
-        model.setBreakpointSessionData("s", {}, new Map([[uncaught.getId(), { verified: true }]]));
+        // The adapter refused one filter: it is muted; the other (no word yet) is not.
+        const all = model.getExceptionBreakpoints()[1];
+        model.setBreakpointSessionData("s", {}, new Map([[all.getId(), { verified: false }]]));
         await mount();
+        // The cursor sits on the first row: compare rows below it.
+        view.tree.reveal(model.getFunctionBreakpoints()[0]);
 
-        expect(fgOf("uncaught")).not.toBe(fgOf("All Exceptions"));
+        // The access of a data breakpoint is always muted.
+        const muted = fgOf("Read");
+        expect(fgOf("All Exceptions")).toBe(muted);
+        expect(fgOf("uncaught")).not.toBe(muted);
         expect(row("uncaught")).toMatch(/\[ \] uncaught exceptions$/u);
         expect(row("sum")).toMatch(/sum {2}Read {2}Condition: sum > 1 \| Hit Count: 3$/u);
         expect(row("count")).toMatch(/count {2}Write {2}5$/u);
