@@ -58,7 +58,10 @@ const TRIGGERED_BREAKPOINT_MAX_DELAY = 1500;
 
 /** What a session needs besides the debug service: where errors and `important` output go, its log, the console. */
 /** The `debug.*` settings the service and its sessions read. */
-export type IDebugServiceConfiguration = Pick<IDebugConfiguration, "openDebug" | "autoExpandLazyVariables">;
+export type IDebugServiceConfiguration = Pick<
+    IDebugConfiguration,
+    "openDebug" | "autoExpandLazyVariables" | "internalConsoleOptions"
+> & { readonly console: Pick<IDebugConfiguration["console"], "closeOnEnd"> };
 
 export interface IDebugSessionServices {
     readonly notifier: IRawDebugSessionNotifier & {
@@ -66,7 +69,7 @@ export interface IDebugSessionServices {
     };
     readonly logger: ILogger;
     readonly replConfiguration: () => IReplConsoleConfiguration;
-    /** `debug.openDebug` and `debug.autoExpandLazyVariables`. */
+    /** `debug.openDebug`, `debug.autoExpandLazyVariables`, `debug.internalConsoleOptions`, `debug.console.closeOnEnd`. */
     readonly debugConfiguration: () => IDebugServiceConfiguration;
     /** Shows Run and Debug without taking the focus (`openOnDebugBreak`). */
     readonly openViewlet: () => void;

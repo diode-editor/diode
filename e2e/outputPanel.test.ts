@@ -30,12 +30,12 @@ describe("Output panel (functional e2e)", () => {
     });
 
 
-    it("opens the OUTPUT tab between PROBLEMS and TERMINAL with a non-empty log", async () => {
+    it("opens the OUTPUT tab between PROBLEMS and DEBUG CONSOLE with a non-empty log", async () => {
         app = await startOutputApp();
         await openOutput(app.session);
         const panel = await app.session.node("PanelContainerElement");
         const tabs = (panel?.state?.tabs ?? []) as { id: string; title: string }[];
-        expect(tabs.map((t) => t.title)).toEqual(["PROBLEMS", "OUTPUT", "TERMINAL"]);
+        expect(tabs.map((t) => t.title)).toEqual(["PROBLEMS", "OUTPUT", "DEBUG CONSOLE", "TERMINAL"]);
         const text = frameToText(await app.session.captureFrame());
         expect(text).toMatch(/\d\d:\d\d:\d\d\.\d\d\d \[info\] diode starting/u);
     }, 120_000);

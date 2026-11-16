@@ -1,6 +1,7 @@
 import type { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { HFlexElement, hflexFill, hflexFit } from "@tuidom/elements/layout/hFlexElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
@@ -27,6 +28,8 @@ export interface ILazyTreeSource<T> {
     /** Expanded on first sight unless the user collapsed it (upstream auto-expands the first scope). */
     isInitiallyExpanded?(element: T): boolean;
     renderRow(element: T): readonly IRowSpan[];
+    /** A part pinned to the right edge (upstream's source of a console line, its count badge); the row's label wins the room. */
+    renderRowEnd?(element: T): readonly IRowSpan[];
     /** Typeahead text; the joined spans when omitted. */
     getLabel?(element: T): string;
 }
@@ -42,14 +45,26 @@ export interface ILazyTreeOptions {
 export const LOADING_LABEL = "Loading...";
 const PLACEHOLDER_SUFFIX = "#loading";
 
+function spansText(spans: readonly IRowSpan[]): string {
+    return spans.map((span) => span.text).join("");
+}
+
 function spansLabel(spans: readonly IRowSpan[]): TextLabelElement {
-    const label = new TextLabelElement(spans.map((span) => span.text).join(""));
+    const label = new TextLabelElement(spansText(spans));
     let offset = 0;
     for (const span of spans) {
         // UTF-16 units, as the label indexes its chars.
         for (const _unit of span.text.split("")) label.setCharStyle(offset++, span);
     }
     return label;
+}
+
+/** The label fills the row, the end keeps its width and a column before it. */
+function splitRow(spans: readonly IRowSpan[], end: readonly IRowSpan[]): TUIElement {
+    const row = new HFlexElement();
+    row.addChild(spansLabel(spans), { width: hflexFill(), height: 1 });
+    row.addChild(spansLabel([{ text: " " }, ...end]), { width: hflexFit(), height: 1 });
+    return row;
 }
 
 /**
@@ -81,6 +96,7 @@ export class LazyTreeControl<T> {
     private parentOf = new Map<string, string | undefined>();
     private refreshToken = {};
     private rebuildScheduled = false;
+    private revealTail = false;
 
     public constructor(
         private readonly source: ILazyTreeSource<T>,
@@ -99,16 +115,23 @@ export class LazyTreeControl<T> {
         return this.items.get(this.list.getCursorElement());
     }
 
-    /** Reads the roots and every expanded node anew, then swaps the rows in one go. */
-    public async refresh(): Promise<void> {
+    /**
+     * Reads the roots and every expanded node anew, then swaps the rows in one go. `revealTail` scrolls to the last row
+     * (upstream's `revealLastElement`) even if a later refresh overtakes this one.
+     */
+    public async refresh(options: { readonly revealTail?: boolean } = {}): Promise<void> {
+        if (options.revealTail === true) this.revealTail = true;
         const token = {};
         this.refreshToken = token;
         const children = new Map<string, readonly T[]>();
         const visit = async (items: readonly T[]): Promise<void> => {
+            // Only the open nodes: a console holds thousands of rows without children.
+            const open = items.filter(
+                (item) => this.source.hasChildren(item) && this.isExpanded(item, this.source.getKey(item)),
+            );
             await Promise.all(
-                items.map(async (item) => {
+                open.map(async (item) => {
                     const key = this.source.getKey(item);
-                    if (!this.source.hasChildren(item) || !this.isExpanded(item, key)) return;
                     const read = await this.source.getChildren(item);
                     children.set(key, read);
                     await visit(read);
@@ -203,12 +226,14 @@ export class LazyTreeControl<T> {
             for (const item of items) {
                 const key = this.source.getKey(item);
                 const id = `${this.options.idPrefix}:${key}`;
-                const row = spansLabel(this.source.renderRow(item));
+                const spans = this.source.renderRow(item);
+                const end = this.source.renderRowEnd?.(item) ?? [];
+                const row = end.length === 0 ? spansLabel(spans) : splitRow(spans, end);
                 row.id = id;
                 this.items.set(row, item);
                 this.parentOf.set(id, parentId);
                 const expanded = this.isExpanded(item, key);
-                const label = this.source.getLabel?.(item) ?? row.getText();
+                const label = this.source.getLabel?.(item) ?? spansText(spans);
                 list.appendRow(row, { label, parentId, collapsed: !expanded });
                 if (!this.source.hasChildren(item)) continue;
                 const read = expanded ? this.children.get(key) : undefined;
@@ -231,6 +256,8 @@ export class LazyTreeControl<T> {
         while (target !== undefined && !this.parentOf.has(target)) target = previousParents.get(target);
         if (target !== undefined) list.setCursorTo(target);
         // Raw, not scrollTo: the next layout clamps and snaps it against the viewport it actually gets.
-        list.scrollTop = this.options.stickyTail === true && tailVisible ? Number.MAX_SAFE_INTEGER : scrollTop;
+        const toTail = this.revealTail || (this.options.stickyTail === true && tailVisible);
+        this.revealTail = false;
+        list.scrollTop = toTail ? Number.MAX_SAFE_INTEGER : scrollTop;
     }
 }

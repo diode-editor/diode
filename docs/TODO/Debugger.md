@@ -54,6 +54,16 @@
   `debug.showVariableTypes`, `debug.openDebug` (порт `openViewlet` у сервиса и сессии), `debug.autoExpandLazyVariables`
   (`auto` = выключено: нет режима скринридера). Живой сессии в бинаре пока нет (адаптеры расширений — #1139/#1140):
   виды остановки проверяет `debugViewlet.app.test.ts` на синтетике, сценарий `run-and-debug` — пустое состояние.
+- #1146: Debug Console (`browser/repl.ts`, `ReplDIToken`; контейнер панели `workbench.panel.repl` между Output и
+  Terminal, вид `workbench.panel.repl.view`). Дерево консоли показанной сессии на `LazyTreeControl` (`stickyTail`,
+  правая часть строки `renderRowEnd` — источник `файл:строка` и бейдж повторов `badge.*`), объекты результатов и
+  `variablesReference` раскрываются на месте. Ввод: Enter — `evaluate` (`repl`) в фокус-кадре, ↑/↓ — история
+  (`debug.repl.history`, 100 на воркспейс), Escape чистит. Без идущей сессии — подсказка эталона «Please start a
+  debug session to evaluate expressions» и плейсхолдером, и ответом на Enter (отступление: у эталона ввод read-only).
+  Цвета по severity: `info` (stdout) — обычный цвет (вид спайка), `warning` (`console`) — `warningForeground`,
+  `error` (stderr) — `errorForeground`, `ignore` — курсив. Команды — `replActions.ts` (`Ctrl+Shift+Y`/`Ctrl+K Y`,
+  Focus, Accept Input, Clear Console); `debug.internalConsoleOptions` и `debug.console.closeOnEnd` — порты
+  `openRepl`/`closeRepl` сервиса. Не здесь: ANSI, перенос, автодополнение, фильтр, группы как фича, меню.
 
 - #1138: `launch.json`. `browser/debugConfigurationManager.ts` (порт `ConfigurationManager` эталона: launch папки —
   `.diode/launch.json`, блок `launch` файла `.code-workspace`, `launch` пользовательских настроек; выбранная конфигурация

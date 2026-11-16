@@ -24,6 +24,14 @@ export const baseColors = {
         defaults: { dark: "#007FD4", light: "#0090F1" },
         description: "The hover border color for draggable sashes.",
     },
+    "badge.background": {
+        defaults: { dark: "#4D4D4D", light: "#C4C4C4" },
+        description: "Badge background color. Badges are small information labels, e.g. for search results count.",
+    },
+    "badge.foreground": {
+        defaults: { dark: "#FFFFFF", light: "#333333" },
+        description: "Badge foreground color. Badges are small information labels, e.g. for search results count.",
+    },
     "textLink.foreground": {
         defaults: { dark: "#3794FF", light: "#006AB1" },
         description: "Foreground color for links in text.",
