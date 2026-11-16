@@ -145,8 +145,8 @@ class ProviderSession extends Disposable implements IFileSearchSession {
         this.signature = signature;
         this.register(
             service.onDidChangeIndex((cacheKey) => {
-                // Growth of our own index is news only while it is the one answering.
-                if (cacheKey === request.cacheKey && this.answeringKey() === cacheKey) this.onDidChangeEmitter.fire();
+                // Growth is news only for the index that answers; a completed stand-in does not grow.
+                if (this.answeringKey() === cacheKey) this.onDidChangeEmitter.fire();
             }),
         );
         this.ready = provider.index(request).then(
