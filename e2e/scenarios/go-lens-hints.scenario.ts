@@ -48,10 +48,11 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("example.com/hello/greet"), { timeoutMs: 120_000 });
         await editor.capture("go test in the Go Tests channel");
 
+        // The go extension's configuration provider is asked, as in VS Code: without dlv it offers to install it.
         await clickText(editor, "debug test");
         // A short piece: the toast wraps its message.
-        await editor.waitForText((t) => t.includes("starting a debug"), { timeoutMs: 30_000 });
-        await editor.capture("debug test is a toast");
+        await editor.waitForText((t) => t.includes('"dlv" command is not'), { timeoutMs: 30_000 });
+        await editor.capture("debug test asks for dlv");
 
         await clickText(editor, "main.go");
         await editor.waitForText((t) => t.includes('msg string := greet.Hello(name: "world")'), { timeoutMs: 60_000 });

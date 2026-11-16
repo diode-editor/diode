@@ -16,7 +16,7 @@ import { debugConfiguration } from "../vs/workbench/common/configuration/debugCo
 import type { IConfigurationManagerPorts } from "../vs/workbench/contrib/debug/browser/debugConfigurationManager.ts";
 import { DebugService, type IDebugServicePorts } from "../vs/workbench/contrib/debug/browser/debugService.ts";
 import type { IDebugTaskRunnerPorts } from "../vs/workbench/contrib/debug/browser/debugTaskRunner.ts";
-import type { ILaunch } from "../vs/workbench/contrib/debug/common/debug.ts";
+import type { IDebugVariableResolver, ILaunch } from "../vs/workbench/contrib/debug/common/debug.ts";
 import type { ITaskEvent, ITaskSummary } from "../vs/workbench/contrib/tasks/browser/taskService.ts";
 import { type ITask, taskMatches } from "../vs/workbench/contrib/tasks/common/tasks.ts";
 import type {
@@ -24,7 +24,13 @@ import type {
     INotificationMessage,
 } from "../vs/workbench/services/notification/browser/notificationService.ts";
 
-import { type MockStateService, mockStateService, NO_DIRTY_FILES, NO_TERMINAL_LAUNCHER } from "./mockDebug.ts";
+import {
+    type MockStateService,
+    mockStateService,
+    NO_DIRTY_FILES,
+    NO_TERMINAL_LAUNCHER,
+    NO_VARIABLES,
+} from "./mockDebug.ts";
 
 export const USER_SETTINGS = Uri.file("/user/settings.json");
 
@@ -67,6 +73,8 @@ export interface IDebugServiceFixture {
     markers: IMarker[];
     readonly opened: { resource: string; line?: number; preserveFocus: boolean }[];
     readonly saves: number[];
+    /** The configuration resolver of launch.json; by default the configuration as is. */
+    variables: IDebugVariableResolver;
     /** How many times Run and Debug was shown. */
     viewletOpenings: number;
     /** How many times the Debug Console was shown, and asked to close. */
@@ -112,6 +120,7 @@ export function createDebugServiceFixture(
         markers: [] as IMarker[],
         opened: [] as { resource: string; line?: number; preserveFocus: boolean }[],
         saves: [] as number[],
+        variables: NO_VARIABLES,
         viewletOpenings: 0,
         replOpenings: 0,
         replClosings: 0,
@@ -228,6 +237,7 @@ export function createDebugServiceFixture(
             return Promise.resolve();
         },
         terminalLauncher: NO_TERMINAL_LAUNCHER,
+        variables: (folder, config, variables) => fixture.variables(folder, config, variables),
         debugConfiguration: () => ({
             openDebug: configuration.get("debug.openDebug"),
             autoExpandLazyVariables: configuration.get("debug.autoExpandLazyVariables"),

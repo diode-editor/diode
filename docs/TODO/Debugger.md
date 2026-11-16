@@ -83,8 +83,21 @@
   бинаре нет до #1139/#1140 (тип отладчика приходит только из расширения): e2e `launch-json` показывает задачу и
   сообщение «not supported», полный F5 на синтетике — `debugCommands.launch.app.test.ts`.
 
-- `vscode.debug` поднят целиком (18/18), но это null-объект (`src/vs/workbench/api/common/debugNoop.ts`):
-  сессии не стартуют, `onDebug*` не стреляют.
+- #1139: провайдеры конфигураций и запуск из расширений. Субпроцесс — `api/common/debugNamespace.ts`
+  (бывший `debugNoop.ts`: `registerDebugConfigurationProvider`, `startDebugging`, `stopDebugging` живые,
+  остальное — по-прежнему null-объект до #1140/#1141), провод — `debug.*` (`debugWireTypes.ts`,
+  `customers/debugCustomer.ts`, `debugWireParsers.ts`), ядро — `contrib/debug/browser/extensionDebugAdapter.ts`
+  (`ExtensionDebugAdapter`, `bindExtensionDebuggers` для `contributes.debuggers`). `ConfigurationManager` —
+  провайдеры эталона (`resolveConfigurationByProviders` с повтором при смене типа,
+  `resolveDebugConfigurationWithSubstitutedVariables`, `provideDebugConfigurations` для нового launch.json),
+  `AdapterManager` — `activateDebuggers` и слияние контрибуций одного типа и `*`, `Debugger.substituteVariables` —
+  фабрика типа, затем резолвер ядра с `variables` отладчика (порт `variables` — `debugVariableResolver`,
+  `inputs` из файла конфигурации). `createSession` и рестарт — последовательность эталона целиком.
+  Отступления: нет неявного `onDebugResolve:<type>` (его нет и в эталоне 1.127, хотя спека его называла); нет
+  `$substituteVariables` в субпроцессе (резолвер ядра знает те же переменные); динамические конфигурации в
+  Select and Start Debugging (`onDebugDynamicConfigurations`, «недавние», кнопка «в launch.json») — отдельным
+  PR. Живой F5 по типу расширения доходит до сессии и падает на «Cannot find debug adapter» — адаптер #1140;
+  e2e `debug-provider` (расширение Debug Demo в `e2e/fixtures/user-data-with-debug-demo`).
 - **Противоречие в доках:** [docs/arch/Extensions.md](../arch/Extensions.md) («Отладка как null-объект») пишет «DAP не
   планируется (решение человека)», а `GOAL.md` и `docs/public/STATUS.md` — «направление на потом / planned».
   Если берёмся — поправить формулировку в Extensions.md.

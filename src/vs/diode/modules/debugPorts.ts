@@ -11,8 +11,10 @@ import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common
 import { ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsService.ts";
 import type { IConfigurationManagerPorts } from "../../workbench/contrib/debug/browser/debugConfigurationManager.ts";
 import type { IDebugTaskRunnerPorts } from "../../workbench/contrib/debug/browser/debugTaskRunner.ts";
+import type { IDebugVariableResolver } from "../../workbench/contrib/debug/common/debug.ts";
 import { PROBLEMS_VIEW_ID } from "../../workbench/contrib/markers/browser/problemsComponent.ts";
 import { TaskServiceDIToken } from "../../workbench/contrib/tasks/browser/taskService.ts";
+import { ConfigurationResolverServiceDIToken } from "../../workbench/services/configurationResolver/browser/configurationResolverService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
 
@@ -77,4 +79,34 @@ export async function saveAllBeforeDebugStart(container: ServiceAccessor): Promi
         }
     }
     await configuration.reloadConfiguration?.();
+}
+
+/**
+ * Upstream's `resolveWithInteractionReplace(folder, config, 'launch', variables, target)`: `${input:…}` reads the
+ * `inputs` of the file the configuration comes from, else of the merged `launch` section.
+ */
+export function debugVariableResolver(container: ServiceAccessor): IDebugVariableResolver {
+    const resolver = container.get(ConfigurationResolverServiceDIToken);
+    const configuration = container.get(IConfigurationServiceDIToken);
+    const workspace = container.get(IWorkspaceContextServiceDIToken);
+    return (folder, config, variables) =>
+        resolver.resolveWithInteractionReplace(folder, config, "launch", variables, () => {
+            const inspected = configuration.inspect<{ readonly inputs?: unknown } | undefined>("launch");
+            let section: { readonly inputs?: unknown } | undefined;
+            switch (config.__configurationTarget) {
+                case "user":
+                    section = inspected.profile ?? inspected.user;
+                    break;
+                case "workspace":
+                    section = inspected.workspace;
+                    break;
+                default:
+                    // A folder's launch.json is the workspace layer of a folder window (`Launch.getConfig`).
+                    section =
+                        workspace.getWorkbenchState() === "workspace" ? inspected.workspaceFolder : inspected.workspace;
+            }
+            const inputs =
+                section?.inputs ?? configuration.get<{ readonly inputs?: unknown } | undefined>("launch")?.inputs;
+            return Promise.resolve(Array.isArray(inputs) ? (inputs as unknown[]) : undefined);
+        });
 }
