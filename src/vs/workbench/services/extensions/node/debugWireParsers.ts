@@ -3,11 +3,21 @@ import type {
     IWireDebugAdapterError,
     IWireDebugAdapterExit,
     IWireDebugAdapterMessage,
+    IWireDebugBreakpointBase,
     IWireDebugConfigurationProvider,
+    IWireDebugConsoleAppend,
+    IWireDebugCustomRequest,
+    IWireDebugFunctionBreakpoint,
+    IWireDebugProtocolBreakpointRequest,
     IWireDebugProviderHandle,
+    IWireDebugRegisterBreakpoints,
+    IWireDebugSetSessionName,
+    IWireDebugSourceLine,
+    IWireDebugSourceMultiBreakpoint,
     IWireDebugStartDebugging,
     IWireDebugStartOptions,
     IWireDebugStopDebugging,
+    IWireDebugUnregisterBreakpoints,
     WireDebugConfiguration,
 } from "../../../api/common/debugWireTypes.ts";
 import { isFiniteNumber } from "../../../api/common/wireTypes.ts";
@@ -138,4 +148,88 @@ export function parseWireDebugAdapterExit(raw: unknown): IWireDebugAdapterExit |
     const p = fields(raw);
     if (!isFiniteNumber(p?.handle)) return null;
     return { handle: p.handle, ...(isFiniteNumber(p.code) ? { code: p.code } : {}) };
+}
+
+/** `args` is whatever the extension passed: the adapter checks it. */
+export function parseWireDebugCustomRequest(raw: unknown): IWireDebugCustomRequest | null {
+    const p = fields(raw);
+    if (typeof p?.sessionId !== "string" || typeof p.command !== "string") return null;
+    return { sessionId: p.sessionId, command: p.command, args: p.args };
+}
+
+export function parseWireDebugProtocolBreakpointRequest(raw: unknown): IWireDebugProtocolBreakpointRequest | null {
+    const p = fields(raw);
+    if (typeof p?.sessionId !== "string" || typeof p.breakpointId !== "string") return null;
+    return { sessionId: p.sessionId, breakpointId: p.breakpointId };
+}
+
+export function parseWireDebugSetSessionName(raw: unknown): IWireDebugSetSessionName | null {
+    const p = fields(raw);
+    if (typeof p?.sessionId !== "string" || typeof p.name !== "string") return null;
+    return { sessionId: p.sessionId, name: p.name };
+}
+
+export function parseWireDebugConsoleAppend(raw: unknown): IWireDebugConsoleAppend | null {
+    const value = fields(raw)?.value;
+    return typeof value === "string" ? { value } : null;
+}
+
+/** `null` — not a breakpoint: no string id or no boolean `enabled`; optional fields of another type are dropped. */
+function parseBreakpointBase(p: Fields): IWireDebugBreakpointBase | null {
+    if (typeof p.id !== "string" || typeof p.enabled !== "boolean") return null;
+    const condition = optionalString(p.condition);
+    const hitCondition = optionalString(p.hitCondition);
+    const logMessage = optionalString(p.logMessage);
+    const mode = optionalString(p.mode);
+    return {
+        id: p.id,
+        enabled: p.enabled,
+        ...(condition === undefined ? {} : { condition }),
+        ...(hitCondition === undefined ? {} : { hitCondition }),
+        ...(logMessage === undefined ? {} : { logMessage }),
+        ...(mode === undefined ? {} : { mode }),
+    };
+}
+
+function parseSourceLine(raw: unknown): IWireDebugSourceLine | null {
+    const p = fields(raw);
+    const base = p === null ? null : parseBreakpointBase(p);
+    if (base === null || !isFiniteNumber(p?.line) || !isFiniteNumber(p.character)) return null;
+    return { ...base, line: p.line, character: p.character };
+}
+
+type RegisteredBreakpoint = IWireDebugSourceMultiBreakpoint | IWireDebugFunctionBreakpoint;
+
+function parseRegisteredBreakpoint(raw: unknown): RegisteredBreakpoint | null {
+    const p = fields(raw);
+    if (p?.type === "sourceMulti" && typeof p.uri === "string" && Array.isArray(p.lines)) {
+        const lines = (p.lines as readonly unknown[])
+            .map(parseSourceLine)
+            .filter((line): line is IWireDebugSourceLine => line !== null);
+        return { type: "sourceMulti", uri: p.uri, lines };
+    }
+    if (p?.type !== "function" || typeof p.functionName !== "string") return null;
+    const base = parseBreakpointBase(p);
+    return base === null ? null : { type: "function", ...base, functionName: p.functionName };
+}
+
+/** Upstream `$registerBreakpoints`: malformed entries (and lines) are dropped. */
+export function parseWireDebugRegisterBreakpoints(raw: unknown): IWireDebugRegisterBreakpoints {
+    const list = fields(raw)?.breakpoints;
+    if (!Array.isArray(list)) return { breakpoints: [] };
+    return {
+        breakpoints: (list as readonly unknown[])
+            .map(parseRegisteredBreakpoint)
+            .filter((bp): bp is RegisteredBreakpoint => bp !== null),
+    };
+}
+
+function stringList(raw: unknown): string[] {
+    return Array.isArray(raw) ? (raw as readonly unknown[]).filter((id) => typeof id === "string") : [];
+}
+
+/** Upstream `$unregisterBreakpoints`: ids that are not strings are dropped. */
+export function parseWireDebugUnregisterBreakpoints(raw: unknown): IWireDebugUnregisterBreakpoints {
+    const p = fields(raw);
+    return { breakpointIds: stringList(p?.breakpointIds), functionBreakpointIds: stringList(p?.functionBreakpointIds) };
 }

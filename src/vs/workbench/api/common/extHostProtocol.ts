@@ -22,19 +22,33 @@ import type {
 } from "../../../editor/common/languages/iTypeHierarchySource.ts";
 
 import type {
+    IWireDebugActiveSession,
     IWireDebugAdapterError,
     IWireDebugAdapterExit,
     IWireDebugAdapterHandle,
     IWireDebugAdapterMessage,
+    IWireDebugBreakpointsDelta,
     IWireDebugConfigurationProvider,
+    IWireDebugConsoleAppend,
+    IWireDebugCustomRequest,
+    IWireDebugCustomResponse,
+    IWireDebugProtocolBreakpoint,
+    IWireDebugProtocolBreakpointRequest,
     IWireDebugProvideConfigurations,
     IWireDebugProviderHandle,
+    IWireDebugRegisterBreakpoints,
     IWireDebugResolveConfiguration,
     IWireDebugResolveResult,
+    IWireDebugSessionCustomEvent,
+    IWireDebugSessionEvent,
+    IWireDebugSessionName,
+    IWireDebugSetSessionName,
+    IWireDebugStackFocus,
     IWireDebugStartAdapter,
     IWireDebugStartDebugging,
     IWireDebugStopDebugging,
     IWireDebugTypes,
+    IWireDebugUnregisterBreakpoints,
     WireDebugConfiguration,
 } from "./debugWireTypes.ts";
 import type { IActiveEditorMeta, IActiveEditorSelections, IEditorOptionsState } from "./iEditorOptionsService.ts";
@@ -442,6 +456,19 @@ export interface IHostToSubprocess {
 
         /** Upstream `$sendDAMessage`: core → adapter; a message for an unknown handle is dropped. */
         readonly "debug.sendAdapterMessage": IWireDebugAdapterMessage;
+        /** Upstream `$acceptDebugSessionStarted`: the session answered `launch`/`attach`. */
+        readonly "debug.acceptSessionStarted": IWireDebugSessionEvent;
+        /** Upstream `$acceptDebugSessionTerminated`; a restart ends the session too, its new run is a new one. */
+        readonly "debug.acceptSessionTerminated": IWireDebugSessionEvent;
+        /** Upstream `$acceptDebugSessionActiveChanged`: the focused session of the core. */
+        readonly "debug.acceptActiveSessionChanged": IWireDebugActiveSession;
+        readonly "debug.acceptSessionNameChanged": IWireDebugSessionName;
+        /** Upstream `$acceptDebugSessionCustomEvent`: from the session's start, before it answered `launch`. */
+        readonly "debug.acceptSessionCustomEvent": IWireDebugSessionCustomEvent;
+        /** Upstream `$acceptBreakpointsDelta`: every breakpoint at attach, then each change but session-only ones. */
+        readonly "debug.acceptBreakpointsDelta": IWireDebugBreakpointsDelta;
+        /** Upstream `$acceptStackFrameFocus`. */
+        readonly "debug.acceptStackFocus": IWireDebugStackFocus;
 
         readonly "treeView.setVisible": IWireTreeViewVisibility;
         readonly "treeView.setExpanded": IWireTreeViewExpansion;
@@ -516,6 +543,16 @@ export interface ISubprocessToHost {
         readonly "debug.startDebugging": readonly [IWireDebugStartDebugging, boolean];
         /** Upstream `$stopDebugging`; rejects for an unknown session. */
         readonly "debug.stopDebugging": readonly [IWireDebugStopDebugging, null];
+        /** Upstream `$customDebugAdapterRequest`: the response's body; rejects for an unknown session or a failure. */
+        readonly "debug.customRequest": readonly [IWireDebugCustomRequest, IWireDebugCustomResponse];
+        /** Upstream `$getDebugProtocolBreakpoint`; rejects for an unknown session. */
+        readonly "debug.getDebugProtocolBreakpoint": readonly [
+            IWireDebugProtocolBreakpointRequest,
+            IWireDebugProtocolBreakpoint,
+        ];
+        /** Upstream `$registerBreakpoints`: responds once the breakpoints are in the model. */
+        readonly "debug.registerBreakpoints": readonly [IWireDebugRegisterBreakpoints, null];
+        readonly "debug.unregisterBreakpoints": readonly [IWireDebugUnregisterBreakpoints, null];
 
         /** Responds once the tree has reread: `reveal` waits for a refresh in flight, as upstream. */
         readonly "treeView.refresh": readonly [IWireTreeViewRefresh, null];
@@ -596,6 +633,10 @@ export interface ISubprocessToHost {
         readonly "debug.acceptAdapterMessage": IWireDebugAdapterMessage;
         readonly "debug.acceptAdapterError": IWireDebugAdapterError;
         readonly "debug.acceptAdapterExit": IWireDebugAdapterExit;
+        /** Upstream `$setDebugSessionName`: an unknown session is no error. */
+        readonly "debug.setSessionName": IWireDebugSetSessionName;
+        /** Upstream `$appendDebugConsole`: into the focused session's Debug Console, as a warning. */
+        readonly "debug.appendDebugConsole": IWireDebugConsoleAppend;
 
         readonly "treeView.register": IWireTreeViewRegistration;
         readonly "treeView.dispose": IWireTreeViewId;

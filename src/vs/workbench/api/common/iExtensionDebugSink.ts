@@ -2,11 +2,26 @@ import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type {
+    IWireDebugBreakpointsDelta,
+    IWireDebugFocus,
+    IWireDebugRegisterBreakpoints,
     IWireDebugSession,
     IWireDebugStartDebugging,
+    IWireDebugUnregisterBreakpoints,
     WireDebugConfiguration,
     WireDebugTriggerKind,
 } from "./debugWireTypes.ts";
+
+/** What the core tells extensions about its sessions and breakpoints (upstream's `$accept*` calls). */
+export interface IExtensionDebugEvents {
+    sessionStarted(session: IWireDebugSession): void;
+    sessionTerminated(session: IWireDebugSession): void;
+    activeSessionChanged(session: IWireDebugSession | undefined): void;
+    sessionNameChanged(session: IWireDebugSession, name: string): void;
+    sessionCustomEvent(session: IWireDebugSession, event: string, body: unknown): void;
+    breakpointsChanged(delta: IWireDebugBreakpointsDelta): void;
+    stackFocusChanged(focus: IWireDebugFocus | undefined): void;
+}
 
 /**
  * A `vscode.DebugConfigurationProvider` of an extension as the core sees it: only the methods it implements.
@@ -58,8 +73,22 @@ export interface IExtensionDebugAdapterHost {
     ): IExtensionDebugAdapterConnection;
 }
 
-/** Upstream `MainThreadDebugService`: configuration providers, starting and stopping sessions, debug adapters. */
+/**
+ * Upstream `MainThreadDebugService`: configuration providers, starting and stopping sessions, debug adapters, the
+ * sessions' events and requests, breakpoints and the Debug Console.
+ */
 export interface IExtensionDebugSink {
+    /** The breakpoints there are come first (upstream `sendBreakpointsAndListen`), then every change. */
+    subscribe(events: IExtensionDebugEvents): IDisposable;
+    /** Upstream `$customDebugAdapterRequest`: the body of a successful response; rejects otherwise. */
+    customRequest(sessionId: string, command: string, args: unknown): Promise<unknown>;
+    /** Upstream `$getDebugProtocolBreakpoint`; rejects for an unknown session. */
+    getDebugProtocolBreakpoint(sessionId: string, breakpointId: string): Promise<object | undefined>;
+    setSessionName(sessionId: string, name: string): void;
+    /** Into the focused session's Debug Console. */
+    appendDebugConsole(value: string): void;
+    registerBreakpoints(request: IWireDebugRegisterBreakpoints): Promise<void>;
+    unregisterBreakpoints(request: IWireDebugUnregisterBreakpoints): Promise<void>;
     /** Upstream `$registerDebugTypes`: the adapters of these types live in the subprocess; dispose — not any more. */
     registerDebugTypes(types: readonly string[], host: IExtensionDebugAdapterHost): IDisposable;
     registerConfigurationProvider(extensionId: string, provider: IExtensionDebugConfigurationProvider): IDisposable;

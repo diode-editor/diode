@@ -33,6 +33,8 @@ import type { NotificationService } from "../../../services/notification/browser
 import {
     type AdapterEndEvent,
     getStateLabel,
+    type IBreakpoint,
+    type IBreakpointData,
     type ICompound,
     type IConfig,
     type IDebugModel,
@@ -1069,6 +1071,16 @@ export class DebugService implements IDebugService {
                 await s.sendBreakpoints(modelUri, sessionBps, sourceModified);
             }
         });
+    }
+
+    /** Upstream's, without the screen-reader announcement. */
+    public async addBreakpoints(uri: uri, rawBreakpoints: IBreakpointData[]): Promise<IBreakpoint[]> {
+        const breakpoints = this.model.addBreakpoints(uri, rawBreakpoints);
+        // Stored before sending, which can take long, and after: the adapter can attach its data to a breakpoint.
+        this.debugStorage.storeBreakpoints(this.model);
+        await this.sendBreakpoints(uri);
+        this.debugStorage.storeBreakpoints(this.model);
+        return breakpoints;
     }
 
     private async sendFunctionBreakpoints(session?: IDebugSession): Promise<void> {

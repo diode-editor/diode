@@ -1052,7 +1052,7 @@ export interface IDebugService {
     readonly state: State;
     readonly initializingOptions?: IDebugSessionOptions | undefined;
     readonly onDidChangeState: Event<State>;
-    /** Before the session is launched: it is in the model already. Does not go to extensions. */
+    /** Before the session is launched: it is in the model already. Extensions hear its custom events from here on. */
     readonly onWillNewSession: Event<IDebugSession>;
     /** The session answered `launch`/`attach`. */
     readonly onDidNewSession: Event<IDebugSession>;
@@ -1077,6 +1077,9 @@ export interface IDebugService {
     ): void;
     sendAllBreakpoints(session?: IDebugSession): Promise<void>;
     sendBreakpoints(modelUri: uri, sourceModified?: boolean, session?: IDebugSession): Promise<void>;
+
+    /** Adds new breakpoints to the model for the file specified with the uri. Notifies debug adapter of breakpoint changes. */
+    addBreakpoints(uri: uri, rawBreakpoints: IBreakpointData[]): Promise<IBreakpoint[]>;
 
     /**
      * Adds a new watch expression and evaluates it against the debug adapter.

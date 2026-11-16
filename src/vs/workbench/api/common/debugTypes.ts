@@ -15,7 +15,20 @@ export enum DebugConfigurationProviderTriggerKind {
     Dynamic = 2,
 }
 
+let assignBreakpointId: (bp: Breakpoint, id: string) => void;
+
+/** Upstream `setBreakpointId`: a breakpoint the core sent keeps the core's id. */
+export function setBreakpointId(bp: Breakpoint, id: string): void {
+    assignBreakpointId(bp, id);
+}
+
 export class Breakpoint implements vscode.Breakpoint {
+    static {
+        assignBreakpointId = (bp, id): void => {
+            bp.ownId = id;
+        };
+    }
+
     private ownId: string | undefined;
 
     public readonly enabled: boolean;
