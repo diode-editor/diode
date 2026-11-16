@@ -310,6 +310,77 @@ describe("Repl", () => {
         }
     });
 
+    it("switching to another session's console shows its tail, whatever the scroll of the one before", async () => {
+        const first = await start("first");
+        const second = await start("second");
+        for (let i = 0; i < 40; i++) {
+            first.appendToRepl({ output: `first ${String(i)}\n`, sev: "info" });
+            second.appendToRepl({ output: `second ${String(i)}\n`, sev: "info" });
+        }
+        await fx.service.focusStackFrame(undefined, undefined, first, { explicit: true });
+        await shows("first 39");
+        repl.tree.list.focus();
+        app.sendKey("Home");
+        expect(screen()).not.toContain("first 39");
+        // The user picks the other session elsewhere (the call stack): the console's list no longer has the focus.
+        repl.focus();
+
+        await fx.service.focusStackFrame(undefined, undefined, second, { explicit: true });
+
+        await shows("second 39");
+    });
+
+    it("clearing a running console keeps it: it is not dropped once it ends", async () => {
+        const earlier = await start("earlier");
+        await fx.service.stopSession(earlier);
+        await vi.waitFor(() => {
+            expect(earlier.state).toBe(State.Inactive);
+        });
+        const running = await start("running");
+        await vi.waitFor(() => {
+            expect(repl.shownSession?.name).toBe("running");
+        });
+
+        repl.clearRepl();
+        await fx.service.stopSession(running);
+        await vi.waitFor(() => {
+            expect(running.state).toBe(State.Inactive);
+        });
+
+        expect(repl.shownSession?.name).toBe("running");
+    });
+
+    it("Enter on an ended session's console answers with the hint, without asking the adapter", async () => {
+        const session = await start("s");
+        await fx.service.stopSession(undefined);
+        await vi.waitFor(() => {
+            expect(session.state).toBe(State.Inactive);
+        });
+        repl.focus();
+        app.sendKey("x");
+        app.sendKey("Enter");
+
+        await shows("> x");
+        const rows = screen().split("\n");
+        const echo = rows.findIndex((row) => row.includes("> x"));
+        expect(rows[echo + 1]).toContain(START_DEBUG_FIRST.slice(0, 30));
+    });
+
+    it("a refresh leaves nothing pending: showing the console or waiting does not read it again", async () => {
+        const session = await start("s");
+        await shows("Launching:");
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const refresh = vi.spyOn(repl.tree, "refresh");
+
+        viewShown.fire(REPL_VIEW_ID);
+        session.appendToRepl({ output: "pending\n", sev: "info" });
+        // An immediate refresh takes over the pending one.
+        repl.clearRepl();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
     it("clearing an ended session's console hides that session", async () => {
         const first = await start("first");
         first.appendToRepl({ output: "old line\n", sev: "info" });

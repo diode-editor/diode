@@ -88,9 +88,9 @@ const SEVERITY_SPAN: Readonly<Record<ReplSeverity, Omit<IRowSpan, "text">>> = {
     ignore: { style: StyleFlags.Italic },
 };
 
-/** A row is one line: the element's own line break goes, the inner ones (collapsing off) become spaces. */
+/** A row is one line: line breaks (the element's own, the inner ones with collapsing off) become spaces. */
 function oneLine(value: string): string {
-    return value.replace(/\r?\n$/u, "").replace(/\r?\n/gu, " ");
+    return value.replace(/\r?\n/gu, " ");
 }
 
 function isNesting(element: IReplElement): element is INestingReplElement {
@@ -368,15 +368,9 @@ export class Repl extends Component implements IContextKeyContributor {
     private refresh(): void {
         this.stale = false;
         this.refreshScheduler.cancel();
-        const reveal = this.revealLast;
+        const revealTail = this.revealLast;
         this.revealLast = false;
-        this.tree
-            .refresh()
-            .then(() => {
-                // Upstream `revealLastElement`: the next layout clamps it to the tail.
-                if (reveal) this.tree.list.scrollTop = Number.MAX_SAFE_INTEGER;
-            })
-            .catch(onUnexpectedError);
+        this.tree.refresh({ revealTail }).catch(onUnexpectedError);
     }
 
     private renderRow(element: IReplElement): IRowSpan[] {
@@ -386,7 +380,6 @@ export class Repl extends Component implements IContextKeyContributor {
                 { text: element.value },
             ];
         }
-        if (element instanceof ReplEvaluationResult) return this.renderer.renderValue(element, { colorize: true });
         if (element instanceof ReplOutputElement) {
             const badge: IRowSpan[] =
                 element.count >= 2
@@ -401,8 +394,9 @@ export class Repl extends Component implements IContextKeyContributor {
         if (element instanceof ReplVariableElement) {
             return this.renderer.renderValue(element.expression, { colorize: true });
         }
+        // An evaluation result (it has no name) or a child: upstream `ReplVariablesRenderer` shows a child without a
+        // name (several objects of one output) by its value, as `ReplEvaluationResultsRenderer` does a result.
         const expression = element as IExpression;
-        // Upstream `ReplVariablesRenderer`: a child without a name (several objects of one output) shows its value.
         if (!expression.name) return this.renderer.renderValue(expression, { colorize: true });
         return this.renderer.renderVariable(expression, { showChanged: true });
     }

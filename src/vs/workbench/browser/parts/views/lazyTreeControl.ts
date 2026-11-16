@@ -96,6 +96,7 @@ export class LazyTreeControl<T> {
     private parentOf = new Map<string, string | undefined>();
     private refreshToken = {};
     private rebuildScheduled = false;
+    private revealTail = false;
 
     public constructor(
         private readonly source: ILazyTreeSource<T>,
@@ -114,8 +115,12 @@ export class LazyTreeControl<T> {
         return this.items.get(this.list.getCursorElement());
     }
 
-    /** Reads the roots and every expanded node anew, then swaps the rows in one go. */
-    public async refresh(): Promise<void> {
+    /**
+     * Reads the roots and every expanded node anew, then swaps the rows in one go. `revealTail` scrolls to the last row
+     * (upstream's `revealLastElement`) even if a later refresh overtakes this one.
+     */
+    public async refresh(options: { readonly revealTail?: boolean } = {}): Promise<void> {
+        if (options.revealTail === true) this.revealTail = true;
         const token = {};
         this.refreshToken = token;
         const children = new Map<string, readonly T[]>();
@@ -251,6 +256,8 @@ export class LazyTreeControl<T> {
         while (target !== undefined && !this.parentOf.has(target)) target = previousParents.get(target);
         if (target !== undefined) list.setCursorTo(target);
         // Raw, not scrollTo: the next layout clamps and snaps it against the viewport it actually gets.
-        list.scrollTop = this.options.stickyTail === true && tailVisible ? Number.MAX_SAFE_INTEGER : scrollTop;
+        const toTail = this.revealTail || (this.options.stickyTail === true && tailVisible);
+        this.revealTail = false;
+        list.scrollTop = toTail ? Number.MAX_SAFE_INTEGER : scrollTop;
     }
 }

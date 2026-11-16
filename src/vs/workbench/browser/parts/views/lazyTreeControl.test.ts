@@ -622,6 +622,23 @@ describe("LazyTreeControl — refresh", () => {
         expect(screen()).not.toContain("b0: 0");
     });
 
+    it("revealTail scrolls a list away from its end to the last row, even when a later refresh overtakes it", async () => {
+        const source = new Source(leaves("l", 20));
+        const { tree, screen } = await mount(source, { height: 5 });
+        expect(screen()).not.toContain("l19: 19");
+
+        const revealing = tree.refresh({ revealTail: true });
+        await tree.refresh();
+        await revealing;
+        expect(screen()).toContain("l19: 19");
+
+        // Once: the next refresh keeps where the list is.
+        tree.list.scrollTop = 0;
+        screen();
+        await tree.refresh();
+        expect(screen()).not.toContain("l19: 19");
+    });
+
     it("sticky tail: a list scrolled to its end follows new rows", async () => {
         const source = new Source(leaves("l", 20));
         const { app, tree, screen } = await mount(source, { stickyTail: true, height: 5 });

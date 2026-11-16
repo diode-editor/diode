@@ -314,6 +314,7 @@ describe("Debug Console in the workbench", () => {
         });
         expect(screen()).toContain("y: 2");
         expect(fg("777")).toBe(vars()["debugTokenExpression.number"]);
+        expect(screen()).not.toContain(": 777");
     });
 
     it("an evaluation scrolls to the tail even after the user scrolled up; new output alone does not", async () => {
