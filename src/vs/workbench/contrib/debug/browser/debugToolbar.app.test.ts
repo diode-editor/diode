@@ -45,11 +45,11 @@ describe("the debug toolbar in the workbench", () => {
         return t.find(FILE).y;
     }
 
-    function click(point: Point): void {
+    function click(point: Point, button: "left" | "right" = "left"): void {
         for (const action of ["press", "release"] as const) {
             t.h.testApp.backend.simulateMouse({
                 kind: "mouse",
-                button: "left",
+                button,
                 action,
                 x: point.x + 1,
                 y: point.y + 1,
@@ -166,6 +166,32 @@ describe("the debug toolbar in the workbench", () => {
         click(new Point(row.x + "‖ Pause  ↷ Over  ↓".length, row.y));
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(adapter.requests.filter((r) => r.command === "stepIn").length).toBe(stepIns);
+    });
+
+    it("a right click runs nothing; the mouse over an enabled button highlights it", async () => {
+        const factory = await t.startStopped();
+        const buttons = t.find(BUTTONS);
+        const over = new Point(buttons.x + BUTTONS.indexOf("Over"), buttons.y);
+
+        click(over, "right");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(factory.adapters[0].requests.some((r) => r.command === "next")).toBe(false);
+
+        t.h.testApp.backend.simulateMouse({
+            kind: "mouse",
+            button: "none",
+            action: "move",
+            x: over.x + 1,
+            y: over.y + 1,
+            shiftKey: false,
+            altKey: false,
+            ctrlKey: false,
+            raw: "",
+        });
+        t.lines();
+        const vars = t.vars();
+        expect(t.h.testApp.backend.getBgAt(over)).toBe(vars["toolbar.hoverBackground"]);
+        expect(t.h.testApp.backend.getBgAt(buttons)).toBe(vars["editorWidget.background"]);
     });
 
     it("a narrow group gets glyphs only", async () => {

@@ -256,7 +256,6 @@ export class DebugToolbar extends Disposable {
 
     private buttonElement(button: IToolbarButton, withLabel: boolean): TextLabelElement {
         const label = new TextLabelElement(withLabel ? `${button.glyph} ${button.label}` : button.glyph);
-        label.id = `debugToolbar-${button.id.replaceAll(".", "-")}`;
         // The label paints its text over the box in the box's color: the box's background is not in the cascade.
         if (!button.enabled) {
             label.style = { fg: "disabledForeground", bg: WIDGET_BG };
@@ -269,7 +268,6 @@ export class DebugToolbar extends Disposable {
         }
         label.addEventListener("click", (event) => {
             if (event.button !== "left") return;
-            event.preventDefault();
             // Resolved again at the click: the button runs only while its item is still enabled.
             runAction(this.menuGroups(), button.id);
         });
