@@ -84,7 +84,14 @@ describe("ExtensionHostDebugAdapter — upstream's adapter over the extension ho
         ).dispose();
         expect(created.map((c) => c.session)).toEqual([
             { id: "s1", type: "lldb", name: "Launch (1)", configuration: CONFIG },
-            { id: "child", type: "lldb", name: "Launch (1)", folder: "file:///ws", configuration: CONFIG, parentId: "s1" },
+            {
+                id: "child",
+                type: "lldb",
+                name: "Launch (1)",
+                folder: "file:///ws",
+                configuration: CONFIG,
+                parentId: "s1",
+            },
         ]);
     });
 
@@ -106,7 +113,13 @@ describe("ExtensionHostDebugAdapter — upstream's adapter over the extension ho
 
         const { listener } = created[0];
         listener.onMessage({ seq: 1, type: "event", event: "stopped" } as DebugProtocol.Event);
-        listener.onMessage({ seq: 2, type: "response", request_seq: 1, command: "threads", success: true });
+        listener.onMessage({
+            seq: 2,
+            type: "response",
+            request_seq: 1,
+            command: "threads",
+            success: true,
+        } as DebugProtocol.Response);
         listener.onError(new Error("boom"));
         listener.onExit(3);
         listener.onExit(undefined);

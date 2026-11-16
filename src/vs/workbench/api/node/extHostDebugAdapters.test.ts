@@ -7,13 +7,13 @@ import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { waitUntil } from "../../../../TestUtils/timing.ts";
-import type { ExtHostDebugAdapter } from "../common/extHostDebugAdapter.ts";
 import {
     DebugAdapterExecutable,
     DebugAdapterInlineImplementation,
     DebugAdapterNamedPipeServer,
     DebugAdapterServer,
 } from "../common/debugTypes.ts";
+import type { ExtHostDebugAdapter } from "../common/extHostDebugAdapter.ts";
 
 import {
     createNodeDebugAdapter,
@@ -65,7 +65,9 @@ class PipeAdapter extends StreamDebugAdapter {
 describe("StreamDebugAdapter — the DAP base protocol, as upstream's", () => {
     it("frames outgoing messages with their byte length", async () => {
         const adapter = new PipeAdapter();
-        cleanup.push(() => adapter.dispose());
+        cleanup.push(() => {
+            adapter.dispose();
+        });
         adapter.sendMessage(initialize); // before the connection: dropped
         await adapter.startSession();
         const message = { seq: 2, type: "event", event: "output", body: { output: "ü" } } as DebugProtocol.Event;
@@ -75,7 +77,9 @@ describe("StreamDebugAdapter — the DAP base protocol, as upstream's", () => {
 
     it("splits incoming data into messages: headers and bodies across chunks, several in one chunk, any header case of separators", async () => {
         const adapter = new PipeAdapter();
-        cleanup.push(() => adapter.dispose());
+        cleanup.push(() => {
+            adapter.dispose();
+        });
         const seen = record(adapter);
         await adapter.startSession();
         const a = { seq: 1, type: "event", event: "a" };
@@ -96,7 +100,9 @@ describe("StreamDebugAdapter — the DAP base protocol, as upstream's", () => {
 
     it("a body that is not JSON is an error with the body; the next message still arrives", async () => {
         const adapter = new PipeAdapter();
-        cleanup.push(() => adapter.dispose());
+        cleanup.push(() => {
+            adapter.dispose();
+        });
         const seen = record(adapter);
         await adapter.startSession();
         adapter.incoming.write("Content-Length: 3\r\n\r\n{x}" + frame({ seq: 1, type: "event", event: "a" }));
@@ -132,7 +138,9 @@ describe("SocketDebugAdapter and NamedPipeDebugAdapter", () => {
                 }),
         );
         const adapter = new SocketDebugAdapter(new DebugAdapterServer(port));
-        cleanup.push(() => adapter.dispose());
+        cleanup.push(() => {
+            adapter.dispose();
+        });
         const seen = record(adapter);
         await adapter.startSession();
         adapter.sendMessage(initialize);
@@ -148,17 +156,23 @@ describe("SocketDebugAdapter and NamedPipeDebugAdapter", () => {
     it("a TCP adapter that refuses the connection fails the start", async () => {
         const server = net.createServer();
         const port = await new Promise<number>((resolve) => {
-            server.listen(0, "127.0.0.1", () => resolve((server.address() as net.AddressInfo).port));
+            server.listen(0, "127.0.0.1", () => {
+                resolve((server.address() as net.AddressInfo).port);
+            });
         });
         await new Promise((resolve) => server.close(resolve));
         const adapter = new SocketDebugAdapter(new DebugAdapterServer(port, "127.0.0.1"));
-        cleanup.push(() => adapter.dispose());
+        cleanup.push(() => {
+            adapter.dispose();
+        });
         await expect(adapter.startSession()).rejects.toThrow(/ECONNREFUSED/);
     });
 
     it("a named pipe adapter connects to its path; stop ends the connection and the adapter sees no error", async () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-pipe-"));
-        cleanup.push(() => fs.rmSync(dir, { recursive: true, force: true }));
+        cleanup.push(() => {
+            fs.rmSync(dir, { recursive: true, force: true });
+        });
         const pipe = path.join(dir, "dap.sock");
         const sockets = await echoServer(
             (server) =>
@@ -167,7 +181,9 @@ describe("SocketDebugAdapter and NamedPipeDebugAdapter", () => {
                 }),
         );
         const adapter = new NamedPipeDebugAdapter(new DebugAdapterNamedPipeServer(pipe));
-        cleanup.push(() => adapter.dispose());
+        cleanup.push(() => {
+            adapter.dispose();
+        });
         const seen = record(adapter);
         await adapter.startSession();
         adapter.sendMessage(initialize);
@@ -179,7 +195,9 @@ describe("SocketDebugAdapter and NamedPipeDebugAdapter", () => {
 
     it("a missing pipe fails the start", async () => {
         const adapter = new NamedPipeDebugAdapter(new DebugAdapterNamedPipeServer("/nonexistent/diode.sock"));
-        cleanup.push(() => adapter.dispose());
+        cleanup.push(() => {
+            adapter.dispose();
+        });
         await expect(adapter.startSession()).rejects.toThrow(/ENOENT/);
     });
 });
@@ -195,7 +213,9 @@ describe("ExecutableDebugAdapter", () => {
             }),
             "t",
         );
-        cleanup.push(() => adapter.dispose());
+        cleanup.push(() => {
+            adapter.dispose();
+        });
         const seen = record(adapter);
         await adapter.startSession();
         adapter.sendMessage(initialize);
@@ -217,13 +237,15 @@ describe("ExecutableDebugAdapter", () => {
             new DebugAdapterExecutable("node", [ADAPTER_PROCESS, "forked"], { env: {}, cwd: undefined }),
             "t",
         );
-        cleanup.push(() => adapter.dispose());
+        cleanup.push(() => {
+            adapter.dispose();
+        });
         const seen = record(adapter);
         await adapter.startSession();
         adapter.sendMessage(initialize);
         await waitUntil("the response", () => seen.messages.length === 1);
         // No variables of its own: the subprocess's environment and folder.
-        const { body } = seen.messages[0] as DebugProtocol.Response;
+        const body: unknown = (seen.messages[0] as DebugProtocol.Response).body;
         expect(body).toMatchObject({ cwd: process.cwd() });
         expect(body).not.toHaveProperty("env");
         adapter.sendMessage({ ...launch, arguments: { crash: true } } as DebugProtocol.Request);
@@ -236,13 +258,18 @@ describe("ExecutableDebugAdapter", () => {
     it("start errors are the adapter's errors, as upstream's: no command, a missing file, `node` without a script, a failed spawn", async () => {
         const cases: [DebugAdapterExecutable, RegExp][] = [
             [new DebugAdapterExecutable(""), /^Cannot determine executable for debug adapter 't'\.$/],
-            [new DebugAdapterExecutable("/nonexistent/adapter"), /^Debug adapter executable '\/nonexistent\/adapter' does not exist\.$/],
+            [
+                new DebugAdapterExecutable("/nonexistent/adapter"),
+                /^Debug adapter executable '\/nonexistent\/adapter' does not exist\.$/,
+            ],
             [new DebugAdapterExecutable("node"), /^Unable to launch debug adapter\.$/],
             [new DebugAdapterExecutable("diode-no-such-adapter"), /ENOENT/],
         ];
         for (const [executable, error] of cases) {
             const adapter = new ExecutableDebugAdapter(executable, "t");
-            cleanup.push(() => adapter.dispose());
+            cleanup.push(() => {
+                adapter.dispose();
+            });
             const seen = record(adapter);
             await adapter.startSession();
             await waitUntil("the error", () => seen.errors.length > 0);

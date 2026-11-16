@@ -14,8 +14,8 @@
 import { distinct } from "../../../../base/common/arrays.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
-import { CancellationError, isCancellationError } from "../../../../base/common/errorSerialization.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
+import { CancellationError, isCancellationError } from "../../../../base/common/errorSerialization.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Lazy } from "../../../../base/common/lazy.ts";
 import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from "../../../../base/common/lifecycle.ts";

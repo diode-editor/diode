@@ -141,7 +141,9 @@ describe("ExtensionHost — debug adapters of an extension", () => {
 
             // Whichever the adapter process reports first: its stdout closing or its exit.
             expect(output(session)).toContainEqual(
-                expect.stringMatching(/^Debug adapter process has terminated unexpectedly \((exit code: 3|read error)\)\n$/),
+                expect.stringMatching(
+                    /^Debug adapter process has terminated unexpectedly \((exit code: 3|read error)\)\n$/,
+                ),
             );
             expect(await seen()).toEqual(expect.arrayContaining(["fixture-exec:exit 3"]));
 

@@ -132,7 +132,7 @@ describe("DebugCustomer — debug adapters over the wire (upstream $registerDebu
         const connection = registrations[0].host.createAdapter(SESSION, l);
 
         await connection.start();
-        connection.send({ seq: 1, type: "request", command: "initialize" });
+        connection.send({ seq: 1, type: "request", command: "initialize" } as DebugProtocol.Request);
         await flush();
         expect(received).toEqual([{ seq: 1, type: "request", command: "initialize" }]);
         emitter.fire({ seq: 1, type: "response", command: "initialize", request_seq: 1, success: true } as never);
@@ -152,7 +152,9 @@ describe("DebugCustomer — debug adapters over the wire (upstream $registerDebu
         catalog.fire(CATALOG);
         await flush();
         const connection = registrations[0].host.createAdapter(SESSION, listener().listener);
-        await expect(connection.start()).rejects.toThrow("Couldn't find a debug adapter descriptor for debug type 'lldb'");
+        await expect(connection.start()).rejects.toThrow(
+            "Couldn't find a debug adapter descriptor for debug type 'lldb'",
+        );
     });
 
     it("each adapter has its own handle: errors and exits reach only their listener", async () => {
@@ -185,7 +187,12 @@ describe("DebugCustomer — debug adapters over the wire (upstream $registerDebu
         await flush();
         const { seen, listener: l } = listener();
         registrations[0].host.createAdapter(SESSION, l);
-        for (const params of [null, { handle: "1" }, { handle: 1, message: { seq: 1 } }, { handle: 9, message: { type: "event" } }]) {
+        for (const params of [
+            null,
+            { handle: "1" },
+            { handle: 1, message: { seq: 1 } },
+            { handle: 9, message: { type: "event" } },
+        ]) {
             subRpc.notify("debug.acceptAdapterMessage", params as never);
         }
         subRpc.notify("debug.acceptAdapterError", { message: "x" } as never);
@@ -213,7 +220,7 @@ describe("DebugCustomer — debug adapters over the wire (upstream $registerDebu
 
         const notify = vi.spyOn(hostRpc, "notify");
         const request = vi.spyOn(hostRpc, "request");
-        connection.send({ seq: 1, type: "request", command: "threads" });
+        connection.send({ seq: 1, type: "request", command: "threads" } as DebugProtocol.Request);
         await expect(connection.stop()).resolves.toBeUndefined();
         expect(notify).not.toHaveBeenCalled();
         expect(request).not.toHaveBeenCalled();

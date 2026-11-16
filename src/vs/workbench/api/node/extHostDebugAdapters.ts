@@ -7,8 +7,8 @@ import type { Readable, Writable } from "node:stream";
 import type * as vscode from "vscode";
 
 import { GuardedChildProcess } from "../../../base/node/childProcessGuard.ts";
-import { ExtHostDebugAdapter } from "../common/extHostDebugAdapter.ts";
 import { DebugAdapterExecutable, DebugAdapterNamedPipeServer, DebugAdapterServer } from "../common/debugTypes.ts";
+import { ExtHostDebugAdapter } from "../common/extHostDebugAdapter.ts";
 
 // Upstream `contrib/debug/node/debugAdapter.ts` on the subprocess side: the DAP base protocol (a `Content-Length`
 // header, an empty line, the JSON) over a process's stdio or a socket. The adapter process is guarded
@@ -36,7 +36,10 @@ export abstract class StreamDebugAdapter extends ExtHostDebugAdapter {
     public sendMessage(message: DebugProtocol.ProtocolMessage): void {
         if (this.outputStream) {
             const json = JSON.stringify(message);
-            this.outputStream.write(`Content-Length: ${String(Buffer.byteLength(json, "utf8"))}${TWO_CRLF}${json}`, "utf8");
+            this.outputStream.write(
+                `Content-Length: ${String(Buffer.byteLength(json, "utf8"))}${TWO_CRLF}${json}`,
+                "utf8",
+            );
         }
     }
 

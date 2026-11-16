@@ -52,7 +52,10 @@ export interface IExtensionDebugAdapterConnection {
  * alive reports "Extension host shut down" as the adapter's error, as upstream's.
  */
 export interface IExtensionDebugAdapterHost {
-    createAdapter(session: IWireDebugSession, listener: IExtensionDebugAdapterListener): IExtensionDebugAdapterConnection;
+    createAdapter(
+        session: IWireDebugSession,
+        listener: IExtensionDebugAdapterListener,
+    ): IExtensionDebugAdapterConnection;
 }
 
 /** Upstream `MainThreadDebugService`: configuration providers, starting and stopping sessions, debug adapters. */

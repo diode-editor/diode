@@ -692,9 +692,7 @@ describe("RawDebugSession", () => {
             await vi.advanceTimersByTimeAsync(1);
 
             expect(adapter.stopped).toBe(true);
-            expect(ends).toEqual([
-                { emittedStopped: false, sessionLengthInSeconds: 0, failure: new Error("crash") },
-            ]);
+            expect(ends).toEqual([{ emittedStopped: false, sessionLengthInSeconds: 0, failure: new Error("crash") }]);
         });
 
         it("only the first error of an adapter that went away by itself is its failure; one after a disconnect is none", async () => {

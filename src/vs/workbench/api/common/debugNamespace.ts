@@ -250,7 +250,10 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         }
     }
 
-    function createAdapter(descriptor: vscode.DebugAdapterDescriptor, debugType: string): ExtHostDebugAdapter | undefined {
+    function createAdapter(
+        descriptor: vscode.DebugAdapterDescriptor,
+        debugType: string,
+    ): ExtHostDebugAdapter | undefined {
         if (descriptor instanceof DebugAdapterInlineImplementation) {
             return new DirectDebugAdapter(descriptor.implementation);
         }

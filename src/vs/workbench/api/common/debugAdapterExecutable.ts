@@ -1,10 +1,7 @@
 import * as path from "node:path";
 
 import { currentOperatingSystem, OperatingSystem } from "../../../base/common/platform.ts";
-import type {
-    IDebuggerContribution,
-    IPlatformSpecificAdapterContribution,
-} from "../../contrib/debug/common/debug.ts";
+import type { IDebuggerContribution, IPlatformSpecificAdapterContribution } from "../../contrib/debug/common/debug.ts";
 
 import { DebugAdapterExecutable } from "./debugTypes.ts";
 
@@ -27,7 +24,7 @@ function contributedDebuggers(extension: IDebuggerExtension): readonly IDebugger
 
 /** Upstream `isDebuggerMainContribution`: the contribution that defines a debugger, not one that adds to it. */
 function isDebuggerMainContribution(dbg: IDebuggerContribution): boolean {
-    return !!dbg.type && !!(dbg.label || dbg.program || dbg.runtime);
+    return !!dbg.type && [dbg.label, dbg.program, dbg.runtime].some(Boolean);
 }
 
 /** Upstream `registerAllDebugTypes`: the types the subprocess has adapters for. */

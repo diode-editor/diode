@@ -151,13 +151,14 @@ export class DebugCustomer implements IExtensionHostCustomer {
 /** The adapters of one spawn: handles, and the listener of each live adapter for the messages that come back. */
 class AdapterHost implements IExtensionDebugAdapterHost {
     private nextHandle = 1;
-    private readonly listeners = new Map<number, IExtensionDebugAdapterListener>();
+    /** The live adapters by handle: what each tells the core. */
+    private readonly live = new Map<number, IExtensionDebugAdapterListener>();
     private disposed = false;
 
     public constructor(private readonly rpc: HostRpc) {}
 
     public listener(handle: number): IExtensionDebugAdapterListener | undefined {
-        return this.listeners.get(handle);
+        return this.live.get(handle);
     }
 
     public createAdapter(
@@ -165,7 +166,7 @@ class AdapterHost implements IExtensionDebugAdapterHost {
         listener: IExtensionDebugAdapterListener,
     ): IExtensionDebugAdapterConnection {
         const handle = this.nextHandle++;
-        this.listeners.set(handle, listener);
+        this.live.set(handle, listener);
         return {
             start: async () => {
                 await this.rpc.request("debug.startAdapter", { handle, session });
@@ -174,7 +175,7 @@ class AdapterHost implements IExtensionDebugAdapterHost {
                 if (!this.disposed) this.rpc.notify("debug.sendAdapterMessage", { handle, message });
             },
             stop: async () => {
-                this.listeners.delete(handle);
+                this.live.delete(handle);
                 if (!this.disposed) await this.rpc.request("debug.stopAdapter", { handle });
             },
         };
@@ -182,7 +183,7 @@ class AdapterHost implements IExtensionDebugAdapterHost {
 
     public dispose(): void {
         this.disposed = true;
-        for (const listener of this.listeners.values()) listener.onError(new Error("Extension host shut down"));
-        this.listeners.clear();
+        for (const listener of this.live.values()) listener.onError(new Error("Extension host shut down"));
+        this.live.clear();
     }
 }

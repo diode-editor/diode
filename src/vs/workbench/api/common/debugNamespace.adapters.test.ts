@@ -109,7 +109,12 @@ function inline(vscodeApi: typeof vscode) {
         handleMessage: (message: vscode.DebugProtocolMessage) => received.push(message),
         dispose: vi.fn(),
     };
-    return { emitter, received, implementation, descriptor: new vscodeApi.DebugAdapterInlineImplementation(implementation) };
+    return {
+        emitter,
+        received,
+        implementation,
+        descriptor: new vscodeApi.DebugAdapterInlineImplementation(implementation),
+    };
 }
 
 afterEach(() => {
@@ -164,7 +169,8 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             await expect(start(1)).resolves.toBeNull();
 
             const [[session, executable]] = createDebugAdapterDescriptor.mock.calls as unknown as [
-                [vscode.DebugSession, vscode.DebugAdapterExecutable | undefined],
+                vscode.DebugSession,
+                vscode.DebugAdapterExecutable | undefined,
             ][];
             expect(session).toMatchObject({ id: "s1", type: "t", name: "Launch", parentSession: undefined });
             expect(session.configuration).toEqual({ type: "t", name: "Launch", request: "launch" });
@@ -176,7 +182,10 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             expect(accepted("debug.acceptAdapterMessage")).toEqual([
                 { handle: 1, message: { seq: 1, type: "event", event: "initialized" } },
             ]);
-            stub.fire("debug.sendAdapterMessage", { handle: 1, message: { seq: 2, type: "request", command: "threads" } });
+            stub.fire("debug.sendAdapterMessage", {
+                handle: 1,
+                message: { seq: 2, type: "request", command: "threads" },
+            });
             stub.fire("debug.sendAdapterMessage", { handle: 9, message: { seq: 3 } });
             expect(received).toEqual([{ seq: 2, type: "request", command: "threads" }]);
 
@@ -204,7 +213,9 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             expect(sessions[1].parentSession).toBe(sessions[0]);
             expect(sessions[1].workspaceFolder).toBeUndefined();
             expect(sessions[2]).toBe(sessions[0]);
-            await expect(sessions[0].customRequest("x")).rejects.toThrow("DebugSession.customRequest is not supported yet");
+            await expect(sessions[0].customRequest("x")).rejects.toThrow(
+                "DebugSession.customRequest is not supported yet",
+            );
             await expect(sessions[0].getDebugProtocolBreakpoint({} as never)).resolves.toBeUndefined();
         });
 
@@ -224,7 +235,9 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             expect(adapters[0].descriptor).toEqual({ command: "/ext/dbg/adapter", args: [], options: undefined });
 
             const createDebugAdapterDescriptor = vi.fn((_s: unknown, executable: unknown) => executable);
-            as(EXT, () => debug.registerDebugAdapterDescriptorFactory("exe", { createDebugAdapterDescriptor } as never));
+            as(EXT, () =>
+                debug.registerDebugAdapterDescriptorFactory("exe", { createDebugAdapterDescriptor } as never),
+            );
             await start(2, session({ id: "s2", type: "exe" }));
             expect(adapters[1].descriptor).toEqual({ command: "/ext/dbg/adapter", args: [], options: undefined });
         });
@@ -298,11 +311,15 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
         it("the trackers of the type and of `*` see the session; others, failing and empty ones are skipped", async () => {
             const { debug, start, stub, adapters, session } = setup();
             const log: string[] = [];
-            debug.registerDebugAdapterTrackerFactory("exe", { createDebugAdapterTracker: () => recordingTracker("a", log) });
+            debug.registerDebugAdapterTrackerFactory("exe", {
+                createDebugAdapterTracker: () => recordingTracker("a", log),
+            });
             debug.registerDebugAdapterTrackerFactory("*", {
                 createDebugAdapterTracker: () => Promise.resolve(recordingTracker("b", log)),
             });
-            debug.registerDebugAdapterTrackerFactory("t", { createDebugAdapterTracker: () => recordingTracker("c", log) });
+            debug.registerDebugAdapterTrackerFactory("t", {
+                createDebugAdapterTracker: () => recordingTracker("c", log),
+            });
             debug.registerDebugAdapterTrackerFactory("*", {
                 createDebugAdapterTracker: () => {
                     throw new Error("broken");
@@ -316,7 +333,10 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
 
             await start(1, session({ type: "exe" }));
             adapters[0].send({ seq: 1, type: "event", event: "initialized" });
-            stub.fire("debug.sendAdapterMessage", { handle: 1, message: { seq: 2, type: "request", command: "threads" } });
+            stub.fire("debug.sendAdapterMessage", {
+                handle: 1,
+                message: { seq: 2, type: "request", command: "threads" },
+            });
             adapters[0].fail(new Error("oops"));
             adapters[0].exit(1);
             await stub.callRequest("debug.stopAdapter", { handle: 1 });
@@ -360,7 +380,9 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             debug.registerDebugAdapterTrackerFactory("*", {
                 createDebugAdapterTracker: () =>
                     new Promise((resolve) => {
-                        setTimeout(() => resolve({ onWillStartSession }), 5000);
+                        setTimeout(() => {
+                            resolve({ onWillStartSession });
+                        }, 5000);
                     }),
             });
             const started = start(1, session({ type: "exe" }));

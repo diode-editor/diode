@@ -93,7 +93,9 @@ describe("platformAdapterExecutable — upstream ExecutableDebugAdapter.platform
     it("no program and no runtime, an unknown type, or malformed contributions — none", () => {
         expect(platformAdapterExecutable([extension("/e", [{ type: "t", label: "T" }])], "t")).toBeUndefined();
         expect(platformAdapterExecutable([extension("/e", [{ type: "t", program: "/p" }])], "u")).toBeUndefined();
-        expect(platformAdapterExecutable([extension("/e", "nope"), extension("/e", [null, 7, {}])], "t")).toBeUndefined();
+        expect(
+            platformAdapterExecutable([extension("/e", "nope"), extension("/e", [null, 7, {}])], "t"),
+        ).toBeUndefined();
         expect(platformAdapterExecutable([{ extensionPath: "/e", packageJSON: {} }], "t")).toBeUndefined();
     });
 });
