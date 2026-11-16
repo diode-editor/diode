@@ -8,7 +8,6 @@
 // view over the model with sessions that have no adapter.
 
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
-import type { DebugProtocol } from "@vscode/debugprotocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestDebugSession, testDebugService } from "../../../../../TestUtils/debugSessionFixture.ts";
@@ -23,7 +22,12 @@ import { type IDebugService, type IDebugSession, type IStackFrame, State } from 
 import { type DebugModel, StackFrame, Thread, ThreadAndSessionIds } from "../common/debugModel.ts";
 import { Source } from "../common/debugSource.ts";
 
-import { CALL_STACK_REFRESH_DELAY_MS, CallStackDataSource, CallStackView, getSpecificSourceName } from "./callStackView.ts";
+import {
+    CALL_STACK_REFRESH_DELAY_MS,
+    CallStackDataSource,
+    CallStackView,
+    getSpecificSourceName,
+} from "./callStackView.ts";
 import type { DebugSession } from "./debugSession.ts";
 
 const RANGE = { startLineNumber: 1, startColumn: 2, endLineNumber: 1, endColumn: 10 };
@@ -266,13 +270,17 @@ describe("CallStackView", () => {
     }
 
     /** A thread stopped by itself: the session has no stop of its own. */
-    function stopThread(session: DebugSession, details: Thread["stoppedDetails"], frames: (t: Thread) => IStackFrame[]) {
+    function stopThread(
+        session: DebugSession,
+        details: Thread["stoppedDetails"],
+        frames: (t: Thread) => IStackFrame[],
+    ) {
         model.rawUpdate({
             sessionId: session.getId(),
             threads: [{ id: 1, name: "main" }],
             stoppedDetails: { threadId: 1, ...details },
         });
-        const thread = session.getThread(1) as Thread;
+        const thread = session.getThread(1)!;
         thread.reachedEndOfCallStack = true;
         setCallStack(thread, frames(thread));
         return thread;
@@ -366,7 +374,7 @@ describe("CallStackView", () => {
             preserveFocus: true,
         });
         const main = first.getThread(1)?.getCallStack()[0];
-        view.tree.onActivate(main as IStackFrame);
+        view.tree.onActivate(main!);
         expect(debugService.focusStackFrame).toHaveBeenLastCalledWith(main, main?.thread, first, {
             explicit: true,
             preserveFocus: true,
