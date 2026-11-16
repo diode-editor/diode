@@ -57,6 +57,7 @@ export function adapterManagerPorts(overrides: Partial<IAdapterManagerPorts> = {
     return {
         contextKeys: new ContextKeyService(),
         terminalLauncher: NO_TERMINAL_LAUNCHER,
+        /* v8 ignore next -- test helper: a test that activates passes its own `extensions` */
         extensions: { activateByEvent: () => Promise.resolve() },
         variables: NO_VARIABLES,
         ...overrides,

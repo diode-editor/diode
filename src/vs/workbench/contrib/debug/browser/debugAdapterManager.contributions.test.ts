@@ -60,6 +60,13 @@ describe("AdapterManager — contributions of extensions, activation and variabl
             expect(dbg?.variables).toEqual({ pickProcess: "lldb.pickProcess", pickMyProcess: "lldb.pickMyProcess" });
         });
 
+        it("a null in a later contribution does not replace or break an object of the first", () => {
+            manager.registerDebugger({ type: "lldb", variables: { pickProcess: "lldb.pickProcess" } });
+            manager.registerDebugger({ type: "lldb", variables: null } as never);
+
+            expect(manager.getDebugger("lldb")?.variables).toEqual({ pickProcess: "lldb.pickProcess" });
+        });
+
         it("an array is not merged: the first one stays", () => {
             manager.registerDebugger({ type: "lldb", languages: ["c"] });
             manager.registerDebugger({ type: "lldb", languages: ["rust"] });
@@ -115,6 +122,32 @@ describe("AdapterManager — contributions of extensions, activation and variabl
             manager.registerDebugger({ type: "lldb" });
 
             expect(registered).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe("`debuggersAvailable` and the keys of `when`", () => {
+        it("a change of a key no `when` reads does not evaluate the debuggers", async () => {
+            contextKeys.setRaw("qaEnabled", true);
+            manager.registerDebugger({ type: "qa", when: "qaEnabled" });
+            await Promise.resolve();
+            const evaluate = vi.spyOn(contextKeys, "evaluate");
+
+            contextKeys.setRaw("somethingElse", 1);
+            await Promise.resolve();
+
+            expect(evaluate).not.toHaveBeenCalled();
+        });
+
+        it("a key of `when` changed in the same tick as other keys is seen", async () => {
+            contextKeys.setRaw("qaEnabled", false);
+            manager.registerDebugger({ type: "qa", when: "qaEnabled" });
+            await Promise.resolve();
+
+            contextKeys.setRaw("somethingElse", 1);
+            contextKeys.setRaw("qaEnabled", true);
+            await Promise.resolve();
+
+            expect(contextKeys.getRaw("debuggersAvailable")).toBe(true);
         });
     });
 

@@ -13,7 +13,8 @@ import { isFiniteNumber } from "../../../api/common/wireTypes.ts";
 type Fields = Readonly<Record<string, unknown>>;
 
 function fields(raw: unknown): Fields | null {
-    return typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Fields) : null;
+    // `typeof null` is "object" too: null comes back as null.
+    return typeof raw === "object" && !Array.isArray(raw) ? (raw as Fields | null) : null;
 }
 
 function optionalString(value: unknown): string | undefined {
@@ -96,6 +97,5 @@ export function parseWireDebugStartDebugging(raw: unknown): IWireDebugStartDebug
 }
 
 export function parseWireDebugStopDebugging(raw: unknown): IWireDebugStopDebugging {
-    const sessionId = optionalString(fields(raw)?.sessionId);
-    return sessionId === undefined ? {} : { sessionId };
+    return { sessionId: optionalString(fields(raw)?.sessionId) };
 }

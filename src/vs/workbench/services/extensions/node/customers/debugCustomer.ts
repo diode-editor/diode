@@ -26,6 +26,7 @@ export class DebugCustomer implements IExtensionHostCustomer {
         if (sink === undefined) {
             // A host without a debug service (tests): nothing starts, there is nothing to stop.
             store.add(rpc.handleRequest("debug.startDebugging", () => false));
+            // Stryker disable next-line ArrowFunction: equivalent, the extension ignores the answer of a stop
             store.add(rpc.handleRequest("debug.stopDebugging", () => null));
             return store;
         }
@@ -39,6 +40,7 @@ export class DebugCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("debug.registerConfigurationProvider", (params) => {
                 const registration = parseWireDebugConfigurationProvider(params);
+                // Stryker disable next-line ConditionalExpression: equivalent, the endpoint drops a notification whose handler throws, as it drops this one
                 if (registration === null) return;
                 const { handle } = registration;
                 const provider: {
@@ -73,7 +75,9 @@ export class DebugCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("debug.unregisterConfigurationProvider", (params) => {
                 const request = parseWireDebugProviderHandle(params);
+                // Stryker disable next-line ConditionalExpression,OptionalChaining: equivalent, the endpoint drops a notification whose handler throws, as it drops a malformed or unknown handle here
                 if (request === null) return;
+                // Stryker disable next-line OptionalChaining: same as above
                 providers.get(request.handle)?.dispose();
                 providers.delete(request.handle);
             }),

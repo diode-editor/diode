@@ -16,7 +16,7 @@ import {
     type IConfig,
     type IDebugConfigurationProvider,
 } from "../common/debug.ts";
-import { Debugger } from "../common/debugger.ts";
+import { Debugger, initialConfigurationContent } from "../common/debugger.ts";
 
 import { ConfigurationManager, type IConfigurationManagerPorts } from "./debugConfigurationManager.ts";
 
@@ -131,6 +131,18 @@ describe("ConfigurationManager — configuration providers", () => {
             initial.dispose();
             expect(manager.hasDebugConfigurationProvider("gdb", Dynamic)).toBe(true);
         });
+    });
+
+    it("disposing a provider twice leaves the providers registered after it", async () => {
+        const first = manager.registerDebugConfigurationProvider(tagging("lldb", "A"));
+        manager.registerDebugConfigurationProvider(tagging("lldb", "B"));
+
+        first.dispose();
+        first.dispose();
+
+        expect(
+            trail(await manager.resolveConfigurationByProviders(undefined, "lldb", cfg("lldb"), CancellationTokenNone)),
+        ).toBe("B");
     });
 
     describe("resolveConfigurationByProviders", () => {
@@ -367,8 +379,9 @@ describe("ConfigurationManager — configuration providers", () => {
                 .getLaunches()[0]
                 .openConfigFile({ preserveFocus: false, type: "lldb", suppressInitialConfigs: true });
 
-            expect(files.get("file:///w/.diode/launch.json")).toContain("from the manifest");
-            expect(files.get("file:///w/.diode/launch.json")).not.toContain("from the provider");
+            expect(files.get("file:///w/.diode/launch.json")).toBe(
+                initialConfigurationContent([{ name: "from the manifest" }]),
+            );
             expect(provide).not.toHaveBeenCalled();
         });
     });

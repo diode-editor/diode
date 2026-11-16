@@ -843,7 +843,9 @@ export class DebugService implements IDebugService {
         let resolved: IConfig | undefined | null = session.configuration;
         if (launch && needsToSubstitute && unresolved) {
             const initCancellationToken = new CancellationTokenSource();
+            // Stryker disable next-line CallExpression: equivalent, only a stop with no session cancels the tokens, and a restarting session is a session
             this.sessionCancellationTokens.set(session.getId(), initCancellationToken);
+            // Stryker disable next-line OptionalChaining: equivalent, `getLaunch` finds the launch by its folder
             const folderUri = launch.workspace?.uri;
             const resolvedByProviders = await this.configurationManager.resolveConfigurationByProviders(
                 folderUri,

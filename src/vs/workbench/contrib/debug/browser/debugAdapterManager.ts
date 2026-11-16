@@ -87,6 +87,7 @@ export class AdapterManager extends Disposable implements IAdapterManager {
         const merged = new Map<string, IDebuggerContribution>();
         for (const contribution of this.contributions) {
             if (contribution.type === "*") continue;
+            // Stryker disable next-line MethodExpression: equivalent, the key only groups the types case-insensitively and any case folding does
             const key = contribution.type.toLowerCase();
             const existing = merged.get(key);
             merged.set(key, existing ? mixin(existing, contribution) : structuredClone(contribution));
@@ -104,7 +105,9 @@ export class AdapterManager extends Disposable implements IAdapterManager {
         );
         this.debuggerWhenKeys = new Set(
             this.debuggers.flatMap((dbg) => {
+                // Stryker disable next-line ConditionalExpression: equivalent, a missing `when` does not parse and gives no expression either
                 const when = dbg.when === undefined ? undefined : deserializeWhen(dbg.when);
+                // Stryker disable next-line ArrayDeclaration: equivalent, a key of a debugger without `when` is one no context key sets
                 return when === undefined ? [] : whenKeys(when);
             }),
         );

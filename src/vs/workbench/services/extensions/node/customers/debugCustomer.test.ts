@@ -25,7 +25,7 @@ async function flush(): Promise<void> {
 }
 
 interface IRecordingSink extends IExtensionDebugSink {
-    readonly providers: { extensionId: string; provider: IExtensionDebugConfigurationProvider; disposed: boolean }[];
+    readonly providers: { extensionId: string; provider: IExtensionDebugConfigurationProvider; disposed: number }[];
 }
 
 function recordingSink(): IRecordingSink {
@@ -33,11 +33,11 @@ function recordingSink(): IRecordingSink {
     return {
         providers,
         registerConfigurationProvider: (extensionId, provider): IDisposable => {
-            const entry = { extensionId, provider, disposed: false };
+            const entry = { extensionId, provider, disposed: 0 };
             providers.push(entry);
             return {
                 dispose: () => {
-                    entry.disposed = true;
+                    entry.disposed++;
                 },
             };
         },
@@ -115,24 +115,49 @@ describe("DebugCustomer — upstream MainThreadDebugService over the wire", () =
             });
         });
 
-        it("the core's cancellation reaches the extension's token", async () => {
+        it("the core's cancellation reaches the extension's token in every method", async () => {
             const { debug, sink } = setup();
+            const untilCancelled = <T>(token: vscode.CancellationToken | undefined, value: T): Promise<T> =>
+                new Promise((resolve) => {
+                    token?.onCancellationRequested(() => {
+                        resolve(value);
+                    });
+                });
             debug.registerDebugConfigurationProvider("lldb", {
+                provideDebugConfigurations: (_folder, token) => untilCancelled(token, [{ ...CONFIG, cancelled: 1 }]),
                 resolveDebugConfiguration: (_folder, config, token) =>
-                    new Promise((resolve) => {
-                        token?.onCancellationRequested(() => {
-                            resolve({ ...config, cancelled: true });
-                        });
-                    }),
+                    untilCancelled(token, { ...config, cancelled: 2 }),
+                resolveDebugConfigurationWithSubstitutedVariables: (_folder, config, token) =>
+                    untilCancelled(token, { ...config, cancelled: 3 }),
             });
             await flush();
+            const { provider } = sink.providers[0];
             const source = new CancellationTokenSource();
 
-            const answer = sink.providers[0].provider.resolveDebugConfiguration?.(undefined, CONFIG, source.token);
+            const answers = Promise.all([
+                provider.provideDebugConfigurations?.(undefined, source.token),
+                provider.resolveDebugConfiguration?.(undefined, CONFIG, source.token),
+                provider.resolveDebugConfigurationWithSubstitutedVariables?.(undefined, CONFIG, source.token),
+            ]);
             await flush();
             source.cancel();
 
-            await expect(answer).resolves.toEqual({ ...CONFIG, cancelled: true });
+            await expect(answers).resolves.toEqual([
+                [{ ...CONFIG, cancelled: 1 }],
+                { ...CONFIG, cancelled: 2 },
+                { ...CONFIG, cancelled: 3 },
+            ]);
+        });
+
+        it("a provider with only provideDebugConfigurations has no resolve methods in the core", async () => {
+            const { debug, sink } = setup();
+            debug.registerDebugConfigurationProvider("lldb", { provideDebugConfigurations: () => [] });
+            await flush();
+
+            const { provider } = sink.providers[0];
+            expect(provider.provideDebugConfigurations).toBeTypeOf("function");
+            expect(provider.resolveDebugConfiguration).toBeUndefined();
+            expect(provider.resolveDebugConfigurationWithSubstitutedVariables).toBeUndefined();
         });
 
         it("dispose in the extension takes the provider out of the core; so does the end of the spawn", async () => {
@@ -143,10 +168,10 @@ describe("DebugCustomer — upstream MainThreadDebugService over the wire", () =
 
             first.dispose();
             await flush();
-            expect(sink.providers.map((p) => p.disposed)).toEqual([true, false]);
+            expect(sink.providers.map((p) => p.disposed)).toEqual([1, 0]);
 
             attach.dispose();
-            expect(sink.providers.map((p) => p.disposed)).toEqual([true, true]);
+            expect(sink.providers.map((p) => p.disposed)).toEqual([1, 1]);
         });
 
         it("a malformed registration or unregistration is ignored; a handle registered again replaces the old provider", async () => {
@@ -171,8 +196,8 @@ describe("DebugCustomer — upstream MainThreadDebugService over the wire", () =
             await flush();
 
             expect(sink.providers.map((p) => [p.provider.type, p.disposed])).toEqual([
-                ["lldb", true],
-                ["gdb", false],
+                ["lldb", 1],
+                ["gdb", 0],
             ]);
         });
     });

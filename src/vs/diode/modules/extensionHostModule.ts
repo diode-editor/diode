@@ -438,6 +438,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             ),
             // Looked up when an extension calls: the debug service is built after the host (its activation port is the
             // extension service).
+            // Stryker disable next-line ArrowFunction: production module wiring; the adapter is covered by its unit tests and the extension host debug test, end to end by the debug-provider e2e scenario
             debugSink: new ExtensionDebugAdapter(() => container.get(DebugServiceDIToken)),
             taskSink: new ExtensionTaskAdapter(
                 container.get(TaskServiceDIToken),

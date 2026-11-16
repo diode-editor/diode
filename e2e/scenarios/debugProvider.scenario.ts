@@ -28,7 +28,8 @@ export default defineScenario({
         await editor.sendKey("Enter");
         // The second resolution saw the substituted program in the folder of the launch.
         await editor.waitForText(
-            (t) => t.includes("dbg:./world in debug-provider") && t.includes("Cannot find debug adapter for type 'demo'."),
+            // The status bar item is clipped after the folder's first letters.
+            (t) => t.includes("dbg:./world in debug-pr") && t.includes("Cannot find debug adapter for type 'demo'."),
         );
         await editor.capture("resolved");
         await editor.sendKey("Enter");

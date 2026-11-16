@@ -101,6 +101,8 @@ describe("debugVariableResolver", () => {
         const { inputsOf, layers, setMerged } = setup();
         layers.workspace = {};
         expect(await inputsOf("workspaceFolder")).toEqual(inputs("merged").inputs);
+        layers.workspace = undefined;
+        expect(await inputsOf("workspaceFolder")).toEqual(inputs("merged").inputs);
         setMerged(undefined);
         expect(await inputsOf("workspaceFolder")).toBeUndefined();
         layers.workspace = { inputs: { id: "x" } };

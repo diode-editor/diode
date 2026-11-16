@@ -24,6 +24,7 @@ function fakeService() {
     const sessions = new Map<string, IDebugSession>([
         ["parent", { getId: () => "parent", configuration: { ...CONFIG, request: "launch" } } as IDebugSession],
         ["attached", { getId: () => "attached", configuration: { ...CONFIG, request: "attach" } } as IDebugSession],
+        ["ended", { getId: () => "ended", configuration: { ...CONFIG, request: "launch" } } as IDebugSession],
     ]);
     const service = {
         getConfigurationManager: () =>
@@ -34,7 +35,10 @@ function fakeService() {
                 },
                 getLaunch: (uri: Uri | undefined) => (uri?.toString() === FOLDER.toString() ? launch : undefined),
             }) as unknown as IConfigurationManager,
-        getModel: () => ({ getSession: (id: string | undefined) => (id ? sessions.get(id) : undefined) }),
+        getModel: () => ({
+            getSession: (id: string | undefined, includeInactive = false) =>
+                id === "ended" && !includeInactive ? undefined : id ? sessions.get(id) : undefined,
+        }),
         startDebugging: vi.fn(() => Promise.resolve(true)),
         stopSession: vi.fn(() => Promise.resolve()),
     };
@@ -160,12 +164,15 @@ describe("ExtensionDebugAdapter — upstream MainThreadDebugService over the deb
         await adapter.stopDebugging(undefined);
         await adapter.stopDebugging("parent");
         await adapter.stopDebugging("attached");
+        // Upstream looks among the inactive sessions too.
+        await adapter.stopDebugging("ended");
         await expect(adapter.stopDebugging("gone")).rejects.toThrow("debug session not found");
 
         expect(service.stopSession.mock.calls).toEqual([
             [undefined],
             [sessions.get("parent"), false],
             [sessions.get("attached"), true],
+            [sessions.get("ended"), false],
         ]);
     });
 });

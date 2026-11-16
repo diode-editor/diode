@@ -57,7 +57,6 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
 
     /** Upstream's `getFolder`: the workspace folder of the uri, `undefined` for none or an unknown one. */
     function folderOf(folder: string | undefined): vscode.WorkspaceFolder | undefined {
-        if (folder === undefined) return undefined;
         return deps.workspaceFolders()?.find((candidate) => candidate.uri.toString() === folder);
     }
 
@@ -67,8 +66,9 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         return entry.provider;
     }
 
+    /** JSON drops an `undefined` value: `{}` on the wire, as `IWireDebugResolveResult` says. */
     function resolveResult(config: vscode.DebugConfiguration | null | undefined): IWireDebugResolveResult {
-        return config === undefined ? {} : { config: config as WireDebugConfiguration | null };
+        return { config: config as WireDebugConfiguration | null | undefined };
     }
 
     rpc.handleRequest("debug.provideConfigurations", async (params, token) => {

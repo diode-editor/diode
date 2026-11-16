@@ -159,11 +159,61 @@ describe("DebugService — configuration providers", () => {
                 Promise.resolve(config.name === "Run" ? null : undefined),
         });
 
+        const openConfigFile = vi.spyOn(launch(), "openConfigFile");
+
         expect(await fx.service.startDebugging(launch(), "Quiet")).toBe(false);
         expect(fx.opened).toEqual([]);
         expect(await fx.service.startDebugging(launch(), "Run")).toBe(false);
+        expect(openConfigFile.mock.calls).toEqual([[{ preserveFocus: true, type: SYNTHETIC_DEBUG_TYPE }]]);
         expect(fx.opened.map((o) => o.resource)).toEqual([LAUNCH_JSON]);
         expect(sessions()).toEqual([]);
+        // Without a launch there is no launch.json to open.
+        expect(await fx.service.startDebugging(undefined, synthetic("Run"))).toBe(false);
+        expect(openConfigFile).toHaveBeenCalledTimes(1);
+        expect(messages()).toEqual([]);
+    });
+
+    it("a substitution the user cancels ends the start silently", async () => {
+        create([synthetic("Run")]);
+        const second = vi.fn();
+        provide({ resolveDebugConfigurationWithSubstitutedVariables: second });
+        fx.variables = () => Promise.resolve(undefined);
+
+        expect(await fx.service.startDebugging(launch(), "Run")).toBe(false);
+
+        expect(second).not.toHaveBeenCalled();
+        expect(messages()).toEqual([]);
+        expect(sessions()).toEqual([]);
+    });
+
+    it("a stop while the variables are asked for cancels the start", async () => {
+        create([synthetic("Run")]);
+        const asked = Promise.withResolvers<undefined>();
+        const answer = Promise.withResolvers<IConfig>();
+        fx.variables = (_folder, config) => {
+            asked.resolve(undefined);
+            return answer.promise.then(() => config);
+        };
+
+        const start = fx.service.startDebugging(launch(), "Run");
+        await asked.promise;
+        await fx.service.stopSession(undefined);
+        answer.resolve(synthetic("Run"));
+
+        expect(await start).toBe(false);
+        expect(sessions()).toEqual([]);
+        expect(messages()).toEqual([]);
+    });
+
+    it("a rejection without an error still opens launch.json and shows nothing", async () => {
+        create([synthetic("Run")]);
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- an extension may reject with anything
+        provide({ resolveDebugConfigurationWithSubstitutedVariables: () => Promise.reject(undefined) });
+
+        expect(await fx.service.startDebugging(launch(), "Run")).toBe(false);
+
+        expect(messages()).toEqual([]);
+        expect(fx.opened.map((o) => o.resource)).toEqual([LAUNCH_JSON]);
     });
 
     it("the second resolution runs after the preLaunchTask", async () => {

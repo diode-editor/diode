@@ -140,6 +140,16 @@ describe("vscode.debug — what the core has: configuration providers, startDebu
             ]);
         });
 
+        it("without workspace folders a folder uri is no folder", async () => {
+            const { stub, vscode } = makeVscode();
+            const provide = vi.fn(() => [CONFIG]);
+            vscode.debug.registerDebugConfigurationProvider("lldb", { provideDebugConfigurations: provide });
+
+            await stub.callRequest("debug.provideConfigurations", { handle: 0, folder: FOLDER });
+
+            expect(provide).toHaveBeenCalledWith(undefined, expect.anything());
+        });
+
         it("a cancelled core request cancels the provider's token", async () => {
             const { stub, vscode } = makeVscode();
             const source = new CancellationTokenSource();
