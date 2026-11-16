@@ -13,6 +13,12 @@ import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { MATCHES_LIMIT } from "../../../../editor/contrib/find/findMatches.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { EditorPartComponentDIToken } from "../../../browser/parts/editor/editorPartComponent.ts";
+import {
+    CORNER_ORDER,
+    GroupCornerStack,
+    GroupCornerStackDIToken,
+    type IGroupCornerSlot,
+} from "../../../browser/parts/editor/groupCornerStack.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
 
 export const FindComponentDIToken = token<FindComponent>("FindComponent");
@@ -54,8 +60,10 @@ export class FindWidget extends Disposable {
     private host: OverlayHostElement | null = null;
     private session: OverlaySessionHandle | null = null;
 
-    public constructor() {
+    /** Its place in the group's corner: under the debug toolbar. */
+    public constructor(private readonly slot: IGroupCornerSlot) {
         super();
+        this.register(slot);
 
         this.view = new SizedBoxElement(this.preferredWidth, WIDGET_HEIGHT);
         this.view.id = "findWidget";
@@ -153,6 +161,10 @@ export class FindWidget extends Disposable {
             restoreFocus: true,
             // Find is a docked widget: clicks outside it intentionally go to the editor (as in VS Code).
             pointerPolicy: "passthrough",
+            // Escape closes the session past `hide`: the rows go to whoever is under it either way.
+            onClose: () => {
+                this.slot.setHeight(0);
+            },
         });
     }
 
@@ -161,6 +173,7 @@ export class FindWidget extends Disposable {
     }
 
     public show(): void {
+        this.slot.setHeight(WIDGET_HEIGHT);
         this.updatePosition();
         this.session?.open();
         this.focus();
@@ -168,6 +181,11 @@ export class FindWidget extends Disposable {
 
     public hide(): void {
         if (this.session?.isOpen()) this.session.close();
+    }
+
+    /** The corner above it changed: the toolbar came or went. */
+    public reposition(): void {
+        if (this.isOpen()) this.updatePosition();
     }
 
     private refreshCounter(): void {
@@ -204,8 +222,7 @@ export class FindWidget extends Disposable {
         this.preferredWidth = widgetW;
         this.view.setPreferredWidth(widgetW);
         const px = Math.max(0, groupWidth - widgetW - 1); // right-align with a 1-col margin to the group's edge
-        const py = 1; // the host is the editor group; its row 0 is the tab strip
-        this.session?.setPosition(new Point(px, py));
+        this.session?.setPosition(new Point(px, this.slot.top()));
     }
 }
 
@@ -216,7 +233,7 @@ export interface IGroupOverlayHosts {
 
 /** One widget per group, created lazily; FindService disposes the widget of a collapsed group (`disposeWidget`). */
 export class FindComponent extends Disposable {
-    public static dependencies = [EditorPartComponentDIToken] as const;
+    public static dependencies = [EditorPartComponentDIToken, GroupCornerStackDIToken] as const;
 
     public onQueryChange: ((groupId: GroupId, query: string) => void) | null = null;
     public onNext: ((groupId: GroupId) => void) | null = null;
@@ -225,8 +242,16 @@ export class FindComponent extends Disposable {
 
     private readonly widgets = new Map<GroupId, FindWidget>();
 
-    public constructor(private readonly hosts: IGroupOverlayHosts) {
+    public constructor(
+        private readonly hosts: IGroupOverlayHosts,
+        private readonly corners = new GroupCornerStack(),
+    ) {
         super();
+        this.register(
+            corners.onDidChange((groupId) => {
+                this.widgets.get(groupId)?.reposition();
+            }),
+        );
     }
 
     /** `null` if the host is unavailable. */
@@ -235,7 +260,7 @@ export class FindComponent extends Disposable {
         if (existing !== undefined) return existing;
         const host = this.hosts.groupOverlayHost(groupId);
         if (host === null) return null;
-        const widget = this.register(new FindWidget());
+        const widget = this.register(new FindWidget(this.corners.addSlot(groupId, CORNER_ORDER.find)));
         widget.attachHost(host);
         widget.onQueryChange = (query) => this.onQueryChange?.(groupId, query);
         widget.onNext = () => this.onNext?.(groupId);

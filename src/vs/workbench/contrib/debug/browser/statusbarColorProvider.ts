@@ -1,0 +1,79 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+//@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/browser/statusbarColorProvider.ts
+// While debugging (`debug.enableStatusBarColor`) the status bar takes `statusBar.debugging*`. Not here: the
+// command center's `commandCenter.debuggingBackground` (there is no command center) and the border color (the
+// status bar has no border).
+
+import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import { type IDebugService, type IDebugSession, State } from "../common/debug.ts";
+
+import { DebugServiceDIToken } from "./debugService.ts";
+
+export const StatusBarColorProviderDIToken = token<StatusBarColorProvider>("StatusBarColorProvider");
+
+export class StatusBarColorProvider extends Disposable {
+    public static dependencies = [DebugServiceDIToken, StatusBarServiceDIToken, IConfigurationServiceDIToken] as const;
+
+    private override: IDisposable | undefined;
+
+    public constructor(
+        private readonly debugService: Pick<IDebugService, "state" | "onDidChangeState" | "getModel">,
+        private readonly statusbarService: Pick<StatusBarService, "overrideStyle">,
+        private readonly configurationService: Pick<IConfigurationService, "get" | "onDidChangeConfiguration">,
+    ) {
+        super();
+        this.register(
+            debugService.onDidChangeState(() => {
+                this.update();
+            }),
+        );
+        this.register(
+            configurationService.onDidChangeConfiguration((e) => {
+                if (e.affectsConfiguration("debug.enableStatusBarColor")) this.update();
+            }),
+        );
+        this.register({
+            dispose: () => {
+                this.override?.dispose();
+            },
+        });
+        this.update();
+    }
+
+    private update(): void {
+        const enabled =
+            this.configurationService.get("debug.enableStatusBarColor") &&
+            isStatusbarInDebugMode(this.debugService.state, this.debugService.getModel().getSessions());
+        const current = this.override;
+        if (current !== undefined) {
+            if (enabled) return;
+            current.dispose();
+            this.override = undefined;
+        } else if (enabled) {
+            this.override = this.statusbarService.overrideStyle({
+                priority: 10,
+                foreground: "statusBar.debuggingForeground",
+                background: "statusBar.debuggingBackground",
+            });
+        }
+    }
+}
+
+export function isStatusbarInDebugMode(state: State, sessions: readonly IDebugSession[]): boolean {
+    if (
+        state === State.Inactive ||
+        state === State.Initializing ||
+        sessions.every((s) => s.suppressDebugStatusbar || s.configuration.noDebug === true)
+    ) {
+        return false;
+    }
+
+    return true;
+}

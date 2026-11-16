@@ -48,6 +48,11 @@ export class MenuId {
     /** Filtered by `menuContext.container` (`containerMenuVisible`). */
     public static readonly ViewContainerTitle = new MenuId("ViewContainerTitle");
     /**
+     * `debug/toolBar`: the buttons of the debug toolbar, its `navigation` group with icons (upstream registers each
+     * item in {@link ViewContainerTitle} too, for `debug.toolBarLocation: docked`).
+     */
+    public static readonly DebugToolBar = new MenuId("DebugToolBar");
+    /**
      * Not a menu but the palette's filter (upstream `MenuId.CommandPalette`): a command without items here is
      * always listed, one with items only while the `when` of one of them holds.
      */

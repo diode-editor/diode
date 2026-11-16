@@ -12,6 +12,7 @@ import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { MATCHES_LIMIT } from "../../../../editor/contrib/find/findMatches.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { GroupCornerStack } from "../../../browser/parts/editor/groupCornerStack.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
@@ -21,7 +22,7 @@ const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 const WIDTH = 44;
 
 function make(): FindWidget {
-    return new FindWidget();
+    return new FindWidget(new GroupCornerStack().addSlot(1, 0));
 }
 
 /** `resolveStyles` so the counter gets the theme color (in the app the render pipeline does this). */
