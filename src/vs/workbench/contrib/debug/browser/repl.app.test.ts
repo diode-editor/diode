@@ -20,6 +20,7 @@ import {
 import { codicon } from "../../../../base/common/codicons.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { MenuRegistryDIToken } from "../../../../platform/actions/common/menuRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -32,7 +33,13 @@ import { type IDebugSession, REPL_VIEW_ID } from "../common/debug.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
 import { ReplDIToken, START_DEBUG_FIRST } from "./repl.ts";
-import { ACCEPT_REPL_INPUT_ID, CLEAR_REPL_ID, FOCUS_REPL_ID } from "./replActions.ts";
+import {
+    ACCEPT_REPL_INPUT_ID,
+    CLEAR_REPL_ID,
+    COLLAPSE_REPL_ID,
+    COPY_ALL_REPL_ID,
+    FOCUS_REPL_ID,
+} from "./replActions.ts";
 
 describe("Debug Console in the workbench", () => {
     let h: IAppHarness;
@@ -366,6 +373,38 @@ describe("Debug Console in the workbench", () => {
         h.testApp.sendKey("y");
         expect(consoleShown()).toBe(true);
         expect(h.container.get(ReplDIToken).input.isFocused).toBe(true);
+    });
+
+    it("Ctrl+F in the console focuses its filter; Copy All copies the rows shown; Collapse All closes the groups", async () => {
+        const session = await startStopped();
+        await vi.waitFor(() => {
+            expect(screen()).toContain("PASS self-check");
+        });
+        const repl = h.container.get(ReplDIToken);
+        await h.commands.execute(FOCUS_REPL_ID);
+        h.testApp.sendKey("Ctrl+f");
+        expect(repl.filterInput.isFocused).toBe(true);
+        // The filter field is in the console's title row, in the frame.
+        expect(screen()).toContain("Filter (e.g. text");
+
+        await h.commands.execute(FOCUS_REPL_ID);
+        await h.commands.execute(COPY_ALL_REPL_ID);
+        const copied = await h.container.get(ClipboardDIToken).readText();
+        expect(copied).toContain("Hello from hello 1.2.0!\n");
+        expect(copied).toContain("PASS self-check 3/3");
+        expect(copied).not.toContain("\u001b");
+
+        const raw = session as unknown as { repl: { startGroup(s: IDebugSession, n: string, e: boolean): void } };
+        raw.repl.startGroup(session, "Group", true);
+        session.appendToRepl({ output: "inside the group\n", sev: "info" });
+        await vi.waitFor(() => {
+            expect(screen()).toContain("inside the group");
+        });
+        await h.commands.execute(COLLAPSE_REPL_ID);
+        await vi.waitFor(() => {
+            expect(screen()).not.toContain("inside the group");
+        });
+        expect(repl.input.isFocused).toBe(true);
     });
 
     it("Clear Console is the title button of the console", () => {
