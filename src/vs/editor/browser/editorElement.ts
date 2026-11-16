@@ -48,7 +48,11 @@ import { EMPTY_EXTERNAL_DECORATIONS } from "../common/model/iEditorDecoration.ts
 import type { IExtensionTextDecoration } from "../common/model/iExtensionTextDecoration.ts";
 import type { IGhostText } from "../common/model/iGhostText.ts";
 import { ghostTextEquals } from "../common/model/iGhostText.ts";
-import type { IGlyphMarginClick, IGlyphMarginDecoration } from "../common/model/iGlyphMarginDecoration.ts";
+import type {
+    IGlyphMarginClick,
+    IGlyphMarginDecoration,
+    ILineHighlightDecoration,
+} from "../common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecoration.ts";
 import type { IInlineInsertion } from "../common/model/iInlineInsertion.ts";
 import { NO_INLINE_INSERTIONS } from "../common/model/iInlineInsertion.ts";
@@ -112,6 +116,12 @@ const enum ScrollBarMarkerPriority {
 }
 const NO_GUTTER_CHANGE_DECORATIONS: readonly IGutterChangeDecoration[] = [];
 const NO_EXTENSION_TEXT_DECORATIONS: readonly IExtensionTextDecoration[] = [];
+
+/** The glyph a line's lane cell draws and whose owner a press on it goes to. */
+interface IShownGlyph {
+    readonly owner: string;
+    readonly glyph: IGlyphMarginDecoration;
+}
 const NO_PAINT_INSERTIONS: readonly IPaintTextLineInsertion[] = [];
 // In a cell grid VS Code's thin dirty-diff border becomes a bold vertical bar centered in the
 // cell; modified is dashed (VS Code uses hatching).
@@ -196,7 +206,7 @@ export class EditorElement extends TUIElement implements IScrollable {
     /** A left click on the title of a code lens. */
     public readonly onDidClickCodeLens = this.onDidClickCodeLensEmitter.event;
     private readonly onDidClickGlyphMarginEmitter = new Emitter<IGlyphMarginClick>();
-    /** A press of the left or the right button on the glyph lane of a line with a glyph; the cursor stays. */
+    /** A press of any button on the glyph lane of a document line, with its glyph or without one; the cursor stays. */
     public readonly onDidClickGlyphMargin = this.onDidClickGlyphMarginEmitter.event;
     private readonly onDidClickLineMessageEmitter = new Emitter<string>();
     /** A press of the left button on a message after a line's end: its key; the cursor stays. */
@@ -256,7 +266,10 @@ export class EditorElement extends TUIElement implements IScrollable {
     /** Painted over the selection, under the current find match: upstream's decorations layer lies above selections. */
     public extensionTextDecorations: readonly IExtensionTextDecoration[] = NO_EXTENSION_TEXT_DECORATIONS;
     public decorations: IExternalDecorations = EMPTY_EXTERNAL_DECORATIONS;
-    private readonly glyphMargin: TrackedLineDecorations<IGlyphMarginDecoration>;
+    /** The glyph lane's layers by owner, in the order the owners first set glyphs. */
+    private readonly glyphLayers = new Map<string, TrackedLineDecorations<IGlyphMarginDecoration>>();
+    private glyphMarginReservedValue = false;
+    private readonly lineHighlights: TrackedLineDecorations<ILineHighlightDecoration>;
     private readonly lineMessages: TrackedLineDecorations<ILineMessageDecoration>;
     /** The cells the last frame painted each message on: a click is matched against what the user saw. */
     private lineMessageCells: readonly ILineMessageCells[] = [];
@@ -488,12 +501,15 @@ export class EditorElement extends TUIElement implements IScrollable {
             diagnosticMarkers.push(this.scrollBarMarker(range, lane.color, lane.priority));
         }
         const glyphMarkers: IScrollBarMarker[] = [];
-        for (const [line, glyph] of this.glyphMargin.byLine()) {
-            if (glyph.overviewRulerColorToken === undefined) continue;
-            const color = this.styleVar(glyph.overviewRulerColorToken);
-            glyphMarkers.push(
-                this.scrollBarMarker(createRange(line, 0, line, 0), color, ScrollBarMarkerPriority.GlyphMargin),
-            );
+        // Every owner's glyph marks the ruler, also one the lane's single cell does not draw (upstream's lanes).
+        for (const layer of this.glyphLayers.values()) {
+            for (const [line, glyph] of layer.byLine()) {
+                if (glyph.overviewRulerColorToken === undefined) continue;
+                const color = this.styleVar(glyph.overviewRulerColorToken);
+                glyphMarkers.push(
+                    this.scrollBarMarker(createRange(line, 0, line, 0), color, ScrollBarMarkerPriority.GlyphMargin),
+                );
+            }
         }
         const small = [...changeMarkers, ...diagnosticMarkers, ...glyphMarkers];
 
@@ -727,14 +743,56 @@ export class EditorElement extends TUIElement implements IScrollable {
         return this.gutterLeftPadding + digitCount + this.gutterMarkerColumns + FOLD_GAP_LEFT + 1 + FOLD_GAP_RIGHT;
     }
 
-    /** The glyph lane exists while some glyph is set: an editor without glyphs keeps its gutter as it was. */
-    private get gutterLeftPadding(): number {
-        return this.glyphMargin.isEmpty ? GUTTER_LEFT_PADDING : GUTTER_LEFT_PADDING_WITH_GLYPHS;
+    /**
+     * The glyph lane exists while some glyph is set or it is reserved: an editor without either keeps its gutter as
+     * it was (upstream's `editor.glyphMargin` is always on).
+     */
+    private get hasGlyphLane(): boolean {
+        return this.glyphMarginReservedValue || [...this.glyphLayers.values()].some((layer) => !layer.isEmpty);
     }
 
-    /** The glyph lane's glyphs; each keeps its line through edits until set again elsewhere. */
-    public setGlyphMarginDecorations(decorations: readonly IGlyphMarginDecoration[]): void {
-        this.glyphMargin.set(decorations);
+    private get gutterLeftPadding(): number {
+        return this.hasGlyphLane ? GUTTER_LEFT_PADDING_WITH_GLYPHS : GUTTER_LEFT_PADDING;
+    }
+
+    /** The glyph lane stays without glyphs: a press on a line's empty lane is a glyph margin click (breakpoints). */
+    public get glyphMarginReserved(): boolean {
+        return this.glyphMarginReservedValue;
+    }
+
+    public set glyphMarginReserved(reserved: boolean) {
+        this.glyphMarginReservedValue = reserved;
+        this.markDirty();
+    }
+
+    /** An owner's glyphs in the glyph lane; each keeps its line through edits until set again elsewhere. */
+    public setGlyphMarginDecorations(owner: string, decorations: readonly IGlyphMarginDecoration[]): void {
+        let layer = this.glyphLayers.get(owner);
+        if (layer === undefined) {
+            layer = new TrackedLineDecorations(this.viewState.document);
+            this.glyphLayers.set(owner, layer);
+        }
+        layer.set(decorations);
+        this.markDirty();
+    }
+
+    /** The glyph each line shows: the highest `zIndex` of the owners', a tie to the owner that came first. */
+    private glyphsByLine(): Map<number, IShownGlyph> {
+        const result = new Map<number, IShownGlyph>();
+        for (const [owner, layer] of this.glyphLayers) {
+            for (const [line, glyph] of layer.byLine()) {
+                const shown = result.get(line);
+                if (shown === undefined || (glyph.zIndex ?? 0) > (shown.glyph.zIndex ?? 0)) {
+                    result.set(line, { owner, glyph });
+                }
+            }
+        }
+        return result;
+    }
+
+    /** The highlighted lines; each keeps its line through edits until set again elsewhere, a deleted one is gone. */
+    public setLineHighlightDecorations(decorations: readonly ILineHighlightDecoration[]): void {
+        this.lineHighlights.set(decorations);
         this.markDirty();
     }
 
@@ -810,7 +868,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState = viewState;
         this.undoManager = new UndoManager(viewState.document);
         this.wordHighlighter = new WordHighlighter(viewState);
-        this.glyphMargin = new TrackedLineDecorations(viewState.document);
+        this.lineHighlights = new TrackedLineDecorations(viewState.document);
         this.lineMessages = new TrackedLineDecorations(viewState.document);
 
         this.viewState.onDidChangeWordHighlights(() => {
@@ -948,7 +1006,11 @@ export class EditorElement extends TUIElement implements IScrollable {
         for (const marker of this.decorations.gutterMarkers ?? []) {
             gutterMarkerByLine.set(marker.line, marker.char);
         }
-        const glyphByLine = this.glyphMargin.byLine();
+        const glyphByLine = this.glyphsByLine();
+        const highlightBgByLine = new Map<number, number>();
+        for (const [line, highlight] of this.lineHighlights.byLine()) {
+            highlightBgByLine.set(line, compositeOver(this.styleVar(highlight.colorToken), editorBg));
+        }
         const messageByLine = this.lineMessages.byLine();
         // Stryker disable next-line ArrayDeclaration: equivalent, an entry that is not a cell matches no click
         const messageCells: ILineMessageCells[] = [];
@@ -1095,7 +1157,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                 for (let x = 0; x < leftPadding; x++) {
                     context.setCell(x, screenY, { char: " ", fg: numFg, bg: rowGutBg });
                 }
-                const glyph = isContinuation ? undefined : glyphByLine.get(logLine);
+                const glyph = isContinuation ? undefined : glyphByLine.get(logLine)?.glyph;
                 if (glyph !== undefined) {
                     context.setCell(GLYPH_MARGIN_COLUMN, screenY, {
                         char: glyph.glyph,
@@ -1171,7 +1233,7 @@ export class EditorElement extends TUIElement implements IScrollable {
 
             // A decorated line background wins over the token background, otherwise the
             // added/removed strip breaks on highlighted words.
-            const decoratedBg = lineBgByLine.get(rowLogLine);
+            const decoratedBg = lineBgByLine.get(rowLogLine) ?? highlightBgByLine.get(rowLogLine);
             paintTextLine(context, {
                 displayLine: dl,
                 tokenIndex,
@@ -1582,6 +1644,10 @@ export class EditorElement extends TUIElement implements IScrollable {
     private handleMouseDown(event: TUIMouseEvent): void {
         // On right click editor/contrib/contextmenu moves the cursor (or not) on the "contextmenu"
         // event, which the engine sends on release.
+        if (event.button === "middle") {
+            this.tryClickGlyphMargin(event, "middle");
+            return;
+        }
         if (event.button !== "left") return;
         /* v8 ignore start -- unreachable: getViewLineCount() is never 0 (document always has a line; fold headers stay visible) */
         if (this.viewState.getViewLineCount() === 0) return;
@@ -1658,17 +1724,23 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /**
-     * The glyph lane is the whole left padding: the glyph is drawn in its middle, a press anywhere on it counts. From
-     * the screen cell, as the editor's context menu reads its event.
+     * The glyph lane is the whole left padding: the glyph is drawn in its middle, a press anywhere on it counts, on a
+     * line without a glyph too (upstream's glyph margin never moves the cursor). From the screen cell, as the
+     * editor's context menu reads its event.
      */
     private tryClickGlyphMargin(event: TUIMouseEvent, button: IGlyphMarginClick["button"]): boolean {
+        if (!this.hasGlyphLane) return false;
         const localX = event.screenX - this.globalPosition.x;
         if (localX >= this.gutterLeftPadding) return false;
-        const glyph = this.glyphMargin.byLine().get(this.gutterLineAt(event.screenY - this.globalPosition.y));
-        if (glyph === undefined) return false;
+        const line = this.gutterLineAt(event.screenY - this.globalPosition.y);
+        if (line < 0) return false;
+        const shown = this.glyphsByLine().get(line);
         this.onDidClickGlyphMarginEmitter.fire({
-            key: glyph.key,
+            line,
+            ...(shown === undefined ? {} : { owner: shown.owner, key: shown.glyph.key }),
             button,
+            shiftKey: event.shiftKey,
+            altKey: event.altKey,
             screenX: event.screenX,
             screenY: event.screenY,
         });
