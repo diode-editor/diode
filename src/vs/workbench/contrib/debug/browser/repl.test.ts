@@ -1005,5 +1005,38 @@ describe("Repl", () => {
             expect(screen()).not.toContain("child");
             expect(repl.getVisibleContent()).not.toContain("child");
         });
+
+        // Upstream's echo is a HighlightedLabel under `white-space: pre-wrap` (word wrap on) and its row is as high as
+        // the input's lines (ReplDelegate.estimateHeight): a two-line input is echoed on two rows.
+        it("a multi-line input is echoed on as many rows as it has lines", async () => {
+            settings["debug.console.wordWrap"] = true;
+            await start("s");
+            repl.focus();
+            type("one");
+            app.sendKey("Shift+Enter");
+            type("two");
+            app.sendKey("Enter");
+
+            await shows("> one");
+            const rows = screen().split("\n");
+            const echo = rows.findIndex((row) => row.includes("> one"));
+            expect(rows[echo]).not.toContain("two");
+            expect(rows[echo + 1]).toMatch(/^\s+two\s*$/u);
+        });
+
+        // With word wrap on upstream draws an output element under `white-space: pre-wrap`: its inner line breaks are
+        // line breaks.
+        it("with word wrap an output element with several lines draws each line on its own row", async () => {
+            settings["debug.console.wordWrap"] = true;
+            await fx.configuration.updateValue("debug.console.collapseIdenticalLines", false);
+            const session = await start("s");
+            session.appendToRepl({ output: "alpha\nbeta\n", sev: "info" });
+
+            await shows("alpha");
+            const rows = screen().split("\n");
+            const alpha = rows.findIndex((row) => row.includes("alpha"));
+            expect(rows[alpha]).not.toContain("beta");
+            expect(rows[alpha + 1]).toMatch(/^\s+beta\s*$/u);
+        });
     });
 });
