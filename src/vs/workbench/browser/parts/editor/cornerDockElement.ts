@@ -13,16 +13,11 @@ export class CornerDockElement extends TUIElement {
     /**
      * The row's width changed; called after the frame (a widget that adapts to it rebuilds outside the layout).
      */
-    public onDidChangeWidth: ((width: number) => void) | null = null;
+    public onDidChangeWidth: (width: number) => void = () => undefined;
     private laidOutWidth: number | null = null;
 
     public setChild(child: TUIElement): void {
         this.setChildren([child]);
-    }
-
-    /** `null` before the first layout. */
-    public get width(): number | null {
-        return this.laidOutWidth;
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {
@@ -38,7 +33,7 @@ export class CornerDockElement extends TUIElement {
         if (width !== this.laidOutWidth) {
             this.laidOutWidth = width;
             queueMicrotask(() => {
-                this.onDidChangeWidth?.(width);
+                this.onDidChangeWidth(width);
             });
         }
         const size = constraints.constrain(new Size(width, height));

@@ -123,6 +123,10 @@ describe("DebugToolbar on fakes", () => {
 
         const suppressed = setup({ state: State.Initializing, initializingOptions: { suppressDebugToolbar: true } });
         expect(await screen(suppressed.fakes.host)).not.toContain("Go");
+
+        // Those options are of the start in progress: a session already stopped shows the toolbar.
+        const started = setup({ state: State.Stopped, initializingOptions: { suppressDebugToolbar: true } });
+        expect(await screen(started.fakes.host)).toContain("▶ Go");
     });
 
     it("debug.toolBarLocation hidden takes it away at once, floating brings it back", async () => {

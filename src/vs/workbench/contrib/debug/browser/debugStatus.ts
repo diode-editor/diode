@@ -75,8 +75,7 @@ export class DebugStatusContribution extends Disposable {
     }
 
     private addEntry(): void {
-        if (this.entryAccessor.value !== undefined) return;
-        this.entryAccessor.value = this.statusBarService.addEntry({
+        this.entryAccessor.value ??= this.statusBarService.addEntry({
             id: "status.debug",
             name: "Debug",
             text: this.text(),

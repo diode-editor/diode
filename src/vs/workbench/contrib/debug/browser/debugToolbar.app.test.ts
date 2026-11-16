@@ -251,7 +251,24 @@ describe("the debug toolbar in the workbench", () => {
         const left = t.find(GLYPHS);
         expect(left.y).toBe(single.y);
         expect(left.x).toBeLessThan(right.x);
-        expect(t.lines().filter((line) => line.includes("▶  ↷"))).toHaveLength(1);
+        expect(t.lines().join("\n").split("▶  ↷")).toHaveLength(2);
+    });
+
+    it("find in the group the toolbar leaves moves up", async () => {
+        await t.startStopped();
+        t.h.commands.execute("workbench.action.splitEditor");
+        t.h.commands.execute("workbench.action.focusFirstEditorGroup");
+        openFind("zzz");
+        t.lines();
+        await vi.waitFor(() => {
+            expect(has(GLYPHS)).toBe(true);
+        });
+        const toolbarRow = t.find(GLYPHS).y;
+        expect(t.find("No results").y).toBe(toolbarRow + 3);
+
+        t.h.commands.execute("workbench.action.focusSecondEditorGroup");
+
+        expect(t.find("No results").y).toBe(toolbarRow);
     });
 
     it("debug.toolBarLocation: docked puts the buttons in the Run and Debug title, hidden shows none", async () => {

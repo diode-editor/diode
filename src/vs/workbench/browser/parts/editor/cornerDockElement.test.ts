@@ -56,14 +56,12 @@ describe("CornerDockElement", () => {
         const dock = new CornerDockElement();
         const widths: number[] = [];
         dock.onDidChangeWidth = (width) => widths.push(width);
-        expect(dock.width).toBeNull();
         dock.setChild(widget("[tool]"));
 
         renderElement(dock, 30, 3);
         expect(widths).toEqual([]);
         await Promise.resolve();
         expect(widths).toEqual([30]);
-        expect(dock.width).toBe(30);
 
         dock.setChild(widget("[other]"));
         renderElement(dock, 30, 3);

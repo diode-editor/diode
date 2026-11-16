@@ -167,10 +167,9 @@ export class DebugToolbar extends Disposable {
         const placement = this.place(this.groups.activeGroup.id);
         if (placement === null) return;
         const buttons = this.buttons();
-        // With labels while they fit in the group, glyphs only in a narrow one. Until its first layout in this
-        // group the dock's width is the group's.
-        const width = this.view.width ?? placement.host.layoutSize.width;
-        const withLabels = toolbarWidth(buttons, true) + CORNER_RIGHT_MARGIN <= width;
+        // With labels while they fit in the group, glyphs only in a narrow one (0 before the group's first layout:
+        // the dock reports the real width after it).
+        const withLabels = toolbarWidth(buttons, true) + CORNER_RIGHT_MARGIN <= placement.host.layoutSize.width;
         const shown = JSON.stringify([buttons, withLabels]);
         if (shown !== this.shown) {
             this.shown = shown;
@@ -194,11 +193,13 @@ export class DebugToolbar extends Disposable {
 
     /** The toolbar follows the active group: it moves to the new group's overlay host and corner. */
     private place(groupId: number): IPlacement | null {
+        // Stryker disable next-line ConditionalExpression: a fast path — placing again in the same group recreates the same session and slot
         if (this.placement?.groupId === groupId) return this.placement;
         this.unplace();
         const host = this.hosts.groupOverlayHost(groupId);
         if (host === null) return null;
         // Clicks around the toolbar go to the editor, as around the find widget; it takes neither focus nor keys.
+        // Stryker disable next-line ObjectLiteral,StringLiteral: for the mouse an absent or empty policy behaves as passthrough; the click beside the toolbar test pins the behavior
         const session = host.overlayLayer.createSession(this.view, new Point(0, 0), { pointerPolicy: "passthrough" });
         this.placement = {
             groupId,
