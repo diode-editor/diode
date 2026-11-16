@@ -13,11 +13,12 @@ import {
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import { DataBreakpointSetType, State } from "../common/debug.ts";
+import { DataBreakpointSetType, type IBreakpoint, State } from "../common/debug.ts";
 import type { DebugModel } from "../common/debugModel.ts";
 
 const MAIN = Uri.file(`${SYNTHETIC_PROGRAM_ROOT}/src/main.cpp`);
 const LIST = Uri.file(`${SYNTHETIC_PROGRAM_ROOT}/src/list.cpp`);
+const UTIL = Uri.file(`${SYNTHETIC_PROGRAM_ROOT}/src/util.cpp`);
 
 describe("DebugService breakpoint editing", () => {
     let fx: IDebugServiceFixture;
@@ -77,6 +78,40 @@ describe("DebugService breakpoint editing", () => {
         expect(stored("debug.breakpoint")).toEqual(
             expect.arrayContaining([expect.objectContaining({ lineNumber: 27, enabled: false })]),
         );
+    });
+
+    it("the new state is stored before the adapter answers, its adapter data once it does", async () => {
+        const [first] = model().addBreakpoints(MAIN, [{ lineNumber: 27 }, { lineNumber: 31 }]);
+        const adapter = await startStopped();
+        adapter.breakpointAdapterData = "cookie";
+        // The adapter holds every setBreakpoints until released.
+        const held: (() => void)[] = [];
+        const send = adapter.sendMessage.bind(adapter);
+        adapter.sendMessage = (message) => {
+            if ((message as DebugProtocol.Request).command === "setBreakpoints")
+                held.push(() => {
+                    send(message);
+                });
+            else send(message);
+        };
+        const storedAt = (line: number): unknown =>
+            (stored("debug.breakpoint") as { lineNumber: number }[]).find((bp) => bp.lineNumber === line);
+
+        // One breakpoint, then all at once.
+        for (const [change, enabled] of [
+            [() => fx.service.enableOrDisableBreakpoints(false, first), false],
+            [() => fx.service.enableOrDisableBreakpoints(true), true],
+        ] as const) {
+            const done = change();
+            await vi.waitFor(() => {
+                expect(held).not.toHaveLength(0);
+            });
+            expect(storedAt(27)).toEqual(expect.objectContaining({ enabled }));
+            for (const release of held.splice(0)) release();
+            await done;
+            expect(storedAt(31)).toEqual(expect.objectContaining({ adapterData: "cookie" }));
+            adapter.breakpointAdapterData = undefined;
+        }
     });
 
     it("all at once: every kind is sent again", async () => {
@@ -145,6 +180,38 @@ describe("DebugService breakpoint editing", () => {
         expect(orphan.enabled).toBe(true);
     });
 
+    it("a trigger moves only its own breakpoints, and only those not already in its state", async () => {
+        const [trigger] = model().addBreakpoints(MAIN, [{ lineNumber: 27, enabled: false }]);
+        const [triggered] = model().addBreakpoints(LIST, [{ lineNumber: 90, triggeredBy: trigger.getId() }]);
+        const [orphan] = model().addBreakpoints(UTIL, [{ lineNumber: 5, triggeredBy: "gone", enabled: false }]);
+        const adapter = await startStopped();
+        /** The files sent since the last call. */
+        const files = (): string[] =>
+            sent(adapter, "setBreakpoints")
+                .splice(0)
+                .map((args) => (args.source as { path: string }).path)
+                .sort();
+        const step = async (enable: boolean, bp: IBreakpoint): Promise<string[]> => {
+            adapter.requests.length = 0;
+            await fx.service.enableOrDisableBreakpoints(enable, bp);
+            return files();
+        };
+
+        // Disabling leaves the trigger alone, even a disabled one.
+        expect(await step(false, triggered)).toEqual([LIST.fsPath]);
+        // Enabling the trigger enables what it triggers, not the other disabled breakpoints.
+        expect(await step(true, trigger)).toEqual([LIST.fsPath, MAIN.fsPath]);
+        expect(orphan.enabled).toBe(false);
+        // An enabled trigger is not enabled again.
+        expect(await step(true, triggered)).toEqual([LIST.fsPath]);
+        // A triggered breakpoint already disabled is not disabled again.
+        await step(false, triggered);
+        expect(await step(false, trigger)).toEqual([MAIN.fsPath]);
+        // A trigger that is gone enables nothing else.
+        expect(await step(true, orphan)).toEqual([UTIL.fsPath]);
+        expect(trigger.enabled).toBe(false);
+    });
+
     it("removing: one by id, several, all; a triggered breakpoint loses its trigger and its file is sent", async () => {
         const [a, b, c] = model().addBreakpoints(MAIN, [{ lineNumber: 27 }, { lineNumber: 31 }, { lineNumber: 40 }]);
         const remaining = (): number[] =>
@@ -153,19 +220,23 @@ describe("DebugService breakpoint editing", () => {
                 .map((bp) => bp.lineNumber)
                 .sort((x, y) => x - y);
         const [triggered] = model().addBreakpoints(LIST, [{ lineNumber: 90, triggeredBy: a.getId() }]);
+        const [byB] = model().addBreakpoints(UTIL, [{ lineNumber: 5, triggeredBy: b.getId() }]);
         const adapter = await startStopped();
 
         await fx.service.removeBreakpoints(a.getId());
 
-        expect(remaining()).toEqual([31, 40, 90]);
+        expect(remaining()).toEqual([5, 31, 40, 90]);
         expect(triggered.triggeredBy).toBeUndefined();
+        // The breakpoint another one triggers keeps its trigger, and its file is not sent.
+        expect(byB.triggeredBy).toBe(b.getId());
         expect(sent(adapter, "setBreakpoints").map((args) => (args.source as { path: string }).path)).toEqual([
             MAIN.fsPath,
             LIST.fsPath,
         ]);
 
         await fx.service.removeBreakpoints([b.getId(), c.getId()]);
-        expect(remaining()).toEqual([90]);
+        expect(remaining()).toEqual([5, 90]);
+        expect(byB.triggeredBy).toBeUndefined();
 
         await fx.service.removeBreakpoints();
         expect(remaining()).toEqual([]);
@@ -224,6 +295,7 @@ describe("DebugService breakpoint editing", () => {
         });
         model().addInstructionBreakpoint({ instructionReference: "0x10", offset: 0, canPersist: true, address: 16n });
         const adapter = await startStopped();
+        expect(stored("debug.databreakpoint")).toEqual([expect.objectContaining({ description: "sum" })]);
 
         await fx.service.removeDataBreakpoints();
         await fx.service.removeInstructionBreakpoints();

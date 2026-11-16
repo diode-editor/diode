@@ -1051,6 +1051,7 @@ export class DebugService implements IDebugService {
             this.debugStorage.storeBreakpoints(this.model);
             await this.sendAllBreakpoints();
         }
+        // Again with what the adapter answered: the adapter data of the source breakpoints.
         this.debugStorage.storeBreakpoints(this.model);
     }
 
@@ -1066,7 +1067,7 @@ export class DebugService implements IDebugService {
         const urisToClear = new Map(toRemove.map((bp) => [bp.originalUri.toString(), bp.originalUri]));
 
         this.model.removeBreakpoints(toRemove);
-        for (const uri of this.unlinkTriggeredBreakpoints(breakpoints, toRemove)) urisToClear.set(uri.toString(), uri);
+        for (const uri of this.unlinkTriggeredBreakpoints(toRemove)) urisToClear.set(uri.toString(), uri);
 
         this.debugStorage.storeBreakpoints(this.model);
         await Promise.all([...urisToClear.values()].map((uri) => this.sendBreakpoints(uri)));
@@ -1082,8 +1083,8 @@ export class DebugService implements IDebugService {
         // If opts not provided, sending the breakpoint is handled by a later to call to `updateFunctionBreakpoint`
         if (opts) {
             this.debugStorage.storeBreakpoints(this.model);
+            // No store after the answer, unlike upstream: nothing of it goes into a stored function breakpoint.
             await this.sendFunctionBreakpoints();
-            this.debugStorage.storeBreakpoints(this.model);
         }
     }
 
@@ -1104,19 +1105,17 @@ export class DebugService implements IDebugService {
         offset?: number,
         address?: bigint,
     ): Promise<void> {
+        // Instruction breakpoints are not stored (upstream stores here all the same).
         this.model.removeInstructionBreakpoints(instructionReference, offset, address);
-        this.debugStorage.storeBreakpoints(this.model);
         await this.sendInstructionBreakpoints();
     }
 
-    private unlinkTriggeredBreakpoints(
-        allBreakpoints: readonly IBreakpoint[],
-        removedBreakpoints: readonly IBreakpoint[],
-    ): uri[] {
+    /** Called after the removal: the breakpoints left are the model's (upstream walks all of them, removed too). */
+    private unlinkTriggeredBreakpoints(removedBreakpoints: readonly IBreakpoint[]): uri[] {
         const affectedUris: uri[] = [];
         for (const removed of removedBreakpoints) {
-            for (const existing of allBreakpoints) {
-                if (!removedBreakpoints.includes(existing) && existing.triggeredBy === removed.getId()) {
+            for (const existing of this.model.getBreakpoints()) {
+                if (existing.triggeredBy === removed.getId()) {
                     this.model.updateBreakpoints(new Map([[existing.getId(), { triggeredBy: undefined }]]));
                     affectedUris.push(existing.originalUri);
                 }
@@ -1129,11 +1128,9 @@ export class DebugService implements IDebugService {
     private async makeTriggeredBreakpointsMatchEnablement(enable: boolean, breakpoint: Breakpoint): Promise<void> {
         if (enable) {
             /** If the breakpoint is being enabled, also ensure its triggerer is enabled */
-            if (breakpoint.triggeredBy) {
-                const trigger = this.model.getBreakpoints().find((bp) => breakpoint.triggeredBy === bp.getId());
-                if (trigger && !trigger.enabled) {
-                    await this.enableOrDisableBreakpoints(enable, trigger);
-                }
+            const trigger = this.model.getBreakpoints().find((bp) => breakpoint.triggeredBy === bp.getId());
+            if (trigger && !trigger.enabled) {
+                await this.enableOrDisableBreakpoints(enable, trigger);
             }
         }
 

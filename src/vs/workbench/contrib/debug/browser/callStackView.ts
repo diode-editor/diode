@@ -47,7 +47,7 @@ const MUTED = "descriptionForeground";
 const LINK = "textLink.foreground";
 
 export function isDebugSession(obj: unknown): obj is IDebugSession {
-    return typeof obj === "object" && obj !== null && typeof (obj as IDebugSession).getAllThreads === "function";
+    return typeof (obj as Partial<IDebugSession> | null | undefined)?.getAllThreads === "function";
 }
 
 function stoppedDescription(stoppedDetails: IRawStoppedDetails): string {
@@ -193,7 +193,8 @@ export class CallStackView extends Disposable {
     public readonly tree: LazyTreeControl<CallStackItem>;
     private readonly dataSource: CallStackDataSource;
     private readonly onCallStackChangeScheduler: RunOnceScheduler;
-    private selectionNeedsUpdate = false;
+    /** The focus moved before the rows read it. A view opened during a stop starts on the focused frame. */
+    private selectionNeedsUpdate = true;
     /** The view's own focus change: the cursor is already there. */
     private ignoreFocusStackFrameEvent = false;
     /** Threads the focus opened (upstream's `expand` of the focused thread); the user's collapse still wins. */
@@ -225,6 +226,7 @@ export class CallStackView extends Disposable {
                 renderRowEnd: (element) => this.renderStateLabel(element),
                 getLabel: (element) => this.getKeyboardNavigationLabel(element),
             },
+            // Stryker disable next-line StringLiteral: the prefix keeps the row ids apart from other views'; no other view in the window has a call stack element's key
             { idPrefix: "callstack" },
         );
         // A frame the user moves to is focused (upstream opens it with `preserveFocus` on a keyboard selection).
@@ -276,10 +278,8 @@ export class CallStackView extends Disposable {
                 this.updateStateMessage();
             }),
         );
-        // The viewlet opened after a session started.
-        if (debugService.state === State.Stopped) {
-            this.onCallStackChangeScheduler.schedule(0);
-        }
+        // The viewlet may open after a session started: show what is there.
+        this.onCallStackChangeScheduler.schedule(0);
     }
 
     public focus(): void {
@@ -305,14 +305,10 @@ export class CallStackView extends Disposable {
 
     private async open(element: CallStackItem): Promise<void> {
         if (element instanceof ThreadAndSessionIds) {
-            const session = this.debugService.getModel().getSession(element.sessionId);
-            const thread = session?.getThread(element.threadId) as Thread | undefined;
+            const thread = this.loadMoreThread(element);
             if (thread) {
-                const totalFrames = thread.stoppedDetails?.totalFrames;
-                const remainingFramesCount =
-                    typeof totalFrames === "number" ? totalFrames - thread.getCallStack().length : undefined;
                 // Get all the remaining frames
-                await thread.fetchCallStack(remainingFramesCount);
+                await thread.fetchCallStack(remainingFrames(thread));
                 await this.tree.refresh();
             }
             return;
@@ -328,14 +324,10 @@ export class CallStackView extends Disposable {
     /** Upstream `updateTreeSelection`: the focused thread open, the cursor on its frame, else on the session. */
     private async updateTreeSelection(): Promise<void> {
         const viewModel = this.debugService.getViewModel();
-        const threadId = viewModel.focusedThread?.getId();
-        if (threadId !== undefined && !this.expandedThreads.has(threadId)) {
-            this.expandedThreads.add(threadId);
-            await this.tree.refresh();
-        } else {
-            // The markers follow the focus.
-            this.tree.rerender();
-        }
+        const thread = viewModel.focusedThread;
+        if (thread) this.expandedThreads.add(thread.getId());
+        // Also for the markers, which follow the focus.
+        await this.tree.refresh();
         const toReveal = viewModel.focusedStackFrame ?? viewModel.focusedSession;
         if (toReveal) this.tree.reveal(toReveal);
     }
@@ -343,15 +335,7 @@ export class CallStackView extends Disposable {
     /** Upstream's header message: shown only while the threads are not (one session with one thread). */
     private updateStateMessage(): void {
         const sessions = this.debugService.getModel().getSessions();
-        const threads = sessions.length === 1 ? sessions[0].getAllThreads() : [];
-        const stoppedDetails = sessions.length === 1 ? sessions[0].getStoppedDetails() : undefined;
-        if (stoppedDetails && (threads.length === 1 || typeof stoppedDetails.threadId !== "number")) {
-            this.setStateMessage(stoppedDescription(stoppedDetails));
-        } else if (sessions.length === 1 && sessions[0].state === State.Running) {
-            this.setStateMessage("Running");
-        } else {
-            this.setStateMessage(undefined);
-        }
+        this.setStateMessage(sessions.length === 1 ? sessionStateMessage(sessions[0]) : undefined);
     }
 
     private renderRow(element: CallStackItem): IRowSpan[] {
@@ -422,21 +406,43 @@ export class CallStackView extends Disposable {
         ];
     }
 
-    private loadMoreLabel(element: ThreadAndSessionIds): string {
-        const thread = this.debugService.getModel().getSession(element.sessionId)?.getThread(element.threadId);
-        const totalFrames = thread?.stoppedDetails?.totalFrames;
-        if (thread === undefined || typeof totalFrames !== "number") return "Load More Stack Frames";
-        return `Load ${String(totalFrames - thread.getCallStack().length)} More Stack Frames`;
+    private loadMoreThread(element: ThreadAndSessionIds): Thread | undefined {
+        return this.debugService.getModel().getSession(element.sessionId)?.getThread(element.threadId) as
+            | Thread
+            | undefined;
     }
 
+    private loadMoreLabel(element: ThreadAndSessionIds): string {
+        const thread = this.loadMoreThread(element);
+        const remaining = thread && remainingFrames(thread);
+        return remaining === undefined ? "Load More Stack Frames" : `Load ${String(remaining)} More Stack Frames`;
+    }
+
+    /**
+     * Typing finds a session and a frame by their names, without the icon or the marker in front; the other rows by
+     * their text. Upstream's thread label adds the state, which typing could not reach: the list takes no space.
+     */
     private getKeyboardNavigationLabel(element: CallStackItem): string {
         if (isDebugSession(element)) return element.getLabel();
-        if (element instanceof Thread) return `${element.name} ${element.stateLabel}`;
+        // Stryker disable next-line ConditionalExpression: a thread's name is its row's text, and the other rows have no `name`, so the tree falls back to their text, as the line below gives
         if (element instanceof StackFrame) return element.name;
-        if (typeof element === "string") return element;
-        if (element instanceof ThreadAndSessionIds) return "Load More Stack Frames";
-        return "Show More Stack Frames";
+        return this.renderRow(element)[0].text;
     }
+}
+
+/** Upstream's header message: the stop of a session whose threads are not shown, else "Running" or nothing. */
+function sessionStateMessage(session: IDebugSession): string | undefined {
+    const stoppedDetails = session.getStoppedDetails();
+    if (stoppedDetails && (session.getAllThreads().length === 1 || typeof stoppedDetails.threadId !== "number")) {
+        return stoppedDescription(stoppedDetails);
+    }
+    return session.state === State.Running ? "Running" : undefined;
+}
+
+/** The frames the adapter holds past the ones read, when it told the total. */
+function remainingFrames(thread: IThread): number | undefined {
+    const totalFrames = thread.stoppedDetails?.totalFrames;
+    return totalFrames === undefined ? undefined : totalFrames - thread.getCallStack().length;
 }
 
 function showMoreLabel(stackFrames: readonly IStackFrame[]): string {

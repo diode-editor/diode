@@ -34,6 +34,7 @@ import {
     type IExceptionBreakpoint,
     type IFunctionBreakpoint,
     type IInstructionBreakpoint,
+    type IThread,
     State,
 } from "../common/debug.ts";
 import {
@@ -64,13 +65,11 @@ export class BreakpointsFolderItem {
         return this.uri.toString();
     }
 
-    public get enabled(): boolean {
-        return this.breakpoints.every((bp) => bp.enabled);
-    }
-
-    public get indeterminate(): boolean {
-        const enabledCount = this.breakpoints.filter((bp) => bp.enabled).length;
-        return enabledCount > 0 && enabledCount < this.breakpoints.length;
+    /** Upstream's `enabled` and `indeterminate` in one: all the file's breakpoints are enabled, none, or some. */
+    public get checked(): boolean | "mixed" {
+        const enabled = this.breakpoints.filter((bp) => bp.enabled).length;
+        if (enabled === this.breakpoints.length) return true;
+        return enabled === 0 ? false : "mixed";
     }
 }
 
@@ -145,11 +144,10 @@ export function getBreakpointIcon(
         return breakpoint.supported ? breakpointIcon : `${breakpointIcon}-unverified`;
     }
 
-    // can change this when all breakpoint supports dependent breakpoint condition
-    const triggeringBreakpoint =
-        breakpoint instanceof Breakpoint && breakpoint.triggeredBy
-            ? debugModel.getBreakpoints().find((bp) => bp.getId() === breakpoint.triggeredBy)
-            : undefined;
+    // can change this when all breakpoint supports dependent breakpoint condition. Only a source breakpoint is
+    // left here, and no breakpoint's id is undefined: one without a trigger finds none.
+    const triggeredBy = (breakpoint as IBreakpoint).triggeredBy;
+    const triggeringBreakpoint = debugModel.getBreakpoints().find((bp) => bp.getId() === triggeredBy);
 
     if (breakpoint.logMessage || breakpoint.condition || breakpoint.hitCondition || triggeringBreakpoint) {
         if (!breakpoint.supported) {
@@ -194,6 +192,7 @@ export class BreakpointsView extends Disposable {
                 renderRowEnd: (element) => this.renderBadge(element),
                 getLabel: (element) => getKeyboardNavigationLabel(element),
             },
+            // Stryker disable next-line StringLiteral: the prefix keeps the row ids apart from other views'; no other view in the window has a breakpoint's key
             { idPrefix: "breakpoints" },
         );
         this.tree.onActivate = (element) => {
@@ -245,21 +244,25 @@ export class BreakpointsView extends Disposable {
         // The icons and the muted rows follow the state.
         this.tree.rerender();
         const thread = this.debugService.getViewModel().focusedThread;
-        const hitBreakpointIds = thread?.stoppedDetails?.hitBreakpointIds ?? [];
-        const hitElement = this.flatElements().find((e) => {
-            const id = e.getIdFromAdapter(thread?.session.getId() ?? "");
-            return id !== undefined && hitBreakpointIds.includes(id);
-        });
+        const hitElement = thread && this.hitBreakpoint(thread);
         if (hitElement) {
             this.tree.reveal(hitElement);
             this.autoFocusedElement = hitElement;
             return;
         }
-        // Deselect breakpoint in breakpoint view when no longer stopped on it #125528
-        if (this.autoFocusedElement !== undefined && this.tree.focused === this.autoFocusedElement) {
+        // Deselect breakpoint in breakpoint view when no longer stopped on it #125528. Without one there is no
+        // cursor to take away when nothing has it.
+        if (this.tree.focused === this.autoFocusedElement) {
             this.tree.list.clearCursor();
         }
         this.autoFocusedElement = undefined;
+    }
+
+    /** The breakpoint the thread stopped at, by the adapter's ids in the session. */
+    private hitBreakpoint(thread: IThread): BreakpointItem | undefined {
+        const sessionId = thread.session.getId();
+        const hitIds = thread.stoppedDetails?.hitBreakpointIds ?? [];
+        return this.flatElements().find((e) => hitIds.some((id) => id === e.getIdFromAdapter(sessionId)));
     }
 
     private getTreeElements(): BreakpointTreeElement[] {
@@ -369,7 +372,7 @@ export class BreakpointsView extends Disposable {
     }
 
     private renderFolder(folder: BreakpointsFolderItem): IRowSpan[] {
-        const checked = folder.indeterminate ? "mixed" : folder.enabled;
+        const checked = folder.checked;
         const check = this.checkbox(checked, () => {
             const enabled = checked === "mixed" ? true : !checked;
             for (const bp of folder.breakpoints) {
@@ -386,6 +389,7 @@ export class BreakpointsView extends Disposable {
 
     /** Upstream's badge: the line (and column) of a source breakpoint, the mode of the others. */
     private renderBadge(element: BreakpointTreeElement): IRowSpan[] {
+        // Stryker disable next-line ConditionalExpression: a file row has no mode label, so the path below gives no badge either
         if (element instanceof BreakpointsFolderItem) return [];
         let badge = element.modeLabel;
         if (element instanceof Breakpoint) {

@@ -315,6 +315,16 @@ describe("LazyTreeControl — row parts", () => {
         expect(narrow.app.backend.screenToString().split("\n")[0]).toBe(` a ${"x".repeat(25)}0 `);
     });
 
+    it("a row with a control and no right part gives the text every column up to the edge", async () => {
+        const source = partsSource([]);
+        const { app } = await mount({
+            ...source,
+            renderRow: () => [{ text: "[x] ", onClick: () => undefined }, { text: "n".repeat(40) }],
+        });
+        // 28 columns inside the padding: the control's 4 and 24 of the name.
+        expect(app.backend.screenToString().split("\n")[0]).toBe(` [x] ${"n".repeat(24)} `);
+    });
+
     it("a click on a clickable span runs it and leaves the row alone; elsewhere the row is picked", async () => {
         const clicks: string[] = [];
         const { app, tree } = await mount(partsSource(clicks));
@@ -404,12 +414,14 @@ describe("LazyTreeControl — lazy children", () => {
         expect(screen()).toContain("x: 1");
     });
 
-    it("Enter on the Loading... row activates nothing", async () => {
+    it("the Loading... row is neither selected nor activated", async () => {
         const source = localsSource();
         source.manual = true;
         const { app, tree } = await mount(source);
         const activated: string[] = [];
+        const selected: unknown[] = [];
         tree.onActivate = (node) => activated.push(node.key);
+        tree.onSelect = (node) => selected.push(node);
         app.sendKey("ArrowRight");
         await flush();
 
@@ -418,6 +430,7 @@ describe("LazyTreeControl — lazy children", () => {
 
         expect(tree.focused).toBeUndefined();
         expect(activated).toEqual([]);
+        expect(selected).toEqual([]);
     });
 
     it("reopening a node after Collapse All reads its children anew", async () => {

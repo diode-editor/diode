@@ -370,4 +370,182 @@ describe("BreakpointsView", () => {
         goOn();
         expect(view.tree.focused).toBe(first);
     });
+
+    it("a stop without a hit breakpoint leaves the cursor where it is", async () => {
+        const [first, second] = model.addBreakpoints(Uri.file("/w/a.c"), [{ lineNumber: 1 }, { lineNumber: 2 }]);
+        model.setBreakpointSessionData("s", {}, new Map([[first.getId(), { verified: true, id: 7 }]]));
+        await mount();
+        view.tree.reveal(second);
+        const session = mockSession({ getId: () => "s", capabilities: {} });
+        const thread = new Thread(session, "main", 1);
+
+        // No details yet, then a stop on a step: no breakpoint was hit.
+        service.viewModel.setFocus(undefined, thread, session, false);
+        onDidChangeState.fire(State.Stopped);
+        thread.stoppedDetails = { reason: "step" };
+        onDidChangeState.fire(State.Stopped);
+
+        expect(view.tree.focused).toBe(second);
+    });
+
+    it("a source breakpoint is muted while debugging until the adapter verifies it; the rows follow the state", async () => {
+        const [plain, refused] = model.addBreakpoints(Uri.file("/w/a.c"), [{ lineNumber: 1 }, { lineNumber: 2 }]);
+        verify(model, refused, false);
+        verify(model, plain, true);
+        // The cursor on a row of its own, away from the compared ones.
+        model.addFunctionBreakpoint({ name: "main" });
+        await mount();
+        // The folder beside the name is always muted.
+        const muted = fgOf(" w ");
+        const rowFg = (line: number): unknown => {
+            const all = lines();
+            const y = all.findIndex((text) => text.trimEnd().endsWith(` ${String(line)}`) && text.includes("a.c"));
+            return app.backend.getFgAt(new Point(all[y].indexOf("a.c"), y));
+        };
+
+        for (const s of [State.Inactive, State.Initializing]) {
+            state = s;
+            onDidChangeState.fire(s);
+            expect(rowFg(2)).not.toBe(muted);
+        }
+        for (const s of [State.Running, State.Stopped]) {
+            state = s;
+            onDidChangeState.fire(s);
+            expect(rowFg(2)).toBe(muted);
+            expect(rowFg(1)).not.toBe(muted);
+        }
+    });
+
+    it("a function breakpoint is muted only where the focused session cannot set one", async () => {
+        model.addFunctionBreakpoint({ name: "main" });
+        addData("sum", "read");
+        await mount();
+        view.tree.reveal(model.getDataBreakpoints()[0]);
+        const muted = fgOf("Read");
+        const focus = (supportsFunctionBreakpoints?: boolean): void => {
+            const capabilities = supportsFunctionBreakpoints === undefined ? {} : { supportsFunctionBreakpoints };
+            service.viewModel.setFocus(undefined, undefined, mockSession({ getId: () => "s", capabilities }), false);
+        };
+
+        state = State.Running;
+        onDidChangeState.fire(state);
+        expect(fgOf("main")).not.toBe(muted);
+        focus();
+        await settle();
+        expect(fgOf("main")).not.toBe(muted);
+        focus(true);
+        await settle();
+        expect(fgOf("main")).not.toBe(muted);
+        focus(false);
+        await settle();
+        expect(fgOf("main")).toBe(muted);
+    });
+
+    it("a data breakpoint with no session focused is not muted", async () => {
+        addData("sum", "read");
+        model.addFunctionBreakpoint({ name: "main" });
+        await mount();
+        view.tree.reveal(model.getFunctionBreakpoints()[0]);
+
+        expect(fgOf("sum")).not.toBe(fgOf("Read"));
+    });
+
+    it("the file row's checkbox: all, some or none of its breakpoints; a click on some enables them all", async () => {
+        presentation = "tree";
+        const [one, two] = model.addBreakpoints(Uri.file("/w/a.c"), [{ lineNumber: 1 }, { lineNumber: 2 }]);
+        await mount();
+        expect(row("a.c w")).toMatch(/\[✓\] a\.c w$/u);
+
+        model.setEnablement(one, false);
+        model.setEnablement(two, false);
+        await settle();
+        expect(row("a.c w")).toMatch(/\[ \] a\.c w$/u);
+
+        model.setEnablement(two, true);
+        await settle();
+        expect(row("a.c w")).toMatch(/\[-\] a\.c w$/u);
+        const all = lines();
+        const y = all.findIndex((line) => line.includes("[-] a.c"));
+        for (const action of ["press", "release"] as const) {
+            app.backend.simulateMouse({
+                kind: "mouse",
+                button: "left",
+                action,
+                x: all[y].indexOf("[-]") + 2,
+                y: y + 1,
+                shiftKey: false,
+                altKey: false,
+                ctrlKey: false,
+                raw: "",
+            });
+        }
+        expect(vi.mocked(service.enableOrDisableBreakpoints).mock.calls).toEqual([
+            [true, one],
+            [true, two],
+        ]);
+    });
+
+    it("the tree presentation: lines in order, the last line, past the end, a file read anew on a change", async () => {
+        presentation = "tree";
+        const file = Uri.file("/w/a.c");
+        sources.lines.set(file.toString(), ["one", "two", "three"]);
+        const [moved] = model.addBreakpoints(file, [{ lineNumber: 1 }, { lineNumber: 2 }, { lineNumber: 7 }]);
+        // The adapter moves the first one past the second: the model keeps its order, the view sorts.
+        model.setBreakpointSessionData("s", {}, new Map([[moved.getId(), { verified: true, line: 3 }]]));
+        await mount();
+
+        const breakpointRows = (): string[] =>
+            lines().filter((line) => / \d+\s*$/u.test(line) && !line.includes("a.c"));
+        expect(breakpointRows().map((line) => line.trim().split(/\s+/u).slice(-2).join(" "))).toEqual([
+            "two 2",
+            "three 3",
+            "found) 7",
+        ]);
+        expect(row(" 7")).toContain("(line not found)");
+
+        // A change in the model reads the file again.
+        sources.lines.set(file.toString(), ["one", "TWO", "three"]);
+        model.addFunctionBreakpoint({ name: "main" });
+        await settle();
+        expect(row(" 2")).toContain("TWO");
+    });
+
+    it("the tree presentation: the line reads Loading... until the file is read, which is read once", async () => {
+        presentation = "tree";
+        const file = Uri.file("/w/a.c");
+        let resolve: (lines: readonly string[]) => void = () => undefined;
+        sources.readLines = vi.fn(() => new Promise<readonly string[]>((done) => (resolve = done)));
+        model.addBreakpoints(file, [{ lineNumber: 1 }]);
+        await mount();
+        expect(row(" 1")).toContain("Loading...");
+        view.tree.rerender();
+        expect(row(" 1")).toContain("Loading...");
+        expect(sources.readLines).toHaveBeenCalledTimes(1);
+
+        resolve(["int x;"]);
+        await settle();
+        expect(row(" 1")).toContain("int x;");
+    });
+
+    it("the tree presentation: Left on a file row folds its breakpoints", async () => {
+        presentation = "tree";
+        sources.lines.set(Uri.file("/w/a.c").toString(), ["int x;"]);
+        model.addBreakpoints(Uri.file("/w/a.c"), [{ lineNumber: 1 }]);
+        await mount();
+        view.tree.list.focusFirst();
+        expect(row("int x;").length).toBeGreaterThan(0);
+
+        app.sendKey("ArrowLeft");
+        await settle();
+        expect(lines().some((line) => line.includes("int x;"))).toBe(false);
+    });
+
+    it("typing goes to a source breakpoint by its file name", async () => {
+        model.addFunctionBreakpoint({ name: "main" });
+        const [bp] = model.addBreakpoints(Uri.file("/w/zed.c"), [{ lineNumber: 3 }]);
+        await mount();
+
+        app.sendKey("z");
+        expect(view.tree.focused).toBe(bp);
+    });
 });

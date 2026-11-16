@@ -143,6 +143,8 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     public readonly requests: DebugProtocol.Request[] = [];
     /** The session's answers to the adapter's reverse requests, in order. */
     public readonly responses: DebugProtocol.Response[] = [];
+    /** The adapter data the answer to `setBreakpoints` gives every breakpoint's source, when set. */
+    public breakpointAdapterData: unknown;
     private readonly pendingReverse = new Map<number, () => void>();
     private readonly program = new Program();
     private readonly handles = new Map<number, Children>();
@@ -466,7 +468,11 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             const id = this.nextBreakpointId++;
             const key = `${path}:${String(bp.line)}`;
             if (known) this.breakpointsAt.set(key, [...(this.breakpointsAt.get(key) ?? []), id]);
-            return { id, verified: known, line: bp.line };
+            const source =
+                this.breakpointAdapterData === undefined
+                    ? undefined
+                    : { ...args.source, adapterData: this.breakpointAdapterData };
+            return { id, verified: known, line: bp.line, source };
         });
         this.respond(request, { breakpoints });
     }

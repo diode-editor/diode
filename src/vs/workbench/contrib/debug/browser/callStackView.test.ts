@@ -27,6 +27,7 @@ import {
     CallStackDataSource,
     CallStackView,
     getSpecificSourceName,
+    isDebugSession,
 } from "./callStackView.ts";
 import type { DebugSession } from "./debugSession.ts";
 
@@ -140,6 +141,19 @@ describe("CallStackDataSource", () => {
         expect(await dataSource.getChildren(child)).toEqual(child.getAllThreads());
     });
 
+    it("a session is told apart from the other rows and from no row at all", () => {
+        const { session } = setup();
+        const thread = new Thread(session("s", 0), "t", 1);
+        expect(isDebugSession(session("other", 0))).toBe(true);
+        expect([undefined, null, "error", thread, [frame(thread, "f")]].map(isDebugSession)).toEqual([
+            false,
+            false,
+            false,
+            false,
+            false,
+        ]);
+    });
+
     it("one session with two threads shows the threads", async () => {
         const { dataSource, session } = setup();
         const only = session("only", 2);
@@ -221,6 +235,13 @@ describe("CallStackDataSource", () => {
         setCallStack(thread, [fresh]);
 
         expect(await dataSource.getChildren(thread)).toEqual([fresh, a, b]);
+        // More than the top frame arrived: the stale stack is not appended.
+        setCallStack(thread, [fresh, b]);
+        expect(await dataSource.getChildren(thread)).toEqual([fresh, b]);
+        setCallStack(thread, [fresh]);
+        // A thread that went on.
+        thread.stoppedDetails = undefined;
+        expect(await dataSource.getChildren(thread)).toEqual([fresh]);
 
         // Without the total, or with a total of one, nothing is appended.
         thread.stoppedDetails = { reason: "step", totalFrames: 1 };
@@ -286,6 +307,31 @@ describe("CallStackView", () => {
         return thread;
     }
 
+    /** The threads of a session, by name; the model's update, so a stack change. */
+    function threads(session: DebugSession, names: string[]): Thread[] {
+        model.rawUpdate({ sessionId: session.getId(), threads: names.map((name, i) => ({ id: i + 1, name })) });
+        return names.map((_, i) => session.getThread(i + 1)!);
+    }
+
+    function withFrames(thread: Thread, ...names: string[]): StackFrame[] {
+        const frames = names.map((name) => frame(thread, name));
+        thread.reachedEndOfCallStack = true;
+        setCallStack(thread, frames);
+        return frames;
+    }
+
+    /** Types into the tree, then lets the type-ahead forget it. */
+    function type(text: string): void {
+        for (const ch of text) app.sendKey(ch);
+        vi.advanceTimersByTime(1000);
+    }
+
+    function rowOf(name: string): string {
+        return screen()
+            .split("\n")
+            .find((row) => row.includes(` ${name} `))!;
+    }
+
     async function settle(): Promise<void> {
         await vi.advanceTimersByTimeAsync(CALL_STACK_REFRESH_DELAY_MS);
         await flushMicrotasks(20);
@@ -306,13 +352,19 @@ describe("CallStackView", () => {
         await settle();
 
         const text = screen();
-        expect(text).toContain("--- async ---");
+        // A label frame is its name alone: no marker, no location.
+        expect(
+            text
+                .split("\n")
+                .find((row) => row.includes("--- async ---"))
+                ?.trim(),
+        ).toBe("--- async ---");
         expect(text).toContain("native");
         expect(text).not.toContain("Unknown Source");
         expect(text).toContain("Unable to read the stack");
         expect(stateMessages.at(-1)).toBeUndefined();
 
-        app.sendKey("U");
+        type("U");
         expect(view.tree.focused).toBe("Unable to read the stack");
     });
 
@@ -335,6 +387,29 @@ describe("CallStackView", () => {
         view.tree.onActivate(new ThreadAndSessionIds("gone", 1));
         await flushMicrotasks(5);
         expect(fetch).toHaveBeenCalledOnce();
+
+        // With the total, the count left: read just those.
+        thread.stoppedDetails = { reason: "step", totalFrames: 5 };
+        view.tree.rerender();
+        expect(screen()).toContain("Load 4 More Stack Frames");
+        view.tree.onActivate(loadMore);
+        await flushMicrotasks(5);
+        expect(fetch).toHaveBeenLastCalledWith(4);
+
+        // The thread went on: the rest, whatever it is.
+        thread.stoppedDetails = undefined;
+        view.tree.rerender();
+        expect(screen()).toContain("Load More Stack Frames");
+        view.tree.onActivate(loadMore);
+        await flushMicrotasks(5);
+        expect(fetch).toHaveBeenLastCalledWith(undefined);
+
+        // The thread is gone, and the row repainted before the refresh drops it.
+        thread.stoppedDetails = { reason: "step" };
+        await view.tree.refresh();
+        model.rawUpdate({ sessionId: session.getId(), threads: [] });
+        view.tree.rerender();
+        expect(screen()).toContain("Load More Stack Frames");
     });
 
     it("deemphasized frames of one origin fold into Show N More with the origin; a lone one is muted", async () => {
@@ -383,10 +458,195 @@ describe("CallStackView", () => {
 
     it("a view made while a session is stopped shows its stack without a change", async () => {
         const session = addSession("s");
-        stopThread(session, { reason: "step" }, (t) => [frame(t, "main")]);
+        const thread = stopThread(session, { reason: "step" }, (t) => [frame(t, "main"), frame(t, "caller")]);
+        void debugService.focusStackFrame(thread.getCallStack()[1], thread, session);
         mount({ ...debugService, state: State.Stopped });
         await settle();
 
         expect(screen()).toContain("main");
+        expect(view.tree.focused).toBe(thread.getCallStack()[1]);
+    });
+
+    it("threads: each with its state on the right, closed until focused; the markers and the cursor follow the focus", async () => {
+        mount();
+        const session = addSession("s");
+        const [one, two] = threads(session, ["one", "two", "three"]);
+        stopped(one, { reason: "exception" });
+        stopped(two, { reason: "step" });
+        const [top1, mid1] = withFrames(one, "top1", "mid1", "low1");
+        withFrames(two, "top2");
+        await settle();
+
+        expect(rowOf("one")).toMatch(/one +PAUSED ON EXCEPTION/u);
+        expect(rowOf("two")).toMatch(/two +PAUSED ON STEP/u);
+        expect(rowOf("three")).toMatch(/three +RUNNING/u);
+        // The dark theme tells the two states apart by the background.
+        const bgOf = (text: string): unknown => {
+            const rows = screen().split("\n");
+            const y = rows.findIndex((r) => r.includes(text));
+            return app.backend.getBgAt(new Point(rows[y].indexOf(text), y));
+        };
+        expect(bgOf("PAUSED ON STEP")).not.toBe(bgOf("PAUSED ON EXCEPTION"));
+        // Nothing focused: no thread is open.
+        expect(screen()).not.toContain("top");
+
+        // A focus from outside opens the thread and puts the cursor on the frame; the top frame keeps its arrow.
+        await debugService.focusStackFrame(mid1, one, session);
+        await flushMicrotasks(20);
+        expect(view.tree.focused).toBe(mid1);
+        expect(rowOf("top1")).toContain("➜ top1");
+        expect(rowOf("mid1")).toContain("➜ mid1");
+        expect(rowOf("low1")).not.toContain("➜");
+        expect(rowOf("low1").indexOf("low1")).toBe(rowOf("mid1").indexOf("mid1"));
+
+        // The user's cursor on a thread focuses it, and stays there: the thread does not open.
+        app.sendKey("ArrowDown");
+        app.sendKey("ArrowDown");
+        await flushMicrotasks(20);
+        expect(view.tree.focused).toBe(two);
+        expect(debugService.getViewModel().focusedThread).toBe(two);
+        expect(screen()).not.toContain("top2");
+
+        // A focus from outside again moves the cursor.
+        await debugService.focusStackFrame(top1, one, session);
+        await flushMicrotasks(20);
+        expect(view.tree.focused).toBe(top1);
+    });
+
+    it("a session focused without a thread gets the cursor; two sessions have no message in the title", async () => {
+        mount();
+        await settle();
+        expect(stateMessages).toEqual([undefined]);
+        addSession("alpha");
+        const beta = addSession("beta");
+        await settle();
+
+        await debugService.focusStackFrame(undefined, undefined, beta);
+        await flushMicrotasks(20);
+        expect(view.tree.focused).toBe(beta);
+        expect(stateMessages.at(-1)).toBeUndefined();
+    });
+
+    it("the title: Running, a stop of the whole session, nothing for a stop shown on a thread row", async () => {
+        mount();
+        const session = addSession("s");
+        const state = vi.spyOn(session, "state", "get").mockReturnValue(State.Running);
+        threads(session, ["main", "worker"]);
+        await settle();
+        expect(stateMessages.at(-1)).toBe("Running");
+
+        const details = vi.spyOn(session, "getStoppedDetails").mockReturnValue({ reason: "pause" });
+        state.mockReturnValue(State.Stopped);
+        threads(session, ["main", "worker"]);
+        await settle();
+        expect(stateMessages.at(-1)).toBe("Paused on pause");
+
+        details.mockReturnValue({ reason: "step", threadId: 1 });
+        threads(session, ["main", "worker"]);
+        await settle();
+        expect(stateMessages.at(-1)).toBeUndefined();
+
+        threads(session, ["main"]);
+        await settle();
+        expect(stateMessages.at(-1)).toBe("Paused on step");
+    });
+
+    it("a burst of stack changes refreshes once, a delay after the first", async () => {
+        mount();
+        await settle();
+        stopThread(addSession("s"), { reason: "step" }, (t) => [frame(t, "main")]);
+        await vi.advanceTimersByTimeAsync(CALL_STACK_REFRESH_DELAY_MS - 20);
+        model.rawUpdate({ sessionId: model.getSessions()[0].getId(), threads: [{ id: 1, name: "main" }] });
+        await vi.advanceTimersByTimeAsync(20);
+        await flushMicrotasks(20);
+
+        expect(screen()).toContain("main");
+    });
+
+    it("a focus during a slow stop lands after the refresh; a later change leaves the user's cursor alone", async () => {
+        mount();
+        await settle();
+        const session = addSession("s");
+        model.rawUpdate({
+            sessionId: session.getId(),
+            threads: [{ id: 1, name: "main" }],
+            stoppedDetails: { threadId: 1, reason: "step" },
+        });
+        const thread = session.getThread(1)!;
+        const [first, second] = [frame(thread, "first"), frame(thread, "second")];
+        vi.spyOn(thread, "fetchCallStack").mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    setTimeout(() => {
+                        setCallStack(thread, [first, second]);
+                        resolve();
+                    }, 100);
+                }),
+        );
+        await debugService.focusStackFrame(second, thread, session);
+        await vi.advanceTimersByTimeAsync(300);
+        await flushMicrotasks(20);
+        expect(view.tree.focused).toBe(second);
+
+        // Load More: the cursor there focuses nothing; a stack change keeps it there.
+        app.sendKey("ArrowDown");
+        expect(view.tree.focused).toBeInstanceOf(ThreadAndSessionIds);
+        model.rawUpdate({ sessionId: session.getId(), threads: [{ id: 1, name: "main" }] });
+        await settle();
+        expect(view.tree.focused).toBeInstanceOf(ThreadAndSessionIds);
+    });
+
+    it("typing finds a session, a thread and a frame by name, and the other rows by their text", async () => {
+        mount();
+        const alpha = addSession("alpha");
+        const beta = addSession("beta");
+        const lib = (path: string, origin: string): Source => source({ path, origin, presentationHint: "deemphasize" });
+        const thread = stopThread(alpha, { reason: "step", framesErrorMessage: "Bad stack" }, (t) => [
+            frame(t, "main"),
+            frame(t, "x", { src: lib("/x.js", "one") }),
+            frame(t, "y", { src: lib("/y.js", "two") }),
+        ]);
+        thread.reachedEndOfCallStack = false;
+        const [, w2] = threads(beta, ["w1", "w2"]);
+        await settle();
+        // Folded frames of several origins name none.
+        expect(screen()).toContain("Show 2 More Stack Frames");
+
+        type("beta");
+        expect(view.tree.focused).toBe(beta);
+        type("w2");
+        expect(view.tree.focused).toBe(w2);
+        type("main");
+        expect(view.tree.focused).toBe(thread.getCallStack()[0]);
+        type("bad");
+        expect(view.tree.focused).toBe("Bad stack");
+        type("load");
+        expect(view.tree.focused).toBeInstanceOf(ThreadAndSessionIds);
+        type("show");
+        expect(Array.isArray(view.tree.focused)).toBe(true);
+        type("alpha");
+        expect(view.tree.focused).toBe(alpha);
+    });
+
+    it("the cursor on the second of two folds stays on it through a refresh", async () => {
+        mount();
+        const deemphasized = (t: Thread, name: string): StackFrame => frame(t, name, { hint: "deemphasize" });
+        const session = addSession("s");
+        const thread = stopThread(session, { reason: "step" }, (t) => [
+            frame(t, "main"),
+            deemphasized(t, "d1"),
+            deemphasized(t, "d2"),
+            frame(t, "user"),
+            deemphasized(t, "d3"),
+            deemphasized(t, "d4"),
+        ]);
+        await settle();
+        view.tree.list.focusFirst();
+        for (let i = 0; i < 3; i++) app.sendKey("ArrowDown");
+        expect((view.tree.focused as IStackFrame[])[0]).toBe(thread.getCallStack()[4]);
+
+        model.rawUpdate({ sessionId: session.getId(), threads: [{ id: 1, name: "main" }] });
+        await settle();
+        expect((view.tree.focused as IStackFrame[])[0]).toBe(thread.getCallStack()[4]);
     });
 });

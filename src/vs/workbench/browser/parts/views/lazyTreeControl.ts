@@ -85,6 +85,7 @@ function clickableLabel(span: IRowSpan, onClick: () => void): TextLabelElement {
  * right part to the edge when there is room.
  */
 function buildRow(spans: readonly IRowSpan[], end: readonly IRowSpan[]): TUIElement {
+    // Stryker disable next-line ConditionalExpression,LogicalOperator,ArrowFunction,EqualityOperator,BlockStatement: a row of plain spans as the flex's one fill child paints the same columns; one label is the cheaper element for the hundreds of rows a debug view rebuilds
     if (end.length === 0 && spans.every((span) => span.onClick === undefined)) {
         return spansLabel(spans);
     }
@@ -100,7 +101,7 @@ function buildRow(spans: readonly IRowSpan[], end: readonly IRowSpan[]): TUIElem
         run = [];
         row.addChild(clickableLabel(span, span.onClick), { width: hflexFit(), height: 1 });
     }
-    row.addChild(spansLabel(run), { width: end.length === 0 ? hflexFit() : hflexFill(), height: 1 });
+    row.addChild(spansLabel(run), { width: hflexFill(), height: 1 });
     if (end.length > 0) row.addChild(spansLabel([{ text: " " }, ...end]), { width: hflexFit(), height: 1 });
     return row;
 }
