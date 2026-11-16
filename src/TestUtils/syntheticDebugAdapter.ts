@@ -51,11 +51,15 @@ export const SYNTHETIC_CAPABILITIES: DebugProtocol.Capabilities = {
     supportsFunctionBreakpoints: true,
     supportsDataBreakpoints: true,
     supportsInstructionBreakpoints: true,
+    supportsCompletionsRequest: true,
     exceptionBreakpointFilters: [
         { filter: "cpp_throw", label: "C++: on throw", default: false },
         { filter: "cpp_catch", label: "C++: on catch", default: false },
     ],
 };
+
+/** Output in SGR colors with a file link, as test runners print: green `PASS`, bold yellow count, the location. */
+export const SYNTHETIC_ANSI_LINE = `\u001b[32mPASS\u001b[0m self-check \u001b[1;33m3/3\u001b[0m at ${SYNTHETIC_PROGRAM_ROOT}/src/main.cpp:27:9`;
 
 /** The Nth number of `nums`. */
 export function numAt(i: number): number {
@@ -338,6 +342,9 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             case "setVariable":
                 this.setVariable(request, args as unknown as DebugProtocol.SetVariableArguments);
                 return;
+            case "completions":
+                this.completions(request, args as unknown as DebugProtocol.CompletionsArguments);
+                return;
             case "continue":
                 this.respond(request, { allThreadsContinued: true });
                 this.resume(this.timing.continueMs, () => {
@@ -427,6 +434,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
         this.resume(this.timing.launchMs, () => {
             this.output("stdout", "Hello from hello 1.2.0!");
             this.output("stdout", "Reading input.txt: 1000 numbers");
+            this.output("stdout", SYNTHETIC_ANSI_LINE);
             this.output(
                 "console",
                 "warning: (x86_64) /lib/x86_64-linux-gnu/libstdc++.so.6 unable to locate separate debug file (dwo id 0x9a3c7e1f00b2d14e): No such file or directory — this line is long on purpose to see what the console does with it",
@@ -675,6 +683,15 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                     : 0x7fffffffe000 + index * 0x18 + (name === "rax" ? this.program.iteration : 0);
             return this.leaf(name, `0x${raw.toString(16).padStart(16, "0")}`, "unsigned long");
         });
+    }
+
+    /** The locals of the top frame whose names start with the word before the cursor (on the text's first line). */
+    private completions(request: DebugProtocol.Request, args: DebugProtocol.CompletionsArguments): void {
+        const word = /[\w$]*$/u.exec(args.text.split("\n")[0].slice(0, args.column - 1))?.[0] ?? "";
+        const targets = this.locals(this.program.frames(1)[0])
+            .filter((v) => v.name.startsWith(word))
+            .map((v) => ({ label: v.name, type: "variable", detail: v.type, length: word.length }));
+        this.respond(request, { targets });
     }
 
     private evaluate(request: DebugProtocol.Request, expression: string): void {

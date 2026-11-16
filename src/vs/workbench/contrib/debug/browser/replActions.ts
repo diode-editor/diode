@@ -1,9 +1,12 @@
 // The Debug Console's commands with upstream's ids, titles, keys and `when` (`debug.contribution.ts`, `repl.ts`).
 // Deviations: Ctrl+Shift+Y reaches only terminals with extended keys, Ctrl+K Y toggles the console everywhere (as
 // Ctrl+K M for Problems); Enter in the input is the input's own key (it calls `repl.action.acceptInput`'s method), and
-// Clear Console has no key: upstream binds Cmd+K on macOS only.
+// Clear Console has no key: upstream binds Cmd+K on macOS only. Focus Filter's Ctrl+F is bound in the console (its
+// precondition) rather than in any text input: the console's input is its only one. Collapse All has no context menu
+// to sit in yet (#1158): a command only.
 
 import { codicon } from "../../../../base/common/codicons.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -17,6 +20,9 @@ export const TOGGLE_REPL_ID = "workbench.debug.action.toggleRepl";
 export const FOCUS_REPL_ID = "workbench.debug.action.focusRepl";
 export const ACCEPT_REPL_INPUT_ID = "repl.action.acceptInput";
 export const CLEAR_REPL_ID = "workbench.debug.panel.action.clearReplAction";
+export const FILTER_REPL_ID = "repl.action.filter";
+export const COPY_ALL_REPL_ID = "repl.action.copyAll";
+export const COLLAPSE_REPL_ID = "debug.collapseRepl";
 
 export const toggleReplAction: CommandAction = {
     id: TOGGLE_REPL_ID,
@@ -71,9 +77,41 @@ export const clearReplAction: CommandAction = {
     },
 };
 
+export const filterReplAction: CommandAction = {
+    id: FILTER_REPL_ID,
+    title: "Debug Console: Focus Filter",
+    enablement: "inDebugRepl",
+    keybindings: [{ keys: parseKeybinding("mod+f"), when: "inDebugRepl" }],
+    run(accessor) {
+        accessor.get(ReplDIToken).focusFilter();
+    },
+};
+
+export const copyAllReplAction: CommandAction = {
+    id: COPY_ALL_REPL_ID,
+    title: "Debug: Console Copy All",
+    enablement: "inDebugRepl",
+    async run(accessor) {
+        await accessor.get(ClipboardDIToken).writeText(accessor.get(ReplDIToken).getVisibleContent());
+    },
+};
+
+export const collapseReplAction: CommandAction = {
+    id: COLLAPSE_REPL_ID,
+    title: "Collapse All",
+    run(accessor) {
+        const repl = accessor.get(ReplDIToken);
+        repl.collapseAll();
+        repl.focus();
+    },
+};
+
 export const REPL_ACTIONS: readonly CommandAction[] = [
     toggleReplAction,
     focusReplAction,
     acceptReplInputAction,
     clearReplAction,
+    filterReplAction,
+    copyAllReplAction,
+    collapseReplAction,
 ];

@@ -16,7 +16,11 @@ import {
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
 import type { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
+
 import { Emitter } from "../../../../base/common/event.ts";
+import type { Uri } from "../../../../base/common/uri.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { computeThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
@@ -25,7 +29,8 @@ import type { IViewContainerDescriptor, IViewDescriptor } from "../../../browser
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { DEBUG_PANEL_ID, type IDebugSession, REPL_VIEW_ID, State } from "../common/debug.ts";
 
-import { Repl, START_DEBUG_FIRST } from "./repl.ts";
+import { LinkDetector } from "./linkDetector.ts";
+import { FILTER_PLACEHOLDER, Repl, START_DEBUG_FIRST } from "./repl.ts";
 
 const PROMPT_COLOR = 0xff0000;
 
@@ -44,6 +49,13 @@ describe("Repl", () => {
     /** What a keydown in the console left for the workbench: whether the console took it. */
     let prevented: Map<string, boolean>;
     const mocks: MockDebugAdapter[] = [];
+    let settings: Record<string, unknown>;
+    const configurationChanged = new Emitter<{ affectsConfiguration(key: string): boolean }>();
+    let titleWidget: TUIElement | null;
+    /** What links opened: a URL, or `path@line:col` of a file. */
+    let opened: string[];
+    let activeUri: Uri | undefined;
+    let state: ReturnType<typeof mockStateService>;
 
     beforeEach(() => {
         fx = createDebugServiceFixture();
@@ -55,23 +67,66 @@ describe("Repl", () => {
         showVariableTypes = false;
         prevented = new Map();
         const icons = { glyph: () => glyphs, onDidChange: iconsChanged.event } as unknown as IProductIconService;
+        settings = {
+            "debug.console.wordWrap": false,
+            "debug.console.historySuggestions": true,
+            "debug.console.acceptSuggestionOnEnter": "off",
+        };
+        titleWidget = null;
+        opened = [];
+        state = mockStateService();
+        const links = new LinkDetector(
+            {
+                stat: (uri: Uri) =>
+                    uri.fsPath === "/src/app.ts"
+                        ? Promise.resolve({ isDirectory: false })
+                        : Promise.reject(new Error("missing")),
+            } as never,
+            {
+                editorGroups: { activeGroup: { findPaneIndex: () => -1 }, groups: [] },
+                openUri: (uri: Uri) => {
+                    activeUri = uri;
+                },
+                getActiveEditor: () => ({
+                    uri: activeUri,
+                    goToPosition: (line: number, column: number) =>
+                        opened.push(`${activeUri?.fsPath ?? ""}@${String(line)}:${String(column)}`),
+                }),
+            } as never,
+            { jumpAsync: async (run: () => Promise<void>) => run() } as never,
+            { open: (url: string) => Promise.resolve(opened.push(url) > 0) },
+            { userHome: "/home/u" },
+        );
         repl = new Repl(
             fx.service,
             {
                 registerContainer: (descriptor: IViewContainerDescriptor) => containers.push(descriptor),
                 registerView: (descriptor: IViewDescriptor) => views.push(descriptor),
+                setViewTitleWidget: (_id: string, widget: TUIElement | null) => {
+                    titleWidget = widget;
+                },
                 isViewShown: () => shown,
                 onDidShowView: viewShown.event,
             } as never,
             {
-                get: (key: string) => key === "debug.showVariableTypes" && showVariableTypes,
-                onDidChangeConfiguration: () => ({ dispose: () => undefined }),
+                get: (key: string) => (key === "debug.showVariableTypes" ? showVariableTypes : settings[key]),
+                onDidChangeConfiguration: configurationChanged.event,
             } as never,
             icons,
-            mockStateService(),
+            state,
+            links,
+            {
+                get mainContainer() {
+                    return app.root;
+                },
+            },
         );
         // The prompt's own color differs from the plain foreground it defaults to in the bundled themes.
-        app = TuidomTestApp.createWithContent(repl.view, new Size(60, 12), {
+        // The view's title row with the filter over the body, as the panel shows them.
+        const panel = new VFlexElement();
+        if (titleWidget !== null) panel.addChild(titleWidget, { height: vflexFixed(1), width: "fill" });
+        panel.addChild(repl.view, { height: vflexFill(), width: "fill" });
+        app = TuidomTestApp.createWithContent(panel, new Size(60, 12), {
             ...computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
             "debugConsoleInputIcon.foreground": PROMPT_COLOR,
         });
@@ -550,7 +605,7 @@ describe("Repl", () => {
         expect(screen()).not.toContain("{x=1}");
     });
 
-    it("the input: Enter on an empty input or with a modifier evaluates nothing", async () => {
+    it("the input: Enter on an empty input or with Ctrl evaluates nothing; Shift+Enter breaks the line", async () => {
         const session = await start("s");
         const before = session.getReplElements().length;
         repl.focus();
@@ -560,11 +615,12 @@ describe("Repl", () => {
         app.sendKey("Enter");
         app.sendKey("x");
         app.sendKey("Shift+Enter");
+        app.sendKey("Ctrl+Enter");
         app.sendKey("Ctrl+ArrowUp");
         await new Promise((resolve) => setTimeout(resolve, 80));
 
         expect(session.getReplElements()).toHaveLength(before);
-        expect(repl.input.inputState.value).toBe(" x");
+        expect(repl.input.inputState.value).toBe(" x\n");
     });
 
     it("without a session Clear Console takes away the answers given to the input", async () => {
@@ -587,7 +643,7 @@ describe("Repl", () => {
 
         await shows("main.cpp:4");
         expect(screen()).not.toContain("work");
-        expect(screen()).not.toContain("src/");
+        expect(screen()).not.toContain("src/main.cpp:4");
     });
 
     it("the input's hint follows the shown session's state", async () => {
@@ -616,5 +672,338 @@ describe("Repl", () => {
 
         await shows("» a");
         expect(screen().split("\n").at(-1)?.startsWith(` » ${START_DEBUG_FIRST}`)).toBe(true);
+    });
+
+    describe("output, filter and completion (#1150)", () => {
+        const themeVars = computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
+
+        /** The cell of the first `text` on the screen. */
+        function cellOf(text: string): Point {
+            const rows = screen().split("\n");
+            const y = rows.findIndex((row) => row.includes(text));
+            if (y === -1) throw new Error(`no ${text} on the screen`);
+            return new Point(rows[y].indexOf(text), y);
+        }
+
+        function clickAt({ x, y }: Point): void {
+            for (const action of ["press", "release"] as const) {
+                app.backend.simulateMouse({
+                    kind: "mouse",
+                    button: "left",
+                    x: x + 1,
+                    y: y + 1,
+                    action,
+                    shiftKey: false,
+                    altKey: false,
+                    ctrlKey: false,
+                    raw: "",
+                });
+            }
+        }
+
+        function type(text: string): void {
+            for (const char of text) app.sendKey(char);
+        }
+
+        it("output is drawn in its ANSI colors and styles, over the severity's color", async () => {
+            await start("s");
+            await shows("PASS self-check 3/3");
+            const pass = cellOf("PASS");
+            expect(app.backend.getFgAt(pass)).toBe(themeVars["terminal.ansiGreen"]);
+            expect(app.backend.getFgAt(cellOf("3/3"))).toBe(themeVars["terminal.ansiYellow"]);
+            expect(app.backend.getFgAt(cellOf("self-check"))).toBe(app.backend.getFgAt(cellOf("Hello")));
+
+            const session = repl.shownSession;
+            session?.appendToRepl({ output: "plain \u001b[34mblue\u001b[0m\n", sev: "error" });
+            await shows("plain blue");
+            expect(app.backend.getFgAt(cellOf("plain"))).toBe(themeVars["debugConsole.errorForeground"]);
+            expect(app.backend.getFgAt(cellOf("blue"))).toBe(themeVars["terminal.ansiBlue"]);
+        });
+
+        it("a long line wraps with debug.console.wordWrap and is cut without it; a change applies at once", async () => {
+            const session = await start("s");
+            const long = `${"a".repeat(50)} ${"b".repeat(20)} tail`;
+            session.appendToRepl({ output: `${long}\nnext\n`, sev: "info" });
+            await shows("next");
+            expect(screen()).not.toContain("tail");
+
+            settings["debug.console.wordWrap"] = true;
+            configurationChanged.fire({ affectsConfiguration: (key) => key === "debug.console.wordWrap" });
+            await shows("tail");
+            const rows = screen().split("\n");
+            const first = rows.findIndex((row) => row.includes("aaaa"));
+            expect(rows[first + 1]).toContain("bbbb");
+            expect(rows[first + 2]).toContain("next");
+
+            configurationChanged.fire({ affectsConfiguration: () => false });
+            app.render();
+            expect(screen()).toContain("tail");
+        });
+
+        it("a wrapped line keeps its source on its first line", async () => {
+            settings["debug.console.wordWrap"] = true;
+            const session = await start("s");
+            const source = session.getSource({ name: "main.cpp", path: "/w/main.cpp" });
+            session.appendToRepl({
+                output: `${"w".repeat(80)}\n`,
+                sev: "info",
+                source: { lineNumber: 7, column: 1, source },
+            });
+            await shows("main.cpp:7");
+            const rows = screen().split("\n");
+            const first = rows.findIndex((row) => row.includes("main.cpp:7"));
+            expect(rows[first]).toContain("www");
+            expect(rows[first + 1]).toContain("www");
+            const total = rows.filter((row) => row.includes("ww")).map((row) => row.split("w").length - 1).reduce((a, b) => a + b, 0);
+            expect(total).toBe(80);
+        });
+
+        it("a click on a file link opens it at its line and column; on a web link, the system's opener", async () => {
+            const session = await start("s");
+            session.appendToRepl({ output: "at /src/app.ts:3:5 and https://example.com/x\n", sev: "info" });
+            session.appendToRepl({ output: "gone /src/missing.ts:1\n", sev: "info" });
+            await shows("gone");
+
+            clickAt(cellOf("app.ts:3"));
+            await vi.waitFor(() => {
+                expect(opened).toEqual(["/src/app.ts@2:4"]);
+            });
+            clickAt(cellOf("example.com"));
+            await vi.waitFor(() => {
+                expect(opened).toEqual(["/src/app.ts@2:4", "https://example.com/x"]);
+            });
+            clickAt(cellOf("missing.ts"));
+            clickAt(cellOf("and "));
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            expect(opened).toHaveLength(2);
+        });
+
+        it("the filter in the view's title hides output lines, counts what it shows and is kept per workspace", async () => {
+            const session = await start("s");
+            await shows("warning:");
+            expect(titleWidget).not.toBeNull();
+            expect(repl.filterInput.placeholder).toBe(FILTER_PLACEHOLDER);
+
+            repl.focusFilter();
+            expect(repl.filterInput.isFocused).toBe(true);
+            type("hello from,reading");
+            await vi.waitFor(() => {
+                expect(screen()).not.toContain("Launching");
+            });
+            expect(screen()).toContain("Hello from hello");
+            expect(screen()).toContain("Reading input");
+            expect(repl.filterBadge.text).toMatch(/^Showing 2 of \d+ $/u);
+            expect(state.values.get("debug.repl.filter.value")).toBe("hello from,reading");
+
+            // Evaluations stay whatever the filter says.
+            repl.focus();
+            type("i");
+            app.sendKey("Enter");
+            await shows("> i");
+
+            repl.focusFilter();
+            app.sendKey("Escape");
+            await shows("Launching");
+            expect(repl.filterBadge.text).toBe("");
+            expect(session.getReplElements().length).toBeGreaterThan(3);
+        });
+
+        it("an exclusion hides what it matches; a group's children take its verdict unless an inclusion decides", async () => {
+            const session = await start("s");
+            const raw = session as unknown as {
+                repl: { startGroup(s: IDebugSession, name: string, expand: boolean): void; endGroup(): void };
+            };
+            raw.repl.startGroup(session, "Group of things", true);
+            session.appendToRepl({ output: "inside one\n", sev: "info" });
+            session.appendToRepl({ output: "inside two\n", sev: "info" });
+            raw.repl.endGroup();
+            await shows("inside two");
+            repl.focusFilter();
+
+            type("!launch");
+            await vi.waitFor(() => {
+                expect(screen()).not.toContain("Launching");
+            });
+            expect(screen()).toContain("inside one");
+
+            app.sendKey("Escape");
+            type("!two");
+            await vi.waitFor(() => {
+                expect(screen()).not.toContain("inside two");
+            });
+            expect(screen()).toContain("inside one");
+            expect(screen()).toContain("Launching");
+
+            app.sendKey("Escape");
+            type("!things");
+            await vi.waitFor(() => {
+                expect(screen()).not.toContain("inside one");
+            });
+            expect(screen()).not.toContain("Group of");
+
+            // An inclusion decides the children too (upstream): the group shows, its lines do not match.
+            app.sendKey("Escape");
+            type("group,one");
+            await vi.waitFor(() => {
+                expect(screen()).not.toContain("Launching");
+            });
+            expect(screen()).toContain("Group of things");
+            expect(screen()).toContain("inside one");
+            expect(screen()).not.toContain("inside two");
+        });
+
+        it("a stored filter applies when the console is made", async () => {
+            const stored = mockStateService();
+            stored.store({ key: "debug.repl.filter.value", scope: "workspace", default: "" }, "nothing matches");
+            const other = new Repl(
+                fx.service,
+                {
+                    registerContainer: () => undefined,
+                    registerView: () => undefined,
+                    setViewTitleWidget: () => undefined,
+                    isViewShown: () => true,
+                    onDidShowView: viewShown.event,
+                } as never,
+                { get: () => false, onDidChangeConfiguration: configurationChanged.event } as never,
+                { glyph: () => ">", onDidChange: iconsChanged.event } as unknown as IProductIconService,
+                stored,
+                { linkify: (spans) => [...spans] },
+                { mainContainer: app.root },
+            );
+            expect(other.filterInput.inputState.value).toBe("nothing matches");
+            other.dispose();
+        });
+
+        it("typing completes through the adapter; Tab accepts, Escape closes, Enter evaluates the input", async () => {
+            await start("s");
+            repl.focus();
+            type("cf");
+            await vi.waitFor(() => {
+                expect(repl.suggest.isOpen).toBe(true);
+            });
+            expect(repl.suggest.list.items.map((item) => item.label)).toEqual(["cfg"]);
+            await shows("cfg");
+
+            app.sendKey("Tab");
+            expect(repl.input.inputState.value).toBe("cfg");
+            expect(repl.suggest.isOpen).toBe(false);
+
+            app.sendKey("Backspace");
+            await vi.waitFor(() => {
+                expect(repl.suggest.isOpen).toBe(true);
+            });
+            app.sendKey("Escape");
+            expect(repl.suggest.isOpen).toBe(false);
+            expect(repl.input.inputState.value).toBe("cf");
+
+            type("g");
+            await vi.waitFor(() => {
+                expect(repl.suggest.isOpen).toBe(true);
+            });
+            app.sendKey("Enter");
+            expect(repl.suggest.isOpen).toBe(false);
+            await shows("> cfg");
+        });
+
+        it("history suggestions come after the adapter's; acceptSuggestionOnEnter takes Enter; Ctrl+Space asks", async () => {
+            await start("s");
+            state.store({ key: "debug.repl.history", scope: "workspace", default: [] }, ["count + 1", "cfg.retries"]);
+            settings["debug.console.acceptSuggestionOnEnter"] = "on";
+            repl.focus();
+            type("c");
+            await vi.waitFor(() => {
+                expect(repl.suggest.list.items.map((item) => item.label)).toEqual([
+                    "cfg",
+                    "count",
+                    "cfg.retries",
+                    "count + 1",
+                ]);
+            });
+            app.sendKey("ArrowDown");
+            app.sendKey("ArrowDown");
+            app.sendKey("ArrowUp");
+            app.sendKey("ArrowDown");
+            app.sendKey("Enter");
+            expect(repl.input.inputState.value).toBe("cfg.retries");
+
+            settings["debug.console.historySuggestions"] = false;
+            repl.input.inputState.value = "";
+            app.sendKey("Ctrl+ ");
+            await vi.waitFor(() => {
+                expect(repl.suggest.isOpen).toBe(true);
+            });
+            expect(repl.suggest.list.items.map((item) => item.label)).not.toContain("count + 1");
+            app.sendKey("PageDown");
+            app.sendKey("PageUp");
+            app.sendKey("Tab");
+            expect(repl.input.inputState.value).toBe("bad");
+        });
+
+        it("no completion without a running session or for an adapter without completions", async () => {
+            repl.focus();
+            type("cf");
+            app.sendKey("Ctrl+ ");
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            expect(repl.suggest.isOpen).toBe(false);
+
+            const session = await start("s");
+            (session.capabilities as { supportsCompletionsRequest?: boolean }).supportsCompletionsRequest = false;
+            repl.input.inputState.value = "";
+            type("cf");
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            expect(repl.suggest.isOpen).toBe(false);
+        });
+
+        it("a focus change closes the popup", async () => {
+            await start("s");
+            repl.focus();
+            type("cf");
+            await vi.waitFor(() => {
+                expect(repl.suggest.isOpen).toBe(true);
+            });
+            repl.focusFilter();
+            expect(repl.suggest.isOpen).toBe(false);
+        });
+
+        it("Shift+Enter breaks the input's line; Up and Down move in it and walk the history from its edges", async () => {
+            await start("s");
+            state.store({ key: "debug.repl.history", scope: "workspace", default: [] }, ["old"]);
+            repl.focus();
+            type("one");
+            app.sendKey("Shift+Enter");
+            type("two");
+            app.render();
+            expect(repl.input.lineCount).toBe(2);
+            expect(screen().split("\n").slice(-2)).toEqual([
+                expect.stringContaining("> one") as string,
+                expect.stringMatching(/^ {3}two/u) as string,
+            ]);
+
+            app.sendKey("ArrowUp");
+            expect(repl.input.cursorLine).toBe(0);
+            expect(repl.input.inputState.value).toBe("one\ntwo");
+            app.sendKey("ArrowUp");
+            expect(repl.input.inputState.value).toBe("old");
+            app.sendKey("ArrowDown");
+            expect(repl.input.inputState.value).toBe("");
+        });
+
+        it("Copy All takes the rows shown without their ANSI codes; Collapse All closes the groups", async () => {
+            const session = await start("s");
+            await shows("PASS");
+            expect(repl.getVisibleContent()).toContain(
+                "PASS self-check 3/3 at /home/user/hello/src/main.cpp:27:9\n",
+            );
+            expect(repl.getVisibleContent()).not.toContain("\u001b");
+
+            const model = session as unknown as { repl: { startGroup: (...a: unknown[]) => void } };
+            model.repl.startGroup(session, "G", true);
+            session.appendToRepl({ output: "child\n", sev: "info" });
+            await shows("child");
+            repl.collapseAll();
+            app.render();
+            expect(screen()).not.toContain("child");
+            expect(repl.getVisibleContent()).not.toContain("child");
+        });
     });
 });

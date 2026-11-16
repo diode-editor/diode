@@ -148,6 +148,8 @@ describe("Debug Console in the workbench", () => {
     });
 
     it("`cfg` echoes the input and expands its object in place down to `limits`; `foo + 1` is an error", async () => {
+        // One line a row: the expanded children stay in the panel (an expansion at the bottom does not scroll, as upstream).
+        await h.container.get(IConfigurationServiceDIToken).updateValue("debug.console.wordWrap", false);
         await startStopped();
 
         await evaluate("cfg");
@@ -185,6 +187,8 @@ describe("Debug Console in the workbench", () => {
     });
 
     it("an arithmetic result is a number in the focused frame; the input keeps the focus", async () => {
+        // One line a row: the result is the line under its echo, without the scrollbar of a taller console.
+        await h.container.get(IConfigurationServiceDIToken).updateValue("debug.console.wordWrap", false);
         await startStopped();
 
         await evaluate("6 * 7");
@@ -286,6 +290,7 @@ describe("Debug Console in the workbench", () => {
     });
 
     it("an object the adapter logged (`variablesReference`) expands in the output", async () => {
+        await h.container.get(IConfigurationServiceDIToken).updateValue("debug.console.wordWrap", false);
         const session = await startStopped();
 
         // A logged number is colored as one.
@@ -330,7 +335,7 @@ describe("Debug Console in the workbench", () => {
         expect(screen()).not.toContain("line 59");
         session.appendToRepl({ output: "line 60\n", sev: "info" });
         await vi.waitFor(() => {
-            expect(session.getReplElements()).toHaveLength(66);
+            expect(session.getReplElements()).toHaveLength(67);
         });
         await new Promise((resolve) => setTimeout(resolve, 100));
         expect(screen()).not.toContain("line 60");

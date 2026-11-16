@@ -9,7 +9,9 @@
  * - `${command:pickProgram}` is the extension's quick pick;
  * - the second resolution sees the substituted program and adds an argument;
  * - the adapter "runs" the program: it prints a greeting to the Debug Console and stops on entry in `main` of
- *   the folder's `hello.c` with `argc` and `program` among the locals.
+ *   the folder's `hello.c` with `argc` and `program` among the locals;
+ * - the Debug Console gets output in ANSI colors with a link to `hello.c`, a group and a long line; the adapter
+ *   completes the console's input (`completions`).
  */
 const path = require("node:path");
 
@@ -86,6 +88,18 @@ class DemoAdapter {
         if (request.command === "configurationDone") {
             const { program, args } = this.configuration;
             this.event("output", { category: "stdout", output: `Hello from ${program} ${args.join(" ")}\n` });
+            // What a test runner prints: SGR colors, a file link, a group, and a line longer than the console.
+            this.event("output", { category: "stdout", output: "Checks", group: "start" });
+            this.event("output", {
+                category: "stdout",
+                output: `\u001b[32mPASS\u001b[0m self-check \u001b[1;33m3/3\u001b[0m at ${this.source}:3:5\n`,
+            });
+            this.event("output", { category: "stdout", output: "\u001b[31mFAIL\u001b[0m none\n" });
+            this.event("output", { category: "stdout", output: "", group: "end" });
+            this.event("output", {
+                category: "console",
+                output: `${"A long line that the Debug Console wraps to its width, ".repeat(4)}end of the long line\n`,
+            });
             this.event("stopped", { reason: "entry", threadId: 1, allThreadsStopped: true });
         }
         if (request.command === "disconnect") this.event("terminated");
@@ -94,7 +108,15 @@ class DemoAdapter {
     answer(request) {
         switch (request.command) {
             case "initialize":
-                return { supportsConfigurationDoneRequest: true };
+                return { supportsConfigurationDoneRequest: true, supportsCompletionsRequest: true };
+            case "completions": {
+                // The locals and `cfg` whose names start with the word before the cursor.
+                const word = /[\w$]*$/u.exec(request.arguments.text.slice(0, request.arguments.column - 1))[0];
+                const targets = ["argc", "program", "cfg", "count"]
+                    .filter((name) => name.startsWith(word))
+                    .map((label) => ({ label, type: "variable", length: word.length }));
+                return { targets };
+            }
             case "threads":
                 return { threads: [{ id: 1, name: "main thread" }] };
             case "stackTrace":

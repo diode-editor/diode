@@ -268,6 +268,8 @@ export function handleANSIOutput(text: string): IAnsiSpan[] {
      * @see {@link https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit }
      */
     function set8BitColor(styleCodes: number[], colorType: ColorType): void {
+        // Upstream maps an underline color of the 16 to a foreground one; the underline color has no cell here.
+        if (colorType === "underline") return;
         let colorNumber = styleCodes[2];
         const color = calcANSI8bitColor(colorNumber);
 

@@ -47,12 +47,52 @@ export const debugConfiguration = {
             description: "Controls if the Debug Console should be automatically closed when the debug session ends.",
             default: false,
         },
+        // Declared, not applied: the console is in the terminal's cells, with its font and line height.
+        "debug.console.fontSize": {
+            scope: "window",
+            type: "number",
+            description: "Controls the font size in pixels in the Debug Console.",
+            default: 14,
+        },
+        "debug.console.fontFamily": {
+            scope: "window",
+            type: "string",
+            description: "Controls the font family in the Debug Console.",
+            default: "default",
+        },
+        "debug.console.lineHeight": {
+            scope: "window",
+            type: "number",
+            description:
+                "Controls the line height in pixels in the Debug Console. Use 0 to compute the line height from the font size.",
+            default: 0,
+        },
+        "debug.console.wordWrap": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls if the lines should wrap in the Debug Console.",
+            default: true,
+        },
+        "debug.console.historySuggestions": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls if the Debug Console should suggest previously typed input.",
+            default: true,
+        },
         "debug.console.collapseIdenticalLines": {
             scope: "window",
             type: "boolean",
             description:
                 "Controls if the Debug Console should collapse identical lines and show a number of occurrences with a badge.",
             default: true,
+        },
+        "debug.console.acceptSuggestionOnEnter": {
+            scope: "window",
+            type: "string",
+            enum: ["off", "on"],
+            description:
+                "Controls whether suggestions should be accepted on Enter in the Debug Console. Enter is also used to evaluate whatever is typed in the Debug Console.",
+            default: "off",
         },
         "debug.console.maximumLines": {
             scope: "window",
