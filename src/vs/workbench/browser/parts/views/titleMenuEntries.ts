@@ -126,6 +126,7 @@ interface ISplitButton extends IResolvedSplitButton {
  * and without a glyph (an SVG icon and no fallback) the submenu goes to "⋯" with its label instead.
  */
 function splitButtonOf(entry: ResolvedMenuEntry, memory: ISplitButtonMemory | undefined): ISplitButton | null {
+    // Stryker disable next-line ConditionalExpression: the type check is TS narrowing; only submenu entries carry `splitButton`, the next check filters the rest out
     if (entry.type !== "submenu" || entry.splitButton === undefined) return null;
     const split = entry.splitButton;
     const entries = submenuEntries(entry);
