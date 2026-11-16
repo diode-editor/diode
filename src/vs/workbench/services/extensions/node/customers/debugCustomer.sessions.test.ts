@@ -113,18 +113,22 @@ describe("DebugCustomer — what the core tells extensions about its sessions", 
     it("the focused thread or frame reaches the extension as its stack item", async () => {
         const { debug, events } = setup();
         const items: unknown[] = [];
-        debug.onDidChangeActiveStackItem((item) => items.push(item && { ...item, session: item.session.id }));
+        debug.onDidChangeActiveStackItem((item) =>
+            items.push(
+                item && {
+                    threadId: item.threadId,
+                    frameId: (item as { frameId?: number }).frameId,
+                    session: item.session.id,
+                },
+            ),
+        );
 
         events.stackFocusChanged({ session: SESSION, threadId: 3 });
         events.stackFocusChanged({ session: SESSION, threadId: 3, frameId: 9 });
         events.stackFocusChanged(undefined);
         await flush();
 
-        expect(items).toEqual([
-            { session: "s1", threadId: 3 },
-            { session: "s1", threadId: 3, frameId: 9 },
-            undefined,
-        ]);
+        expect(items).toEqual([{ session: "s1", threadId: 3 }, { session: "s1", threadId: 3, frameId: 9 }, undefined]);
     });
 
     it("breakpoint deltas of the core reach the extension", async () => {
@@ -146,7 +150,7 @@ describe("DebugCustomer — what extensions ask of the core's sessions", () => {
         const { debug, events, sink } = setup();
         events.activeSessionChanged(SESSION);
         await flush();
-        const session = debug.activeDebugSession as vscode.DebugSession;
+        const session = debug.activeDebugSession!;
 
         await expect(session.customRequest("readMemory", { count: 4 })).resolves.toEqual({ result: "42" });
         expect(sink.customRequest).toHaveBeenCalledWith("s1", "readMemory", { count: 4 });
@@ -159,7 +163,7 @@ describe("DebugCustomer — what extensions ask of the core's sessions", () => {
         const { debug, events, sink } = setup();
         events.activeSessionChanged(SESSION);
         await flush();
-        const session = debug.activeDebugSession as vscode.DebugSession;
+        const session = debug.activeDebugSession!;
         const bp = new FunctionBreakpoint("main");
 
         await expect(session.getDebugProtocolBreakpoint(bp)).resolves.toBeUndefined();
@@ -185,7 +189,7 @@ describe("DebugCustomer — what extensions ask of the core's sessions", () => {
         const { debug, events, sink, subRpc } = setup();
         events.activeSessionChanged(SESSION);
         await flush();
-        (debug.activeDebugSession as vscode.DebugSession).name = "Mine";
+        debug.activeDebugSession!.name = "Mine";
         debug.activeDebugConsole.appendLine("hello");
         const notify = subRpc.notify.bind(subRpc) as (method: string, params: unknown) => void;
         notify("debug.setSessionName", { sessionId: "s1" });
@@ -203,8 +207,9 @@ describe("DebugCustomer — what extensions ask of the core's sessions", () => {
         );
         const fn = new FunctionBreakpoint("main", false);
 
-        await (debug.addBreakpoints([source, fn]) as unknown);
-        await (debug.removeBreakpoints([source, fn]) as unknown);
+        // `vscode.d.ts` says `void`; upstream returns the promise of the core's answer.
+        await (debug.addBreakpoints as (bps: readonly vscode.Breakpoint[]) => Promise<void>)([source, fn]);
+        await (debug.removeBreakpoints as (bps: readonly vscode.Breakpoint[]) => Promise<void>)([source, fn]);
 
         expect(sink.registerBreakpoints.mock.calls).toEqual([
             [

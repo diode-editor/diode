@@ -89,8 +89,19 @@ describe("debugWireParsers — breakpoints of extensions", () => {
                     { type: "data", id: "d", enabled: true },
                     { type: "sourceMulti", uri: 1, lines: [line] },
                     { type: "sourceMulti", uri: "file:///a", lines: line },
-                    { type: "sourceMulti", uri: "file:///a", lines: [null, { ...line, id: 1 }, { ...line, line: "1" }] },
-                    { type: "sourceMulti", uri: "file:///a", lines: [{ ...line, character: null }, { ...line, enabled: 1 }] },
+                    {
+                        type: "sourceMulti",
+                        uri: "file:///a",
+                        lines: [null, { ...line, id: 1 }, { ...line, line: "1" }],
+                    },
+                    {
+                        type: "sourceMulti",
+                        uri: "file:///a",
+                        lines: [
+                            { ...line, character: null },
+                            { ...line, enabled: 1 },
+                        ],
+                    },
                     { ...fn, functionName: 1 },
                     { ...fn, id: 1 },
                     { ...fn, enabled: "yes" },

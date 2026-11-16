@@ -191,7 +191,10 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
     }
 
     /** Upstream `$unregisterBreakpoints`. */
-    public unregisterBreakpoints({ breakpointIds, functionBreakpointIds }: IWireDebugUnregisterBreakpoints): Promise<void> {
+    public unregisterBreakpoints({
+        breakpointIds,
+        functionBreakpointIds,
+    }: IWireDebugUnregisterBreakpoints): Promise<void> {
         for (const id of breakpointIds) void this.debugService.removeBreakpoints(id);
         for (const id of functionBreakpointIds) void this.debugService.removeFunctionBreakpoints(id);
         return Promise.resolve();
@@ -322,17 +325,16 @@ export class ExtensionHostDebugAdapter extends AbstractDebugAdapter {
     public constructor(host: IExtensionDebugAdapterHost, session: IDebugSession) {
         super();
         this.connection = host.createAdapter(sessionDto(session), {
-                onMessage: (message) => {
-                    this.acceptMessage(message);
-                },
-                onError: (error) => {
-                    this.onErrorEmitter.fire(error);
-                },
-                onExit: (code) => {
-                    this.onExitEmitter.fire(code ?? null);
-                },
+            onMessage: (message) => {
+                this.acceptMessage(message);
             },
-        );
+            onError: (error) => {
+                this.onErrorEmitter.fire(error);
+            },
+            onExit: (code) => {
+                this.onExitEmitter.fire(code ?? null);
+            },
+        });
     }
 
     public startSession(): Promise<void> {

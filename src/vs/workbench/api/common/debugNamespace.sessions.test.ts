@@ -38,12 +38,12 @@ describe("vscode.debug — the core's sessions", () => {
         stub.fire("debug.acceptSessionStarted", { session: SESSION });
         stub.fire("debug.acceptSessionStarted", { session: CHILD });
 
-        const [session, child] = started;
+        const [session, child] = started as [vscode.DebugSession, vscode.DebugSession];
         expect(session).toMatchObject({ id: "s1", type: "lldb", name: "Launch", configuration: CONFIG });
-        expect(session?.workspaceFolder?.uri.toString()).toBe(FOLDER);
-        expect(session?.parentSession).toBeUndefined();
-        expect(child?.workspaceFolder).toBeUndefined();
-        expect(child?.parentSession).toBe(session);
+        expect(session.workspaceFolder?.uri.toString()).toBe(FOLDER);
+        expect(session.parentSession).toBeUndefined();
+        expect(child.workspaceFolder).toBeUndefined();
+        expect(child.parentSession).toBe(session);
         expect(Object.isFrozen(session)).toBe(true);
     });
 
@@ -102,13 +102,13 @@ describe("vscode.debug — the core's sessions", () => {
 
         stub.fire("debug.acceptSessionCustomEvent", { session: SESSION, event: "progress", body: { n: 1 } });
 
-        expect(events).toEqual([{ session: expect.objectContaining({ id: "s1" }), event: "progress", body: { n: 1 } }]);
+        expect(events.map((e): unknown[] => [e.session.id, e.event, e.body])).toEqual([["s1", "progress", { n: 1 }]]);
     });
 
     it("a session's name follows the core's; setting it renames the core's session", () => {
         const { stub, vscode } = setup();
         stub.fire("debug.acceptActiveSessionChanged", { session: SESSION });
-        const session = vscode.debug.activeDebugSession as vscode.DebugSession;
+        const session = vscode.debug.activeDebugSession!;
 
         stub.fire("debug.acceptSessionNameChanged", { session: SESSION, name: "Renamed by core" });
         expect(session.name).toBe("Renamed by core");
@@ -122,7 +122,7 @@ describe("vscode.debug — the core's sessions", () => {
         const { stub, vscode } = setup();
         stub.responder = (method) => (method === "debug.customRequest" ? { body: { result: 42 } } : undefined);
         stub.fire("debug.acceptActiveSessionChanged", { session: SESSION });
-        const session = vscode.debug.activeDebugSession as vscode.DebugSession;
+        const session = vscode.debug.activeDebugSession!;
 
         await expect(session.customRequest("evaluate", { expression: "x" })).resolves.toEqual({ result: 42 });
         expect(sent(stub, "debug.customRequest")).toEqual([
@@ -142,9 +142,11 @@ describe("vscode.debug — the core's sessions", () => {
         const { stub, vscode } = setup();
         const bp = new vscode.FunctionBreakpoint("main");
         stub.responder = (_method, params) =>
-            (params as { breakpointId: string }).breakpointId === bp.id ? { breakpoint: { id: 7, verified: true } } : {};
+            (params as { breakpointId: string }).breakpointId === bp.id
+                ? { breakpoint: { id: 7, verified: true } }
+                : {};
         stub.fire("debug.acceptActiveSessionChanged", { session: SESSION });
-        const session = vscode.debug.activeDebugSession as vscode.DebugSession;
+        const session = vscode.debug.activeDebugSession!;
 
         await expect(session.getDebugProtocolBreakpoint(bp)).resolves.toEqual({ id: 7, verified: true });
         await expect(session.getDebugProtocolBreakpoint(new vscode.FunctionBreakpoint("f"))).resolves.toBeUndefined();
@@ -165,7 +167,8 @@ describe("vscode.debug — the focused thread or frame", () => {
         stub.fire("debug.acceptStackFocus", {});
 
         expect(thread).toBeInstanceOf(vscode.DebugThread);
-        expect(thread).toMatchObject({ threadId: 1, session: expect.objectContaining({ id: "s1" }) });
+        expect(thread).toMatchObject({ threadId: 1 });
+        expect((thread as vscode.DebugThread).session.id).toBe("s1");
         expect(thread).not.toHaveProperty("frameId");
         expect(frame).toBeInstanceOf(vscode.DebugStackFrame);
         expect(frame).toMatchObject({ threadId: 1, frameId: 1000 });

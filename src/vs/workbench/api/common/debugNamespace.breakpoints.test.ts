@@ -3,6 +3,7 @@ import type * as vscode from "vscode";
 
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
+import { FunctionBreakpoint, SourceBreakpoint } from "./debugTypes.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
@@ -18,6 +19,13 @@ function setup() {
 
 function requests(stub: ReturnType<typeof makeStubRpc>, method: string): unknown[] {
     return stub.requests.filter((r) => r.method === method).map((r) => r.params);
+}
+
+/** `vscode.d.ts` says `void`; upstream returns the promise of the core's answer, and so does Diode. */
+function awaitable(
+    call: (breakpoints: readonly vscode.Breakpoint[]) => void,
+): (breakpoints: readonly vscode.Breakpoint[]) => Promise<void> {
+    return call as (breakpoints: readonly vscode.Breakpoint[]) => Promise<void>;
 }
 
 const SOURCE = {
@@ -92,14 +100,15 @@ describe("vscode.debug — breakpoints of the extension", () => {
         const { stub, vscode, changes } = setup();
         const at = (line: number, character: number): vscode.Location =>
             new vscode.Location(vscode.Uri.parse(FILE), new vscode.Position(line, character));
-        const a = new vscode.SourceBreakpoint(at(1, 0), true, "x", undefined, undefined, "hw");
+        // `mode` is not in the pinned `vscode.d.ts` (proposed in upstream); the classes take it, upstream sends it.
+        const a = new SourceBreakpoint(at(1, 0), true, "x", undefined, undefined, "hw");
         const b = new vscode.SourceBreakpoint(at(5, 3), false, undefined, "2", "log {x}");
         const other = new vscode.SourceBreakpoint(
             new vscode.Location(vscode.Uri.parse("file:///ws/b.c"), new vscode.Position(0, 0)),
         );
-        const fn = new vscode.FunctionBreakpoint("main", true, undefined, undefined, undefined, "m");
+        const fn = new FunctionBreakpoint("main", true, undefined, undefined, undefined, "m");
 
-        const done = vscode.debug.addBreakpoints([a, fn, b, other, a]) as unknown;
+        const done = awaitable(vscode.debug.addBreakpoints)([a, fn, b, other, a]);
         expect(changes).toEqual([{ added: [a, fn, b, other], removed: [], changed: [] }]);
         await done;
         vscode.debug.addBreakpoints([a]);
@@ -113,7 +122,14 @@ describe("vscode.debug — breakpoints of the extension", () => {
                         uri: FILE,
                         lines: [
                             { id: a.id, enabled: true, condition: "x", mode: "hw", line: 1, character: 0 },
-                            { id: b.id, enabled: false, hitCondition: "2", logMessage: "log {x}", line: 5, character: 3 },
+                            {
+                                id: b.id,
+                                enabled: false,
+                                hitCondition: "2",
+                                logMessage: "log {x}",
+                                line: 5,
+                                character: 3,
+                            },
                         ],
                     },
                     { type: "function", id: fn.id, enabled: true, mode: "m", functionName: "main" },
@@ -135,7 +151,7 @@ describe("vscode.debug — breakpoints of the extension", () => {
         const [source, fn] = vscode.debug.breakpoints;
         const unknown = new vscode.FunctionBreakpoint("nope");
 
-        await (vscode.debug.removeBreakpoints([fn as vscode.Breakpoint, unknown, source as vscode.Breakpoint]) as unknown);
+        await awaitable(vscode.debug.removeBreakpoints)([fn, unknown, source]);
 
         expect(vscode.debug.breakpoints).toEqual([]);
         expect(changes[1]).toEqual({ added: [], removed: [fn, source], changed: [] });

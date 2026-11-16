@@ -577,7 +577,7 @@ interface ISessionEntry {
 }
 
 /** The fields every breakpoint has on the wire, without the absent ones. */
-function breakpointFields(bp: vscode.Breakpoint): IWireDebugBreakpointBase {
+function breakpointFields(bp: Breakpoint): IWireDebugBreakpointBase {
     return {
         id: bp.id,
         enabled: bp.enabled,

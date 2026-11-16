@@ -16,6 +16,8 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { IWireDebugSession } from "../../../api/common/debugWireTypes.ts";
 import type { IExtensionDebugEvents } from "../../../api/common/iExtensionDebugSink.ts";
 import { type IConfig, type IDebugSession, State } from "../common/debug.ts";
+import type { DebugModel } from "../common/debugModel.ts";
+import type { ViewModel } from "../common/debugViewModel.ts";
 
 import { ExtensionDebugAdapter } from "./extensionDebugAdapter.ts";
 
@@ -81,8 +83,12 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
         fx.service.dispose();
     });
 
+    /** The service's own model and view model: the tests change them as the views and the adapter answers do. */
+    const debugModel = (): DebugModel => fx.service.getModel() as DebugModel;
+    const viewModel = (): ViewModel => fx.service.getViewModel() as ViewModel;
+
     function session(): IDebugSession {
-        return fx.service.getModel().getSessions(true)[0] as IDebugSession;
+        return fx.service.getModel().getSessions(true)[0];
     }
 
     async function startMock(): Promise<IDebugSession> {
@@ -99,7 +105,9 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
 
     describe("session events — upstream $acceptDebugSession*", () => {
         it("a custom event during the launch, the start, the focus, a rename and the end, in order", async () => {
-            onLaunch = (adapter) => adapter.sendEventBody("lldbModules", { count: 3 });
+            onLaunch = (adapter) => {
+                adapter.sendEventBody("lldbModules", { count: 3 });
+            };
             const started = await startMock();
             await vi.waitFor(() => {
                 expect(journal).toContain('custom Mock lldbModules {"count":3}');
@@ -158,9 +166,12 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
             expect(journal).toContain(`focus ${where} frame ${frame?.frameId}`);
 
             journal.length = 0;
-            fx.service.getViewModel().setFocus(undefined, frame?.thread, frame?.thread.session, true);
-            fx.service.getViewModel().setFocus(undefined, undefined, undefined, true);
-            expect(journal.filter((line) => line.startsWith("focus"))).toEqual([`focus ${where} frame -`, "focus none"]);
+            viewModel().setFocus(undefined, frame?.thread, frame?.thread.session, true);
+            viewModel().setFocus(undefined, undefined, undefined, true);
+            expect(journal.filter((line) => line.startsWith("focus"))).toEqual([
+                `focus ${where} frame -`,
+                "focus none",
+            ]);
         });
 
         it("the session goes whole: folder, configuration and parent", async () => {
@@ -169,20 +180,25 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
             subscription = sink.subscribe({ ...recordingEvents(), sessionStarted: (s) => sessions.push(s) });
             const parent = await startMock();
             expect(
-                await fx.service.startDebugging(undefined, { ...MOCK_CONFIG, name: "Child" }, { parentSession: parent }),
+                await fx.service.startDebugging(
+                    undefined,
+                    { ...MOCK_CONFIG, name: "Child" },
+                    { parentSession: parent },
+                ),
             ).toBe(true);
 
-            expect(sessions).toEqual([
-                { id: parent.getId(), type: "mock", name: "Mock", configuration: expect.objectContaining(MOCK_CONFIG) },
-                expect.objectContaining({ name: "Child", parentId: parent.getId() }),
-            ]);
+            const [first, child] = sessions as [IWireDebugSession, IWireDebugSession];
+            expect(first).toMatchObject({ id: parent.getId(), type: "mock", name: "Mock", configuration: MOCK_CONFIG });
+            expect(first).not.toHaveProperty("parentId");
+            expect(first).not.toHaveProperty("folder");
+            expect(child).toMatchObject({ name: "Child", parentId: parent.getId() });
         });
     });
 
     describe("requests of extensions — upstream $customDebugAdapterRequest and the rest", () => {
         it("customRequest: the body of a success, the message of a failure, an unknown session", async () => {
             const started = await startMock();
-            const adapter = mocks[0] as MockDebugAdapter;
+            const adapter = mocks[0];
             adapter.handlers.set("readMemory", (args) => ({ data: "AAA=", args }));
             adapter.handlers.set("broken", () => new Error("cannot do that"));
 
@@ -226,7 +242,7 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
             const outputs = started
                 .getReplElements()
                 .map((e) => e as unknown as { value?: string; severity?: string })
-                .filter((e) => e.value?.includes("extension") || e.value?.includes("lost"));
+                .filter((e) => ["extension", "lost"].some((word) => e.value?.includes(word) === true));
             expect(outputs.map((e) => [e.value, e.severity])).toEqual([["from the extension\n", "warning"]]);
         });
     });
@@ -234,7 +250,7 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
     describe("breakpoints — upstream $acceptBreakpointsDelta, $registerBreakpoints, $unregisterBreakpoints", () => {
         it("the breakpoints there are come first; then additions, changes and removals, 0-based", async () => {
             subscription.dispose();
-            const model = fx.service.getModel();
+            const model = debugModel();
             await fx.service.addBreakpoints(FILE, [{ lineNumber: 3, column: 5, condition: "i > 1" }]);
             journal = [];
             subscription = sink.subscribe(recordingEvents());
@@ -245,14 +261,12 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
             model.setEnablement(second as never, true);
             model.removeBreakpoints([first as never]);
 
-            const id1 = first?.getId();
+            const id1 = first.getId();
             const id2 = second?.getId();
             const uri = FILE.toString();
             expect(journal.map((line) => JSON.parse(line.slice("breakpoints ".length)) as unknown)).toEqual([
                 {
-                    added: [
-                        { type: "source", id: id1, enabled: true, condition: "i > 1", uri, line: 2, character: 4 },
-                    ],
+                    added: [{ type: "source", id: id1, enabled: true, condition: "i > 1", uri, line: 2, character: 4 }],
                 },
                 { added: [{ type: "source", id: id2, enabled: false, logMessage: "hi", uri, line: 0, character: 0 }] },
                 { changed: [{ type: "source", id: id2, enabled: true, logMessage: "hi", uri, line: 0, character: 0 }] },
@@ -262,7 +276,7 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
 
         it("nothing at subscribe without breakpoints; session-only changes and data breakpoints stay in the core", async () => {
             expect(journal).toEqual([]);
-            const model = fx.service.getModel();
+            const model = debugModel();
             model.addFunctionBreakpoint({ name: "main" });
             const [fbp] = model.getFunctionBreakpoints();
             journal.length = 0;
@@ -275,11 +289,11 @@ describe("ExtensionDebugAdapter — the core's sessions for extensions", () => {
                 accessType: "write",
             });
             expect(journal).toEqual(['breakpoints {"added":[]}']);
-            expect(fbp?.name).toBe("main");
+            expect(fbp.name).toBe("main");
         });
 
         it("a function breakpoint goes with its name", () => {
-            fx.service.getModel().addFunctionBreakpoint({ name: "main", hitCondition: "2" }, "f1");
+            debugModel().addFunctionBreakpoint({ name: "main", hitCondition: "2" }, "f1");
             expect(journal).toEqual([
                 `breakpoints ${JSON.stringify({ added: [{ type: "function", id: "f1", enabled: true, hitCondition: "2", functionName: "main" }] })}`,
             ]);

@@ -38,7 +38,7 @@ describe("ExtensionHost — the core's debug sessions for an extension", () => {
     /** Everything the extension heard, in order. */
     let heard: string[];
 
-    const run = (command: string, ...args: unknown[]): Promise<unknown> =>
+    const run = async (command: string, ...args: unknown[]): Promise<unknown> =>
         harness.commandRegistry.execute(`test.debugSessions.${command}`, ...args);
     const state = async (): Promise<IState> => (await run("state")) as IState;
 
