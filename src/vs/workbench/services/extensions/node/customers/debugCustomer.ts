@@ -105,22 +105,28 @@ export class DebugCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("debug.acceptAdapterMessage", (params) => {
                 const accepted = parseWireDebugAdapterMessage(params);
+                // Stryker disable next-line ConditionalExpression: equivalent, the endpoint drops a notification whose handler throws, as it drops a malformed one here
                 if (accepted === null) return;
+                // Stryker disable next-line OptionalChaining: equivalent, the endpoint drops a notification whose handler throws, as it drops one for an unknown handle here
                 adapters.listener(accepted.handle)?.onMessage(accepted.message as DebugProtocol.ProtocolMessage);
             }),
         );
         store.add(
             rpc.handleNotification("debug.acceptAdapterError", (params) => {
                 const accepted = parseWireDebugAdapterError(params);
+                // Stryker disable next-line ConditionalExpression: equivalent, the endpoint drops a notification whose handler throws, as it drops a malformed one here
                 if (accepted === null) return;
                 // The error as the subprocess had it (upstream folds name and stack into the message).
+                // Stryker disable next-line OptionalChaining: equivalent, the endpoint drops a notification whose handler throws, as it drops one for an unknown handle here
                 adapters.listener(accepted.handle)?.onError(transformErrorFromSerialization(accepted.error));
             }),
         );
         store.add(
             rpc.handleNotification("debug.acceptAdapterExit", (params) => {
                 const accepted = parseWireDebugAdapterExit(params);
+                // Stryker disable next-line ConditionalExpression: equivalent, the endpoint drops a notification whose handler throws, as it drops a malformed one here
                 if (accepted === null) return;
+                // Stryker disable next-line OptionalChaining: equivalent, the endpoint drops a notification whose handler throws, as it drops one for an unknown handle here
                 adapters.listener(accepted.handle)?.onExit(accepted.code);
             }),
         );

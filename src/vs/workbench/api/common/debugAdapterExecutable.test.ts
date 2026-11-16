@@ -72,6 +72,14 @@ describe("platformAdapterExecutable — upstream ExecutableDebugAdapter.platform
         expect(platformAdapterExecutable([onlyWindows], "t", "win32")).toEqual(executable("/windows", []));
     });
 
+    it("`runtimeArgs` of the platform win, the common ones fill in; a contribution without them leaves them to the next", () => {
+        const ext = extension("/e", [{ type: "t", runtimeArgs: ["--common"], linux: { runtime: "node" } }]);
+        expect(platformAdapterExecutable([ext], "t", "linux")).toEqual(executable("node", ["--common"]));
+        const first = extension("/a", [{ type: "t", label: "T" }]);
+        const second = extension("/b", [{ type: "t", runtime: "node", runtimeArgs: ["--b"] }]);
+        expect(platformAdapterExecutable([first, second], "t", "linux")).toEqual(executable("node", ["--b"]));
+    });
+
     it("contributions of the type merge across extensions, case-insensitively: the first one wins a key", () => {
         const first = extension("/first", [{ type: "LLDB", label: "LLDB" }]);
         const second = extension("/second", [

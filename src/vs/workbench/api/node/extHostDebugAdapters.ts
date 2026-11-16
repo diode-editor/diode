@@ -34,27 +34,23 @@ export abstract class StreamDebugAdapter extends ExtHostDebugAdapter {
     public sendMessage(message: DebugProtocol.ProtocolMessage): void {
         if (this.outputStream) {
             const json = JSON.stringify(message);
-            this.outputStream.write(
-                `Content-Length: ${String(Buffer.byteLength(json, "utf8"))}${TWO_CRLF}${json}`,
-                "utf8",
-            );
+            this.outputStream.write(`Content-Length: ${String(Buffer.byteLength(json))}${TWO_CRLF}${json}`);
         }
     }
 
     private handleData(data: Buffer): void {
         this.rawData = Buffer.concat([this.rawData, data]);
         for (;;) {
-            if (this.contentLength >= 0) {
+            // An empty body (`Content-Length: 0`) is no message: its header is read past.
+            if (this.contentLength > 0) {
                 if (this.rawData.length < this.contentLength) return;
                 const message = this.rawData.toString("utf8", 0, this.contentLength);
                 this.rawData = this.rawData.subarray(this.contentLength);
                 this.contentLength = -1;
-                if (message.length > 0) {
-                    try {
-                        this.onMessageEmitter.fire(JSON.parse(message) as DebugProtocol.ProtocolMessage);
-                    } catch (e) {
-                        this.onErrorEmitter.fire(new Error(`${(e as Error).message}\n${message}`));
-                    }
+                try {
+                    this.onMessageEmitter.fire(JSON.parse(message) as DebugProtocol.ProtocolMessage);
+                } catch (e) {
+                    this.onErrorEmitter.fire(new Error(`${(e as Error).message}\n${message}`));
                 }
                 continue; // there may be more complete messages to process
             }
@@ -85,12 +81,9 @@ abstract class NetworkDebugAdapter extends StreamDebugAdapter {
                 resolve();
             });
             this.socket = socket;
+            // A connection that never came up fails with its `error`, which comes before the `close`.
             socket.on("close", () => {
-                if (connected) {
-                    this.onErrorEmitter.fire(new Error("connection closed"));
-                } else {
-                    reject(new Error("connection closed"));
-                }
+                if (connected) this.onErrorEmitter.fire(new Error("connection closed"));
             });
             socket.on("error", (raw) => {
                 // On ipv6 posix this can be an AggregateError which lacks a message. Use the first.
@@ -118,7 +111,8 @@ export class SocketDebugAdapter extends NetworkDebugAdapter {
     }
 
     protected createConnection(connectionListener: () => void): net.Socket {
-        return net.createConnection(this.server.port, this.server.host ?? "127.0.0.1", connectionListener);
+        // Without a host Node tries every address of `localhost` (upstream pins 127.0.0.1 for an older Node).
+        return net.createConnection(this.server.port, this.server.host, connectionListener);
     }
 }
 
@@ -157,11 +151,10 @@ export class ExecutableDebugAdapter extends StreamDebugAdapter {
         if (!command) {
             throw new Error(`Cannot determine executable for debug adapter '${this.debugType}'.`);
         }
-        if (path.isAbsolute(command) && !(await exists(command))) {
+        if (path.isAbsolute(command) && !(await fs.promises.stat(command).catch(() => undefined))) {
             throw new Error(`Debug adapter executable '${command}' does not exist.`);
         }
-        const env =
-            options.env && Object.keys(options.env).length > 0 ? { ...process.env, ...options.env } : process.env;
+        const env = { ...process.env, ...options.env };
         let child: cp.ChildProcess;
         if (command === "node") {
             if (args.length === 0) throw new Error("Unable to launch debug adapter.");
@@ -169,6 +162,7 @@ export class ExecutableDebugAdapter extends StreamDebugAdapter {
         } else {
             child = cp.spawn(command, args, { env, cwd: options.cwd });
         }
+        // Stryker disable next-line ObjectLiteral,StringLiteral: equivalent, the label names the process only in the guard's log lines, and no logger is given
         const guarded = new GuardedChildProcess(child, { label: `debug adapter ${this.debugType}` });
         this.child = child;
         this.store.add(guarded);
@@ -201,13 +195,6 @@ export class ExecutableDebugAdapter extends StreamDebugAdapter {
         this.child?.kill("SIGTERM");
         return Promise.resolve();
     }
-}
-
-function exists(file: string): Promise<boolean> {
-    return fs.promises.access(file).then(
-        () => true,
-        () => false,
-    );
 }
 
 /** Upstream `ExtHostDebugService.createDebugAdapter` (node): the descriptors that need the OS. */

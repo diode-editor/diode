@@ -82,7 +82,7 @@ describe("ExtensionHostDebugAdapter — upstream's adapter over the extension ho
                 parentSession: session(),
             }),
         ).dispose();
-        expect(created.map((c) => c.session)).toEqual([
+        expect(created.map((c) => c.session)).toStrictEqual([
             { id: "s1", type: "lldb", name: "Launch (1)", configuration: CONFIG },
             {
                 id: "child",

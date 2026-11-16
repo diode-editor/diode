@@ -6,7 +6,7 @@ import { PassThrough, type Readable, type Writable } from "node:stream";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { waitUntil } from "../../../../TestUtils/timing.ts";
+import { settle, waitUntil } from "../../../../TestUtils/timing.ts";
 import {
     DebugAdapterExecutable,
     DebugAdapterInlineImplementation,
@@ -91,7 +91,7 @@ describe("StreamDebugAdapter — the DAP base protocol, as upstream's", () => {
         adapter.incoming.write(whole.slice(whole.length - 3));
         // A non-RFC line separator and an extra header; an empty body is skipped.
         const json = JSON.stringify(c);
-        adapter.incoming.write(`X-Other: 1\nContent-Length:${String(json.length)}\r\n\r\n${json}`);
+        adapter.incoming.write(`X-Other: 1\nContent-Length:${String(json.length)}\nX-After: 2\r\n\r\n${json}`);
         adapter.incoming.write("Content-Length: 0\r\n\r\n");
         await waitUntil("three messages", () => seen.messages.length === 3);
         expect(seen.messages).toEqual([a, b, c]);
@@ -165,7 +165,11 @@ describe("SocketDebugAdapter and NamedPipeDebugAdapter", () => {
         cleanup.push(() => {
             adapter.dispose();
         });
+        const seen = record(adapter);
         await expect(adapter.startSession()).rejects.toThrow(/ECONNREFUSED/);
+        await settle(10);
+        // The start's failure is all: no session ran, so the close that follows is no error of one.
+        expect(seen.errors).toEqual([]);
     });
 
     it("an AggregateError of the connect (ipv6 posix) fails the start with its first error; a later socket error is the adapter's", async () => {
@@ -275,7 +279,8 @@ describe("ExecutableDebugAdapter", () => {
         await adapter.startSession();
         adapter.sendMessage(initialize);
         await waitUntil("the response", () => seen.messages.length === 1);
-        // No variables of its own: the subprocess's environment and folder.
+        // The rest of the arguments reach the script; no variables of its own: the subprocess's environment and folder.
+        expect((seen.messages[0] as DebugProtocol.Response).body).toMatchObject({ name: "forked" });
         const body: unknown = (seen.messages[0] as DebugProtocol.Response).body;
         expect(body).toMatchObject({ cwd: process.cwd() });
         expect(body).not.toHaveProperty("env");
@@ -313,6 +318,29 @@ describe("ExecutableDebugAdapter", () => {
         await adapter.startSession();
         await waitUntil("the error", () => seen.errors.length > 0);
         expect(seen.errors[0]).toMatch(/ENOENT/);
+    });
+
+    it("its stderr is drained: an adapter that writes a lot there still answers", async () => {
+        const adapter = new ExecutableDebugAdapter(
+            new DebugAdapterExecutable(process.execPath, [ADAPTER_PROCESS], { env: { DIODE_TEST_DAP_STDERR: "1024" } }),
+            "t",
+        );
+        cleanup.push(() => {
+            adapter.dispose();
+        });
+        const seen = record(adapter);
+        await adapter.startSession();
+        adapter.sendMessage(initialize);
+        await waitUntil("the response", () => seen.messages.length === 1, 10_000);
+        await adapter.stopSession();
+    });
+
+    it("dispose kills the process", async () => {
+        const adapter = new ExecutableDebugAdapter(new DebugAdapterExecutable("node", [ADAPTER_PROCESS]), "t");
+        await adapter.startSession();
+        const { child } = adapter as unknown as { child: { killed: boolean; signalCode: string | null } };
+        adapter.dispose();
+        expect(child.killed).toBe(true);
     });
 
     it("errors of the process's streams are the adapter's errors", async () => {

@@ -59,7 +59,7 @@ export interface IDebugNamespaceDeps {
 
 interface IAdapterEntry {
     readonly adapter: ExtHostDebugAdapter;
-    readonly tracker: vscode.DebugAdapterTracker | undefined;
+    readonly tracker: Required<vscode.DebugAdapterTracker> | undefined;
     readonly sessionId: string;
 }
 
@@ -83,7 +83,7 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
     const adapterFactories = new Map<string, vscode.DebugAdapterDescriptorFactory>();
     const trackerFactories = new Set<ITrackerFactoryEntry>();
     /** The sessions with a live adapter; one goes with its adapter's stop. */
-    const sessions = new Map<string, vscode.DebugSession>();
+    const sessions = new Map<string | undefined, vscode.DebugSession>();
     const adapters = new Map<number, IAdapterEntry>();
 
     deps.onDidReceiveCatalog((catalog) => {
@@ -154,8 +154,10 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         if (!factory) {
             return new DisposableImpl(() => undefined);
         }
-        const extension = owner.current === undefined ? undefined : deps.extensions.getExtension(owner.current);
-        if (!definesDebugType(extension, debugType)) {
+        // Upstream always knows the caller. Here a module the overlay did not map to its extension calls through the
+        // shared namespace without an owner: such a caller cannot be checked, and it is not refused for that.
+        const callerId = owner.current;
+        if (callerId !== undefined && !definesDebugType(deps.extensions.getExtension(callerId), debugType)) {
             throw new Error(
                 `a DebugAdapterDescriptorFactory can only be registered from the extension that defines the '${debugType}' debugger.`,
             );
@@ -173,6 +175,7 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         debugType: string,
         factory: vscode.DebugAdapterTrackerFactory | undefined,
     ): vscode.Disposable {
+        // Stryker disable next-line ConditionalExpression,BlockStatement: equivalent, a kept undefined factory fails when asked, and a failing tracker factory is skipped
         if (!factory) {
             return new DisposableImpl(() => undefined);
         }
@@ -187,7 +190,7 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
     function sessionOf(dto: IWireDebugSession): vscode.DebugSession {
         let session = sessions.get(dto.id);
         if (session === undefined) {
-            const parentSession = dto.parentId === undefined ? undefined : sessions.get(dto.parentId);
+            const parentSession = sessions.get(dto.parentId);
             session = Object.freeze<vscode.DebugSession>({
                 id: dto.id,
                 type: dto.type,
@@ -221,20 +224,18 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
     }
 
     /** Upstream `getDebugAdapterTrackers`: the type's and `*` factories; a failing one or a slow lot is skipped. */
-    async function trackerOf(session: vscode.DebugSession): Promise<vscode.DebugAdapterTracker | undefined> {
+    async function trackerOf(session: vscode.DebugSession): Promise<Required<vscode.DebugAdapterTracker> | undefined> {
         const created = [...trackerFactories]
             .filter((entry) => entry.type === session.type || entry.type === "*")
             .map(async (entry) => {
-                try {
-                    return (await entry.factory.createDebugAdapterTracker(session)) ?? undefined;
-                } catch {
-                    return undefined;
-                }
+                const tracker = await Promise.resolve()
+                    .then(() => entry.factory.createDebugAdapterTracker(session))
+                    .catch(() => undefined);
+                return tracker ?? undefined;
             });
-        const all = Promise.all(created).then((results) => {
-            const found = results.filter((tracker) => tracker !== undefined);
-            return found.length > 0 ? multiTracker(found) : undefined;
-        });
+        const all = Promise.all(created).then((results) =>
+            multiTracker(results.filter((tracker) => tracker !== undefined)),
+        );
         return raceTimeout(all, TRACKER_FACTORY_TIMEOUT);
     }
 
@@ -276,25 +277,25 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
                 adapter.sendMessage(response);
                 return;
             }
-            tracker?.onDidSendMessage?.(message);
+            tracker?.onDidSendMessage(message);
             rpc.notify("debug.acceptAdapterMessage", { handle, message });
         });
         adapter.onError((error) => {
-            tracker?.onError?.(error);
+            tracker?.onError(error);
             rpc.notify("debug.acceptAdapterError", { handle, error: transformErrorForSerialization(error) });
         });
         adapter.onExit((code) => {
-            tracker?.onExit?.(code ?? undefined, undefined);
+            tracker?.onExit(code ?? undefined, undefined);
             rpc.notify("debug.acceptAdapterExit", { handle, ...(code === null ? {} : { code }) });
         });
-        tracker?.onWillStartSession?.();
+        tracker?.onWillStartSession();
         await adapter.startSession();
         return null;
     });
 
     rpc.handleNotification("debug.sendAdapterMessage", ({ handle, message }) => {
         const entry = adapters.get(handle);
-        entry?.tracker?.onWillReceiveMessage?.(message);
+        entry?.tracker?.onWillReceiveMessage(message);
         entry?.adapter.sendMessage(message as DebugProtocol.ProtocolMessage);
     });
 
@@ -303,7 +304,7 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         if (entry) {
             adapters.delete(handle);
             sessions.delete(entry.sessionId);
-            entry.tracker?.onWillStopSession?.();
+            entry.tracker?.onWillStopSession();
             // Not disposed, as upstream: a process killed by the stop still reports its exit to the tracker.
             await entry.adapter.stopSession();
         }
@@ -414,8 +415,8 @@ function asDebugSourceUri(source: vscode.DebugProtocolSource, session?: vscode.D
     );
 }
 
-/** Upstream `MultiTracker`: every tracker of the session sees every call. */
-function multiTracker(trackers: readonly vscode.DebugAdapterTracker[]): vscode.DebugAdapterTracker {
+/** Upstream `MultiTracker`: every tracker of the session sees every call; every method is there. */
+function multiTracker(trackers: readonly vscode.DebugAdapterTracker[]): Required<vscode.DebugAdapterTracker> {
     return {
         onWillStartSession: () => {
             for (const t of trackers) t.onWillStartSession?.();

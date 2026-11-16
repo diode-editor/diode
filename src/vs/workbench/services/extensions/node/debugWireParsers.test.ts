@@ -178,5 +178,6 @@ describe("debugWireParsers — debug messages from the subprocess", () => {
         expect(parseWireDebugAdapterExit({ handle: 1, code: 0 })).toEqual({ handle: 1, code: 0 });
         expect(parseWireDebugAdapterExit({ handle: 1, code: "1" })).toEqual({ handle: 1 });
         expect(parseWireDebugAdapterExit({ code: 1 })).toBeNull();
+        expect(parseWireDebugAdapterExit(null)).toBeNull();
     });
 });

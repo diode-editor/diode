@@ -41,14 +41,19 @@ interface IRegistration {
     disposed: number;
 }
 
+/** What the sink saw, in order: `register a,b` and `dispose a,b`. */
+const journal: string[] = [];
+
 function sink(registrations: IRegistration[]): IExtensionDebugSink {
     return {
         registerDebugTypes: (types, host): IDisposable => {
             const registration = { types, host, disposed: 0 };
             registrations.push(registration);
+            journal.push(`register ${types.join(",")}`);
             return {
                 dispose: () => {
                     registration.disposed++;
+                    journal.push(`dispose ${types.join(",")}`);
                 },
             };
         },
@@ -111,7 +116,8 @@ afterEach(() => {
 });
 
 describe("DebugCustomer — debug adapters over the wire (upstream $registerDebugTypes, $startDASession and the rest)", () => {
-    it("a catalog of the subprocess registers its debug types with the sink; the next one replaces them", async () => {
+    it("a catalog of the subprocess registers its debug types with the sink; the next one replaces them, the old ones go first", async () => {
+        journal.length = 0;
         const { catalog, registrations } = setup();
         catalog.fire(CATALOG);
         await flush();
@@ -121,6 +127,8 @@ describe("DebugCustomer — debug adapters over the wire (upstream $registerDebu
             { types: ["lldb"], disposed: 1 },
             { types: [], disposed: 0 },
         ]);
+        // The old registration's dispose drops the factory of its types: it must not drop the new one's.
+        expect(journal).toEqual(["register lldb", "dispose lldb", "register "]);
     });
 
     it("an adapter of the host starts in the subprocess, messages go both ways, errors and exits come back; stop stops it", async () => {

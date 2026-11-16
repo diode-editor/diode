@@ -15,8 +15,7 @@ function contributedDebuggers(extension: IDebuggerExtension): readonly IDebugger
     const debuggers = contributes?.debuggers;
     return Array.isArray(debuggers)
         ? (debuggers as readonly unknown[]).filter(
-              (dbg): dbg is IDebuggerContribution =>
-                  typeof dbg === "object" && dbg !== null && typeof (dbg as { type?: unknown }).type === "string",
+              (dbg): dbg is IDebuggerContribution => typeof (dbg as { type?: unknown } | null)?.type === "string",
           )
         : [];
 }

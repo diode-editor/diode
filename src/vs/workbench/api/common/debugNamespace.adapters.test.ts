@@ -140,7 +140,9 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             expect(() => as(EXT, () => debug.registerDebugAdapterDescriptorFactory("addition", factory))).toThrow(
                 "defines the 'addition' debugger",
             );
-            expect(() => debug.registerDebugAdapterDescriptorFactory("t", factory)).toThrow("defines the 't' debugger");
+            expect(() => as("not.in.catalog", () => debug.registerDebugAdapterDescriptorFactory("t", factory))).toThrow(
+                "defines the 't' debugger",
+            );
 
             const registration = as("TEST.DBG", () => debug.registerDebugAdapterDescriptorFactory("t", factory));
             expect(() => as(EXT, () => debug.registerDebugAdapterDescriptorFactory("t", factory))).toThrow(
@@ -154,6 +156,19 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             expect(() => as(EXT, () => debug.registerDebugAdapterDescriptorFactory("t", factory))).toThrow(
                 "once per a type",
             );
+        });
+
+        it("a caller the overlay does not know (no owner) cannot be checked and is not refused", () => {
+            const { debug } = setup();
+            const registration = debug.registerDebugAdapterDescriptorFactory("addition", {
+                createDebugAdapterDescriptor: () => undefined,
+            });
+            expect(() =>
+                debug.registerDebugAdapterDescriptorFactory("addition", {
+                    createDebugAdapterDescriptor: () => undefined,
+                }),
+            ).toThrow("once per a type");
+            registration.dispose();
         });
 
         it("no factory registers nothing", () => {
@@ -202,7 +217,7 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
         });
 
         it("a session is one object per id; a child's parent is the parent's object; no folder — none", async () => {
-            const { debug, as, start, session, vscode } = setup();
+            const { debug, as, start, session, vscode, stub } = setup();
             const sessions: vscode.DebugSession[] = [];
             as(EXT, () =>
                 debug.registerDebugAdapterDescriptorFactory("t", {
@@ -219,6 +234,11 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             expect(sessions[1].parentSession).toBe(sessions[0]);
             expect(sessions[1].workspaceFolder).toBeUndefined();
             expect(sessions[2]).toBe(sessions[0]);
+            // A session goes with its adapter's stop: a restart under the same id is a new object.
+            await stub.callRequest("debug.stopAdapter", { handle: 1 });
+            await start(4);
+            expect(sessions[3]).not.toBe(sessions[0]);
+            expect(sessions[3].id).toBe("s1");
             await expect(sessions[0].customRequest("x")).rejects.toThrow(
                 "DebugSession.customRequest is not supported yet",
             );
@@ -266,6 +286,17 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             await expect(start(2)).rejects.toThrow("Couldn't create a debug adapter for type 't'.");
         });
 
+        it("without the OS adapters (a namespace of the tests) only an inline adapter is made", async () => {
+            const stub = makeStubRpc();
+            const host = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk());
+            stub.fire("extensions.catalog", { extensions: [] });
+            const dto = { id: "s", type: "t", name: "L", configuration: { debugServer: 4711 } };
+            await expect(stub.callRequest("debug.startAdapter", { handle: 1, session: dto })).rejects.toThrow(
+                "Couldn't create a debug adapter for type 't'.",
+            );
+            expect(host.namespace.debug).toBeDefined();
+        });
+
         it("an adapter that fails to start fails the start", async () => {
             const { start, session } = setup({ startError: new Error("no such port") });
             await expect(start(1, session({ type: "exe" }))).rejects.toThrow("no such port");
@@ -293,6 +324,8 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             await start(1, session({ type: "exe" }));
             adapters[0].send({ seq: 5, type: "request", command: "handshake", arguments: { value: "x" } });
             adapters[0].send({ seq: 6, type: "request", command: "runInTerminal" });
+            // Only the adapter's request is the handshake; a response or event of that name goes to the core.
+            adapters[0].send({ seq: 7, type: "response", command: "handshake", request_seq: 1, success: true });
             expect(adapters[0].sent).toEqual([
                 {
                     type: "response",
@@ -303,7 +336,9 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
                     message: "no signer",
                 },
             ]);
-            expect(accepted("debug.acceptAdapterMessage").map((m) => (m.message as { seq: number }).seq)).toEqual([6]);
+            expect(accepted("debug.acceptAdapterMessage").map((m) => (m.message as { seq: number }).seq)).toEqual([
+                6, 7,
+            ]);
         });
     });
 

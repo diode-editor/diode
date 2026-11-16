@@ -26,7 +26,8 @@ export abstract class ExtHostDebugAdapter {
         return this.onExitEmitter.event;
     }
 
-    public abstract startSession(): Promise<void>;
+    /** Settles once the adapter can take messages; an inline adapter can at once. */
+    public abstract startSession(): Promise<void> | void;
 
     public abstract sendMessage(message: DebugProtocol.ProtocolMessage): void;
 
@@ -48,8 +49,8 @@ export class DirectDebugAdapter extends ExtHostDebugAdapter {
         );
     }
 
-    public startSession(): Promise<void> {
-        return Promise.resolve();
+    public startSession(): void {
+        // Nothing to start: the implementation is already there.
     }
 
     public sendMessage(message: DebugProtocol.ProtocolMessage): void {
