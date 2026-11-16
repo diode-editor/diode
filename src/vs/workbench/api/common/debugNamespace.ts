@@ -304,8 +304,8 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
             adapters.delete(handle);
             sessions.delete(entry.sessionId);
             entry.tracker?.onWillStopSession?.();
+            // Not disposed, as upstream: a process killed by the stop still reports its exit to the tracker.
             await entry.adapter.stopSession();
-            entry.adapter.dispose();
         }
         return null;
     });

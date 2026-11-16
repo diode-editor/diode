@@ -255,26 +255,33 @@ describe("ExecutableDebugAdapter", () => {
         expect(seen.errors).toContain("read error");
     });
 
-    it("start errors are the adapter's errors, as upstream's: no command, a missing file, `node` without a script, a failed spawn", async () => {
-        const cases: [DebugAdapterExecutable, RegExp][] = [
-            [new DebugAdapterExecutable(""), /^Cannot determine executable for debug adapter 't'\.$/],
+    it("what is wrong before the spawn fails the start: no command, a missing file, `node` without a script", async () => {
+        const cases: [DebugAdapterExecutable, Error][] = [
+            [new DebugAdapterExecutable(""), new Error("Cannot determine executable for debug adapter 't'.")],
             [
                 new DebugAdapterExecutable("/nonexistent/adapter"),
-                /^Debug adapter executable '\/nonexistent\/adapter' does not exist\.$/,
+                new Error("Debug adapter executable '/nonexistent/adapter' does not exist."),
             ],
-            [new DebugAdapterExecutable("node"), /^Unable to launch debug adapter\.$/],
-            [new DebugAdapterExecutable("diode-no-such-adapter"), /ENOENT/],
+            [new DebugAdapterExecutable("node"), new Error("Unable to launch debug adapter.")],
         ];
         for (const [executable, error] of cases) {
             const adapter = new ExecutableDebugAdapter(executable, "t");
             cleanup.push(() => {
                 adapter.dispose();
             });
-            const seen = record(adapter);
-            await adapter.startSession();
-            await waitUntil("the error", () => seen.errors.length > 0);
-            expect(seen.errors[0]).toMatch(error);
+            await expect(adapter.startSession()).rejects.toEqual(error);
         }
+    });
+
+    it("a spawn that fails (a command not on PATH) is the adapter's error, as upstream's", async () => {
+        const adapter = new ExecutableDebugAdapter(new DebugAdapterExecutable("diode-no-such-adapter"), "t");
+        cleanup.push(() => {
+            adapter.dispose();
+        });
+        const seen = record(adapter);
+        await adapter.startSession();
+        await waitUntil("the error", () => seen.errors.length > 0);
+        expect(seen.errors[0]).toMatch(/ENOENT/);
     });
 
     it("stop before a start does nothing", async () => {

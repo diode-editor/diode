@@ -356,7 +356,8 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
                 "b:stop",
             ]);
             expect(adapters[0].stopped).toBe(1);
-            expect(adapters[0].disposed).toBe(true);
+            // Not disposed: a process killed by the stop still reports its exit to the tracker, as upstream's.
+            expect(adapters[0].disposed).toBe(false);
         });
 
         it("trackers missing methods are fine; an exit without a code reaches them as undefined", async () => {

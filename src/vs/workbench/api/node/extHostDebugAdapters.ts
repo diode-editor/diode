@@ -134,7 +134,10 @@ export class NamedPipeDebugAdapter extends NetworkDebugAdapter {
 }
 
 /**
- * Upstream `ExecutableDebugAdapter`: the adapter is a process speaking DAP over stdin/stdout. `node` is forked: under
+ * Upstream `ExecutableDebugAdapter`: the adapter is a process speaking DAP over stdin/stdout. What is wrong before
+ * the spawn — no command, a missing file, `node` without a script — fails the start, so the user is told, as for a
+ * port that refuses; upstream only reports it as the adapter's error, and the session vanished without a word.
+ * `node` is forked: under
  * SEA `process.execPath` is diode, and the subprocess's `DIODE_RUN_AS_NODE=1` reaches the child, as
  * `ELECTRON_RUN_AS_NODE` does upstream. Its stderr is drained and dropped, as upstream's.
  */
@@ -151,50 +154,46 @@ export class ExecutableDebugAdapter extends StreamDebugAdapter {
     public async startSession(): Promise<void> {
         const { command, args } = this.executable;
         const options = this.executable.options ?? {};
-        try {
-            if (!command) {
-                throw new Error(`Cannot determine executable for debug adapter '${this.debugType}'.`);
-            }
-            if (path.isAbsolute(command) && !(await exists(command))) {
-                throw new Error(`Debug adapter executable '${command}' does not exist.`);
-            }
-            const env =
-                options.env && Object.keys(options.env).length > 0 ? { ...process.env, ...options.env } : process.env;
-            let child: cp.ChildProcess;
-            if (command === "node") {
-                if (args.length === 0) throw new Error("Unable to launch debug adapter.");
-                child = cp.fork(args[0], args.slice(1), { env, execArgv: [], silent: true, cwd: options.cwd });
-            } else {
-                child = cp.spawn(command, args, { env, cwd: options.cwd });
-            }
-            const guarded = new GuardedChildProcess(child, { label: `debug adapter ${this.debugType}` });
-            this.child = child;
-            this.store.add(guarded);
-            this.store.add(
-                guarded.onDidEnd(({ code, error }) => {
-                    if (error === undefined) {
-                        this.onExitEmitter.fire(code);
-                    } else {
-                        this.onErrorEmitter.fire(asError(error));
-                    }
-                }),
-            );
-            const { stdin, stdout, stderr } = child as cp.ChildProcessWithoutNullStreams;
-            stdout.on("close", () => {
-                this.onErrorEmitter.fire(new Error("read error"));
-            });
-            stdout.on("error", (error) => {
-                this.onErrorEmitter.fire(error);
-            });
-            stdin.on("error", (error) => {
-                this.onErrorEmitter.fire(error);
-            });
-            stderr.resume();
-            // finally connect to the DA
-            this.connect(stdout, stdin);
-        } catch (err) {
-            this.onErrorEmitter.fire(asError(err));
+        if (!command) {
+            throw new Error(`Cannot determine executable for debug adapter '${this.debugType}'.`);
         }
+        if (path.isAbsolute(command) && !(await exists(command))) {
+            throw new Error(`Debug adapter executable '${command}' does not exist.`);
+        }
+        const env =
+            options.env && Object.keys(options.env).length > 0 ? { ...process.env, ...options.env } : process.env;
+        let child: cp.ChildProcess;
+        if (command === "node") {
+            if (args.length === 0) throw new Error("Unable to launch debug adapter.");
+            child = cp.fork(args[0], args.slice(1), { env, execArgv: [], silent: true, cwd: options.cwd });
+        } else {
+            child = cp.spawn(command, args, { env, cwd: options.cwd });
+        }
+        const guarded = new GuardedChildProcess(child, { label: `debug adapter ${this.debugType}` });
+        this.child = child;
+        this.store.add(guarded);
+        this.store.add(
+            guarded.onDidEnd(({ code, error }) => {
+                if (error === undefined) {
+                    this.onExitEmitter.fire(code);
+                } else {
+                    this.onErrorEmitter.fire(asError(error));
+                }
+            }),
+        );
+        const { stdin, stdout, stderr } = child as cp.ChildProcessWithoutNullStreams;
+        stdout.on("close", () => {
+            this.onErrorEmitter.fire(new Error("read error"));
+        });
+        stdout.on("error", (error) => {
+            this.onErrorEmitter.fire(error);
+        });
+        stdin.on("error", (error) => {
+            this.onErrorEmitter.fire(error);
+        });
+        stderr.resume();
+        // finally connect to the DA
+        this.connect(stdout, stdin);
     }
 
     public stopSession(): Promise<void> {
