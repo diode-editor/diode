@@ -7,6 +7,7 @@ import { createRange } from "../common/core/iRange.ts";
 import { createTextEdit } from "../common/core/iTextEdit.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
+import { computeIndentationFolds } from "../contrib/folding/foldingRangeProvider.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
@@ -60,5 +61,19 @@ describe("EditorElement — line highlights", () => {
         editor.setLineHighlightDecorations([]);
         app.render();
         expect(app.backend.getBgAt(new Point(x, 0))).toBe(BG);
+    });
+
+    it("paints the indent guide's cell of the row too, not only the text past it", () => {
+        const { app, editor } = setup("if (x) {\n    beta;\n}");
+        editor.viewState.setFoldingRegions(
+            computeIndentationFolds(editor.viewState.document, editor.viewState.tabSize),
+        );
+        editor.setLineHighlightDecorations([highlight(1)]);
+        app.render();
+        const gw = editor.gutterWidth;
+        expect(app.backend.getTextAt(new Point(gw, 1), 1)).toBe("▏");
+        expect([0, 1, 2, 3, 4].map((dx) => app.backend.getBgAt(new Point(gw + dx, 1)))).toEqual(
+            [0, 1, 2, 3, 4].map(() => FRAME),
+        );
     });
 });

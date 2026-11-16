@@ -12,6 +12,7 @@ import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createDebugViewletHarness, type IDebugViewletHarness } from "../../../../../TestUtils/debugViewletHarness.ts";
+import { typeText } from "../../../../../TestUtils/domQueries.ts";
 import {
     NO_DELAY_TIMING,
     registerSyntheticDebugger,
@@ -106,7 +107,11 @@ describe("Breakpoints in the editor's glyph lane", () => {
     }
 
     /** A press and release at a cell. */
-    function click(cell: Point, button: MouseToken["button"] = "left", { shiftKey = false } = {}): void {
+    function click(
+        cell: Point,
+        button: MouseToken["button"] = "left",
+        { shiftKey = false, altKey = false } = {},
+    ): void {
         const token = (action: MouseToken["action"]): MouseToken => ({
             kind: "mouse",
             button,
@@ -114,7 +119,7 @@ describe("Breakpoints in the editor's glyph lane", () => {
             x: cell.x + 1,
             y: cell.y + 1,
             shiftKey,
-            altKey: false,
+            altKey,
             ctrlKey: false,
             raw: "",
         });
@@ -281,5 +286,40 @@ describe("Breakpoints in the editor's glyph lane", () => {
         } finally {
             fs.rmSync(elsewhere, { recursive: true, force: true });
         }
+    });
+
+    it("Alt+click on the empty lane asks for a condition: what is typed goes to the input, not into the file", async () => {
+        const editor = await open(main);
+        click(laneOf(5), "left", { altKey: true });
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("Break when expression evaluates to true");
+        });
+        typeText(t.h.testApp, "x > 1");
+        t.h.testApp.sendKey("Enter");
+        await vi.waitFor(() => {
+            expect(breakpoints().map((b) => [b.lineNumber, b.condition])).toEqual([[5, "x > 1"]]);
+        });
+        expect(editor.viewState.document.getText()).toBe(SOURCE);
+    });
+
+    it("deleting a breakpoint's line leaves the lane and the breakpoints in agreement", async () => {
+        const editor = await open(main, 5);
+        t.h.testApp.sendKey("F9");
+        await vi.waitFor(() => {
+            expect(glyphAt(5)).toBe("●");
+        });
+        editor.viewState.document.applyEdits([createTextEdit(createRange(4, 0, 5, 0), "")]);
+        await new Promise((resolve) => setTimeout(resolve));
+        // Line 5 is now `int line6`: whatever happened to the breakpoint, the lane shows it where the model has it.
+        const modelLines = breakpoints().map((b) => b.lineNumber);
+        // Document lines 4, 5, 6 now hold the texts `int line4`, `int line6`, `int line7`.
+        const glyphLines = [
+            [4, 4],
+            [5, 6],
+            [6, 7],
+        ]
+            .filter(([, text]) => glyphAt(text) === "●")
+            .map(([line]) => line);
+        expect(glyphLines).toEqual(modelLines);
     });
 });
