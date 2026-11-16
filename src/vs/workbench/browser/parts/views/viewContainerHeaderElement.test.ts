@@ -75,7 +75,7 @@ describe("ViewContainerHeaderElement", () => {
 
         mouse(header, "mousedown", { localX: 25 });
         mouse(header, "mouseup", { localX: 25 });
-        expect(onAction).toHaveBeenCalledWith("scm.refresh");
+        expect(onAction).toHaveBeenCalledWith("scm.refresh", { screenX: 25, screenY: 0 });
     });
 
     it("a click on the title does nothing: the container does not collapse", () => {

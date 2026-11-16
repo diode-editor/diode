@@ -11,6 +11,7 @@ import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import { type IStateService, StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import {
     type IProductIconService,
     ProductIconServiceDIToken,
@@ -38,6 +39,7 @@ export class EditorPartComponent extends Component {
         ContextKeyServiceDIToken,
         IConfigurationServiceDIToken,
         ProductIconServiceDIToken,
+        StateServiceDIToken,
     ] as const;
 
     public readonly view: EditorPartElement;
@@ -54,6 +56,7 @@ export class EditorPartComponent extends Component {
         private readonly contextKeys: ContextKeyService,
         private readonly configuration: IConfigurationService,
         private readonly icons: IProductIconService,
+        private readonly state: IStateService,
     ) {
         super();
         this.view = new EditorPartElement();
@@ -176,6 +179,7 @@ export class EditorPartComponent extends Component {
                             contextKeys: this.contextKeys,
                             contextMenu: this.contextMenuService,
                             icons: this.icons,
+                            state: this.state,
                         },
                         this.icons,
                     ),

@@ -145,6 +145,7 @@ import { BreakpointEditorContributionDIToken } from "./contrib/debug/browser/bre
 import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
 import { DebugContentProviderDIToken } from "./contrib/debug/browser/debugContentProvider.ts";
 import { DebugLifecycleDIToken } from "./contrib/debug/browser/debugLifecycle.ts";
+import { DEBUG_MENU_SUBMENUS } from "./contrib/debug/browser/debugMenus.ts";
 import { DebugServiceDIToken } from "./contrib/debug/browser/debugService.ts";
 import { DebugStatusContributionDIToken } from "./contrib/debug/browser/debugStatus.ts";
 import { DebugToolbarDIToken } from "./contrib/debug/browser/debugToolbar.ts";
@@ -557,6 +558,7 @@ export const MENU_CONTRIBUTIONS: readonly MenuContribution[] = [
     ...MENUBAR_SUBMENUS,
     ...GIT_MENU_SUBMENUS,
     ...EXTENSIONS_FILTER_SUBMENUS,
+    ...DEBUG_MENU_SUBMENUS,
     ...OPEN_EDITORS_MENU_ITEMS,
     ...WORKBENCH_ACTIONS.flatMap(menuItemsOfAction),
 ];
