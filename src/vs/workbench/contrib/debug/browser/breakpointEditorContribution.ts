@@ -337,7 +337,12 @@ export class BreakpointEditorContribution extends Disposable {
                 decoration.range = range;
             }
         }
-        if (!somethingChanged) return;
+        if (!somethingChanged) {
+            // A deleted line takes its glyph with it while the breakpoint's decoration collapses onto the next line
+            // (upstream's breakpoint moves there): the glyphs are drawn again where the breakpoints are.
+            if (state.breakpointDecorations.length > 0) this.refresh(state);
+            return;
+        }
 
         const data = new Map<string, IBreakpointUpdateData>();
         for (const { breakpoint, range } of state.breakpointDecorations) {

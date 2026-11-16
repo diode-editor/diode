@@ -32,20 +32,19 @@ export class TrackedLineDecorations<T extends ILineKeyedDecoration> {
         return this.entries.length === 0;
     }
 
-    /** A decoration with the key and the line of one already placed keeps the line it moved to; the rest are placed anew. */
+    /**
+     * A decoration with the key and the line of one already placed keeps the line it moved to; the rest are placed
+     * anew, and so is one whose line was deleted.
+     */
     public set(decorations: readonly T[]): void {
         const previous = new Map(this.entries.map((entry) => [entry.decoration.key, entry]));
-        const kept = (decoration: T): IEntry<T> | undefined => {
+        // Decided before the deltas: a deleted entry's range is gone after them.
+        const kept = decorations.map((decoration) => {
             const old = previous.get(decoration.key);
-            return old?.decoration.line === decoration.line ? old : undefined;
-        };
-        const keptIds = new Set(
-            decorations
-                .map(kept)
-                .filter((entry) => entry !== undefined)
-                .map((entry) => entry.id),
-        );
-        const placed = decorations.filter((decoration) => kept(decoration) === undefined);
+            return old?.decoration.line === decoration.line && !this.isDeleted(old) ? old : undefined;
+        });
+        const keptIds = new Set(kept.filter((entry) => entry !== undefined).map((entry) => entry.id));
+        const placed = decorations.filter((_, index) => kept[index] === undefined);
         const ids = this.document.deltaDecorations(
             this.entries.filter((entry) => !keptIds.has(entry.id)).map((entry) => entry.id),
             placed.map((decoration) => ({
@@ -58,8 +57,8 @@ export class TrackedLineDecorations<T extends ILineKeyedDecoration> {
             })),
         );
         let next = 0;
-        this.entries = decorations.map((decoration) => {
-            const old = kept(decoration);
+        this.entries = decorations.map((decoration, index) => {
+            const old = kept[index];
             if (old !== undefined) return { ...old, decoration };
             const id = ids[next++];
             return { id, decoration, placedEmpty: isEmptyRange(this.rangeOf(id)) };
@@ -69,12 +68,15 @@ export class TrackedLineDecorations<T extends ILineKeyedDecoration> {
     /** The decorations by the line they are on now; a deleted line's one is not there, the last one on a line wins. */
     public byLine(): Map<number, T> {
         const result = new Map<number, T>();
-        for (const { id, decoration, placedEmpty } of this.entries) {
-            const range = this.rangeOf(id);
-            if (!placedEmpty && isEmptyRange(range)) continue;
-            result.set(range.start.line, decoration);
+        for (const entry of this.entries) {
+            if (this.isDeleted(entry)) continue;
+            result.set(this.rangeOf(entry.id).start.line, entry.decoration);
         }
         return result;
+    }
+
+    private isDeleted(entry: IEntry<T>): boolean {
+        return !entry.placedEmpty && isEmptyRange(this.rangeOf(entry.id));
     }
 
     /** Past the end of the document the document clamps the range to its last line, as upstream validates it. */

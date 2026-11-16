@@ -50,6 +50,18 @@ describe("TrackedLineDecorations", () => {
         expect(lines()).toEqual({ 2: "x" });
     });
 
+    it("set again with the key and line of one whose line was deleted, a glyph is placed anew there", () => {
+        const { glyphs, live, lines, edit } = setup("a\nb\nc\nd");
+        glyphs.set([glyph("x", 1)]);
+        edit(1, 0, 2, 0);
+        expect(lines()).toEqual({});
+
+        glyphs.set([glyph("x", 1)]);
+
+        expect(lines()).toEqual({ 1: "x" });
+        expect(live.size).toBe(1);
+    });
+
     it("deleting an empty line in the middle takes its glyph along", () => {
         const { glyphs, lines, edit } = setup("a\n\nc");
         glyphs.set([glyph("a", 0), glyph("x", 1)]);

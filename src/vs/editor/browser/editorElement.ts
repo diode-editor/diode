@@ -1316,7 +1316,9 @@ export class EditorElement extends TUIElement implements IScrollable {
         };
 
         // Guides go before highlight passes: those set only `bg` and lie over the glyph.
-        const indentGuideCells = this.paintIndentGuides(context, geometry, editorBg, primaryLine);
+        // A guide keeps its line's background: a diff strip or a stack frame's highlight runs under it.
+        const lineBg = (line: number): number => lineBgByLine.get(line) ?? highlightBgByLine.get(line) ?? editorBg;
+        const indentGuideCells = this.paintIndentGuides(context, geometry, lineBg, primaryLine);
 
         // Pass order is stacking order: each pass wins over the previous one.
         for (const decoration of this.decorations.rangeBackgrounds ?? []) {
@@ -1472,7 +1474,7 @@ export class EditorElement extends TUIElement implements IScrollable {
     private paintIndentGuides(
         context: RenderContext,
         geo: ITextViewportGeometry,
-        editorBg: number,
+        lineBg: (line: number) => number,
         primaryLine: number,
     ): IndentGuideCells {
         const regions = this.viewState.foldedRegions;
@@ -1537,7 +1539,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                 if (screenX < geo.gutterW) continue;
                 // Stryker disable next-line ConditionalExpression,EqualityOperator: the render context clips at the element's right edge, a guide past it is not drawn either way
                 if (screenX >= geo.gutterW + geo.contentCols) continue;
-                context.setCell(screenX, screenY, { char: INDENT_GUIDE, fg, bg: editorBg });
+                context.setCell(screenX, screenY, { char: INDENT_GUIDE, fg, bg: lineBg(logLine) });
                 const columns = guideCells.get(screenY);
                 // Nested regions give several guides per row: add, don't replace.
                 if (columns === undefined) guideCells.set(screenY, new Set([screenX]));
@@ -1738,6 +1740,12 @@ export class EditorElement extends TUIElement implements IScrollable {
         const line = this.gutterLineAt(event.screenY - this.globalPosition.y);
         if (line < 0) return false;
         const shown = this.glyphsByLine().get(line);
+        if (event.type === "mousedown") {
+            // A press focuses the editor first, as upstream's mouse down: what the click opens (an input) takes the
+            // focus after it, not before the press's default focus.
+            this.focus();
+            event.preventDefault();
+        }
         this.onDidClickGlyphMarginEmitter.fire({
             line,
             ...(shown === undefined ? {} : { owner: shown.owner, key: shown.glyph.key }),
