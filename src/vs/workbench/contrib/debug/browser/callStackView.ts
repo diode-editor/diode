@@ -273,11 +273,6 @@ export class CallStackView extends Disposable {
         };
         this.register(viewModel.onDidFocusStackFrame(onFocusChange));
         this.register(viewModel.onDidFocusSession(onFocusChange));
-        this.register(
-            debugService.onDidChangeState(() => {
-                this.updateStateMessage();
-            }),
-        );
         // The viewlet may open after a session started: show what is there.
         this.onCallStackChangeScheduler.schedule(0);
     }

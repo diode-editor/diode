@@ -549,6 +549,12 @@ describe("CallStackView", () => {
         threads(session, ["main"]);
         await settle();
         expect(stateMessages.at(-1)).toBe("Paused on step");
+
+        // An adapter that names neither a reason nor a description.
+        details.mockReturnValue({ reason: "" });
+        threads(session, ["main", "worker"]);
+        await settle();
+        expect(stateMessages.at(-1)).toBe("Paused");
     });
 
     it("a burst of stack changes refreshes once, a delay after the first", async () => {

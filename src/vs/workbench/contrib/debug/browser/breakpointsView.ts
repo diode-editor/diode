@@ -260,9 +260,10 @@ export class BreakpointsView extends Disposable {
 
     /** The breakpoint the thread stopped at, by the adapter's ids in the session. */
     private hitBreakpoint(thread: IThread): BreakpointItem | undefined {
+        const hitIds = thread.stoppedDetails?.hitBreakpointIds;
+        if (hitIds === undefined) return undefined;
         const sessionId = thread.session.getId();
-        const hitIds = thread.stoppedDetails?.hitBreakpointIds ?? [];
-        return this.flatElements().find((e) => hitIds.some((id) => id === e.getIdFromAdapter(sessionId)));
+        return this.flatElements(sessionId).find((e) => hitIds.some((id) => id === e.getIdFromAdapter(sessionId)));
     }
 
     private getTreeElements(): BreakpointTreeElement[] {
@@ -299,9 +300,8 @@ export class BreakpointsView extends Disposable {
         return result;
     }
 
-    private flatElements(): BreakpointItem[] {
+    private flatElements(sessionId: string): BreakpointItem[] {
         const model = this.debugService.getModel();
-        const sessionId = this.debugService.getViewModel().focusedSession?.getId();
         return [
             ...model.getExceptionBreakpointsForSession(sessionId),
             ...model.getFunctionBreakpoints(),
