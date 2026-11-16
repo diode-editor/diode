@@ -2,8 +2,8 @@ import type { IConfigurationNode } from "../../../platform/configuration/common/
 
 /**
  * Verbatim from upstream's `contrib/debug/browser/debug.contribution.ts` (no `scope` there: window; `debug.openDebug`
- * has no `type` there either: a string). Only the keys the ported code reads: the Debug Console model
- * (`replModel.ts`), the terminal of `runInTerminal` (`debugTerminal.ts`), launch.json and the debug tasks
+ * and `debug.internalConsoleOptions` have no `type` there either: a string). Only the keys the ported code reads: the
+ * Debug Console (`replModel.ts`, opening and closing its view), the terminal of `runInTerminal` (`debugTerminal.ts`), launch.json and the debug tasks
  * (`debugConfigurationManager.ts`, `debugTaskRunner.ts`, `debugService.ts`), the Run and Debug views (opening them,
  * types, lazy variables and the breakpoints presentation). The rest of `debug.*` comes with the task that implements it (the toolbar), the
  * unsupported ones are declared by the settings task (#1158). `launch` has no JSON schema of its configurations yet
@@ -33,6 +33,19 @@ export const debugConfiguration = {
             enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart", "openOnDebugBreak"],
             default: "openOnDebugBreak",
             description: "Controls when the debug view should open.",
+        },
+        "debug.internalConsoleOptions": {
+            scope: "window",
+            type: "string",
+            enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart"],
+            default: "openOnFirstSessionStart",
+            description: "Controls when the internal Debug Console should open.",
+        },
+        "debug.console.closeOnEnd": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls if the Debug Console should be automatically closed when the debug session ends.",
+            default: false,
         },
         "debug.console.collapseIdenticalLines": {
             scope: "window",

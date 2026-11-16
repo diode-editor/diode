@@ -222,7 +222,7 @@ export class CallStackView extends Disposable {
                 isInitiallyExpanded: (element) =>
                     isDebugSession(element) || (element instanceof Thread && this.expandedThreads.has(element.getId())),
                 renderRow: (element) => this.renderRow(element),
-                renderTrailing: (element) => this.renderStateLabel(element),
+                renderRowEnd: (element) => this.renderStateLabel(element),
                 getLabel: (element) => this.getKeyboardNavigationLabel(element),
             },
             { idPrefix: "callstack" },

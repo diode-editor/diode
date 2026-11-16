@@ -69,6 +69,16 @@
   поддерживает function/data/instruction брейкпоинты, не верифицирует брейкпоинты вне программы и называет
   `hitBreakpointIds` остановки. Проверка — `callStackView.app.test.ts`, `breakpointsView.app.test.ts`; сценарий
   `breakpoints` — функциональный брейкпоинт без сессии (живой сессии в бинаре всё ещё нет).
+- #1146: Debug Console (`browser/repl.ts`, `ReplDIToken`; контейнер панели `workbench.panel.repl` между Output и
+  Terminal, вид `workbench.panel.repl.view`). Дерево консоли показанной сессии на `LazyTreeControl` (`stickyTail`,
+  правая часть строки `renderRowEnd` — источник `файл:строка` и бейдж повторов `badge.*`), объекты результатов и
+  `variablesReference` раскрываются на месте. Ввод: Enter — `evaluate` (`repl`) в фокус-кадре, ↑/↓ — история
+  (`debug.repl.history`, 100 на воркспейс), Escape чистит. Без идущей сессии — подсказка эталона «Please start a
+  debug session to evaluate expressions» и плейсхолдером, и ответом на Enter (отступление: у эталона ввод read-only).
+  Цвета по severity: `info` (stdout) — обычный цвет (вид спайка), `warning` (`console`) — `warningForeground`,
+  `error` (stderr) — `errorForeground`, `ignore` — курсив. Команды — `replActions.ts` (`Ctrl+Shift+Y`/`Ctrl+K Y`,
+  Focus, Accept Input, Clear Console); `debug.internalConsoleOptions` и `debug.console.closeOnEnd` — порты
+  `openRepl`/`closeRepl` сервиса. Не здесь: ANSI, перенос, автодополнение, фильтр, группы как фича, меню.
 
 - #1138: `launch.json`. `browser/debugConfigurationManager.ts` (порт `ConfigurationManager` эталона: launch папки —
   `.diode/launch.json`, блок `launch` файла `.code-workspace`, `launch` пользовательских настроек; выбранная конфигурация

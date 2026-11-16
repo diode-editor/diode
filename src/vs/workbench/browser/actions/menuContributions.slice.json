@@ -417,6 +417,7 @@
             "workbench.view.extension.test",
             "workbench.actions.view.problems",
             "workbench.action.output.toggleOutput",
+            "workbench.debug.action.toggleRepl",
             "workbench.action.terminal.toggleTerminal",
             "workbench.action.toggleSidebarVisibility",
             "workbench.action.toggleAuxiliaryBar",
@@ -569,7 +570,8 @@
             "openEditors.closeAll",
             "workbench.action.terminal.kill",
             "watch.collapse",
-            "workbench.debug.viewlet.action.removeAllBreakpoints"
+            "workbench.debug.viewlet.action.removeAllBreakpoints",
+            "workbench.debug.panel.action.clearReplAction"
         ],
         "sortBy": [
             "testing.sortByDuration",

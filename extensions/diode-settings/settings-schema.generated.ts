@@ -37,6 +37,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["never", "always"],
     },
     {
+        key: "debug.console.closeOnEnd",
+        type: "boolean",
+        default: false,
+        description: "Controls if the Debug Console should be automatically closed when the debug session ends.",
+    },
+    {
         key: "debug.console.collapseIdenticalLines",
         type: "boolean",
         default: true,
@@ -54,6 +60,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "boolean",
         default: false,
         description: "Hide the warning shown when a `preLaunchTask` has been running for a while.",
+    },
+    {
+        key: "debug.internalConsoleOptions",
+        type: "string",
+        default: "openOnFirstSessionStart",
+        description: "Controls when the internal Debug Console should open.",
+        enum: ["neverOpen", "openOnSessionStart", "openOnFirstSessionStart"],
     },
     {
         key: "debug.onTaskErrors",

@@ -68,7 +68,7 @@ export const toggleTerminalAction: CommandAction = {
     id: "workbench.action.terminal.toggleTerminal",
     title: "Terminal: Toggle Terminal",
     shortTitle: "Terminal",
-    menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 30 }],
+    menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 31 }],
     keybinding: parseChord("ctrl+k t"),
     keybindings: [{ keys: parseKeybinding("ctrl+`"), when: MODERN_TIER }],
     run(accessor) {

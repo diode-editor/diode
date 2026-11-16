@@ -42,6 +42,7 @@ the chord works at every level:
 | Source control | `Ctrl+Shift+G` | `Ctrl+K G` |
 | Run and Debug | `Ctrl+Shift+D` | `Ctrl+K B` |
 | Problems | `Ctrl+Shift+M` | `Ctrl+K M` |
+| Debug Console | `Ctrl+Shift+Y` | `Ctrl+K Y` |
 | Extensions | `Ctrl+Shift+X` | `Ctrl+K X` |
 | Terminal | ``Ctrl+` `` | `Ctrl+K T` |
 | New terminal | ``Ctrl+Shift+` `` | `Ctrl+K Alt+T` |

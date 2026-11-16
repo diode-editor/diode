@@ -191,7 +191,7 @@ export class BreakpointsView extends Disposable {
                 // Items are expanded by default.
                 isInitiallyExpanded: () => true,
                 renderRow: (element) => this.renderRow(element),
-                renderTrailing: (element) => this.renderBadge(element),
+                renderRowEnd: (element) => this.renderBadge(element),
                 getLabel: (element) => getKeyboardNavigationLabel(element),
             },
             { idPrefix: "breakpoints" },
@@ -395,7 +395,7 @@ export class BreakpointsView extends Disposable {
                     : `${String(element.lineNumber)}:${String(element.column)}`;
             badge = badge === undefined ? position : `${badge}: ${position}`;
         }
-        return badge === undefined ? [] : [{ text: ` ${badge}`, fg: MUTED }];
+        return badge === undefined ? [] : [{ text: badge, fg: MUTED }];
     }
 
     /** Upstream's `.disabled` row: the breakpoints are off, unsupported by the session, or not verified by it. */

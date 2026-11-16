@@ -1093,6 +1093,25 @@
             "mac-cmd (kitty) #2": "shift+meta+m",
             "mac-cmd (kitty) #3": "shift+meta+m"
         },
+        "workbench.debug.action.toggleRepl": {
+            "*": "ctrl+k y",
+            "pc csi-u #0": "ctrl+shift+y",
+            "pc csi-u #1": "ctrl+shift+y",
+            "pc csi-u #2": "ctrl+shift+y",
+            "pc csi-u #3": "ctrl+shift+y",
+            "pc kitty #0": "ctrl+shift+y",
+            "pc kitty #1": "ctrl+shift+y",
+            "pc kitty #2": "ctrl+shift+y",
+            "pc kitty #3": "ctrl+shift+y",
+            "mac-extended (tmux + extended-keys) #0": "ctrl+shift+y",
+            "mac-extended (tmux + extended-keys) #1": "ctrl+shift+y",
+            "mac-extended (tmux + extended-keys) #2": "ctrl+shift+y",
+            "mac-extended (tmux + extended-keys) #3": "ctrl+shift+y",
+            "mac-cmd (kitty) #0": "shift+meta+y",
+            "mac-cmd (kitty) #1": "shift+meta+y",
+            "mac-cmd (kitty) #2": "shift+meta+y",
+            "mac-cmd (kitty) #3": "shift+meta+y"
+        },
         "workbench.files.action.compareWithClipboard": {
             "*": "ctrl+k c",
             "mac-cmd (kitty) #0": "meta+k c",

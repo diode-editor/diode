@@ -24,7 +24,6 @@ import type {
     INotificationMessage,
 } from "../vs/workbench/services/notification/browser/notificationService.ts";
 
-import { DEFAULT_REPL_CONFIGURATION } from "./debugSessionFixture.ts";
 import {
     type MockStateService,
     mockStateService,
@@ -78,6 +77,9 @@ export interface IDebugServiceFixture {
     variables: IDebugVariableResolver;
     /** How many times Run and Debug was shown. */
     viewletOpenings: number;
+    /** How many times the Debug Console was shown, and asked to close. */
+    replOpenings: number;
+    replClosings: number;
 }
 
 /** `state`: the workspace store of an earlier service, as a window that opens the same folder again. */
@@ -120,6 +122,8 @@ export function createDebugServiceFixture(
         saves: [] as number[],
         variables: NO_VARIABLES,
         viewletOpenings: 0,
+        replOpenings: 0,
+        replClosings: 0,
         endTask: (label: string, exitCode: number | undefined) => {
             const task = fixture.tasks.find((t) => t._label === label);
             /* v8 ignore start -- test helper: a test ends only the tasks it listed */
@@ -222,7 +226,10 @@ export function createDebugServiceFixture(
             },
         },
         workspace,
-        replConfiguration: () => DEFAULT_REPL_CONFIGURATION,
+        replConfiguration: () => ({
+            collapseIdenticalLines: configuration.get("debug.console.collapseIdenticalLines"),
+            maximumLines: configuration.get("debug.console.maximumLines"),
+        }),
         configurationManager,
         tasks,
         saveAllBeforeStart: () => {
@@ -234,9 +241,17 @@ export function createDebugServiceFixture(
         debugConfiguration: () => ({
             openDebug: configuration.get("debug.openDebug"),
             autoExpandLazyVariables: configuration.get("debug.autoExpandLazyVariables"),
+            internalConsoleOptions: configuration.get("debug.internalConsoleOptions"),
+            console: { closeOnEnd: configuration.get("debug.console.closeOnEnd") },
         }),
         openViewlet: () => {
             fixture.viewletOpenings++;
+        },
+        openRepl: () => {
+            fixture.replOpenings++;
+        },
+        closeRepl: () => {
+            fixture.replClosings++;
         },
     };
     return Object.assign(fixture, { ports, service: new DebugService(ports) });

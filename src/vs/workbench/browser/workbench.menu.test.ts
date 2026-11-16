@@ -297,6 +297,7 @@ describe("Workbench — menu bar wiring", () => {
             "Testing",
             "Problems",
             "Output",
+            "Debug Console",
             "Terminal",
             "Toggle Primary Side Bar",
             "Toggle Secondary Side Bar",

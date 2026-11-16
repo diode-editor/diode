@@ -66,7 +66,8 @@
   комбинация, и только потом порядок регистрации.
 - Лидер-аккорд досягаемого пути — `Ctrl+K <клавиша>`: вьюлеты и панели берут
   букву без модификатора (`Ctrl+K F` Search, `Ctrl+K G` SCM, `Ctrl+K E`
-  Explorer, `Ctrl+K M` Problems, `Ctrl+K T` Terminal, `Ctrl+K B` Run and Debug —
+  Explorer, `Ctrl+K M` Problems, `Ctrl+K T` Terminal, `Ctrl+K Y` Debug Console,
+  `Ctrl+K B` Run and Debug —
   `D` занята Compare with Saved), остальные — вторую
   часть с модификатором (`Ctrl+K Alt+S` Save As, `Ctrl+K Ctrl+E` Format
   Document). Занятость второй части проверяется гейтом коллизий в том же

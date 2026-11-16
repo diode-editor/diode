@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { IExpressionContainer } from "../common/debug.ts";
 import { Expression, ExpressionContainer, Variable } from "../common/debugModel.ts";
+import { ReplEvaluationResult } from "../common/replModel.ts";
 
 import { DebugExpressionRenderer, VALUE_CHANGED_HIGHLIGHT_MS } from "./debugExpressionRenderer.ts";
 
@@ -113,6 +114,21 @@ describe("DebugExpressionRenderer", () => {
             { text: "Invalid", fg: "debugTokenExpression.error", style: StyleFlags.Italic },
         ]);
         expect(renderer.renderVariable(variable("", { name: "x", available: false }))).toEqual([]);
+    });
+
+    it("a console evaluation that failed is an error in italic; one that succeeded has its value's color", async () => {
+        const failed = new ReplEvaluationResult("foo + 1");
+        // Without a session the model answers with the hint, as a failed evaluation.
+        await failed.evaluateExpression("foo + 1", undefined, undefined, "repl");
+        const succeeded = new ReplEvaluationResult("1");
+        succeeded.value = "42";
+
+        expect(renderer.renderValue(failed)).toEqual([
+            { text: failed.value, fg: "debugTokenExpression.error", style: StyleFlags.Italic },
+        ]);
+        expect(renderer.renderValue(succeeded, { colorize: true })).toEqual([
+            { text: "42", fg: "debugTokenExpression.number" },
+        ]);
     });
 
     it("a lazy variable carries the eye after the name", () => {
