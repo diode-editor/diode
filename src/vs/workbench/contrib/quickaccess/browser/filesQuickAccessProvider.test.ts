@@ -31,7 +31,9 @@ class FakeFileSearch {
     public readonly search = vi.fn<(query: string, max: number) => Promise<IFileSearchResults>>();
 
     public constructor(public results: readonly FileSearchResult[]) {
-        this.search.mockImplementation(() => Promise.resolve({ results: [...this.results], limitHit: false }));
+        this.search.mockImplementation(() =>
+            Promise.resolve({ results: [...this.results], limitHit: false, complete: true }),
+        );
     }
 
     public createSession(): IFileSearchSession {
@@ -407,12 +409,14 @@ describe("FilesQuickAccessProvider — file search session", () => {
         const { provider, search } = setup();
         let answerOld!: (r: IFileSearchResults) => void;
         search.mockImplementationOnce(() => new Promise((resolve) => (answerOld = resolve)));
-        search.mockImplementationOnce(() => Promise.resolve({ results: [searchResult("new.ts")], limitHit: false }));
+        search.mockImplementationOnce(() =>
+            Promise.resolve({ results: [searchResult("new.ts")], limitHit: false, complete: true }),
+        );
 
         provider.getItems("old");
         provider.getItems("new");
         await flushMicrotasks();
-        answerOld({ results: [searchResult("old.ts")], limitHit: false });
+        answerOld({ results: [searchResult("old.ts")], limitHit: false, complete: true });
         await flushMicrotasks();
 
         expect(rows(provider, "new")).toEqual(["new.ts"]);
@@ -430,13 +434,13 @@ describe("FilesQuickAccessProvider — file search session", () => {
         provider.getItems("abc");
         expect(search.mock.calls.map(([query]) => query)).toEqual(["a"]);
 
-        answerFirst({ results: [searchResult("a.ts")], limitHit: false });
+        answerFirst({ results: [searchResult("a.ts")], limitHit: false, complete: true });
         await flushMicrotasks();
 
         expect(search.mock.calls.map(([query]) => query)).toEqual(["a", "abc"]);
         // The answer for "a" never landed: the box already said "abc".
         expect(rows(provider, "abc")).toEqual([]);
-        answerLatest({ results: [searchResult("abc.ts")], limitHit: false });
+        answerLatest({ results: [searchResult("abc.ts")], limitHit: false, complete: true });
         await flushMicrotasks();
         expect(rows(provider, "abc")).toEqual(["abc.ts"]);
     });
@@ -453,9 +457,51 @@ describe("FilesQuickAccessProvider — file search session", () => {
         }
         expect(search).toHaveBeenCalledTimes(1);
 
-        answerFirst({ results: [searchResult("a.ts")], limitHit: false });
+        answerFirst({ results: [searchResult("a.ts")], limitHit: false, complete: true });
         await flushMicrotasks();
         expect(search).toHaveBeenCalledTimes(2);
+    });
+
+    it("isLoading: from typing until the answer for that text lands; growth under the same text does not count", async () => {
+        const { provider, fileSearch } = setup({ results: [searchResult("a.ts")] });
+        expect(provider.isLoading).toBe(false);
+        provider.getItems("a");
+        expect(provider.isLoading).toBe(true);
+        await flushMicrotasks();
+        expect(provider.isLoading).toBe(false);
+
+        fileSearch.sessions[0].change.fire();
+        expect(provider.isLoading).toBe(false);
+
+        provider.getItems("ab");
+        expect(provider.isLoading).toBe(true);
+        // Back to an empty box: only the history shows, there is nothing to wait for.
+        provider.getItems("  ");
+        expect(provider.isLoading).toBe(false);
+    });
+
+    it("isLoading: an empty answer while the walk goes on still waits; a partial non-empty one or a finished walk does not", async () => {
+        const { provider, search } = setup();
+        search.mockResolvedValueOnce({ results: [], limitHit: false, complete: false });
+        provider.getItems("a");
+        await flushMicrotasks();
+        expect(provider.isLoading).toBe(true);
+
+        search.mockResolvedValueOnce({ results: [searchResult("ab.ts")], limitHit: false, complete: false });
+        provider.getItems("ab");
+        await flushMicrotasks();
+        expect(provider.isLoading).toBe(false);
+
+        search.mockResolvedValueOnce({ results: [], limitHit: false, complete: true });
+        provider.getItems("abc");
+        await flushMicrotasks();
+        expect(provider.isLoading).toBe(false);
+    });
+
+    it("isLoading is false while hidden", () => {
+        const { provider } = setup({ shown: false });
+        provider.getItems("a");
+        expect(provider.isLoading).toBe(false);
     });
 
     it("hiding a picker that was never shown is a no-op", () => {
@@ -483,7 +529,7 @@ describe("FilesQuickAccessProvider — file search session", () => {
         fileSearch.sessions[0].change.fire();
         provider.getItems("");
 
-        answerFirst({ results: [searchResult("a.ts")], limitHit: false });
+        answerFirst({ results: [searchResult("a.ts")], limitHit: false, complete: true });
         await flushMicrotasks();
 
         expect(search).toHaveBeenCalledTimes(1);
@@ -496,7 +542,7 @@ describe("FilesQuickAccessProvider — file search session", () => {
         provider.getItems("main");
         provider.onHide();
 
-        answer({ results: [searchResult("src/main.ts")], limitHit: false });
+        answer({ results: [searchResult("src/main.ts")], limitHit: false, complete: true });
         await flushMicrotasks();
 
         expect(refresh).not.toHaveBeenCalled();

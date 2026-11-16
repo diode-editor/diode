@@ -82,7 +82,9 @@ interface FileSearchStub extends IFileSearchService {
 }
 
 function makeFileSearchStub(results: FileSearchResult[] = []): FileSearchStub {
-    const search = vi.fn((_query: string, _max: number) => Promise.resolve({ results, limitHit: false }));
+    const search = vi.fn((_query: string, _max: number) =>
+        Promise.resolve({ results, limitHit: false, complete: true }),
+    );
     let latest: { change: Emitter<void>; disposed: boolean } | undefined;
     return {
         search,
@@ -960,6 +962,85 @@ describe("QuickOpenService — position and size", () => {
         service.show();
         testApp.render();
         expect(view.layoutSize.width).toBe(view.preferredWidth);
+    });
+});
+
+describe("QuickOpenService — Enter before the file answer (#1179)", () => {
+    function deferredAnswer(fileSearch: FileSearchStub): (results: FileSearchResult[]) => void {
+        let answer!: (r: IFileSearchResults) => void;
+        fileSearch.search.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+        return (results) => {
+            answer({ results, limitHit: false, complete: true });
+        };
+    }
+
+    it("Enter on the still empty list opens the first row once the answer lands", async () => {
+        const { service, commands, fileSearch, view, body } = createService();
+        const execSpy = vi.spyOn(commands, "execute");
+        service.show();
+        const answer = deferredAnswer(fileSearch);
+        typeQuery(view, "main");
+
+        view.accept();
+        await flushMicrotasks();
+        expect(execSpy).not.toHaveBeenCalled();
+        expect(body.overlayLayer.hasVisibleItems()).toBe(true);
+
+        answer([makeSearchResult("src/main.ts")]);
+        await flushMicrotasks();
+        expect(execSpy).toHaveBeenCalledWith("workbench.openFile", "/root/src/main.ts");
+        expect(body.overlayLayer.hasVisibleItems()).toBe(false);
+    });
+
+    it("typing after Enter drops the pending accept", async () => {
+        const { service, commands, fileSearch, view } = createService();
+        const execSpy = vi.spyOn(commands, "execute");
+        service.show();
+        const answer = deferredAnswer(fileSearch);
+        typeQuery(view, "main");
+        view.accept();
+        typeQuery(view, "mainx");
+
+        answer([makeSearchResult("src/main.ts")]);
+        await flushMicrotasks();
+        expect(execSpy).not.toHaveBeenCalledWith("workbench.openFile", expect.anything());
+    });
+
+    it("Enter within the debounce runs the trailing query first: the row is of the typed text", async () => {
+        vi.useFakeTimers();
+        try {
+            const { service, commands, fileSearch, view } = createService();
+            const execSpy = vi.spyOn(commands, "execute");
+            fileSearch.search.mockImplementation((query) =>
+                Promise.resolve({ results: [makeSearchResult(`src/${query}.ts`)], limitHit: false, complete: true }),
+            );
+            service.show();
+            typeQuery(view, "a");
+            await flushMicrotasks();
+            // Within the cooldown: remembered for the trailing run, not asked yet.
+            typeQuery(view, "ab");
+            expect(fileSearch.search).toHaveBeenLastCalledWith("a", 50);
+
+            view.accept();
+            await flushMicrotasks();
+
+            expect(fileSearch.search).toHaveBeenLastCalledWith("ab", 50);
+            expect(execSpy).toHaveBeenCalledWith("workbench.openFile", "/root/src/ab.ts");
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("an answer that is already there: Enter accepts at once", async () => {
+        const { service, commands, view } = createService([makeSearchResult("src/main.ts")]);
+        const execSpy = vi.spyOn(commands, "execute");
+        service.show();
+        typeQuery(view, "main");
+        await flushMicrotasks();
+
+        view.accept();
+        await flushMicrotasks();
+        expect(execSpy).toHaveBeenCalledWith("workbench.openFile", "/root/src/main.ts");
     });
 });
 

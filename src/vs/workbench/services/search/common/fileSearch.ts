@@ -76,6 +76,8 @@ export interface FileSearchResult {
 export interface IFileSearchResults {
     readonly results: readonly FileSearchResult[];
     readonly limitHit: boolean;
+    /** No more results will come for this query: the answering index is complete (or nothing can answer). */
+    readonly complete: boolean;
 }
 
 /**

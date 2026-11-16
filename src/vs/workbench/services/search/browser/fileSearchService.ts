@@ -17,7 +17,8 @@ import type {
     IRawFileMatch,
 } from "../common/fileSearch.ts";
 
-const NO_RESULTS: IFileSearchResults = { results: [], limitHit: false };
+/** Nothing answers, and nothing will: a failed provider, no folder or no provider. */
+const NO_RESULTS: IFileSearchResults = { results: [], limitHit: false, complete: true };
 
 /** The last index whose walk ended: sessions of the same settings answer from it. */
 interface ICompletedIndex {
@@ -178,7 +179,11 @@ class ProviderSession extends Disposable implements IFileSearchSession {
             // The stand-in is gone on the provider's side (the host restarted): answer from our own walk.
             if (cacheKey !== own && !result.complete)
                 result = await this.provider.query({ cacheKey: own, query, maxResults });
-            return { results: result.matches.map((m) => toResult(this.request.folder, m)), limitHit: result.limitHit };
+            return {
+                results: result.matches.map((m) => toResult(this.request.folder, m)),
+                limitHit: result.limitHit,
+                complete: result.complete,
+            };
         } catch {
             return NO_RESULTS;
         }

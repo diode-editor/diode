@@ -8,6 +8,8 @@ import { FileSearchEngine } from "./fileSearchEngine.ts";
 
 const ROOT = path.join(process.cwd());
 const SRC = path.join(ROOT, "src");
+/** The whole index: rg walks in parallel, so the first N paths of an empty query are not a stable sample. */
+const ALL = 1_000_000;
 
 function relativePaths(results: readonly IRawFileMatch[]): string[] {
     return results.map((r) => r.relativePath);
@@ -56,24 +58,24 @@ describe("FileSearchEngine — integration against real project", () => {
         });
 
         it("indexes files in nested directories", async () => {
-            const paths = relativePaths(await search("", 2000));
+            const paths = relativePaths(await search("", ALL));
             expect(paths.some((p) => p.includes("workbench/"))).toBe(true);
             expect(paths.some((p) => p.includes("platform/"))).toBe(true);
             expect(paths.some((p) => p.includes("editor/"))).toBe(true);
         });
 
         it("does not include node_modules files", async () => {
-            const paths = relativePaths(await search("", 2000));
+            const paths = relativePaths(await search("", ALL));
             expect(paths.every((p) => !p.includes("node_modules"))).toBe(true);
         });
 
         it("does not include .git files", async () => {
-            const paths = relativePaths(await search("", 2000));
+            const paths = relativePaths(await search("", ALL));
             expect(paths.every((p) => !p.startsWith(".git"))).toBe(true);
         });
 
         it("all relative paths use forward slashes", async () => {
-            const paths = relativePaths(await search("", 2000));
+            const paths = relativePaths(await search("", ALL));
             expect(paths.every((p) => !p.includes("\\"))).toBe(true);
         });
     });

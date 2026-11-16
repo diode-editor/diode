@@ -40,6 +40,8 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
 
     private searchTimer: ReturnType<typeof setTimeout> | null = null;
     private pendingQuery: string | null = null;
+    /** Enter came while the provider was loading: accept on its next refresh. */
+    private acceptWhenLoaded = false;
 
     public constructor(
         private readonly quickAccess: QuickAccessRegistry,
@@ -80,6 +82,11 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
         view.onAccept = (item) => {
             this.handleAccept(item);
         };
+        // An empty list may only be waiting for the provider's answer.
+        view.onAcceptEmpty = () => {
+            this.handleAccept();
+        };
+        this.acceptWhenLoaded = false;
         view.onCancel = () => {
             this.close();
         };
@@ -167,12 +174,15 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
             // Stryker disable next-line ConditionalExpression: equivalent while closing (and a takeover) always runs handleDidClose, which drops the provider — the guard above returns first
             if (!this.isOpen()) return;
             this.updateItems(this.view.getQuery(), preserveSelection);
+            if (this.acceptWhenLoaded && provider.isLoading !== true) this.handleAccept();
         });
         this.view.placeholder = provider.getPlaceholder();
         return provider;
     }
 
     private handleQueryChange(query: string): void {
+        // Typing after Enter is a new intent: the pending accept was for the old text.
+        this.acceptWhenLoaded = false;
         const provider = this.activateProviderFor(query);
 
         if (provider.debounceQuery !== true) {
@@ -210,8 +220,25 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
         this.pendingQuery = null;
     }
 
-    private handleAccept(item: QuickPickItem): void {
-        const accept = (item as QuickAccessItem).accept;
+    /**
+     * Accepts the active row. The debounce's trailing query is run first — Enter right after typing must not pick
+     * a row of the previous text — and a provider still loading the answer gets the accept on its refresh.
+     */
+    private handleAccept(picked?: QuickPickItem): void {
+        let item = picked;
+        if (this.pendingQuery !== null) {
+            const query = this.pendingQuery;
+            this.cancelPendingSearch();
+            this.updateItems(query);
+            // The rows were of the previous text.
+            item = undefined;
+        }
+        if (this.currentProvider?.isLoading === true) {
+            this.acceptWhenLoaded = true;
+            return;
+        }
+        this.acceptWhenLoaded = false;
+        const accept = ((item ?? this.view.items[this.view.selectedIndex]) as QuickAccessItem | undefined)?.accept;
 
         queueMicrotask(() => {
             if (accept === undefined) return;

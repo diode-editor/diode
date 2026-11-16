@@ -153,6 +153,14 @@ describe("FileSearchService", () => {
             expect(await names(session)).toEqual(["a.ts"]);
         });
 
+        it("says whether more results may come: incomplete while its walk runs, complete after", async () => {
+            const session = service.createSession();
+            expect((await session.search("", 50)).complete).toBe(false);
+            provider.walk(0).finish();
+            await session.ready;
+            expect((await session.search("", 50)).complete).toBe(true);
+        });
+
         it("forwards maxResults to the provider", async () => {
             const session = service.createSession();
             await session.search("x", 7);
@@ -161,7 +169,7 @@ describe("FileSearchService", () => {
 
         it("passes limitHit through", async () => {
             const limited: IFileSearchProvider = {
-                index: () => Promise.resolve({ limitHit: true }),
+                index: () => Promise.resolve({ limitHit: true, complete: true }),
                 query: () => Promise.resolve({ matches: [], complete: true, limitHit: true }),
                 clearCache: () => undefined,
                 onDidChangeIndex: new Emitter<string>().event,
@@ -191,7 +199,7 @@ describe("FileSearchService", () => {
             provider.walk(0).fail();
             await session.ready;
             provider.queryFails = true;
-            expect(await session.search("", 50)).toEqual({ results: [], limitHit: false });
+            expect(await session.search("", 50)).toEqual({ results: [], limitHit: false, complete: true });
         });
 
         it("fires onDidChange when its own index grows, not on another key", () => {
@@ -381,7 +389,7 @@ describe("FileSearchService", () => {
             empty.registerProvider(provider);
             const session = empty.createSession();
             await session.ready;
-            expect(await session.search("a", 50)).toEqual({ results: [], limitHit: false });
+            expect(await session.search("a", 50)).toEqual({ results: [], limitHit: false, complete: true });
             session.onDidChange(() => undefined).dispose();
             session.dispose();
             expect(provider.walks.size).toBe(0);
@@ -390,7 +398,11 @@ describe("FileSearchService", () => {
 
         it("no provider registered: empty results", async () => {
             const bare = new FileSearchService(config, workspace);
-            expect(await bare.createSession().search("a", 50)).toEqual({ results: [], limitHit: false });
+            expect(await bare.createSession().search("a", 50)).toEqual({
+                results: [],
+                limitHit: false,
+                complete: true,
+            });
             bare.dispose();
         });
 

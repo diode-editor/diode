@@ -46,6 +46,11 @@ interface IFileQueries {
     filter: string | undefined;
     /** Kept until the next answer arrives: an empty frame on every keystroke would flicker. */
     results: readonly FileSearchResult[];
+    /** The typed text {@link results} answer, and the text in the box now (`undefined` — only the history shows). */
+    answered: string | undefined;
+    /** No more results will come for {@link answered}: its index walk ended. */
+    answerComplete: boolean;
+    wanted: string | undefined;
     /**
      * One query at a time: on a big folder a query costs the provider up to seconds, and asking on every
      * keystroke and every index growth stacked them up (#1179). The latest filter goes once the answer lands.
@@ -107,6 +112,17 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
         private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {}
 
+    /**
+     * No answer for the typed text yet, or an empty one while the walk goes on: the file may simply not be
+     * indexed yet. A non-empty partial answer counts — Enter takes the best match so far, as upstream.
+     */
+    public get isLoading(): boolean {
+        const files = this.files;
+        if (files?.wanted === undefined) return false;
+        if (files.answered !== files.wanted) return true;
+        return files.results.length === 0 && !files.answerComplete;
+    }
+
     public getPlaceholder(): string {
         return "Go to File...";
     }
@@ -124,6 +140,9 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
             session: this.fileSearch.createSession(),
             filter: undefined,
             results: [],
+            answered: undefined,
+            answerComplete: false,
+            wanted: undefined,
             inFlight: false,
             queued: false,
         };
@@ -151,6 +170,7 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
     public getItems(query: string): QuickAccessItem[] {
         const { filePart, goto } = splitFileQuery(query);
         const filter = prepareQuery(filePart);
+        if (this.files !== undefined) this.files.wanted = filter.terms.length === 0 ? undefined : filePart;
         if (filter.terms.length === 0) {
             this.requestSymbols("");
             return this.historyEntries().map((entry) =>
@@ -193,7 +213,7 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
             return;
         }
         files.inFlight = true;
-        void files.session.search(filter, MAX_FILE_RESULTS).then(({ results }) => {
+        void files.session.search(filter, MAX_FILE_RESULTS).then(({ results, complete }) => {
             if (this.files !== files) return;
             files.inFlight = false;
             if (files.queued) {
@@ -203,6 +223,8 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
             }
             if (filter !== files.filter) return;
             files.results = results;
+            files.answered = filter;
+            files.answerComplete = complete;
             this.refresh(true);
         });
     }
