@@ -25,7 +25,7 @@ interface IIndexState {
     complete: boolean;
     limitHit: boolean;
     walker: GuardedChildProcess | null;
-    notifyTimer: ReturnType<typeof setTimeout> | null;
+    notifyTimer: ReturnType<typeof setTimeout> | undefined;
 }
 
 export interface IFileSearchEngineOptions {
@@ -62,7 +62,7 @@ export class FileSearchEngine extends Disposable implements IFileSearchProvider 
             complete: false,
             limitHit: false,
             walker: null,
-            notifyTimer: null,
+            notifyTimer: undefined,
         };
         this.states.set(request.cacheKey, state);
         this.walk(request, state, () => {
@@ -104,8 +104,8 @@ export class FileSearchEngine extends Disposable implements IFileSearchProvider 
     private stop(state: IIndexState): void {
         // `kill`, not the guard's `dispose`: dispose also silences `onDidEnd`, and `done` would never settle.
         state.walker?.child.kill();
-        if (state.notifyTimer !== null) clearTimeout(state.notifyTimer);
-        state.notifyTimer = null;
+        clearTimeout(state.notifyTimer);
+        state.notifyTimer = undefined;
     }
 
     /**
@@ -127,11 +127,10 @@ export class FileSearchEngine extends Disposable implements IFileSearchProvider 
         // Stryker disable next-line StringLiteral: the label only names the process in a guard warning
         const guard = new GuardedChildProcess(child, { label: "rg", waitForStdio: true });
         state.walker = guard;
-        const toPosix = path.sep === "/" ? (line: string) => line : (line: string) => line.split(path.sep).join("/");
 
         splitLines(child.stdout, (line) => {
             if (line === "" || state.limitHit) return;
-            if (!state.index.add(toPosix(line))) {
+            if (!state.index.add(line.replaceAll(path.sep, "/"))) {
                 // Like upstream's `isLimitHit`: the rest of the walk is waste.
                 state.limitHit = true;
                 child.kill();
@@ -153,16 +152,16 @@ export class FileSearchEngine extends Disposable implements IFileSearchProvider 
     }
 
     private scheduleNotify(cacheKey: string, state: IIndexState): void {
-        if (state.notifyTimer !== null) return;
+        if (state.notifyTimer !== undefined) return;
         state.notifyTimer = setTimeout(() => {
-            state.notifyTimer = null;
+            state.notifyTimer = undefined;
             this.onDidChangeIndexEmitter.fire(cacheKey);
         }, NOTIFY_DEBOUNCE_MS);
     }
 
     private flushNotify(cacheKey: string, state: IIndexState): void {
-        if (state.notifyTimer !== null) clearTimeout(state.notifyTimer);
-        state.notifyTimer = null;
+        clearTimeout(state.notifyTimer);
+        state.notifyTimer = undefined;
         this.onDidChangeIndexEmitter.fire(cacheKey);
     }
 }

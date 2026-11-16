@@ -19,8 +19,9 @@ import type {
 
 const NO_RESULTS: IFileSearchResults = { results: [], limitHit: false };
 
-/** A completed index another session may answer from while its own walk runs. */
+/** The last index whose walk ended: sessions of the same settings answer from it. */
 interface ICompletedIndex {
+    readonly provider: IFileSearchProvider;
     readonly cacheKey: string;
     /** Session order: a walk that ends late must not replace a newer index. */
     readonly order: number;
@@ -39,8 +40,10 @@ export class FileSearchService extends Disposable implements IFileSearchService 
     private provider: IFileSearchProvider | undefined;
     private readonly providerStore = this.register(new DisposableStore());
     private readonly onDidChangeIndexEmitter = this.register(new Emitter<string>());
+    /** @internal for {@link ProviderSession} */
+    public readonly onDidChangeIndex = this.onDidChangeIndexEmitter.event;
     private completed: ICompletedIndex | undefined;
-    private nextCacheKey = 1;
+    private nextOrder = 1;
 
     public constructor(
         private readonly configuration: IConfigurationService,
@@ -71,7 +74,7 @@ export class FileSearchService extends Disposable implements IFileSearchService 
         const folder = this.workspace.getWorkspace().folders.at(0)?.uri.fsPath;
         const provider = this.provider;
         if (folder === undefined || provider === undefined) return new EmptySession();
-        const order = this.nextCacheKey++;
+        const order = this.nextOrder++;
         const request: IFileIndexRequest = {
             cacheKey: `file-search-${String(order)}`,
             folder,
@@ -81,26 +84,22 @@ export class FileSearchService extends Disposable implements IFileSearchService 
         return new ProviderSession(this, provider, request, order);
     }
 
-    /** @internal for {@link ProviderSession} */
-    public get onDidChangeIndex(): typeof this.onDidChangeIndexEmitter.event {
-        return this.onDidChangeIndexEmitter.event;
-    }
-
-    /** @internal The stand-in for a session whose walk is still running. */
-    public standIn(provider: IFileSearchProvider, signature: string): ICompletedIndex | undefined {
-        if (provider !== this.provider) return undefined;
-        const completed = this.completed;
-        return completed?.signature === signature ? completed : undefined;
+    /** @internal The key a session of these settings answers from, if any walk of them ended. */
+    public completedKey(signature: string): string | undefined {
+        return this.completed?.signature === signature ? this.completed.cacheKey : undefined;
     }
 
     /** @internal Upstream disposes the previous cache once the new one is loaded. */
-    public markCompleted(provider: IFileSearchProvider, index: ICompletedIndex): void {
-        if (provider !== this.provider) return;
+    public markCompleted(index: ICompletedIndex): void {
+        if (index.provider !== this.provider) return;
         const previous = this.completed;
-        // The late walk's session still answers from it and frees it on dispose.
-        if (previous !== undefined && previous.order > index.order) return;
+        if (previous !== undefined) {
+            // The late walk's session still answers from its own index and frees it on dispose.
+            // Stryker disable next-line EqualityOperator: orders are unique, `>=` and `>` never differ
+            if (previous.order > index.order) return;
+            previous.provider.clearCache(previous.cacheKey);
+        }
         this.completed = index;
-        if (previous !== undefined && previous.cacheKey !== index.cacheKey) provider.clearCache(previous.cacheKey);
     }
 
     /** @internal */
@@ -108,13 +107,8 @@ export class FileSearchService extends Disposable implements IFileSearchService 
         return this.completed?.cacheKey === cacheKey;
     }
 
-    /** @internal The provider lost the index (the host restarted). */
-    public forget(cacheKey: string): void {
-        if (this.completed?.cacheKey === cacheKey) this.completed = undefined;
-    }
-
     public override dispose(): void {
-        if (this.completed !== undefined) this.provider?.clearCache(this.completed.cacheKey);
+        this.completed?.provider.clearCache(this.completed.cacheKey);
         this.completed = undefined;
         super.dispose();
     }
@@ -138,7 +132,6 @@ class ProviderSession extends Disposable implements IFileSearchSession {
     public readonly onDidChange = this.onDidChangeEmitter.event;
     public readonly ready: Promise<void>;
     private readonly signature: string;
-    private complete = false;
     private disposed = false;
 
     public constructor(
@@ -148,25 +141,18 @@ class ProviderSession extends Disposable implements IFileSearchSession {
         order: number,
     ) {
         super();
-        this.signature = JSON.stringify([request.folder, request.excludes, request.useIgnoreFiles]);
+        const signature = JSON.stringify([request.folder, request.excludes, request.useIgnoreFiles]);
+        this.signature = signature;
         this.register(
             service.onDidChangeIndex((cacheKey) => {
-                // Growth of our own index matters only while nothing completed stands in for it.
-                if (cacheKey !== request.cacheKey) return;
-                if (this.complete || service.standIn(provider, this.signature) === undefined) {
-                    this.onDidChangeEmitter.fire();
-                }
+                // Growth of our own index is news only while it is the one answering.
+                if (cacheKey === request.cacheKey && this.answeringKey() === cacheKey) this.onDidChangeEmitter.fire();
             }),
         );
         this.ready = provider.index(request).then(
             () => {
-                this.complete = true;
                 if (this.disposed) return;
-                service.markCompleted(provider, {
-                    cacheKey: request.cacheKey,
-                    order,
-                    signature: this.signature,
-                });
+                service.markCompleted({ provider, cacheKey: request.cacheKey, order, signature });
                 this.onDidChangeEmitter.fire();
             },
             () => undefined,
@@ -185,19 +171,22 @@ class ProviderSession extends Disposable implements IFileSearchSession {
     }
 
     public async search(query: string, maxResults: number): Promise<IFileSearchResults> {
-        const standIn = this.complete ? undefined : this.service.standIn(this.provider, this.signature);
-        const cacheKey = standIn?.cacheKey ?? this.request.cacheKey;
+        const own = this.request.cacheKey;
+        const cacheKey = this.answeringKey();
         try {
-            const result = await this.provider.query({ cacheKey, query, maxResults });
-            if (standIn !== undefined && !result.complete) {
-                // The stand-in is gone on the provider's side: answer from our own walk.
-                this.service.forget(standIn.cacheKey);
-                return await this.search(query, maxResults);
-            }
+            let result = await this.provider.query({ cacheKey, query, maxResults });
+            // The stand-in is gone on the provider's side (the host restarted): answer from our own walk.
+            if (cacheKey !== own && !result.complete)
+                result = await this.provider.query({ cacheKey: own, query, maxResults });
             return { results: result.matches.map((m) => toResult(this.request.folder, m)), limitHit: result.limitHit };
         } catch {
             return NO_RESULTS;
         }
+    }
+
+    /** The last completed index of our settings — our own once our walk ended — else our growing one. */
+    private answeringKey(): string {
+        return this.service.completedKey(this.signature) ?? this.request.cacheKey;
     }
 }
 

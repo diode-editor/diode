@@ -41,9 +41,9 @@ export class SearchCustomer extends Disposable implements IExtensionHostCustomer
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
         this.live = rpc;
+        // A key nobody asked for matches no session: nothing to guard against.
         const subscription = rpc.handleNotification("search.fileIndexChanged", (params) => {
-            const cacheKey: unknown = (params as { cacheKey?: unknown } | undefined)?.cacheKey;
-            if (typeof cacheKey === "string") this.onDidChangeIndexEmitter.fire(cacheKey);
+            this.onDidChangeIndexEmitter.fire(params.cacheKey);
         });
         return {
             dispose: () => {

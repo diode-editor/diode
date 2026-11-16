@@ -421,8 +421,9 @@ describe("FilesQuickAccessProvider — file search session", () => {
     it("one query at a time: filters typed meanwhile collapse into the latest, sent once the answer lands", async () => {
         const { provider, search } = setup();
         let answerFirst!: (r: IFileSearchResults) => void;
+        let answerLatest!: (r: IFileSearchResults) => void;
         search.mockImplementationOnce(() => new Promise((resolve) => (answerFirst = resolve)));
-        search.mockImplementationOnce(() => Promise.resolve({ results: [searchResult("abc.ts")], limitHit: false }));
+        search.mockImplementationOnce(() => new Promise((resolve) => (answerLatest = resolve)));
 
         provider.getItems("a");
         provider.getItems("ab");
@@ -434,6 +435,9 @@ describe("FilesQuickAccessProvider — file search session", () => {
 
         expect(search.mock.calls.map(([query]) => query)).toEqual(["a", "abc"]);
         // The answer for "a" never landed: the box already said "abc".
+        expect(rows(provider, "abc")).toEqual([]);
+        answerLatest({ results: [searchResult("abc.ts")], limitHit: false });
+        await flushMicrotasks();
         expect(rows(provider, "abc")).toEqual(["abc.ts"]);
     });
 
@@ -452,6 +456,14 @@ describe("FilesQuickAccessProvider — file search session", () => {
         answerFirst({ results: [searchResult("a.ts")], limitHit: false });
         await flushMicrotasks();
         expect(search).toHaveBeenCalledTimes(2);
+    });
+
+    it("hiding a picker that was never shown is a no-op", () => {
+        const { provider, fileSearch } = setup({ shown: false });
+        expect(() => {
+            provider.onHide();
+        }).not.toThrow();
+        expect(fileSearch.sessions).toEqual([]);
     });
 
     it("showing again without a hide disposes the previous session", () => {

@@ -261,18 +261,36 @@ describe("FileSearchService", () => {
             expect(await names(session)).toEqual(["new.ts"]);
         });
 
-        it("a stand-in the provider lost (host restart) is forgotten and the own walk answers", async () => {
+        it("a stand-in the provider lost (host restart): the own walk answers", async () => {
             const oldKey = await completedSession(["old.ts"]);
             provider.cleared.push(oldKey);
             const session = service.createSession();
+            const own = provider.walk(1).request.cacheKey;
             provider.walk(1).files.push("new.ts");
 
             expect(await names(session)).toEqual(["new.ts"]);
-            // Forgotten: the next session does not even ask the lost key.
+            expect(provider.queries.map((q) => q.cacheKey)).toEqual([oldKey, own]);
+        });
+
+        it("a completed stand-in answers once: no second query to the own walk", async () => {
+            const oldKey = await completedSession(["old.ts"]);
+            const session = service.createSession();
             provider.queries.length = 0;
+            await session.search("", 50);
+            expect(provider.queries.map((q) => q.cacheKey)).toEqual([oldKey]);
+        });
+
+        it("a walk of an unregistered provider ending late is not adopted", async () => {
+            const session = service.createSession();
+            const fresh = new FakeProvider();
+            service.registerProvider(fresh);
+            provider.walk(0).finish();
+            await session.ready;
+
             const next = service.createSession();
-            await next.search("", 50);
-            expect(provider.queries.map((q) => q.cacheKey)).toEqual([provider.walk(2).request.cacheKey]);
+            fresh.walk(0).files.push("new.ts");
+            expect(await names(next)).toEqual(["new.ts"]);
+            expect(fresh.queries.map((q) => q.cacheKey)).toEqual([fresh.walk(0).request.cacheKey]);
         });
 
         it("a walk that ends late does not replace a newer completed index", async () => {
@@ -315,7 +333,9 @@ describe("FileSearchService", () => {
             await session.ready;
 
             const next = service.createSession();
-            expect(await names(next)).toEqual([]);
+            await next.search("", 50);
+            // The next session asks its own walk, not the dropped one.
+            expect(provider.queries.map((q) => q.cacheKey)).toEqual([provider.walk(1).request.cacheKey]);
         });
 
         it("the service frees the last completed index", async () => {
@@ -324,6 +344,34 @@ describe("FileSearchService", () => {
             await session.ready;
             service.dispose();
             expect(provider.cleared).toEqual([provider.walk(0).request.cacheKey]);
+        });
+
+        it("a disposed session hears nothing more", () => {
+            const session = service.createSession();
+            let changes = 0;
+            session.onDidChange(() => changes++);
+            session.dispose();
+            provider.fire(provider.walk(0).request.cacheKey);
+            expect(changes).toBe(0);
+        });
+
+        it("a disposed service forwards nothing more", () => {
+            const session = service.createSession();
+            let changes = 0;
+            session.onDidChange(() => changes++);
+            service.dispose();
+            provider.fire(provider.walk(0).request.cacheKey);
+            expect(changes).toBe(0);
+        });
+
+        it("an unregistered provider's growth reaches nobody", () => {
+            const registration = service.registerProvider(provider);
+            const session = service.createSession();
+            let changes = 0;
+            session.onDidChange(() => changes++);
+            registration.dispose();
+            provider.fire(provider.walk(0).request.cacheKey);
+            expect(changes).toBe(0);
         });
     });
 

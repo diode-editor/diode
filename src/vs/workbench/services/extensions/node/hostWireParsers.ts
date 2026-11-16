@@ -1298,9 +1298,12 @@ export function parseWireFileIndexResult(raw: unknown): IFileIndexResult {
 
 /** Throws on a foreign response; a malformed match is dropped, the rest of the list stands. */
 export function parseWireFileQueryResult(raw: unknown): IFileQueryResult {
-    if (typeof raw !== "object" || raw === null) throw new Error("search.fileQuery: result must be an object");
-    const { matches, complete, limitHit } = raw as { matches?: unknown; complete?: unknown; limitHit?: unknown };
-    if (!Array.isArray(matches)) throw new Error("search.fileQuery: matches must be an array");
+    const { matches, complete, limitHit } = (raw ?? {}) as {
+        matches?: unknown;
+        complete?: unknown;
+        limitHit?: unknown;
+    };
+    if (!Array.isArray(matches)) throw new Error("search.fileQuery: the result must carry a matches array");
     return {
         matches: matches.flatMap((m: unknown): IRawFileMatch[] => {
             const { relativePath, score, matchedIndices } = (m ?? {}) as {

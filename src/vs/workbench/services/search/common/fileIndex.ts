@@ -3,14 +3,14 @@ import { charMask, fuzzyMatchPreparedLower, prepareQuery } from "../../../../bas
 import { BASENAME_BONUS, type IRawFileMatch, MAX_INDEXED_FILES } from "./fileSearch.ts";
 
 /**
- * Case-folded up front so a query allocates no strings per entry. A lower-case copy is kept only
- * when it differs: most paths are lower case already, and the index of a big folder is all strings.
+ * Case-folded up front so a query allocates no strings per entry. Most paths are lower case already,
+ * and for them V8's `toLowerCase` returns the same string: the copy costs nothing (measured).
  */
 interface IndexEntry {
     readonly relativePath: string;
     readonly basename: string;
-    readonly relativePathLower: string | undefined;
-    readonly basenameLower: string | undefined;
+    readonly relativePathLower: string;
+    readonly basenameLower: string;
     /** Char-presence mask of the lower-case path; the global match prefilter. */
     readonly relativePathBits: number;
     /** Char-presence mask of the lower-case basename, to skip the basename match. */
@@ -40,8 +40,8 @@ export class FileIndex {
         this.entries.push({
             relativePath,
             basename,
-            relativePathLower: pathLower === relativePath ? undefined : pathLower,
-            basenameLower: basenameLower === basename ? undefined : basenameLower,
+            relativePathLower: pathLower,
+            basenameLower,
             relativePathBits: charMask(pathLower),
             basenameBits: charMask(basenameLower),
         });
@@ -63,11 +63,13 @@ export class FileIndex {
         const queryBits = prepared.bits;
 
         for (const entry of this.entries) {
+            // Stryker disable next-line ConditionalExpression: a speed-only prefilter, it never drops a match ("bitmask prefilter does not change results"); the `fileSearchEngine` bench tells the mutant apart
             if ((entry.relativePathBits & queryBits) !== queryBits) continue;
 
             const basenameMatch =
+                // Stryker disable next-line ConditionalExpression: a speed-only prefilter, as above — the matcher itself answers null
                 (entry.basenameBits & queryBits) === queryBits
-                    ? fuzzyMatchPreparedLower(prepared, entry.basename, entry.basenameLower ?? entry.basename)
+                    ? fuzzyMatchPreparedLower(prepared, entry.basename, entry.basenameLower)
                     : null;
             if (basenameMatch !== null) {
                 const offset = entry.relativePath.length - entry.basename.length;
@@ -79,11 +81,7 @@ export class FileIndex {
                 continue;
             }
 
-            const pathMatch = fuzzyMatchPreparedLower(
-                prepared,
-                entry.relativePath,
-                entry.relativePathLower ?? entry.relativePath,
-            );
+            const pathMatch = fuzzyMatchPreparedLower(prepared, entry.relativePath, entry.relativePathLower);
             if (pathMatch !== null) {
                 results.push({
                     relativePath: entry.relativePath,

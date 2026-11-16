@@ -45,11 +45,7 @@ describe("parseWireFileQueryResult", () => {
         expect(result.matches).toEqual([{ relativePath: "ok.ts", score: 2, matchedIndices: [0, 2] }]);
     });
 
-    it.each([null, 1, "x"])("throws on a non-object %j", (raw) => {
-        expect(() => parseWireFileQueryResult(raw)).toThrow("search.fileQuery");
-    });
-
-    it("throws when matches is not an array", () => {
-        expect(() => parseWireFileQueryResult({ matches: {} })).toThrow("matches must be an array");
+    it.each([null, undefined, 1, "x", {}, { matches: {} }])("throws without a matches array: %j", (raw) => {
+        expect(() => parseWireFileQueryResult(raw)).toThrow("search.fileQuery: the result must carry a matches array");
     });
 });
