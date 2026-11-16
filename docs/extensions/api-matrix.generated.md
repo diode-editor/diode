@@ -14,15 +14,15 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1231 |
+| ok | 1239 |
 | A | 4 |
-| B | 204 |
+| B | 196 |
 | C | 542 |
 | X | 234 |
 
 | mark | members |
 | --- | --- |
-| test | 213 |
+| test | 220 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -341,8 +341,8 @@ By the size of the gap, smallest first. Extensions with no resolved member are l
 | `quarto.quarto` | 1.139.0 | 4,721,611 |  | 256 | 29 | 0 | 4 | 7 | 18 |
 | `malloydata.malloy-vscode` | 0.3.1793323135 | 667,347 |  | 206 | 30 | 0 | 0 | 4 | 26 |
 | `eamodio.gitlens` | 2026.10.300511 | 18,726,545 |  | 208 | 31 | 0 | 12 | 11 | 8 |
+| `GitHub.vscode-pull-request-github` | 0.174.0 | 6,666,160 |  | 147 | 31 | 0 | 11 | 13 | 7 |
 | `golang.Go` | 0.58.0 | 43,153,897 | yes | 251 | 32 | 0 | 5 | 16 | 11 |
-| `GitHub.vscode-pull-request-github` | 0.174.0 | 6,666,160 |  | 147 | 32 | 0 | 12 | 13 | 7 |
 | `devsense.phptools-vscode` | 1.76.19462 | 42,465,202 |  | 235 | 33 | 0 | 2 | 21 | 10 |
 | `GitLab.gitlab-workflow` | 7.3.5 | 2,950,329 |  | 252 | 34 | 0 | 9 | 12 | 13 |
 | `Oracle.oracle-java` | 27.0.0 | 853,283 |  | 231 | 34 | 0 | 2 | 13 | 19 |
@@ -901,14 +901,14 @@ Proposed API or a false hit: class X when real.
 | `DocumentDropEditProvider.resolveDocumentDropEdit` | C |  | 0 | 0 |  |
 | `DocumentDropEditProviderMetadata.dropMimeTypes` | C |  | 0 | 0 |  |
 | `DocumentDropEditProviderMetadata.providedDropEditKinds` | C |  | 0 | 0 |  |
-| `DocumentDropOrPasteEditKind` | B |  | 0 | 0 |  |
-| `DocumentDropOrPasteEditKind.append` | B |  | 0 | 0 |  |
-| `DocumentDropOrPasteEditKind.contains` | B |  | 0 | 0 |  |
-| `DocumentDropOrPasteEditKind.Empty` | B |  | 1 | 6,666,160 |  |
-| `DocumentDropOrPasteEditKind.intersects` | B |  | 0 | 0 |  |
-| `DocumentDropOrPasteEditKind.Text` | B |  | 0 | 0 |  |
-| `DocumentDropOrPasteEditKind.TextUpdateImports` | B |  | 0 | 0 |  |
-| `DocumentDropOrPasteEditKind.value` | B |  | 0 | 0 |  |
+| `DocumentDropOrPasteEditKind` | ok |  | 0 | 0 |  |
+| `DocumentDropOrPasteEditKind.append` | ok | yes | 0 | 0 |  |
+| `DocumentDropOrPasteEditKind.contains` | ok | yes | 0 | 0 |  |
+| `DocumentDropOrPasteEditKind.Empty` | ok | yes | 1 | 6,666,160 |  |
+| `DocumentDropOrPasteEditKind.intersects` | ok | yes | 0 | 0 |  |
+| `DocumentDropOrPasteEditKind.Text` | ok | yes | 0 | 0 |  |
+| `DocumentDropOrPasteEditKind.TextUpdateImports` | ok | yes | 0 | 0 |  |
+| `DocumentDropOrPasteEditKind.value` | ok | yes | 0 | 0 |  |
 | `DocumentFilter.language` | ok |  | 0 | 0 |  |
 | `DocumentFilter.notebookType` | B |  | 0 | 0 |  |
 | `DocumentFilter.pattern` | ok |  | 0 | 0 |  |
