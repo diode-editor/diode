@@ -50,6 +50,7 @@ requiresWorkspaceFolder?, canMoveView?}`. `containerId` —
 `onDidChangeLocations`; показ на текущем месте — `openView`/
 `openViewContainer` (вкладку части активирует как пользователь — ленивые
 фичи просыпаются).
+
 - Переносятся только виды с `canMoveView: true` (Explorer, Search, SCM,
   Problems, Output, Terminal); контейнер с `rejectAddedViews` (Extensions)
   чужие виды не принимает.
@@ -446,8 +447,20 @@ workbench, а не доработка `TreeViewElement`, у которого м�
   (ленивая переменная после вычисления): читает их заново, даже если узел
   уже был раскрыт. Спан строки может нести `style` (курсив недоступного
   значения).
-- `renderRowEnd(element)` — часть строки, прижатая к правому краю (источник
-  строки Debug Console); подпись строки обрезается перед ней.
+- Части строки: `renderRowEnd(element)` — часть, прижатая к правому краю
+  (источник строки Debug Console, метка состояния потока CALL STACK, строка
+  брейкпоинта), спан с `onClick` — инлайн-контрол (чекбокс брейкпоинта; клик
+  потребляется и строку не выбирает, двойной клик её не открывает). Такая
+  строка — `HFlexElement` из подписей: последний кусок текста — `fill`-ребёнок,
+  правая часть и контролы — по ширине содержимого, перед правой частью — колонка
+  отступа. Flex отдаёт `fill` остаток после остальных, поэтому при нехватке
+  места обрезается текст, а правая часть остаётся целиком (как `flex: 1` имени у
+  эталона перед бейджем). Центрировать нечем (две `fill`-распорки flex не
+  делит) — кадр `label` у CALL STACK курсивом, но слева.
+- `onSelect` — курсор передвинул пользователь (стрелки, клик); перестройка и
+  `reveal(element)` (курсор на строку элемента, если она показана) его не зовут:
+  CALL STACK фокусирует кадр под курсором и сам же ставит курсор на кадр после
+  остановки.
 
 **`ActionButtonElement`** (`browser/parts/views/actionButtonElement.ts`) —
 кнопка вида на всю ширину с подписью по центру (`button.*`, наведение и фокус —
@@ -461,6 +474,7 @@ Control и «Run and Debug» в welcome вьюлета отладки (реше�
 Контейнер `workbench.view.extension.test` («Testing», `order: 6`) и вид `workbench.view.testing` (TEST
 EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorerComponent`), эталон —
 `testingExplorerView.ts` с иерархической проекцией. Вид регистрируется, пока истинно `testing.providerCount
+
 > 0` (`when` эталона): контейнер появляется с первым контроллером и уходит с последним (`hideIfEmpty`).
 
 - **Пустое состояние** — welcome эталона («No tests have been found…», кнопка «Install Additional Test
@@ -564,7 +578,7 @@ EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorer
   поверхности вывода (`TestResultsSplitElement.setContent`). Выбор показа — правило эталона (`messageShow`):
   есть `expected` и `actual` — diff (`TestMessageDiffFactory`: `DiffEditorPane2` со снапшот-сторонами, только
   чтение, подписи «Expected result» / «Actual result», всегда бок о бок — `useInlineViewWhenSpaceIsLimited:
-  false`, настройки редактора — `editorConfiguration.apply`); иначе markdown (`markdown: true` на проводе) —
+false`, настройки редактора — `editorConfiguration.apply`); иначе markdown (`markdown: true` на проводе) —
   `stripMarkdown` ховера, без ссылок; иначе plain — `removeAnsiEscapeCodes` (модель эталона без ANSI; цвета
   эталон возвращает декорациями — у нас нет). Текст — `TestMessageTextElement`: перенос по словам с отступом
   строки, прокрутка колесом. Отступление: компактного вида однострочного diff нет — у редактора нет
@@ -591,7 +605,7 @@ EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorer
 
 - **Ошибки** — сообщения-ошибки последнего результата (`testing.showAllMessages` — всех), чей `location`
   или первый кадр стека с позицией — в этом файле; по одному на строку, порядок — тесты запуска, задачи,
-  сообщения. Бейдж `ILineMessageDecoration`: ` <error-иконка> <текст> ` цветами
+  сообщения. Бейдж `ILineMessageDecoration`: `<error-иконка> <текст>` цветами
   `testing.message.error.badgeForeground`/`badgeBackground`. Текст — `TestErrorContentWidget` эталона:
   `actual != expected` (оба заданы, каждое в одну строку и `truncateMiddle(…, 30)`), иначе первая строка
   сообщения без ANSI и управляющих символов, пустое — «Test Failed».

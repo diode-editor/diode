@@ -101,6 +101,8 @@ const FOCUS_TARGETS: readonly (readonly string[])[] = [
     ["listFocus", "firstMatchFocus"],
     ["listFocus", "variablesFocused"],
     ["listFocus", "watchExpressionsFocused"],
+    ["listFocus", "breakpointsFocused"],
+    ["listFocus", "callStackFocused"],
     ["terminalFocus"],
     ["terminalTabsFocus"],
 ];
