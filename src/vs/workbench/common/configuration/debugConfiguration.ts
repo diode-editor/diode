@@ -5,7 +5,7 @@ import type { IConfigurationNode } from "../../../platform/configuration/common/
  * and `debug.internalConsoleOptions` have no `type` there either: a string). Only the keys the ported code reads: the
  * Debug Console (`replModel.ts`, opening and closing its view), the terminal of `runInTerminal` (`debugTerminal.ts`), launch.json and the debug tasks
  * (`debugConfigurationManager.ts`, `debugTaskRunner.ts`, `debugService.ts`), the Run and Debug views (opening them,
- * types and lazy variables). The rest of `debug.*` comes with the task that implements it (the toolbar), the
+ * types, lazy variables and the breakpoints presentation). The rest of `debug.*` comes with the task that implements it (the toolbar), the
  * unsupported ones are declared by the settings task (#1158). `launch` has no JSON schema of its configurations yet
  * (IntelliSense in launch.json is a task of its own).
  */
@@ -18,6 +18,14 @@ export const debugConfiguration = {
             type: "boolean",
             description: "Show variable type in variable pane during debug session",
             default: false,
+        },
+        "debug.breakpointsView.presentation": {
+            scope: "window",
+            type: "string",
+            description:
+                "Controls whether breakpoints are displayed in a tree view grouped by file, or as a flat list.",
+            enum: ["tree", "list"],
+            default: "list",
         },
         "debug.openDebug": {
             scope: "window",

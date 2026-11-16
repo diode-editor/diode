@@ -48,6 +48,9 @@ export const SYNTHETIC_CAPABILITIES: DebugProtocol.Capabilities = {
     supportsTerminateThreadsRequest: true,
     supportsEvaluateForHovers: true,
     supportsDelayedStackTraceLoading: true,
+    supportsFunctionBreakpoints: true,
+    supportsDataBreakpoints: true,
+    supportsInstructionBreakpoints: true,
     exceptionBreakpointFilters: [
         { filter: "cpp_throw", label: "C++: on throw", default: false },
         { filter: "cpp_catch", label: "C++: on catch", default: false },
@@ -140,11 +143,15 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     public readonly requests: DebugProtocol.Request[] = [];
     /** The session's answers to the adapter's reverse requests, in order. */
     public readonly responses: DebugProtocol.Response[] = [];
+    /** The adapter data the answer to `setBreakpoints` gives every breakpoint's source, when set. */
+    public breakpointAdapterData: unknown;
     private readonly pendingReverse = new Map<number, () => void>();
     private readonly program = new Program();
     private readonly handles = new Map<number, Children>();
     private nextHandle = 1;
     private nextBreakpointId = 1;
+    /** The ids of the breakpoints set at `path:line`: a stop on a breakpoint names the ones at its line. */
+    private readonly breakpointsAt = new Map<string, number[]>();
     private seq = 1;
     private readonly timers = new Set<ReturnType<typeof setTimeout>>();
     private launched = false;
@@ -290,11 +297,15 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 this.startIfReady();
                 return;
             case "setBreakpoints":
+                this.setBreakpoints(request, args as unknown as DebugProtocol.SetBreakpointsArguments);
+                return;
+            case "setFunctionBreakpoints":
+            case "setDataBreakpoints":
+            case "setInstructionBreakpoints":
                 this.respond(request, {
-                    breakpoints: ((args.breakpoints ?? []) as DebugProtocol.SourceBreakpoint[]).map((bp) => ({
+                    breakpoints: ((args.breakpoints ?? []) as unknown[]).map(() => ({
                         id: this.nextBreakpointId++,
                         verified: true,
-                        line: bp.line,
                     })),
                 });
                 return;
@@ -439,7 +450,31 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             allThreadsStopped: true,
             text,
             description: reason === "exception" ? "Exception has occurred." : undefined,
+            hitBreakpointIds:
+                reason === "breakpoint"
+                    ? this.breakpointsAt.get(`${SYNTHETIC_PROGRAM_ROOT}/src/${MAIN_CPP}:${String(this.program.line)}`)
+                    : undefined,
         });
+    }
+
+    /** A file of the program verifies its breakpoints; any other has no code to break in. */
+    private setBreakpoints(request: DebugProtocol.Request, args: DebugProtocol.SetBreakpointsArguments): void {
+        const path = args.source.path ?? "";
+        const known = path.startsWith(`${SYNTHETIC_PROGRAM_ROOT}/`);
+        for (const key of [...this.breakpointsAt.keys()]) {
+            if (key.startsWith(`${path}:`)) this.breakpointsAt.delete(key);
+        }
+        const breakpoints = (args.breakpoints ?? []).map((bp) => {
+            const id = this.nextBreakpointId++;
+            const key = `${path}:${String(bp.line)}`;
+            if (known) this.breakpointsAt.set(key, [...(this.breakpointsAt.get(key) ?? []), id]);
+            const source =
+                this.breakpointAdapterData === undefined
+                    ? undefined
+                    : { ...args.source, adapterData: this.breakpointAdapterData };
+            return { id, verified: known, line: bp.line, source };
+        });
+        this.respond(request, { breakpoints });
     }
 
     private stackTrace(request: DebugProtocol.Request, args: DebugProtocol.StackTraceArguments): void {

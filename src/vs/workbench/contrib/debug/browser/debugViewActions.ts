@@ -1,22 +1,35 @@
 // The commands of the Run and Debug viewlet with upstream's ids, titles, keys and `when`: showing it
 // (`debug.contribution.ts`), Collapse All of VARIABLES (`variablesView.ts`), the WATCH title and keys
-// (`watchExpressionsView.ts`, `debugCommands.ts`). Deviation: Ctrl+Shift+D reaches only terminals with extended keys;
-// Ctrl+K B shows the viewlet everywhere (Ctrl+K D, the free letter of the other viewlets, is Compare with Saved).
+// (`watchExpressionsView.ts`, `debugCommands.ts`), Collapse All of CALL STACK (`callStackView.ts`), the BREAKPOINTS
+// title, its keys and the palette commands of the breakpoints (`breakpointsView.ts`, `debugCommands.ts`).
+// Deviations: Ctrl+Shift+D and Ctrl+Enter reach only terminals with extended keys; Ctrl+K B shows the viewlet
+// everywhere (Ctrl+K D, the free letter of the other viewlets, is Compare with Saved); the name of a new function
+// breakpoint is typed in the quick input, not in an input box on the row. Not here yet: the entries of the Run menu
+// (no Run menu yet), the context menus of the rows with Remove Breakpoint and the editing commands (#1150).
 
 import { codicon } from "../../../../base/common/codicons.ts";
 import { type CommandAction, HIDDEN_FROM_PALETTE } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
+import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
-import { VARIABLES_VIEW_ID, VIEWLET_ID, WATCH_VIEW_ID } from "../common/debug.ts";
-import { Expression } from "../common/debugModel.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import {
+    BREAKPOINTS_VIEW_ID,
+    CALLSTACK_VIEW_ID,
+    VARIABLES_VIEW_ID,
+    VIEWLET_ID,
+    WATCH_VIEW_ID,
+} from "../common/debug.ts";
+import { Breakpoint, DataBreakpoint, Expression, FunctionBreakpoint } from "../common/debugModel.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
-import { DebugViewletComponentDIToken } from "./debugViewlet.ts";
+import { type DebugViewletComponent, DebugViewletComponentDIToken } from "./debugViewlet.ts";
 
 export const ADD_WATCH_ID = "workbench.debug.viewlet.action.addWatchExpression";
 export const REMOVE_WATCH_EXPRESSIONS_COMMAND_ID = "workbench.debug.viewlet.action.removeAllWatchExpressions";
@@ -160,6 +173,189 @@ export const removeWatchExpressionAction: CommandAction = {
     },
 };
 
+export const collapseCallStackAction: CommandAction = {
+    id: "callStack.collapse",
+    title: "Collapse All",
+    enablement: "debugState == 'stopped'",
+    menus: [
+        ...HIDDEN_FROM_PALETTE,
+        {
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
+            order: 10,
+            icon: COLLAPSE_ICON,
+            visible: viewMenuVisible(CALLSTACK_VIEW_ID),
+        },
+    ],
+    run(accessor) {
+        accessor.get(DebugViewletComponentDIToken).callStack.tree.collapseAll();
+    },
+};
+
+/** BREAKPOINTS, whose row under the cursor is upstream's focused element of the last focused list. */
+function breakpointsView(accessor: ServiceAccessor): DebugViewletComponent["breakpoints"] {
+    return accessor.get(DebugViewletComponentDIToken).breakpoints;
+}
+
+export const toggleBreakpointAction: CommandAction = {
+    id: "debug.toggleBreakpoint",
+    title: "Toggle Breakpoint",
+    keybinding: {
+        keys: parseKeybinding("space"),
+        when: "breakpointsFocused",
+        weight: KeybindingWeight.WorkbenchContrib + 5,
+    },
+    menus: HIDDEN_FROM_PALETTE,
+    run(accessor) {
+        const focused = breakpointsView(accessor).focusedBreakpoint;
+        if (focused) return accessor.get(DebugServiceDIToken).enableOrDisableBreakpoints(!focused.enabled, focused);
+        return undefined;
+    },
+};
+
+export const removeFocusedBreakpointAction: CommandAction = {
+    id: "debug.removeBreakpoint",
+    title: "Remove Breakpoint",
+    keybinding: {
+        keys: parseKeybinding("delete"),
+        when: "breakpointsFocused && !breakpointInputFocused",
+        weight: KeybindingWeight.WorkbenchContrib,
+    },
+    menus: HIDDEN_FROM_PALETTE,
+    run(accessor) {
+        const debugService = accessor.get(DebugServiceDIToken);
+        const element = breakpointsView(accessor).focusedBreakpoint;
+        if (element instanceof Breakpoint) return debugService.removeBreakpoints(element.getId());
+        if (element instanceof FunctionBreakpoint) return debugService.removeFunctionBreakpoints(element.getId());
+        if (element instanceof DataBreakpoint) return debugService.removeDataBreakpoints(element.getId());
+        return undefined;
+    },
+};
+
+export const openBreakpointToSideAction: CommandAction = {
+    id: "debug.openBreakpointToSide",
+    title: "Open to the Side",
+    keybinding: { keys: parseKeybinding("alt+enter"), when: "breakpointsFocused" },
+    keybindings: [{ keys: parseKeybinding("ctrl+enter"), when: "breakpointsFocused && tier != 'legacy'" }],
+    weight: KeybindingWeight.WorkbenchContrib,
+    menus: HIDDEN_FROM_PALETTE,
+    run(accessor) {
+        const focused = breakpointsView(accessor).focusedBreakpoint;
+        if (focused instanceof Breakpoint) return breakpointsView(accessor).openBreakpoint(focused, true);
+        return undefined;
+    },
+};
+
+export const addFunctionBreakpointAction: CommandAction = {
+    id: "workbench.debug.viewlet.action.addFunctionBreakpointAction",
+    title: "Add Function Breakpoint",
+    menus: [
+        {
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
+            order: 10,
+            icon: codicon("add"),
+            visible: viewMenuVisible(BREAKPOINTS_VIEW_ID),
+        },
+    ],
+    async run(accessor) {
+        const debugService = accessor.get(DebugServiceDIToken);
+        const quickInput = accessor.get(QuickInputServiceDIToken);
+        accessor.get(ViewsServiceDIToken).openView(BREAKPOINTS_VIEW_ID);
+        // Upstream's input box on the new row: an empty name adds nothing.
+        const name = await quickInput.input({ placeholder: "Function to break on" });
+        if (name) await debugService.addFunctionBreakpoint({ name });
+    },
+};
+
+export const toggleBreakpointsActivatedAction: CommandAction = {
+    id: "workbench.debug.viewlet.action.toggleBreakpointsActivatedAction",
+    title: "Toggle Activate Breakpoints",
+    menus: [
+        {
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
+            order: 20,
+            icon: codicon("activate-breakpoints"),
+            visible: viewMenuVisible(BREAKPOINTS_VIEW_ID),
+        },
+    ],
+    run(accessor) {
+        const debugService = accessor.get(DebugServiceDIToken);
+        return debugService.setBreakpointsActivated(!debugService.getModel().areBreakpointsActivated());
+    },
+};
+
+export const removeAllBreakpointsAction: CommandAction = {
+    id: "workbench.debug.viewlet.action.removeAllBreakpoints",
+    title: "Remove All Breakpoints",
+    menus: [
+        {
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
+            order: 30,
+            icon: codicon("close-all"),
+            visible: viewMenuVisible(BREAKPOINTS_VIEW_ID),
+        },
+    ],
+    async run(accessor) {
+        const debugService = accessor.get(DebugServiceDIToken);
+        await Promise.all([
+            debugService.removeBreakpoints(),
+            debugService.removeFunctionBreakpoints(),
+            debugService.removeDataBreakpoints(),
+            debugService.removeInstructionBreakpoints(),
+        ]);
+    },
+};
+
+export const enableAllBreakpointsAction: CommandAction = {
+    id: "workbench.debug.viewlet.action.enableAllBreakpoints",
+    title: "Enable All Breakpoints",
+    enablement: "debuggersAvailable",
+    run(accessor) {
+        return accessor.get(DebugServiceDIToken).enableOrDisableBreakpoints(true);
+    },
+};
+
+export const disableAllBreakpointsAction: CommandAction = {
+    id: "workbench.debug.viewlet.action.disableAllBreakpoints",
+    title: "Disable All Breakpoints",
+    enablement: "debuggersAvailable",
+    run(accessor) {
+        return accessor.get(DebugServiceDIToken).enableOrDisableBreakpoints(false);
+    },
+};
+
+export const reapplyBreakpointsAction: CommandAction = {
+    id: "workbench.debug.viewlet.action.reapplyBreakpointsAction",
+    title: "Reapply All Breakpoints",
+    enablement: "inDebugMode",
+    run(accessor) {
+        return accessor.get(DebugServiceDIToken).setBreakpointsActivated(true);
+    },
+};
+
+export const toggleBreakpointsPresentationAction: CommandAction = {
+    id: "workbench.debug.viewlet.action.toggleBreakpointsPresentation",
+    title: "Toggle Breakpoints View Presentation",
+    menus: [
+        {
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
+            order: 10,
+            icon: codicon("debug-alt"),
+            visible: viewMenuVisible(BREAKPOINTS_VIEW_ID),
+        },
+    ],
+    async run(accessor) {
+        const configuration = accessor.get(IConfigurationServiceDIToken);
+        const currentPresentation = configuration.get("debug.breakpointsView.presentation");
+        const newPresentation = currentPresentation === "tree" ? "list" : "tree";
+        await configuration.updateValue("debug.breakpointsView.presentation", newPresentation);
+    },
+};
+
 export const DEBUG_VIEW_ACTIONS: readonly CommandAction[] = [
     showRunAndDebugAction,
     collapseVariablesAction,
@@ -169,4 +365,15 @@ export const DEBUG_VIEW_ACTIONS: readonly CommandAction[] = [
     copyAllWatchExpressionsAction,
     renameWatchExpressionAction,
     removeWatchExpressionAction,
+    collapseCallStackAction,
+    toggleBreakpointAction,
+    removeFocusedBreakpointAction,
+    openBreakpointToSideAction,
+    addFunctionBreakpointAction,
+    toggleBreakpointsActivatedAction,
+    removeAllBreakpointsAction,
+    enableAllBreakpointsAction,
+    disableAllBreakpointsAction,
+    reapplyBreakpointsAction,
+    toggleBreakpointsPresentationAction,
 ];

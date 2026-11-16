@@ -198,14 +198,19 @@ describe("DebugService", () => {
             await startStopped();
 
             const commands = factory.adapters[0].requests.map((r) => r.command);
-            expect(commands.slice(0, 5)).toEqual([
-                "initialize",
-                "launch",
-                "setExceptionBreakpoints",
-                "configurationDone",
-                "threads",
-            ]);
-            expect(factory.adapters[0].requests[2].arguments).toEqual({ filters: [] });
+            expect(commands.slice(0, 2)).toEqual(["initialize", "launch"]);
+            // The breakpoints of every kind the adapter supports, in parallel with `configurationDone` support.
+            expect(new Set(commands.slice(2, 6))).toEqual(
+                new Set([
+                    "setFunctionBreakpoints",
+                    "setDataBreakpoints",
+                    "setInstructionBreakpoints",
+                    "setExceptionBreakpoints",
+                ]),
+            );
+            expect(commands.slice(6, 8)).toEqual(["configurationDone", "threads"]);
+            const exceptions = factory.adapters[0].requests.find((r) => r.command === "setExceptionBreakpoints");
+            expect(exceptions?.arguments).toEqual({ filters: [] });
         });
 
         it("sends the breakpoints of the model, then configurationDone", async () => {
@@ -731,6 +736,8 @@ describe("DebugService", () => {
             await vi.advanceTimersByTimeAsync(299);
             expect(factory.adapters).toHaveLength(1);
             await vi.advanceTimersByTimeAsync(10);
+            // The new session's start answers on timers too: let them run before the real clock comes back.
+            await vi.advanceTimersByTimeAsync(100);
             vi.useRealTimers();
             await restarted;
 
