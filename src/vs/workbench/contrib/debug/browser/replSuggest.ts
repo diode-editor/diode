@@ -8,10 +8,10 @@
 // the text in it with a case-insensitive "contains" (the editor's fuzzy score is not here); `selectionStart` puts the
 // cursor there instead of a snippet's selection; no details pane.
 
+import { DisplayLine } from "@tuidom/core/common/displayLine";
 import type { OverlayLayer } from "@tuidom/core/dom/overlayLayer";
 import { CompletionListElement, type CompletionListItem } from "@tuidom/elements/completionlist/completionListElement";
 import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
-import { DisplayLine } from "@tuidom/core/common/displayLine";
 
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";

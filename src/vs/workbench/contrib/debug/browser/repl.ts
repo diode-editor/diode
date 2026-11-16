@@ -15,14 +15,14 @@
 // Deviations: without a running session upstream makes the input read-only and shows the hint in it; here the hint
 // is the placeholder and Enter still echoes the input with the hint as its result. `stdout` (severity `info`) is in
 // the plain foreground, not `debugConsole.infoForeground` (the spike's look). Escape clearing the input is ours. A line
-// break inside an output element is a space (upstream's `pre-wrap` shows it); without wrapping a long line is cut —
-// the list does not scroll sideways. The filter has no history of its own (upstream's Up/Down in it).
+// break inside an element is a space without wrapping (the row is one line, cut: the list does not scroll sideways);
+// with wrapping it breaks the row, as upstream's `pre-wrap`. The filter has no history of its own (upstream's Up/Down in it).
 // Not here yet (#1158): Find, the session picker of multiple consoles, the context menu (Copy, Paste), clicking a
 // source to open it, the `debug.console.*` font settings (the terminal's font). The view has no `debuggersAvailable`
 // gate: it is always there.
 
-import type { OverlayLayer } from "@tuidom/core/dom/overlayLayer";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import type { OverlayLayer } from "@tuidom/core/dom/overlayLayer";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
@@ -108,9 +108,12 @@ const SEVERITY_SPAN: Readonly<Record<ReplSeverity, Omit<IRowSpan, "text">>> = {
     ignore: { style: StyleFlags.Italic },
 };
 
-/** A line break inside an element is a space: the row's text is one line, wrapped or cut. */
-function oneLine(value: string): string {
-    return value.replace(/\r?\n/gu, " ");
+/**
+ * The text of a row. Wrapped, its line breaks stay (upstream's `pre-wrap`), but the element's own last one; cut to one
+ * line, a line break is a space.
+ */
+function rowText(value: string, wrap: boolean): string {
+    return wrap ? value.replace(/\r?\n$/u, "").replace(/\r\n/gu, "\n") : value.replace(/\r?\n/gu, " ");
 }
 
 function isNesting(element: IReplElement): element is INestingReplElement {
@@ -160,6 +163,11 @@ export class Repl extends Component implements IContextKeyContributor {
     private stale = false;
     private readonly refreshScheduler: RunOnceScheduler;
 
+    /** `debug.console.wordWrap`: the tree asks it on every rebuild, the rows read it as they render. */
+    private get wrap(): boolean {
+        return this.configuration.get("debug.console.wordWrap");
+    }
+
     public constructor(
         private readonly debugService: DebugService,
         private readonly views: ViewsService,
@@ -202,7 +210,7 @@ export class Repl extends Component implements IContextKeyContributor {
                         ? sourceSpan(element.sourceData)
                         : [],
             },
-            { idPrefix: "repl", stickyTail: true, wrap: () => configuration.get("debug.console.wordWrap") },
+            { idPrefix: "repl", stickyTail: true, wrap: () => this.wrap },
         );
         this.refreshScheduler = this.register(
             new RunOnceScheduler(() => {
@@ -369,7 +377,9 @@ export class Repl extends Component implements IContextKeyContributor {
 
     /** Upstream `getVisibleContent` (`repl.action.copyAll`): the rows shown, a line each, without ANSI codes. */
     public getVisibleContent(): string {
-        return removeAnsiEscapeCodes(this.tree.shownItems.map((element) => `${element.toString().trimEnd()}\n`).join(""));
+        return removeAnsiEscapeCodes(
+            this.tree.shownItems.map((element) => `${element.toString().trimEnd()}\n`).join(""),
+        );
     }
 
     /** The session whose console is shown. */
@@ -516,7 +526,7 @@ export class Repl extends Component implements IContextKeyContributor {
     /** Upstream's output and group renderers: the ANSI styles over the severity's, then the links. */
     private renderOutput(value: string, severity: ReplSeverity, session: IDebugSession): IRowSpan[] {
         const base = SEVERITY_SPAN[severity];
-        const spans = handleANSIOutput(oneLine(value)).map((span) => {
+        const spans = handleANSIOutput(rowText(value, this.wrap)).map((span) => {
             const style = (base.style ?? StyleFlags.None) | (span.style ?? StyleFlags.None);
             return { ...base, ...span, ...(style === StyleFlags.None ? {} : { style }) };
         });
@@ -527,7 +537,7 @@ export class Repl extends Component implements IContextKeyContributor {
         if (element instanceof ReplEvaluationInput) {
             return [
                 { text: `${this.icons.glyph(EVALUATION_INPUT_ICON)} `, fg: "debugConsoleInputIcon.foreground" },
-                { text: oneLine(element.value) },
+                { text: rowText(element.value, this.wrap) },
             ];
         }
         if (element instanceof ReplOutputElement) {

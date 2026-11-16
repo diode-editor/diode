@@ -2,6 +2,8 @@
 // shows (upstream `selectSession`), the rows of groups and nameless objects, the input's hint and keys.
 
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { TestApp as TuidomTestApp } from "@tuidom/testing/TestApp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -16,9 +18,6 @@ import {
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
 import type { TestApp } from "../../../../../TestUtils/TestApp.ts";
-import type { TUIElement } from "@tuidom/core/dom/tuiElement";
-import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
-
 import { Emitter } from "../../../../base/common/event.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -124,7 +123,8 @@ describe("Repl", () => {
         // The prompt's own color differs from the plain foreground it defaults to in the bundled themes.
         // The view's title row with the filter over the body, as the panel shows them.
         const panel = new VFlexElement();
-        if (titleWidget !== null) panel.addChild(titleWidget, { height: vflexFixed(1), width: "fill" });
+        // The constructor set it: the console puts its filter in the title.
+        panel.addChild(titleWidget as unknown as TUIElement, { height: vflexFixed(1), width: "fill" });
         panel.addChild(repl.view, { height: vflexFill(), width: "fill" });
         app = TuidomTestApp.createWithContent(panel, new Size(60, 12), {
             ...computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
@@ -677,6 +677,11 @@ describe("Repl", () => {
     describe("output, filter and completion (#1150)", () => {
         const themeVars = computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
 
+        /** A row with only `text` on it, and the scroll bar's thumb or track in its column if the console overflows. */
+        function aloneOnRow(text: string): RegExp {
+            return new RegExp(`^\\s+${text}\\s*[█░▀▄]?\\s*$`, "u");
+        }
+
         /** The cell of the first `text` on the screen. */
         function cellOf(text: string): Point {
             const rows = screen().split("\n");
@@ -754,7 +759,10 @@ describe("Repl", () => {
             const first = rows.findIndex((row) => row.includes("main.cpp:7"));
             expect(rows[first]).toContain("www");
             expect(rows[first + 1]).toContain("www");
-            const total = rows.filter((row) => row.includes("ww")).map((row) => row.split("w").length - 1).reduce((a, b) => a + b, 0);
+            const total = rows
+                .filter((row) => row.includes("ww"))
+                .map((row) => row.split("w").length - 1)
+                .reduce((a, b) => a + b, 0);
             expect(total).toBe(80);
         });
 
@@ -792,7 +800,7 @@ describe("Repl", () => {
             });
             expect(screen()).toContain("Hello from hello");
             expect(screen()).toContain("Reading input");
-            expect(repl.filterBadge.text).toMatch(/^Showing 2 of \d+ $/u);
+            expect(repl.filterBadge.getText()).toMatch(/^Showing 2 of \d+ $/u);
             expect(state.values.get("debug.repl.filter.value")).toBe("hello from,reading");
 
             // Evaluations stay whatever the filter says.
@@ -804,7 +812,7 @@ describe("Repl", () => {
             repl.focusFilter();
             app.sendKey("Escape");
             await shows("Launching");
-            expect(repl.filterBadge.text).toBe("");
+            expect(repl.filterBadge.getText()).toBe("");
             expect(session.getReplElements().length).toBeGreaterThan(3);
         });
 
@@ -991,9 +999,7 @@ describe("Repl", () => {
         it("Copy All takes the rows shown without their ANSI codes; Collapse All closes the groups", async () => {
             const session = await start("s");
             await shows("PASS");
-            expect(repl.getVisibleContent()).toContain(
-                "PASS self-check 3/3 at /home/user/hello/src/main.cpp:27:9\n",
-            );
+            expect(repl.getVisibleContent()).toContain("PASS self-check 3/3 at /home/user/hello/src/main.cpp:27:9\n");
             expect(repl.getVisibleContent()).not.toContain("\u001b");
 
             const model = session as unknown as { repl: { startGroup: (...a: unknown[]) => void } };
@@ -1021,7 +1027,7 @@ describe("Repl", () => {
             const rows = screen().split("\n");
             const echo = rows.findIndex((row) => row.includes("> one"));
             expect(rows[echo]).not.toContain("two");
-            expect(rows[echo + 1]).toMatch(/^\s+two\s*$/u);
+            expect(rows[echo + 1]).toMatch(aloneOnRow("two"));
         });
 
         // With word wrap on upstream draws an output element under `white-space: pre-wrap`: its inner line breaks are
@@ -1036,7 +1042,7 @@ describe("Repl", () => {
             const rows = screen().split("\n");
             const alpha = rows.findIndex((row) => row.includes("alpha"));
             expect(rows[alpha]).not.toContain("beta");
-            expect(rows[alpha + 1]).toMatch(/^\s+beta\s*$/u);
+            expect(rows[alpha + 1]).toMatch(aloneOnRow("beta"));
         });
 
         /** The list's rows of the frame: below the title row with the filter, above the input. */
@@ -1052,15 +1058,22 @@ describe("Repl", () => {
             await start("s");
             await shows("Launched process 48213");
 
-            app.backend.resize(new Size(60, 12));
+            // Ten rows of output for eight rows of list: the console overflows and the scroll bar takes a column.
+            app.backend.resize(new Size(60, 10));
             await new Promise((resolve) => setTimeout(resolve, 100));
             const rows = listRows();
-            // The synthetic adapter's first two lines, each wrapped onto two rows of the narrowed console.
+            globalThis.console.error(JSON.stringify(rows));
             const launching = rows.findIndex((row) => row.includes("Launching:"));
             const joined = (index: number): string =>
                 rows
                     .slice(index, index + 2)
-                    .map((row) => row.slice(1, -2).trimEnd())
+                    // The right padding, and the scroll bar if the console overflows: no text is under it.
+                    .map((row) =>
+                        row
+                            .slice(1, -1)
+                            .replace(/[█░▀▄]$/u, "")
+                            .trimEnd(),
+                    )
                     .join("");
             expect(joined(launching)).toBe("Launching: /home/user/hello/build/hello --verbose input.txt");
             expect(joined(launching + 2)).toBe("Launched process 48213 from '/home/user/hello/build/hello'");

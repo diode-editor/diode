@@ -24,8 +24,8 @@ import { type IFileService, IFileServiceDIToken } from "../../../../platform/fil
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IRowSpan } from "../../../browser/parts/views/lazyTreeControl.ts";
-import { EditorServiceDIToken, type IEditorService } from "../../../services/editor/common/editorService.ts";
 import { openUriAtPosition } from "../../../services/editor/browser/openUriAtPosition.ts";
+import { EditorServiceDIToken, type IEditorService } from "../../../services/editor/common/editorService.ts";
 import {
     ExternalOpenerDIToken,
     type IExternalOpener,
@@ -38,7 +38,7 @@ const CONTROL_CODES = "\\u0000-\\u0020\\u007f-\\u009f";
 const WEB_LINK_REGEX = new RegExp(
     "(?:[a-zA-Z][a-zA-Z0-9+.-]{2,}:\\/\\/|data:|www\\.)[^\\s" +
         CONTROL_CODES +
-        "\"]{2,}[^\\s" +
+        '"]{2,}[^\\s' +
         CONTROL_CODES +
         "\"')}\\],:;.!?]",
     "ug",
@@ -167,7 +167,10 @@ export class LinkDetector {
     }
 
     private openerOf(part: ILinkPart, workspaceFolder: IWorkspaceFolder | undefined): (() => void) | undefined {
-        if (part.kind === "web") return () => this.run(this.openWebLink(part.value));
+        if (part.kind === "web")
+            return () => {
+                this.run(this.openWebLink(part.value));
+            };
         if (part.kind !== "path") return undefined;
         let path = part.captures[0] ?? "";
         // Most likely a url part which did not match, for example ftp://path.
@@ -176,13 +179,17 @@ export class LinkDetector {
         if (path.startsWith(".")) {
             if (workspaceFolder === undefined) return undefined;
             const uri = Uri.joinPath(workspaceFolder.uri, path);
-            return () => this.run(this.openFile(uri, position));
+            return () => {
+                this.run(this.openFile(uri, position));
+            };
         }
         if (path.startsWith("~")) path = join(this.environment.userHome, path.substring(1));
         // A Windows-style relative path matched on a POSIX platform is not one.
         if (!isAbsolute(path)) return undefined;
         const uri = Uri.file(normalize(path));
-        return () => this.run(this.openFile(uri, position));
+        return () => {
+            this.run(this.openFile(uri, position));
+        };
     }
 
     private async openWebLink(url: string): Promise<void> {
@@ -194,7 +201,9 @@ export class LinkDetector {
         // if the URI ends with something like `foo.js:12:3`, parse that into the location to reveal
         const lineCol = LINE_COLUMN_REGEX.exec(uri.path);
         if (lineCol) uri = uri.with({ path: uri.path.slice(0, lineCol.index) });
-        await this.openFile(uri, lineCol ? positionOf(Number(lineCol[1]), Number(lineCol[2] ?? 0)) : undefined);
+        // The column is optional: its group is undefined without it.
+        const column = lineCol?.[2];
+        await this.openFile(uri, lineCol ? positionOf(Number(lineCol[1]), Number(column ?? 0)) : undefined);
     }
 
     /** A folder or a missing file opens nothing, as upstream leaves such a path undecorated. */

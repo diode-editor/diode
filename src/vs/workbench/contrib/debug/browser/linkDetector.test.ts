@@ -18,7 +18,10 @@ describe("detectLinks", () => {
     });
 
     it("takes `:line N`, a home or relative path, a path without a position", () => {
-        expect(detectLinks("at ./a/b.js:line 12")[1]).toMatchObject({ kind: "path", captures: ["./a/b.js", "12", undefined] });
+        expect(detectLinks("at ./a/b.js:line 12")[1]).toMatchObject({
+            kind: "path",
+            captures: ["./a/b.js", "12", undefined],
+        });
         expect(detectLinks("~/x.c")[0]).toMatchObject({ kind: "path", captures: ["~/x.c", undefined, undefined] });
         expect(detectLinks("www.example.org!")[0]).toMatchObject({ kind: "web", value: "www.example.org" });
     });
@@ -91,7 +94,10 @@ describe("LinkDetector", () => {
 
     it("cuts the styled pieces at the links and underlines the links over their own style", () => {
         const spans = detector.linkify(
-            [{ text: "at /src/ap", fg: "terminal.ansiRed" }, { text: "p.ts:3 x", style: StyleFlags.Bold }],
+            [
+                { text: "at /src/ap", fg: "terminal.ansiRed" },
+                { text: "p.ts:3 x", style: StyleFlags.Bold },
+            ],
             undefined,
         );
         expect(spans.map(({ link: _, ...rest }) => rest)).toEqual([

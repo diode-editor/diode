@@ -55,7 +55,8 @@ exports.activate = function activate(context) {
             createDebugAdapterTracker() {
                 return {
                     onDidSendMessage(message) {
-                        if (message.type === "event" && message.event !== "output") tracked.text = `dap:${message.event}`;
+                        if (message.type === "event" && message.event !== "output")
+                            tracked.text = `dap:${message.event}`;
                     },
                 };
             },

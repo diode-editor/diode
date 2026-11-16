@@ -31,7 +31,12 @@ describe("handleANSIOutput", () => {
         expect(on).toEqual([
             {
                 text: "x",
-                style: StyleFlags.Bold | StyleFlags.Dim | StyleFlags.Italic | StyleFlags.Underline | StyleFlags.Strikethrough,
+                style:
+                    StyleFlags.Bold |
+                    StyleFlags.Dim |
+                    StyleFlags.Italic |
+                    StyleFlags.Underline |
+                    StyleFlags.Strikethrough,
             },
         ]);
         expect(handleANSIOutput(`${ESC}[1;2;3;4;9m${ESC}[22;23;24;29mx`)).toEqual([{ text: "x" }]);

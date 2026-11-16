@@ -6,10 +6,11 @@
 // to sit in yet (#1158): a command only.
 
 import { codicon } from "../../../../base/common/codicons.ts";
-import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { REPL_VIEW_ID } from "../common/debug.ts";
@@ -81,7 +82,8 @@ export const filterReplAction: CommandAction = {
     id: FILTER_REPL_ID,
     title: "Debug Console: Focus Filter",
     enablement: "inDebugRepl",
-    keybindings: [{ keys: parseKeybinding("mod+f"), when: "inDebugRepl" }],
+    // Over the editor's Find (same weight upstream, decided there by the registration order): in the console Ctrl+F filters.
+    keybindings: [{ keys: parseKeybinding("mod+f"), when: "inDebugRepl", weight: KeybindingWeight.EditorContrib + 1 }],
     run(accessor) {
         accessor.get(ReplDIToken).focusFilter();
     },
@@ -110,8 +112,9 @@ export const REPL_ACTIONS: readonly CommandAction[] = [
     toggleReplAction,
     focusReplAction,
     acceptReplInputAction,
-    clearReplAction,
-    filterReplAction,
+    // Upstream's order in repl.ts.
     copyAllReplAction,
+    filterReplAction,
+    clearReplAction,
     collapseReplAction,
 ];
