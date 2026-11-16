@@ -147,7 +147,13 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
                 new Error("a DebugAdapterDescriptorFactory can only be registered once per a type."),
             );
             registration.dispose();
-            expect(() => as(EXT, () => debug.registerDebugAdapterDescriptorFactory("t", factory))).not.toThrow();
+            const next = { createDebugAdapterDescriptor: () => undefined };
+            expect(() => as(EXT, () => debug.registerDebugAdapterDescriptorFactory("t", next))).not.toThrow();
+            // A second dispose of the old registration leaves the new factory in place.
+            registration.dispose();
+            expect(() => as(EXT, () => debug.registerDebugAdapterDescriptorFactory("t", factory))).toThrow(
+                "once per a type",
+            );
         });
 
         it("no factory registers nothing", () => {
@@ -244,9 +250,14 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
 
         it("no descriptor, or a descriptor no adapter is made for, fails the start with upstream's message", async () => {
             const { debug, as, start, vscode } = setup();
-            await expect(start(1)).rejects.toThrow(
-                "Couldn't find a debug adapter descriptor for debug type 't' (extension might have failed to activate)",
+            const noDescriptor =
+                "Couldn't find a debug adapter descriptor for debug type 't' (extension might have failed to activate)";
+            await expect(start(1)).rejects.toThrow(noDescriptor);
+            const nullFactory = as(EXT, () =>
+                debug.registerDebugAdapterDescriptorFactory("t", { createDebugAdapterDescriptor: () => null }),
             );
+            await expect(start(3)).rejects.toThrow(noDescriptor);
+            nullFactory.dispose();
             as(EXT, () =>
                 debug.registerDebugAdapterDescriptorFactory("t", {
                     createDebugAdapterDescriptor: () => ({}) as vscode.DebugAdapterDescriptor,

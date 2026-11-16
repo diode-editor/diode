@@ -1,6 +1,5 @@
 import * as path from "node:path";
 
-import { currentOperatingSystem, OperatingSystem } from "../../../base/common/platform.ts";
 import type { IDebuggerContribution, IPlatformSpecificAdapterContribution } from "../../contrib/debug/common/debug.ts";
 
 import { DebugAdapterExecutable } from "./debugTypes.ts";
@@ -81,7 +80,7 @@ function extract(
 export function platformAdapterExecutable(
     extensions: readonly IDebuggerExtension[],
     debugType: string,
-    os: OperatingSystem = currentOperatingSystem(),
+    platform: NodeJS.Platform = process.platform,
 ): DebugAdapterExecutable | undefined {
     const result = Object.create(null) as Record<string, unknown>;
     const lowerType = debugType.toLowerCase();
@@ -96,11 +95,11 @@ export function platformAdapterExecutable(
     const merged = result as unknown as IDebuggerContribution;
 
     let platformInfo: IPlatformSpecificAdapterContribution | undefined;
-    if (os === OperatingSystem.Windows) {
+    if (platform === "win32") {
         platformInfo = Object.hasOwn(process.env, "PROCESSOR_ARCHITEW6432")
             ? (merged.win ?? merged.windows)
             : (merged.winx86 ?? merged.win ?? merged.windows);
-    } else if (os === OperatingSystem.Macintosh) {
+    } else if (platform === "darwin") {
         platformInfo = merged.osx;
     } else {
         platformInfo = merged.linux;

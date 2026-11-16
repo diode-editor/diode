@@ -2,8 +2,6 @@ import * as path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { OperatingSystem } from "../../../base/common/platform.ts";
-
 import {
     definesDebugType,
     type IDebuggerExtension,
@@ -25,7 +23,7 @@ afterEach(() => {
 describe("platformAdapterExecutable — upstream ExecutableDebugAdapter.platformAdapterExecutable", () => {
     it("`program` is the adapter, relative to the extension; its `args` follow", () => {
         const ext = extension("/ext/a", [{ type: "lldb", program: "./bin/codelldb", args: ["--port"] }]);
-        expect(platformAdapterExecutable([ext], "lldb", OperatingSystem.Linux)).toEqual(
+        expect(platformAdapterExecutable([ext], "lldb", "linux")).toEqual(
             executable(path.join("/ext/a", "bin/codelldb"), ["--port"]),
         );
     });
@@ -34,11 +32,11 @@ describe("platformAdapterExecutable — upstream ExecutableDebugAdapter.platform
         const ext = extension("/ext/a", [
             { type: "node2", runtime: "./node", runtimeArgs: ["--inspect"], program: "/abs/adapter.js", args: ["x"] },
         ]);
-        expect(platformAdapterExecutable([ext], "node2", OperatingSystem.Linux)).toEqual(
+        expect(platformAdapterExecutable([ext], "node2", "linux")).toEqual(
             executable(path.join("/ext/a", "node"), ["--inspect", "/abs/adapter.js", "x"]),
         );
         const plain = extension("/ext/b", [{ type: "py", runtime: "python3" }]);
-        expect(platformAdapterExecutable([plain], "py", OperatingSystem.Linux)).toEqual(executable("python3", []));
+        expect(platformAdapterExecutable([plain], "py", "linux")).toEqual(executable("python3", []));
     });
 
     it("the attributes of the current platform win over the common ones, each platform its own", () => {
@@ -52,13 +50,11 @@ describe("platformAdapterExecutable — upstream ExecutableDebugAdapter.platform
                 windows: { runtime: "win.exe" },
             },
         ]);
-        expect(platformAdapterExecutable([ext], "t", OperatingSystem.Linux)).toEqual(
+        expect(platformAdapterExecutable([ext], "t", "linux")).toEqual(
             executable(path.join("/e", "linux"), ["common"]),
         );
-        expect(platformAdapterExecutable([ext], "t", OperatingSystem.Macintosh)).toEqual(
-            executable(path.join("/e", "osx"), ["osx"]),
-        );
-        expect(platformAdapterExecutable([ext], "t", OperatingSystem.Windows)).toEqual(
+        expect(platformAdapterExecutable([ext], "t", "darwin")).toEqual(executable(path.join("/e", "osx"), ["osx"]));
+        expect(platformAdapterExecutable([ext], "t", "win32")).toEqual(
             executable("win.exe", [path.join("/e", "common"), "common"]),
         );
     });
@@ -69,13 +65,11 @@ describe("platformAdapterExecutable — upstream ExecutableDebugAdapter.platform
         ]);
         vi.stubEnv("PROCESSOR_ARCHITEW6432", undefined as never);
         delete process.env.PROCESSOR_ARCHITEW6432;
-        expect(platformAdapterExecutable([ext], "t", OperatingSystem.Windows)).toEqual(executable("/x86", []));
+        expect(platformAdapterExecutable([ext], "t", "win32")).toEqual(executable("/x86", []));
         vi.stubEnv("PROCESSOR_ARCHITEW6432", "AMD64");
-        expect(platformAdapterExecutable([ext], "t", OperatingSystem.Windows)).toEqual(executable("/win", []));
+        expect(platformAdapterExecutable([ext], "t", "win32")).toEqual(executable("/win", []));
         const onlyWindows = extension("/e", [{ type: "t", windows: { program: "/windows" } }]);
-        expect(platformAdapterExecutable([onlyWindows], "t", OperatingSystem.Windows)).toEqual(
-            executable("/windows", []),
-        );
+        expect(platformAdapterExecutable([onlyWindows], "t", "win32")).toEqual(executable("/windows", []));
     });
 
     it("contributions of the type merge across extensions, case-insensitively: the first one wins a key", () => {
@@ -85,7 +79,7 @@ describe("platformAdapterExecutable — upstream ExecutableDebugAdapter.platform
             { type: "other", program: "/other" },
         ]);
         const third = extension("/third", [{ type: "lldb", program: "/third/adapter", args: ["3"] }]);
-        expect(platformAdapterExecutable([first, second, third], "Lldb", OperatingSystem.Linux)).toEqual(
+        expect(platformAdapterExecutable([first, second, third], "Lldb", "linux")).toEqual(
             executable("/second/adapter", ["2"]),
         );
     });

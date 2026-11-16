@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
-import { PassThrough } from "node:stream";
+import { PassThrough, type Readable, type Writable } from "node:stream";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -168,6 +168,37 @@ describe("SocketDebugAdapter and NamedPipeDebugAdapter", () => {
         await expect(adapter.startSession()).rejects.toThrow(/ECONNREFUSED/);
     });
 
+    it("an AggregateError of the connect (ipv6 posix) fails the start with its first error; a later socket error is the adapter's", async () => {
+        const server = net.createServer();
+        const port = await new Promise<number>((resolve) => {
+            server.listen(0, "127.0.0.1", () => {
+                resolve((server.address() as net.AddressInfo).port);
+            });
+        });
+        cleanup.push(() => {
+            server.close();
+        });
+        const socketOf = (adapter: SocketDebugAdapter): net.Socket =>
+            (adapter as unknown as { socket: net.Socket }).socket;
+
+        const failing = new SocketDebugAdapter(new DebugAdapterServer(port));
+        cleanup.push(() => {
+            failing.dispose();
+        });
+        const started = failing.startSession();
+        socketOf(failing).destroy(new AggregateError([new Error("first"), new Error("second")]));
+        await expect(started).rejects.toEqual(new Error("first"));
+
+        const connected = new SocketDebugAdapter(new DebugAdapterServer(port));
+        cleanup.push(() => {
+            connected.dispose();
+        });
+        const seen = record(connected);
+        await connected.startSession();
+        socketOf(connected).destroy(new Error("reset"));
+        await waitUntil("the error", () => seen.errors.includes("reset"));
+    });
+
     it("a named pipe adapter connects to its path; stop ends the connection and the adapter sees no error", async () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-pipe-"));
         cleanup.push(() => {
@@ -282,6 +313,20 @@ describe("ExecutableDebugAdapter", () => {
         await adapter.startSession();
         await waitUntil("the error", () => seen.errors.length > 0);
         expect(seen.errors[0]).toMatch(/ENOENT/);
+    });
+
+    it("errors of the process's streams are the adapter's errors", async () => {
+        const adapter = new ExecutableDebugAdapter(new DebugAdapterExecutable("node", [ADAPTER_PROCESS]), "t");
+        cleanup.push(() => {
+            adapter.dispose();
+        });
+        const seen = record(adapter);
+        await adapter.startSession();
+        const { stdin, stdout } = (adapter as unknown as { child: { stdin: Writable; stdout: Readable } }).child;
+        stdout.emit("error", new Error("stdout broke"));
+        stdin.emit("error", new Error("stdin broke"));
+        expect(seen.errors).toEqual(["stdout broke", "stdin broke"]);
+        await adapter.stopSession();
     });
 
     it("stop before a start does nothing", async () => {

@@ -177,7 +177,8 @@ export class ExecutableDebugAdapter extends StreamDebugAdapter {
                 if (error === undefined) {
                     this.onExitEmitter.fire(code);
                 } else {
-                    this.onErrorEmitter.fire(asError(error));
+                    // A child process fails with an `Error` (a failed spawn, a broken IPC channel).
+                    this.onErrorEmitter.fire(error as Error);
                 }
             }),
         );
@@ -200,10 +201,6 @@ export class ExecutableDebugAdapter extends StreamDebugAdapter {
         this.child?.kill("SIGTERM");
         return Promise.resolve();
     }
-}
-
-function asError(error: unknown): Error {
-    return error instanceof Error ? error : new Error(String(error));
 }
 
 function exists(file: string): Promise<boolean> {
