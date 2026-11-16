@@ -46,10 +46,12 @@ interface IFileQueries {
     filter: string | undefined;
     /** Kept until the next answer arrives: an empty frame on every keystroke would flicker. */
     results: readonly FileSearchResult[];
-    /** The typed text {@link results} answer, and the text in the box now (`undefined` — only the history shows). */
-    answered: string | undefined;
-    /** No more results will come for {@link answered}: its index walk ended. */
-    answerComplete: boolean;
+    /**
+     * The typed text {@link results} answer and whether more may come for it (its index walk goes on);
+     * `undefined` until the first answer.
+     */
+    answered: { readonly text: string; readonly final: boolean } | undefined;
+    /** The text in the box now; `undefined` — only the history shows. */
     wanted: string | undefined;
     /**
      * One query at a time: on a big folder a query costs the provider up to seconds, and asking on every
@@ -119,8 +121,9 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
     public get isLoading(): boolean {
         const files = this.files;
         if (files?.wanted === undefined) return false;
-        if (files.answered !== files.wanted) return true;
-        return files.results.length === 0 && !files.answerComplete;
+        const answered = files.answered;
+        if (answered?.text !== files.wanted) return true;
+        return files.results.length === 0 && !answered.final;
     }
 
     public getPlaceholder(): string {
@@ -141,7 +144,6 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
             filter: undefined,
             results: [],
             answered: undefined,
-            answerComplete: false,
             wanted: undefined,
             inFlight: false,
             queued: false,
@@ -223,8 +225,7 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
             }
             if (filter !== files.filter) return;
             files.results = results;
-            files.answered = filter;
-            files.answerComplete = complete;
+            files.answered = { text: filter, final: complete };
             this.refresh(true);
         });
     }

@@ -992,6 +992,52 @@ describe("QuickOpenService — Enter before the file answer (#1179)", () => {
         expect(body.overlayLayer.hasVisibleItems()).toBe(false);
     });
 
+    it("an answer without Enter opens nothing", async () => {
+        const { service, commands, fileSearch, view } = createService();
+        const execSpy = vi.spyOn(commands, "execute");
+        service.show();
+        const answer = deferredAnswer(fileSearch);
+        typeQuery(view, "main");
+
+        answer([makeSearchResult("src/main.ts")]);
+        await flushMicrotasks();
+        expect(execSpy).not.toHaveBeenCalledWith("workbench.openFile", expect.anything());
+    });
+
+    it("index growth before the answer does not accept early: the pending Enter waits for the rows", async () => {
+        const { service, commands, fileSearch, view } = createService([makeSearchResult("src/main.ts")]);
+        const execSpy = vi.spyOn(commands, "execute");
+        service.show();
+        const answer = deferredAnswer(fileSearch);
+        typeQuery(view, "main");
+        view.accept();
+
+        fileSearch.fireIndexChanged();
+        await flushMicrotasks();
+        expect(execSpy).not.toHaveBeenCalledWith("workbench.openFile", expect.anything());
+
+        answer([makeSearchResult("src/main.ts")]);
+        await flushMicrotasks();
+        expect(execSpy).toHaveBeenCalledWith("workbench.openFile", "/root/src/main.ts");
+    });
+
+    it("closing drops the pending accept: the next showing's answer opens nothing by itself", async () => {
+        const { service, commands, fileSearch, view } = createService();
+        const execSpy = vi.spyOn(commands, "execute");
+        service.show();
+        deferredAnswer(fileSearch);
+        typeQuery(view, "main");
+        view.accept();
+        service.close();
+
+        service.show();
+        const answer = deferredAnswer(fileSearch);
+        typeQuery(view, "main");
+        answer([makeSearchResult("src/main.ts")]);
+        await flushMicrotasks();
+        expect(execSpy).not.toHaveBeenCalledWith("workbench.openFile", expect.anything());
+    });
+
     it("typing after Enter drops the pending accept", async () => {
         const { service, commands, fileSearch, view } = createService();
         const execSpy = vi.spyOn(commands, "execute");
