@@ -56,6 +56,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Controls the maximum number of lines in the Debug Console.",
     },
     {
+        key: "debug.enableStatusBarColor",
+        type: "boolean",
+        default: true,
+        description: "Color of the status bar when the debugger is active.",
+    },
+    {
         key: "debug.hideSlowPreLaunchWarning",
         type: "boolean",
         default: false,
@@ -90,6 +96,20 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["allEditorsInActiveGroup", "nonUntitledEditorsInActiveGroup", "none"],
     },
     {
+        key: "debug.showInStatusBar",
+        type: "string",
+        default: "onFirstSessionStart",
+        description: "Controls when the debug status bar item should be visible.",
+        enum: ["never", "always", "onFirstSessionStart"],
+    },
+    {
+        key: "debug.showSubSessionsInToolBar",
+        type: "boolean",
+        default: false,
+        description:
+            "Controls whether the debug sub-sessions are shown in the debug tool bar. When this setting is false the stop command on a sub-session will also stop the parent session.",
+    },
+    {
         key: "debug.showVariableTypes",
         type: "boolean",
         default: false,
@@ -100,6 +120,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "boolean",
         default: false,
         description: "Before starting a new debug session in an integrated or external terminal, clear the terminal.",
+    },
+    {
+        key: "debug.toolBarLocation",
+        type: "string",
+        default: "floating",
+        description:
+            "Controls the location of the debug toolbar. Either `floating` in all views, `docked` in the debug view, `commandCenter` (requires `#window.commandCenter#`), or `hidden`.",
+        enum: ["floating", "docked", "commandCenter", "hidden"],
     },
     {
         key: "diode.editor.inlayHints.fontStyle",

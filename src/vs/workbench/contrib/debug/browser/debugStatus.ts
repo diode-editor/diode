@@ -53,8 +53,8 @@ export class DebugStatusContribution extends Disposable {
             }),
         );
         this.register(
-            configurationService.onDidChangeConfiguration((e) => {
-                if (!e.affectsConfiguration("debug.showInStatusBar")) return;
+            // Any setting (upstream filters `debug.showInStatusBar`): both steps are idempotent.
+            configurationService.onDidChangeConfiguration(() => {
                 this.setShowInStatusBar();
                 if (this.entryAccessor && this.showInStatusBar() === "never") {
                     this.entryAccessor.dispose();

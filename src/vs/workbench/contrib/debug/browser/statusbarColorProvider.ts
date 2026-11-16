@@ -29,16 +29,12 @@ export class StatusBarColorProvider extends Disposable {
         private readonly configurationService: Pick<IConfigurationService, "get" | "onDidChangeConfiguration">,
     ) {
         super();
-        this.register(
-            debugService.onDidChangeState(() => {
-                this.update();
-            }),
-        );
-        this.register(
-            configurationService.onDidChangeConfiguration((e) => {
-                if (e.affectsConfiguration("debug.enableStatusBarColor")) this.update();
-            }),
-        );
+        const update = (): void => {
+            this.update();
+        };
+        this.register(debugService.onDidChangeState(update));
+        // Any setting: the update is idempotent (upstream filters `debug.enableStatusBarColor`).
+        this.register(configurationService.onDidChangeConfiguration(update));
         this.register({
             dispose: () => {
                 this.override?.dispose();

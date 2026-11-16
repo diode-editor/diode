@@ -142,11 +142,8 @@ export class DebugToolbar extends Disposable {
         this.register(icons.onDidChange(update));
         const menu = this.register(menus.createMenu(MenuId.DebugToolBar));
         this.register(menu.onDidChange(update));
-        this.register(
-            configuration.onDidChangeConfiguration((e) => {
-                if (e.affectsConfiguration("debug.toolBarLocation")) update();
-            }),
-        );
+        // Any setting (upstream filters `debug.toolBarLocation`): the row is rebuilt only when it changes.
+        this.register(configuration.onDidChangeConfiguration(update));
         this.register({
             dispose: () => {
                 this.unplace();

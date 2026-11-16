@@ -1,11 +1,12 @@
 // The debug toolbar on the whole workbench with the synthetic debugger: in the top right corner of the active group
 // while a session is on, find stacked under it, the buttons by the debug state, a click, a narrow group, the move to
-// another group, `debug.toolBarLocation`, and the status bar in debugging colors.
+// another group, `debug.toolBarLocation`, a session without the toolbar, and the status bar in debugging colors.
 
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createDebugViewletHarness, type IDebugViewletHarness } from "../../../../../TestUtils/debugViewletHarness.ts";
+import { SYNTHETIC_LAUNCH_CONFIG } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -252,5 +253,29 @@ describe("the debug toolbar in the workbench", () => {
         await vi.waitFor(() => {
             expect(statusBarBg()).toBe(vars["statusBar.background"]);
         });
+    });
+
+    it("a click beside the toolbar on its rows reaches the editor", async () => {
+        t.h.container.get(LayoutServiceDIToken).nudgeSidebarWidth(20);
+        await t.startStopped();
+        const glyphs = t.find(GLYPHS);
+        const alpha = t.find("alpha");
+        expect(alpha.y).toBe(glyphs.y - 1);
+
+        click(new Point(alpha.x + 1, glyphs.y));
+
+        expect(t.screen()).toContain("Ln 2, Col 2");
+    });
+
+    it("a session that suppresses the toolbar has none", async () => {
+        t.registerDebugger();
+        await t.h.container
+            .get(DebugServiceDIToken)
+            .startDebugging(undefined, { ...SYNTHETIC_LAUNCH_CONFIG }, { suppressDebugToolbar: true });
+        await vi.waitFor(() => {
+            expect(t.h.container.get(ContextKeyServiceDIToken).getRaw("debugState")).toBe("stopped");
+        });
+
+        expect(has("Continue")).toBe(false);
     });
 });

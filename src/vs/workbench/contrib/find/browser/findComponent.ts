@@ -60,7 +60,10 @@ export class FindWidget extends Disposable {
     private host: OverlayHostElement | null = null;
     private session: OverlaySessionHandle | null = null;
 
-    /** Its place in the group's corner: under the debug toolbar. */
+    /**
+     * Its place in the group's corner: under the debug toolbar. Find is the bottom of the corner, nobody stacks under
+     * it, so it keeps its height to itself.
+     */
     public constructor(private readonly slot: IGroupCornerSlot) {
         super();
         this.register(slot);
@@ -161,10 +164,6 @@ export class FindWidget extends Disposable {
             restoreFocus: true,
             // Find is a docked widget: clicks outside it intentionally go to the editor (as in VS Code).
             pointerPolicy: "passthrough",
-            // Escape closes the session past `hide`: the rows go to whoever is under it either way.
-            onClose: () => {
-                this.slot.setHeight(0);
-            },
         });
     }
 
@@ -173,7 +172,6 @@ export class FindWidget extends Disposable {
     }
 
     public show(): void {
-        this.slot.setHeight(WIDGET_HEIGHT);
         this.updatePosition();
         this.session?.open();
         this.focus();
@@ -181,11 +179,6 @@ export class FindWidget extends Disposable {
 
     public hide(): void {
         if (this.session?.isOpen()) this.session.close();
-    }
-
-    /** The corner above it changed: the toolbar came or went. */
-    public reposition(): void {
-        if (this.isOpen()) this.updatePosition();
     }
 
     private refreshCounter(): void {
@@ -214,7 +207,8 @@ export class FindWidget extends Disposable {
         return `${current} of ${total}${this.searching ? "…" : ""}`;
     }
 
-    private updatePosition(): void {
+    /** On show, and when the corner above it changes (the toolbar came or went). */
+    public updatePosition(): void {
         const group = this.host;
         if (group === null) return;
         const groupWidth = group.layoutSize.width;
@@ -249,7 +243,7 @@ export class FindComponent extends Disposable {
         super();
         this.register(
             corners.onDidChange((groupId) => {
-                this.widgets.get(groupId)?.reposition();
+                this.widgets.get(groupId)?.updatePosition();
             }),
         );
     }
