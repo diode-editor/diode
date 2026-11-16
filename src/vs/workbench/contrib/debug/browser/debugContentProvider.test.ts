@@ -57,7 +57,9 @@ describe("DebugContentProvider", () => {
     });
 
     it("without a session in the uri, or with a gone one, asks the focused session", async () => {
-        const focused = session(() => Promise.resolve({ body: { content: "focused" } } as DebugProtocol.SourceResponse));
+        const focused = session(() =>
+            Promise.resolve({ body: { content: "focused" } } as DebugProtocol.SourceResponse),
+        );
         const t = setup({}, focused);
 
         await expect(t.provide(Uri.from({ scheme: "debug", path: "/x.S" }))).resolves.toBe("focused");

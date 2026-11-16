@@ -3,7 +3,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { testDebugService, type TestDebugService } from "../../../../../TestUtils/debugSessionFixture.ts";
+import { type TestDebugService, testDebugService } from "../../../../../TestUtils/debugSessionFixture.ts";
 import { createMockDebugModel } from "../../../../../TestUtils/mockDebug.ts";
 import { DisposableStore } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -36,7 +36,7 @@ describe("BreakpointInput", () => {
         input = new BreakpointInput(
             service,
             {
-                input: (opts = {}) => {
+                input: (opts) => {
                     inputs.push(opts);
                     return Promise.resolve(answers.input);
                 },
@@ -134,11 +134,9 @@ describe("BreakpointInput", () => {
             await input.show(FILE, 4, undefined);
 
             expect(inputs.map((i) => i.value)).toEqual(["hi {x}", "5", "c"]);
-            const updates = vi.mocked(service.updateBreakpoints).mock.calls.map(([uri, data, onSave]) => [
-                uri,
-                Object.fromEntries(data),
-                onSave,
-            ]);
+            const updates = vi
+                .mocked(service.updateBreakpoints)
+                .mock.calls.map(([uri, data, onSave]) => [uri, Object.fromEntries(data), onSave]);
             expect(updates).toEqual([
                 [
                     FILE,
