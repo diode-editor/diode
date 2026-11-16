@@ -129,6 +129,7 @@ import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/brow
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
 import { OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
 import { OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
+import { FileSearchServiceDIToken } from "../../workbench/services/search/common/fileSearch.ts";
 import { loadRipgrepAppRoot } from "../../workbench/services/search/node/loadRipgrep.ts";
 import { StatusBarServiceDIToken } from "../../workbench/services/statusbar/common/statusBarService.ts";
 import { ThemeServiceDIToken } from "../../workbench/services/themes/common/themeTokens.ts";
@@ -449,6 +450,9 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         });
 
         new FileSystemProviderAdapter(host, container.get(IFileServiceDIToken));
+        // Like upstream `$enableExtensionHostSearch`: Quick Open's file index lives in the subprocess (#1179).
+        // Stryker disable next-line CallExpression: production module wiring; end to end — e2e quick open scenarios
+        container.get(FileSearchServiceDIToken).registerProvider(host.fileSearch);
 
         bindExtensionHostToEditors(
             host,

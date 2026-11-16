@@ -31,7 +31,6 @@ describe("Workbench: Quick Open lists recently opened files", () => {
             configurationService: createTestConfigurationService(EXTENDED_TIER_SETTINGS),
         });
         await h.workbench.activate();
-        await h.workbench.fileIndexReady;
         for (const name of ["a.ts", "b.ts", "src/c.ts"]) h.commands.execute("workbench.openFile", ws.path(name));
         h.testApp.render();
     });

@@ -19,7 +19,7 @@ import type { DiffViewMode } from "../../../common/stateKeys.ts";
 import { DIFF_VIEW_MODE_STATE } from "../../../common/stateKeys.ts";
 import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
-import { FileSearchServiceDIToken } from "../../../services/search/common/fileSearch.ts";
+import { type FileSearchResult, FileSearchServiceDIToken } from "../../../services/search/common/fileSearch.ts";
 import { TextFileModelServiceDIToken } from "../../../services/textfile/common/textFileModelService.ts";
 import { openDiffWithHead } from "../../scm/browser/compareWithHeadAction.ts";
 import { OriginalResourceProviderDIToken } from "../../scm/browser/quickDiffService.ts";
@@ -110,16 +110,20 @@ async function compareActiveFileWith(accessor: ServiceAccessor): Promise<void> {
         .get(EditorGroupsServiceDIToken)
         .groups.flatMap((group) => [...group.getPanes()])
         .filter((p) => p.uri.toString() !== active.uri.toString() && p.uri.scheme !== "diode-diff");
-    // The index is built in the background; a static picker needs a ready snapshot, so wait and nudge it.
-    const search = accessor.get(FileSearchServiceDIToken);
-    search.refreshIfStale();
-    await search.ready;
-    const files = search.search("", 50);
+    // A static picker needs a finished walk: wait for it, then take one snapshot.
+    const session = accessor.get(FileSearchServiceDIToken).createSession();
+    let files: readonly FileSearchResult[];
+    try {
+        await session.ready;
+        ({ results: files } = await session.search("", 50));
+    } finally {
+        session.dispose();
+    }
     const items = [
         ...openTabs.map((p) => ({ label: editors.displayName(p), description: p.uri.toString(), badge: "open" })),
         ...files
-            .filter((f) => Uri.file(f.entry.absolutePath).toString() !== active.uri.toString())
-            .map((f) => ({ label: f.entry.basename, description: Uri.file(f.entry.absolutePath).toString() })),
+            .filter((f) => Uri.file(f.absolutePath).toString() !== active.uri.toString())
+            .map((f) => ({ label: f.basename, description: Uri.file(f.absolutePath).toString() })),
     ];
     const seen = new Set<string>();
     const unique = items.filter((item) => {
