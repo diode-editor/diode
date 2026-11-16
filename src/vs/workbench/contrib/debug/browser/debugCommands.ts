@@ -97,11 +97,12 @@ function toolBarItem(
     title: string,
     order: number,
     icon: string,
+    iconColor: string,
     when?: string,
     enablement?: string,
 ): CommandMenuPlacement[] {
     const docked = "debugState != 'inactive' && config.debug.toolBarLocation == 'docked'";
-    const item = { title, group: "navigation", order, icon: codicon(icon), enablement };
+    const item = { title, group: "navigation", order, icon: codicon(icon), iconColor, enablement };
     return [
         { menuId: MenuId.DebugToolBar, when, ...item },
         {
@@ -271,7 +272,7 @@ export const restartSessionAction: CommandAction = {
         when: IN_DEBUG_MODE,
         weight: KeybindingWeight.WorkbenchContrib,
     },
-    menus: [...paletteItem(), ...toolBarItem("Restart", 60, "debug-restart")],
+    menus: [...paletteItem(), ...toolBarItem("Restart", 60, "debug-restart", "debugIcon.restartForeground")],
     async run(accessor, _, context) {
         const debugService = accessor.get(DebugServiceDIToken);
         const session = sessionOf(debugService, context);
@@ -291,7 +292,7 @@ export const stepOverAction: CommandAction = {
     keybinding: { keys: parseKeybinding("f10"), when: STOPPED, weight: KeybindingWeight.WorkbenchContrib },
     menus: [
         ...paletteItem(IN_DEBUG_MODE, STOPPED),
-        ...toolBarItem("Step Over", 20, "debug-step-over", undefined, STOPPED),
+        ...toolBarItem("Step Over", 20, "debug-step-over", "debugIcon.stepOverForeground", undefined, STOPPED),
     ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.next());
@@ -310,7 +311,7 @@ export const stepIntoAction: CommandAction = {
     },
     menus: [
         ...paletteItem(IN_DEBUG_MODE, STOPPED),
-        ...toolBarItem("Step Into", 30, "debug-step-into", undefined, STOPPED),
+        ...toolBarItem("Step Into", 30, "debug-step-into", "debugIcon.stepIntoForeground", undefined, STOPPED),
     ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.stepIn());
@@ -323,7 +324,7 @@ export const stepOutAction: CommandAction = {
     keybinding: { keys: parseKeybinding("shift+f11"), when: STOPPED, weight: KeybindingWeight.WorkbenchContrib },
     menus: [
         ...paletteItem(IN_DEBUG_MODE, STOPPED),
-        ...toolBarItem("Step Out", 40, "debug-step-out", undefined, STOPPED),
+        ...toolBarItem("Step Out", 40, "debug-step-out", "debugIcon.stepOutForeground", undefined, STOPPED),
     ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.stepOut());
@@ -345,6 +346,7 @@ export const pauseAction: CommandAction = {
             "Pause",
             10,
             "debug-pause",
+            "debugIcon.pauseForeground",
             "debugState != 'stopped'",
             "debugState == 'running' && !focusedSessionIsNoDebug",
         ),
@@ -364,7 +366,13 @@ export const disconnectAction: CommandAction = {
     },
     menus: [
         ...paletteItem(IN_DEBUG_MODE, "focusedSessionIsAttach || terminateDebuggeeSupported"),
-        ...toolBarItem("Disconnect", 70, "debug-disconnect", "focusedSessionIsAttach"),
+        ...toolBarItem(
+            "Disconnect",
+            70,
+            "debug-disconnect",
+            "debugIcon.disconnectForeground",
+            "focusedSessionIsAttach",
+        ),
     ],
     run(accessor, _, context) {
         return stopHandler(accessor, context, true);
@@ -381,7 +389,7 @@ export const stopAction: CommandAction = {
     },
     menus: [
         ...paletteItem(IN_DEBUG_MODE, "!focusedSessionIsAttach || terminateDebuggeeSupported"),
-        ...toolBarItem("Stop", 70, "debug-stop", "!focusedSessionIsAttach"),
+        ...toolBarItem("Stop", 70, "debug-stop", "debugIcon.stopForeground", "!focusedSessionIsAttach"),
     ],
     run(accessor, _, context) {
         return stopHandler(accessor, context, false);
@@ -393,7 +401,10 @@ export const continueAction: CommandAction = {
     title: "Debug: Continue",
     // Use a stronger weight to get priority over start debugging F5 shortcut
     keybinding: { keys: parseKeybinding("f5"), when: STOPPED, weight: KeybindingWeight.WorkbenchContrib + 10 },
-    menus: [...paletteItem(IN_DEBUG_MODE, STOPPED), ...toolBarItem("Continue", 10, "debug-continue", STOPPED)],
+    menus: [
+        ...paletteItem(IN_DEBUG_MODE, STOPPED),
+        ...toolBarItem("Continue", 10, "debug-continue", "debugIcon.continueForeground", STOPPED),
+    ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.continue());
     },

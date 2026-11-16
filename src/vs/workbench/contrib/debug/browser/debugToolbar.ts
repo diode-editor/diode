@@ -72,23 +72,18 @@ const WIDGET_BG = "editorWidget.background";
 /** The box border and a column of padding on each side. */
 const CHROME_WIDTH = 4;
 
-/** Upstream colors each icon by its command (`debugToolBar.ts`, `debugIcon.*Foreground`). */
-const BUILTIN_BUTTONS: Readonly<Partial<Record<string, { readonly label: string; readonly color: StyleColor }>>> = {
-    [CONTINUE_ID]: { label: "Continue", color: "debugIcon.continueForeground" },
-    [PAUSE_ID]: { label: "Pause", color: "debugIcon.pauseForeground" },
-    [STEP_OVER_ID]: { label: "Over", color: "debugIcon.stepOverForeground" },
-    [STEP_INTO_ID]: { label: "Into", color: "debugIcon.stepIntoForeground" },
-    [STEP_OUT_ID]: { label: "Out", color: "debugIcon.stepOutForeground" },
-    [RESTART_SESSION_ID]: { label: "Restart", color: "debugIcon.restartForeground" },
-    [STOP_ID]: { label: "Stop", color: "debugIcon.stopForeground" },
-    [DISCONNECT_ID]: { label: "Disconnect", color: "debugIcon.disconnectForeground" },
+/** Short labels of the steps: the toolbar has room for a word per button, the menu items say "Step Over". */
+const SHORT_LABELS: Readonly<Partial<Record<string, string>>> = {
+    [STEP_OVER_ID]: "Over",
+    [STEP_INTO_ID]: "Into",
+    [STEP_OUT_ID]: "Out",
 };
 
 interface IToolbarButton {
     readonly id: string;
     readonly glyph: string;
     readonly label: string;
-    readonly color: StyleColor | undefined;
+    readonly color: string | undefined;
     readonly enabled: boolean;
 }
 
@@ -241,16 +236,13 @@ export class DebugToolbar extends Disposable {
 
     private buttons(): IToolbarButton[] {
         const navigation = this.menuGroups().find((group) => group.group === NAVIGATION_GROUP);
-        return (navigation?.entries ?? []).filter(isInlineItem).map((entry) => {
-            const builtin = BUILTIN_BUTTONS[entry.id];
-            return {
-                id: entry.id,
-                glyph: entry.icon,
-                label: builtin?.label ?? entry.label,
-                color: builtin?.color,
-                enabled: entry.enabled,
-            };
-        });
+        return (navigation?.entries ?? []).filter(isInlineItem).map((entry) => ({
+            id: entry.id,
+            glyph: entry.icon,
+            label: SHORT_LABELS[entry.id] ?? entry.label,
+            color: entry.iconColor,
+            enabled: entry.enabled,
+        }));
     }
 
     /** The `editorWidget` box of find around a row of buttons. */
