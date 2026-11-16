@@ -1,4 +1,7 @@
 import type {
+    IWireDebugAdapterError,
+    IWireDebugAdapterExit,
+    IWireDebugAdapterMessage,
     IWireDebugConfigurationProvider,
     IWireDebugProviderHandle,
     IWireDebugStartDebugging,
@@ -98,4 +101,36 @@ export function parseWireDebugStartDebugging(raw: unknown): IWireDebugStartDebug
 
 export function parseWireDebugStopDebugging(raw: unknown): IWireDebugStopDebugging {
     return { sessionId: optionalString(fields(raw)?.sessionId) };
+}
+
+/** Upstream `$registerDebugTypes`: entries that are not strings are dropped. */
+export function parseWireDebugTypes(raw: unknown): string[] {
+    const types = fields(raw)?.types;
+    return Array.isArray(types) ? (types as readonly unknown[]).filter((type) => typeof type === "string") : [];
+}
+
+/** A DAP message is any object with a `type`; the session checks the rest, as upstream's. */
+export function parseWireDebugAdapterMessage(raw: unknown): IWireDebugAdapterMessage | null {
+    const p = fields(raw);
+    const message = fields(p?.message);
+    if (!isFiniteNumber(p?.handle) || typeof message?.type !== "string") return null;
+    return { handle: p.handle, message };
+}
+
+export function parseWireDebugAdapterError(raw: unknown): IWireDebugAdapterError | null {
+    const p = fields(raw);
+    if (!isFiniteNumber(p?.handle)) return null;
+    const stack = optionalString(p.stack);
+    return {
+        handle: p.handle,
+        name: optionalString(p.name) ?? "Error",
+        message: optionalString(p.message) ?? "",
+        ...(stack === undefined ? {} : { stack }),
+    };
+}
+
+export function parseWireDebugAdapterExit(raw: unknown): IWireDebugAdapterExit | null {
+    const p = fields(raw);
+    if (!isFiniteNumber(p?.handle)) return null;
+    return { handle: p.handle, ...(isFiniteNumber(p.code) ? { code: p.code } : {}) };
 }

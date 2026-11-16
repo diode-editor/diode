@@ -5,8 +5,9 @@
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/common/debugger.ts
 // A debug type: its contribution (merged by the adapter manager) and the way to an adapter. Variables are
 // substituted as upstream's: by the adapter factory of the type, then by the configuration resolver with the
-// debugger's `variables` (`${command:pickProcess}` → the extension's command). Not here yet, each with its task: the
-// extension descriptor (`vscode.debug`, #1140), the configuration schema (IntelliSense in launch.json). The initial
+// debugger's `variables` (`${command:pickProcess}` → the extension's command). Before its adapter is created the
+// extensions get `onDebugAdapterProtocolTracker:<type>`, so a tracker factory is registered in time. Not here yet:
+// the configuration schema (IntelliSense in launch.json). The initial
 // launch.json content is written with tabs and a `\n` end of line; the configuration manager turns the tabs into the
 // editor's spaces. Not planned: the telemetry endpoint.
 
@@ -40,12 +41,13 @@ export class Debugger implements IDebugger, IDebuggerMetadata {
         return await debugService.startDebugging(undefined, configuration, { parentSession });
     }
 
-    public createDebugAdapter(session: IDebugSession): Promise<IDebugAdapter> {
+    public async createDebugAdapter(session: IDebugSession): Promise<IDebugAdapter> {
+        await this.adapterManager.activateDebuggers("onDebugAdapterProtocolTracker", this.type);
         const da = this.adapterManager.createDebugAdapter(session);
         if (da) {
-            return Promise.resolve(da);
+            return da;
         }
-        return Promise.reject(new Error(`Cannot find debug adapter for type '${this.type}'.`));
+        throw new Error(`Cannot find debug adapter for type '${this.type}'.`);
     }
 
     /** `undefined` — the user cancelled an input or a command gave nothing. */

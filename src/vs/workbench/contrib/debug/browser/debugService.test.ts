@@ -174,7 +174,7 @@ describe("DebugService", () => {
     });
 
     describe("start", () => {
-        it("follows upstream's sequence: activation, resolution by the providers, then the session; announced before and after the launch", async () => {
+        it("follows upstream's sequence: activation, resolution by the providers, the trackers' activation before the adapter, then the session; announced before and after the launch", async () => {
             const events: string[] = [];
             fx.service.onWillNewSession(() => events.push(`will:${String(fx.activated.length)}`));
             fx.service.onDidNewSession((s) => events.push(`did:${s.configuration.name}`));
@@ -187,6 +187,9 @@ describe("DebugService", () => {
                 "onDebugResolve",
                 "onDebug",
                 "onDebugResolve:synthetic",
+                "onDebugAdapterProtocolTracker",
+                "onDebug",
+                "onDebugAdapterProtocolTracker:synthetic",
             ]);
             expect(events).toEqual(["will:5", "did:Launch hello (lldb)"]);
         });

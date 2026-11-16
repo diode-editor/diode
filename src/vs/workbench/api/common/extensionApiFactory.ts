@@ -67,6 +67,8 @@ export const OWNED_MEMBERS = {
     workspace: ["registerTaskProvider", "updateWorkspaceFolders"],
     // Registrations are ignored; the owner names the extension in the Output warning.
     lm: ["registerTool", "registerMcpServerDefinitionProvider", "registerLanguageModelChatProvider"],
+    // Only the extension that defines a debugger registers its adapter descriptor factory, as upstream.
+    debug: ["registerDebugConfigurationProvider", "registerDebugAdapterDescriptorFactory"],
 } as const satisfies {
     readonly window: readonly (keyof typeof vscode.window)[];
     readonly languages: readonly (keyof typeof vscode.languages)[];
@@ -74,6 +76,7 @@ export const OWNED_MEMBERS = {
     readonly tasks: readonly (keyof typeof vscode.tasks)[];
     readonly workspace: readonly (keyof typeof vscode.workspace)[];
     readonly lm: readonly (keyof typeof vscode.lm)[];
+    readonly debug: readonly (keyof typeof vscode.debug)[];
 };
 
 export const VSCODE_ESM_URL = "diode-vscode:api";
@@ -123,6 +126,7 @@ export function createExtensionApi(
         tasks: { value: ownedNamespace(shared.tasks, OWNED_MEMBERS.tasks, owner, id) },
         workspace: { value: ownedNamespace(shared.workspace, OWNED_MEMBERS.workspace, owner, id) },
         lm: { value: ownedNamespace(shared.lm, OWNED_MEMBERS.lm, owner, id) },
+        debug: { value: ownedNamespace(shared.debug, OWNED_MEMBERS.debug, owner, id) },
     });
     if (trace !== undefined) traceNamespaces(api, id, trace);
     return api;

@@ -4,6 +4,7 @@ import type * as vscode from "vscode";
 import { CancellationTokenSource } from "../../../../../base/common/cancellation.ts";
 import type { IDisposable } from "../../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
+import type { IDebuggerExtension } from "../../../../api/common/debugAdapterExecutable.ts";
 import { createDebugNamespace } from "../../../../api/common/debugNamespace.ts";
 import type { HostRpc, SubprocessRpc } from "../../../../api/common/extHostProtocol.ts";
 import type {
@@ -13,6 +14,7 @@ import type {
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import { ExtensionOwner } from "../../../../api/common/vscodeHostContext.ts";
+import { EventEmitter } from "../../../../api/common/vscodeTypes.ts";
 
 import { DebugCustomer } from "./debugCustomer.ts";
 
@@ -41,6 +43,7 @@ function recordingSink(): IRecordingSink {
                 },
             };
         },
+        registerDebugTypes: () => ({ dispose: () => undefined }),
         startDebugging: vi.fn(() => Promise.resolve(true)),
         stopDebugging: vi.fn(() => Promise.resolve()),
     };
@@ -53,7 +56,13 @@ function setup(sink: IExtensionDebugSink | null = recordingSink()) {
     const hostRpc = new RpcEndpoint(a) as unknown as HostRpc;
     const subRpc = new RpcEndpoint(b) as unknown as SubprocessRpc;
     const owner = new ExtensionOwner();
-    const debug = createDebugNamespace({ rpc: subRpc, owner, workspaceFolders: () => [FOLDER] });
+    const debug = createDebugNamespace({
+        rpc: subRpc,
+        owner,
+        workspaceFolders: () => [FOLDER],
+        extensions: () => [],
+        onDidReceiveCatalog: new EventEmitter<readonly IDebuggerExtension[]>().event,
+    });
     const attach = new DebugCustomer(sink ?? undefined).attach({ rpc: hostRpc, logger: undefined });
     attached.push(attach);
     return { debug, owner, attach, subRpc, sink: sink as IRecordingSink };

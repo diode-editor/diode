@@ -12,7 +12,8 @@
 import { distinct } from "../../../../base/common/arrays.ts";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
-import { CancellationError } from "../../../../base/common/errorSerialization.ts";
+import { CancellationError, isCancellationError } from "../../../../base/common/errorSerialization.ts";
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Lazy } from "../../../../base/common/lazy.ts";
 import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from "../../../../base/common/lifecycle.ts";
@@ -1151,7 +1152,11 @@ export class DebugSession implements IDebugSession {
                     await this.debugService.sendAllBreakpoints(this);
                 } finally {
                     await sendConfigurationDone();
-                    await this.fetchThreads();
+                    // An adapter that goes away right after the configuration cancels the request: upstream leaves the
+                    // rejection unhandled.
+                    await this.fetchThreads().catch((e: unknown) => {
+                        if (!isCancellationError(e)) onUnexpectedError(e);
+                    });
                 }
             }),
         );
@@ -1576,6 +1581,12 @@ export class DebugSession implements IDebugSession {
     }
 
     private onDidExitAdapter(event?: AdapterEndEvent): void {
+        if (event?.failure) {
+            this.appendToRepl({
+                output: `Debug adapter process has terminated unexpectedly (${event.failure.message})\n`,
+                sev: "error",
+            });
+        }
         this.initialized = true;
         this.model.setBreakpointSessionData(this.getId(), this.capabilities, undefined);
         this.shutdown();

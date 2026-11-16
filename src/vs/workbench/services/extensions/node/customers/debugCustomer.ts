@@ -1,21 +1,31 @@
 import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
+import type { IWireDebugSession } from "../../../../api/common/debugWireTypes.ts";
+import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type {
+    IExtensionDebugAdapterConnection,
+    IExtensionDebugAdapterHost,
+    IExtensionDebugAdapterListener,
     IExtensionDebugConfigurationProvider,
     IExtensionDebugSink,
 } from "../../../../api/common/iExtensionDebugSink.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
+    parseWireDebugAdapterError,
+    parseWireDebugAdapterExit,
+    parseWireDebugAdapterMessage,
     parseWireDebugConfigurationProvider,
     parseWireDebugConfigurations,
     parseWireDebugProviderHandle,
     parseWireDebugResolveResult,
     parseWireDebugStartDebugging,
     parseWireDebugStopDebugging,
+    parseWireDebugTypes,
 } from "../debugWireParsers.ts";
 
 /**
- * Upstream `MainThreadDebugService`, the configuration providers and starting and stopping sessions. Provider
- * registrations belong to the spawn: a dead subprocess takes its providers along.
+ * Upstream `MainThreadDebugService`: the configuration providers, starting and stopping sessions, and the debug
+ * adapters of the subprocess. Registrations belong to the spawn: a dead subprocess takes its providers and debug
+ * types along, and each of its live adapters ends with an error.
  */
 export class DebugCustomer implements IExtensionHostCustomer {
     public constructor(private readonly sink: IExtensionDebugSink | undefined) {}
@@ -82,6 +92,45 @@ export class DebugCustomer implements IExtensionHostCustomer {
                 providers.delete(request.handle);
             }),
         );
+        const adapters = new AdapterHost(rpc);
+        let debugTypes: IDisposable | undefined;
+        store.add({
+            dispose: () => {
+                debugTypes?.dispose();
+                adapters.dispose();
+            },
+        });
+        store.add(
+            rpc.handleNotification("debug.registerDebugTypes", (params) => {
+                debugTypes?.dispose();
+                debugTypes = sink.registerDebugTypes(parseWireDebugTypes(params), adapters);
+            }),
+        );
+        store.add(
+            rpc.handleNotification("debug.acceptAdapterMessage", (params) => {
+                const accepted = parseWireDebugAdapterMessage(params);
+                if (accepted === null) return;
+                adapters.listener(accepted.handle)?.onMessage(accepted.message as DebugProtocol.ProtocolMessage);
+            }),
+        );
+        store.add(
+            rpc.handleNotification("debug.acceptAdapterError", (params) => {
+                const accepted = parseWireDebugAdapterError(params);
+                if (accepted === null) return;
+                // The error as the subprocess had it (upstream folds name and stack into the message).
+                const error = new Error(accepted.message);
+                error.name = accepted.name;
+                if (accepted.stack !== undefined) error.stack = accepted.stack;
+                adapters.listener(accepted.handle)?.onError(error);
+            }),
+        );
+        store.add(
+            rpc.handleNotification("debug.acceptAdapterExit", (params) => {
+                const accepted = parseWireDebugAdapterExit(params);
+                if (accepted === null) return;
+                adapters.listener(accepted.handle)?.onExit(accepted.code);
+            }),
+        );
         store.add(
             rpc.handleRequest("debug.startDebugging", (params) => {
                 const request = parseWireDebugStartDebugging(params);
@@ -96,5 +145,44 @@ export class DebugCustomer implements IExtensionHostCustomer {
             }),
         );
         return store;
+    }
+}
+
+/** The adapters of one spawn: handles, and the listener of each live adapter for the messages that come back. */
+class AdapterHost implements IExtensionDebugAdapterHost {
+    private nextHandle = 1;
+    private readonly listeners = new Map<number, IExtensionDebugAdapterListener>();
+    private disposed = false;
+
+    public constructor(private readonly rpc: HostRpc) {}
+
+    public listener(handle: number): IExtensionDebugAdapterListener | undefined {
+        return this.listeners.get(handle);
+    }
+
+    public createAdapter(
+        session: IWireDebugSession,
+        listener: IExtensionDebugAdapterListener,
+    ): IExtensionDebugAdapterConnection {
+        const handle = this.nextHandle++;
+        this.listeners.set(handle, listener);
+        return {
+            start: async () => {
+                await this.rpc.request("debug.startAdapter", { handle, session });
+            },
+            send: (message) => {
+                if (!this.disposed) this.rpc.notify("debug.sendAdapterMessage", { handle, message });
+            },
+            stop: async () => {
+                this.listeners.delete(handle);
+                if (!this.disposed) await this.rpc.request("debug.stopAdapter", { handle });
+            },
+        };
+    }
+
+    public dispose(): void {
+        this.disposed = true;
+        for (const listener of this.listeners.values()) listener.onError(new Error("Extension host shut down"));
+        this.listeners.clear();
     }
 }
