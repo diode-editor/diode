@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { mockSession } from "../../../../../TestUtils/mockDebug.ts";
+import { adapterManagerPorts, mockSession } from "../../../../../TestUtils/mockDebug.ts";
 import { MockDebugAdapter } from "../../../../../TestUtils/mockDebugAdapter.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type {
@@ -37,7 +37,10 @@ describe("AdapterManager", () => {
                 ({ getSession: (id: string | undefined) => (id === "parent" ? sessionOf("p") : undefined) }) as never,
             startDebugging: vi.fn(() => Promise.resolve(true)),
         };
-        manager = new AdapterManager(() => debugService as IDebugService, contextKeys, terminalLauncher);
+        manager = new AdapterManager(
+            () => debugService as IDebugService,
+            adapterManagerPorts({ contextKeys, terminalLauncher }),
+        );
     });
 
     afterEach(() => {

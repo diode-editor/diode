@@ -3,11 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/common/debugger.ts
-// A debug type: its contribution and the way to an adapter. Not here yet, each with its task: merging the
-// contributions of several extensions, the activation events and the extension descriptor (`vscode.debug`, #1139),
-// interactive variables (`resolveWithInteractionReplace`, #1137), the configuration schema (IntelliSense in
-// launch.json). The initial launch.json content is written with tabs and a `\n` end of line; the configuration
-// manager turns the tabs into the editor's spaces. Not planned: the telemetry endpoint.
+// A debug type: its contribution (merged by the adapter manager) and the way to an adapter. Variables are
+// substituted as upstream's: by the adapter factory of the type, then by the configuration resolver with the
+// debugger's `variables` (`${command:pickProcess}` → the extension's command). Not here yet, each with its task: the
+// extension descriptor (`vscode.debug`, #1140), the configuration schema (IntelliSense in launch.json). The initial
+// launch.json content is written with tabs and a `\n` end of line; the configuration manager turns the tabs into the
+// editor's spaces. Not planned: the telemetry endpoint.
 
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
@@ -20,6 +21,7 @@ import type {
     IDebuggerMetadata,
     IDebugService,
     IDebugSession,
+    IDebugVariableResolver,
 } from "./debug.ts";
 
 export class Debugger implements IDebugger, IDebuggerMetadata {
@@ -29,6 +31,7 @@ export class Debugger implements IDebugger, IDebuggerMetadata {
         private readonly debugService: () => IDebugService,
         /** The context-key check of the debugger's `when`. */
         private readonly evaluateWhen: (when: string) => boolean,
+        private readonly resolveVariables: IDebugVariableResolver,
     ) {}
 
     public async startDebugging(configuration: IConfig, parentSessionId: string): Promise<boolean> {
@@ -45,8 +48,13 @@ export class Debugger implements IDebugger, IDebuggerMetadata {
         return Promise.reject(new Error(`Cannot find debug adapter for type '${this.type}'.`));
     }
 
-    public substituteVariables(folder: IWorkspaceFolder | undefined, config: IConfig): Promise<IConfig> {
-        return this.adapterManager.substituteVariables(this.type, folder, config);
+    /** `undefined` — the user cancelled an input or a command gave nothing. */
+    public async substituteVariables(
+        folder: IWorkspaceFolder | undefined,
+        config: IConfig,
+    ): Promise<IConfig | undefined> {
+        const substitutedConfig = await this.adapterManager.substituteVariables(this.type, folder, config);
+        return await this.resolveVariables(folder, substitutedConfig, this.variables);
     }
 
     public runInTerminal(
@@ -64,8 +72,18 @@ export class Debugger implements IDebugger, IDebuggerMetadata {
         return this.contribution.type;
     }
 
+    /** The context-key condition of the contribution, as written. */
+    public get when(): string | undefined {
+        return this.contribution.when;
+    }
+
     public get enabled(): boolean {
         return this.contribution.when === undefined || this.evaluateWhen(this.contribution.when);
+    }
+
+    /** Aliases of command ids for `${command:…}` (upstream `debuggers.variables`). */
+    public get variables(): Readonly<Record<string, string>> | undefined {
+        return this.contribution.variables;
     }
 
     public get strings(): IDebuggerMetadata["strings"] {

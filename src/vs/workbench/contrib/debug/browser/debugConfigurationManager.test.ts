@@ -48,7 +48,7 @@ describe("ConfigurationManager", () => {
     let foldersChange: Emitter<void>;
     let settings: Record<string, unknown>;
     let ports: IConfigurationManagerPorts;
-    let adapterManager: Pick<IAdapterManager, "getDebugger">;
+    let adapterManager: Pick<IAdapterManager, "getDebugger" | "activateDebuggers">;
     const managers: ConfigurationManager[] = [];
 
     beforeEach(() => {
@@ -62,7 +62,7 @@ describe("ConfigurationManager", () => {
         settings = {};
         configurationChange = new Emitter();
         foldersChange = new Emitter();
-        adapterManager = { getDebugger: () => undefined };
+        adapterManager = { getDebugger: () => undefined, activateDebuggers: () => Promise.resolve() };
         ports = {
             configuration: {
                 inspect: <T>(key: string) => {
@@ -521,8 +521,12 @@ describe("ConfigurationManager", () => {
             adapterManager = {
                 getDebugger: (type) =>
                     type === "synthetic"
-                        ? ({ getInitialConfigurationContent: () => Promise.resolve("{\n\t// synthetic\n}") } as never)
+                        ? ({
+                              type: "synthetic",
+                              getInitialConfigurationContent: () => Promise.resolve("{\n\t// synthetic\n}"),
+                          } as never)
                         : undefined,
+                activateDebuggers: () => Promise.resolve(),
             };
 
             await create().getLaunches()[0].openConfigFile({ preserveFocus: false, type: "synthetic" });

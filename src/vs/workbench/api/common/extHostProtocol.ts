@@ -21,6 +21,16 @@ import type {
     ITypeHierarchySession,
 } from "../../../editor/common/languages/iTypeHierarchySource.ts";
 
+import type {
+    IWireDebugConfigurationProvider,
+    IWireDebugProvideConfigurations,
+    IWireDebugProviderHandle,
+    IWireDebugResolveConfiguration,
+    IWireDebugResolveResult,
+    IWireDebugStartDebugging,
+    IWireDebugStopDebugging,
+    WireDebugConfiguration,
+} from "./debugWireTypes.ts";
 import type { IActiveEditorMeta, IActiveEditorSelections, IEditorOptionsState } from "./iEditorOptionsService.ts";
 import type { RpcEndpoint } from "./rpcEndpoint.ts";
 import type {
@@ -335,6 +345,15 @@ export interface IHostToSubprocess {
 
         readonly "tasks.provideTasks": readonly [IWireTaskProviderHandle, IWireTask[]];
 
+        /** Upstream `$provideDebugConfigurations`; rejects without the provider or its method, or with no result. */
+        readonly "debug.provideConfigurations": readonly [IWireDebugProvideConfigurations, WireDebugConfiguration[]];
+        /** Upstream `$resolveDebugConfiguration`; rejects without the provider or its method. */
+        readonly "debug.resolveConfiguration": readonly [IWireDebugResolveConfiguration, IWireDebugResolveResult];
+        readonly "debug.resolveConfigurationWithSubstitutedVariables": readonly [
+            IWireDebugResolveConfiguration,
+            IWireDebugResolveResult,
+        ];
+
         /** Upstream `$createContributedProfileTerminal`: responds once the profile's terminal is created; rejects without a provider or options. */
         readonly "terminal.createContributedProfile": readonly [IWireCreateContributedProfileTerminal, null];
 
@@ -477,6 +496,11 @@ export interface ISubprocessToHost {
         /** Responds when the task has started, not when it has finished. */
         readonly "tasks.execute": readonly [WireTaskExecuteRequest, IWireTaskExecution];
 
+        /** Upstream `$startDebugging`: whether the session (or every session of a compound) started. */
+        readonly "debug.startDebugging": readonly [IWireDebugStartDebugging, boolean];
+        /** Upstream `$stopDebugging`; rejects for an unknown session. */
+        readonly "debug.stopDebugging": readonly [IWireDebugStopDebugging, null];
+
         /** Responds once the tree has reread: `reveal` waits for a refresh in flight, as upstream. */
         readonly "treeView.refresh": readonly [IWireTreeViewRefresh, null];
         readonly "treeView.reveal": readonly [IWireTreeViewReveal, null];
@@ -547,6 +571,9 @@ export interface ISubprocessToHost {
         readonly "tasks.registerProvider": IWireTaskProviderRegistration;
         readonly "tasks.unregisterProvider": IWireTaskProviderHandle;
         readonly "tasks.terminate": IWireTaskExecutionId;
+
+        readonly "debug.registerConfigurationProvider": IWireDebugConfigurationProvider;
+        readonly "debug.unregisterConfigurationProvider": IWireDebugProviderHandle;
 
         readonly "treeView.register": IWireTreeViewRegistration;
         readonly "treeView.dispose": IWireTreeViewId;

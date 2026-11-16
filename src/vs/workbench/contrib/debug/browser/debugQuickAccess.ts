@@ -6,7 +6,7 @@
 // Select and Start Debugging: the launch configurations and compounds of the window, then "Add Configuration..." of
 // each visible launch. Deviations: the picker has no separators, so the most recent configuration goes first with
 // the hint "most recent"; a row has no "Configure Launch Configuration" button. Not here yet: the configurations of
-// the providers of extensions, recent and contributed (#1139).
+// the providers of extensions, recent and contributed (the next step of `vscode.debug`).
 
 import { fuzzyMatchPrepared, prepareQuery } from "../../../../base/common/fuzzySearch.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";

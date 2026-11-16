@@ -7,8 +7,8 @@
 // configurations and the adapter contract. The `CONTEXT_*` keys are typed keys of `ContextKeyTypes`
 // (platform/contextkey/common/contextKeys.ts) under the upstream names. `IDebugService`, `IAdapterManager` and
 // `ILaunch` carry what the session, its commands and the views use; the rest comes with the task that implements
-// it: the breakpoint editing of `IDebugService` in the editor (adding, conditions, data breakpoints), the configuration providers and the dynamic
-// configurations of `IConfigurationManager` (`vscode.debug`), the descriptor factories and `guessDebugger` of
+// it: the breakpoint editing of `IDebugService` in the editor (adding, conditions, data breakpoints), the dynamic
+// configurations of `IConfigurationManager` (Select and Start Debugging), the descriptor factories and `guessDebugger` of
 // `IAdapterManager` (`vscode.debug`), the editor contributions, `openInEditor` of frames and sources (with the
 // editor service they need), the test run a session is correlated with. Not planned: the memory view (`getMemory`,
 // webview) and debug visualizers (proposed API).
@@ -803,6 +803,44 @@ export interface IDebugAdapterFactory {
     substituteVariables(folder: IWorkspaceFolder | undefined, config: IConfig): Promise<IConfig>;
 }
 
+/**
+ * Upstream's `resolveWithInteractionReplace(folder, config, 'launch', variables, target)`: every variable of the
+ * configuration, `${command:…}` through the debugger's `variables` aliases and `${input:…}` from the `inputs` of the
+ * file the configuration comes from (its `__configurationTarget`). `undefined` — the user cancelled.
+ */
+export type IDebugVariableResolver = (
+    folder: IWorkspaceFolder | undefined,
+    config: IConfig,
+    variables: Readonly<Record<string, string>> | undefined,
+) => Promise<IConfig | undefined>;
+
+/** Upstream's `DebugConfigurationProviderTriggerKind` (the values of `vscode.DebugConfigurationProviderTriggerKind`). */
+export const DebugConfigurationProviderTriggerKind = {
+    /** Asked for the configurations of a new launch.json. */
+    Initial: 1,
+    /** Asked for configurations to pick among (Select and Start Debugging). */
+    Dynamic: 2,
+} as const;
+export type DebugConfigurationProviderTriggerKind =
+    (typeof DebugConfigurationProviderTriggerKind)[keyof typeof DebugConfigurationProviderTriggerKind];
+
+/** A `vscode.DebugConfigurationProvider` of an extension; only the methods it implements are here. */
+export interface IDebugConfigurationProvider {
+    readonly type: string;
+    readonly triggerKind: DebugConfigurationProviderTriggerKind;
+    resolveDebugConfiguration?(
+        folderUri: uri | undefined,
+        debugConfiguration: IConfig,
+        token: CancellationToken,
+    ): Promise<IConfig | null | undefined>;
+    resolveDebugConfigurationWithSubstitutedVariables?(
+        folderUri: uri | undefined,
+        debugConfiguration: IConfig,
+        token: CancellationToken,
+    ): Promise<IConfig | null | undefined>;
+    provideDebugConfigurations?(folderUri: uri | undefined, token: CancellationToken): Promise<IConfig[]>;
+}
+
 export interface IDebugAdapterExecutableOptions {
     cwd?: string;
     env?: Record<string, string>;
@@ -939,14 +977,14 @@ export interface ILaunch {
     }): Promise<IOpenConfigFileResult>;
 }
 
-/** Upstream `IConfigurationManager`, without the configuration providers and the dynamic configurations (#1139). */
+/** Upstream `IConfigurationManager`, without the dynamic configurations of Select and Start Debugging. */
 export interface IConfigurationManager {
     /** Returns an object containing the selected launch configuration and the selected configuration name. */
     readonly selectedConfiguration: {
         launch: ILaunch | undefined;
         getConfig: () => Promise<IConfig | undefined>;
         name: string | undefined;
-        /** Only dynamic configurations have a type set (#1139). */
+        /** Only dynamic configurations have a type set (not here yet: the dynamic configurations of Select and Start Debugging). */
         type: string | undefined;
     };
 
@@ -958,6 +996,30 @@ export interface IConfigurationManager {
 
     /** Allows to register on change of selected debug configuration. */
     readonly onDidSelectConfiguration: Event<void>;
+
+    readonly onDidChangeConfigurationProviders: Event<void>;
+
+    registerDebugConfigurationProvider(debugConfigurationProvider: IDebugConfigurationProvider): IDisposable;
+    /** If no trigger kind is given, `Initial` is assumed. */
+    hasDebugConfigurationProvider(debugType: string, triggerKind?: DebugConfigurationProviderTriggerKind): boolean;
+    /**
+     * The providers of the type, then the `*` ones; again when a provider changed the type. `undefined` aborts the
+     * launch, `null` aborts it and opens launch.json.
+     */
+    resolveConfigurationByProviders(
+        folderUri: uri | undefined,
+        type: string | undefined,
+        config: IConfig,
+        token: CancellationToken,
+    ): Promise<IConfig | null | undefined>;
+    resolveDebugConfigurationWithSubstitutedVariables(
+        folderUri: uri | undefined,
+        type: string | undefined,
+        config: IConfig,
+        token: CancellationToken,
+    ): Promise<IConfig | null | undefined>;
+    /** The `Initial` providers of the type: the configurations of a new launch.json. */
+    provideDebugConfigurations(folderUri: uri | undefined, type: string, token: CancellationToken): Promise<IConfig[]>;
 }
 
 /** Upstream `IAdapterManager`: where the debuggers and the adapters of a debug type are registered. */
@@ -967,9 +1029,11 @@ export interface IAdapterManager {
     getDebugger(type: string): (IDebugger & IDebuggerMetadata) | undefined;
     /**
      * Ours: the `debuggers` extension point of upstream's adapter manager as a call — `contributes.debuggers` of
-     * extensions (#1139) and the tests register a debug type through it.
+     * extensions (`bindExtensionDebuggers`) and the tests register a debug type through it.
      */
     registerDebugger(contribution: IDebuggerContribution): IDisposable;
+    /** `activationEvent`, `onDebug` and, with a type, `activationEvent:type` — all awaited. */
+    activateDebuggers(activationEvent: string, debugType?: string): Promise<void>;
     registerDebugAdapterFactory(debugTypes: string[], debugAdapterFactory: IDebugAdapterFactory): IDisposable;
     createDebugAdapter(session: IDebugSession): IDebugAdapter | undefined;
     substituteVariables(debugType: string, folder: IWorkspaceFolder | undefined, config: IConfig): Promise<IConfig>;

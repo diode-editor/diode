@@ -5,8 +5,8 @@
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/browser/debugService.ts
 // `startDebugging` follows upstream's sequence: `onDebug` activation, saving the editors, the selected launch
 // configuration or compound, resolution by the providers, variable substitution, the pre-launch task, resolution with
-// substituted variables, then the session. Its steps that belong to later tasks are the identity here, each named at
-// its place: providers (#1139), choosing a debugger for a configuration without a type (#1156). Not here yet:
+// substituted variables, then the session. Choosing a debugger for a configuration without a type (#1156) is not
+// here yet: such a configuration goes to the providers without a type and does not start. Not here yet:
 // adding and editing breakpoints (the gutter: #1148; conditions, data breakpoints), opening the console on a session (`debug.internalConsoleOptions`,
 // `debug.console.closeOnEnd`, `debug.openExplorerOnEnd`), opening the focused frame in the editor (#1148). The
 // activity badge of the view container (active sessions) is not here: the container switcher has no badges. Errors
@@ -42,6 +42,7 @@ import {
     type IDebugSession,
     type IDebugSessionOptions,
     type IDebugTerminalLauncher,
+    type IDebugVariableResolver,
     type IEnablement,
     type ILaunch,
     type IStackFrame,
@@ -73,7 +74,7 @@ export const DebugServiceDIToken = token<DebugService>("DebugService");
 
 /** What the debug service talks to; the DI module builds it from the workbench services. */
 export interface IDebugServicePorts {
-    readonly contextKeys: Pick<ContextKeyService, "set" | "get" | "reset" | "evaluate">;
+    readonly contextKeys: Pick<ContextKeyService, "set" | "get" | "reset" | "evaluate" | "onDidChange">;
     readonly state: Pick<IStateService, "get" | "store" | "remove" | "onDidOpenWorkspace">;
     readonly textFiles: ITextFileDirtyState;
     readonly logger: ILogger;
@@ -87,6 +88,8 @@ export interface IDebugServicePorts {
     readonly saveAllBeforeStart: () => Promise<void>;
     /** The adapters' `runInTerminal`: the integrated terminal. */
     readonly terminalLauncher: IDebugTerminalLauncher;
+    /** The configuration resolver over launch.json: the variables of a configuration, interactive ones too. */
+    readonly variables: IDebugVariableResolver;
     readonly debugConfiguration: () => IDebugServiceConfiguration;
     /** Upstream's `openPaneComposite(VIEWLET_ID, Sidebar)`: shows Run and Debug without taking the focus. */
     readonly openViewlet: () => void;
@@ -129,7 +132,14 @@ export class DebugService implements IDebugService {
 
     public constructor(private readonly ports: IDebugServicePorts) {
         const contextKeys = ports.contextKeys;
-        this.adapterManager = this.disposables.add(new AdapterManager(() => this, contextKeys, ports.terminalLauncher));
+        this.adapterManager = this.disposables.add(
+            new AdapterManager(() => this, {
+                contextKeys,
+                terminalLauncher: ports.terminalLauncher,
+                extensions: ports.extensions,
+                variables: ports.variables,
+            }),
+        );
         this.configurationManager = this.disposables.add(
             new ConfigurationManager(this.adapterManager, ports.configurationManager),
         );
@@ -460,9 +470,16 @@ export class DebugService implements IDebugService {
     ): Promise<boolean> {
         // We keep the debug type in a separate variable 'type' so that a no-folder config has no attributes.
         // Storing the type in the config would break extensions that assume that the no-folder case is indicated by an empty config.
-        // A configuration without a type would be completed by the debugger the user picks (#1156); it does not start.
-        const config: IConfig = configOrUndefined ?? (Object.create(null) as IConfig);
-
+        // A configuration without a type would be completed by the debugger the user picks (#1156).
+        let type: string | undefined;
+        let config: IConfig;
+        if (configOrUndefined) {
+            config = configOrUndefined;
+            type = config.type;
+        } else {
+            // a no-folder workspace has no launch.config
+            config = Object.create(null) as IConfig;
+        }
         if (options?.noDebug) {
             config.noDebug = true;
         } else if (options?.noDebug === undefined && options?.parentSession?.configuration.noDebug) {
@@ -474,75 +491,113 @@ export class DebugService implements IDebugService {
         const sessionId = generateUuid();
         this.sessionCancellationTokens.set(sessionId, initCancellationToken);
 
-        // Resolution by the configuration providers of extensions (#1139): the configuration as is.
-        const configByProviders = config;
+        const folderUri = launch?.workspace?.uri;
+        const configByProviders = await this.configurationManager.resolveConfigurationByProviders(
+            folderUri,
+            type,
+            config,
+            initCancellationToken.token,
+        );
         // a falsy config indicates an aborted launch
-        if (!configByProviders.type) {
-            return false;
-        }
-
-        // Upstream catches what the steps throw; each of ours reports its own failure (the providers, #1139, bring the
-        // catch back).
-        const resolvedConfig = await this.substituteVariables(launch, configByProviders);
-        if (!resolvedConfig) {
-            // User cancelled resolving of interactive variables, silently return
-            return false;
-        }
-
-        if (initCancellationToken.token.isCancellationRequested) {
-            // User cancelled, silently return
-            return false;
-        }
-
-        // Check for concurrent sessions before running preLaunchTask to avoid running the task if user cancels
-        let userConfirmedConcurrentSession = false;
-        if (options?.startedByUser && resolvedConfig.suppressMultipleSessionWarning !== true) {
-            // Check if there's already a session with the same launch configuration
-            const existingSession = this.findSameSession(resolvedConfig, launch?.workspace);
-            if (existingSession) {
-                // There is already a session with the same configuration, prompt user before running preLaunchTask
-                if (!(await this.confirmConcurrentSession(existingSession.getLabel()))) {
+        if (configByProviders?.type) {
+            try {
+                let resolvedConfig = await this.substituteVariables(launch, configByProviders);
+                if (!resolvedConfig) {
+                    // User cancelled resolving of interactive variables, silently return
                     return false;
                 }
-                userConfirmedConcurrentSession = true;
+
+                if (initCancellationToken.token.isCancellationRequested) {
+                    // User cancelled, silently return
+                    return false;
+                }
+
+                // Check for concurrent sessions before running preLaunchTask to avoid running the task if user cancels
+                let userConfirmedConcurrentSession = false;
+                if (options?.startedByUser && resolvedConfig.suppressMultipleSessionWarning !== true) {
+                    // Check if there's already a session with the same launch configuration
+                    const existingSession = this.findSameSession(resolvedConfig, launch?.workspace);
+                    if (existingSession) {
+                        // There is already a session with the same configuration, prompt user before running preLaunchTask
+                        if (!(await this.confirmConcurrentSession(existingSession.getLabel()))) {
+                            return false;
+                        }
+                        userConfirmedConcurrentSession = true;
+                    }
+                }
+
+                const workspace = launch?.workspace ?? this.ports.workspace.getWorkspace();
+                const taskResult = await this.taskRunner.runTaskAndCheckErrors(workspace, resolvedConfig.preLaunchTask);
+                if (taskResult === TaskRunResult.Failure) {
+                    return false;
+                }
+
+                const cfg = await this.configurationManager.resolveDebugConfigurationWithSubstitutedVariables(
+                    folderUri,
+                    resolvedConfig.type,
+                    resolvedConfig,
+                    initCancellationToken.token,
+                );
+                if (!cfg) {
+                    // show launch.json only for "config" being "null".
+                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- the token may be cancelled while the task and the providers above run; TS keeps the narrowing of the earlier check
+                    if (launch && type && cfg === null && !initCancellationToken.token.isCancellationRequested) {
+                        await launch.openConfigFile({ preserveFocus: true, type });
+                    }
+                    return false;
+                }
+                resolvedConfig = cfg;
+
+                const dbg = this.adapterManager.getDebugger(resolvedConfig.type);
+                if (!dbg || (configByProviders.request !== "attach" && configByProviders.request !== "launch")) {
+                    let message: string;
+                    if (configByProviders.request !== "attach" && configByProviders.request !== "launch") {
+                        message = configByProviders.request
+                            ? `Attribute 'request' has an unsupported value '${configByProviders.request}' in the chosen debug configuration.`
+                            : "Attribute 'request' is missing from the chosen debug configuration.";
+                    } else {
+                        message = resolvedConfig.type
+                            ? `Configured debug type '${resolvedConfig.type}' is not supported.`
+                            : "Missing property 'type' for the chosen launch configuration.";
+                    }
+
+                    this.showError(message);
+                    return false;
+                }
+
+                if (!dbg.enabled) {
+                    this.showError(
+                        `Configured debug type '${dbg.type}' is installed but not supported in this environment.`,
+                    );
+                    return false;
+                }
+
+                return await this.doCreateSession(
+                    sessionId,
+                    launch?.workspace,
+                    { resolved: resolvedConfig, unresolved: unresolvedConfig },
+                    options,
+                    userConfirmedConcurrentSession,
+                );
+            } catch (err) {
+                // Upstream's other branch, the empty workspace's message, is for a configuration of a guessed debugger (#1156).
+                if ((err as Error | undefined)?.message) {
+                    this.showError((err as Error).message);
+                }
+                if (launch && !initCancellationToken.token.isCancellationRequested) {
+                    await launch.openConfigFile({ preserveFocus: true });
+                }
+
+                return false;
             }
         }
 
-        const workspace = launch?.workspace ?? this.ports.workspace.getWorkspace();
-        const taskResult = await this.taskRunner.runTaskAndCheckErrors(workspace, resolvedConfig.preLaunchTask);
-        if (taskResult === TaskRunResult.Failure) {
-            return false;
+        // show launch.json only for "config" being "null".
+        if (launch && type && configByProviders === null && !initCancellationToken.token.isCancellationRequested) {
+            await launch.openConfigFile({ preserveFocus: true, type });
         }
 
-        // The resolution with substituted variables (#1139) comes here.
-
-        const dbg = this.adapterManager.getDebugger(resolvedConfig.type);
-        if (!dbg || (configByProviders.request !== "attach" && configByProviders.request !== "launch")) {
-            let message: string;
-            if (configByProviders.request !== "attach" && configByProviders.request !== "launch") {
-                message = configByProviders.request
-                    ? `Attribute 'request' has an unsupported value '${configByProviders.request}' in the chosen debug configuration.`
-                    : "Attribute 'request' is missing from the chosen debug configuration.";
-            } else {
-                message = `Configured debug type '${resolvedConfig.type}' is not supported.`;
-            }
-
-            this.showError(message);
-            return false;
-        }
-
-        if (!dbg.enabled) {
-            this.showError(`Configured debug type '${dbg.type}' is installed but not supported in this environment.`);
-            return false;
-        }
-
-        return await this.doCreateSession(
-            sessionId,
-            launch?.workspace,
-            { resolved: resolvedConfig, unresolved: unresolvedConfig },
-            options,
-            userConfirmedConcurrentSession,
-        );
+        return false;
     }
 
     private findSameSession(config: IConfig, root: IWorkspaceFolder | undefined): IDebugSession | undefined {
@@ -795,10 +850,32 @@ export class DebugService implements IDebugService {
             }
         }
 
-        let resolved: IConfig | undefined = session.configuration;
+        let resolved: IConfig | undefined | null = session.configuration;
         if (launch && needsToSubstitute && unresolved) {
-            // Resolution by the providers, before and after the substitution, is the identity until #1139.
-            resolved = await this.substituteVariables(launch, unresolved);
+            const initCancellationToken = new CancellationTokenSource();
+            // Stryker disable next-line CallExpression: equivalent, only a stop with no session cancels the tokens, and a restarting session is a session
+            this.sessionCancellationTokens.set(session.getId(), initCancellationToken);
+            // Stryker disable next-line OptionalChaining: equivalent, `getLaunch` finds the launch by its folder
+            const folderUri = launch.workspace?.uri;
+            const resolvedByProviders = await this.configurationManager.resolveConfigurationByProviders(
+                folderUri,
+                unresolved.type,
+                unresolved,
+                initCancellationToken.token,
+            );
+            if (resolvedByProviders) {
+                resolved = await this.substituteVariables(launch, resolvedByProviders);
+                if (resolved && !initCancellationToken.token.isCancellationRequested) {
+                    resolved = await this.configurationManager.resolveDebugConfigurationWithSubstitutedVariables(
+                        folderUri,
+                        resolved.type,
+                        resolved,
+                        initCancellationToken.token,
+                    );
+                }
+            } else {
+                resolved = resolvedByProviders;
+            }
         }
         if (resolved) {
             session.setConfiguration({ resolved, unresolved });

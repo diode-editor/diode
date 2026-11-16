@@ -2,11 +2,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeyService.ts";
 import { AdapterManager } from "../vs/workbench/contrib/debug/browser/debugAdapterManager.ts";
 import type { IDebugService } from "../vs/workbench/contrib/debug/common/debug.ts";
 
-import { NO_TERMINAL_LAUNCHER } from "./mockDebug.ts";
+import { adapterManagerPorts } from "./mockDebug.ts";
 import {
     NO_DELAY_TIMING,
     numAt,
@@ -572,7 +571,7 @@ describe("SyntheticDebugAdapter", () => {
 
 describe("registerSyntheticDebugger", () => {
     it("registers the debug type and a factory of fresh adapters, until disposed", async () => {
-        const manager = new AdapterManager(() => ({}) as IDebugService, new ContextKeyService(), NO_TERMINAL_LAUNCHER);
+        const manager = new AdapterManager(() => ({}) as IDebugService, adapterManagerPorts());
         const registration = registerSyntheticDebugger(manager);
 
         const session = { configuration: SYNTHETIC_LAUNCH_CONFIG } as never;
