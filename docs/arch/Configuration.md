@@ -139,7 +139,7 @@
 
 | Настройка | Смысл | Потребители |
 | --- | --- | --- |
-| `files.exclude` | «этого нет» | дерево Explorer'а (`FileTreeDataProvider`), индекс файлов Quick Open (`FileSearchService`), поиск по содержимому (ripgrep), `workspace.findFiles` расширения |
+| `files.exclude` | «этого нет» | дерево Explorer'а (`FileTreeDataProvider`), индекс файлов Quick Open (`FileSearchEngine` в субпроцессе расширений), поиск по содержимому (ripgrep), `workspace.findFiles` расширения |
 | `search.exclude` | «этого не надо в поиске» — ДОБАВЛЯЕТСЯ к `files.exclude` | индекс файлов, поиск по содержимому |
 | `files.watcherExclude` | «за этим не следим» (свой бюджет inotify) | `ITreeFileWatcher` ядра, `FileWatcherAdapter` расширений |
 
@@ -162,7 +162,7 @@
 зависимости читают, а шумит он только в результатах поиска. Спрятать его
 совсем — одна строка в settings.json (`"files.exclude": { "**/node_modules": true }`).
 `files.watcherExclude` по-прежнему держит каталоги сборки: это бюджет inotify, а не
-видимость, и индекс Quick Open от watcher'а не зависит (свежесть — `refreshIfStale`).
+видимость, и индекс Quick Open от watcher'а не зависит (свежесть — новый обход на каждый показ пикера).
 
 Все дефолты — в форме `**/<имя>`, то есть матчат САМ вход, а не только его
 содержимое: `**/<имя>/**` каталог не матчит, и обход всё равно спускался бы
@@ -175,7 +175,7 @@ watcher (`isExcluded`) и ripgrep (`--glob !<pattern>`).
 `search.useGlobalIgnoreFiles` (оба `false`) — как у эталона: поиск уважает
 `.gitignore`/`.ignore` папки, по желанию — родительских каталогов и глобальный
 gitignore. Действуют на оба поиска: индекс Quick Open строится `rg --files`
-(`FileSearchService`), содержимое ищет `rg --json` (сервис текстового поиска), и
+(`FileSearchEngine`), содержимое ищет `rg --json` (сервис текстового поиска), и
 флаги обоим собирает один код — `rgIgnoreFilesArgs` в
 `services/search/common/ripgrepArgs.ts` (`--no-ignore` / `--no-ignore-parent` /
 `--no-ignore-global`, плюс всегда `--no-require-git` и `--no-config`, как у
@@ -199,10 +199,9 @@ gitignore. Действуют на оба поиска: индекс Quick Open 
 
 Живая применяемость: набор читается на каждое обращение (дешевле, чем кешировать
 и подписываться), а правка настройки дополнительно перечитывает дерево
-(`ExplorerService` → `refresh()`) и пересобирает индекс файлов
-(`FileSearchService`) — иначе исключённое висело бы на экране до перезапуска.
-Поиск по содержимому и `findFiles` отдельного сигнала не требуют: они собирают
-набор на каждый запрос.
+(`ExplorerService` → `refresh()`) — иначе исключённое висело бы на экране до перезапуска.
+Индекс файлов Quick Open, поиск по содержимому и `findFiles` отдельного сигнала не требуют:
+индекс читает набор на каждый показ пикера, остальные — на каждый запрос.
 
 Поиск по глобам `workspaceContains:` (`workspaceContainsActivation.ts`) своего
 набора не держит: это тот же `rg --files`, что у индекса Quick Open, с тем же

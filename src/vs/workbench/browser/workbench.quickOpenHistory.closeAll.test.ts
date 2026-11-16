@@ -20,7 +20,6 @@ describe("Workbench: Quick Open history after Close All Editors", () => {
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
-        await h.workbench.fileIndexReady;
         for (const name of ["a.ts", "b.ts", "c.ts"]) h.commands.execute("workbench.openFile", ws.path(name));
         h.testApp.render();
     });

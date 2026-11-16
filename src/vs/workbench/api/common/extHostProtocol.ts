@@ -20,6 +20,12 @@ import type {
     ITypeHierarchyItem,
     ITypeHierarchySession,
 } from "../../../editor/common/languages/iTypeHierarchySource.ts";
+import type {
+    IFileIndexRequest,
+    IFileIndexResult,
+    IFileQueryRequest,
+    IFileQueryResult,
+} from "../../services/search/common/fileSearch.ts";
 
 import type {
     IWireDebugAdapterError,
@@ -385,6 +391,13 @@ export interface IHostToSubprocess {
          */
         readonly "testing.runControllerTests": readonly [IWireRunControllerTests, IWireRunControllerTestsResult[]];
 
+        /**
+         * Upstream `$provideFileSearchResults` of the internal file search provider: the file index lives in
+         * the subprocess (#1179). Responds when the walk ends; the index answers queries before that.
+         */
+        readonly "search.fileIndex": readonly [IFileIndexRequest, IFileIndexResult];
+        readonly "search.fileQuery": readonly [IFileQueryRequest, IFileQueryResult];
+
         readonly "host.activateExtension": readonly [IWireActivateExtensionParams, null];
         readonly "host.deactivateExtension": readonly [IWireExtensionId, null];
         readonly "host.shutdown": readonly [undefined, null];
@@ -396,6 +409,8 @@ export interface IHostToSubprocess {
         readonly "languages.releaseCodeLenses": IWireReleaseCodeLenses;
         /** Other owners' MarkerService markers: a mirror for `languages.getDiagnostics`. */
         readonly "diagnostics.markersChanged": IWireMarkersChanged;
+        /** Upstream `$clearCache`: stops the walk and frees the index. */
+        readonly "search.clearCache": IWireFileSearchCacheKey;
 
         readonly "workspace.initialize": IWireWorkspaceInitialize;
         readonly "env.initialize": IWireEnvInitialize;
@@ -618,9 +633,16 @@ export interface ISubprocessToHost {
         readonly "testing.appendTestMessagesInRun": IWireTestMessagesInRun;
         readonly "testing.appendOutputToRun": IWireTestOutputInRun;
 
+        /** The index under the key grew or its walk ended; debounced. */
+        readonly "search.fileIndexChanged": IWireFileSearchCacheKey;
+
         /** `host.activateExtension` may be sent. */
         readonly "host.ready": null;
     };
+}
+
+export interface IWireFileSearchCacheKey {
+    readonly cacheKey: string;
 }
 
 export type HostRpc = RpcEndpoint<IHostToSubprocess, ISubprocessToHost>;
