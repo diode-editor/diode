@@ -33,6 +33,11 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `extensionHost.onDidChangeWorkspaceFolders.test.ts`, «updateWorkspaceFolders onto one folder»: `expect.poll`
+  (1 с) видит только две строки журнала первого субпроцесса — перезапуск не успел под полной локальной нагрузкой,
+  дважды (`check:diff` и initial test run Stryker'а, PR #1178, дифф — адаптеры отладки расширений); в одиночку
+  зелёный. Лечение — явный срок у `expect.poll` по реальной цене перезапуска.
+
 - [ ] `testingDecorations.test.ts`, «the progress clock redraws only the editors with a running test»: `vi.waitFor`
   за 1 с увидел лишь 2 разных кадра настоящего 100-мс тикера `ProgressService` под coverage (run 42780424813,
   PR #1124, дифф — пассивный прогресс вида, тик непассивных не тронут); тот же код зелёный в прошлом прогоне и
