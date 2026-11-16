@@ -20,8 +20,8 @@ import {
 import { codicon } from "../../../../base/common/codicons.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
-import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { MenuRegistryDIToken } from "../../../../platform/actions/common/menuRegistry.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
