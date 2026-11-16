@@ -77,7 +77,7 @@ describe("BreakpointSources", () => {
 
         await sources(fake.editors).openBreakpoint(breakpoint(27, 5), false);
 
-        expect(fake.opened).toEqual([[FILE.toString(), {}]]);
+        expect(fake.opened).toEqual([[FILE.toString(), { focus: true }]]);
         expect(fake.active()?.goToPosition).toHaveBeenCalledWith(26, 4);
 
         await sources(fake.editors).openBreakpoint(breakpoint(3), false);
@@ -89,7 +89,7 @@ describe("BreakpointSources", () => {
 
         await sources(fake.editors).openBreakpoint(breakpoint(27), true);
 
-        expect(fake.opened).toEqual([[FILE.toString(), { group: "beside" }]]);
+        expect(fake.opened).toEqual([[FILE.toString(), { group: "beside", focus: true }]]);
         expect(fake.active()?.goToPosition).toHaveBeenCalledWith(26, 0);
 
         const failing = fakeEditors(true);

@@ -55,6 +55,8 @@ export class AdapterManager extends Disposable implements IAdapterManager {
     private readonly debugAdapterFactories = new Map<string, IDebugAdapterFactory>();
     private readonly onDidRegisterDebuggerEmitter = this.register(new Emitter<void>());
     private breakpointContributions: Breakpoints[] = [];
+    /** The context keys of the contributions' `when`. */
+    private breakpointWhenKeys = new Set<string>();
     private readonly onDidChangeCanSetBreakpointsEmitter = this.register(new Emitter<void>());
 
     public constructor(
@@ -65,10 +67,10 @@ export class AdapterManager extends Disposable implements IAdapterManager {
         this.updateContextKeys();
         this.register(
             this.ports.contextKeys.onDidChange((changed) => {
-                if ([...changed].some((key) => this.debuggerWhenKeys.has(key))) {
-                    this.ports.contextKeys.set("debuggersAvailable", this.hasEnabledDebuggers());
-                    this.onDidChangeCanSetBreakpointsEmitter.fire();
-                } else if ([...changed].some((key) => this.breakpointWhenKeys().has(key))) {
+                const keys = [...changed];
+                const debuggers = keys.some((key) => this.debuggerWhenKeys.has(key));
+                if (debuggers) this.ports.contextKeys.set("debuggersAvailable", this.hasEnabledDebuggers());
+                if (debuggers || keys.some((key) => this.breakpointWhenKeys.has(key))) {
                     this.onDidChangeCanSetBreakpointsEmitter.fire();
                 }
             }),
@@ -88,17 +90,18 @@ export class AdapterManager extends Disposable implements IAdapterManager {
     public registerBreakpoints(contribution: IBreakpointContribution): IDisposable {
         const breakpoints = new Breakpoints(contribution, this.ports.contextKeys);
         this.breakpointContributions.push(breakpoints);
-        this.onDidChangeCanSetBreakpointsEmitter.fire();
+        this.updateBreakpointWhenKeys();
         return {
             dispose: () => {
                 this.breakpointContributions = this.breakpointContributions.filter((entry) => entry !== breakpoints);
-                this.onDidChangeCanSetBreakpointsEmitter.fire();
+                this.updateBreakpointWhenKeys();
             },
         };
     }
 
-    private breakpointWhenKeys(): Set<string> {
-        return new Set(this.breakpointContributions.flatMap((breakpoints) => breakpoints.whenKeys));
+    private updateBreakpointWhenKeys(): void {
+        this.breakpointWhenKeys = new Set(this.breakpointContributions.flatMap((breakpoints) => breakpoints.whenKeys));
+        this.onDidChangeCanSetBreakpointsEmitter.fire();
     }
 
     public canSetBreakpointsIn(languageId: string): boolean {

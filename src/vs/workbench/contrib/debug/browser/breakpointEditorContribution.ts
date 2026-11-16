@@ -17,8 +17,9 @@
 
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { firstNonWhitespaceIndex } from "../../../../base/common/strings.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
-import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
+import { createRange, type IRange, rangesEqual } from "../../../../editor/common/core/iRange.ts";
 import type {
     IGlyphMarginClick,
     IGlyphMarginDecoration,
@@ -249,10 +250,11 @@ export class BreakpointEditorContribution extends Disposable {
         const activated = model.areBreakpointsActivated();
         const showInRuler = this.configuration.get("debug.showBreakpointsInOverviewRuler");
         const byLine = new Map<number, IGlyphMarginDecoration>();
+        /** The icon of the breakpoint drawn on a line. */
         const iconByLine = new Map<number, string>();
         for (const breakpoint of breakpoints) {
             const line = breakpoint.lineNumber - 1;
-            if (byLine.has(line)) continue;
+            if (iconByLine.has(line)) continue;
             const icon = getBreakpointIcon(state, activated, breakpoint, model);
             iconByLine.set(line, icon);
             byLine.set(line, {
@@ -330,7 +332,7 @@ export class BreakpointEditorContribution extends Disposable {
         for (const decoration of state.breakpointDecorations) {
             // Only this class removes its decorations.
             const range = document.getDecorationRange(decoration.decorationId);
-            if (range !== null && !sameRange(range, decoration.range)) {
+            if (range !== null && !rangesEqual(range, decoration.range)) {
                 somethingChanged = true;
                 decoration.range = range;
             }
@@ -407,16 +409,7 @@ const MIDDLE_CLICK_CONTEXTS = {
 function breakpointRange(document: Pick<ITextDocument, "getLineContent">, breakpoint: IBreakpoint): IRange {
     const line = breakpoint.lineNumber - 1;
     const content = document.getLineContent(line);
-    const column = breakpoint.column ? breakpoint.column - 1 : Math.max(0, content.search(/\S/u));
+    const column = breakpoint.column ? breakpoint.column - 1 : Math.max(0, firstNonWhitespaceIndex(content));
     // Decoration has to have a width #20688; the document clamps it to the line.
     return createRange(line, column, line, Math.min(column + 1, content.length));
-}
-
-function sameRange(a: IRange, b: IRange): boolean {
-    return (
-        a.start.line === b.start.line &&
-        a.start.character === b.start.character &&
-        a.end.line === b.end.line &&
-        a.end.character === b.end.character
-    );
 }

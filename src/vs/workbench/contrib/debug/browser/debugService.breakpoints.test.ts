@@ -396,7 +396,6 @@ describe("DebugService and the editor", () => {
                     frame: "accumulate(std::vector<int> const&)@27",
                     preserveFocus: true,
                     sideBySide: false,
-                    pinned: false,
                 },
             ]);
         });
@@ -418,9 +417,9 @@ describe("DebugService and the editor", () => {
         await fx.service.focusStackFrame(undefined, undefined, undefined, {});
 
         expect(fx.openedFrames.slice(1)).toEqual([
-            { frame: "process(Config const&)@47", preserveFocus: true, sideBySide: true, pinned: true },
+            { frame: "process(Config const&)@47", preserveFocus: true, sideBySide: true },
             // No frame given: the focused thread's top one, focus kept.
-            { frame: "accumulate(std::vector<int> const&)@27", preserveFocus: true, sideBySide: false, pinned: false },
+            { frame: "accumulate(std::vector<int> const&)@27", preserveFocus: true, sideBySide: false },
         ]);
     });
 

@@ -106,7 +106,7 @@ export interface IDebugServicePorts {
      */
     readonly openStackFrame: (
         stackFrame: IStackFrame,
-        options: { preserveFocus: boolean; sideBySide: boolean; pinned: boolean },
+        options: { preserveFocus: boolean; sideBySide: boolean },
     ) => Promise<void>;
     /** A text file was saved: the breakpoints the editor moved in it go to the adapters. */
     readonly onDidSaveTextFile: (listener: (resource: uri) => void) => IDisposable;
@@ -1050,7 +1050,6 @@ export class DebugService implements IDebugService {
             await this.ports.openStackFrame(stackFrame, {
                 preserveFocus: options?.preserveFocus ?? true,
                 sideBySide: !!options?.sideBySide,
-                pinned: !!options?.pinned,
             });
         }
         if (session) {

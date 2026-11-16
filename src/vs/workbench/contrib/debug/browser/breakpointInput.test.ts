@@ -37,7 +37,7 @@ describe("BreakpointInput", () => {
             service,
             {
                 input: (opts) => {
-                    inputs.push(opts);
+                    inputs.push(opts ?? {});
                     return Promise.resolve(answers.input);
                 },
                 quickPick: (opts) => {

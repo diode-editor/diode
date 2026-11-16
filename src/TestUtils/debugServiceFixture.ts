@@ -81,7 +81,7 @@ export interface IDebugServiceFixture {
     replOpenings: number;
     replClosings: number;
     /** The stack frames opened in the editor: `name@line` with the options. */
-    readonly openedFrames: { frame: string; preserveFocus: boolean; sideBySide: boolean; pinned: boolean }[];
+    readonly openedFrames: { frame: string; preserveFocus: boolean; sideBySide: boolean }[];
     /** Fires the save of a text file. */
     saveTextFile(resource: Uri): void;
 }
@@ -129,7 +129,7 @@ export function createDebugServiceFixture(
         viewletOpenings: 0,
         replOpenings: 0,
         replClosings: 0,
-        openedFrames: [] as { frame: string; preserveFocus: boolean; sideBySide: boolean; pinned: boolean }[],
+        openedFrames: [] as { frame: string; preserveFocus: boolean; sideBySide: boolean }[],
         saveTextFile: (resource: Uri) => {
             textFileSaved.fire(resource);
         },

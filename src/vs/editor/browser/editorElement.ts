@@ -748,7 +748,9 @@ export class EditorElement extends TUIElement implements IScrollable {
      * it was (upstream's `editor.glyphMargin` is always on).
      */
     private get hasGlyphLane(): boolean {
-        return this.glyphMarginReservedValue || [...this.glyphLayers.values()].some((layer) => !layer.isEmpty);
+        if (this.glyphMarginReservedValue) return true;
+        for (const layer of this.glyphLayers.values()) if (!layer.isEmpty) return true;
+        return false;
     }
 
     private get gutterLeftPadding(): number {
@@ -761,6 +763,7 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public set glyphMarginReserved(reserved: boolean) {
+        if (reserved === this.glyphMarginReservedValue) return;
         this.glyphMarginReservedValue = reserved;
         this.markDirty();
     }
