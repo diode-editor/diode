@@ -18,6 +18,7 @@ import { type IDebugSession, State } from "../../../contrib/debug/common/debug.t
 
 const EXTENSION_ID = "test.debugadapters";
 const KINDS = ["inline", "server", "pipe", "exec", "package"] as const;
+const TYPES = [...KINDS.map((kind) => `fixture-${kind}`), "fixture-missing"];
 const TIMEOUT = 20_000;
 
 // The extension's adapters in the subprocess, the core's session over the wire, as upstream's `ExtHostDebugService`
@@ -65,6 +66,7 @@ describe("ExtensionHost — debug adapters of an extension", () => {
                             program: "./adapterProcess.cjs",
                             args: ["package"],
                         },
+                        { type: "fixture-missing", label: "Missing" },
                     ],
                 },
             },
@@ -78,7 +80,7 @@ describe("ExtensionHost — debug adapters of an extension", () => {
             debugSink: sink,
         });
         await waitUntil("the debug types of the subprocess", () => registerDebugTypes.mock.calls.length > 0);
-        expect(registerDebugTypes.mock.calls[0][0]).toEqual(KINDS.map((kind) => `fixture-${kind}`));
+        expect(registerDebugTypes.mock.calls[0][0]).toEqual(TYPES);
     }, TIMEOUT);
 
     afterEach(async () => {
@@ -162,6 +164,42 @@ describe("ExtensionHost — debug adapters of an extension", () => {
 
             expect(output(session)).toContain(
                 "Debug adapter process has terminated unexpectedly (Extension host shut down)\n",
+            );
+        },
+        TIMEOUT,
+    );
+
+    it(
+        "[api:debug.registerDebugAdapterTrackerFactory] the tracker sees the adapter process exit after the user stops the session, as upstream",
+        async () => {
+            const session = await start("exec");
+            await waitUntil("stopped on entry", () => session.state === State.Stopped);
+
+            await fx.service.stopSession(session);
+            await waitUntil("the session ends", () => fx.service.getModel().getSessions().length === 0);
+
+            // Upstream's onExit listener holds the tracker itself, not the map $stopDASession clears: the process the
+            // stop killed still reaches the tracker (code null → undefined).
+            const record: string[] = [];
+            const deadline = Date.now() + 5_000;
+            while (!record.some((what) => what.startsWith("fixture-exec:exit")) && Date.now() < deadline) {
+                record.push(...(await seen()));
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+            expect(record).toContainEqual(expect.stringMatching(/^fixture-exec:exit/));
+        },
+        TIMEOUT,
+    );
+
+    it(
+        "an adapter executable that does not exist: the user is told so, as when the adapter's port refuses",
+        async () => {
+            const launch = fx.service.getConfigurationManager().getLaunch(folder.uri);
+            await fx.service.startDebugging(launch, { type: "fixture-missing", request: "launch", name: "Missing" });
+            await waitUntil("no session left", () => fx.service.getModel().getSessions().length === 0);
+
+            expect(fx.shown.map((m) => m.message)).toContainEqual(
+                expect.stringMatching(/Debug adapter executable '.*no-such-adapter' does not exist/),
             );
         },
         TIMEOUT,

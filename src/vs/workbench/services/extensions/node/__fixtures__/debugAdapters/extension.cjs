@@ -6,7 +6,8 @@
  * - `fixture-server`: a TCP server of the extension, `DebugAdapterServer(port)`;
  * - `fixture-pipe`: a UNIX domain socket of the extension, `DebugAdapterNamedPipeServer(path)`;
  * - `fixture-exec`: a process, `DebugAdapterExecutable(<node>, [adapterProcess.cjs, …])`;
- * - `fixture-package`: no factory, the executable of `contributes.debuggers` (`runtime` + `program`).
+ * - `fixture-package`: no factory, the executable of `contributes.debuggers` (`runtime` + `program`);
+ * - `fixture-missing`: `DebugAdapterExecutable` of a command that does not exist.
  * A `*` tracker records what it saw per session type; `test.debugAdapters.seen` hands the record out.
  */
 const fs = require("node:fs");
@@ -64,6 +65,11 @@ exports.activate = function activate(context) {
                 return new vscode.DebugAdapterExecutable(process.execPath, [path.join(__dirname, "adapterProcess.cjs"), "exec"], {
                     cwd: __dirname,
                 });
+            },
+        }),
+        vscode.debug.registerDebugAdapterDescriptorFactory("fixture-missing", {
+            createDebugAdapterDescriptor() {
+                return new vscode.DebugAdapterExecutable(path.join(__dirname, "no-such-adapter"), []);
             },
         }),
         vscode.debug.registerDebugAdapterTrackerFactory("*", {
