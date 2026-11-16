@@ -1,3 +1,4 @@
+import type { SerializedError } from "../../../../base/common/errorSerialization.ts";
 import type {
     IWireDebugAdapterError,
     IWireDebugAdapterExit,
@@ -10,7 +11,6 @@ import type {
     WireDebugConfiguration,
 } from "../../../api/common/debugWireTypes.ts";
 import { isFiniteNumber } from "../../../api/common/wireTypes.ts";
-import type { SerializedError } from "../../../../base/common/errorSerialization.ts";
 
 // Debug messages from the subprocess (`debug.*`); `null` — a malformed message, ignored (a request: rejected).
 

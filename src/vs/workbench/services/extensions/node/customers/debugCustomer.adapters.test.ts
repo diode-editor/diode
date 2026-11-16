@@ -200,7 +200,10 @@ describe("DebugCustomer — debug adapters over the wire (upstream $registerDebu
             subRpc.notify("debug.acceptAdapterMessage", params as never);
         }
         subRpc.notify("debug.acceptAdapterError", { message: "x" } as never);
-        subRpc.notify("debug.acceptAdapterError", { handle: 1, error: { name: "E", message: "m", stack: "s" } } as never);
+        subRpc.notify("debug.acceptAdapterError", {
+            handle: 1,
+            error: { name: "E", message: "m", stack: "s" },
+        } as never);
         subRpc.notify("debug.acceptAdapterExit", { code: 1 } as never);
         subRpc.notify("debug.registerDebugTypes", { types: ["a", 7, null] } as never);
         await flush();
