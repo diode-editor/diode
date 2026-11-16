@@ -6,8 +6,10 @@
 // The seam extensions plug their debuggers into. Upstream reads the `debuggers` extension point itself; here
 // `registerDebugger` takes a contribution, and `contributes.debuggers` of the extensions (`bindExtensionDebuggers`)
 // and the tests call it. Contributions of one type merge as upstream's (the first one wins a key, objects merge),
-// a `*` contribution merges into every type. Not here yet, each with its task: the descriptor factories and
-// `guessDebugger` (`vscode.debug`, #1140, #1156), the launch.json schema and the task labels in it (#1157),
+// a `*` contribution merges into every type. The adapters of extensions come through `registerDebugAdapterFactory`
+// (upstream's `$registerDebugTypes`); upstream's main-side descriptor factories are not needed, the subprocess asks
+// the extension's factory itself. Not here yet, each with its task: `guessDebugger` (#1156), the launch.json schema
+// and the task labels in it (#1157),
 // `canSetBreakpointsIn` (gutter, #1148). A debugger's `when` is evaluated when asked: `debuggersAvailable` follows
 // registrations and every change of a key in the `when` of a debugger, as upstream's. `runInTerminal` goes to the core's terminal launcher, not to the adapter
 // factory of the debug type (#1142). Deviation: upstream lets a built-in extension's contribution win a key; diode

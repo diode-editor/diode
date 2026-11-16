@@ -1,21 +1,32 @@
-import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
+import { transformErrorFromSerialization } from "../../../../../base/common/errorSerialization.ts";
+import { DisposableStore, type IDisposable, MutableDisposable } from "../../../../../base/common/lifecycle.ts";
+import type { IWireDebugSession } from "../../../../api/common/debugWireTypes.ts";
+import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type {
+    IExtensionDebugAdapterConnection,
+    IExtensionDebugAdapterHost,
+    IExtensionDebugAdapterListener,
     IExtensionDebugConfigurationProvider,
     IExtensionDebugSink,
 } from "../../../../api/common/iExtensionDebugSink.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import {
+    parseWireDebugAdapterError,
+    parseWireDebugAdapterExit,
+    parseWireDebugAdapterMessage,
     parseWireDebugConfigurationProvider,
     parseWireDebugConfigurations,
     parseWireDebugProviderHandle,
     parseWireDebugResolveResult,
     parseWireDebugStartDebugging,
     parseWireDebugStopDebugging,
+    parseWireDebugTypes,
 } from "../debugWireParsers.ts";
 
 /**
- * Upstream `MainThreadDebugService`, the configuration providers and starting and stopping sessions. Provider
- * registrations belong to the spawn: a dead subprocess takes its providers along.
+ * Upstream `MainThreadDebugService`: the configuration providers, starting and stopping sessions, and the debug
+ * adapters of the subprocess. Registrations belong to the spawn: a dead subprocess takes its providers and debug
+ * types along, and each of its live adapters ends with an error.
  */
 export class DebugCustomer implements IExtensionHostCustomer {
     public constructor(private readonly sink: IExtensionDebugSink | undefined) {}
@@ -82,6 +93,43 @@ export class DebugCustomer implements IExtensionHostCustomer {
                 providers.delete(request.handle);
             }),
         );
+        const adapters = store.add(new AdapterHost(rpc));
+        const debugTypes = store.add(new MutableDisposable());
+        store.add(
+            rpc.handleNotification("debug.registerDebugTypes", (params) => {
+                // The old types go first: their dispose drops whatever factory the types have.
+                debugTypes.clear();
+                debugTypes.value = sink.registerDebugTypes(parseWireDebugTypes(params), adapters);
+            }),
+        );
+        store.add(
+            rpc.handleNotification("debug.acceptAdapterMessage", (params) => {
+                const accepted = parseWireDebugAdapterMessage(params);
+                // Stryker disable next-line ConditionalExpression: equivalent, the endpoint drops a notification whose handler throws, as it drops a malformed one here
+                if (accepted === null) return;
+                // Stryker disable next-line OptionalChaining: equivalent, the endpoint drops a notification whose handler throws, as it drops one for an unknown handle here
+                adapters.listener(accepted.handle)?.onMessage(accepted.message as DebugProtocol.ProtocolMessage);
+            }),
+        );
+        store.add(
+            rpc.handleNotification("debug.acceptAdapterError", (params) => {
+                const accepted = parseWireDebugAdapterError(params);
+                // Stryker disable next-line ConditionalExpression: equivalent, the endpoint drops a notification whose handler throws, as it drops a malformed one here
+                if (accepted === null) return;
+                // The error as the subprocess had it (upstream folds name and stack into the message).
+                // Stryker disable next-line OptionalChaining: equivalent, the endpoint drops a notification whose handler throws, as it drops one for an unknown handle here
+                adapters.listener(accepted.handle)?.onError(transformErrorFromSerialization(accepted.error));
+            }),
+        );
+        store.add(
+            rpc.handleNotification("debug.acceptAdapterExit", (params) => {
+                const accepted = parseWireDebugAdapterExit(params);
+                // Stryker disable next-line ConditionalExpression: equivalent, the endpoint drops a notification whose handler throws, as it drops a malformed one here
+                if (accepted === null) return;
+                // Stryker disable next-line OptionalChaining: equivalent, the endpoint drops a notification whose handler throws, as it drops one for an unknown handle here
+                adapters.listener(accepted.handle)?.onExit(accepted.code);
+            }),
+        );
         store.add(
             rpc.handleRequest("debug.startDebugging", (params) => {
                 const request = parseWireDebugStartDebugging(params);
@@ -96,5 +144,42 @@ export class DebugCustomer implements IExtensionHostCustomer {
             }),
         );
         return store;
+    }
+}
+
+/** The adapters of one spawn: handles, and the listener of each live adapter for the messages that come back. */
+class AdapterHost implements IExtensionDebugAdapterHost {
+    private nextHandle = 1;
+    /** The live adapters by handle: what each tells the core. */
+    private readonly live = new Map<number, IExtensionDebugAdapterListener>();
+
+    public constructor(private readonly rpc: HostRpc) {}
+
+    public listener(handle: number): IExtensionDebugAdapterListener | undefined {
+        return this.live.get(handle);
+    }
+
+    public createAdapter(
+        session: IWireDebugSession,
+        listener: IExtensionDebugAdapterListener,
+    ): IExtensionDebugAdapterConnection {
+        const handle = this.nextHandle++;
+        this.live.set(handle, listener);
+        return {
+            start: async () => {
+                await this.rpc.request("debug.startAdapter", { handle, session });
+            },
+            send: (message) => {
+                if (this.live.has(handle)) this.rpc.notify("debug.sendAdapterMessage", { handle, message });
+            },
+            stop: async () => {
+                if (this.live.delete(handle)) await this.rpc.request("debug.stopAdapter", { handle });
+            },
+        };
+    }
+
+    public dispose(): void {
+        for (const listener of this.live.values()) listener.onError(new Error("Extension host shut down"));
+        this.live.clear();
     }
 }

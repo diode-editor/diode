@@ -10,9 +10,9 @@
 // announcements, focusing the OS window on a break, the memory view (`getMemory`).
 
 import { distinct } from "../../../../base/common/arrays.ts";
-import { RunOnceScheduler } from "../../../../base/common/async.ts";
+import { raceTimeout, RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource, type ICancellationToken } from "../../../../base/common/cancellation.ts";
-import { CancellationError } from "../../../../base/common/errorSerialization.ts";
+import { CancellationError, isCancellationError } from "../../../../base/common/errorSerialization.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Lazy } from "../../../../base/common/lazy.ts";
 import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from "../../../../base/common/lifecycle.ts";
@@ -77,22 +77,6 @@ export interface IDebugSessionServices {
 
 function noDebugAdapter(what: string): Error {
     return new Error(`No debugger available, can not send '${what}'`);
-}
-
-/** Upstream `raceTimeout`: the promise or, after `timeout` ms, `undefined`. */
-function raceTimeout<T>(promise: Promise<T>, timeout: number): Promise<T | undefined> {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    return Promise.race([
-        promise.finally(() => {
-            // Stryker disable next-line CallExpression: a timer left behind only resolves a race that is already settled
-            clearTimeout(timer);
-        }),
-        new Promise<undefined>((resolve) => {
-            timer = setTimeout(() => {
-                resolve(undefined);
-            }, timeout);
-        }),
-    ]);
 }
 
 /** Upstream `Queue<void>` of `base/common/async.ts`: the tasks run one after another, in the order queued. */
@@ -1110,9 +1094,20 @@ export class DebugSession implements IDebugSession {
         }
     }
 
+    /**
+     * An adapter that goes away cancels the request: the threads are gone with it (upstream leaves the rejection
+     * unhandled at every caller).
+     */
     private async fetchThreads(stoppedDetails?: IRawStoppedDetails): Promise<void> {
         if (this.raw) {
-            const threads = bodyOf(await this.raw.threads())?.threads;
+            let response: DebugProtocol.ThreadsResponse | undefined;
+            try {
+                response = await this.raw.threads();
+            } catch (e) {
+                if (isCancellationError(e)) return;
+                throw e;
+            }
+            const threads = bodyOf(response)?.threads;
             if (threads) {
                 this.model.rawUpdate({
                     sessionId: this.getId(),

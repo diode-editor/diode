@@ -6,9 +6,9 @@ differently is on [Differences from VS Code](DIFFERENCES.md).
 
 ## Known gaps
 
-- **Debugging.** There is no debugger yet: no Run and Debug view, no breakpoints. `.diode/launch.json`
-  is read and F5 runs its `preLaunchTask`, but extensions that bring a debugger still cannot start a
-  debug session.
+- **Debugging** is in progress. `.diode/launch.json` is read, F5 runs its `preLaunchTask` and starts the
+  session with the debugger extension's own adapter; the Run and Debug view and the Debug Console show it.
+  Breakpoints in the editor, the debug toolbar and the session API for extensions are not there yet.
 - **Snippets** from extensions are not read; **file icon themes** are not applied.
 - **Source control extensions.** Built-in git works (diffs, commit graph, staging); an extension
   that brings another version control system has no API to plug into yet.

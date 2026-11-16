@@ -5,7 +5,8 @@
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/common/abstractDebugAdapter.ts
 // The low-level DAP plumbing every adapter shares: sequence numbers, pending requests with their timeouts, and the
 // queue that hands incoming messages to the session one task at a time. Missing is how an adapter talks to its
-// process: the extension host bridge (#1140) and the in-process synthetic adapter of the tests subclass it.
+// process: the extension host bridge (`ExtensionHostDebugAdapter`) and the in-process synthetic adapter of the tests
+// subclass it.
 
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";

@@ -334,37 +334,12 @@ describe("vscode.debug — what the core has: configuration providers, startDebu
         });
     });
 
-    it("adapters and trackers are not asked yet; breakpoints are a no-op", () => {
+    it("breakpoints are a no-op", () => {
         const { vscode } = makeVscode();
-        const factory = { createDebugAdapterDescriptor: vi.fn() };
-        const tracker = { createDebugAdapterTracker: vi.fn() };
-        const disposables = [
-            vscode.debug.registerDebugAdapterDescriptorFactory("go", factory),
-            vscode.debug.registerDebugAdapterTrackerFactory("*", tracker),
-        ];
-        for (const disposable of disposables) {
-            expect(() => {
-                disposable.dispose();
-            }).not.toThrow();
-        }
-        expect(factory.createDebugAdapterDescriptor).not.toHaveBeenCalled();
-        expect(tracker.createDebugAdapterTracker).not.toHaveBeenCalled();
         const breakpoint = new vscode.FunctionBreakpoint("main");
         vscode.debug.addBreakpoints([breakpoint]);
         vscode.debug.removeBreakpoints([breakpoint]);
         expect(vscode.debug.breakpoints).toEqual([]);
-    });
-
-    it("the user gets one line per debug type an adapter is registered for; trackers stay silent", () => {
-        const { stub, vscode } = makeVscode();
-        vscode.debug.registerDebugAdapterDescriptorFactory("go", { createDebugAdapterDescriptor: () => undefined });
-        vscode.debug.registerDebugAdapterDescriptorFactory("go", { createDebugAdapterDescriptor: () => undefined });
-        vscode.debug.registerDebugAdapterDescriptorFactory("lldb", { createDebugAdapterDescriptor: () => undefined });
-        vscode.debug.registerDebugAdapterTrackerFactory("*", { createDebugAdapterTracker: () => undefined });
-        expect(warnings(stub)).toEqual([
-            'extensions/Extensions/warn: debugging "go" is not supported in TUI yet — no sessions, the rest of the extension works',
-            'extensions/Extensions/warn: debugging "lldb" is not supported in TUI yet — no sessions, the rest of the extension works',
-        ]);
     });
 
     describe("asDebugSourceUri — as upstream", () => {

@@ -14,6 +14,7 @@ import { createMockDebugModel } from "../../../../../TestUtils/mockDebug.ts";
 import { MockDebugAdapter, NO_RESPONSE } from "../../../../../TestUtils/mockDebugAdapter.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
+import { CancellationError } from "../../../../base/common/errorSerialization.ts";
 import { DisposableStore } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import {
@@ -309,6 +310,21 @@ describe("DebugSession details", () => {
     });
 
     describe("threads", () => {
+        it("a failed threads request is the caller's error; only a cancelled one (the adapter went away) is quiet", async () => {
+            const { session, adapter } = await launch();
+            const fetchThreads = (): Promise<void> =>
+                (session as unknown as { fetchThreads(): Promise<void> }).fetchThreads();
+
+            adapter.handlers.set("threads", () => new Error("no threads here"));
+            await expect(fetchThreads()).rejects.toThrow("no threads here");
+
+            const threads = vi.spyOn(session.raw!, "threads").mockRejectedValue(new CancellationError());
+            await expect(fetchThreads()).resolves.toBeUndefined();
+            // A session in shutdown answers nothing.
+            threads.mockResolvedValue(undefined);
+            await expect(fetchThreads()).resolves.toBeUndefined();
+        });
+
         it("a stop of all threads keeps the others' old reason and clears every stack", async () => {
             const { session, adapter } = await launch();
             await stop(adapter, session, { reason: "pause", threadId: 2 });
