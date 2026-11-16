@@ -171,12 +171,15 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             registration.dispose();
         });
 
-        it("no factory registers nothing", () => {
-            const { debug } = setup();
-            expect(() => {
-                debug.registerDebugAdapterDescriptorFactory("t", undefined as never).dispose();
-                debug.registerDebugAdapterTrackerFactory("t", undefined as never).dispose();
-            }).not.toThrow();
+        it("no factory registers nothing: the type stays free for a real one", () => {
+            const { debug, as } = setup();
+            debug.registerDebugAdapterDescriptorFactory("t", undefined as never);
+            debug.registerDebugAdapterTrackerFactory("t", undefined as never).dispose();
+            expect(() =>
+                as(EXT, () =>
+                    debug.registerDebugAdapterDescriptorFactory("t", { createDebugAdapterDescriptor: () => undefined }),
+                ),
+            ).not.toThrow();
         });
     });
 
@@ -420,9 +423,9 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             expect(onExit).toHaveBeenCalledWith(undefined, undefined);
         });
 
-        it("tracker factories slower than a second are given up: the session starts without trackers", async () => {
+        it("tracker factories slower than a second are given up: the session runs and stops without trackers", async () => {
             vi.useFakeTimers();
-            const { debug, start, adapters, session } = setup();
+            const { debug, start, adapters, session, accepted, stub } = setup();
             const onWillStartSession = vi.fn();
             debug.registerDebugAdapterTrackerFactory("*", {
                 createDebugAdapterTracker: () =>
@@ -443,6 +446,20 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             expect(done).toBe(true);
             await vi.advanceTimersByTimeAsync(5000);
             expect(onWillStartSession).not.toHaveBeenCalled();
+
+            adapters[0].send({ seq: 1, type: "event", event: "initialized" });
+            stub.fire("debug.sendAdapterMessage", {
+                handle: 1,
+                message: { seq: 2, type: "request", command: "threads" },
+            });
+            adapters[0].fail(new Error("oops"));
+            adapters[0].exit(0);
+            expect(accepted("debug.acceptAdapterMessage")).toHaveLength(1);
+            expect(adapters[0].sent).toEqual([{ seq: 2, type: "request", command: "threads" }]);
+            expect(accepted("debug.acceptAdapterError")).toHaveLength(1);
+            expect(accepted("debug.acceptAdapterExit")).toEqual([{ handle: 1, code: 0 }]);
+            await expect(stub.callRequest("debug.stopAdapter", { handle: 1 })).resolves.toBeNull();
+            expect(adapters[0].stopped).toBe(1);
         });
     });
 });
