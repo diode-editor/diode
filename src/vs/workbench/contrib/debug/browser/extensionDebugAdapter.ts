@@ -124,9 +124,11 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
     public async customRequest(sessionId: string, command: string, args: unknown): Promise<unknown> {
         const session = this.debugService.getModel().getSession(sessionId, true);
         if (!session) throw new Error("debug session not found");
+        // A failed response rejects in the session already (with the adapter's message); none is a request the
+        // adapter never answered (upstream's `response ? response.message : …` has no other case here).
         const response = await session.customRequest(command, args);
-        if (response?.success) return response.body;
-        throw new Error(response ? response.message : "custom request failed");
+        if (!response) throw new Error("custom request failed");
+        return response.body;
     }
 
     /** Upstream `$getDebugProtocolBreakpoint`. */
@@ -283,7 +285,14 @@ type ModelBreakpoint = IBreakpoint | IFunctionBreakpoint | IDataBreakpoint | IIn
 function breakpointDtos(bps: readonly ModelBreakpoint[]): WireDebugBreakpoint[] {
     const dtos: WireDebugBreakpoint[] = [];
     for (const bp of bps) {
-        const common = wireBreakpointBase({ ...bp, id: bp.getId(), enabled: bp.enabled });
+        const common = wireBreakpointBase({
+            id: bp.getId(),
+            enabled: bp.enabled,
+            condition: bp.condition,
+            hitCondition: bp.hitCondition,
+            logMessage: bp.logMessage,
+            mode: bp.mode,
+        });
         if ("name" in bp) {
             dtos.push({ type: "function", ...common, functionName: bp.name });
         } else if ("uri" in bp) {
@@ -291,7 +300,8 @@ function breakpointDtos(bps: readonly ModelBreakpoint[]): WireDebugBreakpoint[] 
                 type: "source",
                 ...common,
                 uri: bp.uri.toString(),
-                line: bp.lineNumber > 0 ? bp.lineNumber - 1 : 0,
+                // The model's lines are 1-based from 1 (upstream guards a 0 that the model never has).
+                line: bp.lineNumber - 1,
                 character: typeof bp.column === "number" && bp.column > 0 ? bp.column - 1 : 0,
             });
         }

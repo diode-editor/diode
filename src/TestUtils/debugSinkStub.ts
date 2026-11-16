@@ -12,10 +12,12 @@ export const SESSIONLESS_DEBUG_SINK: Pick<
     | "unregisterBreakpoints"
 > = {
     subscribe: () => ({ dispose: () => undefined }),
+    /* v8 ignore start -- test helper: what a test about the rest never asks */
     customRequest: () => Promise.reject(new Error("debug session not found")),
     getDebugProtocolBreakpoint: () => Promise.reject(new Error("debug session not found")),
     setSessionName: () => undefined,
     appendDebugConsole: () => undefined,
     registerBreakpoints: () => undefined,
     unregisterBreakpoints: () => undefined,
+    /* v8 ignore stop */
 };

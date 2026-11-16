@@ -145,6 +145,17 @@ describe("vscode.debug — breakpoints of the extension", () => {
         expect(changes).toHaveLength(1);
     });
 
+    it("a breakpoint of another kind joins the list and fires, but the core gets nothing of it (upstream)", async () => {
+        const { stub, vscode, changes } = setup();
+        const foreign = { id: "foreign", enabled: true } as vscode.Breakpoint;
+
+        await awaitable(vscode.debug.addBreakpoints)([foreign]);
+
+        expect(vscode.debug.breakpoints).toEqual([foreign]);
+        expect(changes).toEqual([{ added: [foreign], removed: [], changed: [] }]);
+        expect(requests(stub, "debug.registerBreakpoints")).toEqual([{ breakpoints: [] }]);
+    });
+
     it("[api:debug.removeBreakpoints] removes the known ones and tells the core their ids by kind", async () => {
         const { stub, vscode, changes } = setup();
         stub.fire("debug.acceptBreakpointsDelta", { added: [SOURCE, FUNCTION] });
