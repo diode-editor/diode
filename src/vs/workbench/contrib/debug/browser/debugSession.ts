@@ -60,7 +60,11 @@ const TRIGGERED_BREAKPOINT_MAX_DELAY = 1500;
 /** The `debug.*` settings the service and its sessions read. */
 export type IDebugServiceConfiguration = Pick<
     IDebugConfiguration,
-    "openDebug" | "autoExpandLazyVariables" | "internalConsoleOptions" | "allowBreakpointsEverywhere" | "focusEditorOnBreak"
+    | "openDebug"
+    | "autoExpandLazyVariables"
+    | "internalConsoleOptions"
+    | "allowBreakpointsEverywhere"
+    | "focusEditorOnBreak"
 > & { readonly console: Pick<IDebugConfiguration["console"], "closeOnEnd"> };
 
 export interface IDebugSessionServices {
@@ -1457,7 +1461,9 @@ export class DebugSession implements IDebugSession {
                             if (!focusedStackFrame || focusedStackFrame.thread.session === this) {
                                 // Only take focus if nothing is focused, or if the focus is already on the current session
                                 const preserveFocus = !this.services.debugConfiguration().focusEditorOnBreak;
-                                await this.debugService.focusStackFrame(undefined, thread, undefined, { preserveFocus });
+                                await this.debugService.focusStackFrame(undefined, thread, undefined, {
+                                    preserveFocus,
+                                });
                             }
 
                             // Upstream also checks `thread.stoppedDetails`: a stopped event always sets them.

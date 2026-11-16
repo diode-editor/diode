@@ -141,8 +141,8 @@ import { UndoRefusalNotificationContributionDIToken } from "./browser/undoRefusa
 import type { IWorkbenchContributionRegistration } from "./common/iWorkbenchContribution.ts";
 import { CODE_ACTION_ACTIONS } from "./contrib/codeAction/browser/codeActionActions.ts";
 import { COMMENT_ACTIONS } from "./contrib/comment/browser/commentActions.ts";
-import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
 import { BreakpointEditorContributionDIToken } from "./contrib/debug/browser/breakpointEditorContribution.ts";
+import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
 import { DebugContentProviderDIToken } from "./contrib/debug/browser/debugContentProvider.ts";
 import { DebugLifecycleDIToken } from "./contrib/debug/browser/debugLifecycle.ts";
 import { DebugServiceDIToken } from "./contrib/debug/browser/debugService.ts";

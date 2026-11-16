@@ -38,10 +38,8 @@ export class DebugContentProvider extends Disposable {
             session = this.debugService.getModel().getSession(data.sessionId);
         }
 
-        if (!session) {
-            // fallback: use focused session
-            session = this.debugService.getViewModel().focusedSession;
-        }
+        // fallback: use focused session
+        session ??= this.debugService.getViewModel().focusedSession;
 
         if (!session) {
             throw new Error("Unable to resolve the resource without a debug session");

@@ -265,7 +265,10 @@ export function createDebugServiceFixture(
             fixture.replClosings++;
         },
         openStackFrame: (stackFrame, options) => {
-            fixture.openedFrames.push({ frame: `${stackFrame.name}@${String(stackFrame.range.startLineNumber)}`, ...options });
+            fixture.openedFrames.push({
+                frame: `${stackFrame.name}@${String(stackFrame.range.startLineNumber)}`,
+                ...options,
+            });
             return Promise.resolve();
         },
         onDidSaveTextFile: (listener) => textFileSaved.event(listener),

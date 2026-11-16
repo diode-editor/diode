@@ -135,11 +135,11 @@ import {
 } from "../../workbench/contrib/debug/browser/breakpointEditorContribution.ts";
 import { BreakpointInput, BreakpointInputDIToken } from "../../workbench/contrib/debug/browser/breakpointInput.ts";
 import { BreakpointSources, openStackFrame } from "../../workbench/contrib/debug/browser/breakpointSources.ts";
+import { BreakpointSourcesDIToken } from "../../workbench/contrib/debug/browser/breakpointsView.ts";
 import {
     DebugContentProvider,
     DebugContentProviderDIToken,
 } from "../../workbench/contrib/debug/browser/debugContentProvider.ts";
-import { BreakpointSourcesDIToken } from "../../workbench/contrib/debug/browser/breakpointsView.ts";
 import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
 import {
     DebugQuickAccessProviderDIToken,
@@ -792,7 +792,10 @@ export const workbenchModule: ContainerModule = (container) => {
                     stackFrame,
                     options,
                 ),
-            onDidSaveTextFile: (listener) => textFiles.onDidSaveModel((model) => listener(model.uri)),
+            onDidSaveTextFile: (listener) =>
+                textFiles.onDidSaveModel((model) => {
+                    listener(model.uri);
+                }),
             openViewlet: () => {
                 container.get(ViewsServiceDIToken).openViewContainer(VIEWLET_ID);
             },

@@ -73,9 +73,7 @@ export interface IBreakpointEditorSource {
 }
 
 export const BreakpointEditorSourceDIToken = token<IBreakpointEditorSource>("BreakpointEditorSource");
-export const BreakpointEditorContributionDIToken = token<BreakpointEditorContribution>(
-    "BreakpointEditorContribution",
-);
+export const BreakpointEditorContributionDIToken = token<BreakpointEditorContribution>("BreakpointEditorContribution");
 
 /** Upstream `IBreakpointDecoration`: the tracked document decoration a breakpoint rides its line with. */
 interface IBreakpointDecoration {
@@ -123,7 +121,11 @@ export class BreakpointEditorContribution extends Disposable {
         const queueRefresh = (): void => {
             this.queueRefresh();
         };
-        this.register(editors.onDidChangeEditors(() => this.syncEditors()));
+        this.register(
+            editors.onDidChangeEditors(() => {
+                this.syncEditors();
+            }),
+        );
         this.register(model.onDidChangeBreakpoints(queueRefresh));
         this.register(model.onDidChangeCallStack(queueRefresh));
         this.register(debugService.getViewModel().onDidFocusStackFrame(queueRefresh));
@@ -313,7 +315,8 @@ export class BreakpointEditorContribution extends Disposable {
                     // Deduplicate same decorations so colors do not stack #109045
                     const dedupKey = `${String(top)} ${String(decoration.line)}`;
                     const existing = result.get(dedupKey);
-                    if (existing === undefined || (!existing.glyph && decoration.glyph)) result.set(dedupKey, decoration);
+                    if (existing === undefined || (!existing.glyph && decoration.glyph))
+                        result.set(dedupKey, decoration);
                 }
             }
         }

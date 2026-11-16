@@ -170,10 +170,10 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     private readonly composedDocumentSource: IVirtualDocumentSource = {
         canProvide: (scheme) =>
             this.workbenchDocumentSources.has(scheme) || this.extensionDocumentSource.canProvide(scheme),
-        provide: (uri) =>
-            (this.workbenchDocumentSources.get(uri.scheme) ?? ((target) => this.extensionDocumentSource.provide(target)))(
-                uri,
-            ),
+        provide: (uri) => {
+            const workbench = this.workbenchDocumentSources.get(uri.scheme);
+            return workbench === undefined ? this.extensionDocumentSource.provide(uri) : workbench(uri);
+        },
     };
 
     /**

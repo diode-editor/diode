@@ -33,8 +33,10 @@ export const enum BreakpointWidgetContext {
 }
 
 const PLACEHOLDERS: Record<Exclude<BreakpointWidgetContext, BreakpointWidgetContext.TRIGGER_POINT>, string> = {
-    [BreakpointWidgetContext.CONDITION]: "Break when expression evaluates to true. 'Enter' to accept, 'Escape' to cancel.",
-    [BreakpointWidgetContext.HIT_COUNT]: "Break when hit count condition is met. 'Enter' to accept, 'Escape' to cancel.",
+    [BreakpointWidgetContext.CONDITION]:
+        "Break when expression evaluates to true. 'Enter' to accept, 'Escape' to cancel.",
+    [BreakpointWidgetContext.HIT_COUNT]:
+        "Break when hit count condition is met. 'Enter' to accept, 'Escape' to cancel.",
     [BreakpointWidgetContext.LOG_MESSAGE]:
         "Message to log when breakpoint is hit. Expressions within {} are interpolated. 'Enter' to accept, 'Escape' to cancel.",
 };

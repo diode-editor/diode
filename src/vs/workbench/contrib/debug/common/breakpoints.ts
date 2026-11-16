@@ -13,6 +13,8 @@ import type { IBreakpointContribution } from "./debug.ts";
 export class Breakpoints {
     /** Like upstream `ContextKeyExpr.deserialize`, a `when` that does not parse is no condition at all. */
     private readonly breakpointsWhen: string | undefined;
+    /** Ours: the context keys of the `when`, whose changes may enable or disable the contribution. */
+    public readonly whenKeys: readonly string[];
 
     public constructor(
         private readonly breakpointContribution: IBreakpointContribution,
@@ -20,17 +22,13 @@ export class Breakpoints {
     ) {
         const when = breakpointContribution.when;
         // Stryker disable next-line ConditionalExpression: `deserializeWhen(undefined)` is undefined too, the scanner throws and the parser catches
-        this.breakpointsWhen = typeof when === "string" && deserializeWhen(when) !== undefined ? when : undefined;
+        const expression = typeof when === "string" ? deserializeWhen(when) : undefined;
+        this.breakpointsWhen = expression === undefined ? undefined : when;
+        this.whenKeys = expression === undefined ? [] : whenKeys(expression);
     }
 
     public get language(): string {
         return this.breakpointContribution.language;
-    }
-
-    /** Ours: the context keys of the `when`, whose changes may enable or disable the contribution. */
-    public get whenKeys(): readonly string[] {
-        const when = this.breakpointsWhen === undefined ? undefined : deserializeWhen(this.breakpointsWhen);
-        return when === undefined ? [] : whenKeys(when);
     }
 
     public get enabled(): boolean {

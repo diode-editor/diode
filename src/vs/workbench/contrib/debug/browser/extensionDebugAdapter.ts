@@ -11,9 +11,9 @@ import type {
 } from "../../../api/common/iExtensionDebugSink.ts";
 import { AbstractDebugAdapter } from "../common/abstractDebugAdapter.ts";
 import type {
+    IBreakpointContribution,
     IConfig,
     IDebugConfigurationProvider,
-    IBreakpointContribution,
     IDebuggerContribution,
     IDebugService,
     IDebugSession,

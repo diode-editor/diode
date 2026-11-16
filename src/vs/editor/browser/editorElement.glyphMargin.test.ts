@@ -45,7 +45,11 @@ function mouseDown(
     editor: EditorElement,
     x: number,
     y: number,
-    { button = "left", shiftKey = false, altKey = false }: Partial<Pick<IGlyphMarginClick, "button" | "shiftKey" | "altKey">> = {},
+    {
+        button = "left",
+        shiftKey = false,
+        altKey = false,
+    }: Partial<Pick<IGlyphMarginClick, "button" | "shiftKey" | "altKey">> = {},
 ): void {
     editor.dispatchEvent(
         new TUIMouseEvent("mousedown", { button, shiftKey, altKey, screenX: x, screenY: y, localX: x, localY: y }),
@@ -199,7 +203,9 @@ describe("EditorElement — glyph margin", () => {
             mouseDown(editor, 1, 1, { button: "middle" });
             mouseDown(editor, 8, 2, { button: "middle" });
 
-            expect(clicks).toEqual([click({ line: 1, owner: "t", key: "a", button: "middle", screenX: 1, screenY: 1 })]);
+            expect(clicks).toEqual([
+                click({ line: 1, owner: "t", key: "a", button: "middle", screenX: 1, screenY: 1 }),
+            ]);
             expect(editor.viewState.selections[0].active.line).toBe(0);
         });
 

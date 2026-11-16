@@ -46,7 +46,12 @@ describe("Breakpoints in the editor's glyph lane", () => {
         t = await createDebugViewletHarness(root);
         const adapters = t.h.container.get(DebugServiceDIToken).getAdapterManager();
         const synthetic = registerSyntheticDebugger(adapters, NO_DELAY_TIMING, root);
-        registrations = [synthetic, { dispose: () => synthetic.factory.adapters.forEach((a) => a.dispose()) }];
+        const adapterDisposal = {
+            dispose: () => {
+                for (const adapter of synthetic.factory.adapters) adapter.dispose();
+            },
+        };
+        registrations = [synthetic, adapterDisposal];
     });
 
     afterEach(async () => {
@@ -59,7 +64,7 @@ describe("Breakpoints in the editor's glyph lane", () => {
         return t.h.container.get(EditorServiceDIToken);
     }
 
-    function breakpoints(): IBreakpoint[] {
+    function breakpoints(): readonly IBreakpoint[] {
         return t.h.container.get(DebugServiceDIToken).getModel().getBreakpoints();
     }
 
@@ -268,7 +273,7 @@ describe("Breakpoints in the editor's glyph lane", () => {
             await vi.waitFor(() => {
                 expect(t.h.container.get(ContextKeyServiceDIToken).getRaw("debugState")).toBe("stopped");
             });
-            editors().openUri(Uri.file(util));
+            await editors().openUri(Uri.file(util));
             await vi.waitFor(() => {
                 expect(glyphAt(3)).toBe("○");
             });

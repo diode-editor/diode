@@ -12,6 +12,7 @@
         "onDebugResolve:demo"
     ],
     "contributes": {
+        "breakpoints": [{ "language": "c" }],
         "debuggers": [
             {
                 "type": "demo",

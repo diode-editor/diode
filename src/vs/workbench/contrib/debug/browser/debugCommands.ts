@@ -41,9 +41,9 @@ import {
 import type { Thread } from "../common/debugModel.ts";
 import { resolveChildSession } from "../common/debugUtils.ts";
 
+import { toggleEditorBreakpointAction } from "./debugEditorActions.ts";
 import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
-import { toggleEditorBreakpointAction } from "./debugEditorActions.ts";
 import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
 import { REPL_ACTIONS } from "./replActions.ts";
 
