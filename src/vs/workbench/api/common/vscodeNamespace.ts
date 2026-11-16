@@ -9,7 +9,7 @@ import { implementsApi } from "./apiSurface.ts";
 import { createAuthenticationNoop } from "./authenticationNoop.ts";
 import { buildCommandsNamespace } from "./commandsNamespace.ts";
 import { createCommentsNoop } from "./commentsNoop.ts";
-import { createDebugNoop } from "./debugNoop.ts";
+import { createDebugNamespace } from "./debugNamespace.ts";
 import {
     Breakpoint,
     DebugAdapterExecutable,
@@ -472,8 +472,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         CommentThreadCollapsibleState,
         CommentMode,
         CommentThreadState,
-        // No debugger (owner's decision), but without the namespace `golang.go` aborted `activate()`.
-        debug: createDebugNoop(rpc),
+        debug: createDebugNamespace({ rpc, owner: ctx.owner, workspaceFolders: () => workspace.workspaceFolders }),
         DebugAdapterExecutable,
         DebugAdapterServer,
         DebugAdapterNamedPipeServer,

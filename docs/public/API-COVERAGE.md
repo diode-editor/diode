@@ -24,7 +24,7 @@ not in `vscode.d.ts`, yet they decide whether an extension starts at all.
 
 The **N/M** counter is how many members of a namespace are *declared and callable* out of those in
 upstream 1.127.0 (overloads count as one). It counts the surface, not what works: `vscode.debug` is
-18/18 and a null object at the same time. The status and the comment of each row say what really
+18/18 while debug adapters and sessions are still missing. The status and the comment of each row say what really
 works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-by-design).
 
 | surface | status | members |
@@ -278,13 +278,15 @@ threads in the gutter or in a Comments panel yet.
 
 ## vscode.debug
 
-🟡 **18/18.** Declared, the runtime is a null object: Diode has no debugger yet (the Debug
-Adapter Protocol is planned, see [status](STATUS.md)).
+🟡 **18/18.** Declared. Configuration providers and starting a launch configuration work; debug
+adapters of extensions and the session objects come next, so a debugger extension's session does not
+start yet (the Debug Adapter Protocol is in progress, see [status](STATUS.md)).
 
 | member | status | comment |
 | --- | :-: | --- |
-| `registerDebugConfigurationProvider`, `registerDebugAdapterDescriptorFactory`, `registerDebugAdapterTrackerFactory` | 🟡 | a `Disposable`; providers and factories are never called; one line per debugger type in Output |
-| `startDebugging` / `stopDebugging` | 🟡 | `false` (a warning toast per attempt, one line in Output) / resolves |
+| `registerDebugConfigurationProvider` | ✅ | as in VS Code: F5 (**Debug: Start Debugging**) and **Debug: Select and Start Debugging** ask `resolveDebugConfiguration` of the type's providers, then of the `*` ones (again when a provider changed the type), substitute the variables (`${command:…}` through the debugger's `variables`, `${input:…}`), run the `preLaunchTask`, then ask `resolveDebugConfigurationWithSubstitutedVariables`; `undefined` aborts, `null` aborts and opens launch.json, a rejection is an error. `provideDebugConfigurations` of the `Initial` providers fills a new launch.json. `Dynamic` providers are kept but not offered in Select and Start Debugging yet |
+| `registerDebugAdapterDescriptorFactory`, `registerDebugAdapterTrackerFactory` | 🟡 | a `Disposable`; factories are never called; one line per debugger type in Output |
+| `startDebugging` / `stopDebugging` | 🟡 | a configuration of the folder by name, or an object, starts as F5 would and resolves to whether it started (a refusal is an error); a session of an extension's debugger fails for lack of its adapter / stops every session (the session objects come later) |
 | `activeDebugSession`, `activeStackItem`, `breakpoints`, `activeDebugConsole` | 🟡 | `undefined` / `undefined` / empty / a console whose output is not shown |
 | `onDidChangeActiveDebugSession`, `onDidStartDebugSession`, `onDidReceiveDebugSessionCustomEvent`, `onDidTerminateDebugSession`, `onDidChangeBreakpoints`, `onDidChangeActiveStackItem` | 🟡 | valid events that never fire |
 | `addBreakpoints`, `removeBreakpoints` | 🟡 | no-op |
@@ -293,8 +295,9 @@ Adapter Protocol is planned, see [status](STATUS.md)).
 The value types are VS Code's: `DebugAdapterExecutable`, `DebugAdapterServer`,
 `DebugAdapterNamedPipeServer`, `DebugAdapterInlineImplementation`, `Breakpoint`,
 `SourceBreakpoint`, `FunctionBreakpoint`, `DebugThread`, `DebugStackFrame`, the enums
-`DebugConsoleMode`, `DebugConfigurationProviderTriggerKind`. The `onDebug*` activation events do not
-fire (see the table below).
+`DebugConsoleMode`, `DebugConfigurationProviderTriggerKind`. `contributes.debuggers` is read (`type`,
+`label`, `languages`, `variables`, `initialConfigurations`, `when`; contributions of one type merge
+as in VS Code, `*` merges into every type) and makes the debug keys available.
 
 ## vscode.lm
 
@@ -349,7 +352,8 @@ unsupported ones are grouped by the surface they wait for.
 | `onView:<id>` | ✅ | when the view's container is shown (the view switcher on the sidebar title, `workbench.view.extension.<id>`, `<view>.focus`, or restored with the layout); plus the implicit `onView:<id>` from `contributes.views` |
 | `onWalkthrough:<id>` | 🕐 | waits for walkthroughs |
 | `onWebviewPanel:<id>`, `onCustomEditor:<id>`, `onRenderer:<id>` | ⛔ | webview surfaces, see [the ceiling](#not-supported-by-design) |
-| `onDebug`, `onDebugInitialConfigurations`, `onDebugDynamicConfigurations`, `onDebugResolve:<type>`, `onDebugAdapterProtocolTracker:<type>` | 🕐 | there is no debugger yet |
+| `onDebug`, `onDebugResolve:<type>`, `onDebugInitialConfigurations` | ✅ | as in VS Code: a start fires `onDebug` and `onDebugResolve:<type>` before the providers of the type are asked; a new launch.json fires `onDebugInitialConfigurations` |
+| `onDebugDynamicConfigurations`, `onDebugAdapterProtocolTracker:<type>` | 🕐 | together with the dynamic configurations in Select and Start Debugging and with debug adapters |
 | `onTaskType:<type>` | ✅ | Run Task starts the providers before asking for tasks (without a type, all types from `contributes.taskDefinitions`); plus the implicit `onTaskType:<type>` from `contributes.taskDefinitions` |
 | `onNotebook:<type>` | 🕐 | together with `vscode.notebooks` |
 | `onAuthenticationRequest:<id>` | 🕐 | together with real `vscode.authentication` providers |

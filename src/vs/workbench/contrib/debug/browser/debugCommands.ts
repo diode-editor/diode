@@ -461,7 +461,7 @@ export const selectAndStartAction: CommandAction = {
     title: "Debug: Select and Start Debugging",
     menus: paletteItem(NOT_INITIALIZING),
     run(accessor) {
-        // A debug type picks among its dynamic configurations first (#1139).
+        // A debug type picks among its dynamic configurations first (not here yet: the dynamic configurations of Select and Start Debugging).
         accessor.get(QuickOpenServiceDIToken).show(StartDebugQuickAccessProvider.PREFIX);
         return Promise.resolve();
     },

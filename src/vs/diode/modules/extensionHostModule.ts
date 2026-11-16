@@ -63,7 +63,14 @@ import {
     type WorkspaceEditService,
     WorkspaceEditServiceDIToken,
 } from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
-import { DebugExtensionActivatorDIToken } from "../../workbench/contrib/debug/browser/debugService.ts";
+import {
+    DebugExtensionActivatorDIToken,
+    DebugServiceDIToken,
+} from "../../workbench/contrib/debug/browser/debugService.ts";
+import {
+    bindExtensionDebuggers,
+    ExtensionDebugAdapter,
+} from "../../workbench/contrib/debug/browser/extensionDebugAdapter.ts";
 import { ExplorerServiceDIToken } from "../../workbench/contrib/files/browser/explorerService.ts";
 import { WorkspaceFolderOpenerDIToken } from "../../workbench/contrib/files/browser/fileActions.ts";
 import { SCM_CHANGES_VIEW_ID } from "../../workbench/contrib/scm/common/scmViews.ts";
@@ -429,6 +436,10 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 container.get(TestProfileServiceDIToken),
                 container.get(TestResultServiceDIToken),
             ),
+            // Looked up when an extension calls: the debug service is built after the host (its activation port is the
+            // extension service).
+            // Stryker disable next-line ArrowFunction: production module wiring; the adapter is covered by its unit tests and the extension host debug test, end to end by the debug-provider e2e scenario
+            debugSink: new ExtensionDebugAdapter(() => container.get(DebugServiceDIToken)),
             taskSink: new ExtensionTaskAdapter(
                 container.get(TaskServiceDIToken),
                 workspaceContext,
@@ -495,6 +506,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // Stryker disable next-line StringLiteral,ObjectLiteral: the task log channel name and label are wiring; the "Tasks" channel shows up in the tasks e2e scenario
             logService.createLogger("tasks", { label: "Tasks" }),
         );
+        // Stryker disable next-line CallExpression,StringLiteral,ObjectLiteral: production module wiring; behavior is covered by bindExtensionDebuggers unit tests and the extension-debug-provider e2e scenario
+        bindExtensionDebuggers(container.get(DebugServiceDIToken), service.extensions, logger);
         // Stryker disable next-line CallExpression,StringLiteral,ObjectLiteral: production module wiring; behavior is covered by bindExtensionTerminalProfiles unit tests and the extension-terminal-profile e2e scenario
         bindExtensionTerminalProfiles(container.get(TerminalProfileServiceDIToken), service, logger);
         // Stryker disable next-line CallExpression,ArrowFunction: production module wiring; `${extensionInstallFolder:…}` is covered by the resolver unit tests

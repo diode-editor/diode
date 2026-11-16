@@ -903,14 +903,19 @@
   ними — отказ с причиной (перегрузка обещает сессию, `undefined` уронил бы расширение невнятным
   `TypeError`), провайдер принимается и не зовётся, человеку — одна warn-строка в Output на id
   провайдера. Настоящие провайдеры — [docs/TODO/LanguageServers.md](../TODO/LanguageServers.md#terraform).
-- **Отладка как null-объект (`debugNoop.ts`):** дебаггера (DAP) в Diode нет и не планируется
-  (решение человека, [StockExtensions.md](StockExtensions.md#go-golanggo-gopls)), но ОТСУТСТВИЕ
-  namespace'а убивало расширение целиком: `golang.go` регистрирует провайдер конфигураций отладки
-  посреди `activate()` — без него не появлялись ~60 команд `go.*`, хотя gopls уже жил. Декларации
-  `vscode.debug` и типы подняты в `vscode.d.ts` целиком, значения-типы — эталонные (`debugTypes.ts`).
-  Поведение — «сессий нет»: `register*` — `Disposable`, события не стреляют, `startDebugging` —
-  `false`, `asDebugSourceUri` честный. Человеку — одна warn-строка в Output на тип отладчика (как у
-  comments). События активации `onDebug*` не стреляют.
+- **Отладка (`debugNamespace.ts`, эпик #1132):** отладчик через DAP строится серией задач эпика
+  (`docs/TODO/Debugger.md`). Сначала `vscode.debug` был null-объектом: ОТСУТСТВИЕ namespace'а убивало
+  `golang.go` посреди `activate()`. Сейчас живы провайдеры конфигураций и `startDebugging`/`stopDebugging`
+  (#1139): пара — `debugNamespace.ts` ↔ `DebugCustomer` ↔ `IExtensionDebugSink` ↔ `ExtensionDebugAdapter`
+  (`contrib/debug/browser/`), сообщения `debug.*` (`debugWireTypes.ts`), по образцу задач. Провайдер
+  регистрируется с флагами своих методов, ядро зовёт его запросами с токеном; `undefined` и `null` ответа
+  различаются на проводе (`{}` против `{ config: null }`). `contributes.debuggers` читает
+  `bindExtensionDebuggers` при старте сервиса расширений; `${command:…}` и `${input:…}` подставляет резолвер
+  ядра (`debugVariableResolver` в `debugPorts.ts`), эталонного `$substituteVariables` в субпроцессе нет:
+  те же переменные резолвер ядра знает сам. Неявного `onDebugResolve:<type>` из `contributes.debuggers`
+  нет и в эталоне 1.127 — CodeLLDB и js-debug объявляют события сами. Адаптеры и трекеры (#1140),
+  объекты сессий, события и брейкпоинты (#1141) — ещё null-объект: фабрики не зовутся, человеку — одна
+  warn-строка в Output на тип отладчика.
 - **Языковые модели как null-объект (`lmNoop.ts`, #1133):** моделей и чата в Diode нет, но
   CodeLLDB зовёт `vscode.lm.registerTool` посреди `activate()` — без namespace'а активация обрывалась
   `TypeError`, и команды `lldb.*` не появлялись. Декларации `vscode.lm` и замыкание типов подняты в

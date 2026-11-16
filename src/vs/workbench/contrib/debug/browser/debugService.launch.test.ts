@@ -204,6 +204,21 @@ describe("DebugService with launch.json", () => {
             expect(sessions()).toHaveLength(1);
         });
 
+        it("a session already running: the question comes before the preLaunchTask, and a no runs no task", async () => {
+            create({ configurations: [synthetic("Run", { preLaunchTask: "build" })] });
+            fx.tasks = [makeTask({ label: "build" })];
+            await fx.service.startDebugging(folderLaunch(), "Run");
+            await stopped("Run");
+            fx.ran.length = 0;
+            fx.answer = undefined;
+
+            expect(await fx.service.startDebugging(folderLaunch(), "Run", { startedByUser: true })).toBe(false);
+
+            expect(fx.ran).toEqual([]);
+            expect(messages()).toEqual(["'Run' is already running. Do you want to start another instance?"]);
+            expect(sessions()).toHaveLength(1);
+        });
+
         it("a session started while the task ran: a yes to the question starts the second one", async () => {
             create({ configurations: [synthetic("Run", { preLaunchTask: "build" })] });
             fx.tasks = [makeTask({ label: "build" })];
