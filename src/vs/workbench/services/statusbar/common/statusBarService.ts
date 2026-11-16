@@ -89,7 +89,8 @@ export class StatusBarService {
         this.styleOverrides.add(style);
         this.onDidChangeStyleEmitter.fire();
         return toDisposable(() => {
-            if (this.styleOverrides.delete(style)) this.onDidChangeStyleEmitter.fire();
+            this.styleOverrides.delete(style);
+            this.onDidChangeStyleEmitter.fire();
         });
     }
 

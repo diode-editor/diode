@@ -18,7 +18,6 @@ import {
     CORNER_ORDER,
     type GroupCornerStack,
     GroupCornerStackDIToken,
-    type IGroupCornerSlot,
 } from "../../../browser/parts/editor/groupCornerStack.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
 
@@ -62,12 +61,11 @@ export class FindWidget extends Disposable {
     private session: OverlaySessionHandle | null = null;
 
     /**
-     * Its place in the group's corner: under the debug toolbar. Find is the bottom of the corner, nobody stacks under
-     * it, so it keeps its height to itself.
+     * `top`: its row in the group's corner, under the debug toolbar (`GroupCornerStack.topOf`). Find is the bottom of
+     * the corner, nobody stacks under it, so it takes no slot.
      */
-    public constructor(private readonly slot: IGroupCornerSlot) {
+    public constructor(private readonly top: () => number) {
         super();
-        this.register(slot);
 
         this.view = new SizedBoxElement(this.preferredWidth, WIDGET_HEIGHT);
         this.view.id = "findWidget";
@@ -217,7 +215,8 @@ export class FindWidget extends Disposable {
         this.preferredWidth = widgetW;
         this.view.setPreferredWidth(widgetW);
         const px = Math.max(0, groupWidth - widgetW - CORNER_RIGHT_MARGIN);
-        this.session?.setPosition(new Point(px, this.slot.top()));
+        // Stryker disable next-line OptionalChaining: the host and the session are set together in attachHost, and the guard above returns without a host
+        this.session?.setPosition(new Point(px, this.top()));
     }
 }
 
@@ -255,7 +254,7 @@ export class FindComponent extends Disposable {
         if (existing !== undefined) return existing;
         const host = this.hosts.groupOverlayHost(groupId);
         if (host === null) return null;
-        const widget = this.register(new FindWidget(this.corners.addSlot(groupId, CORNER_ORDER.find)));
+        const widget = this.register(new FindWidget(() => this.corners.topOf(groupId, CORNER_ORDER.find)));
         widget.attachHost(host);
         widget.onQueryChange = (query) => this.onQueryChange?.(groupId, query);
         widget.onNext = () => this.onNext?.(groupId);

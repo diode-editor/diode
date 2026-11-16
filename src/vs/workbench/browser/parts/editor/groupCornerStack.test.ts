@@ -3,29 +3,35 @@ import { describe, expect, it } from "vitest";
 import { CORNER_ORDER, GroupCornerStack } from "./groupCornerStack.ts";
 
 describe("GroupCornerStack", () => {
-    it("the first slot sits under the tab strip; a shown one pushes those after it down, a hidden one does not", () => {
+    it("the first widget sits under the tab strip; a shown slot pushes those after it down, a hidden one does not", () => {
         const corners = new GroupCornerStack();
-        const find = corners.addSlot(1, CORNER_ORDER.find);
         const toolbar = corners.addSlot(1, CORNER_ORDER.debugToolbar);
 
         expect(toolbar.top()).toBe(1);
-        expect(find.top()).toBe(1);
+        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(1);
 
         toolbar.setHeight(3);
-        expect(find.top()).toBe(4);
+        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(4);
         expect(toolbar.top()).toBe(1);
 
-        find.setHeight(3);
         toolbar.setHeight(0);
-        expect(find.top()).toBe(1);
+        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(1);
+    });
+
+    it("a slot further down does not push the ones above it", () => {
+        const corners = new GroupCornerStack();
+        const lower = corners.addSlot(1, CORNER_ORDER.find);
+        lower.setHeight(3);
+
+        expect(corners.topOf(1, CORNER_ORDER.debugToolbar)).toBe(1);
+        expect(lower.top()).toBe(1);
     });
 
     it("groups do not share a corner", () => {
         const corners = new GroupCornerStack();
         corners.addSlot(1, CORNER_ORDER.debugToolbar).setHeight(3);
-        const other = corners.addSlot(2, CORNER_ORDER.find);
 
-        expect(other.top()).toBe(1);
+        expect(corners.topOf(2, CORNER_ORDER.find)).toBe(1);
     });
 
     it("tells which group's corner changed; the same height again is not a change", () => {
@@ -40,24 +46,23 @@ describe("GroupCornerStack", () => {
         expect(changed).toEqual([7, 7]);
     });
 
-    it("a disposed shown slot gives its rows back; a hidden one leaves quietly; a second dispose is a no-op", () => {
+    it("a disposed shown slot gives its rows back; a hidden one leaves quietly", () => {
         const corners = new GroupCornerStack();
         const changed: number[] = [];
         corners.onDidChange((groupId) => changed.push(groupId));
-        const toolbar = corners.addSlot(1, CORNER_ORDER.debugToolbar);
-        const find = corners.addSlot(1, CORNER_ORDER.find);
-        toolbar.setHeight(3);
+        const shown = corners.addSlot(1, CORNER_ORDER.debugToolbar);
+        shown.setHeight(3);
         changed.length = 0;
 
-        toolbar.dispose();
+        shown.dispose();
         expect(changed).toEqual([1]);
-        expect(find.top()).toBe(1);
-        toolbar.dispose();
-        find.dispose();
-        expect(changed).toEqual([1]);
+        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(1);
+        // A disposed slot no longer counts, whatever its owner reports afterwards.
+        shown.setHeight(3);
+        expect(corners.topOf(1, CORNER_ORDER.find)).toBe(1);
 
-        // The group's corner starts over empty.
-        const again = corners.addSlot(1, CORNER_ORDER.find);
-        expect(again.top()).toBe(1);
+        changed.length = 0;
+        corners.addSlot(1, CORNER_ORDER.debugToolbar).dispose();
+        expect(changed).toEqual([]);
     });
 });

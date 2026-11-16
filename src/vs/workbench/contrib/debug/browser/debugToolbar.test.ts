@@ -1,5 +1,6 @@
-// DebugToolbar on fakes: what the workbench never hands it — a group without an overlay host, a menu without
-// buttons, an item without an icon color (as an extension's would be).
+// DebugToolbar on fakes: the rules of when it shows and what it shows, its listeners, and what the workbench never
+// hands it — a group without an overlay host, a menu without buttons, an item without an icon color (as an
+// extension's would be).
 
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
@@ -8,72 +9,200 @@ import { describe, expect, it } from "vitest";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { Emitter } from "../../../../base/common/event.ts";
-import type { IMenuEntryGroup } from "../../../../platform/actions/common/menuRegistry.ts";
-import { StaticProductIconService } from "../../../../platform/theme/common/productIconService.ts";
+import type { IMenuEntryGroup, ResolvedMenuEntry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { GroupCornerStack } from "../../../browser/parts/editor/groupCornerStack.ts";
 import { State } from "../common/debug.ts";
 
 import { DebugToolbar } from "./debugToolbar.ts";
 
-const NO_EVENT = () => ({ dispose: () => undefined });
+const GO: ResolvedMenuEntry = { label: "Go", id: "go", icon: "▶", enabled: true };
 
-function setup(
-    groups: IMenuEntryGroup[],
-    host: OverlayHostElement | null,
-    debug: { state: State; initializingOptions?: { suppressDebugToolbar?: boolean } } = { state: State.Stopped },
-) {
+interface IFakes {
+    state: State;
+    initializingOptions?: { suppressDebugToolbar?: boolean };
+    sessions: { suppressDebugToolbar: boolean }[];
+    groups: IMenuEntryGroup[];
+    host: OverlayHostElement | null;
+}
+
+function setup(initial: Partial<IFakes> = {}) {
+    const fakes: IFakes = {
+        state: State.Stopped,
+        sessions: [{ suppressDebugToolbar: false }],
+        groups: [{ group: "navigation", entries: [GO] }],
+        host: new OverlayHostElement(),
+        ...initial,
+    };
     const activeGroup = new Emitter<never>();
-    let currentHost = host;
+    const contextKeys = new Emitter<ReadonlySet<string>>();
+    const icons = new Emitter<void>();
+    const menu = new Emitter<void>();
+    const corners = new GroupCornerStack();
+    const configuration = createTestConfigurationService();
     const toolbar = new DebugToolbar(
         {
-            state: debug.state,
-            onDidChangeState: NO_EVENT,
-            getModel: () => ({ getSessions: () => [{ suppressDebugToolbar: false }] }) as never,
-            initializingOptions: debug.initializingOptions,
+            get state() {
+                return fakes.state;
+            },
+            getModel: () => ({ getSessions: () => fakes.sessions }) as never,
+            get initializingOptions() {
+                return fakes.initializingOptions;
+            },
         },
-        { groupOverlayHost: () => currentHost },
-        new GroupCornerStack(),
+        { groupOverlayHost: () => fakes.host },
+        corners,
         { activeGroup: { id: 1 } as never, onDidActiveGroupChange: activeGroup.event },
         {
-            getEntryGroups: () => groups,
-            createMenu: () => ({ onDidChange: NO_EVENT, dispose: () => undefined }) as never,
+            getEntryGroups: () => fakes.groups,
+            createMenu: () => ({ onDidChange: menu.event, dispose: () => undefined }) as never,
         },
-        { onDidChange: NO_EVENT },
-        createTestConfigurationService(),
-        new StaticProductIconService(false),
+        { onDidChange: contextKeys.event },
+        configuration,
+        { onDidChange: icons.event },
     );
     return {
+        fakes,
         toolbar,
-        /** The active group changes to one the view layer knows. */
-        attach: (next: OverlayHostElement): void => {
-            currentHost = next;
+        corners,
+        configuration,
+        activeGroupChanged: () => {
             activeGroup.fire(undefined as never);
+        },
+        contextKeysChanged: () => {
+            contextKeys.fire(new Set());
+        },
+        iconsChanged: () => {
+            icons.fire();
+        },
+        menuChanged: () => {
+            menu.fire();
         },
     };
 }
 
-function render(host: OverlayHostElement): TestApp {
-    const app = TestApp.createWithContent(host, new Size(40, 5));
+/** Two frames: the dock reports the group's width after the first, and the toolbar picks its labels by it. */
+async function frame(host: OverlayHostElement | null, width = 40): Promise<TestApp> {
+    if (host === null) throw new Error("no host");
+    const app = TestApp.createWithContent(host, new Size(width, 5));
+    app.render();
+    await Promise.resolve();
     app.render();
     return app;
 }
 
-describe("DebugToolbar on fakes", () => {
-    it("a group the view layer does not know gets no toolbar; the next known one does", () => {
-        const { attach } = setup(
-            [{ group: "navigation", entries: [{ label: "Go", id: "go", icon: "▶", enabled: true }] }],
-            null,
-        );
+async function screen(host: OverlayHostElement | null, width = 40): Promise<string> {
+    return (await frame(host, width)).backend.screenToString();
+}
 
-        const host = new OverlayHostElement();
-        attach(host);
-        expect(render(host).backend.screenToString()).toContain("▶ Go");
+describe("DebugToolbar on fakes", () => {
+    it("a stopped session shows the toolbar in the corner of the group (#debugToolbar), the next row free for find", async () => {
+        const { fakes, corners } = setup();
+
+        expect(await screen(fakes.host)).toContain("▶ Go");
+        expect(fakes.host?.querySelector("#debugToolbar")).not.toBeNull();
+        expect(corners.topOf(1, 1)).toBe(4);
     });
 
-    it("an item without an icon color keeps the toolbar's text color on its glyph", () => {
-        const host = new OverlayHostElement();
-        setup(
-            [
+    it("hidden while inactive, even with sessions that would show it", async () => {
+        const { fakes } = setup({ state: State.Inactive });
+
+        expect(await screen(fakes.host)).not.toContain("Go");
+    });
+
+    it("hidden only while every session suppresses it", async () => {
+        const some = setup({ sessions: [{ suppressDebugToolbar: true }, { suppressDebugToolbar: false }] });
+        expect(await screen(some.fakes.host)).toContain("▶ Go");
+
+        const all = setup({ sessions: [{ suppressDebugToolbar: true }] });
+        expect(await screen(all.fakes.host)).not.toContain("Go");
+    });
+
+    it("initializing: shown, unless the session being started suppresses the toolbar", async () => {
+        const shown = setup({ state: State.Initializing, initializingOptions: {} });
+        expect(await screen(shown.fakes.host)).toContain("▶ Go");
+
+        const suppressed = setup({ state: State.Initializing, initializingOptions: { suppressDebugToolbar: true } });
+        expect(await screen(suppressed.fakes.host)).not.toContain("Go");
+    });
+
+    it("debug.toolBarLocation hidden takes it away at once, floating brings it back", async () => {
+        const { fakes, configuration } = setup();
+
+        await configuration.updateValue("debug.toolBarLocation", "hidden");
+        expect(await screen(fakes.host)).not.toContain("Go");
+        await configuration.updateValue("debug.toolBarLocation", "floating");
+        expect(await screen(fakes.host)).toContain("▶ Go");
+    });
+
+    it("re-resolves on a context key change, a menu change and a glyph set change", async () => {
+        const { fakes, contextKeysChanged, menuChanged, iconsChanged } = setup();
+
+        fakes.groups = [{ group: "navigation", entries: [{ ...GO, label: "Keys" }] }];
+        contextKeysChanged();
+        expect(await screen(fakes.host)).toContain("▶ Keys");
+
+        fakes.groups = [{ group: "navigation", entries: [{ ...GO, label: "Menu" }] }];
+        menuChanged();
+        expect(await screen(fakes.host)).toContain("▶ Menu");
+
+        fakes.groups = [{ group: "navigation", entries: [{ ...GO, icon: "→" }] }];
+        iconsChanged();
+        expect(await screen(fakes.host)).toContain("→ Go");
+    });
+
+    it("dispose takes the toolbar away and gives the corner back", async () => {
+        const { fakes, toolbar, corners } = setup();
+        await screen(fakes.host);
+
+        toolbar.dispose();
+        expect(await screen(fakes.host)).not.toContain("Go");
+        expect(corners.topOf(1, 1)).toBe(1);
+    });
+
+    it("a group the view layer does not know gets no toolbar; the next known one does", async () => {
+        const { fakes, activeGroupChanged } = setup({ host: null });
+
+        fakes.host = new OverlayHostElement();
+        activeGroupChanged();
+        expect(await screen(fakes.host)).toContain("▶ Go");
+    });
+
+    it("labels while the toolbar and a column of margin fit in the group, glyphs only below that", async () => {
+        // `▶ Go` + the box and its padding: 8 columns, and the margin.
+        const fits = setup();
+        expect(await screen(fits.fakes.host, 9)).toContain("▶ Go");
+
+        const narrow = setup();
+        const shown = await screen(narrow.fakes.host, 8);
+        expect(shown).toContain("▶");
+        expect(shown).not.toContain("Go");
+    });
+
+    it("only icon items of the navigation group become buttons", async () => {
+        const { fakes } = setup({
+            groups: [
+                { group: "1_other", entries: [{ label: "Elsewhere", id: "x", icon: "*", enabled: true }] },
+                { group: "navigation", entries: [GO, { label: "Plain", id: "plain", enabled: true }] },
+            ],
+        });
+
+        const shown = await screen(fakes.host);
+        expect(shown).toContain("▶ Go");
+        expect(shown).not.toContain("Elsewhere");
+        expect(shown).not.toContain("Plain");
+    });
+
+    it("a menu without buttons leaves an empty box", async () => {
+        const { fakes } = setup({
+            groups: [{ group: "1_other", entries: [{ label: "Elsewhere", id: "x", enabled: true }] }],
+        });
+
+        expect(await screen(fakes.host)).toContain("╭──╮");
+    });
+
+    it("an item without an icon color keeps the label's color on its glyph", async () => {
+        const { fakes } = setup({
+            groups: [
                 {
                     group: "navigation",
                     entries: [
@@ -82,37 +211,14 @@ describe("DebugToolbar on fakes", () => {
                     ],
                 },
             ],
-            host,
-        );
+        });
+        const app = await frame(fakes.host);
 
-        const app = render(host);
         const lines = app.backend.screenToString().split("\n");
         const y = lines.findIndex((line) => line.includes("* Plain"));
         const plain = new Point(lines[y].indexOf("* Plain"), y);
         const red = new Point(lines[y].indexOf("! Red"), y);
         expect(app.backend.getFgAt(plain)).toBe(app.backend.getFgAt(new Point(plain.x + 2, y)));
         expect(app.backend.getFgAt(red)).not.toBe(app.backend.getFgAt(new Point(red.x + 2, y)));
-    });
-
-    it("a menu without buttons leaves an empty box", () => {
-        const host = new OverlayHostElement();
-        setup([{ group: "1_other", entries: [{ label: "Elsewhere", id: "x", enabled: true }] }], host);
-
-        const screen = render(host).backend.screenToString();
-        expect(screen).toContain("╭──╮");
-        expect(screen).not.toContain("Elsewhere");
-    });
-
-    it("initializing: shown, unless the session being started suppresses the toolbar", () => {
-        const go: IMenuEntryGroup[] = [
-            { group: "navigation", entries: [{ label: "Go", id: "go", icon: "▶", enabled: true }] },
-        ];
-        const shown = new OverlayHostElement();
-        setup(go, shown, { state: State.Initializing, initializingOptions: {} });
-        expect(render(shown).backend.screenToString()).toContain("▶ Go");
-
-        const suppressed = new OverlayHostElement();
-        setup(go, suppressed, { state: State.Initializing, initializingOptions: { suppressDebugToolbar: true } });
-        expect(render(suppressed).backend.screenToString()).not.toContain("Go");
     });
 });

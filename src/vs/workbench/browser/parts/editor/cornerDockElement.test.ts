@@ -29,6 +29,12 @@ describe("CornerDockElement", () => {
         expect(renderElement(dock, 8, 2).screenToString().split("\n")[0]).toBe("[a long ");
     });
 
+    it("without a widget the row is empty and paints nothing", () => {
+        const dock = new CornerDockElement();
+
+        expect(renderElement(dock, 10, 2).screenToString()).toBe(`${" ".repeat(10)}\n${" ".repeat(10)}`);
+    });
+
     it("a row lower than the widget clips it", () => {
         const dock = new CornerDockElement();
         dock.setChild(widget("[tool]"));

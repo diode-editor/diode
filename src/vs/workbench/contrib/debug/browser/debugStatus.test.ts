@@ -50,9 +50,9 @@ function setup(settings: Record<string, unknown> = {}) {
         stop: (): void => {
             stateEmitter.fire(State.Inactive);
         },
-        select: (name: string | undefined, launchName = "app"): void => {
+        select: (name: string | undefined, launchName: string | null = "app"): void => {
             selection.name = name;
-            selection.launch = name === undefined ? undefined : launch(launchName);
+            selection.launch = launchName === null ? undefined : launch(launchName);
             selectEmitter.fire();
         },
         setLaunches: (names: string[]): void => {
@@ -98,6 +98,11 @@ describe("DebugStatusContribution (status.debug)", () => {
         t.select("Launch hello", "lib");
         expect(t.text()).toBe("▶ Launch hello (lib)");
 
+        // A name without its launch, an empty name, no name.
+        t.select("Launch hello", null);
+        expect(t.text()).toBe("▶ ");
+        t.select("");
+        expect(t.text()).toBe("▶ ");
         t.select(undefined);
         expect(t.text()).toBe("▶ ");
     });

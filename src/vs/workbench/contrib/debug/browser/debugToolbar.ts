@@ -13,9 +13,9 @@
 
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
-import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import type { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
 import { BoxContainerElement } from "@tuidom/elements/layout/boxContainerElement";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { HFlexElement, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { SizedBoxElement } from "@tuidom/elements/layout/sizedBoxElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
@@ -51,16 +51,7 @@ import {
 import type { IGroupOverlayHosts } from "../../find/browser/findComponent.ts";
 import { type IDebugService, State } from "../common/debug.ts";
 
-import {
-    CONTINUE_ID,
-    DISCONNECT_ID,
-    PAUSE_ID,
-    RESTART_SESSION_ID,
-    STEP_INTO_ID,
-    STEP_OUT_ID,
-    STEP_OVER_ID,
-    STOP_ID,
-} from "./debugCommands.ts";
+import { STEP_INTO_ID, STEP_OUT_ID, STEP_OVER_ID } from "./debugCommands.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
 
 export const DebugToolbarDIToken = token<DebugToolbar>("DebugToolbar");
@@ -111,20 +102,21 @@ export class DebugToolbar extends Disposable {
     public readonly view = new CornerDockElement();
     private placement: IPlacement | null = null;
     /** What the row shows, to rebuild it only when that changes (context keys change on every cursor move). */
-    private shown = "";
+    private shown: string | undefined;
 
+    /**
+     * The debug state reaches it through the context keys (`debugState`, set on every state change), as the
+     * enablement of its items does.
+     */
     public constructor(
-        private readonly debugService: Pick<
-            IDebugService,
-            "state" | "onDidChangeState" | "getModel" | "initializingOptions"
-        >,
+        private readonly debugService: Pick<IDebugService, "state" | "getModel" | "initializingOptions">,
         private readonly hosts: IGroupOverlayHosts,
         private readonly corners: GroupCornerStack,
         private readonly groups: Pick<IEditorGroupsService, "activeGroup" | "onDidActiveGroupChange">,
         private readonly menus: Pick<MenuService, "getEntryGroups" | "createMenu">,
         contextKeys: Pick<ContextKeyService, "onDidChange">,
         private readonly configuration: Pick<IConfigurationService, "get" | "onDidChangeConfiguration">,
-        private readonly icons: Pick<IProductIconService, "glyph" | "onDidChange">,
+        icons: Pick<IProductIconService, "onDidChange">,
     ) {
         super();
         const update = (): void => {
@@ -133,7 +125,6 @@ export class DebugToolbar extends Disposable {
         this.view.id = "debugToolbar";
         this.view.onDidChangeWidth = update;
 
-        this.register(debugService.onDidChangeState(update));
         this.register(groups.onDidActiveGroupChange(update));
         this.register(contextKeys.onDidChange(update));
         this.register(icons.onDidChange(update));
@@ -186,8 +177,8 @@ export class DebugToolbar extends Disposable {
             this.view.setChild(this.toolbar(buttons, withLabels));
         }
         placement.slot.setHeight(TOOLBAR_HEIGHT);
-        // Context keys change on every cursor move, and a set position repaints the layer even when it is the same.
         const top = placement.slot.top();
+        // Stryker disable next-line ConditionalExpression: a fast path — the same position set again repaints the same frame
         if (top !== placement.top) {
             placement.top = top;
             placement.session.setPosition(new Point(0, top));
@@ -207,13 +198,8 @@ export class DebugToolbar extends Disposable {
         this.unplace();
         const host = this.hosts.groupOverlayHost(groupId);
         if (host === null) return null;
-        const session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
-            visible: false,
-            focusOnOpen: false,
-            // Clicks around the toolbar go to the editor, as around the find widget.
-            pointerPolicy: "passthrough",
-            capturesKeyboard: false,
-        });
+        // Clicks around the toolbar go to the editor, as around the find widget; it takes neither focus nor keys.
+        const session = host.overlayLayer.createSession(this.view, new Point(0, 0), { pointerPolicy: "passthrough" });
         this.placement = {
             groupId,
             host,
@@ -236,7 +222,8 @@ export class DebugToolbar extends Disposable {
 
     private buttons(): IToolbarButton[] {
         const navigation = this.menuGroups().find((group) => group.group === NAVIGATION_GROUP);
-        return (navigation?.entries ?? []).filter(isInlineItem).map((entry) => ({
+        const items = navigation?.entries.filter(isInlineItem) ?? [];
+        return items.map((entry) => ({
             id: entry.id,
             glyph: entry.icon,
             label: SHORT_LABELS[entry.id] ?? entry.label,
@@ -248,10 +235,10 @@ export class DebugToolbar extends Disposable {
     /** The `editorWidget` box of find around a row of buttons. */
     private toolbar(buttons: readonly IToolbarButton[], withLabels: boolean): SizedBoxElement {
         const box = new BoxContainerElement();
-        box.setBg(WIDGET_BG);
-        // In the cascade too: the labels paint their text in it.
-        box.style = { bg: WIDGET_BG };
         box.setBorderFg("editorWidget.border");
+        // The box paints its frame in the first, the labels paint their text in the second (the cascade's).
+        box.setBg(WIDGET_BG);
+        box.style = { bg: WIDGET_BG };
         box.setChild(this.row(buttons, withLabels));
         const sized = new SizedBoxElement(toolbarWidth(buttons, withLabels), TOOLBAR_HEIGHT);
         sized.setChild(box);
@@ -260,9 +247,9 @@ export class DebugToolbar extends Disposable {
 
     private row(buttons: readonly IToolbarButton[], withLabels: boolean): HFlexElement {
         const row = new HFlexElement();
-        row.addChild(new TextLabelElement(""), { width: hflexFixed(1), height: 1 });
+        row.addChild(new FillerElement(), { width: hflexFixed(1), height: 1 });
         buttons.forEach((button, index) => {
-            if (index > 0) row.addChild(new TextLabelElement(""), { width: hflexFixed(BUTTON_GAP), height: 1 });
+            if (index > 0) row.addChild(new FillerElement(), { width: hflexFixed(BUTTON_GAP), height: 1 });
             row.addChild(this.buttonElement(button, withLabels), { width: hflexFit(), height: 1 });
         });
         return row;
@@ -275,10 +262,8 @@ export class DebugToolbar extends Disposable {
             return label;
         }
         label.style = { when: [{ states: ["hover"], bg: "toolbar.hoverBackground" }] };
-        const color = button.color;
-        if (color !== undefined) {
-            for (let i = 0; i < button.glyph.length; i++) label.setCharStyle(i, { fg: color });
-        }
+        // A codicon is one character; an item without a color (an extension's) keeps the label's.
+        label.setCharStyle(0, { fg: button.color });
         label.addEventListener("click", (event) => {
             if (event.button !== "left") return;
             // Resolved again at the click: the button runs only while its item is still enabled.

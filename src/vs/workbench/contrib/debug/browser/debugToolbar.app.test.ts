@@ -193,6 +193,15 @@ describe("the debug toolbar in the workbench", () => {
         const widgetBg = t.vars()["editorWidget.background"];
         expect(t.h.testApp.backend.getBgAt(over)).not.toBe(widgetBg);
         expect(t.h.testApp.backend.getBgAt(buttons)).toBe(widgetBg);
+        // The box border is the box's background too.
+        expect(t.h.testApp.backend.getBgAt(new Point(buttons.x - 2, buttons.y))).toBe(widgetBg);
+
+        // A context key change that changes nothing on the toolbar keeps its buttons, and the one under the mouse.
+        t.h.container.get(ContextKeyServiceDIToken).set("debugState", "stopped");
+        t.h.container.get(ContextKeyServiceDIToken).setRaw("toolbarTestUnrelated", true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        t.lines();
+        expect(t.h.testApp.backend.getBgAt(over)).not.toBe(widgetBg);
     });
 
     it("a narrow group gets glyphs only", async () => {

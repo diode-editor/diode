@@ -18,7 +18,6 @@ export class CornerDockElement extends TUIElement {
 
     public setChild(child: TUIElement): void {
         this.setChildren([child]);
-        this.markDirty();
     }
 
     /** `null` before the first layout. */
@@ -47,6 +46,7 @@ export class CornerDockElement extends TUIElement {
         return size;
     }
 
+    // Stryker disable next-line BlockStatement: an empty body returns undefined, which the hit test reads as false
     protected override hitTestSelf(): boolean {
         return false;
     }
