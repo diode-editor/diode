@@ -348,7 +348,8 @@ describe("BreakpointsView", () => {
         await mount();
         const session = mockSession({ getId: () => "s", capabilities: {} });
         const thread = new Thread(session, "main", 1);
-        thread.stoppedDetails = { reason: "breakpoint", hitBreakpointIds: [7] };
+        // The adapter names two hit ids; only 7 is a breakpoint of this view.
+        thread.stoppedDetails = { reason: "breakpoint", hitBreakpointIds: [3, 7] };
         const stopAt = (): void => {
             service.viewModel.setFocus(undefined, thread, session, false);
             state = State.Stopped;
