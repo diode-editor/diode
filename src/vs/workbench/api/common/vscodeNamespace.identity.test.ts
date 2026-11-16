@@ -123,6 +123,7 @@ describe("VscodeNamespace: stable activeTextEditor identity", () => {
             "CodeLens",
             "CodeAction",
             "CodeActionKind",
+            "DocumentDropOrPasteEditKind",
             "DocumentLink",
             "DocumentHighlight",
             "DocumentHighlightKind",

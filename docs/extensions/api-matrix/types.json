@@ -1678,36 +1678,28 @@
       "note": "no drag and drop in the editor"
     },
     "DocumentDropOrPasteEditKind": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "DocumentDropOrPasteEditKind.append": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "DocumentDropOrPasteEditKind.contains": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "DocumentDropOrPasteEditKind.Empty": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "DocumentDropOrPasteEditKind.intersects": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "DocumentDropOrPasteEditKind.Text": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "DocumentDropOrPasteEditKind.TextUpdateImports": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "DocumentDropOrPasteEditKind.value": {
-      "class": "B",
-      "note": "not declared in vscode.d.ts"
+      "class": "ok"
     },
     "DocumentFilter.language": {
       "class": "ok"
