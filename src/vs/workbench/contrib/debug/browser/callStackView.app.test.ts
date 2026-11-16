@@ -227,5 +227,22 @@ describe("CALL STACK in the workbench", () => {
             expect(t.screen()).not.toContain("accumulate(");
         });
         expect(t.screen()).toContain(SYNTHETIC_LAUNCH_CONFIG.name);
+
+        // Opening the view focuses its tree; a session row sets the session keys.
+        t.h.container.get(ViewsServiceDIToken).openView(CALLSTACK_VIEW_ID, true);
+        const second = t.h.container
+            .get(DebugServiceDIToken)
+            .getModel()
+            .getSessions()
+            .find((s) => s.getLabel() === "second");
+        component().callStack.tree.reveal(second!);
+        t.h.container.get(WorkbenchContextKeysDIToken).update();
+        const keys = t.h.container.get(ContextKeyServiceDIToken);
+        expect(keys.getRaw("callStackFocused")).toBe(true);
+        expect(keys.getRaw("callStackItemType")).toBe("session");
+        expect(keys.getRaw("callStackSessionIsAttach")).toBe(false);
+        expect(keys.getRaw("callStackItemStopped")).toBe(true);
+        // The synthetic program runs a main thread and two workers.
+        expect(keys.getRaw("callStackSessionHasOneThread")).toBe(false);
     });
 });

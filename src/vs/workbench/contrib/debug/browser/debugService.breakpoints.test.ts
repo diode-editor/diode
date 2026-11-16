@@ -138,6 +138,11 @@ describe("DebugService breakpoint editing", () => {
 
         expect(trigger.enabled).toBe(true);
         expect(triggered.enabled).toBe(true);
+
+        // A trigger that is gone: the breakpoint is enabled alone.
+        const [orphan] = model().addBreakpoints(LIST, [{ lineNumber: 99, triggeredBy: "gone", enabled: false }]);
+        await fx.service.enableOrDisableBreakpoints(true, orphan);
+        expect(orphan.enabled).toBe(true);
     });
 
     it("removing: one by id, several, all; a triggered breakpoint loses its trigger and its file is sent", async () => {

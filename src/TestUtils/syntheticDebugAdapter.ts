@@ -450,7 +450,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             description: reason === "exception" ? "Exception has occurred." : undefined,
             hitBreakpointIds:
                 reason === "breakpoint"
-                    ? this.breakpointsAt.get(`${this.source(MAIN_CPP).path ?? ""}:${String(this.program.line)}`)
+                    ? this.breakpointsAt.get(`${SYNTHETIC_PROGRAM_ROOT}/src/${MAIN_CPP}:${String(this.program.line)}`)
                     : undefined,
         });
     }

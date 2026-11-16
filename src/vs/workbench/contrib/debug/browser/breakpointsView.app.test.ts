@@ -16,7 +16,7 @@ import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
-import { BREAKPOINTS_VIEW_ID, type IBreakpointData } from "../common/debug.ts";
+import { BREAKPOINTS_VIEW_ID, DataBreakpointSetType, type IBreakpointData } from "../common/debug.ts";
 import type { DebugModel } from "../common/debugModel.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
@@ -329,6 +329,72 @@ describe("BREAKPOINTS in the workbench", () => {
                 .getExceptionBreakpoints()
                 .find((e) => e.filter === "cpp_throw")?.enabled,
         ).toBe(true);
+    });
+    it("the keys on rows they do not apply to do nothing; Delete removes a data breakpoint; the type of each row", async () => {
+        // Reapply needs a session (inDebugMode), as upstream.
+        await t.startStopped();
+        model().addDataBreakpoint({
+            description: "sum",
+            src: { type: DataBreakpointSetType.Variable, dataId: "sum" },
+            canPersist: false,
+            accessTypes: undefined,
+            accessType: "write",
+        });
+        model().addInstructionBreakpoint({ instructionReference: "0x10", offset: 0, canPersist: false, address: 31n });
+        await addBreakpoints(sample, [{ lineNumber: 2 }]);
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("0x1f");
+        });
+        const [data] = model().getDataBreakpoints();
+        const [instruction] = model().getInstructionBreakpoints();
+        const throwFilter = model()
+            .getExceptionBreakpoints()
+            .find((e) => e.filter === "cpp_throw");
+        // Opening the view focuses its tree.
+        t.h.container.get(ViewsServiceDIToken).openView(BREAKPOINTS_VIEW_ID, true);
+        const keys = t.h.container.get(ContextKeyServiceDIToken);
+        const typeOf = (element: unknown): unknown => {
+            view().tree.reveal(element as never);
+            t.h.container.get(WorkbenchContextKeysDIToken).update();
+            expect(keys.getRaw("breakpointsFocused")).toBe(true);
+            return keys.getRaw("breakpointItemType");
+        };
+        expect(typeOf(throwFilter)).toBe("exceptionBreakpoint");
+        expect(typeOf(instruction)).toBe("instructionBreakpoint");
+
+        // Delete and Open to the Side on an instruction breakpoint, as upstream: nothing.
+        await t.h.commands.execute("debug.removeBreakpoint");
+        await t.h.commands.execute("debug.openBreakpointToSide");
+        expect(model().getInstructionBreakpoints()).toEqual([instruction]);
+        expect(t.h.container.get(EditorServiceDIToken).getActiveEditor()).toBeNull();
+
+        expect(typeOf(data)).toBe("dataBreakpoint");
+        await t.h.commands.execute("debug.removeBreakpoint");
+        expect(model().getDataBreakpoints()).toEqual([]);
+
+        // Reapply All Breakpoints turns them on again after Deactivate.
+        await t.h.commands.execute("workbench.debug.viewlet.action.toggleBreakpointsActivatedAction");
+        expect(model().areBreakpointsActivated()).toBe(false);
+        await t.h.commands.execute("workbench.debug.viewlet.action.reapplyBreakpointsAction");
+        expect(model().areBreakpointsActivated()).toBe(true);
+    });
+
+    it("Space with no row under the cursor toggles nothing; a file row has its own type", async () => {
+        await t.h.commands.execute("debug.toggleBreakpoint");
+        expect(model().getBreakpoints()).toEqual([]);
+
+        await addBreakpoints(sample, [{ lineNumber: 2 }]);
+        await t.h.commands.execute("workbench.debug.viewlet.action.toggleBreakpointsPresentation");
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("[✓] sample.ts e2e/fixtures");
+        });
+        t.h.container.get(ViewsServiceDIToken).openView(BREAKPOINTS_VIEW_ID, true);
+        view().tree.list.focusFirst();
+        t.h.container.get(WorkbenchContextKeysDIToken).update();
+        expect(t.h.container.get(ContextKeyServiceDIToken).getRaw("breakpointItemType")).toBe("breakpointFolder");
+
+        await t.h.commands.execute("debug.toggleBreakpoint");
+        expect(model().getBreakpoints()[0].enabled).toBe(true);
     });
 });
 

@@ -92,16 +92,13 @@ function buildRow(spans: readonly IRowSpan[], trailing: readonly IRowSpan[]): TU
             run.push(span);
             continue;
         }
-        if (run.length > 0) row.addChild(spansLabel(run), { width: hflexFit(), height: 1 });
+        // An empty run is an empty label: it takes no columns.
+        row.addChild(spansLabel(run), { width: hflexFit(), height: 1 });
         run = [];
         row.addChild(clickableLabel(span, span.onClick), { width: hflexFit(), height: 1 });
     }
-    if (trailing.length === 0) {
-        if (run.length > 0) row.addChild(spansLabel(run), { width: hflexFit(), height: 1 });
-        return row;
-    }
-    row.addChild(spansLabel(run), { width: hflexFill(), height: 1 });
-    row.addChild(spansLabel(trailing), { width: hflexFit(), height: 1 });
+    row.addChild(spansLabel(run), { width: trailing.length === 0 ? hflexFit() : hflexFill(), height: 1 });
+    if (trailing.length > 0) row.addChild(spansLabel(trailing), { width: hflexFit(), height: 1 });
     return row;
 }
 
