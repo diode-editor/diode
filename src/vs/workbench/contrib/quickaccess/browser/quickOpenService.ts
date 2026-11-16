@@ -175,7 +175,8 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
             // Stryker disable next-line ConditionalExpression: equivalent while closing (and a takeover) always runs handleDidClose, which drops the provider — the guard above returns first
             if (!this.isOpen()) return;
             this.updateItems(this.view.getQuery(), preserveSelection);
-            if (this.acceptWhenLoaded && provider.isLoading !== true) this.handleAccept();
+            // Still loading, it waits again.
+            if (this.acceptWhenLoaded) this.handleAccept();
         });
         this.view.placeholder = provider.getPlaceholder();
         return provider;
@@ -231,15 +232,15 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
      * a row of the previous text — and a provider still loading the answer gets the accept on its refresh.
      */
     private handleAccept(picked?: QuickPickItem): void {
-        // A run trailing query means the rows were of the previous text.
-        const item = this.runPendingQuery() ? undefined : picked;
+        // The trailing query leaves the file provider loading: the row is taken on its answer, not now.
+        this.runPendingQuery();
         // Stryker disable next-line OptionalChaining: accept comes only from an open picker, which always has a provider
         if (this.currentProvider?.isLoading === true) {
             this.acceptWhenLoaded = true;
             return;
         }
         this.acceptWhenLoaded = false;
-        const accept = ((item ?? this.view.items[this.view.selectedIndex]) as QuickAccessItem | undefined)?.accept;
+        const accept = ((picked ?? this.view.items[this.view.selectedIndex]) as QuickAccessItem | undefined)?.accept;
 
         queueMicrotask(() => {
             if (accept === undefined) return;

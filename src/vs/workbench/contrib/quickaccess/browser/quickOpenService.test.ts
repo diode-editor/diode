@@ -1127,6 +1127,31 @@ describe("QuickOpenService — file-search debounce", () => {
         }
     });
 
+    it("a trailing run re-arms the cooldown: typing right after it is held again", async () => {
+        vi.useFakeTimers();
+        try {
+            const { service, fileSearch, view } = createService();
+            service.show();
+            (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
+
+            view.onQueryChange?.("A");
+            view.onQueryChange?.("Ap");
+            vi.advanceTimersByTime(16); // SEARCH_DEBOUNCE_MS
+            await flushMicrotasks();
+            expect(fileSearch.search.mock.calls.map(([query]) => query)).toEqual(["A", "Ap"]);
+
+            // Within the re-armed cooldown: remembered, not asked.
+            view.onQueryChange?.("App");
+            await flushMicrotasks();
+            expect(fileSearch.search.mock.calls.map(([query]) => query)).toEqual(["A", "Ap"]);
+            vi.advanceTimersByTime(16);
+            await flushMicrotasks();
+            expect(fileSearch.search.mock.calls.map(([query]) => query)).toEqual(["A", "Ap", "App"]);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("no trailing run when nothing changed during the cooldown", () => {
         vi.useFakeTimers();
         try {
