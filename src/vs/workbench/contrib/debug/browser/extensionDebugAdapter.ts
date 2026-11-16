@@ -13,6 +13,7 @@ import { AbstractDebugAdapter } from "../common/abstractDebugAdapter.ts";
 import type {
     IConfig,
     IDebugConfigurationProvider,
+    IBreakpointContribution,
     IDebuggerContribution,
     IDebugService,
     IDebugSession,
@@ -154,7 +155,8 @@ export class ExtensionHostDebugAdapter extends AbstractDebugAdapter {
 /**
  * Upstream's `debuggers` extension point: the `contributes.debuggers` of every extension become debug types (a
  * contribution without a string `type` is a warning, as upstream's `debugNoType`). Static contributions of the
- * manifests: no activation.
+ * manifests: no activation. The `contributes.breakpoints` entries (upstream's `breakpoints` extension point) go to
+ * `canSetBreakpointsIn`.
  */
 export function bindExtensionDebuggers(
     debugService: IDebugService,
@@ -177,6 +179,15 @@ export function bindExtensionDebuggers(
                 continue;
             }
             store.add(adapterManager.registerDebugger(contribution as IDebuggerContribution));
+        }
+    }
+    for (const extension of extensions) {
+        const breakpoints = extension.manifest.contributes?.breakpoints;
+        if (!Array.isArray(breakpoints)) continue;
+        for (const contribution of breakpoints as readonly unknown[]) {
+            // The schema's check: an entry without a string `language` allows breakpoints nowhere.
+            if (typeof (contribution as { readonly language?: unknown } | null)?.language !== "string") continue;
+            store.add(adapterManager.registerBreakpoints(contribution as IBreakpointContribution));
         }
     }
     return store;

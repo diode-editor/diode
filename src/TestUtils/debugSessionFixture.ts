@@ -120,6 +120,10 @@ export function testDebugService(model: DebugModel): TestDebugService {
                 model.setExceptionBreakpointsForSession(session.getId(), filters);
             },
         ),
+        sourceIsNotAvailable: vi.fn(),
+        canSetBreakpointsIn: vi.fn(() => false),
+        addBreakpoints: vi.fn().mockResolvedValue([]),
+        updateBreakpoints: vi.fn().mockResolvedValue(undefined),
         sendAllBreakpoints: vi.fn().mockResolvedValue(undefined),
         sendBreakpoints: vi.fn().mockResolvedValue(undefined),
         enableOrDisableBreakpoints: vi.fn().mockResolvedValue(undefined),

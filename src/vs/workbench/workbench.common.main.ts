@@ -142,6 +142,8 @@ import type { IWorkbenchContributionRegistration } from "./common/iWorkbenchCont
 import { CODE_ACTION_ACTIONS } from "./contrib/codeAction/browser/codeActionActions.ts";
 import { COMMENT_ACTIONS } from "./contrib/comment/browser/commentActions.ts";
 import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
+import { BreakpointEditorContributionDIToken } from "./contrib/debug/browser/breakpointEditorContribution.ts";
+import { DebugContentProviderDIToken } from "./contrib/debug/browser/debugContentProvider.ts";
 import { DebugLifecycleDIToken } from "./contrib/debug/browser/debugLifecycle.ts";
 import { DebugServiceDIToken } from "./contrib/debug/browser/debugService.ts";
 import { DebugViewletComponentDIToken } from "./contrib/debug/browser/debugViewlet.ts";
@@ -372,6 +374,10 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: DebugServiceDIToken, phase: "afterRestored" },
     // `debug.confirmOnExit`: asks before the window closes with debug sessions.
     { token: DebugLifecycleDIToken, phase: "afterRestored" },
+    // The breakpoints and stack frames in the restored editors' glyph lanes.
+    { token: BreakpointEditorContributionDIToken, phase: "afterRestored" },
+    // The `debug:` documents of the frames whose source an adapter gives by reference.
+    { token: DebugContentProviderDIToken, phase: "afterRestored" },
     // The run glyphs of the restored editors' tests.
     { token: TestingDecorationsDIToken, phase: "afterRestored" },
     // The failures of the restored editors' files; "Peek Error" of the glyphs' menu.

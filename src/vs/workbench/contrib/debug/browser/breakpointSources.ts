@@ -9,10 +9,11 @@ import type { Uri } from "../../../../base/common/uri.ts";
 import { type IFileService, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
+import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { openUriAtPosition } from "../../../services/editor/browser/openUriAtPosition.ts";
 import { EditorServiceDIToken, type IEditorService } from "../../../services/editor/common/editorService.ts";
 import { type IJumpRecorder, JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
-import type { IBreakpoint } from "../common/debug.ts";
+import type { IBreakpoint, IStackFrame } from "../common/debug.ts";
 
 import type { IBreakpointSources } from "./breakpointsView.ts";
 
@@ -56,4 +57,36 @@ export class BreakpointSources implements IBreakpointSources {
             editor.goToPosition(position.line, position.column);
         });
     }
+}
+
+/**
+ * Upstream `StackFrame.openInEditor` (`Source.openInEditor`): the frame's source at its line and column, in the active
+ * group or beside it, focused unless `preserveFocus`; a frame without an available source opens nothing. Every open is
+ * pinned here, so `pinned` changes nothing. Deviation: no disassembly view.
+ */
+export async function openStackFrame(
+    editors: IEditorService,
+    jumps: IJumpRecorder,
+    stackFrame: IStackFrame,
+    options: { readonly preserveFocus: boolean; readonly sideBySide: boolean },
+): Promise<void> {
+    if (!stackFrame.source.available) return;
+    const uri = stackFrame.source.uri;
+    const position = { line: stackFrame.range.startLineNumber - 1, column: stackFrame.range.startColumn - 1 };
+    await jumps.jumpAsync(async () => {
+        const groups = editors.editorGroups;
+        // Upstream `revealIfOpened: true`: a tab in another group is activated there, not duplicated here.
+        const owner = options.sideBySide
+            ? undefined
+            : [groups.activeGroup, ...groups.groups].find((group) => group.findPaneIndex(uri) >= 0);
+        await editors.openUri(uri, {
+            focus: !options.preserveFocus,
+            ...(options.sideBySide ? { group: "beside" } : owner === undefined ? {} : { group: owner }),
+        });
+        // The tab the open activated, focused or not.
+        const editor = editors.editorGroups.groups
+            .map((group) => group.activePane)
+            .find((pane) => pane instanceof TextEditorPane && pane.uri.toString() === uri.toString());
+        if (editor instanceof TextEditorPane) editor.goToPosition(position.line, position.column);
+    });
 }
