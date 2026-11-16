@@ -76,9 +76,10 @@ function clickableLabel(span: IRowSpan, onClick: () => void): TextLabelElement {
 }
 
 /**
- * One label for a plain row; a row with inline controls or a right part is a flex of labels laid out from the left
- * (the flex clamps its children in order): the text keeps its width before the right part does, and a gap pushes
- * the right part to the edge when there is room.
+ * One label for a plain row; a row with inline controls or a right part is a flex of labels. The right part keeps
+ * its width, as upstream cuts the text before the badge: the last text run is the flex's fill child, which gets
+ * what the controls and the right part leave, is cut when that is too little, and pushes the right part to the edge
+ * when there is room.
  */
 function buildRow(spans: readonly IRowSpan[], trailing: readonly IRowSpan[]): TUIElement {
     if (trailing.length === 0 && spans.every((span) => span.onClick === undefined)) {
@@ -86,23 +87,21 @@ function buildRow(spans: readonly IRowSpan[], trailing: readonly IRowSpan[]): TU
     }
     const row = new HFlexElement();
     let run: IRowSpan[] = [];
-    const flush = (): void => {
-        if (run.length > 0) row.addChild(spansLabel(run), { width: hflexFit(), height: 1 });
-        run = [];
-    };
     for (const span of spans) {
         if (span.onClick === undefined) {
             run.push(span);
             continue;
         }
-        flush();
+        if (run.length > 0) row.addChild(spansLabel(run), { width: hflexFit(), height: 1 });
+        run = [];
         row.addChild(clickableLabel(span, span.onClick), { width: hflexFit(), height: 1 });
     }
-    flush();
-    if (trailing.length > 0) {
-        row.addChild(new TextLabelElement(""), { width: hflexFill(), height: 1 });
-        row.addChild(spansLabel(trailing), { width: hflexFit(), height: 1 });
+    if (trailing.length === 0) {
+        if (run.length > 0) row.addChild(spansLabel(run), { width: hflexFit(), height: 1 });
+        return row;
     }
+    row.addChild(spansLabel(run), { width: hflexFill(), height: 1 });
+    row.addChild(spansLabel(trailing), { width: hflexFit(), height: 1 });
     return row;
 }
 

@@ -276,14 +276,15 @@ describe("LazyTreeControl — row parts", () => {
         }
     }
 
-    it("a right part sits at the right edge; when the row is short of room it is cut, not the text", async () => {
+    it("a right part sits at the right edge; when the row is short of room the text is cut, not it", async () => {
         const wide = await mount(partsSource([], { checkbox: false, badge: "line " }));
         // 30 columns: padding, the text, the gap, the badge, padding.
         expect(wide.app.backend.screenToString().split("\n")[0]).toBe(` a0${" ".repeat(20)}line 0 `);
         expect(wide.app.backend.getFgAt(lineOf(wide.app, "line 0"))).toBe(vars.descriptionForeground);
 
-        const narrow = await mount(partsSource([], { checkbox: false, badge: "x".repeat(40) }));
-        expect(narrow.app.backend.screenToString().split("\n")[0]).toMatch(/^ a0x+/u);
+        // 28 columns inside the padding: the 27 of the right part stay whole, the name keeps one.
+        const narrow = await mount(partsSource([], { checkbox: false, badge: "x".repeat(26) }));
+        expect(narrow.app.backend.screenToString().split("\n")[0]).toBe(` a${"x".repeat(26)}0 `);
     });
 
     it("a click on a clickable span runs it and leaves the row alone; elsewhere the row is picked", async () => {
