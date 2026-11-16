@@ -75,7 +75,8 @@
   соседние прогоны `main` зелёные.
 - [ ] e2e `install-from-vsix`, только windows-latest: `waitUntil(screen text predicate)` не дождался за 10 с — PR #1172
   (run 43708145083, дифф — launch.json дебага, при перезапуске зелёный) и PR #1174 (run 43751747031, дифф — удаление
-  профиля); на ubuntu зелёный.
+  профиля). Теперь и на ubuntu: PR #1183 (run 43957528110, дифф — API сессий `vscode.debug`), снят фильтр
+  `platforms` в `test-flakes.json`; там же снова `extension-untitled-uri`.
 - [ ] e2e `quick-input-validation` и `extension-untitled-uri`, только windows-latest: `waitUntil(screen text predicate)`
   не дождался за 10 с (run 41255028793, PR #959, дифф — inlay hints); на ubuntu и при перезапуске зелёные.
   `extension-untitled-uri` теперь и на ubuntu: `main` fab4d676 (run 42736514194) и PR #1119 (run 42751223918), снят

@@ -62,10 +62,7 @@
             "file": "e2e/scenarios/installFromVsix.scenario.ts",
             "test": "install-from-vsix",
             "action": "retry",
-            "platforms": [
-                "win32"
-            ],
-            "note": "waitUntil(screen text predicate) timed out after 10000ms on windows-latest: PR #1172 (run 43708145083, diff is debug launch.json, green on rerun) and PR #1174 (run 43751747031, diff is profile removal); green on ubuntu"
+            "note": "waitUntil(screen text predicate) timed out after 10000ms on windows-latest: PR #1172 (run 43708145083, diff is debug launch.json, green on rerun) and PR #1174 (run 43751747031, diff is profile removal); on ubuntu too: PR #1183 (run 43957528110, diff is the vscode.debug session API)"
         },
         {
             "file": "e2e/scenarios/extensionUntitledUri.scenario.ts",
