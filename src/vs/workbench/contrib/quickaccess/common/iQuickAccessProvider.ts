@@ -37,4 +37,11 @@ export interface IQuickAccessProvider {
      * make another row active. `undefined`: the list is empty.
      */
     onActiveItemChanged?(item: QuickAccessItem | undefined): void;
+
+    /**
+     * The rows do not answer the typed text yet (the file index answers from another process). Enter pressed
+     * meanwhile accepts the active row once the answer lands and `refresh` runs — a deviation: upstream accepts
+     * whatever is shown, but its file results come in milliseconds and ours may take a few hundred (#1179).
+     */
+    readonly isLoading?: boolean;
 }

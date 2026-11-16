@@ -40,6 +40,8 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
 
     private searchTimer: ReturnType<typeof setTimeout> | null = null;
     private pendingQuery: string | null = null;
+    /** Enter came while the provider was loading: accept on its next refresh. */
+    private acceptWhenLoaded = false;
 
     public constructor(
         private readonly quickAccess: QuickAccessRegistry,
@@ -79,6 +81,10 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
         };
         view.onAccept = (item) => {
             this.handleAccept(item);
+        };
+        // An empty list may only be waiting for the provider's answer.
+        view.onAcceptEmpty = () => {
+            this.handleAccept();
         };
         view.onCancel = () => {
             this.close();
@@ -148,6 +154,8 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
     private handleDidClose(): void {
         this.active = false;
         this.cancelPendingSearch();
+        // An accept waiting for the answer dies with the picker.
+        this.acceptWhenLoaded = false;
         this.currentProvider?.onHide?.(this.hideReason);
         this.hideReason = "cancel";
         this.currentProvider = null;
@@ -167,12 +175,16 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
             // Stryker disable next-line ConditionalExpression: equivalent while closing (and a takeover) always runs handleDidClose, which drops the provider — the guard above returns first
             if (!this.isOpen()) return;
             this.updateItems(this.view.getQuery(), preserveSelection);
+            // Still loading, it waits again.
+            if (this.acceptWhenLoaded) this.handleAccept();
         });
         this.view.placeholder = provider.getPlaceholder();
         return provider;
     }
 
     private handleQueryChange(query: string): void {
+        // Typing after Enter is a new intent: the pending accept was for the old text.
+        this.acceptWhenLoaded = false;
         const provider = this.activateProviderFor(query);
 
         if (provider.debounceQuery !== true) {
@@ -194,12 +206,17 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
     private armSearchTimer(): void {
         this.searchTimer = setTimeout(() => {
             this.searchTimer = null;
-            if (this.pendingQuery === null) return;
-            const query = this.pendingQuery;
-            this.pendingQuery = null;
-            this.updateItems(query);
-            this.armSearchTimer();
+            if (this.runPendingQuery()) this.armSearchTimer();
         }, SEARCH_DEBOUNCE_MS);
+    }
+
+    /** The trailing query of the debounce, run now; `false` if nothing was remembered. */
+    private runPendingQuery(): boolean {
+        const query = this.pendingQuery;
+        if (query === null) return false;
+        this.pendingQuery = null;
+        this.updateItems(query);
+        return true;
     }
 
     private cancelPendingSearch(): void {
@@ -210,8 +227,20 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
         this.pendingQuery = null;
     }
 
-    private handleAccept(item: QuickPickItem): void {
-        const accept = (item as QuickAccessItem).accept;
+    /**
+     * Accepts the active row. The debounce's trailing query is run first — Enter right after typing must not pick
+     * a row of the previous text — and a provider still loading the answer gets the accept on its refresh.
+     */
+    private handleAccept(picked?: QuickPickItem): void {
+        // The trailing query leaves the file provider loading: the row is taken on its answer, not now.
+        this.runPendingQuery();
+        // Stryker disable next-line OptionalChaining: accept comes only from an open picker, which always has a provider
+        if (this.currentProvider?.isLoading === true) {
+            this.acceptWhenLoaded = true;
+            return;
+        }
+        this.acceptWhenLoaded = false;
+        const accept = ((picked ?? this.view.items[this.view.selectedIndex]) as QuickAccessItem | undefined)?.accept;
 
         queueMicrotask(() => {
             if (accept === undefined) return;

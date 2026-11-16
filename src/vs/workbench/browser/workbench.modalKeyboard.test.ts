@@ -32,7 +32,6 @@ describe("Workbench — global keybindings are suppressed while an overlay owns 
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
-        await h.workbench.fileIndexReady;
         h.testApp.render();
     });
 

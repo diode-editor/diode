@@ -78,12 +78,14 @@ export const LAZY_CHUNKS = [
     // and the guessable names in its table (#1102, 164.4 KB; detection itself is outside the core), 167 for
     // encoding.ts keeping any validated iconv name on the live model (`encodingInfoOf`, #1103, 166.0 KB), 170 for
     // the debug adapters of extensions: their processes run under base/node/childProcessGuard.ts, which the core
-    // uses too, and the tracker timeout takes `raceTimeout` of base/common/async.ts (#1140, 169.3 KB).
+    // uses too, and the tracker timeout takes `raceTimeout` of base/common/async.ts (#1140, 169.3 KB), 185 for
+    // Quick Open's file index moving into the subprocess (#1179, 183.5 KB): the fuzzy matcher and the rg
+    // argument builder are the core's too (pickers, text search).
     {
         id: "roles/extension-host",
         reason: "extension host role: vscode API implementation",
         entry: "src/vs/diode/roles/extensionHostRole.ts",
-        sharedBudgetKb: 170,
+        sharedBudgetKb: 185,
     },
     // Shared with the core (63 KB of 75): chokidar, which the core keeps for settings file subscriptions.
     {

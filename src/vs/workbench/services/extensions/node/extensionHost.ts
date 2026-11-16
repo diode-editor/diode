@@ -180,6 +180,7 @@ import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
 import { LanguageConfigurationCustomer } from "./customers/languageConfigurationCustomer.ts";
 import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.ts";
 import { LanguageStatusCustomer } from "./customers/languageStatusCustomer.ts";
+import { SearchCustomer } from "./customers/searchCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { TasksCustomer } from "./customers/tasksCustomer.ts";
 import { TerminalCustomer } from "./customers/terminalCustomer.ts";
@@ -345,6 +346,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly fileSystem: FileSystemCustomer;
     private readonly uriHandlersCustomer: UriHandlersCustomer;
     public readonly fileOperations: FileOperationsCustomer;
+    /** Quick Open's file index lives in the subprocess (#1179); a request spawns it when needed. */
+    public readonly fileSearch: SearchCustomer;
     private readonly storageHomes: () => IExtensionStorageHomes;
     private readonly extensionState: IExtensionStateStore;
     /** `workspaceState` belongs to THIS workspace: a write after a folder change would leak into another store. */
@@ -404,6 +407,11 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         );
         this.uriHandlersCustomer = this.register(new UriHandlersCustomer());
         this.fileOperations = new FileOperationsCustomer(this.logger);
+        this.fileSearch = this.register(
+            new SearchCustomer(() =>
+                this.hostDisposed ? Promise.reject(new Error("ExtensionHost disposed")) : this.ensureSubprocess(),
+            ),
+        );
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
         this.workspaceScanner = options.workspaceScanner ?? createRipgrepWorkspaceScanner();
@@ -443,6 +451,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             new LanguageStatusCustomer(options.languageStatusSink),
             this.uriHandlersCustomer,
             this.fileOperations,
+            this.fileSearch,
         ];
     }
 
