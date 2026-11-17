@@ -42,12 +42,13 @@ export default defineScenario({
         );
         await editor.capture("ngtsc diagnostic in the template");
 
-        // `Clicked {{ count }} times`, line 2: Ctrl+Space at the end of `count` offers the component's members.
+        // `Clicked {{ count }} times`, line 2: Ctrl+Space at the start of `count` offers the component's members.
         await editor.sendKey("Ctrl+G");
-        await editor.sendText("2:47");
+        await editor.sendText("2:42");
         await editor.sendKey("Enter");
         await editor.sendKey("Ctrl+Space");
-        await editor.waitForText((t) => t.includes("increment") && t.includes("count"), { timeoutMs: 60_000 });
+        await editor.waitForNode("#suggestWidget", { timeoutMs: 60_000 });
+        await editor.waitForText((t) => t.includes("increment  method"), { timeoutMs: 60_000 });
         await editor.capture("member completion");
 
         // `(click)="increment()"`, line 2: F12 opens the component on the method.
