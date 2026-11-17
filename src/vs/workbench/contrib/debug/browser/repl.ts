@@ -4,29 +4,36 @@
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/browser/repl.ts
 // The Debug Console (upstream `Repl` and the renderers of `replViewer.ts`): the console of the shown session as a
-// tree — output with its source on the right and the count of collapsed lines, evaluations with their expandable
-// results, objects the adapter logged — over an input line. Enter evaluates in the focused frame (context `repl`),
-// Up/Down walk the history (100 entries per workspace), Escape clears the input. The tree follows its tail unless
-// the user scrolled up; an evaluation scrolls to it anyway. Which session is shown follows upstream's
-// `selectSession`: the focused one, else the one shown until it is cleared, else any other.
+// tree — output in its ANSI colors with its links, its source on the right and the count of collapsed lines; groups as
+// nodes; evaluations with their expandable results; objects the adapter logged — over a multi-line input. Lines wrap
+// with `debug.console.wordWrap`. The filter is in the view's title ("Filter (e.g. text, !exclude, \escape)", kept per
+// workspace, "Showing n of m" beside it). Enter evaluates in the focused frame (context `repl`), Shift+Enter breaks the
+// line, Up/Down walk the history (100 entries per workspace) from the first and the last line, Escape clears the
+// input; the input completes through the adapter (`replSuggest.ts`). The tree follows its tail unless the user
+// scrolled up; an evaluation scrolls to it anyway. Which session is shown follows upstream's `selectSession`: the
+// focused one, else the one shown until it is cleared, else any other.
 // Deviations: without a running session upstream makes the input read-only and shows the hint in it; here the hint
 // is the placeholder and Enter still echoes the input with the hint as its result. `stdout` (severity `info`) is in
-// the plain foreground, not `debugConsole.infoForeground` (the spike's look). Escape clearing the input is ours.
-// Not here yet (#1158): ANSI styles, wrapping long lines, completion in the input, the filter, Find, the session
-// picker of multiple consoles, the context menu (Copy, Copy All, Collapse All, Paste), clicking a source to open it,
-// the `debug.console.*` font and word wrap settings. The view has no `debuggersAvailable` gate: it is always there.
+// the plain foreground, not `debugConsole.infoForeground` (the spike's look). Escape clearing the input is ours. A line
+// break inside an element is a space without wrapping (the row is one line, cut: the list does not scroll sideways);
+// with wrapping it breaks the row, as upstream's `pre-wrap`. The filter has no history of its own (upstream's Up/Down in it).
+// Not here yet (#1158): Find, the session picker of multiple consoles, the context menu (Copy, Paste), clicking a
+// source to open it, the `debug.console.*` font settings (the terminal's font). The view has no `debuggersAvailable`
+// gate: it is always there.
 
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import type { OverlayLayer } from "@tuidom/core/dom/overlayLayer";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
-import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
+import { VFlexElement, vflexFill, vflexFit } from "@tuidom/elements/layout/vFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { codicon } from "../../../../base/common/codicons.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { combinedDisposable, type IDisposable, MutableDisposable } from "../../../../base/common/lifecycle.ts";
+import { removeAnsiEscapeCodes } from "../../../../base/common/strings.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
@@ -44,6 +51,7 @@ import {
 import { Component } from "../../../browser/component.ts";
 import { type IRowSpan, LazyTreeControl } from "../../../browser/parts/views/lazyTreeControl.ts";
 import { type ViewsService, ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 import {
     DEBUG_PANEL_ID,
     type IDebugSession,
@@ -64,33 +72,48 @@ import {
     ReplVariableElement,
 } from "../common/replModel.ts";
 
+import { handleANSIOutput } from "./debugANSIHandling.ts";
 import { DebugExpressionRenderer } from "./debugExpressionRenderer.ts";
 import { type DebugService, DebugServiceDIToken } from "./debugService.ts";
+import { type LinkDetector, LinkDetectorDIToken } from "./linkDetector.ts";
+import { ReplFilter } from "./replFilter.ts";
+import { ReplSuggest } from "./replSuggest.ts";
 
 export const ReplDIToken = token<Repl>("Repl");
 
 const HISTORY_STORAGE_KEY: IStateDescriptor<string[]> = { key: "debug.repl.history", scope: "workspace", default: [] };
+const FILTER_VALUE_STORAGE_KEY: IStateDescriptor<string> = {
+    key: "debug.repl.filter.value",
+    scope: "workspace",
+    default: "",
+};
 /** Upstream's `HistoryNavigator` limit. */
 const HISTORY_LIMIT = 100;
 /** Upstream's delay before the tree follows the console. */
 const REFRESH_DELAY_MS = 50;
+/** The filter field's columns: upstream's filter widget is a fixed width too. */
+const FILTER_WIDTH = 30;
 export const START_DEBUG_FIRST = "Please start a debug session to evaluate expressions";
+export const FILTER_PLACEHOLDER = "Filter (e.g. text, !exclude, \\escape)";
 
 /** Upstream `debugConsoleEvaluationInput` (the echo of an evaluation) and `debugConsoleEvaluationPrompt`. */
 const EVALUATION_INPUT_ICON = codicon("arrow-small-right");
 const EVALUATION_PROMPT_ICON = codicon("chevron-right");
 
 /** Upstream's `.value.warn/.error/.ignore` of an output line; `info` keeps the plain foreground. */
-const SEVERITY_SPAN: Readonly<Record<ReplSeverity, Omit<IRowSpan, "text">>> = {
-    info: {},
-    warning: { fg: "debugConsole.warningForeground" },
-    error: { fg: "debugConsole.errorForeground" },
+const SEVERITY_SPAN: Readonly<Record<ReplSeverity, Omit<IRowSpan, "text"> & { readonly style: StyleFlags }>> = {
+    info: { style: StyleFlags.None },
+    warning: { fg: "debugConsole.warningForeground", style: StyleFlags.None },
+    error: { fg: "debugConsole.errorForeground", style: StyleFlags.None },
     ignore: { style: StyleFlags.Italic },
 };
 
-/** A row is one line: line breaks (the element's own, the inner ones with collapsing off) become spaces. */
-function oneLine(value: string): string {
-    return value.replace(/\r?\n/gu, " ");
+/**
+ * The text of a row. Wrapped, its line breaks stay (upstream's `pre-wrap`), but the element's own last one; cut to one
+ * line, a line break is a space.
+ */
+function rowText(value: string, wrap: boolean): string {
+    return wrap ? value.replace(/\r?\n$/u, "").replace(/\r\n/gu, "\n") : value.replace(/\r?\n/gu, " ");
 }
 
 function isNesting(element: IReplElement): element is INestingReplElement {
@@ -112,12 +135,20 @@ export class Repl extends Component implements IContextKeyContributor {
         IConfigurationServiceDIToken,
         ProductIconServiceDIToken,
         StateServiceDIToken,
+        LinkDetectorDIToken,
+        LayoutServiceDIToken,
     ] as const;
 
     public readonly view: TUIElement;
     public readonly tree: LazyTreeControl<IReplElement>;
     public readonly input = new InputElement();
+    /** The filter field in the view's title. */
+    public readonly filterInput = new InputElement();
+    /** Upstream's badge of the filter: "Showing n of m" while the filter hides lines. */
+    public readonly filterBadge = new TextLabelElement("");
+    public readonly suggest: ReplSuggest;
     private readonly renderer: DebugExpressionRenderer;
+    private readonly filter = new ReplFilter();
     private session: IDebugSession | undefined;
     /** Sessions cleared after they ended: no longer shown. */
     private readonly sessionsToIgnore = new Set<IDebugSession>();
@@ -132,12 +163,19 @@ export class Repl extends Component implements IContextKeyContributor {
     private stale = false;
     private readonly refreshScheduler: RunOnceScheduler;
 
+    /** `debug.console.wordWrap`: the tree asks it on every rebuild, the rows read it as they render. */
+    private get wrap(): boolean {
+        return this.configuration.get("debug.console.wordWrap");
+    }
+
     public constructor(
         private readonly debugService: DebugService,
         private readonly views: ViewsService,
-        configuration: IConfigurationService,
+        private readonly configuration: IConfigurationService,
         private readonly icons: IProductIconService,
         private readonly state: Pick<IStateService, "get" | "store">,
+        private readonly links: Pick<LinkDetector, "linkify">,
+        layout: { readonly mainContainer: { readonly overlayLayer: OverlayLayer } },
     ) {
         super();
         this.renderer = this.register(
@@ -151,9 +189,11 @@ export class Repl extends Component implements IContextKeyContributor {
         );
         this.tree = new LazyTreeControl<IReplElement>(
             {
-                getRoots: () => [...(this.session?.getReplElements() ?? []), ...this.orphans],
-                // The tree asks only the elements it was told have children.
-                getChildren: (element) => (element as INestingReplElement).getChildren(),
+                getRoots: () => this.elements().filter((element) => this.filter.filter(element)),
+                // The tree asks only the elements it was told have children, and only the shown ones: a group's
+                // children without a verdict of their own are visible as it is (upstream's `parentVisibility`).
+                getChildren: async (element) =>
+                    (await (element as INestingReplElement).getChildren()).filter((child) => this.filter.filter(child)),
                 getKey: (element) => element.getId(),
                 hasChildren: isNesting,
                 isInitiallyExpanded: (element) => element instanceof ReplGroup && element.autoExpand,
@@ -163,7 +203,7 @@ export class Repl extends Component implements IContextKeyContributor {
                         ? sourceSpan(element.sourceData)
                         : [],
             },
-            { idPrefix: "repl", stickyTail: true },
+            { idPrefix: "repl", stickyTail: true, wrap: () => this.wrap },
         );
         this.refreshScheduler = this.register(
             new RunOnceScheduler(() => {
@@ -171,13 +211,54 @@ export class Repl extends Component implements IContextKeyContributor {
             }, REFRESH_DELAY_MS),
         );
 
+        this.suggest = this.register(
+            new ReplSuggest(
+                this.input,
+                {
+                    // An ended session has no adapter: no capabilities, so no completions.
+                    session: () => this.session,
+                    frame: () => {
+                        const frame = debugService.getViewModel().focusedStackFrame;
+                        return { frameId: frame?.frameId, threadId: frame?.thread.threadId ?? 0 };
+                    },
+                    history: () => state.get(HISTORY_STORAGE_KEY),
+                    historySuggestions: () => configuration.get("debug.console.historySuggestions"),
+                    acceptOnEnter: () => configuration.get("debug.console.acceptSuggestionOnEnter") === "on",
+                },
+                () => layout.mainContainer,
+            ),
+        );
+        this.input.multiline = true;
+        this.input.onChange = () => {
+            this.suggest.trigger(false);
+        };
+        this.input.addEventListener("blur", () => {
+            this.suggest.close();
+        });
         this.input.addEventListener("keydown", (event) => {
-            if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
-            if (event.key === "Enter") this.acceptReplInput();
-            else if (event.key === "ArrowUp") this.navigateHistory(true);
-            else if (event.key === "ArrowDown") this.navigateHistory(false);
-            else if (event.key === "Escape" && this.input.inputState.value !== "") this.setInput("");
-            else return;
+            const plain = !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey;
+            if (plain && this.suggest.handleKey(event.key)) {
+                event.preventDefault();
+                return;
+            }
+            if (event.key === " " && event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {
+                this.suggest.trigger(true);
+            } else if (event.key === "Enter" && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+                this.input.inputState.insert("\n");
+                this.input.markDirty();
+            } else if (!plain) {
+                return;
+            } else if (event.key === "Enter") {
+                this.acceptReplInput();
+            } else if (event.key === "ArrowUp" && this.input.cursorLine === 0) {
+                this.navigateHistory(true);
+            } else if (event.key === "ArrowDown" && this.input.cursorLine === this.input.lineCount - 1) {
+                this.navigateHistory(false);
+            } else if (event.key === "Escape" && this.input.inputState.value !== "") {
+                this.setInput("");
+            } else {
+                return;
+            }
             event.preventDefault();
         });
         const prompt = new TextLabelElement(icons.glyph(EVALUATION_PROMPT_ICON));
@@ -186,11 +267,32 @@ export class Repl extends Component implements IContextKeyContributor {
         inputRow.addChild(new TextLabelElement(""), { width: hflexFixed(1), height: 1 });
         inputRow.addChild(prompt, { width: hflexFit(), height: 1 });
         inputRow.addChild(new TextLabelElement(""), { width: hflexFixed(1), height: 1 });
-        inputRow.addChild(this.input, { width: hflexFill(), height: 1 });
+        // As tall as its lines: the field grows with Shift+Enter.
+        inputRow.addChild(this.input, { width: hflexFill(), height: "fill" });
         const root = new VFlexElement();
         root.addChild(this.tree.element, { height: vflexFill(), width: "fill" });
-        root.addChild(inputRow, { height: vflexFixed(1), width: "fill" });
+        root.addChild(inputRow, { height: vflexFit(), width: "fill" });
         this.view = root;
+
+        this.filterInput.id = "replFilter";
+        this.filterInput.placeholder = FILTER_PLACEHOLDER;
+        this.filterInput.inputState.value = state.get(FILTER_VALUE_STORAGE_KEY);
+        this.filter.filterQuery = this.filterInput.inputState.value;
+        this.filterInput.onChange = (value) => {
+            this.setFilter(value);
+        };
+        this.filterInput.addEventListener("keydown", (event) => {
+            if (event.key !== "Escape" || this.filterInput.inputState.value === "") return;
+            event.preventDefault();
+            this.filterInput.inputState.value = "";
+            // Stryker disable next-line CallExpression: the refresh of setFilter right after repaints the title too
+            this.filterInput.markDirty();
+            this.setFilter("");
+        });
+        this.filterBadge.style = { fg: "descriptionForeground" };
+        const filterWidget = new HFlexElement();
+        filterWidget.addChild(this.filterBadge, { width: hflexFit(), height: 1 });
+        filterWidget.addChild(this.filterInput, { width: hflexFixed(FILTER_WIDTH), height: 1 });
 
         views.registerContainer({
             id: DEBUG_PANEL_ID,
@@ -211,10 +313,17 @@ export class Repl extends Component implements IContextKeyContributor {
                 this.focus();
             },
         });
+        views.setViewTitleWidget(REPL_VIEW_ID, filterWidget);
 
         this.register(
             views.onDidShowView((id) => {
                 if (id === REPL_VIEW_ID && this.stale) this.refresh();
+            }),
+        );
+        this.register(
+            configuration.onDidChangeConfiguration((event) => {
+                // Stryker disable next-line ConditionalExpression: a rerender of the same rows paints the same
+                if (event.affectsConfiguration("debug.console.wordWrap")) this.tree.rerender();
             }),
         );
         const viewModel = debugService.getViewModel();
@@ -252,6 +361,23 @@ export class Repl extends Component implements IContextKeyContributor {
         this.input.focus();
     }
 
+    /** Upstream `focusFilter` (`repl.action.filter`). */
+    public focusFilter(): void {
+        this.filterInput.focus();
+    }
+
+    /** Upstream `collapseAll` (`debug.collapseRepl`). */
+    public collapseAll(): void {
+        this.tree.collapseAll();
+    }
+
+    /** Upstream `getVisibleContent` (`repl.action.copyAll`): the rows shown, a line each, without ANSI codes. */
+    public getVisibleContent(): string {
+        return removeAnsiEscapeCodes(
+            this.tree.shownItems.map((element) => `${element.toString().trimEnd()}\n`).join(""),
+        );
+    }
+
     /** The session whose console is shown. */
     public get shownSession(): IDebugSession | undefined {
         return this.session;
@@ -283,6 +409,7 @@ export class Repl extends Component implements IContextKeyContributor {
             );
             this.session = shown;
             this.orphans.length = 0;
+            this.suggest.close();
             this.revealLast = true;
             this.refresh();
         }
@@ -305,6 +432,7 @@ export class Repl extends Component implements IContextKeyContributor {
     }
 
     public acceptReplInput(): void {
+        this.suggest.close();
         const value = this.input.inputState.value;
         if (value.trim() === "") return;
         const session = this.session;
@@ -349,6 +477,14 @@ export class Repl extends Component implements IContextKeyContributor {
         this.input.markDirty();
     }
 
+    /** Upstream: the filter applies at once, the console scrolls to its end, the value is kept per workspace. */
+    private setFilter(value: string): void {
+        this.filter.filterQuery = value;
+        this.state.store(FILTER_VALUE_STORAGE_KEY, value);
+        this.revealLast = true;
+        this.refresh();
+    }
+
     private updateInput(): void {
         const active = this.session !== undefined && this.session.state !== State.Inactive;
         this.input.placeholder = active ? undefined : START_DEBUG_FIRST;
@@ -370,14 +506,38 @@ export class Repl extends Component implements IContextKeyContributor {
         this.refreshScheduler.cancel();
         const revealTail = this.revealLast;
         this.revealLast = false;
+        this.updateFilterBadge();
         this.tree.refresh({ revealTail }).catch(onUnexpectedError);
+    }
+
+    /** The top-level elements: the shown session's, then the output that came without one. */
+    private elements(): IReplElement[] {
+        return [...(this.session?.getReplElements() ?? []), ...this.orphans];
+    }
+
+    /** Upstream `getFilterStats`: the top-level lines shown of all. */
+    private updateFilterBadge(): void {
+        const all = this.elements();
+        const shown = all.filter((element) => this.filter.filter(element)).length;
+        this.filterBadge.setText(shown === all.length ? "" : `Showing ${String(shown)} of ${String(all.length)} `);
+    }
+
+    /** Upstream's output and group renderers: the ANSI styles over the severity's, then the links. */
+    private renderOutput(value: string, severity: ReplSeverity, session: IDebugSession): IRowSpan[] {
+        const base = SEVERITY_SPAN[severity];
+        const spans = handleANSIOutput(rowText(value, this.wrap)).map((span) => ({
+            ...base,
+            ...span,
+            style: base.style | (span.style ?? StyleFlags.None),
+        }));
+        return this.links.linkify(spans, session.root);
     }
 
     private renderRow(element: IReplElement): IRowSpan[] {
         if (element instanceof ReplEvaluationInput) {
             return [
                 { text: `${this.icons.glyph(EVALUATION_INPUT_ICON)} `, fg: "debugConsoleInputIcon.foreground" },
-                { text: element.value },
+                { text: rowText(element.value, this.wrap) },
             ];
         }
         if (element instanceof ReplOutputElement) {
@@ -388,9 +548,9 @@ export class Repl extends Component implements IContextKeyContributor {
                           { text: " " },
                       ]
                     : [];
-            return [...badge, { text: oneLine(element.value), ...SEVERITY_SPAN[element.severity] }];
+            return [...badge, ...this.renderOutput(element.value, element.severity, element.session)];
         }
-        if (element instanceof ReplGroup) return [{ text: element.name }];
+        if (element instanceof ReplGroup) return this.renderOutput(element.name, "info", element.session);
         if (element instanceof ReplVariableElement) {
             return this.renderer.renderValue(element.expression, { colorize: true });
         }

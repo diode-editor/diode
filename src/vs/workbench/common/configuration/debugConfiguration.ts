@@ -7,7 +7,9 @@ import type { IConfigurationNode } from "../../../platform/configuration/common/
  * (`debugConfigurationManager.ts`, `debugTaskRunner.ts`, `debugService.ts`), the Run and Debug views (opening them,
  * types, lazy variables and the breakpoints presentation), the debug toolbar and the status bar (`debugToolbar.ts`,
  * `statusbarColorProvider.ts`, `debugStatus.ts`), the editor's breakpoints and stack frames (the gutter, its middle
- * click and ruler, focusing the editor on a break). The rest of `debug.*` comes with the task that implements it, the
+ * click and ruler, focusing the editor on a break). `debug.console.fontSize`, `fontFamily` and `lineHeight` are
+ * declared and not applied (the terminal's font); `fontSize` defaults to 14, upstream's on everything but macOS (12).
+ * The rest of `debug.*` comes with the task that implements it, the
  * unsupported ones are declared by the settings task (#1158). `launch` has no JSON schema of its configurations yet
  * (IntelliSense in launch.json is a task of its own).
  */
@@ -88,12 +90,52 @@ export const debugConfiguration = {
             description: "Controls if the Debug Console should be automatically closed when the debug session ends.",
             default: false,
         },
+        // Declared, not applied: the console is in the terminal's cells, with its font and line height.
+        "debug.console.fontSize": {
+            scope: "window",
+            type: "number",
+            description: "Controls the font size in pixels in the Debug Console.",
+            default: 14,
+        },
+        "debug.console.fontFamily": {
+            scope: "window",
+            type: "string",
+            description: "Controls the font family in the Debug Console.",
+            default: "default",
+        },
+        "debug.console.lineHeight": {
+            scope: "window",
+            type: "number",
+            description:
+                "Controls the line height in pixels in the Debug Console. Use 0 to compute the line height from the font size.",
+            default: 0,
+        },
+        "debug.console.wordWrap": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls if the lines should wrap in the Debug Console.",
+            default: true,
+        },
+        "debug.console.historySuggestions": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls if the Debug Console should suggest previously typed input.",
+            default: true,
+        },
         "debug.console.collapseIdenticalLines": {
             scope: "window",
             type: "boolean",
             description:
                 "Controls if the Debug Console should collapse identical lines and show a number of occurrences with a badge.",
             default: true,
+        },
+        "debug.console.acceptSuggestionOnEnter": {
+            scope: "window",
+            type: "string",
+            enum: ["off", "on"],
+            description:
+                "Controls whether suggestions should be accepted on Enter in the Debug Console. Enter is also used to evaluate whatever is typed in the Debug Console.",
+            default: "off",
         },
         "debug.console.maximumLines": {
             scope: "window",

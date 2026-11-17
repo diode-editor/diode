@@ -152,7 +152,7 @@ describe("Debug Console edge cases in the workbench", () => {
         await start();
 
         await vi.waitFor(() => {
-            expect(screen()).toContain("Hello from");
+            expect(screen()).toContain("warning:");
         });
         const rows = lines();
         expect(rows.some((r) => r.includes(glyph("chevron-right")))).toBe(true);

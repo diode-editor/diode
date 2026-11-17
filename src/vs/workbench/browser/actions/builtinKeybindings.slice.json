@@ -11,6 +11,7 @@
         "ctrl+down: workbench.action.nextEditorInGroup [(editorAreaFocus && editorTabsMultiple) && (tabSwitcherVisible)] > scrollLineDown [(textViewFocus) && (!(macKeys >= 1))]",
         "ctrl+down: workbench.action.nextEditorInGroup [(editorAreaFocus && editorTabsMultiple) && (tabSwitcherVisible)] > search.focus.nextInputBox [(searchViewletVisible && searchInputBoxFocus) && (!(macKeys >= 3))]",
         "ctrl+e: workbench.action.quickOpenNavigateNextInFilePicker [(inFilesPicker && inputWidgetFocus) && (!(macKeys >= 1))] > workbench.action.quickOpen [!(macKeys >= 1)]",
+        "ctrl+f: repl.action.filter [((inDebugRepl) && (inDebugRepl)) && (!(macKeys >= 3))] > actions.find [(textInputFocus || findWidgetVisible) && (!(macKeys >= 3))]",
         "ctrl+k ctrl+f: workbench.action.navigateForward > editor.action.formatSelection [(textInputFocus && !editorReadonly) && (!(macKeys >= 3))]",
         "ctrl+k ctrl+u: editor.action.showHover [textInputFocus] > editor.action.removeCommentLine [(textInputFocus && !editorReadonly) && (!(macKeys >= 3))]",
         "ctrl+n: selectNextSuggestion [(suggestWidgetVisible) && (macKeys >= 3)] > cursorDown [(textViewFocus) && (macKeys >= 3)]",
@@ -70,6 +71,7 @@
         "f4: references-view.next [hasReferenceResult] > search.action.focusNextSearchResult [hasSearchResult]",
         "f6: workbench.action.debug.pause [debugState == 'running'] > notifications.focusMessage",
         "home: firstCompressedFolder [filesExplorerFocus && !inputWidgetFocus && explorerViewletCompressedFocus && !explorerViewletCompressedFirstFocus] > list.focusFirst [listFocus]",
+        "meta+f: repl.action.filter [((inDebugRepl) && (inDebugRepl)) && (macKeys >= 3)] > actions.find [(textInputFocus || findWidgetVisible) && (macKeys >= 3)]",
         "meta+p: workbench.action.quickOpenNavigateNextInFilePicker [(inFilesPicker && inputWidgetFocus) && (macKeys >= 3)] > workbench.action.quickOpen [macKeys >= 3]",
         "pagedown: selectNextPageSuggestion [suggestWidgetVisible] > cursorPageDown [textViewFocus]",
         "pageup: selectPrevPageSuggestion [suggestWidgetVisible] > cursorPageUp [textViewFocus]",
@@ -566,6 +568,7 @@
         "references-view.prev": "shift+f4",
         "references-view.showCallHierarchy": "shift+alt+h",
         "removeSecondaryCursors": "escape",
+        "repl.action.filter": "ctrl+f",
         "scm.action.focusChanges": "down",
         "scrollLineDown": {
             "*": "ctrl+down",

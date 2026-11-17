@@ -167,6 +167,7 @@ import {
     DebugViewletComponent,
     DebugViewletComponentDIToken,
 } from "../../workbench/contrib/debug/browser/debugViewlet.ts";
+import { LinkDetector, LinkDetectorDIToken } from "../../workbench/contrib/debug/browser/linkDetector.ts";
 import { Repl, ReplDIToken } from "../../workbench/contrib/debug/browser/repl.ts";
 import {
     StatusBarColorProvider,
@@ -835,6 +836,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(BreakpointEditorContributionDIToken, BreakpointEditorContribution);
     container.bind(DebugContentProviderDIToken, DebugContentProvider);
     container.bind(DebugViewletComponentDIToken, DebugViewletComponent);
+    container.bind(LinkDetectorDIToken, LinkDetector);
     container.bind(ReplDIToken, Repl);
     container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);
