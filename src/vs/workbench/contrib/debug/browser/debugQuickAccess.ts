@@ -54,7 +54,8 @@ export class StartDebugQuickAccessProvider implements IQuickAccessProvider {
             .getDynamicProviders()
             .then((providers) => {
                 this.dynamicProviders = providers;
-                refresh(true);
+                // The rows came after the cursor was placed: it goes back to the first one, as upstream shows them at once.
+                refresh(false);
             });
     }
 

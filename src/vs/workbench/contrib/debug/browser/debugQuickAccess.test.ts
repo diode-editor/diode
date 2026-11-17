@@ -134,7 +134,7 @@ describe("StartDebugQuickAccessProvider", () => {
             const refreshed = vi.fn();
             provider.onShow(refreshed);
             await vi.waitFor(() => {
-                expect(refreshed).toHaveBeenCalledWith(true);
+                expect(refreshed).toHaveBeenCalledWith(false);
             });
         }
 
