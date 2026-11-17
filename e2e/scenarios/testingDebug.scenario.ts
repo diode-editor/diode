@@ -22,9 +22,9 @@ const MATH = `describe("math", () => {
 `;
 
 // Nerd Font codicons: `run-all`, `run`, `pass`.
-const RUN_ALL = "";
-const RUN = "";
-const PASSED = "";
+const RUN_ALL = "\ueb9e";
+const RUN = "\ueb2c";
+const PASSED = "\ueba4";
 
 export default defineScenario({
     name: "testing-debug",
