@@ -5,9 +5,9 @@ import type { IFileService } from "../../../../platform/files/common/files.ts";
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
-import type { IBreakpoint } from "../common/debug.ts";
+import type { IBreakpoint, IStackFrame } from "../common/debug.ts";
 
-import { BreakpointSources } from "./breakpointSources.ts";
+import { BreakpointSources, openStackFrame } from "./breakpointSources.ts";
 
 const FOLDER = Uri.file("/w");
 const FILE = Uri.file("/w/src/main.cpp");
@@ -77,7 +77,7 @@ describe("BreakpointSources", () => {
 
         await sources(fake.editors).openBreakpoint(breakpoint(27, 5), false);
 
-        expect(fake.opened).toEqual([[FILE.toString(), {}]]);
+        expect(fake.opened).toEqual([[FILE.toString(), { focus: true }]]);
         expect(fake.active()?.goToPosition).toHaveBeenCalledWith(26, 4);
 
         await sources(fake.editors).openBreakpoint(breakpoint(3), false);
@@ -89,11 +89,24 @@ describe("BreakpointSources", () => {
 
         await sources(fake.editors).openBreakpoint(breakpoint(27), true);
 
-        expect(fake.opened).toEqual([[FILE.toString(), { group: "beside" }]]);
+        expect(fake.opened).toEqual([[FILE.toString(), { group: "beside", focus: true }]]);
         expect(fake.active()?.goToPosition).toHaveBeenCalledWith(26, 0);
 
         const failing = fakeEditors(true);
         await sources(failing.editors).openBreakpoint(breakpoint(27), true);
         expect(failing.active()).toBeNull();
+    });
+
+    it("a stack frame opens at its line and column, focused unless it keeps the focus; one without a source, never", async () => {
+        const { editors, opened, active } = fakeEditors();
+        const frame = (available: boolean): IStackFrame =>
+            ({ source: { available, uri: FILE }, range: { startLineNumber: 27, startColumn: 9 } }) as IStackFrame;
+
+        await openStackFrame(editors, jumps, frame(false), { preserveFocus: false, sideBySide: false });
+        expect(opened).toEqual([]);
+
+        await openStackFrame(editors, jumps, frame(true), { preserveFocus: true, sideBySide: true });
+        expect(opened).toEqual([[FILE.toString(), { group: "beside", focus: false }]]);
+        expect(active()?.goToPosition).toHaveBeenCalledWith(26, 8);
     });
 });

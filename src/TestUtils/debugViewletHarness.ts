@@ -35,7 +35,11 @@ export interface IDebugViewletHarness {
     dispose(): Promise<void>;
 }
 
-export async function createDebugViewletHarness(workspaceFolder?: string): Promise<IDebugViewletHarness> {
+/** `programRoot`: where the synthetic program's sources are (`src/main.cpp`...), which the stop opens. */
+export async function createDebugViewletHarness(
+    workspaceFolder?: string,
+    programRoot?: string,
+): Promise<IDebugViewletHarness> {
     const h = createAppTestHarness({ size: new Size(120, 50), workspaceFolder });
     await h.workbench.activate();
     // Plain glyphs: the icons are characters the screen text shows.
@@ -49,6 +53,7 @@ export async function createDebugViewletHarness(workspaceFolder?: string): Promi
         registration ??= registerSyntheticDebugger(
             h.container.get(DebugServiceDIToken).getAdapterManager(),
             NO_DELAY_TIMING,
+            programRoot,
         );
         return registration.factory;
     };

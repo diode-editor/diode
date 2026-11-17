@@ -79,6 +79,21 @@
   `error` (stderr) — `errorForeground`, `ignore` — курсив. Команды — `replActions.ts` (`Ctrl+Shift+Y`/`Ctrl+K Y`,
   Focus, Accept Input, Clear Console); `debug.internalConsoleOptions` и `debug.console.closeOnEnd` — порты
   `openRepl`/`closeRepl` сервиса. Не здесь: ANSI, перенос, автодополнение, фильтр, группы как фича, меню.
+- #1148: брейкпоинты в гаттере и текущий кадр (`browser/breakpointEditorContribution.ts` — `BreakpointEditorContribution`
+  и `CallStackEditorContribution` эталона над всеми текстовыми вкладками). F9 — `editor.debug.action.toggleBreakpoint`
+  (`browser/debugEditorActions.ts`); клик по дорожке — семантика `onMouseDown` эталона (Shift — вкл/выкл, Alt и средняя
+  кнопка по `debug.gutterMiddleClickAction` — quick input `browser/breakpointInput.ts` вместо виджета до задачи условий,
+  решение 2026-11-14; удаление брейкпоинта с условием — модальный вопрос эталона). Глифы `getBreakpointIcon` цветами
+  `debugIcon.*`, на строке один глиф: кадр сильнее брейкпоинта, кадр с брейкпоинтом — `debug-stackframe-active`
+  (`◉` без Nerd Font). Брейкпоинт едет трекнутой декорацией документа, позиция пишется в `debug.breakpoint` сразу,
+  адаптеру уходит на сохранении файла (`onDidSaveTextFile`). Где ставить — `canSetBreakpointsIn` менеджера адаптеров
+  по языку файла (`contributes.breakpoints` из `bindExtensionDebuggers`, `debug.allowBreakpointsEverywhere`). Остановка
+  открывает файл кадра (`openStackFrame` в `breakpointSources.ts`; фокус — `debug.focusEditorOnBreak`), строка кадра —
+  `ILineHighlightDecoration`. `debug:` документы — `browser/debugContentProvider.ts` через
+  `EditorService.registerDocumentSource` (схемы workbench читаются раньше источника расширений, вкладки не
+  восстанавливаются). Синтетический адаптер принимает корень программы (`registerSyntheticDebugger(…, root)`), чтобы
+  исходники были настоящими файлами. Проверка — `breakpointEditorContribution.app.test.ts`, сценарий
+  `debug-breakpoints-gutter` на Debug Demo (теперь с `contributes.breakpoints` для C и остановкой на брейкпоинте).
 
 - #1138: `launch.json`. `browser/debugConfigurationManager.ts` (порт `ConfigurationManager` эталона: launch папки —
   `.diode/launch.json`, блок `launch` файла `.code-workspace`, `launch` пользовательских настроек; выбранная конфигурация

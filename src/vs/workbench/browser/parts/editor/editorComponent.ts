@@ -29,6 +29,7 @@ import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type {
     IGlyphMarginClick,
     IGlyphMarginDecoration,
+    ILineHighlightDecoration,
 } from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
@@ -768,9 +769,19 @@ export class EditorComponent extends Component {
         this.editor.markDirty();
     }
 
-    /** Test glyphs left of the line numbers: they ride their lines through edits. */
-    public setGlyphMarginDecorations(decorations: readonly IGlyphMarginDecoration[]): void {
-        this.editor.setGlyphMarginDecorations(decorations);
+    /** An owner's glyphs left of the line numbers (tests, breakpoints): they ride their lines through edits. */
+    public setGlyphMarginDecorations(owner: string, decorations: readonly IGlyphMarginDecoration[]): void {
+        this.editor.setGlyphMarginDecorations(owner, decorations);
+    }
+
+    /** Keeps the glyph lane without glyphs: a press on a line's empty lane is a click (adding a breakpoint). */
+    public setGlyphMarginReserved(reserved: boolean): void {
+        this.editor.glyphMarginReserved = reserved;
+    }
+
+    /** Whole lines' backgrounds by theme tokens (the debugger's stack frames): they ride their lines through edits. */
+    public setLineHighlightDecorations(decorations: readonly ILineHighlightDecoration[]): void {
+        this.editor.setLineHighlightDecorations(decorations);
     }
 
     public onDidClickGlyphMargin(listener: (click: IGlyphMarginClick) => void): IDisposable {

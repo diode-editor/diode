@@ -66,6 +66,9 @@ export const MAX_TESTS_IN_SUBMENU = 30;
 /** Upstream's command behind "Peek Error"; offered once something registers it (`TestingMessageDecorations`). */
 export const PEEK_TEST_ERROR_COMMAND = "vscode.peekTestError";
 
+/** The owner of the testing glyphs in the editors' glyph lanes. */
+export const TESTING_GLYPH_OWNER = "testing";
+
 /** `TextEditorPane` matches structurally; the DI module does the binding. */
 export interface ITestingDecorationsEditor {
     readonly uri: Uri;
@@ -73,7 +76,7 @@ export interface ITestingDecorationsEditor {
     /** The large-file mode (docs/arch/Editor.md) has no glyphs; the event fires when it is left. */
     readonly isTooLargeForTokenization: boolean;
     onDidChangeTooLargeForTokenization(listener: () => void): IDisposable;
-    setGlyphMarginDecorations(decorations: readonly IGlyphMarginDecoration[]): void;
+    setGlyphMarginDecorations(owner: string, decorations: readonly IGlyphMarginDecoration[]): void;
     onDidClickGlyphMargin(listener: (click: IGlyphMarginClick) => void): IDisposable;
 }
 
@@ -199,7 +202,7 @@ export class TestingDecorations extends Disposable {
                 editor,
                 subscriptions: [
                     editor.onDidClickGlyphMargin((click) => {
-                        this.click(state, click);
+                        if (click.owner === TESTING_GLYPH_OWNER) this.click(state, click);
                     }),
                     editor.onDidChangeTooLargeForTokenization(() => {
                         this.expandTestsInFile(state);
@@ -256,7 +259,7 @@ export class TestingDecorations extends Disposable {
             glyphs.push({ key, line, ...this.glyphFor(tests) });
         }
         state.decorations = decorations;
-        editor.setGlyphMarginDecorations(glyphs);
+        editor.setGlyphMarginDecorations(TESTING_GLYPH_OWNER, glyphs);
     }
 
     /** Upstream `createRunTestDecoration`. */
@@ -316,8 +319,8 @@ export class TestingDecorations extends Disposable {
 
     /** Upstream `RunTestDecoration.click`; Alt changes nothing, there is no debugger. */
     private click(state: IAttachedEditor, click: IGlyphMarginClick): void {
-        // The glyphs and their tests are set together.
-        const tests = assertReturnsDefined(state.decorations.get(click.key));
+        // The glyphs and their tests are set together; a click of this owner has a key.
+        const tests = assertReturnsDefined(state.decorations.get(assertReturnsDefined(click.key)));
         if (click.button === "right" || this.configuration.get("testing.defaultGutterClickAction") === "contextMenu") {
             this.showContextMenu(state.editor, tests, click);
             return;

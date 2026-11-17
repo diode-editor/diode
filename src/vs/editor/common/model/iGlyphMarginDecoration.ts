@@ -1,6 +1,6 @@
 /**
  * A glyph in the gutter's glyph lane (upstream `glyphMarginClassName`), left of the line numbers. Clicking it fires
- * `EditorElement.onDidClickGlyphMargin` with its `key`; the cursor stays.
+ * `EditorElement.onDidClickGlyphMargin` with its owner and `key`; the cursor stays.
  */
 export interface IGlyphMarginDecoration {
     /** The owner's identity of the glyph: one set again with the same `key` and `line` keeps the line it moved to. */
@@ -13,12 +13,34 @@ export interface IGlyphMarginDecoration {
     readonly colorToken: string;
     /** A theme token: a mark in the scrollbar at the line (upstream `overviewRuler`). */
     readonly overviewRulerColorToken?: string;
+    /**
+     * Upstream `zIndex`: the lane has one cell, so of the glyphs of several owners on a line the highest is drawn and
+     * clicked; a tie goes to the owner that set its glyphs first. Absent is 0.
+     */
+    readonly zIndex?: number;
 }
 
-/** A click on a glyph: its key, the button and where the pointer was. */
+/**
+ * A press on the glyph lane of a line (upstream `MouseTargetType.GUTTER_GLYPH_MARGIN`): with the glyph drawn there,
+ * its owner and key, or neither on a line without one. The cursor stays.
+ */
 export interface IGlyphMarginClick {
-    readonly key: string;
-    readonly button: "left" | "right";
+    /** 0-based. */
+    readonly line: number;
+    readonly owner?: string;
+    readonly key?: string;
+    readonly button: "left" | "middle" | "right";
+    readonly shiftKey: boolean;
+    readonly altKey: boolean;
     readonly screenX: number;
     readonly screenY: number;
+}
+
+/** A whole line's background by a theme token (upstream `isWholeLine` with a `className`), riding its line through edits. */
+export interface ILineHighlightDecoration {
+    readonly key: string;
+    /** 0-based. */
+    readonly line: number;
+    /** A theme token, painted over the editor background of the text area, not the gutter. */
+    readonly colorToken: string;
 }
