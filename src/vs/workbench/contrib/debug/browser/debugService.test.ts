@@ -210,7 +210,7 @@ describe("DebugService", () => {
             );
             expect(commands.slice(6, 8)).toEqual(["configurationDone", "threads"]);
             const exceptions = factory.adapters[0].requests.find((r) => r.command === "setExceptionBreakpoints");
-            expect(exceptions?.arguments).toEqual({ filters: [] });
+            expect(exceptions?.arguments).toEqual({ filters: [], filterOptions: [] });
         });
 
         it("sends the breakpoints of the model, then configurationDone", async () => {

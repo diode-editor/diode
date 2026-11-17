@@ -157,7 +157,10 @@ describe("DebugService breakpoint editing", () => {
             "setInstructionBreakpoints",
             "setExceptionBreakpoints",
         ]);
-        expect(sent(adapter, "setExceptionBreakpoints")[0]).toEqual({ filters: [filter.filter] });
+        expect(sent(adapter, "setExceptionBreakpoints")[0]).toEqual({
+            filters: [],
+            filterOptions: [{ filterId: filter.filter }],
+        });
     });
 
     it("a triggered breakpoint follows its trigger: enabled with it, disabled with it", async () => {
@@ -323,6 +326,59 @@ describe("DebugService breakpoint editing", () => {
         expect(model().getInstructionBreakpoints()).toEqual([]);
         expect(adapter.requests.map((r) => r.command)).toEqual(["setDataBreakpoints", "setInstructionBreakpoints"]);
         expect(stored("debug.databreakpoint")).toBeUndefined();
+    });
+
+    it("updates of a function, a data and an exception breakpoint are stored and sent; an instruction one is added", async () => {
+        model().addFunctionBreakpoint({ name: "f" });
+        model().addDataBreakpoint({
+            description: "sum",
+            src: { type: DataBreakpointSetType.Variable, dataId: "sum" },
+            canPersist: true,
+            accessTypes: undefined,
+            accessType: "write",
+        });
+        const adapter = await startStopped();
+        const [fn] = model().getFunctionBreakpoints();
+        const [data] = model().getDataBreakpoints();
+        const filter = model().getExceptionBreakpoints()[0];
+        await fx.service.enableOrDisableBreakpoints(true, filter);
+        adapter.requests.length = 0;
+
+        // Each is stored by its own update: the next ones store the whole model again.
+        await fx.service.updateFunctionBreakpoint(fn.getId(), { condition: "a", hitCondition: "2" });
+        expect(stored("debug.functionbreakpoint")).toEqual([
+            expect.objectContaining({ condition: "a", hitCondition: "2" }),
+        ]);
+        await fx.service.updateDataBreakpoint(data.getId(), { condition: "b" });
+        expect(stored("debug.databreakpoint")).toEqual([expect.objectContaining({ condition: "b" })]);
+        await fx.service.setExceptionBreakpointCondition(filter, "std::bad_alloc");
+        await fx.service.addInstructionBreakpoint({
+            instructionReference: "0x20",
+            offset: 0,
+            canPersist: false,
+            address: 32n,
+        });
+
+        expect(adapter.requests.map((r) => r.command)).toEqual([
+            "setFunctionBreakpoints",
+            "setDataBreakpoints",
+            "setExceptionBreakpoints",
+            "setInstructionBreakpoints",
+        ]);
+        expect(sent(adapter, "setFunctionBreakpoints")[0].breakpoints).toEqual([
+            { name: "f", condition: "a", hitCondition: "2" },
+        ]);
+        expect(sent(adapter, "setExceptionBreakpoints")[0].filterOptions).toEqual([
+            { filterId: "cpp_throw", condition: "std::bad_alloc" },
+        ]);
+        expect(stored("debug.exceptionbreakpoint")).toEqual(
+            expect.arrayContaining([expect.objectContaining({ filter: "cpp_throw", condition: "std::bad_alloc" })]),
+        );
+        expect(
+            model()
+                .getInstructionBreakpoints()
+                .map((bp) => bp.instructionReference),
+        ).toEqual(["0x20"]);
     });
 });
 

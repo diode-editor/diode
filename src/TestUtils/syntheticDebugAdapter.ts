@@ -5,6 +5,10 @@
 // step over, stdout/stderr/console output and a latency on `variables`/`evaluate`. Tests, e2e and the views of the
 // debugger series run on it. A launch configuration with CodeLLDB's `terminal: "integrated" | "external"` runs its
 // `program` with `args`, `cwd` and `env` through the `runInTerminal` reverse request before it answers `launch`.
+// The loop of `accumulate` is lines 27-31 of `main.cpp`, once per `i`: with a condition, a hit count or a log message
+// on a breakpoint there, Continue runs the loop line by line — a logpoint writes its message with `{i}` and `{sum}`
+// interpolated, a breakpoint stops where its condition (`i % 100 == 0`, `i > 5`) and hit count (`>= 5`, or `5`)
+// hold, and the program exits at `i == 1000`; without them Continue keeps the spike's jump of 100 to line 31.
 
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { AbstractDebugAdapter } from "../vs/workbench/contrib/debug/common/abstractDebugAdapter.ts";
@@ -51,11 +55,26 @@ export const SYNTHETIC_CAPABILITIES: DebugProtocol.Capabilities = {
     supportsEvaluateForHovers: true,
     supportsDelayedStackTraceLoading: true,
     supportsFunctionBreakpoints: true,
+    supportsConditionalBreakpoints: true,
+    supportsHitConditionalBreakpoints: true,
+    supportsLogPoints: true,
     supportsDataBreakpoints: true,
+    supportsDataBreakpointBytes: true,
+    supportsExceptionFilterOptions: true,
     supportsInstructionBreakpoints: true,
+    breakpointModes: [
+        { mode: "software", label: "Software", description: "A trap instruction in the code", appliesTo: ["source"] },
+        { mode: "hardware", label: "Hardware", description: "A debug register of the CPU", appliesTo: ["source"] },
+    ],
     supportsCompletionsRequest: true,
     exceptionBreakpointFilters: [
-        { filter: "cpp_throw", label: "C++: on throw", default: false },
+        {
+            filter: "cpp_throw",
+            label: "C++: on throw",
+            default: false,
+            supportsCondition: true,
+            conditionDescription: "Comma-separated list of exception types",
+        },
         { filter: "cpp_catch", label: "C++: on catch", default: false },
     ],
 };
@@ -77,6 +96,19 @@ interface IFrame {
 }
 
 type Children = () => DebugProtocol.Variable[];
+
+/** The lines of the loop of `accumulate` in `main.cpp`: one pass per `i`. */
+const LOOP_FIRST_LINE = 27;
+const LOOP_LAST_LINE = 31;
+
+/** A breakpoint the adapter was given, with how many times its condition held. */
+interface ISetBreakpoint {
+    readonly id: number;
+    readonly condition: string | undefined;
+    readonly hitCondition: string | undefined;
+    readonly logMessage: string | undefined;
+    hits: number;
+}
 
 /** The program's state between requests; the adapter answers DAP from it. */
 class Program {
@@ -156,8 +188,8 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     private readonly handles = new Map<number, Children>();
     private nextHandle = 1;
     private nextBreakpointId = 1;
-    /** The ids of the breakpoints set at `path:line`: a stop on a breakpoint names the ones at its line. */
-    private readonly breakpointsAt = new Map<string, number[]>();
+    /** The breakpoints set at `path:line`: a stop on a breakpoint names the ones at its line. */
+    private readonly breakpointsAt = new Map<string, ISetBreakpoint[]>();
     private seq = 1;
     private readonly timers = new Set<ReturnType<typeof setTimeout>>();
     private launched = false;
@@ -310,8 +342,19 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 this.setBreakpoints(request, args as unknown as DebugProtocol.SetBreakpointsArguments);
                 return;
             case "dataBreakpointInfo": {
-                // Any variable can be watched for a change; `count` for its reads and accesses too.
                 const name = String(args.name);
+                if (args.asAddress === true) {
+                    // Any range of memory can be watched, for its reads, writes or both.
+                    const bytes = Number(args.bytes ?? 1);
+                    this.respond(request, {
+                        dataId: `${name}+${String(bytes)}`,
+                        description: `${name} (${String(bytes)} bytes)`,
+                        accessTypes: ["read", "write", "readWrite"],
+                        canPersist: true,
+                    });
+                    return;
+                }
+                // Any variable can be watched for a change; `count` for its reads and accesses too.
                 this.respond(request, {
                     dataId: `${Number(args.variablesReference ?? 0)}:${name}`,
                     description: name,
@@ -367,6 +410,12 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 return;
             case "continue":
                 this.respond(request, { allThreadsContinued: true });
+                if (this.loopHasConditions()) {
+                    this.resume(this.timing.continueMs, () => {
+                        this.runLoop();
+                    });
+                    return;
+                }
                 this.resume(this.timing.continueMs, () => {
                     this.program.iteration += 100;
                     this.program.line = 31;
@@ -470,7 +519,68 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
         this.later(ms, stopAgain);
     }
 
-    private stop(reason: string, text?: string): void {
+    /** A breakpoint with a condition, a hit count or a log message on a line of the loop. */
+    private loopHasConditions(): boolean {
+        for (let line = LOOP_FIRST_LINE; line <= LOOP_LAST_LINE; line++) {
+            const set = this.breakpointsAt.get(`${this.root}/src/${MAIN_CPP}:${String(line)}`) ?? [];
+            if (set.some((bp) => !!bp.condition || !!bp.hitCondition || !!bp.logMessage)) return true;
+        }
+        return false;
+    }
+
+    /** The loop line by line from where the program is, until a breakpoint holds or the loop ends. */
+    private runLoop(): void {
+        const program = this.program;
+        for (;;) {
+            if (program.line >= LOOP_LAST_LINE) {
+                program.line = LOOP_FIRST_LINE;
+                program.iteration++;
+            } else {
+                program.line++;
+            }
+            if (program.iteration >= 1000) {
+                this.running = false;
+                this.output("console", "Process exited with code 0.");
+                this.event("exited", { exitCode: 0 });
+                this.event("terminated");
+                return;
+            }
+            const hit = this.hitsAt(program.line);
+            if (hit.length > 0) {
+                this.stop("breakpoint", undefined, hit);
+                return;
+            }
+        }
+    }
+
+    /** The ids of the breakpoints of a line that stop the program; its logpoints log. */
+    private hitsAt(line: number): number[] {
+        const hit: number[] = [];
+        for (const bp of this.breakpointsAt.get(`${this.root}/src/${MAIN_CPP}:${String(line)}`) ?? []) {
+            if (bp.condition && this.valueOf(bp.condition) === 0) continue;
+            bp.hits++;
+            if (bp.hitCondition && !hitConditionHolds(bp.hitCondition, bp.hits)) continue;
+            if (bp.logMessage) {
+                const message = bp.logMessage.replace(/\{([^}]*)\}/gu, (_, expression: string) =>
+                    String(this.valueOf(expression) ?? `<error: ${expression}>`),
+                );
+                this.output("console", message, { file: MAIN_CPP, line });
+                continue;
+            }
+            hit.push(bp.id);
+        }
+        return hit;
+    }
+
+    /** A number the expression evaluates to in the top frame, as `evaluate` does; `undefined` on an error. */
+    private valueOf(expression: string): number | undefined {
+        const byName = new Map(this.locals(this.program.frames(1)[0]).map((v) => [v.name, v.value]));
+        const words = expression.match(/[A-Za-z_]\w*/gu) ?? [];
+        if (words.some((word) => !/^-?\d+$/u.test(byName.get(word) ?? ""))) return undefined;
+        return evaluateArithmetic(expression.trim().replace(/[A-Za-z_]\w*/gu, (word) => String(byName.get(word))));
+    }
+
+    private stop(reason: string, text?: string, hitBreakpointIds?: number[]): void {
         this.running = false;
         this.event("stopped", {
             reason,
@@ -479,9 +589,12 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             text,
             description: reason === "exception" ? "Exception has occurred." : undefined,
             hitBreakpointIds:
-                reason === "breakpoint"
-                    ? this.breakpointsAt.get(`${this.root}/src/${MAIN_CPP}:${String(this.program.line)}`)
-                    : undefined,
+                hitBreakpointIds ??
+                (reason === "breakpoint"
+                    ? this.breakpointsAt
+                          .get(`${this.root}/src/${MAIN_CPP}:${String(this.program.line)}`)
+                          ?.map((bp) => bp.id)
+                    : undefined),
         });
     }
 
@@ -495,7 +608,16 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
         const breakpoints = (args.breakpoints ?? []).map((bp) => {
             const id = this.nextBreakpointId++;
             const key = `${path}:${String(bp.line)}`;
-            if (known) this.breakpointsAt.set(key, [...(this.breakpointsAt.get(key) ?? []), id]);
+            if (known) {
+                const set: ISetBreakpoint = {
+                    id,
+                    condition: bp.condition,
+                    hitCondition: bp.hitCondition,
+                    logMessage: bp.logMessage,
+                    hits: 0,
+                };
+                this.breakpointsAt.set(key, [...(this.breakpointsAt.get(key) ?? []), set]);
+            }
             const source =
                 this.breakpointAdapterData === undefined
                     ? undefined
@@ -802,9 +924,19 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
 
 /** `+ - * /` and parentheses over integers: enough for the REPL demo. `undefined` — not an expression, or `/ 0`. */
 function evaluateArithmetic(text: string): number | undefined {
-    const tokens = text.match(/\d+|[+\-*/()]|\S/gu) ?? [];
+    const tokens = text.match(/\d+|==|[+\-*/%()>]|\S/gu) ?? [];
     let pos = 0;
+    /** A comparison of two sums, as C's `0` or `1`. */
     const expr = (): number | undefined => {
+        const left = additive();
+        const op = tokens[pos];
+        if (left === undefined || (op !== "==" && op !== ">")) return left;
+        pos++;
+        const right = additive();
+        if (right === undefined) return undefined;
+        return Number(op === "==" ? left === right : left > right);
+    };
+    const additive = (): number | undefined => {
         let left = term();
         while (left !== undefined && (tokens[pos] === "+" || tokens[pos] === "-")) {
             const op = tokens[pos++];
@@ -816,11 +948,11 @@ function evaluateArithmetic(text: string): number | undefined {
     };
     const term = (): number | undefined => {
         let left = factor();
-        while (left !== undefined && (tokens[pos] === "*" || tokens[pos] === "/")) {
+        while (left !== undefined && (tokens[pos] === "*" || tokens[pos] === "/" || tokens[pos] === "%")) {
             const op = tokens[pos++];
             const right = factor();
-            if (right === undefined || (op === "/" && right === 0)) return undefined;
-            left = op === "*" ? left * right : Math.trunc(left / right);
+            if (right === undefined || (op !== "*" && right === 0)) return undefined;
+            left = op === "*" ? left * right : op === "/" ? Math.trunc(left / right) : left % right;
         }
         return left;
     };
@@ -838,6 +970,11 @@ function evaluateArithmetic(text: string): number | undefined {
     };
     const result = expr();
     return tokens.length > 0 && pos === tokens.length ? result : undefined;
+}
+
+/** A hit count condition: the pass from which on the breakpoint stops, `>= 5` and `5` alike; one without a number never holds. */
+function hitConditionHolds(condition: string, hits: number): boolean {
+    return hits >= parseInt(condition.replace(/\D/gu, ""), 10);
 }
 
 /** A factory of fresh synthetic adapters: each session (and each restart) gets its own program. */

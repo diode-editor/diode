@@ -51,6 +51,11 @@
             "workbench.action.debug.callStackDown",
             "debug.startFromConfig",
             "workbench.action.debug.focusProcess",
+            "debug.editBreakpoint",
+            "debug.editFunctionBreakpoint",
+            "debug.editFunctionBreakpointHitCount",
+            "debug.editBreakpointMode",
+            "workbench.debug.viewlet.action.editDataBreakpointOnAddress",
             "variables.collapse",
             "workbench.debug.viewlet.action.addWatchExpression",
             "workbench.debug.viewlet.action.removeAllWatchExpressions",
@@ -105,6 +110,13 @@
         "3_modification": [
             "workbench.debug.viewlet.action.removeBreakpoint",
             "workbench.debug.viewlet.action.removeAllBreakpoints"
+        ],
+        "navigation": [
+            "debug.editBreakpoint",
+            "debug.editFunctionBreakpoint",
+            "workbench.debug.viewlet.action.editDataBreakpointOnAddress",
+            "debug.editFunctionBreakpointHitCount",
+            "debug.editBreakpointMode"
         ],
         "z_commands": [
             "workbench.debug.viewlet.action.enableAllBreakpoints",
@@ -655,6 +667,7 @@
             "references-view.showSubtypes",
             "testing.cancelRun",
             "testing.runSelected",
+            "workbench.debug.viewlet.action.addDataBreakpointOnAddress",
             "testing.showMostRecentOutput",
             "testing.collapsePeekStack",
             "testing.clearTestResults",
