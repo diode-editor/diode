@@ -22,6 +22,7 @@ import { Expression, Variable } from "../common/debugModel.ts";
 
 import { getDataBreakpointInfoResponse, getVariableInternalContext, rowMenuItem } from "./debugContextMenus.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
+import { watchExpressionOf } from "./debugViewActions.ts";
 import { DebugViewletComponentDIToken } from "./debugViewlet.ts";
 
 export const SET_VARIABLE_ID = "debug.setVariable";
@@ -254,8 +255,7 @@ export const copyWatchExpressionAction: CommandAction = {
     },
     menus: [...HIDDEN_FROM_PALETTE, rowMenuItem(WATCH_MENU, "3_modification", 20, "watchItemType == 'expression'")],
     async run(accessor, value) {
-        const expression =
-            (value as IExpression | undefined) ?? accessor.get(DebugViewletComponentDIToken).watch.tree.focused;
+        const expression = watchExpressionOf(accessor, value);
         if (expression) await accessor.get(ClipboardDIToken).writeText(expression.name);
     },
 };

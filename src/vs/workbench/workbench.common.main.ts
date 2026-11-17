@@ -145,7 +145,7 @@ import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
 import { DebugLifecycleDIToken } from "./contrib/debug/browser/debugLifecycle.ts";
 import { DebugServiceDIToken } from "./contrib/debug/browser/debugService.ts";
 import { DebugStatusContributionDIToken } from "./contrib/debug/browser/debugStatus.ts";
-import { DebugToolbarDIToken } from "./contrib/debug/browser/debugToolbar.ts";
+import { DebugToolbarDIToken, DockedDebugToolbarItemsDIToken } from "./contrib/debug/browser/debugToolbar.ts";
 import { DebugViewletComponentDIToken } from "./contrib/debug/browser/debugViewlet.ts";
 import { ReplDIToken } from "./contrib/debug/browser/repl.ts";
 import { StatusBarColorProviderDIToken } from "./contrib/debug/browser/statusbarColorProvider.ts";
@@ -377,6 +377,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: DebugLifecycleDIToken, phase: "afterRestored" },
     // The toolbar in the active editor group and the status bar's colors and `status.debug` while debugging.
     { token: DebugToolbarDIToken, phase: "afterRestored" },
+    { token: DockedDebugToolbarItemsDIToken, phase: "afterRestored" },
     { token: StatusBarColorProviderDIToken, phase: "afterRestored" },
     { token: DebugStatusContributionDIToken, phase: "afterRestored" },
     // The run glyphs of the restored editors' tests.

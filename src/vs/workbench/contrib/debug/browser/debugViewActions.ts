@@ -51,7 +51,7 @@ const NOT_EXCEPTION_BREAKPOINT = "breakpointItemType != 'exceptionBreakpoint'";
 const BREAKPOINTS_ROW = `breakpointsExist && ${NOT_EXCEPTION_BREAKPOINT}`;
 
 /** The expression a WATCH command acts on: its argument (a row of a menu), else the focused row of the view. */
-function watchExpressionOf(accessor: ServiceAccessor, arg: unknown): Expression | undefined {
+export function watchExpressionOf(accessor: ServiceAccessor, arg: unknown): Expression | undefined {
     if (arg instanceof Expression) return arg;
     const focused = accessor.get(DebugViewletComponentDIToken).watch.tree.focused;
     return focused instanceof Expression ? focused : undefined;

@@ -45,7 +45,7 @@ import {
     VIEWLET_ID,
     WATCH_VIEW_ID,
 } from "../common/debug.ts";
-import { Expression, Scope, Variable } from "../common/debugModel.ts";
+import { Scope, Variable } from "../common/debugModel.ts";
 
 import { BreakpointSourcesDIToken, BreakpointsView, type IBreakpointSources } from "./breakpointsView.ts";
 import { CallStackView, getContext, getContextForContributedActions } from "./callStackView.ts";
@@ -54,9 +54,9 @@ import {
     breakpointItemType,
     callStackItemKeys,
     type IDebugContextMenuHost,
-    type IDebugContextMenuRequest,
     showDebugContextMenu,
     variableMenuKeys,
+    watchItemType,
     watchMenuKeys,
 } from "./debugContextMenus.ts";
 import { DebugExpressionRenderer } from "./debugExpressionRenderer.ts";
@@ -133,14 +133,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
             }),
         );
         this.view = this.variables.tree.element;
-        this.registerContextMenus({
-            menus,
-            contextMenu,
-            commands,
-            onError: (message) => {
-                onUnexpectedError(new Error(message));
-            },
-        });
+        this.registerContextMenus({ menus, contextMenu, commands });
 
         this.runButton.setLabel("Run and Debug");
         this.runButton.onActivate = () => {
@@ -234,22 +227,20 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
 
     /** Upstream's `onContextMenu` of each view: the row's menu with the row's keys and arguments. */
     private registerContextMenus(host: IDebugContextMenuHost): void {
-        const show = (request: Omit<IDebugContextMenuRequest, "anchor">, screenX: number, screenY: number): void => {
-            showDebugContextMenu(host, { ...request, anchor: { screenX, screenY } });
-        };
         const viewModel = this.debugService.getViewModel();
         this.variables.tree.onContextMenu = (element, screenX, screenY) => {
             const owner = this.variables.tree.list;
+            const anchor = { screenX, screenY };
             if (element instanceof Scope) {
                 const args = [{ scope: { name: element.name } }];
-                show({ owner, menuId: MenuId.DebugScopesContext, keys: {}, args }, screenX, screenY);
+                showDebugContextMenu(host, { owner, anchor, menuId: MenuId.DebugScopesContext, keys: {}, args });
                 return;
             }
             if (!(element instanceof Variable) || !element.value) return;
             void variableMenuKeys(element)
                 .then((keys) => {
                     const args = [element.toJSON()];
-                    show({ owner, menuId: MenuId.DebugVariablesContext, keys, args }, screenX, screenY);
+                    showDebugContextMenu(host, { owner, anchor, menuId: MenuId.DebugVariablesContext, keys, args });
                 })
                 .catch(onUnexpectedError);
         };
@@ -257,34 +248,35 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
             void watchMenuKeys(element, viewModel.focusedStackFrame)
                 .then((keys) => {
                     const owner = this.watch.tree.list;
-                    show({ owner, menuId: MenuId.DebugWatchContext, keys, args: [element] }, screenX, screenY);
+                    const anchor = { screenX, screenY };
+                    showDebugContextMenu(host, {
+                        owner,
+                        anchor,
+                        menuId: MenuId.DebugWatchContext,
+                        keys,
+                        args: [element],
+                    });
                 })
                 .catch(onUnexpectedError);
         };
         this.callStack.tree.onContextMenu = (element, screenX, screenY) => {
-            show(
-                {
-                    owner: this.callStack.tree.list,
-                    menuId: MenuId.DebugCallStackContext,
-                    keys: callStackItemKeys(element),
-                    // Extensions get upstream's contributed argument, the built-in commands the row's ids after it.
-                    args: [getContextForContributedActions(element), getContext(element)],
-                },
-                screenX,
-                screenY,
-            );
+            showDebugContextMenu(host, {
+                owner: this.callStack.tree.list,
+                anchor: { screenX, screenY },
+                menuId: MenuId.DebugCallStackContext,
+                keys: callStackItemKeys(element),
+                // Extensions get upstream's contributed argument, the built-in commands the row's ids after it.
+                args: [getContextForContributedActions(element), getContext(element)],
+            });
         };
         this.breakpoints.tree.onContextMenu = (element, screenX, screenY) => {
-            show(
-                {
-                    owner: this.breakpoints.tree.list,
-                    menuId: MenuId.DebugBreakpointsContext,
-                    keys: { breakpointItemType: breakpointItemType(element) },
-                    args: [element],
-                },
-                screenX,
-                screenY,
-            );
+            showDebugContextMenu(host, {
+                owner: this.breakpoints.tree.list,
+                anchor: { screenX, screenY },
+                menuId: MenuId.DebugBreakpointsContext,
+                keys: { breakpointItemType: breakpointItemType(element) },
+                args: [element],
+            });
         };
     }
 
@@ -293,10 +285,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         const watchFocused = contains(this.watch.tree.list, active);
         contextKeys.set("watchExpressionsFocused", watchFocused);
         const item = watchFocused ? this.watch.tree.focused : undefined;
-        contextKeys.set(
-            "watchItemType",
-            item === undefined ? "" : item instanceof Expression ? "expression" : "variable",
-        );
+        contextKeys.set("watchItemType", watchItemType(item));
         this.updateCallStackContextKeys(contextKeys, active);
         const breakpointsFocused = contains(this.breakpoints.tree.list, active);
         contextKeys.set("breakpointsFocused", breakpointsFocused);

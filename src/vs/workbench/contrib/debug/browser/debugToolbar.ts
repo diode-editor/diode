@@ -20,9 +20,13 @@ import { HFlexElement, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFle
 import { SizedBoxElement } from "@tuidom/elements/layout/sizedBoxElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
-import { Disposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
-import type { IMenuEntryGroup } from "../../../../platform/actions/common/menuRegistry.ts";
+import {
+    type IMenuEntryGroup,
+    type MenuRegistry,
+    MenuRegistryDIToken,
+} from "../../../../platform/actions/common/menuRegistry.ts";
 import { type MenuService, MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -35,6 +39,7 @@ import {
     type IProductIconService,
     ProductIconServiceDIToken,
 } from "../../../../platform/theme/common/productIconService.ts";
+import { containerMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { CORNER_RIGHT_MARGIN, CornerDockElement } from "../../../browser/parts/editor/cornerDockElement.ts";
 import { EditorPartComponentDIToken } from "../../../browser/parts/editor/editorPartComponent.ts";
 import {
@@ -49,12 +54,59 @@ import {
     type IEditorGroupsService,
 } from "../../../services/editor/common/editorGroupsService.ts";
 import type { IGroupOverlayHosts } from "../../find/browser/findComponent.ts";
-import { type IDebugService, State } from "../common/debug.ts";
+import { type IDebugService, State, VIEWLET_ID } from "../common/debug.ts";
 
 import { STEP_INTO_ID, STEP_OUT_ID, STEP_OVER_ID } from "./debugCommands.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
 
 export const DebugToolbarDIToken = token<DebugToolbar>("DebugToolbar");
+export const DockedDebugToolbarItemsDIToken = token<DockedDebugToolbarItems>("DockedDebugToolbarItems");
+
+const DOCKED = "debugState != 'inactive' && config.debug.toolBarLocation == 'docked'";
+
+/**
+ * Upstream's `debugViewTitleItems` (`debugToolBar.ts`): every item of the toolbar, built-in or an extension's
+ * `debug/toolBar`, has a twin in the Run and Debug title, shown while the toolbar is docked there and a session is
+ * on; the twins follow the toolbar's menu as it changes.
+ */
+export class DockedDebugToolbarItems extends Disposable {
+    public static dependencies = [MenuRegistryDIToken] as const;
+
+    private twins: IDisposable[] = [];
+
+    public constructor(private readonly registry: MenuRegistry) {
+        super();
+        this.register(
+            registry.onDidChangeMenu((menuId) => {
+                if (menuId === MenuId.DebugToolBar) this.update();
+            }),
+        );
+        this.register({
+            dispose: () => {
+                this.clear();
+            },
+        });
+        this.update();
+    }
+
+    private update(): void {
+        this.clear();
+        for (const item of this.registry.getContributions(MenuId.DebugToolBar)) {
+            this.twins.push(
+                this.registry.appendMenuItem({
+                    ...item,
+                    menuId: MenuId.ViewContainerTitle,
+                    when: item.when === undefined ? DOCKED : `(${item.when}) && ${DOCKED}`,
+                    visible: containerMenuVisible(VIEWLET_ID),
+                }),
+            );
+        }
+    }
+
+    private clear(): void {
+        for (const twin of this.twins.splice(0)) twin.dispose();
+    }
+}
 
 /** The box: a border row above and below the buttons, as the find widget. */
 const TOOLBAR_HEIGHT = 3;

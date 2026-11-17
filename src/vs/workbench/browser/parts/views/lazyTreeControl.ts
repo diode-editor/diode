@@ -195,7 +195,8 @@ export class LazyTreeControl<T> {
     public edit(element: T, edit: IRowEdit): boolean {
         const key = this.source.getKey(element);
         if (!this.parentOf.has(`${this.options.idPrefix}:${key}`)) return false;
-        this.finishEdit(false);
+        // The open edit gives way without a rebuild of its own: the one below puts its row back.
+        const previous = this.editing;
         const input = new InputElement();
         input.inputState.value = edit.value;
         input.inputState.selectAll();
@@ -211,6 +212,7 @@ export class LazyTreeControl<T> {
         this.editing = { key, edit, input };
         this.rebuild();
         input.focus();
+        previous?.edit.onDone(previous.input.inputState.value, false);
         return true;
     }
 

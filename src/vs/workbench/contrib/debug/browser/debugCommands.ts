@@ -29,7 +29,6 @@ import { LAUNCH_FILE_NAME } from "../../../../platform/configuration/common/work
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
-import { containerMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
@@ -49,6 +48,7 @@ import {
 import type { Thread } from "../common/debugModel.ts";
 import { resolveChildSession } from "../common/debugUtils.ts";
 
+import { rowMenuItem } from "./debugContextMenus.ts";
 import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
 import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
@@ -93,8 +93,8 @@ function paletteItem(when?: string, enablement?: string): CommandMenuPlacement[]
 }
 
 /**
- * Upstream `registerDebugToolBarItem` (`debugToolBar.ts`): a button of the debug toolbar and, with
- * `debug.toolBarLocation: docked`, the same button in the Run and Debug title while a session is on.
+ * Upstream `registerDebugToolBarItem` (`debugToolBar.ts`): a button of the debug toolbar (`DockedDebugToolbarItems`
+ * copies it to the Run and Debug title for `debug.toolBarLocation: docked`).
  */
 function toolBarItem(
     title: string,
@@ -104,15 +104,16 @@ function toolBarItem(
     when?: string,
     enablement?: string,
 ): CommandMenuPlacement[] {
-    const docked = "debugState != 'inactive' && config.debug.toolBarLocation == 'docked'";
-    const item = { title, group: "navigation", order, icon: codicon(icon), iconColor, enablement };
     return [
-        { menuId: MenuId.DebugToolBar, when, ...item },
         {
-            menuId: MenuId.ViewContainerTitle,
-            when: when === undefined ? docked : `${when} && ${docked}`,
-            visible: containerMenuVisible(VIEWLET_ID),
-            ...item,
+            menuId: MenuId.DebugToolBar,
+            when,
+            title,
+            group: "navigation",
+            order,
+            icon: codicon(icon),
+            iconColor,
+            enablement,
         },
     ];
 }
@@ -128,7 +129,7 @@ function callStackItem(
     enablement?: string,
     group = "navigation",
 ): CommandMenuPlacement {
-    return { menuId: MenuId.DebugCallStackContext, title, order, when, enablement, group };
+    return { ...rowMenuItem(MenuId.DebugCallStackContext, group, order, when, enablement), title };
 }
 
 const SESSION_ROW = "callStackItemType == 'session'";

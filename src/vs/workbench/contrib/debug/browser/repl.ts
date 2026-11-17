@@ -72,7 +72,7 @@ import {
     ReplVariableElement,
 } from "../common/replModel.ts";
 
-import { type IDebugContextMenuHost, showDebugContextMenu } from "./debugContextMenus.ts";
+import { showDebugContextMenu } from "./debugContextMenus.ts";
 import { DebugExpressionRenderer } from "./debugExpressionRenderer.ts";
 import { type DebugService, DebugServiceDIToken } from "./debugService.ts";
 
@@ -255,28 +255,20 @@ export class Repl extends Component implements IContextKeyContributor {
                 this.tree.rerender();
             }),
         );
-        this.registerContextMenu({
-            menus,
-            contextMenu,
-            commands,
-            onError: (message) => {
-                onUnexpectedError(new Error(message));
-            },
-        });
-        this.selectSession(viewModel.focusedSession);
-    }
-
-    /** Upstream `onContextMenu`: the console's menu with the row as the argument. */
-    private registerContextMenu(host: IDebugContextMenuHost): void {
+        // Upstream `onContextMenu`: the console's menu with the row as the argument.
         this.tree.onContextMenu = (element, screenX, screenY) => {
-            showDebugContextMenu(host, {
-                owner: this.tree.list,
-                anchor: { screenX, screenY },
-                menuId: MenuId.DebugConsoleContext,
-                keys: {},
-                args: [element],
-            });
+            showDebugContextMenu(
+                { menus, contextMenu, commands },
+                {
+                    owner: this.tree.list,
+                    anchor: { screenX, screenY },
+                    menuId: MenuId.DebugConsoleContext,
+                    keys: {},
+                    args: [element],
+                },
+            );
         };
+        this.selectSession(viewModel.focusedSession);
     }
 
     /** Upstream `getVisibleContent`: the rows on screen, one per line, without ANSI codes. */

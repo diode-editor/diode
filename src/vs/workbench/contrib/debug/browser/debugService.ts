@@ -1106,8 +1106,8 @@ export class DebugService implements IDebugService {
     public async addDataBreakpoint(opts: IDataBreakpointOptions): Promise<void> {
         this.model.addDataBreakpoint(opts);
         this.debugStorage.storeBreakpoints(this.model);
+        // Upstream stores once more after sending; nothing of the stored breakpoint changes with the answer.
         await this.sendDataBreakpoints();
-        this.debugStorage.storeBreakpoints(this.model);
     }
 
     public async removeDataBreakpoints(id?: string): Promise<void> {

@@ -36,13 +36,6 @@ const MENU_IDS: Readonly<Partial<Record<string, MenuId>>> = {
 
 const COMMAND_PALETTE_MENU = "commandPalette";
 
-/**
- * Upstream `debugToolBar.ts` copies every `debug/toolBar` item to the Run and Debug title, shown while the toolbar
- * is docked there.
- */
-const DOCKED_DEBUG_TOOLBAR =
-    "viewContainer == 'workbench.view.debug' && debugState != 'inactive' && config.debug.toolBarLocation == 'docked'";
-
 // The bridge is called repeatedly, and `MenuId` is unique per process: one submenu's point must stay the same.
 const extensionSubmenuIds = new Map<string, MenuId>();
 
@@ -102,18 +95,7 @@ export function registerExtensionMenus(
             }
             for (const item of applied) {
                 const contribution = toContribution(ext.id, menuId, item, submenus, icons, logger);
-                if (contribution === null) continue;
-                disposables.push(menuRegistry.appendMenuItem(contribution));
-                if (menuId === MenuId.DebugToolBar) {
-                    const when = contribution.when === undefined ? "" : `(${contribution.when}) && `;
-                    disposables.push(
-                        menuRegistry.appendMenuItem({
-                            ...contribution,
-                            menuId: MenuId.ViewContainerTitle,
-                            when: when + DOCKED_DEBUG_TOOLBAR,
-                        }),
-                    );
-                }
+                if (contribution !== null) disposables.push(menuRegistry.appendMenuItem(contribution));
             }
         }
     }

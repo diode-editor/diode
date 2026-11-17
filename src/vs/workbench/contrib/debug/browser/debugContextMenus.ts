@@ -12,6 +12,7 @@
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import type { CommandMenuPlacement } from "../../../../platform/actions/common/commandAction.ts";
 import type { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { joinMenuGroups, type MenuContextKeys } from "../../../../platform/actions/common/menuRegistry.ts";
@@ -39,8 +40,6 @@ export interface IDebugContextMenuHost {
     readonly menus: Pick<MenuService, "getEntryGroups">;
     readonly contextMenu: Pick<ContextMenuService, "showContextMenu">;
     readonly commands: Pick<CommandRegistry, "execute">;
-    /** A command of the menu threw or rejected. */
-    readonly onError: (message: string) => void;
 }
 
 export interface IDebugContextMenuRequest {
@@ -70,7 +69,13 @@ export function showDebugContextMenu(host: IDebugContextMenuHost, request: IDebu
         .filter((group) => group.group !== INLINE_MENU_GROUP);
     const entries = joinMenuGroups(groups).map((entry) =>
         bindMenuEntry(entry, (item) => {
-            runMenuEntry(item, (id) => host.commands.execute(id, ...request.args), host.onError);
+            runMenuEntry(
+                item,
+                (id) => host.commands.execute(id, ...request.args),
+                (message) => {
+                    onUnexpectedError(new Error(message));
+                },
+            );
         }),
     );
     host.contextMenu.showContextMenu({
@@ -112,7 +117,6 @@ function isReadonly(expression: IExpression): boolean {
 
 /** Upstream's `breakWhenValue*Supported` of a data breakpoint info: the access types it offers, else a change. */
 function dataAccessKeys(response: IDataBreakpointInfoResponse | undefined): MenuContextKeys {
-    dataBreakpointInfoResponse = response;
     const supported = !!response?.dataId;
     if (!response?.accessTypes) return { breakWhenValueChangesSupported: supported };
     const keys: Record<string, boolean> = {};
@@ -131,11 +135,10 @@ function dataAccessKeys(response: IDataBreakpointInfoResponse | undefined): Menu
 export async function variableMenuKeys(variable: Variable): Promise<MenuContextKeys> {
     variableInternalContext = variable;
     const session = variable.getSession();
-    if (!session?.capabilities.supportsDataBreakpoints) {
-        dataBreakpointInfoResponse = undefined;
-        return variableKeys(variable);
-    }
+    dataBreakpointInfoResponse = undefined;
+    if (!session?.capabilities.supportsDataBreakpoints) return variableKeys(variable);
     const response = await session.dataBreakpointInfo(variable.name, variable.parent.reference).catch(() => undefined);
+    dataBreakpointInfoResponse = response;
     return { ...variableKeys(variable), ...dataAccessKeys(response) };
 }
 
@@ -144,7 +147,7 @@ function watchKeys(expression: IExpression): MenuContextKeys {
     const session = expression.getSession();
     return {
         variableEvaluateNamePresent: "evaluateName" in expression,
-        watchItemType: expression instanceof Expression ? "expression" : "variable",
+        watchItemType: watchItemType(expression),
         canViewMemory: !!session?.capabilities.supportsReadMemoryRequest && expression.memoryReference !== undefined,
         variableIsReadonly: isReadonly(expression),
         variableType: expression.type ?? "",
@@ -161,10 +164,8 @@ export async function watchMenuKeys(
     stackFrame: IStackFrame | undefined,
 ): Promise<MenuContextKeys> {
     const session = expression.getSession();
-    if (!session?.capabilities.supportsDataBreakpoints) {
-        dataBreakpointInfoResponse = undefined;
-        return watchKeys(expression);
-    }
+    dataBreakpointInfoResponse = undefined;
+    if (!session?.capabilities.supportsDataBreakpoints) return watchKeys(expression);
     let response: IDataBreakpointInfoResponse | undefined;
     try {
         if (expression instanceof Variable && expression.evaluateName) {
@@ -181,6 +182,7 @@ export async function watchMenuKeys(
     } catch {
         // silently continue without data breakpoint support for this item
     }
+    dataBreakpointInfoResponse = response;
     return { ...watchKeys(expression), ...dataAccessKeys(response) };
 }
 
@@ -199,6 +201,12 @@ export function callStackItemKeys(item: unknown): MenuContextKeys {
         return { callStackItemType: "stackFrame", stackFrameSupportsRestart: item.canRestart };
     }
     return { callStackItemType: "" };
+}
+
+/** Upstream's `watchItemType` of a WATCH row. */
+export function watchItemType(element: IExpression | undefined): string {
+    if (element === undefined) return "";
+    return element instanceof Expression ? "expression" : "variable";
 }
 
 /** Upstream's `breakpointItemType` of a breakpoints row. */
