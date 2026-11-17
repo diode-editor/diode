@@ -32,6 +32,7 @@
             "workbench.action.debug.start",
             "workbench.action.debug.run",
             "workbench.action.debug.selectandstart",
+            "debug.installAdditionalDebuggers",
             "workbench.action.debug.configure",
             "debug.addConfiguration",
             "workbench.action.debug.restart",
@@ -505,9 +506,14 @@
         ]
     },
     "ViewContainerTitle": {
+        "": [
+            "workbench.action.debug.selectandstart",
+            "workbench.action.debug.configure"
+        ],
         "navigation": [
             "workbench.action.debug.pause",
             "workbench.action.debug.continue",
+            "workbench.action.debug.configure",
             "workbench.action.debug.stepOver",
             "workbench.action.debug.stepInto",
             "workbench.action.debug.stepOut",

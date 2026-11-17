@@ -31,14 +31,17 @@ describe("DebugService — a start without a type", () => {
         provide({
             resolveDebugConfiguration: (_folder, config) => {
                 resolved.push(config);
-                return Promise.resolve({ ...SYNTHETIC_LAUNCH_CONFIG, name: "Filled", ...config });
+                return Promise.resolve(Object.assign({}, SYNTHETIC_LAUNCH_CONFIG, { name: "Filled" }, config));
             },
         });
         // A language without a name and without a debugger: the user picks one.
         fx.activeEditor = { resource: MAIN, languageId: "x" };
     }
 
-    function provide(provider: Partial<IDebugConfigurationProvider>, triggerKind = DebugConfigurationProviderTriggerKind.Initial): void {
+    function provide(
+        provider: Partial<IDebugConfigurationProvider>,
+        triggerKind: DebugConfigurationProviderTriggerKind = DebugConfigurationProviderTriggerKind.Initial,
+    ): void {
         fx.service.getConfigurationManager().registerDebugConfigurationProvider({
             type: SYNTHETIC_DEBUG_TYPE,
             triggerKind,
