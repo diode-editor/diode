@@ -5,10 +5,12 @@
 // step over, stdout/stderr/console output and a latency on `variables`/`evaluate`. Tests, e2e and the views of the
 // debugger series run on it. A launch configuration with CodeLLDB's `terminal: "integrated" | "external"` runs its
 // `program` with `args`, `cwd` and `env` through the `runInTerminal` reverse request before it answers `launch`.
-// The loop of `accumulate` is lines 27-31 of `main.cpp`, once per `i`: with a condition, a hit count or a log message
-// on a breakpoint there, Continue runs the loop line by line — a logpoint writes its message with `{i}` and `{sum}`
-// interpolated, a breakpoint stops where its condition (`i % 100 == 0`, `i > 5`) and hit count (`>= 5`, or `5`)
-// hold, and the program exits at `i == 1000`; without them Continue keeps the spike's jump of 100 to line 31.
+// The loop of `accumulate` is lines 27-31 of `main.cpp`, once per `i`: with a breakpoint there, Continue runs the loop
+// line by line — a logpoint writes its message with `{i}` and `{sum}` interpolated, a breakpoint stops where its
+// condition (`i % 100 == 0`, `i > 5`) and hit count (`>= 5`, or `5`) hold, and the program exits at `i == 1000`;
+// without one Continue keeps the spike's jump of 100 to line 31. The editor's commands have their requests: the step
+// in targets of line 29 (`numAt(i)`, `std::vector::at`), Jump to Cursor (`gotoTargets`/`goto`) on a line of the loop
+// and the breakpoint locations of its lines; the exception's info has a stack trace.
 
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { AbstractDebugAdapter } from "../vs/workbench/contrib/debug/common/abstractDebugAdapter.ts";
@@ -67,6 +69,9 @@ export const SYNTHETIC_CAPABILITIES: DebugProtocol.Capabilities = {
         { mode: "hardware", label: "Hardware", description: "A debug register of the CPU", appliesTo: ["source"] },
     ],
     supportsCompletionsRequest: true,
+    supportsStepInTargetsRequest: true,
+    supportsGotoTargetsRequest: true,
+    supportsBreakpointLocationsRequest: true,
     exceptionBreakpointFilters: [
         {
             filter: "cpp_throw",
@@ -100,6 +105,10 @@ type Children = () => DebugProtocol.Variable[];
 /** The lines of the loop of `accumulate` in `main.cpp`: one pass per `i`. */
 const LOOP_FIRST_LINE = 27;
 const LOOP_LAST_LINE = 31;
+/** The loop's line with calls to step into: `        sum += numAt(nums.at(i));` (`numAt` at 16, `nums.at` at 22). */
+export const STEP_IN_TARGETS_LINE = 29;
+/** The columns of a loop's line a breakpoint can be set at (`breakpointLocations`). */
+export const BREAKPOINT_COLUMNS: readonly number[] = [9, 16, 22];
 
 /** A breakpoint the adapter was given, with how many times its condition held. */
 interface ISetBreakpoint {
@@ -410,7 +419,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 return;
             case "continue":
                 this.respond(request, { allThreadsContinued: true });
-                if (this.loopHasConditions()) {
+                if (this.loopHasBreakpoints()) {
                     this.resume(this.timing.continueMs, () => {
                         this.runLoop();
                     });
@@ -447,6 +456,58 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                     this.stop("step");
                 });
                 return;
+            case "stepInTargets":
+                this.respond(request, {
+                    targets:
+                        this.program.line === STEP_IN_TARGETS_LINE
+                            ? [
+                                  {
+                                      id: 1,
+                                      label: "numAt(int)",
+                                      line: STEP_IN_TARGETS_LINE,
+                                      column: 16,
+                                      endLine: STEP_IN_TARGETS_LINE,
+                                      endColumn: 33,
+                                  },
+                                  {
+                                      id: 2,
+                                      label: "std::vector<int>::at(size_t)",
+                                      line: STEP_IN_TARGETS_LINE,
+                                      column: 22,
+                                      endLine: STEP_IN_TARGETS_LINE,
+                                      endColumn: 32,
+                                  },
+                              ]
+                            : [],
+                });
+                return;
+            case "gotoTargets": {
+                const line = Number(args.line);
+                const inLoop =
+                    (args.source as DebugProtocol.Source).path === `${this.root}/src/${MAIN_CPP}` &&
+                    line >= LOOP_FIRST_LINE &&
+                    line <= LOOP_LAST_LINE;
+                this.respond(request, { targets: inLoop ? [{ id: line, label: `main.cpp:${String(line)}`, line }] : [] });
+                return;
+            }
+            case "goto":
+                this.respond(request);
+                this.resume(this.timing.stepMs, () => {
+                    this.program.line = Number(args.targetId);
+                    this.stop("goto");
+                });
+                return;
+            case "breakpointLocations": {
+                const line = Number(args.line);
+                const inLoop =
+                    (args.source as DebugProtocol.Source).path === `${this.root}/src/${MAIN_CPP}` &&
+                    line >= LOOP_FIRST_LINE &&
+                    line <= LOOP_LAST_LINE;
+                this.respond(request, {
+                    breakpoints: inLoop ? BREAKPOINT_COLUMNS.map((column) => ({ line, column })) : [],
+                });
+                return;
+            }
             case "stepOut":
                 this.respond(request);
                 this.resume(this.timing.stepMs, () => {
@@ -474,6 +535,14 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                     exceptionId: "std::out_of_range",
                     description: "vector::_M_range_check: __n (which is 1000) >= this->size() (which is 1000)",
                     breakMode: "always",
+                    details: {
+                        typeName: "std::out_of_range",
+                        stackTrace: [
+                            `    at accumulate(std::vector<int> const&) (${this.root}/src/${MAIN_CPP}:${String(this.program.line)})`,
+                            `    at process(Config const&) (${this.root}/src/${MAIN_CPP}:47)`,
+                            `    at main(int, char**) (${this.root}/src/${MAIN_CPP}:58)`,
+                        ].join("\n"),
+                    },
                 });
                 return;
             case "terminateThreads":
@@ -519,11 +588,10 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
         this.later(ms, stopAgain);
     }
 
-    /** A breakpoint with a condition, a hit count or a log message on a line of the loop. */
-    private loopHasConditions(): boolean {
+    /** A breakpoint on a line of the loop. */
+    private loopHasBreakpoints(): boolean {
         for (let line = LOOP_FIRST_LINE; line <= LOOP_LAST_LINE; line++) {
-            const set = this.breakpointsAt.get(`${this.root}/src/${MAIN_CPP}:${String(line)}`) ?? [];
-            if (set.some((bp) => !!bp.condition || !!bp.hitCondition || !!bp.logMessage)) return true;
+            if (this.breakpointsAt.has(`${this.root}/src/${MAIN_CPP}:${String(line)}`)) return true;
         }
         return false;
     }

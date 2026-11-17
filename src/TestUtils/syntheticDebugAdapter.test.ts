@@ -565,11 +565,12 @@ describe("SyntheticDebugAdapter", () => {
             expect(eventsOf("output").at(-1)).toMatchObject({ output: "Process exited with code 0.\n" });
         });
 
-        it("a plain breakpoint elsewhere in the loop keeps the jump; an empty condition is none", async () => {
+        it("a plain breakpoint in the loop stops on its line, not the jump; an empty condition is none", async () => {
             await body("setBreakpoints", { source: main, breakpoints: [{ line: 28, condition: "" }] });
             await launchStopped();
             await continueToStop(2);
-            expect(await body("evaluate", { expression: "i" })).toMatchObject({ result: "100" });
+            expect(await body("evaluate", { expression: "i" })).toMatchObject({ result: "0" });
+            expect(eventsOf("stopped")[1]).toMatchObject({ reason: "breakpoint", hitBreakpointIds: [1] });
         });
     });
 

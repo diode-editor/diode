@@ -150,6 +150,9 @@ interface ILineMessageCells {
     readonly key: string;
 }
 
+/** The owner of the line messages set without one. */
+export const DEFAULT_LINE_MESSAGE_OWNER = "";
+
 /** Empty cells between a line's end and its message (upstream's `margin-left` of the message). */
 const LINE_MESSAGE_GAP = 2;
 
@@ -270,7 +273,8 @@ export class EditorElement extends TUIElement implements IScrollable {
     private readonly glyphLayers = new Map<string, TrackedLineDecorations<IGlyphMarginDecoration>>();
     private glyphMarginReservedValue = false;
     private readonly lineHighlights: TrackedLineDecorations<ILineHighlightDecoration>;
-    private readonly lineMessages: TrackedLineDecorations<ILineMessageDecoration>;
+    /** The messages' layers by owner, in the order the owners first set messages. */
+    private readonly lineMessageLayers = new Map<string, TrackedLineDecorations<ILineMessageDecoration>>();
     /** The cells the last frame painted each message on: a click is matched against what the user saw. */
     private lineMessageCells: readonly ILineMessageCells[] = [];
 
@@ -798,15 +802,35 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.markDirty();
     }
 
-    /** The messages after the lines' ends; each keeps its line through edits until set again elsewhere. */
-    public setLineMessageDecorations(decorations: readonly ILineMessageDecoration[]): void {
-        this.lineMessages.set(decorations);
+    /**
+     * The owner's messages after the lines' ends; each keeps its line through edits until set again elsewhere. The
+     * owners' sets live side by side: one owner's call leaves the others' messages alone.
+     */
+    public setLineMessageDecorations(
+        decorations: readonly ILineMessageDecoration[],
+        owner = DEFAULT_LINE_MESSAGE_OWNER,
+    ): void {
+        let layer = this.lineMessageLayers.get(owner);
+        if (layer === undefined) {
+            layer = new TrackedLineDecorations(this.viewState.document);
+            this.lineMessageLayers.set(owner, layer);
+        }
+        layer.set(decorations);
         this.markDirty();
     }
 
-    /** The messages by the line they are on now: a deleted line's message is gone. */
+    /**
+     * The messages by the line they are on now: a deleted line's message is gone; on a line with the messages of
+     * several owners, the one of the owner that set messages first.
+     */
     public getLineMessageDecorations(): ReadonlyMap<number, ILineMessageDecoration> {
-        return this.lineMessages.byLine();
+        const result = new Map<number, ILineMessageDecoration>();
+        for (const layer of this.lineMessageLayers.values()) {
+            for (const [line, message] of layer.byLine()) {
+                if (!result.has(line)) result.set(line, message);
+            }
+        }
+        return result;
     }
 
     private get gutterMarkerColumns(): number {
@@ -871,7 +895,6 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.undoManager = new UndoManager(viewState.document);
         this.wordHighlighter = new WordHighlighter(viewState);
         this.lineHighlights = new TrackedLineDecorations(viewState.document);
-        this.lineMessages = new TrackedLineDecorations(viewState.document);
 
         this.viewState.onDidChangeWordHighlights(() => {
             this.markDirty();
@@ -1014,7 +1037,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         for (const [line, highlight] of this.lineHighlights.byLine()) {
             highlightBgByLine.set(line, compositeOver(this.styleVar(highlight.colorToken), editorBg));
         }
-        const messageByLine = this.lineMessages.byLine();
+        const messageByLine = this.getLineMessageDecorations();
         // Stryker disable next-line ArrayDeclaration: equivalent, an entry that is not a cell matches no click
         const messageCells: ILineMessageCells[] = [];
         this.lineMessageCells = messageCells;

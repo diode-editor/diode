@@ -188,6 +188,8 @@ export class EditorComponent extends Component {
     private inlayHintInsertions: readonly IInlineInsertion[] = [];
     // Stryker disable next-line ArrayDeclaration: an entry without a line belongs to no line and is never painted
     private extensionInsertions: readonly IInlineInsertion[] = [];
+    /** A workbench contribution's insertions by its owner (the inline breakpoints), first at their offsets. */
+    private readonly ownedInsertions = new Map<string, readonly IInlineInsertion[]>();
     /**
      * Created on the first set: most editors never get one. Unlike the providers' features, it is not switched off
      * in the large-file mode — the extension has already computed the ranges, and upstream draws them.
@@ -522,6 +524,7 @@ export class EditorComponent extends Component {
 
     private publishInsertions(): void {
         this.editor.setInlineInsertions([
+            ...[...this.ownedInsertions.values()].flat(),
             ...this.colorInsertions,
             ...this.inlayHintInsertions,
             ...this.extensionInsertions,
@@ -788,9 +791,9 @@ export class EditorComponent extends Component {
         return this.editor.onDidClickGlyphMargin(listener);
     }
 
-    /** Messages after the lines' ends (test failures): they ride their lines through edits. */
-    public setLineMessageDecorations(decorations: readonly ILineMessageDecoration[]): void {
-        this.editor.setLineMessageDecorations(decorations);
+    /** The owner's messages after the lines' ends (test failures, an exception): they ride their lines through edits. */
+    public setLineMessageDecorations(decorations: readonly ILineMessageDecoration[], owner?: string): void {
+        this.editor.setLineMessageDecorations(decorations, owner);
     }
 
     public getLineMessageDecorations(): ReadonlyMap<number, ILineMessageDecoration> {
@@ -809,6 +812,12 @@ export class EditorComponent extends Component {
     /** Reloading from disk recreates `EditorElement`, so the ghost text goes away by itself. */
     public setGhostText(ghost: IGhostText | null): void {
         this.editor.setGhostText(ghost);
+    }
+
+    /** The owner's cells absent from the document; the other owners', color decorators' and inlay hints' stay. */
+    public setOwnedInlineInsertions(owner: string, insertions: readonly IInlineInsertion[]): void {
+        this.ownedInsertions.set(owner, insertions);
+        this.publishInsertions();
     }
 
     /** Cells absent from the document (color decorators); ghost text and inlay hints keep their own. */

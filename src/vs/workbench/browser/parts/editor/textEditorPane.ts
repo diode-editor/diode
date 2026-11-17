@@ -23,6 +23,7 @@ import type {
     ILineHighlightDecoration,
 } from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
+import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
 import type { ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
@@ -492,8 +493,13 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.component.onDidClickGlyphMargin(listener);
     }
 
-    public setLineMessageDecorations(decorations: readonly ILineMessageDecoration[]): void {
-        this.component.setLineMessageDecorations(decorations);
+    public setLineMessageDecorations(decorations: readonly ILineMessageDecoration[], owner?: string): void {
+        this.component.setLineMessageDecorations(decorations, owner);
+    }
+
+    /** The owner's cells absent from the document, drawn before their offsets (the inline breakpoints). */
+    public setOwnedInlineInsertions(owner: string, insertions: readonly IInlineInsertion[]): void {
+        this.component.setOwnedInlineInsertions(owner, insertions);
     }
 
     public getLineMessageDecorations(): ReadonlyMap<number, ILineMessageDecoration> {
