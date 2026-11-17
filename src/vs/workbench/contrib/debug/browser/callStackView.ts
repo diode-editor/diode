@@ -12,8 +12,8 @@
 // upstream's `file line:col` pinned to the right, which a narrow sidebar would let eat the name; the frame the
 // editor marks carries the marker of the editor's glyph margin in front; "Load More" says how many frames are left
 // when the adapter tells the total; a `label` frame is italic but not centered (the engine's flex cannot center).
-// Not here yet: opening the focused frame in the editor (#1148), the inline
-// actions and the context menu of the rows (Restart Frame, the session's stop, Copy Call Stack: #1150).
+// The context of a row's menu is upstream's (`getContext`, `getContextForContributedActions`). Not here yet: opening
+// the focused frame in the editor (#1148), the inline actions of the rows.
 
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 

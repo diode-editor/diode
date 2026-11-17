@@ -4,8 +4,9 @@
 // title, its keys and the palette commands of the breakpoints (`breakpointsView.ts`, `debugCommands.ts`).
 // Deviations: Ctrl+Shift+D and Ctrl+Enter reach only terminals with extended keys; Ctrl+K B shows the viewlet
 // everywhere (Ctrl+K D, the free letter of the other viewlets, is Compare with Saved); the name of a new function
-// breakpoint is typed in the quick input, not in an input box on the row. Not here yet: the entries of the Run menu
-// (no Run menu yet), the context menus of the rows with Remove Breakpoint and the editing commands (#1150).
+// breakpoint is typed in the quick input, not in an input box on the row. The rows' menu items of WATCH and
+// BREAKPOINTS are on these commands. Not here yet: the entries of the Run menu (no Run menu yet), the editing commands
+// of breakpoints (#1151).
 
 import { codicon } from "../../../../base/common/codicons.ts";
 import { type CommandAction, HIDDEN_FROM_PALETTE } from "../../../../platform/actions/common/commandAction.ts";

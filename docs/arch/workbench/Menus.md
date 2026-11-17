@@ -102,7 +102,25 @@ SVG (путь или `{ light, dark }`) в терминале не нарисо�
 так `docked` кладёт те же кнопки в заголовок вьюлета. Рисует меню `DebugToolbar` (`contrib/debug/browser/`) —
 в углу активной группы редакторов (см. [EditorWidgets.md](EditorWidgets.md#угол-группы-тулбар-отладки-и-find)),
 пере-резолв — по `ContextKeyService.onDidChange`, смене меню, состояния отладки и настроек; ряд пересобирается,
-только когда меняется показанное. Пункты расширений (`contributes.menus["debug/toolBar"]`) — отдельная задача.
+только когда меняется показанное. Пункты расширений (`contributes.menus["debug/toolBar"]`) — кнопки того же ряда;
+мост расширений (`extensionMenuContributor.ts`) кладёт их двойника в `ViewContainerTitle` с `when` эталона
+(`viewContainer == 'workbench.view.debug' && …docked`): заголовок контейнера резолвится со своим ключом
+`viewContainer` (`viewsService.ts`, как scoped-ключ эталона).
+
+**Контекстные меню строк видов отладки** — `DebugVariablesContext`, `DebugScopesContext`, `DebugWatchContext`,
+`DebugCallStackContext`, `DebugBreakpointsContext`, `DebugConsoleContext` (точки расширений эталона —
+`debug/variables/context`, `debug/watch/context`, `debug/callstack/context`; у остальных точки нет). Правый клик и
+Shift+F10 по строке `LazyTreeControl` (`onContextMenu`) открывают меню без группы `inline`
+(`contrib/debug/browser/debugContextMenus.ts`, `showDebugContextMenu`): `when`/`enablement` пунктов считаются с
+ключами строки поверх глобальных (оверлей эталона: `callStackItemType`, `watchItemType`, `breakpointItemType`,
+`variableEvaluateNamePresent`, `variableIsReadonly`, `breakWhenValue*Supported` по ответу `dataBreakpointInfo`), а
+команда любого пункта — встроенного и расширения — получает аргументы эталона: у переменной `{ sessionId, container,
+variable }`, у строки WATCH и консоли — сам элемент, у брейкпоинта — брейкпоинт, у стека — «контекст для расширений»
+(URI источника кадра, id потока или сессии) и вторым — `{ sessionId, threadId?, frameId?, frameName?, frameLocation? }`.
+Пункты встроенных команд — размещения на самих командах (`debugCommands.ts` `callStackItem`, `rowMenuItem`).
+`inline`-кнопки строк (Remove Expression, View Binary Data) пока не рисуются. `DebugCreateConfiguration`
+(`debug/createConfiguration`, proposed) принимается мостом; показывает его выбор отладчика при создании launch.json
+(#1156).
 
 **`EditorTitle` — панель действий группы** (VS Code `editor/title`,
 `EditorTabsControl.editorActionsToolbar`). У каждой группы своя:

@@ -12,8 +12,8 @@
 // cursor. Deviations: a source breakpoint's condition and log message are written in the row in italics, not only
 // in the hover (decision 2026-11-14, there are no hovers on the rows); a function breakpoint's name is typed in the
 // quick input (as a watch expression), and the rows have no hover. Not here yet: editing conditions, hit counts and
-// modes, the context menu (#1150), the hint about unverified breakpoints in the title. Not planned: the
-// disassembly view (instruction breakpoints are listed, not opened).
+// modes with their menu items (#1151), the inline buttons, the hint about unverified breakpoints in the title. Not
+// planned: the disassembly view (instruction breakpoints are listed, not opened).
 
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
