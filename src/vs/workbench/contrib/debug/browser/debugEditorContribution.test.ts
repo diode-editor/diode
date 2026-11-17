@@ -2,7 +2,7 @@
 // console's text once per stop, Close Exception Widget until the next stop, the context key, the click, a late
 // answer of the adapter, and the texts of the badge and the console.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Emitter } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -92,7 +92,7 @@ describe("DebugEditorContribution", () => {
     let stateChanged: Emitter<State>;
     let focused: IStackFrame | undefined;
     let keys: Map<string, unknown>;
-    let openView: ReturnType<typeof vi.fn>;
+    let openView: Mock<(viewId: string, focus?: boolean) => void>;
     let contribution: DebugEditorContribution | undefined;
 
     const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -104,7 +104,7 @@ describe("DebugEditorContribution", () => {
         stateChanged = new Emitter<State>();
         focused = undefined;
         keys = new Map();
-        openView = vi.fn();
+        openView = vi.fn<(viewId: string, focus?: boolean) => void>();
         contribution = undefined;
     });
 

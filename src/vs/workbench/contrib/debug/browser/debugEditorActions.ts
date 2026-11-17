@@ -481,7 +481,12 @@ export const toggleInlineBreakpointAction: CommandAction = {
 export const closeExceptionWidgetAction: CommandAction = {
     id: CLOSE_EXCEPTION_WIDGET_ID,
     title: "Close Exception Widget",
-    keybinding: { keys: parseKeybinding("escape"), when: "editorTextFocus", weight: KeybindingWeight.EditorContrib },
+    // Below find's Escape (upstream: find is EditorContrib + 5, here EditorContrib), above the cursors'.
+    keybinding: {
+        keys: parseKeybinding("escape"),
+        when: "editorTextFocus",
+        weight: KeybindingWeight.EditorContrib - 1,
+    },
     enablement: "exceptionWidgetVisible",
     run(accessor) {
         accessor.get(DebugEditorContributionDIToken).closeExceptionWidget();

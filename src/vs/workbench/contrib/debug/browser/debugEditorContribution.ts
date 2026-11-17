@@ -61,7 +61,7 @@ interface IShownException {
 }
 
 /** Upstream `ExceptionWidget`'s title: `Exception has occurred: <id>`, or without the id. */
-export function exceptionTitle(exceptionInfo: IExceptionInfo): string {
+function exceptionTitle(exceptionInfo: IExceptionInfo): string {
     return exceptionInfo.id ? `Exception has occurred: ${exceptionInfo.id}` : "Exception has occurred.";
 }
 
