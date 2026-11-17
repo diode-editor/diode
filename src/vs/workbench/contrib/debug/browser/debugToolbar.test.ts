@@ -4,11 +4,12 @@
 
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
+import { SelectBoxElement } from "@tuidom/elements/selectbox/selectBoxElement";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
-import { Emitter } from "../../../../base/common/event.ts";
+import { Emitter, Event } from "../../../../base/common/event.ts";
 import type { IMenuEntryGroup, ResolvedMenuEntry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { GroupCornerStack } from "../../../browser/parts/editor/groupCornerStack.ts";
 import { State } from "../common/debug.ts";
@@ -59,6 +60,7 @@ function setup(initial: Partial<IFakes> = {}) {
         { onDidChange: contextKeys.event },
         configuration,
         { onDidChange: icons.event },
+        { element: new SelectBoxElement(), onDidChange: Event.None, selectedLabel: "" },
     );
     return {
         fakes,

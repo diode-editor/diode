@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/browser/callStackView.ts
-// The CALL STACK tree: sessions (only with several), threads (only with several) with their state on the right in
+// The CALL STACK tree: sessions (only with several; a child under its parent, a `compact` one folded into its parent's
+// row as upstream's compressed tree), threads (only with several) with their state on the right in
 // upstream's state label colors, frames, the first 20 of a thread and "Load More" for the rest, runs of
 // deemphasized frames folded into "Show N More Stack Frames", the error of a failed stack trace. The state of a
 // single thread goes to the view's title, as upstream's header message. Moving the cursor to a frame focuses it
@@ -169,7 +170,7 @@ export class CallStackDataSource {
             return [];
         }
         if (sessions.length > 1 || this.debugService.getViewModel().isMultiSessionView()) {
-            return sessions.filter((s) => !s.parentSession);
+            return Promise.all(sessions.filter((s) => !s.parentSession).map((s) => this.compress(s)));
         }
 
         const threads = sessions[0].getAllThreads();
@@ -178,6 +179,35 @@ export class CallStackDataSource {
     }
 
     public async getChildren(element: CallStackItem): Promise<CallStackItem[]> {
+        return Promise.all((await this.uncompressedChildren(element)).map((child) => this.compress(child)));
+    }
+
+    /**
+     * Upstream's compressed tree (`CallStackCompressionDelegate`): an element whose only child is a compressible
+     * session — a compact one, or the parent of one — shows as that child (upstream renders the last element).
+     */
+    private async compress(element: CallStackItem): Promise<CallStackItem> {
+        let shown = element;
+        while (isDebugSession(shown)) {
+            const children = await this.uncompressedChildren(shown);
+            const [only] = children;
+            if (children.length !== 1 || !isDebugSession(only) || this.isIncompressible(only)) break;
+            shown = only;
+        }
+        return shown;
+    }
+
+    private isIncompressible(session: IDebugSession): boolean {
+        if (session.compact) {
+            return false;
+        }
+        return !this.debugService
+            .getModel()
+            .getSessions()
+            .some((s) => s.parentSession === session && s.compact);
+    }
+
+    private async uncompressedChildren(element: CallStackItem): Promise<CallStackItem[]> {
         if (isDebugSession(element)) {
             const childSessions = this.debugService
                 .getModel()

@@ -8,8 +8,9 @@
 // active editor group in the same `editorWidget` box, find stacked under it (`GroupCornerStack`); it is not dragged.
 // Buttons carry short labels (a terminal has no tooltips), a narrow group gets glyphs only. The buttons are for the
 // mouse and never take focus: F5/F10/F11 are the keys. `debug.toolBarLocation: commandCenter` shows it as `floating`
-// (there is no command center); `docked` puts the same items in the Run and Debug title (`debugCommands.ts`). Not
-// here: the session picker of several sessions (`FocusSessionActionViewItem`) and the Stop button's dropdown.
+// (there is no command center); `docked` puts the same items in the Run and Debug title (`debugCommands.ts`). With
+// several sessions (`multiSessionDebug`) Focus Session is upstream's select of the sessions (`FocusSessionActionViewItem`);
+// in the docked title it is a button that opens Select Debug Session. Not here: the Stop button's dropdown.
 
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
@@ -22,6 +23,7 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import {
     type IMenuEntryGroup,
     type MenuRegistry,
@@ -56,10 +58,37 @@ import {
 import type { IGroupOverlayHosts } from "../../find/browser/findComponent.ts";
 import { type IDebugService, State, VIEWLET_ID } from "../common/debug.ts";
 
-import { STEP_INTO_ID, STEP_OUT_ID, STEP_OVER_ID } from "./debugCommands.ts";
+import {
+    FocusSessionActionViewItem,
+    type ISessionSelectDebugService,
+    toolbarSessionStrategy,
+} from "./debugActionViewItems.ts";
+import { FOCUS_SESSION_ID, STEP_INTO_ID, STEP_OUT_ID, STEP_OVER_ID } from "./debugCommands.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
 
 export const DebugToolbarDIToken = token<DebugToolbar>("DebugToolbar");
+export const DebugToolbarSessionSelectDIToken = token<DebugToolbarSessionSelect>("DebugToolbarSessionSelect");
+
+/** The toolbar's Focus Session item: picking a session runs `workbench.action.debug.focusProcess` with it. */
+export class DebugToolbarSessionSelect extends FocusSessionActionViewItem {
+    public static dependencies = [DebugServiceDIToken, IConfigurationServiceDIToken, CommandRegistryDIToken] as const;
+
+    public constructor(
+        debugService: ISessionSelectDebugService,
+        configuration: Pick<IConfigurationService, "get">,
+        commands: Pick<CommandRegistry, "execute">,
+    ) {
+        super(
+            debugService,
+            toolbarSessionStrategy(debugService, () => configuration.get("debug.showSubSessionsInToolBar")),
+            (session) => {
+                commands.execute(FOCUS_SESSION_ID, session);
+            },
+            debugService.getViewModel().focusedSession,
+        );
+    }
+}
+
 export const DockedDebugToolbarItemsDIToken = token<DockedDebugToolbarItems>("DockedDebugToolbarItems");
 
 const DOCKED = "debugState != 'inactive' && config.debug.toolBarLocation == 'docked'";
@@ -149,6 +178,7 @@ export class DebugToolbar extends Disposable {
         ContextKeyServiceDIToken,
         IConfigurationServiceDIToken,
         ProductIconServiceDIToken,
+        DebugToolbarSessionSelectDIToken,
     ] as const;
 
     public readonly view = new CornerDockElement();
@@ -169,11 +199,13 @@ export class DebugToolbar extends Disposable {
         contextKeys: Pick<ContextKeyService, "onDidChange">,
         private readonly configuration: Pick<IConfigurationService, "get" | "onDidChangeConfiguration">,
         icons: Pick<IProductIconService, "onDidChange">,
+        private readonly sessionSelect: Pick<FocusSessionActionViewItem, "element" | "onDidChange" | "selectedLabel">,
     ) {
         super();
         const update = (): void => {
             this.update();
         };
+        this.register(sessionSelect.onDidChange(update));
         this.view.id = "debugToolbar";
         this.view.onDidChangeWidth = update;
 
@@ -221,11 +253,13 @@ export class DebugToolbar extends Disposable {
         const buttons = this.buttons();
         // With labels while they fit in the group, glyphs only in a narrow one (0 before the group's first layout:
         // the dock reports the real width after it).
-        const withLabels = toolbarWidth(buttons, true) + CORNER_RIGHT_MARGIN <= placement.host.layoutSize.width;
-        const shown = JSON.stringify([buttons, withLabels]);
+        const selectWidth = this.sessionSelect.element.getMaxIntrinsicWidth(1);
+        const withLabels =
+            toolbarWidth(buttons, true, selectWidth) + CORNER_RIGHT_MARGIN <= placement.host.layoutSize.width;
+        const shown = JSON.stringify([buttons, withLabels, this.sessionSelect.selectedLabel, selectWidth]);
         if (shown !== this.shown) {
             this.shown = shown;
-            this.view.setChild(this.toolbar(buttons, withLabels));
+            this.view.setChild(this.toolbar(buttons, withLabels, selectWidth));
         }
         placement.slot.setHeight(TOOLBAR_HEIGHT);
         const top = placement.slot.top();
@@ -286,24 +320,28 @@ export class DebugToolbar extends Disposable {
     }
 
     /** The `editorWidget` box of find around a row of buttons. */
-    private toolbar(buttons: readonly IToolbarButton[], withLabels: boolean): SizedBoxElement {
+    private toolbar(buttons: readonly IToolbarButton[], withLabels: boolean, selectWidth: number): SizedBoxElement {
         const box = new BoxContainerElement();
         box.setBorderFg("editorWidget.border");
         // The box paints its frame in the first, the labels paint their text in the second (the cascade's).
         box.setBg(WIDGET_BG);
         box.style = { bg: WIDGET_BG };
-        box.setChild(this.row(buttons, withLabels));
-        const sized = new SizedBoxElement(toolbarWidth(buttons, withLabels), TOOLBAR_HEIGHT);
+        box.setChild(this.row(buttons, withLabels, selectWidth));
+        const sized = new SizedBoxElement(toolbarWidth(buttons, withLabels, selectWidth), TOOLBAR_HEIGHT);
         sized.setChild(box);
         return sized;
     }
 
-    private row(buttons: readonly IToolbarButton[], withLabels: boolean): HFlexElement {
+    private row(buttons: readonly IToolbarButton[], withLabels: boolean, selectWidth: number): HFlexElement {
         const row = new HFlexElement();
         row.addChild(new FillerElement(), { width: hflexFixed(1), height: 1 });
         buttons.forEach((button, index) => {
             if (index > 0) row.addChild(new FillerElement(), { width: hflexFixed(BUTTON_GAP), height: 1 });
-            row.addChild(this.buttonElement(button, withLabels), { width: hflexFit(), height: 1 });
+            if (button.id === FOCUS_SESSION_ID) {
+                row.addChild(this.sessionSelect.element, { width: hflexFixed(selectWidth), height: 1 });
+            } else {
+                row.addChild(this.buttonElement(button, withLabels), { width: hflexFit(), height: 1 });
+            }
         });
         return row;
     }
@@ -326,7 +364,11 @@ export class DebugToolbar extends Disposable {
     }
 }
 
-function toolbarWidth(buttons: readonly IToolbarButton[], withLabels: boolean): number {
-    const width = (b: IToolbarButton): number => (withLabels ? b.glyph.length + 1 + b.label.length : b.glyph.length);
+/** `selectWidth`: the columns of the session select, which stands for the Focus Session item. */
+function toolbarWidth(buttons: readonly IToolbarButton[], withLabels: boolean, selectWidth: number): number {
+    const width = (b: IToolbarButton): number => {
+        if (b.id === FOCUS_SESSION_ID) return selectWidth;
+        return withLabels ? b.glyph.length + 1 + b.label.length : b.glyph.length;
+    };
     return buttons.reduce((sum, b) => sum + width(b), 0) + BUTTON_GAP * Math.max(0, buttons.length - 1) + CHROME_WIDTH;
 }

@@ -254,6 +254,7 @@ export function createDebugServiceFixture(
             console: { closeOnEnd: configuration.get("debug.console.closeOnEnd") },
             allowBreakpointsEverywhere: configuration.get("debug.allowBreakpointsEverywhere"),
             focusEditorOnBreak: configuration.get("debug.focusEditorOnBreak"),
+                showSubSessionsInToolBar: configuration.get("debug.showSubSessionsInToolBar"),
         }),
         openViewlet: () => {
             fixture.viewletOpenings++;

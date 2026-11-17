@@ -20,7 +20,10 @@
  * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint;
  * - `sum` among the locals takes a new value (`setVariable`) and evaluates to it;
  * - the menu of a call stack frame has "Show Frame in Status": the argument it gets goes to the `dbg:` item; the
- *   debug toolbar has a bell button that counts its clicks there.
+ *   debug toolbar has a bell button that counts its clicks there;
+ * - `./workers` has child processes, as js-debug sees a Node program with workers: its adapter asks the client to
+ *   `startDebugging` an `attach` session for "worker 1" and "worker 2" (the reverse request), each stops on entry
+ *   with its own console; stopping the program ends its workers.
  */
 const path = require("node:path");
 
@@ -38,7 +41,7 @@ exports.activate = function activate(context) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand("debugDemo.pickProgram", () =>
-            vscode.window.showQuickPick(["./hello", "./world", "./tests"], {
+            vscode.window.showQuickPick(["./hello", "./world", "./tests", "./workers"], {
                 placeHolder: "Pick the program to debug",
             }),
         ),
@@ -106,9 +109,13 @@ exports.activate = function activate(context) {
     );
 };
 
+/** The adapters of the running sessions: a worker ends with the program that started it. */
+const adapters = [];
+
 /** A pretend debugger of `program`: just enough DAP for a session that stops on entry. */
 class DemoAdapter {
     constructor(vscode, configuration, source) {
+        this.id = adapters.push(this) - 1;
         this.configuration = configuration;
         this.source = source;
         this.emitter = new vscode.EventEmitter();
@@ -132,7 +139,7 @@ class DemoAdapter {
             success: true,
             body,
         });
-        if (request.command === "launch") this.event("initialized");
+        if (request.command === "launch" || request.command === "attach") this.event("initialized");
         if (request.command === "configurationDone") {
             const { program, args } = this.configuration;
             this.event("output", { category: "stdout", output: `Hello from ${program} ${args.join(" ")}\n` });
@@ -141,8 +148,26 @@ class DemoAdapter {
             this.event("demoReady");
             const reason = this.breakpoints.length > 0 ? "breakpoint" : "entry";
             this.event("stopped", { reason, threadId: 1, allThreadsStopped: true });
+            if (program === "./workers") this.startWorkers();
         }
-        if (request.command === "disconnect") this.event("terminated");
+        if (request.command === "disconnect") {
+            this.event("terminated");
+            for (const worker of adapters) {
+                if (worker.configuration.workerOf === this.id) worker.event("terminated");
+            }
+        }
+    }
+
+    /** js-debug's child processes: the reverse `startDebugging` request, a session per worker. */
+    startWorkers() {
+        for (const name of ["worker 1", "worker 2"]) {
+            this.emitter.fire({
+                seq: this.seq++,
+                type: "request",
+                command: "startDebugging",
+                arguments: { request: "attach", configuration: { name, program: "./worker", workerOf: this.id } },
+            });
+        }
     }
 
     /** The program passes its breakpoints in line order: logpoints log while it runs, the breakpoints whose condition holds stop it. */
