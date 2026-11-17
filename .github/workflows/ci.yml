@@ -181,7 +181,7 @@ jobs:
   mutation:
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.gate == 'all' || inputs.gate == 'mutation'))
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 90
     permissions:
       contents: read
       pull-requests: write
