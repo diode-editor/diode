@@ -2,7 +2,7 @@
 // the data breakpoint on an address without a session, with an adapter that fails or knows no such range, with one
 // access type, and cancelled; the commands on rows of other kinds.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { testDebugService } from "../../../../../TestUtils/debugSessionFixture.ts";
 import { createMockDebugModel, mockSession } from "../../../../../TestUtils/mockDebug.ts";
@@ -21,34 +21,35 @@ import {
     editFunctionBreakpointHitCountAction,
     parseAddress,
 } from "./breakpointEditActions.ts";
+import { BreakpointInputDIToken } from "./breakpointInput.ts";
+import { BreakpointSourcesDIToken } from "./breakpointsView.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
 
 describe("parseAddress", () => {
-    it("a start and a count of bytes, a start and an end, a start alone is one byte", () => {
-        expect(parseAddress("0x1000 + 0x10", true)).toEqual({ address: "0x1000", bytes: 16 });
-        expect(parseAddress("4096 +8", true)).toEqual({ address: "0x1000", bytes: 8 });
-        expect(parseAddress("0x1000 - 0x1010", true)).toEqual({ address: "0x1000", bytes: 16 });
-        expect(parseAddress("0x1000", true)).toEqual({ address: "0x1000", bytes: 1 });
+    const NOT_A_NUMBER = (n: string): { error: string } => ({
+        error: `Number must be a decimal integer or hex value starting with "0x", got ${n}`,
     });
 
-    it("errors: no number, an end before the start, a number that does not parse", () => {
-        expect(parseAddress("", true)).toEqual({
+    it("a start and a count of bytes, a start and an end, a start alone is one byte", () => {
+        expect(parseAddress("0x1000 + 0x10")).toEqual({ address: "0x1000", bytes: 16 });
+        expect(parseAddress("4096 +8")).toEqual({ address: "0x1000", bytes: 8 });
+        expect(parseAddress("0x1000 - 0x1010")).toEqual({ address: "0x1000", bytes: 16 });
+        expect(parseAddress("0x1000 - 0x1000")).toEqual({ address: "0x1000", bytes: 0 });
+        expect(parseAddress("0x1000")).toEqual({ address: "0x1000", bytes: 1 });
+    });
+
+    it("errors: no number, an end before the start, a number that is not a whole hex or decimal one", () => {
+        expect(parseAddress("")).toEqual({
             error: 'Address should be a range of numbers the form "[Start] - [End]" or "[Start] + [Bytes]"',
         });
-        expect(parseAddress("0x20 - 0x10", true)).toEqual({ error: "End (0x10) should be greater than Start (0x20)" });
-        expect(parseAddress("zz", false)).toEqual({
-            error: 'Number must be a decimal integer or hex value starting with "0x", got zz',
-        });
-        expect(parseAddress("0x10 + zz", false)).toEqual({
-            error: 'Number must be a decimal integer or hex value starting with "0x", got zz',
-        });
-        expect(parseAddress("12g", true)).toEqual({
-            error: 'Number must be a decimal integer or hex value starting with "0x", got 12g',
-        });
-    });
-
-    it("while typing: no range yet, only the errors", () => {
-        expect(parseAddress("0x10 + 4", false)).toBeUndefined();
+        expect(parseAddress(" 0x10")).toEqual(parseAddress(""));
+        expect(parseAddress("0x20 - 0x10")).toEqual({ error: "End (0x10) should be greater than Start (0x20)" });
+        expect(parseAddress("zz")).toEqual(NOT_A_NUMBER("zz"));
+        expect(parseAddress("0x10 + zz")).toEqual(NOT_A_NUMBER("zz"));
+        expect(parseAddress("12g")).toEqual(NOT_A_NUMBER("12g"));
+        expect(parseAddress("g12")).toEqual(NOT_A_NUMBER("g12"));
+        expect(parseAddress("0x")).toEqual(NOT_A_NUMBER("0x"));
+        expect(parseAddress("0xfg")).toEqual(NOT_A_NUMBER("0xfg"));
     });
 });
 
@@ -58,6 +59,8 @@ interface IFakes {
     readonly picks: unknown[];
     readonly shown: unknown[];
     readonly service: ReturnType<typeof testDebugService>;
+    readonly sources: { readonly openBreakpoint: ReturnType<typeof vi.fn> };
+    readonly widget: { readonly show: ReturnType<typeof vi.fn> };
 }
 
 function fakes(answers: { input?: string; pick?: number }, session?: IDebugSession): IFakes {
@@ -78,17 +81,23 @@ function fakes(answers: { input?: string; pick?: number }, session?: IDebugSessi
         },
     };
     const notifications = { show: (message: unknown) => shown.push(message) };
+    const sources = { openBreakpoint: vi.fn().mockResolvedValue(undefined) };
+    const widget = { show: vi.fn().mockResolvedValue(undefined) };
     const accessor = {
         get: (token: unknown) =>
-            token === QuickInputServiceDIToken
-                ? quickInput
-                : token === NotificationServiceDIToken
-                  ? notifications
-                  : token === DebugServiceDIToken
-                    ? service
-                    : undefined,
+            token === BreakpointSourcesDIToken
+                ? sources
+                : token === BreakpointInputDIToken
+                  ? widget
+                  : token === QuickInputServiceDIToken
+                    ? quickInput
+                    : token === NotificationServiceDIToken
+                      ? notifications
+                      : token === DebugServiceDIToken
+                        ? service
+                        : undefined,
     } as unknown as ServiceAccessor;
-    return { accessor, inputs, picks, shown, service };
+    return { accessor, inputs, picks, shown, service, sources, widget };
 }
 
 function sessionAnswering(info: IDataBreakpointInfoResponse | Error): IDebugSession {
@@ -106,21 +115,22 @@ describe("Add Data Breakpoint at Address", () => {
         expect(f.inputs).toEqual([]);
     });
 
-    it("cancelled, or with a range that does not parse in the end, adds nothing; the error is told", async () => {
-        const session = sessionAnswering({ dataId: "x", description: "x" });
-        let f = fakes({}, session);
+    it("asks for the range with upstream's prompt, telling a range that does not parse; Escape adds nothing", async () => {
+        const f = fakes({}, sessionAnswering({ dataId: "x", description: "x" }));
         await addDataBreakpointOnAddressAction.run(f.accessor);
-        expect(f.inputs).toHaveLength(1);
-        f = fakes({ input: "12g" }, session);
-        await addDataBreakpointOnAddressAction.run(f.accessor);
-        expect(f.shown).toEqual([
-            {
-                severity: "error",
-                message: 'Number must be a decimal integer or hex value starting with "0x", got 12g',
-                modal: false,
-                items: [],
-            },
-        ]);
+        const [options] = f.inputs as {
+            prompt: string;
+            placeholder: string;
+            value: string | undefined;
+            validateInput: (text: string) => string | null;
+        }[];
+        expect(options).toMatchObject({
+            prompt: "Enter a memory range in which to break",
+            placeholder: "Absolute range (0x1234 - 0x1300) or range of bytes after an address (0x1234 + 0xff)",
+            value: undefined,
+        });
+        expect(options.validateInput("0x20 - 0x10")).toBe("End (0x10) should be greater than Start (0x20)");
+        expect(options.validateInput("0x20 + 4")).toBeNull();
         expect(f.service.addDataBreakpoint).not.toHaveBeenCalled();
     });
 
@@ -169,6 +179,25 @@ describe("the editing commands on rows they do not edit", () => {
         await editBreakpointModeAction.run(f.accessor, {});
         expect(f.inputs).toEqual([]);
         expect(f.picks).toEqual([]);
+    });
+
+    it("Edit Condition... of a source breakpoint opens its line in the active group, then the widget on it", async () => {
+        const f = fakes({});
+        (f.service.getModel() as DebugModel).addBreakpoints(Uri.file("/w/a.c"), [{ lineNumber: 3, column: 5 }]);
+        const [bp] = f.service.getModel().getBreakpoints();
+        await editBreakpointConditionAction.run(f.accessor, bp);
+        expect(f.sources.openBreakpoint).toHaveBeenCalledWith(bp, false);
+        expect(f.widget.show).toHaveBeenCalledWith(bp.uri, 3, 5);
+    });
+
+    it("Escape in the condition of an exception filter keeps it", async () => {
+        const f = fakes({});
+        const model = f.service.getModel() as DebugModel;
+        model.setExceptionBreakpointsForSession("s", [{ filter: "all", label: "All", supportsCondition: true }]);
+        const [filter] = model.getExceptionBreakpoints();
+        await editBreakpointConditionAction.run(f.accessor, filter);
+        expect(f.inputs).toEqual([{ placeholder: "Break when expression evaluates to true", value: "" }]);
+        expect(f.service.setExceptionBreakpointCondition).not.toHaveBeenCalled();
     });
 
     it("Escape in an input or the mode list changes nothing", async () => {

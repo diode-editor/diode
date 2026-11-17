@@ -352,6 +352,10 @@ describe("SyntheticDebugAdapter", () => {
             ["-3 - 4", "-7"],
             ["10 / 3", "3"],
             ["total - count", "0"],
+            ["7 % 3", "1"],
+            ["sum == 0", "1"],
+            ["3 > 5", "0"],
+            ["6 > 1 + 2", "1"],
         ])("%s = %s", async (expression, result) => {
             expect(await body("evaluate", { expression })).toMatchObject({ result });
         });
@@ -368,6 +372,8 @@ describe("SyntheticDebugAdapter", () => {
             ["nope + 1", "error: use of undeclared identifier 'nope'"],
             ["nums[2000]", "error: use of undeclared identifier 'nums'"],
             ["1 +", "error: expected expression"],
+            ["1 ==", "error: expected expression"],
+            ["7 % 0", "error: expected expression"],
             ["(1 + 2", "error: expected expression"],
             ["1 2", "error: expected expression"],
             ["1 $ 2", "error: expected expression"],
@@ -491,6 +497,92 @@ describe("SyntheticDebugAdapter", () => {
             category: "console",
             line: 35,
             source: { name: "main.cpp", path: "/home/user/hello/src/main.cpp" },
+        });
+    });
+
+    describe("the loop with conditions, hit counts and logpoints", () => {
+        const main = { path: `${SYNTHETIC_PROGRAM_ROOT}/src/main.cpp` };
+
+        async function continueToStop(count: number): Promise<void> {
+            await body("continue", { threadId: 1 });
+            await stopped(count);
+        }
+
+        it("a condition stops only where it holds; a stop names only the breakpoints that hold", async () => {
+            await body("setBreakpoints", {
+                source: main,
+                breakpoints: [
+                    { line: 27, condition: "i % 100 == 0" },
+                    { line: 27, condition: "i == 1" },
+                ],
+            });
+            await launchStopped();
+
+            await continueToStop(2);
+            expect(await body("evaluate", { expression: "i" })).toMatchObject({ result: "1" });
+            expect(eventsOf("stopped")[1]).toMatchObject({ reason: "breakpoint", hitBreakpointIds: [2] });
+            await continueToStop(3);
+            expect(await body("evaluate", { expression: "i" })).toMatchObject({ result: "100" });
+            expect(eventsOf("stopped")[2].hitBreakpointIds).toEqual([1]);
+        });
+
+        it("a logpoint logs every pass with its values, a hit count stops from its pass on", async () => {
+            await body("setBreakpoints", {
+                source: main,
+                breakpoints: [
+                    { line: 29, logMessage: "sum={sum} i={i} {nope}" },
+                    { line: 30, hitCondition: ">= 3" },
+                ],
+            });
+            await launchStopped();
+
+            await continueToStop(2);
+            expect(await body("evaluate", { expression: "i" })).toMatchObject({ result: "2" });
+            const logged = eventsOf("output").filter((o) => o.line === 29);
+            expect(logged.map((o) => o.output)).toEqual([
+                "sum=0 i=0 <error: nope>\n",
+                `sum=${String(numAt(0))} i=1 <error: nope>\n`,
+                `sum=${String(numAt(0) + numAt(1))} i=2 <error: nope>\n`,
+            ]);
+            expect(logged[0]).toMatchObject({ category: "console", source: { name: "main.cpp" } });
+            await continueToStop(3);
+            expect(await body("evaluate", { expression: "i" })).toMatchObject({ result: "3" });
+        });
+
+        it("a condition that fails to evaluate stops; one that never holds runs to the end and exits", async () => {
+            await body("setBreakpoints", { source: main, breakpoints: [{ line: 28, condition: "nope > 1" }] });
+            await launchStopped();
+            await continueToStop(2);
+            expect(eventsOf("stopped")[1]).toMatchObject({ hitBreakpointIds: [1] });
+
+            await body("setBreakpoints", { source: main, breakpoints: [{ line: 28, condition: "i > 5000" }] });
+            await body("continue", { threadId: 1 });
+            await vi.waitFor(() => {
+                expect(eventsOf("terminated")).toHaveLength(1);
+            });
+            expect(eventsOf("exited")).toEqual([{ exitCode: 0 }]);
+            expect(eventsOf("output").at(-1)).toMatchObject({ output: "Process exited with code 0.\n" });
+        });
+
+        it("a plain breakpoint elsewhere in the loop keeps the jump; an empty condition is none", async () => {
+            await body("setBreakpoints", { source: main, breakpoints: [{ line: 28, condition: "" }] });
+            await launchStopped();
+            await continueToStop(2);
+            expect(await body("evaluate", { expression: "i" })).toMatchObject({ result: "100" });
+        });
+    });
+
+    describe("dataBreakpointInfo on an address", () => {
+        it("watches any range for reads, writes or both", async () => {
+            expect(await body("dataBreakpointInfo", { name: "0x10", asAddress: true, bytes: 4 })).toEqual({
+                dataId: "0x10+4",
+                description: "0x10 (4 bytes)",
+                accessTypes: ["read", "write", "readWrite"],
+                canPersist: true,
+            });
+            expect(await body("dataBreakpointInfo", { name: "0x10", asAddress: true })).toMatchObject({
+                dataId: "0x10+1",
+            });
         });
     });
 

@@ -210,6 +210,7 @@ export class BreakpointInput {
             ];
             /** What was typed belongs to the kind shown, the trigger and the mode have nothing typed. */
             const remember = (value: string): void => {
+                // Stryker disable next-line ConditionalExpression,LogicalOperator: what would be stored for the trigger or the Mode row (index 3, `undefined`) is read by nothing
                 if (shown !== undefined && shown !== BreakpointWidgetContext.TRIGGER_POINT) {
                     state.inputs[shown] = value;
                 }
@@ -237,8 +238,9 @@ export class BreakpointInput {
             const session = this.quickInput.createQuickPick<IKindItem>({
                 onDidChangeValue: () => undefined,
                 onDidChangeActive: (active) => {
-                    const item = active.at(0);
-                    if (item === undefined || item.context === shown) return;
+                    // The list always has its rows, so one of them is active.
+                    const item = active[0];
+                    if (item.context === shown) return;
                     remember(session.getState().value);
                     showKind(item.context);
                 },

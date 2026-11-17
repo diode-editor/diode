@@ -7,7 +7,7 @@
 // `program` with `args`, `cwd` and `env` through the `runInTerminal` reverse request before it answers `launch`.
 // The loop of `accumulate` is lines 27-31 of `main.cpp`, once per `i`: with a condition, a hit count or a log message
 // on a breakpoint there, Continue runs the loop line by line — a logpoint writes its message with `{i}` and `{sum}`
-// interpolated, a breakpoint stops where its condition (`i % 100 == 0`) and hit count (`>= 3`, `% 2`, `5` is `>= 5`)
+// interpolated, a breakpoint stops where its condition (`i % 100 == 0`, `i > 5`) and hit count (`>= 5`, or `5`)
 // hold, and the program exits at `i == 1000`; without them Continue keeps the spike's jump of 100 to line 31.
 
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
@@ -924,22 +924,18 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
 
 /** `+ - * /` and parentheses over integers: enough for the REPL demo. `undefined` — not an expression, or `/ 0`. */
 function evaluateArithmetic(text: string): number | undefined {
-    const tokens = text.match(/\d+|==|!=|<=|>=|&&|\|\||[+\-*/%()<>]|\S/gu) ?? [];
+    const tokens = text.match(/\d+|==|[+\-*/%()>]|\S/gu) ?? [];
     let pos = 0;
-    /** A binary level: its operators over the next level, C's `0`/`1` for a comparison or a logical operator. */
-    const level =
-        (ops: Record<string, (a: number, b: number) => number | undefined>, next: () => number | undefined) =>
-        (): number | undefined => {
-            let left = next();
-            while (left !== undefined && tokens[pos] in ops) {
-                const op = ops[tokens[pos++]];
-                const right = next();
-                if (right === undefined) return undefined;
-                left = op(left, right);
-            }
-            return left;
-        };
-    const expr = (): number | undefined => or();
+    /** A comparison of two sums, as C's `0` or `1`. */
+    const expr = (): number | undefined => {
+        const left = additive();
+        const op = tokens[pos];
+        if (left === undefined || (op !== "==" && op !== ">")) return left;
+        pos++;
+        const right = additive();
+        if (right === undefined) return undefined;
+        return Number(op === "==" ? left === right : left > right);
+    };
     const additive = (): number | undefined => {
         let left = term();
         while (left !== undefined && (tokens[pos] === "+" || tokens[pos] === "-")) {
@@ -960,18 +956,6 @@ function evaluateArithmetic(text: string): number | undefined {
         }
         return left;
     };
-    const relational = level(
-        {
-            "<": (a, b) => Number(a < b),
-            "<=": (a, b) => Number(a <= b),
-            ">": (a, b) => Number(a > b),
-            ">=": (a, b) => Number(a >= b),
-        },
-        additive,
-    );
-    const equality = level({ "==": (a, b) => Number(a === b), "!=": (a, b) => Number(a !== b) }, relational);
-    const and = level({ "&&": (a, b) => Number(a !== 0 && b !== 0) }, equality);
-    const or = level({ "||": (a, b) => Number(a !== 0 || b !== 0) }, and);
     const factor = (): number | undefined => {
         const t = tokens[pos++];
         if (t === "(") {
@@ -988,25 +972,9 @@ function evaluateArithmetic(text: string): number | undefined {
     return tokens.length > 0 && pos === tokens.length ? result : undefined;
 }
 
-/** A hit count condition as the C++ debuggers take it: `>= 3`, `== 5`, `% 2`; a bare number is `>=`. */
+/** A hit count condition: the pass from which on the breakpoint stops, `>= 5` and `5` alike. */
 function hitConditionHolds(condition: string, hits: number): boolean {
-    const match = /^\s*(==|>=|<=|>|<|%)?\s*(\d+)\s*$/u.exec(condition);
-    if (match === null) return true;
-    const n = Number(match[2]);
-    switch (match[1]) {
-        case "==":
-            return hits === n;
-        case ">":
-            return hits > n;
-        case "<":
-            return hits < n;
-        case "<=":
-            return hits <= n;
-        case "%":
-            return n !== 0 && hits % n === 0;
-        default:
-            return hits >= n;
-    }
+    return hits >= Number(/\d+/u.exec(condition)?.[0] ?? 0);
 }
 
 /** A factory of fresh synthetic adapters: each session (and each restart) gets its own program. */

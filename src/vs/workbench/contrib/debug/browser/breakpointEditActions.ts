@@ -11,9 +11,8 @@
 // Condition... is in the menu of a function breakpoint too, where it edits the condition (upstream's inline button
 // opens a menu of Edit Condition... and Edit Hit Count..., and Edit Hit Count... is in the row's menu already), and
 // it is not in the menu of a file or an instruction breakpoint, where upstream's does nothing; Enter on a range that
-// does not parse while typed does nothing (upstream closes the input), one that fails only in the end is told as an
-// error (upstream throws it); the widget of a source breakpoint opens in the quick input even when its file does not
-// (upstream's lives in the editor).
+// does not parse does nothing (upstream closes the input); the widget of a source breakpoint opens in the quick input
+// even when its file does not (upstream's lives in the editor).
 
 import { codicon } from "../../../../base/common/codicons.ts";
 import { type CommandAction, HIDDEN_FROM_PALETTE } from "../../../../platform/actions/common/commandAction.ts";
@@ -179,40 +178,27 @@ export const editBreakpointModeAction: CommandAction = {
     },
 };
 
-/** Upstream `MemoryBreakpointAction.parseAddress`: a range as `start - end` or `start + bytes`. */
-export function parseAddress(range: string, isFinal: false): { error: string } | undefined;
-export function parseAddress(range: string, isFinal: true): { error: string } | { address: string; bytes: number };
-export function parseAddress(
-    range: string,
-    isFinal: boolean,
-): { error: string } | { address: string; bytes: number } | undefined {
+/**
+ * Upstream `MemoryBreakpointAction.parseAddress`: a range as `start - end` or `start + bytes`. Deviation: one parse
+ * while typed and on Enter, a number being a whole hex or decimal one (upstream checks the numbers loosely while
+ * typed, the order only on Enter, and its final pattern matches any text, so a number that does not parse throws).
+ */
+export function parseAddress(range: string): { error: string } | { address: string; bytes: number } {
     const parts = /^(\S+)\s*(?:([+-])\s*(\S+))?/.exec(range);
     if (!parts) {
         return { error: 'Address should be a range of numbers the form "[Start] - [End]" or "[Start] + [Bytes]"' };
     }
 
-    const isNum = (e: string): boolean => (isFinal ? /^0x[0-9a-f]*|[0-9]*$/i.test(e) : /^0x[0-9a-f]+|[0-9]+$/i.test(e));
-    const [, startStr, sign = "+", endStr = "1"] = parts;
+    const [, startStr, sign, endStr = "1"] = parts;
 
     for (const n of [startStr, endStr]) {
-        if (!isNum(n)) {
+        if (!/^(?:0x[0-9a-f]+|[0-9]+)$/i.test(n)) {
             return { error: `Number must be a decimal integer or hex value starting with "0x", got ${n}` };
         }
     }
 
-    if (!isFinal) {
-        return undefined;
-    }
-
-    let start: bigint;
-    let end: bigint;
-    try {
-        start = BigInt(startStr);
-        end = BigInt(endStr);
-    } catch {
-        // Upstream lets the SyntaxError of a number like `12g` escape.
-        return { error: `Number must be a decimal integer or hex value starting with "0x", got ${range}` };
-    }
+    const start = BigInt(startStr);
+    const end = BigInt(endStr);
     const address = `0x${start.toString(16)}`;
     if (sign === "-") {
         if (start > end) {
@@ -244,17 +230,13 @@ async function setMemoryBreakpoint(accessor: ServiceAccessor, existingBreakpoint
         placeholder: "Absolute range (0x1234 - 0x1300) or range of bytes after an address (0x1234 + 0xff)",
         value: defaultValue,
         validateInput: (text) => {
-            return parseAddress(text, false)?.error ?? null;
+            const range = parseAddress(text);
+            return "error" in range ? range.error : null;
         },
     });
     if (value === undefined) return;
-    const range = parseAddress(value, true);
-    if ("error" in range) {
-        accessor
-            .get(NotificationServiceDIToken)
-            .show({ severity: "error", message: range.error, modal: false, items: [] });
-        return;
-    }
+    // The input takes only a range that parses.
+    const range = parseAddress(value) as { address: string; bytes: number };
 
     let info: IDataBreakpointInfoResponse | undefined;
     try {

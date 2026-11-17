@@ -363,6 +363,7 @@ export class BreakpointsView extends Disposable {
         const breakpoint = element as IBreakpoint;
         // Deviation: upstream shows the condition, the hit count, the log message and the trigger only in the hover.
         const trigger =
+            // Stryker disable next-line ConditionalExpression: the search for an undefined id finds none; the check saves the search on every row
             breakpoint.triggeredBy === undefined
                 ? undefined
                 : model.getBreakpoints().find((bp) => bp.getId() === breakpoint.triggeredBy);
