@@ -21,6 +21,11 @@ export interface IMenuContribution {
     readonly order?: number;
     /** A product icon follows `diode.icons.nerdFont`; a plain string is a literal. */
     readonly icon?: IProductIcon | string;
+    /**
+     * A theme color id for the icon of a button (upstream colors codicons by CSS rules, `debugColors.ts`: the debug
+     * toolbar and its docked copy in the Run and Debug title).
+     */
+    readonly iconColor?: string;
     readonly args?: (context: unknown) => readonly unknown[];
     /** `false` hides the shortcut; a string is a literal; otherwise it is resolved from `KeybindingRegistry`. */
     readonly shortcut?: string | false;

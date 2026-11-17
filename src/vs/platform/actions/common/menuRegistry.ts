@@ -41,6 +41,8 @@ export const MenuRegistryDIToken = token<MenuRegistry>("MenuRegistry");
 /** `enabled` is read by the view title (dimmed button), the engine's `disabled` by the popup. */
 export interface IResolvedMenuItemEntry extends MenuItemEntry {
     readonly enabled: boolean;
+    /** The item's {@link IMenuContribution.iconColor}. */
+    readonly iconColor?: string;
 }
 
 export type ResolvedMenuEntry = IResolvedMenuItemEntry | MenuSeparatorEntry | IResolvedSubmenuEntry;
@@ -278,6 +280,7 @@ export class MenuRegistry {
             disabled: !enabled,
             shortcut: this.resolveShortcut(item),
             icon: toggled ? CHECKED_ICON : this.iconOf(item),
+            iconColor: item.iconColor,
             onSelect: () => {
                 // A contribution may point to an extension command that has no guard of its own.
                 if (!enabled) return;

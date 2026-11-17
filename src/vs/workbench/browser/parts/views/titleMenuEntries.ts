@@ -20,7 +20,7 @@ export function inlineActions(groups: readonly IMenuEntryGroup[]): IViewTitleAct
     if (navigation === undefined) return [];
     return navigation.entries
         .filter(isInlineItem)
-        .map((entry) => ({ id: entry.id, icon: entry.icon, enabled: entry.enabled }));
+        .map((entry) => ({ id: entry.id, icon: entry.icon, enabled: entry.enabled, color: entry.iconColor }));
 }
 
 /**

@@ -5,7 +5,8 @@ import type { IConfigurationNode } from "../../../platform/configuration/common/
  * and `debug.internalConsoleOptions` have no `type` there either: a string). Only the keys the ported code reads: the
  * Debug Console (`replModel.ts`, opening and closing its view), the terminal of `runInTerminal` (`debugTerminal.ts`), launch.json and the debug tasks
  * (`debugConfigurationManager.ts`, `debugTaskRunner.ts`, `debugService.ts`), the Run and Debug views (opening them,
- * types, lazy variables and the breakpoints presentation). The rest of `debug.*` comes with the task that implements it (the toolbar), the
+ * types, lazy variables and the breakpoints presentation), the debug toolbar and the status bar (`debugToolbar.ts`,
+ * `statusbarColorProvider.ts`, `debugStatus.ts`). The rest of `debug.*` comes with the task that implements it, the
  * unsupported ones are declared by the settings task (#1158). `launch` has no JSON schema of its configurations yet
  * (IntelliSense in launch.json is a task of its own).
  */
@@ -26,6 +27,45 @@ export const debugConfiguration = {
                 "Controls whether breakpoints are displayed in a tree view grouped by file, or as a flat list.",
             enum: ["tree", "list"],
             default: "list",
+        },
+        "debug.toolBarLocation": {
+            scope: "window",
+            type: "string",
+            enum: ["floating", "docked", "commandCenter", "hidden"],
+            description:
+                "Controls the location of the debug toolbar. Either `floating` in all views, `docked` in the debug view, `commandCenter` (requires `#window.commandCenter#`), or `hidden`.",
+            default: "floating",
+            enumDescriptions: [
+                "Show debug toolbar in all views.",
+                "Show debug toolbar only in debug views.",
+                "`(Experimental)` Show debug toolbar in the command center.",
+                "Do not show debug toolbar.",
+            ],
+        },
+        "debug.showInStatusBar": {
+            scope: "window",
+            type: "string",
+            enum: ["never", "always", "onFirstSessionStart"],
+            enumDescriptions: [
+                "Never show debug item in status bar",
+                "Always show debug item in status bar",
+                "Show debug item in status bar only after debug was started for the first time",
+            ],
+            description: "Controls when the debug status bar item should be visible.",
+            default: "onFirstSessionStart",
+        },
+        "debug.showSubSessionsInToolBar": {
+            scope: "window",
+            type: "boolean",
+            description:
+                "Controls whether the debug sub-sessions are shown in the debug tool bar. When this setting is false the stop command on a sub-session will also stop the parent session.",
+            default: false,
+        },
+        "debug.enableStatusBarColor": {
+            scope: "window",
+            type: "boolean",
+            description: "Color of the status bar when the debugger is active.",
+            default: true,
         },
         "debug.openDebug": {
             scope: "window",

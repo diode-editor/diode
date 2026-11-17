@@ -33,6 +33,10 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `testResultsOutput.test.ts`, «a live test's output takes only its own appends»: терминал вывода ещё пуст
+  (только переводы строк, без `mine`) в initial test run Stryker'а mutation-гейта (run 43948216044, PR #1184, дифф —
+  тулбар отладки и цвета статус-бара); в unit-job и локально зелёный. Лечение — ждать текст, а не один кадр.
+
 - [ ] `extensionHost.onDidChangeWorkspaceFolders.test.ts`, «updateWorkspaceFolders onto one folder»: `expect.poll`
   (1 с) видит только две строки журнала первого субпроцесса — перезапуск не успел под полной локальной нагрузкой,
   дважды (`check:diff` и initial test run Stryker'а, PR #1178, дифф — адаптеры отладки расширений); в одиночку

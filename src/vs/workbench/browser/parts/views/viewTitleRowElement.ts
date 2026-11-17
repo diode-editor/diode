@@ -34,6 +34,8 @@ export interface IViewTitleAction {
     readonly icon: string;
     /** `false`: the button stays in place but is dimmed and does nothing (the item's `enablement`). */
     readonly enabled?: boolean;
+    /** A theme color id for the glyph of an enabled button (`IMenuContribution.iconColor`). */
+    readonly color?: string;
 }
 
 export type ViewTitleZone =
@@ -238,7 +240,7 @@ export class ViewTitleRowElement extends HFlexElement {
     private syncChildren(): void {
         this.actionLabels = this.actions.map((action) => {
             const label = new TextLabelElement(buttonLabel(action.icon));
-            label.style = buttonStyle(action.enabled !== false);
+            label.style = buttonStyle(action.enabled !== false, action.color);
             label.layoutStyle = { width: hflexFixed(BUTTON_WIDTH), height: 1 };
             return label;
         });
@@ -292,12 +294,12 @@ export class ViewTitleRowElement extends HFlexElement {
 }
 
 /** Dimmed but always visible (there may be no mouse at all); the owner sets `hover`. */
-function buttonStyle(enabled: boolean): TUIElement["style"] {
+function buttonStyle(enabled: boolean, color = "descriptionForeground"): TUIElement["style"] {
     // A disabled button has no hover variant at all: a highlighted background would read
     // as clickable, and it isn't.
     if (!enabled) return { fg: "disabledForeground" };
     return {
-        fg: "descriptionForeground",
+        fg: color,
         when: [{ states: ["hover"], bg: "toolbar.hoverBackground" }],
     };
 }
@@ -331,7 +333,7 @@ function sameActions(a: readonly IViewTitleAction[], b: readonly IViewTitleActio
 
 /**
  * Enabled state is compared along with id and icon: otherwise the early return in `setActions` would
- * swallow its change, and the button would stay as it was first built.
+ * swallow its change, and the button would stay as it was first built. The color is not: an item's color is fixed.
  */
 function sameAction(a: IViewTitleAction, b: IViewTitleAction): boolean {
     // Stryker disable next-line ConditionalExpression: "buttons always differ" is an extra rebuild not observable in the frame; skipping a needed one is covered by the id, icon and enabled-change tests

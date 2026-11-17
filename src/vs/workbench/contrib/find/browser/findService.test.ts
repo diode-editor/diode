@@ -23,6 +23,7 @@ import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { EditorGroupComponent } from "../../../browser/parts/editor/editorGroupComponent.ts";
+import { GroupCornerStack } from "../../../browser/parts/editor/groupCornerStack.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
@@ -104,7 +105,7 @@ describe("FindService", () => {
         const testApp = TestApp.create(body, new Size(80, 24));
         testApp.render();
 
-        const component = new FindComponent({ groupOverlayHost: () => groupComponent.view });
+        const component = new FindComponent({ groupOverlayHost: () => groupComponent.view }, new GroupCornerStack());
         const find = new FindService(component, group, group.editorGroups);
         // The only group's widget (created lazily; here explicitly, for the asserts).
         const widget = component.widgetFor(group.editorGroups.activeGroup.id)!;
@@ -384,14 +385,14 @@ describe("FindService", () => {
 
     it("isVisible() is false before the host view is attached", () => {
         const { group, themeService } = makeGroup();
-        const component = new FindComponent(NO_GROUP_HOSTS);
+        const component = new FindComponent(NO_GROUP_HOSTS, new GroupCornerStack());
         const find = new FindService(component, group, group.editorGroups);
         expect(find.isVisible()).toBe(false);
     });
 
     it("open() / hide() before the host view is attached are no-ops and do not throw", () => {
         const { group, themeService } = makeGroup();
-        const component = new FindComponent(NO_GROUP_HOSTS);
+        const component = new FindComponent(NO_GROUP_HOSTS, new GroupCornerStack());
         const find = new FindService(component, group, group.editorGroups);
         expect(() => {
             find.open();
@@ -406,7 +407,7 @@ describe("FindService", () => {
     it("next()/prev() before the view layer is attached is a no-op: no widget and none can be created", () => {
         // No host: widgetFor returns null, navigation silently exits.
         const { group } = makeGroup();
-        const component = new FindComponent(NO_GROUP_HOSTS);
+        const component = new FindComponent(NO_GROUP_HOSTS, new GroupCornerStack());
         const find = new FindService(component, group, group.editorGroups);
 
         expect(() => {
@@ -445,7 +446,7 @@ describe("FindService", () => {
         const body = new BodyElement();
         body.setContent(groupComponent.view);
         TestApp.create(body, new Size(80, 24)).render();
-        const component = new FindComponent({ groupOverlayHost: () => groupComponent.view });
+        const component = new FindComponent({ groupOverlayHost: () => groupComponent.view }, new GroupCornerStack());
         const find = new FindService(component, group, group.editorGroups);
 
         expect(() => {
