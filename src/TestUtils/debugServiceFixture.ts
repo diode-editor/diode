@@ -9,10 +9,12 @@ import { Uri } from "../vs/base/common/uri.ts";
 import { ConfigurationRegistry } from "../vs/platform/configuration/common/configurationRegistry.ts";
 import { InMemoryConfigurationService } from "../vs/platform/configuration/common/inMemoryConfigurationService.ts";
 import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeyService.ts";
+import type { IExtension } from "../vs/platform/extensions/common/iExtension.ts";
 import { NULL_LOGGER } from "../vs/platform/log/common/nullLogService.ts";
 import type { IMarker } from "../vs/platform/markers/common/iMarker.ts";
 import type { IWorkspaceFolder, WorkbenchState } from "../vs/platform/workspace/common/iWorkspaceContextService.ts";
 import { debugConfiguration } from "../vs/workbench/common/configuration/debugConfiguration.ts";
+import type { QuickPickItem } from "../vs/workbench/common/quickPickItem.ts";
 import type { IConfigurationManagerPorts } from "../vs/workbench/contrib/debug/browser/debugConfigurationManager.ts";
 import { DebugService, type IDebugServicePorts } from "../vs/workbench/contrib/debug/browser/debugService.ts";
 import type { IDebugTaskRunnerPorts } from "../vs/workbench/contrib/debug/browser/debugTaskRunner.ts";
@@ -84,6 +86,23 @@ export interface IDebugServiceFixture {
     readonly openedFrames: { frame: string; preserveFocus: boolean; sideBySide: boolean }[];
     /** Fires the save of a text file. */
     saveTextFile(resource: Uri): void;
+    /** The extensions whose manifests name the types with dynamic configurations. */
+    extensions: IExtension[];
+    /** The active editor: its resource, language and the language's display name. */
+    activeEditor: { resource: string; languageId: string; languageName?: string } | undefined;
+    /** The row the next pickers pick, by label (a list answers them in turn); `undefined` cancels them. */
+    pickLabel: string | string[] | undefined;
+    /** What the pickers showed: their placeholder and rows (a row's hint after ` | `). */
+    readonly picks: { placeholder: string; rows: string[] }[];
+    /** The answer to the "no extension for debugging" question. */
+    confirmAnswer: boolean;
+    readonly confirms: string[];
+    /** The Marketplace searches for debuggers, by their query. */
+    readonly installs: (string | undefined)[];
+}
+
+function pickRows(items: readonly QuickPickItem[]): string[] {
+    return items.map((item) => (item.hint === undefined ? item.label : `${item.label} | ${item.hint}`));
 }
 
 /** `state`: the workspace store of an earlier service, as a window that opens the same folder again. */
@@ -129,6 +148,13 @@ export function createDebugServiceFixture(
         viewletOpenings: 0,
         replOpenings: 0,
         replClosings: 0,
+        extensions: [] as IExtension[],
+        activeEditor: undefined as { resource: string; languageId: string; languageName?: string } | undefined,
+        pickLabel: undefined as string | string[] | undefined,
+        picks: [] as { placeholder: string; rows: string[] }[],
+        confirmAnswer: false,
+        confirms: [] as string[],
+        installs: [] as (string | undefined)[],
         openedFrames: [] as { frame: string; preserveFocus: boolean; sideBySide: boolean }[],
         saveTextFile: (resource: Uri) => {
             textFileSaved.fire(resource);
@@ -184,7 +210,19 @@ export function createDebugServiceFixture(
                 return Promise.resolve();
             },
         },
+        extensions: {
+            get extensions() {
+                return fixture.extensions;
+            },
+            whenInstalledExtensionsRegistered: () => Promise.resolve(),
+        },
+        pickLate: async (placeholder, items) => pick(placeholder, await items),
     };
+    function pick<T extends QuickPickItem>(placeholder: string, items: readonly T[]): T | undefined {
+        fixture.picks.push({ placeholder, rows: pickRows(items) });
+        const label = Array.isArray(fixture.pickLabel) ? fixture.pickLabel.shift() : fixture.pickLabel;
+        return items.find((item) => item.label === label);
+    }
     const tasks: IDebugTaskRunnerPorts = {
         tasks: {
             groupedTasks: () => Promise.resolve(fixture.tasks),
@@ -255,6 +293,22 @@ export function createDebugServiceFixture(
             allowBreakpointsEverywhere: configuration.get("debug.allowBreakpointsEverywhere"),
             focusEditorOnBreak: configuration.get("debug.focusEditorOnBreak"),
         }),
+        guess: {
+            activeLanguage: () =>
+                fixture.activeEditor && {
+                    id: fixture.activeEditor.languageId,
+                    name: fixture.activeEditor.languageName,
+                },
+            pick: (items, placeholder) => Promise.resolve(pick(placeholder, items)),
+            confirm: (message) => {
+                fixture.confirms.push(message);
+                return Promise.resolve(fixture.confirmAnswer);
+            },
+            installDebuggers: (query) => {
+                fixture.installs.push(query);
+            },
+        },
+        activeEditorResource: () => fixture.activeEditor?.resource,
         openViewlet: () => {
             fixture.viewletOpenings++;
         },

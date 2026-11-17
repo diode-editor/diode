@@ -8,6 +8,7 @@
  * - a configuration without `program` is `null`: the core opens launch.json (upstream's "fix your configuration");
  * - `${command:pickProgram}` is the extension's quick pick;
  * - the second resolution sees the substituted program and adds an argument;
+ * - a `Dynamic` provider offers a configuration per program, activated only when the user opens the `demo` type;
  * - the adapter "runs" the program: it prints a greeting to the Debug Console and stops on entry in `main` of
  *   the folder's `hello.c` with `argc` and `program` among the locals; with breakpoints in `hello.c` (verified by
  *   `contributes.breakpoints` for C) it stops on the first of them instead: a logpoint writes its message with
@@ -57,6 +58,21 @@ exports.activate = function activate(context) {
                 return { ...config, args: ["--demo"] };
             },
         }),
+        // As CodeLLDB's `cargo` configurations: offered in Select and Start Debugging and the Run and Debug title.
+        vscode.debug.registerDebugConfigurationProvider(
+            "demo",
+            {
+                provideDebugConfigurations() {
+                    return ["./hello", "./world"].map((program) => ({
+                        type: "demo",
+                        request: "launch",
+                        name: `Demo: ${program}`,
+                        program,
+                    }));
+                },
+            },
+            vscode.DebugConfigurationProviderTriggerKind.Dynamic,
+        ),
         vscode.debug.registerDebugAdapterDescriptorFactory("demo", {
             createDebugAdapterDescriptor(session) {
                 const source = session.workspaceFolder && path.join(session.workspaceFolder.uri.fsPath, "hello.c");

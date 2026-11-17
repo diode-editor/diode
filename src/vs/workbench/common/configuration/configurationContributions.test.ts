@@ -161,6 +161,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "debug.onTaskErrors": "window",
     "debug.saveBeforeStart": "language-overridable",
     "debug.confirmOnExit": "window",
+    "debug.hideLauncherWhileDebugging": "window",
     "debug.hideSlowPreLaunchWarning": "window",
     "debug.terminal.clearBeforeReusing": "window",
     "debug.showVariableTypes": "window",

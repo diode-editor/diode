@@ -1,9 +1,11 @@
 // The Run and Debug viewlet (upstream `debug.contribution.ts`: the container with `order: 3`, after Source Control
-// and before Extensions; the VARIABLES, WATCH, CALL STACK and BREAKPOINTS views). Without a
-// session VARIABLES shows upstream's welcome: the full-width Run and Debug button (as Source Control's Commit,
-// decision 2026-11-14) and the launch.json hint. Deviations: the welcome lives in VARIABLES, not in a view of its
-// own under `debugUx == simple`, and WATCH stays visible without a session; the button starts the debugging without
-// the keybinding label, and the launch.json hint is text until launch.json comes (#1138).
+// and before Extensions; the VARIABLES, WATCH, CALL STACK and BREAKPOINTS views). Without a session VARIABLES shows upstream's welcome: the full-width Run and Debug button (as Source Control's Commit,
+// decision 2026-11-14) and the link that creates launch.json. The container's title holds upstream's launcher (▶ and
+// the configurations) under upstream's `when`: there are configurations or a session (`debugUx`), a folder is open,
+// the toolbar is not docked in the view while debugging, and `debug.hideLauncherWhileDebugging` does not hide it.
+// Deviations: the welcome lives in VARIABLES, not in a view of its own under `debugUx == simple`, and WATCH stays
+// visible without a session; the button starts the debugging without the keybinding label; the welcome of an
+// empty window ("open a folder") and of disabled debuggers is not here.
 
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
@@ -16,6 +18,7 @@ import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platfo
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import { deserializeWhen, whenKeys } from "../../../../platform/contextkey/common/contextKeyExpr.ts";
 import {
     type ContextKeyService,
     ContextKeyServiceDIToken,
@@ -29,6 +32,8 @@ import {
     type IProductIconService,
     ProductIconServiceDIToken,
 } from "../../../../platform/theme/common/productIconService.ts";
+import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
+import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { Component } from "../../../browser/component.ts";
 import {
     type QuickInputService,
@@ -36,7 +41,11 @@ import {
 } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { ActionButtonElement } from "../../../browser/parts/views/actionButtonElement.ts";
 import { type ViewsService, ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
-import { type IViewWelcomeBlock, ViewWelcomeElement } from "../../../browser/parts/views/viewWelcomeElement.ts";
+import {
+    type IViewWelcomeBlock,
+    type IViewWelcomeTarget,
+    ViewWelcomeElement,
+} from "../../../browser/parts/views/viewWelcomeElement.ts";
 import {
     BREAKPOINTS_VIEW_ID,
     CALLSTACK_VIEW_ID,
@@ -49,7 +58,8 @@ import { Variable } from "../common/debugModel.ts";
 
 import { BreakpointSourcesDIToken, BreakpointsView, type IBreakpointSources } from "./breakpointsView.ts";
 import { CallStackView, getContext, getContextForContributedActions } from "./callStackView.ts";
-import { DEBUG_START_COMMAND_ID } from "./debugCommands.ts";
+import { StartDebugActionViewItem } from "./debugActionViewItems.ts";
+import { DEBUG_CONFIGURE_COMMAND_ID, DEBUG_START_COMMAND_ID } from "./debugCommands.ts";
 import {
     breakpointItemKeys,
     breakpointItemType,
@@ -67,10 +77,33 @@ import { WatchExpressionsView } from "./watchExpressionsView.ts";
 
 export const DebugViewletComponentDIToken = token<DebugViewletComponent>("DebugViewletComponent");
 
-/** Upstream's welcome of the viewlet under the button (`welcomeView.ts`). */
-const WELCOME_TEXT: readonly IViewWelcomeBlock[] = [
-    { kind: "text", text: "To customize Run and Debug, create a launch.json file." },
-];
+/**
+ * Upstream's welcome of the viewlet under the button (`welcomeView.ts`). A function: the command ids come from a module
+ * that imports this one.
+ */
+function welcomeText(): readonly IViewWelcomeBlock[] {
+    return [
+        {
+            kind: "paragraph",
+            nodes: [
+                "To customize Run and Debug ",
+                { label: "create a launch.json file", command: DEBUG_CONFIGURE_COMMAND_ID, args: [{ addNew: true }] },
+                ".",
+            ],
+        },
+    ];
+}
+
+/** Upstream's `when` of the launcher in the container's title (`debugViewlet.ts`). */
+const LAUNCHER_WHEN =
+    "debugUx != 'simple' && workbenchState != 'empty' && " +
+    "(debugState == 'inactive' || config.debug.toolBarLocation != 'docked') && " +
+    "(!config.debug.hideLauncherWhileDebugging || !inDebugMode)";
+/** The keys of {@link LAUNCHER_WHEN}: a change of one may show or hide the launcher. */
+function launcherKeys(): readonly string[] {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- the literal above parses
+    return whenKeys(deserializeWhen(LAUNCHER_WHEN)!);
+}
 
 function contains(element: TUIElement, active: TUIElement | null): boolean {
     return active?.getAncestorPath().includes(element) === true;
@@ -86,6 +119,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         ProductIconServiceDIToken,
         QuickInputServiceDIToken,
         BreakpointSourcesDIToken,
+        IWorkspaceContextServiceDIToken,
         MenuServiceDIToken,
         ContextMenuServiceDIToken,
     ] as const;
@@ -96,6 +130,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
     public readonly callStack: CallStackView;
     public readonly breakpoints: BreakpointsView;
     public readonly runButton = new ActionButtonElement();
+    public readonly launcher: StartDebugActionViewItem;
     private readonly welcome: TUIElement;
 
     public constructor(
@@ -107,6 +142,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         icons: IProductIconService,
         quickInput: QuickInputService,
         breakpointSources: IBreakpointSources,
+        workspace: IWorkspaceContextService,
         menus: MenuService,
         contextMenu: ContextMenuService,
     ) {
@@ -151,7 +187,12 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
             height: vflexFixed(3),
             width: "fill",
         });
-        welcome.addChild(new ViewWelcomeElement(WELCOME_TEXT, onUnexpectedError), {
+        const runWelcomeTarget = (target: IViewWelcomeTarget): void => {
+            // The blocks above link commands with their arguments only.
+            const { command, args } = target as { command: string; args: readonly unknown[] };
+            Promise.resolve(commands.execute(command, ...args)).catch(onUnexpectedError);
+        };
+        welcome.addChild(new ViewWelcomeElement(welcomeText(), runWelcomeTarget), {
             height: vflexFill(),
             width: "fill",
         });
@@ -217,6 +258,23 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
                 views.setViewBody(VARIABLES_VIEW_ID, this.variablesBody());
             }),
         );
+
+        this.launcher = this.register(
+            new StartDebugActionViewItem(debugService, configuration, commands, workspace, icons),
+        );
+        const keys = launcherKeys();
+        const updateTitleArea = (): void => {
+            views.setContainerTitleWidget(
+                VIEWLET_ID,
+                contextKeys.evaluate(LAUNCHER_WHEN) ? this.launcher.element : null,
+            );
+        };
+        this.register(
+            contextKeys.onDidChange((changed) => {
+                if (keys.some((key) => changed.has(key))) updateTitleArea();
+            }),
+        );
+        updateTitleArea();
         this.register(
             // `debug.showVariableTypes` among others: redrawing two trees' rows on a rare settings change is cheap.
             configuration.onDidChangeConfiguration((event) => {

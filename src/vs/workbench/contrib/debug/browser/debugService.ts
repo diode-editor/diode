@@ -5,8 +5,8 @@
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/browser/debugService.ts
 // `startDebugging` follows upstream's sequence: `onDebug` activation, saving the editors, the selected launch
 // configuration or compound, resolution by the providers, variable substitution, the pre-launch task, resolution with
-// substituted variables, then the session. Choosing a debugger for a configuration without a type (#1156) is not
-// here yet: such a configuration goes to the providers without a type and does not start. Not here yet:
+// substituted variables, then the session. A configuration without a type gets the debugger chosen for the active
+// editor's file before, else a guessed one, and a session started so remembers the choice for that file. Not here yet:
 // data breakpoints, `debug.openExplorerOnEnd`, removing the breakpoints of a deleted file. The focused frame opens
 // through the `openStackFrame` port (upstream `stackFrame.openInEditor`), and the positions the editor moved
 // breakpoints to are sent on the file's save (upstream: on its change on disk). The
@@ -49,6 +49,7 @@ import {
     type IDebugVariableResolver,
     type IEnablement,
     type IExceptionBreakpoint,
+    type IGuessedDebugger,
     type ILaunch,
     type IStackFrame,
     type IThread,
@@ -68,11 +69,11 @@ import {
     InstructionBreakpoint,
     type ITextFileDirtyState,
 } from "../common/debugModel.ts";
-import { DebugStorage } from "../common/debugStorage.ts";
+import { DebugStorage, type IChosenEnvironment } from "../common/debugStorage.ts";
 import { ViewModel } from "../common/debugViewModel.ts";
 import type { IReplConsoleConfiguration } from "../common/replModel.ts";
 
-import { AdapterManager } from "./debugAdapterManager.ts";
+import { AdapterManager, type IDebuggerGuessPorts } from "./debugAdapterManager.ts";
 import { ConfigurationManager, type IConfigurationManagerPorts } from "./debugConfigurationManager.ts";
 import { DebugSession, type IDebugServiceConfiguration, type IDebugSessionServices } from "./debugSession.ts";
 import { DebugTaskRunner, type IDebugTaskRunnerPorts, TaskRunResult } from "./debugTaskRunner.ts";
@@ -98,6 +99,10 @@ export interface IDebugServicePorts {
     /** The configuration resolver over launch.json: the variables of a configuration, interactive ones too. */
     readonly variables: IDebugVariableResolver;
     readonly debugConfiguration: () => IDebugServiceConfiguration;
+    /** What guessing a debugger asks of the editor and the user. */
+    readonly guess: IDebuggerGuessPorts;
+    /** The resource of the active editor: the debugger chosen for it is remembered. */
+    readonly activeEditorResource: () => string | undefined;
     /** Upstream's `openPaneComposite(VIEWLET_ID, Sidebar)`: shows Run and Debug without taking the focus. */
     readonly openViewlet: () => void;
     /** Upstream's `openView(REPL_VIEW_ID, false)`: shows the Debug Console without taking the focus. */
@@ -117,12 +122,19 @@ export interface IDebugServicePorts {
 }
 export const DebugServicePortsDIToken = token<IDebugServicePorts>("DebugServicePorts");
 
-/** Activation of the debug extensions (`onDebug`); without an extension host, as in the test profile, there are none. */
-export type IDebugExtensionActivator = IDebugServicePorts["extensions"];
+/**
+ * Activation of the debug extensions (`onDebug`) and their manifests; without an extension host, as in the test
+ * profile, there are none.
+ */
+export type IDebugExtensionActivator = Pick<
+    IExtensionService,
+    "activateByEvent" | "whenInstalledExtensionsRegistered" | "extensions"
+>;
 export const DebugExtensionActivatorDIToken = token<IDebugExtensionActivator>("DebugExtensionActivator");
 export const NO_DEBUG_EXTENSIONS: IDebugExtensionActivator = {
     activateByEvent: () => Promise.resolve(),
     whenInstalledExtensionsRegistered: () => Promise.resolve(),
+    extensions: [],
 };
 
 /** Upstream's delay before a restarted session that has no `restart` request is launched again. */
@@ -152,6 +164,7 @@ export class DebugService implements IDebugService {
     /** Upstream keeps a set of uris; a map by the string keeps one entry per file. */
     private readonly breakpointsToSendOnResourceSaved = new Map<string, uri>();
     private readonly sessionServices: IDebugSessionServices;
+    private readonly chosenEnvironments: Record<string, IChosenEnvironment>;
 
     public constructor(private readonly ports: IDebugServicePorts) {
         const contextKeys = ports.contextKeys;
@@ -162,6 +175,7 @@ export class DebugService implements IDebugService {
                 extensions: ports.extensions,
                 variables: ports.variables,
                 allowBreakpointsEverywhere: () => ports.debugConfiguration().allowBreakpointsEverywhere,
+                guess: ports.guess,
             }),
         );
         this.configurationManager = this.disposables.add(
@@ -169,6 +183,7 @@ export class DebugService implements IDebugService {
         );
         this.taskRunner = this.disposables.add(new DebugTaskRunner(ports.tasks));
         this.debugStorage = this.disposables.add(new DebugStorage(ports.state, ports.textFiles, ports.logger));
+        this.chosenEnvironments = this.debugStorage.loadChosenEnvironments();
         this.model = this.disposables.add(new DebugModel(this.debugStorage, ports.textFiles, ports.logger));
         this.viewModel = this.disposables.add(new ViewModel(contextKeys));
         this.sessionServices = {
@@ -499,7 +514,6 @@ export class DebugService implements IDebugService {
     ): Promise<boolean> {
         // We keep the debug type in a separate variable 'type' so that a no-folder config has no attributes.
         // Storing the type in the config would break extensions that assume that the no-folder case is indicated by an empty config.
-        // A configuration without a type would be completed by the debugger the user picks (#1156).
         let type: string | undefined;
         let config: IConfig;
         if (configOrUndefined) {
@@ -515,6 +529,37 @@ export class DebugService implements IDebugService {
             config.noDebug = true;
         }
         const unresolvedConfig = structuredClone(config);
+
+        let guess: IGuessedDebugger | undefined;
+        let activeEditor: string | undefined;
+        if (!type) {
+            activeEditor = this.ports.activeEditorResource();
+            if (activeEditor) {
+                const chosen = this.chosenEnvironments[activeEditor] as IChosenEnvironment | undefined;
+                if (chosen) {
+                    type = chosen.type;
+                    if (chosen.dynamicLabel) {
+                        const dyn = await this.configurationManager.getDynamicConfigurationsByType(chosen.type);
+                        const found = dyn.find((d) => d.label === chosen.dynamicLabel);
+                        if (found) {
+                            launch = found.launch;
+                            Object.assign(config, found.config);
+                        }
+                    }
+                }
+            }
+
+            if (!type) {
+                guess = await this.adapterManager.guessDebugger(false);
+                if (guess) {
+                    type = guess.debugger.type;
+                    if (guess.withConfig) {
+                        launch = guess.withConfig.launch;
+                        Object.assign(config, guess.withConfig.config);
+                    }
+                }
+            }
+        }
 
         const initCancellationToken = new CancellationTokenSource();
         const sessionId = generateUuid();
@@ -601,17 +646,29 @@ export class DebugService implements IDebugService {
                     return false;
                 }
 
-                return await this.doCreateSession(
+                const result = await this.doCreateSession(
                     sessionId,
                     launch?.workspace,
                     { resolved: resolvedConfig, unresolved: unresolvedConfig },
                     options,
                     userConfirmedConcurrentSession,
                 );
+                if (result && guess && activeEditor) {
+                    // Remeber user choice of environment per active editor to make starting debugging smoother #124770
+                    this.chosenEnvironments[activeEditor] = {
+                        type: guess.debugger.type,
+                        dynamicLabel: guess.withConfig?.label,
+                    };
+                    this.debugStorage.storeChosenEnvironments(this.chosenEnvironments);
+                }
+                return result;
             } catch (err) {
-                // Upstream's other branch, the empty workspace's message, is for a configuration of a guessed debugger (#1156).
                 if ((err as Error | undefined)?.message) {
                     this.showError((err as Error).message);
+                } else if (this.ports.workspace.getWorkspace().folders.length === 0) {
+                    this.showError(
+                        "The active file can not be debugged. Make sure it is saved and that you have a debug extension installed for that file type.",
+                    );
                 }
                 if (launch && !initCancellationToken.token.isCancellationRequested) {
                     await launch.openConfigFile({ preserveFocus: true });

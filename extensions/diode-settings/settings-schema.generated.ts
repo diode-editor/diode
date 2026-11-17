@@ -120,6 +120,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["logpoint", "conditionalBreakpoint", "triggeredBreakpoint", "none"],
     },
     {
+        key: "debug.hideLauncherWhileDebugging",
+        type: "boolean",
+        default: false,
+        description:
+            "Hide 'Start Debugging' control in title bar of 'Run and Debug' view while debugging is active. Only relevant when `#debug.toolBarLocation#` is not `docked`.",
+    },
+    {
         key: "debug.hideSlowPreLaunchWarning",
         type: "boolean",
         default: false,
