@@ -17,6 +17,8 @@
 
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
+import type { IRange } from "../../../../editor/common/core/range.ts";
+
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { codicon } from "../../../../base/common/codicons.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
@@ -45,6 +47,68 @@ const TOP_FRAME_ICON = codicon("debug-stackframe");
 const FOCUSED_FRAME_ICON = codicon("debug-stackframe-focused");
 const MUTED = "descriptionForeground";
 const LINK = "textLink.foreground";
+
+/** What the built-in commands of a row's menu get after the contributed argument. */
+export interface ICallStackItemContext {
+    sessionId: string;
+    threadId?: string;
+    frameId?: string;
+    frameName?: string;
+    frameLocation?: { range: IRange; source: DebugProtocol.Source };
+}
+
+function getSessionContext(element: IDebugSession): ICallStackItemContext {
+    return {
+        sessionId: element.getId(),
+    };
+}
+
+function getThreadContext(element: IThread): ICallStackItemContext {
+    return {
+        ...getSessionContext(element.session),
+        threadId: element.getId(),
+    };
+}
+
+function getStackFrameContext(element: StackFrame): ICallStackItemContext {
+    return {
+        ...getThreadContext(element.thread),
+        frameId: element.getId(),
+        frameName: element.name,
+        frameLocation: { range: element.range, source: element.source.raw },
+    };
+}
+
+export function getContext(element: CallStackItem | null): ICallStackItemContext | undefined {
+    if (element instanceof StackFrame) {
+        return getStackFrameContext(element);
+    } else if (element instanceof Thread) {
+        return getThreadContext(element);
+    } else if (isDebugSession(element)) {
+        return getSessionContext(element);
+    } else {
+        return undefined;
+    }
+}
+
+// Extensions depend on this context, should not be changed even though it is not fully deterministic
+export function getContextForContributedActions(element: CallStackItem | null): string | number {
+    if (element instanceof StackFrame) {
+        if (element.source.inMemory) {
+            return element.source.raw.path || element.source.reference || element.source.name;
+        }
+
+        return element.source.uri.toString();
+    }
+    if (element instanceof Thread) {
+        return element.threadId;
+    }
+    if (isDebugSession(element)) {
+        return element.getId();
+    }
+
+    return "";
+}
 
 export function isDebugSession(obj: unknown): obj is IDebugSession {
     return typeof (obj as Partial<IDebugSession> | null | undefined)?.getAllThreads === "function";

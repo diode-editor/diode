@@ -69,6 +69,10 @@ describe("Repl", () => {
             } as never,
             icons,
             mockStateService(),
+            // The console's menu is tested in the workbench (repl.app.test.ts).
+            {} as never,
+            {} as never,
+            {} as never,
         );
         // The prompt's own color differs from the plain foreground it defaults to in the bundled themes.
         app = TuidomTestApp.createWithContent(repl.view, new Size(60, 12), {

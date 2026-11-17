@@ -126,6 +126,7 @@ export function testDebugService(model: DebugModel): TestDebugService {
         removeBreakpoints: vi.fn().mockResolvedValue(undefined),
         addFunctionBreakpoint: vi.fn().mockResolvedValue(undefined),
         removeFunctionBreakpoints: vi.fn().mockResolvedValue(undefined),
+        addDataBreakpoint: vi.fn().mockResolvedValue(undefined),
         removeDataBreakpoints: vi.fn().mockResolvedValue(undefined),
         removeInstructionBreakpoints: vi.fn().mockResolvedValue(undefined),
         startDebugging: vi.fn().mockResolvedValue(true),

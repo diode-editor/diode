@@ -7,8 +7,9 @@
 // read on expansion (the model chunks large arrays into `[0..99]`), the refresh postponed by 400 ms while stepping
 // and immediate on an explicit frame change. A lazy variable (`presentationHint.lazy`) is evaluated by Enter or a
 // click, as upstream's eye button. The tree remembers the expanded nodes by their ids (scope ids carry the frame),
-// not a view state per frame. Not here yet: Set Value (double click, F2) and the context menu with its commands
-// (#1150). Not planned: debug visualizers, the memory view (`View Binary Data`).
+// not a view state per frame. Set Value (F2, the row's menu) puts an input over the row; the adapter's error keeps it
+// open with the message after it. Not here yet: Set Value by a double click. Not planned: debug visualizers, the
+// memory view (`View Binary Data`).
 
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
@@ -33,8 +34,13 @@ export class VariablesView extends Disposable {
     /** The first non-expensive scope of the frame on screen: it starts expanded. */
     private initiallyExpanded: IScope | undefined;
     private readonly updateTreeScheduler: RunOnceScheduler;
+    /** Upstream's `forgetScopes`: a set value refreshes the rows without reading the scopes anew. */
+    private forgetScopes = true;
 
-    public constructor(debugService: IDebugService, renderer: DebugExpressionRenderer) {
+    public constructor(
+        private readonly debugService: IDebugService,
+        renderer: DebugExpressionRenderer,
+    ) {
         super();
         this.tree = new LazyTreeControl<IExpression | IScope>(
             {
@@ -81,8 +87,14 @@ export class VariablesView extends Disposable {
         );
         this.register(
             viewModel.onWillUpdateViews(() => {
-                this.stackFrame?.forgetScopes();
+                if (this.forgetScopes) this.stackFrame?.forgetScopes();
+                this.forgetScopes = true;
                 this.refresh();
+            }),
+        );
+        this.register(
+            viewModel.onDidSelectExpression((e) => {
+                if (e?.expression instanceof Variable && !e.settingWatch) this.editVariable(e.expression);
             }),
         );
         this.register(
@@ -101,5 +113,32 @@ export class VariablesView extends Disposable {
 
     public focus(): void {
         this.tree.list.focus();
+    }
+
+    /** Upstream's input box of a variable (`VariablesRenderer.getInputBoxOptions`). */
+    private editVariable(variable: Variable): void {
+        const viewModel = this.debugService.getViewModel();
+        this.tree.edit(variable, {
+            value: variable.value,
+            error: variable.errorMessage,
+            onDone: (value, success) => {
+                variable.errorMessage = undefined;
+                viewModel.setSelectedExpression(undefined, false);
+                const focusedStackFrame = viewModel.focusedStackFrame;
+                if (success && variable.value !== value && focusedStackFrame) {
+                    void variable
+                        .setVariable(value, focusedStackFrame)
+                        // Need to force watch expressions and variables to update since a variable change can have an effect on both
+                        .then(() => {
+                            // Do not refresh scopes due to a node limitation #15520
+                            this.forgetScopes = false;
+                            viewModel.updateViews();
+                            // Upstream renders the input again over a variable with an error.
+                            if (variable.errorMessage !== undefined) viewModel.setSelectedExpression(variable, false);
+                        })
+                        .catch(onUnexpectedError);
+                }
+            },
+        });
     }
 }

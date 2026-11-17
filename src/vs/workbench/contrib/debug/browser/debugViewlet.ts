@@ -10,6 +10,8 @@ import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContaine
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { type MenuService, MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
 import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -18,6 +20,10 @@ import {
     type ContextKeyService,
     ContextKeyServiceDIToken,
 } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import {
+    type ContextMenuService,
+    ContextMenuServiceDIToken,
+} from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
     type IProductIconService,
@@ -39,21 +45,20 @@ import {
     VIEWLET_ID,
     WATCH_VIEW_ID,
 } from "../common/debug.ts";
-import {
-    Breakpoint,
-    DataBreakpoint,
-    ExceptionBreakpoint,
-    Expression,
-    FunctionBreakpoint,
-    InstructionBreakpoint,
-    StackFrame,
-    Thread,
-} from "../common/debugModel.ts";
-import { isSessionAttach } from "../common/debugUtils.ts";
+import { Expression, Scope, Variable } from "../common/debugModel.ts";
 
 import { BreakpointSourcesDIToken, BreakpointsView, type IBreakpointSources } from "./breakpointsView.ts";
-import { CallStackView, isDebugSession } from "./callStackView.ts";
+import { CallStackView, getContext, getContextForContributedActions } from "./callStackView.ts";
 import { DEBUG_START_COMMAND_ID } from "./debugCommands.ts";
+import {
+    breakpointItemType,
+    callStackItemKeys,
+    type IDebugContextMenuHost,
+    type IDebugContextMenuRequest,
+    showDebugContextMenu,
+    variableMenuKeys,
+    watchMenuKeys,
+} from "./debugContextMenus.ts";
 import { DebugExpressionRenderer } from "./debugExpressionRenderer.ts";
 import { type DebugService, DebugServiceDIToken } from "./debugService.ts";
 import { VariablesView } from "./variablesView.ts";
@@ -80,6 +85,8 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         ProductIconServiceDIToken,
         QuickInputServiceDIToken,
         BreakpointSourcesDIToken,
+        MenuServiceDIToken,
+        ContextMenuServiceDIToken,
     ] as const;
 
     public readonly view: TUIElement;
@@ -99,6 +106,8 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         icons: IProductIconService,
         quickInput: QuickInputService,
         breakpointSources: IBreakpointSources,
+        menus: MenuService,
+        contextMenu: ContextMenuService,
     ) {
         super();
         const renderer = this.register(
@@ -124,6 +133,14 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
             }),
         );
         this.view = this.variables.tree.element;
+        this.registerContextMenus({
+            menus,
+            contextMenu,
+            commands,
+            onError: (message) => {
+                onUnexpectedError(new Error(message));
+            },
+        });
 
         this.runButton.setLabel("Run and Debug");
         this.runButton.onActivate = () => {
@@ -215,6 +232,62 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         );
     }
 
+    /** Upstream's `onContextMenu` of each view: the row's menu with the row's keys and arguments. */
+    private registerContextMenus(host: IDebugContextMenuHost): void {
+        const show = (request: Omit<IDebugContextMenuRequest, "anchor">, screenX: number, screenY: number): void => {
+            showDebugContextMenu(host, { ...request, anchor: { screenX, screenY } });
+        };
+        const viewModel = this.debugService.getViewModel();
+        this.variables.tree.onContextMenu = (element, screenX, screenY) => {
+            const owner = this.variables.tree.list;
+            if (element instanceof Scope) {
+                const args = [{ scope: { name: element.name } }];
+                show({ owner, menuId: MenuId.DebugScopesContext, keys: {}, args }, screenX, screenY);
+                return;
+            }
+            if (!(element instanceof Variable) || !element.value) return;
+            void variableMenuKeys(element)
+                .then((keys) => {
+                    const args = [element.toJSON()];
+                    show({ owner, menuId: MenuId.DebugVariablesContext, keys, args }, screenX, screenY);
+                })
+                .catch(onUnexpectedError);
+        };
+        this.watch.tree.onContextMenu = (element, screenX, screenY) => {
+            void watchMenuKeys(element, viewModel.focusedStackFrame)
+                .then((keys) => {
+                    const owner = this.watch.tree.list;
+                    show({ owner, menuId: MenuId.DebugWatchContext, keys, args: [element] }, screenX, screenY);
+                })
+                .catch(onUnexpectedError);
+        };
+        this.callStack.tree.onContextMenu = (element, screenX, screenY) => {
+            show(
+                {
+                    owner: this.callStack.tree.list,
+                    menuId: MenuId.DebugCallStackContext,
+                    keys: callStackItemKeys(element),
+                    // Extensions get upstream's contributed argument, the built-in commands the row's ids after it.
+                    args: [getContextForContributedActions(element), getContext(element)],
+                },
+                screenX,
+                screenY,
+            );
+        };
+        this.breakpoints.tree.onContextMenu = (element, screenX, screenY) => {
+            show(
+                {
+                    owner: this.breakpoints.tree.list,
+                    menuId: MenuId.DebugBreakpointsContext,
+                    keys: { breakpointItemType: breakpointItemType(element) },
+                    args: [element],
+                },
+                screenX,
+                screenY,
+            );
+        };
+    }
+
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
         contextKeys.set("variablesFocused", contains(this.variables.tree.list, active));
         const watchFocused = contains(this.watch.tree.list, active);
@@ -237,18 +310,8 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
     private updateCallStackContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
         const focused = contains(this.callStack.tree.list, active);
         contextKeys.set("callStackFocused", focused);
-        const item = focused ? this.callStack.tree.focused : undefined;
-        if (isDebugSession(item)) {
-            contextKeys.set("callStackItemType", "session");
-            contextKeys.set("callStackSessionIsAttach", isSessionAttach(item));
-            contextKeys.set("callStackItemStopped", item.state === State.Stopped);
-            contextKeys.set("callStackSessionHasOneThread", item.getAllThreads().length === 1);
-        } else if (item instanceof Thread) {
-            contextKeys.set("callStackItemType", "thread");
-            contextKeys.set("callStackItemStopped", item.stopped);
-        } else {
-            contextKeys.set("callStackItemType", item instanceof StackFrame ? "stackFrame" : "");
-        }
+        const keys = callStackItemKeys(focused ? this.callStack.tree.focused : undefined);
+        for (const [key, value] of Object.entries(keys)) contextKeys.setRaw(key, value);
     }
 
     private variablesBody(): TUIElement {
@@ -264,12 +327,3 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
     }
 }
 
-/** Upstream's `breakpointItemType` of the row under the cursor. */
-function breakpointItemType(element: unknown): string {
-    if (element instanceof Breakpoint) return "breakpoint";
-    if (element instanceof ExceptionBreakpoint) return "exceptionBreakpoint";
-    if (element instanceof FunctionBreakpoint) return "functionBreakpoint";
-    if (element instanceof DataBreakpoint) return "dataBreakpoint";
-    if (element instanceof InstructionBreakpoint) return "instructionBreakpoint";
-    return element === undefined ? "" : "breakpointFolder";
-}

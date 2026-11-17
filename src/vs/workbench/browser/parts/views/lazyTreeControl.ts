@@ -190,8 +190,11 @@ export class LazyTreeControl<T> {
     /**
      * Puts an input over the element's row (upstream's `renderInputBox`) and focuses it: Enter or leaving it ends the
      * edit with its text, Escape without; the list gets the focus back. A rebuild keeps the input with what is typed.
+     * `false` when the tree does not show the element (both debug views hear of every selected expression).
      */
-    public edit(element: T, edit: IRowEdit): void {
+    public edit(element: T, edit: IRowEdit): boolean {
+        const key = this.source.getKey(element);
+        if (!this.parentOf.has(`${this.options.idPrefix}:${key}`)) return false;
         this.finishEdit(false);
         const input = new InputElement();
         input.inputState.value = edit.value;
@@ -205,9 +208,10 @@ export class LazyTreeControl<T> {
             // A rebuild takes the row off the list for a moment; that is not the user leaving it.
             if (!this.rebuilding) this.finishEdit(true);
         });
-        this.editing = { key: this.source.getKey(element), edit, input };
+        this.editing = { key, edit, input };
         this.rebuild();
         input.focus();
+        return true;
     }
 
     private finishEdit(success: boolean): void {
@@ -222,6 +226,11 @@ export class LazyTreeControl<T> {
 
     public get focused(): T | undefined {
         return this.items.get(this.list.getCursorElement());
+    }
+
+    /** The elements of the rows on screen in their order: the roots and the children of the open nodes. */
+    public get visibleElements(): readonly T[] {
+        return [...this.items.values()];
     }
 
     /**
