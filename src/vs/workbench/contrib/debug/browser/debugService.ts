@@ -47,6 +47,7 @@ import {
     type IDebugTerminalLauncher,
     type IDebugVariableResolver,
     type IEnablement,
+    type IExceptionBreakpoint,
     type ILaunch,
     type IStackFrame,
     type IThread,
@@ -62,6 +63,7 @@ import {
     FunctionBreakpoint,
     type IDataBreakpointOptions,
     type IFunctionBreakpointOptions,
+    type IInstructionBreakpointOptions,
     InstructionBreakpoint,
     type ITextFileDirtyState,
 } from "../common/debugModel.ts";
@@ -1159,10 +1161,28 @@ export class DebugService implements IDebugService {
         await this.sendFunctionBreakpoints();
     }
 
+    public async updateFunctionBreakpoint(
+        id: string,
+        update: { name?: string; hitCondition?: string; condition?: string },
+    ): Promise<void> {
+        this.model.updateFunctionBreakpoint(id, update);
+        this.debugStorage.storeBreakpoints(this.model);
+        await this.sendFunctionBreakpoints();
+    }
+
     public async addDataBreakpoint(opts: IDataBreakpointOptions): Promise<void> {
         this.model.addDataBreakpoint(opts);
         this.debugStorage.storeBreakpoints(this.model);
         // Upstream stores once more after sending; nothing of the stored breakpoint changes with the answer.
+        await this.sendDataBreakpoints();
+    }
+
+    public async updateDataBreakpoint(
+        id: string,
+        update: { hitCondition?: string; condition?: string },
+    ): Promise<void> {
+        this.model.updateDataBreakpoint(id, update);
+        this.debugStorage.storeBreakpoints(this.model);
         await this.sendDataBreakpoints();
     }
 
@@ -1180,6 +1200,21 @@ export class DebugService implements IDebugService {
         // Instruction breakpoints are not stored (upstream stores here all the same).
         this.model.removeInstructionBreakpoints(instructionReference, offset, address);
         await this.sendInstructionBreakpoints();
+    }
+
+    public async addInstructionBreakpoint(opts: IInstructionBreakpointOptions): Promise<void> {
+        // Instruction breakpoints are not stored (upstream stores here all the same).
+        this.model.addInstructionBreakpoint(opts);
+        await this.sendInstructionBreakpoints();
+    }
+
+    public async setExceptionBreakpointCondition(
+        exceptionBreakpoint: IExceptionBreakpoint,
+        condition: string | undefined,
+    ): Promise<void> {
+        this.model.setExceptionBreakpointCondition(exceptionBreakpoint, condition);
+        this.debugStorage.storeBreakpoints(this.model);
+        await this.sendExceptionBreakpoints();
     }
 
     /** Called after the removal: the breakpoints left are the model's (upstream walks all of them, removed too). */

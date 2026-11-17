@@ -125,9 +125,14 @@ describe("Run and Debug: more context menus and the keys of the rows", () => {
             expect(t.screen()).toContain("accumulate");
         });
 
-        // An exception filter has none of them.
-        expect(await menuAt("C++: on throw")).toEqual([]);
+        // An exception filter has only its condition, which `cpp_throw` takes.
+        expect(await menuAt("C++: on throw")).toEqual(["Edit Condition..."]);
+        t.h.container.get(ContextMenuServiceDIToken).hideContextMenu();
         expect(await menuAt("accumulate", "last")).toEqual([
+            "Edit Condition...",
+            "Edit Function Condition...",
+            "Edit Hit Count...",
+            "-",
             "Remove Breakpoint",
             "Remove All Breakpoints",
             "-",

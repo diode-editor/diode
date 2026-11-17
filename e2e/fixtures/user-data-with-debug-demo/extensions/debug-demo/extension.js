@@ -10,7 +10,9 @@
  * - the second resolution sees the substituted program and adds an argument;
  * - the adapter "runs" the program: it prints a greeting to the Debug Console and stops on entry in `main` of
  *   the folder's `hello.c` with `argc` and `program` among the locals; with breakpoints in `hello.c` (verified by
- *   `contributes.breakpoints` for C) it stops on the first of them instead;
+ *   `contributes.breakpoints` for C) it stops on the first of them instead: a logpoint writes its message with
+ *   `{argc}` and `{program}` interpolated to the Debug Console and does not stop, a breakpoint whose condition
+ *   (`argc > 1`, `argc == 3`...) does not hold is passed;
  * - `./tests` also prints what a test runner does: output in ANSI colors with a link to `hello.c`, a group and a
  *   long line; the adapter completes the console's input (`completions`);
  * - its custom `demoReady` event makes the extension ask the custom `demoInfo` request and print the answer to the
@@ -113,7 +115,9 @@ class DemoAdapter {
         this.onDidSendMessage = this.emitter.event;
         this.seq = 1;
         this.sum = "0";
-        /** The lines of the breakpoints in `hello.c`. */
+        /** The breakpoints set in `hello.c`, as the client sent them. */
+        this.sourceBreakpoints = [];
+        /** The lines of the breakpoints in `hello.c` the program stops at. */
         this.breakpoints = [];
     }
 
@@ -132,12 +136,31 @@ class DemoAdapter {
         if (request.command === "configurationDone") {
             const { program, args } = this.configuration;
             this.event("output", { category: "stdout", output: `Hello from ${program} ${args.join(" ")}\n` });
+            this.runBreakpoints(true);
             if (program === "./tests") this.testRunnerOutput();
             this.event("demoReady");
             const reason = this.breakpoints.length > 0 ? "breakpoint" : "entry";
             this.event("stopped", { reason, threadId: 1, allThreadsStopped: true });
         }
         if (request.command === "disconnect") this.event("terminated");
+    }
+
+    /** The program passes its breakpoints in line order: logpoints log while it runs, the breakpoints whose condition holds stop it. */
+    runBreakpoints(running) {
+        const locals = { argc: this.configuration.args.length + 1, program: JSON.stringify(this.configuration.program) };
+        const stops = [];
+        for (const bp of this.sourceBreakpoints.slice().sort((a, b) => a.line - b.line)) {
+            // The program stops at the first breakpoint: what is past it does not run.
+            if (running && stops.length > 0) break;
+            if (bp.logMessage) {
+                if (!running) continue;
+                const output = bp.logMessage.replace(/\{(\w+)\}/gu, (_, name) => String(locals[name]));
+                this.event("output", { category: "console", output: `${output}\n` });
+            } else if (!bp.condition || conditionHolds(bp.condition, locals.argc)) {
+                stops.push(bp.line);
+            }
+        }
+        this.breakpoints = stops;
     }
 
     // What a test runner prints: SGR colors, a file link, a group, and a line longer than the console.
@@ -158,11 +181,20 @@ class DemoAdapter {
     answer(request) {
         switch (request.command) {
             case "initialize":
-                return { supportsConfigurationDoneRequest: true, supportsCompletionsRequest: true, supportsSetVariable: true };
+                return {
+                    supportsConfigurationDoneRequest: true,
+                    supportsCompletionsRequest: true,
+                    supportsSetVariable: true,
+                    supportsConditionalBreakpoints: true,
+                    supportsLogPoints: true,
+                };
             case "setBreakpoints": {
                 const lines = (request.arguments.breakpoints || []).map((bp) => bp.line);
                 const known = request.arguments.source.path === this.source;
-                if (known) this.breakpoints = lines.slice().sort((a, b) => a - b);
+                if (known) {
+                    this.sourceBreakpoints = request.arguments.breakpoints || [];
+                    this.runBreakpoints(false);
+                }
                 return { breakpoints: lines.map((line) => ({ verified: known, line })) };
             }
             case "demoInfo":
@@ -217,4 +249,12 @@ class DemoAdapter {
     }
 
     dispose() {}
+}
+
+/** `argc OP N`, the only kind of condition the pretend program knows; anything else holds. */
+function conditionHolds(condition, argc) {
+    const match = /^\s*argc\s*(==|!=|<=|>=|<|>)\s*(\d+)\s*$/u.exec(condition);
+    if (!match) return true;
+    const n = Number(match[2]);
+    return { "==": argc === n, "!=": argc !== n, "<=": argc <= n, ">=": argc >= n, "<": argc < n, ">": argc > n }[match[1]];
 }
