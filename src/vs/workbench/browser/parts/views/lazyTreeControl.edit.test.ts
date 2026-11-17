@@ -128,7 +128,11 @@ describe("LazyTreeControl — row edit", () => {
     it("shows the error of the last try after the input; a second edit ends the first one without success", async () => {
         const { tree, source, screen } = await mount();
         const done: [string, boolean][] = [];
-        tree.edit(source.roots[0], { value: "x", error: "bad", onDone: (value, success) => done.push([value, success]) });
+        tree.edit(source.roots[0], {
+            value: "x",
+            error: "bad",
+            onDone: (value, success) => done.push([value, success]),
+        });
         expect(screen().split("\n")[0]).toContain("x");
         expect(screen().split("\n")[0]).toContain(" bad");
 

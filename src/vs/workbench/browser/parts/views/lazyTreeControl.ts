@@ -1,9 +1,9 @@
 import type { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { HFlexElement, hflexFill, hflexFit } from "@tuidom/elements/layout/hFlexElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
-import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
@@ -347,8 +347,8 @@ export class LazyTreeControl<T> {
     }
 
     private rebuild(): void {
-        const editing = this.editing;
-        const editingFocused = editing?.input.isFocused === true;
+        const input = this.editing?.input;
+        const editingFocused = input?.isFocused === true;
         this.rebuilding = true;
         try {
             this.rebuildRows();
@@ -356,7 +356,7 @@ export class LazyTreeControl<T> {
             this.rebuilding = false;
         }
         // The edited row came back: its input gets the focus it had.
-        if (editingFocused) editing?.input.focus();
+        if (editingFocused) input.focus();
     }
 
     private rebuildRows(): void {

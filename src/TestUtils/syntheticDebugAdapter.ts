@@ -304,7 +304,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 // Any variable can be watched for a change; `count` for its reads and accesses too.
                 const name = String(args.name);
                 this.respond(request, {
-                    dataId: `${String(args.variablesReference ?? 0)}:${name}`,
+                    dataId: `${Number(args.variablesReference ?? 0)}:${name}`,
                     description: name,
                     accessTypes: name === "count" ? ["read", "write", "readWrite"] : undefined,
                     canPersist: false,
@@ -766,7 +766,8 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     /** A local of the top frame by its name: what WATCH sets. */
     private setExpression(request: DebugProtocol.Request, args: DebugProtocol.SetExpressionArguments): void {
         const frame = this.program.frame(args.frameId ?? 1000);
-        const owner = frame === undefined ? undefined : this.locals(frame).find((v) => v.evaluateName === args.expression);
+        const owner =
+            frame === undefined ? undefined : this.locals(frame).find((v) => v.evaluateName === args.expression);
         if (owner === undefined) {
             this.fail(request, `Cannot set '${args.expression}'`);
             return;

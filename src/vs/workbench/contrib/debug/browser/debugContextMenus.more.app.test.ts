@@ -10,7 +10,13 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
-import { BREAKPOINTS_VIEW_ID, CALLSTACK_VIEW_ID, REPL_VIEW_ID, VARIABLES_VIEW_ID, WATCH_VIEW_ID } from "../common/debug.ts";
+import {
+    BREAKPOINTS_VIEW_ID,
+    CALLSTACK_VIEW_ID,
+    REPL_VIEW_ID,
+    VARIABLES_VIEW_ID,
+    WATCH_VIEW_ID,
+} from "../common/debug.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
 import { ReplDIToken } from "./repl.ts";
@@ -100,7 +106,10 @@ describe("Run and Debug: more context menus and the keys of the rows", () => {
 
     it("a breakpoint: Remove Breakpoint takes that row; the commands of all breakpoints follow", async () => {
         const debugService = t.h.container.get(DebugServiceDIToken);
-        await debugService.addBreakpoints(Uri.file("/home/user/hello/src/main.cpp"), [{ lineNumber: 5 }, { lineNumber: 9 }]);
+        await debugService.addBreakpoints(Uri.file("/home/user/hello/src/main.cpp"), [
+            { lineNumber: 5 },
+            { lineNumber: 9 },
+        ]);
         await debugService.addFunctionBreakpoint({ name: "accumulate" });
         t.h.container.get(ViewsServiceDIToken).openView(BREAKPOINTS_VIEW_ID, true);
         await vi.waitFor(() => {

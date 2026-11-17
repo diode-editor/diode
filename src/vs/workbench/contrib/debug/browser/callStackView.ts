@@ -17,13 +17,12 @@
 
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
-import type { IRange } from "../../../../editor/common/core/range.ts";
-
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { codicon } from "../../../../base/common/codicons.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { commonSuffixLength } from "../../../../base/common/strings.ts";
+import type { IRange } from "../../../../editor/common/core/range.ts";
 import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import { type IRowSpan, LazyTreeControl } from "../../../browser/parts/views/lazyTreeControl.ts";
 import {
@@ -95,6 +94,7 @@ export function getContext(element: CallStackItem | null): ICallStackItemContext
 export function getContextForContributedActions(element: CallStackItem | null): string | number {
     if (element instanceof StackFrame) {
         if (element.source.inMemory) {
+            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- upstream: an empty string is none too
             return element.source.raw.path || element.source.reference || element.source.name;
         }
 

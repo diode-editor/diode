@@ -326,4 +326,3 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         this.breakpoints.tree.rerender();
     }
 }
-

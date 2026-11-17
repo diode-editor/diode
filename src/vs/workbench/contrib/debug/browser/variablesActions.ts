@@ -131,6 +131,7 @@ export const copyValueAction: CommandAction = {
         }
 
         const evalContext = session.capabilities.supportsClipboardContext ? "clipboard" : elementContext;
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- upstream: an empty string is none too
         const toEvaluate = element instanceof Variable ? element.evaluateName || element.value : element.name;
 
         try {
@@ -151,7 +152,8 @@ export const copyEvaluatePathAction: CommandAction = {
         rowMenuItem(WATCH_MENU, "3_modification", 50, EVALUATE_NAME_PRESENT, "inDebugMode"),
     ],
     async run(accessor, context) {
-        const evaluateName = context instanceof Variable ? context.evaluateName : (context as IVariablesContext).variable.evaluateName;
+        const evaluateName =
+            context instanceof Variable ? context.evaluateName : (context as IVariablesContext).variable.evaluateName;
         await accessor.get(ClipboardDIToken).writeText(evaluateName ?? "");
     },
 };

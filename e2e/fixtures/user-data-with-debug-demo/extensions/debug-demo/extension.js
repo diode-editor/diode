@@ -78,7 +78,7 @@ exports.activate = function activate(context) {
             }
         }),
         vscode.commands.registerCommand("debugDemo.frameMenu", (source, frame) => {
-            status.text = `dbg:menu ${path.basename(String(source))} frame ${frame && frame.frameName}`;
+            status.text = `dbg:${path.basename(String(source))} ${frame && frame.frameName}`;
         }),
         vscode.commands.registerCommand("debugDemo.ping", () => {
             pings++;

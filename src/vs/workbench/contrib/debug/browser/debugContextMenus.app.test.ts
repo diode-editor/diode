@@ -12,9 +12,9 @@ import { MenuRegistryDIToken } from "../../../../platform/actions/common/menuReg
 import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { registerExtensionMenus } from "../../../services/extensions/common/extensionMenuContributor.ts";
 import { CALLSTACK_VIEW_ID, VARIABLES_VIEW_ID, WATCH_VIEW_ID } from "../common/debug.ts";
-import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
 import { DebugViewletComponentDIToken } from "./debugViewlet.ts";
@@ -227,11 +227,11 @@ describe("Run and Debug: the context menus of the rows", () => {
         await vi.waitFor(() => {
             expect(labels()).toContain("Add Expression");
         });
-        // The synthetic adapter sets variables, not expressions: no Set Value on an expression.
         expect(labels()).toEqual([
             "Add Expression",
             "Edit Expression",
             "Copy Expression",
+            "Set Value",
             "Copy Value",
             "Copy All",
             "-",
@@ -274,7 +274,11 @@ describe("Run and Debug: the context menus of the rows", () => {
                 contributes: {
                     menus: {
                         "debug/callstack/context": [
-                            { command: "demo.frameMenu", title: "Demo Frame", when: "callStackItemType == 'stackFrame'" },
+                            {
+                                command: "demo.frameMenu",
+                                title: "Demo Frame",
+                                when: "callStackItemType == 'stackFrame'",
+                            },
                         ],
                     },
                 },
@@ -291,8 +295,8 @@ describe("Run and Debug: the context menus of the rows", () => {
             expect(String(received[0][0])).toMatch(/main\.cpp$/u);
             expect(received[0][1]).toMatchObject({
                 sessionId: session?.getId(),
-                threadId: expect.any(String),
-                frameId: expect.any(String),
+                threadId: expect.any(String) as unknown,
+                frameId: expect.any(String) as unknown,
                 frameName: "accumulate(std::vector<int> const&)",
             });
         } finally {

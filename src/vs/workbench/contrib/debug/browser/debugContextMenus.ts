@@ -19,12 +19,7 @@ import type { MenuService } from "../../../../platform/actions/common/menuServic
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { bindMenuEntry, INLINE_MENU_GROUP, runMenuEntry } from "../../../browser/parts/views/treeItemMenu.ts";
-import {
-    type IDataBreakpointInfoResponse,
-    type IExpression,
-    type IStackFrame,
-    State,
-} from "../common/debug.ts";
+import { type IDataBreakpointInfoResponse, type IExpression, type IStackFrame, State } from "../common/debug.ts";
 import {
     Breakpoint,
     DataBreakpoint,
@@ -175,7 +170,11 @@ export async function watchMenuKeys(
         if (expression instanceof Variable && expression.evaluateName) {
             response = await session.dataBreakpointInfo(expression.evaluateName, undefined, stackFrame?.frameId);
         } else if (expression instanceof Variable) {
-            response = await session.dataBreakpointInfo(expression.name, expression.parent.reference, stackFrame?.frameId);
+            response = await session.dataBreakpointInfo(
+                expression.name,
+                expression.parent.reference,
+                stackFrame?.frameId,
+            );
         } else {
             response = await session.dataBreakpointInfo(expression.name, undefined, stackFrame?.frameId);
         }

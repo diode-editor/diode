@@ -107,7 +107,7 @@ async function tryEvaluateAndCopy(debugService: IDebugService, element: IReplEle
 
     const stackFrame = debugService.getViewModel().focusedStackFrame;
     const session = debugService.getViewModel().focusedSession;
-    if (!stackFrame || !session || !session.capabilities.supportsClipboardContext) {
+    if (!stackFrame || !session?.capabilities.supportsClipboardContext) {
         return;
     }
 
@@ -127,6 +127,7 @@ export const replCopyAction: CommandAction = {
         if (element === undefined) return;
         const row = element as IReplElement;
         const retValue = await tryEvaluateAndCopy(accessor.get(DebugServiceDIToken), row);
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- upstream: an empty string is none too
         const textToCopy = retValue || removeAnsiEscapeCodes(row.toString());
         await accessor.get(ClipboardDIToken).writeText(textToCopy);
     },

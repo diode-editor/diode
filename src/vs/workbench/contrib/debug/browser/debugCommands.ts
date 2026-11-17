@@ -484,12 +484,12 @@ export const copyStackTraceAction: CommandAction = {
         const frame = getFrame(accessor.get(DebugServiceDIToken), context);
         if (frame) {
             // Upstream joins with the EOL of the frame's file; the clipboard of a terminal takes "\n".
-            await accessor
-                .get(ClipboardDIToken)
-                .writeText(frame.thread
+            await accessor.get(ClipboardDIToken).writeText(
+                frame.thread
                     .getCallStack()
                     .map((sf) => sf.toString())
-                    .join("\n"));
+                    .join("\n"),
+            );
         }
     },
 };
