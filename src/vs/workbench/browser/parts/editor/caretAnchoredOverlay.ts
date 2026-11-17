@@ -26,6 +26,8 @@ export interface ICaretOverlayOptions {
  */
 export class CaretAnchoredOverlay extends Disposable {
     private readonly session: OverlaySessionHandle;
+    /** The last anchoring: {@link relayout} applies it again. */
+    private anchored: { anchor: OverlayAnchorPosition; placement: CaretOverlayPlacement } | undefined;
 
     public constructor(
         host: { readonly overlayLayer: OverlayLayer },
@@ -69,6 +71,7 @@ export class CaretAnchoredOverlay extends Disposable {
      * otherwise the layer would clamp the popup to row 0 on top of the cursor.
      */
     public setAnchor(anchor: OverlayAnchorPosition, placement: CaretOverlayPlacement = "below"): void {
+        this.anchored = { anchor, placement };
         switch (placement) {
             case "below":
                 this.session.setAnchor(anchor);
@@ -82,6 +85,11 @@ export class CaretAnchoredOverlay extends Disposable {
                 return;
             }
         }
+    }
+
+    /** The popup changed its size while open: anchored again where it was, so `aboveElseBelow` follows its height. */
+    public relayout(): void {
+        if (this.anchored !== undefined && this.isOpen()) this.setAnchor(this.anchored.anchor, this.anchored.placement);
     }
 
     /** No-op when already closed (guaranteed by the layer itself). */

@@ -35,8 +35,9 @@ import {
     ProductIconServiceDIToken,
 } from "../../../../platform/theme/common/productIconService.ts";
 import { CaretAnchoredOverlay } from "../../../browser/parts/editor/caretAnchoredOverlay.ts";
-import { type IRowSpan, LazyTreeControl } from "../../../browser/parts/views/lazyTreeControl.ts";
+import { type IRowSpan, LazyTreeControl, spansText } from "../../../browser/parts/views/lazyTreeControl.ts";
 import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
+import { naturalWidth } from "../../hover/browser/hoverBox.ts";
 import type { IDebugService, IDebugSession, IExpression, IExpressionContainer, IStackFrame } from "../common/debug.ts";
 import { State } from "../common/debug.ts";
 import { Expression, Variable } from "../common/debugModel.ts";
@@ -54,14 +55,14 @@ export enum ShowDebugHoverResult {
 }
 
 /** Upstream's floor of the tree's height, 266px of 18px rows. */
-export const DEBUG_HOVER_MAX_ROWS = 15;
+const MAX_ROWS = 15;
 /** Upstream clamps the tree to 400..550px: about 50..70 columns. */
 const MIN_WIDTH = 50;
 const MAX_WIDTH = 70;
 /** The border on both sides, the tree's padding columns and its chevron. */
 const TREE_CHROME_WIDTH = 6;
 
-/** What the hover asks of the editor under it: `TextEditorPane` matches structurally. */
+/** What the hover asks of the editor under it. */
 export interface IDebugHoverEditor extends IEvaluatableExpressionModel {
     getCaretAnchor(): OverlayAnchorPosition | null;
 }
@@ -144,9 +145,8 @@ async function computeExpression(
     return undefined;
 }
 
-/** The text's width in cells: values are ASCII-ish, a wide character only makes the box a column narrow. */
 function spansWidth(spans: readonly IRowSpan[]): number {
-    return spans.reduce((width, span) => width + span.text.length, 0);
+    return naturalWidth(spansText(spans));
 }
 
 export class DebugHoverWidget extends Disposable {
@@ -168,8 +168,8 @@ export class DebugHoverWidget extends Disposable {
     private readonly latest = new LatestRequest();
     /** The evaluated expression whose children the tree shows. */
     private root: IExpression | undefined;
-    /** Where the hover was opened: a taller tree is anchored there again. */
-    private anchor: OverlayAnchorPosition | undefined;
+    /** The tree's height last applied: a rebuild with as many rows leaves the layout alone. */
+    private treeRows = 0;
 
     public constructor(
         private readonly debugService: IDebugService,
@@ -270,7 +270,6 @@ export class DebugHoverWidget extends Disposable {
         }
         const anchor = editor.getCaretAnchor();
         if (anchor === null) return ShowDebugHoverResult.NOT_AVAILABLE;
-        this.anchor = anchor;
         await this.doShow(expression);
         if (ticket.isStale()) return ShowDebugHoverResult.CANCELLED;
         this.overlay.openAt(anchor, "aboveElseBelow");
@@ -281,35 +280,44 @@ export class DebugHoverWidget extends Disposable {
 
     private async doShow(expression: IExpression): Promise<void> {
         const value = this.renderer.renderValue(expression, { colorize: true });
+        const text = spansText(value);
+        const fg = value[0]?.fg ?? "editorHoverWidget.foreground";
         if (!expression.hasChildren) {
             this.root = undefined;
             this.box.setTitle(undefined);
             this.box.setHasSeparator(false);
-            const label = new TextLabelElement(value.map((span) => span.text).join(""));
+            const label = new TextLabelElement(text);
             label.wrap = true;
-            label.style = { fg: value[0]?.fg ?? "editorHoverWidget.foreground" };
+            label.style = { fg };
             this.body.setChild(label);
             this.body.setPreferredWidth(Math.min(spansWidth(value), MAX_WIDTH - 2));
             this.body.setPreferredHeight(undefined);
             return;
         }
         this.root = expression;
-        this.box.setTitle(value.map((span) => span.text).join(""));
-        this.box.setTitleFg(value[0]?.fg ?? "editorHoverWidget.foreground");
+        this.treeRows = 0;
+        this.box.setTitle(text);
+        this.box.setTitleFg(fg);
         this.box.setHasSeparator(true);
         this.body.setChild(this.tree.element);
         await this.tree.refresh();
         this.tree.list.scrollTo(0, 0);
-        const rows = this.tree.shownItems.map((item) => spansWidth(this.renderer.renderVariable(item)));
-        const width = Math.max(spansWidth(value) + 2, ...rows.map((row) => row + TREE_CHROME_WIDTH));
+        // The first screen of rows is enough: the width stops at MAX_WIDTH anyway.
+        const rows = this.tree.shownItems
+            .slice(0, MAX_ROWS)
+            .map((item) => spansWidth(this.renderer.renderVariable(item)) + TREE_CHROME_WIDTH);
+        const width = Math.max(spansWidth(value) + 2, ...rows);
         this.body.setPreferredWidth(Math.min(Math.max(width, MIN_WIDTH), MAX_WIDTH) - 2);
     }
 
     /** Upstream `layoutTree`: as tall as the rows, up to the floor of the upstream tree. */
     private layoutTree(): void {
         if (this.root === undefined) return;
-        this.body.setPreferredHeight(Math.min(Math.max(this.tree.shownItems.length, 1), DEBUG_HOVER_MAX_ROWS));
-        if (this.anchor !== undefined && this.isVisible()) this.overlay.setAnchor(this.anchor, "aboveElseBelow");
+        const height = Math.min(Math.max(this.tree.shownItems.length, 1), MAX_ROWS);
+        if (height === this.treeRows) return;
+        this.treeRows = height;
+        this.body.setPreferredHeight(height);
+        this.overlay.relayout();
     }
 
     public hide(): void {

@@ -72,7 +72,7 @@ export interface ILazyTreeOptions {
 export const LOADING_LABEL = "Loading...";
 const PLACEHOLDER_SUFFIX = "#loading";
 
-function spansText(spans: readonly IRowSpan[]): string {
+export function spansText(spans: readonly IRowSpan[]): string {
     return spans.map((span) => span.text).join("");
 }
 

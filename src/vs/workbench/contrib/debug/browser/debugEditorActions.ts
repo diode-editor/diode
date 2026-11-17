@@ -62,7 +62,6 @@ export const showDebugHoverAction: CommandAction = {
     async run(accessor) {
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
         if (!editor) return;
-        const hover = accessor.get(HoverServiceDIToken);
         const sf = accessor.get(DebugServiceDIToken).getViewModel().focusedStackFrame;
         if (sf?.source.uri.toString() === editor.uri.toString()) {
             const position = editor.viewState.selections[0].active;
@@ -76,9 +75,8 @@ export const showDebugHoverAction: CommandAction = {
             };
             const result = await accessor.get(DebugHoverWidgetDIToken).showAt(target, position);
             // When no expression available fallback to editor hover
-            if (result === ShowDebugHoverResult.NOT_AVAILABLE) await hover.showHover();
-        } else {
-            await hover.showHover();
+            if (result !== ShowDebugHoverResult.NOT_AVAILABLE) return;
         }
+        await accessor.get(HoverServiceDIToken).showHover();
     },
 };
