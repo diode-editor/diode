@@ -138,13 +138,13 @@ import { BreakpointInput, BreakpointInputDIToken } from "../../workbench/contrib
 import { BreakpointSources, openStackFrame } from "../../workbench/contrib/debug/browser/breakpointSources.ts";
 import { BreakpointSourcesDIToken } from "../../workbench/contrib/debug/browser/breakpointsView.ts";
 import {
-    DebugContentProvider,
-    DebugContentProviderDIToken,
-} from "../../workbench/contrib/debug/browser/debugContentProvider.ts";
-import {
     DebugConsoleQuickAccess,
     DebugConsoleQuickAccessDIToken,
 } from "../../workbench/contrib/debug/browser/debugConsoleQuickAccess.ts";
+import {
+    DebugContentProvider,
+    DebugContentProviderDIToken,
+} from "../../workbench/contrib/debug/browser/debugContentProvider.ts";
 import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
 import {
     DebugQuickAccessProviderDIToken,

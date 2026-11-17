@@ -101,7 +101,7 @@ export class FocusSessionActionViewItem extends Disposable {
             const label = s.getLabel();
             if (s.parentSession) {
                 // Indent child sessions so they look like children
-                return `  ${label}`;
+                return `\u00A0\u00A0${label}`;
             }
 
             return label;

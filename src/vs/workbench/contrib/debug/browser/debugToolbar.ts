@@ -23,13 +23,13 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
-import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import {
     type IMenuEntryGroup,
     type MenuRegistry,
     MenuRegistryDIToken,
 } from "../../../../platform/actions/common/menuRegistry.ts";
 import { type MenuService, MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
+import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import {

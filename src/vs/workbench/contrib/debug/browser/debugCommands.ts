@@ -29,8 +29,8 @@ import { LAUNCH_FILE_NAME } from "../../../../platform/configuration/common/work
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
-import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
+import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";

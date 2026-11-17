@@ -23,9 +23,9 @@ import type { IQuickAccessProvider, QuickAccessItem } from "../../quickaccess/co
 import type { IDebugService, IDebugSession } from "../common/debug.ts";
 
 import { SELECT_AND_START_ID } from "./debugCommands.ts";
+import { DebugServiceDIToken } from "./debugService.ts";
 import { showReplIfHidden, START_NEW_DEBUG_SESSION } from "./debugSessionPicker.ts";
 import { DEBUG_CONSOLE_QUICK_ACCESS_PREFIX } from "./replActions.ts";
-import { DebugServiceDIToken } from "./debugService.ts";
 
 export const DebugConsoleQuickAccessDIToken = token<DebugConsoleQuickAccess>("DebugConsoleQuickAccess");
 

@@ -121,7 +121,10 @@ describe("child sessions in the workbench", () => {
         expect(t.lines()[select.y]).toContain("■");
         click(select);
         // The options: the roots only, while `debug.showSubSessionsInToolBar` is off.
-        const options = t.lines().slice(select.y + 1, select.y + 5).join("\n");
+        const options = t
+            .lines()
+            .slice(select.y + 1, select.y + 5)
+            .join("\n");
         expect(options).toMatch(/app[\s\S]*another/u);
         expect(options).not.toContain("task A");
         pickOption("another", select.y);

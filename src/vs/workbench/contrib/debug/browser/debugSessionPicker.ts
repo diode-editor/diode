@@ -38,7 +38,10 @@ export interface IDebugSessionPickerServices {
 }
 
 /** Upstream `showDebugSessionMenu`. */
-export async function showDebugSessionMenu(services: IDebugSessionPickerServices, selectAndStartID: string): Promise<void> {
+export async function showDebugSessionMenu(
+    services: IDebugSessionPickerServices,
+    selectAndStartID: string,
+): Promise<void> {
     const { picks, activeIndex } = getPicksAndActiveItem(services, selectAndStartID);
     const picked = (await services.quickInput.quickPick({
         placeholder: "Search debug sessions by name",

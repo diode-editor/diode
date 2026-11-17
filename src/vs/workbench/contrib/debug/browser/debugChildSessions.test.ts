@@ -21,7 +21,6 @@ import { QuickOpenServiceDIToken } from "../../quickaccess/browser/quickOpenServ
 import { type IDebugSession, REPL_VIEW_ID, State } from "../common/debug.ts";
 
 import { CallStackDataSource } from "./callStackView.ts";
-import { DebugConsoleQuickAccess } from "./debugConsoleQuickAccess.ts";
 import {
     focusSessionAction,
     restartSessionAction,
@@ -29,6 +28,7 @@ import {
     selectDebugSessionAction,
     stopAction,
 } from "./debugCommands.ts";
+import { DebugConsoleQuickAccess } from "./debugConsoleQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
 import { START_NEW_DEBUG_SESSION } from "./debugSessionPicker.ts";
 import { ReplDIToken } from "./repl.ts";
@@ -329,7 +329,13 @@ describe("child sessions", () => {
             ]);
             const filtered = provider.getItems(`${DebugConsoleQuickAccess.PREFIX}tB`);
             expect(filtered.map((i) => [i.label, i.labelMatchRanges])).toEqual([
-                ["task B", [[0, 1], [5, 6]]],
+                [
+                    "task B",
+                    [
+                        [0, 1],
+                        [5, 6],
+                    ],
+                ],
                 [START_NEW_DEBUG_SESSION, undefined],
             ]);
 
@@ -351,9 +357,14 @@ describe("child sessions", () => {
                 { ...SYNTHETIC_LAUNCH_CONFIG, name: "merged" },
                 { parentSession: named("parent"), repl: "mergeWithParent" },
             );
-            const provider = new DebugConsoleQuickAccess(fx.service, { isViewShown: () => true, openView: vi.fn() }, {
-                execute: vi.fn(),
-            }, { glyph: () => "+" });
+            const provider = new DebugConsoleQuickAccess(
+                fx.service,
+                { isViewShown: () => true, openView: vi.fn() },
+                {
+                    execute: vi.fn(),
+                },
+                { glyph: () => "+" },
+            );
 
             expect(provider.getItems(DebugConsoleQuickAccess.PREFIX).map((i) => i.label)).toEqual([
                 "parent",
