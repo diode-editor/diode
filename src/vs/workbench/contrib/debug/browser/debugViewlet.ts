@@ -70,17 +70,22 @@ import { WatchExpressionsView } from "./watchExpressionsView.ts";
 
 export const DebugViewletComponentDIToken = token<DebugViewletComponent>("DebugViewletComponent");
 
-/** Upstream's welcome of the viewlet under the button (`welcomeView.ts`). */
-const WELCOME_TEXT: readonly IViewWelcomeBlock[] = [
-    {
-        kind: "paragraph",
-        nodes: [
-            "To customize Run and Debug ",
-            { label: "create a launch.json file", command: DEBUG_CONFIGURE_COMMAND_ID, args: [{ addNew: true }] },
-            ".",
-        ],
-    },
-];
+/**
+ * Upstream's welcome of the viewlet under the button (`welcomeView.ts`). A function: the command ids come from a module
+ * that imports this one.
+ */
+function welcomeText(): readonly IViewWelcomeBlock[] {
+    return [
+        {
+            kind: "paragraph",
+            nodes: [
+                "To customize Run and Debug ",
+                { label: "create a launch.json file", command: DEBUG_CONFIGURE_COMMAND_ID, args: [{ addNew: true }] },
+                ".",
+            ],
+        },
+    ];
+}
 
 /** Upstream's `when` of the launcher in the container's title (`debugViewlet.ts`). */
 const LAUNCHER_WHEN =
@@ -173,7 +178,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
             const { command, args = [] } = target as { command: string; args?: readonly unknown[] };
             Promise.resolve(commands.execute(command, ...args)).catch(onUnexpectedError);
         };
-        welcome.addChild(new ViewWelcomeElement(WELCOME_TEXT, runWelcomeTarget), {
+        welcome.addChild(new ViewWelcomeElement(welcomeText(), runWelcomeTarget), {
             height: vflexFill(),
             width: "fill",
         });

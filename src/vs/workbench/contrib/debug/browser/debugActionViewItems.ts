@@ -42,6 +42,36 @@ interface IDebugOption {
 /** The row between two categories: the select box does not select it. */
 const SEPARATOR: IDebugOption = { label: "─", handler: () => Promise.resolve(false), category: undefined };
 
+/** In a narrow title the selected configuration shrinks down to this many characters. */
+const MIN_LABEL_WIDTH = 6;
+/** The chevron and the space before it. */
+const CHEVRON_WIDTH = 2;
+
+/**
+ * The select box of the configurations, as wide as the selected one (the select box keeps the width of the longest
+ * option); it shrinks in a narrow title as upstream's `flex-shrink`.
+ */
+class ConfigurationDropdownElement extends SelectBoxElement {
+    private texts: readonly string[] = [];
+
+    public override setOptions(options: readonly ISelectOptionItem[], selected?: number): void {
+        this.texts = options.map((option) => option.text);
+        super.setOptions(options, selected);
+    }
+
+    public override getMinIntrinsicWidth(_height: number): number {
+        return Math.min(this.selectedWidth(), MIN_LABEL_WIDTH) + CHEVRON_WIDTH;
+    }
+
+    public override getMaxIntrinsicWidth(_height: number): number {
+        return this.selectedWidth() + CHEVRON_WIDTH;
+    }
+
+    private selectedWidth(): number {
+        return (this.texts.at(this.getSelected()) ?? "").length;
+    }
+}
+
 /** The ▶ of the launcher: a button of one glyph, pressed by a click, Enter or Space. */
 class StartButtonElement extends TextLabelElement {
     public onActivate?: () => void;
@@ -75,7 +105,7 @@ class StartButtonElement extends TextLabelElement {
 export class StartDebugActionViewItem extends Disposable {
     public readonly element = new HFlexElement();
     public readonly start = new StartButtonElement();
-    public readonly dropdown = new SelectBoxElement();
+    public readonly dropdown: SelectBoxElement = new ConfigurationDropdownElement();
     private debugOptions: IDebugOption[] = [];
     private selected = 0;
     private providers: readonly IDynamicConfigurationProvider[] = [];
