@@ -37,6 +37,11 @@
   (только переводы строк, без `mine`) в initial test run Stryker'а mutation-гейта (run 43948216044, PR #1184, дифф —
   тулбар отладки и цвета статус-бара); в unit-job и локально зелёный. Лечение — ждать текст, а не один кадр.
 
+- [ ] `workbench.encoding.test.ts` (не в `test-flakes.json`: это необработанная ошибка файла, `retry` теста её не
+  ловит): после «Escape at any level changes nothing» — `FileOperationError ENOENT` на `lstat` уже удалённого
+  `plain.txt` временного каталога, `stat` файлового сервиса пережил тест (run 44099949637, PR #1193, дифф — виды
+  брейкпоинтов отладки); `gh run rerun --failed` зелёный. Лечение — дождаться отложенного `stat` до уборки каталога.
+
 - [ ] `extensionHost.onDidChangeWorkspaceFolders.test.ts`, «updateWorkspaceFolders onto one folder»: `expect.poll`
   (1 с) видит только две строки журнала первого субпроцесса — перезапуск не успел под полной локальной нагрузкой,
   дважды (`check:diff` и initial test run Stryker'а, PR #1178, дифф — адаптеры отладки расширений); в одиночку
