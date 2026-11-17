@@ -154,12 +154,15 @@ export class StartDebugActionViewItem extends Disposable {
         );
 
         const updateDynamicConfigs = (): void => {
-            void configManager.getDynamicProviders().then((providers) => {
-                if (providers.length !== this.providers.length) {
-                    this.providers = providers;
-                    this.updateOptions();
-                }
-            });
+            void configManager
+                .getDynamicProviders()
+                .then((providers) => {
+                    if (providers.length !== this.providers.length) {
+                        this.providers = providers;
+                        this.updateOptions();
+                    }
+                })
+                .catch(onUnexpectedError);
         };
         this.register(configManager.onDidChangeConfigurationProviders(updateDynamicConfigs));
         updateDynamicConfigs();

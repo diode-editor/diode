@@ -8,12 +8,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDebugServiceFixture, type IDebugServiceFixture } from "../../../../../TestUtils/debugServiceFixture.ts";
 import { SYNTHETIC_LAUNCH_CONFIG } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import { Event } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { WorkbenchState } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { State } from "../common/debug.ts";
 
 import { NO_CONFIGURATIONS, StartDebugActionViewItem } from "./debugActionViewItems.ts";
+import { ConfigurationManager } from "./debugConfigurationManager.ts";
 
 const FOLDER = { uri: Uri.file("/w"), name: "w", index: 0 };
 
@@ -46,6 +48,24 @@ describe("StartDebugActionViewItem", () => {
     function select(index: number): void {
         item.dropdown.onDidSelect?.({ selected: "", index });
     }
+
+    it("types with dynamic configurations that can't be listed are reported; the configurations stay", async () => {
+        const error = new Error("no extensions");
+        const dynamic = vi.spyOn(ConfigurationManager.prototype, "getDynamicProviders").mockRejectedValueOnce(error);
+        const unexpected: unknown[] = [];
+        setUnexpectedErrorHandler((e) => unexpected.push(e));
+        try {
+            create({ configurations: [{ ...SYNTHETIC_LAUNCH_CONFIG, name: "Run" }] });
+
+            await vi.waitFor(() => {
+                expect(unexpected).toEqual([error]);
+            });
+        } finally {
+            setUnexpectedErrorHandler(() => undefined);
+            dynamic.mockRestore();
+        }
+        expect(rows()).toEqual(["Run", "─", "Add Configuration..."]);
+    });
 
     it("a group of `presentation` starts after a separator", () => {
         create({

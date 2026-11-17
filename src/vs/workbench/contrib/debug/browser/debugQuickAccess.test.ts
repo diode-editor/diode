@@ -10,6 +10,7 @@ import {
     SYNTHETIC_LAUNCH_CONFIG,
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
+import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { WorkbenchState } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { DebugConfigurationProviderTriggerKind } from "../common/debug.ts";
@@ -236,6 +237,25 @@ describe("StartDebugQuickAccessProvider", () => {
                 expect(start).toHaveBeenCalledTimes(2);
             });
         });
+    });
+
+    it("types with dynamic configurations that can't be listed are reported, not thrown at the picker", async () => {
+        const provider = create(twoConfigs);
+        const error = new Error("no extensions");
+        vi.spyOn(fx.service.getConfigurationManager(), "getDynamicProviders").mockRejectedValueOnce(error);
+        const unexpected: unknown[] = [];
+        setUnexpectedErrorHandler((e) => unexpected.push(e));
+        const refreshed = vi.fn();
+        try {
+            provider.onShow(refreshed);
+
+            await vi.waitFor(() => {
+                expect(unexpected).toEqual([error]);
+            });
+        } finally {
+            setUnexpectedErrorHandler(() => undefined);
+        }
+        expect(refreshed).not.toHaveBeenCalled();
     });
 
     it("a failed start is not thrown at the picker", async () => {

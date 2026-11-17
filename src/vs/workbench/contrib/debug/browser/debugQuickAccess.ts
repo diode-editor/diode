@@ -9,6 +9,7 @@
 // the first row of a group carries its name as a hint ("most recent", "contributed", "configure"); a row has no
 // buttons ("Configure Launch Configuration", "Remove Launch Configuration").
 
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { fuzzyMatchPrepared, prepareQuery } from "../../../../base/common/fuzzySearch.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -56,7 +57,8 @@ export class StartDebugQuickAccessProvider implements IQuickAccessProvider {
                 this.dynamicProviders = providers;
                 // The rows came after the cursor was placed: it goes back to the first one, as upstream shows them at once.
                 refresh(false);
-            });
+            })
+            .catch(onUnexpectedError);
     }
 
     public getPlaceholder(): string {
