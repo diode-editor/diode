@@ -1,0 +1,27 @@
+{
+    "members": [
+        "commands.registerCommand",
+        "commands.registerTextEditorCommand",
+        "env.appName",
+        "env.language",
+        "languages.createDiagnosticCollection",
+        "languages.match",
+        "languages.registerCodeLensProvider",
+        "languages.registerFoldingRangeProvider",
+        "languages.registerInlayHintsProvider",
+        "window.createOutputChannel",
+        "window.createTextEditorDecorationType",
+        "window.withProgress",
+        "workspace.createFileSystemWatcher",
+        "workspace.findFiles",
+        "workspace.getConfiguration",
+        "workspace.isTrusted",
+        "workspace.onDidChangeConfiguration",
+        "workspace.onDidChangeTextDocument",
+        "workspace.onDidCloseTextDocument",
+        "workspace.onDidOpenTextDocument",
+        "workspace.onDidSaveTextDocument",
+        "workspace.textDocuments",
+        "workspace.workspaceFolders"
+    ]
+}
