@@ -44,14 +44,17 @@ describe("workbenchModule — the ports of the debug service", () => {
         const activator = {
             activateByEvent: vi.fn(() => Promise.resolve()),
             whenInstalledExtensionsRegistered: vi.fn(() => Promise.resolve()),
+            extensions: [],
         };
         container.bind(DebugExtensionActivatorDIToken, () => activator);
 
         await ports.extensions.activateByEvent("onDebugResolve:lldb");
         await ports.extensions.whenInstalledExtensionsRegistered();
+        await ports.configurationManager.extensions.whenInstalledExtensionsRegistered();
 
         expect(activator.activateByEvent).toHaveBeenCalledWith("onDebugResolve:lldb");
-        expect(activator.whenInstalledExtensionsRegistered).toHaveBeenCalledTimes(1);
+        expect(activator.whenInstalledExtensionsRegistered).toHaveBeenCalledTimes(2);
+        expect(ports.configurationManager.extensions.extensions).toBe(activator.extensions);
     });
 
     it("launch.json, the debug tasks, saving, Select and Start Debugging and the exit confirmation are wired", async () => {

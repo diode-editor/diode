@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { adapterManagerPorts } from "../../../../../TestUtils/mockDebug.ts";
+import { adapterManagerPorts, idleDebugService } from "../../../../../TestUtils/mockDebug.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import type { IDebugService } from "../common/debug.ts";
 
 import { AdapterManager } from "./debugAdapterManager.ts";
 
@@ -15,7 +14,7 @@ describe("AdapterManager — `debuggersAvailable` follows the `when` of the debu
 
     beforeEach(() => {
         contextKeys = new ContextKeyService();
-        manager = new AdapterManager(() => ({}) as IDebugService, adapterManagerPorts({ contextKeys }));
+        manager = new AdapterManager(idleDebugService, adapterManagerPorts({ contextKeys }));
     });
 
     afterEach(() => {

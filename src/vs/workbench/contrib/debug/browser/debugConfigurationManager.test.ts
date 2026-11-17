@@ -18,6 +18,7 @@ import type {
 import type { IAdapterManager } from "../common/debug.ts";
 
 import { ConfigurationManager, type IConfigurationManagerPorts } from "./debugConfigurationManager.ts";
+import { NO_DEBUG_EXTENSIONS } from "./debugService.ts";
 
 const FOLDER: IWorkspaceFolder = { uri: Uri.file("/w"), name: "w", index: 0 };
 const LAUNCH_JSON = "file:///w/.diode/launch.json";
@@ -108,6 +109,8 @@ describe("ConfigurationManager", () => {
                     return Promise.resolve();
                 },
             },
+            extensions: NO_DEBUG_EXTENSIONS,
+            pickLate: () => Promise.resolve(undefined),
         };
     });
 

@@ -13,16 +13,17 @@
 
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
-import type {
-    IAdapterManager,
-    IConfig,
-    IDebugAdapter,
-    IDebugger,
-    IDebuggerContribution,
-    IDebuggerMetadata,
-    IDebugService,
-    IDebugSession,
-    IDebugVariableResolver,
+import {
+    DebugConfigurationProviderTriggerKind,
+    type IAdapterManager,
+    type IConfig,
+    type IDebugAdapter,
+    type IDebugger,
+    type IDebuggerContribution,
+    type IDebuggerMetadata,
+    type IDebugService,
+    type IDebugSession,
+    type IDebugVariableResolver,
 } from "./debug.ts";
 
 export class Debugger implements IDebugger, IDebuggerMetadata {
@@ -94,8 +95,26 @@ export class Debugger implements IDebugger, IDebuggerMetadata {
         return this.contribution.strings ?? this.contribution.uiMessages;
     }
 
+    public get isHiddenFromDropdown(): boolean {
+        return this.contribution.hiddenWhen !== undefined && this.evaluateWhen(this.contribution.hiddenWhen);
+    }
+
     public interestedInLanguage(languageId: string): boolean {
         return !!this.contribution.languages?.includes(languageId);
+    }
+
+    public hasInitialConfiguration(): boolean {
+        return !!this.contribution.initialConfigurations;
+    }
+
+    public hasDynamicConfigurationProviders(): boolean {
+        return this.debugService()
+            .getConfigurationManager()
+            .hasDebugConfigurationProvider(this.type, DebugConfigurationProviderTriggerKind.Dynamic);
+    }
+
+    public hasConfigurationProvider(): boolean {
+        return this.debugService().getConfigurationManager().hasDebugConfigurationProvider(this.type);
     }
 
     public getInitialConfigurationContent(initialConfigs?: IConfig[]): Promise<string> {

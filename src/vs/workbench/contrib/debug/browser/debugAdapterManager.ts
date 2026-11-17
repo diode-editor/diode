@@ -8,9 +8,12 @@
 // and the tests call it. Contributions of one type merge as upstream's (the first one wins a key, objects merge),
 // a `*` contribution merges into every type. The adapters of extensions come through `registerDebugAdapterFactory`
 // (upstream's `$registerDebugTypes`); upstream's main-side descriptor factories are not needed, the subprocess asks
-// the extension's factory itself. Not here yet, each with its task: `guessDebugger` (#1156), the launch.json schema
-// and the task labels in it (#1157),
-// `canSetBreakpointsIn` (gutter, #1148). A debugger's `when` is evaluated when asked: `debuggersAvailable` follows
+// the extension's factory itself. `guessDebugger` picks a debugger for a configuration without a type and for a new
+// launch.json; its picker has no separators, so the first suggested debugger carries the hint "suggested", and a
+// debugger is suggested when a session of its type ran in this window (upstream also suggests the debuggers of
+// extensions activated at startup). Not here yet, each with its task: the launch.json schema and the task labels in it
+// (#1157), `canSetBreakpointsIn` (gutter, #1148: a file of a language no debugger names gets the "no extension"
+// question at once), the `debug/createConfiguration` menu of extensions. A debugger's `when` is evaluated when asked: `debuggersAvailable` follows
 // registrations and every change of a key in the `when` of a debugger, as upstream's. `runInTerminal` goes to the core's terminal launcher, not to the adapter
 // factory of the debug type (#1142). Deviation: upstream lets a built-in extension's contribution win a key; diode
 // has no built-in debuggers.
@@ -21,6 +24,7 @@ import { deserializeWhen, whenKeys } from "../../../../platform/contextkey/commo
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IExtensionService } from "../../../services/extensions/common/extensions.ts";
+import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import type {
     IAdapterManager,
     IConfig,
@@ -31,8 +35,19 @@ import type {
     IDebugSession,
     IDebugTerminalLauncher,
     IDebugVariableResolver,
+    IGuessedDebugger,
 } from "../common/debug.ts";
 import { Debugger } from "../common/debugger.ts";
+
+/** What guessing a debugger asks of the editor and the user (upstream's editor, language, quick input and dialogs). */
+export interface IDebuggerGuessPorts {
+    /** The language of the active text editor; `name` is its display name, when it has one. */
+    activeLanguage(): { id: string; name: string | undefined } | undefined;
+    pick<T extends QuickPickItem>(items: readonly T[], placeholder: string): Promise<T | undefined>;
+    confirm(message: string, primaryButton: string): Promise<boolean>;
+    /** Upstream's `debug.installAdditionalDebuggers`: the debuggers of the Marketplace, `query` added to the search. */
+    installDebuggers(query: string | undefined): void;
+}
 
 /** What the adapter manager talks to besides the debug service. */
 export interface IAdapterManagerPorts {
@@ -40,6 +55,11 @@ export interface IAdapterManagerPorts {
     readonly terminalLauncher: IDebugTerminalLauncher;
     readonly extensions: Pick<IExtensionService, "activateByEvent">;
     readonly variables: IDebugVariableResolver;
+    readonly guess: IDebuggerGuessPorts;
+}
+
+interface IDebuggerPick extends QuickPickItem {
+    readonly pick?: () => IGuessedDebugger | Promise<IGuessedDebugger | undefined>;
 }
 
 export class AdapterManager extends Disposable implements IAdapterManager {
@@ -49,6 +69,7 @@ export class AdapterManager extends Disposable implements IAdapterManager {
     private debuggerWhenKeys = new Set<string>();
     private readonly debugAdapterFactories = new Map<string, IDebugAdapterFactory>();
     private readonly onDidRegisterDebuggerEmitter = this.register(new Emitter<void>());
+    private readonly usedDebugTypes = new Set<string>();
 
     public constructor(
         private readonly debugService: () => IDebugService,
@@ -56,6 +77,11 @@ export class AdapterManager extends Disposable implements IAdapterManager {
     ) {
         super();
         this.updateContextKeys();
+        this.register(
+            debugService().onDidNewSession((session) => {
+                this.usedDebugTypes.add(session.configuration.type);
+            }),
+        );
         this.register(
             this.ports.contextKeys.onDidChange((changed) => {
                 if ([...changed].some((key) => this.debuggerWhenKeys.has(key))) {
@@ -172,6 +198,93 @@ export class AdapterManager extends Disposable implements IAdapterManager {
     public getDebugger(type: string): Debugger | undefined {
         const lower = type.toLowerCase();
         return this.debuggers.find((dbg) => dbg.type.toLowerCase() === lower);
+    }
+
+    public getDebuggerLabel(type: string): string | undefined {
+        return this.getDebugger(type)?.label;
+    }
+
+    public async guessDebugger(gettingConfigurations: boolean): Promise<IGuessedDebugger | undefined> {
+        const language = this.ports.guess.activeLanguage();
+        let candidates: Debugger[] = [];
+        let languageLabel = language?.name;
+        if (language) {
+            const adapters = this.debuggers.filter((a) => a.enabled && a.interestedInLanguage(language.id));
+            if (adapters.length === 1) {
+                return { debugger: adapters[0] };
+            }
+            candidates = adapters;
+        }
+
+        // We want to get the debuggers that have configuration providers in the case we are fetching configurations
+        // (upstream also when a breakpoint can be set in the active file, #1148)
+        if ((!languageLabel || gettingConfigurations) && candidates.length === 0) {
+            await this.activateDebuggers("onDebugInitialConfigurations");
+
+            candidates = this.debuggers.filter(
+                (dbg) =>
+                    dbg.enabled &&
+                    (dbg.hasInitialConfiguration() ||
+                        dbg.hasDynamicConfigurationProviders() ||
+                        dbg.hasConfigurationProvider()),
+            );
+        }
+
+        if (candidates.length === 0 && languageLabel) {
+            if (languageLabel.includes(" ")) {
+                languageLabel = `'${languageLabel}'`;
+            }
+            const confirmed = await this.ports.guess.confirm(
+                `You don't have an extension for debugging ${languageLabel}. Should we find a ${languageLabel} extension in the Marketplace?`,
+                `Find ${languageLabel} extension`,
+            );
+            if (confirmed) {
+                this.ports.guess.installDebuggers(languageLabel);
+            }
+            return undefined;
+        }
+
+        candidates.sort((first, second) => first.label.localeCompare(second.label));
+        candidates = candidates.filter((a) => !a.isHiddenFromDropdown);
+
+        const suggestedCandidates = candidates.filter((d) => this.usedDebugTypes.has(d.type));
+        const otherCandidates = candidates.filter((d) => !this.usedDebugTypes.has(d.type));
+
+        const picks: IDebuggerPick[] = [];
+        const dynamic = await this.debugService().getConfigurationManager().getDynamicProviders();
+        picks.push(
+            ...suggestedCandidates.map((c, i) => ({
+                label: c.label,
+                hint: i === 0 ? "suggested" : undefined,
+                pick: () => ({ debugger: c }),
+            })),
+        );
+        picks.push(...otherCandidates.map((c) => ({ label: c.label, pick: () => ({ debugger: c }) })));
+
+        for (const d of dynamic) {
+            picks.push({
+                label: `More ${d.label} options...`,
+                pick: async (): Promise<IGuessedDebugger | undefined> => {
+                    const cfg = await d.pick();
+                    // A dynamic provider's type has a debugger: its label comes from it.
+                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                    return cfg && { debugger: this.getDebugger(d.type)!, withConfig: cfg };
+                },
+            });
+        }
+
+        picks.push({
+            label: languageLabel ? `Install an extension for ${languageLabel}...` : "Install extension...",
+        });
+
+        const picked = await this.ports.guess.pick(picks, "Select debugger");
+        if (picked?.pick) {
+            return await picked.pick();
+        }
+        if (picked) {
+            this.ports.guess.installDebuggers(languageLabel);
+        }
+        return undefined;
     }
 }
 

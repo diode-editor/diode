@@ -1,20 +1,28 @@
 import { Uri } from "../../base/common/uri.ts";
+import { LanguageServiceDIToken } from "../../editor/common/languages/iLanguageService.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { IEnvironmentServiceDIToken } from "../../platform/environment/common/environment.ts";
 import { IFileServiceDIToken } from "../../platform/files/common/files.ts";
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
+import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { MarkerServiceDIToken } from "../../platform/markers/common/markerService.ts";
 import { StateServiceDIToken } from "../../platform/state/common/iStateService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
+import { QuickInputServiceDIToken } from "../../workbench/browser/parts/quickinput/quickInputService.ts";
 import { ViewsServiceDIToken } from "../../workbench/browser/parts/views/viewsService.ts";
+import type { QuickPickItem } from "../../workbench/common/quickPickItem.ts";
+import type { IDebuggerGuessPorts } from "../../workbench/contrib/debug/browser/debugAdapterManager.ts";
+import { INSTALL_ADDITIONAL_DEBUGGERS_ID } from "../../workbench/contrib/debug/browser/debugCommands.ts";
 import type { IConfigurationManagerPorts } from "../../workbench/contrib/debug/browser/debugConfigurationManager.ts";
+import { DebugExtensionActivatorDIToken } from "../../workbench/contrib/debug/browser/debugService.ts";
 import type { IDebugTaskRunnerPorts } from "../../workbench/contrib/debug/browser/debugTaskRunner.ts";
 import type { IDebugVariableResolver } from "../../workbench/contrib/debug/common/debug.ts";
 import { PROBLEMS_VIEW_ID } from "../../workbench/contrib/markers/browser/problemsComponent.ts";
 import { TaskServiceDIToken } from "../../workbench/contrib/tasks/browser/taskService.ts";
 import { ConfigurationResolverServiceDIToken } from "../../workbench/services/configurationResolver/browser/configurationResolverService.ts";
+import { DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
 
@@ -42,6 +50,56 @@ export function configurationManagerPorts(container: ServiceAccessor): IConfigur
             open: async () => {
                 await commands.execute("workbench.action.openSettingsJson");
             },
+        },
+        // Looked up when used: the extension host module replaces the activator after this is built.
+        extensions: {
+            get extensions() {
+                return container.get(DebugExtensionActivatorDIToken).extensions;
+            },
+            whenInstalledExtensionsRegistered: () =>
+                container.get(DebugExtensionActivatorDIToken).whenInstalledExtensionsRegistered(),
+        },
+        pickLate: async <T extends QuickPickItem>(placeholder: string, items: Promise<readonly T[]>) => {
+            const quickInput = container.get(QuickInputServiceDIToken);
+            const picked = await quickInput.quickPick({
+                placeholder,
+                items: [],
+                lateItems: items.then(
+                    (late) => ({ items: late }),
+                    (error: unknown) => {
+                        container.get(ILogServiceDIToken).createLogger("debug").error(String(error));
+                        quickInput.cancel();
+                        return { items: [] };
+                    },
+                ),
+            });
+            return picked as T | undefined;
+        },
+    };
+}
+
+/** Upstream's editor, language, quick input and dialog services as `guessDebugger` uses them. */
+export function debuggerGuessPorts(container: ServiceAccessor): IDebuggerGuessPorts {
+    return {
+        activeLanguage: () => {
+            const editor = container.get(EditorServiceDIToken).getActiveEditor();
+            if (!editor) return undefined;
+            const id = editor.languageId;
+            return { id, name: container.get(LanguageServiceDIToken).getLanguageDisplayName(id) };
+        },
+        pick: async (items, placeholder) => {
+            const picked = await container.get(QuickInputServiceDIToken).quickPick({ placeholder, items });
+            return picked as (typeof items)[number] | undefined;
+        },
+        confirm: (message, primaryButton) =>
+            container.get(DialogServiceDIToken).confirm({
+                title: "Run and Debug",
+                message,
+                confirmLabel: primaryButton,
+                defaultButton: "confirm",
+            }),
+        installDebuggers: (query) => {
+            container.get(CommandRegistryDIToken).execute(INSTALL_ADDITIONAL_DEBUGGERS_ID, query);
         },
     };
 }

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { adapterManagerPorts } from "../../../../../TestUtils/mockDebug.ts";
+import { adapterManagerPorts, idleDebugService } from "../../../../../TestUtils/mockDebug.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import type { IConfig, IDebugService, IDebugVariableResolver } from "../common/debug.ts";
+import type { IConfig, IDebugVariableResolver } from "../common/debug.ts";
 
 import { AdapterManager } from "./debugAdapterManager.ts";
 
@@ -19,7 +19,7 @@ describe("AdapterManager — contributions of extensions, activation and variabl
         activated = [];
         variables = vi.fn<IDebugVariableResolver>((_folder, config) => Promise.resolve({ ...config, resolved: true }));
         manager = new AdapterManager(
-            () => ({}) as IDebugService,
+            idleDebugService,
             adapterManagerPorts({
                 contextKeys,
                 extensions: {
@@ -156,7 +156,7 @@ describe("AdapterManager — contributions of extensions, activation and variabl
             const pending: (() => void)[] = [];
             manager.dispose();
             manager = new AdapterManager(
-                () => ({}) as IDebugService,
+                idleDebugService,
                 adapterManagerPorts({
                     extensions: {
                         activateByEvent: (event) => {
