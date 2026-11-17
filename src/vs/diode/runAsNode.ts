@@ -1,4 +1,4 @@
-import { Module } from "node:module";
+import { createRequire, Module } from "node:module";
 import * as path from "node:path";
 
 import { importModule } from "../base/node/importModule.ts";
@@ -49,8 +49,22 @@ export function runAsNode(): void {
     // argv[1] is the script path: commander in cli.mjs and tsserver's `sys.getExecutingFilePath()` read it.
     process.argv = [process.argv[0], scriptPath, ...args.slice(scriptIndex + 1)];
 
-    void importModule(scriptPath).catch((err: unknown) => {
+    void importModule(resolveMainEntry(scriptPath)).catch((err: unknown) => {
         console.error(err);
         process.exit(1);
     });
+}
+
+/**
+ * Like `node <path>`: the main entry is resolved the CJS way before it is loaded, so a directory runs its
+ * `package.json` `main` or `index.js`, and `server` finds `server.js`. vscode-languageclient forks
+ * `{ module: <dir> }` as is (Angular.ng-template: `asAbsolutePath("server")`), and an ESM import of a directory
+ * fails with ERR_UNSUPPORTED_DIR_IMPORT. An unresolvable path is left as is: the import reports it like node.
+ */
+function resolveMainEntry(scriptPath: string): string {
+    try {
+        return createRequire(scriptPath).resolve(scriptPath);
+    } catch {
+        return scriptPath;
+    }
 }
