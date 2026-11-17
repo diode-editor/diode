@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { adapterManagerPorts } from "../../../../../TestUtils/mockDebug.ts";
+import { adapterManagerPorts, idleDebugService } from "../../../../../TestUtils/mockDebug.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
-import type { IDebugService } from "../common/debug.ts";
 
 import { AdapterManager } from "./debugAdapterManager.ts";
 
@@ -19,7 +18,7 @@ describe("AdapterManager — where breakpoints can be set", () => {
         contextKeys = new ContextKeyService();
         everywhere = false;
         manager = new AdapterManager(
-            () => ({}) as IDebugService,
+            idleDebugService,
             adapterManagerPorts({ contextKeys, allowBreakpointsEverywhere: () => everywhere }),
         );
         changes = 0;

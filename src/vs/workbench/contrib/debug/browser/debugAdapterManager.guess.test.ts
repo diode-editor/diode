@@ -145,6 +145,18 @@ describe("AdapterManager.guessDebugger", () => {
         expect(fx.picks).toEqual([]);
     });
 
+    it("a language that takes breakpoints is a hint an extension handles it: the user picks a debugger", async () => {
+        contribute({ type: "init", label: "With initial", initialConfigurations: [] });
+        adapters.registerBreakpoints({ language: "go" });
+        editing("go", "Go");
+        fx.pickLabel = "With initial";
+
+        const guess = await adapters.guessDebugger(false);
+
+        expect(guess?.debugger.type).toBe("init");
+        expect(fx.confirms).toEqual([]);
+    });
+
     it("for a new launch.json a language without a debugger falls back to those that make configurations", async () => {
         contribute({ type: "init", label: "With initial", initialConfigurations: [] });
         editing("go", "Go");
