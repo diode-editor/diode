@@ -38,6 +38,7 @@ describe("Breakpoints in the editor's glyph lane", () => {
     let main: string;
     let t: IDebugViewletHarness;
     let registrations: IDisposable[];
+    let synthetic: ReturnType<typeof registerSyntheticDebugger>;
 
     beforeEach(async () => {
         root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-breakpoints-")));
@@ -46,7 +47,7 @@ describe("Breakpoints in the editor's glyph lane", () => {
         fs.writeFileSync(main, SOURCE);
         t = await createDebugViewletHarness(root);
         const adapters = t.h.container.get(DebugServiceDIToken).getAdapterManager();
-        const synthetic = registerSyntheticDebugger(adapters, NO_DELAY_TIMING, root);
+        synthetic = registerSyntheticDebugger(adapters, NO_DELAY_TIMING, root);
         const adapterDisposal = {
             dispose: () => {
                 for (const adapter of synthetic.factory.adapters) adapter.dispose();
@@ -154,6 +155,12 @@ describe("Breakpoints in the editor's glyph lane", () => {
         await Promise.resolve();
 
         expect(breakpoints()).toEqual([]);
+
+        await t.h.container.get(IConfigurationServiceDIToken).updateValue("debug.allowBreakpointsEverywhere", true);
+        t.h.testApp.sendKey("F9");
+        await vi.waitFor(() => {
+            expect(breakpoints().map((bp) => bp.uri.fsPath)).toEqual([notes]);
+        });
     });
 
     it("the glyph rides its line through an insertion above, and so does the breakpoint", async () => {
@@ -322,5 +329,47 @@ describe("Breakpoints in the editor's glyph lane", () => {
             .filter(([, text]) => glyphAt(text) === "●")
             .map(([line]) => line);
         expect(glyphLines).toEqual(modelLines);
+    });
+
+    it("by default the stop focuses the frame's editor (`debug.focusEditorOnBreak`)", async () => {
+        await open(main, 27);
+        t.h.testApp.sendKey("F9");
+        // The focus away from the editors before the stop.
+        await t.h.commands.execute("workbench.view.explorer");
+        await vi.waitFor(() => {
+            expect(t.h.container.get(ContextKeyServiceDIToken).getRaw("editorTextFocus")).toBe(false);
+        });
+        await t.h.commands.execute("debug.startFromConfig", { ...SYNTHETIC_LAUNCH_CONFIG });
+        await vi.waitFor(() => {
+            expect(t.h.container.get(ContextKeyServiceDIToken).getRaw("editorTextFocus")).toBe(true);
+        });
+    });
+
+    it("a breakpoint moved by an edit goes to the adapter on the file's save", async () => {
+        const editor = await open(main, 27);
+        t.h.testApp.sendKey("F9");
+        await t.h.commands.execute("debug.startFromConfig", { ...SYNTHETIC_LAUNCH_CONFIG });
+        await vi.waitFor(() => {
+            expect(t.h.container.get(ContextKeyServiceDIToken).getRaw("debugState")).toBe("stopped");
+        });
+        const [adapter] = synthetic.factory.adapters;
+        const sentLines = () =>
+            adapter.requests
+                .filter((r) => r.command === "setBreakpoints")
+                .map((r) =>
+                    ((r.arguments as DebugProtocol.SetBreakpointsArguments).breakpoints ?? []).map((b) => b.line),
+                );
+        adapter.requests.length = 0;
+
+        editor.viewState.document.applyEdits([createTextEdit(createRange(1, 0, 1, 0), "// two\n// lines\n")]);
+        await vi.waitFor(() => {
+            expect(breakpoints().map((bp) => bp.lineNumber)).toEqual([29]);
+        });
+        expect(sentLines()).toEqual([]);
+
+        await t.h.commands.execute("workbench.action.files.save");
+        await vi.waitFor(() => {
+            expect(sentLines()).toEqual([[29]]);
+        });
     });
 });

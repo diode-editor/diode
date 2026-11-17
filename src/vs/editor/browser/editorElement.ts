@@ -920,7 +920,8 @@ export class EditorElement extends TUIElement implements IScrollable {
         // Before the editor's context menu, which listens on the view around the element and skips a prevented event.
         this.addEventListener("contextmenu", (event) => {
             const menu = event as TUIContextMenuEvent;
-            if (menu.trigger === "mouse" && this.tryClickGlyphMargin(menu, "right")) menu.preventDefault();
+            // A click on the lane prevents the event: the glyph's click instead of the menu.
+            if (menu.trigger === "mouse") this.tryClickGlyphMargin(menu, "right");
         });
         this.addEventListener("dblclick", (event) => {
             withCursorChangeSource("mouse", () => {
@@ -1739,12 +1740,10 @@ export class EditorElement extends TUIElement implements IScrollable {
         const line = this.gutterLineAt(event.screenY - this.globalPosition.y);
         if (line < 0) return false;
         const shown = this.glyphsByLine().get(line);
-        if (event.type === "mousedown") {
-            // A press focuses the editor first, as upstream's mouse down: what the click opens (an input) takes the
-            // focus after it, not before the press's default focus.
-            this.focus();
-            event.preventDefault();
-        }
+        // A press focuses the editor first, as upstream's mouse down: what the click opens (an input) takes the focus
+        // after it, not before the press's default focus. A right click's press has focused it already.
+        this.focus();
+        event.preventDefault();
         this.onDidClickGlyphMarginEmitter.fire({
             line,
             ...(shown === undefined ? {} : { owner: shown.owner, key: shown.glyph.key }),

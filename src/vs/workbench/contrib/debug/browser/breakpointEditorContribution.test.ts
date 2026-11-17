@@ -420,6 +420,14 @@ describe("BreakpointEditorContribution", () => {
             expect(editor.glyphs[0].overviewRulerColorToken).toBe("debugIcon.breakpointForeground");
         });
 
+        it("`debug.allowBreakpointsEverywhere` gives a file of any language the lane", async () => {
+            editor.changeLanguage("plaintext");
+            expect(editor.reserved).toBe(false);
+            await fx.configuration.updateValue("debug.allowBreakpointsEverywhere", true);
+            await settle();
+            expect(editor.reserved).toBe(true);
+        });
+
         it("a language change decides the lane again; a closed editor loses its decorations", async () => {
             editor.changeLanguage("plaintext");
             expect(editor.reserved).toBe(false);
@@ -486,6 +494,13 @@ describe("BreakpointEditorContribution", () => {
             const threads = [stoppedThread([0]), stoppedThread([1]), stoppedThread([5]), stoppedThread([6])];
             await stop(threads, threads[1][0]);
             expect(editor.highlights.map((h) => h.line)).toEqual([0, 4]);
+        });
+
+        it("a running thread's frames are not drawn", async () => {
+            const frames = stoppedThread([2]);
+            Object.assign(frames[0].thread, { stopped: false });
+            await stop([frames], frames[0]);
+            expect(editor.highlights).toEqual([]);
         });
 
         it("a thread without a known top frame: its frame is drawn as a focused one", async () => {
