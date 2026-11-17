@@ -171,6 +171,61 @@ describe("registerExtensionMenus", () => {
         expect(menus.getMenuItemGroups(MenuId.TestItem).map((group) => group.group)).toEqual(["1_snapshot"]);
     });
 
+    it("the debug points: the rows of the debug views, the debug toolbar and the debugger choice", () => {
+        const { menus } = makeRegistry();
+        const points = {
+            "debug/callstack/context": MenuId.DebugCallStackContext,
+            "debug/variables/context": MenuId.DebugVariablesContext,
+            "debug/watch/context": MenuId.DebugWatchContext,
+            "debug/toolBar": MenuId.DebugToolBar,
+            "debug/createConfiguration": MenuId.DebugCreateConfiguration,
+        };
+        registerExtensionMenus(
+            [
+                extension("test.ext", {
+                    menus: Object.fromEntries(
+                        Object.keys(points).map((point) => [point, [{ command: `ext.${point}`, title: point }]]),
+                    ),
+                }),
+            ],
+            menus,
+        );
+
+        for (const [point, menuId] of Object.entries(points)) expect(labels(menus, menuId)).toEqual([point]);
+    });
+
+    it("a debug/toolBar item is also in the Run and Debug title, while the toolbar is docked there", () => {
+        const { menus, contextKeys } = makeRegistry();
+        registerExtensionMenus(
+            [
+                extension("test.ext", {
+                    menus: {
+                        "debug/toolBar": [
+                            { command: "ext.ping", title: "Ping", group: "navigation@80", when: "debugType == 'demo'" },
+                            { command: "ext.any", title: "Any", group: "navigation" },
+                        ],
+                    },
+                }),
+            ],
+            menus,
+        );
+        const inTitle = (container: string): string[] =>
+            menus
+                .getMenuItems(MenuId.ViewContainerTitle, undefined, undefined, { viewContainer: container })
+                .map((entry) => (entry.type === "separator" ? "─" : entry.label));
+
+        contextKeys.set("debugState", "stopped");
+        contextKeys.set("debugType", "demo");
+        expect(inTitle("workbench.view.debug")).toEqual([]);
+        contextKeys.setRaw("config.debug.toolBarLocation", "docked");
+        expect(inTitle("workbench.view.debug")).toEqual(["Any", "Ping"]);
+        expect(inTitle("workbench.view.explorer")).toEqual([]);
+        contextKeys.set("debugType", "cppdbg");
+        expect(inTitle("workbench.view.debug")).toEqual(["Any"]);
+        contextKeys.set("debugState", "inactive");
+        expect(inTitle("workbench.view.debug")).toEqual([]);
+    });
+
     it("unknown point — a log line, the extension's other items survive", () => {
         const { menus, commands } = makeRegistry();
         const { logger, lines } = collectLog();

@@ -129,7 +129,10 @@ function dataAccessKeys(response: IDataBreakpointInfoResponse | undefined): Menu
     return keys;
 }
 
-/** Upstream `getContextForVariableMenuWithDataAccess`: asks the adapter whether the variable can be watched. */
+/**
+ * Upstream `getContextForVariableMenuWithDataAccess`: asks the adapter whether the variable can be watched.
+ * Deviation: a failed request leaves the items out, as WATCH does, instead of the whole menu.
+ */
 export async function variableMenuKeys(variable: Variable): Promise<MenuContextKeys> {
     variableInternalContext = variable;
     const session = variable.getSession();
@@ -137,7 +140,7 @@ export async function variableMenuKeys(variable: Variable): Promise<MenuContextK
         dataBreakpointInfoResponse = undefined;
         return variableKeys(variable);
     }
-    const response = await session.dataBreakpointInfo(variable.name, variable.parent.reference);
+    const response = await session.dataBreakpointInfo(variable.name, variable.parent.reference).catch(() => undefined);
     return { ...variableKeys(variable), ...dataAccessKeys(response) };
 }
 

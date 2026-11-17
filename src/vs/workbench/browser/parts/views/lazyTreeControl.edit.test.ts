@@ -150,6 +150,21 @@ describe("LazyTreeControl — context menu", () => {
         expect(tree.focused?.key).toBe("b");
     });
 
+    it("the element still reaches the owner when the click's selection has rebuilt the rows", async () => {
+        const { app, tree } = await mount();
+        const opened: string[] = [];
+        // The call stack focuses what the user picks, which repaints the tree at once.
+        tree.onSelect = () => {
+            tree.rerender();
+        };
+        tree.onContextMenu = (node) => opened.push(node.key);
+
+        rightClick(app, 3, 1);
+        await flushMicrotasks();
+
+        expect(opened).toEqual(["b"]);
+    });
+
     it("Shift+F10 opens it on the row under the cursor", async () => {
         const { app, tree } = await mount();
         const opened: string[] = [];

@@ -42,6 +42,7 @@ export const SYNTHETIC_CAPABILITIES: DebugProtocol.Capabilities = {
     supportsConfigurationDoneRequest: true,
     supportsTerminateRequest: true,
     supportsSetVariable: true,
+    supportsSetExpression: true,
     supportsExceptionInfoRequest: true,
     supportsLoadedSourcesRequest: true,
     supportsRestartFrame: true,
@@ -299,6 +300,17 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             case "setBreakpoints":
                 this.setBreakpoints(request, args as unknown as DebugProtocol.SetBreakpointsArguments);
                 return;
+            case "dataBreakpointInfo": {
+                // Any variable can be watched for a change; `count` for its reads and accesses too.
+                const name = String(args.name);
+                this.respond(request, {
+                    dataId: `${String(args.variablesReference ?? 0)}:${name}`,
+                    description: name,
+                    accessTypes: name === "count" ? ["read", "write", "readWrite"] : undefined,
+                    canPersist: false,
+                });
+                return;
+            }
             case "setFunctionBreakpoints":
             case "setDataBreakpoints":
             case "setInstructionBreakpoints":
@@ -337,6 +349,9 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 return;
             case "setVariable":
                 this.setVariable(request, args as unknown as DebugProtocol.SetVariableArguments);
+                return;
+            case "setExpression":
+                this.setExpression(request, args as unknown as DebugProtocol.SetExpressionArguments);
                 return;
             case "continue":
                 this.respond(request, { allThreadsContinued: true });
@@ -734,9 +749,29 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             this.fail(request, `Cannot set '${args.name}'`);
             return;
         }
+        this.assign(request, owner, args.value);
+    }
+
+    /** A number goes only into a number (`int`, `long`, …), as the debugger's type check. */
+    private assign(request: DebugProtocol.Request, owner: DebugProtocol.Variable, value: string): void {
+        if (/^(int|long|size_t)$/u.test(owner.type ?? "") && !/^-?\d+$/u.test(value)) {
+            this.fail(request, `error: '${value}' is not a number`);
+            return;
+        }
         // Every variable of the program has its `evaluateName`.
-        this.program.overrides.set(String(owner.evaluateName), args.value);
-        this.respond(request, { value: args.value, type: owner.type });
+        this.program.overrides.set(String(owner.evaluateName), value);
+        this.respond(request, { value, type: owner.type });
+    }
+
+    /** A local of the top frame by its name: what WATCH sets. */
+    private setExpression(request: DebugProtocol.Request, args: DebugProtocol.SetExpressionArguments): void {
+        const frame = this.program.frame(args.frameId ?? 1000);
+        const owner = frame === undefined ? undefined : this.locals(frame).find((v) => v.evaluateName === args.expression);
+        if (owner === undefined) {
+            this.fail(request, `Cannot set '${args.expression}'`);
+            return;
+        }
+        this.assign(request, owner, args.value);
     }
 }
 

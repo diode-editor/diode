@@ -153,8 +153,8 @@ export class LazyTreeControl<T> {
     private children = new Map<string, readonly T[]>();
     /** Pending loads of single nodes: a load lands only while it is still the one in this map. */
     private loading = new Map<string, object>();
-    /** The data behind the rows on screen; the "Loading..." rows (and no row at all) have none. */
-    private readonly items = new Map<TUIElement | null, T>();
+    /** The data behind the rows on screen by row id: a row the list hands over may be one a rebuild has just replaced. */
+    private readonly items = new Map<string, T>();
     /** Row id → parent row id of every row on screen: a cursor whose row went away falls back to its parent. */
     private parentOf = new Map<string, string | undefined>();
     private refreshToken = {};
@@ -174,15 +174,15 @@ export class LazyTreeControl<T> {
             this.onCollapsedChanged(row, collapsed);
         };
         this.list.onActivate = (row) => {
-            const item = this.items.get(row);
+            const item = this.items.get(String(row.id));
             if (item !== undefined) this.onActivate(item);
         };
         this.list.onSelect = (row) => {
-            const item = this.items.get(row);
+            const item = this.items.get(String(row.id));
             if (!this.movingCursor && item !== undefined) this.onSelect(item);
         };
         this.list.onContextMenu = (row, screenX, screenY) => {
-            const item = this.items.get(row);
+            const item = this.items.get(String(row.id));
             if (item !== undefined) this.onContextMenu(item, screenX, screenY);
         };
     }
@@ -225,7 +225,7 @@ export class LazyTreeControl<T> {
     }
 
     public get focused(): T | undefined {
-        return this.items.get(this.list.getCursorElement());
+        return this.items.get(String(this.list.getCursorElement()?.id));
     }
 
     /** The elements of the rows on screen in their order: the roots and the children of the open nodes. */
@@ -379,7 +379,7 @@ export class LazyTreeControl<T> {
                         ? buildRow(spans, this.source.renderRowEnd?.(item) ?? [])
                         : editRow(editing.input, editing.edit.error);
                 row.id = id;
-                this.items.set(row, item);
+                this.items.set(id, item);
                 this.parentOf.set(id, parentId);
                 const expanded = this.isExpanded(item, key);
                 const label = this.source.getLabel?.(item) ?? spansText(spans);

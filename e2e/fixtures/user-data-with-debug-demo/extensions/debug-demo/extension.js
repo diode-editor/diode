@@ -12,7 +12,10 @@
  *   the folder's `hello.c` with `argc` and `program` among the locals;
  * - its custom `demoReady` event makes the extension ask the custom `demoInfo` request and print the answer to the
  *   Debug Console, as does the focused frame;
- * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint.
+ * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint;
+ * - `sum` among the locals takes a new value (`setVariable`) and evaluates to it;
+ * - the menu of a call stack frame has "Show Frame in Status": the argument it gets goes to the `dbg:` item; the
+ *   debug toolbar has a bell button that counts its clicks there.
  */
 const path = require("node:path");
 
@@ -26,6 +29,7 @@ exports.activate = function activate(context) {
     tracked.text = "dap:-";
     tracked.show();
     context.subscriptions.push(status, tracked);
+    let pings = 0;
 
     context.subscriptions.push(
         vscode.commands.registerCommand("debugDemo.pickProgram", () =>
@@ -73,6 +77,13 @@ exports.activate = function activate(context) {
                 vscode.debug.activeDebugConsole.appendLine(`Debug Demo: frame ${item.frameId} of thread ${item.threadId}`);
             }
         }),
+        vscode.commands.registerCommand("debugDemo.frameMenu", (source, frame) => {
+            status.text = `dbg:menu ${path.basename(String(source))} frame ${frame && frame.frameName}`;
+        }),
+        vscode.commands.registerCommand("debugDemo.ping", () => {
+            pings++;
+            status.text = `dbg:ping ${pings}`;
+        }),
         vscode.commands.registerCommand("debugDemo.breakOnPrintf", () => {
             const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
             if (!folder) return;
@@ -93,6 +104,7 @@ class DemoAdapter {
         this.emitter = new vscode.EventEmitter();
         this.onDidSendMessage = this.emitter.event;
         this.seq = 1;
+        this.sum = "0";
     }
 
     handleMessage(request) {
@@ -119,7 +131,7 @@ class DemoAdapter {
     answer(request) {
         switch (request.command) {
             case "initialize":
-                return { supportsConfigurationDoneRequest: true };
+                return { supportsConfigurationDoneRequest: true, supportsSetVariable: true };
             case "demoInfo":
                 return { pid: 4242 };
             case "threads":
@@ -144,8 +156,14 @@ class DemoAdapter {
                     variables: [
                         { name: "argc", value: String(this.configuration.args.length + 1), variablesReference: 0 },
                         { name: "program", value: JSON.stringify(this.configuration.program), variablesReference: 0 },
+                        { name: "sum", value: this.sum, evaluateName: "sum", variablesReference: 0 },
                     ],
                 };
+            case "setVariable":
+                this.sum = request.arguments.value;
+                return { value: this.sum };
+            case "evaluate":
+                return { result: request.arguments.expression === "sum" ? this.sum : "?", variablesReference: 0 };
             default:
                 return undefined;
         }
