@@ -242,23 +242,5 @@ describe("ConfigurationManager — dynamic configurations", () => {
             expect(manager.selectedConfiguration.name).toBe("cargo build");
             expect(await manager.selectedConfiguration.getConfig()).toEqual(cfg("cargo build"));
         });
-
-        it("removed from the recent ones while selected, the selection goes back to launch.json", async () => {
-            await manager.selectConfiguration(undefined, "cargo", undefined, { type: "dyn" });
-            await manager.selectConfiguration(undefined, "other", undefined, { type: "dyn" });
-            let fired = 0;
-            manager.onDidSelectConfiguration(() => fired++);
-
-            manager.removeRecentDynamicConfigurations("cargo", "dyn");
-            expect(fired).toBe(1);
-            expect(manager.selectedConfiguration.name).toBe("other");
-            manager.removeRecentDynamicConfigurations("other", "elsewhere");
-            expect(manager.getRecentDynamicConfigurations()).toEqual([{ name: "other", type: "dyn" }]);
-            manager.removeRecentDynamicConfigurations("other", "dyn");
-
-            await expect.poll(() => manager.selectedConfiguration.name).toBe("Run");
-            expect(manager.getRecentDynamicConfigurations()).toEqual([]);
-            expect(manager.selectedConfiguration.type).toBe("synthetic");
-        });
     });
 });

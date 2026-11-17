@@ -45,6 +45,7 @@ import {
     type IConfigurationManager,
     type IDebugConfigurationProvider,
     type IDebugger,
+    type IDynamicConfigurationPick,
     type IDynamicConfigurationProvider,
     type IGlobalConfig,
     type ILaunch,
@@ -79,12 +80,7 @@ const DEBUG_RECENT_DYNAMIC_CONFIGURATIONS: IStateDescriptor<{ name: string; type
 };
 const ON_DEBUG_DYNAMIC_CONFIGURATIONS_NAME = "onDebugDynamicConfigurations";
 
-interface IDynamicPickItem extends QuickPickItem {
-    readonly label: string;
-    readonly description: string;
-    readonly launch: ILaunch;
-    readonly config: IConfig;
-}
+type IDynamicPickItem = IDynamicConfigurationPick & QuickPickItem;
 
 /** What the configuration manager talks to; the DI module builds it from the workbench services. */
 export interface IConfigurationManagerPorts {
@@ -326,16 +322,6 @@ export class ConfigurationManager implements IConfigurationManager {
         });
 
         return (await Promise.all(picks)).flat();
-    }
-
-    public removeRecentDynamicConfigurations(name: string, type: string): void {
-        const remaining = this.getRecentDynamicConfigurations().filter((c) => c.name !== name || c.type !== type);
-        this.ports.state.store(DEBUG_RECENT_DYNAMIC_CONFIGURATIONS, remaining);
-        if (this.selectedConfiguration.name === name && this.selectedType === type && this.selectedDynamic) {
-            void this.selectConfiguration(undefined, undefined);
-        } else {
-            this.onDidSelectConfigurationNameEmitter.fire();
-        }
     }
 
     public getRecentDynamicConfigurations(): { name: string; type: string }[] {

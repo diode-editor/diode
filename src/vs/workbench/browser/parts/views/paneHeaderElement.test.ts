@@ -74,6 +74,21 @@ describe("PaneHeaderElement", () => {
         expect(header.inspectState()).toMatchObject({ description: null });
     });
 
+    it("a press on the title widget is the widget's: the section does not toggle", () => {
+        const { header, onToggle } = makeHeader();
+        const widget = new FillerElement();
+        header.setTitleWidget(widget);
+        const press = new TUIMouseEvent("mousedown", { button: "left", screenX: 1, screenY: 0, localX: 1, localY: 0 });
+
+        widget.dispatchEvent(press);
+        mouse(header, "mouseup", { localX: 1 });
+        expect(onToggle).not.toHaveBeenCalled();
+
+        mouse(header, "mousedown", { localX: 1 });
+        mouse(header, "mouseup", { localX: 1 });
+        expect(onToggle).toHaveBeenCalledOnce();
+    });
+
     it("setExpanded to the same state is a no-op", () => {
         const { header } = makeHeader();
         header.setExpanded(true);

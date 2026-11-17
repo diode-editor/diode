@@ -16,6 +16,7 @@ import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platfo
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import { deserializeWhen, whenKeys } from "../../../../platform/contextkey/common/contextKeyExpr.ts";
 import {
     type ContextKeyService,
     ContextKeyServiceDIToken,
@@ -92,14 +93,11 @@ const LAUNCHER_WHEN =
     "debugUx != 'simple' && workbenchState != 'empty' && " +
     "(debugState == 'inactive' || config.debug.toolBarLocation != 'docked') && " +
     "(!config.debug.hideLauncherWhileDebugging || !inDebugMode)";
-const LAUNCHER_KEYS = new Set([
-    "debugUx",
-    "workbenchState",
-    "debugState",
-    "inDebugMode",
-    "config.debug.toolBarLocation",
-    "config.debug.hideLauncherWhileDebugging",
-]);
+/** The keys of {@link LAUNCHER_WHEN}: a change of one may show or hide the launcher. */
+function launcherKeys(): readonly string[] {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- the literal above parses
+    return whenKeys(deserializeWhen(LAUNCHER_WHEN)!);
+}
 
 function contains(element: TUIElement, active: TUIElement | null): boolean {
     return active?.getAncestorPath().includes(element) === true;
@@ -248,6 +246,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         this.launcher = this.register(
             new StartDebugActionViewItem(debugService, configuration, commands, workspace, icons),
         );
+        const keys = launcherKeys();
         const updateTitleArea = (): void => {
             views.setContainerTitleWidget(
                 VIEWLET_ID,
@@ -256,7 +255,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         };
         this.register(
             contextKeys.onDidChange((changed) => {
-                if ([...changed].some((key) => LAUNCHER_KEYS.has(key))) updateTitleArea();
+                if (keys.some((key) => changed.has(key))) updateTitleArea();
             }),
         );
         updateTitleArea();

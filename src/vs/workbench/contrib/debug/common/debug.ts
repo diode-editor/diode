@@ -131,6 +131,14 @@ export interface IGuessedDebugger {
     };
 }
 
+/** Upstream's `IDynamicPickItem`: a dynamic configuration of a launch, a row of its type's picker. */
+export interface IDynamicConfigurationPick {
+    readonly label: string;
+    readonly description: string;
+    readonly launch: ILaunch;
+    readonly config: IConfig;
+}
+
 /** Upstream's element of `getDynamicProviders`: a debug type whose extension provides configurations on demand. */
 export interface IDynamicConfigurationProvider {
     readonly label: string;
@@ -1032,13 +1040,9 @@ export interface IConfigurationManager {
 
     /** The types with a `Dynamic` provider or an `onDebugDynamicConfigurations` activation event; activates nothing. */
     getDynamicProviders(): Promise<IDynamicConfigurationProvider[]>;
-    getDynamicConfigurationsByType(
-        type: string,
-        token?: CancellationToken,
-    ): Promise<{ label: string; description: string; launch: ILaunch; config: IConfig }[]>;
+    getDynamicConfigurationsByType(type: string, token?: CancellationToken): Promise<IDynamicConfigurationPick[]>;
     /** The dynamic configurations started lately, the latest first. */
     getRecentDynamicConfigurations(): { name: string; type: string }[];
-    removeRecentDynamicConfigurations(name: string, type: string): void;
 
     getLaunches(): readonly ILaunch[];
     getLaunch(workspaceUri: uri | undefined): ILaunch | undefined;

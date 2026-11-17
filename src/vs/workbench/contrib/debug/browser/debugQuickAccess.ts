@@ -27,8 +27,8 @@ export const DebugQuickAccessProviderDIToken = token<StartDebugQuickAccessProvid
 
 export const NO_DEBUG_RESULTS = "No matching launch configurations";
 export const MOST_RECENT_HINT = "most recent";
-export const CONTRIBUTED_HINT = "contributed";
-export const CONFIGURE_HINT = "configure";
+const CONTRIBUTED_HINT = "contributed";
+const CONFIGURE_HINT = "configure";
 
 export class StartDebugQuickAccessProvider implements IQuickAccessProvider {
     public static readonly PREFIX = "debug ";
