@@ -394,17 +394,20 @@ async function valuesFromVariables(
         }
         for (let line = startLine; line <= endLine; line++) {
             const content = editor.viewState.document.getLineContent(line);
-            const names = [...new Set(wordsByLine.get(line))]
-                .filter((name) => nameValueMap.has(name))
-                .sort((first, second) => content.indexOf(first) - content.indexOf(second));
-            if (names.length === 0) continue;
+            const named = [...new Set(wordsByLine.get(line))]
+                .flatMap((name) => {
+                    const value = nameValueMap.get(name);
+                    return value === undefined ? [] : [[name, value] as const];
+                })
+                .sort(([first], [second]) => content.indexOf(first) - content.indexOf(second));
+            if (named.length === 0) continue;
             let values = valuesPerLine.get(line);
             if (values === undefined) {
                 values = new Map();
                 valuesPerLine.set(line, values);
             }
-            for (const name of names) {
-                if (!values.has(name)) values.set(name, nameValueMap.get(name) ?? "");
+            for (const [name, value] of named) {
+                if (!values.has(name)) values.set(name, value);
             }
         }
     }

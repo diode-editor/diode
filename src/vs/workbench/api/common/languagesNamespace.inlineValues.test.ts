@@ -151,6 +151,7 @@ describe("LanguagesNamespace — registerInlineValuesProvider", () => {
         const provide = vi.fn(() => [new InlineValueText(new Range(0, 0, 0, 1), "x")]);
         register(languages, provide);
         expect(await stub.callRequest(METHOD, params({ handle: 9 }))).toBeNull();
+        expect(await stub.callRequest(METHOD, params({ handle: undefined }))).toBeNull();
         expect(await stub.callRequest(METHOD, params({ uri: "file:///proj/other.c" }))).toBeNull();
         expect(provide).not.toHaveBeenCalled();
     });

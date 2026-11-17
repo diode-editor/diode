@@ -470,6 +470,15 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
         });
         expect(clicks).toEqual(["foreign"]);
         expect(openView).not.toHaveBeenCalled();
+
+        // Set under the testing owner past the contribution: a key it does not know opens nothing either.
+        view.element.setLineMessageDecorations("foreign", []);
+        view.element.setLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER, [
+            { key: "unknown", line: 2, text: "foreign", colorToken: "foreground" },
+        ]);
+        view.clickMessage(2);
+        expect(clicks).toEqual(["foreign", "testing"]);
+        expect(openView).not.toHaveBeenCalled();
     });
 
     it("Peek Error of a test shows its first error with a location; none — nothing opens", async () => {
