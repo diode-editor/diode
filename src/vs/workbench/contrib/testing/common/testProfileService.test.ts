@@ -55,7 +55,7 @@ describe("TestProfileService", () => {
         expect(contextKeys.get("testing.hasDebuggableTests")).toBe(false);
     });
 
-    it("capabilitiesForTest: the groups of the test's own controller's profiles whose tag it has; a root takes any", () => {
+    it("capabilitiesForTest: the groups of the test's own controller's profiles whose tag it has, a root too (only its own tags count)", () => {
         const { service } = setup();
         service.addProfile(profile({ profileId: 1 }));
         service.addProfile(profile({ profileId: 2, group: 4, tag: "c\0slow" }));
@@ -66,7 +66,7 @@ describe("TestProfileService", () => {
         });
         expect(service.capabilitiesForTest(test("c\0a"))).toBe(2);
         expect(service.capabilitiesForTest(test("c\0a", ["c\0slow"]))).toBe(2 | 4);
-        expect(service.capabilitiesForTest(test("c"))).toBe(2 | 4);
+        expect(service.capabilitiesForTest(test("c"))).toBe(2);
         expect(service.capabilitiesForTest({ ...test("e\0a"), controllerId: "e" })).toBe(0);
     });
 

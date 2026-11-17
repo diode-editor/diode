@@ -110,11 +110,14 @@ export class TestProfileService extends Disposable {
         );
     }
 
-    /** Upstream `capabilitiesForTest`: the groups of the test's controller's profiles that can run it. */
+    /**
+     * Upstream `capabilitiesForTest`: the groups of the test's controller's profiles whose tag it has. Unlike
+     * `canRunTest`, a root takes no tagged profile: its own tags are what count, as upstream.
+     */
     public capabilitiesForTest(test: ITestCapabilitySubject): number {
         let capabilities = 0;
         for (const profile of this.getControllerProfiles(test.controllerId)) {
-            if (canRunTest(profile, test)) capabilities |= profile.group;
+            if (profile.tag === null || test.item.tags.includes(profile.tag)) capabilities |= profile.group;
         }
         return capabilities;
     }
