@@ -30,6 +30,13 @@ describe("ReplFilter", () => {
         expect(filter.filter(output("ERROR: x"))).toBe(true);
         expect(filter.filter(output("warn: the warning"))).toBe(true);
         expect(filter.filter(output("info"))).toBe(false);
+        // The wildcard spans characters; the parts are trimmed.
+        expect(filterOf("  e*x  ").filter(output("error x"))).toBe(true);
+        expect(filterOf("  e*x  ").filter(output("error"))).toBe(false);
+    });
+
+    it("an empty part between commas is no inclusion: the parent's verdict stands", () => {
+        expect(filterOf("!hidden, ,").filter(output("shown"), false)).toBe(false);
     });
 
     it("an exclusion hides what it matches over any inclusion; a backslash escapes the `!`", () => {

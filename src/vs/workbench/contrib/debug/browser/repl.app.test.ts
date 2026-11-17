@@ -400,6 +400,9 @@ describe("Debug Console in the workbench", () => {
         await vi.waitFor(() => {
             expect(screen()).toContain("inside the group");
         });
+        // From the filter: Collapse All focuses the console, as upstream's.
+        repl.focusFilter();
+        expect(repl.input.isFocused).toBe(false);
         await h.commands.execute(COLLAPSE_REPL_ID);
         await vi.waitFor(() => {
             expect(screen()).not.toContain("inside the group");

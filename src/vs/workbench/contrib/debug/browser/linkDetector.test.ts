@@ -1,6 +1,7 @@
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRowSpan } from "../../../browser/parts/views/lazyTreeControl.ts";
 
@@ -27,8 +28,10 @@ describe("detectLinks", () => {
     });
 
     it("leaves a text longer than 2000 alone and a text without links as one part", () => {
-        const long = `/a/b.ts ${"x".repeat(2000)}`;
+        // 2001 characters; 2000 are searched.
+        const long = `/a/b.ts,${"x".repeat(1993)}`;
         expect(detectLinks(long)).toEqual([{ kind: "text", value: long, captures: [], index: 0 }]);
+        expect(detectLinks(long.slice(0, 2000))[0]).toMatchObject({ kind: "path", value: "/a/b.ts" });
         expect(detectLinks("plain")).toEqual([{ kind: "text", value: "plain", captures: [], index: 0 }]);
         expect(detectLinks("")).toEqual([]);
     });
@@ -123,6 +126,55 @@ describe("LinkDetector", () => {
     it("gives back pieces without links as they are", () => {
         const spans = [{ text: "nothing here" }];
         expect(detector.linkify(spans, folder)).toEqual(spans);
+    });
+
+    it("a link that starts at a piece's end leaves no empty piece behind", () => {
+        const spans = detector.linkify([{ text: "see " }, { text: "/src/app.ts" }, { text: ", done" }], undefined);
+        expect(spans.map(({ text, link }) => [text, link !== undefined])).toEqual([
+            ["see ", false],
+            ["/src/app.ts", true],
+            [", done", false],
+        ]);
+    });
+
+    it("finds the paths between web links at their place in the text", () => {
+        const text = "https://a.example/x /src/app.ts:2 https://b.example/y";
+        expect(detectLinks(text).map(({ kind, index }) => [kind, index])).toEqual([
+            ["web", 0],
+            ["text", 19],
+            ["path", 20],
+            ["text", 33],
+            ["web", 34],
+        ]);
+        expect(detector.linkify([{ text }], undefined).map((span) => span.text)).toEqual([
+            "https://a.example/x",
+            " ",
+            "/src/app.ts:2",
+            " ",
+            "https://b.example/y",
+        ]);
+    });
+
+    it("a link that fails to open goes to the unexpected errors", async () => {
+        const errors: unknown[] = [];
+        setUnexpectedErrorHandler((e) => errors.push(e));
+        try {
+            const failing = new LinkDetector(
+                { stat: () => Promise.reject(new Error("no stat")) },
+                {} as never,
+                {} as never,
+                { open: () => Promise.reject(new Error("no opener")) },
+                { userHome: "/home/u" },
+            );
+            linkOf(failing.linkify([{ text: "https://example.com/x" }], undefined), "https://example.com/x")();
+            await vi.waitFor(() => {
+                expect(errors).toEqual([new Error("no opener")]);
+            });
+        } finally {
+            setUnexpectedErrorHandler((e) => {
+                console.error(e);
+            });
+        }
     });
 
     it("a file link opens the file at its 1-based line and column; without a column at its start", async () => {

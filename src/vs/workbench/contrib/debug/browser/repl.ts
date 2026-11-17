@@ -101,10 +101,10 @@ const EVALUATION_INPUT_ICON = codicon("arrow-small-right");
 const EVALUATION_PROMPT_ICON = codicon("chevron-right");
 
 /** Upstream's `.value.warn/.error/.ignore` of an output line; `info` keeps the plain foreground. */
-const SEVERITY_SPAN: Readonly<Record<ReplSeverity, Omit<IRowSpan, "text">>> = {
-    info: {},
-    warning: { fg: "debugConsole.warningForeground" },
-    error: { fg: "debugConsole.errorForeground" },
+const SEVERITY_SPAN: Readonly<Record<ReplSeverity, Omit<IRowSpan, "text"> & { readonly style: StyleFlags }>> = {
+    info: { style: StyleFlags.None },
+    warning: { fg: "debugConsole.warningForeground", style: StyleFlags.None },
+    error: { fg: "debugConsole.errorForeground", style: StyleFlags.None },
     ignore: { style: StyleFlags.Italic },
 };
 
@@ -526,10 +526,11 @@ export class Repl extends Component implements IContextKeyContributor {
     /** Upstream's output and group renderers: the ANSI styles over the severity's, then the links. */
     private renderOutput(value: string, severity: ReplSeverity, session: IDebugSession): IRowSpan[] {
         const base = SEVERITY_SPAN[severity];
-        const spans = handleANSIOutput(rowText(value, this.wrap)).map((span) => {
-            const style = (base.style ?? StyleFlags.None) | (span.style ?? StyleFlags.None);
-            return { ...base, ...span, ...(style === StyleFlags.None ? {} : { style }) };
-        });
+        const spans = handleANSIOutput(rowText(value, this.wrap)).map((span) => ({
+            ...base,
+            ...span,
+            style: base.style | (span.style ?? StyleFlags.None),
+        }));
         return this.links.linkify(spans, session.root);
     }
 

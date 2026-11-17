@@ -66,34 +66,29 @@ function spansText(spans: readonly IRowSpan[]): string {
     return spans.map((span) => span.text).join("");
 }
 
-function spansLabel(spans: readonly IRowSpan[], wrap = false): TextLabelElement {
+function spansLabel(spans: readonly IRowSpan[]): TextLabelElement {
     const label = new TextLabelElement(spansText(spans));
-    label.wrap = wrap;
-    const links: { readonly start: number; readonly end: number; readonly open: () => void }[] = [];
     let offset = 0;
     for (const span of spans) {
-        if (span.link !== undefined) links.push({ start: offset, end: offset + span.text.length, open: span.link });
         // UTF-16 units, as the label indexes its chars.
         for (const _unit of span.text.split("")) label.setCharStyle(offset++, span);
     }
-    if (links.length > 0) {
-        const linkAt = (event: TUIEventBase): (() => void) | undefined => {
-            const { screenX, screenY } = event as TUIMouseEvent;
-            // No character under the cells past the text: no link either.
-            const at = label.offsetAt(screenX - label.globalPosition.x, screenY - label.globalPosition.y) ?? -1;
-            return links.find((link) => at >= link.start && at < link.end)?.open;
-        };
-        label.addEventListener("click", (event) => {
-            const open = linkAt(event);
-            if (open === undefined) return;
-            event.preventDefault();
-            open();
-        });
-        // The pair of a double click on a link must not open the row either.
-        label.addEventListener("dblclick", (event) => {
-            if (linkAt(event) !== undefined) event.preventDefault();
-        });
-    }
+    // The link of the piece under the mouse; there is no piece under the cells past the text.
+    const linkAt = (event: TUIEventBase): (() => void) | undefined => {
+        const { screenX, screenY } = event as TUIMouseEvent;
+        let at = label.offsetAt(screenX - label.globalPosition.x, screenY - label.globalPosition.y) ?? Infinity;
+        return spans.find((span) => (at -= span.text.length) < 0)?.link;
+    };
+    label.addEventListener("click", (event) => {
+        const open = linkAt(event);
+        if (open === undefined) return;
+        event.preventDefault();
+        open();
+    });
+    // The pair of a double click on a link must not open the row either.
+    label.addEventListener("dblclick", (event) => {
+        if (linkAt(event) !== undefined) event.preventDefault();
+    });
     return label;
 }
 
@@ -123,7 +118,9 @@ function buildRow(spans: readonly IRowSpan[], end: readonly IRowSpan[], wrap: bo
     const linked = spans.some((span) => span.link !== undefined);
     // Stryker disable next-line ConditionalExpression,LogicalOperator,ArrowFunction,EqualityOperator,BlockStatement: a row of plain spans as the flex's one fill child paints the same columns; one label is the cheaper element for the hundreds of rows a debug view rebuilds
     if (end.length === 0 && spans.every((span) => span.onClick === undefined) && !linked) {
-        return spansLabel(spans, wrap);
+        const label = spansLabel(spans);
+        label.wrap = wrap;
+        return label;
     }
     const row = new HFlexElement();
     let run: IRowSpan[] = [];
@@ -138,7 +135,9 @@ function buildRow(spans: readonly IRowSpan[], end: readonly IRowSpan[], wrap: bo
         row.addChild(clickableLabel(span, span.onClick), { width: hflexFit(), height: 1 });
     }
     // A wrapped text is as tall as its lines; the controls and the right part stay on its first line.
-    row.addChild(spansLabel(run, wrap), { width: hflexFill(), height: wrap ? "fill" : 1 });
+    const text = spansLabel(run);
+    text.wrap = wrap;
+    row.addChild(text, { width: hflexFill(), height: wrap ? "fill" : 1 });
     if (end.length > 0) row.addChild(spansLabel([{ text: " " }, ...end]), { width: hflexFit(), height: 1 });
     return row;
 }

@@ -76,6 +76,7 @@ export function detectLinks(text: string): ILinkPart[] {
         return [{ kind: "text", value: text, captures: [], index: 0 }];
     }
 
+    // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral: the tests run on one platform; both regexes are under test through pathLinkRegex
     platformPathLinkRegex ??= pathLinkRegex(process.platform === "win32");
     const regexes: RegExp[] = [WEB_LINK_REGEX, platformPathLinkRegex];
     const kinds: LinkKind[] = ["web", "path"];
@@ -140,7 +141,6 @@ export class LinkDetector {
             const open = this.openerOf(part, workspaceFolder);
             return open === undefined ? [] : [{ start: part.index, end: part.index + part.value.length, open }];
         });
-        if (links.length === 0) return [...spans];
         const result: IRowSpan[] = [];
         let offset = 0;
         for (const span of spans) {

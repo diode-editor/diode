@@ -905,7 +905,7 @@ describe("LazyTreeControl — wrapped rows and links", () => {
             hasChildren: () => false,
             renderRow: (node) =>
                 node.key === "a"
-                    ? [{ text: "see " }, { text: "LINK", link: () => clicks.push("link") }]
+                    ? [{ text: "see " }, { text: "LINK", link: () => clicks.push("link") }, { text: " x" }]
                     : [{ text: "ONLY", link: () => clicks.push("only") }],
         };
         const { app, tree, screen } = await mount(source, { wrap: () => true });
@@ -914,6 +914,13 @@ describe("LazyTreeControl — wrapped rows and links", () => {
         const link = lineOf(app, "LINK");
         clickAt(app, link, 2);
         expect(clicks).toEqual(["link", "link"]);
+        clicks.length = 0;
+        // Its last cell is the link's; the next one is not.
+        clickAt(app, { x: link.x + 3, y: link.y });
+        expect(clicks).toEqual(["link"]);
+        clicks.length = 0;
+        clickAt(app, { x: link.x + 4, y: link.y }, 2);
+        expect(clicks).toEqual(["open a"]);
         clicks.length = 0;
         clickAt(app, lineOf(app, "see"), 2);
         expect(clicks).toEqual(["open a"]);

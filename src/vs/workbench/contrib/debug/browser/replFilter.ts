@@ -25,26 +25,19 @@ function matchQuery(query: string, text: string): boolean {
 }
 
 export class ReplFilter {
-    private parsedQueries: IParsedQuery[] = [];
+    // Stryker disable next-line ArrayDeclaration: an entry that is not a query has no type and matches nothing
+    private parsedQueries: readonly IParsedQuery[] = [];
 
+    /** Upstream's parse without its trim and empty checks: blank parts are dropped one by one. */
     public set filterQuery(query: string) {
-        this.parsedQueries = [];
-        query = query.trim();
-
-        if (query !== "") {
-            const filters = splitGlobAware(query, ",")
-                .map((s) => s.trim())
-                .filter((s) => s.length > 0);
-            for (const f of filters) {
-                if (f.startsWith("\\")) {
-                    this.parsedQueries.push({ type: "include", query: f.slice(1) });
-                } else if (f.startsWith("!")) {
-                    this.parsedQueries.push({ type: "exclude", query: f.slice(1) });
-                } else {
-                    this.parsedQueries.push({ type: "include", query: f });
-                }
-            }
-        }
+        this.parsedQueries = splitGlobAware(query, ",")
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+            .map((f): IParsedQuery => {
+                if (f.startsWith("\\")) return { type: "include", query: f.slice(1) };
+                if (f.startsWith("!")) return { type: "exclude", query: f.slice(1) };
+                return { type: "include", query: f };
+            });
     }
 
     public filter(element: IReplElement, parentVisible = true): boolean {
