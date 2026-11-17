@@ -7,6 +7,11 @@ import { defineScenario, repoRoot } from "./framework.ts";
 // its workers under it; the Debug Console's title gets a select of the three consoles, Ctrl+PageDown goes to the
 // next one; Stop of the program ends its workers too.
 
+/** The panel's title row with the Debug Console's filter and select. */
+function consoleTitle(screen: string): string {
+    return screen.split("\n").find((row) => row.includes("DEBUG CONSOLE")) ?? "";
+}
+
 const folder = resolve(repoRoot, "e2e", "fixtures", "debug-provider");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-debug-demo");
 
@@ -41,18 +46,17 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Debug: Focus on Debug Console View"));
         await editor.sendKey("Enter");
         // The console's select shows the focused session, after the filter in the panel's title.
-        await editor.waitForText((t) =>
-            t.split("\n").some((row) => row.includes("DEBUG CONSOLE") && row.includes("⌄")),
-        );
+        await editor.waitForText((t) => /Debug a p\S* *⌄/u.test(consoleTitle(t)));
         await editor.capture("console-select");
 
         await editor.sendKey("Ctrl+PageDown");
-        await editor.waitForText((t) => /worker 1 *⌄/u.test(t));
+        await editor.waitForText((t) => /worker 1 *⌄/u.test(consoleTitle(t)));
         await editor.capture("next-console");
 
         // Back to the program's console: Stop acts on the focused session, and the program's ends its workers.
         await editor.sendKey("Ctrl+PageUp");
-        await editor.waitForText((t) => /Debug a picked progr\S* *⌄/u.test(t));
+        // The program's name, cut by the narrow title.
+        await editor.waitForText((t) => /Debug a p\S* *⌄/u.test(consoleTitle(t)));
         await editor.sendKey("Shift+F5");
         await editor.waitForText((t) => !t.includes("PAUSED"));
         await editor.capture("stopped");

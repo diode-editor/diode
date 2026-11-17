@@ -257,9 +257,7 @@ export class DebugToolbar extends Disposable {
         const buttons = this.buttons();
         // With labels while they fit in the group, glyphs only in a narrow one (0 before the group's first layout:
         // the dock reports the real width after it).
-        const selectWidth = buttons.some((b) => b.id === FOCUS_SESSION_ID)
-            ? this.sessionSelect.element.getMaxIntrinsicWidth(1)
-            : 0;
+        const selectWidth = this.sessionSelect.element.getMaxIntrinsicWidth(1);
         const withLabels =
             toolbarWidth(buttons, true, selectWidth) + CORNER_RIGHT_MARGIN <= placement.host.layoutSize.width;
         // The select repaints its own selection.

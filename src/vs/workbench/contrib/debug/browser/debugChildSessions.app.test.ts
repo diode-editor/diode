@@ -208,6 +208,86 @@ describe("child sessions in the workbench", () => {
         expect(sessionSelects()).toEqual([]);
     });
 
+    /** The row of the Debug Console's title. */
+    function consoleTitle(): string {
+        return t.lines().find((row) => row.includes("DEBUG CONSOLE")) ?? "";
+    }
+
+    async function openConsole(): Promise<void> {
+        await t.h.commands.execute("workbench.debug.action.focusRepl");
+        t.h.container.get(LayoutServiceDIToken).nudgeSidebarWidth(-40);
+    }
+
+    function service() {
+        return t.h.container.get(DebugServiceDIToken);
+    }
+
+    it("no session yet: the console's title has no select", async () => {
+        await openConsole();
+
+        expect(consoleTitle()).toContain("Filter");
+        expect(consoleTitle()).not.toContain("⌄");
+    });
+
+    /** A session and a child that shares its console. */
+    async function startMerged(): Promise<{ parent: IDebugSession; merged: IDebugSession }> {
+        await start({ name: "parent" }, 1);
+        const parent = sessions().find((s) => s.name === "parent")!;
+        await service().startDebugging(
+            undefined,
+            { ...SYNTHETIC_LAUNCH_CONFIG, name: "merged" },
+            { parentSession: parent, repl: "mergeWithParent" },
+        );
+        return { parent, merged: sessions().find((s) => s.name === "merged")! };
+    }
+
+    it("a child that shares its parent's console stands for the parent in the select", async () => {
+        const { merged } = await startMerged();
+        await start({ name: "other" }, 3);
+        await openConsole();
+
+        await service().focusStackFrame(undefined, undefined, merged, { explicit: true });
+
+        await vi.waitFor(() => {
+            expect(consoleTitle()).toMatch(/parent *⌄/u);
+        });
+    });
+
+    it("one console for a parent and its child; when the parent ends, the child's own is a second", async () => {
+        const { parent, merged } = await startMerged();
+        await openConsole();
+        expect(t.h.container.get(ContextKeyServiceDIToken).getRaw("multiSessionRepl")).toBe(false);
+        expect(consoleTitle()).not.toContain("⌄");
+
+        await service().stopSession(parent);
+
+        await vi.waitFor(() => {
+            expect(merged.parentSession).toBeUndefined();
+        });
+        await vi.waitFor(() => {
+            expect(consoleTitle()).toContain("⌄");
+        });
+    });
+
+    it("Clear Console of an ended session takes its console out of the select", async () => {
+        await start({ name: "kept" }, 1);
+        await start({ name: "ended" }, 2);
+        await openConsole();
+        const ended = sessions().find((s) => s.name === "ended")!;
+        await service().stopSession(ended);
+        await vi.waitFor(() => {
+            expect(ended.state).toBe(State.Inactive);
+        });
+        expect(t.h.container.get(ContextKeyServiceDIToken).getRaw("multiSessionRepl")).toBe(true);
+
+        await t.h.commands.execute("workbench.action.debug.selectRepl", ended);
+        await t.h.commands.execute("workbench.debug.panel.action.clearReplAction");
+
+        await vi.waitFor(() => {
+            expect(consoleTitle()).not.toContain("⌄");
+        });
+    });
+
     it("Stop of the app ends its workers", async () => {
         await startWithWorkers();
         const app = sessions().find((s) => s.name === "app")!;

@@ -11,6 +11,7 @@ import {
     SYNTHETIC_LAUNCH_CONFIG,
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
+import { codicon, type IProductIcon } from "../../../../base/common/codicons.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor, Token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
@@ -39,6 +40,10 @@ import {
     selectDebugConsoleAction,
     selectReplAction,
 } from "./replActions.ts";
+
+/** The unicode glyph of the asked codicon. */
+const ICONS = { glyph: (icon: IProductIcon) => icon.unicode };
+const PLUS = codicon("plus").unicode;
 
 const WORKERS_CONFIG = { ...SYNTHETIC_LAUNCH_CONFIG, name: "app", workers: ["task A", "task B"] };
 
@@ -87,7 +92,7 @@ describe("child sessions", () => {
                     openView: (id: string, focus: boolean) => opened.push(`${id}:${String(focus)}`),
                 },
             ],
-            [ProductIconServiceDIToken, { glyph: () => "+" }],
+            [ProductIconServiceDIToken, ICONS],
             [ReplDIToken, { selectSession: (s: IDebugSession | undefined) => replSelected.push(s) }],
             [QuickOpenServiceDIToken, { show: (prefix: string) => quickOpened.push(prefix) }],
         ]);
@@ -106,6 +111,13 @@ describe("child sessions", () => {
         });
         fx.service.dispose();
     });
+
+    /** Whether each focus change since the call was the user's (`explicit`). */
+    function explicitFocus(): boolean[] {
+        const explicit: boolean[] = [];
+        fx.service.getViewModel().onDidFocusStackFrame((e) => explicit.push(e.explicit));
+        return explicit;
+    }
 
     function sessions(): IDebugSession[] {
         return fx.service.getModel().getSessions();
@@ -245,17 +257,19 @@ describe("child sessions", () => {
                 ["task B", "app"],
                 [START_NEW_DEBUG_SESSION, undefined],
             ]);
-            expect(picks[0][3].icon).toBe("+");
+            expect(picks[0][3].icon).toBe(PLUS);
             expect(activeIndexes).toEqual([1]);
         });
 
         it("picking a session focuses it and shows the Debug Console; the last item selects and starts", async () => {
             await startWithWorkers();
             pick = (items) => items[2];
+            const explicit = explicitFocus();
 
             await selectDebugSessionAction.run(accessor);
 
             expect(fx.service.getViewModel().focusedSession?.name).toBe("task B");
+            expect(explicit).toEqual([true]);
             expect(opened).toEqual([`${REPL_VIEW_ID}:true`]);
 
             replShown = true;
@@ -267,6 +281,18 @@ describe("child sessions", () => {
             pick = (items) => items.at(-1);
             await selectDebugSessionAction.run(accessor);
             expect(executed).toEqual([[SELECT_AND_START_ID]]);
+        });
+
+        it("an ended session is not one of them", async () => {
+            const { w1 } = await startWithWorkers();
+            await fx.service.stopSession(w1);
+            await vi.waitFor(() => {
+                expect(w1.state).toBe(State.Inactive);
+            });
+
+            await selectDebugSessionAction.run(accessor);
+
+            expect(picks[0].map((p) => p.label)).toEqual(["app", "task B", START_NEW_DEBUG_SESSION]);
         });
 
         it("the parent of a compact child is not a row of its own", async () => {
@@ -310,7 +336,7 @@ describe("child sessions", () => {
                 fx.service,
                 accessor.get(ViewsServiceDIToken),
                 accessor.get(CommandRegistryDIToken),
-                { glyph: () => "+" },
+                ICONS,
             );
 
             expect(provider.getItems(DebugConsoleQuickAccess.PREFIX).map((i) => i.label)).toEqual([
@@ -331,13 +357,45 @@ describe("child sessions", () => {
                 [START_NEW_DEBUG_SESSION, undefined],
             ]);
 
+            expect(provider.getPlaceholder()).toBe("");
+            expect(filtered[1].icon).toBe(PLUS);
+            const explicit = explicitFocus();
             filtered[0].accept?.();
             await vi.waitFor(() => {
                 expect(fx.service.getViewModel().focusedSession?.name).toBe("task B");
             });
+            expect(explicit).toEqual([true]);
             expect(opened).toEqual([`${REPL_VIEW_ID}:true`]);
             filtered[1].accept?.();
             expect(executed).toEqual([[SELECT_AND_START_ID]]);
+        });
+
+        it("the console of an ended session stays one of them, for Next too", async () => {
+            const { app, w1 } = await startWithWorkers();
+            await fx.service.stopSession(w1);
+            await vi.waitFor(() => {
+                expect(w1.state).toBe(State.Inactive);
+            });
+            const provider = new DebugConsoleQuickAccess(
+                fx.service,
+                accessor.get(ViewsServiceDIToken),
+                {
+                    execute: vi.fn(),
+                },
+                ICONS,
+            );
+
+            expect(provider.getItems(DebugConsoleQuickAccess.PREFIX).map((i) => i.label)).toEqual([
+                "app",
+                "task A",
+                "task B",
+                START_NEW_DEBUG_SESSION,
+            ]);
+            await fx.service.focusStackFrame(undefined, undefined, app);
+            const explicit = explicitFocus();
+            await nextDebugConsoleAction.run(accessor);
+            expect(fx.service.getViewModel().focusedSession).toBe(w1);
+            expect(explicit).toEqual([true]);
         });
 
         it("a child that shares its parent's console is not one of them", async () => {
@@ -355,7 +413,7 @@ describe("child sessions", () => {
                 {
                     execute: vi.fn(),
                 },
-                { glyph: () => "+" },
+                ICONS,
             );
 
             expect(provider.getItems(DebugConsoleQuickAccess.PREFIX).map((i) => i.label)).toEqual([
@@ -401,8 +459,10 @@ describe("child sessions", () => {
             const { app, w2 } = await startWithWorkers();
             await fx.service.focusStackFrame(undefined, undefined, app);
 
+            const explicit = explicitFocus();
             await selectReplAction.run(accessor, w2);
             expect(fx.service.getViewModel().focusedSession).toBe(w2);
+            expect(explicit).toEqual([true]);
             expect(replSelected.at(-1)).toBe(w2);
 
             await selectReplAction.run(accessor, app);
@@ -413,6 +473,17 @@ describe("child sessions", () => {
             // The focused one only selects: the view model would not tell the console.
             await selectReplAction.run(accessor, named("task A"));
             expect(replSelected).toHaveLength(3);
+            expect(explicit).toHaveLength(2);
+
+            // An ended session is only shown, not focused; nothing at all selects what the console finds itself.
+            await fx.service.stopSession(w2);
+            await vi.waitFor(() => {
+                expect(w2.state).toBe(State.Inactive);
+            });
+            await selectReplAction.run(accessor, w2);
+            await selectReplAction.run(accessor, undefined);
+            expect(replSelected.slice(-2)).toEqual([w2, undefined]);
+            expect(fx.service.getViewModel().focusedSession).not.toBe(w2);
         });
     });
 });

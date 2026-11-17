@@ -53,18 +53,17 @@ async function changeDebugConsoleFocus(
     let currSession = debugService.getViewModel().focusedSession;
 
     let nextIndex = 0;
-    if (sessions.length > 0 && currSession) {
-        while (currSession && !currSession.hasSeparateRepl()) {
+    if (currSession) {
+        // A root has a console of its own: the walk up ends at one (upstream checks for none at both ends).
+        while (currSession.parentSession && !currSession.hasSeparateRepl()) {
             currSession = currSession.parentSession;
         }
 
-        if (currSession) {
-            const currIndex = sessions.indexOf(currSession);
-            if (next) {
-                nextIndex = currIndex === sessions.length - 1 ? 0 : currIndex + 1;
-            } else {
-                nextIndex = currIndex === 0 ? sessions.length - 1 : currIndex - 1;
-            }
+        const currIndex = sessions.indexOf(currSession);
+        if (next) {
+            nextIndex = currIndex === sessions.length - 1 ? 0 : currIndex + 1;
+        } else {
+            nextIndex = currIndex === 0 ? sessions.length - 1 : currIndex - 1;
         }
     }
     await debugService.focusStackFrame(undefined, undefined, sessions.at(nextIndex), { explicit: true });

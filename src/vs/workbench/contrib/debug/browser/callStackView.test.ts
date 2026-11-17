@@ -176,6 +176,15 @@ describe("CallStackDataSource", () => {
         expect(await dataSource.getChildren(launcher)).toEqual([program, other]);
     });
 
+    it("a session with threads of its own keeps its row over a lone compact child", async () => {
+        const { dataSource, session } = setup();
+        const parent = session("parent", 2);
+        const program = session("program", 0, parent, true);
+
+        expect(await dataSource.getRoots()).toEqual([parent]);
+        expect(await dataSource.getChildren(parent)).toEqual([...parent.getAllThreads(), program]);
+    });
+
     it("a lone child that is not compact keeps its parent's row; a compact parent folds into its lone child", async () => {
         const { dataSource, session } = setup();
         const parent = session("parent", 0);

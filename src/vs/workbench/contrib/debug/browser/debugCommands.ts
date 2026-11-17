@@ -579,13 +579,8 @@ export const focusSessionAction: CommandAction = {
     async run(accessor, session) {
         const debugService = accessor.get(DebugServiceDIToken);
         const toFocus = resolveChildSession(session as IDebugSession, debugService.getModel().getSessions());
+        // Upstream then opens the focused frame in the editor without the focus: `focusStackFrame` has done it.
         await debugService.focusStackFrame(undefined, undefined, toFocus, { explicit: true });
-        const stackFrame = debugService.getViewModel().focusedStackFrame;
-        if (stackFrame) {
-            await accessor
-                .get(DebugServicePortsDIToken)
-                .openStackFrame(stackFrame, { preserveFocus: true, sideBySide: false });
-        }
     },
 };
 

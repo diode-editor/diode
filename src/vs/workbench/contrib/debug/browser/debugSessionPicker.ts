@@ -56,21 +56,17 @@ function getPicksAndActiveItem(
 ): { picks: IPickerDebugItem[]; activeIndex: number | undefined } {
     const { debugService } = services;
     const debugConsolePicks: IPickerDebugItem[] = [];
-    const headerSessions: IDebugSession[] = [];
 
     const currSession = debugService.getViewModel().focusedSession;
     const sessions = debugService.getModel().getSessions(false);
     let activeIndex: number | undefined;
 
-    sessions.forEach((session) => {
-        if (session.compact && session.parentSession) {
-            headerSessions.push(session.parentSession);
-        }
-    });
+    // The parents of compact sessions: upstream shows them as the separator over their children.
+    const headerSessions = new Set(sessions.filter((s) => s.compact).map((s) => s.parentSession));
 
     sessions.forEach((session) => {
-        if (!headerSessions.includes(session)) {
-            if (session.getId() === currSession?.getId()) {
+        if (!headerSessions.has(session)) {
+            if (session === currSession) {
                 activeIndex = debugConsolePicks.length;
             }
             debugConsolePicks.push(createPick(session, services));

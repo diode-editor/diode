@@ -27,6 +27,7 @@ import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { OverlayLayer } from "@tuidom/core/dom/overlayLayer";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { VFlexElement, vflexFill, vflexFit } from "@tuidom/elements/layout/vFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
@@ -333,7 +334,7 @@ export class Repl extends Component implements IContextKeyContributor {
                 debugService.getViewModel().focusedSession,
             ),
         );
-        this.sessionSelectSlot.addChild(new TextLabelElement(" "), { width: hflexFixed(1), height: 1 });
+        this.sessionSelectSlot.addChild(new FillerElement(), { width: hflexFixed(1), height: 1 });
         this.sessionSelectSlot.addChild(this.sessionSelect.element, { width: hflexFit(), height: 1 });
         this.updateTitleWidget();
         const filterWidget = new HFlexElement();
