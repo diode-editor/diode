@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDebugViewletHarness, type IDebugViewletHarness } from "../../../../../TestUtils/debugViewletHarness.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import type { ViewModel } from "../common/debugViewModel.ts";
@@ -90,6 +91,7 @@ describe("Debug hover", () => {
     }
 
     it("over nums: size=1000 over its chunks; Right expands a chunk, the arrows walk it, Escape closes", async () => {
+        registerLanguageHover();
         await stopAt("nums");
         showHover();
 
@@ -108,14 +110,21 @@ describe("Debug hover", () => {
         expect(t.h.testApp.backend.getBgAt(t.find("[100..199]"))).toBe(t.vars()["editorHoverWidget.background"]);
         // At most the upstream tree's rows: ten chunks fit.
         expect(t.screen()).toContain("[900..999]");
+        // The debug hover has a value: the language hover stays away.
+        expect(t.screen()).not.toContain("the language hover");
+        const caretRow = editor().getCaretAnchor()?.screenY ?? -1;
+        const view = t.h.container.get(DebugHoverWidgetDIToken).view;
 
         // The tree has the focus: the keys are its own.
         t.h.testApp.sendKey("ArrowRight");
         await vi.waitFor(() => {
             expect(t.screen()).toContain("[0]: -17");
         });
-        // The tree grows to the floor of rows and scrolls past it.
+        // The tree grows to the floor of rows and scrolls past it, still above the cursor's line.
         expect(t.screen()).not.toContain("[900..999]");
+        t.h.testApp.render();
+        expect(view.globalPosition.y + view.layoutSize.height).toBeLessThanOrEqual(caretRow);
+        expect(view.layoutSize.height).toBe(15 + 4);
         for (let i = 0; i < 20; i++) t.h.testApp.sendKey("ArrowDown");
         await vi.waitFor(() => {
             expect(t.screen()).toContain("[19]: ");
@@ -157,8 +166,21 @@ describe("Debug hover", () => {
         });
         const box = t.lines().find((row) => /│0 *│/u.test(row));
         expect(box, "a box with the value 0").toBeDefined();
+        // The value has the focus, as upstream's value container: typing does not reach the document.
+        t.h.testApp.sendKey("z");
+        expect(editor().model.document.getLineContent(26)).toBe(SOURCE.split("\n")[26]);
         t.h.testApp.sendKey("Escape");
         expect(hoverVisible()).toBe(false);
+    });
+
+    it("debug.showVariableTypes puts the types in the rows", async () => {
+        await t.h.container.get(IConfigurationServiceDIToken).updateValue("debug.showVariableTypes", true);
+        await stopAt("p.x");
+        showHover();
+
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("x: double = 1.5");
+        });
     });
 
     it("an adapter without evaluate for hovers: p.x is looked up in the scopes of the frame", async () => {

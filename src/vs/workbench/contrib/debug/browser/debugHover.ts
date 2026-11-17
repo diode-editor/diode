@@ -11,8 +11,9 @@
 // Deviations: it is shown by `editor.debug.action.showDebugHover` only, there is no hover by the mouse in the
 // editor yet (so no Alt to switch to the language hover, no safe triangle); the expression's range is not
 // highlighted in the editor; the hover sits at the cursor, not at the start of the expression; it closes when the
-// debugger moves on (a step, a continue), as upstream's contribution hides it on a focused frame. Not here yet: the
-// context menu of a row (`debug/variables/context` in the hover, #1150). Not planned: debug visualizers.
+// debugger moves on (a step, a continue), where upstream's contribution hides it on a focused frame (another frame
+// is picked by a click outside, which closes it too); the debug keys work from it. Not here yet: the context menu of
+// a row (`debug/variables/context` in the hover, #1150). Not planned: debug visualizers.
 
 import type { OverlayAnchorPosition, OverlayLayer } from "@tuidom/core/dom/overlayLayer";
 import { BoxContainerElement } from "@tuidom/elements/layout/boxContainerElement";
@@ -92,10 +93,8 @@ export async function findExpressionInStackFrame(
         (e) => e !== null,
     );
 
-    // only show if all expressions found have the same value
-    return expressions.length > 0 && expressions.every((e) => e.value === expressions[0].value)
-        ? expressions[0]
-        : undefined;
+    // only show if all expressions found have the same value (none found: the first is undefined anyway)
+    return expressions.every((e) => e.value === expressions[0].value) ? expressions[0] : undefined;
 }
 
 /**
@@ -158,8 +157,8 @@ export class DebugHoverWidget extends Disposable {
     private readonly overlay: CaretAnchoredOverlay;
     private readonly renderer: DebugExpressionRenderer;
     private readonly latest = new LatestRequest();
-    /** The evaluated expression whose children the tree shows: none until the first value with children. */
-    private root: IExpression = new Expression("");
+    /** The evaluated expression whose children the tree shows: set before the tree's first refresh. */
+    private root!: IExpression;
     /** The tree's height last applied: a rebuild with as many rows leaves the layout alone. */
     private treeRows = 0;
 
@@ -195,8 +194,8 @@ export class DebugHoverWidget extends Disposable {
                 getKey: (element) => element.getId(),
                 hasChildren: (element) => element.hasChildren,
                 renderRow: (element) => this.renderer.renderVariable(element, { showChanged: true }),
-                getLabel: (element) => element.name,
             },
+            // Stryker disable next-line StringLiteral: the row ids are the tree's own, any prefix keeps them apart
             { idPrefix: "debugHover" },
         );
         this.treeBody.setChild(this.tree.element);
@@ -220,11 +219,6 @@ export class DebugHoverWidget extends Disposable {
         this.register(
             viewModel.onDidEvaluateLazyExpression((e) => {
                 this.tree.expand(e as IExpression);
-            }),
-        );
-        this.register(
-            viewModel.onDidFocusStackFrame(() => {
-                this.hide();
             }),
         );
         this.register(

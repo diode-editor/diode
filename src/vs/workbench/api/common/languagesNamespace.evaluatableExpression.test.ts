@@ -67,8 +67,13 @@ describe("LanguagesNamespace — registerEvaluatableExpressionProvider", () => {
         const [document, position] = provide.mock.calls[0];
         expect(document.uri.toString()).toBe(URI);
         expect({ line: position.line, character: position.character }).toEqual({ line: 0, character: 5 });
-        await stub.callRequest(METHOD, params({ line: undefined, character: undefined }));
-        expect(provide.mock.calls[1][1].character).toBe(0);
+        await stub.callRequest(METHOD, params({ line: 1, character: undefined }));
+        expect({ line: provide.mock.calls[1][1].line, character: provide.mock.calls[1][1].character }).toEqual({
+            line: 1,
+            character: 0,
+        });
+        await stub.callRequest(METHOD, params({ line: undefined }));
+        expect(provide.mock.calls[2][1].line).toBe(0);
     });
 
     it("[api:EvaluatableExpression] the range and the expression go over the wire", async () => {

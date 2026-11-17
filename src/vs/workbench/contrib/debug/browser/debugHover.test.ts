@@ -46,15 +46,18 @@ describe("DebugHoverWidget", () => {
     let debugService: TestDebugService;
     let widget: DebugHoverWidget;
     let app: TestApp;
+    let body: BodyElement;
+    let features: LanguageFeaturesService;
 
     beforeEach(() => {
         debugService = testDebugService(createMockDebugModel(disposables));
-        const body = new BodyElement();
+        body = new BodyElement();
+        features = new LanguageFeaturesService();
         app = TestApp.create(body, new Size(80, 30));
         widget = disposables.add(
             new DebugHoverWidget(
                 debugService,
-                new LanguageFeaturesService(),
+                features,
                 NULL_CONFIGURATION_SERVICE,
                 new StaticProductIconService(false),
                 testLayoutService(body),
@@ -72,6 +75,45 @@ describe("DebugHoverWidget", () => {
         app.render();
         return app.backend.screenToString();
     }
+
+    it("lives on the overlay layer as #debugHoverWidget, the id the inspector and e2e look for", () => {
+        expect(body.overlayLayer.querySelector("#debugHoverWidget")).toBe(widget.view);
+    });
+
+    it("closing the hover cancels the request on its way: it does not open afterwards", async () => {
+        let release: (children: IExpression[]) => void = () => undefined;
+        const slow = new TestVariable("slow", "{...}", [new TestVariable("x", "1")]);
+        const frame = frameWith([slow, new TestVariable("count", "7")]);
+        await widget.showAt(editorOver("count"), createPosition(0, 1), frame);
+        vi.spyOn(slow, "getChildren").mockReturnValue(
+            new Promise((resolve) => {
+                release = resolve;
+            }),
+        );
+
+        const pending = widget.showAt(editorOver("slow"), createPosition(0, 1), frame);
+        await flushMicrotasks(20);
+        app.sendKey("Escape");
+        release([new TestVariable("x", "1")]);
+
+        expect(await pending).toBe(ShowDebugHoverResult.CANCELLED);
+        expect(widget.isVisible()).toBe(false);
+    });
+
+    it("an extension's expression is looked up by its parts, spaces and empty parts aside", async () => {
+        features.evaluatableExpressionProvider.register("*", {
+            provideEvaluatableExpression: () =>
+                Promise.resolve({
+                    range: { start: createPosition(0, 0), end: createPosition(0, 1) },
+                    expression: " p . .x ",
+                }),
+        });
+        const frame = frameWith([new TestVariable("p", "{...}", [new TestVariable("x", "1.5")])]);
+
+        await widget.showAt(editorOver("p"), createPosition(0, 0), frame);
+
+        expect(screen()).toMatch(/│1\.5 *│/u);
+    });
 
     it("Enter on a lazy child evaluates it and the hover opens its children", async () => {
         const getter = new TestVariable("getter", "(...)", [new TestVariable("a", "1")], { lazy: { value: "{a}" } });
