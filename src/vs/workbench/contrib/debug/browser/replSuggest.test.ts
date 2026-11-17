@@ -4,13 +4,13 @@ import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { HFlexElement, hflexFill, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
-import type { DebugProtocol } from "@vscode/debugprotocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
-import type { CancellationToken } from "../../../../base/common/cancellation.ts";
+import type { ICancellationToken as CancellationToken } from "../../../../base/common/cancellation.ts";
 import type { Position } from "../../../../editor/common/core/position.ts";
 import type { IDebugSession } from "../common/debug.ts";
+
 import { ReplSuggest } from "./replSuggest.ts";
 
 type Targets = DebugProtocol.CompletionItem[] | undefined;
@@ -51,7 +51,11 @@ describe("ReplSuggest", () => {
                     column: position.column,
                     token,
                     answer: async (targets) => {
-                        resolve(targets === undefined ? undefined : { body: { targets } });
+                        resolve(
+                            targets === undefined
+                                ? undefined
+                                : ({ body: { targets } } as DebugProtocol.CompletionsResponse),
+                        );
                         await new Promise((done) => setTimeout(done, 0));
                     },
                 });
