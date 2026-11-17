@@ -67,16 +67,22 @@ describe("titleMenuEntries — split buttons", () => {
         const runs: string[] = [];
         const groups = split([command("a", runs), command("b", runs)]);
         expect(inlineActions(groups)).toStrictEqual([
-            { id: PRIMARY, icon: "▷", enabled: true },
+            { id: PRIMARY, icon: "▷", enabled: true, color: undefined },
             { id: DROPDOWN, icon: "▾", attached: true },
         ]);
         expect(overflowEntries(groups)).toStrictEqual([]);
     });
 
-    it("the primary item's own icon wins over the submenu's; its enablement dims the button", () => {
+    it("the primary item's own icon and color win over the submenu's; its enablement dims the button", () => {
         const runs: string[] = [];
-        const groups = split([command("a", runs, { icon: "★", enabled: false }), command("b", runs)]);
-        expect(inlineActions(groups)[0]).toStrictEqual({ id: PRIMARY, icon: "★", enabled: false });
+        const primary = { ...command("a", runs, { icon: "★", enabled: false }), iconColor: "debugIcon.startForeground" };
+        const groups = split([primary as MenuEntry, command("b", runs)]);
+        expect(inlineActions(groups)[0]).toStrictEqual({
+            id: PRIMARY,
+            icon: "★",
+            enabled: false,
+            color: "debugIcon.startForeground",
+        });
     });
 
     it("without any glyph the submenu goes to ⋯ with its label", () => {
