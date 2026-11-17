@@ -20,7 +20,7 @@
  * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint;
  * - `sum` among the locals takes a new value (`setVariable`) and evaluates to it; a step over (`next`) goes to the
  *   next line, and `sum` is `argc` times the `sum += argc` lines run between `main` and the stop;
- * - in the debug-inline-values folder an inline values provider looks up `sum` and `argc` where a line up to the stop
+ * - in the debug-inline-values folder its inline values provider for C looks up `sum` and `argc` where a line up to the stop
  *   names them;
  * - the menu of a call stack frame has "Show Frame in Status": the argument it gets goes to the `dbg:` item; the
  *   debug toolbar has a bell button that counts its clicks there.
@@ -98,22 +98,21 @@ exports.activate = function activate(context) {
             pings++;
             status.text = `dbg:ping ${pings}`;
         }),
-        vscode.languages.registerInlineValuesProvider(
-            { language: "c", pattern: "**/debug-inline-values/**" },
-            {
-                provideInlineValues(document, viewPort, context) {
-                    const values = [];
-                    const last = Math.min(viewPort.end.line, context.stoppedLocation.end.line);
-                    for (let line = viewPort.start.line; line <= last; line++) {
-                        for (const match of document.lineAt(line).text.matchAll(/\b(sum|argc)\b/g)) {
-                            const range = new vscode.Range(line, match.index, line, match.index + match[0].length);
-                            values.push(new vscode.InlineValueVariableLookup(range));
-                        }
+        // The folder is checked here, not by a `pattern`: Diode's selector globs miss a Windows path's `\`.
+        vscode.languages.registerInlineValuesProvider("c", {
+            provideInlineValues(document, viewPort, context) {
+                if (path.basename(path.dirname(document.uri.fsPath)) !== "debug-inline-values") return undefined;
+                const values = [];
+                const last = Math.min(viewPort.end.line, context.stoppedLocation.end.line);
+                for (let line = viewPort.start.line; line <= last; line++) {
+                    for (const match of document.lineAt(line).text.matchAll(/\b(sum|argc)\b/g)) {
+                        const range = new vscode.Range(line, match.index, line, match.index + match[0].length);
+                        values.push(new vscode.InlineValueVariableLookup(range));
                     }
-                    return values;
-                },
+                }
+                return values;
             },
-        ),
+        }),
         vscode.commands.registerCommand("debugDemo.breakOnPrintf", () => {
             const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
             if (!folder) return;
