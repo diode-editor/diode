@@ -29,7 +29,7 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 
 | surface | status | members |
 | --- | :-: | --- |
-| [`vscode.languages`](#vscodelanguages) | 🟡 | 20/40 |
+| [`vscode.languages`](#vscodelanguages) | 🟡 | 21/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 26/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 36/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 4/4 |
@@ -45,12 +45,12 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 | [`vscode.scm`](#namespaces-not-yet-exposed) | 🕐 | 0/2 |
 | [`vscode.notebooks`](#namespaces-not-yet-exposed) | 🕐 | 0/3 |
 | [`vscode.chat`](#namespaces-not-yet-exposed) | 🕐 | 0/1 |
-| [types and classes](#types-with-a-partial-surface) | — | 309/424 |
+| [types and classes](#types-with-a-partial-surface) | — | 315/424 |
 | [activation events](#activation-events-activationevents) | 🟡 | 9/32 |
 
 ## vscode.languages
 
-🟡 **20/40.** The LSP-level language stack is in place; the remaining providers accept
+🟡 **21/40.** The LSP-level language stack is in place; the remaining providers accept
 registration but are not called yet.
 
 | member | status | comment |
@@ -87,7 +87,7 @@ registration but are not called yet.
 | `registerOnTypeFormattingEditProvider` | ✅ | with `editor.formatOnType` on, a trigger character of the first provider (Enter included) formats after typing, as a separate undo step; skipped with several cursors or a selection, dropped when the text at or above the caret's line changes first |
 | `registerWorkspaceSymbolProvider` | ✅ | Go to Symbol in Workspace (Ctrl+T, `#` in Quick Open), `resolveWorkspaceSymbol` on open; symbols join Quick Open results with `search.quickOpen.includeSymbols`; no Open to Side |
 | `registerDocumentLinkProvider` | ✅ | links are underlined with those of the built-in `http(s)`/`file` detector (where they meet, the provider's win); Ctrl+click and **Open Link** open them: `http(s)` and `mailto` outside, `file:` with `#L10` in the editor, `command:` runs the command. `resolveDocumentLink` is called when a link without a target is opened. `DocumentLink.tooltip` is kept but not shown (no mouse hover); `editor.links` turns everything off |
-| other `register*Provider` (1: inlineValues) | 🕐 | registration is accepted as a no-op; the provider is never called |
+| `registerInlineValuesProvider` | ✅ | while the debugger is stopped in a file of the provider's language, the provider is asked for the visible lines and a screen above and below (again after a step, a scroll or an edit); `InlineValueText` is shown as is, `InlineValueVariableLookup` and `InlineValueEvaluatableExpression` as `name = value` from the focused frame, the values of a line joined by their columns after the line's end, as with `debug.inlineValues` (`auto`: only with a provider). Several providers are merged, a failing one costs only its own values. `onDidChangeInlineValues` is accepted and, as in VS Code, asks nothing again. No hover over a value |
 | `setLanguageConfiguration` | 🟡 | `wordPattern` (for `TextDocument.getWordRangeAtPosition` and linked editing; not passed to the editor's word selection and completion boundaries), `comments`, `brackets`, `autoClosingPairs`, `onEnterRules` (layered over `language-configuration.json`: a set section replaces the file's, the latest layer wins, dispose removes it). Not applied: `indentationRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, the deprecated `__electricCharacterSupport`/`__characterPairSupport` |
 | `getLanguages`, `setTextDocumentLanguage` | ✅ | The language set on a document without a tab is applied when it gets one. |
 | `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | not declared. The `DocumentDropOrPasteEditKind` class is: extensions build kinds at load time and check for the register function before calling it |
@@ -408,7 +408,7 @@ change the ⛔ status.
 
 ## Types with a partial surface
 
-309 of 424 upstream types and classes are declared. The declared ones are complete, except those
+315 of 424 upstream types and classes are declared. The declared ones are complete, except those
 listed below, where only a subset of members is declared. `TextDocument` is listed for a different
 reason: everything is declared and implemented, but `save` is a 🟡 stub.
 

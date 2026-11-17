@@ -4,6 +4,7 @@ import type { IPosition } from "../../../editor/common/core/iPosition.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { CompletionTriggerKind } from "../../../editor/common/languages/iCompletionSource.ts";
+import type { IInlineValueContext } from "../../../editor/common/languages/iInlineValuesSource.ts";
 import type {
     ICoreSignatureHelp,
     SignatureHelpTriggerKind,
@@ -499,6 +500,12 @@ export interface IWireResolveDocumentLinkParams extends IWireProviderHandle {
 /** Upstream `$provideDocumentColors`: the reply is `null` when the provider gave no colors. */
 export type IWireDocumentColorParams = IWireDocumentParams & IWireProviderHandle;
 
+/** Upstream `$provideInlineValues`: the reply is `null` when the provider gave no array. */
+export interface IWireInlineValuesParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly viewPort: IRange;
+    readonly context: IInlineValueContext;
+}
+
 /** Upstream `$provideInlayHints`: the reply is `null` when the provider gave no hints. */
 export interface IWireInlayHintsParams extends IWireDocumentParams, IWireProviderHandle {
     readonly range: IRange;
@@ -602,6 +609,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "color",
     "documentLink",
     "inlayHints",
+    "inlineValues",
     "codeLens",
     "semanticTokens",
     "rangeSemanticTokens",

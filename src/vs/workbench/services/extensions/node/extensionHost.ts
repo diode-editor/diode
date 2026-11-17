@@ -53,6 +53,7 @@ import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { IInlineValuesRequest, InlineValue } from "../../../../editor/common/languages/iInlineValuesSource.ts";
 import {
     type ILanguageConfigurationService,
     NULL_LANGUAGE_CONFIGURATION_SERVICE,
@@ -1043,6 +1044,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token?: ICancellationToken,
     ): Promise<readonly InlayHint[] | null> {
         return this.languageFeatures.provideInlayHints(handle, req, token);
+    }
+
+    public provideInlineValues(
+        handle: number,
+        req: IInlineValuesRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly InlineValue[] | null> {
+        return this.languageFeatures.provideInlineValues(handle, req, token);
     }
 
     public get onDidChangeInlayHints(): Event<number> {

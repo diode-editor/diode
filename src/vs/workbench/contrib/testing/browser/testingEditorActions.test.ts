@@ -140,10 +140,10 @@ function setup() {
         },
         isTooLargeForTokenization: false,
         onDidChangeTooLargeForTokenization: new Emitter<void>().event,
-        setLineMessageDecorations: (messages) => {
-            element.setLineMessageDecorations(messages);
+        setLineMessageDecorations: (owner, messages) => {
+            element.setLineMessageDecorations(owner, messages);
         },
-        getLineMessageDecorations: () => element.getLineMessageDecorations(),
+        getLineMessageDecorations: (owner) => element.getLineMessageDecorations(owner),
         onDidClickLineMessage: (listener) => element.onDidClickLineMessage(listener),
         get primaryCursorLine() {
             return element.viewState.selections[0].active.line;
