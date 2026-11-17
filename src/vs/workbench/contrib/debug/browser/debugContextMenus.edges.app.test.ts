@@ -177,18 +177,28 @@ describe("Run and Debug: edges of the context menus", () => {
         // usual way to paste into the console is a right click anywhere in it.
         const repl = t.h.container.get(ReplDIToken);
         t.h.container.get(ViewsServiceDIToken).openView(REPL_VIEW_ID, true);
+        t.h.container.get(ReplDIToken).focus();
         for (const char of "count") t.h.testApp.sendKey(char);
         t.h.testApp.sendKey("Enter");
         await vi.waitFor(() => {
-            expect(t.lines().some((line) => line.trim() === "0")).toBe(true);
+            expect(t.lines().some((line) => line.replace(/[█░▀▄]/gu, "").trim() === "0")).toBe(true);
         });
 
-        // Two lines below the answer, still inside the console's output (the panel is far taller).
+        // Cleared, the console is empty space where the answer was.
         const lines = t.lines();
-        const answer = lines.findIndex((line) => line.trim() === "0");
+        const answer = lines.findIndex((line) => line.replace(/[█░▀▄]/gu, "").trim() === "0");
         const x = lines[answer].indexOf("0");
+        repl.clearRepl();
+        await vi.waitFor(() => {
+            expect(
+                t
+                    .lines()
+                    [answer].replace(/[█░▀▄]/gu, "")
+                    .trim(),
+            ).toBe("");
+        });
         const before = shown.length;
-        rightClick(x, answer + 2);
+        rightClick(x, answer);
         await vi.waitFor(() => {
             expect(shown.length).toBe(before + 1);
         });

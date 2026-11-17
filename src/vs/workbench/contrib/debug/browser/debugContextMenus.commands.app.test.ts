@@ -27,6 +27,7 @@ import type { DebugModel, StackFrame, Thread } from "../common/debugModel.ts";
 import { getContext, getContextForContributedActions } from "./callStackView.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
 import { DebugViewletComponentDIToken } from "./debugViewlet.ts";
+import { ReplDIToken } from "./repl.ts";
 
 describe("Run and Debug: the commands of the rows' menus", () => {
     let t: IDebugViewletHarness;
@@ -260,12 +261,13 @@ describe("Run and Debug: the commands of the rows' menus", () => {
     it("Copy of an evaluation in the Debug Console asks the adapter for the clipboard form", async () => {
         await startStopped();
         t.h.container.get(ViewsServiceDIToken).openView(REPL_VIEW_ID, true);
+        t.h.container.get(ReplDIToken).focus();
         for (const char of "count") t.h.testApp.sendKey(char);
         t.h.testApp.sendKey("Enter");
         await vi.waitFor(() => {
-            expect(t.lines().some((line) => line.trim() === "0")).toBe(true);
+            expect(t.lines().some((line) => line.replace(/[█░▀▄]/gu, "").trim() === "0")).toBe(true);
         });
-        const answer = t.lines().findLastIndex((line) => line.trim() === "0");
+        const answer = t.lines().findLastIndex((line) => line.replace(/[█░▀▄]/gu, "").trim() === "0");
         const x = t.lines()[answer].indexOf("0");
         mouse(x, answer, "right");
         await vi.waitFor(() => {

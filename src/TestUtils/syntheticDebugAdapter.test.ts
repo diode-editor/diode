@@ -10,6 +10,7 @@ import {
     NO_DELAY_TIMING,
     numAt,
     registerSyntheticDebugger,
+    SYNTHETIC_ANSI_LINE,
     SYNTHETIC_CAPABILITIES,
     SYNTHETIC_DEBUG_TYPE,
     SYNTHETIC_LAUNCH_CONFIG,
@@ -172,6 +173,7 @@ describe("SyntheticDebugAdapter", () => {
                 ["console", "Launched process 482"],
                 ["stdout", "Hello from hello 1.2"],
                 ["stdout", "Reading input.txt: 1"],
+                ["stdout", SYNTHETIC_ANSI_LINE.slice(0, 20)],
                 ["console", "warning: (x86_64) /l"],
             ]);
         },
@@ -553,6 +555,20 @@ describe("SyntheticDebugAdapter", () => {
         await adapter.stopSession();
 
         expect(eventsOf("stopped")).toEqual([]);
+    });
+
+    it("completes the locals by the word before the cursor of the first line", async () => {
+        await launchStopped();
+
+        expect(await body("completions", { text: "cf", column: 3 })).toEqual({
+            targets: [{ label: "cfg", type: "variable", detail: "Config const&", length: 2 }],
+        });
+        expect(await body("completions", { text: "x + co\nsum", column: 7 })).toEqual({
+            targets: [{ label: "count", type: "variable", detail: "int", length: 2 }],
+        });
+        const all = (await body("completions", { text: "", column: 1 })).targets as { length: number }[];
+        expect(all.length).toBeGreaterThan(10);
+        expect(all.every((t) => t.length === 0)).toBe(true);
     });
 
     it("an unknown request fails; a response to the adapter is ignored", async () => {

@@ -138,6 +138,7 @@
             "debug.replPaste"
         ],
         "z_commands": [
+            "debug.collapseRepl",
             "workbench.debug.panel.action.clearReplAction"
         ]
     },

@@ -136,13 +136,21 @@ describe("Run and Debug: more context menus and the keys of the rows", () => {
     it("the Debug Console: Copy and Copy All of the rows, Paste into the input, Clear Console", async () => {
         const repl = t.h.container.get(ReplDIToken);
         t.h.container.get(ViewsServiceDIToken).openView(REPL_VIEW_ID, true);
+        t.h.container.get(ReplDIToken).focus();
         for (const char of "count + 1") t.h.testApp.sendKey(char === " " ? "Space" : char);
         t.h.testApp.sendKey("Enter");
         await vi.waitFor(() => {
-            expect(t.lines().some((line) => line.trim() === "1")).toBe(true);
+            expect(t.lines().some((line) => line.replace(/[█░▀▄]/gu, "").trim() === "1")).toBe(true);
         });
 
-        expect(await menuAt("count + 1", "last")).toEqual(["Copy", "Copy All", "Paste", "-", "Clear Console"]);
+        expect(await menuAt("count + 1", "last")).toEqual([
+            "Copy",
+            "Copy All",
+            "Paste",
+            "-",
+            "Collapse All",
+            "Clear Console",
+        ]);
         choose("Copy");
         await vi.waitFor(async () => {
             expect(await clipboard()).toBe("count + 1");
