@@ -1,4 +1,5 @@
 import type { StyleFlags } from "@tuidom/core/common/styleFlags";
+import type { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
@@ -143,8 +144,13 @@ export class LazyTreeControl<T> {
     public onActivate: (element: T) => void = () => undefined;
     /** The cursor moved to a row by the user; a rebuild or {@link reveal} moving it says nothing. */
     public onSelect: (element: T) => void = () => undefined;
-    /** A right click or Shift+F10 on a row (the click has already put the cursor there). */
-    public onContextMenu: (element: T, screenX: number, screenY: number) => void = () => undefined;
+    /**
+     * A right click or Shift+F10 on a row (the click has already put the cursor there); `undefined` for one on no row,
+     * as upstream's tree hands over a `null` element (the console's menu opens on its empty space too).
+     */
+    public onContextMenu: (element: T | undefined, screenX: number, screenY: number) => void = () => undefined;
+    /** The list has handed the current context menu event to a row. */
+    private contextMenuOnRow = false;
 
     private roots: readonly T[] = [];
     /** The user's word on a node; a node without one follows {@link ILazyTreeSource.isInitiallyExpanded}. */
@@ -182,9 +188,18 @@ export class LazyTreeControl<T> {
             if (!this.movingCursor && item !== undefined) this.onSelect(item);
         };
         this.list.onContextMenu = (row, screenX, screenY) => {
-            const item = this.items.get(String(row.id));
-            if (item !== undefined) this.onContextMenu(item, screenX, screenY);
+            this.contextMenuOnRow = true;
+            this.onContextMenu(this.items.get(String(row.id)), screenX, screenY);
         };
+        // The list says nothing of a click on no row: its listener runs before the list's own handling, and the
+        // microtask after it tells whether a row got the event.
+        this.list.addEventListener("contextmenu", (event) => {
+            const { screenX, screenY } = event as TUIContextMenuEvent;
+            this.contextMenuOnRow = false;
+            queueMicrotask(() => {
+                if (!this.contextMenuOnRow) this.onContextMenu(undefined, screenX, screenY);
+            });
+        });
     }
 
     /**

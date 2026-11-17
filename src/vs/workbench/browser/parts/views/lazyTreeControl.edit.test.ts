@@ -145,7 +145,7 @@ describe("LazyTreeControl — context menu", () => {
     it("a right click on a row hands its element over, the cursor already on it", async () => {
         const { app, tree } = await mount();
         const opened: string[] = [];
-        tree.onContextMenu = (node, x, y) => opened.push(`${node.key}@${x},${y}`);
+        tree.onContextMenu = (node, x, y) => opened.push(`${node?.key ?? "none"}@${x},${y}`);
 
         rightClick(app, 3, 1);
         await flushMicrotasks();
@@ -161,7 +161,7 @@ describe("LazyTreeControl — context menu", () => {
         tree.onSelect = () => {
             tree.rerender();
         };
-        tree.onContextMenu = (node) => opened.push(node.key);
+        tree.onContextMenu = (node) => opened.push(node?.key ?? "none");
 
         rightClick(app, 3, 1);
         await flushMicrotasks();
@@ -169,10 +169,21 @@ describe("LazyTreeControl — context menu", () => {
         expect(opened).toEqual(["b"]);
     });
 
+    it("a right click below the rows hands over no element, once", async () => {
+        const { app, tree } = await mount();
+        const opened: string[] = [];
+        tree.onContextMenu = (node, x, y) => opened.push(`${node?.key ?? "none"}@${x},${y}`);
+
+        rightClick(app, 3, 3);
+        await flushMicrotasks();
+
+        expect(opened).toEqual(["none@3,3"]);
+    });
+
     it("Shift+F10 opens it on the row under the cursor", async () => {
         const { app, tree } = await mount();
         const opened: string[] = [];
-        tree.onContextMenu = (node) => opened.push(node.key);
+        tree.onContextMenu = (node) => opened.push(node?.key ?? "none");
 
         app.sendKey("Shift+F10");
 

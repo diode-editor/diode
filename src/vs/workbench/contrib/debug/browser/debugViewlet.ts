@@ -245,6 +245,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
                 .catch(onUnexpectedError);
         };
         this.watch.tree.onContextMenu = (element, screenX, screenY) => {
+            if (element === undefined) return;
             void watchMenuKeys(element, viewModel.focusedStackFrame)
                 .then((keys) => {
                     const owner = this.watch.tree.list;
@@ -266,7 +267,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
                 menuId: MenuId.DebugCallStackContext,
                 keys: callStackItemKeys(element),
                 // Extensions get upstream's contributed argument, the built-in commands the row's ids after it.
-                args: [getContextForContributedActions(element), getContext(element)],
+                args: [getContextForContributedActions(element ?? null), getContext(element ?? null)],
             });
         };
         this.breakpoints.tree.onContextMenu = (element, screenX, screenY) => {
