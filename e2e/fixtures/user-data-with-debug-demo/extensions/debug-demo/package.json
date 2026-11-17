@@ -10,9 +10,17 @@
     },
     "activationEvents": [
         "onDebugResolve:demo",
-        "onDebugDynamicConfigurations:demo"
+        "onDebugDynamicConfigurations:demo",
+        "onCommand:debugDemo.breakOnPrintf"
     ],
     "contributes": {
+        "commands": [
+            {
+                "command": "debugDemo.breakOnPrintf",
+                "title": "Break on printf",
+                "category": "Debug Demo"
+            }
+        ],
         "debuggers": [
             {
                 "type": "demo",

@@ -144,36 +144,28 @@
       "note": "needs a debugger"
     },
     "Breakpoint.condition": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "Breakpoint.enabled": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "Breakpoint.hitCondition": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "Breakpoint.id": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "Breakpoint.logMessage": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "BreakpointsChangeEvent.added": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "BreakpointsChangeEvent.changed": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "BreakpointsChangeEvent.removed": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "CallHierarchyIncomingCall": {
       "class": "ok"
@@ -1358,12 +1350,10 @@
       "note": "needs a debugger"
     },
     "DebugConsole.append": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConsole.appendLine": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugConsoleMode": {
       "class": "C",
@@ -1378,48 +1368,37 @@
       "note": "needs a debugger"
     },
     "DebugSession.configuration": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSession.customRequest": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSession.getDebugProtocolBreakpoint": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSession.id": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSession.name": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSession.parentSession": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSession.type": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSession.workspaceFolder": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionCustomEvent.body": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionCustomEvent.event": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionCustomEvent.session": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugSessionOptions.compact": {
       "class": "C",
@@ -1462,32 +1441,25 @@
       "note": "needs a debugger"
     },
     "DebugStackFrame": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugStackFrame.frameId": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugStackFrame.session": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugStackFrame.threadId": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugThread": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugThread.session": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DebugThread.threadId": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "DeclarationCoverage": {
       "class": "C",
@@ -2429,8 +2401,7 @@
       "note": "needs a debugger"
     },
     "FunctionBreakpoint.functionName": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "GlobalEnvironmentVariableCollection.getScoped": {
       "class": "ok"
@@ -4657,8 +4628,7 @@
       "note": "needs a debugger"
     },
     "SourceBreakpoint.location": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "SourceControl.acceptInputCommand": {
       "class": "C",

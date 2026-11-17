@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
+import { SESSIONLESS_DEBUG_SINK } from "../../../../../../TestUtils/debugSinkStub.ts";
 import type { IDisposable } from "../../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
 import type { IDebuggerExtension } from "../../../../api/common/debugAdapterExecutable.ts";
@@ -46,6 +47,7 @@ const journal: string[] = [];
 
 function sink(registrations: IRegistration[]): IExtensionDebugSink {
     return {
+        ...SESSIONLESS_DEBUG_SINK,
         registerDebugTypes: (types, host): IDisposable => {
             const registration = { types, host, disposed: 0 };
             registrations.push(registration);
