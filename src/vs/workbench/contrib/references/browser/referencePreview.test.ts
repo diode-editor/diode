@@ -102,6 +102,48 @@ describe("buildReferenceGroups", () => {
         expect(src.reads).toEqual([`${ROOT}/a.ts`]);
     });
 
+    it("two providers naming one place give one row; files keep their order, rows within a file go by range", async () => {
+        const src = source({ [`${ROOT}/a.ts`]: "aaa\nbbb\n", [`${ROOT}/b.ts`]: "ccc\n" });
+
+        const groups = await buildReferenceGroups(
+            [
+                // The first provider…
+                ref("b.ts", createRange(0, 0, 0, 3)),
+                ref("a.ts", createRange(1, 0, 1, 3)),
+                ref("a.ts", createRange(0, 1, 0, 2)),
+                // …and the second one repeats its answer and adds a range overlapping a known one.
+                ref("a.ts", createRange(0, 1, 0, 2)),
+                ref("a.ts", createRange(1, 0, 1, 3)),
+                ref("a.ts", createRange(0, 1, 0, 3)),
+                ref("b.ts", createRange(0, 0, 0, 3)),
+            ],
+            src,
+            ROOT,
+        );
+
+        expect(groups.map((group) => group.relPath)).toEqual(["b.ts", "a.ts"]);
+        expect(groups[0].matches.map((match) => match.preview.inside)).toEqual(["ccc"]);
+        expect(
+            groups[1].matches.map((match) => [match.lineNumber, match.startColumn, match.endColumn]),
+        ).toEqual([
+            [1, 1, 2],
+            [1, 1, 3],
+            [2, 0, 3],
+        ]);
+    });
+
+    it("a file whose every reference is past its text gives no group", async () => {
+        const src = source({ [`${ROOT}/a.ts`]: "one line\n", [`${ROOT}/b.ts`]: "b\n" });
+
+        const groups = await buildReferenceGroups(
+            [ref("a.ts", createRange(99, 0, 99, 1)), ref("b.ts", createRange(0, 0, 0, 1))],
+            src,
+            ROOT,
+        );
+
+        expect(groups.map((group) => group.relPath)).toEqual(["b.ts"]);
+    });
+
     it("the open model wins over disk: unsaved edits are visible", async () => {
         const src = source({ [`${ROOT}/a.ts`]: "an old disk text\n" }, { [`${ROOT}/a.ts`]: "a new buffer text\n" });
 
