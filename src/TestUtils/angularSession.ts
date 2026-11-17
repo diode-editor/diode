@@ -102,7 +102,7 @@ export async function withAngularProject(
                 const uri = uriOf(name);
                 return {
                     uri,
-                    languageId: ANGULAR_LANGUAGE_SERVICE.getLanguageIdForResource(name) ?? "",
+                    languageId: name.endsWith(".html") ? "html" : "typescript",
                     versionId: documentVersion(harness, uri),
                     line,
                     character: lines[line].indexOf(needle) + offset,

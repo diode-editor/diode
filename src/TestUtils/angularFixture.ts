@@ -57,7 +57,9 @@ export async function installAngular(): Promise<IInstalledAngular> {
 /** The version is not pinned, as with the stock vsix; the cache lives until node_modules is cleaned. */
 export function ensureAngularLibrary(): string {
     const nodeModules = path.join(ANGULAR_LIB_CACHE_DIR, "node_modules");
+    /* v8 ignore start -- test helper: one suite calls it, so a CI run sees either a warm cache or a cold one */
     if (fs.existsSync(path.join(nodeModules, "@angular", "core", "package.json"))) return nodeModules;
+    /* v8 ignore stop */
     fs.mkdirSync(path.dirname(ANGULAR_LIB_CACHE_DIR), { recursive: true });
     const staging = fs.mkdtempSync(`${ANGULAR_LIB_CACHE_DIR}.`);
     fs.writeFileSync(path.join(staging, "package.json"), '{ "private": true }\n');
@@ -66,12 +68,14 @@ export function ensureAngularLibrary(): string {
         stdio: "pipe",
         timeout: 180_000,
     });
+    /* v8 ignore start -- test helper: the catch is for a parallel e2e worker that got there first */
     try {
         fs.renameSync(staging, ANGULAR_LIB_CACHE_DIR);
     } catch {
-        // A parallel worker got there first — its install is just as good.
+        // Its install is just as good.
         fs.rmSync(staging, { recursive: true, force: true });
     }
+    /* v8 ignore stop */
     return nodeModules;
 }
 
