@@ -36,7 +36,15 @@ export interface IViewTitleAction {
     readonly enabled?: boolean;
     /** A theme color id for the glyph of an enabled button (`IMenuContribution.iconColor`). */
     readonly color?: string;
+    /**
+     * The arrow of a split button: glued to the button before it (no bar, no leading space), so
+     * ` ▷ ▾ ` reads as one control with two click zones.
+     */
+    readonly attached?: boolean;
 }
+
+/** Glyph-space: the leading space is the previous button's trailing one. */
+const ATTACHED_BUTTON_WIDTH = 2;
 
 export type ViewTitleZone =
     | { kind: "title" }
@@ -239,9 +247,10 @@ export class ViewTitleRowElement extends HFlexElement {
 
     private syncChildren(): void {
         this.actionLabels = this.actions.map((action) => {
-            const label = new TextLabelElement(buttonLabel(action.icon));
+            const attached = action.attached === true;
+            const label = new TextLabelElement(attached ? `${action.icon} ` : buttonLabel(action.icon));
             label.style = buttonStyle(action.enabled !== false, action.color);
-            label.layoutStyle = { width: hflexFixed(BUTTON_WIDTH), height: 1 };
+            label.layoutStyle = { width: hflexFixed(attached ? ATTACHED_BUTTON_WIDTH : BUTTON_WIDTH), height: 1 };
             return label;
         });
         this.titleLabel.layoutStyle = { width: hflexFit(), height: 1 };
@@ -261,7 +270,7 @@ export class ViewTitleRowElement extends HFlexElement {
         const controls: TUIElement[] = [...this.actionLabels];
         if (this.menuVisible) controls.push(this.menuLabel);
         controls.forEach((control, index) => {
-            if (index > 0) children.push(separatorLabel());
+            if (index > 0 && this.actions.at(index)?.attached !== true) children.push(separatorLabel());
             children.push(control);
         });
         this.replaceChildren(children);
@@ -337,5 +346,6 @@ function sameActions(a: readonly IViewTitleAction[], b: readonly IViewTitleActio
  */
 function sameAction(a: IViewTitleAction, b: IViewTitleAction): boolean {
     // Stryker disable next-line ConditionalExpression: "buttons always differ" is an extra rebuild not observable in the frame; skipping a needed one is covered by the id, icon and enabled-change tests
+    // `attached` is not compared: a split button's arrow has an id of its own.
     return a.id === b.id && a.icon === b.icon && (a.enabled !== false) === (b.enabled !== false);
 }
