@@ -1549,8 +1549,12 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
   node (`main.ts` проверяет RUN_AS_NODE первым, env-фикс — `runExtensionHostSubprocess`). Продолжение:
   `Files.resolve()` vscode-languageserver'а (так eslint ищет линтер в проекте) форкает с
   `execArgv: ["-e", <скрипт>]` — runAsNode обязан понимать eval-режим, иначе расширение молча не
-  линтит. Гейты — `extensionHost.fork.test.ts`, `runAsNode.eval.test.ts`, e2e `pythonLsp`/`eslintLsp`
-  на настоящем SEA.
+  линтит. Путь скрипта runAsNode разрешает как `node <путь>` (CJS: каталог → `package.json` `main` →
+  `index.js`, недостающее `.js`) и только потом импортирует: Angular.ng-template форкает
+  `{ module: "<расширение>/server" }` — каталог, и голый ESM-импорт падал `ERR_UNSUPPORTED_DIR_IMPORT`
+  пять раз до отказа клиента. Из исходников этого не видно: там форкается настоящий node, а tsx
+  разрешает `index.js` и расширение сам. Гейты — `extensionHost.fork.test.ts`, `runAsNode.eval.test.ts`,
+  `runAsNode.entry.test.ts`, e2e `pythonLsp`/`eslintLsp` на настоящем SEA.
 - **Rename у tsserver проверять с каретки на ОБЪЯВЛЕНИИ.** С вызова импортированного символа сервер
   переименовывает только локальный алиас (`useAliasesForRenames`, как в VS Code). На холодном старте
   tsserver отвечает только по открытым файлам: перед кросс-файловым rename дождаться готовности проекта
