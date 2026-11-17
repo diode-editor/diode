@@ -224,8 +224,12 @@
   пропуск).
 - **Не работает:** вывод HTML (`debugger.display_html`, webview), вид дизассемблера; LM-инструменты молча не
   регистрируются.
+- **`continued` перед `stopped`.** На шаг CodeLLDB отвечает, шлёт `continued {threadId: 0, allThreadsContinued: true}` и
+  через ~10 мс `stopped`; ядро часто разбирает оба события в одной задаче (между двумя событиями эталон границы задачи не
+  ставит). Фильтр `continued` в `DebugSession` снимает только остановки, пришедшие до него, иначе он стирал новую, и
+  заголовок CALL STACK терял «Paused on step» (отступление, #1149).
 - **Как в эталоне, хотя выглядит странно:** после шага CALL STACK держит «Load More Stack Frames», пока не нажмёшь:
-  CodeLLDB объявляет `supportsDelayedStackTraceLoading`, второй запрос остатка стека не меняет нижние кадры, и
+  CodeLLDB объявляет `supportsDelayedStackTraceLoading` и не шлёт `totalFrames`, второй запрос остатка стека не меняет нижние кадры, и
   `refreshTopOfCallstack` эталона не шлёт события. Debug Console открывается после ответа на `launch` — уже после
   того, как `runInTerminal` показал терминал, поэтому поверх оказывается консоль.
 
