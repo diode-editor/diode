@@ -78,6 +78,7 @@ export const CODICON_UNICODE: Readonly<Partial<Record<string, string>>> = {
     "debug-rerun": "↻",
     "debug-restart": "↻",
     "debug-stackframe": "➜",
+    "debug-stackframe-active": "◉",
     "debug-stackframe-focused": "➜",
     "debug-start": "▶",
     "debug-step-into": "↓",

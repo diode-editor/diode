@@ -34,6 +34,8 @@ export const DEFAULT_DEBUG_CONFIGURATION: IDebugServiceConfiguration = {
     autoExpandLazyVariables: "auto",
     internalConsoleOptions: "openOnFirstSessionStart",
     console: { closeOnEnd: false },
+    allowBreakpointsEverywhere: false,
+    focusEditorOnBreak: true,
 };
 
 export interface ITestSessionServices extends IDebugSessionServices {
@@ -118,6 +120,9 @@ export function testDebugService(model: DebugModel): TestDebugService {
                 model.setExceptionBreakpointsForSession(session.getId(), filters);
             },
         ),
+        sourceIsNotAvailable: vi.fn(),
+        canSetBreakpointsIn: vi.fn(),
+        updateBreakpoints: vi.fn().mockResolvedValue(undefined),
         sendAllBreakpoints: vi.fn().mockResolvedValue(undefined),
         sendBreakpoints: vi.fn().mockResolvedValue(undefined),
         addBreakpoints: vi.fn().mockResolvedValue([]),

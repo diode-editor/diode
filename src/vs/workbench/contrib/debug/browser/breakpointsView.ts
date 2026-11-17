@@ -16,7 +16,6 @@
 // planned: the disassembly view (instruction breakpoints are listed, not opened).
 
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
-import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 
 import { codicon } from "../../../../base/common/codicons.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
@@ -159,8 +158,8 @@ export function getBreakpointIcon(
     return breakpointIcon;
 }
 
-/** Upstream's theme rules of the breakpoint codicons in the view. */
-function iconColor(icon: string): StyleColor {
+/** Upstream's theme rules of the breakpoint codicons, in the view and the editor's glyph lane. */
+export function breakpointIconColor(icon: string): string {
     if (icon.endsWith("-disabled")) return "debugIcon.breakpointDisabledForeground";
     if (icon.endsWith("-unverified")) return "debugIcon.breakpointUnverifiedForeground";
     return "debugIcon.breakpointForeground";
@@ -333,7 +332,7 @@ export class BreakpointsView extends Disposable {
             ];
         }
         const icon = getBreakpointIcon(this.debugService.state, model.areBreakpointsActivated(), element, model);
-        const glyph: IRowSpan = { text: `${this.look.icons.glyph(codicon(icon))} `, fg: iconColor(icon) };
+        const glyph: IRowSpan = { text: `${this.look.icons.glyph(codicon(icon))} `, fg: breakpointIconColor(icon) };
         const muted = this.isMuted(element);
         const text = (value: string): IRowSpan => ({ text: value, ...(muted ? { fg: MUTED } : {}) });
         if (element instanceof FunctionBreakpoint) {

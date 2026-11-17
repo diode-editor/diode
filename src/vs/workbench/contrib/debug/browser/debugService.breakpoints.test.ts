@@ -325,3 +325,143 @@ describe("DebugService breakpoint editing", () => {
         expect(stored("debug.databreakpoint")).toBeUndefined();
     });
 });
+
+// The editor's side: the gutter adds through the service, the positions it moves breakpoints to go to the adapter on
+// the file's save, the stop opens the frame.
+describe("DebugService and the editor", () => {
+    let fx: IDebugServiceFixture;
+    let factory: SyntheticDebugAdapterFactory;
+
+    beforeEach(() => {
+        fx = createDebugServiceFixture();
+        factory = registerSyntheticDebugger(fx.service.getAdapterManager(), NO_DELAY_TIMING).factory;
+    });
+
+    afterEach(async () => {
+        await fx.service.stopSession(undefined);
+        for (const adapter of factory.adapters) adapter.dispose();
+        fx.service.dispose();
+    });
+
+    async function startStopped(): Promise<SyntheticDebugAdapter> {
+        expect(await fx.service.startDebugging(undefined, { ...SYNTHETIC_LAUNCH_CONFIG })).toBe(true);
+        await vi.waitFor(() => {
+            expect(fx.service.state).toBe(State.Stopped);
+        });
+        return factory.adapters[0];
+    }
+
+    function setBreakpointLines(adapter: SyntheticDebugAdapter): number[][] {
+        return adapter.requests
+            .filter((r) => r.command === "setBreakpoints")
+            .map((r) => ((r.arguments as DebugProtocol.SetBreakpointsArguments).breakpoints ?? []).map((b) => b.line));
+    }
+
+    it("added breakpoints are sent, verified by the adapter and stored: a new window has them", async () => {
+        const adapter = await startStopped();
+        adapter.requests.length = 0;
+
+        const [breakpoint] = await fx.service.addBreakpoints(MAIN, [{ lineNumber: 12 }]);
+
+        expect(setBreakpointLines(adapter)).toEqual([[12]]);
+        expect(breakpoint.verified).toBe(true);
+        const again = createDebugServiceFixture({ state: fx.state });
+        const restored = again.service.getModel().getBreakpoints();
+        again.service.dispose();
+        expect(restored.map((bp) => `${bp.uri.path}:${String(bp.lineNumber)}`)).toEqual([`${MAIN.path}:12`]);
+    });
+
+    it("a position the editor moved is stored at once and sent on the file's save, once", async () => {
+        const [breakpoint] = await fx.service.addBreakpoints(MAIN, [{ lineNumber: 12 }]);
+        const adapter = await startStopped();
+        adapter.requests.length = 0;
+
+        await fx.service.updateBreakpoints(MAIN, new Map([[breakpoint.getId(), { lineNumber: 14 }]]), true);
+
+        expect(setBreakpointLines(adapter)).toEqual([]);
+        const again = createDebugServiceFixture({ state: fx.state });
+        const restored = again.service.getModel().getBreakpoints();
+        again.service.dispose();
+        expect(restored.map((bp) => bp.lineNumber)).toEqual([14]);
+
+        fx.saveTextFile(LIST);
+        fx.saveTextFile(MAIN);
+        fx.saveTextFile(MAIN);
+        await vi.waitFor(() => {
+            expect(setBreakpointLines(adapter)).toEqual([[14]]);
+        });
+        // Upstream's `sourceModified`: the file changed under the session.
+        expect(adapter.requests.find((r) => r.command === "setBreakpoints")?.arguments).toEqual(
+            expect.objectContaining({ sourceModified: true }),
+        );
+    });
+
+    it("an update that is not for the save is sent at once", async () => {
+        const [breakpoint] = await fx.service.addBreakpoints(MAIN, [{ lineNumber: 12 }]);
+        const adapter = await startStopped();
+        adapter.requests.length = 0;
+
+        adapter.breakpointAdapterData = "cookie";
+
+        await fx.service.updateBreakpoints(MAIN, new Map([[breakpoint.getId(), { condition: "x" }]]), false);
+
+        expect(setBreakpointLines(adapter)).toEqual([[12]]);
+        // Stored again once the adapter answered, with its data.
+        const key = [...fx.state.values.keys()].find((k) => k.endsWith("debug.breakpoint"));
+        expect(fx.state.values.get(key ?? "")).toEqual([expect.objectContaining({ adapterData: "cookie" })]);
+    });
+
+    it("`debug.allowBreakpointsEverywhere` lets breakpoints into a language no extension contributes them to", async () => {
+        expect(fx.service.canSetBreakpointsIn("plaintext")).toBe(false);
+        await fx.configuration.updateValue("debug.allowBreakpointsEverywhere", true);
+        expect(fx.service.canSetBreakpointsIn("plaintext")).toBe(true);
+    });
+
+    it("the stop opens the top frame without taking the focus by `debug.focusEditorOnBreak`", async () => {
+        await fx.configuration.updateValue("debug.focusEditorOnBreak", false);
+        await startStopped();
+        await vi.waitFor(() => {
+            expect(fx.openedFrames).toEqual([
+                {
+                    frame: "accumulate(std::vector<int> const&)@27",
+                    preserveFocus: true,
+                    sideBySide: false,
+                },
+            ]);
+        });
+    });
+
+    it("by default the stop focuses the editor; a frame focused with options opens with them", async () => {
+        await startStopped();
+        await vi.waitFor(() => {
+            expect(fx.openedFrames.map((f) => f.preserveFocus)).toEqual([false]);
+        });
+        const thread = fx.service.getViewModel().focusedThread;
+        const frame = await vi.waitFor(() => {
+            const found = thread?.getCallStack()[1];
+            expect(found).toBeDefined();
+            return found;
+        });
+
+        await fx.service.focusStackFrame(frame, undefined, undefined, { sideBySide: true, pinned: true });
+        await fx.service.focusStackFrame(undefined, undefined, undefined, {});
+
+        expect(fx.openedFrames.slice(1)).toEqual([
+            { frame: "process(Config const&)@47", preserveFocus: true, sideBySide: true },
+            // No frame given: the focused thread's top one, focus kept.
+            { frame: "accumulate(std::vector<int> const&)@27", preserveFocus: true, sideBySide: false },
+        ]);
+    });
+
+    it("a source that cannot be loaded is marked unavailable in the model", () => {
+        const sourceIsNotAvailable = vi.spyOn(fx.service.getModel() as DebugModel, "sourceIsNotAvailable");
+        fx.service.sourceIsNotAvailable(MAIN);
+        expect(sourceIsNotAvailable).toHaveBeenCalledWith(MAIN);
+    });
+
+    it("can set breakpoints where the adapter manager says", () => {
+        expect(fx.service.canSetBreakpointsIn("cpp")).toBe(false);
+        fx.service.getAdapterManager().registerBreakpoints({ language: "cpp" });
+        expect(fx.service.canSetBreakpointsIn("cpp")).toBe(true);
+    });
+});

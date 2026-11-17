@@ -173,9 +173,9 @@ function setup(options: ISetupOptions = {}) {
             view: element,
             isTooLargeForTokenization: false,
             onDidChangeTooLargeForTokenization: largeFileLeft.event,
-            setGlyphMarginDecorations: (glyphs) => {
+            setGlyphMarginDecorations: (owner, glyphs) => {
                 sets++;
-                element.setGlyphMarginDecorations(glyphs);
+                element.setGlyphMarginDecorations(owner, glyphs);
             },
             onDidClickGlyphMargin: (listener) => element.onDidClickGlyphMargin(listener),
         } satisfies ITestingDecorationsEditor & { isTooLargeForTokenization: boolean };

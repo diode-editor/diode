@@ -15,6 +15,7 @@
         "onCommand:debugDemo.ping"
     ],
     "contributes": {
+        "breakpoints": [{ "language": "c" }],
         "commands": [
             {
                 "command": "debugDemo.breakOnPrintf",

@@ -9,7 +9,8 @@
  * - `${command:pickProgram}` is the extension's quick pick;
  * - the second resolution sees the substituted program and adds an argument;
  * - the adapter "runs" the program: it prints a greeting to the Debug Console and stops on entry in `main` of
- *   the folder's `hello.c` with `argc` and `program` among the locals;
+ *   the folder's `hello.c` with `argc` and `program` among the locals; with breakpoints in `hello.c` (verified by
+ *   `contributes.breakpoints` for C) it stops on the first of them instead;
  * - `./tests` also prints what a test runner does: output in ANSI colors with a link to `hello.c`, a group and a
  *   long line; the adapter completes the console's input (`completions`);
  * - its custom `demoReady` event makes the extension ask the custom `demoInfo` request and print the answer to the
@@ -112,6 +113,8 @@ class DemoAdapter {
         this.onDidSendMessage = this.emitter.event;
         this.seq = 1;
         this.sum = "0";
+        /** The lines of the breakpoints in `hello.c`. */
+        this.breakpoints = [];
     }
 
     handleMessage(request) {
@@ -131,7 +134,8 @@ class DemoAdapter {
             this.event("output", { category: "stdout", output: `Hello from ${program} ${args.join(" ")}\n` });
             if (program === "./tests") this.testRunnerOutput();
             this.event("demoReady");
-            this.event("stopped", { reason: "entry", threadId: 1, allThreadsStopped: true });
+            const reason = this.breakpoints.length > 0 ? "breakpoint" : "entry";
+            this.event("stopped", { reason, threadId: 1, allThreadsStopped: true });
         }
         if (request.command === "disconnect") this.event("terminated");
     }
@@ -155,6 +159,12 @@ class DemoAdapter {
         switch (request.command) {
             case "initialize":
                 return { supportsConfigurationDoneRequest: true, supportsCompletionsRequest: true, supportsSetVariable: true };
+            case "setBreakpoints": {
+                const lines = (request.arguments.breakpoints || []).map((bp) => bp.line);
+                const known = request.arguments.source.path === this.source;
+                if (known) this.breakpoints = lines.slice().sort((a, b) => a - b);
+                return { breakpoints: lines.map((line) => ({ verified: known, line })) };
+            }
             case "demoInfo":
                 return { pid: 4242 };
             case "completions": {
@@ -175,7 +185,7 @@ class DemoAdapter {
                         {
                             id: 1,
                             name: "main",
-                            line: 3,
+                            line: this.breakpoints.length > 0 ? this.breakpoints[0] : 3,
                             column: 5,
                             source: this.source && { name: "hello.c", path: this.source },
                         },

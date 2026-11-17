@@ -141,7 +141,9 @@ import { UndoRefusalNotificationContributionDIToken } from "./browser/undoRefusa
 import type { IWorkbenchContributionRegistration } from "./common/iWorkbenchContribution.ts";
 import { CODE_ACTION_ACTIONS } from "./contrib/codeAction/browser/codeActionActions.ts";
 import { COMMENT_ACTIONS } from "./contrib/comment/browser/commentActions.ts";
+import { BreakpointEditorContributionDIToken } from "./contrib/debug/browser/breakpointEditorContribution.ts";
 import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
+import { DebugContentProviderDIToken } from "./contrib/debug/browser/debugContentProvider.ts";
 import { DebugLifecycleDIToken } from "./contrib/debug/browser/debugLifecycle.ts";
 import { DebugServiceDIToken } from "./contrib/debug/browser/debugService.ts";
 import { DebugStatusContributionDIToken } from "./contrib/debug/browser/debugStatus.ts";
@@ -375,6 +377,10 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: DebugServiceDIToken, phase: "afterRestored" },
     // `debug.confirmOnExit`: asks before the window closes with debug sessions.
     { token: DebugLifecycleDIToken, phase: "afterRestored" },
+    // The breakpoints and stack frames in the restored editors' glyph lanes.
+    { token: BreakpointEditorContributionDIToken, phase: "afterRestored" },
+    // The `debug:` documents of the frames whose source an adapter gives by reference.
+    { token: DebugContentProviderDIToken, phase: "afterRestored" },
     // The toolbar in the active editor group and the status bar's colors and `status.debug` while debugging.
     { token: DebugToolbarDIToken, phase: "afterRestored" },
     { token: DockedDebugToolbarItemsDIToken, phase: "afterRestored" },

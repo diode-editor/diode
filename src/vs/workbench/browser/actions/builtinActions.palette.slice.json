@@ -399,6 +399,7 @@
     "workbench.action.debug.callStackDown",
     "debug.startFromConfig",
     "workbench.action.debug.focusProcess",
+    "editor.debug.action.toggleBreakpoint",
     "workbench.view.debug",
     "variables.collapse",
     "workbench.debug.viewlet.action.addWatchExpression",
