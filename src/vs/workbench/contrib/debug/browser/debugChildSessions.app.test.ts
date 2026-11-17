@@ -14,6 +14,7 @@ import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutSer
 import { type IDebugSession, State } from "../common/debug.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
+import { ReplDIToken } from "./repl.ts";
 
 const FILE = "src/main.cpp";
 
@@ -245,6 +246,17 @@ describe("child sessions in the workbench", () => {
         const { merged } = await startMerged();
         await start({ name: "other" }, 3);
         await openConsole();
+        await service().focusStackFrame(
+            undefined,
+            undefined,
+            sessions().find((s) => s.name === "other"),
+            {
+                explicit: true,
+            },
+        );
+        await vi.waitFor(() => {
+            expect(consoleTitle()).toMatch(/other *⌄/u);
+        });
 
         await service().focusStackFrame(undefined, undefined, merged, { explicit: true });
 
@@ -271,7 +283,8 @@ describe("child sessions in the workbench", () => {
 
     it("Clear Console of an ended session takes its console out of the select", async () => {
         await start({ name: "kept" }, 1);
-        await start({ name: "ended" }, 2);
+        await start({ name: "also kept" }, 2);
+        await start({ name: "ended" }, 3);
         await openConsole();
         const ended = sessions().find((s) => s.name === "ended")!;
         await service().stopSession(ended);
@@ -283,6 +296,17 @@ describe("child sessions in the workbench", () => {
         await t.h.commands.execute("workbench.action.debug.selectRepl", ended);
         await t.h.commands.execute("workbench.debug.panel.action.clearReplAction");
 
+        expect(t.h.container.get(ReplDIToken).sessionSelect.element.inspectState().options).toEqual([
+            "kept",
+            "also kept",
+        ]);
+        const alsoKept = sessions().find((s) => s.name === "also kept")!;
+        await service().stopSession(alsoKept);
+        await vi.waitFor(() => {
+            expect(alsoKept.state).toBe(State.Inactive);
+        });
+        await t.h.commands.execute("workbench.action.debug.selectRepl", alsoKept);
+        await t.h.commands.execute("workbench.debug.panel.action.clearReplAction");
         await vi.waitFor(() => {
             expect(consoleTitle()).not.toContain("⌄");
         });

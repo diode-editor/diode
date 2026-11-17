@@ -145,14 +145,27 @@ describe("FocusSessionActionViewItem", () => {
         expect(changed).toHaveBeenCalledTimes(4);
     });
 
-    it("a focus that leaves no session keeps the selection", () => {
+    it("a focus that leaves no session keeps the selection and tells nothing", () => {
         const t = setup();
         const app = t.add("app");
         const item = t.create(app);
+        const changed = vi.fn();
+        item.onDidChange(changed);
 
         t.focusOn(undefined);
 
         expect(selected(item)).toBe("app");
+        expect(changed).not.toHaveBeenCalled();
+    });
+
+    it("a session there at the start is followed: its new name is its option's", () => {
+        const t = setup();
+        const app = t.add("app");
+        const item = t.create(app);
+
+        app.rename("renamed");
+
+        expect(options(item)).toEqual(["renamed"]);
     });
 
     it("an ended adapter no longer renames its option; the sessions there at the start are followed too", () => {

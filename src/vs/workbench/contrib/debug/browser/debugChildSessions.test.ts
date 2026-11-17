@@ -283,6 +283,21 @@ describe("child sessions", () => {
             expect(executed).toEqual([[SELECT_AND_START_ID]]);
         });
 
+        it("a row is the configuration's name, the session's own name when the configuration has none", async () => {
+            expect(await fx.service.startDebugging(undefined, { ...SYNTHETIC_LAUNCH_CONFIG, name: "configured" })).toBe(
+                true,
+            );
+            expect(await fx.service.startDebugging(undefined, { ...SYNTHETIC_LAUNCH_CONFIG, name: "" })).toBe(true);
+            named("configured").setName("renamed by the adapter");
+            sessions()
+                .find((s) => s.configuration.name === "")
+                ?.setName("unnamed");
+
+            await selectDebugSessionAction.run(accessor);
+
+            expect(picks[0].map((p) => p.label)).toEqual(["configured", "unnamed", START_NEW_DEBUG_SESSION]);
+        });
+
         it("an ended session is not one of them", async () => {
             const { w1 } = await startWithWorkers();
             await fx.service.stopSession(w1);
@@ -426,15 +441,26 @@ describe("child sessions", () => {
             const { app } = await startWithWorkers();
             await fx.service.focusStackFrame(undefined, undefined, app);
 
-            await nextDebugConsoleAction.run(accessor);
-            expect(fx.service.getViewModel().focusedSession?.name).toBe("task A");
-            expect(opened).toEqual([`${REPL_VIEW_ID}:true`]);
+            const steps: string[] = [];
+            for (const action of [nextDebugConsoleAction, nextDebugConsoleAction, nextDebugConsoleAction]) {
+                await action.run(accessor);
+                steps.push(fx.service.getViewModel().focusedSession?.name ?? "");
+            }
+            for (const action of [prevDebugConsoleAction, prevDebugConsoleAction, prevDebugConsoleAction]) {
+                await action.run(accessor);
+                steps.push(fx.service.getViewModel().focusedSession?.name ?? "");
+            }
 
-            await prevDebugConsoleAction.run(accessor);
-            await prevDebugConsoleAction.run(accessor);
-            expect(fx.service.getViewModel().focusedSession?.name).toBe("task B");
+            expect(steps).toEqual(["task A", "task B", "app", "task B", "task A", "app"]);
+            // The console is hidden in the fake: each step shows it.
+            expect(opened).toEqual(Array<string>(6).fill(`${REPL_VIEW_ID}:true`));
+        });
+
+        it("Next Debug Console without a session shows the Debug Console", async () => {
             await nextDebugConsoleAction.run(accessor);
-            expect(fx.service.getViewModel().focusedSession?.name).toBe("app");
+
+            expect(fx.service.getViewModel().focusedSession).toBeUndefined();
+            expect(opened).toEqual([`${REPL_VIEW_ID}:true`]);
         });
 
         it("a session that shares its parent's console steps from the parent's", async () => {
@@ -470,10 +496,18 @@ describe("child sessions", () => {
             expect(fx.service.getViewModel().focusedSession?.name).toBe("task A");
             expect(replSelected.at(-1)?.name).toBe("task A");
 
+            // The focused parent stays focused: it is not resolved to its stopped child.
+            await fx.service.focusStackFrame(undefined, undefined, app, { explicit: true });
+            await selectReplAction.run(accessor, app);
+            expect(fx.service.getViewModel().focusedSession).toBe(app);
+            await fx.service.focusStackFrame(undefined, undefined, named("task A"), { explicit: true });
+            explicit.length = 0;
+            replSelected.length = 2;
+
             // The focused one only selects: the view model would not tell the console.
             await selectReplAction.run(accessor, named("task A"));
             expect(replSelected).toHaveLength(3);
-            expect(explicit).toHaveLength(2);
+            expect(explicit).toEqual([]);
 
             // An ended session is only shown, not focused; nothing at all selects what the console finds itself.
             await fx.service.stopSession(w2);

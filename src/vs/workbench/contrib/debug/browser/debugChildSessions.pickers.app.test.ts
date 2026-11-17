@@ -100,6 +100,13 @@ describe("picking a worker session", () => {
         await vi.waitFor(() => {
             expect(variables()).toMatch(/ sum: /u);
         });
+        // Every stop is handled to its end: once a session's whole stack is in, its stop handling checks the focus a
+        // last time and focuses its own top frame if no frame is (upstream `handleStop`) — a stack still loading
+        // would take the focus back from a frameless pick.
+        await vi.waitFor(() => {
+            const loaded = sessions().map((s) => s.getAllThreads().some((th) => th.getCallStack().length > 1));
+            expect(loaded).toEqual([true, true, true]);
+        });
     }
 
     async function pick(command: string, typed: string): Promise<void> {
@@ -131,7 +138,6 @@ describe("picking a worker session", () => {
             await startWithWorkers();
 
             await pick(command, "task B");
-
             await vi.waitFor(() => {
                 expect(t.h.container.get(DebugServiceDIToken).getViewModel().focusedSession?.name).toBe("task B");
             });
