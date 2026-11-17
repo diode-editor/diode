@@ -126,6 +126,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Hide the warning shown when a `preLaunchTask` has been running for a while.",
     },
     {
+        key: "debug.inlineValues",
+        type: "string",
+        default: "auto",
+        description: "Show variable values inline in editor while debugging.",
+        enum: ["on", "off", "auto"],
+    },
+    {
         key: "debug.internalConsoleOptions",
         type: "string",
         default: "openOnFirstSessionStart",
