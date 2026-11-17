@@ -33,7 +33,12 @@ interface ISetup {
 function setup(extensions: readonly IExtension[], options: { logger?: boolean; debug?: boolean } = {}): ISetup {
     const h = makeViewsHarness();
     if (options.debug === true) {
-        h.service.registerContainer({ id: "workbench.view.debug", title: "RUN AND DEBUG", location: "sidebar", order: 3 });
+        h.service.registerContainer({
+            id: "workbench.view.debug",
+            title: "RUN AND DEBUG",
+            location: "sidebar",
+            order: 3,
+        });
         h.service.registerView(testView("workbench.debug.variablesView", "workbench.view.debug", 0));
     }
     h.service.registerContainer({ id: "explorer", title: "EXPLORER", location: "sidebar", order: 0, isDefault: true });

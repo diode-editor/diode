@@ -131,6 +131,7 @@ describe("CALL STACK in the workbench", () => {
                 shiftKey: false,
                 altKey: false,
                 ctrlKey: false,
+                raw: "",
             });
         }
         t.h.testApp.render();
