@@ -42,7 +42,12 @@ describe("ExtensionHost — evaluatable expression providers (subprocess)", () =
                 getLineContent: (line: number) => document.getLineContent(line),
             };
             const at = (line: number, character: number) =>
-                getEvaluatableExpressionAtPosition(providers, model, createPosition(line, character), CancellationTokenNone);
+                getEvaluatableExpressionAtPosition(
+                    providers,
+                    model,
+                    createPosition(line, character),
+                    CancellationTokenNone,
+                );
 
             expect(await at(0, 10)).toEqual({ matchingExpression: "this.nums", range: createRange(0, 8, 0, 12) });
             expect(await at(1, 1)).toBeNull();

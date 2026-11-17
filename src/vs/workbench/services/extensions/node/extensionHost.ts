@@ -38,6 +38,10 @@ import type {
     ICoreDocumentSymbol,
     IDocumentSymbolRequest,
 } from "../../../../editor/common/languages/iDocumentSymbolSource.ts";
+import type {
+    IEvaluatableExpression,
+    IEvaluatableExpressionRequest,
+} from "../../../../editor/common/languages/iEvaluatableExpressionSource.ts";
 import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type {
     IFormattingRequest,
@@ -53,10 +57,6 @@ import {
     type ILanguageConfigurationService,
     NULL_LANGUAGE_CONFIGURATION_SERVICE,
 } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
-import type {
-    IEvaluatableExpression,
-    IEvaluatableExpressionRequest,
-} from "../../../../editor/common/languages/iEvaluatableExpressionSource.ts";
 import type {
     ILinkedEditingRangeRequest,
     ILinkedEditingRanges,

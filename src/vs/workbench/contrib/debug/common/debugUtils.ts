@@ -149,16 +149,17 @@ export async function getEvaluatableExpressionAtPosition(
             position,
         };
         const results = await Promise.all(
-            providers.ordered(model).map((support) =>
-                support.provideEvaluatableExpression(request, token).catch(() => null),
-            ),
+            providers
+                .ordered(model)
+                .map((support) => support.provideEvaluatableExpression(request, token).catch(() => null)),
         );
         const first = results.find((result) => result !== null);
         if (first === undefined) return null;
         const { range } = first;
         // The range of an answer without an expression is the text to evaluate.
         const matchingExpression =
-            first.expression ?? model.getLineContent(range.start.line).substring(range.start.character, range.end.character);
+            first.expression ??
+            model.getLineContent(range.start.line).substring(range.start.character, range.end.character);
         return { range, matchingExpression };
     }
     // old one-size-fits-all strategy

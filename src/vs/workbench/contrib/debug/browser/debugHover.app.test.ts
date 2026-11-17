@@ -187,32 +187,58 @@ describe("Debug hover", () => {
         await vi.waitFor(() => {
             expect(hoverVisible()).toBe(true);
         });
-        expect(evaluate).toHaveBeenCalledWith("count", expect.any(Number), "hover", {
-            line: 27,
-            column: SOURCE.split("\n")[26].indexOf("count") + 1,
-            source: expect.objectContaining({ path: main }),
-        });
+        const [expression, , context, location] = evaluate.mock.calls[0];
+        expect([expression, context]).toEqual(["count", "hover"]);
+        expect(location?.line).toBe(27);
+        expect(location?.column).toBe(SOURCE.split("\n")[26].indexOf("count") + 1);
+        expect(location?.source.path).toBe(main);
     });
 
-    it("a name the debugger does not know shows no debug hover", async () => {
+    /** A language hover with a text of its own: where the debugger has no value, it shows. */
+    function registerLanguageHover(): void {
+        t.h.container.get(LanguageFeaturesServiceDIToken).hoverProvider.register("*", {
+            provideHover: () => Promise.resolve({ contents: ["the language hover"] }),
+        });
+    }
+
+    it("a name the debugger does not know: the language hover instead", async () => {
+        registerLanguageHover();
         await stopAt("unknown_name", 28);
         showHover();
-        // The evaluation fails: the language hover is asked instead, and it has nothing here.
-        await new Promise((resolve) => setTimeout(resolve, 20));
+
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("the language hover");
+        });
+        expect(hoverVisible()).toBe(false);
+    });
+
+    it("a file that is not the focused frame's: the language hover", async () => {
+        registerLanguageHover();
+        await stopAt("nums");
+        const other = path.join(root, "other.cpp");
+        fs.writeFileSync(other, "int nums = 0;\n");
+        t.h.container.get(EditorServiceDIToken).openFile(other);
+        editor().goToPosition(0, 5);
+        editor().focusEditor();
+
+        showHover();
+
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("the language hover");
+        });
         expect(hoverVisible()).toBe(false);
     });
 
     it("an extension's evaluatable expression provider names the expression", async () => {
         const provided: unknown[] = [];
-        const registration = t.h.container.get(LanguageFeaturesServiceDIToken).evaluatableExpressionProvider.register(
-            "*",
-            {
+        const registration = t.h.container
+            .get(LanguageFeaturesServiceDIToken)
+            .evaluatableExpressionProvider.register("*", {
                 provideEvaluatableExpression: (request) => {
                     provided.push(request.position);
                     return Promise.resolve({ range: createRange(26, 4, 26, 9), expression: "p" });
                 },
-            },
-        );
+            });
         await stopAt("total");
         showHover();
 

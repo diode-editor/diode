@@ -49,7 +49,6 @@ import { DebugServiceDIToken } from "./debugService.ts";
 export const DebugHoverWidgetDIToken = token<DebugHoverWidget>("DebugHoverWidget");
 
 export enum ShowDebugHoverResult {
-    NOT_CHANGED,
     NOT_AVAILABLE,
     CANCELLED,
 }

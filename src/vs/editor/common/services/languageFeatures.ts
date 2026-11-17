@@ -14,6 +14,7 @@ import type {
 } from "../languages/iDefinitionSource.ts";
 import type { DocumentHighlightProvider } from "../languages/iDocumentHighlightSource.ts";
 import type { DocumentSymbolProvider } from "../languages/iDocumentSymbolSource.ts";
+import type { EvaluatableExpressionProvider } from "../languages/iEvaluatableExpressionSource.ts";
 import type { FoldingRangeProvider } from "../languages/iFoldingSource.ts";
 import type {
     DocumentFormattingEditProvider,
@@ -24,7 +25,6 @@ import type { HoverProvider } from "../languages/iHoverSource.ts";
 import type { InlayHintsProvider } from "../languages/iInlayHintsSource.ts";
 import type { InlineCompletionsProvider } from "../languages/iInlineCompletionSource.ts";
 import type { LinkedEditingRangeProvider } from "../languages/iLinkedEditingSource.ts";
-import type { EvaluatableExpressionProvider } from "../languages/iEvaluatableExpressionSource.ts";
 import type { LinkProvider } from "../languages/iLinkSource.ts";
 import type { ReferenceProvider } from "../languages/iReferenceSource.ts";
 import type { RenameProvider } from "../languages/iRenameSource.ts";

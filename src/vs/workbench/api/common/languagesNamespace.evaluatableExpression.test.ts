@@ -46,7 +46,9 @@ function register(languages: typeof vscode.languages, answer: () => unknown): vo
 describe("LanguagesNamespace — registerEvaluatableExpressionProvider", () => {
     it("[api:languages.registerEvaluatableExpressionProvider] registration is announced as kind evaluatableExpression, dispose removes it", () => {
         const { stub, languages } = makeCtx();
-        languages.registerEvaluatableExpressionProvider("cpp", { provideEvaluatableExpression: () => undefined }).dispose();
+        languages
+            .registerEvaluatableExpressionProvider("cpp", { provideEvaluatableExpression: () => undefined })
+            .dispose();
         expect(stub.notifies.filter((n) => n.method.startsWith("languages."))).toEqual([
             {
                 method: "languages.register",

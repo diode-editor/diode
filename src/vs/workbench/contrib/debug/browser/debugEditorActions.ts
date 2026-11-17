@@ -46,15 +46,13 @@ export const toggleEditorBreakpointAction: CommandAction = {
     },
 };
 
-export const SHOW_DEBUG_HOVER_ID = "editor.debug.action.showDebugHover";
-
 /**
  * Upstream's Ctrl+K Ctrl+I, in debug mode only, so outside it Add Cursors to Line Ends keeps the chord. On a legacy
  * terminal Ctrl+I arrives as Tab: the same keys there are Ctrl+K Tab (the language hover is Ctrl+K Ctrl+U for the
  * same reason, see docs/arch/workbench/Commands.md#коллизии-дефолтов).
  */
 export const showDebugHoverAction: CommandAction = {
-    id: SHOW_DEBUG_HOVER_ID,
+    id: "editor.debug.action.showDebugHover",
     title: "Debug: Show Hover",
     keybindings: [
         { keys: parseChord("ctrl+k ctrl+i"), when: "editorTextFocus", weight: KeybindingWeight.EditorContrib },
@@ -66,7 +64,7 @@ export const showDebugHoverAction: CommandAction = {
         if (!editor) return;
         const hover = accessor.get(HoverServiceDIToken);
         const sf = accessor.get(DebugServiceDIToken).getViewModel().focusedStackFrame;
-        if (sf && sf.source.uri.toString() === editor.uri.toString()) {
+        if (sf?.source.uri.toString() === editor.uri.toString()) {
             const position = editor.viewState.selections[0].active;
             const { document } = editor.model;
             const target = {

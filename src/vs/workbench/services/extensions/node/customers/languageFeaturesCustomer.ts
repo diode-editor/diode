@@ -33,6 +33,10 @@ import type {
     ICoreDocumentSymbol,
     IDocumentSymbolRequest,
 } from "../../../../../editor/common/languages/iDocumentSymbolSource.ts";
+import type {
+    IEvaluatableExpression,
+    IEvaluatableExpressionRequest,
+} from "../../../../../editor/common/languages/iEvaluatableExpressionSource.ts";
 import type { IFoldingRequest } from "../../../../../editor/common/languages/iFoldingSource.ts";
 import type {
     IFormattingRequest,
@@ -44,10 +48,6 @@ import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../../../../../editor/common/languages/iInlineCompletionSource.ts";
-import type {
-    IEvaluatableExpression,
-    IEvaluatableExpressionRequest,
-} from "../../../../../editor/common/languages/iEvaluatableExpressionSource.ts";
 import type {
     ILinkedEditingRangeRequest,
     ILinkedEditingRanges,
