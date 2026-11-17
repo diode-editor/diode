@@ -13,7 +13,10 @@
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
-import type { ILineMessageClick, ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
+import type {
+    ILineMessageClick,
+    ILineMessageDecoration,
+} from "../../../../editor/common/model/iLineMessageDecoration.ts";
 import {
     type ContextKeyService,
     ContextKeyServiceDIToken,

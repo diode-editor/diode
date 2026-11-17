@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vite
 
 import { Emitter } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import type { ILineMessageClick, ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
+import type {
+    ILineMessageClick,
+    ILineMessageDecoration,
+} from "../../../../editor/common/model/iLineMessageDecoration.ts";
 import {
     type IDebugService,
     type IDebugSession,
