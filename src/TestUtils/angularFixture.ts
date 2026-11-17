@@ -26,10 +26,10 @@ const ANGULAR_LIB_CACHE_DIR = path.join(REPO_ROOT, "node_modules", ".cache", "di
 /** `@angular/compiler` is the peer the language service compiles templates with; rxjs and tslib are core's. */
 const ANGULAR_PACKAGES = ["@angular/core", "@angular/compiler", "rxjs", "tslib"];
 
+/** The sessions open only the templates and the components. */
 export const ANGULAR_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
-    getLanguageIdForResource: (filePath) =>
-        filePath.endsWith(".html") ? "html" : filePath.endsWith(".ts") ? "typescript" : undefined,
+    getLanguageIdForResource: (filePath) => (filePath.endsWith(".html") ? "html" : "typescript"),
 };
 
 /**
