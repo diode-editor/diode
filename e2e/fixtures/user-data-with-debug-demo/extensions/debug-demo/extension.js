@@ -73,7 +73,9 @@ exports.activate = function activate(context) {
         }),
         vscode.debug.onDidChangeActiveStackItem((item) => {
             if (item instanceof vscode.DebugStackFrame) {
-                vscode.debug.activeDebugConsole.appendLine(`Debug Demo: frame ${item.frameId} of thread ${item.threadId}`);
+                vscode.debug.activeDebugConsole.appendLine(
+                    `Debug Demo: frame ${item.frameId} of thread ${item.threadId}`,
+                );
             }
         }),
         vscode.commands.registerCommand("debugDemo.breakOnPrintf", () => {
