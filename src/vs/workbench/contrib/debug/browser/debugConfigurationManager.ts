@@ -575,7 +575,9 @@ export class ConfigurationManager implements IConfigurationManager {
         useInitialConfigs: boolean,
         token: ICancellationToken,
     ): Promise<string> {
-        const initialConfigs = useInitialConfigs ? await this.provideDebugConfigurations(folderUri, dbg.type, token) : [];
+        const initialConfigs = useInitialConfigs
+            ? await this.provideDebugConfigurations(folderUri, dbg.type, token)
+            : [];
         return await dbg.getInitialConfigurationContent(initialConfigs);
     }
 

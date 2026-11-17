@@ -23,8 +23,8 @@ import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.
 import { deserializeWhen, whenKeys } from "../../../../platform/contextkey/common/contextKeyExpr.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
-import type { IExtensionService } from "../../../services/extensions/common/extensions.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
+import type { IExtensionService } from "../../../services/extensions/common/extensions.ts";
 import type {
     IAdapterManager,
     IConfig,

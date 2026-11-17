@@ -65,7 +65,9 @@ describe("ConfigurationManager — dynamic configurations", () => {
     describe("the types with dynamic configurations", () => {
         it("come from activation events and Dynamic providers, labeled by their debugger, activating nothing", async () => {
             fx.extensions = [
-                extension({ activationEvents: ["onDebugDynamicConfigurations:node", "onDebugDynamicConfigurations:chrome"] }),
+                extension({
+                    activationEvents: ["onDebugDynamicConfigurations:node", "onDebugDynamicConfigurations:chrome"],
+                }),
                 extension({
                     activationEvents: ["onDebugDynamicConfigurations", "onDebugDynamicConfigurations:lldb"],
                     contributes: { debuggers: [{ type: "ignored" }] } as never,
@@ -74,8 +76,14 @@ describe("ConfigurationManager — dynamic configurations", () => {
                     activationEvents: ["onDebugDynamicConfigurations"],
                     contributes: { debuggers: [{ type: "cppdbg" }, { type: "second" }] } as never,
                 }),
-                extension({ activationEvents: ["onDebugDynamicConfigurations"], contributes: { debuggers: "x" } as never }),
-                extension({ activationEvents: ["onDebugDynamicConfigurations"], contributes: { debuggers: [{}] } as never }),
+                extension({
+                    activationEvents: ["onDebugDynamicConfigurations"],
+                    contributes: { debuggers: "x" } as never,
+                }),
+                extension({
+                    activationEvents: ["onDebugDynamicConfigurations"],
+                    contributes: { debuggers: [{}] } as never,
+                }),
                 extension({ activationEvents: ["onDebugResolve:other"] }),
                 extension({}),
             ];
@@ -122,7 +130,11 @@ describe("ConfigurationManager — dynamic configurations", () => {
             const picked = await dynamic.pick();
             const cancelled = await dynamic.pick();
 
-            expect(picked).toMatchObject({ label: "cargo test", config: { name: "cargo test" }, launch: { name: "w" } });
+            expect(picked).toMatchObject({
+                label: "cargo test",
+                config: { name: "cargo test" },
+                launch: { name: "w" },
+            });
             expect(cancelled).toBeUndefined();
             expect(fx.picks[0]).toEqual({
                 placeholder: "Select Launch Configuration",

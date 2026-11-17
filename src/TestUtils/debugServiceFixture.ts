@@ -9,8 +9,8 @@ import { Uri } from "../vs/base/common/uri.ts";
 import { ConfigurationRegistry } from "../vs/platform/configuration/common/configurationRegistry.ts";
 import { InMemoryConfigurationService } from "../vs/platform/configuration/common/inMemoryConfigurationService.ts";
 import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeyService.ts";
-import { NULL_LOGGER } from "../vs/platform/log/common/nullLogService.ts";
 import type { IExtension } from "../vs/platform/extensions/common/iExtension.ts";
+import { NULL_LOGGER } from "../vs/platform/log/common/nullLogService.ts";
 import type { IMarker } from "../vs/platform/markers/common/iMarker.ts";
 import type { IWorkspaceFolder, WorkbenchState } from "../vs/platform/workspace/common/iWorkspaceContextService.ts";
 import { debugConfiguration } from "../vs/workbench/common/configuration/debugConfiguration.ts";
@@ -284,7 +284,10 @@ export function createDebugServiceFixture(
         }),
         guess: {
             activeLanguage: () =>
-                fixture.activeEditor && { id: fixture.activeEditor.languageId, name: fixture.activeEditor.languageName },
+                fixture.activeEditor && {
+                    id: fixture.activeEditor.languageId,
+                    name: fixture.activeEditor.languageName,
+                },
             pick: (items, placeholder) => Promise.resolve(pick(placeholder, items)),
             confirm: (message) => {
                 fixture.confirms.push(message);

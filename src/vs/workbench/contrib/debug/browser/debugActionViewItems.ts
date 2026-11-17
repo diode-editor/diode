@@ -174,9 +174,11 @@ export class StartDebugActionViewItem extends Disposable {
     /** The option at a row of the dropdown, whose separators are rows too. */
     private select(row: number): void {
         // Selection state and label are reconciled by updateOptions(), triggered by manager.onDidSelectConfiguration.
-        void this.rows()[row].handler().then((selected) => {
-            if (!selected) this.renderOptions();
-        }, onUnexpectedError);
+        void this.rows()
+            [row].handler()
+            .then((selected) => {
+                if (!selected) this.renderOptions();
+            }, onUnexpectedError);
     }
 
     /** The dropdown's rows: the options, with a separator between two categories. */

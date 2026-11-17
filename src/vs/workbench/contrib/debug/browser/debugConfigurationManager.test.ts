@@ -523,7 +523,10 @@ describe("ConfigurationManager", () => {
             const withConfig = { launch: {} as ILaunch, config: { type: "synthetic", request: "launch", name: "D" } };
             const contents = vi.fn((configs?: IConfig[]) => Promise.resolve(JSON.stringify(configs)));
             adapterManager.guessDebugger = () =>
-                Promise.resolve({ debugger: { ...EMPTY_DEBUGGER, getInitialConfigurationContent: contents }, withConfig });
+                Promise.resolve({
+                    debugger: { ...EMPTY_DEBUGGER, getInitialConfigurationContent: contents },
+                    withConfig,
+                });
 
             await create().getLaunches()[0].openConfigFile({ preserveFocus: false });
 

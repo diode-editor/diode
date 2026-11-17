@@ -31,9 +31,9 @@ import { DebugConfigurationProviderTriggerKind } from "../common/debug.ts";
 
 import {
     addConfigurationAction,
-    installAdditionalDebuggersAction,
     configureAction,
     DEBUG_ACTIONS,
+    installAdditionalDebuggersAction,
     runAction,
     selectAndStartAction,
     startAction,
@@ -293,10 +293,7 @@ describe("launch configuration commands", () => {
 
         expect(
             ["workbench.action.debug.selectandstart", "workbench.action.debug.configure", "debug.addConfiguration"].map(
-                (id) => [
-                    entry(id)?.title,
-                    entry(id)?.menus?.filter((menu) => menu.menuId === MenuId.CommandPalette),
-                ],
+                (id) => [entry(id)?.title, entry(id)?.menus?.filter((menu) => menu.menuId === MenuId.CommandPalette)],
             ),
         ).toEqual([
             [

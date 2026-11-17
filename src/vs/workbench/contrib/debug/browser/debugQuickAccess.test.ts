@@ -171,9 +171,13 @@ describe("StartDebugQuickAccessProvider", () => {
             provider.getItems("debug ")[0].accept?.();
 
             await vi.waitFor(() => {
-                expect(start).toHaveBeenCalledWith(expect.objectContaining({ name: "w" }), expect.objectContaining({ name: "Dyn" }), {
-                    startedByUser: true,
-                });
+                expect(start).toHaveBeenCalledWith(
+                    expect.objectContaining({ name: "w" }),
+                    expect.objectContaining({ name: "Dyn" }),
+                    {
+                        startedByUser: true,
+                    },
+                );
             });
             const selected = fx.service.getConfigurationManager().selectedConfiguration;
             expect([selected.name, selected.type]).toEqual(["Dyn", SYNTHETIC_DEBUG_TYPE]);
@@ -200,9 +204,13 @@ describe("StartDebugQuickAccessProvider", () => {
             provider.getItems("debug ")[1].accept?.();
 
             await vi.waitFor(() => {
-                expect(start).toHaveBeenCalledWith(expect.objectContaining({ name: "w" }), expect.objectContaining({ name: "Dyn" }), {
-                    startedByUser: true,
-                });
+                expect(start).toHaveBeenCalledWith(
+                    expect.objectContaining({ name: "w" }),
+                    expect.objectContaining({ name: "Dyn" }),
+                    {
+                        startedByUser: true,
+                    },
+                );
             });
         });
     });

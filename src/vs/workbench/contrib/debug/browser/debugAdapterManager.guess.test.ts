@@ -10,7 +10,11 @@ import {
     SYNTHETIC_LAUNCH_CONFIG,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import { DebugConfigurationProviderTriggerKind, type IAdapterManager, type IDebuggerContribution } from "../common/debug.ts";
+import {
+    DebugConfigurationProviderTriggerKind,
+    type IAdapterManager,
+    type IDebuggerContribution,
+} from "../common/debug.ts";
 
 const FOLDER = { uri: Uri.file("/w"), name: "w", index: 0 };
 

@@ -1,8 +1,8 @@
 import { compositeOver } from "@tuidom/core/common/colorUtils";
 import { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
-import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { hflexFit } from "@tuidom/elements/layout/hFlexElement";
+import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";

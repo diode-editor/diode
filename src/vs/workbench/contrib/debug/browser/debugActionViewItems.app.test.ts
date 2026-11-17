@@ -20,8 +20,8 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { codicon, iconGlyph } from "../../../../base/common/codicons.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
-import { loadConfiguration } from "../../../../platform/configuration/node/configurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import { loadConfiguration } from "../../../../platform/configuration/node/configurationService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { resolveUserDataPaths } from "../../../../platform/environment/node/userDataPaths.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
@@ -233,8 +233,8 @@ describe("the launcher in the Run and Debug title", () => {
                 type: SYNTHETIC_DEBUG_TYPE,
                 initialConfigurations: [{ ...SYNTHETIC_LAUNCH_CONFIG, name: "Initial" }],
             });
-        expect(title()).not.toContain(`${START}`);
-        expect(title()).not.toContain(`${GEAR}`);
+        expect(title()).not.toContain(START);
+        expect(title()).not.toContain(GEAR);
 
         click(find("create a launch.json"));
         await flushMicrotasks();
@@ -259,12 +259,18 @@ describe("the launcher in the Run and Debug title", () => {
     it("the welcome's link on an existing launch.json opens it on a new line of configurations", async () => {
         await boot({ ".diode/launch.json": '{\n    "configurations": [\n    ]\n}' });
         // Only a session or a configuration leaves the welcome: here neither.
-        expect(title()).not.toContain(`${START}`);
+        expect(title()).not.toContain(START);
 
         click(find("create a launch.json"));
 
         await vi.waitFor(() => {
-            expect(h.activeEditor().getLinesContent()).toEqual(["{", '    "configurations": [', "        ", "    ]", "}"]);
+            expect(h.activeEditor().getLinesContent()).toEqual([
+                "{",
+                '    "configurations": [',
+                "        ",
+                "    ]",
+                "}",
+            ]);
         });
     });
 
@@ -283,7 +289,7 @@ describe("the launcher in the Run and Debug title", () => {
         expect(title()).toContain(`${START} First ⌄`);
         await configuration.updateValue("debug.toolBarLocation", "docked");
         expect(title()).not.toContain("First ⌄");
-        expect(title()).not.toContain(`${GEAR}`);
+        expect(title()).not.toContain(GEAR);
 
         click(find("⋯"));
         expect(lines().join("\n")).toContain("Start Additional Session");
@@ -294,7 +300,7 @@ describe("the launcher in the Run and Debug title", () => {
         await vi.waitFor(() => {
             expect(title()).toContain(`${START} First ⌄`);
         });
-        expect(title()).toContain(`${GEAR}`);
+        expect(title()).toContain(GEAR);
     });
 
     it(`without configurations while debugging says "${NO_CONFIGURATIONS}"`, async () => {

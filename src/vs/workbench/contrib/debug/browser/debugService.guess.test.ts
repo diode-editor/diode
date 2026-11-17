@@ -12,7 +12,11 @@ import {
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
-import { DebugConfigurationProviderTriggerKind, type IConfig, type IDebugConfigurationProvider } from "../common/debug.ts";
+import {
+    DebugConfigurationProviderTriggerKind,
+    type IConfig,
+    type IDebugConfigurationProvider,
+} from "../common/debug.ts";
 
 const FOLDER: IWorkspaceFolder = { uri: Uri.file("/w"), name: "w", index: 0 };
 const MAIN = "file:///w/main.txt";
@@ -76,7 +80,9 @@ describe("DebugService — a start without a type", () => {
         provide(
             {
                 provideDebugConfigurations: (folder) =>
-                    Promise.resolve([{ type: SYNTHETIC_DEBUG_TYPE, request: "launch", name: `dyn of ${folder?.path}` }]),
+                    Promise.resolve([
+                        { type: SYNTHETIC_DEBUG_TYPE, request: "launch", name: `dyn of ${folder?.path}` },
+                    ]),
             },
             DebugConfigurationProviderTriggerKind.Dynamic,
         );
@@ -96,7 +102,9 @@ describe("DebugService — a start without a type", () => {
 
     it("a remembered dynamic configuration that is gone starts with the debugger alone", async () => {
         create();
-        fx.state.values.set("debug.chosenenvironment", { [MAIN]: { type: SYNTHETIC_DEBUG_TYPE, dynamicLabel: "gone" } });
+        fx.state.values.set("debug.chosenenvironment", {
+            [MAIN]: { type: SYNTHETIC_DEBUG_TYPE, dynamicLabel: "gone" },
+        });
         fx.service.dispose();
         const state = fx.state;
         fx = createDebugServiceFixture({ folders: [FOLDER], state });
