@@ -168,6 +168,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "debug.gutterMiddleClickAction": "window",
     "debug.focusEditorOnBreak": "window",
     "debug.showBreakpointsInOverviewRuler": "window",
+    "debug.inlineValues": "window",
     "debug.breakpointsView.presentation": "window",
     "debug.openDebug": "window",
     "debug.autoExpandLazyVariables": "window",

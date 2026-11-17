@@ -507,6 +507,14 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.component.onDidClickLineMessage(listener);
     }
 
+    public getVisibleLineRange(): { startLine: number; endLine: number } {
+        return this.component.getVisibleLineRange();
+    }
+
+    public onDidChangeVisibleRange(listener: () => void): IDisposable {
+        return this.component.onDidChangeVisibleRange(listener);
+    }
+
     public setExtensionTextDecorations(set: IExtensionTextDecorationSet): void {
         this.component.setExtensionTextDecorations(set);
     }

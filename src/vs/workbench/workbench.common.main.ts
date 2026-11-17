@@ -142,6 +142,7 @@ import type { IWorkbenchContributionRegistration } from "./common/iWorkbenchCont
 import { CODE_ACTION_ACTIONS } from "./contrib/codeAction/browser/codeActionActions.ts";
 import { COMMENT_ACTIONS } from "./contrib/comment/browser/commentActions.ts";
 import { BreakpointEditorContributionDIToken } from "./contrib/debug/browser/breakpointEditorContribution.ts";
+import { InlineValuesContributionDIToken } from "./contrib/debug/browser/inlineValuesContribution.ts";
 import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
 import { DebugContentProviderDIToken } from "./contrib/debug/browser/debugContentProvider.ts";
 import { DebugLifecycleDIToken } from "./contrib/debug/browser/debugLifecycle.ts";
@@ -380,6 +381,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: DebugLifecycleDIToken, phase: "afterRestored" },
     // The breakpoints and stack frames in the restored editors' glyph lanes.
     { token: BreakpointEditorContributionDIToken, phase: "afterRestored" },
+    // The variables' values after the lines of the focused frame's file.
+    { token: InlineValuesContributionDIToken, phase: "afterRestored" },
     // The `debug:` documents of the frames whose source an adapter gives by reference.
     { token: DebugContentProviderDIToken, phase: "afterRestored" },
     // The toolbar in the active editor group and the status bar's colors and `status.debug` while debugging.

@@ -134,6 +134,11 @@ import {
     BreakpointEditorContributionDIToken,
     BreakpointEditorSourceDIToken,
 } from "../../workbench/contrib/debug/browser/breakpointEditorContribution.ts";
+import {
+    InlineValuesContribution,
+    InlineValuesContributionDIToken,
+    InlineValuesEditorSourceDIToken,
+} from "../../workbench/contrib/debug/browser/inlineValuesContribution.ts";
 import { BreakpointInput, BreakpointInputDIToken } from "../../workbench/contrib/debug/browser/breakpointInput.ts";
 import { BreakpointSources, openStackFrame } from "../../workbench/contrib/debug/browser/breakpointSources.ts";
 import { BreakpointSourcesDIToken } from "../../workbench/contrib/debug/browser/breakpointsView.ts";
@@ -840,6 +845,9 @@ export const workbenchModule: ContainerModule = (container) => {
     // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario debug-breakpoints-gutter
     container.bind(BreakpointEditorSourceDIToken, () => container.get(EditorServiceDIToken));
     container.bind(BreakpointEditorContributionDIToken, BreakpointEditorContribution);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario debug-inline-values
+    container.bind(InlineValuesEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(InlineValuesContributionDIToken, InlineValuesContribution);
     container.bind(DebugContentProviderDIToken, DebugContentProvider);
     container.bind(DebugViewletComponentDIToken, DebugViewletComponent);
     container.bind(LinkDetectorDIToken, LinkDetector);

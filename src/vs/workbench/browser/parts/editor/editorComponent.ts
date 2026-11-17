@@ -397,7 +397,7 @@ export class EditorComponent extends Component {
         );
         this.register(
             reference.attachViewport({
-                getVisibleLineRange: () => this.visibleLineRange(),
+                getVisibleLineRange: () => this.getVisibleLineRange(),
                 onDidChangeVisibleRange: this.editorViewState.onDidChangeView,
             }),
         );
@@ -483,21 +483,25 @@ export class EditorComponent extends Component {
 
     private visibleRangeViewport(): ICodeLensViewport {
         return {
-            getVisibleLineRange: () => this.visibleLineRange(),
-            onDidChangeVisibleRange: (listener) => {
-                const view = this.editorViewState.onDidChangeView(listener);
-                const height = this.editor.onDidChangeViewportHeight(listener);
-                return {
-                    dispose: () => {
-                        view.dispose();
-                        height.dispose();
-                    },
-                };
+            getVisibleLineRange: () => this.getVisibleLineRange(),
+            onDidChangeVisibleRange: (listener) => this.onDidChangeVisibleRange(listener),
+        };
+    }
+
+    /** Fires on a scroll and on a change of the editor's height. */
+    public onDidChangeVisibleRange(listener: () => void): IDisposable {
+        const view = this.editorViewState.onDidChangeView(listener);
+        const height = this.editor.onDidChangeViewportHeight(listener);
+        return {
+            dispose: () => {
+                view.dispose();
+                height.dispose();
             },
         };
     }
 
-    private visibleLineRange(): { startLine: number; endLine: number } {
+    /** The document lines the editor shows, inclusive. */
+    public getVisibleLineRange(): { startLine: number; endLine: number } {
         const viewState = this.editorViewState;
         // docLineForViewLine itself clamps lines past the end of the view to the last one.
         const top = viewState.scrollTop;
