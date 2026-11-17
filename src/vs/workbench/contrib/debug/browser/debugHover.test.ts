@@ -1,4 +1,4 @@
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,13 +8,14 @@ import { createMockDebugModel } from "../../../../../TestUtils/mockDebug.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { testLayoutService } from "../../../../../TestUtils/testLayoutService.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import { DisposableStore } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createPosition } from "../../../../editor/common/core/iPosition.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { StaticProductIconService } from "../../../../platform/theme/common/productIconService.ts";
-import type { IExpression } from "../common/debug.ts";
+import { type IExpression, State } from "../common/debug.ts";
 
 import { VALUE_CHANGED_HIGHLIGHT_MS } from "./debugExpressionRenderer.ts";
 import { DebugHoverWidget, type IDebugHoverEditor, ShowDebugHoverResult } from "./debugHover.ts";
@@ -48,9 +49,12 @@ describe("DebugHoverWidget", () => {
     let app: TestApp;
     let body: BodyElement;
     let features: LanguageFeaturesService;
+    let states: Emitter<State>;
 
     beforeEach(() => {
+        states = disposables.add(new Emitter<State>());
         debugService = testDebugService(createMockDebugModel(disposables));
+        Object.assign(debugService, { onDidChangeState: states.event });
         body = new BodyElement();
         features = new LanguageFeaturesService();
         app = TestApp.create(body, new Size(80, 30));
@@ -74,6 +78,25 @@ describe("DebugHoverWidget", () => {
     function screen(): string {
         app.render();
         return app.backend.screenToString();
+    }
+
+    /** The rows of the hover's box, its borders included. */
+    function boxRows(): string[] {
+        return screen()
+            .split("\n")
+            .map((row) => row.trim())
+            .filter((row) => /^[╭│├╰]/u.test(row));
+    }
+
+    /** The cell of the first `text` on the screen. */
+    function cellOf(text: string): Point {
+        const rows = screen().split("\n");
+        const y = rows.findIndex((row) => row.includes(text));
+        return new Point(rows[y].indexOf(text), y);
+    }
+
+    async function show(variable: IExpression): Promise<ShowDebugHoverResult | undefined> {
+        return widget.showAt(editorOver(variable.name), createPosition(0, 0), frameWith([variable]));
     }
 
     it("lives on the overlay layer as #debugHoverWidget, the id the inspector and e2e look for", () => {
@@ -241,5 +264,133 @@ describe("DebugHoverWidget", () => {
         await vi.advanceTimersByTimeAsync(VALUE_CHANGED_HIGHLIGHT_MS);
 
         expect(rerender).toHaveBeenCalledTimes(1);
+    });
+    it("opens above the cursor when there is room", async () => {
+        await show(new TestVariable("count", "7"));
+
+        // The cursor is on row 20: the box ends on the row above it.
+        expect(cellOf("╰").y).toBe(19);
+    });
+
+    it("a long plain value wraps in a box as wide as the widest hover", async () => {
+        await show(new TestVariable("text", "x".repeat(100)));
+
+        expect(boxRows()).toEqual([
+            `╭${"─".repeat(68)}╮`,
+            `│${"x".repeat(68)}│`,
+            `│${"x".repeat(32).padEnd(68)}│`,
+            `╰${"─".repeat(68)}╯`,
+        ]);
+    });
+
+    it("a plain value has the color of its kind, as in the Variables view", async () => {
+        await show(new TestVariable("text", '"hi"'));
+        const stringFg = app.backend.getFgAt(cellOf('"hi"'));
+        widget.hide();
+        await show(new TestVariable("count", "7"));
+
+        expect(app.backend.getFgAt(cellOf("7│"))).not.toBe(stringFg);
+    });
+
+    it("a plain value after a tree: no title, no separator left from the tree", async () => {
+        await show(new TestVariable("obj", "{...}", [new TestVariable("x", "1")]));
+        await show(new TestVariable("count", "1234567890"));
+
+        expect(boxRows()).toEqual(["╭──────────╮", "│1234567890│", "╰──────────╯"]);
+    });
+
+    it.each<[string, IExpression, number]>([
+        ["short rows: the narrowest hover", new TestVariable("obj", "{...}", [new TestVariable("x", "1")]), 48],
+        [
+            "a wider row with its chevron and scrollbar",
+            new TestVariable("obj", "{...}", [new TestVariable("x", "y".repeat(48))]),
+            55,
+        ],
+        ["a wide title with its padding", new TestVariable("obj", "T".repeat(60), [new TestVariable("x", "1")]), 60],
+        [
+            "a wide row below the first screen does not count",
+            new TestVariable(
+                "obj",
+                "{...}",
+                Array.from(
+                    { length: 20 },
+                    (_, i) => new TestVariable(`k${String(i)}`, i === 17 ? "y".repeat(100) : "0"),
+                ),
+            ),
+            48,
+        ],
+        [
+            "a row wider than the widest hover",
+            new TestVariable("obj", "{...}", [new TestVariable("x", "y".repeat(100))]),
+            68,
+        ],
+    ])("a tree's width: %s", async (_name, variable, inner) => {
+        await show(variable);
+
+        expect(boxRows()[0]).toBe(`╭${"─".repeat(inner)}╮`);
+    });
+
+    it("a tree shown again starts from its first row", async () => {
+        const many = new TestVariable(
+            "obj",
+            "{...}",
+            Array.from({ length: 20 }, (_, i) => new TestVariable(`k${String(i)}`, String(i))),
+        );
+        await show(many);
+        app.sendKey("End");
+        expect(screen()).toContain("k19: 19");
+
+        await show(many);
+
+        expect(screen()).toContain("k0: 0");
+    });
+
+    it("an expression not available closes the hover that is open", async () => {
+        await show(new TestVariable("count", "7"));
+
+        expect(await widget.showAt(editorOver("other"), createPosition(0, 1), frameWith([]))).toBe(
+            ShowDebugHoverResult.NOT_AVAILABLE,
+        );
+        expect(widget.isVisible()).toBe(false);
+    });
+
+    it("an older request that finds nothing does not close the newer hover", async () => {
+        let release: (expression: string) => void = () => undefined;
+        let calls = 0;
+        const range = { start: createPosition(0, 0), end: createPosition(0, 5) };
+        features.evaluatableExpressionProvider.register("*", {
+            provideEvaluatableExpression: () =>
+                calls++ === 0
+                    ? new Promise((resolve) => {
+                          release = (expression) => {
+                              resolve({ range, expression });
+                          };
+                      })
+                    : Promise.resolve({ range, expression: "count" }),
+        });
+        const frame = frameWith([new TestVariable("count", "7")]);
+
+        const older = widget.showAt(editorOver("count"), createPosition(0, 1), frame);
+        await flushMicrotasks(20);
+        await widget.showAt(editorOver("count"), createPosition(0, 1), frame);
+        release("missing");
+
+        expect(await older).toBe(ShowDebugHoverResult.CANCELLED);
+        expect(widget.isVisible()).toBe(true);
+    });
+
+    it("a stop keeps the hover open, any other state closes it", async () => {
+        await show(new TestVariable("count", "7"));
+
+        states.fire(State.Stopped);
+        expect(widget.isVisible()).toBe(true);
+        states.fire(State.Running);
+        expect(widget.isVisible()).toBe(false);
+    });
+
+    it("a plain value takes the focus", async () => {
+        await show(new TestVariable("count", "7"));
+
+        expect(app.focusedElement).toBe(widget.view);
     });
 });

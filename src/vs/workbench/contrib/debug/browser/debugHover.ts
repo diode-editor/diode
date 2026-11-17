@@ -159,8 +159,6 @@ export class DebugHoverWidget extends Disposable {
     private readonly latest = new LatestRequest();
     /** The evaluated expression whose children the tree shows: set before the tree's first refresh. */
     private root!: IExpression;
-    /** The tree's height last applied: a rebuild with as many rows leaves the layout alone. */
-    private treeRows = 0;
 
     public constructor(
         debugService: IDebugService,
@@ -262,14 +260,14 @@ export class DebugHoverWidget extends Disposable {
             this.box.setHasSeparator(false);
             const label = new TextLabelElement(spansText(value));
             label.wrap = true;
-            label.style = { fg: value[0]?.fg ?? "editorHoverWidget.foreground" };
+            // An empty value paints no cell: the color of the first span is the color of all of it.
+            label.style = { fg: value[0]?.fg };
             this.valueBody.setChild(label);
             this.valueBody.setPreferredWidth(Math.min(spansWidth(value), MAX_WIDTH - 2));
             this.box.setChild(this.valueBody);
             return;
         }
         this.root = expression;
-        this.treeRows = 0;
         // Upstream renders the title without colors.
         this.box.setTitle(spansText(value));
         this.box.setTitleFg("editorHoverWidget.foreground");
@@ -288,8 +286,6 @@ export class DebugHoverWidget extends Disposable {
     /** Upstream `layoutTree`: as tall as the rows, up to the floor of the upstream tree. */
     private layoutTree(): void {
         const height = Math.min(Math.max(this.tree.shownItems.length, 1), MAX_ROWS);
-        if (height === this.treeRows) return;
-        this.treeRows = height;
         this.treeBody.setPreferredHeight(height);
         this.overlay.relayout();
     }
