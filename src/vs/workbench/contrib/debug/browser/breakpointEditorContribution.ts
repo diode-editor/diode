@@ -305,14 +305,14 @@ export class BreakpointEditorContribution extends Disposable {
      * session's breakpoint locations on the lines with breakpoints.
      */
     private async requestCandidates(state: IAttachedEditor): Promise<void> {
+        // Stryker disable next-line UpdateOperator: equivalent, the counter only needs a new value per request
         const generation = ++state.candidatesGeneration;
         const session = this.debugService.getViewModel().focusedSession;
         const lineNumbers = distinct(state.breakpointDecorations.map((decoration) => decoration.range.start.line + 1));
         let lineBreakpoints: IBreakpointsForLine[] = [];
         if (
             this.configuration.get("debug.showInlineBreakpointCandidates") &&
-            session?.capabilities.supportsBreakpointLocationsRequest &&
-            lineNumbers.length > 0
+            session?.capabilities.supportsBreakpointLocationsRequest
         ) {
             const uri = state.editor.uri;
             lineBreakpoints = await Promise.all(

@@ -293,6 +293,56 @@ describe("DebugEditorContribution", () => {
         expect(late.appendToRepl).not.toHaveBeenCalled();
     });
 
+    it("an exception focused before the contribution starts shows at once", async () => {
+        const { frames } = stoppedThread([{ line: 30 }], { reason: "exception" }, Promise.resolve(INFO));
+        focused = frames[0];
+        create();
+        await settle();
+        expect(badge()?.[0]).toBe(29);
+    });
+
+    it("an editor seen again keeps its one subscription: a click opens the console once", () => {
+        create();
+        editorsChanged.fire();
+        editorsChanged.fire();
+        open[0].click(EXCEPTION_MESSAGE_OWNER);
+        expect(openView).toHaveBeenCalledTimes(1);
+    });
+
+    it("a frame without an exception's info, or of a closed stop, takes another stop's badge away", async () => {
+        create();
+        const shownStop = stoppedThread([{ line: 30 }], { reason: "exception" }, Promise.resolve(INFO));
+        const noInfo = stoppedThread([{ line: 5 }], { reason: "step" }, Promise.resolve(undefined));
+        await focus(shownStop.frames[0]);
+        await focus(noInfo.frames[0]);
+        expect(badge()).toBeUndefined();
+
+        const closed = stoppedThread([{ line: 40 }], { reason: "exception" }, Promise.resolve(INFO));
+        await focus(closed.frames[0]);
+        contribution?.closeExceptionWidget();
+        await focus(shownStop.frames[0]);
+        expect(badge()?.[0]).toBe(29);
+        await focus(closed.frames[0]);
+        expect(badge()).toBeUndefined();
+    });
+
+    it("the stopped state itself does not ask the adapter again", async () => {
+        create();
+        let asked = 0;
+        const { frames } = stoppedThread([{ line: 30 }], { reason: "exception" }, Promise.resolve(INFO));
+        const thread = frames[0].thread;
+        Object.defineProperty(thread, "exceptionInfo", {
+            get: () => {
+                asked++;
+                return Promise.resolve(INFO);
+            },
+        });
+        await focus(frames[0]);
+        stateChanged.fire(State.Stopped);
+        await settle();
+        expect(asked).toBe(1);
+    });
+
     it("a disposed contribution lets the editors go", async () => {
         const c = create();
         c.dispose();
@@ -309,6 +359,9 @@ describe("the exception's texts", () => {
         );
         expect(exceptionBadgeText({ description: "boom", breakMode: null })).toBe(" Exception has occurred. — boom ");
         expect(exceptionBadgeText({ id: "E", breakMode: null })).toBe(" Exception has occurred: E ");
+        expect(exceptionBadgeText({ id: "E", description: " d\n", breakMode: null })).toBe(
+            " Exception has occurred: E — d ",
+        );
     });
 
     it("the console: title, description, stack trace, each on its lines", () => {

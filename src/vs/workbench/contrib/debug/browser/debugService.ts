@@ -1586,6 +1586,7 @@ export function threadToRunTo(
         }
 
         const threads = session.getAllThreads().filter((t) => t.stopped);
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent, the focused thread checked again is picked again
         if (bestScore < Score.VerifiedAndFocused) {
             if (focusedThread && threads.includes(focusedThread)) {
                 bestThread = focusedThread;
@@ -1605,6 +1606,7 @@ export function threadToRunTo(
             }
         }
 
+        // Stryker disable next-line EqualityOperator: equivalent, as upstream no branch leaves the score at `Verified`
         if (bestScore < Score.Verified) {
             bestThread = threads[0];
             bestScore = Score.VerifiedAndPausedInFile;

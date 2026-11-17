@@ -129,7 +129,6 @@ export class DebugEditorContribution extends Disposable {
         this.register({
             dispose: () => {
                 for (const subscription of this.subscriptions.values()) subscription.dispose();
-                this.subscriptions.clear();
             },
         });
         this.syncEditors();
@@ -163,6 +162,7 @@ export class DebugEditorContribution extends Disposable {
     }
 
     private async toggleExceptionWidget(): Promise<void> {
+        // Stryker disable next-line UpdateOperator: equivalent, the counter only needs a new value per toggle
         const generation = ++this.generation;
         const focusedSf = this.debugService.getViewModel().focusedStackFrame;
         const stop = focusedSf?.thread.stoppedDetails;

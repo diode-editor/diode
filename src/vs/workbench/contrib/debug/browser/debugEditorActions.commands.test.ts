@@ -202,7 +202,7 @@ describe("Jump to Cursor", () => {
         session.goto.mockRejectedValue(new Error("cannot go there"));
         const h = harness(services(fakeEditor(30, 4), debugService));
         await jumpToCursorAction.run(h.accessor);
-        expect(h.shown).toMatchObject([{ severity: "warn", message: "cannot go there" }]);
+        expect(h.shown).toEqual([{ severity: "warn", message: "cannot go there", modal: false, items: [] }]);
     });
 
     it("no targets, no source, no frame or no editor: the warning that there is no code there", async () => {

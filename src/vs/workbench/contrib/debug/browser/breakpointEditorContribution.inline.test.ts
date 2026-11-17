@@ -193,6 +193,49 @@ describe("BreakpointEditorContribution: inline breakpoints and candidates", () =
         expect(shown()).toEqual([]);
     });
 
+    it("while the adapter is asked, the inline breakpoints show at once and no candidates yet", async () => {
+        breakpointsLocations.mockImplementation(() => new Promise(() => undefined));
+        await fx.service.addBreakpoints(FILE, [{ lineNumber: 1, column: 12 }]);
+        await settle();
+        expect(shown()).toEqual([[0, 11, "debug-breakpoint", "debugIcon.breakpointForeground"]]);
+    });
+
+    it("the document's last line has its candidates", async () => {
+        await fx.service.addBreakpoints(FILE, [{ lineNumber: 4 }]);
+        await settle();
+        await settle();
+        // The line breakpoint's own location: its icon.
+        expect(shown()).toEqual([[3, 0, "debug-breakpoint", "debugIcon.breakpointForeground"]]);
+    });
+
+    it("a breakpoint one column past the first non-blank lets the line's start show", async () => {
+        await fx.service.addBreakpoints(FILE, [{ lineNumber: 1 }, { lineNumber: 1, column: 6 }]);
+        await settle();
+        await settle();
+        expect(shown()).toEqual([
+            [0, 5, "debug-breakpoint", "debugIcon.breakpointForeground"],
+            [0, 0, "debug-breakpoint-disabled", "debugIcon.breakpointDisabledForeground"],
+            [0, 4, "debug-breakpoint", "debugIcon.breakpointForeground"],
+            [0, 11, "debug-breakpoint-disabled", "debugIcon.breakpointDisabledForeground"],
+            [0, 17, "debug-breakpoint-disabled", "debugIcon.breakpointDisabledForeground"],
+            [0, 29, "debug-breakpoint-disabled", "debugIcon.breakpointDisabledForeground"],
+        ]);
+    });
+
+    it("each line's candidates look only at that line's breakpoints", async () => {
+        await fx.service.addBreakpoints(FILE, [{ lineNumber: 1 }, { lineNumber: 2, column: 12 }]);
+        await settle();
+        await settle();
+        expect(shown()).toEqual([
+            [1, 11, "debug-breakpoint", "debugIcon.breakpointForeground"],
+            [0, 11, "debug-breakpoint-disabled", "debugIcon.breakpointDisabledForeground"],
+            [0, 17, "debug-breakpoint-disabled", "debugIcon.breakpointDisabledForeground"],
+            [0, 29, "debug-breakpoint-disabled", "debugIcon.breakpointDisabledForeground"],
+            [1, 0, "debug-breakpoint-disabled", "debugIcon.breakpointDisabledForeground"],
+            [1, 4, "debug-breakpoint-disabled", "debugIcon.breakpointDisabledForeground"],
+        ]);
+    });
+
     it("no breakpoints: nothing asked", async () => {
         await fx.configuration.updateValue("debug.showInlineBreakpointCandidates", false);
         await fx.configuration.updateValue("debug.showInlineBreakpointCandidates", true);
