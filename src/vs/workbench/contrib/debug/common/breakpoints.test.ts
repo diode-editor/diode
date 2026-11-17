@@ -20,4 +20,11 @@ describe("Breakpoints (contributes.breakpoints)", () => {
         expect(new Breakpoints({ language: "cpp" }, never).enabled).toBe(true);
         expect(new Breakpoints({ language: "cpp", when: "(a &&" }, never).enabled).toBe(true);
     });
+
+    it("names the context keys of its when clause, none without one or with one that does not parse", () => {
+        const never = { evaluate: (): boolean => false };
+        expect(new Breakpoints({ language: "cpp", when: "a && !b" }, never).whenKeys).toEqual(["a", "b"]);
+        expect(new Breakpoints({ language: "cpp" }, never).whenKeys).toEqual([]);
+        expect(new Breakpoints({ language: "cpp", when: "(a &&" }, never).whenKeys).toEqual([]);
+    });
 });

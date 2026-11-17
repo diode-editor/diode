@@ -225,4 +225,45 @@ describe("bindExtensionDebuggers — upstream's `debuggers` extension point", ()
         binding.dispose();
         expect(registrations.every((r) => r.dispose.mock.calls.length === 1)).toBe(true);
     });
+
+    it("every `contributes.breakpoints` entry with a language is registered until the binding is disposed", () => {
+        const registrations: { language: string; when?: string; dispose: ReturnType<typeof vi.fn> }[] = [];
+        const service = {
+            getAdapterManager: () =>
+                ({
+                    registerBreakpoints: (contribution: { language: string; when?: string }) => {
+                        const registration = { ...contribution, dispose: vi.fn() };
+                        registrations.push(registration);
+                        return registration;
+                    },
+                }) as unknown as IAdapterManager,
+        } as IDebugService;
+        const withBreakpoints = (id: string, breakpoints: unknown): IExtension =>
+            ({
+                id,
+                manifest: { name: id, publisher: "p", version: "1.0.0", contributes: { breakpoints } },
+            }) as unknown as IExtension;
+
+        const binding = bindExtensionDebuggers(
+            service,
+            [
+                withBreakpoints("vadimcn.vscode-lldb", [
+                    { language: "c" },
+                    { language: "rust", when: "lldb.enabled" },
+                    { when: "x" },
+                    { language: 1 },
+                    null,
+                ]),
+                withBreakpoints("not.array", { language: "go" }),
+            ],
+            { warn: vi.fn() } as never,
+        );
+
+        expect(registrations.map(({ language, when }) => ({ language, when }))).toEqual([
+            { language: "c", when: undefined },
+            { language: "rust", when: "lldb.enabled" },
+        ]);
+        binding.dispose();
+        expect(registrations.every((r) => r.dispose.mock.calls.length === 1)).toBe(true);
+    });
 });

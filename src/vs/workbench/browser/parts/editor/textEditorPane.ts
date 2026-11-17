@@ -20,6 +20,7 @@ import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type {
     IGlyphMarginClick,
     IGlyphMarginDecoration,
+    ILineHighlightDecoration,
 } from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
@@ -475,8 +476,16 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.component.setExtensionGutterChangeDecorations(decorations);
     }
 
-    public setGlyphMarginDecorations(decorations: readonly IGlyphMarginDecoration[]): void {
-        this.component.setGlyphMarginDecorations(decorations);
+    public setGlyphMarginDecorations(owner: string, decorations: readonly IGlyphMarginDecoration[]): void {
+        this.component.setGlyphMarginDecorations(owner, decorations);
+    }
+
+    public setGlyphMarginReserved(reserved: boolean): void {
+        this.component.setGlyphMarginReserved(reserved);
+    }
+
+    public setLineHighlightDecorations(decorations: readonly ILineHighlightDecoration[]): void {
+        this.component.setLineHighlightDecorations(decorations);
     }
 
     public onDidClickGlyphMargin(listener: (click: IGlyphMarginClick) => void): IDisposable {

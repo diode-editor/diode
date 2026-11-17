@@ -13,6 +13,7 @@
         "onCommand:debugDemo.breakOnPrintf"
     ],
     "contributes": {
+        "breakpoints": [{ "language": "c" }],
         "commands": [
             {
                 "command": "debugDemo.breakOnPrintf",

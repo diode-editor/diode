@@ -127,8 +127,9 @@ describe("CALL STACK in the workbench", () => {
 
         cursorTo("process(Config const&)");
 
-        expect(focusedFrameName()).toBe("process(Config const&)");
+        // The frame's file opens first, then the focus moves (upstream `focusStackFrame`).
         await vi.waitFor(() => {
+            expect(focusedFrameName()).toBe("process(Config const&)");
             const marker = t.find("➜ process(Config const&)");
             expect(t.h.testApp.backend.getFgAt(marker)).toBe(t.vars()["debugIcon.breakpointStackframeForeground"]);
         });

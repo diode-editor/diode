@@ -60,7 +60,11 @@ const TRIGGERED_BREAKPOINT_MAX_DELAY = 1500;
 /** The `debug.*` settings the service and its sessions read. */
 export type IDebugServiceConfiguration = Pick<
     IDebugConfiguration,
-    "openDebug" | "autoExpandLazyVariables" | "internalConsoleOptions"
+    | "openDebug"
+    | "autoExpandLazyVariables"
+    | "internalConsoleOptions"
+    | "allowBreakpointsEverywhere"
+    | "focusEditorOnBreak"
 > & { readonly console: Pick<IDebugConfiguration["console"], "closeOnEnd"> };
 
 export interface IDebugSessionServices {
@@ -69,7 +73,7 @@ export interface IDebugSessionServices {
     };
     readonly logger: ILogger;
     readonly replConfiguration: () => IReplConsoleConfiguration;
-    /** `debug.openDebug`, `debug.autoExpandLazyVariables`, `debug.internalConsoleOptions`, `debug.console.closeOnEnd`. */
+    /** The `debug.*` settings of {@link IDebugServiceConfiguration}. */
     readonly debugConfiguration: () => IDebugServiceConfiguration;
     /** Shows Run and Debug without taking the focus (`openOnDebugBreak`). */
     readonly openViewlet: () => void;
@@ -1456,8 +1460,10 @@ export class DebugSession implements IDebugSession {
                             const focusedStackFrame = this.debugService.getViewModel().focusedStackFrame;
                             if (!focusedStackFrame || focusedStackFrame.thread.session === this) {
                                 // Only take focus if nothing is focused, or if the focus is already on the current session
-                                // Upstream's `preserveFocus` (`debug.focusEditorOnBreak`) comes with the editor (#1148).
-                                await this.debugService.focusStackFrame(undefined, thread);
+                                const preserveFocus = !this.services.debugConfiguration().focusEditorOnBreak;
+                                await this.debugService.focusStackFrame(undefined, thread, undefined, {
+                                    preserveFocus,
+                                });
                             }
 
                             // Upstream also checks `thread.stoppedDetails`: a stopped event always sets them.

@@ -12,7 +12,7 @@ import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/
 import { openUriAtPosition } from "../../../services/editor/browser/openUriAtPosition.ts";
 import { EditorServiceDIToken, type IEditorService } from "../../../services/editor/common/editorService.ts";
 import { type IJumpRecorder, JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
-import type { IBreakpoint } from "../common/debug.ts";
+import type { IBreakpoint, IStackFrame } from "../common/debug.ts";
 
 import type { IBreakpointSources } from "./breakpointsView.ts";
 
@@ -43,17 +43,27 @@ export class BreakpointSources implements IBreakpointSources {
         return new TextDecoder().decode(content.value).split(/\r?\n/u);
     }
 
-    public async openBreakpoint(breakpoint: IBreakpoint, sideBySide: boolean): Promise<void> {
+    public openBreakpoint(breakpoint: IBreakpoint, sideBySide: boolean): Promise<void> {
         const position = { line: breakpoint.lineNumber - 1, column: (breakpoint.column ?? 1) - 1 };
-        if (!sideBySide) {
-            await openUriAtPosition(this.editors, this.jumps, breakpoint.uri, position);
-            return;
-        }
-        await this.jumps.jumpAsync(async () => {
-            await this.editors.openUri(breakpoint.uri, { group: "beside" });
-            const editor = this.editors.getActiveEditor();
-            if (editor?.uri.toString() !== breakpoint.uri.toString()) return;
-            editor.goToPosition(position.line, position.column);
-        });
+        return openUriAtPosition(this.editors, this.jumps, breakpoint.uri, position, { sideBySide });
     }
+}
+
+/**
+ * Upstream `StackFrame.openInEditor` (`Source.openInEditor`): the frame's source at its line and column, in the active
+ * group or beside it, focused unless `preserveFocus`; a frame without an available source opens nothing. Every open is
+ * pinned here. Deviation: no disassembly view.
+ */
+export async function openStackFrame(
+    editors: IEditorService,
+    jumps: IJumpRecorder,
+    stackFrame: IStackFrame,
+    options: { readonly preserveFocus: boolean; readonly sideBySide: boolean },
+): Promise<void> {
+    if (!stackFrame.source.available) return;
+    const position = { line: stackFrame.range.startLineNumber - 1, column: stackFrame.range.startColumn - 1 };
+    await openUriAtPosition(editors, jumps, stackFrame.source.uri, position, {
+        sideBySide: options.sideBySide,
+        focus: !options.preserveFocus,
+    });
 }

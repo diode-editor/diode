@@ -363,10 +363,11 @@ describe("BREAKPOINTS in the workbench", () => {
         expect(typeOf(instruction)).toBe("instructionBreakpoint");
 
         // Delete and Open to the Side on an instruction breakpoint, as upstream: nothing.
+        const activeEditor = t.h.container.get(EditorServiceDIToken).getActiveEditor();
         await t.h.commands.execute("debug.removeBreakpoint");
         await t.h.commands.execute("debug.openBreakpointToSide");
         expect(model().getInstructionBreakpoints()).toEqual([instruction]);
-        expect(t.h.container.get(EditorServiceDIToken).getActiveEditor()).toBeNull();
+        expect(t.h.container.get(EditorServiceDIToken).getActiveEditor()).toBe(activeEditor);
 
         expect(typeOf(data)).toBe("dataBreakpoint");
         await t.h.commands.execute("debug.removeBreakpoint");
