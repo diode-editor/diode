@@ -1,7 +1,9 @@
 // Picking a worker from Debug: Select Debug Session / Debug: Select Debug Console, as a user does: the picked
 // session's paused frame becomes the focused one, so VARIABLES show the worker's locals (upstream `focusStackFrame(
-// undefined, undefined, session, { explicit: true })` focuses the top frame of the session's stopped thread — the
-// first frame when none has a source, `Thread.getTopStackFrame`).
+// undefined, undefined, session, { explicit: true })` focuses the top frame of the session's stopped thread). A
+// worker whose frames have no source has no top frame (upstream `Thread.getTopStackFrame` takes only a frame with an
+// available source, `debugModel.ts:634` of 1.127): its session is focused without a frame, as Ctrl+PageDown does,
+// and VARIABLES let go of the app's locals.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -122,22 +124,25 @@ describe("picking a worker session", () => {
         });
     });
 
-    it.each(PICKERS)("%s: a worker whose frames have no source — VARIABLES show its locals", async (command) => {
-        markWorkers(true);
-        await startWithWorkers();
+    it.each(PICKERS)(
+        "%s: a worker whose frames have no source — its session, no frame, not the app's locals",
+        async (command) => {
+            markWorkers(true);
+            await startWithWorkers();
 
-        await pick(command, "task B");
+            await pick(command, "task B");
 
-        await vi.waitFor(() => {
-            expect(t.h.container.get(DebugServiceDIToken).getViewModel().focusedSession?.name).toBe("task B");
-        });
-        // The console and the focused session are the worker's; VARIABLES must be too, not the app's frame left focused.
-        await vi.waitFor(() => {
-            expect(variables()).toContain("w_sum: ");
-        });
-    });
+            await vi.waitFor(() => {
+                expect(t.h.container.get(DebugServiceDIToken).getViewModel().focusedSession?.name).toBe("task B");
+            });
+            expect(t.h.container.get(DebugServiceDIToken).getViewModel().focusedStackFrame).toBeUndefined();
+            await vi.waitFor(() => {
+                expect(variables()).not.toMatch(/ sum: /u);
+            });
+        },
+    );
 
-    it("the toolbar's Focus Session (workbench.action.debug.focusProcess): a worker whose frames have no source — VARIABLES show its locals", async () => {
+    it("the toolbar's Focus Session (workbench.action.debug.focusProcess): a worker whose frames have no source — its session, no frame", async () => {
         // With the setting the toolbar's select lists the workers; picking one runs Focus Session with it.
         await t.h.container.get(IConfigurationServiceDIToken).updateValue("debug.showSubSessionsInToolBar", true);
         markWorkers(true);
@@ -147,8 +152,9 @@ describe("picking a worker session", () => {
         await t.h.commands.execute("workbench.action.debug.focusProcess", worker);
 
         expect(t.h.container.get(DebugServiceDIToken).getViewModel().focusedSession?.name).toBe("task B");
+        expect(t.h.container.get(DebugServiceDIToken).getViewModel().focusedStackFrame).toBeUndefined();
         await vi.waitFor(() => {
-            expect(variables()).toContain("w_sum: ");
+            expect(variables()).not.toMatch(/ sum: /u);
         });
     });
 });
