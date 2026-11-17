@@ -530,7 +530,8 @@ describe("SyntheticDebugAdapter", () => {
             await body("setBreakpoints", {
                 source: main,
                 breakpoints: [
-                    { line: 29, logMessage: "sum={sum} i={i} {nope}" },
+                    { line: 29, logMessage: "sum={sum} i={i} {nope} {1 + 1}" },
+                    { line: 31, hitCondition: "never" },
                     { line: 30, hitCondition: ">= 3" },
                 ],
             });
@@ -540,9 +541,9 @@ describe("SyntheticDebugAdapter", () => {
             expect(await body("evaluate", { expression: "i" })).toMatchObject({ result: "2" });
             const logged = eventsOf("output").filter((o) => o.line === 29);
             expect(logged.map((o) => o.output)).toEqual([
-                "sum=0 i=0 <error: nope>\n",
-                `sum=${String(numAt(0))} i=1 <error: nope>\n`,
-                `sum=${String(numAt(0) + numAt(1))} i=2 <error: nope>\n`,
+                "sum=0 i=0 <error: nope> 2\n",
+                `sum=${String(numAt(0))} i=1 <error: nope> 2\n`,
+                `sum=${String(numAt(0) + numAt(1))} i=2 <error: nope> 2\n`,
             ]);
             expect(logged[0]).toMatchObject({ category: "console", source: { name: "main.cpp" } });
             await continueToStop(3);

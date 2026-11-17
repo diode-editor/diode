@@ -392,6 +392,21 @@ describe("BreakpointInput", () => {
             ]);
         });
 
+        it("a new breakpoint with modes offered starts without a mode, and is added without one unless picked", async () => {
+            model.registerBreakpointModes("lldb", [
+                { mode: "hw", label: "Hardware", appliesTo: ["source"] },
+                { mode: "sw", label: "Software", appliesTo: ["source"] },
+            ]);
+            const shown = input.show(FILE, 8, undefined);
+            expect(widget().rows[0]).toBe("Mode");
+            testApp.sendKey("Enter");
+            await shown;
+
+            expect(service.addBreakpoints).toHaveBeenCalledWith(FILE, [
+                expect.objectContaining({ lineNumber: 8, mode: undefined, modeLabel: undefined }),
+            ]);
+        });
+
         it("one mode only is no choice, and nothing is written of it", async () => {
             model.registerBreakpointModes("lldb", [{ mode: "only", label: "Only", appliesTo: ["source"] }]);
             const breakpoint = add({ lineNumber: 3, mode: "only", modeLabel: "Only" });

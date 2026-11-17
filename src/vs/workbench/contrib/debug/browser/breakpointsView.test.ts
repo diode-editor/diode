@@ -291,8 +291,12 @@ describe("BreakpointsView", () => {
     it("no warning while a running session has not verified the breakpoint, nor with the breakpoints deactivated", async () => {
         const [conditional] = model.addBreakpoints(Uri.file("/w/a.c"), [{ lineNumber: 4, condition: "x" }]);
         model.setBreakpointSessionData("s", {}, new Map([[conditional.getId(), { verified: false }]]));
-        state = State.Stopped;
+        state = State.Running;
         await mount();
+        expect(row("4")).not.toContain("supported");
+        state = State.Stopped;
+        view.refresh();
+        await settle();
         expect(row("4")).not.toContain("supported");
 
         state = State.Inactive;

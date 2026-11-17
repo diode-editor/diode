@@ -14,6 +14,7 @@
 // picked (upstream's widget clears it unless the select is touched); the question is asked on Linux too (upstream
 // skips it there for an Electron issue); no completions in the input.
 
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
@@ -66,8 +67,8 @@ interface IWidgetState {
     mode: DebugProtocol.BreakpointMode | undefined;
 }
 
-/** How the kinds list was left: Enter on a kind or on Mode, or Escape. */
-type KindChoice = "accept" | "mode" | "cancel";
+/** How the kinds list was left: Enter on a kind (`true`) or on Mode, or Escape (`false`). */
+type KindChoice = boolean | "mode";
 
 interface IKindItem extends QuickPickSessionItem {
     /** A kind, or `undefined` for the Mode row. */
@@ -133,7 +134,8 @@ export class BreakpointInput {
             condition = undefined;
             hitCondition = undefined;
             logMessage = undefined;
-            triggeredBy = state.triggeredBy?.getId();
+            // Accepted only with a trigger picked.
+            triggeredBy = assertReturnsDefined(state.triggeredBy).getId();
         }
 
         if (breakpoint) {
@@ -167,11 +169,11 @@ export class BreakpointInput {
         for (;;) {
             const choice = await this.pickKind(state, modes.length > 1, onMode);
             onMode = choice === "mode";
-            if (choice === "cancel") return false;
             if (choice === "mode") {
                 state.mode = (await pickBreakpointMode(this.quickInput, modes, state.mode)) ?? state.mode;
                 continue;
             }
+            if (!choice) return false;
             if (state.context !== BreakpointWidgetContext.TRIGGER_POINT) return true;
             const trigger = await this.pickTrigger(breakpoint);
             if (trigger !== undefined) {
@@ -217,7 +219,6 @@ export class BreakpointInput {
             };
             const showKind = (context: BreakpointWidgetContext | undefined): void => {
                 shown = context;
-                if (context !== undefined) state.context = context;
                 const list = items();
                 session.update({
                     value:
@@ -237,20 +238,23 @@ export class BreakpointInput {
             };
             const session = this.quickInput.createQuickPick<IKindItem>({
                 onDidChangeValue: () => undefined,
+                // The list always has its rows, and the session tells only a move to another one.
                 onDidChangeActive: (active) => {
-                    // The list always has its rows, so one of them is active.
-                    const item = active[0];
-                    if (item.context === shown) return;
                     remember(session.getState().value);
-                    showKind(item.context);
+                    showKind(active[0].context);
                 },
                 onDidChangeSelection: () => undefined,
                 onDidAccept: () => {
                     remember(session.getState().value);
-                    settle(shown === undefined ? "mode" : "accept");
+                    if (shown === undefined) {
+                        settle("mode");
+                    } else {
+                        state.context = shown;
+                        settle(true);
+                    }
                 },
                 onDidHide: () => {
-                    settle("cancel");
+                    settle(false);
                 },
             });
             // The value is not a filter: every kind stays in the list whatever is typed.
@@ -308,6 +312,7 @@ export async function pickBreakpointMode(
         items,
         activeIndex: current === undefined ? undefined : modes.indexOf(current),
     });
+    // Stryker disable next-line ConditionalExpression: without the check `indexOf` gives -1, and `modes[-1]` is undefined too
     return picked === undefined ? undefined : modes[items.indexOf(picked)];
 }
 

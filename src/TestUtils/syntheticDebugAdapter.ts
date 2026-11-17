@@ -577,7 +577,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
         const byName = new Map(this.locals(this.program.frames(1)[0]).map((v) => [v.name, v.value]));
         const words = expression.match(/[A-Za-z_]\w*/gu) ?? [];
         if (words.some((word) => !/^-?\d+$/u.test(byName.get(word) ?? ""))) return undefined;
-        return evaluateArithmetic(expression.trim().replace(/[A-Za-z_]\w*/gu, (word) => byName.get(word) ?? word));
+        return evaluateArithmetic(expression.trim().replace(/[A-Za-z_]\w*/gu, (word) => String(byName.get(word))));
     }
 
     private stop(reason: string, text?: string, hitBreakpointIds?: number[]): void {
@@ -972,9 +972,9 @@ function evaluateArithmetic(text: string): number | undefined {
     return tokens.length > 0 && pos === tokens.length ? result : undefined;
 }
 
-/** A hit count condition: the pass from which on the breakpoint stops, `>= 5` and `5` alike. */
+/** A hit count condition: the pass from which on the breakpoint stops, `>= 5` and `5` alike; one without a number never holds. */
 function hitConditionHolds(condition: string, hits: number): boolean {
-    return hits >= Number(/\d+/u.exec(condition)?.[0] ?? 0);
+    return hits >= parseInt(condition.replace(/\D/gu, ""), 10);
 }
 
 /** A factory of fresh synthetic adapters: each session (and each restart) gets its own program. */
