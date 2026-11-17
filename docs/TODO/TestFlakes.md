@@ -33,6 +33,11 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `debugContextMenus.app.test.ts`, «a frame: Restart Frame and Copy Call Stack»: Copy Call Stack скопировал одну
+  строку (ждали больше двух) в initial test run Stryker'а mutation-гейта (run 44155048648, PR #1195, дифф — inline
+  values редактора); в unit-job и локально зелёный. Видимо, остальные кадры потока ещё не догружены к моменту
+  копирования. Лечение — до меню дождаться в виде больше одного кадра.
+
 - [ ] `testResultsOutput.test.ts`, «a live test's output takes only its own appends»: терминал вывода ещё пуст
   (только переводы строк, без `mine`) в initial test run Stryker'а mutation-гейта (run 43948216044, PR #1184, дифф —
   тулбар отладки и цвета статус-бара); в unit-job и локально зелёный. Лечение — ждать текст, а не один кадр.

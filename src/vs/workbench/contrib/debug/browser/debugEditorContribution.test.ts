@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vite
 
 import { Emitter } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import type { ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
+import type { ILineMessageClick, ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
 import {
     type IDebugService,
     type IDebugSession,
@@ -37,21 +37,21 @@ const INFO: IExceptionInfo = {
 
 interface IFakeEditor extends IDebugEditor {
     messages: readonly ILineMessageDecoration[];
-    click(key: string): void;
+    click(owner: string): void;
 }
 
 function fakeEditor(uri = FILE): IFakeEditor {
-    const clicks = new Emitter<string>();
+    const clicks = new Emitter<ILineMessageClick>();
     const editor: IFakeEditor = {
         uri,
         messages: [],
-        setLineMessageDecorations: (decorations, owner) => {
+        setLineMessageDecorations: (owner, decorations) => {
             expect(owner).toBe(EXCEPTION_MESSAGE_OWNER);
             editor.messages = decorations;
         },
         onDidClickLineMessage: (listener) => clicks.event(listener),
-        click: (key) => {
-            clicks.fire(key);
+        click: (owner) => {
+            clicks.fire({ owner, key: owner });
         },
     };
     return editor;

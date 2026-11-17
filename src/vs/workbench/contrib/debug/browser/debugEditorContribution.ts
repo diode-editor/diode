@@ -13,7 +13,7 @@
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
-import type { ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
+import type { ILineMessageClick, ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
 import {
     type ContextKeyService,
     ContextKeyServiceDIToken,
@@ -39,8 +39,8 @@ export const EXCEPTION_MESSAGE_OWNER = "debug.exception";
 /** `TextEditorPane` matches structurally; the DI module does the binding. */
 export interface IDebugEditor {
     readonly uri: Uri;
-    setLineMessageDecorations(decorations: readonly ILineMessageDecoration[], owner: string): void;
-    onDidClickLineMessage(listener: (key: string) => void): IDisposable;
+    setLineMessageDecorations(owner: string, decorations: readonly ILineMessageDecoration[]): void;
+    onDidClickLineMessage(listener: (click: ILineMessageClick) => void): IDisposable;
 }
 
 export interface IDebugEditorSource {
@@ -153,8 +153,8 @@ export class DebugEditorContribution extends Disposable {
             if (this.subscriptions.has(editor)) continue;
             this.subscriptions.set(
                 editor,
-                editor.onDidClickLineMessage((key) => {
-                    if (key === EXCEPTION_MESSAGE_OWNER) this.views.openView(REPL_VIEW_ID, false);
+                editor.onDidClickLineMessage((click) => {
+                    if (click.owner === EXCEPTION_MESSAGE_OWNER) this.views.openView(REPL_VIEW_ID, false);
                 }),
             );
         }
@@ -222,7 +222,7 @@ export class DebugEditorContribution extends Disposable {
                       },
                   ]
                 : [];
-        editor.setLineMessageDecorations(decorations, EXCEPTION_MESSAGE_OWNER);
+        editor.setLineMessageDecorations(EXCEPTION_MESSAGE_OWNER, decorations);
         return decorations.length > 0;
     }
 }

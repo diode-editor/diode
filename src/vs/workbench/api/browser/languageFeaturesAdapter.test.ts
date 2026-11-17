@@ -143,6 +143,9 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideLinkedEditingRanges: vi.fn((handle: number) =>
             Promise.resolve(handle === 0 ? null : { ranges: [createRange(0, 0, 0, handle)], wordPattern: /x/ }),
         ),
+        provideInlineValues: vi.fn((handle: number) =>
+            Promise.resolve([{ type: "text" as const, range: createRange(handle, 0, handle, 1), text: "x = 1" }]),
+        ),
         provideDocumentLinks: vi.fn(() =>
             Promise.resolve({
                 cacheId: 7,
@@ -547,6 +550,32 @@ describe("LanguageFeaturesAdapter", () => {
         bridge.providers = [];
         bridge.fire();
         expect(features.linkedEditingRangeProvider.has(TS)).toBe(false);
+        adapter.dispose();
+    });
+
+    it("inlineValues: the provider goes to the registry and asks the bridge by its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "inlineValues", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.inlineValuesProvider.ordered(TS);
+        const request = {
+            uri: "file:///w/a.ts",
+            languageId: "typescript",
+            versionId: 1,
+            viewPort: createRange(0, 0, 9, 0),
+            context: { frameId: 3, stoppedLocation: createRange(4, 2, 4, 2) },
+        };
+        const token = new CancellationTokenSource().token;
+        expect(await provider.provideInlineValues(request, token)).toEqual([
+            { type: "text", range: createRange(5, 0, 5, 1), text: "x = 1" },
+        ]);
+        expect(bridge.provideInlineValues).toHaveBeenCalledWith(5, request, token);
+
+        bridge.providers = [];
+        bridge.fire();
+        expect(features.inlineValuesProvider.has(TS)).toBe(false);
         adapter.dispose();
     });
 

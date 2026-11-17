@@ -13,6 +13,7 @@ import type { ICoreCompletionItem } from "../../../editor/common/languages/iComp
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreDocumentSymbol } from "../../../editor/common/languages/iDocumentSymbolSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { InlineValue } from "../../../editor/common/languages/iInlineValuesSource.ts";
 import type {
     ICoreParameterInfo,
     ICoreSignature,
@@ -28,6 +29,9 @@ import { snippetText } from "./extHostSnippetInsert.ts";
 import {
     Diagnostic,
     EndOfLine,
+    InlineValueEvaluatableExpression,
+    InlineValueText,
+    InlineValueVariableLookup,
     ParameterInformation,
     Position,
     Range,
@@ -779,6 +783,45 @@ export function serializeLinkedEditingRanges(raw: unknown): IWireLinkedEditingRa
             ? { wordPattern: wordPattern.source, wordPatternFlags: wordPattern.flags }
             : {}),
     };
+}
+
+/**
+ * Upstream `InlineValuesAdapter` and `InlineValue.from`: no array is `null`; an entry that is none of the three
+ * classes, or has no range, is dropped (upstream fails the whole answer on it). An empty name or expression is
+ * absent: upstream's core takes the range's text for it too.
+ */
+export function serializeInlineValues(raw: unknown): InlineValue[] | null {
+    if (!Array.isArray(raw)) return null;
+    const result: InlineValue[] = [];
+    for (const item of raw as unknown[]) {
+        const value = inlineValueFrom(item);
+        if (value !== null) result.push(value);
+    }
+    return result;
+}
+
+function inlineValueFrom(item: unknown): InlineValue | null {
+    const range = rangeFrom((item as { range?: unknown } | null | undefined)?.range);
+    if (range === null) return null;
+    if (item instanceof InlineValueText) return { type: "text", range, text: String(item.text as unknown) };
+    if (item instanceof InlineValueVariableLookup) {
+        return {
+            type: "variable",
+            range,
+            ...(typeof item.variableName === "string" && item.variableName !== ""
+                ? { variableName: item.variableName }
+                : {}),
+            caseSensitiveLookup: item.caseSensitiveLookup,
+        };
+    }
+    if (item instanceof InlineValueEvaluatableExpression) {
+        return {
+            type: "expression",
+            range,
+            ...(typeof item.expression === "string" && item.expression !== "" ? { expression: item.expression } : {}),
+        };
+    }
+    return null;
 }
 
 /** A channel outside [0, 1] is clamped; not a number (NaN included) — `null`, the color is dropped. */

@@ -1,0 +1,14 @@
+{
+    // The launch configuration of the debug-inline-values e2e scenario and of manual testing, with the Debug Demo
+    // extension of e2e/fixtures/user-data-with-debug-demo: F5 stops on entry in `main` of hello.c, the extension's
+    // inline values provider shows `argc` and `sum` after the lines up to the stop, F10 steps a line.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug hello",
+            "type": "demo",
+            "request": "launch",
+            "program": "./hello"
+        }
+    ]
+}

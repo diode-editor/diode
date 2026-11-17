@@ -151,6 +151,7 @@ import { DebugServiceDIToken } from "./contrib/debug/browser/debugService.ts";
 import { DebugStatusContributionDIToken } from "./contrib/debug/browser/debugStatus.ts";
 import { DebugToolbarDIToken, DockedDebugToolbarItemsDIToken } from "./contrib/debug/browser/debugToolbar.ts";
 import { DebugViewletComponentDIToken } from "./contrib/debug/browser/debugViewlet.ts";
+import { InlineValuesContributionDIToken } from "./contrib/debug/browser/inlineValuesContribution.ts";
 import { ReplDIToken } from "./contrib/debug/browser/repl.ts";
 import { StatusBarColorProviderDIToken } from "./contrib/debug/browser/statusbarColorProvider.ts";
 import { COMPARE_ACTIONS } from "./contrib/diff/browser/compareActions.ts";
@@ -383,6 +384,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: BreakpointEditorContributionDIToken, phase: "afterRestored" },
     // The exception's badge after the line of the frame that threw it.
     { token: DebugEditorContributionDIToken, phase: "afterRestored" },
+    // The variables' values after the lines of the focused frame's file.
+    { token: InlineValuesContributionDIToken, phase: "afterRestored" },
     // The `debug:` documents of the frames whose source an adapter gives by reference.
     { token: DebugContentProviderDIToken, phase: "afterRestored" },
     // The toolbar in the active editor group and the status bar's colors and `status.debug` while debugging.

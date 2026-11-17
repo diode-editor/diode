@@ -22,12 +22,16 @@
  *   Continue goes to the next breakpoint below the line where a condition holds, without one the program exits;
  * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint;
  * - `sum` among the locals takes a new value (`setVariable`) and evaluates to it; `argv` has the program and its
- *   arguments as children;
+ *   arguments as children; a step over (`next`) goes to the next line, and `sum` is `argc` times the `sum += argc`
+ *   lines run between `main` and the stop;
  * - the debug hover asks the extension's evaluatable expression provider for C: the word under the cursor (the
  *   text around it would be `**argv` in `char **argv`), told in the `dbg:` item;
+ * - in the debug-inline-values folder its inline values provider for C looks up `sum` and `argc` where a line up to the stop
+ *   names them;
  * - the menu of a call stack frame has "Show Frame in Status": the argument it gets goes to the `dbg:` item; the
  *   debug toolbar has a bell button that counts its clicks there.
  */
+const fs = require("node:fs");
 const path = require("node:path");
 
 exports.activate = function activate(context) {
@@ -124,6 +128,21 @@ exports.activate = function activate(context) {
             pings++;
             status.text = `dbg:ping ${pings}`;
         }),
+        // The folder is checked here, not by a `pattern`: Diode's selector globs miss a Windows path's `\`.
+        vscode.languages.registerInlineValuesProvider("c", {
+            provideInlineValues(document, viewPort, context) {
+                if (path.basename(path.dirname(document.uri.fsPath)) !== "debug-inline-values") return undefined;
+                const values = [];
+                const last = Math.min(viewPort.end.line, context.stoppedLocation.end.line);
+                for (let line = viewPort.start.line; line <= last; line++) {
+                    for (const match of document.lineAt(line).text.matchAll(/\b(sum|argc)\b/g)) {
+                        const range = new vscode.Range(line, match.index, line, match.index + match[0].length);
+                        values.push(new vscode.InlineValueVariableLookup(range));
+                    }
+                }
+                return values;
+            },
+        }),
         vscode.commands.registerCommand("debugDemo.breakOnPrintf", () => {
             const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
             if (!folder) return;
@@ -144,13 +163,17 @@ class DemoAdapter {
         this.emitter = new vscode.EventEmitter();
         this.onDidSendMessage = this.emitter.event;
         this.seq = 1;
-        this.sum = "0";
+        /** Set by `setVariable`; otherwise `sum` follows the line. */
+        this.sum = undefined;
+        /** The source's lines; the entry is the line of `int main`. */
+        this.lines = source && fs.existsSync(source) ? fs.readFileSync(source, "utf8").split("\n") : [];
+        this.entry = Math.max(1, this.lines.findIndex((text) => text.startsWith("int main")) + 1);
+        /** The stopped line, 1-based. */
+        this.line = this.entry;
         /** The breakpoints set in `hello.c`, as the client sent them. */
         this.sourceBreakpoints = [];
         /** The lines of the breakpoints in `hello.c` the program stops at. */
         this.breakpoints = [];
-        /** The line of `hello.c` the program is stopped at. */
-        this.line = 3;
     }
 
     handleMessage(request) {
@@ -172,15 +195,15 @@ class DemoAdapter {
             if (program === "./tests") this.testRunnerOutput();
             this.event("demoReady");
             const reason = this.breakpoints.length > 0 ? "breakpoint" : "entry";
-            this.line = this.breakpoints.length > 0 ? this.breakpoints[0] : 3;
+            if (this.breakpoints.length > 0) this.line = this.breakpoints[0];
             this.event("stopped", { reason, threadId: 1, allThreadsStopped: true });
         }
         if (request.command === "next") {
-            if (this.configuration.program === "./crash" && this.line === 4) {
+            if (this.configuration.program === "./crash" && (this.lines[this.line - 1] ?? "").includes("printf")) {
                 this.event("output", { category: "stderr", output: "Segmentation fault in printf\n" });
                 this.event("stopped", { reason: "exception", text: "SIGSEGV", threadId: 1, allThreadsStopped: true });
             } else {
-                this.line = Math.min(this.line + 1, 6);
+                this.line++;
                 this.event("stopped", { reason: "step", threadId: 1, allThreadsStopped: true });
             }
         }
@@ -306,7 +329,7 @@ class DemoAdapter {
                         { name: "argc", value: String(argv.length), variablesReference: 0 },
                         { name: "argv", value: `size=${argv.length}`, variablesReference: 2 },
                         { name: "program", value: JSON.stringify(this.configuration.program), variablesReference: 0 },
-                        { name: "sum", value: this.sum, evaluateName: "sum", variablesReference: 0 },
+                        { name: "sum", value: this.sumValue(), evaluateName: "sum", variablesReference: 0 },
                     ],
                 };
             }
@@ -314,10 +337,20 @@ class DemoAdapter {
                 this.sum = request.arguments.value;
                 return { value: this.sum };
             case "evaluate":
-                return { result: request.arguments.expression === "sum" ? this.sum : "?", variablesReference: 0 };
+                return {
+                    result: request.arguments.expression === "sum" ? this.sumValue() : "?",
+                    variablesReference: 0,
+                };
             default:
                 return undefined;
         }
+    }
+
+    sumValue() {
+        if (this.sum !== undefined) return this.sum;
+        const argc = this.configuration.args.length + 1;
+        const run = this.lines.slice(this.entry, this.line - 1).filter((text) => text.includes("sum += argc"));
+        return String(argc * run.length);
     }
 
     event(event, body) {

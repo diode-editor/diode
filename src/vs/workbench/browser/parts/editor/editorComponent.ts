@@ -6,7 +6,7 @@ import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerEl
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Emitter } from "../../../../base/common/event.ts";
-import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { combinedDisposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
@@ -33,7 +33,10 @@ import type {
 } from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
-import type { ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
+import type {
+    ILineMessageClick,
+    ILineMessageDecoration,
+} from "../../../../editor/common/model/iLineMessageDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { FeatureDebounce } from "../../../../editor/common/services/languageFeatureDebounce.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
@@ -396,7 +399,7 @@ export class EditorComponent extends Component {
         );
         this.register(
             reference.attachViewport({
-                getVisibleLineRange: () => this.visibleLineRange(),
+                getVisibleLineRange: () => this.getVisibleLineRange(),
                 onDidChangeVisibleRange: this.editorViewState.onDidChangeView,
             }),
         );
@@ -482,21 +485,21 @@ export class EditorComponent extends Component {
 
     private visibleRangeViewport(): ICodeLensViewport {
         return {
-            getVisibleLineRange: () => this.visibleLineRange(),
-            onDidChangeVisibleRange: (listener) => {
-                const view = this.editorViewState.onDidChangeView(listener);
-                const height = this.editor.onDidChangeViewportHeight(listener);
-                return {
-                    dispose: () => {
-                        view.dispose();
-                        height.dispose();
-                    },
-                };
-            },
+            getVisibleLineRange: () => this.getVisibleLineRange(),
+            onDidChangeVisibleRange: (listener) => this.onDidChangeVisibleRange(listener),
         };
     }
 
-    private visibleLineRange(): { startLine: number; endLine: number } {
+    /** Fires on a scroll and on a change of the editor's height. */
+    public onDidChangeVisibleRange(listener: () => void): IDisposable {
+        return combinedDisposable(
+            this.editorViewState.onDidChangeView(listener),
+            this.editor.onDidChangeViewportHeight(listener),
+        );
+    }
+
+    /** The document lines the editor shows, inclusive. */
+    public getVisibleLineRange(): { startLine: number; endLine: number } {
         const viewState = this.editorViewState;
         // docLineForViewLine itself clamps lines past the end of the view to the last one.
         const top = viewState.scrollTop;
@@ -791,16 +794,16 @@ export class EditorComponent extends Component {
         return this.editor.onDidClickGlyphMargin(listener);
     }
 
-    /** The owner's messages after the lines' ends (test failures, an exception): they ride their lines through edits. */
-    public setLineMessageDecorations(decorations: readonly ILineMessageDecoration[], owner?: string): void {
-        this.editor.setLineMessageDecorations(decorations, owner);
+    /** An owner's messages after the lines' ends (test failures, inline values): they ride their lines through edits. */
+    public setLineMessageDecorations(owner: string, decorations: readonly ILineMessageDecoration[]): void {
+        this.editor.setLineMessageDecorations(owner, decorations);
     }
 
-    public getLineMessageDecorations(): ReadonlyMap<number, ILineMessageDecoration> {
-        return this.editor.getLineMessageDecorations();
+    public getLineMessageDecorations(owner: string): ReadonlyMap<number, ILineMessageDecoration> {
+        return this.editor.getLineMessageDecorations(owner);
     }
 
-    public onDidClickLineMessage(listener: (key: string) => void): IDisposable {
+    public onDidClickLineMessage(listener: (click: ILineMessageClick) => void): IDisposable {
         return this.editor.onDidClickLineMessage(listener);
     }
 
