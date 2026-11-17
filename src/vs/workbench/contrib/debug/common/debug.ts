@@ -1061,7 +1061,7 @@ export interface IDebugService {
     readonly state: State;
     readonly initializingOptions?: IDebugSessionOptions | undefined;
     readonly onDidChangeState: Event<State>;
-    /** Before the session is launched: it is in the model already. Does not go to extensions. */
+    /** Before the session is launched: it is in the model already. Extensions hear its custom events from here on. */
     readonly onWillNewSession: Event<IDebugSession>;
     /** The session answered `launch`/`attach`. */
     readonly onDidNewSession: Event<IDebugSession>;
@@ -1091,13 +1091,13 @@ export interface IDebugService {
     /** Upstream takes the text model: here its language. */
     canSetBreakpointsIn(languageId: string): boolean;
 
-    /** Adds new breakpoints to the model for the file specified with the uri. Notifies debug adapter of breakpoint changes. */
-    addBreakpoints(uri: uri, rawBreakpoints: IBreakpointData[]): Promise<IBreakpoint[]>;
-
     /** Updates the breakpoints; with `sendOnResourceSaved` they go to the adapters when the file is saved. */
     updateBreakpoints(uri: uri, data: Map<string, IBreakpointUpdateData>, sendOnResourceSaved: boolean): Promise<void>;
     sendAllBreakpoints(session?: IDebugSession): Promise<void>;
     sendBreakpoints(modelUri: uri, sourceModified?: boolean, session?: IDebugSession): Promise<void>;
+
+    /** Adds new breakpoints to the model for the file specified with the uri. Notifies debug adapter of breakpoint changes. */
+    addBreakpoints(uri: uri, rawBreakpoints: IBreakpointData[]): Promise<IBreakpoint[]>;
 
     /**
      * Enables or disables all breakpoints. If breakpoint is passed only enables or disables the passed breakpoint.

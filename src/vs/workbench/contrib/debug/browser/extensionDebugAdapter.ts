@@ -1,23 +1,35 @@
-import { DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { DisposableMap, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
-import type { IWireDebugStartDebugging } from "../../../api/common/debugWireTypes.ts";
+import {
+    type IWireDebugRegisterBreakpoints,
+    type IWireDebugSession,
+    type IWireDebugStartDebugging,
+    type IWireDebugUnregisterBreakpoints,
+    type WireDebugBreakpoint,
+} from "../../../api/common/debugWireTypes.ts";
 import type {
     IExtensionDebugAdapterConnection,
     IExtensionDebugAdapterHost,
     IExtensionDebugConfigurationProvider,
+    IExtensionDebugEvents,
     IExtensionDebugSink,
 } from "../../../api/common/iExtensionDebugSink.ts";
 import { AbstractDebugAdapter } from "../common/abstractDebugAdapter.ts";
 import type {
+    IBreakpoint,
     IBreakpointContribution,
+    IBreakpointData,
     IConfig,
+    IDataBreakpoint,
     IDebugConfigurationProvider,
     IDebuggerContribution,
     IDebugService,
     IDebugSession,
     IDebugSessionOptions,
+    IFunctionBreakpoint,
+    IInstructionBreakpoint,
 } from "../common/debug.ts";
 import { isSessionAttach } from "../common/debugUtils.ts";
 
@@ -32,6 +44,148 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
 
     private get debugService(): IDebugService {
         return this.getDebugService();
+    }
+
+    /** Upstream `MainThreadDebugService`'s constructor: the session events, the focus and the breakpoints. */
+    public subscribe(events: IExtensionDebugEvents): IDisposable {
+        const store = new DisposableStore();
+        const debugService = this.debugService;
+        const sessionListeners = store.add(new DisposableMap<IDebugSession, DisposableStore>());
+        // A custom event can come while the session initializes: listened to from before its launch. Upstream adds
+        // the name's listener at each `onDidNewSession`, and a restarted session told its new name twice: here both
+        // are added once, before the launch.
+        store.add(
+            debugService.onWillNewSession((session) => {
+                const listeners = new DisposableStore();
+                sessionListeners.set(session, listeners);
+                listeners.add(
+                    session.onDidCustomEvent((event) => {
+                        events.sessionCustomEvent(sessionDto(session), event.event, event.body);
+                    }),
+                );
+                listeners.add(
+                    session.onDidChangeName((name) => {
+                        events.sessionNameChanged(sessionDto(session), name);
+                    }),
+                );
+            }),
+        );
+        store.add(
+            debugService.onDidNewSession((session) => {
+                events.sessionStarted(sessionDto(session));
+            }),
+        );
+        store.add(
+            debugService.onDidEndSession(({ session, restart }) => {
+                events.sessionTerminated(sessionDto(session));
+                // A restarted session keeps its listeners: its events go on after the restart.
+                if (!restart) sessionListeners.deleteAndDispose(session);
+            }),
+        );
+        const viewModel = debugService.getViewModel();
+        store.add(
+            viewModel.onDidFocusSession((session) => {
+                events.activeSessionChanged(session && sessionDto(session));
+            }),
+        );
+        const focusChanged = (): void => {
+            const stackFrame = viewModel.focusedStackFrame;
+            const thread = stackFrame?.thread ?? viewModel.focusedThread;
+            events.stackFocusChanged(
+                thread && {
+                    session: sessionDto(thread.session),
+                    threadId: thread.threadId,
+                    ...(stackFrame ? { frameId: stackFrame.frameId } : {}),
+                },
+            );
+        };
+        store.add(viewModel.onDidFocusStackFrame(focusChanged));
+        store.add(viewModel.onDidFocusThread(focusChanged));
+
+        const model = debugService.getModel();
+        store.add(
+            model.onDidChangeBreakpoints((e) => {
+                // Session-only changes are the adapter's answers: they are for the views alone.
+                if (!e || e.sessionOnly) return;
+                events.breakpointsChanged({
+                    added: breakpointDtos(e.added ?? []),
+                    removed: (e.removed ?? []).map((bp) => bp.getId()),
+                    changed: breakpointDtos(e.changed ?? []),
+                });
+            }),
+        );
+        const existing = breakpointDtos([...model.getBreakpoints(), ...model.getFunctionBreakpoints()]);
+        if (existing.length > 0) events.breakpointsChanged({ added: existing, removed: [], changed: [] });
+        return store;
+    }
+
+    /** Upstream `$customDebugAdapterRequest`. */
+    public async customRequest(sessionId: string, command: string, args: unknown): Promise<unknown> {
+        const session = this.debugService.getModel().getSession(sessionId, true);
+        if (!session) throw new Error("debug session not found");
+        // A failed response rejects in the session already (with the adapter's message); none is a request the
+        // adapter never answered (upstream's `response ? response.message : …` has no other case here).
+        const response = await session.customRequest(command, args);
+        if (!response) throw new Error("custom request failed");
+        return response.body;
+    }
+
+    /** Upstream `$getDebugProtocolBreakpoint`. */
+    public getDebugProtocolBreakpoint(sessionId: string, breakpointId: string): Promise<object | undefined> {
+        const session = this.debugService.getModel().getSession(sessionId, true);
+        if (!session) return Promise.reject(new Error("debug session not found"));
+        return Promise.resolve(session.getDebugProtocolBreakpoint(breakpointId));
+    }
+
+    /** Upstream `$setDebugSessionName`. */
+    public setSessionName(sessionId: string, name: string): void {
+        this.debugService.getModel().getSession(sessionId)?.setName(name);
+    }
+
+    /** Upstream `$appendDebugConsole`: a warning, the color upstream gives what a debug extension says. */
+    public appendDebugConsole(value: string): void {
+        this.debugService.getViewModel().focusedSession?.appendToRepl({ output: value, sev: "warning" });
+    }
+
+    /** Upstream `$registerBreakpoints`: lines and characters become the model's 1-based ones. */
+    public registerBreakpoints({ breakpoints }: IWireDebugRegisterBreakpoints): void {
+        for (const dto of breakpoints) {
+            if (dto.type === "sourceMulti") {
+                const raw = dto.lines.map(
+                    (l): IBreakpointData => ({
+                        id: l.id,
+                        enabled: l.enabled,
+                        lineNumber: l.line + 1,
+                        // A column of 0 is no column (upstream #46784).
+                        column: l.character > 0 ? l.character + 1 : undefined,
+                        condition: l.condition,
+                        hitCondition: l.hitCondition,
+                        logMessage: l.logMessage,
+                        mode: l.mode,
+                    }),
+                );
+                void this.debugService.addBreakpoints(Uri.parse(dto.uri), raw);
+            } else {
+                void this.debugService.addFunctionBreakpoint(
+                    {
+                        name: dto.functionName,
+                        mode: dto.mode,
+                        condition: dto.condition,
+                        hitCondition: dto.hitCondition,
+                        enabled: dto.enabled,
+                        logMessage: dto.logMessage,
+                    },
+                    dto.id,
+                );
+            }
+        }
+    }
+
+    /** Upstream `$unregisterBreakpoints`. */
+    public unregisterBreakpoints({ breakpointIds, functionBreakpointIds }: IWireDebugUnregisterBreakpoints): void {
+        // All at once: one store and one `setBreakpoints` per file (upstream removes them one by one).
+        void this.debugService.removeBreakpoints([...breakpointIds]);
+        for (const id of functionBreakpointIds) void this.debugService.removeFunctionBreakpoints(id);
     }
 
     public registerConfigurationProvider(
@@ -107,35 +261,65 @@ export class ExtensionDebugAdapter implements IExtensionDebugSink {
     }
 }
 
+/** Upstream `getSessionDto`: what the subprocess needs of a session (always whole: there is no `$sessionCached`). */
+function sessionDto(session: IDebugSession): IWireDebugSession {
+    const folder = session.root?.uri.toString();
+    const parentId = session.parentSession?.getId();
+    return {
+        id: session.getId(),
+        type: session.configuration.type,
+        name: session.name,
+        ...(folder === undefined ? {} : { folder }),
+        configuration: session.configuration,
+        ...(parentId === undefined ? {} : { parentId }),
+    };
+}
+
+type ModelBreakpoint = IBreakpoint | IFunctionBreakpoint | IDataBreakpoint | IInstructionBreakpoint;
+
+/**
+ * Upstream `convertToDto`: source and function breakpoints, lines and characters 0-based. Data breakpoints are left
+ * out (milestone 2): `vscode.DataBreakpoint` is not declared yet; instruction breakpoints upstream leaves out too.
+ */
+function breakpointDtos(bps: readonly ModelBreakpoint[]): WireDebugBreakpoint[] {
+    const dtos: WireDebugBreakpoint[] = [];
+    for (const bp of bps) {
+        const { enabled, condition, hitCondition, logMessage, mode } = bp;
+        const common = { id: bp.getId(), enabled, condition, hitCondition, logMessage, mode };
+        if ("name" in bp) {
+            dtos.push({ type: "function", ...common, functionName: bp.name });
+        } else if ("uri" in bp) {
+            dtos.push({
+                type: "source",
+                ...common,
+                uri: bp.uri.toString(),
+                // The model's lines are 1-based from 1 (upstream guards a 0 that the model never has).
+                line: bp.lineNumber - 1,
+                // No column (a breakpoint of a whole line) is character 0, as upstream.
+                character: (bp.column ?? 1) - 1,
+            });
+        }
+    }
+    return dtos;
+}
+
 /** Upstream `ExtensionHostDebugAdapter`: a debug adapter in the subprocess, its DAP messages over the wire. */
 export class ExtensionHostDebugAdapter extends AbstractDebugAdapter {
     private readonly connection: IExtensionDebugAdapterConnection;
 
     public constructor(host: IExtensionDebugAdapterHost, session: IDebugSession) {
         super();
-        const folder = session.root?.uri.toString();
-        const parentId = session.parentSession?.getId();
-        this.connection = host.createAdapter(
-            {
-                id: session.getId(),
-                type: session.configuration.type,
-                name: session.name,
-                ...(folder === undefined ? {} : { folder }),
-                configuration: session.configuration,
-                ...(parentId === undefined ? {} : { parentId }),
+        this.connection = host.createAdapter(sessionDto(session), {
+            onMessage: (message) => {
+                this.acceptMessage(message);
             },
-            {
-                onMessage: (message) => {
-                    this.acceptMessage(message);
-                },
-                onError: (error) => {
-                    this.onErrorEmitter.fire(error);
-                },
-                onExit: (code) => {
-                    this.onExitEmitter.fire(code ?? null);
-                },
+            onError: (error) => {
+                this.onErrorEmitter.fire(error);
             },
-        );
+            onExit: (code) => {
+                this.onExitEmitter.fire(code ?? null);
+            },
+        });
     }
 
     public startSession(): Promise<void> {

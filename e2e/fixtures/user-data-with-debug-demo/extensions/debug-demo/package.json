@@ -9,10 +9,18 @@
         "vscode": "^1.0.0"
     },
     "activationEvents": [
-        "onDebugResolve:demo"
+        "onDebugResolve:demo",
+        "onCommand:debugDemo.breakOnPrintf"
     ],
     "contributes": {
         "breakpoints": [{ "language": "c" }],
+        "commands": [
+            {
+                "command": "debugDemo.breakOnPrintf",
+                "title": "Break on printf",
+                "category": "Debug Demo"
+            }
+        ],
         "debuggers": [
             {
                 "type": "demo",

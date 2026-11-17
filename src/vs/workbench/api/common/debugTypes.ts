@@ -15,9 +15,15 @@ export enum DebugConfigurationProviderTriggerKind {
     Dynamic = 2,
 }
 
-export class Breakpoint implements vscode.Breakpoint {
-    private ownId: string | undefined;
+/** The ids of the breakpoints, as upstream keeps them: given at the first ask, or by the core. */
+const breakpointIds = new WeakMap<Breakpoint, string>();
 
+/** Upstream `setBreakpointId`: a breakpoint the core sent keeps the core's id. */
+export function setBreakpointId(bp: Breakpoint, id: string): void {
+    breakpointIds.set(bp, id);
+}
+
+export class Breakpoint implements vscode.Breakpoint {
     public readonly enabled: boolean;
     public readonly condition?: string;
     public readonly hitCondition?: string;
@@ -40,8 +46,12 @@ export class Breakpoint implements vscode.Breakpoint {
 
     /** Lazy, as upstream: a breakpoint's id is stable for its whole lifetime. */
     public get id(): string {
-        this.ownId ??= globalThis.crypto.randomUUID();
-        return this.ownId;
+        let id = breakpointIds.get(this);
+        if (id === undefined) {
+            id = globalThis.crypto.randomUUID();
+            breakpointIds.set(this, id);
+        }
+        return id;
     }
 }
 

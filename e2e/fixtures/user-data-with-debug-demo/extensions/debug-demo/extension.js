@@ -10,7 +10,10 @@
  * - the second resolution sees the substituted program and adds an argument;
  * - the adapter "runs" the program: it prints a greeting to the Debug Console and stops on entry in `main` of
  *   the folder's `hello.c` with `argc` and `program` among the locals; with breakpoints in `hello.c` (verified by
- *   `contributes.breakpoints` for C) it stops on the first of them instead.
+ *   `contributes.breakpoints` for C) it stops on the first of them instead;
+ * - its custom `demoReady` event makes the extension ask the custom `demoInfo` request and print the answer to the
+ *   Debug Console, as does the focused frame;
+ * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint.
  */
 const path = require("node:path");
 
@@ -59,6 +62,27 @@ exports.activate = function activate(context) {
                 };
             },
         }),
+        // The session API: the adapter's custom event is answered with a custom request, the focused frame is
+        // told in the Debug Console of the focused session.
+        vscode.debug.onDidReceiveDebugSessionCustomEvent(async (e) => {
+            if (e.event !== "demoReady") return;
+            const info = await e.session.customRequest("demoInfo");
+            vscode.debug.activeDebugConsole.appendLine(`Debug Demo: ${e.session.name} runs as pid ${info.pid}`);
+        }),
+        vscode.debug.onDidChangeActiveStackItem((item) => {
+            if (item instanceof vscode.DebugStackFrame) {
+                vscode.debug.activeDebugConsole.appendLine(`Debug Demo: frame ${item.frameId} of thread ${item.threadId}`);
+            }
+        }),
+        vscode.commands.registerCommand("debugDemo.breakOnPrintf", () => {
+            const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
+            if (!folder) return;
+            const uri = vscode.Uri.joinPath(folder.uri, "hello.c");
+            vscode.debug.addBreakpoints([
+                new vscode.SourceBreakpoint(new vscode.Location(uri, new vscode.Position(3, 4))),
+                new vscode.FunctionBreakpoint("printf"),
+            ]);
+        }),
     );
 };
 
@@ -89,6 +113,7 @@ class DemoAdapter {
         if (request.command === "configurationDone") {
             const { program, args } = this.configuration;
             this.event("output", { category: "stdout", output: `Hello from ${program} ${args.join(" ")}\n` });
+            this.event("demoReady");
             const reason = this.breakpoints.length > 0 ? "breakpoint" : "entry";
             this.event("stopped", { reason, threadId: 1, allThreadsStopped: true });
         }
@@ -105,6 +130,8 @@ class DemoAdapter {
                 if (known) this.breakpoints = lines.slice().sort((a, b) => a - b);
                 return { breakpoints: lines.map((line) => ({ verified: known, line })) };
             }
+            case "demoInfo":
+                return { pid: 4242 };
             case "threads":
                 return { threads: [{ id: 1, name: "main thread" }] };
             case "stackTrace":
