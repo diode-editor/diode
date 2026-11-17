@@ -15,7 +15,7 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-debug-demo
 const folder = mkdtempSync(join(tmpdir(), "diode-debug-launcher-"));
 const helloC = join(folder, "hello.c");
 
-/** The Run and Debug title: the second row; in the default sidebar the launcher's label is cut to 10 columns. */
+/** The Run and Debug title: the second row; in the default sidebar the launcher's label is cut to 8 columns. */
 function title(text: string): string {
     return text.split("\n")[1] ?? "";
 }
@@ -49,11 +49,11 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes('"name": "Debug Demo"') && t.includes("${command:pickProgram}"));
         // The title's launcher: ▶, the configuration of the new launch.json, the gear.
-        await editor.waitForText((t) => title(t).includes("Debug Demo"));
+        await editor.waitForText((t) => title(t).includes("Debug De"));
         await editor.capture("launch-json-created");
 
         // The dropdown: the configuration, the type with dynamic configurations, Add Configuration.
-        const dropdown = findTextCell(await editor.captureFrame(), "Debug Demo");
+        const dropdown = findTextCell(await editor.captureFrame(), "Debug De");
         await editor.click(dropdown.x, dropdown.y);
         await editor.waitForText((t) => t.includes("Debug Demo...") && t.includes("Add Configuration..."));
         await editor.capture("dropdown");
@@ -64,10 +64,10 @@ export default defineScenario({
         await editor.capture("dynamic-configurations");
         await editor.sendText("world");
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => title(t).includes("Demo: ./wo"));
+        await editor.waitForText((t) => title(t).includes("Demo: ./"));
 
         // ▶ before the configuration starts it: the adapter greets in the Debug Console and stops on entry.
-        const selected = findTextCell(await editor.captureFrame(), "Demo: ./wo");
+        const selected = findTextCell(await editor.captureFrame(), "Demo: ./");
         await editor.click(selected.x - 2, selected.y);
         await editor.waitForText((t) => t.includes("Hello from ./world") && t.includes('program: "./world"'));
         await editor.capture("started");
