@@ -21,7 +21,6 @@ import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
-import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 import {
     BREAKPOINTS_VIEW_ID,
@@ -37,7 +36,7 @@ import {
     InstructionBreakpoint,
 } from "../common/debugModel.ts";
 
-import { BreakpointInputDIToken } from "./breakpointInput.ts";
+import { BreakpointInputDIToken, pickBreakpointMode } from "./breakpointInput.ts";
 import { BreakpointSourcesDIToken } from "./breakpointsView.ts";
 import { getModeKindForBreakpoint, rowMenuItem } from "./debugContextMenus.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
@@ -45,25 +44,25 @@ import { DebugServiceDIToken } from "./debugService.ts";
 const CONDITION_PLACEHOLDER = "Break when expression evaluates to true";
 const HIT_COUNT_PLACEHOLDER = "Break when hit count is met";
 
+const PLACEHOLDERS = {
+    name: "Function to break on",
+    condition: CONDITION_PLACEHOLDER,
+    hitCondition: HIT_COUNT_PLACEHOLDER,
+} as const;
+
 /** Upstream's `renderInputBox` of a function or a data breakpoint: the field typed in the quick input. */
 async function editField(
     accessor: ServiceAccessor,
     breakpoint: FunctionBreakpoint | DataBreakpoint,
-    type: "name" | "condition" | "hitCount",
+    field: keyof typeof PLACEHOLDERS,
 ): Promise<void> {
     const debugService = accessor.get(DebugServiceDIToken);
-    const placeholder =
-        type === "name" ? "Function to break on" : type === "condition" ? CONDITION_PLACEHOLDER : HIT_COUNT_PLACEHOLDER;
-    const current =
-        type === "name"
-            ? (breakpoint as FunctionBreakpoint).name
-            : type === "condition"
-              ? breakpoint.condition
-              : breakpoint.hitCondition;
-    const value = await accessor.get(QuickInputServiceDIToken).input({ placeholder, value: current ?? "" });
+    const value = await accessor.get(QuickInputServiceDIToken).input({
+        placeholder: PLACEHOLDERS[field],
+        value: (breakpoint as FunctionBreakpoint)[field] ?? "",
+    });
     if (value === undefined) return;
-    const update =
-        type === "name" ? { name: value } : type === "condition" ? { condition: value } : { hitCondition: value };
+    const update = { [field]: value };
     if (breakpoint instanceof FunctionBreakpoint) {
         await debugService.updateFunctionBreakpoint(breakpoint.getId(), update);
     } else {
@@ -131,7 +130,7 @@ export const editFunctionBreakpointHitCountAction: CommandAction = {
     ],
     async run(accessor, breakpoint) {
         if (breakpoint instanceof FunctionBreakpoint || breakpoint instanceof DataBreakpoint) {
-            await editField(accessor, breakpoint, "hitCount");
+            await editField(accessor, breakpoint, "hitCondition");
         }
     },
 };
@@ -160,23 +159,20 @@ export const editBreakpointModeAction: CommandAction = {
         }
         const debugService = accessor.get(DebugServiceDIToken);
         const modes = debugService.getModel().getBreakpointModes(getModeKindForBreakpoint(breakpoint));
-        const items: QuickPickItem[] = modes.map((mode) => ({ label: mode.label, description: mode.description }));
-        const picked = await accessor
-            .get(QuickInputServiceDIToken)
-            .quickPick({ placeholder: "Select Breakpoint Mode", items });
+        const picked = await pickBreakpointMode(accessor.get(QuickInputServiceDIToken), modes, undefined);
         if (!picked) return;
-        const { mode } = modes[items.indexOf(picked)];
+        const { mode, label } = picked;
 
         if (breakpoint instanceof Breakpoint) {
             const data = new Map<string, IBreakpointUpdateData>();
-            data.set(breakpoint.getId(), { mode, modeLabel: picked.label });
+            data.set(breakpoint.getId(), { mode, modeLabel: label });
             await debugService.updateBreakpoints(breakpoint.originalUri, data, false);
         } else if (breakpoint instanceof InstructionBreakpoint) {
             await debugService.removeInstructionBreakpoints(breakpoint.instructionReference, breakpoint.offset);
-            await debugService.addInstructionBreakpoint({ ...breakpoint.toJSON(), mode, modeLabel: picked.label });
+            await debugService.addInstructionBreakpoint({ ...breakpoint.toJSON(), mode, modeLabel: label });
         } else {
             breakpoint.mode = mode;
-            breakpoint.modeLabel = picked.label;
+            breakpoint.modeLabel = label;
             // no-op to trigger a re-send
             await debugService.setExceptionBreakpointCondition(breakpoint, breakpoint.condition);
         }
@@ -184,6 +180,8 @@ export const editBreakpointModeAction: CommandAction = {
 };
 
 /** Upstream `MemoryBreakpointAction.parseAddress`: a range as `start - end` or `start + bytes`. */
+export function parseAddress(range: string, isFinal: false): { error: string } | undefined;
+export function parseAddress(range: string, isFinal: true): { error: string } | { address: string; bytes: number };
 export function parseAddress(
     range: string,
     isFinal: boolean,
@@ -246,16 +244,15 @@ async function setMemoryBreakpoint(accessor: ServiceAccessor, existingBreakpoint
         placeholder: "Absolute range (0x1234 - 0x1300) or range of bytes after an address (0x1234 + 0xff)",
         value: defaultValue,
         validateInput: (text) => {
-            const result = parseAddress(text, false);
-            return result && "error" in result ? result.error : null;
+            return parseAddress(text, false)?.error ?? null;
         },
     });
     if (value === undefined) return;
     const range = parseAddress(value, true);
-    if (!range || "error" in range) {
+    if ("error" in range) {
         accessor
             .get(NotificationServiceDIToken)
-            .show({ severity: "error", message: range?.error ?? value, modal: false, items: [] });
+            .show({ severity: "error", message: range.error, modal: false, items: [] });
         return;
     }
 

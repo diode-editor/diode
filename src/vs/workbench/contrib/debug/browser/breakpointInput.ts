@@ -21,13 +21,14 @@ import {
     QuickInputServiceDIToken,
 } from "../../../browser/parts/quickinput/quickInputService.ts";
 import type { QuickPickSessionItem } from "../../../browser/parts/quickinput/quickPickSession.ts";
+import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import {
     type NotificationService,
     NotificationServiceDIToken,
 } from "../../../services/notification/browser/notificationService.ts";
 import type { IBreakpoint, IBreakpointUpdateData, IDebugService } from "../common/debug.ts";
 
-import { BreakpointSourcesDIToken, type IBreakpointSources } from "./breakpointsView.ts";
+import { breakpointLabel, BreakpointSourcesDIToken, type IBreakpointSources } from "./breakpointsView.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
 
 /** Upstream `BreakpointWidgetContext`. */
@@ -168,12 +169,7 @@ export class BreakpointInput {
             onMode = choice === "mode";
             if (choice === "cancel") return false;
             if (choice === "mode") {
-                const picked = await this.quickInput.quickPick({
-                    placeholder: "Select Breakpoint Mode",
-                    items: modes.map((mode) => ({ label: mode.label, description: mode.description })),
-                    activeIndex: state.mode === undefined ? undefined : modes.indexOf(state.mode),
-                });
-                if (picked !== undefined) state.mode = modes.find((mode) => mode.label === picked.label);
+                state.mode = (await pickBreakpointMode(this.quickInput, modes, state.mode)) ?? state.mode;
                 continue;
             }
             if (state.context !== BreakpointWidgetContext.TRIGGER_POINT) return true;
@@ -193,11 +189,8 @@ export class BreakpointInput {
         return new Promise<KindChoice>((resolve) => {
             /** The kind shown, `undefined` for the Mode row. */
             let shown = onMode ? undefined : state.context;
-            let settled = false;
+            // The dispose hides the session, whose `onDidHide` settles again: a resolved promise ignores it.
             const settle = (choice: KindChoice): void => {
-                // Stryker disable next-line ConditionalExpression: a second settle resolves an already resolved promise, which changes nothing
-                if (settled) return;
-                settled = true;
                 resolve(choice);
                 session.dispose();
             };
@@ -210,16 +203,15 @@ export class BreakpointInput {
                         context,
                         description:
                             context === BreakpointWidgetContext.TRIGGER_POINT
-                                ? state.triggeredBy && this.breakpointLabel(state.triggeredBy)
+                                ? state.triggeredBy && breakpointLabel(this.sources, state.triggeredBy)
                                 : state.inputs[context] || undefined,
                     };
                 }),
             ];
             /** What was typed belongs to the kind shown, the trigger and the mode have nothing typed. */
             const remember = (value: string): void => {
-                const context = shown;
-                if (context !== undefined && context !== BreakpointWidgetContext.TRIGGER_POINT) {
-                    state.inputs[context] = value;
+                if (shown !== undefined && shown !== BreakpointWidgetContext.TRIGGER_POINT) {
+                    state.inputs[shown] = value;
                 }
             };
             const showKind = (context: BreakpointWidgetContext | undefined): void => {
@@ -266,17 +258,13 @@ export class BreakpointInput {
         });
     }
 
-    private breakpointLabel(breakpoint: IBreakpoint): string {
-        return `${this.sources.uriLabel(breakpoint.uri)}: ${String(breakpoint.lineNumber)}`;
-    }
-
     /** Upstream's list of the breakpoints to wait for: the others, without logpoints. */
     private async pickTrigger(breakpoint: IBreakpoint | undefined): Promise<IBreakpoint | undefined> {
         const candidates = this.debugService
             .getModel()
             .getBreakpoints()
             .filter((bp) => bp !== breakpoint && !bp.logMessage);
-        const items = candidates.map((bp) => ({ label: this.breakpointLabel(bp) }));
+        const items = candidates.map((bp) => ({ label: breakpointLabel(this.sources, bp) }));
         const picked = await this.quickInput.quickPick({ placeholder: "Wait for Breakpoint", items });
         // Stryker disable next-line ConditionalExpression: without the check `indexOf` gives -1, and `candidates[-1]` is undefined too
         return picked === undefined ? undefined : candidates[items.indexOf(picked)];
@@ -304,6 +292,21 @@ export class BreakpointInput {
             await Promise.all(breakpoints.map((bp) => this.debugService.enableOrDisableBreakpoints(!enabled, bp)));
         }
     }
+}
+
+/** Upstream's "Select Breakpoint Mode" pick of the widget and of Edit Mode...: the mode picked, if any. */
+export async function pickBreakpointMode(
+    quickInput: Pick<QuickInputService, "quickPick">,
+    modes: readonly DebugProtocol.BreakpointMode[],
+    current: DebugProtocol.BreakpointMode | undefined,
+): Promise<DebugProtocol.BreakpointMode | undefined> {
+    const items: QuickPickItem[] = modes.map((mode) => ({ label: mode.label, description: mode.description }));
+    const picked = await quickInput.quickPick({
+        placeholder: "Select Breakpoint Mode",
+        items,
+        activeIndex: current === undefined ? undefined : modes.indexOf(current),
+    });
+    return picked === undefined ? undefined : modes[items.indexOf(picked)];
 }
 
 /** Upstream's context of a widget opened without one: the breakpoint's kind. */

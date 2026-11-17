@@ -47,13 +47,6 @@ export const toggleEditorBreakpointAction: CommandAction = {
     },
 };
 
-/** The active text editor where breakpoints can be set, as upstream's `canSetBreakpointsIn(editor.getModel())`. */
-function breakpointEditor(accessor: ServiceAccessor): TextEditorPane | undefined {
-    const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
-    if (!editor || !accessor.get(DebugServiceDIToken).canSetBreakpointsIn(editor.languageId)) return undefined;
-    return editor;
-}
-
 /** Upstream's actions that open the widget of a kind at the cursor: the line, and the column for some. */
 function showBreakpointWidgetAction(
     id: string,
@@ -66,8 +59,8 @@ function showBreakpointWidgetAction(
         title,
         enablement: "debuggersAvailable",
         async run(accessor) {
-            const editor = breakpointEditor(accessor);
-            if (!editor) return;
+            const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+            if (!editor || !accessor.get(DebugServiceDIToken).canSetBreakpointsIn(editor.languageId)) return;
             const column = atColumn ? editor.primaryCursorColumn + 1 : undefined;
             await accessor.get(BreakpointInputDIToken).show(editor.uri, editor.primaryCursorLine + 1, column, context);
         },

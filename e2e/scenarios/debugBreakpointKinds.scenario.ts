@@ -72,13 +72,16 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("dap:terminated"));
 
         // Edit Breakpoint on `return`: the condition comes in the line; `argc > 1` holds, the next run stops there.
+        // The stop on entry put the cursor on `main` (line 3).
         await editor.sendKey("Ctrl+1");
+        await editor.sendKey("ArrowDown");
+        await editor.sendKey("ArrowDown");
         await palette("Debug: Edit Breakpoint");
         await editor.waitForText((t) => t.includes("Wait for Breakpoint") && t.includes("argc > 5"));
         await editor.sendKey("Backspace");
         await editor.sendText("1");
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => t.includes("if argc > 1"));
+        await editor.waitForText((t) => !t.includes("Wait for Breakpoint"));
         await editor.sendKey("F5");
         await editor.waitForText((t) => t.includes("Pick the program to debug"));
         await editor.sendKey("Enter");

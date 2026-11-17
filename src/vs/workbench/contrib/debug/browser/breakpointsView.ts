@@ -86,6 +86,11 @@ export interface IBreakpointSources {
 }
 export const BreakpointSourcesDIToken = token<IBreakpointSources>("BreakpointSources");
 
+/** A source breakpoint as upstream names it in its lists: the file and the line. */
+export function breakpointLabel(sources: Pick<IBreakpointSources, "uriLabel">, breakpoint: IBreakpoint): string {
+    return `${sources.uriLabel(breakpoint.uri)}: ${String(breakpoint.lineNumber)}`;
+}
+
 /** How the view draws: the glyphs and `debug.breakpointsView.presentation`. */
 export interface IBreakpointsViewLook {
     readonly icons: Pick<IProductIconService, "glyph">;
@@ -357,12 +362,15 @@ export class BreakpointsView extends Disposable {
         }
         const breakpoint = element as IBreakpoint;
         // Deviation: upstream shows the condition, the hit count, the log message and the trigger only in the hover.
-        const trigger = model.getBreakpoints().find((bp) => bp.getId() === breakpoint.triggeredBy);
+        const trigger =
+            breakpoint.triggeredBy === undefined
+                ? undefined
+                : model.getBreakpoints().find((bp) => bp.getId() === breakpoint.triggeredBy);
         const notes = [
             ...italicNote(breakpoint.condition && `if ${breakpoint.condition}`),
             ...italicNote(breakpoint.hitCondition && `hit count ${breakpoint.hitCondition}`),
             ...italicNote(breakpoint.logMessage && `log "${breakpoint.logMessage}"`),
-            ...italicNote(trigger && `after ${this.sources.uriLabel(trigger.uri)}: ${String(trigger.lineNumber)}`),
+            ...italicNote(trigger && `after ${breakpointLabel(this.sources, trigger)}`),
             ...warning,
         ];
         if (this.look.presentation() === "tree") {
@@ -416,18 +424,16 @@ export class BreakpointsView extends Disposable {
     private unsupportedWarning(element: BreakpointItem): IRowSpan[] {
         if (!element.enabled || !this.debugService.getModel().areBreakpointsActivated()) return [];
         const debugActive = this.debugService.state === State.Running || this.debugService.state === State.Stopped;
-        if (debugActive && !element.verified) return [];
-        let message: string | undefined = undefined;
-        if (element instanceof DataBreakpoint) {
-            message = "Data breakpoints not supported by this debug type";
-        } else if (element instanceof FunctionBreakpoint) {
-            message = "Function breakpoints not supported by this debug type";
-        } else if (element instanceof InstructionBreakpoint) {
-            message = "Instruction breakpoints not supported by this debug type";
-        } else if (element instanceof Breakpoint) {
-            message = "Breakpoints of this type are not supported by the debugger";
-        }
-        if (message === undefined || element.supported) return [];
+        if ((debugActive && !element.verified) || element.supported) return [];
+        // A source breakpoint is unsupported only for its condition, hit count or log message.
+        const message =
+            element instanceof DataBreakpoint
+                ? "Data breakpoints not supported by this debug type"
+                : element instanceof FunctionBreakpoint
+                  ? "Function breakpoints not supported by this debug type"
+                  : element instanceof InstructionBreakpoint
+                    ? "Instruction breakpoints not supported by this debug type"
+                    : "Breakpoints of this type are not supported by the debugger";
         return [{ text: `  ${message}`, fg: WARNING, style: StyleFlags.Italic }];
     }
 
