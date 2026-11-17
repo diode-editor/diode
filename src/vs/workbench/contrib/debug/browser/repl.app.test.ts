@@ -21,6 +21,7 @@ import { codicon } from "../../../../base/common/codicons.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { MenuRegistryDIToken } from "../../../../platform/actions/common/menuRegistry.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
@@ -32,7 +33,13 @@ import { type IDebugSession, REPL_VIEW_ID } from "../common/debug.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
 import { ReplDIToken, START_DEBUG_FIRST } from "./repl.ts";
-import { ACCEPT_REPL_INPUT_ID, CLEAR_REPL_ID, FOCUS_REPL_ID } from "./replActions.ts";
+import {
+    ACCEPT_REPL_INPUT_ID,
+    CLEAR_REPL_ID,
+    COLLAPSE_REPL_ID,
+    COPY_ALL_REPL_ID,
+    FOCUS_REPL_ID,
+} from "./replActions.ts";
 
 describe("Debug Console in the workbench", () => {
     let h: IAppHarness;
@@ -148,6 +155,8 @@ describe("Debug Console in the workbench", () => {
     });
 
     it("`cfg` echoes the input and expands its object in place down to `limits`; `foo + 1` is an error", async () => {
+        // One line a row: the expanded children stay in the panel (an expansion at the bottom does not scroll, as upstream).
+        await h.container.get(IConfigurationServiceDIToken).updateValue("debug.console.wordWrap", false);
         await startStopped();
 
         await evaluate("cfg");
@@ -185,6 +194,8 @@ describe("Debug Console in the workbench", () => {
     });
 
     it("an arithmetic result is a number in the focused frame; the input keeps the focus", async () => {
+        // One line a row: the result is the line under its echo, without the scrollbar of a taller console.
+        await h.container.get(IConfigurationServiceDIToken).updateValue("debug.console.wordWrap", false);
         await startStopped();
 
         await evaluate("6 * 7");
@@ -286,6 +297,7 @@ describe("Debug Console in the workbench", () => {
     });
 
     it("an object the adapter logged (`variablesReference`) expands in the output", async () => {
+        await h.container.get(IConfigurationServiceDIToken).updateValue("debug.console.wordWrap", false);
         const session = await startStopped();
 
         // A logged number is colored as one.
@@ -330,7 +342,7 @@ describe("Debug Console in the workbench", () => {
         expect(screen()).not.toContain("line 59");
         session.appendToRepl({ output: "line 60\n", sev: "info" });
         await vi.waitFor(() => {
-            expect(session.getReplElements()).toHaveLength(66);
+            expect(session.getReplElements()).toHaveLength(67);
         });
         await new Promise((resolve) => setTimeout(resolve, 100));
         expect(screen()).not.toContain("line 60");
@@ -361,6 +373,41 @@ describe("Debug Console in the workbench", () => {
         h.testApp.sendKey("y");
         expect(consoleShown()).toBe(true);
         expect(h.container.get(ReplDIToken).input.isFocused).toBe(true);
+    });
+
+    it("Ctrl+F in the console focuses its filter; Copy All copies the rows shown; Collapse All closes the groups", async () => {
+        const session = await startStopped();
+        await vi.waitFor(() => {
+            expect(screen()).toContain("PASS self-check");
+        });
+        const repl = h.container.get(ReplDIToken);
+        await h.commands.execute(FOCUS_REPL_ID);
+        h.testApp.sendKey("Ctrl+f");
+        expect(repl.filterInput.isFocused).toBe(true);
+        // The filter field is in the console's title row, in the frame.
+        expect(screen()).toContain("Filter (e.g. text");
+
+        await h.commands.execute(FOCUS_REPL_ID);
+        await h.commands.execute(COPY_ALL_REPL_ID);
+        const copied = await h.container.get(ClipboardDIToken).readText();
+        expect(copied).toContain("Hello from hello 1.2.0!\n");
+        expect(copied).toContain("PASS self-check 3/3");
+        expect(copied).not.toContain("\u001b");
+
+        const raw = session as unknown as { repl: { startGroup(s: IDebugSession, n: string, e: boolean): void } };
+        raw.repl.startGroup(session, "Group", true);
+        session.appendToRepl({ output: "inside the group\n", sev: "info" });
+        await vi.waitFor(() => {
+            expect(screen()).toContain("inside the group");
+        });
+        // From the filter: Collapse All focuses the console, as upstream's.
+        repl.focusFilter();
+        expect(repl.input.isFocused).toBe(false);
+        await h.commands.execute(COLLAPSE_REPL_ID);
+        await vi.waitFor(() => {
+            expect(screen()).not.toContain("inside the group");
+        });
+        expect(repl.input.isFocused).toBe(true);
     });
 
     it("Clear Console is the title button of the console", () => {
