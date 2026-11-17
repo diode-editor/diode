@@ -6,10 +6,11 @@ differently is on [Differences from VS Code](DIFFERENCES.md).
 
 ## Known gaps
 
-- **Debugging** is in progress. `.diode/launch.json` is read, F5 runs its `preLaunchTask` and starts the
-  session with the debugger extension's own adapter; the Run and Debug view and the Debug Console show it,
-  extensions see the sessions, their events and breakpoints. Breakpoints in the editor and the debug toolbar
-  are not there yet.
+- **Debugging** works through debugger extensions: CodeLLDB from the store debugs C and C++ —
+  `.diode/launch.json` with its `preLaunchTask`, breakpoints in the gutter (F9), stepping, Variables, Watch,
+  Call Stack, Breakpoints, the Debug Console and the debug toolbar. Not there yet: hovering a variable for its
+  value, inline values, conditional breakpoints edited in place (they go through an input box), the
+  disassembly and memory views.
 - **Snippets** from extensions are not read; **file icon themes** are not applied.
 - **Source control extensions.** Built-in git works (diffs, commit graph, staging); an extension
   that brings another version control system has no API to plug into yet.
@@ -31,7 +32,7 @@ No dates promised, in the order that seems right today.
 - `.gitignore` honoured in the file tree, as it already is in search and Quick Open.
 - Snippets and file icon themes from extensions.
 - More languages in the store: Rust and C# next, then on demand.
-- Debugging through the Debug Adapter Protocol, so VS Code debugger extensions work.
+- The rest of debugging: hover and inline values, the breakpoint widget, Node.js through js-debug.
 
 ## Won't happen
 

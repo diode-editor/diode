@@ -904,8 +904,10 @@
   ними — отказ с причиной (перегрузка обещает сессию, `undefined` уронил бы расширение невнятным
   `TypeError`), провайдер принимается и не зовётся, человеку — одна warn-строка в Output на id
   провайдера. Настоящие провайдеры — [docs/TODO/LanguageServers.md](../TODO/LanguageServers.md#terraform).
-- **Отладка (`debugNamespace.ts`, эпик #1132):** отладчик через DAP строится серией задач эпика
-  (`docs/TODO/Debugger.md`). Сначала `vscode.debug` был null-объектом: ОТСУТСТВИЕ namespace'а убивало
+- **Отладка (`debugNamespace.ts`, эпик #1132):** настоящий отладчик через DAP: адаптер приносит расширение,
+  ядро ведёт сессию, виды и консоль. Первое расширение, проверенное целиком, — стоковый CodeLLDB (#1149,
+  [StockExtensions.md](StockExtensions.md#отладка-cc-vadimcnvscode-lldb-codelldb)); устройство серии и что
+  осталось — `docs/TODO/Debugger.md`. Сначала `vscode.debug` был null-объектом: ОТСУТСТВИЕ namespace'а убивало
   `golang.go` посреди `activate()`. Сейчас живы провайдеры конфигураций и `startDebugging`/`stopDebugging`
   (#1139): пара — `debugNamespace.ts` ↔ `DebugCustomer` ↔ `IExtensionDebugSink` ↔ `ExtensionDebugAdapter`
   (`contrib/debug/browser/`), сообщения `debug.*` (`debugWireTypes.ts`), по образцу задач. Провайдер

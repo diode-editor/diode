@@ -205,6 +205,8 @@ export class CallStackView extends Disposable {
         private readonly icons: Pick<IProductIconService, "glyph">,
         /** Upstream's state message in the view header: the state of the only thread, or `undefined` to hide it. */
         private readonly setStateMessage: (message: string | undefined) => void,
+        /** `workbench.list.openMode` is `singleClick`: a click opens the row, as Enter (upstream's tree default). */
+        openOnSingleClick: () => boolean,
     ) {
         super();
         this.dataSource = new CallStackDataSource(debugService);
@@ -229,6 +231,8 @@ export class CallStackView extends Disposable {
             // Stryker disable next-line StringLiteral: the prefix keeps the row ids apart from other views'; no other view in the window has a call stack element's key
             { idPrefix: "callstack" },
         );
+        // A click on Load More or Show N More reads the frames, not only puts the cursor there.
+        this.tree.list.openOnSingleClick = openOnSingleClick;
         // A frame the user moves to is focused (upstream opens it with `preserveFocus` on a keyboard selection).
         this.tree.onSelect = (element) => {
             this.focusElement(element);

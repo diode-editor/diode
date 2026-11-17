@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createDebugViewletHarness, type IDebugViewletHarness } from "../../../../../TestUtils/debugViewletHarness.ts";
 import { SYNTHETIC_LAUNCH_CONFIG } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
@@ -116,6 +117,49 @@ describe("CALL STACK in the workbench", () => {
         expect(t.h.testApp.backend.getFgAt(start)).toBe(t.vars().descriptionForeground);
         expect(t.lines()[start.y]).not.toContain(".cpp");
         expect(t.screen()).toContain("__libc_start_main_impl");
+    });
+
+    /** A left click on the cell at `point` (the terminal's mouse coordinates are 1-based). */
+    function click(point: Point): void {
+        for (const action of ["press", "release"] as const) {
+            t.h.testApp.backend.simulateMouse({
+                kind: "mouse",
+                button: "left",
+                action,
+                x: point.x + 1,
+                y: point.y + 1,
+                shiftKey: false,
+                altKey: false,
+                ctrlKey: false,
+            });
+        }
+        t.h.testApp.render();
+    }
+
+    it("a click on Load More reads the rest, as Enter (`workbench.list.openMode: singleClick`)", async () => {
+        await t.startStopped();
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("Load 6 More Stack Frames");
+        });
+
+        click(t.find("Load 6 More Stack Frames"));
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("Show 3 More Stack Frames");
+        });
+        expect(t.screen()).toContain("recurse<19>(Node*)");
+    });
+
+    it("with `openMode: doubleClick` a click on Load More only puts the cursor there", async () => {
+        await t.h.container.get(IConfigurationServiceDIToken).updateValue("workbench.list.openMode", "doubleClick");
+        await t.startStopped();
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("Load 6 More Stack Frames");
+        });
+
+        click(t.find("Load 6 More Stack Frames"));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(nameOf(component().callStack.tree.focused)).toBe("Load More");
+        expect(t.screen()).toContain("Load 6 More Stack Frames");
     });
 
     it("the cursor on a frame focuses it: VARIABLES follow, the frame gets the focused marker", async () => {
