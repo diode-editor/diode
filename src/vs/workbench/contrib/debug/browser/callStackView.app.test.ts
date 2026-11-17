@@ -237,6 +237,40 @@ describe("CALL STACK in the workbench", () => {
         expect(t.screen()).not.toContain("PAUSED ON BREAKPOINT");
     });
 
+    it("one thread: a step keeps 'Paused on step' in the title when the adapter sends `continued` first, as CodeLLDB", async () => {
+        const factory = await t.startStopped();
+        const session = t.h.container.get(DebugServiceDIToken).getViewModel().focusedSession;
+        for (const thread of session?.getAllThreads().filter((th) => th.threadId !== 1) ?? []) {
+            await thread.terminate();
+        }
+        await vi.waitFor(() => {
+            expect(t.lines()[t.find("CALL STACK").y]).toContain("Paused o");
+        });
+        // CodeLLDB answers `next`, then reports every thread running, then the stop (stock 1.12.3, seen live).
+        const adapter = factory.adapters[0];
+        const sendMessage = adapter.sendMessage.bind(adapter);
+        adapter.sendMessage = (message) => {
+            sendMessage(message);
+            if (message.type === "request" && (message as DebugProtocol.Request).command === "next") {
+                adapter.acceptMessage({
+                    type: "event",
+                    seq: 0,
+                    event: "continued",
+                    body: { threadId: 0, allThreadsContinued: true },
+                } as DebugProtocol.ContinuedEvent);
+            }
+        };
+
+        await t.h.commands.execute("workbench.action.debug.stepOver");
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("main.cpp:28");
+        });
+
+        await vi.waitFor(() => {
+            expect(t.lines()[t.find("CALL STACK").y]).toContain("Paused o");
+        });
+    });
+
     it("an exception stop paints the thread's state in the exception colors", async () => {
         await t.startStopped();
         for (let i = 0; i < 3; i++) {
