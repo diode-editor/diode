@@ -234,3 +234,34 @@ describe("Test Explorer — the Debug profile", () => {
         ]);
     });
 });
+
+describe("Test Explorer — the Debug profile with a tag, two controllers", () => {
+    // Upstream `capabilitiesForTest` matches the profile's tag against the item's own tags, the root's too: a root
+    // without the tag gets no Debug capability, so its row has no Debug Test (`testItemInlineAndInContext` sees the
+    // row's overlay of `testing.hasDebuggableTests`).
+    it("the root row of a controller whose Debug profile has a tag offers no Debug Test", async () => {
+        const explorer = setupExplorer({ height: 12 });
+        explorer.registerController("vitest", "Vitest");
+        explorer.registerController("other", "Other");
+        explorer.profiles.addProfile(profile(TestRunProfileBitset.Run, RUN));
+        explorer.profiles.addProfile(profile(TestRunProfileBitset.Debug, DEBUG, "vitest\0slow"));
+        explorer.tests.publishDiff([
+            add(wireItem(["vitest"], "Vitest"), Expanded),
+            add(wireItem(["vitest", "b"], "b", { tags: ["vitest\0slow"] }), NotExpandable),
+            add(wireItem(["other"], "Other"), Expanded),
+            add(wireItem(["other", "o"]), NotExpandable),
+        ]);
+        await explorer.waitFrame((text) => text.includes("Vitest") && text.includes(" b"));
+        expect(rowLine(explorer, "b").line).toContain(DEBUG_GLYPH);
+        const root = rowLine(explorer, "Vitest");
+        expect(root.line).toContain(UNICODE_ICONS.glyph(codicon("run")));
+        expect(root.line).not.toContain(DEBUG_GLYPH);
+        const { x, y } = explorer.row("Vitest");
+        explorer.click(x, y, "right");
+        const labels = (explorer.views.shown.at(-1)?.getEntries?.() ?? []).map((entry) =>
+            entry.type === "separator" ? "-" : entry.label,
+        );
+        expect(labels).toContain("Run Test");
+        expect(labels).not.toContain("Debug Test");
+    });
+});
