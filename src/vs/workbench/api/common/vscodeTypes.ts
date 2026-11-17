@@ -1018,6 +1018,52 @@ export class LinkedEditingRanges implements vscode.LinkedEditingRanges {
     }
 }
 
+/** Upstream `InlineValueText`. */
+export class InlineValueText implements vscode.InlineValueText {
+    public readonly range: Range;
+    public readonly text: string;
+
+    public constructor(range: Range, text: string) {
+        this.range = range;
+        this.text = text;
+    }
+}
+
+/** Upstream `InlineValueVariableLookup`: the lookup is case sensitive unless told otherwise. */
+export class InlineValueVariableLookup implements vscode.InlineValueVariableLookup {
+    public readonly range: Range;
+    public readonly variableName?: string;
+    public readonly caseSensitiveLookup: boolean;
+
+    public constructor(range: Range, variableName?: string, caseSensitiveLookup = true) {
+        this.range = range;
+        this.variableName = variableName;
+        this.caseSensitiveLookup = caseSensitiveLookup;
+    }
+}
+
+/** Upstream `InlineValueEvaluatableExpression`. */
+export class InlineValueEvaluatableExpression implements vscode.InlineValueEvaluatableExpression {
+    public readonly range: Range;
+    public readonly expression?: string;
+
+    public constructor(range: Range, expression?: string) {
+        this.range = range;
+        this.expression = expression;
+    }
+}
+
+/** Upstream `InlineValueContext`: what the provider gets; not exported to extensions, as upstream. */
+export class InlineValueContext implements vscode.InlineValueContext {
+    public readonly frameId: number;
+    public readonly stoppedLocation: Range;
+
+    public constructor(frameId: number, range: Range) {
+        this.frameId = frameId;
+        this.stoppedLocation = range;
+    }
+}
+
 export enum SymbolTag {
     Deprecated = 1,
 }

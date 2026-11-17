@@ -22,6 +22,7 @@ import {
     type ITestingMessagesEditor,
     MAX_INLINE_MESSAGE_LENGTH,
     outputText,
+    TESTING_LINE_MESSAGE_OWNER,
     TestingMessageDecorations,
 } from "./testingMessageDecorations.ts";
 import { TEST_RESULTS_VIEW_ID } from "./testResultsView.ts";
@@ -74,11 +75,11 @@ function setup(options: { settings?: Record<string, unknown>; icons?: StaticProd
             uri: Uri.parse(uri),
             isTooLargeForTokenization: false as boolean,
             onDidChangeTooLargeForTokenization: largeFileLeft.event,
-            setLineMessageDecorations: (messages) => {
+            setLineMessageDecorations: (owner, messages) => {
                 sets++;
-                element.setLineMessageDecorations(messages);
+                element.setLineMessageDecorations(owner, messages);
             },
-            getLineMessageDecorations: () => element.getLineMessageDecorations(),
+            getLineMessageDecorations: (owner) => element.getLineMessageDecorations(owner),
             onDidClickLineMessage: (listener) => element.onDidClickLineMessage(listener),
         } satisfies ITestingMessagesEditor & { isTooLargeForTokenization: boolean };
         open.push(editor);
@@ -194,7 +195,7 @@ describe("TestingMessageDecorations — the failures after the lines", () => {
         await flush();
 
         expect(view.message(5)).toBe(` ${ERROR} from a helper`);
-        expect([...view.element.getLineMessageDecorations().keys()]).toEqual([5]);
+        expect([...view.element.getLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER).keys()]).toEqual([5]);
     });
 
     it("the failures go by their lines, whatever the run's order", async () => {
@@ -220,7 +221,7 @@ describe("TestingMessageDecorations — the failures after the lines", () => {
         await flush();
         // `adds` came to the run first.
         expect(view.message(2)).toBe(` ${ERROR} of adds`);
-        expect(view.element.getLineMessageDecorations().size).toBe(1);
+        expect(view.element.getLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER).size).toBe(1);
 
         run([{ message: { message: "first", location: at(5) } }, { message: { message: "second", location: at(5) } }]);
         await flush();
@@ -240,7 +241,7 @@ describe("TestingMessageDecorations — the failures after the lines", () => {
         explorer.results.clear();
         await flush();
         expect(view.row(5)).toBe("        expect(2 - 1).toBe(2);");
-        expect(view.element.getLineMessageDecorations().size).toBe(0);
+        expect(view.element.getLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER).size).toBe(0);
     });
 
     it("with testing.showAllMessages, the older runs' messages too, the latest first on a shared line", async () => {
@@ -249,7 +250,7 @@ describe("TestingMessageDecorations — the failures after the lines", () => {
         run([{ message: { message: "old 2", location: at(2) } }, { message: { message: "old 5", location: at(5) } }]);
         run([{ message: { message: "new 2", location: at(2) } }]);
         await flush();
-        expect([...view.element.getLineMessageDecorations().keys()]).toEqual([2]);
+        expect([...view.element.getLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER).keys()]).toEqual([2]);
 
         explorer.setSetting("testing.showAllMessages", true);
         expect(view.message(2)).toBe(` ${ERROR} new 2`);
@@ -284,7 +285,7 @@ describe("TestingMessageDecorations — the failures after the lines", () => {
         view.editor.isTooLargeForTokenization = true;
         run([{ message: { message: "boom", location: at(2) } }]);
         await flush();
-        expect(view.element.getLineMessageDecorations().size).toBe(0);
+        expect(view.element.getLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER).size).toBe(0);
 
         view.editor.isTooLargeForTokenization = false;
         view.largeFileLeft.fire();
@@ -307,7 +308,7 @@ describe("TestingMessageDecorations — the failures after the lines", () => {
         explorer.results.clear();
         await flush();
         expect(view.sets()).toBe(sets);
-        expect(other.element.getLineMessageDecorations().size).toBe(0);
+        expect(other.element.getLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER).size).toBe(0);
     });
 
     it("an editor is attached once however often the list changes; a closed one's clicks open nothing", async () => {
@@ -323,7 +324,7 @@ describe("TestingMessageDecorations — the failures after the lines", () => {
         view.close();
         // The closed editor keeps what it showed: the press lands on the message.
         const clicks: string[] = [];
-        view.element.onDidClickLineMessage((key) => clicks.push(key));
+        view.element.onDidClickLineMessage(({ key }) => clicks.push(key));
         view.clickMessage(2);
         expect(clicks).toHaveLength(1);
         expect(openView).toHaveBeenCalledTimes(1);
@@ -377,11 +378,11 @@ describe("TestingMessageDecorations — Toggle Inline Test Output", () => {
             ],
         );
         await flush();
-        expect([...view.element.getLineMessageDecorations().keys()]).toEqual([5]);
+        expect([...view.element.getLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER).keys()]).toEqual([5]);
 
         decorations.toggleInlineOutput();
         expect(decorations.showInlineOutput).toBe(true);
-        expect([...view.element.getLineMessageDecorations().keys()].sort()).toEqual([2, 5]);
+        expect([...view.element.getLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER).keys()].sort()).toEqual([2, 5]);
         expect(view.message(2)).toBe("log one two");
         expect(view.message(5)).toBe(` ${ERROR} boom`);
         const x = view.element.gutterWidth + "        expect(1 + 1).toBe(3);".length + 2;
@@ -392,7 +393,7 @@ describe("TestingMessageDecorations — Toggle Inline Test Output", () => {
         expect(decorations.failuresIn(view.editor).map((failure) => failure.line)).toEqual([5]);
 
         decorations.toggleInlineOutput();
-        expect([...view.element.getLineMessageDecorations().keys()]).toEqual([5]);
+        expect([...view.element.getLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER).keys()]).toEqual([5]);
     });
 
     it("the latest output of a line wins", async () => {
@@ -442,16 +443,18 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
         expect(frame.split("\n")[0]).toMatch(/^expected 2 to be 3 /);
     });
 
-    it("a click on a message someone else set opens nothing", async () => {
+    it("a click on a message another owner set opens nothing, though its key is a test message's", async () => {
         const { explorer, openEditor, run, flush } = setup();
         const view = openEditor();
         run([{ message: { message: "expected 2 to be 3", location: at(2) } }]);
         await flush();
-        view.element.setLineMessageDecorations([
-            { key: "foreign", line: 2, text: "foreign", colorToken: "foreground" },
+        const [testKey] = [...view.element.getLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER).values()];
+        // Before the test's message on the line.
+        view.element.setLineMessageDecorations("foreign", [
+            { key: testKey.key, line: 2, text: "foreign", colorToken: "foreground", order: -1 },
         ]);
         const clicks: string[] = [];
-        view.element.onDidClickLineMessage((key) => clicks.push(key));
+        view.element.onDidClickLineMessage(({ owner }) => clicks.push(owner));
         const openView = vi.spyOn(explorer.views.service, "openView");
         view.app.render();
         view.app.backend.simulateMouse({
@@ -466,6 +469,15 @@ describe("TestingMessageDecorations — TEST RESULTS", () => {
             raw: "",
         });
         expect(clicks).toEqual(["foreign"]);
+        expect(openView).not.toHaveBeenCalled();
+
+        // Set under the testing owner past the contribution: a key it does not know opens nothing either.
+        view.element.setLineMessageDecorations("foreign", []);
+        view.element.setLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER, [
+            { key: "unknown", line: 2, text: "foreign", colorToken: "foreground" },
+        ]);
+        view.clickMessage(2);
+        expect(clicks).toEqual(["foreign", "testing"]);
         expect(openView).not.toHaveBeenCalled();
     });
 

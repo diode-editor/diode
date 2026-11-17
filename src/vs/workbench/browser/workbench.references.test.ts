@@ -57,7 +57,8 @@ describe("Workbench — Find All References end-to-end", () => {
         ws = undefined;
     });
 
-    function setup(): IHarness {
+    /** `secondProvider` — a second provider on the same files (a linter next to the language server). */
+    function setup(secondProvider?: (workspace: ITempWorkspace) => readonly ICoreReference[]): IHarness {
         ws = createTempWorkspace({
             prefix: "ws-",
             files: { "main.ts": MAIN_TS, "defs.ts": DEFS_TS },
@@ -83,6 +84,12 @@ describe("Workbench — Find All References end-to-end", () => {
                 ]);
             },
         });
+
+        if (secondProvider !== undefined) {
+            container.get(LanguageFeaturesServiceDIToken).referenceProvider.register("*", {
+                provideReferences: () => Promise.resolve(secondProvider(workspace)),
+            });
+        }
 
         workbench.setWorkspaceFolder(workspace.dir);
         workbench.mount();
@@ -147,6 +154,35 @@ describe("Workbench — Find All References end-to-end", () => {
         expect(h.contextKey("hasReferenceResult")).toBe(true);
         expect(h.focusedId()).toBe("referenceResults");
         expect(h.viewRoot()).not.toBeNull();
+    });
+
+    it("a location answered by two providers is one row, and the title counts rows", async () => {
+        // The second provider repeats both main.ts places in reverse order and adds one overlapping range.
+        const h = setup((workspace) => [
+            { uri: Uri.file(workspace.path("main.ts")).toString(), range: createRange(2, 14, 2, 19) },
+            { uri: Uri.file(workspace.path("main.ts")).toString(), range: createRange(2, 14, 2, 28) },
+            { uri: Uri.file(workspace.path("main.ts")).toString(), range: createRange(0, 9, 0, 14) },
+        ]);
+
+        h.execute(FIND_REFERENCES);
+        await h.awaitResults();
+
+        // The sidebar is 30 columns wide: rows from the title down to the end of the list.
+        const lines = h.screen().split("\n");
+        const title = lines.findIndex((line) => line.includes("results in"));
+        const rows = lines.slice(title, title + 7).map((line) => line.slice(0, 26).trimEnd());
+        // Files keep the order of first appearance (here the later registered provider answers first);
+        // within a file rows go by range, and only the overlapping range stays a second row on line 3.
+        // `\uf107` is the chevron of an expanded file row.
+        expect(rows).toEqual([
+            " 4 results in 2 files",
+            "\uf107 main.ts  3",
+            "    1  import { greet } fr",
+            "    3  const hello = greet",
+            "    3  const hello = greet",
+            "\uf107 defs.ts  1",
+            "    1  export function gre",
+        ]);
     });
 
     it("the viewlet is available from the View menu before the first search, as an empty panel", () => {

@@ -47,6 +47,7 @@ import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { IInlineValuesRequest, InlineValue } from "../../../editor/common/languages/iInlineValuesSource.ts";
 import type {
     ILinkedEditingRangeRequest,
     ILinkedEditingRanges,
@@ -258,6 +259,11 @@ export interface IExtensionLanguageFeaturesBridge {
         token?: ICancellationToken,
     ): Promise<readonly InlayHint[] | null>;
     onDidChangeInlayHints(cb: (handle: number) => void): IDisposable;
+    provideInlineValues(
+        handle: number,
+        request: IInlineValuesRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly InlineValue[] | null>;
     provideCodeLenses(
         handle: number,
         request: ICodeLensRequest,

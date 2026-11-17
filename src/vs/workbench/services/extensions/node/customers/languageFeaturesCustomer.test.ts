@@ -1249,6 +1249,28 @@ describe("LanguageFeaturesCustomer — document highlights", () => {
         const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         expect(await detached.provideLinkedEditingRanges(1, REQ)).toBeNull();
     });
+
+    it("inline values: the view port, the context and the token go over the wire, the values come back", async () => {
+        const seen: unknown[] = [];
+        const values = [{ type: "variable", range: CORE_RANGE, caseSensitiveLookup: true }];
+        const h = setupAnswering({
+            "languages.provideInlineValues": (params) => {
+                seen.push(params);
+                return values;
+            },
+        });
+        const caller = new CancellationTokenSource();
+        const context = { frameId: 3, stoppedLocation: CORE_RANGE };
+        const request = { uri: SYNCED, languageId: "typescript", versionId: 7, viewPort: CORE_RANGE, context };
+        expect(await h.customer.provideInlineValues(1, request, caller.token)).toEqual(values);
+        expect(seen).toEqual([
+            { handle: 1, uri: SYNCED, languageId: "typescript", version: 7, viewPort: CORE_RANGE, context },
+        ]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideInlineValues(1, request)).toBeNull();
+    });
 });
 
 describe("LanguageFeaturesCustomer — workspace symbols", () => {

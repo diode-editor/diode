@@ -36,7 +36,7 @@ function setup(text = LINES, size = new Size(30, 6)) {
     editor.style = { bg: "editor.background" };
     const app = TestApp.createWithContent(editor, size);
     const clicks: string[] = [];
-    editor.onDidClickLineMessage((key) => clicks.push(key));
+    editor.onDidClickLineMessage(({ owner, key }) => clicks.push(`${owner}:${key}`));
     const row = (y: number): string => {
         app.render();
         return app.backend.getTextAt(new Point(0, y), size.width).trimEnd();
@@ -63,7 +63,7 @@ function error(key: string, line: number, text = "✗ boom"): ILineMessageDecora
 describe("EditorElement — messages after the lines' ends", () => {
     it("is drawn two cells after the line's end in its colors, the gap in the editor's background", () => {
         const { app, editor, row } = setup();
-        editor.setLineMessageDecorations([error("a", 1)]);
+        editor.setLineMessageDecorations("test", [error("a", 1)]);
         const textStart = editor.gutterWidth;
 
         expect(row(1).slice(textStart)).toBe("  it a  ✗ boom");
@@ -78,7 +78,7 @@ describe("EditorElement — messages after the lines' ends", () => {
 
     it("a translucent color is blended over the background; no background token keeps the editor's", () => {
         const { app, editor, row } = setup();
-        editor.setLineMessageDecorations([
+        editor.setLineMessageDecorations("test", [
             { key: "log", line: 0, text: "log", colorToken: "testing.message.info.decorationForeground" },
         ]);
         expect(row(0).slice(editor.gutterWidth)).toBe("describe  log");
@@ -90,7 +90,7 @@ describe("EditorElement — messages after the lines' ends", () => {
     it("lies on the line's decorated background where it has none of its own", () => {
         const { app, editor } = setup();
         editor.decorations = { lineBackgrounds: [{ startLine: 0, endLine: 0, colorToken: "diff.added" }] };
-        editor.setLineMessageDecorations([
+        editor.setLineMessageDecorations("test", [
             { key: "log", line: 0, text: "log", colorToken: "testing.message.info.decorationForeground" },
         ]);
         app.render();
@@ -99,7 +99,7 @@ describe("EditorElement — messages after the lines' ends", () => {
 
     it("is cut by the editor's right edge and does not wrap", () => {
         const { editor, row } = setup(LINES, new Size(20, 6));
-        editor.setLineMessageDecorations([error("a", 1, "✗ a long message that does not fit")]);
+        editor.setLineMessageDecorations("test", [error("a", 1, "✗ a long message that does not fit")]);
         expect(row(1).slice(editor.gutterWidth)).toBe("  it a  ✗ a lo");
         expect(row(2).slice(editor.gutterWidth)).toBe("  it b");
     });
@@ -107,7 +107,7 @@ describe("EditorElement — messages after the lines' ends", () => {
     it("scrolled to the right, shows the part of it right of the left edge", () => {
         const { editor, row } = setup();
         editor.viewState.scrollLeft = 10;
-        editor.setLineMessageDecorations([error("a", 0, "0123456789")]);
+        editor.setLineMessageDecorations("test", [error("a", 0, "0123456789")]);
         // "describe" ends at column 8, the message starts at 10: scrolled by 10 it starts at the edge; by 12 cut.
         expect(row(0).slice(editor.gutterWidth)).toBe("0123456789");
         editor.viewState.scrollLeft = 12;
@@ -121,7 +121,7 @@ describe("EditorElement — messages after the lines' ends", () => {
     it("on a wrapped line goes after the last fragment, not after the first", () => {
         const { editor, row } = setup(`${"x".repeat(30)}\nend`, new Size(24, 6));
         editor.viewState.wordWrap = "on";
-        editor.setLineMessageDecorations([error("a", 0, "msg")]);
+        editor.setLineMessageDecorations("test", [error("a", 0, "msg")]);
         row(0);
         const width = 24 - editor.gutterWidth;
         expect(row(0).slice(editor.gutterWidth)).toBe("x".repeat(width));
@@ -131,7 +131,7 @@ describe("EditorElement — messages after the lines' ends", () => {
     it("on a trimmed long line goes after the trim badge", () => {
         const { editor, row } = setup(`${"x".repeat(STOP_RENDERING_LINE_AFTER + 1)}\nend`, new Size(40, 6));
         editor.viewState.scrollLeft = STOP_RENDERING_LINE_AFTER - 2;
-        editor.setLineMessageDecorations([error("a", 0, "msg")]);
+        editor.setLineMessageDecorations("test", [error("a", 0, "msg")]);
         expect(row(0).slice(editor.gutterWidth)).toBe(`xx${LONG_LINE_TRUNCATION_BADGE}  msg`);
     });
 
@@ -139,16 +139,16 @@ describe("EditorElement — messages after the lines' ends", () => {
         const { editor, row } = setup();
         editor.viewState.setFoldingRegions([createFoldingRegion(0, 2)]);
         editor.viewState.toggleFold(0);
-        editor.setLineMessageDecorations([error("a", 0, "msg")]);
+        editor.setLineMessageDecorations("test", [error("a", 0, "msg")]);
         expect(row(0).slice(editor.gutterWidth)).toBe("describe ⋯  msg");
     });
 
     it("rides its line through edits; a deleted line's message is gone", () => {
         const { editor, row } = setup();
-        editor.setLineMessageDecorations([error("a", 1, "msg"), error("b", 2, "other")]);
+        editor.setLineMessageDecorations("test", [error("a", 1, "msg"), error("b", 2, "other")]);
         editor.viewState.document.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "top\n")]);
         expect(row(2).slice(editor.gutterWidth)).toBe("  it a  msg");
-        expect([...editor.getLineMessageDecorations().keys()]).toEqual([2, 3]);
+        expect([...editor.getLineMessageDecorations("test").keys()]).toEqual([2, 3]);
 
         // Typing on the line keeps it after the new end.
         editor.viewState.document.applyEdits([createTextEdit(createRange(2, 6, 2, 6), "bc")]);
@@ -156,35 +156,91 @@ describe("EditorElement — messages after the lines' ends", () => {
 
         editor.viewState.document.applyEdits([createTextEdit(createRange(2, 0, 3, 0), "")]);
         expect(row(2).slice(editor.gutterWidth)).toBe("  it b  other");
-        expect([...editor.getLineMessageDecorations().values()].map((message) => message.key)).toEqual(["b"]);
+        expect([...editor.getLineMessageDecorations("test").values()].map((message) => message.key)).toEqual(["b"]);
     });
 
     it("set again without it, it goes", () => {
         const { editor, row } = setup();
-        editor.setLineMessageDecorations([error("a", 1, "msg")]);
+        editor.setLineMessageDecorations("test", [error("a", 1, "msg")]);
         expect(row(1).slice(editor.gutterWidth)).toBe("  it a  msg");
-        editor.setLineMessageDecorations([]);
+        editor.setLineMessageDecorations("test", []);
         expect(row(1).slice(editor.gutterWidth)).toBe("  it a");
+    });
+
+    describe("several owners", () => {
+        const value = (key: string, line: number, text: string, order?: number): ILineMessageDecoration => ({
+            key,
+            line,
+            text,
+            colorToken: "testing.message.info.decorationForeground",
+            order,
+        });
+
+        it("their messages of a line follow one another by order, each two cells after the previous", () => {
+            const { editor, row } = setup(LINES, new Size(40, 6));
+            editor.setLineMessageDecorations("values", [value("v", 1, "a = 1", 1)]);
+            editor.setLineMessageDecorations("test", [error("a", 1, "✗ boom")]);
+            expect(row(1).slice(editor.gutterWidth)).toBe("  it a  ✗ boom  a = 1");
+        });
+
+        it("a tie goes to the owner that set messages first; setting again keeps its place", () => {
+            const { editor, row } = setup(LINES, new Size(40, 6));
+            editor.setLineMessageDecorations("first", [value("x", 1, "one")]);
+            editor.setLineMessageDecorations("second", [value("y", 1, "two")]);
+            editor.setLineMessageDecorations("first", [value("x", 1, "uno")]);
+            expect(row(1).slice(editor.gutterWidth)).toBe("  it a  uno  two");
+        });
+
+        it("set again with the same key and line, a message keeps the line an edit moved it to", () => {
+            const { editor, row } = setup(LINES, new Size(40, 6));
+            editor.setLineMessageDecorations("values", [value("v", 1, "a = 1")]);
+            editor.viewState.document.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "top\n")]);
+            editor.setLineMessageDecorations("values", [value("v", 1, "a = 2")]);
+            expect(row(2).slice(editor.gutterWidth)).toBe("  it a  a = 2");
+        });
+
+        it("an owner sets and reads only its own", () => {
+            const { editor, row } = setup(LINES, new Size(40, 6));
+            editor.setLineMessageDecorations("values", [value("v", 1, "a = 1")]);
+            editor.setLineMessageDecorations("test", [error("a", 2, "msg")]);
+            editor.setLineMessageDecorations("values", []);
+            expect(row(1).slice(editor.gutterWidth)).toBe("  it a");
+            expect(row(2).slice(editor.gutterWidth)).toBe("  it b  msg");
+            expect([...editor.getLineMessageDecorations("values").keys()]).toEqual([]);
+            expect([...editor.getLineMessageDecorations("test").keys()]).toEqual([2]);
+            expect([...editor.getLineMessageDecorations("nobody").keys()]).toEqual([]);
+        });
+
+        it("a click tells the owner of the message under it", () => {
+            const { editor, clicks, mouseDown } = setup(LINES, new Size(40, 6));
+            editor.setLineMessageDecorations("values", [value("v", 1, "a = 1", 1)]);
+            editor.setLineMessageDecorations("test", [error("a", 1, "msg")]);
+            const start = editor.gutterWidth + "  it a".length + 2;
+            mouseDown(start, 1);
+            mouseDown(start + "msg".length, 1);
+            mouseDown(start + "msg".length + 2, 1);
+            expect(clicks).toEqual(["test:a", "values:v"]);
+        });
     });
 
     describe("clicks", () => {
         it("a left press on its cells fires its key and leaves the cursor", () => {
             const { editor, clicks, mouseDown } = setup();
             editor.viewState.selections = [createCursorSelection(3, 1)];
-            editor.setLineMessageDecorations([error("a", 1, "msg"), error("b", 2, "other")]);
+            editor.setLineMessageDecorations("test", [error("a", 1, "msg"), error("b", 2, "other")]);
             const start = editor.gutterWidth + "  it a".length + 2;
 
             mouseDown(start, 1);
             mouseDown(start + 2, 1);
             mouseDown(editor.gutterWidth + "  it b".length + 2 + 4, 2);
 
-            expect(clicks).toEqual(["a", "a", "b"]);
+            expect(clicks).toEqual(["test:a", "test:a", "test:b"]);
             expect(editor.viewState.selections).toEqual([createCursorSelection(3, 1)]);
         });
 
         it("the gap, the cell after it and another row place the cursor as before", () => {
             const { editor, clicks, mouseDown } = setup();
-            editor.setLineMessageDecorations([error("a", 1, "msg")]);
+            editor.setLineMessageDecorations("test", [error("a", 1, "msg")]);
             const start = editor.gutterWidth + "  it a".length + 2;
 
             mouseDown(start - 1, 1);
@@ -197,16 +253,16 @@ describe("EditorElement — messages after the lines' ends", () => {
 
         it("the part cut by the right edge is not there to click", () => {
             const { editor, clicks, mouseDown } = setup(LINES, new Size(20, 6));
-            editor.setLineMessageDecorations([error("a", 1, "✗ a long message that does not fit")]);
+            editor.setLineMessageDecorations("test", [error("a", 1, "✗ a long message that does not fit")]);
             mouseDown(19, 1);
-            expect(clicks).toEqual(["a"]);
+            expect(clicks).toEqual(["test:a"]);
             mouseDown(20, 1);
-            expect(clicks).toEqual(["a"]);
+            expect(clicks).toEqual(["test:a"]);
         });
 
         it("a message scrolled out of view is not clicked", () => {
             const { editor, clicks, mouseDown } = setup();
-            editor.setLineMessageDecorations([error("a", 0, "msg")]);
+            editor.setLineMessageDecorations("test", [error("a", 0, "msg")]);
             editor.viewState.scrollLeft = 30;
             editor.markDirty();
             mouseDown(editor.gutterWidth, 0);

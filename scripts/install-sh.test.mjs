@@ -32,7 +32,7 @@ function writeExecutable(path, body) {
  * Runs install.sh with `binary` as the release asset. `ldd` is the fake ldd's reply to
  * `ldd <binary>`, `lddVersion` to `ldd --version`.
  */
-function install({ binary, ldd = "", lddVersion = GLIBC_LDD_VERSION }) {
+function install({ binary, ldd = "", lddVersion = GLIBC_LDD_VERSION, tty = false }) {
     const bin = join(root, "bin");
     const dir = join(root, "install");
     const curlCalls = join(root, "curl.log");
@@ -40,12 +40,12 @@ function install({ binary, ldd = "", lddVersion = GLIBC_LDD_VERSION }) {
     writeFileSync(join(root, "asset"), binary);
     writeFileSync(join(root, "ldd.out"), ldd);
     writeFileSync(join(root, "ldd.version"), lddVersion);
-    // curl -fsSL --retry 3 -o FILE URL: the asset itself, no checksum sidecar.
+    // curl ... -o FILE URL: the asset itself, no checksum sidecar. Each call's argv goes to curl.log.
     writeExecutable(
         join(bin, "curl"),
-        `out=""; url=""
+        `echo "$*" >> "${curlCalls}"
+out=""; url=""
 while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift ;; *) url="$1" ;; esac; shift; done
-echo "$url" >> "${curlCalls}"
 case "$url" in *.sha256) exit 22 ;; esac
 cp "${join(root, "asset")}" "$out"`,
     );
@@ -53,7 +53,9 @@ cp "${join(root, "asset")}" "$out"`,
         join(bin, "ldd"),
         `if [ "$1" = --version ]; then cat "${join(root, "ldd.version")}"; else cat "${join(root, "ldd.out")}"; fi`,
     );
-    const result = spawnSync(SHELL, [SCRIPT], {
+    // util-linux script(1) runs install.sh on a pty, so stderr is a terminal; its output lands on stdout.
+    const [command, args] = tty ? ["script", ["-qec", `${SHELL} ${SCRIPT}`, "/dev/null"]] : [SHELL, [SCRIPT]];
+    const result = spawnSync(command, args, {
         encoding: "utf8",
         env: {
             ...process.env,
@@ -64,9 +66,10 @@ cp "${join(root, "asset")}" "$out"`,
     });
     return {
         status: result.status,
-        stderr: result.stderr,
+        stderr: tty ? result.stdout : result.stderr,
         installed: join(dir, "diode"),
         downloaded: existsSync(curlCalls),
+        curlCalls: existsSync(curlCalls) ? readFileSync(curlCalls, "utf8").trimEnd().split("\n") : [],
     };
 }
 
@@ -122,4 +125,23 @@ test("install.sh: musl libc is refused before any download", { skip: !LINUX }, (
     );
     assert.equal(run.downloaded, false);
     assert.equal(existsSync(run.installed), false);
+});
+
+test("install.sh: without a terminal every download stays silent", { skip: !LINUX }, () => {
+    const run = install({ binary: `#!/bin/sh\n${WORKING}\n` });
+    assert.equal(run.status, 0, run.stderr);
+    assert.equal(run.curlCalls.length, 2, run.curlCalls.join("\n"));
+    for (const call of run.curlCalls) {
+        assert.match(call, /^-fsSL --retry 3 -o /);
+    }
+});
+
+const HAS_SCRIPT = spawnSync("script", ["--version"]).status === 0;
+
+test("install.sh: on a terminal the binary download shows curl's progress bar", { skip: !LINUX || !HAS_SCRIPT }, () => {
+    const run = install({ binary: `#!/bin/sh\n${WORKING}\n`, tty: true });
+    assert.equal(run.status, 0, run.stderr);
+    const [binary, checksum] = run.curlCalls;
+    assert.match(binary, /^-fL --retry 3 --progress-bar -o \S+ \S+\/diode-[^ ]+$/);
+    assert.match(checksum, /^-fsSL --retry 3 -o \S+ \S+\.sha256$/);
 });

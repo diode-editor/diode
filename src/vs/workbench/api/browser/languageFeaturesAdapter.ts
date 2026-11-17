@@ -233,6 +233,10 @@ export class LanguageFeaturesAdapter extends Disposable {
                 },
             }),
         // The hints die with their answer: there is no resolve cache in the subprocess to release.
+        inlineValues: ({ handle, selector }) =>
+            this.languageFeatures.inlineValuesProvider.register(selector, {
+                provideInlineValues: (request, token) => this.bridge.provideInlineValues(handle, request, token),
+            }),
         inlayHints: ({ handle, selector, hasOnDidChange }) =>
             this.languageFeatures.inlayHintsProvider.register(selector, {
                 ...(hasOnDidChange === true ? { onDidChangeInlayHints: this.inlayHintsChangeEvent(handle) } : {}),
