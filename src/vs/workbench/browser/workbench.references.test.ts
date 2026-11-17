@@ -35,6 +35,7 @@ const DEFS_TS = 'export function greet(name: string): string {\n    return "hi "
 
 interface IHarness {
     readonly execute: (command: string) => void;
+    readonly executeWith: (command: string, ...args: unknown[]) => Promise<unknown>;
     readonly screen: () => string;
     readonly referenceList: () => ListViewElement;
     readonly contextKey: (key: "referencesViewletVisible" | "hasReferenceResult") => boolean | undefined;
@@ -104,6 +105,11 @@ describe("Workbench — Find All References end-to-end", () => {
             execute: (command) => {
                 commands.execute(command);
                 workbenchContextKeys.update();
+            },
+            executeWith: async (command, ...args) => {
+                const result: unknown = await commands.execute(command, ...args);
+                workbenchContextKeys.update();
+                return result;
             },
             screen: () => {
                 testApp.render();
@@ -222,6 +228,83 @@ describe("Workbench — Find All References end-to-end", () => {
 
         expect(h.activeUri()).toBe(Uri.file(ws!.path("main.ts")).toString());
         expect(h.caret()).toEqual({ line: 0, character: 9 });
+    });
+
+    it("F4 over a list answered twice visits each place once", async () => {
+        // The second provider repeats every location of the first one.
+        const h = setup((workspace) => [
+            { uri: Uri.file(workspace.path("main.ts")).toString(), range: createRange(2, 14, 2, 19) },
+            { uri: Uri.file(workspace.path("defs.ts")).toString(), range: createRange(0, 16, 0, 21) },
+            { uri: Uri.file(workspace.path("main.ts")).toString(), range: createRange(0, 9, 0, 14) },
+        ]);
+        h.execute(FIND_REFERENCES);
+        await h.awaitResults();
+        expect(h.screen()).toContain("3 results in 2 files");
+
+        const visited: string[] = [];
+        for (let i = 0; i < 3; i++) {
+            h.execute(NEXT_REFERENCE);
+            await settle(0);
+            const caret = h.caret();
+            visited.push(`${path.basename(Uri.parse(h.activeUri()!).fsPath)}:${caret?.line}:${caret?.character}`);
+        }
+
+        // Files keep the order of first appearance: main.ts (answered first) before defs.ts.
+        expect(visited).toEqual(["main.ts:2:14", "defs.ts:0:16", "main.ts:0:9"]);
+    });
+
+    it("a code lens showing duplicated locations lists each place once and opens the caret's one", async () => {
+        const h = setup();
+        const main = Uri.file(ws!.path("main.ts")).toString();
+        const defs = Uri.file(ws!.path("defs.ts")).toString();
+        const at = (uri: string, line: number, from: number, to: number): unknown => ({
+            uri,
+            range: { start: { line, character: from }, end: { line, character: to } },
+        });
+
+        // A code lens of a server that concatenates two answers: every place twice, out of order.
+        await h.executeWith("editor.action.showReferences", main, { line: 2, character: 15 }, [
+            at(main, 2, 14, 19),
+            at(defs, 0, 16, 21),
+            at(main, 0, 9, 14),
+            at(main, 2, 14, 19),
+            at(defs, 0, 16, 21),
+            at(main, 0, 9, 14),
+        ]);
+        await h.awaitResults();
+
+        const screen = h.screen();
+        const lines = screen.split("\n");
+        const title = lines.findIndex((line) => line.includes("in 2 files"));
+        expect(title, screen).toBeGreaterThanOrEqual(0);
+        const rows = lines.slice(title, title + 6).map((line) => line.slice(0, 26).trimEnd());
+        // Go-to locations come sorted by uri (as upstream), so defs.ts goes first here.
+        expect(rows).toEqual([
+            " 3 results in 2 files",
+            "\uf107 defs.ts  1",
+            "    1  export function gre",
+            "\uf107 main.ts  2",
+            "    1  import { greet } fr",
+            "    3  const hello = greet",
+        ]);
+        // The caret's place (main.ts line 3) is the active row of the list.
+        h.referenceList().dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
+        await settle(0);
+        expect(h.activeUri()).toBe(main);
+        expect(h.caret()).toEqual({ line: 2, character: 14 });
+    });
+
+    it("all providers naming the same places give each place once", async () => {
+        const h = setup((workspace) => [
+            { uri: Uri.file(workspace.path("defs.ts")).toString(), range: createRange(0, 16, 0, 21) },
+            { uri: Uri.file(workspace.path("defs.ts")).toString(), range: createRange(0, 16, 0, 21) },
+            { uri: Uri.file(workspace.path("main.ts")).toString(), range: createRange(0, 9, 0, 14) },
+            { uri: Uri.file(workspace.path("main.ts")).toString(), range: createRange(2, 14, 2, 19) },
+        ]);
+        h.execute(FIND_REFERENCES);
+        await h.awaitResults();
+
+        expect(h.screen()).toContain("3 results in 2 files");
     });
 
     it("switching to Explorer and back keeps the result", async () => {
