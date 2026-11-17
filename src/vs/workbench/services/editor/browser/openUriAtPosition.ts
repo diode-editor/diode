@@ -4,21 +4,25 @@ import type { IEditorService } from "../common/editorService.ts";
 
 /**
  * A file opens pinned (`openUri` never previews unless asked), an already open one is activated; a 0-based position
- * sets the cursor. A jump for Go Back, like every navigation by a link.
+ * sets the cursor. A jump for Go Back, like every navigation by a link. `sideBySide`: in the group beside the active
+ * one (upstream `SIDE_GROUP`); `focus: false` leaves the focus where it is (upstream `preserveFocus`).
  */
 export async function openUriAtPosition(
     editors: IEditorService,
     jumps: IJumpRecorder,
     uri: Uri,
     position: { readonly line: number; readonly column: number } | undefined,
+    { sideBySide = false, focus = true }: { readonly sideBySide?: boolean; readonly focus?: boolean } = {},
 ): Promise<void> {
     const key = uri.toString();
     await jumps.jumpAsync(async () => {
         // Upstream `revealIfOpened: true`: a tab in another group is activated there, not duplicated here.
         const groups = editors.editorGroups;
-        const owner = [groups.activeGroup, ...groups.groups].find((group) => group.findPaneIndex(uri) >= 0);
+        const owner = sideBySide
+            ? "beside"
+            : [groups.activeGroup, ...groups.groups].find((group) => group.findPaneIndex(uri) >= 0);
         // Stryker disable next-line ConditionalExpression: `{ group: undefined }` picks the group like no option at all.
-        await editors.openUri(uri, owner === undefined ? {} : { group: owner });
+        await editors.openUri(uri, owner === undefined ? { focus } : { group: owner, focus });
         if (position === undefined) return;
         const editor = editors.getActiveEditor();
         // Stryker disable next-line ConditionalExpression,OptionalChaining: the file failed to open; whatever editor stays active keeps its cursor.

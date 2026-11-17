@@ -65,6 +65,8 @@ export function adapterManagerPorts(overrides: Partial<IAdapterManagerPorts> = {
         extensions: { activateByEvent: () => Promise.resolve() },
         variables: NO_VARIABLES,
         guess: NO_GUESS,
+        /* v8 ignore next -- test helper: a test of the setting passes its own */
+        allowBreakpointsEverywhere: () => false,
         ...overrides,
     };
 }

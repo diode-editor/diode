@@ -163,7 +163,40 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     public readonly textFileModels: TextFileModelService;
     private readonly paneBuilder: TextEditorPaneBuilder;
 
-    public virtualDocumentSource: IVirtualDocumentSource = NULL_VIRTUAL_DOCUMENT_SOURCE;
+    /** The extension host's text document content providers: the composition assigns it. */
+    private extensionDocumentSource: IVirtualDocumentSource = NULL_VIRTUAL_DOCUMENT_SOURCE;
+    /** The workbench's own schemes (`debug:`), asked before the extensions'. */
+    private readonly workbenchDocumentSources = new Map<string, (uri: Uri) => Promise<string | null>>();
+    private readonly composedDocumentSource: IVirtualDocumentSource = {
+        canProvide: (scheme) =>
+            this.workbenchDocumentSources.has(scheme) || this.extensionDocumentSource.canProvide(scheme),
+        provide: (uri) => {
+            const workbench = this.workbenchDocumentSources.get(uri.scheme);
+            return workbench === undefined ? this.extensionDocumentSource.provide(uri) : workbench(uri);
+        },
+    };
+
+    /**
+     * Reads give the workbench's schemes and then the assigned source's (upstream: the text model content providers of
+     * `ITextModelService`, the workbench's and the extensions' alike); an assignment replaces only the latter.
+     */
+    public get virtualDocumentSource(): IVirtualDocumentSource {
+        return this.composedDocumentSource;
+    }
+
+    public set virtualDocumentSource(source: IVirtualDocumentSource) {
+        this.extensionDocumentSource = source;
+    }
+
+    /** Upstream `registerTextModelContentProvider` of a workbench contribution: the content of a scheme's documents. */
+    public registerDocumentSource(scheme: string, provide: (uri: Uri) => Promise<string | null>): IDisposable {
+        this.workbenchDocumentSources.set(scheme, provide);
+        return {
+            dispose: () => {
+                this.workbenchDocumentSources.delete(scheme);
+            },
+        };
+    }
 
     private readonly onDidFailOpenEmitter = new Emitter<{ readonly uri: Uri; readonly reason: string }>();
     /**
@@ -885,10 +918,13 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         this.openResolvedUri(uri, content, options);
     }
 
-    /** `output:` and snapshot diff sides are not restorable: the tab owner writes their content, the resource doesn't address it. */
+    /**
+     * `output:` and snapshot diff sides are not restorable: the tab owner writes their content, the resource doesn't
+     * address it. Neither is a workbench scheme's document (`debug:` needs its session).
+     */
     public canRestore(uri: Uri): boolean {
         if (uri.scheme === "file" || uri.scheme === "untitled") return true;
-        return this.virtualDocumentSource.canProvide(uri.scheme);
+        return this.extensionDocumentSource.canProvide(uri.scheme);
     }
 
     /** A resource that isn't open gets no tab: the user didn't ask for one. A provider failure only goes to the log: the refresh is in the background. */

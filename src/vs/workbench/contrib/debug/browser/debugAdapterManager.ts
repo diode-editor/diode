@@ -8,13 +8,15 @@
 // and the tests call it. Contributions of one type merge as upstream's (the first one wins a key, objects merge),
 // a `*` contribution merges into every type. The adapters of extensions come through `registerDebugAdapterFactory`
 // (upstream's `$registerDebugTypes`); upstream's main-side descriptor factories are not needed, the subprocess asks
-// the extension's factory itself. `guessDebugger` picks a debugger for a configuration without a type and for a new
-// launch.json; its picker has no separators, so the first suggested debugger carries the hint "suggested", and a
-// debugger is suggested when a session of its type ran in this window (upstream also suggests the debuggers of
-// extensions activated at startup). Not here yet, each with its task: the launch.json schema and the task labels in it
-// (#1157), `canSetBreakpointsIn` (gutter, #1148: a file of a language no debugger names gets the "no extension"
-// question at once), the `debug/createConfiguration` menu of extensions. A debugger's `when` is evaluated when asked: `debuggersAvailable` follows
-// registrations and every change of a key in the `when` of a debugger, as upstream's. `runInTerminal` goes to the core's terminal launcher, not to the adapter
+// the extension's factory itself. `contributes.breakpoints` comes through `registerBreakpoints` the same way, and
+// `canSetBreakpointsIn` takes the language of the file (upstream: its text model). `guessDebugger` picks a debugger
+// for a configuration without a type and for a new launch.json; its picker has no separators, so the first suggested
+// debugger carries the hint "suggested", and a debugger is suggested when a session of its type ran in this window
+// (upstream also suggests the debuggers of extensions activated at startup). Not here yet, each with its task: the
+// launch.json schema and the task labels in it (#1157), the `debug/createConfiguration` menu of extensions. A
+// debugger's `when` is evaluated when asked: `debuggersAvailable` follows registrations and every change of a key in
+// the `when` of a debugger, as upstream's; `onDidChangeCanSetBreakpoints` follows those and the `when` of the
+// breakpoint contributions. `runInTerminal` goes to the core's terminal launcher, not to the adapter
 // factory of the debug type (#1142). Deviation: upstream lets a built-in extension's contribution win a key; diode
 // has no built-in debuggers.
 
@@ -25,8 +27,10 @@ import type { ContextKeyService } from "../../../../platform/contextkey/common/c
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import type { IExtensionService } from "../../../services/extensions/common/extensions.ts";
+import { Breakpoints } from "../common/breakpoints.ts";
 import type {
     IAdapterManager,
+    IBreakpointContribution,
     IConfig,
     IDebugAdapter,
     IDebugAdapterFactory,
@@ -55,6 +59,8 @@ export interface IAdapterManagerPorts {
     readonly terminalLauncher: IDebugTerminalLauncher;
     readonly extensions: Pick<IExtensionService, "activateByEvent">;
     readonly variables: IDebugVariableResolver;
+    /** `debug.allowBreakpointsEverywhere`. */
+    readonly allowBreakpointsEverywhere: () => boolean;
     readonly guess: IDebuggerGuessPorts;
 }
 
@@ -70,6 +76,11 @@ export class AdapterManager extends Disposable implements IAdapterManager {
     private readonly debugAdapterFactories = new Map<string, IDebugAdapterFactory>();
     private readonly onDidRegisterDebuggerEmitter = this.register(new Emitter<void>());
     private readonly usedDebugTypes = new Set<string>();
+    // Stryker disable next-line ArrayDeclaration: a non-`Breakpoints` entry has no `language`, it matches no file
+    private breakpointContributions: Breakpoints[] = [];
+    /** The context keys of the contributions' `when`. */
+    private breakpointWhenKeys = new Set<string>();
+    private readonly onDidChangeCanSetBreakpointsEmitter = this.register(new Emitter<void>());
 
     public constructor(
         private readonly debugService: () => IDebugService,
@@ -84,8 +95,11 @@ export class AdapterManager extends Disposable implements IAdapterManager {
         );
         this.register(
             this.ports.contextKeys.onDidChange((changed) => {
-                if ([...changed].some((key) => this.debuggerWhenKeys.has(key))) {
-                    this.ports.contextKeys.set("debuggersAvailable", this.hasEnabledDebuggers());
+                const keys = [...changed];
+                const debuggers = keys.some((key) => this.debuggerWhenKeys.has(key));
+                if (debuggers) this.ports.contextKeys.set("debuggersAvailable", this.hasEnabledDebuggers());
+                if (debuggers || keys.some((key) => this.breakpointWhenKeys.has(key))) {
+                    this.onDidChangeCanSetBreakpointsEmitter.fire();
                 }
             }),
         );
@@ -93,6 +107,43 @@ export class AdapterManager extends Disposable implements IAdapterManager {
 
     public get onDidRegisterDebugger(): Event<void> {
         return this.onDidRegisterDebuggerEmitter.event;
+    }
+
+    /** What `canSetBreakpointsIn` and `hasEnabledDebuggers` answer may have changed (not `debug.*` settings). */
+    public get onDidChangeCanSetBreakpoints(): Event<void> {
+        return this.onDidChangeCanSetBreakpointsEmitter.event;
+    }
+
+    /** Upstream's `breakpointsExtPoint` handler, one `contributes.breakpoints` entry at a time. */
+    public registerBreakpoints(contribution: IBreakpointContribution): IDisposable {
+        const breakpoints = new Breakpoints(contribution, this.ports.contextKeys);
+        this.breakpointContributions.push(breakpoints);
+        this.updateBreakpointWhenKeys();
+        return {
+            dispose: () => {
+                this.breakpointContributions = this.breakpointContributions.filter((entry) => entry !== breakpoints);
+                this.updateBreakpointWhenKeys();
+            },
+        };
+    }
+
+    private updateBreakpointWhenKeys(): void {
+        this.breakpointWhenKeys = new Set(this.breakpointContributions.flatMap((breakpoints) => breakpoints.whenKeys));
+        this.onDidChangeCanSetBreakpointsEmitter.fire();
+    }
+
+    public canSetBreakpointsIn(languageId: string): boolean {
+        if (!languageId || languageId === "jsonc" || languageId === "log") {
+            // do not allow breakpoints in our settings files and output
+            return false;
+        }
+        if (this.ports.allowBreakpointsEverywhere()) {
+            return true;
+        }
+
+        return this.breakpointContributions.some(
+            (breakpoints) => breakpoints.language === languageId && breakpoints.enabled,
+        );
     }
 
     public registerDebugger(contribution: IDebuggerContribution): IDisposable {
@@ -140,6 +191,7 @@ export class AdapterManager extends Disposable implements IAdapterManager {
             }),
         );
         this.updateContextKeys();
+        this.onDidChangeCanSetBreakpointsEmitter.fire();
     }
 
     public async activateDebuggers(activationEvent: string, debugType?: string): Promise<void> {
@@ -217,8 +269,11 @@ export class AdapterManager extends Disposable implements IAdapterManager {
         }
 
         // We want to get the debuggers that have configuration providers in the case we are fetching configurations
-        // (upstream also when a breakpoint can be set in the active file, #1148)
-        if ((!languageLabel || gettingConfigurations) && candidates.length === 0) {
+        // Or if a breakpoint can be set in the current file (good hint that an extension can handle it)
+        if (
+            (!languageLabel || gettingConfigurations || (language && this.canSetBreakpointsIn(language.id))) &&
+            candidates.length === 0
+        ) {
             await this.activateDebuggers("onDebugInitialConfigurations");
 
             candidates = this.debuggers.filter(

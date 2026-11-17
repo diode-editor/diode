@@ -16,7 +16,8 @@ import { FindComponentDIToken } from "../../find/browser/findComponent.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
 
-const FILE = "toolbar-sample.txt";
+/** The synthetic program's `main.cpp`: the stop opens it, so it stays the editor of the test. */
+const FILE = "src/main.cpp";
 const BUTTONS = "▶ Continue  ↷ Over  ↓ Into  ↑ Out  ↻ Restart  ■ Stop";
 const GLYPHS = "▶  ↷  ↓  ↑  ↻  ■";
 const SCREEN_WIDTH = 120;
@@ -27,7 +28,7 @@ describe("the debug toolbar in the workbench", () => {
 
     beforeEach(async () => {
         ws = createTempWorkspace({ files: { [FILE]: "alpha\nbeta\ngamma\n" } });
-        t = await createDebugViewletHarness(ws.dir);
+        t = await createDebugViewletHarness(ws.dir, ws.dir);
         t.h.workbench.openFile(ws.path(FILE));
     });
 
@@ -42,7 +43,7 @@ describe("the debug toolbar in the workbench", () => {
 
     /** The row of the tab strip of the (single) editor group. */
     function tabRow(): number {
-        return t.find(FILE).y;
+        return t.find("main.cpp").y;
     }
 
     function click(point: Point, button: "left" | "right" = "left"): void {

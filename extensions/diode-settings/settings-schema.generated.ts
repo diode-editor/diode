@@ -15,6 +15,12 @@ export interface ISettingSchemaEntry {
 
 export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {
+        key: "debug.allowBreakpointsEverywhere",
+        type: "boolean",
+        default: false,
+        description: "Allow setting breakpoints in any file.",
+    },
+    {
         key: "debug.autoExpandLazyVariables",
         type: "string",
         default: "auto",
@@ -101,6 +107,19 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Color of the status bar when the debugger is active.",
     },
     {
+        key: "debug.focusEditorOnBreak",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the editor should be focused when the debugger breaks.",
+    },
+    {
+        key: "debug.gutterMiddleClickAction",
+        type: "string",
+        default: "logpoint",
+        description: "Controls the action to perform when clicking the editor gutter with the middle mouse button.",
+        enum: ["logpoint", "conditionalBreakpoint", "triggeredBreakpoint", "none"],
+    },
+    {
         key: "debug.hideLauncherWhileDebugging",
         type: "boolean",
         default: false,
@@ -140,6 +159,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         default: "allEditorsInActiveGroup",
         description: "Controls what editors to save before starting a debug session.",
         enum: ["allEditorsInActiveGroup", "nonUntitledEditorsInActiveGroup", "none"],
+    },
+    {
+        key: "debug.showBreakpointsInOverviewRuler",
+        type: "boolean",
+        default: false,
+        description: "Controls whether breakpoints should be shown in the overview ruler.",
     },
     {
         key: "debug.showInStatusBar",

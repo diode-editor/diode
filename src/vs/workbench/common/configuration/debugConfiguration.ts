@@ -6,9 +6,10 @@ import type { IConfigurationNode } from "../../../platform/configuration/common/
  * Debug Console (`replModel.ts`, opening and closing its view), the terminal of `runInTerminal` (`debugTerminal.ts`), launch.json and the debug tasks
  * (`debugConfigurationManager.ts`, `debugTaskRunner.ts`, `debugService.ts`), the Run and Debug views (opening them,
  * types, lazy variables, the breakpoints presentation and the launcher in its title), the debug toolbar and the status
- * bar (`debugToolbar.ts`, `statusbarColorProvider.ts`, `debugStatus.ts`). `debug.console.fontSize`, `fontFamily` and
- * `lineHeight` are declared and not applied (the terminal's font); `fontSize` defaults to 14, upstream's on everything
- * but macOS (12). The rest of `debug.*` comes with the task that implements it, the
+ * bar (`debugToolbar.ts`, `statusbarColorProvider.ts`, `debugStatus.ts`), the editor's breakpoints and stack frames
+ * (the gutter, its middle click and ruler, focusing the editor on a break). `debug.console.fontSize`, `fontFamily`
+ * and `lineHeight` are declared and not applied (the terminal's font); `fontSize` defaults to 14, upstream's on
+ * everything but macOS (12). The rest of `debug.*` comes with the task that implements it, the
  * unsupported ones are declared by the settings task (#1158). `launch` has no JSON schema of its configurations yet
  * (IntelliSense in launch.json is a task of its own).
  */
@@ -200,6 +201,37 @@ export const debugConfiguration = {
             type: "boolean",
             description:
                 "Before starting a new debug session in an integrated or external terminal, clear the terminal.",
+            default: false,
+        },
+        "debug.allowBreakpointsEverywhere": {
+            scope: "window",
+            type: "boolean",
+            description: "Allow setting breakpoints in any file.",
+            default: false,
+        },
+        "debug.gutterMiddleClickAction": {
+            scope: "window",
+            type: "string",
+            enum: ["logpoint", "conditionalBreakpoint", "triggeredBreakpoint", "none"],
+            description: "Controls the action to perform when clicking the editor gutter with the middle mouse button.",
+            enumDescriptions: [
+                "Add Logpoint.",
+                "Add Conditional Breakpoint.",
+                "Add Triggered Breakpoint.",
+                "Don't perform any action.",
+            ],
+            default: "logpoint",
+        },
+        "debug.focusEditorOnBreak": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls whether the editor should be focused when the debugger breaks.",
+            default: true,
+        },
+        "debug.showBreakpointsInOverviewRuler": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls whether breakpoints should be shown in the overview ruler.",
             default: false,
         },
         "debug.autoExpandLazyVariables": {

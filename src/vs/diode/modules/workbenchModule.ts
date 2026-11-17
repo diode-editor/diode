@@ -129,8 +129,18 @@ import {
 } from "../../workbench/common/workbenchContributionsRegistry.ts";
 import { BulkEditBuffers } from "../../workbench/contrib/bulkEdit/browser/bulkEditBuffers.ts";
 import { IBulkEditBuffersDIToken } from "../../workbench/contrib/bulkEdit/common/iBulkEditBuffers.ts";
-import { BreakpointSources } from "../../workbench/contrib/debug/browser/breakpointSources.ts";
+import {
+    BreakpointEditorContribution,
+    BreakpointEditorContributionDIToken,
+    BreakpointEditorSourceDIToken,
+} from "../../workbench/contrib/debug/browser/breakpointEditorContribution.ts";
+import { BreakpointInput, BreakpointInputDIToken } from "../../workbench/contrib/debug/browser/breakpointInput.ts";
+import { BreakpointSources, openStackFrame } from "../../workbench/contrib/debug/browser/breakpointSources.ts";
 import { BreakpointSourcesDIToken } from "../../workbench/contrib/debug/browser/breakpointsView.ts";
+import {
+    DebugContentProvider,
+    DebugContentProviderDIToken,
+} from "../../workbench/contrib/debug/browser/debugContentProvider.ts";
 import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
 import {
     DebugQuickAccessProviderDIToken,
@@ -787,7 +797,20 @@ export const workbenchModule: ContainerModule = (container) => {
                 autoExpandLazyVariables: configuration.get("debug.autoExpandLazyVariables"),
                 internalConsoleOptions: configuration.get("debug.internalConsoleOptions"),
                 console: { closeOnEnd: configuration.get("debug.console.closeOnEnd") },
+                allowBreakpointsEverywhere: configuration.get("debug.allowBreakpointsEverywhere"),
+                focusEditorOnBreak: configuration.get("debug.focusEditorOnBreak"),
             }),
+            openStackFrame: (stackFrame, options) =>
+                openStackFrame(
+                    container.get(EditorServiceDIToken),
+                    container.get(JumpRecorderDIToken),
+                    stackFrame,
+                    options,
+                ),
+            onDidSaveTextFile: (listener) =>
+                textFiles.onDidSaveModel((model) => {
+                    listener(model.uri);
+                }),
             openViewlet: () => {
                 container.get(ViewsServiceDIToken).openViewContainer(VIEWLET_ID);
             },
@@ -810,6 +833,11 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(DebugTerminalLauncherDIToken, DebugTerminalLauncher);
     container.bind(DebugServiceDIToken, DebugService);
     container.bind(BreakpointSourcesDIToken, BreakpointSources);
+    container.bind(BreakpointInputDIToken, BreakpointInput);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario debug-breakpoints-gutter
+    container.bind(BreakpointEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(BreakpointEditorContributionDIToken, BreakpointEditorContribution);
+    container.bind(DebugContentProviderDIToken, DebugContentProvider);
     container.bind(DebugViewletComponentDIToken, DebugViewletComponent);
     container.bind(LinkDetectorDIToken, LinkDetector);
     container.bind(ReplDIToken, Repl);
