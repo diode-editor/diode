@@ -2,6 +2,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICoreReference } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
+import { createLocationModel } from "../../gotoDefinition/browser/goToSymbol.ts";
 
 /** Shaped like a search file group, so rows are drawn by the same `buildFileRow`/`buildMatchRow`. */
 export interface IReferenceGroup {
@@ -32,6 +33,8 @@ const MAX_AFTER_CHARS = 256;
 
 /**
  * Group order is the first appearance of a file in the response (for tsserver: declaration, then usages).
+ * Within a file rows go by range and an exact duplicate is dropped: two providers for one language (a
+ * language server and a linter) often name the same place, upstream `ReferencesModel` shows it once.
  * Each file is read once per request; a reference whose line is past the end of the text is dropped.
  */
 export async function buildReferenceGroups(
@@ -39,37 +42,19 @@ export async function buildReferenceGroups(
     source: IReferenceTextSource,
     root: string,
 ): Promise<IReferenceGroup[]> {
-    const groups = new Map<string, IReferenceGroup>();
-    const lineCache = new Map<string, readonly string[] | null>();
-
-    for (const reference of references) {
-        const lines = await linesOf(reference.uri, source, lineCache);
+    const groups: IReferenceGroup[] = [];
+    for (const [uri, fileReferences] of Map.groupBy(references, (reference) => reference.uri)) {
+        const lines = await readLines(uri, source);
         if (lines === null) continue;
-        const match = toTextMatch(lines, reference.range);
-        if (match === null) continue;
+        const matches = createLocationModel(fileReferences)
+            .references.map((reference) => toTextMatch(lines, reference.range))
+            .filter((match) => match !== null);
+        if (matches.length === 0) continue;
 
-        let group = groups.get(reference.uri);
-        if (group === undefined) {
-            const absolutePath = Uri.parse(reference.uri).fsPath;
-            group = { uri: reference.uri, absolutePath, relPath: labelFor(absolutePath, root), matches: [] };
-            groups.set(reference.uri, group);
-        }
-        group.matches.push(match);
+        const absolutePath = Uri.parse(uri).fsPath;
+        groups.push({ uri, absolutePath, relPath: labelFor(absolutePath, root), matches });
     }
-
-    return [...groups.values()];
-}
-
-async function linesOf(
-    uri: string,
-    source: IReferenceTextSource,
-    cache: Map<string, readonly string[] | null>,
-): Promise<readonly string[] | null> {
-    const cached = cache.get(uri);
-    if (cached !== undefined) return cached;
-    const lines = await readLines(uri, source);
-    cache.set(uri, lines);
-    return lines;
+    return groups;
 }
 
 async function readLines(uri: string, source: IReferenceTextSource): Promise<readonly string[] | null> {
