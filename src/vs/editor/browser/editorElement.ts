@@ -56,12 +56,13 @@ import type {
 import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecoration.ts";
 import type { IInlineInsertion } from "../common/model/iInlineInsertion.ts";
 import { NO_INLINE_INSERTIONS } from "../common/model/iInlineInsertion.ts";
-import type { ILineMessageDecoration } from "../common/model/iLineMessageDecoration.ts";
+import type { ILineMessageClick, ILineMessageDecoration } from "../common/model/iLineMessageDecoration.ts";
 import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
 import { composedFragmentStart, composedLineContent, composedOffset } from "../common/viewModel/lineInsertions.ts";
+import { LineMessageLayers } from "../common/viewModel/lineMessageLayers.ts";
 import { LineWidthCache } from "../common/viewModel/lineWidthCache.ts";
 import {
     LONG_LINE_TRUNCATION_BADGE,
@@ -147,6 +148,7 @@ interface ILineMessageCells {
     readonly y: number;
     readonly x0: number;
     readonly x1: number;
+    readonly owner: string;
     readonly key: string;
 }
 
@@ -208,7 +210,7 @@ export class EditorElement extends TUIElement implements IScrollable {
     private readonly onDidClickGlyphMarginEmitter = new Emitter<IGlyphMarginClick>();
     /** A press of any button on the glyph lane of a document line, with its glyph or without one; the cursor stays. */
     public readonly onDidClickGlyphMargin = this.onDidClickGlyphMarginEmitter.event;
-    private readonly onDidClickLineMessageEmitter = new Emitter<string>();
+    private readonly onDidClickLineMessageEmitter = new Emitter<ILineMessageClick>();
     /** A press of the left button on a message after a line's end: its key; the cursor stays. */
     public readonly onDidClickLineMessage = this.onDidClickLineMessageEmitter.event;
     private readonly onDidClickDocumentLinkEmitter = new Emitter<IPosition>();
@@ -270,7 +272,7 @@ export class EditorElement extends TUIElement implements IScrollable {
     private readonly glyphLayers = new Map<string, TrackedLineDecorations<IGlyphMarginDecoration>>();
     private glyphMarginReservedValue = false;
     private readonly lineHighlights: TrackedLineDecorations<ILineHighlightDecoration>;
-    private readonly lineMessages: TrackedLineDecorations<ILineMessageDecoration>;
+    private readonly lineMessages: LineMessageLayers;
     /** The cells the last frame painted each message on: a click is matched against what the user saw. */
     private lineMessageCells: readonly ILineMessageCells[] = [];
 
@@ -798,15 +800,15 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.markDirty();
     }
 
-    /** The messages after the lines' ends; each keeps its line through edits until set again elsewhere. */
-    public setLineMessageDecorations(decorations: readonly ILineMessageDecoration[]): void {
-        this.lineMessages.set(decorations);
+    /** An owner's messages after the lines' ends; each keeps its line through edits until set again elsewhere. */
+    public setLineMessageDecorations(owner: string, decorations: readonly ILineMessageDecoration[]): void {
+        this.lineMessages.set(owner, decorations);
         this.markDirty();
     }
 
-    /** The messages by the line they are on now: a deleted line's message is gone. */
-    public getLineMessageDecorations(): ReadonlyMap<number, ILineMessageDecoration> {
-        return this.lineMessages.byLine();
+    /** The owner's messages by the line they are on now: a deleted line's message is gone. */
+    public getLineMessageDecorations(owner: string): ReadonlyMap<number, ILineMessageDecoration> {
+        return this.lineMessages.byLineOf(owner);
     }
 
     private get gutterMarkerColumns(): number {
@@ -871,7 +873,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.undoManager = new UndoManager(viewState.document);
         this.wordHighlighter = new WordHighlighter(viewState);
         this.lineHighlights = new TrackedLineDecorations(viewState.document);
-        this.lineMessages = new TrackedLineDecorations(viewState.document);
+        this.lineMessages = new LineMessageLayers(viewState.document);
 
         this.viewState.onDidChangeWordHighlights(() => {
             this.markDirty();
@@ -1014,7 +1016,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         for (const [line, highlight] of this.lineHighlights.byLine()) {
             highlightBgByLine.set(line, compositeOver(this.styleVar(highlight.colorToken), editorBg));
         }
-        const messageByLine = this.lineMessages.byLine();
+        const messagesByLine = this.lineMessages.byLine();
         // Stryker disable next-line ArrayDeclaration: equivalent, an entry that is not a cell matches no click
         const messageCells: ILineMessageCells[] = [];
         this.lineMessageCells = messageCells;
@@ -1286,21 +1288,25 @@ export class EditorElement extends TUIElement implements IScrollable {
                 }
             }
 
-            const message = isLastFragment ? messageByLine.get(rowLogLine) : undefined;
-            if (message !== undefined) {
+            const messages = isLastFragment ? messagesByLine.get(rowLogLine) : undefined;
+            if (messages !== undefined) {
                 // After what the line's end already shows: the cut line's badge, the folded region's marker.
                 const lineEnd =
                     dl.displayWidth +
                     (dl.isTruncated ? LONG_LINE_TRUNCATION_BADGE_WIDTH : 0) +
                     (isFoldedHeader ? 1 + FOLD_COLLAPSED_MARKER.length : 0);
-                const cells = this.paintLineMessage(context, message, {
-                    screenY,
-                    gutterW,
-                    contentCols,
-                    startCol: lineEnd + LINE_MESSAGE_GAP - scrollLeft - fragStartCol,
-                    bg: decoratedBg ?? editorBg,
-                });
-                messageCells.push({ y: screenY, ...cells, key: message.key });
+                let startCol = lineEnd + LINE_MESSAGE_GAP - scrollLeft - fragStartCol;
+                for (const { owner, message } of messages) {
+                    const cells = this.paintLineMessage(context, message, {
+                        screenY,
+                        gutterW,
+                        contentCols,
+                        startCol,
+                        bg: decoratedBg ?? editorBg,
+                    });
+                    messageCells.push({ y: screenY, x0: cells.x0, x1: cells.x1, owner, key: message.key });
+                    startCol += cells.width + LINE_MESSAGE_GAP;
+                }
             }
         }
 
@@ -1396,7 +1402,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         context: RenderContext,
         message: ILineMessageDecoration,
         at: { screenY: number; gutterW: number; contentCols: number; startCol: number; bg: number },
-    ): { x0: number; x1: number } {
+    ): { x0: number; x1: number; width: number } {
         const { screenY, gutterW, contentCols, startCol } = at;
         const displayLine = this.viewState.displayLineFor(message.text);
         const x0 = Math.max(startCol, 0);
@@ -1413,7 +1419,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             style: StyleFlags.None,
             scrollLeft: x0 - startCol,
         });
-        return { x0: gutterW + x0, x1: gutterW + x1 };
+        return { x0: gutterW + x0, x1: gutterW + x1, width: displayLine.displayWidth };
     }
 
     /** Tokens resolve only when there is something to paint: a bare element has no theme. */
@@ -1666,7 +1672,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         );
         if (message !== undefined) {
             this.dragAnchor = null;
-            this.onDidClickLineMessageEmitter.fire(message.key);
+            this.onDidClickLineMessageEmitter.fire({ owner: message.owner, key: message.key });
             return;
         }
 

@@ -3,7 +3,10 @@ import type { IProductIcon } from "../../../../base/common/codicons.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { removeAnsiEscapeCodes, truncateMiddle } from "../../../../base/common/strings.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
-import type { ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
+import type {
+    ILineMessageClick,
+    ILineMessageDecoration,
+} from "../../../../editor/common/model/iLineMessageDecoration.ts";
 import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -25,6 +28,9 @@ import { messageKey, messageOf, type TestMessageSubject } from "./testMessageVie
 // `TestingDecorations.applyResults`. Deviations: no hover, no peek — TEST RESULTS plays its role; the error is a badge
 // of cells after the line's end, not a widget with an arrow.
 
+/** The owner of the test messages after the lines' ends. */
+export const TESTING_LINE_MESSAGE_OWNER = "testing";
+
 /** Upstream `MAX_INLINE_MESSAGE_LENGTH`. */
 export const MAX_INLINE_MESSAGE_LENGTH = 128;
 
@@ -42,9 +48,9 @@ export interface ITestingMessagesEditor {
     /** The large-file mode (docs/arch/Editor.md) has no messages; the event fires when it is left. */
     readonly isTooLargeForTokenization: boolean;
     onDidChangeTooLargeForTokenization(listener: () => void): IDisposable;
-    setLineMessageDecorations(decorations: readonly ILineMessageDecoration[]): void;
-    getLineMessageDecorations(): ReadonlyMap<number, ILineMessageDecoration>;
-    onDidClickLineMessage(listener: (key: string) => void): IDisposable;
+    setLineMessageDecorations(owner: string, decorations: readonly ILineMessageDecoration[]): void;
+    getLineMessageDecorations(owner: string): ReadonlyMap<number, ILineMessageDecoration>;
+    onDidClickLineMessage(listener: (click: ILineMessageClick) => void): IDisposable;
 }
 
 export interface ITestingMessagesEditorSource {
@@ -162,7 +168,7 @@ export class TestingMessageDecorations extends Disposable {
         const state = this.attached.get(editor);
         if (state === undefined) return [];
         const failures: IShownTestMessage[] = [];
-        for (const [line, decoration] of editor.getLineMessageDecorations()) {
+        for (const [line, decoration] of editor.getLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER)) {
             const shown = state.shown.get(decoration.key);
             // Stryker disable next-line OptionalChaining: equivalent, the keys and the shown map are set together
             if (shown?.isError === true) failures.push({ line, subject: shown.subject });
@@ -232,7 +238,8 @@ export class TestingMessageDecorations extends Disposable {
             const state: IAttachedEditor = {
                 editor,
                 subscriptions: [
-                    editor.onDidClickLineMessage((key) => {
+                    editor.onDidClickLineMessage(({ owner, key }) => {
+                        if (owner !== TESTING_LINE_MESSAGE_OWNER) return;
                         // The keys and the messages are set together.
                         const shown = state.shown.get(key);
                         if (shown !== undefined) this.show(shown.subject, true);
@@ -323,7 +330,7 @@ export class TestingMessageDecorations extends Disposable {
             }
         }
         state.shown = shown;
-        editor.setLineMessageDecorations(decorations);
+        editor.setLineMessageDecorations(TESTING_LINE_MESSAGE_OWNER, decorations);
     }
 }
 

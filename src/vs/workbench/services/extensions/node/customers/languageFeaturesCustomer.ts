@@ -48,6 +48,7 @@ import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../../../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { IInlineValuesRequest, InlineValue } from "../../../../../editor/common/languages/iInlineValuesSource.ts";
 import type {
     ILinkedEditingRangeRequest,
     ILinkedEditingRanges,
@@ -116,6 +117,7 @@ type LanguageRequestMethod =
     | "languages.provideCodeLenses"
     | "languages.resolveCodeLens"
     | "languages.provideInlayHints"
+    | "languages.provideInlineValues"
     | "languages.provideCompletionItems"
     | "languages.provideFormattingEdits"
     | "languages.provideDocumentColors"
@@ -755,6 +757,27 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             { token },
         );
         return wire === null ? null : wireToCoreInlayHints(wire);
+    }
+
+    /** `null` — no values, also when there is no subprocess, the document is not synced or the token cancelled it. */
+    public provideInlineValues(
+        handle: number,
+        req: IInlineValuesRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly InlineValue[] | null> {
+        return this.request(
+            "languages.provideInlineValues",
+            {
+                handle,
+                uri: req.uri,
+                languageId: req.languageId,
+                version: req.versionId,
+                viewPort: req.viewPort,
+                context: req.context,
+            },
+            null,
+            { token },
+        );
     }
 
     /** `null` — no lenses, also when there is no subprocess, the document is not synced or the token cancelled it. */
