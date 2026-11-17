@@ -179,17 +179,18 @@ const PLATFORM_ATTRIBUTES: AttributeMap = {
 
 /**
  * The attributes of a configuration with the given `type` and `request`, as upstream's `oneOf`
- * branch that matches it. A `request` the debugger doesn't know (or none yet: `""`) — the attributes of
- * all its requests; an unknown `type` (or none) — only the attributes every configuration has.
+ * branch that matches it. A `request` the debugger doesn't know (or none yet) — the attributes of all
+ * its requests; an unknown `type` (or none) — only the attributes every configuration has. Both are the
+ * values as written: one that isn't a string (or is missing) matches no debugger and no request.
  */
 export function configurationAttributes(
     debuggers: ReadonlyMap<string, IDebuggerSchema>,
-    type: string,
-    request: string,
+    type: unknown,
+    request: unknown,
 ): AttributeMap {
-    const requests = debuggers.get(type)?.requests ?? new Map<string, AttributeMap>();
+    const requests = debuggers.get(type as string)?.requests ?? new Map<string, AttributeMap>();
     const known = [...requests.keys()];
-    const own = known.includes(request) ? [request] : known;
+    const own = known.includes(request as string) ? [request as string] : known;
     const suggested = [...debuggers.values()].filter((d) => d.isMain && d.deprecated === undefined);
     return {
         ...own.reduce<AttributeMap>((all, r) => ({ ...all, ...requests.get(r) }), {}),

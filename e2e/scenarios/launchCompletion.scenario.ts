@@ -41,8 +41,10 @@ export default defineScenario({
         // The key is inserted quoted: the range covers the typed quote, so it is not doubled.
         await editor.waitForText((t) => t.includes('"stopOnEntry"'), { timeoutMs: 4000 });
 
-        // Its boolean values; the file has no `false`.
-        await editor.sendText(": f");
+        // Its boolean values; the file has no `false`. Key by key: `sendText` goes in as one paste, which opens no popup.
+        await editor.sendKey(":");
+        await editor.sendKey(" ");
+        await editor.sendKey("f");
         await editor.waitForText((t) => t.includes("false"), { timeoutMs: 4000 });
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes('"stopOnEntry": false'), { timeoutMs: 4000 });

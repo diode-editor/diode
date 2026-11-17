@@ -89,6 +89,7 @@ describe("configurationAttributes", () => {
                         configurationAttributes: { attach: { properties: { pid: { type: "number" } } } },
                     },
                     { type: "plain", label: "Plain" },
+                    { type: "unlabeled", runtime: "node" },
                     { type: "hidden", label: "Hidden", deprecated: "Gone." },
                     { type: "addon" },
                 ],
@@ -98,8 +99,8 @@ describe("configurationAttributes", () => {
 
     it("`type` lists the debuggers of their own that are not deprecated, described by their labels", () => {
         expect(configurationAttributes(debuggers, "", "").type).toEqual({
-            enum: ["attachOnly", "plain"],
-            enumDescriptions: ["Attach Only", "Plain"],
+            enum: ["attachOnly", "plain", "unlabeled"],
+            enumDescriptions: ["Attach Only", "Plain", "unlabeled"],
             description: "Type of configuration.",
         });
     });

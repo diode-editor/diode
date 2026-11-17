@@ -67,7 +67,7 @@ const SYNTHETIC_DEBUGGER: IExtensionRegistration = {
                     type: "other",
                     label: "Other Debug",
                     configurationAttributes: {
-                        launch: { properties: { otherOnly: { type: "string", description: "Только у other ✓." } } },
+                        launch: { properties: { otherOnly: { type: "string", description: "Nur für other ✓ — ü." } } },
                     },
                 },
             ],
@@ -177,7 +177,7 @@ describe("diode-settings — launch.json IntelliSense edge cases (e2e via subpro
         );
         expect(labels(items)).toContain("otherOnly");
         expect(labels(items)).not.toContain("program");
-        expect(items.find((i) => i.label === "otherOnly")?.documentation).toBe("Только у other ✓.");
+        expect(items.find((i) => i.label === "otherOnly")?.documentation).toBe("Nur für other ✓ — ü.");
     });
 
     it("comments and trailing commas (JSONC) do not break the completion", async () => {

@@ -73,10 +73,8 @@ export function provideLaunchCompletions(
     if (path.length !== 3) return [];
 
     const configurationPath = [...root, ...path.slice(0, 2)];
-    // A `type`/`request` that isn't set is `""`, which no debugger has.
-    const stringAt = (name: string): string =>
-        String(findNodeAtLocation(tree, [...configurationPath, name])?.value ?? "");
-    const attributes = configurationAttributes(debuggers, stringAt("type"), stringAt("request"));
+    const valueAt = (name: string): unknown => findNodeAtLocation(tree, [...configurationPath, name])?.value;
+    const attributes = configurationAttributes(debuggers, valueAt("type"), valueAt("request"));
     if (location.isAtPropertyKey) {
         return keyItems(attributes, existingKeys(tree, configurationPath, path[2]), replaceRange);
     }
