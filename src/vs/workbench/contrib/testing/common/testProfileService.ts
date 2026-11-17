@@ -20,8 +20,11 @@ export type ITestRunProfile = IWireTestRunProfile;
 // Stryker disable next-line StringLiteral: token() returns a unique Token matched by reference; the string is a label
 export const TestProfileServiceDIToken = token<TestProfileService>("TestProfileService");
 
+/** What the capabilities need of a test: its controller and its item. */
+export type ITestCapabilitySubject = Pick<ITestNode, "controllerId" | "item">;
+
 /** Upstream `canUseProfileWithTest` among the test's own controller's profiles: its tag is on the test (a root takes any). */
-function canRunTest(profile: ITestRunProfile, test: ITestNode): boolean {
+function canRunTest(profile: ITestRunProfile, test: ITestCapabilitySubject): boolean {
     return (
         TestId.parentId(test.item.extId) === undefined || profile.tag === null || test.item.tags.includes(profile.tag)
     );
@@ -33,10 +36,18 @@ function compareProfiles(a: ITestRunProfile, b: ITestRunProfile): number {
     return a.label.localeCompare(b.label);
 }
 
+/** Upstream `capabilityContextKeys`: a test's menus see what it can do. Coverage is a later wave: never. */
+export function capabilityContextKeys(capabilities: number): { [key: string]: boolean } {
+    return {
+        "testing.hasRunnableTests": (capabilities & TestRunProfileBitset.Run) !== 0,
+        "testing.hasDebuggableTests": (capabilities & TestRunProfileBitset.Debug) !== 0,
+    };
+}
+
 /**
- * Upstream `TestProfileService`: the run profiles of every controller and `testing.hasRunnableTests`.
- * Deviation: Debug and Coverage profiles are kept but offered nowhere, `testing.hasDebuggableTests` and
- * `testing.hasCoverableTests` stay `false` (no debugger; coverage is a later wave).
+ * Upstream `TestProfileService`: the run profiles of every controller, `testing.hasRunnableTests` and
+ * `testing.hasDebuggableTests`. Deviation: Coverage profiles are kept but offered nowhere, `testing.hasCoverableTests`
+ * stays `false` (coverage is a later wave).
  */
 export class TestProfileService extends Disposable {
     public static dependencies = [ContextKeyServiceDIToken] as const;
@@ -47,7 +58,6 @@ export class TestProfileService extends Disposable {
 
     public constructor(private readonly contextKeys: ContextKeyService) {
         super();
-        contextKeys.set("testing.hasDebuggableTests", false);
         contextKeys.set("testing.hasCoverableTests", false);
         this.refreshContextKeys();
     }
@@ -90,15 +100,25 @@ export class TestProfileService extends Disposable {
         );
     }
 
+    /** Upstream `capabilitiesForTest`: the groups of the test's controller's profiles that can run it. */
+    public capabilitiesForTest(test: ITestCapabilitySubject): number {
+        let capabilities = 0;
+        for (const profile of this.getControllerProfiles(test.controllerId)) {
+            if (canRunTest(profile, test)) capabilities |= profile.group;
+        }
+        return capabilities;
+    }
+
     private changed(): void {
         this.refreshContextKeys();
         this.onDidChangeEmitter.fire();
     }
 
     private refreshContextKeys(): void {
-        const hasRun = [...this.profiles.values()].some((list) =>
-            list.some((profile) => profile.group === TestRunProfileBitset.Run),
-        );
-        this.contextKeys.set("testing.hasRunnableTests", hasRun);
+        let capabilities = 0;
+        for (const list of this.profiles.values()) for (const profile of list) capabilities |= profile.group;
+        const keys = capabilityContextKeys(capabilities);
+        this.contextKeys.set("testing.hasRunnableTests", keys["testing.hasRunnableTests"]);
+        this.contextKeys.set("testing.hasDebuggableTests", keys["testing.hasDebuggableTests"]);
     }
 }

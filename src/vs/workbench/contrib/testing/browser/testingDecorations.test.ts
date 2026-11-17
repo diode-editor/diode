@@ -87,7 +87,7 @@ interface IOpenEditor {
     /** The gutter cells left of the text of a 0-based line. */
     gutter(line: number): string;
     fg(x: number, line: number): number;
-    click(x: number, line: number, button?: "left" | "right"): void;
+    click(x: number, line: number, button?: "left" | "right", altKey?: boolean): void;
 }
 
 interface ISetupOptions {
@@ -193,7 +193,7 @@ function setup(options: ISetupOptions = {}) {
                 app.render();
                 return app.backend.getFgAt(new Point(x, line));
             },
-            click: (x, line, button = "left") => {
+            click: (x, line, button = "left", altKey = false) => {
                 app.render();
                 for (const action of ["press", "release"] as const) {
                     app.backend.simulateMouse({
@@ -203,7 +203,7 @@ function setup(options: ISetupOptions = {}) {
                         y: line + 1,
                         action,
                         shiftKey: false,
-                        altKey: false,
+                        altKey,
                         ctrlKey: false,
                         raw: "",
                     });
@@ -251,6 +251,19 @@ function setup(options: ISetupOptions = {}) {
             },
         };
     };
+    /** A Debug profile (id 2) next to the Run one (id 1). */
+    const addDebugProfile = (): void => {
+        explorer.profiles.addProfile({
+            controllerId: "vitest",
+            profileId: 2,
+            label: "Debug",
+            group: TestRunProfileBitset.Debug,
+            isDefault: true,
+            tag: null,
+            hasConfigurationHandler: false,
+            supportsContinuousRun: false,
+        });
+    };
     const menu = (): MenuEntry[] => explorer.views.shown.at(-1)?.getEntries?.() ?? [];
     const labels = (entries: readonly MenuEntry[] = menu()): string[] =>
         entries.map((entry) => (entry.type === "separator" ? "-" : entry.label));
@@ -267,6 +280,7 @@ function setup(options: ISetupOptions = {}) {
         show,
         close,
         publishTests,
+        addDebugProfile,
         report,
         menu,
         labels,
@@ -474,22 +488,77 @@ describe("TestingDecorations", () => {
         expect(open.sets()).toBe(sets);
     });
 
-    it.each(["debug", "runWithCoverage"])(
-        "testing.defaultGutterClickAction %s runs the test: there is no debugger nor coverage",
-        async (action) => {
+    it.each([
+        ["run", false, 1],
+        ["run", true, 2],
+        ["debug", false, 2],
+        ["debug", true, 1],
+        ["runWithCoverage", false, 1],
+        ["runWithCoverage", true, 2],
+    ])(
+        "testing.defaultGutterClickAction %s, Alt %s: the test runs with profile %i (1 Run, 2 Debug; no coverage yet)",
+        async (action, altKey, profileId) => {
             const s = setup({ settings: { "testing.defaultGutterClickAction": action } });
+            s.addDebugProfile();
             const open = s.show(s.openEditor());
             s.publishTests();
             await flush();
 
-            open.click(1, 2);
+            open.click(1, 2, "left", altKey);
 
             await vi.waitFor(() => {
                 expect(s.explorer.runs).toHaveLength(1);
             });
+            expect(s.explorer.runs[0].requests).toMatchObject([{ profileId, testIds: [testId(...ADDS)] }]);
             expect(s.explorer.views.shown).toHaveLength(0);
         },
     );
+
+    it("testing.defaultGutterClickAction debug without a Debug profile runs nothing", async () => {
+        const s = setup({ settings: { "testing.defaultGutterClickAction": "debug" } });
+        const open = s.show(s.openEditor());
+        s.publishTests();
+        await flush();
+
+        open.click(1, 2);
+
+        await flush();
+        expect(s.explorer.runs).toHaveLength(0);
+    });
+
+    it("with a Debug profile a test's menu has Debug Test after Run Test, a line's Debug All Tests", async () => {
+        const s = setup();
+        s.addDebugProfile();
+        const open = s.show(s.openEditor());
+        s.publishTests();
+        s.explorer.tests.publishDiff([add(item([...SUITE, "twin"], 2), NotExpandable)]);
+        await flush();
+
+        open.click(1, 4, "right");
+        expect(s.labels()).toEqual(["Run Test", "Debug Test", "Reveal in Test Explorer"]);
+        s.select("Debug Test");
+        await vi.waitFor(() => {
+            expect(s.explorer.runs).toHaveLength(1);
+        });
+        expect(s.explorer.runs[0].requests).toMatchObject([{ profileId: 2, testIds: [testId(...FAILS)] }]);
+
+        open.click(1, 2, "right");
+        expect(s.labels()).toEqual(["Run All Tests", "Debug All Tests", "-", "adds", "twin"]);
+        s.select("Debug All Tests");
+        await vi.waitFor(() => {
+            expect(s.explorer.runs).toHaveLength(2);
+        });
+        expect(s.explorer.runs[1].requests).toMatchObject([
+            { profileId: 2, testIds: [testId(...ADDS), testId(...SUITE, "twin")] },
+        ]);
+
+        // Only the Debug profile left: no Run entries.
+        s.explorer.profiles.removeProfile("vitest", 1);
+        open.click(1, 4, "right");
+        expect(s.labels()).toEqual(["Debug Test", "Reveal in Test Explorer"]);
+        open.click(1, 2, "right");
+        expect(s.labels()).toEqual(["Debug All Tests", "-", "adds", "twin"]);
+    });
 
     it("testing.defaultGutterClickAction contextMenu: a left click opens the menu at the pointer instead of running", async () => {
         const s = setup({ settings: { "testing.defaultGutterClickAction": "contextMenu" } });

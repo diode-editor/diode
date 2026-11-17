@@ -97,13 +97,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
             writeWorkspace(workspace);
             const views = makeViewsHarness();
             const services = makeTestingServices({ contextKeys: views.contextKeys });
-            const { contextKeys, tests, results } = services;
+            const { contextKeys, tests, results, profiles } = services;
             const configuration = {
                 get: (key: string) => (key === "testing.automaticallyOpenTestResults" ? "openOnTestStart" : undefined),
                 onDidChangeConfiguration: () => ({ dispose: () => undefined }),
             } as unknown as IConfigurationService;
             const panel = createResultsPanel({
                 results,
+                profiles,
                 views,
                 theme: WorkbenchTheme.fromThemeFile(darkPlusTheme),
                 configuration,

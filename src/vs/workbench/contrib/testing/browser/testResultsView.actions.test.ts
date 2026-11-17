@@ -4,7 +4,13 @@ import { add, setupExplorer, UNICODE_ICONS, wireItem } from "../../../../../Test
 import { testId } from "../../../../../TestUtils/testTree.ts";
 import { codicon } from "../../../../base/common/codicons.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
-import { TestItemExpandState, TestResultState, TestRunProfileBitset } from "../../../api/common/testingWireTypes.ts";
+import {
+    type IWireTestRunProfile,
+    TestItemExpandState,
+    TestResultState,
+    TestRunProfileBitset,
+    type TestRunProfileGroup,
+} from "../../../api/common/testingWireTypes.ts";
 import type { LiveTestResult } from "../common/testResult.ts";
 
 // The TEST RESULTS tree's rows: their glyphs and menus, Enter on a test, the older runs.
@@ -66,6 +72,20 @@ function clickGlyph(harness: Harness, row: { y: number; line: string }, name: st
     harness.panel.click(TREE_X + x, row.y);
 }
 
+/** A default profile of `vitest` in the group. */
+function profile(group: TestRunProfileGroup): IWireTestRunProfile {
+    return {
+        controllerId: "vitest",
+        profileId: group,
+        label: String(group),
+        group,
+        isDefault: true,
+        tag: null,
+        hasConfigurationHandler: false,
+        supportsContinuousRun: false,
+    };
+}
+
 function menuLabels(harness: Harness): string[] {
     const entries = harness.views.shown.at(-1)?.getEntries?.() ?? [];
     return entries.map((entry) => (entry.type === "separator" ? "-" : entry.label));
@@ -85,15 +105,24 @@ describe("TEST RESULTS — the rows' actions", () => {
         result.markComplete();
     });
 
-    it("a completed task: Show Result Output, Rerun Last Run, Rerun Failed Tests; its menu lists them", async () => {
+    it("a completed task: Show Result Output, Rerun Last Run, Rerun Failed Tests, Debug Last Run, Debug Failed Tests", async () => {
         const { harness, executed } = setup();
         const result = failed(harness);
         await harness.panel.waitFrame((text) => text.includes("fails"));
         const row = treeRow(harness, "vitest");
         expect(row.line).not.toContain(glyph("debug-stop"));
-        expect(row.line).toContain(`${glyph("terminal")} ${glyph("debug-rerun")} ${glyph("debug-rerun")}`);
+        const debug = glyph("debug-alt-small");
+        expect(row.line).toContain(
+            `${glyph("terminal")} ${glyph("debug-rerun")} ${glyph("debug-rerun")} ${debug} ${debug}`,
+        );
         harness.panel.click(TREE_X + row.line.indexOf("vitest"), row.y, "right");
-        expect(menuLabels(harness)).toEqual(["Show Result Output", "Rerun Last Run", "Rerun Failed Tests"]);
+        expect(menuLabels(harness)).toEqual([
+            "Show Result Output",
+            "Rerun Last Run",
+            "Rerun Failed Tests",
+            "Debug Last Run",
+            "Debug Failed Tests",
+        ]);
         const menu = harness.views.shown.at(-1);
         expect(menu?.getOwner()).toBe(harness.panel.component.tree);
         expect(menu?.getAnchor()).toEqual({ screenX: TREE_X + row.line.indexOf("vitest"), screenY: row.y });
@@ -102,11 +131,28 @@ describe("TEST RESULTS — the rows' actions", () => {
         expect(executed).toHaveBeenCalledWith("testing.reRunFailedFromLastRun", result.id);
         harness.panel.click(TREE_X + rerunX - 2, row.y);
         expect(executed).toHaveBeenCalledWith("testing.reRunLastRun", result.id);
+        const debugX = row.line.lastIndexOf(debug);
+        harness.panel.click(TREE_X + debugX, row.y);
+        expect(executed).toHaveBeenCalledWith("testing.debugFailedFromLastRun", result.id);
+        harness.panel.click(TREE_X + debugX - 2, row.y);
+        expect(executed).toHaveBeenCalledWith("testing.debugLastRun", result.id);
     });
 
-    it("a test: Go to Test, Show Result Output, Run Test while there is a runnable test; Reveal in Test Explorer in its menu", async () => {
+    it("a completed task without failures: Debug Last Run, no Debug Failed Tests", async () => {
+        const { harness } = setup();
+        const result = start(harness);
+        report(result, ADDS, Passed);
+        result.markComplete();
+        await harness.panel.waitFrame((text) => text.includes("adds"));
+        const row = treeRow(harness, "vitest");
+        harness.panel.click(TREE_X + row.line.indexOf("vitest"), row.y, "right");
+        expect(menuLabels(harness)).toEqual(["Show Result Output", "Rerun Last Run", "Debug Last Run"]);
+    });
+
+    it("a test: Go to Test, Show Result Output, Run Test and Debug Test by its profiles; Reveal in Test Explorer in its menu", async () => {
         const { harness, executed } = setup();
-        harness.views.contextKeys.set("testing.hasRunnableTests", true);
+        harness.profiles.addProfile(profile(TestRunProfileBitset.Run));
+        harness.profiles.addProfile(profile(TestRunProfileBitset.Debug));
         failed(harness);
         await harness.panel.waitFrame((text) => text.includes("fails"));
         const row = treeRow(harness, "fails");
@@ -115,9 +161,13 @@ describe("TEST RESULTS — the rows' actions", () => {
             "Go to Test",
             "Show Result Output",
             "Run Test",
+            "Debug Test",
             "-",
             "Reveal in Test Explorer",
         ]);
+        harness.panel.click(TREE_X + row.line.indexOf("fails"), row.y);
+        clickGlyph(harness, treeRow(harness, "fails"), "debug-alt-small");
+        expect(executed).toHaveBeenCalledWith("testing.debug", { $testId: testId(...FAILS) });
         const entries = harness.views.shown.at(-1)?.getEntries?.() ?? [];
         const reveal = entries.at(-1);
         if (reveal?.type === undefined || reveal.type === "item") reveal?.onSelect?.();
@@ -125,7 +175,11 @@ describe("TEST RESULTS — the rows' actions", () => {
         // `adds` has no output: no Show Result Output.
         const adds = treeRow(harness, "adds");
         harness.panel.click(TREE_X + adds.line.indexOf("adds"), adds.y, "right");
-        expect(menuLabels(harness)).toEqual(["Go to Test", "Run Test", "-", "Reveal in Test Explorer"]);
+        expect(menuLabels(harness)).toEqual(["Go to Test", "Run Test", "Debug Test", "-", "Reveal in Test Explorer"]);
+        // Only a Debug profile: no Run Test.
+        harness.profiles.removeProfile("vitest", TestRunProfileBitset.Run);
+        harness.panel.click(TREE_X + adds.line.indexOf("adds"), adds.y, "right");
+        expect(menuLabels(harness)).toEqual(["Go to Test", "Debug Test", "-", "Reveal in Test Explorer"]);
     });
 
     it("Show Result Output on a test shows the test's own output", async () => {

@@ -59,7 +59,7 @@ describe("ExtensionHost — test controllers reach the TestService", () => {
         expect(contextKeys.get("testing.providerCount")).toBe(1);
         expect(contextKeys.get("testing.canRefresh")).toBe(true);
         expect(contextKeys.get("testing.hasRunnableTests")).toBe(true);
-        expect(contextKeys.get("testing.hasDebuggableTests")).toBe(false);
+        expect(contextKeys.get("testing.hasDebuggableTests")).toBe(true);
         expect(contextKeys.get("testing.hasCoverableTests")).toBe(false);
         expect(contextKeys.evaluate("testing.providerCount > 0")).toBe(true);
         expect(tests.getTestController(ROOT)).toMatchObject({ id: ROOT, label: "Fixture", canRefresh: true });

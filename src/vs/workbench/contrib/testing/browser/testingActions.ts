@@ -4,7 +4,12 @@ import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
-import { type IWireTestItemArg, TestItemExpandState } from "../../../api/common/testingWireTypes.ts";
+import {
+    type IWireTestItemArg,
+    TestItemExpandState,
+    TestRunProfileBitset,
+    type TestRunProfileGroup,
+} from "../../../api/common/testingWireTypes.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
@@ -15,6 +20,7 @@ import type { LiveTestResult } from "../common/testResult.ts";
 import { TestResultServiceDIToken } from "../common/testResultService.ts";
 import { type ITestNode, TestServiceDIToken } from "../common/testService.ts";
 
+import { testingDebugAllIcon, testingDebugIcon } from "./icons.ts";
 import {
     type TestExplorerViewSorting,
     TESTING_EXPLORER_VIEW_ID,
@@ -26,6 +32,7 @@ import { TEST_RESULTS_VIEW_ID, TestResultsComponentDIToken } from "./testResults
 const CAN_REFRESH = "testing.canRefresh";
 const IS_RUNNING = "testing.isRunning";
 const HAS_RUNNABLE = "testing.hasRunnableTests";
+const HAS_DEBUGGABLE = "testing.hasDebuggableTests";
 const HAS_RESULTS = "testing.hasAnyResults";
 const PEEK_HAS_STACK = "testing.peekHasStack";
 
@@ -33,6 +40,7 @@ const PEEK_HAS_STACK = "testing.peekHasStack";
 const ActionOrder = {
     Refresh: 10,
     Run: 11,
+    Debug: 12,
     Collapse: 16,
     ClearResults: 17,
     DisplayMode: 18,
@@ -54,17 +62,25 @@ function argTestId(accessor: ServiceAccessor, arg: unknown): string | undefined 
     return typeof testId === "string" ? testId : accessor.get(TestingExplorerComponentDIToken).focusedTestId;
 }
 
-/** Upstream `discoverAndRunTests` without the discovery: the ids the mirror knows run with their defaults. */
-async function runTestIds(accessor: ServiceAccessor, testIds: Iterable<string>): Promise<void> {
+/** Upstream `discoverAndRunTests` without the discovery: the ids the mirror knows run with the group's defaults. */
+async function runTestIds(
+    accessor: ServiceAccessor,
+    testIds: Iterable<string>,
+    group: TestRunProfileGroup,
+): Promise<void> {
     const tests = accessor.get(TestServiceDIToken);
     const nodes = [...testIds].flatMap((testId) => tests.getNodeById(testId) ?? []);
-    if (nodes.length > 0) await tests.runTests({ tests: nodes });
+    if (nodes.length > 0) await tests.runTests({ tests: nodes, group });
 }
 
-/** Upstream `getTreeIncludeExclude`: the visible tests (within the given ones) with their defaults. */
-async function runVisible(accessor: ServiceAccessor, within?: readonly ITestNode[]): Promise<void> {
+/** Upstream `getTreeIncludeExclude`: the visible tests (within the given ones) with the group's defaults. */
+async function runVisible(
+    accessor: ServiceAccessor,
+    group: TestRunProfileGroup,
+    within?: readonly ITestNode[],
+): Promise<void> {
     const { include, exclude } = accessor.get(TestingExplorerComponentDIToken).getTreeIncludeExclude(within);
-    await accessor.get(TestServiceDIToken).runTests({ tests: include, exclude });
+    await accessor.get(TestServiceDIToken).runTests({ tests: include, exclude, group });
 }
 
 /** The latest run, or the one `runId` names. */
@@ -128,28 +144,57 @@ export const cancelTestRefreshAction: CommandAction = {
 };
 
 /**
- * Upstream `RunSelectedAction` ("Run Tests"): the tests the view shows — without a filter all of them, with one
- * those it matched. In the title while nothing runs; Cancel Test Run takes the slot meanwhile.
+ * Upstream `ExecuteSelectedAction`: the tests the view shows — without a filter all of them, with one those it
+ * matched — with the group's defaults. In the title while nothing runs; Cancel Test Run takes Run's slot meanwhile.
  */
-export const runSelectedTestsAction: CommandAction = {
-    id: "testing.runSelected",
-    title: "Test: Run Tests",
-    shortTitle: "Run Tests",
-    enablement: HAS_RUNNABLE,
-    menus: [
-        {
-            menuId: MenuId.ViewTitle,
-            group: "navigation",
-            order: ActionOrder.Run,
-            icon: codicon("run-all"),
-            visible: viewMenuVisible(TESTING_EXPLORER_VIEW_ID),
-            when: `!${IS_RUNNING} && ${HAS_RUNNABLE}`,
+function executeSelectedAction(
+    group: TestRunProfileGroup,
+    id: string,
+    label: string,
+    icon: ReturnType<typeof codicon>,
+    order: number,
+    capability: string,
+): CommandAction {
+    return {
+        id,
+        title: `Test: ${label}`,
+        shortTitle: label,
+        enablement: capability,
+        menus: [
+            {
+                menuId: MenuId.ViewTitle,
+                group: "navigation",
+                order,
+                icon,
+                visible: viewMenuVisible(TESTING_EXPLORER_VIEW_ID),
+                when: `!${IS_RUNNING} && ${capability}`,
+            },
+        ],
+        run(accessor) {
+            return runVisible(accessor, group);
         },
-    ],
-    run(accessor) {
-        return runVisible(accessor);
-    },
-};
+    };
+}
+
+/** Upstream `RunSelectedAction`. */
+export const runSelectedTestsAction = executeSelectedAction(
+    TestRunProfileBitset.Run,
+    "testing.runSelected",
+    "Run Tests",
+    codicon("run-all"),
+    ActionOrder.Run,
+    HAS_RUNNABLE,
+);
+
+/** Upstream `DebugSelectedAction`. */
+export const debugSelectedTestsAction = executeSelectedAction(
+    TestRunProfileBitset.Debug,
+    "testing.debugSelected",
+    "Debug Tests",
+    testingDebugAllIcon,
+    ActionOrder.Debug,
+    HAS_DEBUGGABLE,
+);
 
 /** Upstream `CancelTestRunAction`: the given run (and task), otherwise every live run. */
 export const cancelTestRunAction: CommandAction = {
@@ -178,112 +223,227 @@ export const cancelTestRunAction: CommandAction = {
     },
 };
 
-/** Upstream `RunAction`: the row's test with its visible descendants; inline and in the row's menu. */
-export const runTestAction: CommandAction = {
-    id: "testing.run",
-    title: "Test: Run Test",
-    shortTitle: "Run Test",
-    enablement: HAS_RUNNABLE,
-    menus: testItemInlineAndInContext(ActionOrder.Run, codicon("run"), HAS_RUNNABLE),
-    async run(accessor, arg) {
-        const testId = argTestId(accessor, arg);
-        // Stryker disable next-line ConditionalExpression: equivalent — the mirror has no test under an undefined id either
-        const node = testId === undefined ? undefined : accessor.get(TestServiceDIToken).getNodeById(testId);
-        if (node !== undefined) await runVisible(accessor, [node]);
-    },
-};
+/** Upstream `RunVisibleAction`: the row's test with its visible descendants; inline and in the row's menu. */
+function runVisibleAction(
+    group: TestRunProfileGroup,
+    id: string,
+    label: string,
+    icon: ReturnType<typeof codicon>,
+    order: number,
+    capability: string,
+): CommandAction {
+    return {
+        id,
+        title: `Test: ${label}`,
+        shortTitle: label,
+        enablement: capability,
+        menus: testItemInlineAndInContext(order, icon, capability),
+        async run(accessor, arg) {
+            const testId = argTestId(accessor, arg);
+            // Stryker disable next-line ConditionalExpression: equivalent — the mirror has no test under an undefined id either
+            const node = testId === undefined ? undefined : accessor.get(TestServiceDIToken).getNodeById(testId);
+            if (node !== undefined) await runVisible(accessor, group, [node]);
+        },
+    };
+}
 
-/** Upstream `RunAllAction`: every controller that has or may have tests. */
-export const runAllTestsAction: CommandAction = {
-    id: "testing.runAll",
-    title: "Test: Run All Tests",
-    shortTitle: "Run All Tests",
-    keybinding: parseChord("mod+; a"),
-    async run(accessor) {
-        const tests = accessor.get(TestServiceDIToken);
-        const roots = tests.rootItems.filter(
-            (root: ITestNode) =>
-                root.children.size > 0 ||
-                root.expand === TestItemExpandState.Expandable ||
-                root.expand === TestItemExpandState.BusyExpanding,
-        );
-        if (roots.length === 0) {
-            accessor.get(NotificationServiceDIToken).show({
-                severity: "info",
-                message: "No tests found in this workspace. You may need to install a test provider extension",
-                modal: false,
-                items: [],
-            });
-            return;
-        }
-        await tests.runTests({ tests: roots });
-    },
-};
+/** Upstream `RunAction`. */
+export const runTestAction = runVisibleAction(
+    TestRunProfileBitset.Run,
+    "testing.run",
+    "Run Test",
+    codicon("run"),
+    ActionOrder.Run,
+    HAS_RUNNABLE,
+);
 
-/** Upstream `ReRunFailedTests`: the tests whose latest result over all runs failed. */
-export const reRunFailedTestsAction: CommandAction = {
-    id: "testing.reRunFailTests",
-    title: "Test: Rerun Failed Tests",
-    shortTitle: "Rerun Failed Tests",
-    keybinding: parseChord("mod+; e"),
-    enablement: HAS_RESULTS,
-    async run(accessor) {
-        const { results } = accessor.get(TestResultServiceDIToken);
-        const failed = new Set<string>();
-        for (const result of [...results].reverse()) {
-            for (const test of result.tests) {
-                if (isFailedState(test.ownComputedState)) failed.add(test.item.extId);
-                else failed.delete(test.item.extId);
+/** Upstream `DebugAction`. */
+export const debugTestAction = runVisibleAction(
+    TestRunProfileBitset.Debug,
+    "testing.debug",
+    "Debug Test",
+    testingDebugIcon,
+    ActionOrder.Debug,
+    HAS_DEBUGGABLE,
+);
+
+/** Upstream `RunOrDebugAllTestsAction`: every controller that has or may have tests. */
+function allTestsAction(
+    group: TestRunProfileGroup,
+    id: string,
+    label: string,
+    key: string,
+    noTestsFound: string,
+    palette?: string,
+): CommandAction {
+    return {
+        id,
+        title: `Test: ${label}`,
+        shortTitle: label,
+        keybinding: parseChord(key),
+        menus: palette === undefined ? undefined : [{ menuId: MenuId.CommandPalette, when: palette }],
+        async run(accessor) {
+            const tests = accessor.get(TestServiceDIToken);
+            const roots = tests.rootItems.filter(
+                (root: ITestNode) =>
+                    root.children.size > 0 ||
+                    root.expand === TestItemExpandState.Expandable ||
+                    root.expand === TestItemExpandState.BusyExpanding,
+            );
+            if (roots.length === 0) {
+                accessor.get(NotificationServiceDIToken).show({
+                    severity: "info",
+                    message: noTestsFound,
+                    modal: false,
+                    items: [],
+                });
+                return;
             }
-        }
-        await runTestIds(accessor, failed);
-    },
-};
+            await tests.runTests({ tests: roots, group });
+        },
+    };
+}
 
-/** Upstream `ReRunLastRun`: the same targets with the same profiles while they exist, otherwise the defaults. */
-export const reRunLastRunAction: CommandAction = {
-    id: "testing.reRunLastRun",
-    title: "Test: Rerun Last Run",
-    shortTitle: "Rerun Last Run",
-    keybinding: parseChord("mod+; l"),
-    enablement: HAS_RESULTS,
-    async run(accessor, runId) {
-        const last = lastRun(accessor, runId);
-        if (last === undefined) return;
-        const { request } = last;
-        const profiles = accessor.get(TestProfileServiceDIToken);
-        const profilesExist = request.targets.every((target) =>
-            profiles.getControllerProfiles(target.controllerId).some((p) => p.profileId === target.profileId),
-        );
-        if (profilesExist) {
-            await accessor
-                .get(TestServiceDIToken)
-                .runResolvedTests({ targets: request.targets, group: request.group, exclude: request.exclude });
-            return;
-        }
-        await runTestIds(
-            accessor,
-            request.targets.flatMap((target) => target.testIds),
-        );
-    },
-};
+/** Upstream `RunAllAction`. */
+export const runAllTestsAction = allTestsAction(
+    TestRunProfileBitset.Run,
+    "testing.runAll",
+    "Run All Tests",
+    "mod+; a",
+    "No tests found in this workspace. You may need to install a test provider extension",
+);
+
+/** Upstream `DebugAllAction`. */
+export const debugAllTestsAction = allTestsAction(
+    TestRunProfileBitset.Debug,
+    "testing.debugAll",
+    "Debug All Tests",
+    "mod+; mod+a",
+    "No debuggable tests found in this workspace. You may need to install a test provider extension",
+    HAS_DEBUGGABLE,
+);
+
+/** Upstream `RunOrDebugFailedTests`: the tests whose latest result over all runs failed. */
+function failedTestsAction(group: TestRunProfileGroup, id: string, label: string, key: string): CommandAction {
+    return {
+        id,
+        title: `Test: ${label}`,
+        shortTitle: label,
+        keybinding: parseChord(key),
+        enablement: HAS_RESULTS,
+        async run(accessor) {
+            const { results } = accessor.get(TestResultServiceDIToken);
+            const failed = new Set<string>();
+            for (const result of [...results].reverse()) {
+                for (const test of result.tests) {
+                    if (isFailedState(test.ownComputedState)) failed.add(test.item.extId);
+                    else failed.delete(test.item.extId);
+                }
+            }
+            await runTestIds(accessor, failed, group);
+        },
+    };
+}
+
+/** Upstream `ReRunFailedTests`. */
+export const reRunFailedTestsAction = failedTestsAction(
+    TestRunProfileBitset.Run,
+    "testing.reRunFailTests",
+    "Rerun Failed Tests",
+    "mod+; e",
+);
+
+/** Upstream `DebugFailedTests`. */
+export const debugFailedTestsAction = failedTestsAction(
+    TestRunProfileBitset.Debug,
+    "testing.debugFailTests",
+    "Debug Failed Tests",
+    "mod+; mod+e",
+);
+
+/**
+ * Upstream `RunOrDebugLastRun`: a run of the same group again with the same targets and profiles while they exist,
+ * otherwise its tests with the group's defaults.
+ */
+function lastRunAction(group: TestRunProfileGroup, id: string, label: string, key: string): CommandAction {
+    return {
+        id,
+        title: `Test: ${label}`,
+        shortTitle: label,
+        keybinding: parseChord(key),
+        enablement: HAS_RESULTS,
+        async run(accessor, runId) {
+            const last = lastRun(accessor, runId);
+            if (last === undefined) return;
+            const { request } = last;
+            const profiles = accessor.get(TestProfileServiceDIToken);
+            const profilesExist = request.targets.every((target) =>
+                profiles.getControllerProfiles(target.controllerId).some((p) => p.profileId === target.profileId),
+            );
+            if (request.group === group && profilesExist) {
+                await accessor
+                    .get(TestServiceDIToken)
+                    .runResolvedTests({ targets: request.targets, group, exclude: request.exclude });
+                return;
+            }
+            await runTestIds(
+                accessor,
+                request.targets.flatMap((target) => target.testIds),
+                group,
+            );
+        },
+    };
+}
+
+/** Upstream `ReRunLastRun`. */
+export const reRunLastRunAction = lastRunAction(
+    TestRunProfileBitset.Run,
+    "testing.reRunLastRun",
+    "Rerun Last Run",
+    "mod+; l",
+);
+
+/** Upstream `DebugLastRun`. */
+export const debugLastRunAction = lastRunAction(
+    TestRunProfileBitset.Debug,
+    "testing.debugLastRun",
+    "Debug Last Run",
+    "mod+; mod+l",
+);
+
+/** Upstream `RunOrDebugFailedFromLastRun`: the tests that failed in the run, with the group's defaults. */
+function failedFromLastRunAction(group: TestRunProfileGroup, id: string, label: string): CommandAction {
+    return {
+        id,
+        title: `Test: ${label}`,
+        shortTitle: label,
+        enablement: HAS_RESULTS,
+        async run(accessor, runId) {
+            const last = lastRun(accessor, runId);
+            if (last === undefined) return;
+            const failed = [...last.tests].filter((test) => isFailedState(test.ownComputedState));
+            await runTestIds(
+                accessor,
+                failed.map((test) => test.item.extId),
+                group,
+            );
+        },
+    };
+}
 
 /** Upstream `ReRunFailedFromLastRun`. */
-export const reRunFailedFromLastRunAction: CommandAction = {
-    id: "testing.reRunFailedFromLastRun",
-    title: "Test: Rerun Failed Tests from Last Run",
-    shortTitle: "Rerun Failed Tests from Last Run",
-    enablement: HAS_RESULTS,
-    async run(accessor, runId) {
-        const last = lastRun(accessor, runId);
-        if (last === undefined) return;
-        const failed = [...last.tests].filter((test) => isFailedState(test.ownComputedState));
-        await runTestIds(
-            accessor,
-            failed.map((test) => test.item.extId),
-        );
-    },
-};
+export const reRunFailedFromLastRunAction = failedFromLastRunAction(
+    TestRunProfileBitset.Run,
+    "testing.reRunFailedFromLastRun",
+    "Rerun Failed Tests from Last Run",
+);
+
+/** Upstream `DebugFailedFromLastRun`. */
+export const debugFailedFromLastRunAction = failedFromLastRunAction(
+    TestRunProfileBitset.Debug,
+    "testing.debugFailedFromLastRun",
+    "Debug Failed Tests from Last Run",
+);
 
 /** Upstream `ClearTestResultsAction`: in the Test Explorer's "⋯", in the TEST RESULTS title. */
 export const clearTestResultsAction: CommandAction = {
@@ -454,6 +614,11 @@ export const TESTING_ACTIONS: readonly CommandAction[] = [
     cancelTestRunAction,
     clearTestResultsAction,
     collapseAllTestsAction,
+    debugTestAction,
+    debugAllTestsAction,
+    debugFailedTestsAction,
+    debugLastRunAction,
+    debugSelectedTestsAction,
     goToTestAction,
     reRunFailedTestsAction,
     reRunLastRunAction,
@@ -468,4 +633,5 @@ export const TESTING_ACTIONS: readonly CommandAction[] = [
     toggleResultsViewLayoutAction,
     collapsePeekStackAction,
     reRunFailedFromLastRunAction,
+    debugFailedFromLastRunAction,
 ];
