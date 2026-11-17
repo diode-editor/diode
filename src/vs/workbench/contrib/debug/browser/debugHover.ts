@@ -169,11 +169,11 @@ export class DebugHoverWidget extends Disposable {
     ) {
         super();
         this.view.id = "debugHoverWidget";
-        // A plain value takes the focus itself, as upstream's value container: Escape reaches the overlay.
-        this.view.focusable = true;
         this.view.setChild(this.box);
         this.box.setBg("editorHoverWidget.background");
         this.box.setBorderFg("editorHoverWidget.border");
+        // Only a tree has a title, and the separator is drawn only under a title.
+        this.box.setHasSeparator(true);
         // Upstream's `listBackground: editorHoverBackground`: the rows inherit the colors of what holds them.
         this.box.style = { fg: "editorHoverWidget.foreground", bg: "editorHoverWidget.background" };
         this.renderer = this.register(
@@ -249,6 +249,8 @@ export class DebugHoverWidget extends Disposable {
         if (ticket.isStale()) return ShowDebugHoverResult.CANCELLED;
         this.overlay.openAt(anchor, "aboveElseBelow");
         if (expression.hasChildren) this.tree.list.focus();
+        // A plain value takes the focus itself, as upstream's value container: Escape reaches the overlay. Not
+        // `focusable`: a click on the box would take the focus from the tree.
         else this.view.focus();
         return undefined;
     }
@@ -257,7 +259,6 @@ export class DebugHoverWidget extends Disposable {
         const value = this.renderer.renderValue(expression, { colorize: true });
         if (!expression.hasChildren) {
             this.box.setTitle(undefined);
-            this.box.setHasSeparator(false);
             const label = new TextLabelElement(spansText(value));
             label.wrap = true;
             // An empty value paints no cell: the color of the first span is the color of all of it.
@@ -271,7 +272,6 @@ export class DebugHoverWidget extends Disposable {
         // Upstream renders the title without colors.
         this.box.setTitle(spansText(value));
         this.box.setTitleFg("editorHoverWidget.foreground");
-        this.box.setHasSeparator(true);
         this.box.setChild(this.treeBody);
         await this.tree.refresh();
         this.tree.list.scrollTo(0, 0);
