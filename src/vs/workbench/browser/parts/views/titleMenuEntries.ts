@@ -50,7 +50,12 @@ export function inlineActions(groups: readonly IMenuEntryGroup[], memory?: ISpli
         if (split === null) return [];
         const { primary } = split;
         return [
-            { id: SPLIT_PRIMARY_PREFIX + split.submenu, icon: split.icon, enabled: primary.enabled, color: primary.iconColor },
+            {
+                id: SPLIT_PRIMARY_PREFIX + split.submenu,
+                icon: split.icon,
+                enabled: primary.enabled,
+                color: primary.iconColor,
+            },
             { id: SPLIT_DROPDOWN_PREFIX + split.submenu, icon: DROPDOWN_ICON, attached: true },
         ];
     });
