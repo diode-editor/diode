@@ -39,5 +39,8 @@ export type InlineValue =
 
 /** Upstream `languages.InlineValuesProvider`; `null` — the provider has none. */
 export interface InlineValuesProvider {
-    provideInlineValues(request: IInlineValuesRequest, token: ICancellationToken): Promise<readonly InlineValue[] | null>;
+    provideInlineValues(
+        request: IInlineValuesRequest,
+        token: ICancellationToken,
+    ): Promise<readonly InlineValue[] | null>;
 }

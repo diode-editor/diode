@@ -777,7 +777,8 @@ export function serializeLinkedEditingRanges(raw: unknown): IWireLinkedEditingRa
 
 /**
  * Upstream `InlineValuesAdapter` and `InlineValue.from`: no array is `null`; an entry that is none of the three
- * classes, or has no range, is dropped (upstream fails the whole answer on it).
+ * classes, or has no range, is dropped (upstream fails the whole answer on it). An empty name or expression is
+ * absent: upstream's core takes the range's text for it too.
  */
 export function serializeInlineValues(raw: unknown): InlineValue[] | null {
     if (!Array.isArray(raw)) return null;
@@ -792,12 +793,14 @@ export function serializeInlineValues(raw: unknown): InlineValue[] | null {
 function inlineValueFrom(item: unknown): InlineValue | null {
     const range = rangeFrom((item as { range?: unknown } | null | undefined)?.range);
     if (range === null) return null;
-    if (item instanceof InlineValueText) return { type: "text", range, text: String(item.text) };
+    if (item instanceof InlineValueText) return { type: "text", range, text: String(item.text as unknown) };
     if (item instanceof InlineValueVariableLookup) {
         return {
             type: "variable",
             range,
-            ...(typeof item.variableName === "string" ? { variableName: item.variableName } : {}),
+            ...(typeof item.variableName === "string" && item.variableName !== ""
+                ? { variableName: item.variableName }
+                : {}),
             caseSensitiveLookup: item.caseSensitiveLookup,
         };
     }
@@ -805,7 +808,7 @@ function inlineValueFrom(item: unknown): InlineValue | null {
         return {
             type: "expression",
             range,
-            ...(typeof item.expression === "string" ? { expression: item.expression } : {}),
+            ...(typeof item.expression === "string" && item.expression !== "" ? { expression: item.expression } : {}),
         };
     }
     return null;

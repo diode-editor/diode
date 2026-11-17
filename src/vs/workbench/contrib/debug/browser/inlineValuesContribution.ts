@@ -20,8 +20,8 @@ import type { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { DEFAULT_WORD_REGEXP } from "../../../../editor/common/core/wordHelper.ts";
 import { StandardTokenType } from "../../../../editor/common/encodedTokenAttributes.ts";
-import type { InlineValue, InlineValuesProvider } from "../../../../editor/common/languages/iInlineValuesSource.ts";
 import type { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
+import type { InlineValue, InlineValuesProvider } from "../../../../editor/common/languages/iInlineValuesSource.ts";
 import type { ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
 import type { ITextDocument } from "../../../../editor/common/model/iTextDocument.ts";
 import {
@@ -88,7 +88,7 @@ interface IAttachedEditor {
     readonly subscriptions: readonly IDisposable[];
     readonly updateScheduler: RunOnceScheduler;
     readonly removeScheduler: RunOnceScheduler;
-    /** The update in flight; a new one cancels it. */
+    /** The latest update; a new one cancels it. */
     pending: CancellationTokenSource | undefined;
 }
 
@@ -217,8 +217,7 @@ export class InlineValuesContribution extends Disposable {
         const hasProvider = this.providers.has(editor);
         const inlineValuesTurnedOn = setting === true || setting === "on" || (setting === "auto" && hasProvider);
         state.pending?.cancel();
-        state.pending = undefined;
-        if (!inlineValuesTurnedOn || !stackFrame || editor.uri.toString() !== stackFrame.source.uri.toString()) {
+        if (!inlineValuesTurnedOn || editor.uri.toString() !== stackFrame?.source.uri.toString()) {
             if (!state.removeScheduler.isScheduled()) state.removeScheduler.schedule();
             return;
         }
@@ -231,19 +230,17 @@ export class InlineValuesContribution extends Disposable {
             ? await this.valuesFromProviders(editor, stackFrame, window, cts.token)
             : await valuesFromVariables(editor, stackFrame, window);
         if (cts.token.isCancellationRequested) return;
-        state.pending = undefined;
-        const decorations: ILineMessageDecoration[] = [];
-        for (const [line, text] of valuesByLine) {
-            decorations.push({
+        editor.setLineMessageDecorations(
+            INLINE_VALUES_OWNER,
+            [...valuesByLine].map(([line, text]) => ({
                 key: String(line),
                 line,
                 text: inlineText(text),
                 colorToken: FOREGROUND,
                 bgToken: BACKGROUND,
                 order: INLINE_VALUES_ORDER,
-            });
-        }
-        editor.setLineMessageDecorations(INLINE_VALUES_OWNER, decorations);
+            })),
+        );
     }
 
     /** The providers' values, a line's joined by their columns; a failing provider costs only its own. */
@@ -285,17 +282,19 @@ export class InlineValuesContribution extends Disposable {
         };
         const textOf = async (iv: InlineValue): Promise<string | undefined> => {
             const rangeText = (): string =>
-                document.getLineContent(iv.range.start.line).substring(iv.range.start.character, iv.range.end.character);
+                document
+                    .getLineContent(iv.range.start.line)
+                    .substring(iv.range.start.character, iv.range.end.character);
             switch (iv.type) {
                 case "text":
                     return iv.text;
                 case "variable": {
-                    const va = iv.variableName || rangeText();
+                    const va = iv.variableName ?? rangeText();
                     const value = await findVariable(va, iv.caseSensitiveLookup);
                     return value ? `${va} = ${value}` : undefined;
                 }
                 case "expression": {
-                    const expr = iv.expression || rangeText();
+                    const expr = iv.expression ?? rangeText();
                     if (!expr) return undefined;
                     const expression = new Expression(expr);
                     await expression.evaluate(stackFrame.thread.session, stackFrame, "watch", true);
@@ -395,10 +394,7 @@ async function valuesFromVariables(
     }
     const result = new Map<number, string>();
     for (const [line, values] of valuesPerLine) {
-        result.set(
-            line,
-            [...values].map(([n, v]) => `${n} = ${v}`).join(", "),
-        );
+        result.set(line, [...values].map(([n, v]) => `${n} = ${v}`).join(", "));
     }
     return result;
 }
@@ -432,7 +428,9 @@ class WordLines {
             // Token is a word and not a comment
             if (lineTokens.getStandardTokenType(tokenIndex) !== StandardTokenType.Other) continue;
             result.push(
-                ...wordsOf(content.substring(lineTokens.getStartOffset(tokenIndex), lineTokens.getEndOffset(tokenIndex))),
+                ...wordsOf(
+                    content.substring(lineTokens.getStartOffset(tokenIndex), lineTokens.getEndOffset(tokenIndex)),
+                ),
             );
         }
         return result;

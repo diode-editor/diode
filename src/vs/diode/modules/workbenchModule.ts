@@ -134,11 +134,6 @@ import {
     BreakpointEditorContributionDIToken,
     BreakpointEditorSourceDIToken,
 } from "../../workbench/contrib/debug/browser/breakpointEditorContribution.ts";
-import {
-    InlineValuesContribution,
-    InlineValuesContributionDIToken,
-    InlineValuesEditorSourceDIToken,
-} from "../../workbench/contrib/debug/browser/inlineValuesContribution.ts";
 import { BreakpointInput, BreakpointInputDIToken } from "../../workbench/contrib/debug/browser/breakpointInput.ts";
 import { BreakpointSources, openStackFrame } from "../../workbench/contrib/debug/browser/breakpointSources.ts";
 import { BreakpointSourcesDIToken } from "../../workbench/contrib/debug/browser/breakpointsView.ts";
@@ -177,6 +172,11 @@ import {
     DebugViewletComponent,
     DebugViewletComponentDIToken,
 } from "../../workbench/contrib/debug/browser/debugViewlet.ts";
+import {
+    InlineValuesContribution,
+    InlineValuesContributionDIToken,
+    InlineValuesEditorSourceDIToken,
+} from "../../workbench/contrib/debug/browser/inlineValuesContribution.ts";
 import { LinkDetector, LinkDetectorDIToken } from "../../workbench/contrib/debug/browser/linkDetector.ts";
 import { Repl, ReplDIToken } from "../../workbench/contrib/debug/browser/repl.ts";
 import {

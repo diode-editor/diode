@@ -18,8 +18,8 @@ import type {
 } from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
-import type { InlineValue } from "../../../editor/common/languages/iInlineValuesSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { InlineValue } from "../../../editor/common/languages/iInlineValuesSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
 import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 import type {
@@ -106,8 +106,8 @@ import type {
     IWireHoverParams,
     IWireInlayHint,
     IWireInlayHintsParams,
-    IWireInlineValuesParams,
     IWireInlineCompletionParams,
+    IWireInlineValuesParams,
     IWireLanguageProviderMetadata,
     IWireLinkedEditingRangeParams,
     IWireLinkedEditingRanges,

@@ -7,12 +7,7 @@ import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
-import {
-    InlineValueEvaluatableExpression,
-    InlineValueText,
-    InlineValueVariableLookup,
-    Range,
-} from "./vscodeTypes.ts";
+import { InlineValueEvaluatableExpression, InlineValueText, InlineValueVariableLookup, Range } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 const URI = "file:///proj/main.c";
@@ -62,7 +57,10 @@ describe("LanguagesNamespace — registerInlineValuesProvider", () => {
         const { stub, languages } = makeCtx();
         languages.registerInlineValuesProvider("c", { provideInlineValues: () => undefined }).dispose();
         expect(stub.notifies.filter((n) => n.method.startsWith("languages."))).toEqual([
-            { method: "languages.register", params: { handle: 0, kind: "inlineValues", selector: [{ language: "c" }] } },
+            {
+                method: "languages.register",
+                params: { handle: 0, kind: "inlineValues", selector: [{ language: "c" }] },
+            },
             { method: "languages.unregister", params: { handle: 0 } },
         ]);
     });
@@ -100,6 +98,19 @@ describe("LanguagesNamespace — registerInlineValuesProvider", () => {
             { type: "variable", range: WIRE_RANGE, variableName: "Sum", caseSensitiveLookup: false },
             { type: "expression", range: WIRE_RANGE },
             { type: "expression", range: WIRE_RANGE, expression: "sum * 2" },
+        ]);
+    });
+
+    it("an empty name or expression is absent: the range's text is used, as upstream", async () => {
+        const { stub, languages } = makeCtx();
+        const range = new Range(1, 4, 1, 7);
+        register(languages, () => [
+            new InlineValueVariableLookup(range, ""),
+            new InlineValueEvaluatableExpression(range, ""),
+        ]);
+        expect(await stub.callRequest(METHOD, params())).toEqual([
+            { type: "variable", range: WIRE_RANGE, caseSensitiveLookup: true },
+            { type: "expression", range: WIRE_RANGE },
         ]);
     });
 

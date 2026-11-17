@@ -10,12 +10,12 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { StandardTokenType } from "../../../../editor/common/encodedTokenAttributes.ts";
+import { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type {
     IInlineValuesRequest,
     InlineValue,
     InlineValuesProvider,
 } from "../../../../editor/common/languages/iInlineValuesSource.ts";
-import { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type { ILineMessageDecoration } from "../../../../editor/common/model/iLineMessageDecoration.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import type { LineTokens } from "../../../../editor/common/tokens/lineTokens.ts";
@@ -121,6 +121,11 @@ function fakeEditor(
     return editor;
 }
 
+/** A change of the setting `key`. */
+function changed(key: string): IConfigurationChangeEvent {
+    return { affectsConfiguration: (k: string) => k === key } as unknown as IConfigurationChangeEvent;
+}
+
 interface IFakeScope {
     /** 1-based lines, as the debug model's ranges. */
     readonly range?: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number };
@@ -215,7 +220,9 @@ describe("InlineValuesContribution", () => {
     }
 
     function provide(answer: (request: IInlineValuesRequest) => readonly InlineValue[] | null, selector = "c") {
-        const provider = { provideInlineValues: vi.fn((request: IInlineValuesRequest) => Promise.resolve(answer(request))) };
+        const provider = {
+            provideInlineValues: vi.fn((request: IInlineValuesRequest) => Promise.resolve(answer(request))),
+        };
         providers.register(selector, provider);
         return provider;
     }
@@ -296,7 +303,10 @@ describe("InlineValuesContribution", () => {
             start();
             await focus(
                 stackFrame(4, [
-                    { range: { startLineNumber: 4, startColumn: 1, endLineNumber: 5, endColumn: 1 }, variables: { sum: "9" } },
+                    {
+                        range: { startLineNumber: 4, startColumn: 1, endLineNumber: 5, endColumn: 1 },
+                        variables: { sum: "9" },
+                    },
                     { variables: { sum: "1", argc: "2" } },
                 ]),
             );
@@ -345,7 +355,7 @@ describe("InlineValuesContribution", () => {
             expect(editor.decorations).toEqual([]);
 
             setting = "auto";
-            configChanged.fire({ affectsConfiguration: (key) => key === "debug.inlineValues" } as IConfigurationChangeEvent);
+            configChanged.fire(changed("debug.inlineValues"));
             await vi.advanceTimersByTimeAsync(0);
             expect(editor.decorations).toEqual([]);
         });
@@ -370,11 +380,11 @@ describe("InlineValuesContribution", () => {
             start();
             await focus(stackFrame(4, [LOCALS]));
             setting = "off";
-            configChanged.fire({ affectsConfiguration: (key) => key === "debug.other" } as IConfigurationChangeEvent);
+            configChanged.fire(changed("debug.other"));
             await vi.advanceTimersByTimeAsync(1000);
             expect(editor.decorations).not.toEqual([]);
 
-            configChanged.fire({ affectsConfiguration: (key) => key === "debug.inlineValues" } as IConfigurationChangeEvent);
+            configChanged.fire(changed("debug.inlineValues"));
             await vi.advanceTimersByTimeAsync(99);
             expect(editor.decorations).not.toEqual([]);
             await vi.advanceTimersByTimeAsync(1);

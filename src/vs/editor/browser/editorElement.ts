@@ -62,13 +62,13 @@ import { UndoManager } from "../common/model/undoManager.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
 import { composedFragmentStart, composedLineContent, composedOffset } from "../common/viewModel/lineInsertions.ts";
+import { LineMessageLayers } from "../common/viewModel/lineMessageLayers.ts";
 import { LineWidthCache } from "../common/viewModel/lineWidthCache.ts";
 import {
     LONG_LINE_TRUNCATION_BADGE,
     LONG_LINE_TRUNCATION_BADGE_WIDTH,
     STOP_RENDERING_LINE_AFTER,
 } from "../common/viewModel/longLineRendering.ts";
-import { LineMessageLayers } from "../common/viewModel/lineMessageLayers.ts";
 import { TrackedLineDecorations } from "../common/viewModel/trackedLineDecorations.ts";
 import { computeIndentLevel } from "../contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";

@@ -79,7 +79,7 @@ describe("Inline values in the editor", () => {
         t.h.testApp.sendKey("F10");
         await vi.waitFor(() => {
             // `i` follows, cut by the editor's edge.
-            expect(rowOf("sum += nums[i];")).toMatch(/^sum \+= nums\[i\];  sum = 0, nums = size=1000/);
+            expect(rowOf("sum += nums[i];")).toMatch(/^sum \+= nums\[i\]; {2}sum = 0, nums = size=1000/);
         });
 
         t.h.testApp.sendKey("F5");

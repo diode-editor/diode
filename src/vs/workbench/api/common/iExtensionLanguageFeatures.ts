@@ -39,11 +39,11 @@ import type {
 } from "../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
 import type { IInlayHintsRequest, InlayHint } from "../../../editor/common/languages/iInlayHintsSource.ts";
-import type { IInlineValuesRequest, InlineValue } from "../../../editor/common/languages/iInlineValuesSource.ts";
 import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
 } from "../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { IInlineValuesRequest, InlineValue } from "../../../editor/common/languages/iInlineValuesSource.ts";
 import type {
     ILinkedEditingRangeRequest,
     ILinkedEditingRanges,
