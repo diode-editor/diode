@@ -47,10 +47,14 @@ interface IDebuggerContribution {
 }
 
 /** What `collectDebuggers` builds up before handing it out read-only. */
-type IMutableDebugger = { -readonly [K in keyof IDebuggerSchema]: IDebuggerSchema[K] } & {
+interface IMutableDebugger {
+    type: string;
+    label?: string;
+    isMain: boolean;
+    deprecated?: string;
     requests: Map<string, Record<string, IAttributeSchema>>;
     snippets: IConfigurationSnippet[];
-};
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);

@@ -6,14 +6,14 @@ import { completionValuesFor } from "./settingValues.ts";
 
 describe("completionValuesFor", () => {
     it("enum → all values, strings in quotes", () => {
-        expect(completionValuesFor({ key: "terminal.tier", type: "string", enum: ["auto", "kitty"] })).toEqual([
+        expect(completionValuesFor({ type: "string", enum: ["auto", "kitty"] })).toEqual([
             '"auto"',
             '"kitty"',
         ]);
     });
 
     it("boolean → true/false", () => {
-        expect(completionValuesFor({ key: "editor.insertSpaces", type: "boolean", default: true })).toEqual([
+        expect(completionValuesFor({ type: "boolean", default: true })).toEqual([
             "true",
             "false",
         ]);
@@ -25,23 +25,23 @@ describe("completionValuesFor", () => {
     });
 
     it("number without enum → default as a starting point", () => {
-        expect(completionValuesFor({ key: "editor.tabSize", type: "number", default: 4 })).toEqual(["4"]);
+        expect(completionValuesFor({ type: "number", default: 4 })).toEqual(["4"]);
     });
 
     it("string without enum → default in quotes", () => {
-        expect(completionValuesFor({ key: "git.path", type: "string", default: "" })).toEqual(['""']);
+        expect(completionValuesFor({ type: "string", default: "" })).toEqual(['""']);
     });
 
     it("enum wins over the boolean type", () => {
-        expect(completionValuesFor({ key: "x", type: "boolean", default: true, enum: [true] })).toEqual(["true"]);
+        expect(completionValuesFor({ type: "boolean", default: true, enum: [true] })).toEqual(["true"]);
     });
 
     it("no enum and no default → nothing to suggest", () => {
-        expect(completionValuesFor({ key: "x", type: "string" })).toEqual([]);
+        expect(completionValuesFor({ type: "string" })).toEqual([]);
     });
 
     it("an empty enum does not count as a closed set", () => {
-        expect(completionValuesFor({ key: "x", type: "boolean", default: false, enum: [] })).toEqual(["true", "false"]);
+        expect(completionValuesFor({ type: "boolean", default: false, enum: [] })).toEqual(["true", "false"]);
     });
 });
 
