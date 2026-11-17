@@ -7,9 +7,10 @@
 // `.vscode/launch.json`), the `launch` block of a `.code-workspace` file, and `launch` of the user settings. The
 // selected configuration is remembered per workspace under upstream's keys. The configuration providers of extensions
 // resolve a configuration before and after its variables are substituted, and the `Initial` ones fill a new
-// launch.json. Not here yet, each with its task: the dynamic configurations of Select and Start Debugging, the
-// launch.json schema (IntelliSense in launch.json), choosing a debugger for a new launch.json (#1156: without a type
-// it is created with an empty `configurations`). Deviations: there is no last active folder (one folder per window); a `.code-workspace` file
+// launch.json. IntelliSense in launch.json is not here: the builtin diode-settings extension reads the debuggers'
+// `configurationAttributes` from their manifests. Not here yet, each with its task: the dynamic configurations of
+// Select and Start Debugging, choosing a debugger for a new launch.json (#1156: without a type it is created with an
+// empty `configurations`). Deviations: there is no last active folder (one folder per window); a `.code-workspace` file
 // without a `launch` block is opened as is, nothing is written into it.
 
 import { CancellationTokenNone, type ICancellationToken } from "../../../../base/common/cancellation.ts";

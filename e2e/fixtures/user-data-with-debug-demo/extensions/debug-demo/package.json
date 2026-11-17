@@ -28,6 +28,33 @@
                 "variables": {
                     "pickProgram": "debugDemo.pickProgram"
                 },
+                "configurationAttributes": {
+                    "launch": {
+                        "properties": {
+                            "program": {
+                                "type": "string",
+                                "description": "Path to the program to debug."
+                            },
+                            "stopOnEntry": {
+                                "type": "boolean",
+                                "description": "Stop on the first line of the program.",
+                                "default": true
+                            }
+                        }
+                    }
+                },
+                "configurationSnippets": [
+                    {
+                        "label": "Debug Demo: Launch",
+                        "description": "A new configuration for the demo debugger.",
+                        "body": {
+                            "type": "demo",
+                            "request": "launch",
+                            "name": "${1:Debug Demo}",
+                            "program": "${2:./hello}"
+                        }
+                    }
+                ],
                 "initialConfigurations": [
                     {
                         "type": "demo",

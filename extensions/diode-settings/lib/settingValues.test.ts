@@ -19,6 +19,11 @@ describe("completionValuesFor", () => {
         ]);
     });
 
+    it("a list of types with boolean → true/false", () => {
+        expect(completionValuesFor({ type: ["string", "boolean"], default: "x" })).toEqual(["true", "false"]);
+        expect(completionValuesFor({ type: ["string", "number"], default: 1 })).toEqual(["1"]);
+    });
+
     it("number without enum → default as a starting point", () => {
         expect(completionValuesFor({ key: "editor.tabSize", type: "number", default: 4 })).toEqual(["4"]);
     });
