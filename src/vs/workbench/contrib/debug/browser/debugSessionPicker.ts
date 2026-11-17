@@ -32,8 +32,7 @@ export interface IDebugSessionPickerServices {
     readonly debugService: IDebugService;
     readonly quickInput: Pick<QuickInputService, "quickPick">;
     readonly icons: Pick<IProductIconService, "glyph">;
-    /** Upstream's `openView(REPL_VIEW_ID, true)` unless the console is visible. */
-    readonly showRepl: () => void;
+    readonly views: Pick<ViewsService, "isViewShown" | "openView">;
     readonly execute: (commandId: string) => void;
 }
 
@@ -96,7 +95,7 @@ function createPick(session: IDebugSession, services: IDebugSessionPickerService
         description: session.parentSession?.configuration.name,
         accept: () => {
             void services.debugService.focusStackFrame(undefined, undefined, session, { explicit: true });
-            services.showRepl();
+            showReplIfHidden(services.views);
         },
     };
 }

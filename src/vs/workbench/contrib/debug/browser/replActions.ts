@@ -22,6 +22,7 @@ import { ReplEvaluationResult } from "../common/replModel.ts";
 
 import { rowMenuItem } from "./debugContextMenus.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
+import { showReplIfHidden } from "./debugSessionPicker.ts";
 import { ReplDIToken, SELECT_REPL_ID } from "./repl.ts";
 
 export const TOGGLE_REPL_ID = "workbench.debug.action.toggleRepl";
@@ -67,10 +68,7 @@ async function changeDebugConsoleFocus(
         }
     }
     await debugService.focusStackFrame(undefined, undefined, sessions.at(nextIndex), { explicit: true });
-
-    if (!views.isViewShown(REPL_VIEW_ID)) {
-        views.openView(REPL_VIEW_ID, true);
-    }
+    showReplIfHidden(views);
 }
 
 export const toggleReplAction: CommandAction = {

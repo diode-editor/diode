@@ -33,7 +33,7 @@ export class FocusSessionActionViewItem extends Disposable {
     public readonly onDidChange: Event<void> = this.onDidChangeEmitter.event;
 
     public constructor(
-        protected readonly debugService: ISessionSelectDebugService,
+        private readonly debugService: ISessionSelectDebugService,
         private readonly strategy: ISessionSelectStrategy,
         run: (session: IDebugSession) => void,
         session?: IDebugSession,
@@ -85,13 +85,6 @@ export class FocusSessionActionViewItem extends Disposable {
 
         const selectedSession = session ? this.strategy.mapFocusedSessionToSelected(session) : undefined;
         this.update(selectedSession);
-    }
-
-    /** The text of the closed select: the selected session's label. */
-    public get selectedLabel(): string {
-        return this.element.getSelected() >= 0
-            ? (this.strategy.getSessions().at(this.element.getSelected())?.getLabel() ?? "")
-            : "";
     }
 
     public update(session?: IDebugSession): void {

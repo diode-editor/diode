@@ -63,7 +63,7 @@ import {
     type ISessionSelectDebugService,
     toolbarSessionStrategy,
 } from "./debugActionViewItems.ts";
-import { FOCUS_SESSION_ID, STEP_INTO_ID, STEP_OUT_ID, STEP_OVER_ID } from "./debugCommands.ts";
+import { FOCUS_SESSION_ID, SELECT_DEBUG_SESSION_ID, STEP_INTO_ID, STEP_OUT_ID, STEP_OVER_ID } from "./debugCommands.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
 
 export const DebugToolbarDIToken = token<DebugToolbar>("DebugToolbar");
@@ -124,6 +124,10 @@ export class DockedDebugToolbarItems extends Disposable {
             this.twins.push(
                 this.registry.appendMenuItem({
                     ...item,
+                    // Upstream's select of the sessions there is a button that opens Select Debug Session.
+                    ...("command" in item && item.command === FOCUS_SESSION_ID
+                        ? { command: SELECT_DEBUG_SESSION_ID }
+                        : {}),
                     menuId: MenuId.ViewContainerTitle,
                     when: item.when === undefined ? DOCKED : `(${item.when}) && ${DOCKED}`,
                     visible: containerMenuVisible(VIEWLET_ID),
@@ -199,7 +203,7 @@ export class DebugToolbar extends Disposable {
         contextKeys: Pick<ContextKeyService, "onDidChange">,
         private readonly configuration: Pick<IConfigurationService, "get" | "onDidChangeConfiguration">,
         icons: Pick<IProductIconService, "onDidChange">,
-        private readonly sessionSelect: Pick<FocusSessionActionViewItem, "element" | "onDidChange" | "selectedLabel">,
+        private readonly sessionSelect: Pick<FocusSessionActionViewItem, "element" | "onDidChange">,
     ) {
         super();
         const update = (): void => {
@@ -253,10 +257,13 @@ export class DebugToolbar extends Disposable {
         const buttons = this.buttons();
         // With labels while they fit in the group, glyphs only in a narrow one (0 before the group's first layout:
         // the dock reports the real width after it).
-        const selectWidth = this.sessionSelect.element.getMaxIntrinsicWidth(1);
+        const selectWidth = buttons.some((b) => b.id === FOCUS_SESSION_ID)
+            ? this.sessionSelect.element.getMaxIntrinsicWidth(1)
+            : 0;
         const withLabels =
             toolbarWidth(buttons, true, selectWidth) + CORNER_RIGHT_MARGIN <= placement.host.layoutSize.width;
-        const shown = JSON.stringify([buttons, withLabels, this.sessionSelect.selectedLabel, selectWidth]);
+        // The select repaints its own selection.
+        const shown = JSON.stringify([buttons, withLabels, selectWidth]);
         if (shown !== this.shown) {
             this.shown = shown;
             this.view.setChild(this.toolbar(buttons, withLabels, selectWidth));

@@ -82,6 +82,11 @@ function options(item: FocusSessionActionViewItem): unknown {
     return item.element.inspectState().options;
 }
 
+/** The text of the closed select. */
+function selected(item: FocusSessionActionViewItem): unknown {
+    return item.element.inspectState().selectedText;
+}
+
 describe("FocusSessionActionViewItem", () => {
     it("lists the roots while sub-sessions are hidden, selecting the root of the given session", () => {
         const t = setup();
@@ -93,7 +98,7 @@ describe("FocusSessionActionViewItem", () => {
 
         expect(options(item)).toEqual(["app", "other"]);
         expect(item.element.getSelected()).toBe(0);
-        expect(item.selectedLabel).toBe("app");
+        expect(selected(item)).toBe("app");
     });
 
     it("with sub-sessions shown, a child is indented and stands for itself", () => {
@@ -104,7 +109,7 @@ describe("FocusSessionActionViewItem", () => {
         const item = t.create(worker);
 
         expect(options(item)).toEqual(["app", "  worker"]);
-        expect(item.selectedLabel).toBe("worker");
+        expect(selected(item)).toBe("\u00A0\u00A0worker");
     });
 
     it("nothing selected without a session", () => {
@@ -114,7 +119,7 @@ describe("FocusSessionActionViewItem", () => {
         const item = t.create();
 
         expect(item.element.getSelected()).toBe(-1);
-        expect(item.selectedLabel).toBe("");
+        expect(selected(item)).toBe("");
     });
 
     it("follows the focus, new and ended sessions and the names, telling its host each time", () => {
@@ -129,11 +134,11 @@ describe("FocusSessionActionViewItem", () => {
         expect(options(item)).toEqual(["app", "other"]);
 
         t.focusOn(other);
-        expect(item.selectedLabel).toBe("other");
+        expect(selected(item)).toBe("other");
 
         other.rename("renamed");
         expect(options(item)).toEqual(["app", "renamed"]);
-        expect(item.selectedLabel).toBe("renamed");
+        expect(selected(item)).toBe("renamed");
 
         t.ended(other);
         expect(options(item)).toEqual(["app"]);
@@ -147,7 +152,7 @@ describe("FocusSessionActionViewItem", () => {
 
         t.focusOn(undefined);
 
-        expect(item.selectedLabel).toBe("app");
+        expect(selected(item)).toBe("app");
     });
 
     it("an ended adapter no longer renames its option; the sessions there at the start are followed too", () => {

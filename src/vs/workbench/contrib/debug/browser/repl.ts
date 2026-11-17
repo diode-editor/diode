@@ -318,11 +318,7 @@ export class Repl extends Component implements IContextKeyContributor {
             new FocusSessionActionViewItem(
                 debugService,
                 {
-                    getSessions: () =>
-                        debugService
-                            .getModel()
-                            .getSessions(true)
-                            .filter((s) => s.hasSeparateRepl() && !this.sessionsToIgnore.has(s)),
+                    getSessions: () => this.consoleSessions(),
                     mapFocusedSessionToSelected: (focusedSession) => {
                         let selected = focusedSession;
                         while (selected.parentSession && !selected.hasSeparateRepl()) {
@@ -435,22 +431,21 @@ export class Repl extends Component implements IContextKeyContributor {
 
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
         contextKeys.set("inDebugRepl", active?.getAncestorPath().includes(this.view) === true);
-        contextKeys.set("multiSessionRepl", this.isMultiSessionView);
+        // Upstream `isMultiSessionView`: the select shows exactly then.
+        contextKeys.set("multiSessionRepl", !this.sessionSelectSlot.hidden);
     }
 
-    /** Upstream: more than one console to choose from. */
-    private get isMultiSessionView(): boolean {
-        return (
-            this.debugService
-                .getModel()
-                .getSessions(true)
-                .filter((s) => s.hasSeparateRepl() && !this.sessionsToIgnore.has(s)).length > 1
-        );
+    /** The sessions with a console of their own, but the cleared ended ones. */
+    private consoleSessions(): IDebugSession[] {
+        return this.debugService
+            .getModel()
+            .getSessions(true)
+            .filter((s) => s.hasSeparateRepl() && !this.sessionsToIgnore.has(s));
     }
 
-    /** After the filter, the select of the consoles while there are several. */
+    /** After the filter, the select of the consoles while there are several (upstream `isMultiSessionView`). */
     private updateTitleWidget(): void {
-        this.sessionSelectSlot.hidden = !this.isMultiSessionView;
+        this.sessionSelectSlot.hidden = this.consoleSessions().length <= 1;
     }
 
     /** Upstream: the focus goes to the input. */

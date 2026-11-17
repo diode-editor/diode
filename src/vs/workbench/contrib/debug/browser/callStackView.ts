@@ -189,9 +189,15 @@ export class CallStackDataSource {
     private async compress(element: CallStackItem): Promise<CallStackItem> {
         let shown = element;
         while (isDebugSession(shown)) {
-            const children = await this.uncompressedChildren(shown);
-            const [only] = children;
-            if (children.length !== 1 || !isDebugSession(only) || this.isIncompressible(only)) break;
+            const parent = shown;
+            const childSessions = this.debugService
+                .getModel()
+                .getSessions()
+                .filter((s) => s.parentSession === parent);
+            const [only] = childSessions;
+            // A lone compressible child session first: the threads and frames are asked only then.
+            if (childSessions.length !== 1 || this.isIncompressible(only)) break;
+            if ((await this.uncompressedChildren(shown)).length !== 1) break;
             shown = only;
         }
         return shown;

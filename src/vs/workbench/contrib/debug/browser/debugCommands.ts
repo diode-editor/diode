@@ -55,7 +55,7 @@ import { rowMenuItem } from "./debugContextMenus.ts";
 import { BREAKPOINT_EDITOR_ACTIONS } from "./debugEditorActions.ts";
 import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
-import { showDebugSessionMenu, showReplIfHidden } from "./debugSessionPicker.ts";
+import { showDebugSessionMenu } from "./debugSessionPicker.ts";
 import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
 import { REPL_ACTIONS } from "./replActions.ts";
 import { VARIABLES_ACTIONS } from "./variablesActions.ts";
@@ -575,11 +575,6 @@ export const focusSessionAction: CommandAction = {
         },
     ],
     async run(accessor, session) {
-        if (session === undefined) {
-            // The button of the docked toolbar: upstream's select of the sessions there is the picker.
-            await selectDebugSessionAction.run(accessor);
-            return;
-        }
         const debugService = accessor.get(DebugServiceDIToken);
         const toFocus = resolveChildSession(session as IDebugSession, debugService.getModel().getSessions());
         await debugService.focusStackFrame(undefined, undefined, toFocus, { explicit: true });
@@ -604,9 +599,7 @@ export const selectDebugSessionAction: CommandAction = {
                 debugService: accessor.get(DebugServiceDIToken),
                 quickInput: accessor.get(QuickInputServiceDIToken),
                 icons: accessor.get(ProductIconServiceDIToken),
-                showRepl: () => {
-                    showReplIfHidden(views);
-                },
+                views,
                 execute: (id) => commands.execute(id),
             },
             SELECT_AND_START_ID,

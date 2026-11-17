@@ -288,14 +288,6 @@ describe("child sessions", () => {
             ]);
         });
 
-        it("Focus Session without a session (the docked toolbar's button) opens the picker", async () => {
-            await startWithWorkers();
-
-            await focusSessionAction.run(accessor);
-
-            expect(picks).toHaveLength(1);
-        });
-
         it("Focus Session with a session focuses it and opens its frame without taking the focus", async () => {
             const { w2 } = await startWithWorkers();
 

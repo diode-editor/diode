@@ -60,7 +60,7 @@ function setup(initial: Partial<IFakes> = {}) {
         { onDidChange: contextKeys.event },
         configuration,
         { onDidChange: icons.event },
-        { element: new SelectBoxElement(), onDidChange: Event.None, selectedLabel: "" },
+        { element: new SelectBoxElement(), onDidChange: Event.None },
     );
     return {
         fakes,

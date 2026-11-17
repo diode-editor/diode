@@ -536,8 +536,9 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     /** The parent process went away: so do its workers. */
     private endWorkers(): void {
         const index = this.family.indexOf(this);
+        if (index < 0) return;
         for (const worker of this.family) {
-            if (index >= 0 && worker.workerOf === index) worker.exit();
+            if (worker.workerOf === index) worker.exit();
         }
     }
 
