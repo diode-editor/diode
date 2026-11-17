@@ -9,10 +9,11 @@
 // resolve a configuration before and after its variables are substituted, and the `Initial` ones fill a new
 // launch.json, whose debugger is guessed when none is given. The `Dynamic` ones are asked lazily, when the user opens
 // their type (`onDebugDynamicConfigurations` activates the extension only then); a picked one is selected and
-// remembered among the recent dynamic configurations. Not here yet: the launch.json schema (IntelliSense in
-// launch.json, #1157). Deviations: there is no last active folder (one folder per window); a `.code-workspace` file
-// without a `launch` block is opened as is, nothing is written into it; the picker of dynamic configurations has no
-// "Edit Debug Configuration in launch.json" button (the picker has no item buttons).
+// remembered among the recent dynamic configurations. IntelliSense in launch.json is not here: the builtin
+// diode-settings extension reads the debuggers' `configurationAttributes` from their manifests. Deviations: there is no
+// last active folder (one folder per window); a `.code-workspace` file without a `launch` block is opened as is,
+// nothing is written into it; the picker of dynamic configurations has no "Edit Debug Configuration in launch.json"
+// button (the picker has no item buttons).
 
 import { distinct } from "../../../../base/common/arrays.ts";
 import {
