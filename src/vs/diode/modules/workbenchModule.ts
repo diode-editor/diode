@@ -162,7 +162,12 @@ import {
     DebugTerminalLauncherDIToken,
     HasChildProcessesDIToken,
 } from "../../workbench/contrib/debug/browser/debugTerminal.ts";
-import { DebugToolbar, DebugToolbarDIToken } from "../../workbench/contrib/debug/browser/debugToolbar.ts";
+import {
+    DebugToolbar,
+    DebugToolbarDIToken,
+    DockedDebugToolbarItems,
+    DockedDebugToolbarItemsDIToken,
+} from "../../workbench/contrib/debug/browser/debugToolbar.ts";
 import {
     DebugViewletComponent,
     DebugViewletComponentDIToken,
@@ -826,6 +831,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(DebugQuickAccessProviderDIToken, StartDebugQuickAccessProvider);
     container.bind(DebugLifecycleDIToken, DebugLifecycle);
     container.bind(DebugToolbarDIToken, DebugToolbar);
+    container.bind(DockedDebugToolbarItemsDIToken, DockedDebugToolbarItems);
     container.bind(StatusBarColorProviderDIToken, StatusBarColorProvider);
     container.bind(DebugStatusContributionDIToken, DebugStatusContribution);
     // Stryker disable next-line ArrowFunction: DI binding; the function itself is tested in `node/terminals.test.ts`

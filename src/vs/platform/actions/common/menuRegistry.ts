@@ -231,6 +231,11 @@ export class MenuRegistry {
         return joinMenuGroups(this.getMenuItemGroups(menuId, context, resolveSubmenu, keys));
     }
 
+    /** Upstream `MenuRegistry.getMenuItems`: the items of the menu as registered, `when` not evaluated. */
+    public getContributions(menuId: MenuId): readonly MenuContribution[] {
+        return this.items.filter((item) => item.menuId === menuId);
+    }
+
     /**
      * Upstream `menuService.getMenuContexts`: every key the menu's `when`, `enablement` and `toggled` read — a
      * persistent rendering of the menu redraws only when one of them changes.

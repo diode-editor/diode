@@ -2,19 +2,23 @@
 // Deviations: Ctrl+Shift+Y reaches only terminals with extended keys, Ctrl+K Y toggles the console everywhere (as
 // Ctrl+K M for Problems); Enter in the input is the input's own key (it calls `repl.action.acceptInput`'s method), and
 // Clear Console has no key: upstream binds Cmd+K on macOS only. Focus Filter's Ctrl+F is bound in the console (its
-// precondition) rather than in any text input: the console's input is its only one. Collapse All has no context menu
-// to sit in yet (#1158): a command only.
+// precondition) rather than in any text input: the console's input is its only one. Copy of the row's menu copies the
+// row (the terminal has no text selection in the console to copy instead).
 
 import { codicon } from "../../../../base/common/codicons.ts";
-import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { removeAnsiEscapeCodes } from "../../../../base/common/strings.ts";
+import { type CommandAction, HIDDEN_FROM_PALETTE } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
-import { REPL_VIEW_ID } from "../common/debug.ts";
+import { type IDebugService, type IReplElement, REPL_VIEW_ID } from "../common/debug.ts";
+import { ReplEvaluationResult } from "../common/replModel.ts";
 
+import { rowMenuItem } from "./debugContextMenus.ts";
+import { DebugServiceDIToken } from "./debugService.ts";
 import { ReplDIToken } from "./repl.ts";
 
 export const TOGGLE_REPL_ID = "workbench.debug.action.toggleRepl";
@@ -72,9 +76,64 @@ export const clearReplAction: CommandAction = {
             icon: codicon("clear-all"),
             visible: viewMenuVisible(REPL_VIEW_ID),
         },
+        rowMenuItem(MenuId.DebugConsoleContext, "z_commands", 20),
     ],
     run(accessor) {
         accessor.get(ReplDIToken).clearRepl();
+    },
+};
+
+export const replPasteAction: CommandAction = {
+    id: "debug.replPaste",
+    title: "Paste",
+    enablement: "debugState != 'inactive'",
+    menus: [...HIDDEN_FROM_PALETTE, rowMenuItem(MenuId.DebugConsoleContext, "2_cutcopypaste", 30)],
+    async run(accessor) {
+        const clipboardText = await accessor.get(ClipboardDIToken).readText();
+        if (clipboardText) accessor.get(ReplDIToken).paste(clipboardText);
+    },
+};
+
+export const copyAllAction: CommandAction = {
+    id: "workbench.debug.action.copyAll",
+    title: "Copy All",
+    menus: [...HIDDEN_FROM_PALETTE, rowMenuItem(MenuId.DebugConsoleContext, "2_cutcopypaste", 20)],
+    run(accessor) {
+        return accessor.get(ClipboardDIToken).writeText(accessor.get(ReplDIToken).getVisibleContent());
+    },
+};
+
+/** Upstream's `tryEvaluateAndCopy`: an evaluation's result as the adapter gives it for the clipboard. */
+async function tryEvaluateAndCopy(debugService: IDebugService, element: IReplElement): Promise<string | undefined> {
+    // todo: we should expand DAP to allow copying more types here (#187784)
+    if (!(element instanceof ReplEvaluationResult)) {
+        return;
+    }
+
+    const stackFrame = debugService.getViewModel().focusedStackFrame;
+    const session = debugService.getViewModel().focusedSession;
+    if (!stackFrame || !session?.capabilities.supportsClipboardContext) {
+        return;
+    }
+
+    // A request that fails, synchronously or not, is no answer: the row is copied as shown.
+    const evaluation = await Promise.resolve()
+        .then(() => session.evaluate(element.originalExpression, stackFrame.frameId, "clipboard"))
+        .catch(() => undefined);
+    return evaluation?.body.result;
+}
+
+export const replCopyAction: CommandAction = {
+    id: "debug.replCopy",
+    title: "Copy",
+    menus: [...HIDDEN_FROM_PALETTE, rowMenuItem(MenuId.DebugConsoleContext, "2_cutcopypaste", 10)],
+    async run(accessor, element) {
+        if (element === undefined) return;
+        const row = element as IReplElement;
+        const retValue = await tryEvaluateAndCopy(accessor.get(DebugServiceDIToken), row);
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- upstream: an empty string is none too
+        const textToCopy = retValue || removeAnsiEscapeCodes(row.toString());
+        await accessor.get(ClipboardDIToken).writeText(textToCopy);
     },
 };
 
@@ -101,6 +160,7 @@ export const copyAllReplAction: CommandAction = {
 export const collapseReplAction: CommandAction = {
     id: COLLAPSE_REPL_ID,
     title: "Collapse All",
+    menus: [rowMenuItem(MenuId.DebugConsoleContext, "z_commands", 10)],
     run(accessor) {
         const repl = accessor.get(ReplDIToken);
         repl.collapseAll();
@@ -109,6 +169,9 @@ export const collapseReplAction: CommandAction = {
 };
 
 export const REPL_ACTIONS: readonly CommandAction[] = [
+    replCopyAction,
+    copyAllAction,
+    replPasteAction,
     toggleReplAction,
     focusReplAction,
     acceptReplInputAction,

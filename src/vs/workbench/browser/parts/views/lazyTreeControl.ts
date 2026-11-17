@@ -1,8 +1,9 @@
 import type { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { TUIEventBase } from "@tuidom/core/dom/events/tuiEventBase";
-import type { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
+import type { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { HFlexElement, hflexFill, hflexFit } from "@tuidom/elements/layout/hFlexElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
@@ -44,6 +45,15 @@ export interface ILazyTreeSource<T> {
     renderRowEnd?(element: T): readonly IRowSpan[];
     /** Typeahead text; the joined spans when omitted. */
     getLabel?(element: T): string;
+}
+
+/** Upstream's input box over a row of a debug view (`renderInputBox`): Set Value, a watch expression. */
+export interface IRowEdit {
+    readonly value: string;
+    /** The adapter's answer to the last try, shown after the input in the error color. */
+    readonly error?: string;
+    /** Enter and leaving the input finish with `success`, Escape without; once per edit. */
+    onDone(value: string, success: boolean): void;
 }
 
 export interface ILazyTreeOptions {
@@ -142,6 +152,16 @@ function buildRow(spans: readonly IRowSpan[], end: readonly IRowSpan[], wrap: bo
     return row;
 }
 
+/** The input of an edited row, the error of the last try after it. */
+function editRow(input: InputElement, error: string | undefined): TUIElement {
+    const row = new HFlexElement();
+    row.addChild(input, { width: hflexFill(), height: 1 });
+    if (error !== undefined) {
+        row.addChild(spansLabel([{ text: ` ${error}`, fg: "list.errorForeground" }]), { width: hflexFit(), height: 1 });
+    }
+    return row;
+}
+
 /**
  * A lazily loaded tree of colored rows over {@link ListViewElement} — upstream's `AsyncDataTree` for the debug
  * views. The list brings the hierarchy, chevrons, keyboard, typeahead and the `list.*` commands; this control owns
@@ -159,6 +179,13 @@ export class LazyTreeControl<T> {
     public onActivate: (element: T) => void = () => undefined;
     /** The cursor moved to a row by the user; a rebuild or {@link reveal} moving it says nothing. */
     public onSelect: (element: T) => void = () => undefined;
+    /**
+     * A right click or Shift+F10 on a row (the click has already put the cursor there); `undefined` for one on no row,
+     * as upstream's tree hands over a `null` element (the console's menu opens on its empty space too).
+     */
+    public onContextMenu: (element: T | undefined, screenX: number, screenY: number) => void = () => undefined;
+    /** The list has handed the current context menu event to a row. */
+    private contextMenuOnRow = false;
 
     private roots: readonly T[] = [];
     /** The user's word on a node; a node without one follows {@link ILazyTreeSource.isInitiallyExpanded}. */
@@ -167,8 +194,8 @@ export class LazyTreeControl<T> {
     private children = new Map<string, readonly T[]>();
     /** Pending loads of single nodes: a load lands only while it is still the one in this map. */
     private loading = new Map<string, object>();
-    /** The data behind the rows on screen; the "Loading..." rows (and no row at all) have none. */
-    private readonly items = new Map<TUIElement | null, T>();
+    /** The data behind the rows on screen by row id: a row the list hands over may be one a rebuild has just replaced. */
+    private readonly items = new Map<string, T>();
     /** Row id → parent row id of every row on screen: a cursor whose row went away falls back to its parent. */
     private parentOf = new Map<string, string | undefined>();
     private refreshToken = {};
@@ -176,6 +203,10 @@ export class LazyTreeControl<T> {
     /** The tree itself moves the cursor: not the user's pick. */
     private movingCursor = false;
     private revealTail = false;
+    /** The row being edited and its input, kept across rebuilds so the typed text and the focus survive them. */
+    private editing: { readonly key: string; readonly edit: IRowEdit; readonly input: InputElement } | undefined;
+    // Stryker disable next-line BooleanLiteral: equivalent — rebuild() sets it before any input of an edit can blur
+    private rebuilding = false;
 
     public constructor(
         private readonly source: ILazyTreeSource<T>,
@@ -185,17 +216,70 @@ export class LazyTreeControl<T> {
             this.onCollapsedChanged(row, collapsed);
         };
         this.list.onActivate = (row) => {
-            const item = this.items.get(row);
+            const item = this.items.get(String(row.id));
             if (item !== undefined) this.onActivate(item);
         };
         this.list.onSelect = (row) => {
-            const item = this.items.get(row);
+            const item = this.items.get(String(row.id));
             if (!this.movingCursor && item !== undefined) this.onSelect(item);
         };
+        this.list.onContextMenu = (row, screenX, screenY) => {
+            this.contextMenuOnRow = true;
+            this.onContextMenu(this.items.get(String(row.id)), screenX, screenY);
+        };
+        // The list says nothing of a click on no row: its listener runs before the list's own handling, and the
+        // microtask after it tells whether a row got the event.
+        this.list.addEventListener("contextmenu", (event) => {
+            const { screenX, screenY } = event as TUIContextMenuEvent;
+            this.contextMenuOnRow = false;
+            queueMicrotask(() => {
+                if (!this.contextMenuOnRow) this.onContextMenu(undefined, screenX, screenY);
+            });
+        });
+    }
+
+    /**
+     * Puts an input over the element's row (upstream's `renderInputBox`) and focuses it: Enter or leaving it ends the
+     * edit with its text, Escape without; the list gets the focus back. A rebuild keeps the input with what is typed.
+     * `false` when the tree does not show the element (both debug views hear of every selected expression).
+     */
+    public edit(element: T, edit: IRowEdit): boolean {
+        const key = this.source.getKey(element);
+        if (!this.parentOf.has(`${this.options.idPrefix}:${key}`)) return false;
+        // The open edit gives way without a rebuild of its own: the one below puts its row back.
+        const previous = this.editing;
+        const input = new InputElement();
+        input.inputState.value = edit.value;
+        input.inputState.selectAll();
+        input.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== "Escape") return;
+            // Stryker disable next-line CallExpression: equivalent — the input does nothing of its own with Enter or Escape, and the event goes no further than its row
+            event.preventDefault();
+            this.finishEdit(event.key === "Enter");
+        });
+        input.addEventListener("blur", () => {
+            // A rebuild takes the row off the list for a moment; that is not the user leaving it.
+            if (!this.rebuilding) this.finishEdit(true);
+        });
+        this.editing = { key, edit, input };
+        this.rebuild();
+        input.focus();
+        previous?.edit.onDone(previous.input.inputState.value, false);
+        return true;
+    }
+
+    private finishEdit(success: boolean): void {
+        const editing = this.editing;
+        if (editing === undefined) return;
+        this.editing = undefined;
+        const hadFocus = editing.input.isFocused;
+        this.rebuild();
+        if (hadFocus) this.list.focus();
+        editing.edit.onDone(editing.input.inputState.value, success);
     }
 
     public get focused(): T | undefined {
-        return this.items.get(this.list.getCursorElement());
+        return this.items.get(String(this.list.getCursorElement()?.id));
     }
 
     /** The elements of the rows the tree shows (the children of expanded nodes), top to bottom. */
@@ -317,6 +401,19 @@ export class LazyTreeControl<T> {
     }
 
     private rebuild(): void {
+        const input = this.editing?.input;
+        const editingFocused = input?.isFocused === true;
+        this.rebuilding = true;
+        try {
+            this.rebuildRows();
+        } finally {
+            this.rebuilding = false;
+        }
+        // The edited row came back: its input gets the focus it had.
+        if (editingFocused) input.focus();
+    }
+
+    private rebuildRows(): void {
         const list = this.list;
         const cursorId = list.getCursorElement()?.id;
         const scrollTop = list.scrollTop;
@@ -331,9 +428,13 @@ export class LazyTreeControl<T> {
                 const key = this.source.getKey(item);
                 const id = `${this.options.idPrefix}:${key}`;
                 const spans = this.source.renderRow(item);
-                const row = buildRow(spans, this.source.renderRowEnd?.(item) ?? [], wrap);
+                const editing = this.editing?.key === key ? this.editing : undefined;
+                const row =
+                    editing === undefined
+                        ? buildRow(spans, this.source.renderRowEnd?.(item) ?? [], wrap)
+                        : editRow(editing.input, editing.edit.error);
                 row.id = id;
-                this.items.set(row, item);
+                this.items.set(id, item);
                 this.parentOf.set(id, parentId);
                 const expanded = this.isExpanded(item, key);
                 const label = this.source.getLabel?.(item) ?? spansText(spans);

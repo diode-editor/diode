@@ -61,6 +61,7 @@ import {
     DataBreakpoint,
     DebugModel,
     FunctionBreakpoint,
+    type IDataBreakpointOptions,
     type IFunctionBreakpointOptions,
     InstructionBreakpoint,
     type ITextFileDirtyState,
@@ -1213,6 +1214,13 @@ export class DebugService implements IDebugService {
         this.model.removeFunctionBreakpoints(id);
         this.debugStorage.storeBreakpoints(this.model);
         await this.sendFunctionBreakpoints();
+    }
+
+    public async addDataBreakpoint(opts: IDataBreakpointOptions): Promise<void> {
+        this.model.addDataBreakpoint(opts);
+        this.debugStorage.storeBreakpoints(this.model);
+        // Upstream stores once more after sending; nothing of the stored breakpoint changes with the answer.
+        await this.sendDataBreakpoints();
     }
 
     public async removeDataBreakpoints(id?: string): Promise<void> {

@@ -17,7 +17,7 @@
 // the plain foreground, not `debugConsole.infoForeground` (the spike's look). Escape clearing the input is ours. A line
 // break inside an element is a space without wrapping (the row is one line, cut: the list does not scroll sideways);
 // with wrapping it breaks the row, as upstream's `pre-wrap`. The filter has no history of its own (upstream's Up/Down in it).
-// Not here yet (#1158): Find, the session picker of multiple consoles, the context menu (Copy, Paste), clicking a
+// Not here yet (#1158): Find, the session picker of multiple consoles, clicking a
 // source to open it, the `debug.console.*` font settings (the terminal's font). The view has no `debuggersAvailable`
 // gate: it is always there.
 
@@ -34,10 +34,17 @@ import { codicon } from "../../../../base/common/codicons.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { combinedDisposable, type IDisposable, MutableDisposable } from "../../../../base/common/lifecycle.ts";
 import { removeAnsiEscapeCodes } from "../../../../base/common/strings.ts";
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { type MenuService, MenuServiceDIToken } from "../../../../platform/actions/common/menuService.ts";
+import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import {
+    type ContextMenuService,
+    ContextMenuServiceDIToken,
+} from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
     type IStateDescriptor,
@@ -73,6 +80,7 @@ import {
 } from "../common/replModel.ts";
 
 import { handleANSIOutput } from "./debugANSIHandling.ts";
+import { showDebugContextMenu } from "./debugContextMenus.ts";
 import { DebugExpressionRenderer } from "./debugExpressionRenderer.ts";
 import { type DebugService, DebugServiceDIToken } from "./debugService.ts";
 import { type LinkDetector, LinkDetectorDIToken } from "./linkDetector.ts";
@@ -135,6 +143,9 @@ export class Repl extends Component implements IContextKeyContributor {
         IConfigurationServiceDIToken,
         ProductIconServiceDIToken,
         StateServiceDIToken,
+        MenuServiceDIToken,
+        ContextMenuServiceDIToken,
+        CommandRegistryDIToken,
         LinkDetectorDIToken,
         LayoutServiceDIToken,
     ] as const;
@@ -174,6 +185,9 @@ export class Repl extends Component implements IContextKeyContributor {
         private readonly configuration: IConfigurationService,
         private readonly icons: IProductIconService,
         private readonly state: Pick<IStateService, "get" | "store">,
+        menus: MenuService,
+        contextMenu: ContextMenuService,
+        commands: CommandRegistry,
         private readonly links: Pick<LinkDetector, "linkify">,
         layout: { readonly mainContainer: { readonly overlayLayer: OverlayLayer } },
     ) {
@@ -349,7 +363,27 @@ export class Repl extends Component implements IContextKeyContributor {
                 this.tree.rerender();
             }),
         );
+        // Upstream `onContextMenu`: the console's menu with the row as the argument.
+        this.tree.onContextMenu = (element, screenX, screenY) => {
+            showDebugContextMenu(
+                { menus, contextMenu, commands },
+                {
+                    owner: this.tree.list,
+                    anchor: { screenX, screenY },
+                    menuId: MenuId.DebugConsoleContext,
+                    keys: {},
+                    args: [element],
+                },
+            );
+        };
         this.selectSession(viewModel.focusedSession);
+    }
+
+    /** Upstream's Paste: the text goes to the end of the input, which gets the focus. */
+    public paste(text: string): void {
+        // Setting the value puts the cursor at its end.
+        this.setInput(this.input.inputState.value + text);
+        this.input.focus();
     }
 
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {

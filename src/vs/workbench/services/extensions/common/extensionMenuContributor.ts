@@ -28,6 +28,11 @@ const MENU_IDS: Readonly<Partial<Record<string, MenuId>>> = {
     "testing/message/context": MenuId.TestMessageContext,
     "testing/message/content": MenuId.TestMessageContent,
     "viewContainer/title": MenuId.ViewContainerTitle,
+    "debug/callstack/context": MenuId.DebugCallStackContext,
+    "debug/variables/context": MenuId.DebugVariablesContext,
+    "debug/watch/context": MenuId.DebugWatchContext,
+    "debug/toolBar": MenuId.DebugToolBar,
+    "debug/createConfiguration": MenuId.DebugCreateConfiguration,
 };
 
 const COMMAND_PALETTE_MENU = "commandPalette";

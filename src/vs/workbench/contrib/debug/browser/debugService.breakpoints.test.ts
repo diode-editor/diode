@@ -259,6 +259,25 @@ describe("DebugService breakpoint editing", () => {
         expect(sent(adapter, "setFunctionBreakpoints")[1]).toEqual({ breakpoints: [{ name: "accumulate" }] });
     });
 
+    it("a data breakpoint is stored before the adapter hears of it, and sent", async () => {
+        const adapter = await startStopped();
+        // The adapter's answer is held: what is stored by then is the breakpoint as added.
+        const send = fx.service.addDataBreakpoint({
+            description: "count",
+            src: { type: DataBreakpointSetType.Variable, dataId: "1:count" },
+            canPersist: true,
+            accessTypes: undefined,
+            accessType: "write",
+        });
+        const storedWhileSending = stored("debug.databreakpoint");
+        await send;
+
+        expect(storedWhileSending).toEqual([expect.objectContaining({ description: "count", accessType: "write" })]);
+        expect(sent(adapter, "setDataBreakpoints").at(-1)).toMatchObject({
+            breakpoints: [{ dataId: "1:count", accessType: "write" }],
+        });
+    });
+
     it("function breakpoints: added with a name, sent and stored; an empty one waits for its name", async () => {
         const adapter = await startStopped();
 

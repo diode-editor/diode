@@ -26,6 +26,7 @@ import {
     CALL_STACK_REFRESH_DELAY_MS,
     CallStackDataSource,
     CallStackView,
+    getContextForContributedActions,
     getSpecificSourceName,
     isDebugSession,
 } from "./callStackView.ts";
@@ -83,6 +84,18 @@ describe("Debug - CallStack (the view)", () => {
         setCallStack(thread, [first, second]);
 
         expect(getSpecificSourceName(first)).toBe("/a/m.js");
+    });
+});
+
+describe("getContextForContributedActions", () => {
+    it("a frame of a file gives its uri; an in-memory one its path, else its reference, else its name", () => {
+        const thread = new Thread(mockSession(), "mockthread", 1);
+        expect(getContextForContributedActions(frame(thread, "f"))).toBe(source().uri.toString());
+        const inMemory = (raw: DebugProtocol.Source): string | number =>
+            getContextForContributedActions(frame(thread, "f", { src: source(raw) }));
+        expect(inMemory({ path: "gen.js", sourceReference: 5 })).toBe("gen.js");
+        expect(inMemory({ name: "gen", sourceReference: 5 })).toBe(5);
+        expect(inMemory({ name: "gen" })).toBe("gen");
     });
 });
 

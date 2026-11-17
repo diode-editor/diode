@@ -4,8 +4,9 @@
 // title, its keys and the palette commands of the breakpoints (`breakpointsView.ts`, `debugCommands.ts`).
 // Deviations: Ctrl+Shift+D and Ctrl+Enter reach only terminals with extended keys; Ctrl+K B shows the viewlet
 // everywhere (Ctrl+K D, the free letter of the other viewlets, is Compare with Saved); the name of a new function
-// breakpoint is typed in the quick input, not in an input box on the row. Not here yet: the entries of the Run menu
-// (no Run menu yet), the context menus of the rows with Remove Breakpoint and the editing commands (#1150).
+// breakpoint is typed in the quick input, not in an input box on the row. The rows' menu items of WATCH and
+// BREAKPOINTS are on these commands. Not here yet: the entries of the Run menu (no Run menu yet), the editing commands
+// of breakpoints (#1151).
 
 import { codicon } from "../../../../base/common/codicons.ts";
 import { type CommandAction, HIDDEN_FROM_PALETTE } from "../../../../platform/actions/common/commandAction.ts";
@@ -26,8 +27,15 @@ import {
     VIEWLET_ID,
     WATCH_VIEW_ID,
 } from "../common/debug.ts";
-import { Breakpoint, DataBreakpoint, Expression, FunctionBreakpoint } from "../common/debugModel.ts";
+import {
+    Breakpoint,
+    DataBreakpoint,
+    Expression,
+    FunctionBreakpoint,
+    InstructionBreakpoint,
+} from "../common/debugModel.ts";
 
+import { rowMenuItem } from "./debugContextMenus.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
 import { type DebugViewletComponent, DebugViewletComponentDIToken } from "./debugViewlet.ts";
 
@@ -39,8 +47,11 @@ export const REMOVE_EXPRESSION_COMMAND_ID = "debug.removeWatchExpression";
 
 const COLLAPSE_ICON = codicon("collapse-all");
 
+const NOT_EXCEPTION_BREAKPOINT = "breakpointItemType != 'exceptionBreakpoint'";
+const BREAKPOINTS_ROW = `breakpointsExist && ${NOT_EXCEPTION_BREAKPOINT}`;
+
 /** The expression a WATCH command acts on: its argument (a row of a menu), else the focused row of the view. */
-function watchExpressionOf(accessor: ServiceAccessor, arg: unknown): Expression | undefined {
+export function watchExpressionOf(accessor: ServiceAccessor, arg: unknown): Expression | undefined {
     if (arg instanceof Expression) return arg;
     const focused = accessor.get(DebugViewletComponentDIToken).watch.tree.focused;
     return focused instanceof Expression ? focused : undefined;
@@ -87,6 +98,7 @@ export const addWatchExpressionAction: CommandAction = {
             icon: codicon("add"),
             visible: viewMenuVisible(WATCH_VIEW_ID),
         },
+        rowMenuItem(MenuId.DebugWatchContext, "3_modification", 10),
     ],
     run(accessor) {
         accessor.get(DebugServiceDIToken).addWatchExpression();
@@ -106,6 +118,7 @@ export const removeAllWatchExpressionsAction: CommandAction = {
             icon: codicon("close-all"),
             visible: viewMenuVisible(WATCH_VIEW_ID),
         },
+        rowMenuItem(MenuId.DebugWatchContext, "z_commands", 20),
     ],
     run(accessor) {
         accessor.get(DebugServiceDIToken).removeWatchExpressions();
@@ -135,7 +148,7 @@ export const copyAllWatchExpressionsAction: CommandAction = {
     id: COPY_ALL_WATCH_EXPRESSIONS_COMMAND_ID,
     title: "Copy All",
     enablement: "watchExpressionsExist",
-    menus: HIDDEN_FROM_PALETTE,
+    menus: [...HIDDEN_FROM_PALETTE, rowMenuItem(MenuId.DebugWatchContext, "3_modification", 45)],
     run(accessor) {
         const watches = accessor.get(DebugServiceDIToken).getModel().getWatchExpressions();
         const lines = watches.map((w) => `${w.name}: ${w.value}`);
@@ -151,7 +164,10 @@ export const renameWatchExpressionAction: CommandAction = {
         when: "watchExpressionsFocused",
         weight: KeybindingWeight.WorkbenchContrib + 5,
     },
-    menus: HIDDEN_FROM_PALETTE,
+    menus: [
+        ...HIDDEN_FROM_PALETTE,
+        rowMenuItem(MenuId.DebugWatchContext, "3_modification", 20, "watchItemType == 'expression'"),
+    ],
     run(accessor, expression) {
         const target = watchExpressionOf(accessor, expression);
         if (target) accessor.get(DebugServiceDIToken).getViewModel().setSelectedExpression(target, false);
@@ -232,6 +248,28 @@ export const removeFocusedBreakpointAction: CommandAction = {
     },
 };
 
+/** The Remove Breakpoint of a row's menu, with the row as its argument; unlike the Delete key it takes instructions. */
+export const removeBreakpointAction: CommandAction = {
+    id: "workbench.debug.viewlet.action.removeBreakpoint",
+    title: "Remove Breakpoint",
+    menus: [
+        ...HIDDEN_FROM_PALETTE,
+        rowMenuItem(MenuId.DebugBreakpointsContext, "3_modification", 10, NOT_EXCEPTION_BREAKPOINT),
+    ],
+    async run(accessor, breakpoint) {
+        const debugService = accessor.get(DebugServiceDIToken);
+        if (breakpoint instanceof Breakpoint) {
+            await debugService.removeBreakpoints(breakpoint.getId());
+        } else if (breakpoint instanceof FunctionBreakpoint) {
+            await debugService.removeFunctionBreakpoints(breakpoint.getId());
+        } else if (breakpoint instanceof DataBreakpoint) {
+            await debugService.removeDataBreakpoints(breakpoint.getId());
+        } else if (breakpoint instanceof InstructionBreakpoint) {
+            await debugService.removeInstructionBreakpoints(breakpoint.instructionReference, breakpoint.offset);
+        }
+    },
+};
+
 export const openBreakpointToSideAction: CommandAction = {
     id: "debug.openBreakpointToSide",
     title: "Open to the Side",
@@ -297,6 +335,7 @@ export const removeAllBreakpointsAction: CommandAction = {
             icon: codicon("close-all"),
             visible: viewMenuVisible(BREAKPOINTS_VIEW_ID),
         },
+        rowMenuItem(MenuId.DebugBreakpointsContext, "3_modification", 20, BREAKPOINTS_ROW),
     ],
     async run(accessor) {
         const debugService = accessor.get(DebugServiceDIToken);
@@ -313,6 +352,7 @@ export const enableAllBreakpointsAction: CommandAction = {
     id: "workbench.debug.viewlet.action.enableAllBreakpoints",
     title: "Enable All Breakpoints",
     enablement: "debuggersAvailable",
+    menus: [rowMenuItem(MenuId.DebugBreakpointsContext, "z_commands", 10, BREAKPOINTS_ROW)],
     run(accessor) {
         return accessor.get(DebugServiceDIToken).enableOrDisableBreakpoints(true);
     },
@@ -322,6 +362,7 @@ export const disableAllBreakpointsAction: CommandAction = {
     id: "workbench.debug.viewlet.action.disableAllBreakpoints",
     title: "Disable All Breakpoints",
     enablement: "debuggersAvailable",
+    menus: [rowMenuItem(MenuId.DebugBreakpointsContext, "z_commands", 20, BREAKPOINTS_ROW)],
     run(accessor) {
         return accessor.get(DebugServiceDIToken).enableOrDisableBreakpoints(false);
     },
@@ -331,6 +372,7 @@ export const reapplyBreakpointsAction: CommandAction = {
     id: "workbench.debug.viewlet.action.reapplyBreakpointsAction",
     title: "Reapply All Breakpoints",
     enablement: "inDebugMode",
+    menus: [rowMenuItem(MenuId.DebugBreakpointsContext, "z_commands", 30, BREAKPOINTS_ROW)],
     run(accessor) {
         return accessor.get(DebugServiceDIToken).setBreakpointsActivated(true);
     },
@@ -368,6 +410,7 @@ export const DEBUG_VIEW_ACTIONS: readonly CommandAction[] = [
     collapseCallStackAction,
     toggleBreakpointAction,
     removeFocusedBreakpointAction,
+    removeBreakpointAction,
     openBreakpointToSideAction,
     addFunctionBreakpointAction,
     toggleBreakpointsActivatedAction,

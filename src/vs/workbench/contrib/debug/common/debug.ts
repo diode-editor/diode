@@ -23,7 +23,7 @@ import type { ConfigurationTarget } from "../../../../platform/configuration/com
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
 import type { DebugCompoundRoot } from "./debugCompoundRoot.ts";
-import type { IFunctionBreakpointOptions } from "./debugModel.ts";
+import type { IDataBreakpointOptions, IFunctionBreakpointOptions } from "./debugModel.ts";
 import type { Source } from "./debugSource.ts";
 
 export const DEBUG_SCHEME = "debug";
@@ -1180,6 +1180,11 @@ export interface IDebugService {
      * Notifies debug adapter of breakpoint changes.
      */
     removeFunctionBreakpoints(id?: string): Promise<void>;
+
+    /**
+     * Adds a new data breakpoint.
+     */
+    addDataBreakpoint(opts: IDataBreakpointOptions): Promise<void>;
 
     /**
      * Removes all data breakpoints. If id is passed only removes the data breakpoint with the passed id.

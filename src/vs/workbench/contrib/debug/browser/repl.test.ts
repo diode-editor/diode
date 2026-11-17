@@ -114,6 +114,10 @@ describe("Repl", () => {
             } as never,
             icons,
             state,
+            // The console's menu is tested in the workbench (repl.app.test.ts).
+            {} as never,
+            {} as never,
+            {} as never,
             links,
             {
                 get mainContainer() {
@@ -884,6 +888,9 @@ describe("Repl", () => {
                 { get: () => false, onDidChangeConfiguration: configurationChanged.event } as never,
                 { glyph: () => ">", onDidChange: iconsChanged.event } as unknown as IProductIconService,
                 stored,
+                {} as never,
+                {} as never,
+                {} as never,
                 { linkify: (spans) => [...spans] },
                 { mainContainer: app.root },
             );
