@@ -361,7 +361,7 @@ export class TestingExplorerComponent extends Component {
         this.register(
             // A row's menu sees what its test can do; a controller registers its profiles in a burst.
             profiles.onDidChange(() => {
-                if (!resultsRefresh.isScheduled()) resultsRefresh.schedule();
+                resultsRefresh.schedule();
             }),
         );
         this.register(

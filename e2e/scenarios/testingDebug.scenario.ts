@@ -46,7 +46,11 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes('it("fails"'));
         await editor.sendKey("Alt+k");
         // The file's tests resolve a second and a half after the gutter asks for them.
-        const before = await editor.waitForText((t) => t.includes(RUN_ALL) && t.includes(RUN), { timeoutMs: 20_000 });
+        const failsRow = (t: string): string => t.split("\n").find((row) => row.includes('it("fails"')) ?? "";
+        const before = await editor.waitForText((t) => t.includes(RUN_ALL) && failsRow(t).includes(RUN), {
+            timeoutMs: 20_000,
+        });
+        await editor.capture("before: run-all on the suite, run on each test");
         const rows = frameToText(before).split("\n");
         const y = rows.findIndex((row) => row.includes('it("fails"'));
         const x = rows[y].indexOf(RUN);

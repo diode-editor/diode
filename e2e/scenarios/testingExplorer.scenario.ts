@@ -60,7 +60,8 @@ export default defineScenario({
 
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => /TEST EXPLORER [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/.test(t));
+        // The title is cut by its buttons (Run and Debug Tests): the spinner of the resolving file is anywhere on the frame.
+        await editor.waitForText((t) => /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/.test(t));
         await editor.capture("a file resolves its tests");
 
         await editor.waitForText((t) => t.includes(" math "), { timeoutMs: 10_000 });
