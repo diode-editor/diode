@@ -264,6 +264,41 @@ describe("Debug hover", () => {
         });
     });
 
+    // The debug keys are global (upstream's when is the debug state only): with the focus in the hover, F10 steps
+    // and Shift+F5 stops, as they do from the editor or the Debug Console.
+    it("F10 with the focus in the hover steps over: the program runs on and the hover closes", async () => {
+        await stopAt("nums");
+        showHover();
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("size=1000");
+        });
+        const thread = t.h.container.get(DebugServiceDIToken).getViewModel().focusedThread;
+        if (thread === undefined) throw new Error("no thread");
+        const next = vi.spyOn(thread, "next");
+
+        t.h.testApp.sendKey("F10");
+
+        await vi.waitFor(() => {
+            expect(next).toHaveBeenCalled();
+            expect(t.screen()).not.toContain("size=1000");
+        });
+    });
+
+    it("Shift+F5 with the focus in the hover stops the session", async () => {
+        await stopAt("nums");
+        showHover();
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("size=1000");
+        });
+
+        t.h.testApp.sendKey("Shift+F5");
+
+        await vi.waitFor(() => {
+            expect(t.h.container.get(DebugServiceDIToken).getModel().getSessions()).toHaveLength(0);
+            expect(t.screen()).not.toContain("size=1000");
+        });
+    });
+
     it("without a session the chord is not the debug hover's: nothing opens, no Tab is typed", () => {
         t.h.container.get(EditorServiceDIToken).openFile(main);
         editor().focusEditor();
