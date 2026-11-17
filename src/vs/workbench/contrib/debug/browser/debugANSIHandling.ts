@@ -69,20 +69,13 @@ export function handleANSIOutput(text: string): IAnsiSpan[] {
                 flush();
 
                 /*
-                 * Certain ranges that are matched here do not contain real graphics rendition sequences. For
-                 * the sake of having a simpler expression, they have been included anyway. The sequence ends at its
-                 * first terminator: an `m` is its end, upstream's `$` after it is dropped.
+                 * Any SGR sequence: digits and semicolons before its `m` (the sequence ends at its first
+                 * terminator, so the `m` is its end). Upstream's expression also turns away some first codes no
+                 * terminal knows; their codes do nothing here either. An empty code, or the `m` alone, is NaN,
+                 * which no code below takes.
                  */
-                if (
-                    /^(?:[34][0-8]|9[0-7]|10[0-7]|[0-9]|2[1-5,7-9]|[34]9|5[8,9]|1[0-9])(?:;[349][0-7]|10[0-7]|[013]|[245]|[34]9)?(?:;[012]?[0-9]?[0-9])*;?m/u.test(
-                        ansiSequence,
-                    )
-                ) {
-                    const styleCodes: number[] = ansiSequence
-                        .slice(0, -1) // Remove final 'm' character.
-                        .split(";") // Separate style codes.
-                        .filter((elem) => elem !== "") // Filter empty elems as '34;m' -> ['34', ''].
-                        .map((elem) => parseInt(elem, 10)); // Convert to numbers.
+                if (/^[\d;]*m/u.test(ansiSequence)) {
+                    const styleCodes = ansiSequence.split(";").map((code) => parseInt(code, 10));
 
                     if (styleCodes[0] === 38 || styleCodes[0] === 48 || styleCodes[0] === 58) {
                         // Advanced color code - can't be combined with formatting codes like simple colors can
@@ -232,17 +225,9 @@ export function handleANSIOutput(text: string): IAnsiSpan[] {
      * @see {@link https://en.wikipedia.org/wiki/ANSI_escape_code#24-bit }
      */
     function set24BitColor(styleCodes: number[], colorType: ColorType): void {
-        if (
-            styleCodes.length >= 5 &&
-            styleCodes[2] >= 0 &&
-            styleCodes[2] <= 255 &&
-            styleCodes[3] >= 0 &&
-            styleCodes[3] <= 255 &&
-            styleCodes[4] >= 0 &&
-            styleCodes[4] <= 255
-        ) {
-            changeColor(colorType, packRgb(styleCodes[2], styleCodes[3], styleCodes[4]));
-        }
+        // The codes are digits: never negative; a missing or empty one is undefined or NaN, which fails.
+        const [, , red, green, blue] = styleCodes;
+        if (red <= 255 && green <= 255 && blue <= 255) changeColor(colorType, packRgb(red, green, blue));
     }
 
     /**
@@ -257,7 +242,7 @@ export function handleANSIOutput(text: string): IAnsiSpan[] {
 
         if (color !== undefined) {
             changeColor(colorType, color);
-        } else if (colorNumber >= 0 && colorNumber <= 15) {
+        } else if (colorNumber <= 15) {
             // Need to map to one of the four basic color ranges (30-37, 90-97, 40-47, 100-107)
             colorNumber += 30;
             if (colorNumber >= 38) {
@@ -276,25 +261,15 @@ export function handleANSIOutput(text: string): IAnsiSpan[] {
      * outside [30-37, 90-97, 40-47, 100-107] do nothing.
      */
     function setBasicColor(styleCode: number): void {
-        let colorType: ColorType | undefined;
-        let colorIndex: number | undefined;
-
         if (styleCode >= 30 && styleCode <= 37) {
-            colorIndex = styleCode - 30;
-            colorType = "foreground";
+            changeColor("foreground", TERMINAL_ANSI_COLOR_KEYS[styleCode - 30]);
         } else if (styleCode >= 90 && styleCode <= 97) {
-            colorIndex = styleCode - 90 + 8; // High-intensity (bright)
-            colorType = "foreground";
+            // High-intensity (bright)
+            changeColor("foreground", TERMINAL_ANSI_COLOR_KEYS[styleCode - 90 + 8]);
         } else if (styleCode >= 40 && styleCode <= 47) {
-            colorIndex = styleCode - 40;
-            colorType = "background";
+            changeColor("background", TERMINAL_ANSI_COLOR_KEYS[styleCode - 40]);
         } else if (styleCode >= 100 && styleCode <= 107) {
-            colorIndex = styleCode - 100 + 8; // High-intensity (bright)
-            colorType = "background";
-        }
-
-        if (colorIndex !== undefined && colorType) {
-            changeColor(colorType, TERMINAL_ANSI_COLOR_KEYS[colorIndex]);
+            changeColor("background", TERMINAL_ANSI_COLOR_KEYS[styleCode - 100 + 8]);
         }
     }
 }

@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/browser/replFilter.ts
 // The filter of the Debug Console: comma-separated queries, `!` excludes, `\` escapes a leading `!`. Deviations: a
-// boolean per element instead of the tree's `TreeVisibility` (an element without a verdict takes its parent's, which
-// the console passes in); `matchesFuzzy` is its first step — a case-insensitive match with `*` as a wildcard — whose
+// boolean per element instead of the tree's `TreeVisibility`, and no parent's verdict: an element without one is
+// visible, as the parent of a shown child is (a hidden group is not expanded); `matchesFuzzy` is its first step — a case-insensitive match with `*` as a wildcard — whose
 // contiguous fallback finds nothing more.
 
 import { splitGlobAware } from "../../../../base/common/glob.ts";
@@ -40,7 +40,7 @@ export class ReplFilter {
             });
     }
 
-    public filter(element: IReplElement, parentVisible = true): boolean {
+    public filter(element: IReplElement): boolean {
         if (
             element instanceof ReplEvaluationInput ||
             element instanceof ReplEvaluationResult ||
@@ -67,6 +67,6 @@ export class ReplFilter {
             }
         }
 
-        return includeQueryPresent ? includeQueryMatched : parentVisible;
+        return !includeQueryPresent || includeQueryMatched;
     }
 }

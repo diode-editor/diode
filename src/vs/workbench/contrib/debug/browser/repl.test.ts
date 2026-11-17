@@ -904,13 +904,23 @@ describe("Repl", () => {
             expect(repl.suggest.isOpen).toBe(false);
             expect(repl.input.inputState.value).toBe("cf");
 
-            type("g");
+            // Emptied by typing, the input asks for nothing: the popup stays closed.
+            app.sendKey("Backspace");
+            app.sendKey("Backspace");
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            expect(repl.suggest.isOpen).toBe(false);
+
+            // Enter does not take the item: the input as typed is evaluated.
+            type("cf");
             await vi.waitFor(() => {
                 expect(repl.suggest.isOpen).toBe(true);
             });
             app.sendKey("Enter");
             expect(repl.suggest.isOpen).toBe(false);
-            await shows("> cfg");
+            await vi.waitFor(() => {
+                expect(screen()).toMatch(/> cf\s/u);
+            });
+            expect(screen()).not.toContain("> cfg");
         });
 
         it("history suggestions come after the adapter's; acceptSuggestionOnEnter takes Enter; Ctrl+Space asks", async () => {

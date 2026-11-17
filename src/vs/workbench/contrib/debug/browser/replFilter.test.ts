@@ -35,8 +35,8 @@ describe("ReplFilter", () => {
         expect(filterOf("  e*x  ").filter(output("error"))).toBe(false);
     });
 
-    it("an empty part between commas is no inclusion: the parent's verdict stands", () => {
-        expect(filterOf("!hidden, ,").filter(output("shown"), false)).toBe(false);
+    it("an empty part between commas is no inclusion that matches everything", () => {
+        expect(filterOf("x, ,").filter(output("y"))).toBe(false);
     });
 
     it("an exclusion hides what it matches over any inclusion; a backslash escapes the `!`", () => {
@@ -60,10 +60,9 @@ describe("ReplFilter", () => {
         expect(filter.filter(new TestVariable("v", "1"))).toBe(true);
     });
 
-    it("without an inclusion an element takes its parent's verdict; matches the source too", () => {
+    it("without an inclusion an element is shown unless excluded; the source is matched too", () => {
         const filter = filterOf("!hidden");
-        expect(filter.filter(output("shown"), false)).toBe(false);
-        expect(filter.filter(output("shown"), true)).toBe(true);
+        expect(filter.filter(output("shown"))).toBe(true);
         const source = { source: { name: "hidden.ts" }, lineNumber: 1, column: 1 } as unknown as IReplElementSource;
         const group = new ReplGroup(session, "group", true, source);
         expect(filter.filter(group)).toBe(false);

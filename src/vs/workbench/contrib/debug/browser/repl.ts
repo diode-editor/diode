@@ -193,14 +193,10 @@ export class Repl extends Component implements IContextKeyContributor {
                     [...(this.session?.getReplElements() ?? []), ...this.orphans].filter((element) =>
                         this.filter.filter(element),
                     ),
-                // The tree asks only the elements it was told have children. A group's children take its verdict
-                // when no include query decides them (upstream's `parentVisibility`).
-                getChildren: async (element) => {
-                    const children = await (element as INestingReplElement).getChildren();
-                    if (!(element instanceof ReplGroup)) return children;
-                    const groupVisible = this.filter.filter(element);
-                    return children.filter((child) => this.filter.filter(child, groupVisible));
-                },
+                // The tree asks only the elements it was told have children, and only the shown ones: a group's
+                // children without a verdict of their own are visible as it is (upstream's `parentVisibility`).
+                getChildren: async (element) =>
+                    (await (element as INestingReplElement).getChildren()).filter((child) => this.filter.filter(child)),
                 getKey: (element) => element.getId(),
                 hasChildren: isNesting,
                 isInitiallyExpanded: (element) => element instanceof ReplGroup && element.autoExpand,
@@ -327,6 +323,7 @@ export class Repl extends Component implements IContextKeyContributor {
         );
         this.register(
             configuration.onDidChangeConfiguration((event) => {
+                // Stryker disable next-line ConditionalExpression: a rerender of the same rows paints the same
                 if (event.affectsConfiguration("debug.console.wordWrap")) this.tree.rerender();
             }),
         );
