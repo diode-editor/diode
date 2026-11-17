@@ -116,12 +116,11 @@ async function tryEvaluateAndCopy(debugService: IDebugService, element: IReplEle
         return;
     }
 
-    try {
-        const evaluation = await session.evaluate(element.originalExpression, stackFrame.frameId, "clipboard");
-        return evaluation?.body.result;
-    } catch {
-        return;
-    }
+    // A request that fails, synchronously or not, is no answer: the row is copied as shown.
+    const evaluation = await Promise.resolve()
+        .then(() => session.evaluate(element.originalExpression, stackFrame.frameId, "clipboard"))
+        .catch(() => undefined);
+    return evaluation?.body.result;
 }
 
 export const replCopyAction: CommandAction = {

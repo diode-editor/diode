@@ -1,6 +1,8 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import { VFlexElement, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
@@ -103,6 +105,32 @@ describe("LazyTreeControl — row edit", () => {
         input?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Escape" }));
 
         expect(done).toEqual([true]);
+    });
+
+    it("an element the tree does not show is not edited; one it shows is", async () => {
+        const { tree, source, screen } = await mount();
+        expect(tree.edit({ key: "z", value: "9" }, { value: "9", onDone: () => undefined })).toBe(false);
+        expect(screen().split("\n")[0].trim()).toBe("a: 1");
+        expect(tree.edit(source.roots[0], { value: "1", onDone: () => undefined })).toBe(true);
+    });
+
+    it("leaving the input for another element ends the edit and leaves the focus there", async () => {
+        const source = new Source([{ key: "a", value: "1" }]);
+        const tree = new LazyTreeControl(source, { idPrefix: "t" });
+        const other = new InputElement();
+        const root = new VFlexElement();
+        root.addChild(tree.element, { height: vflexFixed(3), width: "fill" });
+        root.addChild(other, { height: vflexFixed(1), width: "fill" });
+        const app = TestApp.createWithContent(root, new Size(30, 5));
+        await tree.refresh();
+        app.render();
+        const done: boolean[] = [];
+        tree.edit(source.roots[0], { value: "1", onDone: (_value, success) => done.push(success) });
+
+        other.focus();
+
+        expect(done).toEqual([true]);
+        expect(app.focusedElement).toBe(other);
     });
 
     it("Escape ends the edit without success and leaves the row as it was", async () => {

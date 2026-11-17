@@ -106,7 +106,7 @@ Debug с `config.debug.toolBarLocation == 'docked' && debugState != 'inactive'`:
 пере-резолв — по `ContextKeyService.onDidChange`, смене меню, состояния отладки и настроек; ряд пересобирается,
 только когда меняется показанное.
 
-**Контекстные меню строк видов отладки** — `DebugVariablesContext`, `DebugScopesContext`, `DebugWatchContext`,
+**Контекстные меню строк видов отладки** — `DebugVariablesContext`, `DebugWatchContext`,
 `DebugCallStackContext`, `DebugBreakpointsContext`, `DebugConsoleContext` (точки расширений эталона —
 `debug/variables/context`, `debug/watch/context`, `debug/callstack/context`; у остальных точки нет). Правый клик и
 Shift+F10 по строке `LazyTreeControl` (`onContextMenu`) открывают меню без группы `inline`

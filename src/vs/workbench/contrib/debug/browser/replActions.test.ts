@@ -48,6 +48,37 @@ describe("the Debug Console's menu commands", () => {
         expect(fx.written).toEqual(["0"]);
     });
 
+    it("Copy of an evaluation of an adapter without the clipboard context asks nothing", async () => {
+        let asked = 0;
+        const session = {
+            capabilities: {},
+            evaluate: () => {
+                asked++;
+                return Promise.resolve({ body: { result: "x" } });
+            },
+        };
+        const fx = fixture("", { focusedStackFrame: { frameId: 1 }, focusedSession: session });
+        await replCopyAction.run(fx.accessor, result());
+        expect(asked).toBe(0);
+        expect(fx.written).toEqual(["0"]);
+    });
+
+    it("Copy of an evaluation with a frame but no session asks nothing", async () => {
+        const fx = fixture("", { focusedStackFrame: { frameId: 1 } });
+        await replCopyAction.run(fx.accessor, result());
+        expect(fx.written).toEqual(["0"]);
+    });
+
+    it("Copy of an evaluation the adapter gives for the clipboard copies its answer", async () => {
+        const session = {
+            capabilities: { supportsClipboardContext: true },
+            evaluate: () => Promise.resolve({ body: { result: "0x0" } }),
+        };
+        const fx = fixture("", { focusedStackFrame: { frameId: 1 }, focusedSession: session });
+        await replCopyAction.run(fx.accessor, result());
+        expect(fx.written).toEqual(["0x0"]);
+    });
+
     it("Copy of an evaluation the adapter fails to give for the clipboard copies the row as shown", async () => {
         const session = {
             capabilities: { supportsClipboardContext: true },

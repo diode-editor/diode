@@ -205,6 +205,7 @@ export class LazyTreeControl<T> {
     private revealTail = false;
     /** The row being edited and its input, kept across rebuilds so the typed text and the focus survive them. */
     private editing: { readonly key: string; readonly edit: IRowEdit; readonly input: InputElement } | undefined;
+    // Stryker disable next-line BooleanLiteral: equivalent — rebuild() sets it before any input of an edit can blur
     private rebuilding = false;
 
     public constructor(
@@ -252,6 +253,7 @@ export class LazyTreeControl<T> {
         input.inputState.selectAll();
         input.addEventListener("keydown", (event) => {
             if (event.key !== "Enter" && event.key !== "Escape") return;
+            // Stryker disable next-line CallExpression: equivalent — the input does nothing of its own with Enter or Escape, and the event goes no further than its row
             event.preventDefault();
             this.finishEdit(event.key === "Enter");
         });

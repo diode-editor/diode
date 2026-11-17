@@ -85,9 +85,8 @@ export function getContext(element: CallStackItem | null): ICallStackItemContext
         return getThreadContext(element);
     } else if (isDebugSession(element)) {
         return getSessionContext(element);
-    } else {
-        return undefined;
     }
+    return undefined;
 }
 
 // Extensions depend on this context, should not be changed even though it is not fully deterministic

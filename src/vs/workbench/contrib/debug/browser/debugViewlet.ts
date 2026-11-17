@@ -45,7 +45,7 @@ import {
     VIEWLET_ID,
     WATCH_VIEW_ID,
 } from "../common/debug.ts";
-import { Scope, Variable } from "../common/debugModel.ts";
+import { Variable } from "../common/debugModel.ts";
 
 import { BreakpointSourcesDIToken, BreakpointsView, type IBreakpointSources } from "./breakpointsView.ts";
 import { CallStackView, getContext, getContextForContributedActions } from "./callStackView.ts";
@@ -231,11 +231,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         this.variables.tree.onContextMenu = (element, screenX, screenY) => {
             const owner = this.variables.tree.list;
             const anchor = { screenX, screenY };
-            if (element instanceof Scope) {
-                const args = [{ scope: { name: element.name } }];
-                showDebugContextMenu(host, { owner, anchor, menuId: MenuId.DebugScopesContext, keys: {}, args });
-                return;
-            }
+            // Upstream's scope menu (`DebugScopesContext`) has no items but the chat integration's: a scope has none.
             if (!(element instanceof Variable) || !element.value) return;
             void variableMenuKeys(element)
                 .then((keys) => {

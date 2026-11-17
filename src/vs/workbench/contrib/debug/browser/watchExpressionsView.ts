@@ -139,6 +139,7 @@ export class WatchExpressionsView extends Disposable {
         this.tree.edit(expression, {
             value: expression.value,
             onDone: (value, success) => {
+                // Stryker disable next-line BooleanLiteral: equivalent — no expression keeps no `settingWatch`
                 viewModel.setSelectedExpression(undefined, false);
                 const focusedFrame = viewModel.focusedStackFrame;
                 if (success && value && focusedFrame) {

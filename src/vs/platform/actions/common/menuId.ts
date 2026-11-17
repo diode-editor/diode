@@ -59,7 +59,6 @@ export class MenuId {
      */
     public static readonly DebugCallStackContext = new MenuId("DebugCallStackContext");
     public static readonly DebugVariablesContext = new MenuId("DebugVariablesContext");
-    public static readonly DebugScopesContext = new MenuId("DebugScopesContext");
     public static readonly DebugWatchContext = new MenuId("DebugWatchContext");
     public static readonly DebugBreakpointsContext = new MenuId("DebugBreakpointsContext");
     public static readonly DebugConsoleContext = new MenuId("DebugConsoleContext");

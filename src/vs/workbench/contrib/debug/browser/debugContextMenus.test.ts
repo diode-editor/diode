@@ -1,11 +1,15 @@
+import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { describe, expect, it } from "vitest";
 
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import type { IResolvedMenuItemEntry } from "../../../../platform/actions/common/menuRegistry.ts";
 import type { IDataBreakpointInfoResponse, IDebugSession, IStackFrame } from "../common/debug.ts";
 import { Expression, Scope, Variable } from "../common/debugModel.ts";
 
 import {
     getDataBreakpointInfoResponse,
     getVariableInternalContext,
+    showDebugContextMenu,
     variableMenuKeys,
     watchItemType,
     watchMenuKeys,
@@ -103,6 +107,12 @@ describe("variableMenuKeys", () => {
         expect(
             (await variableMenuKeys(variable(session, { presentationHint: { lazy: true } }))).variableIsReadonly,
         ).toBe(true);
+        // Memory takes both the capability and a reference.
+        expect((await variableMenuKeys(variable(session))).canViewMemory).toBe(false);
+        const noMemory = fakeSession({});
+        expect((await variableMenuKeys(variable(noMemory.session, { memoryReference: "0x10" }))).canViewMemory).toBe(
+            false,
+        );
     });
 
     it("data breakpoints: the access types offered, a change without them, none without an id or on a failure", async () => {
@@ -129,6 +139,46 @@ describe("variableMenuKeys", () => {
             breakWhenValueChangesSupported: false,
         });
         expect(getDataBreakpointInfoResponse()).toBeUndefined();
+    });
+});
+
+describe("showDebugContextMenu", () => {
+    it("leaves the inline group out and runs every item with the row's arguments", () => {
+        const ran: unknown[][] = [];
+        let entries: MenuEntry[] = [];
+        const item = (id: string): IResolvedMenuItemEntry => ({
+            label: id,
+            id,
+            enabled: true,
+            onSelect: () => undefined,
+        });
+        showDebugContextMenu(
+            {
+                menus: {
+                    getEntryGroups: () => [
+                        { group: "inline", entries: [item("glyph")] },
+                        { group: "navigation", entries: [item("first")] },
+                    ],
+                },
+                contextMenu: {
+                    showContextMenu: (delegate) => {
+                        entries = delegate.getEntries?.() ?? [];
+                    },
+                },
+                commands: { execute: (...args: unknown[]) => ran.push(args) },
+            },
+            {
+                owner: {} as never,
+                anchor: { screenX: 1, screenY: 2 },
+                menuId: MenuId.DebugWatchContext,
+                keys: {},
+                args: ["row"],
+            },
+        );
+
+        expect(entries.map((entry) => (entry.type === "separator" ? "-" : entry.label))).toEqual(["first"]);
+        (entries[0] as { onSelect: () => void }).onSelect();
+        expect(ran).toEqual([["first", "row"]]);
     });
 });
 
@@ -170,12 +220,23 @@ describe("watchMenuKeys", () => {
         const expression = new Expression("total");
         await expression.evaluate(fake.session, frame, "watch");
         await watchMenuKeys(expression, frame);
+        // Without a focused frame the request goes all the same, without a frame id.
+        await watchMenuKeys(variable(fake.session, { evaluateName: "p.y" }), undefined);
+        await watchMenuKeys(expression, undefined);
 
         expect(fake.asked).toEqual([
             ["p.x", undefined, 3],
             ["count", 7, undefined],
             ["total", undefined, 3],
+            ["p.y", undefined, undefined],
+            ["total", undefined, undefined],
         ]);
+        // Memory takes both the capability and a reference.
+        expect((await watchMenuKeys(variable(fake.session), frame)).canViewMemory).toBe(false);
+        const noMemory = fakeSession({});
+        expect((await watchMenuKeys(variable(noMemory.session, { memoryReference: "0x1" }), frame)).canViewMemory).toBe(
+            false,
+        );
     });
 
     it("a failed request leaves the data breakpoint items out", async () => {

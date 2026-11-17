@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createDebugViewletHarness, type IDebugViewletHarness } from "../../../../../TestUtils/debugViewletHarness.ts";
 import type { SyntheticDebugAdapterFactory } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
+import { Uri } from "../../../../base/common/uri.ts";
 import { MenuRegistryDIToken } from "../../../../platform/actions/common/menuRegistry.ts";
 import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
@@ -101,6 +102,8 @@ describe("Run and Debug: the context menus of the rows", () => {
         ]);
         expect(t.screen()).toContain("│ Set Value");
         expect(t.screen()).toContain("│ Add to Watch");
+        // At the click: under the row, not in a corner of the screen.
+        expect(t.find("│ Set Value").y).toBeGreaterThan(t.find("sum: ").y);
 
         // `count` can be watched for reads and accesses too.
         t.h.testApp.sendKey("Escape");
@@ -126,8 +129,11 @@ describe("Run and Debug: the context menus of the rows", () => {
         });
 
         // A scope has no items: no menu.
-        await menuAt("Locals");
-        expect(labels()).toEqual([]);
+        const before = shown.length;
+        const scope = t.find("Locals");
+        mouse(scope.x, scope.y, "right");
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(shown).toHaveLength(before);
         await menuAt("count: ");
         choose("Copy as Expression");
         await vi.waitFor(async () => {
@@ -180,6 +186,15 @@ describe("Run and Debug: the context menus of the rows", () => {
             name: "sum",
             value: "42",
         });
+        // Upstream refreshes the rows without reading the scopes anew; the next refresh reads them again.
+        const scopesRead = (): number => factory.adapters[0].requests.filter((r) => r.command === "scopes").length;
+        const before = scopesRead();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(scopesRead()).toBe(before);
+        t.h.container.get(DebugServiceDIToken).getViewModel().updateViews();
+        await vi.waitFor(() => {
+            expect(scopesRead()).toBeGreaterThan(before);
+        });
     });
 
     it("F2 edits the variable under the cursor; Escape leaves it as it was and sets nothing", async () => {
@@ -196,6 +211,15 @@ describe("Run and Debug: the context menus of the rows", () => {
         t.h.testApp.sendKey("7");
         t.h.testApp.sendKey("Escape");
 
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("count: 0");
+        });
+        // Enter on the value as it is sets nothing either.
+        t.h.testApp.sendKey("F2");
+        await vi.waitFor(() => {
+            expect(t.screen()).not.toContain("count: 0");
+        });
+        t.h.testApp.sendKey("Enter");
         await vi.waitFor(() => {
             expect(t.screen()).toContain("count: 0");
         });
@@ -292,7 +316,7 @@ describe("Run and Debug: the context menus of the rows", () => {
 
             const session = t.h.container.get(DebugServiceDIToken).getViewModel().focusedSession;
             expect(received).toHaveLength(1);
-            expect(String(received[0][0])).toMatch(/main\.cpp$/u);
+            expect(received[0][0]).toBe(Uri.file("/home/user/hello/src/main.cpp").toString());
             expect(received[0][1]).toMatchObject({
                 sessionId: session?.getId(),
                 threadId: expect.any(String) as unknown,

@@ -381,8 +381,8 @@ export class Repl extends Component implements IContextKeyContributor {
 
     /** Upstream's Paste: the text goes to the end of the input, which gets the focus. */
     public paste(text: string): void {
+        // Setting the value puts the cursor at its end.
         this.setInput(this.input.inputState.value + text);
-        this.input.inputState.moveCursorToEnd();
         this.input.focus();
     }
 

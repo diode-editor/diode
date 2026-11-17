@@ -203,6 +203,16 @@ describe("Run and Debug: the commands of the rows' menus", () => {
             expect(t.lines().filter((line) => line.includes("count: 0"))).toHaveLength(2);
         });
         expect(t.h.container.get(DebugServiceDIToken).getViewModel().getSelectedExpression()).toBeUndefined();
+        // An emptied input sets nothing either.
+        await menuAt("count: 0", "last");
+        choose("Set Value");
+        t.h.testApp.sendKey("Backspace");
+        t.h.testApp.sendKey("Enter");
+        await vi.waitFor(() => {
+            expect(t.lines().filter((line) => line.includes("count: 0"))).toHaveLength(2);
+        });
+        const requests = t.registerDebugger().adapters[0].requests.map((r) => r.command);
+        expect(requests).not.toContain("setExpression");
     });
 
     it("a right click on no row: BREAKPOINTS offers the commands of all breakpoints, the others nothing", async () => {
@@ -246,11 +256,12 @@ describe("Run and Debug: the commands of the rows' menus", () => {
         const remove = (element: unknown): Promise<unknown> =>
             Promise.resolve(t.h.commands.execute("workbench.debug.viewlet.action.removeBreakpoint", element));
 
+        // An exception filter is not a breakpoint to remove: the others stay.
+        await remove(model().getExceptionBreakpoints()[0]);
+        expect(model().getInstructionBreakpoints()).toHaveLength(1);
         await remove(source);
         await remove(model().getDataBreakpoints()[0]);
         await remove(model().getInstructionBreakpoints()[0]);
-        // An exception filter is not a breakpoint to remove.
-        await remove(model().getExceptionBreakpoints()[0]);
 
         expect(model().getBreakpoints()).toEqual([]);
         expect(model().getDataBreakpoints()).toEqual([]);

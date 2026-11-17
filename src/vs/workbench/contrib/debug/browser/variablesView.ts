@@ -123,6 +123,7 @@ export class VariablesView extends Disposable {
             error: variable.errorMessage,
             onDone: (value, success) => {
                 variable.errorMessage = undefined;
+                // Stryker disable next-line BooleanLiteral: equivalent — no expression keeps no `settingWatch`
                 viewModel.setSelectedExpression(undefined, false);
                 const focusedStackFrame = viewModel.focusedStackFrame;
                 if (success && variable.value !== value && focusedStackFrame) {
