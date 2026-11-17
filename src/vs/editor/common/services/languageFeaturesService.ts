@@ -23,6 +23,7 @@ import type { HoverProvider } from "../languages/iHoverSource.ts";
 import type { InlayHintsProvider } from "../languages/iInlayHintsSource.ts";
 import type { InlineCompletionsProvider } from "../languages/iInlineCompletionSource.ts";
 import type { LinkedEditingRangeProvider } from "../languages/iLinkedEditingSource.ts";
+import type { EvaluatableExpressionProvider } from "../languages/iEvaluatableExpressionSource.ts";
 import type { LinkProvider } from "../languages/iLinkSource.ts";
 import type { ReferenceProvider } from "../languages/iReferenceSource.ts";
 import type { RenameProvider } from "../languages/iRenameSource.ts";
@@ -59,6 +60,7 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
     public readonly selectionRangeProvider = new LanguageFeatureRegistry<SelectionRangeProvider>();
     public readonly documentHighlightProvider = new LanguageFeatureRegistry<DocumentHighlightProvider>();
     public readonly linkedEditingRangeProvider = new LanguageFeatureRegistry<LinkedEditingRangeProvider>();
+    public readonly evaluatableExpressionProvider = new LanguageFeatureRegistry<EvaluatableExpressionProvider>();
     public readonly documentSemanticTokensProvider = new LanguageFeatureRegistry<DocumentSemanticTokensProvider>();
     public readonly documentRangeSemanticTokensProvider =
         new LanguageFeatureRegistry<DocumentRangeSemanticTokensProvider>();

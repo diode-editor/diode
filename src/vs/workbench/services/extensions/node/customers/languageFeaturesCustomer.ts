@@ -45,6 +45,10 @@ import type {
     IInlineCompletionRequest,
 } from "../../../../../editor/common/languages/iInlineCompletionSource.ts";
 import type {
+    IEvaluatableExpression,
+    IEvaluatableExpressionRequest,
+} from "../../../../../editor/common/languages/iEvaluatableExpressionSource.ts";
+import type {
     ILinkedEditingRangeRequest,
     ILinkedEditingRanges,
 } from "../../../../../editor/common/languages/iLinkedEditingSource.ts";
@@ -640,6 +644,27 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     ): Promise<readonly IDocumentHighlight[] | null> {
         return this.request(
             "languages.provideDocumentHighlights",
+            {
+                handle,
+                uri: req.uri,
+                languageId: req.languageId,
+                version: req.versionId,
+                line: req.position.line,
+                character: req.position.character,
+            },
+            null,
+            { token },
+        );
+    }
+
+    /** `null` — nothing at the position, also when there is no subprocess, the document is not synced or the extension timed out. */
+    public provideEvaluatableExpression(
+        handle: number,
+        req: IEvaluatableExpressionRequest,
+        token?: ICancellationToken,
+    ): Promise<IEvaluatableExpression | null> {
+        return this.request(
+            "languages.provideEvaluatableExpression",
             {
                 handle,
                 uri: req.uri,

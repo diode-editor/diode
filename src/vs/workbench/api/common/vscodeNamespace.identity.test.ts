@@ -128,6 +128,7 @@ describe("VscodeNamespace: stable activeTextEditor identity", () => {
             "DocumentHighlight",
             "DocumentHighlightKind",
             "LinkedEditingRanges",
+            "EvaluatableExpression",
             "InlayHint",
             "SymbolInformation",
             "SymbolKind",

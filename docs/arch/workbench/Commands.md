@@ -151,6 +151,7 @@
 |---|---|---|---|
 | Ctrl+K Ctrl+F | `workbench.action.navigateForward` (безусловный, вес `WorkbenchContrib`) | `editor.action.formatSelection` (эталон) | наш legacy-фолбэк навигации; в редакторе на pc чорд уходит в навигацию, а не в форматирование |
 | Ctrl+K Ctrl+U | `editor.action.showHover` | `editor.action.removeCommentLine` (эталон) | эталонный Ctrl+K Ctrl+I у hover занят legacy-фолбэком (на legacy Ctrl+I приезжает байтом Tab) |
+| Ctrl+K Ctrl+I в режиме отладки | `editor.debug.action.showDebugHover` (`EditorContrib`, `enablement: inDebugMode`) | `editor.action.insertCursorAtEndOfEachLineSelected` | как в эталоне: вне отладки аккорд остаётся мультикурсору; на legacy Ctrl+I приезжает Tab, поэтому у debug hover рядом Ctrl+K Tab |
 | Escape при открытых hover и suggest | hover (`EditorContrib + 92`) | suggest (`EditorContrib + 90`) | у эталона наоборот; так было при порядке регистрации |
 
 ## Где живут экшены

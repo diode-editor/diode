@@ -1211,6 +1211,34 @@ describe("LanguageFeaturesCustomer — document highlights", () => {
         expect(await h.customer.provideLinkedEditingRanges(1, REQ)).toStrictEqual({ ranges: [CORE_RANGE] });
     });
 
+    it("evaluatable expression: the position and the token go over the wire, the answer comes back as is", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideEvaluatableExpression": (params) => {
+                seen.push(params);
+                return { range: CORE_RANGE, expression: "nums" };
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideEvaluatableExpression(1, REQ, caller.token)).toEqual({
+            range: CORE_RANGE,
+            expression: "nums",
+        });
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "typescript", version: 7, line: 2, character: 4 }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
+    });
+
+    it("evaluatable expression: RPC rejection or no spawn — nothing at the position", async () => {
+        const h = setupAnswering({
+            "languages.provideEvaluatableExpression": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideEvaluatableExpression(1, REQ)).toBeNull();
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideEvaluatableExpression(1, REQ)).toBeNull();
+    });
+
     it("linked editing: RPC rejection or no spawn — declined", async () => {
         const h = setupAnswering({
             "languages.provideLinkedEditingRanges": () => {

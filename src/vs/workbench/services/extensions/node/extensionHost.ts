@@ -54,6 +54,10 @@ import {
     NULL_LANGUAGE_CONFIGURATION_SERVICE,
 } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import type {
+    IEvaluatableExpression,
+    IEvaluatableExpressionRequest,
+} from "../../../../editor/common/languages/iEvaluatableExpressionSource.ts";
+import type {
     ILinkedEditingRangeRequest,
     ILinkedEditingRanges,
 } from "../../../../editor/common/languages/iLinkedEditingSource.ts";
@@ -990,6 +994,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token?: ICancellationToken,
     ): Promise<readonly IDocumentHighlight[] | null> {
         return this.languageFeatures.provideDocumentHighlights(handle, req, token);
+    }
+
+    public provideEvaluatableExpression(
+        handle: number,
+        req: IEvaluatableExpressionRequest,
+        token?: ICancellationToken,
+    ): Promise<IEvaluatableExpression | null> {
+        return this.languageFeatures.provideEvaluatableExpression(handle, req, token);
     }
 
     public provideLinkedEditingRanges(

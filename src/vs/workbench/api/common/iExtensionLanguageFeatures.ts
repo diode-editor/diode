@@ -44,6 +44,10 @@ import type {
     IInlineCompletionRequest,
 } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type {
+    IEvaluatableExpression,
+    IEvaluatableExpressionRequest,
+} from "../../../editor/common/languages/iEvaluatableExpressionSource.ts";
+import type {
     ILinkedEditingRangeRequest,
     ILinkedEditingRanges,
 } from "../../../editor/common/languages/iLinkedEditingSource.ts";
@@ -220,6 +224,12 @@ export interface IExtensionLanguageFeaturesBridge {
         request: IDocumentHighlightRequest,
         token: ICancellationToken,
     ): Promise<readonly IDocumentHighlight[] | null>;
+    /** `null`: the provider has nothing at the position, the next one is asked. */
+    provideEvaluatableExpression(
+        handle: number,
+        request: IEvaluatableExpressionRequest,
+        token: ICancellationToken,
+    ): Promise<IEvaluatableExpression | null>;
     /** `null`: the provider declined, the next one is asked. */
     provideLinkedEditingRanges(
         handle: number,

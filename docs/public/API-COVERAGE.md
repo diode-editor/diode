@@ -29,7 +29,7 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 
 | surface | status | members |
 | --- | :-: | --- |
-| [`vscode.languages`](#vscodelanguages) | 🟡 | 19/40 |
+| [`vscode.languages`](#vscodelanguages) | 🟡 | 20/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 26/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 36/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 4/4 |
@@ -45,12 +45,12 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 | [`vscode.scm`](#namespaces-not-yet-exposed) | 🕐 | 0/2 |
 | [`vscode.notebooks`](#namespaces-not-yet-exposed) | 🕐 | 0/3 |
 | [`vscode.chat`](#namespaces-not-yet-exposed) | 🕐 | 0/1 |
-| [types and classes](#types-with-a-partial-surface) | — | 306/424 |
+| [types and classes](#types-with-a-partial-surface) | — | 309/424 |
 | [activation events](#activation-events-activationevents) | 🟡 | 9/32 |
 
 ## vscode.languages
 
-🟡 **18/40.** The LSP-level language stack is in place; the remaining providers accept
+🟡 **20/40.** The LSP-level language stack is in place; the remaining providers accept
 registration but are not called yet.
 
 | member | status | comment |
@@ -81,6 +81,7 @@ registration but are not called yet.
 | `registerDocumentHighlightProvider` | ✅ | occurrences of the symbol under the cursor, read and write in their own colors, textual fallback without a provider or when it declines; `multiFile` behaves like `singleFile`; highlight borders are not drawn |
 | `registerCodeLensProvider` | 🟡 | lenses are drawn as rows above their lines, answers of several providers are merged, `resolveCodeLens` runs for visible lenses, `onDidChangeCodeLenses` asks again, `editor.codeLens` and `codelens.showLensesInCurrentLine` apply. A click runs the command with the extension's original arguments. `editor.action.showReferences` opens the References view instead of a peek. `command.tooltip` is not shown |
 | `registerCallHierarchyProvider` | ✅ | Show Call Hierarchy (Shift+Alt+H, editor context menu): a tree in the References panel with lazy expansion, a direction toggle and go to location |
+| `registerEvaluatableExpressionProvider` | ✅ | the debug hover (**Debug: Show Hover**, Ctrl+K Ctrl+I while debugging) evaluates the provider's expression, or the text of its range, in the focused frame; the first provider with an answer wins, and with no answer there is no debug hover. The range is not highlighted |
 | `registerLinkedEditingRangeProvider` | ✅ | a change in one range is mirrored into the others, in one undo step, and the ranges are highlighted while `editor.linkedEditing` is on or after `editor.action.linkedEditing`; `LinkedEditingRanges.wordPattern` and the language's `wordPattern` end the link on text they do not match |
 | `registerTypeHierarchyProvider` | ✅ | Show Type Hierarchy (editor context menu, palette): a tree in the References panel with lazy expansion, a direction toggle and go to the type's declaration |
 | `registerOnTypeFormattingEditProvider` | ✅ | with `editor.formatOnType` on, a trigger character of the first provider (Enter included) formats after typing, as a separate undo step; skipped with several cursors or a selection, dropped when the text at or above the caret's line changes first |
@@ -89,7 +90,7 @@ registration but are not called yet.
 | other `register*Provider` (1: inlineValues) | 🕐 | registration is accepted as a no-op; the provider is never called |
 | `setLanguageConfiguration` | 🟡 | `wordPattern` (for `TextDocument.getWordRangeAtPosition` and linked editing; not passed to the editor's word selection and completion boundaries), `comments`, `brackets`, `autoClosingPairs`, `onEnterRules` (layered over `language-configuration.json`: a set section replaces the file's, the latest layer wins, dispose removes it). Not applied: `indentationRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, the deprecated `__electricCharacterSupport`/`__characterPairSupport` |
 | `getLanguages`, `setTextDocumentLanguage` | ✅ | The language set on a document without a tab is applied when it gets one. |
-| `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | not declared. The `DocumentDropOrPasteEditKind` class is: extensions build kinds at load time and check for the register function before calling it |
+| `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | not declared. The `DocumentDropOrPasteEditKind` class is: extensions build kinds at load time and check for the register function before calling it |
 
 ## vscode.workspace
 
@@ -407,7 +408,7 @@ change the ⛔ status.
 
 ## Types with a partial surface
 
-307 of 424 upstream types and classes are declared. The declared ones are complete, except those
+309 of 424 upstream types and classes are declared. The declared ones are complete, except those
 listed below, where only a subset of members is declared. `TextDocument` is listed for a different
 reason: everything is declared and implemented, but `save` is a 🟡 stub.
 

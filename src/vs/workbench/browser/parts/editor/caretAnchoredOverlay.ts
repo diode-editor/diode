@@ -10,9 +10,18 @@ import { Disposable } from "../../../../base/common/lifecycle.ts";
  */
 export type CaretOverlayPlacement = "below" | "aboveElseBelow";
 
+export interface ICaretOverlayOptions {
+    /**
+     * The popup is focused by its owner (the debug hover): the keyboard is its own, Escape and a click outside close
+     * it, and the focus goes back where it was.
+     */
+    readonly takesFocus?: boolean;
+    readonly onClose?: () => void;
+}
+
 /**
- * Counterpart of upstream `IContentWidget`. The popup does not take focus, so typing goes to the editor;
- * its commands are not focus-scoped, hence `capturesKeyboard: false` — otherwise the dispatcher
+ * Counterpart of upstream `IContentWidget`. By default the popup does not take focus, so typing goes to the
+ * editor; its commands are not focus-scoped, hence `capturesKeyboard: false` — otherwise the dispatcher
  * would swallow them.
  */
 export class CaretAnchoredOverlay extends Disposable {
@@ -21,13 +30,16 @@ export class CaretAnchoredOverlay extends Disposable {
     public constructor(
         host: { readonly overlayLayer: OverlayLayer },
         private readonly element: TUIElement,
+        options: ICaretOverlayOptions = {},
     ) {
         super();
+        const takesFocus = options.takesFocus === true;
         this.session = host.overlayLayer.createSession(element, new Point(0, 0), {
             visible: false,
-            // Stryker disable next-line BooleanLiteral: the popup never takes focus, so there is nothing for the layer to restore; the flag is kept for the session contract
             restoreFocus: true,
-            capturesKeyboard: false,
+            capturesKeyboard: takesFocus,
+            closeOnEscape: takesFocus,
+            onClose: options.onClose,
             // Stryker disable next-line StringLiteral: a click outside the popup already closes it earlier, by moving the cursor or the focus; the policy is kept for the reverse contract (a click ON the popup does not close it)
             pointerPolicy: "close-on-outside",
         });

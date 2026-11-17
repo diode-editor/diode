@@ -1956,20 +1956,16 @@
       "class": "ok"
     },
     "EvaluatableExpression": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "EvaluatableExpression.expression": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "EvaluatableExpression.range": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "EvaluatableExpressionProvider.provideEvaluatableExpression": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "EventEmitter": {
       "class": "ok"

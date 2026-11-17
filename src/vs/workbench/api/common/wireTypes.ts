@@ -451,6 +451,17 @@ export interface IWireDocumentHighlight {
     readonly kind?: number;
 }
 
+/** Upstream `$provideEvaluatableExpression`: the reply is `null` when the provider has nothing at the position. */
+export interface IWireEvaluatableExpressionParams extends IWireDocumentParams, IWireProviderHandle {
+    readonly line: number;
+    readonly character: number;
+}
+
+export interface IWireEvaluatableExpression {
+    readonly range: IRange;
+    readonly expression?: string;
+}
+
 /** Upstream `$provideLinkedEditingRanges`: the reply is `null` when the provider declined. */
 export interface IWireLinkedEditingRangeParams extends IWireDocumentParams, IWireProviderHandle {
     readonly line: number;
@@ -587,6 +598,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "typeHierarchy",
     "documentHighlight",
     "linkedEditingRange",
+    "evaluatableExpression",
     "color",
     "documentLink",
     "inlayHints",

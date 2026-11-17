@@ -173,6 +173,8 @@ import type {
     IWireLanguageProviderRegistration,
     IWireLanguageProviderUnregistration,
     IWireLanguageStatusItem,
+    IWireEvaluatableExpression,
+    IWireEvaluatableExpressionParams,
     IWireLinkedEditingRangeParams,
     IWireLinkedEditingRanges,
     IWireMarkersChanged,
@@ -323,6 +325,10 @@ export interface IHostToSubprocess {
         readonly "languages.provideDocumentHighlights": readonly [
             IWireDocumentHighlightParams,
             IWireDocumentHighlight[] | null,
+        ];
+        readonly "languages.provideEvaluatableExpression": readonly [
+            IWireEvaluatableExpressionParams,
+            IWireEvaluatableExpression | null,
         ];
         readonly "languages.provideLinkedEditingRanges": readonly [
             IWireLinkedEditingRangeParams,

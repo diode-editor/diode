@@ -180,6 +180,11 @@ export class LanguageFeaturesAdapter extends Disposable {
                 provideDocumentHighlights: (request, token) =>
                     this.bridge.provideDocumentHighlights(handle, request, token),
             }),
+        evaluatableExpression: ({ handle, selector }) =>
+            this.languageFeatures.evaluatableExpressionProvider.register(selector, {
+                provideEvaluatableExpression: (request, token) =>
+                    this.bridge.provideEvaluatableExpression(handle, request, token),
+            }),
         linkedEditingRange: ({ handle, selector }) =>
             this.languageFeatures.linkedEditingRangeProvider.register(selector, {
                 provideLinkedEditingRanges: (request, token) =>

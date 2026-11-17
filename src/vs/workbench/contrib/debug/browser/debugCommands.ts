@@ -49,7 +49,7 @@ import type { Thread } from "../common/debugModel.ts";
 import { resolveChildSession } from "../common/debugUtils.ts";
 
 import { rowMenuItem } from "./debugContextMenus.ts";
-import { toggleEditorBreakpointAction } from "./debugEditorActions.ts";
+import { showDebugHoverAction, toggleEditorBreakpointAction } from "./debugEditorActions.ts";
 import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
 import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
@@ -735,6 +735,7 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     startFromConfigAction,
     focusSessionAction,
     toggleEditorBreakpointAction,
+    showDebugHoverAction,
     ...DEBUG_VIEW_ACTIONS,
     ...VARIABLES_ACTIONS,
     ...REPL_ACTIONS,
