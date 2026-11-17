@@ -2551,60 +2551,46 @@
       "class": "ok"
     },
     "InlineValueContext.frameId": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValueContext.stoppedLocation": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValueEvaluatableExpression": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValueEvaluatableExpression.expression": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValueEvaluatableExpression.range": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValuesProvider.onDidChangeInlineValues": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValuesProvider.provideInlineValues": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValueText": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValueText.range": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValueText.text": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValueVariableLookup": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValueVariableLookup.caseSensitiveLookup": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValueVariableLookup.range": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InlineValueVariableLookup.variableName": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "InputBox.buttons": {
       "class": "ok"

@@ -151,6 +151,17 @@
 - #1157: IntelliSense `launch.json` по `configurationAttributes`/`configurationSnippets` отладчиков — второй провайдер
   встроенного `diode-settings` (`lib/launchSchema.ts`, `lib/launchCompletion.ts`), устройство и отступления —
   [Extensions.md](../arch/Extensions.md) («Пример: builtin `diode-settings`»). Без диагностик, как у settings.
+- #1153: inline values (`browser/inlineValuesContribution.ts`, `InlineValuesContribution` — часть
+  `DebugEditorContribution` эталона над всеми текстовыми вкладками). Пока в фокусе кадр файла вкладки,
+  `debug.inlineValues` (`on`/`off`/`auto`, в `auto` — только при провайдере языка) показывает значения сообщениями после
+  строк (`ILineMessageDecoration`, владелец `debug.inlineValues`, `order: 1` — после бейджей тестов и исключения) цветами
+  `editor.inlineValuesForeground` на `editor.inlineValuesBackground`. Источник — `languages.registerInlineValuesProvider`
+  (реестр `inlineValuesProvider`, RPC `languages.provideInlineValues`, три вида `InlineValue*`), без провайдера —
+  «one-size-fits-all» эталона: имена переменных скоупов кадра в коде (не в комментариях и строках) видимых строк ± экран
+  до остановки. Отступления: все слова токена кода, а не первое (у языка без грамматики строка — один токен); текст
+  режется на 150 символах; без hover; debounce фиксированный 200 мс; `onDidChangeInlineValues` провайдера никуда не
+  ведёт, как у эталона. Проверка — `inlineValuesContribution.app.test.ts`, сценарий `debug-inline-values` на Debug Demo
+  (провайдер расширения в папке `e2e/fixtures/debug-inline-values`, F10 у адаптера).
 
 - #1149: приёмка вехи 1 — стоковый CodeLLDB целиком (заметки — [StockExtensions.md](../arch/StockExtensions.md#отладка-cc-vadimcnvscode-lldb-codelldb)).
   Запись магазина `vadimcn.vscode-lldb` (сайт#57, гейт `>=0.17.0`), сценарий `codelldb` (`network: true`, без gcc —

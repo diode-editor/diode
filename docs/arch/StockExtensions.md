@@ -485,8 +485,8 @@ eval-режим node, иначе расширение молча не линти
 
 Классы-значения `DocumentSymbol` и `CallHierarchy*Call` теперь есть в рантайме вместе со швами их
 провайдеров: `@` проходит через конвертер languageclient и не оставляет ошибок клиента в OUTPUT.
-`InlineValue*` в рантайме по-прежнему нет: активации это не мешает, конвертеры зовут их только при вызове
-провайдера, а `registerInlineValuesProvider` у нас no-op. Автодополнение по схеме AWS работает из вшитых схем без terraform
+`InlineValue*` и `registerInlineValuesProvider` теперь настоящие (#1153): провайдер вызывается, пока
+отладчик стоит в файле его языка. Автодополнение по схеме AWS работает из вшитых схем без terraform
 CLI и `terraform init`; форматирование требует terraform в PATH (`Terraform (CLI) is required`) —
 окружение, а не Diode. Запись магазина гейтится `engines.diode >=0.7.3`.
 
