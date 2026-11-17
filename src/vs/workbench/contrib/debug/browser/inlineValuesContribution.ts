@@ -7,8 +7,8 @@
 // the editor's file is focused, the values of the variables (`debug.inlineValues`) follow the visible lines' ends —
 // from the language's `InlineValuesProvider`s, or without one from the names of the frame's variables found in the
 // lines up to the stop. They are messages after the lines' ends (`editor.inlineValuesForeground` on
-// `editor.inlineValuesBackground`) and come after the other owners' messages of a line: the test failures and the
-// exception badge are cut by the editor's edge last. Deviations: the text is cut at 150 characters (upstream: by
+// `editor.inlineValuesBackground`) and come after the other owners' messages of a line (order 0: the test failures,
+// later the exception badge of #1154), which the editor's edge cuts last. Deviations: the text is cut at 150 characters (upstream: by
 // the editor's width, which cuts the message here anyway), no hover over a value, a fixed 200 ms debounce (upstream
 // learns it per document), no word-to-lines cache (the visible lines are found again on each update).
 
@@ -40,7 +40,7 @@ import { DebugServiceDIToken } from "./debugService.ts";
 /** The owner of the inline values among the messages after the lines' ends. */
 export const INLINE_VALUES_OWNER = "debug.inlineValues";
 
-/** After the test messages and the exception badge (order 0) of a line. */
+/** After the other owners' messages of a line (order 0). */
 const INLINE_VALUES_ORDER = 1;
 
 const MAX_NUM_INLINE_VALUES = 100; // JS Global scope can have 700+ entries. We want to limit ourselves for perf reasons
@@ -61,7 +61,7 @@ export interface IInlineValuesEditor {
     readonly languageId: string;
     readonly versionId: number;
     readonly viewState: {
-        readonly document: Pick<ITextDocument, "getLineContent" | "lineCount">;
+        readonly document: Pick<ITextDocument, "getLineContent" | "getTextInRange" | "lineCount">;
         readonly tokenStore?: {
             forceTokenization(line: number): void;
             getLineTokens(line: number): LineTokens | undefined;
@@ -93,10 +93,7 @@ interface IAttachedEditor {
 }
 
 /** Lines are 0-based, inclusive. */
-interface ILineWindow {
-    readonly startLine: number;
-    readonly endLine: number;
-}
+type ILineWindow = ReturnType<IInlineValuesEditor["getVisibleLineRange"]>;
 
 export class InlineValuesContribution extends Disposable {
     public static dependencies = [
@@ -167,8 +164,9 @@ export class InlineValuesContribution extends Disposable {
             const state: IAttachedEditor = {
                 editor,
                 subscriptions: [
+                    // Typing in a file nobody debugs computes nothing.
                     editor.onDidChangeContent(() => {
-                        state.updateScheduler.schedule();
+                        if (this.debugService.getViewModel().focusedStackFrame) state.updateScheduler.schedule();
                     }),
                     // Inline value provider should get called on view port change
                     editor.onDidChangeVisibleRange(() => {
@@ -268,23 +266,20 @@ export class InlineValuesContribution extends Disposable {
                 ),
             },
         };
+        // The frame's variables, the most specific scope first: read once, on the first lookup.
+        let frameVariables: Promise<{ readonly name: string; readonly value: string }[]> | undefined;
         const findVariable = async (key: string, caseSensitiveLookup: boolean): Promise<string | undefined> => {
-            const scopes = await stackFrame.getMostSpecificScopes(stackFrame.range);
+            frameVariables ??= stackFrame
+                .getMostSpecificScopes(stackFrame.range)
+                .then(async (scopes) => (await Promise.all(scopes.map((scope) => scope.getChildren()))).flat());
             const name = caseSensitiveLookup ? key : key.toLowerCase();
-            for (const scope of scopes) {
-                const variables = await scope.getChildren();
-                const found = variables.find((v) =>
-                    caseSensitiveLookup ? v.name === name : v.name.toLowerCase() === name,
-                );
-                if (found) return found.value;
-            }
-            return undefined;
+            const found = (await frameVariables).find((v) =>
+                caseSensitiveLookup ? v.name === name : v.name.toLowerCase() === name,
+            );
+            return found?.value;
         };
         const textOf = async (iv: InlineValue): Promise<string | undefined> => {
-            const rangeText = (): string =>
-                document
-                    .getLineContent(iv.range.start.line)
-                    .substring(iv.range.start.character, iv.range.end.character);
+            const rangeText = (): string => document.getTextInRange(iv.range);
             switch (iv.type) {
                 case "text":
                     return iv.text;
@@ -308,8 +303,11 @@ export class InlineValuesContribution extends Disposable {
         await Promise.all(
             providers.map(async (provider) => {
                 try {
-                    for (const iv of (await provider.provideInlineValues(request, cancellation)) ?? []) {
-                        const text = await textOf(iv);
+                    const values = (await provider.provideInlineValues(request, cancellation)) ?? [];
+                    // The lookups and evaluations go out together; their texts merge in the provider's order.
+                    const texts = await Promise.all(values.map(textOf));
+                    for (const [index, iv] of values.entries()) {
+                        const text = texts[index];
                         if (!text) continue;
                         const line = iv.range.start.line;
                         let segments = lineSegments.get(line);
@@ -365,7 +363,10 @@ async function valuesFromVariables(
         scopes.map(async (scope) => ({ scope, variables: await scope.getChildren() })),
     );
     const stopLine = stackFrame.range.startLineNumber - 1;
-    const wordLines = new WordLines(editor);
+    const wordsByLine = new Map<number, readonly string[]>();
+    for (let line = window.startLine; line <= Math.min(window.endLine, stopLine); line++) {
+        wordsByLine.set(line, codeWords(editor, line));
+    }
     const valuesPerLine = new Map<number, Map<string, string>>();
     for (const { scope, variables } of scopesWithVariables) {
         const startLine = Math.max(window.startLine, scope.range ? scope.range.startLineNumber - 1 : 0);
@@ -378,7 +379,7 @@ async function valuesFromVariables(
         }
         for (let line = startLine; line <= endLine; line++) {
             const content = editor.viewState.document.getLineContent(line);
-            const names = [...new Set(wordLines.words(line))]
+            const names = [...new Set(wordsByLine.get(line))]
                 .filter((name) => nameValueMap.has(name))
                 .sort((first, second) => content.indexOf(first) - content.indexOf(second));
             if (names.length === 0) continue;
@@ -400,41 +401,24 @@ async function valuesFromVariables(
 }
 
 /** Upstream `getWordToLineNumbersMap` for a line: the words of its code, not of its comments and strings. */
-class WordLines {
-    private readonly cache = new Map<number, readonly string[]>();
-
-    public constructor(private readonly editor: IInlineValuesEditor) {}
-
-    public words(line: number): readonly string[] {
-        let words = this.cache.get(line);
-        if (words === undefined) {
-            words = this.compute(line);
-            this.cache.set(line, words);
-        }
-        return words;
+function codeWords(editor: IInlineValuesEditor, line: number): readonly string[] {
+    const content = editor.viewState.document.getLineContent(line);
+    // If line is too long then skip the line
+    if (content.length > MAX_TOKENIZATION_LINE_LEN) return [];
+    const tokenStore = editor.viewState.tokenStore;
+    tokenStore?.forceTokenization(line);
+    const lineTokens = tokenStore?.getLineTokens(line);
+    // No tokens: the whole line is code.
+    if (lineTokens === undefined) return wordsOf(content);
+    const result: string[] = [];
+    for (let tokenIndex = 0, tokenCount = lineTokens.getCount(); tokenIndex < tokenCount; tokenIndex++) {
+        // Token is a word and not a comment
+        if (lineTokens.getStandardTokenType(tokenIndex) !== StandardTokenType.Other) continue;
+        result.push(
+            ...wordsOf(content.substring(lineTokens.getStartOffset(tokenIndex), lineTokens.getEndOffset(tokenIndex))),
+        );
     }
-
-    private compute(line: number): readonly string[] {
-        const content = this.editor.viewState.document.getLineContent(line);
-        // If line is too long then skip the line
-        if (content.length > MAX_TOKENIZATION_LINE_LEN) return [];
-        const tokenStore = this.editor.viewState.tokenStore;
-        tokenStore?.forceTokenization(line);
-        const lineTokens = tokenStore?.getLineTokens(line);
-        // No tokens: the whole line is code.
-        if (lineTokens === undefined) return wordsOf(content);
-        const result: string[] = [];
-        for (let tokenIndex = 0, tokenCount = lineTokens.getCount(); tokenIndex < tokenCount; tokenIndex++) {
-            // Token is a word and not a comment
-            if (lineTokens.getStandardTokenType(tokenIndex) !== StandardTokenType.Other) continue;
-            result.push(
-                ...wordsOf(
-                    content.substring(lineTokens.getStartOffset(tokenIndex), lineTokens.getEndOffset(tokenIndex)),
-                ),
-            );
-        }
-        return result;
-    }
+    return result;
 }
 
 /**
@@ -442,7 +426,8 @@ class WordLines {
  * grammar has the whole line in one token.
  */
 function wordsOf(code: string): string[] {
-    return code.match(new RegExp(DEFAULT_WORD_REGEXP.source, "g")) ?? [];
+    // A global regexp: `match` gives every match and leaves `lastIndex` at 0.
+    return code.match(DEFAULT_WORD_REGEXP) ?? [];
 }
 
 /** One line, as a message after a line's end must be; upstream's `...` past its length. */

@@ -6,7 +6,7 @@ import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerEl
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Emitter } from "../../../../base/common/event.ts";
-import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { combinedDisposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { EditorElement } from "../../../../editor/browser/editorElement.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
@@ -490,14 +490,10 @@ export class EditorComponent extends Component {
 
     /** Fires on a scroll and on a change of the editor's height. */
     public onDidChangeVisibleRange(listener: () => void): IDisposable {
-        const view = this.editorViewState.onDidChangeView(listener);
-        const height = this.editor.onDidChangeViewportHeight(listener);
-        return {
-            dispose: () => {
-                view.dispose();
-                height.dispose();
-            },
-        };
+        return combinedDisposable(
+            this.editorViewState.onDidChangeView(listener),
+            this.editor.onDidChangeViewportHeight(listener),
+        );
     }
 
     /** The document lines the editor shows, inclusive. */

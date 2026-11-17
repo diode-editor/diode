@@ -62,6 +62,8 @@ interface IFakeEditor extends IInlineValuesEditor {
     /** What the editor shows after the lines' ends: line → text. */
     values(): Record<number, string>;
     decorations: readonly ILineMessageDecoration[];
+    /** How many times the decorations were set. */
+    sets: number;
     visible: { startLine: number; endLine: number };
     scroll(): void;
     edit(line: number, text: string): void;
@@ -102,12 +104,14 @@ function fakeEditor(
         viewState: { document, tokenStore },
         visible: { startLine: 0, endLine: document.lineCount - 1 },
         decorations: [],
+        sets: 0,
         getVisibleLineRange: () => editor.visible,
         onDidChangeVisibleRange: (listener) => visibleRange.event(listener),
         onDidChangeContent: (listener) => content.event(listener),
         setLineMessageDecorations: (owner, decorations) => {
             expect(owner).toBe(INLINE_VALUES_OWNER);
             editor.decorations = decorations;
+            editor.sets++;
         },
         values: () => Object.fromEntries(editor.decorations.map((d) => [d.line, d.text])),
         scroll: () => {
@@ -458,6 +462,15 @@ describe("InlineValuesContribution", () => {
             editor.edit(0, "// top\n");
             await vi.advanceTimersByTimeAsync(200);
             expect(editor.values()).toEqual({ 1: "argc = 4" });
+        });
+
+        it("typing while no frame is focused computes nothing", async () => {
+            start();
+            await vi.advanceTimersByTimeAsync(1000);
+            const sets = editor.sets;
+            editor.edit(0, "// top\n");
+            await vi.advanceTimersByTimeAsync(1000);
+            expect(editor.sets).toBe(sets);
         });
 
         it("a scroll asks the providers again; without a provider it changes nothing", async () => {

@@ -28,10 +28,10 @@ import { messageKey, messageOf, type TestMessageSubject } from "./testMessageVie
 // `TestingDecorations.applyResults`. Deviations: no hover, no peek — TEST RESULTS plays its role; the error is a badge
 // of cells after the line's end, not a widget with an arrow.
 
-/** Upstream `MAX_INLINE_MESSAGE_LENGTH`. */
 /** The owner of the test messages after the lines' ends. */
 export const TESTING_LINE_MESSAGE_OWNER = "testing";
 
+/** Upstream `MAX_INLINE_MESSAGE_LENGTH`. */
 export const MAX_INLINE_MESSAGE_LENGTH = 128;
 
 /** Upstream `lineBreakRe`. */
