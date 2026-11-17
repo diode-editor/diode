@@ -6,17 +6,11 @@ import { completionValuesFor } from "./settingValues.ts";
 
 describe("completionValuesFor", () => {
     it("enum → all values, strings in quotes", () => {
-        expect(completionValuesFor({ type: "string", enum: ["auto", "kitty"] })).toEqual([
-            '"auto"',
-            '"kitty"',
-        ]);
+        expect(completionValuesFor({ type: "string", enum: ["auto", "kitty"] })).toEqual(['"auto"', '"kitty"']);
     });
 
     it("boolean → true/false", () => {
-        expect(completionValuesFor({ type: "boolean", default: true })).toEqual([
-            "true",
-            "false",
-        ]);
+        expect(completionValuesFor({ type: "boolean", default: true })).toEqual(["true", "false"]);
     });
 
     it("a list of types with boolean → true/false", () => {
