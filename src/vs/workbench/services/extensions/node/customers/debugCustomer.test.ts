@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
+import { SESSIONLESS_DEBUG_SINK } from "../../../../../../TestUtils/debugSinkStub.ts";
 import { CancellationTokenSource } from "../../../../../base/common/cancellation.ts";
 import type { IDisposable } from "../../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
@@ -33,6 +34,7 @@ interface IRecordingSink extends IExtensionDebugSink {
 function recordingSink(): IRecordingSink {
     const providers: IRecordingSink["providers"] = [];
     return {
+        ...SESSIONLESS_DEBUG_SINK,
         providers,
         registerConfigurationProvider: (extensionId, provider): IDisposable => {
             const entry = { extensionId, provider, disposed: 0 };

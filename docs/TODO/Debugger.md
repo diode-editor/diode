@@ -126,6 +126,13 @@
   «no signer». Отдельно починено: `fetchThreads` после `configurationDone` у умершего адаптера отменяется без
   необработанного отказа. Тесты: `extensionHost.debugAdapters.test.ts` (настоящий субпроцесс, адаптер каждого вида,
   фикстура `__fixtures__/debugAdapters/`), сценарий `debug-adapter` (Debug Demo с inline-адаптером).
+- #1141: сессии для расширений. `vscode.debug` больше не null-объект: `activeDebugSession`, `activeStackItem`,
+  `breakpoints`, `activeDebugConsole`, шесть событий, `addBreakpoints`/`removeBreakpoints`, у `DebugSession` —
+  сеттер `name`, `customRequest`, `getDebugProtocolBreakpoint`. Ядро — `ExtensionDebugAdapter.subscribe` и
+  методы sink'а в `browser/extensionDebugAdapter.ts`, у сервиса — `addBreakpoints(uri, data)` эталона. Устройство и
+  отступления — [Extensions.md](../arch/Extensions.md) («Сессии, брейкпоинты, консоль»). Тесты:
+  `extensionDebugAdapter.sessions.test.ts` (настоящий `DebugService`), `extensionHost.debugSessions.test.ts`
+  (настоящий субпроцесс, фикстура `__fixtures__/debugSessions/`). Не здесь: data-брейкпоинты (веха 2).
 
 - **Противоречие в доках:** [docs/arch/Extensions.md](../arch/Extensions.md) («Отладка как null-объект») пишет «DAP не
   планируется (решение человека)», а `GOAL.md` и `docs/public/STATUS.md` — «направление на потом / planned».
