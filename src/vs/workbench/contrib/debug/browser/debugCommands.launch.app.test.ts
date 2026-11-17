@@ -176,6 +176,35 @@ describe("launch.json in the workbench", () => {
         expect(debugService().getConfigurationManager().selectedConfiguration.name).toBe("Second");
     });
 
+    it("without launch.json Select and Start Debugging on a type with dynamic configurations lists them and starts the picked one", async () => {
+        await boot({});
+        contributeInitialConfigurations();
+        debugService()
+            .getConfigurationManager()
+            .registerDebugConfigurationProvider({
+                type: SYNTHETIC_DEBUG_TYPE,
+                triggerKind: DebugConfigurationProviderTriggerKind.Dynamic,
+                provideDebugConfigurations: () => Promise.resolve([{ ...SYNTHETIC_LAUNCH_CONFIG, name: "Dyn" }]),
+            });
+
+        await h.commands.execute("workbench.action.debug.selectandstart");
+        await vi.waitFor(() => {
+            expect(screen()).toContain("Synthetic (C++ under CodeLLDB)...");
+        });
+        h.testApp.sendKey("Enter");
+
+        // As upstream: the type's dynamic configurations, not the "Select debugger" guess of F5.
+        await vi.waitFor(() => {
+            expect(screen()).toContain("Dyn");
+        });
+        expect(screen()).not.toContain("Install extension...");
+        h.testApp.sendKey("Enter");
+        await vi.waitFor(() => {
+            expect(debugService().getModel().getSessions()[0]?.configuration.name).toBe("Dyn");
+        });
+        expect(fs.existsSync(ws.path(".diode/launch.json"))).toBe(false);
+    });
+
     it("Open 'launch.json' with no file asks for a debugger and creates the file with its initial configurations", async () => {
         await boot({});
         contributeInitialConfigurations();
