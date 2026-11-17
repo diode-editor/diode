@@ -45,6 +45,7 @@ import type {
 } from "../../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
 import type { IInlayHintsRequest, InlayHint } from "../../../../editor/common/languages/iInlayHintsSource.ts";
+import type { IInlineValuesRequest, InlineValue } from "../../../../editor/common/languages/iInlineValuesSource.ts";
 import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
@@ -1031,6 +1032,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token?: ICancellationToken,
     ): Promise<readonly InlayHint[] | null> {
         return this.languageFeatures.provideInlayHints(handle, req, token);
+    }
+
+    public provideInlineValues(
+        handle: number,
+        req: IInlineValuesRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly InlineValue[] | null> {
+        return this.languageFeatures.provideInlineValues(handle, req, token);
     }
 
     public get onDidChangeInlayHints(): Event<number> {

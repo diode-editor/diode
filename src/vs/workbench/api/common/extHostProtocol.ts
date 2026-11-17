@@ -14,6 +14,7 @@ import type { ICoreDefinitionLocation } from "../../../editor/common/languages/i
 import type { ICoreDocumentSymbol } from "../../../editor/common/languages/iDocumentSymbolSource.ts";
 import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
+import type { InlineValue } from "../../../editor/common/languages/iInlineValuesSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
 import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSignatureHelpSource.ts";
 import type {
@@ -164,6 +165,7 @@ import type {
     IWireHoverParams,
     IWireInlayHint,
     IWireInlayHintsParams,
+    IWireInlineValuesParams,
     IWireInlineCompletionParams,
     IWireInputBoxRequest,
     IWireInputBoxResult,
@@ -332,6 +334,7 @@ export interface IHostToSubprocess {
         readonly "languages.provideDocumentLinks": readonly [IWireDocumentLinksParams, IWireDocumentLinkList | null];
         readonly "languages.resolveDocumentLink": readonly [IWireResolveDocumentLinkParams, string | null];
         readonly "languages.provideInlayHints": readonly [IWireInlayHintsParams, IWireInlayHint[] | null];
+        readonly "languages.provideInlineValues": readonly [IWireInlineValuesParams, InlineValue[] | null];
         readonly "languages.prepareCallHierarchy": readonly [
             IWirePrepareCallHierarchyParams,
             ICallHierarchySession | null,

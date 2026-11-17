@@ -39,6 +39,7 @@ import type {
 } from "../../../editor/common/languages/iFormattingSource.ts";
 import type { ICoreHover, IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
 import type { IInlayHintsRequest, InlayHint } from "../../../editor/common/languages/iInlayHintsSource.ts";
+import type { IInlineValuesRequest, InlineValue } from "../../../editor/common/languages/iInlineValuesSource.ts";
 import type {
     ICoreInlineCompletionItem,
     IInlineCompletionRequest,
@@ -248,6 +249,11 @@ export interface IExtensionLanguageFeaturesBridge {
         token?: ICancellationToken,
     ): Promise<readonly InlayHint[] | null>;
     onDidChangeInlayHints(cb: (handle: number) => void): IDisposable;
+    provideInlineValues(
+        handle: number,
+        request: IInlineValuesRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly InlineValue[] | null>;
     provideCodeLenses(
         handle: number,
         request: ICodeLensRequest,

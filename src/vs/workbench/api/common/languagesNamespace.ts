@@ -18,6 +18,7 @@ import type {
 } from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreHover } from "../../../editor/common/languages/iHoverSource.ts";
+import type { InlineValue } from "../../../editor/common/languages/iInlineValuesSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
 import type { ICoreReference } from "../../../editor/common/languages/iReferenceSource.ts";
 import type { ICoreSignatureHelp } from "../../../editor/common/languages/iSignatureHelpSource.ts";
@@ -49,6 +50,7 @@ import {
     serializeHoverContents,
     serializeInlayHints,
     serializeInlineCompletionItem,
+    serializeInlineValues,
     serializeLinkedEditingRanges,
     serializeRenamePrepare,
     serializeSelectionRanges,
@@ -74,6 +76,7 @@ import {
     DisposableImpl,
     EventEmitter,
     InlineCompletionTriggerKind,
+    InlineValueContext,
     Position,
     Range,
     SignatureHelpTriggerKind,
@@ -103,6 +106,7 @@ import type {
     IWireHoverParams,
     IWireInlayHint,
     IWireInlayHintsParams,
+    IWireInlineValuesParams,
     IWireInlineCompletionParams,
     IWireLanguageProviderMetadata,
     IWireLinkedEditingRangeParams,
@@ -159,6 +163,11 @@ export interface IDocumentSymbolRegistration {
 interface IWorkspaceSymbolRegistration {
     readonly provider: vscode.WorkspaceSymbolProvider;
     readonly cache: LRUCache<number, readonly vscode.SymbolInformation[]>;
+}
+
+export interface IInlineValuesRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.InlineValuesProvider;
 }
 
 export interface IInlayHintsRegistration {
@@ -493,6 +502,7 @@ export function createLanguagesNamespace(
     const linkedEditingRangeProviders = new Map<number, Owned<ILinkedEditingRangeRegistration>>();
     const colorProviders = new Map<number, Owned<IColorRegistration>>();
     const inlayHintsProviders = new Map<number, Owned<IInlayHintsRegistration>>();
+    const inlineValuesProviders = new Map<number, Owned<IInlineValuesRegistration>>();
     const codeLensProviders = new Map<number, Owned<ICodeLensRegistration>>();
     let nextCodeLensSession = 1;
     const semanticTokensProviders = new Map<number, Owned<IDocumentSemanticTokensRegistration>>();
@@ -1014,6 +1024,26 @@ export function createLanguagesNamespace(
             reportProviderFailure("provideInlayHints", err, reg.owner);
         }
         return serializeInlayHints(result, p.range);
+    });
+
+    /** Upstream `InlineValuesAdapter.provideInlineValues`. */
+    rpc.handleRequest("languages.provideInlineValues", async (params, cancellation): Promise<InlineValue[] | null> => {
+        const p: Received<IWireInlineValuesParams, "viewPort" | "context"> = params;
+        // The provider may have been removed while the request was in flight: "no values".
+        const reg = inlineValuesProviders.get(p.handle ?? -1);
+        if (reg === undefined) return null;
+        const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+        if (doc === null) return null;
+        const context = new InlineValueContext(p.context.frameId, toVscodeRange(p.context.stoppedLocation));
+        let result: unknown;
+        try {
+            result = await callWithVscodeToken(cancellation, (token) =>
+                reg.provider.provideInlineValues(doc, toVscodeRange(p.viewPort), context, token),
+            );
+        } catch (err) {
+            reportProviderFailure("provideInlineValues", err, reg.owner);
+        }
+        return serializeInlineValues(result);
     });
 
     /** Upstream `CodeLensAdapter.provideCodeLenses`. A lens without a range costs itself, its index stays. */
@@ -1705,10 +1735,6 @@ export function createLanguagesNamespace(
         );
     }
 
-    // The stock client registers providers per server capabilities: a no-op is a valid
-    // Disposable so it doesn't crash. Readiness: docs/public/API-COVERAGE.md.
-    const registerNoopProvider = (): vscode.Disposable => new DisposableImpl(() => undefined);
-
     const createDiagnosticCollection = (name?: string): vscode.DiagnosticCollection => {
         // The MarkerService key is unique per collection, otherwise same-named collections would overwrite
         // each other's markers; a repeated base gets a counter (`_idPool` of ExtHostDiagnostics).
@@ -2010,7 +2036,11 @@ export function createLanguagesNamespace(
                     }),
             );
         },
-        registerInlineValuesProvider: registerNoopProvider,
+        registerInlineValuesProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.InlineValuesProvider,
+        ): vscode.Disposable =>
+            registerByHandle(inlineValuesProviders, "inlineValues", selector, { selector, provider }),
         registerInlineCompletionItemProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.InlineCompletionItemProvider,
