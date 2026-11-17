@@ -104,12 +104,13 @@ export class InlineValuesContribution extends Disposable {
     ] as const;
 
     private readonly attached = new Map<IInlineValuesEditor, IAttachedEditor>();
+    private updates = 0;
     private readonly providers: LanguageFeatureRegistry<InlineValuesProvider>;
 
     public constructor(
         private readonly editors: IInlineValuesEditorSource,
         private readonly debugService: IDebugService,
-        private readonly configuration: Pick<IConfigurationService, "get" | "onDidChangeConfiguration">,
+        private readonly configuration: Pick<IConfigurationService, "inspect" | "onDidChangeConfiguration">,
         languageFeatures: Pick<ILanguageFeaturesService, "inlineValuesProvider">,
     ) {
         super();
@@ -211,9 +212,9 @@ export class InlineValuesContribution extends Disposable {
     private async updateInlineValueDecorations(state: IAttachedEditor): Promise<void> {
         const { editor } = state;
         const stackFrame = this.debugService.getViewModel().focusedStackFrame;
-        const setting = this.configuration.get("debug.inlineValues") as string | boolean;
         const hasProvider = this.providers.has(editor);
-        const inlineValuesTurnedOn = setting === true || setting === "on" || (setting === "auto" && hasProvider);
+        const setting = this.inlineValuesSetting();
+        const inlineValuesTurnedOn = setting === "on" || (setting === "auto" && hasProvider);
         state.pending?.cancel();
         if (!inlineValuesTurnedOn || editor.uri.toString() !== stackFrame?.source.uri.toString()) {
             if (!state.removeScheduler.isScheduled()) state.removeScheduler.schedule();
@@ -228,10 +229,13 @@ export class InlineValuesContribution extends Disposable {
             ? await this.valuesFromProviders(editor, stackFrame, window, cts.token)
             : await valuesFromVariables(editor, stackFrame, window);
         if (cts.token.isCancellationRequested) return;
+        // A new key per update: the values are for the text as it is now, a value set again with an old key and
+        // line would stay where an edit since moved it.
+        const update = String(++this.updates);
         editor.setLineMessageDecorations(
             INLINE_VALUES_OWNER,
             [...valuesByLine].map(([line, text]) => ({
-                key: String(line),
+                key: `${update}:${String(line)}`,
                 line,
                 text: inlineText(text),
                 colorToken: FOREGROUND,
@@ -239,6 +243,17 @@ export class InlineValuesContribution extends Disposable {
                 order: INLINE_VALUES_ORDER,
             })),
         );
+    }
+
+    /**
+     * `debug.inlineValues`, the old `true` read as `on` (upstream's back-compat): the schema's value would be the
+     * default, so the most specific layer is read as written.
+     */
+    private inlineValuesSetting(): unknown {
+        const { workspaceFolder, workspace, profile, user, value } =
+            this.configuration.inspect<unknown>("debug.inlineValues");
+        const written = [workspaceFolder, workspace, profile, user].find((layer) => layer !== undefined);
+        return written === true ? "on" : value;
     }
 
     /** The providers' values, a line's joined by their columns; a failing provider costs only its own. */

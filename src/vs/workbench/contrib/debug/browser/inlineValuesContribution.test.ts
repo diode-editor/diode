@@ -184,6 +184,8 @@ describe("InlineValuesContribution", () => {
     let willUpdateViews: Emitter<void>;
     let lazyEvaluated: Emitter<void>;
     let setting: string | boolean;
+    /** What `inspect` answers instead of `setting` in the user's layer. */
+    let layers: Record<string, unknown> | undefined;
     let configChanged: Emitter<IConfigurationChangeEvent>;
     let providers: LanguageFeatureRegistry<InlineValuesProvider>;
     let contribution: InlineValuesContribution | undefined;
@@ -209,7 +211,8 @@ describe("InlineValuesContribution", () => {
             source,
             debugService,
             {
-                get: (() => setting) as never,
+                // The schema keeps only its strings; the user's layer is as written.
+                inspect: (() => layers ?? { user: setting, value: setting === true ? "auto" : setting }) as never,
                 onDidChangeConfiguration: configChanged.event,
             },
             { inlineValuesProvider: providers },
@@ -243,6 +246,7 @@ describe("InlineValuesContribution", () => {
         willUpdateViews = new Emitter();
         lazyEvaluated = new Emitter();
         setting = "on";
+        layers = undefined;
         configChanged = new Emitter();
         providers = new LanguageFeatureRegistry();
     });
@@ -265,7 +269,7 @@ describe("InlineValuesContribution", () => {
             await focus(stackFrame(2, [LOCALS]));
             expect(editor.decorations).toEqual([
                 {
-                    key: "0",
+                    key: expect.stringMatching(/:0$/) as string,
                     line: 0,
                     text: "argc = 2",
                     colorToken: "editor.inlineValuesForeground",
@@ -273,7 +277,7 @@ describe("InlineValuesContribution", () => {
                     order: 1,
                 },
                 {
-                    key: "1",
+                    key: expect.stringMatching(/:1$/) as string,
                     line: 1,
                     text: "sum = 4",
                     colorToken: "editor.inlineValuesForeground",
@@ -393,6 +397,23 @@ describe("InlineValuesContribution", () => {
             expect(editor.decorations).not.toEqual([]);
             await vi.advanceTimersByTimeAsync(1);
             expect(editor.decorations).toEqual([]);
+        });
+
+        it("the old `true` is read from the most specific layer that has the key", async () => {
+            layers = { user: "off", workspace: true, value: "auto" };
+            start();
+            await focus(stackFrame(2, [LOCALS]));
+            expect(editor.values()).toEqual({ 0: "argc = 2", 1: "sum = 4" });
+
+            layers = { user: true, workspaceFolder: "off", workspace: true, profile: true, value: "off" };
+            configChanged.fire(changed("debug.inlineValues"));
+            await vi.advanceTimersByTimeAsync(100);
+            expect(editor.decorations).toEqual([]);
+
+            layers = { profile: true, user: "off", value: "off" };
+            configChanged.fire(changed("debug.inlineValues"));
+            await vi.advanceTimersByTimeAsync(0);
+            expect(editor.values()).toEqual({ 0: "argc = 2", 1: "sum = 4" });
         });
 
         it("a frame of another file shows none in this one", async () => {
