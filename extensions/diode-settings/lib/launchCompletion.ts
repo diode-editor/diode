@@ -1,4 +1,4 @@
-import { findNodeAtLocation, getLocation, type Node, parseTree, type Segment } from "jsonc-parser";
+import { findNodeAtLocation, getLocation, getNodeValue, type Node, parseTree, type Segment } from "jsonc-parser";
 
 import {
     type AttributeMap,
@@ -45,12 +45,13 @@ export function provideLaunchCompletions(
     if (root === undefined) return [];
     const path = location.path.slice(root.length);
     const replaceRange = tokenRangeAt(text, offset);
-    const tree = parseTree(text);
-    const nodeAt = (at: Segment[]): Node | undefined => (tree === undefined ? undefined : findNodeAtLocation(tree, at));
+    // Undefined only for an empty document, which has no path to complete.
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const tree = parseTree(text)!;
 
     if (path.length === 1) {
         if (location.isAtPropertyKey) {
-            return keyItems(LAUNCH_ROOT_ATTRIBUTES, existingKeys(nodeAt([...root]), path[0]), replaceRange);
+            return keyItems(LAUNCH_ROOT_ATTRIBUTES, existingKeys(tree, [...root], path[0]), replaceRange);
         }
         return valueItems(LAUNCH_ROOT_ATTRIBUTES[path[0]], replaceRange);
     }
@@ -58,7 +59,6 @@ export function provideLaunchCompletions(
 
     const debuggers = collectDebuggers(packageJSONs);
     if (path.length === 2) {
-        if (location.isAtPropertyKey) return [];
         const separator = separatorAfter(text, replaceRange.end);
         const line = text.slice(text.lastIndexOf("\n", offset - 1) + 1, offset);
         const lineIndent = line.slice(0, line.length - line.trimStart().length);
@@ -73,21 +73,23 @@ export function provideLaunchCompletions(
     if (path.length !== 3) return [];
 
     const configurationPath = [...root, ...path.slice(0, 2)];
-    const stringAt = (name: string): string | undefined => {
-        const value: unknown = nodeAt([...configurationPath, name])?.value;
-        return typeof value === "string" ? value : undefined;
-    };
+    // A `type`/`request` that isn't set is `""`, which no debugger has.
+    const stringAt = (name: string): string =>
+        String(findNodeAtLocation(tree, [...configurationPath, name])?.value ?? "");
     const attributes = configurationAttributes(debuggers, stringAt("type"), stringAt("request"));
     if (location.isAtPropertyKey) {
-        return keyItems(attributes, existingKeys(nodeAt(configurationPath), path[2]), replaceRange);
+        return keyItems(attributes, existingKeys(tree, configurationPath, path[2]), replaceRange);
     }
-    const key = path[2];
-    return typeof key === "string" ? valueItems(attributes[key], replaceRange) : [];
+    return valueItems(attributes[path[2]], replaceRange);
 }
 
-/** The keys of the object, except the one being typed: upstream doesn't suggest a key twice. */
-function existingKeys(object: Node | undefined, typed: Segment): Set<unknown> {
-    const keys = new Set(object?.children?.map((p): unknown => p.children?.[0].value));
+/**
+ * The keys of the object, except the one being typed: upstream doesn't suggest a key twice. The object
+ * exists: the caret is at one of its keys.
+ */
+function existingKeys(tree: Node, objectPath: Segment[], typed: Segment): Set<unknown> {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const keys = new Set<unknown>(Object.keys(getNodeValue(findNodeAtLocation(tree, objectPath)!) as object));
     keys.delete(typed);
     return keys;
 }

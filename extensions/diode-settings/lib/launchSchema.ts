@@ -38,10 +38,10 @@ export interface IDebuggerSchema {
 
 interface IDebuggerContribution {
     readonly type: string;
-    readonly label?: unknown;
+    readonly label?: string;
     readonly program?: unknown;
     readonly runtime?: unknown;
-    readonly deprecated?: unknown;
+    readonly deprecated?: string;
     readonly configurationAttributes?: unknown;
     readonly configurationSnippets?: unknown;
 }
@@ -63,10 +63,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function contributedDebuggers(packageJSON: unknown): IDebuggerContribution[] {
     const contributes = isRecord(packageJSON) ? packageJSON.contributes : undefined;
     const debuggers = isRecord(contributes) ? contributes.debuggers : undefined;
-    if (!Array.isArray(debuggers)) return [];
-    return debuggers.filter(
-        (dbg): dbg is IDebuggerContribution => isRecord(dbg) && typeof dbg.type === "string" && dbg.type !== "",
-    );
+    return Array.isArray(debuggers)
+        ? debuggers.filter(
+              (dbg): dbg is IDebuggerContribution => isRecord(dbg) && typeof dbg.type === "string" && dbg.type !== "",
+          )
+        : [];
 }
 
 function isSnippet(value: unknown): value is IConfigurationSnippet {
@@ -86,10 +87,10 @@ export function collectDebuggers(packageJSONs: readonly unknown[]): ReadonlyMap<
             dbg = { type: contribution.type, isMain: false, requests: new Map(), snippets: [] };
             byType.set(contribution.type, dbg);
         }
-        if (typeof contribution.label === "string") dbg.label ??= contribution.label;
+        dbg.label ??= contribution.label;
         // Upstream `isDebuggerMainContribution`.
         dbg.isMain ||= [contribution.label, contribution.program, contribution.runtime].some(Boolean);
-        if (typeof contribution.deprecated === "string") dbg.deprecated = contribution.deprecated;
+        dbg.deprecated ??= contribution.deprecated;
 
         const attributes = contribution.configurationAttributes;
         if (isRecord(attributes)) {
@@ -178,20 +179,20 @@ const PLATFORM_ATTRIBUTES: AttributeMap = {
 
 /**
  * The attributes of a configuration with the given `type` and `request`, as upstream's `oneOf`
- * branch that matches it. A `request` the debugger doesn't know (or none yet) — the attributes of
- * all its requests; an unknown `type` — only the attributes every configuration has.
+ * branch that matches it. A `request` the debugger doesn't know (or none yet: `""`) — the attributes of
+ * all its requests; an unknown `type` (or none) — only the attributes every configuration has.
  */
 export function configurationAttributes(
     debuggers: ReadonlyMap<string, IDebuggerSchema>,
-    type: string | undefined,
-    request: string | undefined,
+    type: string,
+    request: string,
 ): AttributeMap {
-    const dbg = type === undefined ? undefined : debuggers.get(type);
-    const known = dbg === undefined ? [] : [...dbg.requests.keys()];
-    const own = request !== undefined && known.includes(request) ? [request] : known;
+    const requests = debuggers.get(type)?.requests ?? new Map<string, AttributeMap>();
+    const known = [...requests.keys()];
+    const own = known.includes(request) ? [request] : known;
     const suggested = [...debuggers.values()].filter((d) => d.isMain && d.deprecated === undefined);
     return {
-        ...own.reduce<AttributeMap>((all, r) => ({ ...all, ...dbg?.requests.get(r) }), {}),
+        ...own.reduce<AttributeMap>((all, r) => ({ ...all, ...requests.get(r) }), {}),
         type: {
             enum: suggested.map((d) => d.type),
             enumDescriptions: suggested.map((d) => d.label ?? d.type),

@@ -85,6 +85,9 @@ describe("provideLaunchCompletions — the top level of launch.json", () => {
     it("skips keys already present, but not the one being typed", () => {
         expect(complete('{\n    "version": "0.2.0",\n    "co|"\n}').labels).toEqual(["configurations", "compounds"]);
         expect(complete('{\n    "version|": "0.2.0"\n}').labels).toEqual(["version", "configurations", "compounds"]);
+        // In settings.json the keys are those of the launch block, not of the file.
+        const settings = '{ "version": 1, "launch": { "compounds": [], | } }';
+        expect(complete(settings, [["launch"]]).labels).toEqual(["version", "configurations"]);
     });
 
     it("the key replaces the typed quote and word", () => {
@@ -266,6 +269,10 @@ describe("provideLaunchCompletions — configuration snippets", () => {
         expect(complete('{ "configurations": [ |{ "type": "x" } ] }').items[0].insertText).toMatch(/\},$/);
         expect(complete('{ "configurations": [ | ] }').items[0].insertText).toMatch(/\}$/);
         expect(complete('{ "configurations": [ |, {} ] }').items[0].insertText).toMatch(/\}$/);
+        // A string or an array in its place is a configuration being typed, too; nothing after the caret — no comma.
+        expect(complete('{ "configurations": [ | "x" ] }').items[0].insertText).toMatch(/\},$/);
+        expect(complete('{ "configurations": [ | [] ] }').items[0].insertText).toMatch(/\},$/);
+        expect(complete('{ "configurations": [ |').items[0].insertText).toMatch(/\}$/);
     });
 
     it("no debuggers → nothing", () => {
