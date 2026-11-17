@@ -270,7 +270,12 @@ export class BreakpointEditorContribution extends Disposable {
             .map((decoration) =>
                 this.inlineGlyph(
                     decoration.range.start,
-                    getBreakpointIcon(this.debugService.state, model.areBreakpointsActivated(), decoration.breakpoint, model),
+                    getBreakpointIcon(
+                        this.debugService.state,
+                        model.areBreakpointsActivated(),
+                        decoration.breakpoint,
+                        model,
+                    ),
                 ),
             );
         state.editor.setOwnedInlineInsertions(DEBUG_GLYPH_OWNER, [...inline, ...state.candidates]);
@@ -332,7 +337,10 @@ export class BreakpointEditorContribution extends Disposable {
     }
 
     /** Upstream `createCandidateDecorations`. */
-    private candidateGlyphs(state: IAttachedEditor, lineBreakpoints: readonly IBreakpointsForLine[]): IInlineInsertion[] {
+    private candidateGlyphs(
+        state: IAttachedEditor,
+        lineBreakpoints: readonly IBreakpointsForLine[],
+    ): IInlineInsertion[] {
         const model = this.debugService.getModel();
         const document = state.editor.viewState.document;
         const result: IInlineInsertion[] = [];
@@ -347,7 +355,8 @@ export class BreakpointEditorContribution extends Disposable {
                 if (
                     (p.column <= firstColumn &&
                         !state.breakpointDecorations.some(
-                            (bp) => bp.range.start.character + 1 > firstColumn && bp.range.start.line + 1 === p.lineNumber,
+                            (bp) =>
+                                bp.range.start.character + 1 > firstColumn && bp.range.start.line + 1 === p.lineNumber,
                         )) ||
                     p.column > lastColumn
                 ) {

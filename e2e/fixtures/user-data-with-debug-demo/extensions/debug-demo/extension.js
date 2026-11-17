@@ -17,6 +17,8 @@
  *   long line; the adapter completes the console's input (`completions`);
  * - its custom `demoReady` event makes the extension ask the custom `demoInfo` request and print the answer to the
  *   Debug Console, as does the focused frame;
+ * - F10 goes to the next line; `./crash` throws `SIGSEGV` on F10 at `printf` (the exception's info has a stack trace);
+ *   Continue goes to the next breakpoint below the line where a condition holds, without one the program exits;
  * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint;
  * - `sum` among the locals takes a new value (`setVariable`) and evaluates to it;
  * - the menu of a call stack frame has "Show Frame in Status": the argument it gets goes to the `dbg:` item; the
@@ -38,7 +40,7 @@ exports.activate = function activate(context) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand("debugDemo.pickProgram", () =>
-            vscode.window.showQuickPick(["./hello", "./world", "./tests"], {
+            vscode.window.showQuickPick(["./hello", "./world", "./tests", "./crash"], {
                 placeHolder: "Pick the program to debug",
             }),
         ),
@@ -119,6 +121,8 @@ class DemoAdapter {
         this.sourceBreakpoints = [];
         /** The lines of the breakpoints in `hello.c` the program stops at. */
         this.breakpoints = [];
+        /** The line of `hello.c` the program is stopped at. */
+        this.line = 3;
     }
 
     handleMessage(request) {
@@ -140,7 +144,28 @@ class DemoAdapter {
             if (program === "./tests") this.testRunnerOutput();
             this.event("demoReady");
             const reason = this.breakpoints.length > 0 ? "breakpoint" : "entry";
+            this.line = this.breakpoints.length > 0 ? this.breakpoints[0] : 3;
             this.event("stopped", { reason, threadId: 1, allThreadsStopped: true });
+        }
+        if (request.command === "next") {
+            if (this.configuration.program === "./crash" && this.line === 4) {
+                this.event("output", { category: "stderr", output: "Segmentation fault in printf\n" });
+                this.event("stopped", { reason: "exception", text: "SIGSEGV", threadId: 1, allThreadsStopped: true });
+            } else {
+                this.line = Math.min(this.line + 1, 6);
+                this.event("stopped", { reason: "step", threadId: 1, allThreadsStopped: true });
+            }
+        }
+        if (request.command === "continue") {
+            this.runBreakpoints(false);
+            const next = this.breakpoints.find((line) => line > this.line);
+            if (next === undefined) {
+                this.event("exited", { exitCode: 0 });
+                this.event("terminated");
+            } else {
+                this.line = next;
+                this.event("stopped", { reason: "breakpoint", threadId: 1, allThreadsStopped: true });
+            }
         }
         if (request.command === "disconnect") this.event("terminated");
     }
@@ -187,6 +212,7 @@ class DemoAdapter {
                     supportsSetVariable: true,
                     supportsConditionalBreakpoints: true,
                     supportsLogPoints: true,
+                    supportsExceptionInfoRequest: true,
                 };
             case "setBreakpoints": {
                 const lines = (request.arguments.breakpoints || []).map((bp) => bp.line);
@@ -199,6 +225,15 @@ class DemoAdapter {
             }
             case "demoInfo":
                 return { pid: 4242 };
+            case "continue":
+                return { allThreadsContinued: true };
+            case "exceptionInfo":
+                return {
+                    exceptionId: "SIGSEGV",
+                    description: "Invalid read of size 1 at address 0x0",
+                    breakMode: "always",
+                    details: { stackTrace: `    at printf\n    at main (${this.source}:4)` },
+                };
             case "completions": {
                 // The locals and `cfg` whose names start with the word before the cursor (`line` and `column` are
                 // 1-based, in the input's lines).
@@ -217,7 +252,7 @@ class DemoAdapter {
                         {
                             id: 1,
                             name: "main",
-                            line: this.breakpoints.length > 0 ? this.breakpoints[0] : 3,
+                            line: this.line,
                             column: 5,
                             source: this.source && { name: "hello.c", path: this.source },
                         },

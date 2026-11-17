@@ -51,6 +51,10 @@
             "workbench.action.debug.callStackDown",
             "debug.startFromConfig",
             "workbench.action.debug.focusProcess",
+            "debug.jumpToCursor",
+            "debug.jumpToCursor",
+            "workbench.action.debug.stepIntoTarget",
+            "editor.debug.action.toggleInlineBreakpoint",
             "debug.editBreakpoint",
             "debug.editFunctionBreakpoint",
             "debug.editFunctionBreakpointHitCount",
@@ -214,6 +218,14 @@
             "editor.action.clipboardCutAction",
             "editor.action.clipboardCopyAction",
             "editor.action.clipboardPasteAction"
+        ],
+        "debug": [
+            "editor.debug.action.selectionToRepl",
+            "editor.debug.action.toggleInlineBreakpoint",
+            "editor.debug.action.selectionToWatch",
+            "editor.debug.action.stepIntoTargets",
+            "editor.debug.action.runToCursor",
+            "debug.jumpToCursor"
         ],
         "navigation": [
             "editor.action.revealDefinition",

@@ -17,8 +17,8 @@
 import { distinct } from "../../../../base/common/arrays.ts";
 import { raceTimeout, RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
-import { isCancellationError } from "../../../../base/common/errorSerialization.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
+import { isCancellationError } from "../../../../base/common/errorSerialization.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri as uri } from "../../../../base/common/uri.ts";
@@ -1429,7 +1429,7 @@ export class DebugService implements IDebugService {
             if (bestScore < Score.VerifiedAndPausedInFile) {
                 const pausedInThisFile = threads.find((t) => {
                     const top = t.getTopStackFrame();
-                    return top && top.source.uri.toString() === uri.toString();
+                    return top?.source.uri.toString() === uri.toString();
                 });
 
                 if (pausedInThisFile) {

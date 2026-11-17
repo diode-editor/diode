@@ -47,7 +47,9 @@ describe("Breakpoints in the editor's glyph lane", () => {
         fs.writeFileSync(main, SOURCE);
         t = await createDebugViewletHarness(root);
         // The candidate locations of the synthetic adapter would split the lines' texts the tests look for.
-        await t.h.container.get(IConfigurationServiceDIToken).updateValue("debug.showInlineBreakpointCandidates", false);
+        await t.h.container
+            .get(IConfigurationServiceDIToken)
+            .updateValue("debug.showInlineBreakpointCandidates", false);
         const adapters = t.h.container.get(DebugServiceDIToken).getAdapterManager();
         synthetic = registerSyntheticDebugger(adapters, NO_DELAY_TIMING, root);
         const adapterDisposal = {

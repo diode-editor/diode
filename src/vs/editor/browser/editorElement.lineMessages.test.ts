@@ -167,6 +167,29 @@ describe("EditorElement — messages after the lines' ends", () => {
         expect(row(1).slice(editor.gutterWidth)).toBe("  it a");
     });
 
+    it("each owner's messages live beside the others'; on a shared line the first owner's is shown", () => {
+        const { editor, row, clicks, mouseDown } = setup();
+        editor.setLineMessageDecorations([error("t", 1, "test"), error("u", 2, "under")]);
+        editor.setLineMessageDecorations([error("x", 2, "exc"), error("y", 3, "end")], "debug");
+        expect(row(1).slice(editor.gutterWidth)).toBe("  it a  test");
+        expect(row(2).slice(editor.gutterWidth)).toBe("  it b  under");
+        expect(row(3).slice(editor.gutterWidth)).toBe("end  end");
+        expect([...editor.getLineMessageDecorations()].map(([line, m]) => [line, m.key])).toEqual([
+            [1, "t"],
+            [2, "u"],
+            [3, "y"],
+        ]);
+        mouseDown(editor.gutterWidth + 5, 3);
+        expect(clicks).toEqual(["y"]);
+
+        // One owner's call leaves the other's messages.
+        editor.setLineMessageDecorations([]);
+        expect(row(1).slice(editor.gutterWidth)).toBe("  it a");
+        expect(row(2).slice(editor.gutterWidth)).toBe("  it b  exc");
+        editor.setLineMessageDecorations([], "debug");
+        expect(editor.getLineMessageDecorations().size).toBe(0);
+    });
+
     describe("clicks", () => {
         it("a left press on its cells fires its key and leaves the cursor", () => {
             const { editor, clicks, mouseDown } = setup();

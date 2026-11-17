@@ -73,7 +73,10 @@ describe("The editor's commands while debugging", () => {
         await vi.waitFor(() => {
             expect(editor().uri.fsPath).toBe(main);
         });
-        t.h.container.get(DebugServiceDIToken).getAdapterManager().registerBreakpoints({ language: editor().languageId });
+        t.h.container
+            .get(DebugServiceDIToken)
+            .getAdapterManager()
+            .registerBreakpoints({ language: editor().languageId });
         return factory.adapters[0];
     }
 
@@ -225,9 +228,13 @@ describe("The editor's commands while debugging", () => {
         await vi.waitFor(() => {
             expect(t.screen()).toMatch(/\bnums: size=1000/u);
         });
-        expect(t.h.container.get(DebugServiceDIToken).getModel().getWatchExpressions().map((e) => e.name)).toEqual([
-            "nums",
-        ]);
+        expect(
+            t.h.container
+                .get(DebugServiceDIToken)
+                .getModel()
+                .getWatchExpressions()
+                .map((e) => e.name),
+        ).toEqual(["nums"]);
     });
 
     it("Shift+F9 sets an inline breakpoint before the column; the line's other locations show as candidates", async () => {
@@ -257,7 +264,13 @@ describe("The editor's commands while debugging", () => {
     });
 
     it("the editor's context menu has the debug group while debugging, not before", async () => {
-        const items = ["Evaluate in Debug Console", "Add to Watch", "Step Into Target", "Run to Cursor", "Jump to Cursor"];
+        const items = [
+            "Evaluate in Debug Console",
+            "Add to Watch",
+            "Step Into Target",
+            "Run to Cursor",
+            "Jump to Cursor",
+        ];
         t.registerDebugger();
         t.h.container.get(EditorServiceDIToken).openFile(main);
         editor().focusEditor();

@@ -487,7 +487,9 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                     (args.source as DebugProtocol.Source).path === `${this.root}/src/${MAIN_CPP}` &&
                     line >= LOOP_FIRST_LINE &&
                     line <= LOOP_LAST_LINE;
-                this.respond(request, { targets: inLoop ? [{ id: line, label: `main.cpp:${String(line)}`, line }] : [] });
+                this.respond(request, {
+                    targets: inLoop ? [{ id: line, label: `main.cpp:${String(line)}`, line }] : [],
+                });
                 return;
             }
             case "goto":

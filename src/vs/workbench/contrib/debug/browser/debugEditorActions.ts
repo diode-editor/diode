@@ -247,7 +247,7 @@ export const stepIntoTargetsAction: CommandAction = {
         const session = viewModel.focusedSession;
         const frame = viewModel.focusedStackFrame;
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
-        if (!session || !frame || !editor || editor.uri.toString() !== frame.source.uri.toString()) {
+        if (!session || !frame || editor?.uri.toString() !== frame.source.uri.toString()) {
             notify(accessor, "info", NO_TARGETS_MESSAGE);
             return;
         }
@@ -264,9 +264,7 @@ export const stepIntoTargetsAction: CommandAction = {
             if (target.line) {
                 positionalTargets.push({
                     start: createPosition(target.line - 1, (target.column ?? 1) - 1),
-                    end: target.endLine
-                        ? createPosition(target.endLine - 1, (target.endColumn ?? 1) - 1)
-                        : undefined,
+                    end: target.endLine ? createPosition(target.endLine - 1, (target.endColumn ?? 1) - 1) : undefined,
                     target,
                 });
             }
@@ -301,7 +299,11 @@ export const stepIntoTargetsAction: CommandAction = {
 export const stepIntoTargetAction: CommandAction = {
     id: STEP_INTO_TARGET_ID,
     title: "Debug: Step Into Target",
-    keybinding: { keys: parseKeybinding("mod+f11"), when: STEP_INTO_TARGETS_WHEN, weight: KeybindingWeight.WorkbenchContrib },
+    keybinding: {
+        keys: parseKeybinding("mod+f11"),
+        when: STEP_INTO_TARGETS_WHEN,
+        weight: KeybindingWeight.WorkbenchContrib,
+    },
     menus: [
         {
             menuId: MenuId.CommandPalette,
@@ -449,7 +451,11 @@ export const goToPreviousBreakpointAction = goToBreakpointAction(
 export const toggleInlineBreakpointAction: CommandAction = {
     id: TOGGLE_INLINE_BREAKPOINT_ID,
     title: "Debug: Inline Breakpoint",
-    keybinding: { keys: parseKeybinding("shift+f9"), when: "editorTextFocus", weight: KeybindingWeight.WorkbenchContrib },
+    keybinding: {
+        keys: parseKeybinding("shift+f9"),
+        when: "editorTextFocus",
+        weight: KeybindingWeight.WorkbenchContrib,
+    },
     menus: [
         { menuId: MenuId.CommandPalette, when: "debuggersAvailable" },
         editorContextItem(1, IN_DEBUG_MODE, "Add Inline Breakpoint"),
@@ -493,9 +499,10 @@ export const BREAKPOINT_EDITOR_ACTIONS: readonly CommandAction[] = [
     stepIntoTargetsAction,
     stepIntoTargetAction,
     selectionToReplAction,
+    // Before Add to Watch, of the same order: upstream sorts the items of an order by their titles.
+    toggleInlineBreakpointAction,
     selectionToWatchAction,
     goToNextBreakpointAction,
     goToPreviousBreakpointAction,
-    toggleInlineBreakpointAction,
     closeExceptionWidgetAction,
 ];
