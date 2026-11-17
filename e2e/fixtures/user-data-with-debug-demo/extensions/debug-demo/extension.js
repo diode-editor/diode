@@ -10,8 +10,8 @@
  * - the second resolution sees the substituted program and adds an argument;
  * - the adapter "runs" the program: it prints a greeting to the Debug Console and stops on entry in `main` of
  *   the folder's `hello.c` with `argc` and `program` among the locals;
- * - the Debug Console gets output in ANSI colors with a link to `hello.c`, a group and a long line; the adapter
- *   completes the console's input (`completions`);
+ * - `./tests` also prints what a test runner does: output in ANSI colors with a link to `hello.c`, a group and a
+ *   long line; the adapter completes the console's input (`completions`);
  * - its custom `demoReady` event makes the extension ask the custom `demoInfo` request and print the answer to the
  *   Debug Console, as does the focused frame;
  * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint.
@@ -31,7 +31,9 @@ exports.activate = function activate(context) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand("debugDemo.pickProgram", () =>
-            vscode.window.showQuickPick(["./hello", "./world"], { placeHolder: "Pick the program to debug" }),
+            vscode.window.showQuickPick(["./hello", "./world", "./tests"], {
+                placeHolder: "Pick the program to debug",
+            }),
         ),
         vscode.debug.registerDebugConfigurationProvider("demo", {
             resolveDebugConfiguration(_folder, config) {
@@ -115,22 +117,26 @@ class DemoAdapter {
         if (request.command === "configurationDone") {
             const { program, args } = this.configuration;
             this.event("output", { category: "stdout", output: `Hello from ${program} ${args.join(" ")}\n` });
-            // What a test runner prints: SGR colors, a file link, a group, and a line longer than the console.
-            this.event("output", { category: "stdout", output: "Checks", group: "start" });
-            this.event("output", {
-                category: "stdout",
-                output: `\u001b[32mPASS\u001b[0m self-check \u001b[1;33m3/3\u001b[0m at ${this.source}:3:5\n`,
-            });
-            this.event("output", { category: "stdout", output: "\u001b[31mFAIL\u001b[0m none\n" });
-            this.event("output", { category: "stdout", output: "", group: "end" });
-            this.event("output", {
-                category: "console",
-                output: `${"A long line that the Debug Console wraps to its width, ".repeat(4)}end of the long line\n`,
-            });
+            if (program === "./tests") this.testRunnerOutput();
             this.event("demoReady");
             this.event("stopped", { reason: "entry", threadId: 1, allThreadsStopped: true });
         }
         if (request.command === "disconnect") this.event("terminated");
+    }
+
+    // What a test runner prints: SGR colors, a file link, a group, and a line longer than the console.
+    testRunnerOutput() {
+        this.event("output", { category: "stdout", output: "Checks", group: "start" });
+        this.event("output", {
+            category: "stdout",
+            output: `\u001b[32mPASS\u001b[0m self-check \u001b[1;33m3/3\u001b[0m at ${this.source}:3:5\n`,
+        });
+        this.event("output", { category: "stdout", output: "\u001b[31mFAIL\u001b[0m none\n" });
+        this.event("output", { category: "stdout", output: "", group: "end" });
+        this.event("output", {
+            category: "console",
+            output: `${"A long line that the Debug Console wraps to its width, ".repeat(4)}end of the long line\n`,
+        });
     }
 
     answer(request) {

@@ -21,7 +21,8 @@ export default defineScenario({
         await editor.waitForReady();
 
         await editor.sendKey("F5");
-        await editor.waitForText((t) => t.includes("Pick the program to debug"));
+        await editor.waitForText((t) => t.includes("Pick the program to debug") && t.includes("./tests"));
+        await editor.sendText("tests");
         await editor.sendKey("Enter");
         await editor.sendKey("Ctrl+k");
         await editor.sendKey("y");
@@ -31,10 +32,11 @@ export default defineScenario({
         );
         await editor.capture("ansi-and-wrap");
 
-        // The filter keeps the lines it matches.
+        // The filter: `!FAIL` hides the line it matches, the rest of the group stays (no "Showing n of m": upstream
+        // counts the top-level lines only).
         await editor.clickNode("#replFilter");
-        await editor.sendText("PASS");
-        await editor.waitForText((t) => t.includes("Showing") && !t.includes("FAIL none"));
+        await editor.sendText("!FAIL");
+        await editor.waitForText((t) => t.includes("PASS self-check 3/3") && !t.includes("FAIL none"));
         await editor.capture("filter");
         await editor.sendKey("Escape");
         await editor.waitForText((t) => t.includes("FAIL none"));
