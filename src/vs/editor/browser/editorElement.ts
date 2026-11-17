@@ -1316,9 +1316,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         };
 
         // Guides go before highlight passes: those set only `bg` and lie over the glyph.
-        // A guide keeps its line's background: a diff strip or a stack frame's highlight runs under it.
-        const lineBg = (line: number): number => lineBgByLine.get(line) ?? highlightBgByLine.get(line) ?? editorBg;
-        const indentGuideCells = this.paintIndentGuides(context, geometry, lineBg, primaryLine);
+        const indentGuideCells = this.paintIndentGuides(context, geometry, primaryLine);
 
         // Pass order is stacking order: each pass wins over the previous one.
         for (const decoration of this.decorations.rangeBackgrounds ?? []) {
@@ -1474,7 +1472,6 @@ export class EditorElement extends TUIElement implements IScrollable {
     private paintIndentGuides(
         context: RenderContext,
         geo: ITextViewportGeometry,
-        lineBg: (line: number) => number,
         primaryLine: number,
     ): IndentGuideCells {
         const regions = this.viewState.foldedRegions;
@@ -1539,7 +1536,8 @@ export class EditorElement extends TUIElement implements IScrollable {
                 if (screenX < geo.gutterW) continue;
                 // Stryker disable next-line ConditionalExpression,EqualityOperator: the render context clips at the element's right edge, a guide past it is not drawn either way
                 if (screenX >= geo.gutterW + geo.contentCols) continue;
-                context.setCell(screenX, screenY, { char: INDENT_GUIDE, fg, bg: lineBg(logLine) });
+                // No `bg`: the guide keeps the row's background, a diff strip's or a stack frame's highlight too.
+                context.setCell(screenX, screenY, { char: INDENT_GUIDE, fg });
                 const columns = guideCells.get(screenY);
                 // Nested regions give several guides per row: add, don't replace.
                 if (columns === undefined) guideCells.set(screenY, new Set([screenX]));
