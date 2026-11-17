@@ -75,7 +75,10 @@ describe("titleMenuEntries — split buttons", () => {
 
     it("the primary item's own icon and color win over the submenu's; its enablement dims the button", () => {
         const runs: string[] = [];
-        const primary = { ...command("a", runs, { icon: "★", enabled: false }), iconColor: "debugIcon.startForeground" };
+        const primary = {
+            ...command("a", runs, { icon: "★", enabled: false }),
+            iconColor: "debugIcon.startForeground",
+        };
         const groups = split([primary as MenuEntry, command("b", runs)]);
         expect(inlineActions(groups)[0]).toStrictEqual({
             id: PRIMARY,
