@@ -382,9 +382,20 @@ describe("DebugService and the editor", () => {
         const adapter = await startStopped();
         adapter.requests.length = 0;
 
+        adapter.breakpointAdapterData = "cookie";
+
         await fx.service.updateBreakpoints(MAIN, new Map([[breakpoint.getId(), { condition: "x" }]]), false);
 
         expect(setBreakpointLines(adapter)).toEqual([[12]]);
+        // Stored again once the adapter answered, with its data.
+        const key = [...fx.state.values.keys()].find((k) => k.endsWith("debug.breakpoint"));
+        expect(fx.state.values.get(key ?? "")).toEqual([expect.objectContaining({ adapterData: "cookie" })]);
+    });
+
+    it("`debug.allowBreakpointsEverywhere` lets breakpoints into a language no extension contributes them to", async () => {
+        expect(fx.service.canSetBreakpointsIn("plaintext")).toBe(false);
+        await fx.configuration.updateValue("debug.allowBreakpointsEverywhere", true);
+        expect(fx.service.canSetBreakpointsIn("plaintext")).toBe(true);
     });
 
     it("the stop opens the top frame without taking the focus by `debug.focusEditorOnBreak`", async () => {

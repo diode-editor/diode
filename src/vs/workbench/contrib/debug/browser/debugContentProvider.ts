@@ -12,7 +12,7 @@ import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri as uri } from "../../../../base/common/uri.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { EditorServiceDIToken, type IEditorService } from "../../../services/editor/common/editorService.ts";
-import { DEBUG_SCHEME, type IDebugService, type IDebugSession } from "../common/debug.ts";
+import { DEBUG_SCHEME, type IDebugService } from "../common/debug.ts";
 import { Source } from "../common/debugSource.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
@@ -31,15 +31,10 @@ export class DebugContentProvider extends Disposable {
     }
 
     public async provideTextContent(resource: uri): Promise<string> {
-        let session: IDebugSession | undefined;
-
-        if (resource.query) {
-            const data = Source.getEncodedDebugData(resource);
-            session = this.debugService.getModel().getSession(data.sessionId);
-        }
-
-        // fallback: use focused session
-        session ??= this.debugService.getViewModel().focusedSession;
+        // Without `?session=` in the query the session id is undefined, and the fallback is the focused session.
+        const session =
+            this.debugService.getModel().getSession(Source.getEncodedDebugData(resource).sessionId) ??
+            this.debugService.getViewModel().focusedSession;
 
         if (!session) {
             throw new Error("Unable to resolve the resource without a debug session");

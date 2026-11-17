@@ -98,6 +98,13 @@ describe("BreakpointInput", () => {
             expect(service.addBreakpoints).toHaveBeenCalledWith(FILE, [
                 expect.objectContaining({ lineNumber: 4, column: 3, condition: undefined, logMessage: "" }),
             ]);
+
+            await input.show(FILE, 5, undefined, BreakpointWidgetContext.CONDITION);
+            await input.show(FILE, 6, undefined, BreakpointWidgetContext.HIT_COUNT);
+            expect(vi.mocked(service.addBreakpoints).mock.calls.slice(1)).toEqual([
+                [FILE, [expect.objectContaining({ condition: "", hitCondition: undefined })]],
+                [FILE, [expect.objectContaining({ condition: undefined, hitCondition: "" })]],
+            ]);
         });
 
         it("asked for a hit count writes it", async () => {
@@ -216,6 +223,7 @@ describe("BreakpointInput", () => {
 
             expect(notifications).toEqual([
                 expect.objectContaining({
+                    severity: "info",
                     message:
                         "This breakpoint has a condition that will get lost on remove. Consider disabling the breakpoint instead.",
                     modal: true,
@@ -238,6 +246,14 @@ describe("BreakpointInput", () => {
                     items: ["Remove Logpoint", "Enable Logpoint", "Cancel"],
                 }),
             );
+        });
+
+        it("of a logpoint and a conditional breakpoint names the condition", async () => {
+            const logpoint = add({ lineNumber: 1, logMessage: "m" });
+            const conditional = add({ lineNumber: 1, column: 4, condition: "c" });
+            await input.confirmRemoval([logpoint, conditional], true);
+
+            expect(notifications[0].items).toEqual(["Remove Breakpoint", "Disable Breakpoint", "Cancel"]);
         });
 
         it("Remove removes them all, the second button flips their enablement", async () => {

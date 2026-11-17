@@ -763,7 +763,6 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public set glyphMarginReserved(reserved: boolean) {
-        if (reserved === this.glyphMarginReservedValue) return;
         this.glyphMarginReservedValue = reserved;
         this.markDirty();
     }

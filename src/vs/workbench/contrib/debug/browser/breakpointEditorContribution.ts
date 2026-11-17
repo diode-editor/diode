@@ -318,6 +318,7 @@ export class BreakpointEditorContribution extends Disposable {
                     // Deduplicate same decorations so colors do not stack #109045
                     const dedupKey = `${String(top)} ${String(decoration.line)}`;
                     const existing = result.get(dedupKey);
+                    // Stryker disable next-line LogicalOperator: `||` differs only when neither has a glyph, and then the decorations are equal
                     if (existing === undefined || (!existing.glyph && decoration.glyph))
                         result.set(dedupKey, decoration);
                 }

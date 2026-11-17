@@ -126,6 +126,7 @@ export class BreakpointInput {
             .filter((bp) => bp !== breakpoint && !bp.logMessage);
         const items = candidates.map((bp) => ({ label: `${this.sources.uriLabel(bp.uri)}: ${String(bp.lineNumber)}` }));
         const picked = await this.quickInput.quickPick({ placeholder: "Wait for Breakpoint", items });
+        // Stryker disable next-line ConditionalExpression: without the check `indexOf` gives -1, and `candidates[-1]` is undefined too
         return picked === undefined ? undefined : candidates[items.indexOf(picked)];
     }
 

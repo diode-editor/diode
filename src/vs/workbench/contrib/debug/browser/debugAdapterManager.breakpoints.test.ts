@@ -47,6 +47,13 @@ describe("AdapterManager — where breakpoints can be set", () => {
         expect(manager.canSetBreakpointsIn("cpp")).toBe(false);
     });
 
+    it("a contribution that goes takes only its own language", () => {
+        manager.registerBreakpoints({ language: "cpp" });
+        manager.registerBreakpoints({ language: "c" }).dispose();
+        expect(manager.canSetBreakpointsIn("cpp")).toBe(true);
+        expect(manager.canSetBreakpointsIn("c")).toBe(false);
+    });
+
     it("everywhere with `debug.allowBreakpointsEverywhere`, but never in jsonc, log or a file without a language", () => {
         everywhere = true;
         expect(manager.canSetBreakpointsIn("plaintext")).toBe(true);
@@ -71,6 +78,12 @@ describe("AdapterManager — where breakpoints can be set", () => {
         contextKeys.setRaw("unrelated", true);
         await settle();
         expect(changes).toBe(before + 1);
+
+        // A batch of keys where only one is the contribution's.
+        contextKeys.setRaw("unrelated", false);
+        contextKeys.setRaw("qaBreakpoints", false);
+        await settle();
+        expect(changes).toBe(before + 2);
     });
 
     it("a debugger registered, or one whose `when` changes, is a change: the lane follows `debuggersAvailable`", async () => {

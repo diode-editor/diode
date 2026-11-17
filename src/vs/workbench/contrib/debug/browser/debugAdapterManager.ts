@@ -54,6 +54,7 @@ export class AdapterManager extends Disposable implements IAdapterManager {
     private debuggerWhenKeys = new Set<string>();
     private readonly debugAdapterFactories = new Map<string, IDebugAdapterFactory>();
     private readonly onDidRegisterDebuggerEmitter = this.register(new Emitter<void>());
+    // Stryker disable next-line ArrayDeclaration: a non-`Breakpoints` entry has no `language`, it matches no file
     private breakpointContributions: Breakpoints[] = [];
     /** The context keys of the contributions' `when`. */
     private breakpointWhenKeys = new Set<string>();

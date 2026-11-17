@@ -195,6 +195,24 @@ describe("EditorElement — glyph margin", () => {
             expect(editor.viewState.selections[0].active.line).toBe(1);
         });
 
+        it("reserved or not after a frame, the next frame moves the text", () => {
+            const { app, editor } = setup(LINES);
+            app.render();
+            expect(app.backend.getTextAt(new Point(0, 1), 9)).toBe("  2     i");
+            editor.glyphMarginReserved = true;
+            app.render();
+            expect(app.backend.getTextAt(new Point(0, 1), 9)).toBe("   2     ");
+        });
+
+        it("a press on the lane focuses the editor, as a press on its text does", () => {
+            const { app, editor } = setup(LINES);
+            editor.glyphMarginReserved = true;
+            app.render();
+            expect(editor.isFocused).toBe(false);
+            mouseDown(editor, 0, 1);
+            expect(editor.isFocused).toBe(true);
+        });
+
         it("a middle press on the lane is a click of the middle button; elsewhere it does nothing", () => {
             const { app, editor, clicks } = setup(LINES);
             editor.setGlyphMarginDecorations("t", [glyph("a", 1)]);
