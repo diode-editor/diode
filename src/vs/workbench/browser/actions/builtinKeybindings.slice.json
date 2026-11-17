@@ -8,6 +8,10 @@
         "ctrl+c: workbench.action.terminal.copyAndClearSelection [(terminalTextSelectedInFocused || terminalTextSelected) && ((terminalTextSelected && terminalFocus) || terminalTextSelectedInFocused)] > editor.action.clipboardCopyAction [textViewFocus]",
         "ctrl+c: workbench.action.terminal.copyAndClearSelection [(terminalTextSelectedInFocused || terminalTextSelected) && ((terminalTextSelected && terminalFocus) || terminalTextSelectedInFocused)] > fileOperations.copy [filesExplorerFocus]",
         "ctrl+c: workbench.action.terminal.copyAndClearSelection [(terminalTextSelectedInFocused || terminalTextSelected) && ((terminalTextSelected && terminalFocus) || terminalTextSelectedInFocused)] > input.copy [inputWidgetFocus]",
+        "ctrl+c: workbench.action.terminal.copyAndClearSelection [(terminalTextSelectedInFocused || terminalTextSelected) && ((terminalTextSelected && terminalFocus) || terminalTextSelectedInFocused)] > workbench.debug.viewlet.action.copyValue [(!expressionSelected && (focusedView == 'workbench.debug.watchExpressionsView' || focusedView == 'workbench.debug.variablesView')) && (!(macKeys >= 3))]",
+        "ctrl+c: workbench.debug.viewlet.action.copyValue [(!expressionSelected && (focusedView == 'workbench.debug.watchExpressionsView' || focusedView == 'workbench.debug.variablesView')) && (!(macKeys >= 3))] > editor.action.clipboardCopyAction [textViewFocus]",
+        "ctrl+c: workbench.debug.viewlet.action.copyValue [(!expressionSelected && (focusedView == 'workbench.debug.watchExpressionsView' || focusedView == 'workbench.debug.variablesView')) && (!(macKeys >= 3))] > fileOperations.copy [filesExplorerFocus]",
+        "ctrl+c: workbench.debug.viewlet.action.copyValue [(!expressionSelected && (focusedView == 'workbench.debug.watchExpressionsView' || focusedView == 'workbench.debug.variablesView')) && (!(macKeys >= 3))] > input.copy [inputWidgetFocus]",
         "ctrl+down: workbench.action.nextEditorInGroup [(editorAreaFocus && editorTabsMultiple) && (tabSwitcherVisible)] > scrollLineDown [(textViewFocus) && (!(macKeys >= 1))]",
         "ctrl+down: workbench.action.nextEditorInGroup [(editorAreaFocus && editorTabsMultiple) && (tabSwitcherVisible)] > search.focus.nextInputBox [(searchViewletVisible && searchInputBoxFocus) && (!(macKeys >= 3))]",
         "ctrl+e: workbench.action.quickOpenNavigateNextInFilePicker [(inFilesPicker && inputWidgetFocus) && (!(macKeys >= 1))] > workbench.action.quickOpen [!(macKeys >= 1)]",
@@ -158,10 +162,12 @@
             "mac-extended (tmux + extended-keys) #1": "ctrl+k shift+right",
             "mac-cmd (kitty) #1": "ctrl+k shift+right"
         },
+        "debug.copyWatchExpression": "ctrl+alt+c",
         "debug.openBreakpointToSide": "alt+enter",
         "debug.removeBreakpoint": "delete",
         "debug.removeWatchExpression": "delete",
         "debug.renameWatchExpression": "f2",
+        "debug.setVariable": "f2",
         "debug.toggleBreakpoint": "space",
         "deleteAllLeft": "meta+backspace",
         "deleteLeft": "backspace",
@@ -1112,6 +1118,7 @@
             "mac-cmd (kitty) #2": "shift+meta+y",
             "mac-cmd (kitty) #3": "shift+meta+y"
         },
+        "workbench.debug.viewlet.action.copyValue": "ctrl+c",
         "workbench.files.action.compareWithClipboard": {
             "*": "ctrl+k c",
             "mac-cmd (kitty) #0": "meta+k c",

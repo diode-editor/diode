@@ -95,7 +95,8 @@ export const copyValueAction: CommandAction = {
     keybinding: {
         keys: parseKeybinding("mod+c"),
         when: `!expressionSelected && (focusedView == '${WATCH_VIEW_ID}' || focusedView == '${VARIABLES_VIEW_ID}')`,
-        weight: KeybindingWeight.WorkbenchContrib,
+        // Upstream's weight ties with the terminal's copy; the two never hold together, one less makes it explicit.
+        weight: KeybindingWeight.WorkbenchContrib - 1,
     },
     menus: [
         ...HIDDEN_FROM_PALETTE,

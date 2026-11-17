@@ -97,15 +97,14 @@ SVG (путь или `{ light, dark }`) в терминале не нарисо�
 (`views/titleMenuEntries.ts`, тот же разбор, что у заголовков view), размещения — на командах
 (`debugCommands.ts`, `toolBarItem`, `when`/`enablement` эталона) с `iconColor` — цветом глифа
 (`debugIcon.*Foreground`; у эталона — CSS-правила по codicon в `debugColors.ts`). `iconColor` — общее поле пункта:
-его рисуют и кнопки заголовков view (`titleMenuEntries.ts` → `ViewTitleRowElement`). Каждый пункт продублирован в
-`ViewContainerTitle` вьюлета Run and Debug с `config.debug.toolBarLocation == 'docked' && debugState != 'inactive'`:
-так `docked` кладёт те же кнопки в заголовок вьюлета. Рисует меню `DebugToolbar` (`contrib/debug/browser/`) —
+его рисуют и кнопки заголовков view (`titleMenuEntries.ts` → `ViewTitleRowElement`). У каждого пункта тулбара —
+встроенного и расширения (`contributes.menus["debug/toolBar"]`) — есть двойник в `ViewContainerTitle` вьюлета Run and
+Debug с `config.debug.toolBarLocation == 'docked' && debugState != 'inactive'`: его держит `DockedDebugToolbarItems`
+(`debugToolbar.ts`, как `debugViewTitleItems` эталона) и пересобирает при каждой смене меню тулбара
+(`MenuRegistry.getContributions`). Рисует меню `DebugToolbar` (`contrib/debug/browser/`) —
 в углу активной группы редакторов (см. [EditorWidgets.md](EditorWidgets.md#угол-группы-тулбар-отладки-и-find)),
 пере-резолв — по `ContextKeyService.onDidChange`, смене меню, состояния отладки и настроек; ряд пересобирается,
-только когда меняется показанное. Пункты расширений (`contributes.menus["debug/toolBar"]`) — кнопки того же ряда;
-мост расширений (`extensionMenuContributor.ts`) кладёт их двойника в `ViewContainerTitle` с `when` эталона
-(`viewContainer == 'workbench.view.debug' && …docked`): заголовок контейнера резолвится со своим ключом
-`viewContainer` (`viewsService.ts`, как scoped-ключ эталона).
+только когда меняется показанное.
 
 **Контекстные меню строк видов отладки** — `DebugVariablesContext`, `DebugScopesContext`, `DebugWatchContext`,
 `DebugCallStackContext`, `DebugBreakpointsContext`, `DebugConsoleContext` (точки расширений эталона —
