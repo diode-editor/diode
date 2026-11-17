@@ -6,6 +6,12 @@ import { blendRgb, compositeOver, packRgb, packRgba } from "@tuidom/core/common/
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
 import {
+    ANGULAR_ID,
+    ANGULAR_SAMPLE_DIR,
+    ensureAngularLibrary,
+    linkAngularLibrary,
+} from "../../src/TestUtils/angularFixture.ts";
+import {
     ensureEslintLibrary,
     ESLINT_FLAT_CONFIG,
     LINT_JS,
@@ -1097,6 +1103,38 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await app.session.executeCommand("workbench.action.previousEditor");
                 await app.session.waitForText((text) => text.includes('answer: number = "42"'), { timeoutMs: 20_000 });
                 await undercurl("the built-in TypeScript squiggle in broken.ts after Enable");
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx": the stock Angular Language Service. The server and TypeScript are bundled, Angular is
+        // not: the client asks the server whether a file is in an Angular project, and the answer is yes only with
+        // `@angular/core` in the project's node_modules, so it comes as a symlink from the fixture's npm cache. The
+        // extension forks its server by the DIRECTORY `server`, which our binary in node mode has to resolve as node
+        // does. The undercurl is under `missingProp` in the external template: nothing but ngtsc checks an `.html`.
+        id: ANGULAR_ID,
+        expectFiles: ["package.json", "index.js", "server/package.json"],
+        timeoutMs: 420_000,
+        requires: npmMissing,
+        run: async (ctx) => {
+            const project = join(ctx.root, "angular-app");
+            cpSync(ANGULAR_SAMPLE_DIR, project, { recursive: true });
+            linkAngularLibrary(project, ensureAngularLibrary());
+            const template = join(project, "src", "app", "hello.component.html");
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [project, template] });
+            try {
+                await waitUntil(
+                    () => app.session.captureFrame(),
+                    (frame) => {
+                        const at = findTextCell(frame, "missingProp");
+                        return (
+                            at !== null && (frame.cells[at.y * frame.cols + at.x].style & StyleFlags.Undercurl) !== 0
+                        );
+                    },
+                    { describe: "the ngtsc undercurl under missingProp", timeoutMs: 180_000, intervalMs: 500 },
+                );
             } finally {
                 await app.dispose();
             }
