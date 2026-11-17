@@ -55,7 +55,7 @@ interface IReplSuggestion {
 
 /** What the input's completion asks of the console. */
 export interface IReplSuggestHost {
-    /** The session whose console is shown, if it is running. */
+    /** The session whose console is shown, if any: an ended one has no capabilities. */
     session(): IDebugSession | undefined;
     /** The focused stack frame's ids, upstream's `frameId` and `threadId` of the request. */
     frame(): { readonly frameId: number | undefined; readonly threadId: number };

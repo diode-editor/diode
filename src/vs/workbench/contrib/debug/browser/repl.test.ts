@@ -787,6 +787,9 @@ describe("Repl", () => {
         });
 
         it("the filter in the view's title hides output lines, counts what it shows and is kept per workspace", async () => {
+            // No count before there is anything to count; the scenarios find the field by its id.
+            expect(repl.filterBadge.getText()).toBe("");
+            expect(repl.filterInput.id).toBe("replFilter");
             const session = await start("s");
             await shows("warning:");
             expect(titleWidget).not.toBeNull();
@@ -883,12 +886,17 @@ describe("Repl", () => {
         });
 
         it("typing completes through the adapter; Tab accepts, Escape closes, Enter evaluates the input", async () => {
-            await start("s");
+            const session = await start("s");
+            const completions = vi.spyOn(session, "completions");
             repl.focus();
             type("cf");
             await vi.waitFor(() => {
                 expect(repl.suggest.isOpen).toBe(true);
             });
+            // In the focused frame of the stopped thread.
+            const focused = fx.service.getViewModel().focusedStackFrame;
+            expect(completions.mock.calls[0].slice(0, 2)).toEqual([focused?.frameId, 1]);
+            expect(focused).toBeDefined();
             expect(repl.suggest.list.items.map((item) => item.label)).toEqual(["cfg"]);
             await shows("cfg");
 
@@ -955,6 +963,21 @@ describe("Repl", () => {
             app.sendKey("PageUp");
             app.sendKey("Tab");
             expect(repl.input.inputState.value).toBe("bad");
+        });
+
+        it("an ended session's console asks its adapter for nothing", async () => {
+            const session = await start("s");
+            const completions = vi.spyOn(session, "completions");
+            await fx.service.stopSession(session);
+            await vi.waitFor(() => {
+                expect(session.state).toBe(State.Inactive);
+            });
+            repl.focus();
+            type("cf");
+            app.sendKey("Ctrl+ ");
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            expect(completions).not.toHaveBeenCalled();
+            expect(repl.suggest.isOpen).toBe(false);
         });
 
         it("no completion without a running session or for an adapter without completions", async () => {

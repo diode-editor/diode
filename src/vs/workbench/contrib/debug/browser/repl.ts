@@ -218,7 +218,8 @@ export class Repl extends Component implements IContextKeyContributor {
             new ReplSuggest(
                 this.input,
                 {
-                    session: () => (this.session?.state === State.Inactive ? undefined : this.session),
+                    // An ended session has no adapter: no capabilities, so no completions.
+                    session: () => this.session,
                     frame: () => {
                         const frame = debugService.getViewModel().focusedStackFrame;
                         return { frameId: frame?.frameId, threadId: frame?.thread.threadId ?? 0 };
