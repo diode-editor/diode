@@ -16,6 +16,7 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
+import type { ViewModel } from "../common/debugViewModel.ts";
 
 import { DebugHoverWidgetDIToken } from "./debugHover.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
@@ -248,6 +249,30 @@ describe("Debug hover", () => {
         });
         expect(provided).toEqual([{ line: 26, character: 5 }]);
         registration.dispose();
+    });
+
+    it("no focused frame in debug mode: the language hover", async () => {
+        registerLanguageHover();
+        await stopAt("nums");
+        const viewModel = t.h.container.get(DebugServiceDIToken).getViewModel() as ViewModel;
+        viewModel.setFocus(undefined, undefined, viewModel.focusedSession, false);
+
+        showHover();
+
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("the language hover");
+        });
+        expect(hoverVisible()).toBe(false);
+    });
+
+    it("from the palette without an editor: nothing to hover", async () => {
+        await stopAt("nums");
+        await t.h.commands.execute("workbench.action.closeAllEditors");
+        expect(t.h.container.get(EditorServiceDIToken).getActiveEditor()).toBeNull();
+
+        await t.h.commands.execute("editor.debug.action.showDebugHover");
+
+        expect(hoverVisible()).toBe(false);
     });
 
     it("a continue closes the hover", async () => {

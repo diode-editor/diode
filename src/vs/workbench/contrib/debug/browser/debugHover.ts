@@ -38,7 +38,7 @@ import { CaretAnchoredOverlay } from "../../../browser/parts/editor/caretAnchore
 import { type IRowSpan, LazyTreeControl, spansText } from "../../../browser/parts/views/lazyTreeControl.ts";
 import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 import { naturalWidth } from "../../hover/browser/hoverBox.ts";
-import type { IDebugService, IDebugSession, IExpression, IExpressionContainer, IStackFrame } from "../common/debug.ts";
+import type { IDebugService, IExpression, IExpressionContainer, IStackFrame } from "../common/debug.ts";
 import { State } from "../common/debug.ts";
 import { Expression, Variable } from "../common/debugModel.ts";
 import { getEvaluatableExpressionAtPosition, type IEvaluatableExpressionModel } from "../common/debugUtils.ts";
@@ -98,12 +98,14 @@ export async function findExpressionInStackFrame(
         : undefined;
 }
 
-/** Upstream `DebugHoverComputer`: the expression at the position and its evaluation. */
+/**
+ * Upstream `DebugHoverComputer`: the expression at the position, evaluated in the frame. The editor shows the frame's
+ * source, so the frame's source is the location of the expression.
+ */
 async function computeExpression(
-    debugService: IDebugService,
     languageFeatures: ILanguageFeaturesService,
     editor: IDebugHoverEditor,
-    session: IDebugSession,
+    stackFrame: IStackFrame,
     position: IPosition,
     cancellation: ICancellationToken,
 ): Promise<IExpression | undefined> {
@@ -114,35 +116,23 @@ async function computeExpression(
         cancellation,
     );
     if (result === null) return undefined;
-    const focusedStackFrame = debugService.getViewModel().focusedStackFrame;
+    const session = stackFrame.thread.session;
     if (session.capabilities.supportsEvaluateForHovers) {
-        const debugSource = session.getSourceForUri(editor.uri);
         const expression = new Expression(result.matchingExpression);
-        await expression.evaluate(
-            session,
-            focusedStackFrame,
-            "hover",
-            undefined,
-            debugSource
-                ? {
-                      line: result.range.start.line + 1,
-                      column: result.range.start.character + 1,
-                      source: debugSource.raw,
-                  }
-                : undefined,
-        );
+        await expression.evaluate(session, stackFrame, "hover", undefined, {
+            line: result.range.start.line + 1,
+            column: result.range.start.character + 1,
+            source: stackFrame.source.raw,
+        });
         return expression;
     }
-    if (focusedStackFrame) {
-        return findExpressionInStackFrame(
-            focusedStackFrame,
-            result.matchingExpression
-                .split(".")
-                .map((word) => word.trim())
-                .filter((word) => word !== ""),
-        );
-    }
-    return undefined;
+    return findExpressionInStackFrame(
+        stackFrame,
+        result.matchingExpression
+            .split(".")
+            .map((word) => word.trim())
+            .filter((word) => word !== ""),
+    );
 }
 
 function spansWidth(spans: readonly IRowSpan[]): number {
@@ -162,17 +152,19 @@ export class DebugHoverWidget extends Disposable {
     public readonly view = new FitContentElement();
     private readonly box = new BoxContainerElement();
     public readonly tree: LazyTreeControl<IExpression>;
-    private readonly body = new SizedBoxElement();
+    /** The tree under a value with children; a plain value is its text in {@link valueBody}. */
+    private readonly treeBody = new SizedBoxElement();
+    private readonly valueBody = new SizedBoxElement();
     private readonly overlay: CaretAnchoredOverlay;
     private readonly renderer: DebugExpressionRenderer;
     private readonly latest = new LatestRequest();
-    /** The evaluated expression whose children the tree shows. */
-    private root: IExpression | undefined;
+    /** The evaluated expression whose children the tree shows: none until the first value with children. */
+    private root: IExpression = new Expression("");
     /** The tree's height last applied: a rebuild with as many rows leaves the layout alone. */
     private treeRows = 0;
 
     public constructor(
-        private readonly debugService: IDebugService,
+        debugService: IDebugService,
         private readonly languageFeatures: ILanguageFeaturesService,
         configuration: IConfigurationService,
         icons: IProductIconService,
@@ -185,9 +177,8 @@ export class DebugHoverWidget extends Disposable {
         this.view.setChild(this.box);
         this.box.setBg("editorHoverWidget.background");
         this.box.setBorderFg("editorHoverWidget.border");
-        this.box.setChild(this.body);
         // Upstream's `listBackground: editorHoverBackground`: the rows inherit the colors of what holds them.
-        this.body.style = { fg: "editorHoverWidget.foreground", bg: "editorHoverWidget.background" };
+        this.box.style = { fg: "editorHoverWidget.foreground", bg: "editorHoverWidget.background" };
         this.renderer = this.register(
             new DebugExpressionRenderer({
                 icons,
@@ -199,15 +190,16 @@ export class DebugHoverWidget extends Disposable {
         );
         this.tree = new LazyTreeControl<IExpression>(
             {
-                getRoots: () => this.root?.getChildren() ?? [],
+                getRoots: () => this.root.getChildren(),
                 getChildren: (element) => element.getChildren(),
                 getKey: (element) => element.getId(),
                 hasChildren: (element) => element.hasChildren,
-                renderRow: (element) => this.renderer.renderVariable(element, { showChanged: false }),
+                renderRow: (element) => this.renderer.renderVariable(element, { showChanged: true }),
                 getLabel: (element) => element.name,
             },
             { idPrefix: "debugHover" },
         );
+        this.treeBody.setChild(this.tree.element);
         this.tree.onActivate = (element) => {
             if (element instanceof Variable && element.presentationHint?.lazy) {
                 void debugService.getViewModel().evaluateLazyExpression(element).catch(onUnexpectedError);
@@ -221,7 +213,6 @@ export class DebugHoverWidget extends Disposable {
                 takesFocus: true,
                 onClose: () => {
                     this.latest.cancel();
-                    this.root = undefined;
                 },
             }),
         );
@@ -247,22 +238,14 @@ export class DebugHoverWidget extends Disposable {
         return this.overlay.isOpen();
     }
 
-    /** Upstream `showAt` with `focus`: the hover takes the focus once it is up. */
-    public async showAt(editor: IDebugHoverEditor, position: IPosition): Promise<ShowDebugHoverResult | undefined> {
+    /** Upstream `showAt` with `focus`, over the source of `stackFrame`: the hover takes the focus once it is up. */
+    public async showAt(
+        editor: IDebugHoverEditor,
+        position: IPosition,
+        stackFrame: IStackFrame,
+    ): Promise<ShowDebugHoverResult | undefined> {
         const ticket = this.latest.start();
-        const session = this.debugService.getViewModel().focusedSession;
-        if (!session) {
-            this.hide();
-            return ShowDebugHoverResult.NOT_AVAILABLE;
-        }
-        const expression = await computeExpression(
-            this.debugService,
-            this.languageFeatures,
-            editor,
-            session,
-            position,
-            ticket.token,
-        );
+        const expression = await computeExpression(this.languageFeatures, editor, stackFrame, position, ticket.token);
         if (ticket.isStale()) return ShowDebugHoverResult.CANCELLED;
         if (!expression || (expression instanceof Expression && !expression.available)) {
             this.hide();
@@ -280,26 +263,24 @@ export class DebugHoverWidget extends Disposable {
 
     private async doShow(expression: IExpression): Promise<void> {
         const value = this.renderer.renderValue(expression, { colorize: true });
-        const text = spansText(value);
-        const fg = value[0]?.fg ?? "editorHoverWidget.foreground";
         if (!expression.hasChildren) {
-            this.root = undefined;
             this.box.setTitle(undefined);
             this.box.setHasSeparator(false);
-            const label = new TextLabelElement(text);
+            const label = new TextLabelElement(spansText(value));
             label.wrap = true;
-            label.style = { fg };
-            this.body.setChild(label);
-            this.body.setPreferredWidth(Math.min(spansWidth(value), MAX_WIDTH - 2));
-            this.body.setPreferredHeight(undefined);
+            label.style = { fg: value[0]?.fg ?? "editorHoverWidget.foreground" };
+            this.valueBody.setChild(label);
+            this.valueBody.setPreferredWidth(Math.min(spansWidth(value), MAX_WIDTH - 2));
+            this.box.setChild(this.valueBody);
             return;
         }
         this.root = expression;
         this.treeRows = 0;
-        this.box.setTitle(text);
-        this.box.setTitleFg(fg);
+        // Upstream renders the title without colors.
+        this.box.setTitle(spansText(value));
+        this.box.setTitleFg("editorHoverWidget.foreground");
         this.box.setHasSeparator(true);
-        this.body.setChild(this.tree.element);
+        this.box.setChild(this.treeBody);
         await this.tree.refresh();
         this.tree.list.scrollTo(0, 0);
         // The first screen of rows is enough: the width stops at MAX_WIDTH anyway.
@@ -307,16 +288,15 @@ export class DebugHoverWidget extends Disposable {
             .slice(0, MAX_ROWS)
             .map((item) => spansWidth(this.renderer.renderVariable(item)) + TREE_CHROME_WIDTH);
         const width = Math.max(spansWidth(value) + 2, ...rows);
-        this.body.setPreferredWidth(Math.min(Math.max(width, MIN_WIDTH), MAX_WIDTH) - 2);
+        this.treeBody.setPreferredWidth(Math.min(Math.max(width, MIN_WIDTH), MAX_WIDTH) - 2);
     }
 
     /** Upstream `layoutTree`: as tall as the rows, up to the floor of the upstream tree. */
     private layoutTree(): void {
-        if (this.root === undefined) return;
         const height = Math.min(Math.max(this.tree.shownItems.length, 1), MAX_ROWS);
         if (height === this.treeRows) return;
         this.treeRows = height;
-        this.body.setPreferredHeight(height);
+        this.treeBody.setPreferredHeight(height);
         this.overlay.relayout();
     }
 

@@ -73,7 +73,7 @@ export const showDebugHoverAction: CommandAction = {
                 getLineContent: (line: number) => document.getLineContent(line),
                 getCaretAnchor: () => editor.getCaretAnchor(),
             };
-            const result = await accessor.get(DebugHoverWidgetDIToken).showAt(target, position);
+            const result = await accessor.get(DebugHoverWidgetDIToken).showAt(target, position, sf);
             // When no expression available fallback to editor hover
             if (result !== ShowDebugHoverResult.NOT_AVAILABLE) return;
         }

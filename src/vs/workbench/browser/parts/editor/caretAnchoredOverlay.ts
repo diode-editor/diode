@@ -12,8 +12,8 @@ export type CaretOverlayPlacement = "below" | "aboveElseBelow";
 
 export interface ICaretOverlayOptions {
     /**
-     * The popup is focused by its owner (the debug hover): the keyboard is its own, Escape and a click outside close
-     * it, and the focus goes back where it was.
+     * The popup is focused by its owner (the debug hover): Escape and a click outside close it, and the focus goes back
+     * where it was. Global keys still work, as upstream's hover is a plain DOM node: F10 steps from the debug hover.
      */
     readonly takesFocus?: boolean;
     readonly onClose?: () => void;
@@ -35,12 +35,11 @@ export class CaretAnchoredOverlay extends Disposable {
         options: ICaretOverlayOptions = {},
     ) {
         super();
-        const takesFocus = options.takesFocus === true;
         this.session = host.overlayLayer.createSession(element, new Point(0, 0), {
             visible: false,
             restoreFocus: true,
-            capturesKeyboard: takesFocus,
-            closeOnEscape: takesFocus,
+            capturesKeyboard: false,
+            closeOnEscape: options.takesFocus === true,
             onClose: options.onClose,
             // Stryker disable next-line StringLiteral: a click outside the popup already closes it earlier, by moving the cursor or the focus; the policy is kept for the reverse contract (a click ON the popup does not close it)
             pointerPolicy: "close-on-outside",
