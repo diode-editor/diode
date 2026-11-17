@@ -65,7 +65,7 @@ Format Selection, Refactor…, Source Action…) → `1_quickfix` (Quick Fix) �
 **Пункты расширений (`contributes.menus`/`submenus`).** Мост
 `registerExtensionMenus` (`services/extensions/common/extensionMenuContributor.ts`,
 аналог upstream `menusExtensionPoint.ts`) переводит строковые id точек VS Code
-(`editor/context`, `editor/title`, `explorer/context`, `scm/resourceState/context`,
+(`editor/context`, `editor/title`, `editor/title/run`, `explorer/context`, `scm/resourceState/context`,
 `view/title`, `view/item/context`, …) в наши `MenuId` и кладёт пункты в реестр через
 `appendMenuItem`. Разбор — как в эталоне: `group@order` → группа и порядок,
 `when` → when-выражение, `title` пункта перебивает титул команды, ключом
@@ -136,6 +136,22 @@ variable }`, у строки WATCH и консоли — сам элемент, 
 (у эталона — ресурс активного редактора группы). Встроенных пунктов эталона
 (Split Editor, «⋯» с Close All/Close Saved/…) пока нет — панель наполняют
 расширения (Claude Code: accept/reject предложенного диффа, Open in Terminal).
+
+**`EditorTitleRun` — кнопка Run or Debug** (VS Code `editor/title/run`). Как в
+эталоне (`debug.contribution.ts`), это подменю `EditorTitle` в группе
+`navigation` с `order: -1` (левее прочих кнопок) и `isSplitButton:
+{ togglePrimaryAction: true }` (`contrib/debug/browser/debugMenus.ts`); пункты кладут
+расширения (Python, Java, Code Runner, JBang). Split-кнопка — общий механизм
+заголовков (`ISubmenuContribution.isSplitButton`, разбор в `views/titleMenuEntries.ts`,
+аналог `DropdownWithDefaultActionViewItem`): основная кнопка ` ▷ ` запускает
+последний выбранный из стрелки пункт, пока он виден, иначе первый; приклеенная
+стрелка `▾ ` (без черты-разделителя, 2 колонки) открывает попап со всеми видимыми
+пунктами подменю по группам. Выбор запоминается ключом эталона
+`<submenu>_lastActionId` в `workspace`-скоупе `IStateService` — переживает
+перезапуск. Глиф кнопки — иконка выбранного пункта, а если её нет (у JBang иконки
+PNG) — иконка самого подменю (`play`, эталонный `Codicon.run`); отступление: эталон
+нарисовал бы картинку или подпись пункта. Без глифа вообще подменю уходит в «⋯».
+Нет ни одного видимого пункта — нет и кнопки.
 
 **`EditorTitleContext` — меню вкладки** (VS Code `editor/title/context`).
 Открывает `EditorGroupComponent` по `EditorTabStripElement.onTabContextMenu`;

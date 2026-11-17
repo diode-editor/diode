@@ -14,6 +14,11 @@ export class MenuId {
     public static readonly EditorTitleContext = new MenuId("EditorTitleContext");
     /** Opened with `EditorTitleBarMenuContext` (the group id) as context. */
     public static readonly EditorTitle = new MenuId("EditorTitle");
+    /**
+     * `editor/title/run`: the Run or Debug split button of {@link EditorTitle}. Resolved with the same context as
+     * its parent; the button runs the item last picked from its dropdown.
+     */
+    public static readonly EditorTitleRun = new MenuId("EditorTitleRun");
     /** Targets the instance under the mouse (`TerminalTabMenuContext`). */
     public static readonly TerminalTabContext = new MenuId("TerminalTabContext");
     /**

@@ -46,6 +46,14 @@ export interface ISubmenuContribution {
     readonly order?: number;
     /** Rendered as a dropdown (`SelectBoxElement`) instead of a nested popup. */
     readonly isSelection?: boolean;
+    /**
+     * Upstream `ISubmenuItem.isSplitButton`: in a title bar, a button running one item of the submenu plus an
+     * arrow opening all of them. The button runs the first item; with `togglePrimaryAction` the one last picked
+     * from the arrow, remembered per workspace.
+     */
+    readonly isSplitButton?: boolean | { readonly togglePrimaryAction: true };
+    /** The split button's glyph when its item has none of its own (an extension command with an SVG icon). */
+    readonly icon?: IProductIcon | string;
 }
 
 export type MenuContribution = IMenuContribution | ISubmenuContribution;

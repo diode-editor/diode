@@ -74,6 +74,31 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual(["Do Thing"]);
     });
 
+    it("`editor/title/run` lands in the Run or Debug submenu, groups and order kept, and logs nothing", () => {
+        const { menus, commands } = makeRegistry();
+        commands.register("ext.run", () => undefined, "Run Script");
+        commands.register("ext.debug", () => undefined, "Debug Script");
+        const { logger, lines } = collectLog();
+
+        registerExtensionMenus(
+            [
+                extension("test.ext", {
+                    menus: {
+                        "editor/title/run": [
+                            { command: "ext.debug", group: "1_execute@2" },
+                            { command: "ext.run", group: "1_execute@1" },
+                        ],
+                    },
+                }),
+            ],
+            menus,
+            logger,
+        );
+
+        expect(labels(menus, MenuId.EditorTitleRun)).toEqual(["Run Script", "Debug Script"]);
+        expect(lines).toEqual([]);
+    });
+
     it("item's own title overrides the command title", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.organize", () => undefined, "Organize Imports");

@@ -49,6 +49,16 @@ export type ResolvedMenuEntry = IResolvedMenuItemEntry | MenuSeparatorEntry | IR
 
 export interface IResolvedSubmenuEntry extends MenuSubmenuEntry {
     readonly isSelection?: boolean;
+    readonly splitButton?: IResolvedSplitButton;
+}
+
+/** {@link ISubmenuContribution.isSplitButton} as the title bar renders it. */
+export interface IResolvedSplitButton {
+    /** The submenu's `MenuId.id`: the key of the remembered item. */
+    readonly submenu: string;
+    readonly togglePrimaryAction: boolean;
+    /** Already a glyph, like an item's `icon`. */
+    readonly icon?: string;
 }
 
 export interface IMenuEntryGroup {
@@ -176,8 +186,7 @@ export class MenuRegistry {
                 if (isSubmenuContribution(item)) {
                     // The resolver is always present here: without it the filter above drops submenu entries.
                     const entry = resolveSubmenu?.(this.toSubmenuEntry(item)) ?? null;
-                    if (entry !== null)
-                        groupEntries.push(item.isSelection === true ? { ...entry, isSelection: true } : entry);
+                    if (entry !== null) groupEntries.push(this.decorateSubmenu(item, entry));
                 } else {
                     groupEntries.push(this.toEntry(item, context, keys));
                 }
@@ -255,6 +264,17 @@ export class MenuRegistry {
         return collectSorted(visible)
             .flat()
             .map((item) => this.toSubmenuEntry(item));
+    }
+
+    private decorateSubmenu(item: ISubmenuContribution, entry: MenuSubmenuEntry): IResolvedSubmenuEntry {
+        if (item.isSelection === true) return { ...entry, isSelection: true };
+        if (item.isSplitButton === undefined || item.isSplitButton === false) return entry;
+        const splitButton: IResolvedSplitButton = {
+            submenu: item.submenu.id,
+            togglePrimaryAction: item.isSplitButton !== true && item.isSplitButton.togglePrimaryAction,
+            ...(item.icon === undefined ? {} : { icon: this.icons.glyph(item.icon) }),
+        };
+        return { ...entry, splitButton };
     }
 
     private toSubmenuEntry(item: ISubmenuContribution): ISubmenuEntry {
