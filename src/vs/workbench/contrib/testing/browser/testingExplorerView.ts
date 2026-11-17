@@ -899,7 +899,9 @@ export class TestingExplorerComponent extends Component {
     /** Upstream `getActionableElementActions`: the row's keys on top of the global ones. */
     private itemMenu(row: ITestRow, inline: boolean): IMenuEntryGroup[] {
         if (row.kind === "error") return [];
-        const keys: MenuContextKeys = { view: TESTING_EXPLORER_VIEW_ID, ...getTestItemContextOverlay(row.node, this.profiles.capabilitiesForTest(row.node)),
+        const keys: MenuContextKeys = {
+            view: TESTING_EXPLORER_VIEW_ID,
+            ...getTestItemContextOverlay(row.node, this.profiles.capabilitiesForTest(row.node)),
         };
         return this.menus
             .getEntryGroups(MenuId.TestItem, undefined, keys)

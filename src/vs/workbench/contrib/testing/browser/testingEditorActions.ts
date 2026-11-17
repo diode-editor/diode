@@ -77,13 +77,7 @@ export function getTestsAtCursor(tests: readonly ITestNode[], position: IPositio
 }
 
 /** Upstream `ExecuteTestAtCursor`: the tests at the cursor of the active editor that can run in the group. */
-function testAtCursorAction(
-    group: EditorGroup,
-    id: string,
-    label: string,
-    key: string,
-    order: number,
-): CommandAction {
+function testAtCursorAction(group: EditorGroup, id: string, label: string, key: string, order: number): CommandAction {
     return {
         id,
         title: `Test: ${label}`,

@@ -37,7 +37,7 @@ function compareProfiles(a: ITestRunProfile, b: ITestRunProfile): number {
 }
 
 /** Upstream `capabilityContextKeys`: a test's menus see what it can do. Coverage is a later wave: never. */
-export function capabilityContextKeys(capabilities: number): { [key: string]: boolean } {
+export function capabilityContextKeys(capabilities: number): Record<string, boolean> {
     return {
         "testing.hasRunnableTests": (capabilities & TestRunProfileBitset.Run) !== 0,
         "testing.hasDebuggableTests": (capabilities & TestRunProfileBitset.Debug) !== 0,

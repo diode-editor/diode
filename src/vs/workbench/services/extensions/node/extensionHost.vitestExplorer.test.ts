@@ -374,7 +374,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vitest.explorer (#
                 const labels = (shown.at(-1)?.getEntries?.() ?? []).map((entry) =>
                     entry.type === "separator" ? "-" : entry.label,
                 );
-                expect(labels.slice(0, 3)).toEqual(["Run Test", "Reveal in Test Explorer", "-"]);
+                expect(labels.slice(0, 4)).toEqual(["Run Test", "Debug Test", "Reveal in Test Explorer", "-"]);
                 expect(labels).toContain("Update Snapshot");
 
                 // The failure is a badge after the failed assertion's line, where Vitest's message points: Vitest sends

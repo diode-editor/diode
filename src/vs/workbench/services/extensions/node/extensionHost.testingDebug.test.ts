@@ -33,7 +33,8 @@ describe("ExtensionHost — a test controller's Debug profile starts a debug ses
     let harness: IExtensionHarness;
     let testing: ReturnType<typeof makeTestingServices>;
 
-    const seen = async (): Promise<string[]> => (await harness.commandRegistry.execute("test.testingDebug.seen")) as string[];
+    const seen = async (): Promise<string[]> =>
+        (await harness.commandRegistry.execute("test.testingDebug.seen")) as string[];
 
     beforeEach(async () => {
         dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-testing-debug-")));

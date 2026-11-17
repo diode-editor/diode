@@ -455,7 +455,10 @@ export class TestResultsComponent extends Disposable {
 
     /** A message menu's items (a submenu is not offered), the message their command's argument. */
     private menuActions(menuId: MenuId, subject: TestMessageSubject): IRowAction[] {
-        const groups = this.menus.getEntryGroups(menuId, undefined, testMessageMenuKeys(subject, this.profiles.capabilitiesForTest(subject.test)),
+        const groups = this.menus.getEntryGroups(
+            menuId,
+            undefined,
+            testMessageMenuKeys(subject, this.profiles.capabilitiesForTest(subject.test)),
         );
         return groups.flatMap((group) =>
             inlineMenuEntries([group]).map((entry) => ({
