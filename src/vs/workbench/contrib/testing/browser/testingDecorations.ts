@@ -320,7 +320,7 @@ export class TestingDecorations extends Disposable {
     /** Upstream `RunTestDecoration.click`; Alt changes nothing, there is no debugger. */
     private click(state: IAttachedEditor, click: IGlyphMarginClick): void {
         // The glyphs and their tests are set together; a click of this owner has a key.
-        const tests = assertReturnsDefined(state.decorations.get(click.key ?? ""));
+        const tests = assertReturnsDefined(state.decorations.get(assertReturnsDefined(click.key)));
         if (click.button === "right" || this.configuration.get("testing.defaultGutterClickAction") === "contextMenu") {
             this.showContextMenu(state.editor, tests, click);
             return;

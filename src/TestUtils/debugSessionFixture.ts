@@ -121,7 +121,7 @@ export function testDebugService(model: DebugModel): TestDebugService {
             },
         ),
         sourceIsNotAvailable: vi.fn(),
-        canSetBreakpointsIn: vi.fn(() => false),
+        canSetBreakpointsIn: vi.fn(),
         addBreakpoints: vi.fn().mockResolvedValue([]),
         updateBreakpoints: vi.fn().mockResolvedValue(undefined),
         sendAllBreakpoints: vi.fn().mockResolvedValue(undefined),

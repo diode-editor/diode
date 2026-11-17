@@ -15,6 +15,7 @@
 // no hint glyph on hover, no hover messages, no inline breakpoints and candidates, no gutter context menu, no column
 // of the stack frame (the `debug-top-stack-frame-column` decoration).
 
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { firstNonWhitespaceIndex } from "../../../../base/common/strings.ts";
@@ -331,8 +332,8 @@ export class BreakpointEditorContribution extends Disposable {
         let somethingChanged = false;
         for (const decoration of state.breakpointDecorations) {
             // Only this class removes its decorations.
-            const range = document.getDecorationRange(decoration.decorationId);
-            if (range !== null && !rangesEqual(range, decoration.range)) {
+            const range = assertReturnsDefined(document.getDecorationRange(decoration.decorationId));
+            if (!rangesEqual(range, decoration.range)) {
                 somethingChanged = true;
                 decoration.range = range;
             }
