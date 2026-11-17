@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 
+import { type ILaunchCompletion, type LaunchRoot, provideLaunchCompletions } from "./lib/launchCompletion.ts";
 import { getSettingsCompletionContext, offsetToPosition, positionToOffset } from "./lib/settingsContext.ts";
 import { completionValuesFor } from "./lib/settingValues.ts";
 import type { ISettingSchemaEntry } from "./settings-schema.generated.ts";
@@ -44,7 +45,66 @@ export function activate(context: { readonly subscriptions: { dispose(): unknown
             },
             '"',
         ),
+        vscode.languages.registerCompletionItemProvider(
+            [
+                ...LAUNCH_FILES.flatMap((pattern) => ["json", "jsonc"].map((language) => ({ language, pattern }))),
+                ...selector,
+            ],
+            {
+                provideCompletionItems(
+                    document: vscode.TextDocument,
+                    position: vscode.Position,
+                ): vscode.CompletionItem[] {
+                    const text = document.getText();
+                    const offset = positionToOffset(text, position.line, position.character);
+                    const packageJSONs = vscode.extensions.all.map((extension) => extension.packageJSON as unknown);
+                    return provideLaunchCompletions(
+                        text,
+                        offset,
+                        launchRoots(document.fileName),
+                        packageJSONs,
+                        indentUnit(document),
+                    ).map((completion) => launchItem(completion, text));
+                },
+            },
+            '"',
+        ),
     );
+}
+
+/** Upstream `.vscode/launch.json`; Diode keeps it in `.diode/`. */
+const LAUNCH_FILES = ["**/.diode/launch.json", "**/.vscode/launch.json"];
+
+function launchRoots(fileName: string): LaunchRoot[] {
+    if (fileName.endsWith(".code-workspace")) return [["launch"], ["settings", "launch"]];
+    if (fileName.endsWith("launch.json")) return [[]];
+    return [["launch"]];
+}
+
+/** For `adjustWhitespace` until completions get a snippet session (#1035): the indentation of the document's editor. */
+function indentUnit(document: vscode.TextDocument): string {
+    const editor = vscode.window.activeTextEditor;
+    if (editor?.document !== document) return "\t";
+    const { insertSpaces, tabSize } = editor.options;
+    return insertSpaces === true && typeof tabSize === "number" ? " ".repeat(tabSize) : "\t";
+}
+
+const LAUNCH_ITEM_KINDS = {
+    property: vscode.CompletionItemKind.Property,
+    value: vscode.CompletionItemKind.Value,
+    snippet: vscode.CompletionItemKind.Snippet,
+} as const;
+
+function launchItem(completion: ILaunchCompletion, text: string): vscode.CompletionItem {
+    const item = new vscode.CompletionItem(completion.label, LAUNCH_ITEM_KINDS[completion.kind]);
+    item.insertText =
+        completion.kind === "snippet" ? new vscode.SnippetString(completion.insertText) : completion.insertText;
+    // Typed with the opening quote, shown without it (see `keyItem`).
+    if (completion.kind === "property") item.filterText = completion.insertText;
+    item.range = toRange(text, completion.replaceRange);
+    item.detail = completion.detail;
+    item.documentation = completion.documentation;
+    return item;
 }
 
 function keyItem(entry: ISettingSchemaEntry, range: vscode.Range): vscode.CompletionItem {

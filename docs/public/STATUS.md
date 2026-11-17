@@ -7,10 +7,10 @@ differently is on [Differences from VS Code](DIFFERENCES.md).
 ## Known gaps
 
 - **Debugging** works through debugger extensions: CodeLLDB from the store debugs C and C++ —
-  `.diode/launch.json` with its `preLaunchTask`, breakpoints in the gutter (F9), stepping, Variables, Watch,
-  Call Stack, Breakpoints, the Debug Console and the debug toolbar. Not there yet: hovering a variable for its
-  value, inline values, conditional breakpoints edited in place (they go through an input box), the
-  disassembly and memory views.
+  `.diode/launch.json` with its `preLaunchTask` (with completion of the debuggers' attributes and configuration
+  snippets, no validation yet), breakpoints in the gutter (F9), stepping, Variables, Watch, Call Stack,
+  Breakpoints, the Debug Console and the debug toolbar. Not there yet: hovering a variable for its value, inline
+  values, conditional breakpoints edited in place (they go through an input box), the disassembly and memory views.
 - **Snippets** from extensions are not read; **file icon themes** are not applied.
 - **Source control extensions.** Built-in git works (diffs, commit graph, staging); an extension
   that brings another version control system has no API to plug into yet.

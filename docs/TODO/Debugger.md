@@ -148,6 +148,9 @@
   отступления — [Extensions.md](../arch/Extensions.md) («Сессии, брейкпоинты, консоль»). Тесты:
   `extensionDebugAdapter.sessions.test.ts` (настоящий `DebugService`), `extensionHost.debugSessions.test.ts`
   (настоящий субпроцесс, фикстура `__fixtures__/debugSessions/`). Не здесь: data-брейкпоинты (веха 2).
+- #1157: IntelliSense `launch.json` по `configurationAttributes`/`configurationSnippets` отладчиков — второй провайдер
+  встроенного `diode-settings` (`lib/launchSchema.ts`, `lib/launchCompletion.ts`), устройство и отступления —
+  [Extensions.md](../arch/Extensions.md) («Пример: builtin `diode-settings`»). Без диагностик, как у settings.
 
 - #1149: приёмка вехи 1 — стоковый CodeLLDB целиком (заметки — [StockExtensions.md](../arch/StockExtensions.md#отладка-cc-vadimcnvscode-lldb-codelldb)).
   Запись магазина `vadimcn.vscode-lldb` (сайт#57, гейт `>=0.17.0`), сценарий `codelldb` (`network: true`, без gcc —

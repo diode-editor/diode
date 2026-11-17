@@ -1498,6 +1498,25 @@
 builtin и пишет `settings-schema.generated.ts`, который бандлится в `out/extension.cjs`. Никакого
 рантайм-API за схемой расширение не ходит.
 
+Второй провайдер того же расширения — **IntelliSense `launch.json`** (#1157): `.diode/launch.json` (и
+`.vscode/launch.json` эталона), блок `launch` в `settings.json`, `launch` и `settings.launch` в `.code-workspace`.
+Схема — эталонная схема `launch` (`debugSchemas.ts`, `updateDebugAdapterSchema` в `debugAdapterManager.ts`,
+`Debugger.getSchemaAttributes`), только собирается в расширении, а не в ядре: `lib/launchSchema.ts` читает
+`contributes.debuggers` из `vscode.extensions.all[].packageJSON` (манифест уже локализован) на каждый запрос —
+`configurationAttributes` вкладов одного типа из разных расширений складываются. `lib/launchCompletion.ts` по позиции
+каретки: ключи верхнего уровня (`version`/`configurations`/`compounds`); атрибуты конфигурации по её `type` и
+`request` (`oneOf` эталона: неизвестный `request` — атрибуты всех запросов отладчика, нет `type` — только общие) плюс
+общие атрибуты (`name`, `preLaunchTask`, `presentation`, `internalConsoleOptions`…) и `windows`/`osx`/`linux`;
+уже заданные ключи и `doNotSuggest` не предлагаются; значения — `enum` (с `enumDescriptions`), boolean, иначе
+`default`; `type` — отладчики с `label` (не `deprecated`); на месте элемента `configurations` — сниппеты
+`configurationSnippets` всех отладчиков (тело печатается как у JSON language service: табы, строка с `^` — сырьём).
+Сниппет-сессий у нас нет — ядро вставляет текст плейсхолдеров, поэтому отступы сниппета расширение подгоняет само
+(`SnippetSession.adjustWhitespace` эталона: отступ строки каретки + единица отступа редактора). Отступления: нет
+диагностик (валидации), как и у `settings.json`; вложенные объекты (`presentation`, `windows`…) и `compounds` не
+дополняются; не видны отладчики из расширений без `main` (их нет в `extensions.all`); сниппеты одного типа из разных
+расширений складываются (эталон оставляет массив последнего). Тесты: `lib/launchCompletion.test.ts`,
+`extensionHost.launchCompletion.test.ts` (настоящий субпроцесс), сценарий `launch-completion`.
+
 ## LSP и стоковые клиенты
 
 LSP-протокол diode не пишет. Языковой сервер поднимает **расширение** стоковым
