@@ -23,7 +23,11 @@ import type { ConfigurationTarget } from "../../../../platform/configuration/com
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
 import type { DebugCompoundRoot } from "./debugCompoundRoot.ts";
-import type { IDataBreakpointOptions, IFunctionBreakpointOptions } from "./debugModel.ts";
+import type {
+    IDataBreakpointOptions,
+    IFunctionBreakpointOptions,
+    IInstructionBreakpointOptions,
+} from "./debugModel.ts";
 import type { Source } from "./debugSource.ts";
 
 export const DEBUG_SCHEME = "debug";
@@ -1129,9 +1133,24 @@ export interface IDebugService {
     removeFunctionBreakpoints(id?: string): Promise<void>;
 
     /**
+     * Updates an already existing function breakpoint.
+     * Notifies debug adapter of breakpoint changes.
+     */
+    updateFunctionBreakpoint(
+        id: string,
+        update: { name?: string; hitCondition?: string; condition?: string },
+    ): Promise<void>;
+
+    /**
      * Adds a new data breakpoint.
      */
     addDataBreakpoint(opts: IDataBreakpointOptions): Promise<void>;
+
+    /**
+     * Updates an already existing data breakpoint.
+     * Notifies debug adapter of breakpoint changes.
+     */
+    updateDataBreakpoint(id: string, update: { hitCondition?: string; condition?: string }): Promise<void>;
 
     /**
      * Removes all data breakpoints. If id is passed only removes the data breakpoint with the passed id.
@@ -1144,6 +1163,16 @@ export interface IDebugService {
      * provided, all instruction breakpoints are removed. Notifies the debug adapter of breakpoint changes.
      */
     removeInstructionBreakpoints(instructionReference?: string, offset?: number, address?: bigint): Promise<void>;
+
+    /**
+     * Adds a new instruction breakpoint.
+     */
+    addInstructionBreakpoint(opts: IInstructionBreakpointOptions): Promise<void>;
+
+    /**
+     * Sets the condition of an exception breakpoint and sends the exception breakpoints to the adapters.
+     */
+    setExceptionBreakpointCondition(breakpoint: IExceptionBreakpoint, condition: string | undefined): Promise<void>;
 
     /**
      * Adds a new watch expression and evaluates it against the debug adapter.

@@ -48,8 +48,9 @@ import {
 import type { Thread } from "../common/debugModel.ts";
 import { resolveChildSession } from "../common/debugUtils.ts";
 
+import { BREAKPOINT_EDIT_ACTIONS } from "./breakpointEditActions.ts";
 import { rowMenuItem } from "./debugContextMenus.ts";
-import { showDebugHoverAction, toggleEditorBreakpointAction } from "./debugEditorActions.ts";
+import { BREAKPOINT_EDITOR_ACTIONS, showDebugHoverAction } from "./debugEditorActions.ts";
 import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
 import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
@@ -734,7 +735,8 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     callStackDownAction,
     startFromConfigAction,
     focusSessionAction,
-    toggleEditorBreakpointAction,
+    ...BREAKPOINT_EDITOR_ACTIONS,
+    ...BREAKPOINT_EDIT_ACTIONS,
     showDebugHoverAction,
     ...DEBUG_VIEW_ACTIONS,
     ...VARIABLES_ACTIONS,
