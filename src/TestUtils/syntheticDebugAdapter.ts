@@ -43,6 +43,7 @@ export const SYNTHETIC_CAPABILITIES: DebugProtocol.Capabilities = {
     supportsTerminateRequest: true,
     supportsSetVariable: true,
     supportsSetExpression: true,
+    supportsClipboardContext: true,
     supportsExceptionInfoRequest: true,
     supportsLoadedSourcesRequest: true,
     supportsRestartFrame: true,
@@ -630,7 +631,8 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             this.node("flags", "size=3", "std::map<std::string, bool>", () => [
                 this.leaf('["debug"]', "true", "bool", 'flags["debug"]'),
                 this.leaf('["trace"]', "false", "bool", 'flags["trace"]'),
-                this.leaf('["verbose"]', "true", "bool", 'flags["verbose"]'),
+                // An entry the debugger has no expression for (as CodeLLDB's synthetic children).
+                this.leaf('["verbose"]', "true", "bool", ""),
             ]),
             this.node(
                 "cfg",
@@ -754,7 +756,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
 
     /** A number goes only into a number (`int`, `long`, …), as the debugger's type check. */
     private assign(request: DebugProtocol.Request, owner: DebugProtocol.Variable, value: string): void {
-        if (/^(int|long|size_t)$/u.test(owner.type ?? "") && !/^-?\d+$/u.test(value)) {
+        if (/^(int|long|size_t)$/u.test(String(owner.type)) && !/^-?\d+$/u.test(value)) {
             this.fail(request, `error: '${value}' is not a number`);
             return;
         }

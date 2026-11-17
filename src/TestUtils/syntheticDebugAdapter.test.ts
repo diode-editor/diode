@@ -286,7 +286,7 @@ describe("SyntheticDebugAdapter", () => {
         expect((await variablesOf(vars.get("flags")?.variablesReference)).map((v) => v.evaluateName)).toEqual([
             'flags["debug"]',
             'flags["trace"]',
-            'flags["verbose"]',
+            "",
         ]);
         const cfg = await variablesOf(vars.get("cfg")?.variablesReference);
         expect((await variablesOf(cfg[1].variablesReference)).map((v) => v.value)).toEqual(["-1000", "1000"]);
@@ -407,6 +407,21 @@ describe("SyntheticDebugAdapter", () => {
         });
         expect(await request("setVariable", { variablesReference: 999, name: "count", value: "1" })).toMatchObject({
             success: false,
+        });
+        // A number takes only a number; an expression is set the same way, an unknown one fails.
+        expect(
+            await request("setVariable", { variablesReference: scope.variablesReference, name: "count", value: "x" }),
+        ).toMatchObject({ success: false, message: "error: 'x' is not a number" });
+        expect(await body("setExpression", { expression: "sum", value: "7", frameId: 1000 })).toMatchObject({
+            value: "7",
+        });
+        expect(await body("setExpression", { expression: "total", value: "5" })).toMatchObject({ value: "5" });
+        expect(await request("setExpression", { expression: "sum", value: "1", frameId: 999 })).toMatchObject({
+            success: false,
+        });
+        expect(await request("setExpression", { expression: "nope", value: "1", frameId: 1000 })).toMatchObject({
+            success: false,
+            message: "Cannot set 'nope'",
         });
         await body("next", { threadId: 1 });
         await stopped(2);

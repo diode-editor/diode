@@ -56,7 +56,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Copy Call Stack") && t.includes("Show Frame in Status"));
         await editor.capture("frame-menu");
         await clickText(editor, "Show Frame in Status");
-        await editor.waitForText((t) => t.includes("dbg:menu hello.c frame main"));
+        await editor.waitForText((t) => t.includes("dbg:hello.c main"));
         await editor.capture("extension-item");
     },
 });

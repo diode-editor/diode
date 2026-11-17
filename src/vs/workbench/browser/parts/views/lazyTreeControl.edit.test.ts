@@ -1,4 +1,5 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { describe, expect, it } from "vitest";
 
@@ -93,6 +94,17 @@ describe("LazyTreeControl — row edit", () => {
         expect(app.focusedElement).toBe(tree.list);
     });
 
+    it("a key that reaches the input after its edit ended does nothing more", async () => {
+        const { app, tree, source } = await mount();
+        const done: boolean[] = [];
+        tree.edit(source.roots[0], { value: "1", onDone: (_value, success) => done.push(success) });
+        const input = app.focusedElement;
+        app.sendKey("Enter");
+        input?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Escape" }));
+
+        expect(done).toEqual([true]);
+    });
+
     it("Escape ends the edit without success and leaves the row as it was", async () => {
         const { app, tree, source, screen } = await mount();
         const done: [string, boolean][] = [];
@@ -178,6 +190,14 @@ describe("LazyTreeControl — context menu", () => {
         await flushMicrotasks();
 
         expect(opened).toEqual(["none@3,3"]);
+    });
+
+    it("a tree whose owner has no menu takes a right click without harm", async () => {
+        const { app, tree } = await mount();
+        rightClick(app, 3, 1);
+        rightClick(app, 3, 3);
+        await flushMicrotasks();
+        expect(tree.focused?.key).toBe("b");
     });
 
     it("Shift+F10 opens it on the row under the cursor", async () => {
