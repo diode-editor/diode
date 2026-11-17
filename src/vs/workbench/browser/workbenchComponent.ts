@@ -40,8 +40,6 @@ import type { LayoutService } from "../services/layout/browser/layoutService.ts"
 import { LayoutServiceDIToken } from "../services/layout/browser/layoutService.ts";
 import type { LifecycleService } from "../services/lifecycle/browser/lifecycleService.ts";
 import { LifecycleServiceDIToken } from "../services/lifecycle/browser/lifecycleService.ts";
-import type { IFileSearchService } from "../services/search/common/fileSearch.ts";
-import { FileSearchServiceDIToken } from "../services/search/common/fileSearch.ts";
 import type { TerminalEnvironmentService } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 import type { ThemeService } from "../services/themes/common/themeService.ts";
@@ -102,7 +100,6 @@ export class WorkbenchComponent extends Component {
     private explorerService: ExplorerService;
     private sidebarService: SidebarService;
     private viewsService: ViewsService;
-    private fileSearchService: IFileSearchService;
     private quickInput: QuickInputService;
     private statusBarComponent: StatusBarComponent;
     private notificationsComponent: NotificationsComponent;
@@ -183,7 +180,6 @@ export class WorkbenchComponent extends Component {
         this.view.addEventListener("keypress", this.dispatcher.handleKeyPressCapture, { capture: true });
         this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDown));
         this.view.addEventListener("keyup", this.dispatcher.handleKeyUp);
-        this.fileSearchService = this.register(accessor.get(FileSearchServiceDIToken));
         const quickInputComponent = this.register(accessor.get(QuickInputComponentDIToken));
         this.quickInput = accessor.get(QuickInputServiceDIToken);
         this.statusBarComponent = this.register(statusBarComponent);
@@ -303,15 +299,11 @@ export class WorkbenchComponent extends Component {
         // Keyed by the workspace IDENTITY, not the folder path (resolveWorkspaceStorageDir).
         this.workbenchState.openWorkspace(workspaceId);
         // Features restore their view state themselves on `onDidOpenWorkspace`,
-        // synchronously inside openWorkspace. The index builds in the background without blocking the first frame.
-        void this.fileSearchService.activate(dirPath);
+        // synchronously inside openWorkspace. No file index here: like upstream, Quick Open walks the folder
+        // when it opens, in the extension host (#1179).
         // `setRootPath` only recreates the provider; nodes are loaded only by refresh() —
         // without it Open Folder left an empty panel. On bootstrap `activate()` awaits the load.
         if (this.mounted) void this.explorerService.refresh();
-    }
-
-    public get fileIndexReady(): Promise<void> {
-        return this.fileSearchService.ready;
     }
 
     public focusEditor(): void {

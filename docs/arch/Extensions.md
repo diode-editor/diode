@@ -175,7 +175,8 @@
   полёте), оркестрацию спавна и делегаторы. Процесс — `ExtensionHostProcess` (spawn, stdio, ready,
   выключение host.shutdown → SIGTERM → SIGKILL). Каждая поверхность API — customer в `customers/`
   (`secrets`, `env`, `window`, `diagnostics`, `decorations`, `fileSystem`, `commands`, `editor`,
-  `configuration`, `documents`, `languageFeatures`, `terminal`, `tasks`, `treeViews`) с контрактом
+  `configuration`, `documents`, `languageFeatures`, `terminal`, `tasks`, `treeViews`, `search` — индекс файлов
+  Quick Open, см. [QuickInput.md](workbench/QuickInput.md#поиск-файлов-quick-open-вне-процесса-редактора)) с контрактом
   `IExtensionHostCustomer.attach(ctx): IDisposable` (`common/extensionHostCustomer.ts`): объект
   customer'а живёт столько же, сколько хост, а всё состояние одного спавна — обработчики RPC,
   подписки на ядро, handle'ы — заводится в `attach` и снимается возвращённым disposable вместе со

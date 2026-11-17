@@ -27,7 +27,6 @@ describe("Workbench — messages on the frame", () => {
         ws = createTempWorkspace({ prefix: "ws-", files: { "alpha.txt": "Alpha content" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir, openFile: `${ws.dir}/alpha.txt`, focusEditor: true });
         await h.workbench.activate();
-        await h.workbench.fileIndexReady;
         notifications = h.container.get(NotificationServiceDIToken);
         h.testApp.render();
     });

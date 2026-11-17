@@ -128,7 +128,6 @@ describe("Workbench — window without a workspace", () => {
     // nodes only via refresh(); without the refresh in setWorkspaceFolder the tree is empty.
     it("Open Folder from an empty window populates the tree, not just removes the hint", async () => {
         h.workbench.setWorkspaceFolder(ws.dir);
-        await h.workbench.fileIndexReady;
         await vi.waitFor(() => {
             expect(screen()).toContain("alpha.txt");
         });

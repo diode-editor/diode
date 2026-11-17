@@ -15,6 +15,10 @@
   душил event loop (отсюда лаги всего редактора). Свежесть по триггеру:
   `refreshIfStale()` при открытии Quick Open, живое наполнение через
   `onIndexChanged`; допускается eventual freshness.
+  **Заменено в #1179:** индекс переехал в субпроцесс расширений и строится на каждый показ Quick Open
+  (как в эталоне), с лимитом 500 тыс. записей — см.
+  [QuickInput.md](../arch/workbench/QuickInput.md#поиск-файлов-quick-open-вне-процесса-редактора).
+  Матчер и отсев ниже — те же, теперь в `FileIndex`; тест «выдача с отсевом == сырой матчер» — в `fileIndex.test.ts`.
 - **`search` ускорен** без смены движка: предвычисление кейс-фолдинга и basename
   в `FileSearchEntry` (раньше считалось на каждое нажатие), дебаунс ввода в
   `QuickOpenService` (leading-edge + коалесинг, `SEARCH_DEBOUNCE_MS = 16`),
