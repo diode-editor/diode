@@ -60,7 +60,8 @@ export default defineScenario({
 
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => /TEST EXPLORER [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/.test(t));
+        // The title is cut by its buttons (Run and Debug Tests): the spinner of the resolving file is anywhere on the frame.
+        await editor.waitForText((t) => /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/.test(t));
         await editor.capture("a file resolves its tests");
 
         await editor.waitForText((t) => t.includes(" math "), { timeoutMs: 10_000 });
@@ -77,9 +78,8 @@ export default defineScenario({
         await editor.sendKey("Shift+F10");
         await editor.waitForText((t) => t.includes("Update Snapshot") && t.includes("Go to Test") && t.includes("Run Test"));
         await editor.capture("the row's menu with the extension's item");
-        // Past Run Test and Go to Test.
-        await editor.sendKey("ArrowDown");
-        await editor.sendKey("ArrowDown");
+        // Past Run Test, Debug Test and Go to Test.
+        for (let i = 0; i < 3; i++) await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Update Snapshot: adds"));
         await editor.capture("the extension got its TestItem");

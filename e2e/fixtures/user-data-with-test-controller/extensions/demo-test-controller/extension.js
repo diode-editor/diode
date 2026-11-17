@@ -3,6 +3,8 @@
 // Its Run profile steps through the tests: a name with "fails" fails, "throws" errors, "skip" is skipped, the rest
 // pass; each takes a while so the run can be seen, cancellation stops it. A failure's message is a markdown one for
 // "markdown", one with a stack for "stack", else expected/actual; "Copy Error" (`testing/message/*`) copies it.
+// Its Debug profile debugs the tests as vitest.explorer does: it starts a `demo-tests` session (an inline adapter that
+// stops on the first test's line) and reports the tests passed when the session ends.
 const vscode = require("vscode");
 
 const RESOLVE_DELAY_MS = 1500;
@@ -108,7 +110,47 @@ exports.activate = (context) => {
         true,
     );
 
+    controller.createRunProfile(
+        "Debug",
+        vscode.TestRunProfileKind.Debug,
+        async (request) => {
+            const roots = [];
+            if (request.include === undefined) controller.items.forEach((item) => roots.push(item));
+            else roots.push(...request.include);
+            const tests = await collect(roots, new Set(request.exclude ?? []), []);
+            const run = controller.createTestRun(request);
+            for (const test of tests) run.started(test);
+            const ended = new Promise((resolve) => {
+                const listener = vscode.debug.onDidTerminateDebugSession((session) => {
+                    if (session.type !== "demo-tests") return;
+                    listener.dispose();
+                    resolve();
+                });
+            });
+            const [folder] = vscode.workspace.workspaceFolders ?? [];
+            const started = await vscode.debug.startDebugging(folder, {
+                type: "demo-tests",
+                request: "launch",
+                name: "Debug Demo Tests",
+                tests: tests.map((test) => ({
+                    label: test.label,
+                    path: test.uri?.fsPath,
+                    line: test.range === undefined ? 0 : test.range.start.line,
+                })),
+            });
+            if (started) await ended;
+            for (const test of tests) run.passed(test);
+            run.end();
+        },
+        true,
+    );
+
     context.subscriptions.push(
+        vscode.debug.registerDebugAdapterDescriptorFactory("demo-tests", {
+            createDebugAdapterDescriptor(session) {
+                return new vscode.DebugAdapterInlineImplementation(new TestsAdapter(vscode, session.configuration.tests));
+            },
+        }),
         vscode.commands.registerCommand("demoTests.discover", async () => {
             const [folder] = vscode.workspace.workspaceFolders ?? [];
             if (folder === undefined) return;
@@ -135,3 +177,74 @@ exports.activate = (context) => {
         }),
     );
 };
+
+/** A pretend debugger of the tests: it says which it debugs and stops on the first one's line until continued. */
+class TestsAdapter {
+    constructor(vscode, tests) {
+        this.tests = tests;
+        this.emitter = new vscode.EventEmitter();
+        this.onDidSendMessage = this.emitter.event;
+        this.seq = 1;
+    }
+
+    handleMessage(request) {
+        if (request.type !== "request") return;
+        this.emitter.fire({
+            seq: this.seq++,
+            type: "response",
+            request_seq: request.seq,
+            command: request.command,
+            success: true,
+            body: this.answer(request),
+        });
+        switch (request.command) {
+            case "launch":
+                this.event("initialized");
+                break;
+            case "configurationDone":
+                this.event("output", {
+                    category: "stdout",
+                    output: `Debugging ${this.tests.map((test) => test.label).join(", ")}\n`,
+                });
+                this.event("stopped", { reason: "entry", threadId: 1, allThreadsStopped: true });
+                break;
+            case "continue":
+            case "next":
+            case "stepIn":
+            case "stepOut":
+            case "disconnect":
+            case "terminate":
+                this.event("terminated");
+                break;
+        }
+    }
+
+    answer(request) {
+        switch (request.command) {
+            case "initialize":
+                return { supportsConfigurationDoneRequest: true, supportsTerminateRequest: true };
+            case "threads":
+                return { threads: [{ id: 1, name: "tests" }] };
+            case "stackTrace": {
+                const [first] = this.tests;
+                const source = first.path && { name: first.path.slice(first.path.lastIndexOf("/") + 1), path: first.path };
+                return {
+                    stackFrames: [{ id: 1, name: first.label, line: first.line + 1, column: 5, source }],
+                    totalFrames: 1,
+                };
+            }
+            case "scopes":
+                return { scopes: [] };
+            case "setBreakpoints":
+                return { breakpoints: (request.arguments.breakpoints || []).map((bp) => ({ verified: true, line: bp.line })) };
+            default:
+                return undefined;
+        }
+    }
+
+    event(event, body) {
+        this.emitter.fire({ seq: this.seq++, type: "event", event, body });
+    }
+
+    dispose() {}
+}

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 
 import { type ITestRunProfile, TestProfileService } from "./testProfileService.ts";
+import type { ITestNode } from "./testService.ts";
 
 function profile(overrides: Partial<ITestRunProfile> = {}): ITestRunProfile {
     return {
@@ -36,17 +37,37 @@ describe("TestProfileService", () => {
         expect(contextKeys.get("testing.hasCoverableTests")).toBe(false);
     });
 
-    it("a Run profile turns testing.hasRunnableTests on; Debug and Coverage are kept but turn nothing on", () => {
+    it("a Run profile turns testing.hasRunnableTests on, a Debug one testing.hasDebuggableTests; Coverage is kept but turns nothing on", () => {
         const { contextKeys, service, changes } = setup();
-        service.addProfile(profile({ profileId: 4, group: 4, label: "Debug" }));
         service.addProfile(profile({ profileId: 8, group: 8, label: "Coverage" }));
         expect(contextKeys.get("testing.hasRunnableTests")).toBe(false);
         expect(contextKeys.get("testing.hasDebuggableTests")).toBe(false);
         expect(contextKeys.get("testing.hasCoverableTests")).toBe(false);
+        service.addProfile(profile({ profileId: 4, group: 4, label: "Debug" }));
+        expect(contextKeys.get("testing.hasRunnableTests")).toBe(false);
+        expect(contextKeys.get("testing.hasDebuggableTests")).toBe(true);
         service.addProfile(profile({ profileId: 2 }));
         expect(contextKeys.get("testing.hasRunnableTests")).toBe(true);
+        expect(contextKeys.get("testing.hasCoverableTests")).toBe(false);
         expect(service.getControllerProfiles("c").map((p) => p.label)).toEqual(["Coverage", "Debug", "Run"]);
         expect(changes()).toBe(3);
+        service.removeProfile("c", 4);
+        expect(contextKeys.get("testing.hasDebuggableTests")).toBe(false);
+    });
+
+    it("capabilitiesForTest: the groups of the test's own controller's profiles whose tag it has, a root too (only its own tags count)", () => {
+        const { service } = setup();
+        service.addProfile(profile({ profileId: 1 }));
+        service.addProfile(profile({ profileId: 2, group: 4, tag: "c\0slow" }));
+        service.addProfile(profile({ controllerId: "d", profileId: 3, group: 8 }));
+        const test = (extId: string, tags: string[] = []) => ({
+            controllerId: "c",
+            item: { extId, tags } as unknown as ITestNode["item"],
+        });
+        expect(service.capabilitiesForTest(test("c\0a"))).toBe(2);
+        expect(service.capabilitiesForTest(test("c\0a", ["c\0slow"]))).toBe(2 | 4);
+        expect(service.capabilitiesForTest(test("c"))).toBe(2);
+        expect(service.capabilitiesForTest({ ...test("e\0a"), controllerId: "e" })).toBe(0);
     });
 
     it("defaults sort first, then by label; an update re-sorts", () => {

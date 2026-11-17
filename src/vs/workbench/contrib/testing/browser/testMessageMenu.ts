@@ -11,11 +11,11 @@ import { messageOf, type TestMessageSubject } from "./testMessageView.ts";
  * `contextValue`), `testResultOutdated`, the test's keys (`getTestItemContextOverlay`); and the resource keys of the
  * message's place, else its test's (upstream sees the active editor's: the message's when it is peeked there).
  */
-export function testMessageMenuKeys(subject: TestMessageSubject): MenuContextKeys {
+export function testMessageMenuKeys(subject: TestMessageSubject, capabilities: number): MenuContextKeys {
     const message = messageOf(subject);
     const where = message.location?.uri ?? subject.test.item.uri;
     return {
-        ...getTestItemContextOverlay(subject.test),
+        ...getTestItemContextOverlay(subject.test, capabilities),
         testMessage: message.contextValue ?? "",
         // Upstream retires a result when its test changes; ours are not retired.
         testResultOutdated: false,
