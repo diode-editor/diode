@@ -62,6 +62,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Color of the status bar when the debugger is active.",
     },
     {
+        key: "debug.hideLauncherWhileDebugging",
+        type: "boolean",
+        default: false,
+        description:
+            "Hide 'Start Debugging' control in title bar of 'Run and Debug' view while debugging is active. Only relevant when `#debug.toolBarLocation#` is not `docked`.",
+    },
+    {
         key: "debug.hideSlowPreLaunchWarning",
         type: "boolean",
         default: false,

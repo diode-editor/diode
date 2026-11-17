@@ -9,7 +9,8 @@
         "vscode": "^1.0.0"
     },
     "activationEvents": [
-        "onDebugResolve:demo"
+        "onDebugResolve:demo",
+        "onDebugDynamicConfigurations:demo"
     ],
     "contributes": {
         "debuggers": [
