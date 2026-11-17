@@ -489,7 +489,6 @@ export class ViewsService implements IContextKeyContributor {
      */
     public setContainerTitleWidget(containerId: string, widget: TUIElement | null): void {
         const entry = this.containerOrThrow(containerId);
-        if (entry.titleWidget === widget) return;
         entry.titleWidget = widget;
         if (entry.paneView === null) return;
         this.refreshContainerTitleActions(entry);

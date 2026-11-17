@@ -187,8 +187,8 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
             width: "fill",
         });
         const runWelcomeTarget = (target: IViewWelcomeTarget): void => {
-            // The blocks above link commands only.
-            const { command, args = [] } = target as { command: string; args?: readonly unknown[] };
+            // The blocks above link commands with their arguments only.
+            const { command, args } = target as { command: string; args: readonly unknown[] };
             Promise.resolve(commands.execute(command, ...args)).catch(onUnexpectedError);
         };
         welcome.addChild(new ViewWelcomeElement(welcomeText(), runWelcomeTarget), {

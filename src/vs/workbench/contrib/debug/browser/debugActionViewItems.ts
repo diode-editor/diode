@@ -33,16 +33,20 @@ export const NO_CONFIGURATIONS = "No Configurations";
 
 interface IDebugOption {
     readonly label: string;
-    /** `true` — a configuration was selected. */
-    readonly handler: () => Promise<boolean>;
-    /** Upstream's category of the dropdown: a separator goes between two. */
-    readonly category: string | undefined;
+    /** Selects the row's configuration, or does what the row does (a picker, Add Configuration). */
+    readonly handler: () => Promise<unknown>;
+}
+
+/** The rows of the dropdown: upstream's categories (a separator goes between two) and the selected configuration. */
+interface IDebugOptions {
+    readonly groups: readonly (readonly IDebugOption[])[];
+    readonly selected: IDebugOption | undefined;
 }
 
 /** A row that selects nothing: the separators and "No Configurations". */
-const selectsNothing = (): Promise<boolean> => Promise.resolve(false);
+const selectsNothing = (): Promise<void> => Promise.resolve();
 /** The row between two categories: the select box does not select it. */
-const SEPARATOR: IDebugOption = { label: "─", handler: selectsNothing, category: undefined };
+const SEPARATOR: IDebugOption = { label: "─", handler: selectsNothing };
 
 /** In a narrow title the selected configuration shrinks down to this many characters. */
 const MIN_LABEL_WIDTH = 8;
@@ -54,6 +58,7 @@ const CHEVRON_WIDTH = 2;
  * option); it shrinks in a narrow title as upstream's `flex-shrink`.
  */
 class ConfigurationDropdownElement extends SelectBoxElement {
+    // Stryker disable next-line ArrayDeclaration: equivalent — the launcher sets the options in its constructor, before any layout reads them
     private texts: readonly string[] = [];
 
     public override setOptions(options: readonly ISelectOptionItem[], selected?: number): void {
@@ -77,10 +82,11 @@ class ConfigurationDropdownElement extends SelectBoxElement {
 
 /** The ▶ of the launcher: a button of one glyph, pressed by a click, Enter or Space. */
 class StartButtonElement extends TextLabelElement {
-    public onActivate?: () => void;
-
-    public constructor() {
-        super("");
+    public constructor(
+        text: string,
+        private readonly onActivate: () => void,
+    ) {
+        super(text);
         this.focusable = true;
         this.style = {
             fg: "debugIcon.startForeground",
@@ -91,7 +97,7 @@ class StartButtonElement extends TextLabelElement {
         };
         this.addEventListener("click", (event) => {
             if (event.button !== "left") return;
-            this.onActivate?.();
+            this.onActivate();
         });
     }
 
@@ -100,17 +106,16 @@ class StartButtonElement extends TextLabelElement {
         const keyEvent = event as TUIKeyboardEvent;
         if (keyEvent.key === "Enter" || keyEvent.key === " ") {
             event.preventDefault();
-            this.onActivate?.();
+            this.onActivate();
         }
     }
 }
 
 export class StartDebugActionViewItem extends Disposable {
     public readonly element = new HFlexElement();
-    public readonly start = new StartButtonElement();
+    public readonly start: StartButtonElement;
     public readonly dropdown: SelectBoxElement = new ConfigurationDropdownElement();
-    private debugOptions: IDebugOption[] = [];
-    private selected = 0;
+    private options: IDebugOptions;
     private providers: readonly IDynamicConfigurationProvider[] = [];
 
     public constructor(
@@ -118,27 +123,25 @@ export class StartDebugActionViewItem extends Disposable {
         configurationService: Pick<IConfigurationService, "onDidChangeConfiguration">,
         private readonly commands: Pick<CommandRegistry, "execute">,
         private readonly contextService: Pick<IWorkspaceContextService, "getWorkbenchState">,
-        private readonly icons: Pick<IProductIconService, "codicon" | "onDidChange">,
+        icons: Pick<IProductIconService, "codicon" | "onDidChange">,
     ) {
         super();
-        this.element.id = "debugStartActionItem";
-        this.element.addChild(this.start, { width: hflexFit(), height: 1 });
-        this.element.addChild(this.dropdown, { width: hflexFit(), height: 1 });
-        this.renderStart();
-        this.start.onActivate = () => {
+        const startText = (): string => ` ${icons.codicon("debug-start")} `;
+        this.start = new StartButtonElement(startText(), () => {
             if (this.debugService.state !== State.Initializing) {
                 Promise.resolve(this.commands.execute(DEBUG_START_COMMAND_ID)).catch(onUnexpectedError);
             }
-        };
+        });
+        this.element.addChild(this.start, { width: hflexFit(), height: 1 });
+        this.element.addChild(this.dropdown, { width: hflexFit(), height: 1 });
         this.dropdown.onDidSelect = ({ index }) => {
             this.select(index);
         };
 
+        // Upstream rebuilds on a change of `launch` only; the rows are as cheap to rebuild as to check that.
         this.register(
-            configurationService.onDidChangeConfiguration((e) => {
-                if (e.affectsConfiguration("launch")) {
-                    this.updateOptions();
-                }
+            configurationService.onDidChangeConfiguration(() => {
+                this.updateOptions();
             }),
         );
         const configManager = this.debugService.getConfigurationManager();
@@ -149,7 +152,7 @@ export class StartDebugActionViewItem extends Disposable {
         );
         this.register(
             icons.onDidChange(() => {
-                this.renderStart();
+                this.start.setText(startText());
             }),
         );
 
@@ -157,99 +160,76 @@ export class StartDebugActionViewItem extends Disposable {
             void configManager
                 .getDynamicProviders()
                 .then((providers) => {
-                    if (providers.length !== this.providers.length) {
-                        this.providers = providers;
-                        this.updateOptions();
-                    }
+                    this.providers = providers;
+                    this.updateOptions();
                 })
                 .catch(onUnexpectedError);
         };
         this.register(configManager.onDidChangeConfigurationProviders(updateDynamicConfigs));
         updateDynamicConfigs();
-        this.updateOptions();
+        this.options = this.buildOptions();
+        this.renderOptions();
     }
 
-    private renderStart(): void {
-        this.start.setText(` ${this.icons.codicon("debug-start")} `);
-    }
-
-    /** The option at a row of the dropdown, whose separators are rows too. */
+    /**
+     * Runs the row's handler. Selecting a configuration rebuilds the rows (`onDidSelectConfiguration`); a row that
+     * selects nothing (a cancelled picker, Add Configuration) puts the select box back on the selected configuration.
+     */
     private select(row: number): void {
         const option = this.rows()[row];
-        // Selection state and label are reconciled by updateOptions(), triggered by manager.onDidSelectConfiguration.
-        void option.handler().then((selected) => {
-            if (!selected) this.renderOptions();
+        void option.handler().then(() => {
+            this.renderOptions();
         }, onUnexpectedError);
     }
 
-    /** The dropdown's rows: the options, with a separator between two categories. */
-    private rows(): IDebugOption[] {
-        const rows: IDebugOption[] = [];
-        this.debugOptions.forEach((option, index) => {
-            if (index > 0 && option.category !== this.debugOptions[index - 1].category) rows.push(SEPARATOR);
-            rows.push(option);
-        });
-        return rows;
+    /** The dropdown's rows: the groups, with a separator between two. */
+    private rows(): readonly IDebugOption[] {
+        return this.options.groups.flatMap((group, index) => (index > 0 ? [SEPARATOR, ...group] : group));
     }
 
     private updateOptions(): void {
-        this.selected = 0;
-        this.debugOptions = [];
+        this.options = this.buildOptions();
+        this.renderOptions();
+    }
+
+    private buildOptions(): IDebugOptions {
         const manager = this.debugService.getConfigurationManager();
         const inWorkspace = this.contextService.getWorkbenchState() === "workspace";
-        let lastGroup: string | undefined;
-        let groupOrder = 0;
+        const current = manager.selectedConfiguration;
+        let selected: IDebugOption | undefined;
 
-        manager.getAllConfigurations().forEach(({ launch, name, presentation }) => {
-            if (lastGroup !== presentation?.group) {
-                lastGroup = presentation?.group;
-                if (this.debugOptions.length) {
-                    groupOrder++;
-                }
-            }
-            if (name === manager.selectedConfiguration.name && launch === manager.selectedConfiguration.launch) {
-                this.selected = this.debugOptions.length;
-            }
-
-            const label = inWorkspace ? `${name} (${launch.name})` : name;
-            this.debugOptions.push({
-                label,
-                handler: async () => {
-                    await manager.selectConfiguration(launch, name);
-                    return true;
-                },
-                category: `configurations-${groupOrder}`,
-            });
-        });
-
-        // Only take 3 elements from the recent dynamic configurations to not clutter the dropdown
-        manager
-            .getRecentDynamicConfigurations()
-            .slice(0, 3)
-            .forEach(({ name, type }) => {
-                if (type === manager.selectedConfiguration.type && manager.selectedConfiguration.name === name) {
-                    this.selected = this.debugOptions.length;
-                }
-                this.debugOptions.push({
-                    label: name,
-                    handler: async () => {
-                        await manager.selectConfiguration(undefined, name, undefined, { type });
-                        return true;
-                    },
-                    category: "recent-dynamic",
-                });
-            });
-
-        if (this.debugOptions.length === 0) {
-            this.debugOptions.push({
-                label: NO_CONFIGURATIONS,
-                handler: selectsNothing,
-                category: undefined,
-            });
+        // A category per group of `presentation`: the configurations come sorted by their group.
+        const configurations = new Map<string | undefined, IDebugOption[]>();
+        for (const { launch, name, presentation } of manager.getAllConfigurations()) {
+            const option: IDebugOption = {
+                label: inWorkspace ? `${name} (${launch.name})` : name,
+                handler: () => manager.selectConfiguration(launch, name),
+            };
+            if (name === current.name && launch === current.launch) selected = option;
+            const group = presentation?.group;
+            configurations.set(group, [...(configurations.get(group) ?? []), option]);
         }
 
-        this.providers.forEach((p) => {
-            this.debugOptions.push({
+        // Only take 3 elements from the recent dynamic configurations to not clutter the dropdown
+        const recent = manager
+            .getRecentDynamicConfigurations()
+            .slice(0, 3)
+            .map(({ name, type }) => {
+                const option: IDebugOption = {
+                    label: name,
+                    handler: () => manager.selectConfiguration(undefined, name, undefined, { type }),
+                };
+                if (type === current.type && name === current.name) selected = option;
+                return option;
+            });
+
+        const groups = [...configurations.values(), recent];
+        if (groups.every((group) => group.length === 0)) {
+            groups.push([{ label: NO_CONFIGURATIONS, handler: selectsNothing }]);
+        }
+
+        const actions: IDebugOption[] = [
+            ...this.providers.map((p) => ({
                 label: `${p.label}...`,
                 handler: async () => {
                     const picked = await p.pick();
@@ -257,30 +237,21 @@ export class StartDebugActionViewItem extends Disposable {
                         await manager.selectConfiguration(picked.launch, picked.config.name, picked.config, {
                             type: p.type,
                         });
-                        return true;
                     }
-                    return false;
                 },
-                category: "actions",
-            });
-        });
-
-        manager
-            .getLaunches()
-            .filter((l) => !l.hidden)
-            .forEach((l) => {
-                const label = inWorkspace ? `Add Config (${l.name})...` : "Add Configuration...";
-                this.debugOptions.push({
-                    label,
+            })),
+            ...manager
+                .getLaunches()
+                .filter((l) => !l.hidden)
+                .map((l) => ({
+                    label: inWorkspace ? `Add Config (${l.name})...` : "Add Configuration...",
                     handler: async () => {
                         await this.commands.execute(ADD_CONFIGURATION_ID, l.uri.toString());
-                        return false;
                     },
-                    category: "actions",
-                });
-            });
+                })),
+        ];
 
-        this.renderOptions();
+        return { groups: [...groups, actions].filter((group) => group.length > 0), selected };
     }
 
     private renderOptions(): void {
@@ -288,6 +259,6 @@ export class StartDebugActionViewItem extends Disposable {
         const options: ISelectOptionItem[] = rows.map((row) =>
             row === SEPARATOR ? { text: row.label, isSeparator: true } : { text: row.label },
         );
-        this.dropdown.setOptions(options, rows.indexOf(this.debugOptions[this.selected]));
+        this.dropdown.setOptions(options, rows.indexOf(this.options.selected ?? rows[0]));
     }
 }

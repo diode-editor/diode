@@ -145,6 +145,8 @@ describe("the launcher in the Run and Debug title", () => {
         expect(title()).toMatch(new RegExp(`RUN AND.* ${START} First ⌄ ${GEAR} │ ⋯`));
         click(find("First ⌄"));
         expect(lines().join("\n")).toContain("Add Configuration...");
+        // The separator before the actions is the menu's line, not a row to pick.
+        expect(lines()[find("Add Configuration...").y - 1]).toMatch(/├─+┤/u);
         h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("Enter");
         await vi.waitFor(() => {

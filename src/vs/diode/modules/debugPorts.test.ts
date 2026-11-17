@@ -208,7 +208,9 @@ describe("the ports of the debug service", () => {
             );
             const quickInput = { quickPick, cancel: vi.fn() };
             const errors: string[] = [];
-            const log = { createLogger: () => ({ error: (message: string) => errors.push(message) }) };
+            const log = {
+                createLogger: (name: string) => ({ error: (message: string) => errors.push(`${name}: ${message}`) }),
+            };
             const dialogs = { confirm: vi.fn(() => Promise.resolve(true)) };
             const languages = { getLanguageDisplayName: (id: string) => (id === "rust" ? "Rust" : undefined) };
             const activator = { extensions: [], whenInstalledExtensionsRegistered: vi.fn(() => Promise.resolve()) };
@@ -235,7 +237,7 @@ describe("the ports of the debug service", () => {
             ]);
             expect(await quickPick.mock.calls[0][0].lateItems).toEqual({ items: [item] });
             expect(await quickPick.mock.calls[1][0].lateItems).toEqual({ items: [] });
-            expect(errors).toEqual(["Error: boom"]);
+            expect(errors).toEqual(["debug: Error: boom"]);
             expect(quickInput.cancel).toHaveBeenCalledTimes(1);
         });
 

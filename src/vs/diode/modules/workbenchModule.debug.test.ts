@@ -15,6 +15,7 @@ import {
 } from "../../workbench/contrib/debug/browser/debugService.ts";
 import { QuickAccessRegistryDIToken } from "../../workbench/contrib/quickaccess/common/quickAccessRegistry.ts";
 import { TaskServiceDIToken } from "../../workbench/contrib/tasks/browser/taskService.ts";
+import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
 import { TextFileModelServiceDIToken } from "../../workbench/services/textfile/common/textFileModelService.ts";
 
@@ -55,6 +56,17 @@ describe("workbenchModule — the ports of the debug service", () => {
         expect(activator.activateByEvent).toHaveBeenCalledWith("onDebugResolve:lldb");
         expect(activator.whenInstalledExtensionsRegistered).toHaveBeenCalledTimes(2);
         expect(ports.configurationManager.extensions.extensions).toBe(activator.extensions);
+    });
+
+    it("the active editor's resource is the one of the editor active when it is asked", () => {
+        const { container } = createTestContainer();
+        const ports = container.get(DebugServicePortsDIToken);
+        const active = vi.spyOn(container.get(EditorServiceDIToken), "getActiveEditor");
+
+        active.mockReturnValue(null);
+        expect(ports.activeEditorResource()).toBeUndefined();
+        active.mockReturnValue({ uri: Uri.file("/w/a.c") } as never);
+        expect(ports.activeEditorResource()).toBe(Uri.file("/w/a.c").toString());
     });
 
     it("launch.json, the debug tasks, saving, Select and Start Debugging and the exit confirmation are wired", async () => {
