@@ -39,8 +39,10 @@ interface IDebugOption {
     readonly category: string | undefined;
 }
 
+/** A row that selects nothing: the separators and "No Configurations". */
+const selectsNothing = (): Promise<boolean> => Promise.resolve(false);
 /** The row between two categories: the select box does not select it. */
-const SEPARATOR: IDebugOption = { label: "─", handler: () => Promise.resolve(false), category: undefined };
+const SEPARATOR: IDebugOption = { label: "─", handler: selectsNothing, category: undefined };
 
 /** In a narrow title the selected configuration shrinks down to this many characters. */
 const MIN_LABEL_WIDTH = 8;
@@ -68,7 +70,8 @@ class ConfigurationDropdownElement extends SelectBoxElement {
     }
 
     private selectedWidth(): number {
-        return (this.texts.at(this.getSelected()) ?? "").length;
+        // The launcher selects a row of every list it sets.
+        return this.texts[this.getSelected()].length;
     }
 }
 
@@ -237,7 +240,7 @@ export class StartDebugActionViewItem extends Disposable {
         if (this.debugOptions.length === 0) {
             this.debugOptions.push({
                 label: NO_CONFIGURATIONS,
-                handler: () => Promise.resolve(false),
+                handler: selectsNothing,
                 category: undefined,
             });
         }

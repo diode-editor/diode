@@ -159,6 +159,10 @@ describe("StartDebugQuickAccessProvider", () => {
                 ["Synthetic (C++ under CodeLLDB)...", undefined],
                 ["Add Configuration...", undefined],
             ]);
+            expect(provider.getItems("debug zz").map((i) => i.label)).toEqual([
+                "Synthetic (C++ under CodeLLDB)...",
+                "Add Configuration...",
+            ]);
         });
 
         it("a type's row picks one of its configurations, selects it as dynamic and starts it", async () => {
@@ -211,6 +215,25 @@ describe("StartDebugQuickAccessProvider", () => {
                         startedByUser: true,
                     },
                 );
+            });
+        });
+
+        it("a failed start of a recent or a picked dynamic configuration is not thrown at the picker", async () => {
+            const provider = create({});
+            provideDynamic();
+            await shown(provider);
+            await fx.service
+                .getConfigurationManager()
+                .selectConfiguration(undefined, "Dyn", undefined, { type: SYNTHETIC_DEBUG_TYPE });
+            const start = vi.spyOn(fx.service, "startDebugging").mockRejectedValue(new Error("boom"));
+            fx.pickLabel = "Dyn";
+
+            const [recent, type] = provider.getItems("debug ");
+            recent.accept?.();
+            type.accept?.();
+
+            await vi.waitFor(() => {
+                expect(start).toHaveBeenCalledTimes(2);
             });
         });
     });

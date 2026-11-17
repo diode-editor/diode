@@ -104,9 +104,12 @@ describe("AdapterManager.guessDebugger", () => {
         await fx.service.stopSession(undefined);
         for (const adapter of factory.adapters) adapter.dispose();
 
-        await adapters.guessDebugger(true);
+        fx.pickLabel = "Synthetic (C++ under CodeLLDB)";
+
+        const guess = await adapters.guessDebugger(true);
 
         expect(fx.picks[0].rows.slice(0, 2)).toEqual(["Synthetic (C++ under CodeLLDB) | suggested", "Alpha"]);
+        expect(guess?.debugger.type).toBe("synthetic");
     });
 
     it("a dynamic type's row picks one of its configurations, which comes with the guess", async () => {

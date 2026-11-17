@@ -252,14 +252,13 @@ export class AdapterManager extends Disposable implements IAdapterManager {
 
         const picks: IDebuggerPick[] = [];
         const dynamic = await this.debugService().getConfigurationManager().getDynamicProviders();
-        picks.push(
-            ...suggestedCandidates.map((c, i) => ({
-                label: c.label,
-                hint: i === 0 ? "suggested" : undefined,
-                pick: () => ({ debugger: c }),
-            })),
-        );
-        picks.push(...otherCandidates.map((c) => ({ label: c.label, pick: () => ({ debugger: c }) })));
+        const debuggerPick = (c: Debugger): IDebuggerPick => ({ label: c.label, pick: () => ({ debugger: c }) });
+        picks.push(...suggestedCandidates.map(debuggerPick));
+        if (picks.length > 0) {
+            // Upstream's separator "Suggested", on the group's first row.
+            picks[0] = { ...picks[0], hint: "suggested" };
+        }
+        picks.push(...otherCandidates.map(debuggerPick));
 
         for (const d of dynamic) {
             picks.push({
