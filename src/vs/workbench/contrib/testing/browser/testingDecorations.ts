@@ -62,16 +62,10 @@ import { getTestItemContextOverlay } from "./testItemContextOverlay.ts";
 // Coverage entries (no coverage yet), the glyph has no hover, and holding Alt does not swap it for the alternate
 // action's (a terminal reports Alt only with another key) — an Alt+click still takes the alternate action.
 
-/** Upstream's entries of a test's menu that run it, by the group its profiles have. */
+/** Upstream's entries of a glyph's menu that run its test (or all of a line's tests), by the group of the profiles. */
 const RUN_ENTRIES = [
-    { group: TestRunProfileBitset.Run, label: "Run Test" },
-    { group: TestRunProfileBitset.Debug, label: "Debug Test" },
-] as const;
-
-/** Upstream's entries of a line's menu that run all its tests. */
-const RUN_ALL_ENTRIES = [
-    { group: TestRunProfileBitset.Run, label: "Run All Tests" },
-    { group: TestRunProfileBitset.Debug, label: "Debug All Tests" },
+    { group: TestRunProfileBitset.Run, label: "Run Test", allLabel: "Run All Tests" },
+    { group: TestRunProfileBitset.Debug, label: "Debug Test", allLabel: "Debug All Tests" },
 ] as const;
 
 /** Upstream `MAX_TESTS_IN_SUBMENU`. */
@@ -343,9 +337,8 @@ export class TestingDecorations extends Disposable {
             this.showContextMenu(state.editor, tests, click);
             return;
         }
-        const primary = action === "debug" ? TestRunProfileBitset.Debug : TestRunProfileBitset.Run;
-        const alternate = action === "debug" ? TestRunProfileBitset.Run : TestRunProfileBitset.Debug;
-        this.run(tests, click.altKey ? alternate : primary);
+        const debug = (action === "debug") !== click.altKey;
+        this.run(tests, debug ? TestRunProfileBitset.Debug : TestRunProfileBitset.Run);
     }
 
     /** Upstream `runWith` over `simplifyTestsToExecute`: a test under another one of the set runs with it. */
@@ -431,14 +424,16 @@ export class TestingDecorations extends Disposable {
 
     /** Upstream `MultiRunTestDecoration.getContextMenuActions` without Coverage. */
     private multiTestEntries(tests: readonly ITestNode[]): MenuEntry[] {
-        const entries: MenuEntry[] = RUN_ALL_ENTRIES.filter(({ group }) =>
-            tests.some((test) => this.profiles.capabilitiesForTest(test) & group),
-        ).map(({ group, label }) => ({
-            label,
-            onSelect: () => {
-                this.run(tests, group);
-            },
-        }));
+        let capabilities = 0;
+        for (const test of tests) capabilities |= this.profiles.capabilitiesForTest(test);
+        const entries: MenuEntry[] = RUN_ENTRIES.filter(({ group }) => capabilities & group).map(
+            ({ group, allLabel }) => ({
+                label: allLabel,
+                onSelect: () => {
+                    this.run(tests, group);
+                },
+            }),
+        );
         const labelled = labelTests(tests, (id) => this.tests.getNodeById(id));
         const submenus: MenuEntry[] = labelled.slice(0, MAX_TESTS_IN_SUBMENU).map(({ label, test }) => ({
             type: "submenu",

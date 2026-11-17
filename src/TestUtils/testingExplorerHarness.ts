@@ -18,8 +18,10 @@ import {
     type IWireRunControllerTestsResult,
     type IWireStartControllerTests,
     type IWireTestItem,
+    type IWireTestRunProfile,
     TestDiffOpType,
     type TestItemExpandState,
+    type TestRunProfileGroup,
     type WireTestsDiffOp,
 } from "../vs/workbench/api/common/testingWireTypes.ts";
 import { menuItemsOfAction } from "../vs/workbench/browser/actions/menuContributions.ts";
@@ -80,6 +82,24 @@ export function wireItem(
         description: fields.description ?? null,
         error: fields.error ?? null,
         sortText: fields.sortText ?? null,
+    };
+}
+
+/** A default profile of `vitest` in the group, its id the group's bit unless given. */
+export function testProfile(
+    group: TestRunProfileGroup,
+    overrides: Partial<IWireTestRunProfile> = {},
+): IWireTestRunProfile {
+    return {
+        controllerId: "vitest",
+        profileId: group,
+        label: String(group),
+        group,
+        isDefault: true,
+        tag: null,
+        hasConfigurationHandler: false,
+        supportsContinuousRun: false,
+        ...overrides,
     };
 }
 

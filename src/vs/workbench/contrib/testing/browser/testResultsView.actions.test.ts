@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { add, setupExplorer, UNICODE_ICONS, wireItem } from "../../../../../TestUtils/testingExplorerHarness.ts";
+import {
+    add,
+    setupExplorer,
+    testProfile,
+    UNICODE_ICONS,
+    wireItem,
+} from "../../../../../TestUtils/testingExplorerHarness.ts";
 import { testId } from "../../../../../TestUtils/testTree.ts";
 import { codicon } from "../../../../base/common/codicons.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
-import {
-    type IWireTestRunProfile,
-    TestItemExpandState,
-    TestResultState,
-    TestRunProfileBitset,
-    type TestRunProfileGroup,
-} from "../../../api/common/testingWireTypes.ts";
+import { TestItemExpandState, TestResultState, TestRunProfileBitset } from "../../../api/common/testingWireTypes.ts";
 import type { LiveTestResult } from "../common/testResult.ts";
 
 // The TEST RESULTS tree's rows: their glyphs and menus, Enter on a test, the older runs.
@@ -70,20 +70,6 @@ function clickGlyph(harness: Harness, row: { y: number; line: string }, name: st
     const x = row.line.lastIndexOf(glyph(name));
     expect(x, `${name} on "${row.line}"`).toBeGreaterThanOrEqual(0);
     harness.panel.click(TREE_X + x, row.y);
-}
-
-/** A default profile of `vitest` in the group. */
-function profile(group: TestRunProfileGroup): IWireTestRunProfile {
-    return {
-        controllerId: "vitest",
-        profileId: group,
-        label: String(group),
-        group,
-        isDefault: true,
-        tag: null,
-        hasConfigurationHandler: false,
-        supportsContinuousRun: false,
-    };
 }
 
 function menuLabels(harness: Harness): string[] {
@@ -151,8 +137,8 @@ describe("TEST RESULTS — the rows' actions", () => {
 
     it("a test: Go to Test, Show Result Output, Run Test and Debug Test by its profiles; Reveal in Test Explorer in its menu", async () => {
         const { harness, executed } = setup();
-        harness.profiles.addProfile(profile(TestRunProfileBitset.Run));
-        harness.profiles.addProfile(profile(TestRunProfileBitset.Debug));
+        harness.profiles.addProfile(testProfile(TestRunProfileBitset.Run));
+        harness.profiles.addProfile(testProfile(TestRunProfileBitset.Debug));
         failed(harness);
         await harness.panel.waitFrame((text) => text.includes("fails"));
         const row = treeRow(harness, "fails");

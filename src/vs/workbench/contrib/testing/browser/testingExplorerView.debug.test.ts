@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { add, setupExplorer, UNICODE_ICONS, wireItem } from "../../../../../TestUtils/testingExplorerHarness.ts";
+import {
+    add,
+    setupExplorer,
+    testProfile,
+    UNICODE_ICONS,
+    wireItem,
+} from "../../../../../TestUtils/testingExplorerHarness.ts";
 import { testId } from "../../../../../TestUtils/testTree.ts";
 import { codicon } from "../../../../base/common/codicons.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
@@ -28,16 +34,7 @@ const DEBUG = 2;
 const DEBUG_GLYPH = UNICODE_ICONS.glyph(codicon("debug-alt-small"));
 
 function profile(group: TestRunProfileGroup, profileId: number, tag: string | null = null): IWireTestRunProfile {
-    return {
-        controllerId: "vitest",
-        profileId,
-        label: String(profileId),
-        group,
-        isDefault: true,
-        tag,
-        hasConfigurationHandler: false,
-        supportsContinuousRun: false,
-    };
+    return testProfile(group, { profileId, label: String(profileId), tag });
 }
 
 /** `vitest` → `a`, `b` (`b` tagged `slow`), expanded; a Run profile and, unless told, a Debug one. */

@@ -22,6 +22,7 @@
             "leaveSnippet",
             "acceptSnippet",
             "testing.debugAll",
+            "testing.runAll",
             "testing.showMostRecentOutput",
             "testing.collapsePeekStack",
             "testing.debugAtCursor",

@@ -2,7 +2,7 @@ import { Size } from "@tuidom/core/common/geometryPromitives";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
-import { add, setupExplorer, THEME, wireItem } from "../../../../../TestUtils/testingExplorerHarness.ts";
+import { add, setupExplorer, testProfile, THEME, wireItem } from "../../../../../TestUtils/testingExplorerHarness.ts";
 import { testId } from "../../../../../TestUtils/testTree.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -248,16 +248,7 @@ describe("the Debug variants", () => {
     /** A Debug profile (id 2) next to the Run one. */
     function withDebug() {
         const s = setup();
-        s.explorer.profiles.addProfile({
-            controllerId: "vitest",
-            profileId: 2,
-            label: "Debug",
-            group: TestRunProfileBitset.Debug,
-            isDefault: true,
-            tag: null,
-            hasConfigurationHandler: false,
-            supportsContinuousRun: false,
-        });
+        s.explorer.profiles.addProfile(testProfile(TestRunProfileBitset.Debug, { profileId: 2 }));
         const profiles = (): number[] => s.explorer.runs.map((run) => run.requests[0].profileId);
         return { ...s, profiles };
     }

@@ -36,12 +36,22 @@ function compareProfiles(a: ITestRunProfile, b: ITestRunProfile): number {
     return a.label.localeCompare(b.label);
 }
 
-/** Upstream `capabilityContextKeys`: a test's menus see what it can do. Coverage is a later wave: never. */
+/** Upstream `capabilityToContextKey` of the groups offered: Coverage is a later wave. */
+export const CAPABILITY_CONTEXT_KEY = {
+    [TestRunProfileBitset.Run]: "testing.hasRunnableTests",
+    [TestRunProfileBitset.Debug]: "testing.hasDebuggableTests",
+} as const;
+
+/** The groups the UI offers. */
+export type OfferedTestRunGroup = keyof typeof CAPABILITY_CONTEXT_KEY;
+
+const OFFERED_GROUPS = [TestRunProfileBitset.Run, TestRunProfileBitset.Debug] as const;
+
+/** Upstream `capabilityContextKeys`: a test's menus see what it can do. */
 export function capabilityContextKeys(capabilities: number): Record<string, boolean> {
-    return {
-        "testing.hasRunnableTests": (capabilities & TestRunProfileBitset.Run) !== 0,
-        "testing.hasDebuggableTests": (capabilities & TestRunProfileBitset.Debug) !== 0,
-    };
+    return Object.fromEntries(
+        OFFERED_GROUPS.map((group) => [CAPABILITY_CONTEXT_KEY[group], (capabilities & group) !== 0]),
+    );
 }
 
 /**
@@ -117,8 +127,8 @@ export class TestProfileService extends Disposable {
     private refreshContextKeys(): void {
         let capabilities = 0;
         for (const list of this.profiles.values()) for (const profile of list) capabilities |= profile.group;
-        const keys = capabilityContextKeys(capabilities);
-        this.contextKeys.set("testing.hasRunnableTests", keys["testing.hasRunnableTests"]);
-        this.contextKeys.set("testing.hasDebuggableTests", keys["testing.hasDebuggableTests"]);
+        for (const group of OFFERED_GROUPS) {
+            this.contextKeys.set(CAPABILITY_CONTEXT_KEY[group], (capabilities & group) !== 0);
+        }
     }
 }

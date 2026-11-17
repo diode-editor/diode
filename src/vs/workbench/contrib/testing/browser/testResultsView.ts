@@ -635,18 +635,13 @@ export class TestResultsComponent extends Disposable {
         if (row.kind === "older") return [];
         if (row.kind === "message") return this.messageActions(row);
         const { result } = row;
-        const hasFailed = [...result.tests].some((test) => isFailedState(test.ownComputedState));
+        /** The actions while the run has a failed test (a run's and a task's rows only: a scan of its tests). */
+        const ifFailed = (action: IRowAction): IRowAction[] =>
+            [...result.tests].some((test) => isFailedState(test.ownComputedState)) ? [action] : [];
         const rerunFailed = (): IRowAction[] =>
-            hasFailed
-                ? [
-                      this.commandAction(
-                          "Rerun Failed Tests",
-                          testingRerunIcon,
-                          "testing.reRunFailedFromLastRun",
-                          result.id,
-                      ),
-                  ]
-                : [];
+            ifFailed(
+                this.commandAction("Rerun Failed Tests", testingRerunIcon, "testing.reRunFailedFromLastRun", result.id),
+            );
         if (row.kind === "task") {
             const task = result.tasks[row.taskIndex];
             return [
@@ -665,16 +660,14 @@ export class TestResultsComponent extends Disposable {
                           this.commandAction("Rerun Last Run", testingRerunIcon, "testing.reRunLastRun", result.id),
                           ...rerunFailed(),
                           this.commandAction("Debug Last Run", testingDebugIcon, "testing.debugLastRun", result.id),
-                          ...(hasFailed
-                              ? [
-                                    this.commandAction(
-                                        "Debug Failed Tests",
-                                        testingDebugIcon,
-                                        "testing.debugFailedFromLastRun",
-                                        result.id,
-                                    ),
-                                ]
-                              : []),
+                          ...ifFailed(
+                              this.commandAction(
+                                  "Debug Failed Tests",
+                                  testingDebugIcon,
+                                  "testing.debugFailedFromLastRun",
+                                  result.id,
+                              ),
+                          ),
                       ]),
             ];
         }

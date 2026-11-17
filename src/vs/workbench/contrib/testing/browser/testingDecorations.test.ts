@@ -7,6 +7,7 @@ import {
     add,
     setupExplorer,
     SwitchableIcons,
+    testProfile,
     THEME,
     update,
     wireItem,
@@ -253,16 +254,7 @@ function setup(options: ISetupOptions = {}) {
     };
     /** A Debug profile (id 2) next to the Run one (id 1). */
     const addDebugProfile = (): void => {
-        explorer.profiles.addProfile({
-            controllerId: "vitest",
-            profileId: 2,
-            label: "Debug",
-            group: TestRunProfileBitset.Debug,
-            isDefault: true,
-            tag: null,
-            hasConfigurationHandler: false,
-            supportsContinuousRun: false,
-        });
+        explorer.profiles.addProfile(testProfile(TestRunProfileBitset.Debug, { profileId: 2 }));
     };
     const menu = (): MenuEntry[] => explorer.views.shown.at(-1)?.getEntries?.() ?? [];
     const labels = (entries: readonly MenuEntry[] = menu()): string[] =>

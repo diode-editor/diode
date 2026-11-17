@@ -15,7 +15,11 @@ import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.t
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 import { openExtensionsSearch } from "../../extensions/browser/extensionsSearch.ts";
 import { isFailedState } from "../common/testingStates.ts";
-import { TestProfileServiceDIToken } from "../common/testProfileService.ts";
+import {
+    CAPABILITY_CONTEXT_KEY,
+    type OfferedTestRunGroup,
+    TestProfileServiceDIToken,
+} from "../common/testProfileService.ts";
 import type { LiveTestResult } from "../common/testResult.ts";
 import { TestResultServiceDIToken } from "../common/testResultService.ts";
 import { type ITestNode, TestServiceDIToken } from "../common/testService.ts";
@@ -31,8 +35,6 @@ import { TEST_RESULTS_VIEW_ID, TestResultsComponentDIToken } from "./testResults
 
 const CAN_REFRESH = "testing.canRefresh";
 const IS_RUNNING = "testing.isRunning";
-const HAS_RUNNABLE = "testing.hasRunnableTests";
-const HAS_DEBUGGABLE = "testing.hasDebuggableTests";
 const HAS_RESULTS = "testing.hasAnyResults";
 const PEEK_HAS_STACK = "testing.peekHasStack";
 
@@ -46,6 +48,22 @@ const ActionOrder = {
     DisplayMode: 18,
     Sort: 19,
     GoToTest: 20,
+} as const;
+
+/** What a Run or Debug action of the view takes from its group: the key, its place and its glyphs. */
+const GROUP_UI = {
+    [TestRunProfileBitset.Run]: {
+        capability: CAPABILITY_CONTEXT_KEY[TestRunProfileBitset.Run],
+        order: ActionOrder.Run,
+        icon: codicon("run"),
+        allIcon: codicon("run-all"),
+    },
+    [TestRunProfileBitset.Debug]: {
+        capability: CAPABILITY_CONTEXT_KEY[TestRunProfileBitset.Debug],
+        order: ActionOrder.Debug,
+        icon: testingDebugIcon,
+        allIcon: testingDebugAllIcon,
+    },
 } as const;
 
 /** Upstream `testItemInlineAndInContext`: the row's glyph and its context menu entry. */
@@ -147,14 +165,8 @@ export const cancelTestRefreshAction: CommandAction = {
  * Upstream `ExecuteSelectedAction`: the tests the view shows — without a filter all of them, with one those it
  * matched — with the group's defaults. In the title while nothing runs; Cancel Test Run takes Run's slot meanwhile.
  */
-function executeSelectedAction(
-    group: TestRunProfileGroup,
-    id: string,
-    label: string,
-    icon: ReturnType<typeof codicon>,
-    order: number,
-    capability: string,
-): CommandAction {
+function executeSelectedAction(group: OfferedTestRunGroup, id: string, label: string): CommandAction {
+    const { capability, order, allIcon } = GROUP_UI[group];
     return {
         id,
         title: `Test: ${label}`,
@@ -165,7 +177,7 @@ function executeSelectedAction(
                 menuId: MenuId.ViewTitle,
                 group: "navigation",
                 order,
-                icon,
+                icon: allIcon,
                 visible: viewMenuVisible(TESTING_EXPLORER_VIEW_ID),
                 when: `!${IS_RUNNING} && ${capability}`,
             },
@@ -181,9 +193,6 @@ export const runSelectedTestsAction = executeSelectedAction(
     TestRunProfileBitset.Run,
     "testing.runSelected",
     "Run Tests",
-    codicon("run-all"),
-    ActionOrder.Run,
-    HAS_RUNNABLE,
 );
 
 /** Upstream `DebugSelectedAction`. */
@@ -191,9 +200,6 @@ export const debugSelectedTestsAction = executeSelectedAction(
     TestRunProfileBitset.Debug,
     "testing.debugSelected",
     "Debug Tests",
-    testingDebugAllIcon,
-    ActionOrder.Debug,
-    HAS_DEBUGGABLE,
 );
 
 /** Upstream `CancelTestRunAction`: the given run (and task), otherwise every live run. */
@@ -224,14 +230,8 @@ export const cancelTestRunAction: CommandAction = {
 };
 
 /** Upstream `RunVisibleAction`: the row's test with its visible descendants; inline and in the row's menu. */
-function runVisibleAction(
-    group: TestRunProfileGroup,
-    id: string,
-    label: string,
-    icon: ReturnType<typeof codicon>,
-    order: number,
-    capability: string,
-): CommandAction {
+function runVisibleAction(group: OfferedTestRunGroup, id: string, label: string): CommandAction {
+    const { capability, order, icon } = GROUP_UI[group];
     return {
         id,
         title: `Test: ${label}`,
@@ -248,40 +248,25 @@ function runVisibleAction(
 }
 
 /** Upstream `RunAction`. */
-export const runTestAction = runVisibleAction(
-    TestRunProfileBitset.Run,
-    "testing.run",
-    "Run Test",
-    codicon("run"),
-    ActionOrder.Run,
-    HAS_RUNNABLE,
-);
+export const runTestAction = runVisibleAction(TestRunProfileBitset.Run, "testing.run", "Run Test");
 
 /** Upstream `DebugAction`. */
-export const debugTestAction = runVisibleAction(
-    TestRunProfileBitset.Debug,
-    "testing.debug",
-    "Debug Test",
-    testingDebugIcon,
-    ActionOrder.Debug,
-    HAS_DEBUGGABLE,
-);
+export const debugTestAction = runVisibleAction(TestRunProfileBitset.Debug, "testing.debug", "Debug Test");
 
 /** Upstream `RunOrDebugAllTestsAction`: every controller that has or may have tests. */
 function allTestsAction(
-    group: TestRunProfileGroup,
+    group: OfferedTestRunGroup,
     id: string,
     label: string,
     key: string,
     noTestsFound: string,
-    palette?: string,
 ): CommandAction {
     return {
         id,
         title: `Test: ${label}`,
         shortTitle: label,
         keybinding: parseChord(key),
-        menus: palette === undefined ? undefined : [{ menuId: MenuId.CommandPalette, when: palette }],
+        menus: [{ menuId: MenuId.CommandPalette, when: GROUP_UI[group].capability }],
         async run(accessor) {
             const tests = accessor.get(TestServiceDIToken);
             const roots = tests.rootItems.filter(
@@ -320,7 +305,6 @@ export const debugAllTestsAction = allTestsAction(
     "Debug All Tests",
     "mod+; mod+a",
     "No debuggable tests found in this workspace. You may need to install a test provider extension",
-    HAS_DEBUGGABLE,
 );
 
 /** Upstream `RunOrDebugFailedTests`: the tests whose latest result over all runs failed. */

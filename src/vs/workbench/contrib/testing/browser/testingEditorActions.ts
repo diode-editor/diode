@@ -9,7 +9,11 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 import { TestId, TestRunProfileBitset } from "../../../api/common/testingWireTypes.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
-import { TestProfileServiceDIToken } from "../common/testProfileService.ts";
+import {
+    CAPABILITY_CONTEXT_KEY,
+    type OfferedTestRunGroup,
+    TestProfileServiceDIToken,
+} from "../common/testProfileService.ts";
 import { type ITestNode, TestServiceDIToken } from "../common/testService.ts";
 
 import { TestingMessageDecorationsDIToken } from "./testingMessageDecorations.ts";
@@ -25,15 +29,9 @@ const EDITOR_TEXT_FOCUS = "editorTextFocus";
 const HAS_RESULTS = "testing.hasAnyResults";
 /** Upstream `EditorContextOrder`. */
 const EditorContextOrder = { RunAtCursor: 0, DebugAtCursor: 1, RunInFile: 2, DebugInFile: 3 } as const;
-/** Upstream `capabilityToContextKey` of the groups offered here: coverage is a later wave. */
-const CAPABILITY_KEY = {
-    [TestRunProfileBitset.Run]: "testing.hasRunnableTests",
-    [TestRunProfileBitset.Debug]: "testing.hasDebuggableTests",
-} as const;
-type EditorGroup = keyof typeof CAPABILITY_KEY;
 
-function editorContextWhen(group: EditorGroup): string {
-    return `testing.activeEditorHasTests && ${CAPABILITY_KEY[group]}`;
+function editorContextWhen(group: OfferedTestRunGroup): string {
+    return `testing.activeEditorHasTests && ${CAPABILITY_CONTEXT_KEY[group]}`;
 }
 
 function notify(accessor: ServiceAccessor, message: string): void {
@@ -77,7 +75,13 @@ export function getTestsAtCursor(tests: readonly ITestNode[], position: IPositio
 }
 
 /** Upstream `ExecuteTestAtCursor`: the tests at the cursor of the active editor that can run in the group. */
-function testAtCursorAction(group: EditorGroup, id: string, label: string, key: string, order: number): CommandAction {
+function testAtCursorAction(
+    group: OfferedTestRunGroup,
+    id: string,
+    label: string,
+    key: string,
+    order: number,
+): CommandAction {
     return {
         id,
         title: `Test: ${label}`,
@@ -131,7 +135,7 @@ export const debugAtCursorAction = testAtCursorAction(
  * it, with the group's defaults.
  */
 function testsInCurrentFileAction(
-    group: EditorGroup,
+    group: OfferedTestRunGroup,
     id: string,
     label: string,
     key: string,
@@ -143,7 +147,7 @@ function testsInCurrentFileAction(
         shortTitle: label,
         keybinding: { keys: parseChord(key), when: EDITOR_TEXT_FOCUS, weight: KeybindingWeight.WorkbenchContrib },
         menus: [
-            { menuId: MenuId.CommandPalette, when: CAPABILITY_KEY[group] },
+            { menuId: MenuId.CommandPalette, when: CAPABILITY_CONTEXT_KEY[group] },
             { menuId: MenuId.EditorContext, group: "testing", order, when: editorContextWhen(group) },
         ],
         async run(accessor) {
