@@ -24,6 +24,7 @@ import type {
 import type { HoverProvider } from "../languages/iHoverSource.ts";
 import type { InlayHintsProvider } from "../languages/iInlayHintsSource.ts";
 import type { InlineCompletionsProvider } from "../languages/iInlineCompletionSource.ts";
+import type { InlineValuesProvider } from "../languages/iInlineValuesSource.ts";
 import type { LinkedEditingRangeProvider } from "../languages/iLinkedEditingSource.ts";
 import type { LinkProvider } from "../languages/iLinkSource.ts";
 import type { ReferenceProvider } from "../languages/iReferenceSource.ts";
@@ -65,6 +66,7 @@ export interface ILanguageFeaturesService {
     readonly documentLinkProvider: LanguageFeatureRegistry<LinkProvider>;
     readonly inlayHintsProvider: LanguageFeatureRegistry<InlayHintsProvider>;
     readonly codeLensProvider: LanguageFeatureRegistry<CodeLensProvider>;
+    readonly inlineValuesProvider: LanguageFeatureRegistry<InlineValuesProvider>;
     readonly callHierarchyProvider: LanguageFeatureRegistry<CallHierarchyProvider>;
     readonly typeHierarchyProvider: LanguageFeatureRegistry<TypeHierarchyProvider>;
 }
