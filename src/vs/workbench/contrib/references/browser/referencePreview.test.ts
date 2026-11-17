@@ -168,8 +168,7 @@ describe("buildReferenceGroups", () => {
         expect(groups).toHaveLength(1);
         expect(groups[0].relPath).toBe("a.ts");
         expect(groups[0].matches).toHaveLength(1);
-        // A failed read is cached too — there was no second reference into that file,
-        // but there must be no read retries.
+        // Each file is read once, the one with a line past its text included.
         expect(src.reads).toEqual([`${ROOT}/gone.ts`, `${ROOT}/a.ts`]);
     });
 
