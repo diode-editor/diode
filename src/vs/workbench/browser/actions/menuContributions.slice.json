@@ -87,6 +87,18 @@
             "references-view.removeTypeItem"
         ]
     },
+    "DebugToolBar": {
+        "navigation": [
+            "workbench.action.debug.pause",
+            "workbench.action.debug.continue",
+            "workbench.action.debug.stepOver",
+            "workbench.action.debug.stepInto",
+            "workbench.action.debug.stepOut",
+            "workbench.action.debug.restart",
+            "workbench.action.debug.disconnect",
+            "workbench.action.debug.stop"
+        ]
+    },
     "EditorContext": {
         "1_modification": [
             "editor.action.rename",
@@ -490,6 +502,18 @@
         "inline": [
             "testing.run",
             "testing.editFocusedTest"
+        ]
+    },
+    "ViewContainerTitle": {
+        "navigation": [
+            "workbench.action.debug.pause",
+            "workbench.action.debug.continue",
+            "workbench.action.debug.stepOver",
+            "workbench.action.debug.stepInto",
+            "workbench.action.debug.stepOut",
+            "workbench.action.debug.restart",
+            "workbench.action.debug.disconnect",
+            "workbench.action.debug.stop"
         ]
     },
     "ViewTitle": {

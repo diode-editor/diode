@@ -53,7 +53,12 @@ export class StatusBarComponent extends Component {
         super();
         this.view = new HFlexElement();
         this.view.id = "statusBar";
-        this.view.style = { fg: "statusBar.foreground", bg: "statusBar.background" };
+        this.updateStyle();
+        this.register(
+            this.statusBarService.onDidChangeStyle(() => {
+                this.updateStyle();
+            }),
+        );
         this.view.addEventListener("contextmenu", (event) => {
             event.preventDefault();
             this.showVisibilityMenu(event as TUIContextMenuEvent);
@@ -64,6 +69,14 @@ export class StatusBarComponent extends Component {
             }),
         );
         this.renderEntries();
+    }
+
+    private updateStyle(): void {
+        const override = this.statusBarService.styleOverride();
+        this.view.style = {
+            fg: override?.foreground ?? "statusBar.foreground",
+            bg: override?.background ?? "statusBar.background",
+        };
     }
 
     private renderEntries(): void {
