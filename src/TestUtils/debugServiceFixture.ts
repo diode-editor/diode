@@ -86,8 +86,8 @@ export interface IDebugServiceFixture {
     extensions: IExtension[];
     /** The active editor: its resource, language and the language's display name. */
     activeEditor: { resource: string; languageId: string; languageName?: string } | undefined;
-    /** The row the next pickers pick, by label; `undefined` cancels them. */
-    pickLabel: string | undefined;
+    /** The row the next pickers pick, by label (a list answers them in turn); `undefined` cancels them. */
+    pickLabel: string | string[] | undefined;
     /** What the pickers showed: their placeholder and rows (a row's hint after ` | `). */
     readonly picks: { placeholder: string; rows: string[] }[];
     /** The answer to the "no extension for debugging" question. */
@@ -145,7 +145,7 @@ export function createDebugServiceFixture(
         replClosings: 0,
         extensions: [] as IExtension[],
         activeEditor: undefined as { resource: string; languageId: string; languageName?: string } | undefined,
-        pickLabel: undefined as string | undefined,
+        pickLabel: undefined as string | string[] | undefined,
         picks: [] as { placeholder: string; rows: string[] }[],
         confirmAnswer: false,
         confirms: [] as string[],
@@ -211,7 +211,8 @@ export function createDebugServiceFixture(
     };
     function pick<T extends QuickPickItem>(placeholder: string, items: readonly T[]): T | undefined {
         fixture.picks.push({ placeholder, rows: pickRows(items) });
-        return items.find((item) => item.label === fixture.pickLabel);
+        const label = Array.isArray(fixture.pickLabel) ? fixture.pickLabel.shift() : fixture.pickLabel;
+        return items.find((item) => item.label === label);
     }
     const tasks: IDebugTaskRunnerPorts = {
         tasks: {

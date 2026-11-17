@@ -246,13 +246,18 @@ describe("debug commands", () => {
     });
 
     describe("start", () => {
-        it("without a selected configuration Start Debugging opens Select and Start Debugging", async () => {
+        it("without a selected configuration Start Debugging starts without one: the debugger is guessed", async () => {
             const start = vi.spyOn(fx.service, "startDebugging");
 
             await startAction.run(accessor);
 
-            expect(start).not.toHaveBeenCalled();
-            expect(executed).toEqual([["workbench.action.debug.selectandstart"]]);
+            expect(start).toHaveBeenCalledWith(
+                fx.service.getConfigurationManager().selectedConfiguration.launch,
+                undefined,
+                { noDebug: undefined, startedByUser: true },
+                false,
+            );
+            expect(executed).toEqual([]);
             expect(fx.saves).toHaveLength(1);
         });
     });

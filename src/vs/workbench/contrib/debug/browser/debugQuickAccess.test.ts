@@ -58,7 +58,7 @@ describe("StartDebugQuickAccessProvider", () => {
         expect(provider.getItems("debug ").map((i) => [i.label, i.description, i.hint])).toEqual([
             ["Attach", "", "most recent"],
             ["Run hello", "", undefined],
-            ["Add Configuration...", "", undefined],
+            ["Add Configuration...", "", "configure"],
         ]);
         expect(provider.getPlaceholder()).toBe("Type the name of a launch configuration to run.");
     });
@@ -73,7 +73,7 @@ describe("StartDebugQuickAccessProvider", () => {
         const manager = fx.service.getConfigurationManager();
         await manager.selectConfiguration(manager.getLaunches()[0], "Run");
 
-        expect(provider.getItems("debug ").map((i) => i.hint)).toEqual(["most recent", undefined, undefined]);
+        expect(provider.getItems("debug ").map((i) => i.hint)).toEqual(["most recent", undefined, "configure"]);
     });
 
     it("filters the configurations by the text after the prefix, with the matched characters", () => {

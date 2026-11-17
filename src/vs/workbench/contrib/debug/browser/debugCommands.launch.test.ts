@@ -49,6 +49,8 @@ describe("launch configuration commands", () => {
     function create(launch?: unknown): void {
         fx = createDebugServiceFixture({ workspaceLaunch: launch, folders: [FOLDER] });
         factory = registerSyntheticDebugger(fx.service.getAdapterManager(), NO_DELAY_TIMING).factory;
+        // A missing launch.json is created for the debugger of the active file.
+        fx.activeEditor = { resource: "file:///w/main.cpp", languageId: "cpp" };
     }
 
     beforeEach(() => {
@@ -229,7 +231,10 @@ describe("launch configuration commands", () => {
 
         expect(
             ["workbench.action.debug.selectandstart", "workbench.action.debug.configure", "debug.addConfiguration"].map(
-                (id) => [entry(id)?.title, entry(id)?.menus],
+                (id) => [
+                    entry(id)?.title,
+                    entry(id)?.menus?.filter((menu) => menu.menuId === MenuId.CommandPalette),
+                ],
             ),
         ).toEqual([
             [
