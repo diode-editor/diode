@@ -268,10 +268,11 @@ describe("Breakpoints in the editor's glyph lane", () => {
         const util = path.join(elsewhere, "util.cpp");
         fs.writeFileSync(util, SOURCE);
         try {
-            await open(util, 3);
+            // Below the debug toolbar, which covers the first rows of the group.
+            await open(util, 10);
             t.h.testApp.sendKey("F9");
             await vi.waitFor(() => {
-                expect(glyphAt(3)).toBe("●");
+                expect(glyphAt(10)).toBe("●");
             });
 
             await t.h.commands.execute("debug.startFromConfig", { ...SYNTHETIC_LAUNCH_CONFIG });
@@ -280,9 +281,9 @@ describe("Breakpoints in the editor's glyph lane", () => {
             });
             await editors().openUri(Uri.file(util));
             await vi.waitFor(() => {
-                expect(glyphAt(3)).toBe("○");
+                expect(glyphAt(10)).toBe("○");
             });
-            expect(fgAt(laneOf(3))).toBe(t.vars()["debugIcon.breakpointUnverifiedForeground"]);
+            expect(fgAt(laneOf(10))).toBe(t.vars()["debugIcon.breakpointUnverifiedForeground"]);
         } finally {
             fs.rmSync(elsewhere, { recursive: true, force: true });
         }

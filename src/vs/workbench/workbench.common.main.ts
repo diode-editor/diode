@@ -146,8 +146,11 @@ import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
 import { DebugContentProviderDIToken } from "./contrib/debug/browser/debugContentProvider.ts";
 import { DebugLifecycleDIToken } from "./contrib/debug/browser/debugLifecycle.ts";
 import { DebugServiceDIToken } from "./contrib/debug/browser/debugService.ts";
+import { DebugStatusContributionDIToken } from "./contrib/debug/browser/debugStatus.ts";
+import { DebugToolbarDIToken } from "./contrib/debug/browser/debugToolbar.ts";
 import { DebugViewletComponentDIToken } from "./contrib/debug/browser/debugViewlet.ts";
 import { ReplDIToken } from "./contrib/debug/browser/repl.ts";
+import { StatusBarColorProviderDIToken } from "./contrib/debug/browser/statusbarColorProvider.ts";
 import { COMPARE_ACTIONS } from "./contrib/diff/browser/compareActions.ts";
 import { DiffSnapshotRefreshContributionDIToken } from "./contrib/diff/browser/diffSnapshotRefreshContribution.ts";
 import { VscodeDiffCommandContributionDIToken } from "./contrib/diff/browser/vscodeDiffCommandContribution.ts";
@@ -378,6 +381,10 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: BreakpointEditorContributionDIToken, phase: "afterRestored" },
     // The `debug:` documents of the frames whose source an adapter gives by reference.
     { token: DebugContentProviderDIToken, phase: "afterRestored" },
+    // The toolbar in the active editor group and the status bar's colors and `status.debug` while debugging.
+    { token: DebugToolbarDIToken, phase: "afterRestored" },
+    { token: StatusBarColorProviderDIToken, phase: "afterRestored" },
+    { token: DebugStatusContributionDIToken, phase: "afterRestored" },
     // The run glyphs of the restored editors' tests.
     { token: TestingDecorationsDIToken, phase: "afterRestored" },
     // The failures of the restored editors' files; "Peek Error" of the glyphs' menu.

@@ -1,5 +1,5 @@
 import { Emitter } from "../../../../base/common/event.ts";
-import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { type IDisposable, toDisposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
@@ -17,6 +17,15 @@ export interface IStatusBarEntry {
     readonly onClick?: () => void;
 }
 
+/** Upstream `IStatusbarStyleOverride` without `border`: the status bar is a single row with no border to color. */
+export interface IStatusBarStyleOverride {
+    /** Lower has higher priority. */
+    readonly priority: number;
+    /** Theme color ids. */
+    readonly foreground?: string;
+    readonly background?: string;
+}
+
 export interface IStatusBarEntryHandle extends IDisposable {
     update(entry: Partial<Omit<IStatusBarEntry, "id">>): void;
 }
@@ -32,6 +41,8 @@ export class StatusBarService {
 
     private readonly entryList: IStatusBarEntry[] = [];
     private readonly onDidChangeEntriesEmitter = new Emitter<void>();
+    private readonly styleOverrides = new Set<IStatusBarStyleOverride>();
+    private readonly onDidChangeStyleEmitter = new Emitter<void>();
     private readonly hidden: Set<string>;
 
     public constructor(private readonly stateService: IStateService) {
@@ -71,6 +82,22 @@ export class StatusBarService {
         const left = this.entryList.filter((e) => e.alignment === "left").sort(byPriority);
         const right = this.entryList.filter((e) => e.alignment === "right").sort(byPriority);
         return [...left, ...right];
+    }
+
+    /** Upstream `overrideStyle`: the colors of the whole bar (debugging); the override with the lowest priority wins. */
+    public overrideStyle(style: IStatusBarStyleOverride): IDisposable {
+        this.styleOverrides.add(style);
+        this.onDidChangeStyleEmitter.fire();
+        return toDisposable(() => {
+            this.styleOverrides.delete(style);
+            this.onDidChangeStyleEmitter.fire();
+        });
+    }
+
+    public readonly onDidChangeStyle = this.onDidChangeStyleEmitter.event;
+
+    public styleOverride(): IStatusBarStyleOverride | undefined {
+        return [...this.styleOverrides].sort((a, b) => a.priority - b.priority).at(0);
     }
 
     /** Also for an entry not added yet. */

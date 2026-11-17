@@ -14,12 +14,25 @@ describe("titleMenuEntries", () => {
             { group: "1_other", entries: [item("other.icon", "*")] },
             { group: "navigation", entries: [item("nav.icon", "+"), item("nav.plain")] },
         ];
-        expect(inlineActions(groups)).toStrictEqual([{ id: "nav.icon", icon: "+", enabled: true }]);
+        expect(inlineActions(groups)).toStrictEqual([{ id: "nav.icon", icon: "+", enabled: true, color: undefined }]);
         expect(inlineActions(groups.slice(0, 1))).toStrictEqual([]);
         expect(overflowEntries(groups).map((entry) => (entry.type === "separator" ? "─" : entry.label))).toStrictEqual([
             "other.icon",
             "─",
             "nav.plain",
+        ]);
+    });
+
+    it("a button carries its item's icon color", () => {
+        const colored: ResolvedMenuEntry = {
+            label: "go",
+            id: "go",
+            icon: "▶",
+            enabled: true,
+            iconColor: "debugIcon.startForeground",
+        };
+        expect(inlineActions([{ group: "navigation", entries: [colored] }])).toStrictEqual([
+            { id: "go", icon: "▶", enabled: true, color: "debugIcon.startForeground" },
         ]);
     });
 

@@ -61,6 +61,7 @@ import {
     EditorStatusContribution,
     EditorStatusContributionDIToken,
 } from "../../workbench/browser/parts/editor/editorStatusContribution.ts";
+import { GroupCornerStack, GroupCornerStackDIToken } from "../../workbench/browser/parts/editor/groupCornerStack.ts";
 import {
     TabSwitcherComponent,
     TabSwitcherComponentDIToken,
@@ -153,15 +154,24 @@ import {
     NO_DEBUG_EXTENSIONS,
 } from "../../workbench/contrib/debug/browser/debugService.ts";
 import {
+    DebugStatusContribution,
+    DebugStatusContributionDIToken,
+} from "../../workbench/contrib/debug/browser/debugStatus.ts";
+import {
     DebugTerminalLauncher,
     DebugTerminalLauncherDIToken,
     HasChildProcessesDIToken,
 } from "../../workbench/contrib/debug/browser/debugTerminal.ts";
+import { DebugToolbar, DebugToolbarDIToken } from "../../workbench/contrib/debug/browser/debugToolbar.ts";
 import {
     DebugViewletComponent,
     DebugViewletComponentDIToken,
 } from "../../workbench/contrib/debug/browser/debugViewlet.ts";
 import { Repl, ReplDIToken } from "../../workbench/contrib/debug/browser/repl.ts";
+import {
+    StatusBarColorProvider,
+    StatusBarColorProviderDIToken,
+} from "../../workbench/contrib/debug/browser/statusbarColorProvider.ts";
 import { REPL_VIEW_ID, VIEWLET_ID } from "../../workbench/contrib/debug/common/debug.ts";
 import { hasChildProcesses } from "../../workbench/contrib/debug/node/terminals.ts";
 import { createDiffEditorPaneFactory } from "../../workbench/contrib/diff/browser/diffEditorPaneFactory.ts";
@@ -664,6 +674,7 @@ export const workbenchModule: ContainerModule = (container) => {
         () => new BulkEditBuffers(container.get(EditorServiceDIToken), container.get(TextFileModelServiceDIToken)),
     );
     container.bind(EditorPartComponentDIToken, EditorPartComponent);
+    container.bind(GroupCornerStackDIToken, () => new GroupCornerStack());
     container.bind(TabSwitcherComponentDIToken, TabSwitcherComponent);
     container.bind(SuggestComponentDIToken, SuggestComponent);
     container.bind(CompletionServiceDIToken, CompletionService);
@@ -810,6 +821,9 @@ export const workbenchModule: ContainerModule = (container) => {
     });
     container.bind(DebugQuickAccessProviderDIToken, StartDebugQuickAccessProvider);
     container.bind(DebugLifecycleDIToken, DebugLifecycle);
+    container.bind(DebugToolbarDIToken, DebugToolbar);
+    container.bind(StatusBarColorProviderDIToken, StatusBarColorProvider);
+    container.bind(DebugStatusContributionDIToken, DebugStatusContribution);
     // Stryker disable next-line ArrowFunction: DI binding; the function itself is tested in `node/terminals.test.ts`
     container.bind(HasChildProcessesDIToken, () => hasChildProcesses);
     container.bind(DebugTerminalLauncherDIToken, DebugTerminalLauncher);

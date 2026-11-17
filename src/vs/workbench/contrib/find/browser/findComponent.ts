@@ -12,7 +12,13 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { MATCHES_LIMIT } from "../../../../editor/contrib/find/findMatches.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import { CORNER_RIGHT_MARGIN } from "../../../browser/parts/editor/cornerDockElement.ts";
 import { EditorPartComponentDIToken } from "../../../browser/parts/editor/editorPartComponent.ts";
+import {
+    CORNER_ORDER,
+    type GroupCornerStack,
+    GroupCornerStackDIToken,
+} from "../../../browser/parts/editor/groupCornerStack.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
 
 export const FindComponentDIToken = token<FindComponent>("FindComponent");
@@ -54,7 +60,11 @@ export class FindWidget extends Disposable {
     private host: OverlayHostElement | null = null;
     private session: OverlaySessionHandle | null = null;
 
-    public constructor() {
+    /**
+     * `top`: its row in the group's corner, under the debug toolbar (`GroupCornerStack.topOf`). Find is the bottom of
+     * the corner, nobody stacks under it, so it takes no slot.
+     */
+    public constructor(private readonly top: () => number) {
         super();
 
         this.view = new SizedBoxElement(this.preferredWidth, WIDGET_HEIGHT);
@@ -196,16 +206,17 @@ export class FindWidget extends Disposable {
         return `${current} of ${total}${this.searching ? "…" : ""}`;
     }
 
-    private updatePosition(): void {
+    /** On show, and when the corner above it changes (the toolbar came or went). */
+    public updatePosition(): void {
         const group = this.host;
         if (group === null) return;
         const groupWidth = group.layoutSize.width;
         const widgetW = Math.min(60, Math.max(28, groupWidth - 2));
         this.preferredWidth = widgetW;
         this.view.setPreferredWidth(widgetW);
-        const px = Math.max(0, groupWidth - widgetW - 1); // right-align with a 1-col margin to the group's edge
-        const py = 1; // the host is the editor group; its row 0 is the tab strip
-        this.session?.setPosition(new Point(px, py));
+        const px = Math.max(0, groupWidth - widgetW - CORNER_RIGHT_MARGIN);
+        // Stryker disable next-line OptionalChaining: the host and the session are set together in attachHost, and the guard above returns without a host
+        this.session?.setPosition(new Point(px, this.top()));
     }
 }
 
@@ -216,7 +227,7 @@ export interface IGroupOverlayHosts {
 
 /** One widget per group, created lazily; FindService disposes the widget of a collapsed group (`disposeWidget`). */
 export class FindComponent extends Disposable {
-    public static dependencies = [EditorPartComponentDIToken] as const;
+    public static dependencies = [EditorPartComponentDIToken, GroupCornerStackDIToken] as const;
 
     public onQueryChange: ((groupId: GroupId, query: string) => void) | null = null;
     public onNext: ((groupId: GroupId) => void) | null = null;
@@ -225,8 +236,16 @@ export class FindComponent extends Disposable {
 
     private readonly widgets = new Map<GroupId, FindWidget>();
 
-    public constructor(private readonly hosts: IGroupOverlayHosts) {
+    public constructor(
+        private readonly hosts: IGroupOverlayHosts,
+        private readonly corners: GroupCornerStack,
+    ) {
         super();
+        this.register(
+            corners.onDidChange((groupId) => {
+                this.widgets.get(groupId)?.updatePosition();
+            }),
+        );
     }
 
     /** `null` if the host is unavailable. */
@@ -235,7 +254,7 @@ export class FindComponent extends Disposable {
         if (existing !== undefined) return existing;
         const host = this.hosts.groupOverlayHost(groupId);
         if (host === null) return null;
-        const widget = this.register(new FindWidget());
+        const widget = this.register(new FindWidget(() => this.corners.topOf(groupId, CORNER_ORDER.find)));
         widget.attachHost(host);
         widget.onQueryChange = (query) => this.onQueryChange?.(groupId, query);
         widget.onNext = () => this.onNext?.(groupId);

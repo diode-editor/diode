@@ -16,13 +16,19 @@
 
 import { findNodeAtLocation, modify, parseTree } from "jsonc-parser";
 
-import { type CommandAction, HIDDEN_FROM_PALETTE } from "../../../../platform/actions/common/commandAction.ts";
+import { codicon } from "../../../../base/common/codicons.ts";
+import {
+    type CommandAction,
+    type CommandMenuPlacement,
+    HIDDEN_FROM_PALETTE,
+} from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { LAUNCH_FILE_NAME } from "../../../../platform/configuration/common/workspaceSettings.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
+import { containerMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
@@ -37,6 +43,7 @@ import {
     isFrameDeemphasized,
     type IStackFrame,
     type IThread,
+    VIEWLET_ID,
 } from "../common/debug.ts";
 import type { Thread } from "../common/debugModel.ts";
 import { resolveChildSession } from "../common/debugUtils.ts";
@@ -73,12 +80,37 @@ const STOPPED = "debugState == 'stopped'";
 const NOT_INITIALIZING = "debugState != 'initializing'";
 
 /** Upstream `registerDebugCommandPaletteItem`: listed only with debuggers, and while `when` holds. */
-function paletteItem(when?: string, enablement?: string): CommandAction["menus"] {
+function paletteItem(when?: string, enablement?: string): CommandMenuPlacement[] {
     return [
         {
             menuId: MenuId.CommandPalette,
             when: when === undefined ? "debuggersAvailable" : `debuggersAvailable && ${when}`,
             enablement,
+        },
+    ];
+}
+
+/**
+ * Upstream `registerDebugToolBarItem` (`debugToolBar.ts`): a button of the debug toolbar and, with
+ * `debug.toolBarLocation: docked`, the same button in the Run and Debug title while a session is on.
+ */
+function toolBarItem(
+    title: string,
+    order: number,
+    icon: string,
+    iconColor: string,
+    when?: string,
+    enablement?: string,
+): CommandMenuPlacement[] {
+    const docked = "debugState != 'inactive' && config.debug.toolBarLocation == 'docked'";
+    const item = { title, group: "navigation", order, icon: codicon(icon), iconColor, enablement };
+    return [
+        { menuId: MenuId.DebugToolBar, when, ...item },
+        {
+            menuId: MenuId.ViewContainerTitle,
+            when: when === undefined ? docked : `${when} && ${docked}`,
+            visible: containerMenuVisible(VIEWLET_ID),
+            ...item,
         },
     ];
 }
@@ -241,7 +273,7 @@ export const restartSessionAction: CommandAction = {
         when: IN_DEBUG_MODE,
         weight: KeybindingWeight.WorkbenchContrib,
     },
-    menus: paletteItem(),
+    menus: [...paletteItem(), ...toolBarItem("Restart", 60, "debug-restart", "debugIcon.restartForeground")],
     async run(accessor, _, context) {
         const debugService = accessor.get(DebugServiceDIToken);
         const session = sessionOf(debugService, context);
@@ -259,7 +291,10 @@ export const stepOverAction: CommandAction = {
     id: STEP_OVER_ID,
     title: "Debug: Step Over",
     keybinding: { keys: parseKeybinding("f10"), when: STOPPED, weight: KeybindingWeight.WorkbenchContrib },
-    menus: paletteItem(IN_DEBUG_MODE, STOPPED),
+    menus: [
+        ...paletteItem(IN_DEBUG_MODE, STOPPED),
+        ...toolBarItem("Step Over", 20, "debug-step-over", "debugIcon.stepOverForeground", undefined, STOPPED),
+    ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.next());
     },
@@ -275,7 +310,10 @@ export const stepIntoAction: CommandAction = {
         when: "debugState != 'inactive'",
         weight: KeybindingWeight.WorkbenchContrib + 10,
     },
-    menus: paletteItem(IN_DEBUG_MODE, STOPPED),
+    menus: [
+        ...paletteItem(IN_DEBUG_MODE, STOPPED),
+        ...toolBarItem("Step Into", 30, "debug-step-into", "debugIcon.stepIntoForeground", undefined, STOPPED),
+    ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.stepIn());
     },
@@ -285,7 +323,10 @@ export const stepOutAction: CommandAction = {
     id: STEP_OUT_ID,
     title: "Debug: Step Out",
     keybinding: { keys: parseKeybinding("shift+f11"), when: STOPPED, weight: KeybindingWeight.WorkbenchContrib },
-    menus: paletteItem(IN_DEBUG_MODE, STOPPED),
+    menus: [
+        ...paletteItem(IN_DEBUG_MODE, STOPPED),
+        ...toolBarItem("Step Out", 40, "debug-step-out", "debugIcon.stepOutForeground", undefined, STOPPED),
+    ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.stepOut());
     },
@@ -300,7 +341,17 @@ export const pauseAction: CommandAction = {
         when: "debugState == 'running'",
         weight: KeybindingWeight.WorkbenchContrib + 2,
     },
-    menus: paletteItem(IN_DEBUG_MODE, "debugState == 'running' && !focusedSessionIsNoDebug"),
+    menus: [
+        ...paletteItem(IN_DEBUG_MODE, "debugState == 'running' && !focusedSessionIsNoDebug"),
+        ...toolBarItem(
+            "Pause",
+            10,
+            "debug-pause",
+            "debugIcon.pauseForeground",
+            "debugState != 'stopped'",
+            "debugState == 'running' && !focusedSessionIsNoDebug",
+        ),
+    ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.pause());
     },
@@ -314,7 +365,16 @@ export const disconnectAction: CommandAction = {
         when: `focusedSessionIsAttach && ${IN_DEBUG_MODE}`,
         weight: KeybindingWeight.WorkbenchContrib,
     },
-    menus: paletteItem(IN_DEBUG_MODE, "focusedSessionIsAttach || terminateDebuggeeSupported"),
+    menus: [
+        ...paletteItem(IN_DEBUG_MODE, "focusedSessionIsAttach || terminateDebuggeeSupported"),
+        ...toolBarItem(
+            "Disconnect",
+            70,
+            "debug-disconnect",
+            "debugIcon.disconnectForeground",
+            "focusedSessionIsAttach",
+        ),
+    ],
     run(accessor, _, context) {
         return stopHandler(accessor, context, true);
     },
@@ -328,7 +388,10 @@ export const stopAction: CommandAction = {
         when: `!focusedSessionIsAttach && ${IN_DEBUG_MODE}`,
         weight: KeybindingWeight.WorkbenchContrib,
     },
-    menus: paletteItem(IN_DEBUG_MODE, "!focusedSessionIsAttach || terminateDebuggeeSupported"),
+    menus: [
+        ...paletteItem(IN_DEBUG_MODE, "!focusedSessionIsAttach || terminateDebuggeeSupported"),
+        ...toolBarItem("Stop", 70, "debug-stop", "debugIcon.stopForeground", "!focusedSessionIsAttach"),
+    ],
     run(accessor, _, context) {
         return stopHandler(accessor, context, false);
     },
@@ -339,7 +402,10 @@ export const continueAction: CommandAction = {
     title: "Debug: Continue",
     // Use a stronger weight to get priority over start debugging F5 shortcut
     keybinding: { keys: parseKeybinding("f5"), when: STOPPED, weight: KeybindingWeight.WorkbenchContrib + 10 },
-    menus: paletteItem(IN_DEBUG_MODE, STOPPED),
+    menus: [
+        ...paletteItem(IN_DEBUG_MODE, STOPPED),
+        ...toolBarItem("Continue", 10, "debug-continue", "debugIcon.continueForeground", STOPPED),
+    ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.continue());
     },
