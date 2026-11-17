@@ -58,13 +58,13 @@ import {
 import type { IGroupOverlayHosts } from "../../find/browser/findComponent.ts";
 import { type IDebugService, State, VIEWLET_ID } from "../common/debug.ts";
 
+import { FOCUS_SESSION_ID, SELECT_DEBUG_SESSION_ID, STEP_INTO_ID, STEP_OUT_ID, STEP_OVER_ID } from "./debugCommands.ts";
+import { DebugServiceDIToken } from "./debugService.ts";
 import {
     FocusSessionActionViewItem,
     type ISessionSelectDebugService,
     toolbarSessionStrategy,
-} from "./debugActionViewItems.ts";
-import { FOCUS_SESSION_ID, SELECT_DEBUG_SESSION_ID, STEP_INTO_ID, STEP_OUT_ID, STEP_OVER_ID } from "./debugCommands.ts";
-import { DebugServiceDIToken } from "./debugService.ts";
+} from "./focusSessionActionViewItem.ts";
 
 export const DebugToolbarDIToken = token<DebugToolbar>("DebugToolbar");
 export const DebugToolbarSessionSelectDIToken = token<DebugToolbarSessionSelect>("DebugToolbarSessionSelect");

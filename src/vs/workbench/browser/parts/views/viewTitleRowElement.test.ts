@@ -1,6 +1,7 @@
 import { compositeOver } from "@tuidom/core/common/colorUtils";
 import { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
+import { hflexFit } from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { describe, expect, it } from "vitest";
 
@@ -386,6 +387,33 @@ describe("ViewTitleRowElement — title widget", () => {
         row.setTitleWidget(null);
         layout(row);
         expect(row.querySelector("#channel-picker")).toBeNull();
+    });
+
+    it("a widget that can shrink keeps its minimum, the title gives way first, the rest goes to the widget", () => {
+        /** 4 columns at least, 12 when there is room. */
+        class ShrinkingWidget extends TextLabelElement {
+            public override getMinIntrinsicWidth(): number {
+                return 4;
+            }
+        }
+        const row = new ViewTitleRowElement("RUN AND DEBUG", { chevron: false });
+        const widget = new ShrinkingWidget("Launch Progr");
+        row.setTitleWidget(widget);
+        row.setActions([{ id: "gear", icon: "G" }]);
+        row.setMenuVisible(false);
+
+        const width = (rowWidth: number): [number, number] => {
+            row.layout(BoxConstraints.tight(new Size(rowWidth, 1)));
+            return [row.getChildren()[0].layoutSize.width, widget.layoutSize.width];
+        };
+
+        // " RUN AND DEBUG" is 14, the button 3.
+        expect(width(40)).toEqual([14, 12]);
+        expect(width(25)).toEqual([14, 8]);
+        expect(width(15)).toEqual([8, 4]);
+        expect(width(5)).toEqual([0, 4]);
+        // The intrinsic width stays the natural one.
+        expect(widget.layoutStyle).toEqual({ width: hflexFit(), height: 1 });
     });
 });
 

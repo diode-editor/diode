@@ -52,6 +52,7 @@
             "debug.startFromConfig",
             "workbench.action.debug.focusProcess",
             "workbench.action.debug.selectDebugSession",
+            "debug.installAdditionalDebuggers",
             "debug.editBreakpoint",
             "debug.editFunctionBreakpoint",
             "debug.editFunctionBreakpointHitCount",
@@ -608,6 +609,15 @@
         "inline": [
             "testing.run",
             "testing.editFocusedTest"
+        ]
+    },
+    "ViewContainerTitle": {
+        "": [
+            "workbench.action.debug.selectandstart",
+            "workbench.action.debug.configure"
+        ],
+        "navigation": [
+            "workbench.action.debug.configure"
         ]
     },
     "ViewTitle": {

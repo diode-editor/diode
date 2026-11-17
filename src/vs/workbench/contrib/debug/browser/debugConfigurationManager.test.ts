@@ -15,15 +15,23 @@ import type {
     IWorkspaceFolder,
     WorkbenchState,
 } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
-import type { IAdapterManager } from "../common/debug.ts";
+import type { IAdapterManager, IConfig, IDebugger, IDebuggerMetadata, ILaunch } from "../common/debug.ts";
+import { initialConfigurationContent } from "../common/debugger.ts";
 
 import { ConfigurationManager, type IConfigurationManagerPorts } from "./debugConfigurationManager.ts";
+import { NO_DEBUG_EXTENSIONS } from "./debugService.ts";
 
 const FOLDER: IWorkspaceFolder = { uri: Uri.file("/w"), name: "w", index: 0 };
 const LAUNCH_JSON = "file:///w/.diode/launch.json";
 const USER_SETTINGS = Uri.file("/user/settings.json");
 const WORKSPACE_FILE = Uri.file("/w/web.code-workspace");
 const PLATFORM_KEY = process.platform === "win32" ? "windows" : process.platform === "darwin" ? "osx" : "linux";
+
+/** A guessed debugger with no configurations of its own. */
+const EMPTY_DEBUGGER = {
+    type: "empty",
+    getInitialConfigurationContent: () => Promise.resolve(initialConfigurationContent([])),
+} as Partial<IDebugger & IDebuggerMetadata> as IDebugger & IDebuggerMetadata;
 
 function config(name: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
     return { type: "synthetic", request: "launch", name, ...extra };
@@ -48,7 +56,7 @@ describe("ConfigurationManager", () => {
     let foldersChange: Emitter<void>;
     let settings: Record<string, unknown>;
     let ports: IConfigurationManagerPorts;
-    let adapterManager: Pick<IAdapterManager, "getDebugger" | "activateDebuggers">;
+    let adapterManager: Pick<IAdapterManager, "getDebugger" | "activateDebuggers" | "guessDebugger">;
     const managers: ConfigurationManager[] = [];
 
     beforeEach(() => {
@@ -62,7 +70,11 @@ describe("ConfigurationManager", () => {
         settings = {};
         configurationChange = new Emitter();
         foldersChange = new Emitter();
-        adapterManager = { getDebugger: () => undefined, activateDebuggers: () => Promise.resolve() };
+        adapterManager = {
+            getDebugger: () => undefined,
+            activateDebuggers: () => Promise.resolve(),
+            guessDebugger: () => Promise.resolve({ debugger: EMPTY_DEBUGGER }),
+        };
         ports = {
             configuration: {
                 inspect: <T>(key: string) => {
@@ -108,6 +120,8 @@ describe("ConfigurationManager", () => {
                     return Promise.resolve();
                 },
             },
+            extensions: NO_DEBUG_EXTENSIONS,
+            pickLate: () => Promise.resolve(undefined),
         };
     });
 
@@ -325,7 +339,7 @@ describe("ConfigurationManager", () => {
             const { launch, name, getConfig } = manager.selectedConfiguration;
             expect([launch?.name, name]).toEqual(["w", "Run"]);
             expect(await getConfig()).toMatchObject({ name: "Run" });
-            expect(manager.selectedConfiguration.type).toBeUndefined();
+            expect(manager.selectedConfiguration.type).toBe("synthetic");
             expect(state.values.get("debug.selectedconfigname")).toBe("Run");
             expect(state.values.get("debug.selectedroot")).toBe(LAUNCH_JSON);
             expect(contextKeys.get("debugConfigurationType")).toBe("synthetic");
@@ -495,7 +509,37 @@ describe("ConfigurationManager", () => {
             expect(opened).toEqual([{ resource: LAUNCH_JSON, preserveFocus: false }]);
         });
 
-        it("a missing file is created with upstream's empty skeleton, in the editor's indentation, folder and all", async () => {
+        it("without a type the debugger is guessed; cancelled, nothing is created or opened", async () => {
+            adapterManager.guessDebugger = () => Promise.resolve(undefined);
+
+            const result = await create().getLaunches()[0].openConfigFile({ preserveFocus: false });
+
+            expect(result).toEqual({ opened: false, created: false });
+            expect(ports.files.writeFile).not.toHaveBeenCalled();
+            expect(opened).toEqual([]);
+        });
+
+        it("a dynamic configuration picked when the debugger is guessed is the only one of the new file", async () => {
+            const withConfig = { launch: {} as ILaunch, config: { type: "synthetic", request: "launch", name: "D" } };
+            const contents = vi.fn((configs?: IConfig[]) => Promise.resolve(JSON.stringify(configs)));
+            adapterManager.guessDebugger = () =>
+                Promise.resolve({
+                    debugger: { ...EMPTY_DEBUGGER, getInitialConfigurationContent: contents },
+                    withConfig,
+                });
+
+            await create().getLaunches()[0].openConfigFile({ preserveFocus: false });
+
+            expect(files.get(LAUNCH_JSON)).toBe(JSON.stringify([withConfig.config]));
+        });
+
+        it("a type without a debugger gets the empty skeleton", async () => {
+            await create().getLaunches()[0].openConfigFile({ preserveFocus: false, type: "nope" });
+
+            expect(files.get(LAUNCH_JSON)).toContain('"configurations": []');
+        });
+
+        it("a missing file is created with the guessed debugger's skeleton, in the editor's indentation, folder and all", async () => {
             settings = { "editor.insertSpaces": true, "editor.tabSize": 2 };
 
             const result = await create().getLaunches()[0].openConfigFile({ preserveFocus: false });
@@ -527,6 +571,7 @@ describe("ConfigurationManager", () => {
                           } as never)
                         : undefined,
                 activateDebuggers: () => Promise.resolve(),
+                guessDebugger: () => Promise.reject(new Error("a type is given")),
             };
 
             await create().getLaunches()[0].openConfigFile({ preserveFocus: false, type: "synthetic" });

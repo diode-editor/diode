@@ -12,6 +12,7 @@ import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils
 import {
     NO_DELAY_TIMING,
     registerSyntheticDebugger,
+    SYNTHETIC_DEBUG_TYPE,
     SYNTHETIC_LAUNCH_CONFIG,
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
@@ -21,6 +22,7 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { loadConfiguration } from "../../../../platform/configuration/node/configurationService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { resolveUserDataPaths } from "../../../../platform/environment/node/userDataPaths.ts";
+import { DebugConfigurationProviderTriggerKind } from "../common/debug.ts";
 
 import { DebugQuickAccessProviderDIToken } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
@@ -110,23 +112,40 @@ describe("launch.json in the workbench", () => {
         expect(fs.readFileSync(ws.path(".diode/launch.json"), "utf-8")).toContain('"New"');
     });
 
-    it("without launch.json F5 opens Select and Start Debugging; Add Configuration... creates the file", async () => {
-        await boot({ "main.c": "int main() {}\n" });
+    /** What an extension contributes besides the synthetic debugger: initial configurations and a provider. */
+    function contributeInitialConfigurations(): void {
+        const adapters = debugService().getAdapterManager();
+        adapters.registerDebugger({
+            type: SYNTHETIC_DEBUG_TYPE,
+            initialConfigurations: [{ ...SYNTHETIC_LAUNCH_CONFIG, name: "Initial" }],
+        });
+        debugService()
+            .getConfigurationManager()
+            .registerDebugConfigurationProvider({
+                type: SYNTHETIC_DEBUG_TYPE,
+                triggerKind: DebugConfigurationProviderTriggerKind.Initial,
+                provideDebugConfigurations: () => Promise.resolve([{ ...SYNTHETIC_LAUNCH_CONFIG, name: "Provided" }]),
+                // As extensions do: a configuration without a type is filled in.
+                resolveDebugConfiguration: (_folder, config) =>
+                    Promise.resolve(config.type ? config : { ...SYNTHETIC_LAUNCH_CONFIG, name: "Guessed" }),
+            });
+    }
+
+    it("without launch.json F5 asks for a debugger and starts what it resolves for no configuration", async () => {
+        await boot({});
+        contributeInitialConfigurations();
 
         await f5();
 
         await vi.waitFor(() => {
-            expect(screen()).toContain("Add Configuration...");
+            expect(screen()).toContain("Synthetic (C++ under CodeLLDB)");
         });
+        expect(screen()).toContain("Install extension...");
         h.testApp.sendKey("Enter");
         await vi.waitFor(() => {
-            expect(fs.existsSync(ws.path(".diode/launch.json"))).toBe(true);
+            expect(debugService().getModel().getSessions()[0]?.configuration.name).toBe("Guessed");
         });
-        await vi.waitFor(() => {
-            expect(h.activeEditor().uri.fsPath).toBe(ws.path(".diode/launch.json"));
-        });
-        expect(h.activeEditor().getText()).toContain('"configurations": []');
-        expect(debugService().getModel().getSessions()).toEqual([]);
+        expect(fs.existsSync(ws.path(".diode/launch.json"))).toBe(false);
     });
 
     it("Select and Start Debugging lists the configurations, the selected one first, and starts the picked one", async () => {
@@ -140,7 +159,7 @@ describe("launch.json in the workbench", () => {
         expect(provider.getItems("debug ").map((i) => [i.label, i.hint])).toEqual([
             ["First", "most recent"],
             ["Second", undefined],
-            ["Add Configuration...", undefined],
+            ["Add Configuration...", "configure"],
         ]);
 
         await h.commands.execute("workbench.action.debug.selectandstart");
@@ -157,16 +176,67 @@ describe("launch.json in the workbench", () => {
         expect(debugService().getConfigurationManager().selectedConfiguration.name).toBe("Second");
     });
 
-    it("Open 'launch.json' with no file creates the empty skeleton and opens it", async () => {
+    it("without launch.json Select and Start Debugging on a type with dynamic configurations lists them and starts the picked one", async () => {
         await boot({});
+        contributeInitialConfigurations();
+        debugService()
+            .getConfigurationManager()
+            .registerDebugConfigurationProvider({
+                type: SYNTHETIC_DEBUG_TYPE,
+                triggerKind: DebugConfigurationProviderTriggerKind.Dynamic,
+                provideDebugConfigurations: () => Promise.resolve([{ ...SYNTHETIC_LAUNCH_CONFIG, name: "Dyn" }]),
+            });
 
-        await h.commands.execute("workbench.action.debug.configure");
+        await h.commands.execute("workbench.action.debug.selectandstart");
+        await vi.waitFor(() => {
+            expect(screen()).toContain("Synthetic (C++ under CodeLLDB)...");
+        });
+        h.testApp.sendKey("Enter");
+
+        // As upstream: the type's dynamic configurations, not the "Select debugger" guess of F5.
+        await vi.waitFor(() => {
+            expect(screen()).toContain("Dyn");
+        });
+        expect(screen()).not.toContain("Install extension...");
+        h.testApp.sendKey("Enter");
+        await vi.waitFor(() => {
+            expect(debugService().getModel().getSessions()[0]?.configuration.name).toBe("Dyn");
+        });
+        expect(fs.existsSync(ws.path(".diode/launch.json"))).toBe(false);
+    });
+
+    it("Open 'launch.json' with no file asks for a debugger and creates the file with its initial configurations", async () => {
+        await boot({});
+        contributeInitialConfigurations();
+
+        // Not awaited: the command waits for the picker below.
+        void h.commands.execute("workbench.action.debug.configure");
+        await vi.waitFor(() => {
+            expect(screen()).toContain("Synthetic (C++ under CodeLLDB)");
+        });
+        h.testApp.sendKey("Enter");
 
         await vi.waitFor(() => {
             expect(h.activeEditor().uri.fsPath).toBe(ws.path(".diode/launch.json"));
         });
         expect(fs.readFileSync(ws.path(".diode/launch.json"), "utf-8")).toBe(h.activeEditor().getText());
-        expect(h.activeEditor().getText()).toContain('"version": "0.2.0"');
+        const text = h.activeEditor().getText();
+        expect(text).toContain('"version": "0.2.0"');
+        expect(text.indexOf('"name": "Initial"')).toBeGreaterThan(0);
+        expect(text.indexOf('"name": "Provided"')).toBeGreaterThan(text.indexOf('"name": "Initial"'));
+    });
+
+    it("Open 'launch.json' with no file and no debugger to pick creates nothing", async () => {
+        await boot({});
+
+        void h.commands.execute("workbench.action.debug.configure");
+        await vi.waitFor(() => {
+            expect(screen()).toContain("Install extension...");
+        });
+        h.testApp.sendKey("Escape");
+        await flushMicrotasks();
+
+        expect(fs.existsSync(ws.path(".diode/launch.json"))).toBe(false);
     });
 
     it("Add Configuration puts the caret on a new line at the start of configurations", async () => {

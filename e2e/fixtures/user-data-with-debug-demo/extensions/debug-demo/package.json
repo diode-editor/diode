@@ -10,6 +10,7 @@
     },
     "activationEvents": [
         "onDebugResolve:demo",
+        "onDebugDynamicConfigurations:demo",
         "onCommand:debugDemo.breakOnPrintf",
         "onCommand:debugDemo.frameMenu",
         "onCommand:debugDemo.ping"

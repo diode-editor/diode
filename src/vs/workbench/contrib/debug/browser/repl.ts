@@ -81,11 +81,11 @@ import {
     ReplVariableElement,
 } from "../common/replModel.ts";
 
-import { FocusSessionActionViewItem } from "./debugActionViewItems.ts";
 import { handleANSIOutput } from "./debugANSIHandling.ts";
 import { showDebugContextMenu } from "./debugContextMenus.ts";
 import { DebugExpressionRenderer } from "./debugExpressionRenderer.ts";
 import { type DebugService, DebugServiceDIToken } from "./debugService.ts";
+import { FocusSessionActionViewItem } from "./focusSessionActionViewItem.ts";
 import { type LinkDetector, LinkDetectorDIToken } from "./linkDetector.ts";
 import { ReplFilter } from "./replFilter.ts";
 import { ReplSuggest } from "./replSuggest.ts";

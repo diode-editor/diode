@@ -72,8 +72,7 @@
       "note": "Go to Symbol in Editor only: no Outline view or breadcrumbs yet"
     },
     "languages.registerEvaluatableExpressionProvider": {
-      "class": "C",
-      "note": "needs a debugger"
+      "class": "ok"
     },
     "languages.registerFoldingRangeProvider": {
       "class": "ok"

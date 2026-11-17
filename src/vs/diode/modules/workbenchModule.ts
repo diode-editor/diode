@@ -145,6 +145,7 @@ import {
     DebugContentProvider,
     DebugContentProviderDIToken,
 } from "../../workbench/contrib/debug/browser/debugContentProvider.ts";
+import { DebugHoverWidget, DebugHoverWidgetDIToken } from "../../workbench/contrib/debug/browser/debugHover.ts";
 import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
 import {
     DebugQuickAccessProviderDIToken,
@@ -582,6 +583,7 @@ import {
 
 import {
     configurationManagerPorts,
+    debuggerGuessPorts,
     debugTaskRunnerPorts,
     debugVariableResolver,
     saveAllBeforeDebugStart,
@@ -791,6 +793,8 @@ export const workbenchModule: ContainerModule = (container) => {
                 whenInstalledExtensionsRegistered: () =>
                     container.get(DebugExtensionActivatorDIToken).whenInstalledExtensionsRegistered(),
             },
+            guess: debuggerGuessPorts(container),
+            activeEditorResource: () => container.get(EditorServiceDIToken).getActiveEditor()?.uri.toString(),
             workspace: container.get(IWorkspaceContextServiceDIToken),
             replConfiguration: () => ({
                 collapseIdenticalLines: configuration.get("debug.console.collapseIdenticalLines"),
@@ -854,6 +858,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(DebugViewletComponentDIToken, DebugViewletComponent);
     container.bind(LinkDetectorDIToken, LinkDetector);
     container.bind(ReplDIToken, Repl);
+    container.bind(DebugHoverWidgetDIToken, DebugHoverWidget);
     container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);
     container.bind(TestResultsComponentDIToken, TestResultsComponent);

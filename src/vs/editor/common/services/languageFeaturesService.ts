@@ -13,6 +13,7 @@ import type {
 } from "../languages/iDefinitionSource.ts";
 import type { DocumentHighlightProvider } from "../languages/iDocumentHighlightSource.ts";
 import type { DocumentSymbolProvider } from "../languages/iDocumentSymbolSource.ts";
+import type { EvaluatableExpressionProvider } from "../languages/iEvaluatableExpressionSource.ts";
 import type { FoldingRangeProvider } from "../languages/iFoldingSource.ts";
 import type {
     DocumentFormattingEditProvider,
@@ -59,6 +60,7 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
     public readonly selectionRangeProvider = new LanguageFeatureRegistry<SelectionRangeProvider>();
     public readonly documentHighlightProvider = new LanguageFeatureRegistry<DocumentHighlightProvider>();
     public readonly linkedEditingRangeProvider = new LanguageFeatureRegistry<LinkedEditingRangeProvider>();
+    public readonly evaluatableExpressionProvider = new LanguageFeatureRegistry<EvaluatableExpressionProvider>();
     public readonly documentSemanticTokensProvider = new LanguageFeatureRegistry<DocumentSemanticTokensProvider>();
     public readonly documentRangeSemanticTokensProvider =
         new LanguageFeatureRegistry<DocumentRangeSemanticTokensProvider>();

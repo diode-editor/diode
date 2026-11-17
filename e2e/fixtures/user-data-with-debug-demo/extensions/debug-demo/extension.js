@@ -8,6 +8,7 @@
  * - a configuration without `program` is `null`: the core opens launch.json (upstream's "fix your configuration");
  * - `${command:pickProgram}` is the extension's quick pick;
  * - the second resolution sees the substituted program and adds an argument;
+ * - a `Dynamic` provider offers a configuration per program, activated only when the user opens the `demo` type;
  * - the adapter "runs" the program: it prints a greeting to the Debug Console and stops on entry in `main` of
  *   the folder's `hello.c` with `argc` and `program` among the locals; with breakpoints in `hello.c` (verified by
  *   `contributes.breakpoints` for C) it stops on the first of them instead: a logpoint writes its message with
@@ -18,7 +19,10 @@
  * - its custom `demoReady` event makes the extension ask the custom `demoInfo` request and print the answer to the
  *   Debug Console, as does the focused frame;
  * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint;
- * - `sum` among the locals takes a new value (`setVariable`) and evaluates to it;
+ * - `sum` among the locals takes a new value (`setVariable`) and evaluates to it; `argv` has the program and its
+ *   arguments as children;
+ * - the debug hover asks the extension's evaluatable expression provider for C: the word under the cursor (the
+ *   text around it would be `**argv` in `char **argv`), told in the `dbg:` item;
  * - the menu of a call stack frame has "Show Frame in Status": the argument it gets goes to the `dbg:` item; the
  *   debug toolbar has a bell button that counts its clicks there;
  * - `./workers` has child processes, as js-debug sees a Node program with workers: its adapter asks the client to
@@ -58,12 +62,36 @@ exports.activate = function activate(context) {
                 return { ...config, args: ["--demo"] };
             },
         }),
+        // As CodeLLDB's `cargo` configurations: offered in Select and Start Debugging and the Run and Debug title.
+        vscode.debug.registerDebugConfigurationProvider(
+            "demo",
+            {
+                provideDebugConfigurations() {
+                    return ["./hello", "./world"].map((program) => ({
+                        type: "demo",
+                        request: "launch",
+                        name: `Demo: ${program}`,
+                        program,
+                    }));
+                },
+            },
+            vscode.DebugConfigurationProviderTriggerKind.Dynamic,
+        ),
         vscode.debug.registerDebugAdapterDescriptorFactory("demo", {
             createDebugAdapterDescriptor(session) {
                 const source = session.workspaceFolder && path.join(session.workspaceFolder.uri.fsPath, "hello.c");
                 return new vscode.DebugAdapterInlineImplementation(
                     new DemoAdapter(vscode, session.configuration, source),
                 );
+            },
+        }),
+        vscode.languages.registerEvaluatableExpressionProvider("c", {
+            provideEvaluatableExpression(document, position) {
+                const range = document.getWordRangeAtPosition(position);
+                if (!range) return undefined;
+                const word = document.getText(range);
+                status.text = `dbg:hover ${word}`;
+                return new vscode.EvaluatableExpression(range, word);
             },
         }),
         vscode.debug.registerDebugAdapterTrackerFactory("demo", {
@@ -251,14 +279,27 @@ class DemoAdapter {
                 };
             case "scopes":
                 return { scopes: [{ name: "Locals", variablesReference: 1, expensive: false }] };
-            case "variables":
+            case "variables": {
+                const argv = [this.configuration.program, ...this.configuration.args];
+                if (request.arguments.variablesReference === 2) {
+                    return {
+                        variables: argv.map((arg, i) => ({
+                            name: `[${i}]`,
+                            value: JSON.stringify(arg),
+                            evaluateName: `argv[${i}]`,
+                            variablesReference: 0,
+                        })),
+                    };
+                }
                 return {
                     variables: [
-                        { name: "argc", value: String(this.configuration.args.length + 1), variablesReference: 0 },
+                        { name: "argc", value: String(argv.length), variablesReference: 0 },
+                        { name: "argv", value: `size=${argv.length}`, variablesReference: 2 },
                         { name: "program", value: JSON.stringify(this.configuration.program), variablesReference: 0 },
                         { name: "sum", value: this.sum, evaluateName: "sum", variablesReference: 0 },
                     ],
                 };
+            }
             case "setVariable":
                 this.sum = request.arguments.value;
                 return { value: this.sum };

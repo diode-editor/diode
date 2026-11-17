@@ -45,6 +45,7 @@ import type {
     IWireDocumentHighlight,
     IWireDocumentLink,
     IWireEditorEdit,
+    IWireEvaluatableExpression,
     IWireInlayHint,
     IWireLinkedEditingRanges,
     IWireSelection,
@@ -754,6 +755,15 @@ export function serializeDocumentHighlights(raw: unknown): IWireDocumentHighligh
  * Upstream `LinkedEditingRangeAdapter`: no `ranges` array (`undefined`, `null`, garbage) is `null`, the provider
  * declined; an entry that is not a range is dropped.
  */
+/** Upstream `EvaluatableExpression.from`; a value without a range is no answer. */
+export function serializeEvaluatableExpression(raw: unknown): IWireEvaluatableExpression | null {
+    const value = raw as { range?: unknown; expression?: unknown } | null | undefined;
+    const range = rangeFrom(value?.range);
+    if (range === null) return null;
+    const { expression } = value as { expression?: unknown };
+    return typeof expression === "string" ? { range, expression } : { range };
+}
+
 export function serializeLinkedEditingRanges(raw: unknown): IWireLinkedEditingRanges | null {
     const value = raw as { ranges?: unknown; wordPattern?: unknown } | null | undefined;
     if (!Array.isArray(value?.ranges)) return null;

@@ -107,7 +107,7 @@
   команды Select and Start Debugging (quick access `debug `, `browser/debugQuickAccess.ts`), Open 'launch.json'
   (создаёт пустой скелет эталона), Add Configuration (пустая строка в `configurations`, курсор на ней). Порты DI —
   `src/vs/diode/modules/debugPorts.ts`. Чекбокс модального сообщения — `INotificationMessage.checkbox`. Отступления:
-  F5 без выбранной конфигурации открывает Select and Start Debugging (эталон угадывает отладчик — #1156); Open
+  F5 без выбранной конфигурации открывал Select and Start Debugging (с #1156 — угадывание отладчика, как в эталоне); Open
   'launch.json' в палитре без предусловия `debugUx != 'simple'` (нет welcome-вида — #1144); Add Configuration без
   сниппетов (веха 2); фоновые задачи ждут конца процесса (problem matcher'ов у фоновых задач нет). Живой сессии в
   бинаре нет до #1139/#1140 (тип отладчика приходит только из расширения): e2e `launch-json` показывает задачу и
@@ -151,6 +151,33 @@
 - #1157: IntelliSense `launch.json` по `configurationAttributes`/`configurationSnippets` отладчиков — второй провайдер
   встроенного `diode-settings` (`lib/launchSchema.ts`, `lib/launchCompletion.ts`), устройство и отступления —
   [Extensions.md](../arch/Extensions.md) («Пример: builtin `diode-settings`»). Без диагностик, как у settings.
+
+- #1152: отладочный hover (`browser/debugHover.ts` — `DebugHoverWidget` и `DebugHoverComputer` эталона,
+  `DebugHoverWidgetDIToken`). **Debug: Show Hover** (`editor.debug.action.showDebugHover`, Ctrl+K Ctrl+I, в
+  `debugEditorActions.ts`) — только в режиме отладки; на legacy-терминале Ctrl+I приезжает Tab, поэтому рядом тот же
+  аккорд как Ctrl+K Tab. Над файлом фокусного кадра — debug hover, иначе и когда значения нет — языковой hover
+  (`HoverService.showHover`), как `DebugEditorContribution.showHover`. Выражение — `getEvaluatableExpressionAtPosition`
+  в `common/debugUtils.ts` (0-based): провайдеры `languages.registerEvaluatableExpressionProvider` (реестр
+  `evaluatableExpressionProvider` ядра, RPC `languages.provideEvaluatableExpression`), без них — регэксп эталона
+  вокруг курсора. Вычисление — `evaluate` в контексте `hover` при `supportsEvaluateForHovers`, иначе поиск по
+  неэкспенсивным скоупам кадра (`findExpressionInStackFrame`). Попап — `CaretAnchoredOverlay` с `takesFocus`
+  (фокус в попапе, Escape и клик мимо закрывают, фокус возвращается), выше курсора, иначе ниже; значение с детьми —
+  заголовок рамки над `LazyTreeControl` (высота по строкам, не больше 15 — пол дерева эталона; ширина 50–70),
+  простое — текстом. Отступления: только по команде (мышиного hover в редакторе нет), без подсветки диапазона, у
+  курсора, а не у начала выражения, без контекстного меню строк. Проверка — `debugHover.app.test.ts`, путь расширения —
+  `extensionHost.evaluatableExpression.test.ts`, сценарий `debug-hover` на Debug Demo.
+- #1156: запуск. Лаунчер в заголовке Run and Debug — `browser/debugActionViewItems.ts` (`StartDebugActionViewItem`:
+  ▶ и select box конфигураций всех launch, трёх недавних динамических, строк типов с динамическими конфигурациями и
+  Add Configuration; `when` эталона, `debug.hideLauncherWhileDebugging`), стоит через
+  `ViewsService.setContainerTitleWidget`; там же шестерёнка Open 'launch.json' и «Start Additional Session» в «⋯».
+  `AdapterManager.guessDebugger` (язык активного файла, иначе выбор среди отладчиков с `initialConfigurations`/
+  провайдерами, «More … options...», «Install extension...» → `debug.installAdditionalDebuggers` — поиск
+  `@category:debuggers`); `ConfigurationManager` — динамические конфигурации эталона (`getDynamicProviders` по
+  `onDebugDynamicConfigurations` манифестов без активации, недавние в `debug.recentdynamicconfigurations`, тип
+  выбранной — `debug.selectedtype`), новый launch.json для угаданного отладчика; `createSession` угадывает отладчик
+  конфигурации без типа и помнит выбор для файла (`debug.chosenenvironment`). Ссылка приветствия «create a
+  launch.json file» — `workbench.action.debug.configure { addNew }`. Отступления: разделители групп в Select and
+  Start Debugging — подсказки на первой строке группы; у строк пикеров нет кнопок; приветствия пустого окна нет.
 
 - #1149: приёмка вехи 1 — стоковый CodeLLDB целиком (заметки — [StockExtensions.md](../arch/StockExtensions.md#отладка-cc-vadimcnvscode-lldb-codelldb)).
   Запись магазина `vadimcn.vscode-lldb` (сайт#57, гейт `>=0.17.0`), сценарий `codelldb` (`network: true`, без gcc —
@@ -290,7 +317,7 @@ F10/F11/Shift+F11 — шаги, F5 — continue, F6 — pause, Shift+F5 — stop
       (SPIKE-шов; у эталона — `IStatusbarService.overrideStyle`). Цвет — из темы: Dark Modern синий `#0078D4`,
       запасной `#CC6633`.
 - [ ] `ScmActionButtonElement` переиспользован из `contrib/scm` — для влития вынести общую кнопку в `browser/parts/views/`.
-- [ ] Выпадающий выбор конфигурации запуска в заголовке Run and Debug (эталон: ▷ + список `launch.json`).
+- [x] Выпадающий выбор конфигурации запуска в заголовке Run and Debug (эталон: ▷ + список `launch.json`) — #1156.
 - [ ] Редактор (вне этого спайка): глифы брейкпоинтов в гаттере, подсветка текущей строки
       (`editor.stackFrameHighlightBackground`), hover значений, inline values.
 - [ ] После тюнинга — скиллом `spec` нарезать фазы 1–3 на issues для лупа; поправить противоречие в
