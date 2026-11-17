@@ -152,9 +152,18 @@
   встроенного `diode-settings` (`lib/launchSchema.ts`, `lib/launchCompletion.ts`), устройство и отступления —
   [Extensions.md](../arch/Extensions.md) («Пример: builtin `diode-settings`»). Без диагностик, как у settings.
 
-- **Противоречие в доках:** [docs/arch/Extensions.md](../arch/Extensions.md) («Отладка как null-объект») пишет «DAP не
-  планируется (решение человека)», а `GOAL.md` и `docs/public/STATUS.md` — «направление на потом / planned».
-  Если берёмся — поправить формулировку в Extensions.md.
+- #1149: приёмка вехи 1 — стоковый CodeLLDB целиком (заметки — [StockExtensions.md](../arch/StockExtensions.md#отладка-cc-vadimcnvscode-lldb-codelldb)).
+  Запись магазина `vadimcn.vscode-lldb` (сайт#57, гейт `>=0.17.0`), сценарий `codelldb` (`network: true`, без gcc —
+  пропуск). Что всплыло и починено: виды `contributes.views.debug` уходили в Explorer (ключ `debug` → `workbench.view.debug`
+  в `viewsExtensionPoint.ts`); клик по «Load More Stack Frames» / «Show N More» в CALL STACK только ставил курсор
+  (дерево теперь открывает строку одиночным кликом по `workbench.list.openMode`, как эталон); после шага заголовок
+  CALL STACK терял «Paused on step» (нашёл тестировщик: `continued` CodeLLDB и `stopped` обрабатываются в одной задаче,
+  фильтр `continued` микрозадачей позже стирал новую остановку — теперь он снимает только остановки, пришедшие до него,
+  отступление в `debugSession.ts`). Как в эталоне и оставлено:
+  «Load More Stack Frames» после шага, Debug Console поверх терминала `runInTerminal`. После влития — выпуск minor.
+
+- ~~Противоречие в доках~~ (Extensions.md «DAP не планируется» против STATUS.md «planned») снято в #1149: оба описывают
+  настоящий отладчик.
 
 ## Оценка объёма (эталон vscode 1.127, `contrib/debug`)
 

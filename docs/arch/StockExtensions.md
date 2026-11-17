@@ -204,6 +204,35 @@
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
 
+## Отладка C/C++: `vadimcn.vscode-lldb` (CodeLLDB)
+
+Приёмка вехи 1 эпика отладчика — #1149. Запись магазина — `proxy-openvsx` 1.12.3, universal, `support: partial`,
+гейт `engines.diode: ">=0.17.0"` (minor, в котором вышел отладчик; dev- и nightly-сборки гейт не блокирует).
+
+- **Первая активация** (`onStartupFinished`) скачивает платформенный пакет (`codelldb-<platform>.vsix`, ~30 МБ) с
+  релизов GitHub и ставит его командой `workbench.extensions.command.installFromVSIX` (#1134); прогресс —
+  тост «Acquiring CodeLLDB platform package». Без сети адаптер не стартует. Пакет есть и под linux-arm64.
+- **API:** `vscode.lm.registerTool` — null-объект (#1133, warn-строка в Output); адаптер —
+  `DebugAdapterInlineImplementation` поверх обратного TCP (`ReverseAdapterConnector`); `${command:pickProcess}` —
+  quick pick процессов; `contributes.views.debug` (Modules, Excluded Callers) — в Run and Debug: ключ `debug`
+  контейнера видов ведёт в `workbench.view.debug`, как `getViewContainer` эталона (до #1149 виды уходили в Explorer).
+- **Консоль** по умолчанию в режиме `commands`: ввод — команда LLDB (`frame variable sum`), выражение — с `?`.
+- **Проверено живьём** (`drive --install vadimcn.vscode-lldb`, gcc 15, aarch64): F9 + F5 с `preLaunchTask`, остановка
+  с подсветкой строки, VARIABLES (массив, структуры, указатель на список), F10/F11/Shift+F11, Continue до следующей
+  итерации, WATCH, выражение в Debug Console, `"terminal": "integrated"` + `scanf`, Stop, Restart, attach с
+  `${command:pickProcess}`. Сценарий — `codelldb` (`e2e/scenarios/codelldb.scenario.ts`, `network: true`, без gcc —
+  пропуск).
+- **Не работает:** вывод HTML (`debugger.display_html`, webview), вид дизассемблера; LM-инструменты молча не
+  регистрируются.
+- **`continued` перед `stopped`.** На шаг CodeLLDB отвечает, шлёт `continued {threadId: 0, allThreadsContinued: true}` и
+  через ~10 мс `stopped`; ядро часто разбирает оба события в одной задаче (между двумя событиями эталон границы задачи не
+  ставит). Фильтр `continued` в `DebugSession` снимает только остановки, пришедшие до него, иначе он стирал новую, и
+  заголовок CALL STACK терял «Paused on step» (отступление, #1149).
+- **Как в эталоне, хотя выглядит странно:** после шага CALL STACK держит «Load More Stack Frames», пока не нажмёшь:
+  CodeLLDB объявляет `supportsDelayedStackTraceLoading` и не шлёт `totalFrames`, второй запрос остатка стека не меняет нижние кадры, и
+  `refreshTopOfCallstack` эталона не шлёт события. Debug Console открывается после ответа на `launch` — уже после
+  того, как `runInTerminal` показал терминал, поэтому поверх оказывается консоль.
+
 ## Merge Conflict: встроенный `vscode.merge-conflict`
 
 У эталона это часть продукта, поэтому у нас он встроенный, а не запись магазина. Сначала был прокси на
