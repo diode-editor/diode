@@ -19,8 +19,11 @@
  * - its custom `demoReady` event makes the extension ask the custom `demoInfo` request and print the answer to the
  *   Debug Console, as does the focused frame;
  * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint;
- * - `sum` among the locals takes a new value (`setVariable`) and evaluates to it; a step over (`next`) goes to the
- *   next line, and `sum` is `argc` times the `sum += argc` lines run between `main` and the stop;
+ * - `sum` among the locals takes a new value (`setVariable`) and evaluates to it; `argv` has the program and its
+ *   arguments as children; a step over (`next`) goes to the next line, and `sum` is `argc` times the `sum += argc`
+ *   lines run between `main` and the stop;
+ * - the debug hover asks the extension's evaluatable expression provider for C: the word under the cursor (the
+ *   text around it would be `**argv` in `char **argv`), told in the `dbg:` item;
  * - in the debug-inline-values folder its inline values provider for C looks up `sum` and `argc` where a line up to the stop
  *   names them;
  * - the menu of a call stack frame has "Show Frame in Status": the argument it gets goes to the `dbg:` item; the
@@ -81,6 +84,15 @@ exports.activate = function activate(context) {
                 return new vscode.DebugAdapterInlineImplementation(
                     new DemoAdapter(vscode, session.configuration, source),
                 );
+            },
+        }),
+        vscode.languages.registerEvaluatableExpressionProvider("c", {
+            provideEvaluatableExpression(document, position) {
+                const range = document.getWordRangeAtPosition(position);
+                if (!range) return undefined;
+                const word = document.getText(range);
+                status.text = `dbg:hover ${word}`;
+                return new vscode.EvaluatableExpression(range, word);
             },
         }),
         vscode.debug.registerDebugAdapterTrackerFactory("demo", {
@@ -272,14 +284,27 @@ class DemoAdapter {
                 };
             case "scopes":
                 return { scopes: [{ name: "Locals", variablesReference: 1, expensive: false }] };
-            case "variables":
+            case "variables": {
+                const argv = [this.configuration.program, ...this.configuration.args];
+                if (request.arguments.variablesReference === 2) {
+                    return {
+                        variables: argv.map((arg, i) => ({
+                            name: `[${i}]`,
+                            value: JSON.stringify(arg),
+                            evaluateName: `argv[${i}]`,
+                            variablesReference: 0,
+                        })),
+                    };
+                }
                 return {
                     variables: [
-                        { name: "argc", value: String(this.configuration.args.length + 1), variablesReference: 0 },
+                        { name: "argc", value: String(argv.length), variablesReference: 0 },
+                        { name: "argv", value: `size=${argv.length}`, variablesReference: 2 },
                         { name: "program", value: JSON.stringify(this.configuration.program), variablesReference: 0 },
                         { name: "sum", value: this.sumValue(), evaluateName: "sum", variablesReference: 0 },
                     ],
                 };
+            }
             case "setVariable":
                 this.sum = request.arguments.value;
                 return { value: this.sum };

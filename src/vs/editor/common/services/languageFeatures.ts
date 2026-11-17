@@ -14,6 +14,7 @@ import type {
 } from "../languages/iDefinitionSource.ts";
 import type { DocumentHighlightProvider } from "../languages/iDocumentHighlightSource.ts";
 import type { DocumentSymbolProvider } from "../languages/iDocumentSymbolSource.ts";
+import type { EvaluatableExpressionProvider } from "../languages/iEvaluatableExpressionSource.ts";
 import type { FoldingRangeProvider } from "../languages/iFoldingSource.ts";
 import type {
     DocumentFormattingEditProvider,
@@ -58,6 +59,7 @@ export interface ILanguageFeaturesService {
     readonly selectionRangeProvider: LanguageFeatureRegistry<SelectionRangeProvider>;
     readonly documentHighlightProvider: LanguageFeatureRegistry<DocumentHighlightProvider>;
     readonly linkedEditingRangeProvider: LanguageFeatureRegistry<LinkedEditingRangeProvider>;
+    readonly evaluatableExpressionProvider: LanguageFeatureRegistry<EvaluatableExpressionProvider>;
     readonly documentSemanticTokensProvider: LanguageFeatureRegistry<DocumentSemanticTokensProvider>;
     readonly documentRangeSemanticTokensProvider: LanguageFeatureRegistry<DocumentRangeSemanticTokensProvider>;
     readonly colorProvider: LanguageFeatureRegistry<DocumentColorProvider>;

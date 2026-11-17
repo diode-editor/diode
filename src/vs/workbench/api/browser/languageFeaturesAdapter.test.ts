@@ -137,6 +137,9 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
         provideOnTypeFormattingEdits: vi.fn((handle: number) =>
             Promise.resolve([{ range: createRange(0, 0, 0, handle), text: "x" }]),
         ),
+        provideEvaluatableExpression: vi.fn((handle: number) =>
+            Promise.resolve({ range: createRange(0, 0, 0, handle), expression: "nums" }),
+        ),
         provideLinkedEditingRanges: vi.fn((handle: number) =>
             Promise.resolve(handle === 0 ? null : { ranges: [createRange(0, 0, 0, handle)], wordPattern: /x/ }),
         ),
@@ -573,6 +576,32 @@ describe("LanguageFeaturesAdapter", () => {
         bridge.providers = [];
         bridge.fire();
         expect(features.inlineValuesProvider.has(TS)).toBe(false);
+        adapter.dispose();
+    });
+
+    it("evaluatableExpression: the provider goes to the registry and asks the bridge by its handle", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 4, kind: "evaluatableExpression", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.evaluatableExpressionProvider.ordered(TS);
+        const request = {
+            uri: "file:///w/a.ts",
+            languageId: "typescript",
+            versionId: 1,
+            position: { line: 0, character: 1 },
+        };
+        const token = new CancellationTokenSource().token;
+        expect(await provider.provideEvaluatableExpression(request, token)).toEqual({
+            range: createRange(0, 0, 0, 4),
+            expression: "nums",
+        });
+        expect(bridge.provideEvaluatableExpression).toHaveBeenCalledWith(4, request, token);
+
+        bridge.providers = [];
+        bridge.fire();
+        expect(features.evaluatableExpressionProvider.has(TS)).toBe(false);
         adapter.dispose();
     });
 

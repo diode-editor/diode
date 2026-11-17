@@ -50,6 +50,7 @@ export const OWNED_MEMBERS = {
         "registerWorkspaceSymbolProvider",
         "registerFoldingRangeProvider",
         "registerHoverProvider",
+        "registerEvaluatableExpressionProvider",
         "registerCodeLensProvider",
         "registerImplementationProvider",
         "registerInlayHintsProvider",

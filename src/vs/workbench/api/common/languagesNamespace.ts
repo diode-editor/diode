@@ -46,6 +46,7 @@ import {
     serializeDocumentHighlights,
     serializeDocumentLinks,
     serializeDocumentSymbols,
+    serializeEvaluatableExpression,
     serializeFoldingRange,
     serializeHoverContents,
     serializeInlayHints,
@@ -100,6 +101,8 @@ import type {
     IWireDocumentSemanticTokensParams,
     IWireDocumentSymbolParams,
     IWireEditorEdit,
+    IWireEvaluatableExpression,
+    IWireEvaluatableExpressionParams,
     IWireFoldingParams,
     IWireForeignMarkers,
     IWireFormattingParams,
@@ -220,6 +223,11 @@ export interface IRenameRegistration {
 export interface IDocumentHighlightRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.DocumentHighlightProvider;
+}
+
+export interface IEvaluatableExpressionRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.EvaluatableExpressionProvider;
 }
 
 export interface ILinkedEditingRangeRegistration {
@@ -500,6 +508,7 @@ export function createLanguagesNamespace(
     const typeHierarchyProviders = new Map<number, Owned<ITypeHierarchyRegistration>>();
     const documentHighlightProviders = new Map<number, Owned<IDocumentHighlightRegistration>>();
     const linkedEditingRangeProviders = new Map<number, Owned<ILinkedEditingRangeRegistration>>();
+    const evaluatableExpressionProviders = new Map<number, Owned<IEvaluatableExpressionRegistration>>();
     const colorProviders = new Map<number, Owned<IColorRegistration>>();
     const inlayHintsProviders = new Map<number, Owned<IInlayHintsRegistration>>();
     const inlineValuesProviders = new Map<number, Owned<IInlineValuesRegistration>>();
@@ -777,6 +786,27 @@ export function createLanguagesNamespace(
                 reportProviderFailure("provideDocumentHighlights", err, reg.owner);
             }
             return serializeDocumentHighlights(result);
+        },
+    );
+
+    rpc.handleRequest(
+        "languages.provideEvaluatableExpression",
+        async (params, cancellation): Promise<IWireEvaluatableExpression | null> => {
+            const p: Received<IWireEvaluatableExpressionParams> = params;
+            const reg = evaluatableExpressionProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            const position = new Position(p.line ?? 0, p.character ?? 0);
+            let result: unknown;
+            try {
+                result = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideEvaluatableExpression(doc, position, token),
+                );
+            } catch (err) {
+                reportProviderFailure("provideEvaluatableExpression", err, reg.owner);
+            }
+            return serializeEvaluatableExpression(result);
         },
     );
 
@@ -2046,6 +2076,14 @@ export function createLanguagesNamespace(
             provider: vscode.InlineCompletionItemProvider,
         ): vscode.Disposable =>
             registerByHandle(inlineCompletionProviders, "inlineCompletions", selector, { selector, provider }),
+        registerEvaluatableExpressionProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.EvaluatableExpressionProvider,
+        ): vscode.Disposable =>
+            registerByHandle(evaluatableExpressionProviders, "evaluatableExpression", selector, {
+                selector,
+                provider,
+            }),
         registerLinkedEditingRangeProvider: (
             selector: vscode.DocumentSelector,
             provider: vscode.LinkedEditingRangeProvider,

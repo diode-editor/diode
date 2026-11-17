@@ -411,6 +411,7 @@
     "debug.editBreakpointMode",
     "workbench.debug.viewlet.action.addDataBreakpointOnAddress",
     "workbench.debug.viewlet.action.editDataBreakpointOnAddress",
+    "editor.debug.action.showDebugHover",
     "workbench.view.debug",
     "variables.collapse",
     "workbench.debug.viewlet.action.addWatchExpression",

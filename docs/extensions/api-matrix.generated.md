@@ -14,15 +14,15 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | class | members |
 | --- | --- |
-| ok | 1297 |
+| ok | 1302 |
 | A | 4 |
 | B | 196 |
-| C | 484 |
+| C | 479 |
 | X | 234 |
 
 | mark | members |
 | --- | --- |
-| test | 232 |
+| test | 237 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -1010,10 +1010,10 @@ Proposed API or a false hit: class X when real.
 | `EnvironmentVariableMutatorType.Prepend` | ok |  | 0 | 0 |  |
 | `EnvironmentVariableMutatorType.Replace` | ok |  | 1 | 28,235,473 |  |
 | `EnvironmentVariableScope.workspaceFolder` | ok |  | 0 | 0 |  |
-| `EvaluatableExpression` | C |  | 0 | 0 |  |
-| `EvaluatableExpression.expression` | C |  | 0 | 0 |  |
-| `EvaluatableExpression.range` | C |  | 0 | 0 |  |
-| `EvaluatableExpressionProvider.provideEvaluatableExpression` | C |  | 0 | 0 |  |
+| `EvaluatableExpression` | ok | yes | 0 | 0 |  |
+| `EvaluatableExpression.expression` | ok | yes | 0 | 0 |  |
+| `EvaluatableExpression.range` | ok | yes | 0 | 0 |  |
+| `EvaluatableExpressionProvider.provideEvaluatableExpression` | ok | yes | 0 | 0 |  |
 | `EventEmitter` | ok | yes | 145 | 1,076,588,202 |  |
 | `EventEmitter.dispose` | ok |  | 0 | 0 |  |
 | `EventEmitter.event` | ok |  | 0 | 0 |  |
@@ -1360,7 +1360,7 @@ Proposed API or a false hit: class X when real.
 | `languages.registerDocumentRangeSemanticTokensProvider` | ok |  | 75 | 556,420,423 | svelte.svelte-vscode |
 | `languages.registerDocumentSemanticTokensProvider` | ok |  | 74 | 553,028,026 | llvm-vs-code-extensions.vscode-clangd, svelte.svelte-vscode, tamasfe.even-better-toml |
 | `languages.registerDocumentSymbolProvider` | ok |  | 81 | 563,742,221 | tamasfe.even-better-toml |
-| `languages.registerEvaluatableExpressionProvider` | C |  | 0 | 0 |  |
+| `languages.registerEvaluatableExpressionProvider` | ok | yes | 0 | 0 |  |
 | `languages.registerFoldingRangeProvider` | ok |  | 78 | 556,745,707 | redhat.vscode-yaml, svelte.svelte-vscode, tamasfe.even-better-toml |
 | `languages.registerHoverProvider` | ok |  | 94 | 698,785,264 | bradlc.vscode-tailwindcss, timonwong.shellcheck |
 | `languages.registerImplementationProvider` | ok |  | 74 | 553,028,026 |  |

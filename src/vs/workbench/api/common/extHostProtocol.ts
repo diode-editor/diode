@@ -150,6 +150,8 @@ import type {
     IWireEditorLayout,
     IWireEnvInitialize,
     IWireEnvironmentVariableCollections,
+    IWireEvaluatableExpression,
+    IWireEvaluatableExpressionParams,
     IWireExecuteCommandParams,
     IWireExtensionCatalog,
     IWireExtensionId,
@@ -325,6 +327,10 @@ export interface IHostToSubprocess {
         readonly "languages.provideDocumentHighlights": readonly [
             IWireDocumentHighlightParams,
             IWireDocumentHighlight[] | null,
+        ];
+        readonly "languages.provideEvaluatableExpression": readonly [
+            IWireEvaluatableExpressionParams,
+            IWireEvaluatableExpression | null,
         ];
         readonly "languages.provideLinkedEditingRanges": readonly [
             IWireLinkedEditingRangeParams,
