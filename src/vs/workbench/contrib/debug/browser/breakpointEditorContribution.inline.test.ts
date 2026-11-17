@@ -8,6 +8,8 @@ import { createDebugServiceFixture, type IDebugServiceFixture } from "../../../.
 import { NO_DELAY_TIMING, registerSyntheticDebugger } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
 import { Emitter, Event } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { createRange } from "../../../../editor/common/core/iRange.ts";
+import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
 import { TextDocument } from "../../../../editor/common/model/textDocument.ts";
 import type { IDebugSession } from "../common/debug.ts";
@@ -173,6 +175,22 @@ describe("BreakpointEditorContribution: inline breakpoints and candidates", () =
         await settle();
         expect(shown()).toEqual([]);
         expect(breakpointsLocations).toHaveBeenCalledTimes(1);
+    });
+
+    it("an answer for a line the document no longer has is left out", async () => {
+        let answer: (positions: { lineNumber: number; column: number }[]) => void = () => undefined;
+        breakpointsLocations.mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    answer = resolve;
+                }),
+        );
+        await fx.service.addBreakpoints(FILE, [{ lineNumber: 4 }]);
+        await settle();
+        (editor.viewState.document as TextDocument).applyEdits([createTextEdit(createRange(0, 0, 3, 0), "")]);
+        answer([{ lineNumber: 4, column: 1 }]);
+        await settle();
+        expect(shown()).toEqual([]);
     });
 
     it("no breakpoints: nothing asked", async () => {

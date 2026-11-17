@@ -473,6 +473,51 @@ describe("SyntheticDebugAdapter", () => {
         expect(eventsOf("stopped").at(-1)?.reason).toBe("restart");
     });
 
+    it("the editor's requests: step in targets on line 29 only, goto and breakpoint locations in the loop only", async () => {
+        await launchStopped();
+        const main = { path: `${SYNTHETIC_PROGRAM_ROOT}/src/main.cpp` };
+        const list = { path: `${SYNTHETIC_PROGRAM_ROOT}/src/list.cpp` };
+        expect(await body("stepInTargets", { frameId: 1000 })).toEqual({ targets: [] });
+        await body("next", { threadId: 1 });
+        await stopped(2);
+        await body("next", { threadId: 1 });
+        await stopped(3);
+        const targets = (await body("stepInTargets", { frameId: 1000 })).targets as DebugProtocol.StepInTarget[];
+        expect(targets.map((t) => [t.id, t.label, t.line, t.column, t.endLine, t.endColumn])).toEqual([
+            [1, "numAt(int)", 29, 16, 29, 33],
+            [2, "std::vector<int>::at(size_t)", 29, 22, 29, 32],
+        ]);
+
+        expect(await body("gotoTargets", { source: main, line: 31 })).toEqual({
+            targets: [{ id: 31, label: "main.cpp:31", line: 31 }],
+        });
+        for (const [source, line] of [
+            [main, 26],
+            [main, 32],
+            [list, 29],
+        ] as const) {
+            expect(await body("gotoTargets", { source, line })).toEqual({ targets: [] });
+            expect(await body("breakpointLocations", { source, line })).toEqual({ breakpoints: [] });
+        }
+        expect(await body("breakpointLocations", { source: main, line: 27 })).toEqual({
+            breakpoints: [9, 16, 22].map((column) => ({ line: 27, column })),
+        });
+
+        await body("goto", { threadId: 1, targetId: 31 });
+        await stopped(4);
+        expect(eventsOf("stopped").at(-1)?.reason).toBe("goto");
+        const [top] = (await body("stackTrace", { threadId: 1, levels: 1 })).stackFrames as DebugProtocol.StackFrame[];
+        expect(top.line).toBe(31);
+        const info = await body("exceptionInfo", { threadId: 1 });
+        expect((info.details as DebugProtocol.ExceptionDetails).stackTrace).toBe(
+            [
+                `    at accumulate(std::vector<int> const&) (${SYNTHETIC_PROGRAM_ROOT}/src/main.cpp:31)`,
+                `    at process(Config const&) (${SYNTHETIC_PROGRAM_ROOT}/src/main.cpp:47)`,
+                `    at main(int, char**) (${SYNTHETIC_PROGRAM_ROOT}/src/main.cpp:58)`,
+            ].join("\n"),
+        );
+    });
+
     it("step over wraps from line 31 back to 27 and counts the loop", async () => {
         await launchStopped();
         await body("continue", { threadId: 1 });

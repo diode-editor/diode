@@ -14,8 +14,10 @@ import {
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import { State } from "../common/debug.ts";
+import { type IDebugSession, type IThread, State } from "../common/debug.ts";
 import type { DebugModel } from "../common/debugModel.ts";
+
+import { threadToRunTo } from "./debugService.ts";
 
 const MAIN = Uri.file(`${SYNTHETIC_PROGRAM_ROOT}/src/main.cpp`);
 const UNKNOWN = Uri.file("/elsewhere/util.cpp");
@@ -178,5 +180,64 @@ describe("DebugService.runTo", () => {
             expect(lines()).toEqual([]);
         });
         expect(factory.adapters).toEqual([]);
+    });
+});
+
+describe("threadToRunTo", () => {
+    const FILE = Uri.file("/w/main.cpp");
+    const ELSEWHERE = Uri.file("/w/other.cpp");
+
+    /** A thread whose top frame is in `uri` (none without one). */
+    function thread(name: string, stopped: boolean, uri?: Uri): IThread {
+        return {
+            name,
+            stopped,
+            getTopStackFrame: () => (uri === undefined ? undefined : { source: { uri } }),
+        } as unknown as IThread;
+    }
+
+    function pick(focused: IThread | undefined, sessions: Record<string, IThread[]>, verified: string[]): string {
+        const model = {
+            getSession: (id: string) =>
+                id in sessions ? ({ getAllThreads: () => sessions[id] } as unknown as IDebugSession) : undefined,
+        };
+        return threadToRunTo(model, focused, { sessionsThatVerified: verified }, FILE)?.name ?? "none";
+    }
+
+    it("no session verified it, or the sessions are gone: the focused thread", () => {
+        const focused = thread("focused", true, ELSEWHERE);
+        expect(pick(focused, {}, [])).toBe("focused");
+        expect(pick(focused, {}, ["gone"])).toBe("focused");
+        expect(pick(undefined, {}, [])).toBe("none");
+    });
+
+    it("the focused thread of a verifying session wins over a thread paused in the file", () => {
+        const focused = thread("focused", true, ELSEWHERE);
+        const sessions = { b: [thread("in-file", true, FILE)], a: [focused] };
+        expect(pick(focused, sessions, ["b", "a"])).toBe("focused");
+        expect(pick(focused, sessions, ["a", "b"])).toBe("focused");
+    });
+
+    it("else a stopped thread paused in the breakpoint's file; a running or frameless one is not", () => {
+        const focused = thread("focused", true, ELSEWHERE);
+        const sessions = {
+            b: [thread("running", false, FILE), thread("frameless", true), thread("in-file", true, FILE)],
+        };
+        expect(pick(focused, sessions, ["b"])).toBe("in-file");
+        // The focused thread there but running: not it.
+        const running = thread("focused", false, FILE);
+        expect(pick(running, { a: [running, thread("in-file", true, FILE)] }, ["a"])).toBe("in-file");
+    });
+
+    it("else the first stopped thread of the session; then, as upstream, it is not given up for one in the file", () => {
+        const focused = thread("focused", true, ELSEWHERE);
+        const sessions = {
+            c: [thread("running", false, ELSEWHERE), thread("first", true, ELSEWHERE)],
+            d: [thread("in-file", true, FILE)],
+        };
+        expect(pick(focused, sessions, ["c"])).toBe("first");
+        expect(pick(focused, sessions, ["c", "d"])).toBe("first");
+        // A session without a stopped thread: no thread at all.
+        expect(pick(focused, { e: [thread("running", false, FILE)] }, ["e"])).toBe("none");
     });
 });

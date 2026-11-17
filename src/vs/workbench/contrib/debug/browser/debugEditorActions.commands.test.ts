@@ -232,6 +232,8 @@ describe("Step Into Target (the editor's)", () => {
         { id: 2, label: "at(size_t)", line: 29, column: 22, endLine: 29, endColumn: 32 },
         { id: 3, label: "no line" },
         { id: 4, label: "open end", line: 29, column: 40 },
+        // Without columns: from the line's start to its start, around no cursor.
+        { id: 5, label: "no columns", line: 29, endLine: 29 },
     ];
 
     async function stepAt(column: number, targets: unknown = TARGETS, pick?: number) {
@@ -263,7 +265,7 @@ describe("Step Into Target (the editor's)", () => {
     it("before them all, the targets to pick from; a cancelled pick does not step", async () => {
         const picked = await stepAt(2, TARGETS, 2);
         expect(picked.h.picks.map((p) => p.items.map((i) => i.label))).toEqual([
-            ["numAt(int)", "at(size_t)", "no line", "open end"],
+            ["numAt(int)", "at(size_t)", "no line", "open end", "no columns"],
         ]);
         expect(picked.stepped).toEqual([3]);
         expect((await stepAt(2, TARGETS, undefined)).stepped).toEqual([]);

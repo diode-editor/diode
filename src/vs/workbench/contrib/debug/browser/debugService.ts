@@ -15,6 +15,7 @@
 // workspace trust (diode has none), telemetry, extension host debugging, the memory and disassembly views.
 
 import { distinct } from "../../../../base/common/arrays.ts";
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
 import { raceTimeout, RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
@@ -1379,9 +1380,7 @@ export class DebugService implements IDebugService {
                     threadToContinue = addResult.thread;
                 }
 
-                if (addResult.breakpoint) {
-                    breakpointToRemove = addResult.breakpoint;
-                }
+                breakpointToRemove = addResult.breakpoint;
             }
         };
         const removeTempBreakPoint = (state: State): boolean => {
@@ -1408,17 +1407,15 @@ export class DebugService implements IDebugService {
             await this.startDebugging(launch, configOrName, undefined, true);
         }
         if (this.state === State.Stopped) {
-            const focusedSession = this.getViewModel().focusedSession;
-            if (!focusedSession || !threadToContinue) {
-                return;
-            }
-
-            const listener = threadToContinue.session.onDidChangeState(() => {
+            // The state is the focused session's, and a stopped one has a focused thread (upstream returns without).
+            const focusedSession = assertReturnsDefined(this.getViewModel().focusedSession);
+            const thread = assertReturnsDefined(threadToContinue);
+            const listener = thread.session.onDidChangeState(() => {
                 if (removeTempBreakPoint(focusedSession.state)) {
                     listener.dispose();
                 }
             });
-            await threadToContinue.continue();
+            await thread.continue();
         }
     }
 
@@ -1426,15 +1423,10 @@ export class DebugService implements IDebugService {
         uri: uri,
         lineNumber: number,
         column?: number,
-    ): Promise<{ breakpoint: IBreakpoint | undefined; thread: IThread | undefined }> {
+    ): Promise<{ breakpoint: IBreakpoint; thread: IThread | undefined }> {
         const debugModel = this.getModel();
-        const viewModel = this.getViewModel();
-
-        const breakpoints = await this.addBreakpoints(uri, [{ lineNumber, column }]);
-        const breakpoint = breakpoints.at(0);
-        if (!breakpoint) {
-            return { breakpoint: undefined, thread: viewModel.focusedThread };
-        }
+        // Upstream's "no breakpoint added" return: the model adds every breakpoint it is given.
+        const [breakpoint] = await this.addBreakpoints(uri, [{ lineNumber, column }]);
 
         // If the breakpoint was not initially verified, wait up to 2s for it to become so.
         // Inherently racey if multiple sessions can verify async, but not solvable...
@@ -1455,53 +1447,7 @@ export class DebugService implements IDebugService {
             listeners.dispose();
         }
 
-        // Look at paused threads for sessions that verified this bp. Prefer, in order:
-        const enum Score {
-            /** The focused thread */
-            Focused,
-            /** Any other stopped thread of a session that verified the bp */
-            Verified,
-            /** Any thread that verified and paused in the same file */
-            VerifiedAndPausedInFile,
-            /** The focused thread if it verified the breakpoint */
-            VerifiedAndFocused,
-        }
-
-        let bestThread = viewModel.focusedThread;
-        let bestScore = Score.Focused;
-        for (const sessionId of breakpoint.sessionsThatVerified) {
-            const session = debugModel.getSession(sessionId);
-            if (!session) {
-                continue;
-            }
-
-            const threads = session.getAllThreads().filter((t) => t.stopped);
-            if (bestScore < Score.VerifiedAndFocused) {
-                if (viewModel.focusedThread && threads.includes(viewModel.focusedThread)) {
-                    bestThread = viewModel.focusedThread;
-                    bestScore = Score.VerifiedAndFocused;
-                }
-            }
-
-            if (bestScore < Score.VerifiedAndPausedInFile) {
-                const pausedInThisFile = threads.find((t) => {
-                    const top = t.getTopStackFrame();
-                    return top?.source.uri.toString() === uri.toString();
-                });
-
-                if (pausedInThisFile) {
-                    bestThread = pausedInThisFile;
-                    bestScore = Score.VerifiedAndPausedInFile;
-                }
-            }
-
-            if (bestScore < Score.Verified) {
-                bestThread = threads[0];
-                bestScore = Score.VerifiedAndPausedInFile;
-            }
-        }
-
-        return { thread: bestThread, breakpoint };
+        return { thread: threadToRunTo(debugModel, this.getViewModel().focusedThread, breakpoint, uri), breakpoint };
     }
 
     private async sendFunctionBreakpoints(session?: IDebugSession): Promise<void> {
@@ -1606,4 +1552,64 @@ export function getStackFrameThreadAndSessionToFocus(
     }
 
     return { session, thread, stackFrame };
+}
+
+/**
+ * Upstream `addAndValidateBreakpoints`' choice of the thread Run to Cursor continues: of the sessions that verified the
+ * breakpoint, the focused thread, else a thread paused in the breakpoint's file, else any stopped one; none — the
+ * focused thread.
+ */
+export function threadToRunTo(
+    debugModel: Pick<IDebugModel, "getSession">,
+    focusedThread: IThread | undefined,
+    breakpoint: Pick<IBreakpoint, "sessionsThatVerified">,
+    uri: uri,
+): IThread | undefined {
+    // Look at paused threads for sessions that verified this bp. Prefer, in order:
+    const enum Score {
+        /** The focused thread */
+        Focused,
+        /** Any other stopped thread of a session that verified the bp */
+        Verified,
+        /** Any thread that verified and paused in the same file */
+        VerifiedAndPausedInFile,
+        /** The focused thread if it verified the breakpoint */
+        VerifiedAndFocused,
+    }
+
+    let bestThread = focusedThread;
+    let bestScore = Score.Focused;
+    for (const sessionId of breakpoint.sessionsThatVerified) {
+        const session = debugModel.getSession(sessionId);
+        if (!session) {
+            continue;
+        }
+
+        const threads = session.getAllThreads().filter((t) => t.stopped);
+        if (bestScore < Score.VerifiedAndFocused) {
+            if (focusedThread && threads.includes(focusedThread)) {
+                bestThread = focusedThread;
+                bestScore = Score.VerifiedAndFocused;
+            }
+        }
+
+        if (bestScore < Score.VerifiedAndPausedInFile) {
+            const pausedInThisFile = threads.find((t) => {
+                const top = t.getTopStackFrame();
+                return top?.source.uri.toString() === uri.toString();
+            });
+
+            if (pausedInThisFile) {
+                bestThread = pausedInThisFile;
+                bestScore = Score.VerifiedAndPausedInFile;
+            }
+        }
+
+        if (bestScore < Score.Verified) {
+            bestThread = threads[0];
+            bestScore = Score.VerifiedAndPausedInFile;
+        }
+    }
+
+    return bestThread;
 }
