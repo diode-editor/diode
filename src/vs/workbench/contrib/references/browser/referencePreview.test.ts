@@ -123,9 +123,7 @@ describe("buildReferenceGroups", () => {
 
         expect(groups.map((group) => group.relPath)).toEqual(["b.ts", "a.ts"]);
         expect(groups[0].matches.map((match) => match.preview.inside)).toEqual(["ccc"]);
-        expect(
-            groups[1].matches.map((match) => [match.lineNumber, match.startColumn, match.endColumn]),
-        ).toEqual([
+        expect(groups[1].matches.map((match) => [match.lineNumber, match.startColumn, match.endColumn])).toEqual([
             [1, 1, 2],
             [1, 1, 3],
             [2, 0, 3],
