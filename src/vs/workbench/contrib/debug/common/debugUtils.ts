@@ -3,11 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/common/debugUtils.ts
-// Not here yet, each with the task that needs it: `getEvaluatableExpressionAtPosition` (hover, it needs the language
-// features), `saveAllBeforeDebugStart` (starting a session), `convertToDAPaths`/`convertToVSCPaths` (the bridge to
+// `getEvaluatableExpressionAtPosition` takes 0-based positions, as the core, and has no expression on a position
+// without one (upstream evaluates the empty text there). Not here yet, each with the task that needs it:
+// `saveAllBeforeDebugStart` (starting a session), `convertToDAPaths`/`convertToVSCPaths` (the bridge to
 // the extension host). Not planned: `filterExceptionsFromTelemetry` (no telemetry).
 
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { currentOperatingSystem, OperatingSystem } from "../../../../base/common/platform.ts";
+import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
+import { createRange, type IRange } from "../../../../editor/common/core/iRange.ts";
+import type {
+    ILanguageFeatureTarget,
+    LanguageFeatureRegistry,
+} from "../../../../editor/common/languageFeatureRegistry.ts";
+import type { EvaluatableExpressionProvider } from "../../../../editor/common/languages/iEvaluatableExpressionSource.ts";
 
 import type { IConfig, IConfigPresentation, IDebuggerContribution, IDebugSession } from "./debug.ts";
 import { State } from "./debug.ts";
@@ -116,6 +125,53 @@ export function getExactExpressionStartAndEnd(
     return matchingExpression
         ? { start: startOffset, end: startOffset + matchingExpression.length - 1 }
         : { start: 0, end: 0 };
+}
+
+/** The text of the editor the hover is over: what the providers are asked about and the fallback reads. */
+export interface IEvaluatableExpressionModel extends ILanguageFeatureTarget {
+    readonly versionId: number;
+    /** 0-based. */
+    getLineContent(line: number): string;
+}
+
+/** 0-based positions. */
+export async function getEvaluatableExpressionAtPosition(
+    providers: LanguageFeatureRegistry<EvaluatableExpressionProvider>,
+    model: IEvaluatableExpressionModel,
+    position: IPosition,
+    token: ICancellationToken,
+): Promise<{ range: IRange; matchingExpression: string } | null> {
+    if (providers.has(model)) {
+        const request = {
+            uri: model.uri.toString(),
+            languageId: model.languageId,
+            versionId: model.versionId,
+            position,
+        };
+        const results = await Promise.all(
+            providers
+                .ordered(model)
+                .map((support) => support.provideEvaluatableExpression(request, token).catch(() => null)),
+        );
+        const first = results.find((result) => result !== null);
+        if (first === undefined) return null;
+        const { range } = first;
+        // The range of an answer without an expression is the text to evaluate.
+        const matchingExpression =
+            first.expression ??
+            model.getLineContent(range.start.line).substring(range.start.character, range.end.character);
+        return { range, matchingExpression };
+    }
+    // old one-size-fits-all strategy
+    const lineContent = model.getLineContent(position.line);
+    const { start, end } = getExactExpressionStartAndEnd(lineContent, position.character + 1, position.character + 1);
+    // use regex to extract the sub-expression #9821
+    const matchingExpression = lineContent.substring(start - 1, end);
+    if (matchingExpression === "") return null;
+    return {
+        matchingExpression,
+        range: createRange(position.line, start - 1, position.line, start - 1 + matchingExpression.length),
+    };
 }
 
 // RFC 2396, Appendix A: https://www.ietf.org/rfc/rfc2396.txt

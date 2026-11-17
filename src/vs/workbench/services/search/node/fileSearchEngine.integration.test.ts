@@ -105,7 +105,9 @@ describe("FileSearchEngine — integration against real project", () => {
         });
 
         it('"ee" finds editorElement.ts', async () => {
-            const paths = relativePaths(await search("ee"));
+            // Like "wbc": every `e…e` file name (`evaluatableExpression…`) shares the top score, and the order of the ties
+            // follows the file system, so the file may sit past the default cap of 50.
+            const paths = relativePaths(await search("ee", 2000));
             expect(paths.some((p) => p.includes("editorElement.ts"))).toBe(true);
         });
 

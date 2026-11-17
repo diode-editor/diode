@@ -3,19 +3,23 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/browser/debugEditorActions.ts
-// Upstream's `ToggleBreakpointAction` (F9) and the actions that open the breakpoint widget (Add Conditional
-// Breakpoint..., Add Logpoint..., Add Triggered Breakpoint..., Edit Breakpoint) on the active text editor. Deviations:
+// Upstream's `ToggleBreakpointAction` (F9), the actions that open the breakpoint widget (Add Conditional
+// Breakpoint..., Add Logpoint..., Add Triggered Breakpoint..., Edit Breakpoint) and `ShowDebugHoverAction`
+// (Ctrl+K Ctrl+I) with the hover half of `DebugEditorContribution.showHover` (the debug hover over the focused
+// frame's file, the language hover elsewhere and where the debugger has no value) on the active text editor. Deviations:
 // no disassembly view; no Run menu (diode has no menu bar); Edit Breakpoint looks only at the editor's file (upstream
 // takes the breakpoints of the cursor's line number in any file).
 
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
-import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
+import { HoverServiceDIToken } from "../../hover/browser/hoverService.ts";
 
 import { BreakpointInputDIToken, BreakpointWidgetContext } from "./breakpointInput.ts";
+import { DebugHoverWidgetDIToken, ShowDebugHoverResult } from "./debugHover.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
 
 export const TOGGLE_BREAKPOINT_ID = "editor.debug.action.toggleBreakpoint";
@@ -118,3 +122,38 @@ export const BREAKPOINT_EDITOR_ACTIONS: readonly CommandAction[] = [
     triggerByBreakpointAction,
     editBreakpointAction,
 ];
+
+/**
+ * Upstream's Ctrl+K Ctrl+I, in debug mode only, so outside it Add Cursors to Line Ends keeps the chord. On a legacy
+ * terminal Ctrl+I arrives as Tab: the same keys there are Ctrl+K Tab (the language hover is Ctrl+K Ctrl+U for the
+ * same reason, see docs/arch/workbench/Commands.md#коллизии-дефолтов).
+ */
+export const showDebugHoverAction: CommandAction = {
+    id: "editor.debug.action.showDebugHover",
+    title: "Debug: Show Hover",
+    keybindings: [
+        { keys: parseChord("ctrl+k ctrl+i"), when: "editorTextFocus", weight: KeybindingWeight.EditorContrib },
+        { keys: parseChord("ctrl+k tab"), when: "editorTextFocus", weight: KeybindingWeight.EditorContrib },
+    ],
+    enablement: "inDebugMode",
+    async run(accessor) {
+        const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+        if (!editor) return;
+        const sf = accessor.get(DebugServiceDIToken).getViewModel().focusedStackFrame;
+        if (sf?.source.uri.toString() === editor.uri.toString()) {
+            const position = editor.viewState.selections[0].active;
+            const { document } = editor.model;
+            const target = {
+                uri: editor.uri,
+                languageId: editor.languageId,
+                versionId: document.versionId,
+                getLineContent: (line: number) => document.getLineContent(line),
+                getCaretAnchor: () => editor.getCaretAnchor(),
+            };
+            const result = await accessor.get(DebugHoverWidgetDIToken).showAt(target, position, sf);
+            // When no expression available fallback to editor hover
+            if (result !== ShowDebugHoverResult.NOT_AVAILABLE) return;
+        }
+        await accessor.get(HoverServiceDIToken).showHover();
+    },
+};

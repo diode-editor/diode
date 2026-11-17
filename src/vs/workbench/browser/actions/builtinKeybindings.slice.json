@@ -17,6 +17,7 @@
         "ctrl+e: workbench.action.quickOpenNavigateNextInFilePicker [(inFilesPicker && inputWidgetFocus) && (!(macKeys >= 1))] > workbench.action.quickOpen [!(macKeys >= 1)]",
         "ctrl+f: repl.action.filter [((inDebugRepl) && (inDebugRepl)) && (!(macKeys >= 3))] > actions.find [(textInputFocus || findWidgetVisible) && (!(macKeys >= 3))]",
         "ctrl+k ctrl+f: workbench.action.navigateForward > editor.action.formatSelection [(textInputFocus && !editorReadonly) && (!(macKeys >= 3))]",
+        "ctrl+k ctrl+i: editor.debug.action.showDebugHover [(inDebugMode) && (editorTextFocus)] > editor.action.insertCursorAtEndOfEachLineSelected [textViewFocus]",
         "ctrl+k ctrl+u: editor.action.showHover [textInputFocus] > editor.action.removeCommentLine [(textInputFocus && !editorReadonly) && (!(macKeys >= 3))]",
         "ctrl+n: selectNextSuggestion [(suggestWidgetVisible) && (macKeys >= 3)] > cursorDown [(textViewFocus) && (macKeys >= 3)]",
         "ctrl+n: showNextParameterHint [(parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible) && (macKeys >= 3)] > cursorDown [(textViewFocus) && (macKeys >= 3)]",
@@ -377,6 +378,7 @@
         "editor.action.triggerSuggest": "ctrl+space",
         "editor.action.wordHighlight.next": "f7",
         "editor.action.wordHighlight.prev": "shift+f7",
+        "editor.debug.action.showDebugHover": "ctrl+k ctrl+i",
         "editor.debug.action.toggleBreakpoint": "f9",
         "editor.fold": {
             "*": "ctrl+k alt+f",
