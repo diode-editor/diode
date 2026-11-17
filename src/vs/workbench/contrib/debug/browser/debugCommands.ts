@@ -23,12 +23,12 @@ import {
     HIDDEN_FROM_PALETTE,
 } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { ClipboardDIToken } from "../../../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { LAUNCH_FILE_NAME } from "../../../../platform/configuration/common/workspaceSettings.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
-import { containerMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
@@ -48,11 +48,13 @@ import {
 import type { Thread } from "../common/debugModel.ts";
 import { resolveChildSession } from "../common/debugUtils.ts";
 
+import { rowMenuItem } from "./debugContextMenus.ts";
 import { toggleEditorBreakpointAction } from "./debugEditorActions.ts";
 import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
 import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
 import { REPL_ACTIONS } from "./replActions.ts";
+import { VARIABLES_ACTIONS } from "./variablesActions.ts";
 
 export const RESTART_SESSION_ID = "workbench.action.debug.restart";
 export const TERMINATE_THREAD_ID = "workbench.action.debug.terminateThread";
@@ -74,6 +76,7 @@ export const CALLSTACK_DOWN_ID = "workbench.action.debug.callStackDown";
 export const START_FROM_CONFIG_ID = "debug.startFromConfig";
 export const SELECT_AND_START_ID = "workbench.action.debug.selectandstart";
 export const DEBUG_CONFIGURE_COMMAND_ID = "workbench.action.debug.configure";
+export const COPY_STACK_TRACE_ID = "debug.copyStackTrace";
 
 const IN_DEBUG_MODE = "inDebugMode";
 const STOPPED = "debugState == 'stopped'";
@@ -91,8 +94,8 @@ function paletteItem(when?: string, enablement?: string): CommandMenuPlacement[]
 }
 
 /**
- * Upstream `registerDebugToolBarItem` (`debugToolBar.ts`): a button of the debug toolbar and, with
- * `debug.toolBarLocation: docked`, the same button in the Run and Debug title while a session is on.
+ * Upstream `registerDebugToolBarItem` (`debugToolBar.ts`): a button of the debug toolbar (`DockedDebugToolbarItems`
+ * copies it to the Run and Debug title for `debug.toolBarLocation: docked`).
  */
 function toolBarItem(
     title: string,
@@ -102,18 +105,37 @@ function toolBarItem(
     when?: string,
     enablement?: string,
 ): CommandMenuPlacement[] {
-    const docked = "debugState != 'inactive' && config.debug.toolBarLocation == 'docked'";
-    const item = { title, group: "navigation", order, icon: codicon(icon), iconColor, enablement };
     return [
-        { menuId: MenuId.DebugToolBar, when, ...item },
         {
-            menuId: MenuId.ViewContainerTitle,
-            when: when === undefined ? docked : `${when} && ${docked}`,
-            visible: containerMenuVisible(VIEWLET_ID),
-            ...item,
+            menuId: MenuId.DebugToolBar,
+            when,
+            title,
+            group: "navigation",
+            order,
+            icon: codicon(icon),
+            iconColor,
+            enablement,
         },
     ];
 }
+
+/**
+ * Upstream `registerDebugViewMenuItem` on `MenuId.DebugCallStackContext` (`debug.contribution.ts`): an item of a call
+ * stack row's menu, shown for the row type of `when`; `enablement` is upstream's precondition.
+ */
+function callStackItem(
+    title: string,
+    order: number,
+    when: string,
+    enablement?: string,
+    group = "navigation",
+): CommandMenuPlacement {
+    return { ...rowMenuItem(MenuId.DebugCallStackContext, group, order, when, enablement), title };
+}
+
+const SESSION_ROW = "callStackItemType == 'session'";
+const THREAD_ROW = "callStackItemType == 'thread'";
+const FRAME_ROW = "callStackItemType == 'stackFrame'";
 
 interface CallStackContext {
     sessionId: string;
@@ -273,7 +295,11 @@ export const restartSessionAction: CommandAction = {
         when: IN_DEBUG_MODE,
         weight: KeybindingWeight.WorkbenchContrib,
     },
-    menus: [...paletteItem(), ...toolBarItem("Restart", 60, "debug-restart", "debugIcon.restartForeground")],
+    menus: [
+        ...paletteItem(),
+        ...toolBarItem("Restart", 60, "debug-restart", "debugIcon.restartForeground"),
+        callStackItem("Restart", 10, SESSION_ROW, undefined, "3_modification"),
+    ],
     async run(accessor, _, context) {
         const debugService = accessor.get(DebugServiceDIToken);
         const session = sessionOf(debugService, context);
@@ -294,6 +320,7 @@ export const stepOverAction: CommandAction = {
     menus: [
         ...paletteItem(IN_DEBUG_MODE, STOPPED),
         ...toolBarItem("Step Over", 20, "debug-step-over", "debugIcon.stepOverForeground", undefined, STOPPED),
+        callStackItem("Step Over", 20, THREAD_ROW, STOPPED),
     ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.next());
@@ -313,6 +340,7 @@ export const stepIntoAction: CommandAction = {
     menus: [
         ...paletteItem(IN_DEBUG_MODE, STOPPED),
         ...toolBarItem("Step Into", 30, "debug-step-into", "debugIcon.stepIntoForeground", undefined, STOPPED),
+        callStackItem("Step Into", 30, THREAD_ROW, STOPPED),
     ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.stepIn());
@@ -326,6 +354,7 @@ export const stepOutAction: CommandAction = {
     menus: [
         ...paletteItem(IN_DEBUG_MODE, STOPPED),
         ...toolBarItem("Step Out", 40, "debug-step-out", "debugIcon.stepOutForeground", undefined, STOPPED),
+        callStackItem("Step Out", 40, THREAD_ROW, STOPPED),
     ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.stepOut());
@@ -351,6 +380,7 @@ export const pauseAction: CommandAction = {
             "debugState != 'stopped'",
             "debugState == 'running' && !focusedSessionIsNoDebug",
         ),
+        callStackItem("Pause", 10, `${THREAD_ROW} && debugState == 'running' && !focusedSessionIsNoDebug`),
     ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.pause());
@@ -374,6 +404,7 @@ export const disconnectAction: CommandAction = {
             "debugIcon.disconnectForeground",
             "focusedSessionIsAttach",
         ),
+        callStackItem("Disconnect", 20, SESSION_ROW, undefined, "3_modification"),
     ],
     run(accessor, _, context) {
         return stopHandler(accessor, context, true);
@@ -391,6 +422,7 @@ export const stopAction: CommandAction = {
     menus: [
         ...paletteItem(IN_DEBUG_MODE, "!focusedSessionIsAttach || terminateDebuggeeSupported"),
         ...toolBarItem("Stop", 70, "debug-stop", "debugIcon.stopForeground", "!focusedSessionIsAttach"),
+        callStackItem("Stop", 30, SESSION_ROW, undefined, "3_modification"),
     ],
     run(accessor, _, context) {
         return stopHandler(accessor, context, false);
@@ -405,6 +437,7 @@ export const continueAction: CommandAction = {
     menus: [
         ...paletteItem(IN_DEBUG_MODE, STOPPED),
         ...toolBarItem("Continue", 10, "debug-continue", "debugIcon.continueForeground", STOPPED),
+        callStackItem("Continue", 10, `${THREAD_ROW} && ${STOPPED}`),
     ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.continue());
@@ -414,7 +447,10 @@ export const continueAction: CommandAction = {
 export const terminateThreadAction: CommandAction = {
     id: TERMINATE_THREAD_ID,
     title: "Debug: Terminate Thread",
-    menus: paletteItem(IN_DEBUG_MODE, "terminateThreadsSupported"),
+    menus: [
+        ...paletteItem(IN_DEBUG_MODE, "terminateThreadsSupported"),
+        callStackItem("Terminate Thread", 10, THREAD_ROW, "terminateThreadsSupported", "termination"),
+    ],
     async run(accessor, _, context) {
         await getThreadAndRun(accessor, context, (thread) => thread.terminate());
     },
@@ -423,7 +459,10 @@ export const terminateThreadAction: CommandAction = {
 export const restartFrameAction: CommandAction = {
     id: RESTART_FRAME_ID,
     title: "Restart Frame",
-    menus: HIDDEN_FROM_PALETTE,
+    menus: [
+        ...HIDDEN_FROM_PALETTE,
+        callStackItem("Restart Frame", 10, `${FRAME_ROW} && restartFrameSupported`, "stackFrameSupportsRestart"),
+    ],
     async run(accessor, _, context) {
         const frame = getFrame(accessor.get(DebugServiceDIToken), context);
         try {
@@ -435,6 +474,24 @@ export const restartFrameAction: CommandAction = {
                 modal: false,
                 items: [],
             });
+        }
+    },
+};
+
+export const copyStackTraceAction: CommandAction = {
+    id: COPY_STACK_TRACE_ID,
+    title: "Copy Call Stack",
+    menus: [...HIDDEN_FROM_PALETTE, callStackItem("Copy Call Stack", 20, FRAME_ROW, undefined, "3_modification")],
+    async run(accessor, _, context) {
+        const frame = getFrame(accessor.get(DebugServiceDIToken), context);
+        if (frame) {
+            // Upstream joins with the EOL of the frame's file; the clipboard of a terminal takes "\n".
+            await accessor.get(ClipboardDIToken).writeText(
+                frame.thread
+                    .getCallStack()
+                    .map((sf) => sf.toString())
+                    .join("\n"),
+            );
         }
     },
 };
@@ -670,6 +727,7 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     continueAction,
     terminateThreadAction,
     restartFrameAction,
+    copyStackTraceAction,
     callStackTopAction,
     callStackBottomAction,
     callStackUpAction,
@@ -678,5 +736,6 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     focusSessionAction,
     toggleEditorBreakpointAction,
     ...DEBUG_VIEW_ACTIONS,
+    ...VARIABLES_ACTIONS,
     ...REPL_ACTIONS,
 ];

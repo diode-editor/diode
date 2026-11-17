@@ -196,6 +196,29 @@ describe("registerExtensionMenus", () => {
         expect(menus.getMenuItemGroups(MenuId.TestItem).map((group) => group.group)).toEqual(["1_snapshot"]);
     });
 
+    it("the debug points: the rows of the debug views, the debug toolbar and the debugger choice", () => {
+        const { menus } = makeRegistry();
+        const points = {
+            "debug/callstack/context": MenuId.DebugCallStackContext,
+            "debug/variables/context": MenuId.DebugVariablesContext,
+            "debug/watch/context": MenuId.DebugWatchContext,
+            "debug/toolBar": MenuId.DebugToolBar,
+            "debug/createConfiguration": MenuId.DebugCreateConfiguration,
+        };
+        registerExtensionMenus(
+            [
+                extension("test.ext", {
+                    menus: Object.fromEntries(
+                        Object.keys(points).map((point) => [point, [{ command: `ext.${point}`, title: point }]]),
+                    ),
+                }),
+            ],
+            menus,
+        );
+
+        for (const [point, menuId] of Object.entries(points)) expect(labels(menus, menuId)).toEqual([point]);
+    });
+
     it("unknown point — a log line, the extension's other items survive", () => {
         const { menus, commands } = makeRegistry();
         const { logger, lines } = collectLog();

@@ -261,8 +261,8 @@ F10/F11/Shift+F11 — шаги, F5 — continue, F6 — pause, Shift+F5 — stop
 - [ ] ANSI-цвета в выводе консоли (`debugANSIHandling.ts` эталона).
 - [ ] Автодополнение в строке ввода REPL (у эталона там редактор с suggest); многострочный ввод.
 - [ ] Фильтр консоли в заголовке (эталон: «Filter (e.g. text, !exclude)»).
-- [ ] Контекстные меню: Copy Value, Copy as Expression, Set Value (F2), Add to Watch, Break on Value Change;
-      Edit Condition у брейкпоинта.
+- [x] Контекстные меню: Copy Value, Copy as Expression, Set Value (F2, поле на строке), Add to Watch, Break on Value
+      Change/Read/Access, Copy Call Stack, консоль (#1155). Edit Condition у брейкпоинта — #1151.
 - [ ] Inline-редактирование watch-выражения (сейчас добавление через quick input).
 - [ ] Тулбар: стоит в активной группе и переезжает за ней — проверить, не раздражает ли; ширину выровнять с find.
 - [x] Цвет статус-бара во время сессии — `statusbarColorProvider.ts` (порт эталона) + `StatusBarComponent.overrideColors`

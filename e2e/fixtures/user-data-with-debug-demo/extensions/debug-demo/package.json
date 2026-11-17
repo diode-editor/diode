@@ -1,7 +1,7 @@
 {
     "name": "debug-demo",
     "displayName": "Debug Demo",
-    "description": "A debugger extension shaped like CodeLLDB: the `demo` debug type, its configuration provider, `${command:pickProgram}`, an inline adapter that stops on entry and a tracker.",
+    "description": "A debugger extension shaped like CodeLLDB: the `demo` debug type, its configuration provider, `${command:pickProgram}`, an inline adapter that stops on entry and a tracker, a menu item on a call stack frame and a debug toolbar button.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",
@@ -10,7 +10,9 @@
     },
     "activationEvents": [
         "onDebugResolve:demo",
-        "onCommand:debugDemo.breakOnPrintf"
+        "onCommand:debugDemo.breakOnPrintf",
+        "onCommand:debugDemo.frameMenu",
+        "onCommand:debugDemo.ping"
     ],
     "contributes": {
         "breakpoints": [{ "language": "c" }],
@@ -19,13 +21,26 @@
                 "command": "debugDemo.breakOnPrintf",
                 "title": "Break on printf",
                 "category": "Debug Demo"
+            },
+            {
+                "command": "debugDemo.frameMenu",
+                "title": "Show Frame in Status",
+                "category": "Debug Demo"
+            },
+            {
+                "command": "debugDemo.ping",
+                "title": "Ping the Demo",
+                "category": "Debug Demo",
+                "icon": "$(bell)"
             }
         ],
         "debuggers": [
             {
                 "type": "demo",
                 "label": "Debug Demo",
-                "languages": ["cpp"],
+                "languages": [
+                    "cpp"
+                ],
                 "variables": {
                     "pickProgram": "debugDemo.pickProgram"
                 },
@@ -65,6 +80,21 @@
                     }
                 ]
             }
-        ]
+        ],
+        "menus": {
+            "debug/callstack/context": [
+                {
+                    "command": "debugDemo.frameMenu",
+                    "when": "callStackItemType == 'stackFrame' && debugType == 'demo'"
+                }
+            ],
+            "debug/toolBar": [
+                {
+                    "command": "debugDemo.ping",
+                    "when": "debugType == 'demo'",
+                    "group": "navigation@80"
+                }
+            ]
+        }
     }
 }

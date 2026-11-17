@@ -44,6 +44,7 @@
             "workbench.action.debug.continue",
             "workbench.action.debug.terminateThread",
             "workbench.action.debug.restartFrame",
+            "debug.copyStackTrace",
             "workbench.action.debug.callStackTop",
             "workbench.action.debug.callStackBottom",
             "workbench.action.debug.callStackUp",
@@ -60,7 +61,20 @@
             "callStack.collapse",
             "debug.toggleBreakpoint",
             "debug.removeBreakpoint",
+            "workbench.debug.viewlet.action.removeBreakpoint",
             "debug.openBreakpointToSide",
+            "debug.setVariable",
+            "workbench.debug.viewlet.action.copyValue",
+            "debug.copyEvaluatePath",
+            "debug.addToWatchExpressions",
+            "debug.breakWhenValueIsRead",
+            "debug.breakWhenValueChanges",
+            "debug.breakWhenValueIsAccessed",
+            "debug.setWatchExpression",
+            "debug.copyWatchExpression",
+            "debug.replCopy",
+            "workbench.debug.action.copyAll",
+            "debug.replPaste",
             "extensions.actions.searchByCategory.AI",
             "extensions.actions.searchByCategory.Azure",
             "extensions.actions.searchByCategory.Chat",
@@ -87,6 +101,47 @@
             "references-view.removeTypeItem"
         ]
     },
+    "DebugBreakpointsContext": {
+        "3_modification": [
+            "workbench.debug.viewlet.action.removeBreakpoint",
+            "workbench.debug.viewlet.action.removeAllBreakpoints"
+        ],
+        "z_commands": [
+            "workbench.debug.viewlet.action.enableAllBreakpoints",
+            "workbench.debug.viewlet.action.disableAllBreakpoints",
+            "workbench.debug.viewlet.action.reapplyBreakpointsAction"
+        ]
+    },
+    "DebugCallStackContext": {
+        "3_modification": [
+            "workbench.action.debug.restart",
+            "workbench.action.debug.disconnect",
+            "debug.copyStackTrace",
+            "workbench.action.debug.stop"
+        ],
+        "navigation": [
+            "workbench.action.debug.pause",
+            "workbench.action.debug.continue",
+            "workbench.action.debug.restartFrame",
+            "workbench.action.debug.stepOver",
+            "workbench.action.debug.stepInto",
+            "workbench.action.debug.stepOut"
+        ],
+        "termination": [
+            "workbench.action.debug.terminateThread"
+        ]
+    },
+    "DebugConsoleContext": {
+        "2_cutcopypaste": [
+            "debug.replCopy",
+            "workbench.debug.action.copyAll",
+            "debug.replPaste"
+        ],
+        "z_commands": [
+            "debug.collapseRepl",
+            "workbench.debug.panel.action.clearReplAction"
+        ]
+    },
     "DebugToolBar": {
         "navigation": [
             "workbench.action.debug.pause",
@@ -97,6 +152,38 @@
             "workbench.action.debug.restart",
             "workbench.action.debug.disconnect",
             "workbench.action.debug.stop"
+        ]
+    },
+    "DebugVariablesContext": {
+        "3_modification": [
+            "debug.setVariable"
+        ],
+        "5_cutcopypaste": [
+            "workbench.debug.viewlet.action.copyValue",
+            "debug.copyEvaluatePath"
+        ],
+        "z_commands": [
+            "debug.addToWatchExpressions",
+            "debug.breakWhenValueIsRead",
+            "debug.breakWhenValueChanges",
+            "debug.breakWhenValueIsAccessed"
+        ]
+    },
+    "DebugWatchContext": {
+        "3_modification": [
+            "workbench.debug.viewlet.action.addWatchExpression",
+            "debug.renameWatchExpression",
+            "debug.copyWatchExpression",
+            "debug.setWatchExpression",
+            "workbench.debug.viewlet.action.copyValue",
+            "workbench.debug.viewlet.action.copyAllWatchExpressions",
+            "debug.copyEvaluatePath"
+        ],
+        "z_commands": [
+            "workbench.debug.viewlet.action.removeAllWatchExpressions",
+            "debug.breakWhenValueIsRead",
+            "debug.breakWhenValueChanges",
+            "debug.breakWhenValueIsAccessed"
         ]
     },
     "EditorContext": {
@@ -503,18 +590,6 @@
         "inline": [
             "testing.run",
             "testing.editFocusedTest"
-        ]
-    },
-    "ViewContainerTitle": {
-        "navigation": [
-            "workbench.action.debug.pause",
-            "workbench.action.debug.continue",
-            "workbench.action.debug.stepOver",
-            "workbench.action.debug.stepInto",
-            "workbench.action.debug.stepOut",
-            "workbench.action.debug.restart",
-            "workbench.action.debug.disconnect",
-            "workbench.action.debug.stop"
         ]
     },
     "ViewTitle": {

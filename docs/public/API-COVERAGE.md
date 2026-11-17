@@ -305,6 +305,15 @@ The value types are VS Code's: `DebugAdapterExecutable`, `DebugAdapterServer`,
 `label`, `languages`, `variables`, `initialConfigurations`, `when`; contributions of one type merge
 as in VS Code, `*` merges into every type) and makes the debug keys available.
 
+The debug points of `contributes.menus` work as in VS Code: `debug/callstack/context`, `debug/variables/context`
+and `debug/watch/context` items are in the right-click (Shift+F10) menu of the rows, their `when` sees the row's keys
+(`callStackItemType`, `debugProtocolVariableMenuContext`, `variableEvaluateNamePresent`, `watchItemType`, …), and the
+command gets VS Code's arguments: a frame's source URI and `{ sessionId, threadId, frameId, frameName,
+frameLocation }`, a thread's id, a session's id; `{ sessionId, container, variable }` for a variable; the watched
+expression or variable. `inline` items are not drawn yet. `debug/toolBar` items are buttons of the debug toolbar, and
+of the Run and Debug title with `debug.toolBarLocation: docked`. `debug/createConfiguration` (proposed) is read; its
+items are not shown yet (Diode has no debugger choice when it creates launch.json).
+
 ## vscode.lm
 
 🟡 **7/7.** Declared, the runtime is a null object: Diode has no language models and no chat.

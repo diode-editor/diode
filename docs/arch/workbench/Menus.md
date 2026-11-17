@@ -97,12 +97,29 @@ SVG (путь или `{ light, dark }`) в терминале не нарисо�
 (`views/titleMenuEntries.ts`, тот же разбор, что у заголовков view), размещения — на командах
 (`debugCommands.ts`, `toolBarItem`, `when`/`enablement` эталона) с `iconColor` — цветом глифа
 (`debugIcon.*Foreground`; у эталона — CSS-правила по codicon в `debugColors.ts`). `iconColor` — общее поле пункта:
-его рисуют и кнопки заголовков view (`titleMenuEntries.ts` → `ViewTitleRowElement`). Каждый пункт продублирован в
-`ViewContainerTitle` вьюлета Run and Debug с `config.debug.toolBarLocation == 'docked' && debugState != 'inactive'`:
-так `docked` кладёт те же кнопки в заголовок вьюлета. Рисует меню `DebugToolbar` (`contrib/debug/browser/`) —
+его рисуют и кнопки заголовков view (`titleMenuEntries.ts` → `ViewTitleRowElement`). У каждого пункта тулбара —
+встроенного и расширения (`contributes.menus["debug/toolBar"]`) — есть двойник в `ViewContainerTitle` вьюлета Run and
+Debug с `config.debug.toolBarLocation == 'docked' && debugState != 'inactive'`: его держит `DockedDebugToolbarItems`
+(`debugToolbar.ts`, как `debugViewTitleItems` эталона) и пересобирает при каждой смене меню тулбара
+(`MenuRegistry.getContributions`). Рисует меню `DebugToolbar` (`contrib/debug/browser/`) —
 в углу активной группы редакторов (см. [EditorWidgets.md](EditorWidgets.md#угол-группы-тулбар-отладки-и-find)),
 пере-резолв — по `ContextKeyService.onDidChange`, смене меню, состояния отладки и настроек; ряд пересобирается,
-только когда меняется показанное. Пункты расширений (`contributes.menus["debug/toolBar"]`) — отдельная задача.
+только когда меняется показанное.
+
+**Контекстные меню строк видов отладки** — `DebugVariablesContext`, `DebugWatchContext`,
+`DebugCallStackContext`, `DebugBreakpointsContext`, `DebugConsoleContext` (точки расширений эталона —
+`debug/variables/context`, `debug/watch/context`, `debug/callstack/context`; у остальных точки нет). Правый клик и
+Shift+F10 по строке `LazyTreeControl` (`onContextMenu`) открывают меню без группы `inline`
+(`contrib/debug/browser/debugContextMenus.ts`, `showDebugContextMenu`): `when`/`enablement` пунктов считаются с
+ключами строки поверх глобальных (оверлей эталона: `callStackItemType`, `watchItemType`, `breakpointItemType`,
+`variableEvaluateNamePresent`, `variableIsReadonly`, `breakWhenValue*Supported` по ответу `dataBreakpointInfo`), а
+команда любого пункта — встроенного и расширения — получает аргументы эталона: у переменной `{ sessionId, container,
+variable }`, у строки WATCH и консоли — сам элемент, у брейкпоинта — брейкпоинт, у стека — «контекст для расширений»
+(URI источника кадра, id потока или сессии) и вторым — `{ sessionId, threadId?, frameId?, frameName?, frameLocation? }`.
+Пункты встроенных команд — размещения на самих командах (`debugCommands.ts` `callStackItem`, `rowMenuItem`).
+`inline`-кнопки строк (Remove Expression, View Binary Data) пока не рисуются. `DebugCreateConfiguration`
+(`debug/createConfiguration`, proposed) принимается мостом; показывает его выбор отладчика при создании launch.json
+(#1156).
 
 **`EditorTitle` — панель действий группы** (VS Code `editor/title`,
 `EditorTabsControl.editorActionsToolbar`). У каждой группы своя:

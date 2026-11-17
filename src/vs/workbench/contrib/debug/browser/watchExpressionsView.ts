@@ -7,8 +7,8 @@
 // their children read on expansion, `watchExpressionsExist`. Deviation: the expression is typed in the quick input,
 // not in an input box on the row (decision 2026-11-14, as the breakpoint condition): adding puts an empty row on
 // the tree and asks for the expression, Escape or an empty answer takes the row away, as upstream's input box.
-// Not here yet: Set Value, the context menu with its commands (#1150), reordering by drag and drop. Not planned:
-// debug visualizers, the memory view.
+// Set Value (the row's menu) puts an input over the row, as upstream. Not here yet: reordering by drag and drop. Not
+// planned: debug visualizers, the memory view.
 
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
@@ -109,7 +109,9 @@ export class WatchExpressionsView extends Disposable {
         );
         this.register(
             viewModel.onDidSelectExpression((e) => {
-                if (e?.expression instanceof Expression && !e.settingWatch) {
+                if (e?.settingWatch === true) {
+                    this.setValue(e.expression);
+                } else if (e?.expression instanceof Expression) {
                     void this.editExpression(e.expression).catch(onUnexpectedError);
                 }
             }),
@@ -129,6 +131,28 @@ export class WatchExpressionsView extends Disposable {
 
     public focus(): void {
         this.tree.list.focus();
+    }
+
+    /** Upstream's input box of `getInputBoxOptions` with `settingValue`: the value of an expression or a variable. */
+    private setValue(expression: IExpression): void {
+        const viewModel = this.debugService.getViewModel();
+        this.tree.edit(expression, {
+            value: expression.value,
+            onDone: (value, success) => {
+                // Stryker disable next-line BooleanLiteral: equivalent — no expression keeps no `settingWatch`
+                viewModel.setSelectedExpression(undefined, false);
+                const focusedFrame = viewModel.focusedStackFrame;
+                if (success && value && focusedFrame) {
+                    // Only these two are selected with `settingWatch`.
+                    void (expression as Expression | Variable)
+                        .setExpression(value, focusedFrame)
+                        .then(() => {
+                            viewModel.updateViews();
+                        })
+                        .catch(onUnexpectedError);
+                }
+            },
+        });
     }
 
     /** Upstream's input box of a watch expression (`getInputBoxOptions` without `settingValue`). */
