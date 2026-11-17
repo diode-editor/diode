@@ -6,10 +6,18 @@ import type { MenuService } from "../../../../platform/actions/common/menuServic
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import type { IStateDescriptor, IStateStore } from "../../../../platform/state/common/iStateService.ts";
 import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorTitleBarMenuContext } from "../../actions/menuContexts.ts";
-import { inlineActions, overflowEntries, runAction } from "../views/titleMenuEntries.ts";
+import type { IPaneMenuAnchor } from "../views/paneHeaderElement.ts";
+import {
+    inlineActions,
+    type ISplitButtonHost,
+    type ISplitButtonMemory,
+    overflowEntries,
+    runAction,
+} from "../views/titleMenuEntries.ts";
 import { ViewContainerHeaderElement } from "../views/viewContainerHeaderElement.ts";
 
 const ACTIONS_LOCATION = "workbench.editor.editorActionsLocation";
@@ -20,6 +28,13 @@ export interface IEditorTitleActionsServices {
     readonly contextKeys: ContextKeyService;
     readonly contextMenu: ContextMenuService;
     readonly icons: IProductIconService;
+    /** Where a split button remembers its last pick. */
+    readonly state: IStateStore;
+}
+
+/** Upstream `DropdownWithDefaultActionViewItem._storageKey`, workspace scope. */
+function lastActionIdKey(submenu: string): IStateDescriptor<string | undefined> {
+    return { key: `${submenu}_lastActionId`, scope: "workspace", default: undefined };
 }
 
 /**
@@ -44,14 +59,14 @@ export class EditorTitleActions extends Disposable {
         // Buttons are for the mouse and commands; Tab skips them (tabs aren't focusable either).
         this.element.focusable = false;
         this.element.style = { fg: "descriptionForeground", bg: "editorGroupHeader.tabsBackground" };
-        this.element.onAction = (actionId) => {
-            runAction(this.groups(), actionId);
+        this.element.onAction = (actionId, anchor) => {
+            runAction(this.groups(), actionId, this.splitButtonHost(anchor));
         };
         this.element.onMenu = (anchor) => {
             services.contextMenu.showContextMenu({
                 getOwner: () => this.element,
                 getAnchor: () => anchor,
-                getEntries: () => overflowEntries(this.groups()),
+                getEntries: () => overflowEntries(this.groups(), this.memory),
             });
         };
         const menu = this.register(services.menus.createMenu(MenuId.EditorTitle));
@@ -90,6 +105,27 @@ export class EditorTitleActions extends Disposable {
 
     public readonly onDidChangeVisibility = this.onDidChangeVisibilityEmitter.event;
 
+    private readonly memory: ISplitButtonMemory = {
+        lastActionId: (submenu) => this.services.state.get(lastActionIdKey(submenu)),
+        remember: (submenu, actionId) => {
+            this.services.state.store(lastActionIdKey(submenu), actionId);
+            this.refresh();
+        },
+    };
+
+    private splitButtonHost(anchor: IPaneMenuAnchor): ISplitButtonHost {
+        return {
+            memory: this.memory,
+            showDropdown: (entries) => {
+                this.services.contextMenu.showContextMenu({
+                    getOwner: () => this.element,
+                    getAnchor: () => anchor,
+                    getEntries: () => entries,
+                });
+            },
+        };
+    }
+
     private groups(): IMenuEntryGroup[] {
         const context: EditorTitleBarMenuContext = { groupId: this.group.id, groupLocked: this.group.isLocked };
         return this.services.menus.getEntryGroups(MenuId.EditorTitle, context);
@@ -97,8 +133,8 @@ export class EditorTitleActions extends Disposable {
 
     private refresh(): void {
         const groups = this.services.configuration.get(ACTIONS_LOCATION) === "default" ? this.groups() : [];
-        const actions = inlineActions(groups);
-        const hasMenu = overflowEntries(groups).length > 0;
+        const actions = inlineActions(groups, this.memory);
+        const hasMenu = overflowEntries(groups, this.memory).length > 0;
         this.element.setActions(actions);
         this.element.setMenuVisible(hasMenu);
         const visible = actions.length > 0 || hasMenu;

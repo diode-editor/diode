@@ -416,3 +416,19 @@ describe("ViewTitleRowElement — title widget", () => {
         expect(widget.layoutStyle).toEqual({ width: hflexFit(), height: 1 });
     });
 });
+
+describe("ViewTitleRowElement — attached buttons", () => {
+    it("an attached button sits right after the previous one, without a bar, in two columns", () => {
+        const row = new ViewTitleRowElement("RUN", { chevron: false });
+        row.setMenuVisible(false);
+        row.setActions([
+            { id: "first", icon: "R" },
+            { id: "primary", icon: "P" },
+            { id: "arrow", icon: "v", attached: true },
+        ]);
+        expect(renderElement(row, 20, 1, { themeVars: true }).screenToString().trimEnd()).toBe(" RUN        R │ P v");
+        expect(row.hitZone(16)).toEqual({ kind: "action", actionId: "primary" });
+        expect(row.hitZone(18)).toEqual({ kind: "action", actionId: "arrow" });
+        expect(row.hitZone(19)).toEqual({ kind: "action", actionId: "arrow" });
+    });
+});
