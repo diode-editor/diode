@@ -15,7 +15,7 @@ export default defineScenario({
     seedUserData: userData,
     open: [folder],
     cols: 120,
-    rows: 32,
+    rows: 40,
     async run(editor) {
         await editor.waitForText((t) => t.includes(".diode"));
         await editor.waitForReady();

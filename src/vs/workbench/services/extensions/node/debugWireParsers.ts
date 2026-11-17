@@ -1,14 +1,24 @@
 import type { SerializedError } from "../../../../base/common/errorSerialization.ts";
-import type {
-    IWireDebugAdapterError,
-    IWireDebugAdapterExit,
-    IWireDebugAdapterMessage,
-    IWireDebugConfigurationProvider,
-    IWireDebugProviderHandle,
-    IWireDebugStartDebugging,
-    IWireDebugStartOptions,
-    IWireDebugStopDebugging,
-    WireDebugConfiguration,
+import {
+    type IWireDebugAdapterError,
+    type IWireDebugAdapterExit,
+    type IWireDebugAdapterMessage,
+    type IWireDebugBreakpointBase,
+    type IWireDebugConfigurationProvider,
+    type IWireDebugConsoleAppend,
+    type IWireDebugCustomRequest,
+    type IWireDebugFunctionBreakpoint,
+    type IWireDebugProtocolBreakpointRequest,
+    type IWireDebugProviderHandle,
+    type IWireDebugRegisterBreakpoints,
+    type IWireDebugSetSessionName,
+    type IWireDebugSourceLine,
+    type IWireDebugSourceMultiBreakpoint,
+    type IWireDebugStartDebugging,
+    type IWireDebugStartOptions,
+    type IWireDebugStopDebugging,
+    type IWireDebugUnregisterBreakpoints,
+    type WireDebugConfiguration,
 } from "../../../api/common/debugWireTypes.ts";
 import { isFiniteNumber } from "../../../api/common/wireTypes.ts";
 
@@ -106,8 +116,7 @@ export function parseWireDebugStopDebugging(raw: unknown): IWireDebugStopDebuggi
 
 /** Upstream `$registerDebugTypes`: entries that are not strings are dropped. */
 export function parseWireDebugTypes(raw: unknown): string[] {
-    const types = fields(raw)?.types;
-    return Array.isArray(types) ? (types as readonly unknown[]).filter((type) => typeof type === "string") : [];
+    return stringList(fields(raw)?.types);
 }
 
 /** A DAP message is any object with a `type`; the session checks the rest, as upstream's. */
@@ -138,4 +147,85 @@ export function parseWireDebugAdapterExit(raw: unknown): IWireDebugAdapterExit |
     const p = fields(raw);
     if (!isFiniteNumber(p?.handle)) return null;
     return { handle: p.handle, ...(isFiniteNumber(p.code) ? { code: p.code } : {}) };
+}
+
+/** `args` is whatever the extension passed: the adapter checks it. */
+export function parseWireDebugCustomRequest(raw: unknown): IWireDebugCustomRequest | null {
+    const p = fields(raw);
+    if (typeof p?.sessionId !== "string" || typeof p.command !== "string") return null;
+    return { sessionId: p.sessionId, command: p.command, args: p.args };
+}
+
+export function parseWireDebugProtocolBreakpointRequest(raw: unknown): IWireDebugProtocolBreakpointRequest | null {
+    const p = fields(raw);
+    if (typeof p?.sessionId !== "string" || typeof p.breakpointId !== "string") return null;
+    return { sessionId: p.sessionId, breakpointId: p.breakpointId };
+}
+
+export function parseWireDebugSetSessionName(raw: unknown): IWireDebugSetSessionName | null {
+    const p = fields(raw);
+    if (typeof p?.sessionId !== "string" || typeof p.name !== "string") return null;
+    return { sessionId: p.sessionId, name: p.name };
+}
+
+export function parseWireDebugConsoleAppend(raw: unknown): IWireDebugConsoleAppend | null {
+    const value = fields(raw)?.value;
+    return typeof value === "string" ? { value } : null;
+}
+
+/** `null` — not a breakpoint: no string id or no boolean `enabled`; optional fields of another type are dropped. */
+function parseBreakpointBase(p: Fields): IWireDebugBreakpointBase | null {
+    if (typeof p.id !== "string" || typeof p.enabled !== "boolean") return null;
+    return {
+        id: p.id,
+        enabled: p.enabled,
+        condition: optionalString(p.condition),
+        hitCondition: optionalString(p.hitCondition),
+        logMessage: optionalString(p.logMessage),
+        mode: optionalString(p.mode),
+    };
+}
+
+function parseSourceLine(raw: unknown): IWireDebugSourceLine | null {
+    const p = fields(raw);
+    if (p === null) return null;
+    const base = parseBreakpointBase(p);
+    if (base === null || !isFiniteNumber(p.line) || !isFiniteNumber(p.character)) return null;
+    return { ...base, line: p.line, character: p.character };
+}
+
+type RegisteredBreakpoint = IWireDebugSourceMultiBreakpoint | IWireDebugFunctionBreakpoint;
+
+function parseRegisteredBreakpoint(raw: unknown): RegisteredBreakpoint | null {
+    const p = fields(raw);
+    if (p?.type === "sourceMulti" && typeof p.uri === "string" && Array.isArray(p.lines)) {
+        const lines = (p.lines as readonly unknown[])
+            .map(parseSourceLine)
+            .filter((line): line is IWireDebugSourceLine => line !== null);
+        return { type: "sourceMulti", uri: p.uri, lines };
+    }
+    if (p?.type !== "function" || typeof p.functionName !== "string") return null;
+    const base = parseBreakpointBase(p);
+    return base === null ? null : { type: "function", ...base, functionName: p.functionName };
+}
+
+/** Upstream `$registerBreakpoints`: malformed entries (and lines) are dropped. */
+export function parseWireDebugRegisterBreakpoints(raw: unknown): IWireDebugRegisterBreakpoints {
+    const list = fields(raw)?.breakpoints;
+    if (!Array.isArray(list)) return { breakpoints: [] };
+    return {
+        breakpoints: (list as readonly unknown[])
+            .map(parseRegisteredBreakpoint)
+            .filter((bp): bp is RegisteredBreakpoint => bp !== null),
+    };
+}
+
+function stringList(raw: unknown): string[] {
+    return Array.isArray(raw) ? (raw as readonly unknown[]).filter((id) => typeof id === "string") : [];
+}
+
+/** Upstream `$unregisterBreakpoints`: ids that are not strings are dropped. */
+export function parseWireDebugUnregisterBreakpoints(raw: unknown): IWireDebugUnregisterBreakpoints {
+    const p = fields(raw);
+    return { breakpointIds: stringList(p?.breakpointIds), functionBreakpointIds: stringList(p?.functionBreakpointIds) };
 }

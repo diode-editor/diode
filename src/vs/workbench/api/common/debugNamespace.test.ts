@@ -35,30 +35,11 @@ function registrations(stub: ReturnType<typeof makeStubRpc>): unknown[] {
 }
 
 describe("vscode.debug — what the core has: configuration providers, startDebugging, stopDebugging", () => {
-    it("the session state is still empty: no session, breakpoints or stack frame; the console accepts output", () => {
+    it("before the core says anything: no session, breakpoints or stack frame", () => {
         const { vscode } = makeVscode();
         expect(vscode.debug.activeDebugSession).toBeUndefined();
         expect(vscode.debug.activeStackItem).toBeUndefined();
         expect(vscode.debug.breakpoints).toEqual([]);
-        expect(() => {
-            vscode.debug.activeDebugConsole.append("a");
-            vscode.debug.activeDebugConsole.appendLine("b");
-        }).not.toThrow();
-    });
-
-    it("session events are valid subscriptions that never fire", () => {
-        const { vscode } = makeVscode();
-        const listener = vi.fn();
-        const events = [
-            vscode.debug.onDidChangeActiveDebugSession,
-            vscode.debug.onDidStartDebugSession,
-            vscode.debug.onDidReceiveDebugSessionCustomEvent,
-            vscode.debug.onDidTerminateDebugSession,
-            vscode.debug.onDidChangeBreakpoints,
-            vscode.debug.onDidChangeActiveStackItem,
-        ];
-        for (const event of events) event(listener).dispose();
-        expect(listener).not.toHaveBeenCalled();
     });
 
     describe("registerDebugConfigurationProvider", () => {

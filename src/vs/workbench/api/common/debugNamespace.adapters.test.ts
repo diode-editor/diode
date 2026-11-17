@@ -243,15 +243,14 @@ describe("vscode.debug — debug adapters in the subprocess", () => {
             expect(sessions[1].parentSession).toBe(sessions[0]);
             expect(sessions[1].workspaceFolder).toBeUndefined();
             expect(sessions[2]).toBe(sessions[0]);
-            // A session goes with its adapter's stop: a restart under the same id is a new object.
+            // The adapter's stop keeps the session (upstream): it goes when the core says it terminated.
             await stub.callRequest("debug.stopAdapter", { handle: 1 });
             await start(4);
-            expect(sessions[3]).not.toBe(sessions[0]);
-            expect(sessions[3].id).toBe("s1");
-            await expect(sessions[0].customRequest("x")).rejects.toThrow(
-                "DebugSession.customRequest is not supported yet",
-            );
-            await expect(sessions[0].getDebugProtocolBreakpoint({} as never)).resolves.toBeUndefined();
+            expect(sessions[3]).toBe(sessions[0]);
+            stub.fire("debug.acceptSessionTerminated", { session: session() });
+            await start(5);
+            expect(sessions[4]).not.toBe(sessions[0]);
+            expect(sessions[4].id).toBe("s1");
         });
 
         it("`debugServer` in the configuration wins over the factory: a TCP adapter on that port", async () => {

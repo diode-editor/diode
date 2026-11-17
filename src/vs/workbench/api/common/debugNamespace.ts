@@ -11,15 +11,27 @@ import {
     platformAdapterExecutable,
 } from "./debugAdapterExecutable.ts";
 import {
+    type Breakpoint,
     DebugAdapterInlineImplementation,
     DebugAdapterServer,
     DebugConfigurationProviderTriggerKind,
     DebugConsoleMode,
+    DebugStackFrame,
+    DebugThread,
+    FunctionBreakpoint,
+    setBreakpointId,
+    SourceBreakpoint,
 } from "./debugTypes.ts";
 import type {
+    IWireDebugBreakpointBase,
+    IWireDebugFunctionBreakpoint,
     IWireDebugResolveResult,
     IWireDebugSession,
+    IWireDebugSourceBreakpoint,
+    IWireDebugSourceLine,
+    IWireDebugSourceMultiBreakpoint,
     IWireDebugStartOptions,
+    WireDebugBreakpoint,
     WireDebugConfiguration,
     WireDebugTriggerKind,
 } from "./debugWireTypes.ts";
@@ -27,20 +39,22 @@ import { DirectDebugAdapter, type ExtHostDebugAdapter, type ExtHostNodeDebugAdap
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { callWithVscodeToken } from "./vscodeCancellation.ts";
 import type { ExtensionOwner } from "./vscodeHostContext.ts";
-import { DisposableImpl, EventEmitter } from "./vscodeTypes.ts";
+import { DisposableImpl, EventEmitter, Location, Position } from "./vscodeTypes.ts";
 
 /**
  * Upstream's `ExtHostDebugService`, as far as the core has it: configuration providers (the core asks them when it
  * starts a session and when it creates a launch.json), `startDebugging`/`stopDebugging` (the core's debug service),
  * and the debug adapters, which live here as upstream's: the core asks for an adapter of a session
  * (`debug.startAdapter`), the type's descriptor factory (or the executable of `contributes.debuggers`) says which,
- * and the DAP messages go core ↔ subprocess ↔ adapter, past the trackers. Session objects for extensions are only
- * what a factory and a tracker get; the session list, events, breakpoints and the console are still a null object
- * (#1141). Without the namespace `golang.go` crashed midway through `activate()` on
+ * and the DAP messages go core ↔ subprocess ↔ adapter, past the trackers. The core tells about its sessions (start,
+ * end, focus, name, custom DAP events), the focused thread or frame and every breakpoint but session-only ones; a
+ * session object lives from the first message about it to its end, `customRequest` and `getDebugProtocolBreakpoint`
+ * go to the core's session. Without the namespace `golang.go` crashed midway through `activate()` on
  * `registerDebugConfigurationProvider`, and ~60 `go.*` commands never got registered. Deviations: no
  * `$substituteVariables` (the core's resolver knows the same variables), no path conversion of the messages (core
  * and subprocess share the file system: upstream's round trip path → uri → path is the identity here), the
- * `handshake` request is answered "no signer" (there is no signing service).
+ * `handshake` request is answered "no signer" (there is no signing service), the core sends the whole session each
+ * time (no `$sessionCached`), data breakpoints do not cross (milestone 2).
  */
 
 export interface IDebugNamespaceDeps {
@@ -60,7 +74,6 @@ export interface IDebugNamespaceDeps {
 interface IAdapterEntry {
     readonly adapter: ExtHostDebugAdapter;
     readonly tracker: Required<vscode.DebugAdapterTracker> | undefined;
-    readonly sessionId: string;
 }
 
 interface ITrackerFactoryEntry {
@@ -83,8 +96,17 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
     const adapterFactories = new Map<string, vscode.DebugAdapterDescriptorFactory>();
     const trackerFactories = new Set<ITrackerFactoryEntry>();
     /** The sessions with a live adapter; one goes with its adapter's stop. */
-    const sessions = new Map<string | undefined, vscode.DebugSession>();
+    const sessions = new Map<string | undefined, ISessionEntry>();
     const adapters = new Map<number, IAdapterEntry>();
+    let activeSession: vscode.DebugSession | undefined;
+    let activeStackItem: vscode.DebugThread | vscode.DebugStackFrame | undefined;
+    const breakpoints = new Map<string, vscode.Breakpoint>();
+    const onDidStartDebugSession = new EventEmitter<vscode.DebugSession>();
+    const onDidTerminateDebugSession = new EventEmitter<vscode.DebugSession>();
+    const onDidChangeActiveDebugSession = new EventEmitter<vscode.DebugSession | undefined>();
+    const onDidReceiveDebugSessionCustomEvent = new EventEmitter<vscode.DebugSessionCustomEvent>();
+    const onDidChangeBreakpoints = new EventEmitter<vscode.BreakpointsChangeEvent>();
+    const onDidChangeActiveStackItem = new EventEmitter<vscode.DebugThread | vscode.DebugStackFrame | undefined>();
 
     deps.onDidReceiveCatalog((catalog) => {
         rpc.notify("debug.registerDebugTypes", { types: mainDebugTypes(catalog) });
@@ -186,26 +208,175 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         });
     }
 
-    /** Upstream `getSession`: one object per session id, the parent the one already known. */
-    function sessionOf(dto: IWireDebugSession): vscode.DebugSession {
-        let session = sessions.get(dto.id);
-        if (session === undefined) {
-            const parentSession = sessions.get(dto.parentId);
-            session = Object.freeze<vscode.DebugSession>({
-                id: dto.id,
-                type: dto.type,
+    /**
+     * Upstream `getSession` and `ExtHostDebugSession`: one object per session id until the session terminates, the
+     * parent the one already known; the name follows the core's, and setting it renames the core's session.
+     */
+    function sessionEntryOf(dto: IWireDebugSession): ISessionEntry {
+        let entry = sessions.get(dto.id);
+        if (entry === undefined) {
+            const id = dto.id;
+            const created: ISessionEntry = {
                 name: dto.name,
-                parentSession,
-                workspaceFolder: folderOf(dto.folder),
-                configuration: dto.configuration as vscode.DebugConfiguration,
-                // The session's requests and breakpoints come with the session objects (#1141).
-                customRequest: () => Promise.reject(new Error("DebugSession.customRequest is not supported yet")),
-                getDebugProtocolBreakpoint: () => Promise.resolve(undefined),
-            });
-            sessions.set(dto.id, session);
+                api: Object.freeze<vscode.DebugSession>({
+                    id,
+                    type: dto.type,
+                    get name(): string {
+                        return created.name;
+                    },
+                    set name(name: string) {
+                        created.name = name;
+                        rpc.notify("debug.setSessionName", { sessionId: id, name });
+                    },
+                    parentSession: sessions.get(dto.parentId)?.api,
+                    workspaceFolder: folderOf(dto.folder),
+                    configuration: dto.configuration as vscode.DebugConfiguration,
+                    customRequest: async (command: string, args?: unknown): Promise<unknown> =>
+                        (await rpc.request("debug.customRequest", { sessionId: id, command, args })).body,
+                    getDebugProtocolBreakpoint: async (
+                        breakpoint: vscode.Breakpoint,
+                    ): Promise<vscode.DebugProtocolBreakpoint | undefined> =>
+                        (
+                            await rpc.request("debug.getDebugProtocolBreakpoint", {
+                                sessionId: id,
+                                breakpointId: breakpoint.id,
+                            })
+                        ).breakpoint,
+                }),
+            };
+            entry = created;
+            sessions.set(id, entry);
         }
-        return session;
+        return entry;
     }
+
+    function sessionOf(dto: IWireDebugSession): vscode.DebugSession {
+        return sessionEntryOf(dto).api;
+    }
+
+    rpc.handleNotification("debug.acceptSessionStarted", ({ session }) => {
+        onDidStartDebugSession.fire(sessionOf(session));
+    });
+
+    rpc.handleNotification("debug.acceptSessionTerminated", ({ session }) => {
+        const api = sessionOf(session);
+        onDidTerminateDebugSession.fire(api);
+        sessions.delete(api.id);
+    });
+
+    rpc.handleNotification("debug.acceptActiveSessionChanged", ({ session }) => {
+        activeSession = session === undefined ? undefined : sessionOf(session);
+        onDidChangeActiveDebugSession.fire(activeSession);
+    });
+
+    rpc.handleNotification("debug.acceptSessionNameChanged", ({ session, name }) => {
+        sessionEntryOf(session).name = name;
+    });
+
+    rpc.handleNotification("debug.acceptSessionCustomEvent", ({ session, event, body }) => {
+        onDidReceiveDebugSessionCustomEvent.fire({ session: sessionOf(session), event, body });
+    });
+
+    rpc.handleNotification("debug.acceptStackFocus", ({ focus }) => {
+        if (focus === undefined) {
+            activeStackItem = undefined;
+        } else {
+            const session = sessionOf(focus.session);
+            activeStackItem =
+                focus.frameId === undefined
+                    ? new DebugThread(session, focus.threadId)
+                    : new DebugStackFrame(session, focus.threadId, focus.frameId);
+        }
+        onDidChangeActiveStackItem.fire(activeStackItem);
+    });
+
+    function fireBreakpointChanges(
+        added: readonly vscode.Breakpoint[],
+        removed: readonly vscode.Breakpoint[],
+        changed: readonly vscode.Breakpoint[],
+    ): void {
+        if (added.length > 0 || removed.length > 0 || changed.length > 0) {
+            onDidChangeBreakpoints.fire(Object.freeze({ added, removed, changed }));
+        }
+    }
+
+    /** Upstream `$acceptBreakpointsDelta`: a breakpoint already known is not added twice. */
+    rpc.handleNotification("debug.acceptBreakpointsDelta", (delta) => {
+        const added: vscode.Breakpoint[] = [];
+        const removed: vscode.Breakpoint[] = [];
+        const changed: vscode.Breakpoint[] = [];
+        for (const dto of delta.added) {
+            if (breakpoints.has(dto.id)) continue;
+            const bp = breakpointOf(dto);
+            setBreakpointId(bp, dto.id);
+            breakpoints.set(dto.id, bp);
+            added.push(bp);
+        }
+        for (const id of delta.removed) {
+            const bp = breakpoints.get(id);
+            if (bp === undefined) continue;
+            breakpoints.delete(id);
+            removed.push(bp);
+        }
+        for (const dto of delta.changed) {
+            const bp = breakpoints.get(dto.id);
+            if (bp === undefined) continue;
+            updateBreakpoint(bp, dto);
+            changed.push(bp);
+        }
+        fireBreakpointChanges(added, removed, changed);
+    });
+
+    /** Upstream `addBreakpoints`: the new ones fire at once, then go to the core, by file. */
+    async function addBreakpoints(toAdd: readonly vscode.Breakpoint[]): Promise<void> {
+        const added = toAdd.filter((bp) => {
+            if (breakpoints.has(bp.id)) return false;
+            breakpoints.set(bp.id, bp);
+            return true;
+        });
+        fireBreakpointChanges(added, [], []);
+        const dtos: (IWireDebugSourceMultiBreakpoint | IWireDebugFunctionBreakpoint)[] = [];
+        const byUri = new Map<string, IWireDebugSourceLine[]>();
+        for (const bp of added) {
+            if (bp instanceof SourceBreakpoint) {
+                const uri = bp.location.uri.toString();
+                let lines = byUri.get(uri);
+                if (lines === undefined) {
+                    lines = [];
+                    byUri.set(uri, lines);
+                    dtos.push({ type: "sourceMulti", uri, lines });
+                }
+                lines.push({
+                    ...breakpointBase(bp),
+                    line: bp.location.range.start.line,
+                    character: bp.location.range.start.character,
+                });
+            } else if (bp instanceof FunctionBreakpoint) {
+                dtos.push({ type: "function", ...breakpointBase(bp), functionName: bp.functionName });
+            }
+        }
+        await rpc.request("debug.registerBreakpoints", { breakpoints: dtos });
+    }
+
+    /** Upstream `removeBreakpoints`: only the known ones fire and go to the core. */
+    async function removeBreakpoints(toRemove: readonly vscode.Breakpoint[]): Promise<void> {
+        const removed = toRemove.filter((bp) => breakpoints.delete(bp.id));
+        fireBreakpointChanges([], removed, []);
+        await rpc.request("debug.unregisterBreakpoints", {
+            breakpointIds: removed.filter((bp) => bp instanceof SourceBreakpoint).map((bp) => bp.id),
+            functionBreakpointIds: removed.filter((bp) => bp instanceof FunctionBreakpoint).map((bp) => bp.id),
+        });
+    }
+
+    /** Upstream `ExtHostDebugConsole`. */
+    const activeDebugConsole: vscode.DebugConsole = Object.freeze({
+        append(value: string): void {
+            rpc.notify("debug.appendDebugConsole", { value });
+        },
+        appendLine(value: string): void {
+            this.append(`${value}\n`);
+        },
+    });
 
     /** Upstream `getAdapterDescriptor`: `debugServer` of the configuration, the type's factory, `package.json`. */
     async function adapterDescriptorOf(
@@ -262,7 +433,7 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
             throw new Error(`Couldn't create a debug adapter for type '${session.type}'.`);
         }
         const tracker = await trackerOf(session);
-        adapters.set(handle, { adapter, tracker, sessionId: session.id });
+        adapters.set(handle, { adapter, tracker });
         adapter.onMessage((message) => {
             if (message.type === "request" && (message as DebugProtocol.Request).command === "handshake") {
                 // Upstream signs the adapter's challenge; there is no signing service here.
@@ -303,7 +474,6 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
         const entry = adapters.get(handle);
         if (entry) {
             adapters.delete(handle);
-            sessions.delete(entry.sessionId);
             entry.tracker?.onWillStopSession();
             // Not disposed, as upstream: a process killed by the stop still reports its exit to the tracker.
             await entry.adapter.stopSession();
@@ -374,25 +544,74 @@ export function createDebugNamespace(deps: IDebugNamespaceDeps): typeof vscode.d
     }
 
     return {
-        activeDebugSession: undefined,
-        activeDebugConsole: { append: (): void => undefined, appendLine: (): void => undefined },
-        breakpoints: [],
-        activeStackItem: undefined,
-        onDidChangeActiveDebugSession: new EventEmitter<vscode.DebugSession | undefined>().event,
-        onDidStartDebugSession: new EventEmitter<vscode.DebugSession>().event,
-        onDidReceiveDebugSessionCustomEvent: new EventEmitter<vscode.DebugSessionCustomEvent>().event,
-        onDidTerminateDebugSession: new EventEmitter<vscode.DebugSession>().event,
-        onDidChangeBreakpoints: new EventEmitter<vscode.BreakpointsChangeEvent>().event,
-        onDidChangeActiveStackItem: new EventEmitter<vscode.DebugThread | vscode.DebugStackFrame | undefined>().event,
+        get activeDebugSession(): vscode.DebugSession | undefined {
+            return activeSession;
+        },
+        activeDebugConsole,
+        get breakpoints(): vscode.Breakpoint[] {
+            return [...breakpoints.values()];
+        },
+        get activeStackItem(): vscode.DebugThread | vscode.DebugStackFrame | undefined {
+            return activeStackItem;
+        },
+        onDidChangeActiveDebugSession: onDidChangeActiveDebugSession.event,
+        onDidStartDebugSession: onDidStartDebugSession.event,
+        onDidReceiveDebugSessionCustomEvent: onDidReceiveDebugSessionCustomEvent.event,
+        onDidTerminateDebugSession: onDidTerminateDebugSession.event,
+        onDidChangeBreakpoints: onDidChangeBreakpoints.event,
+        onDidChangeActiveStackItem: onDidChangeActiveStackItem.event,
         registerDebugConfigurationProvider,
         registerDebugAdapterDescriptorFactory,
         registerDebugAdapterTrackerFactory,
         startDebugging,
         stopDebugging,
-        addBreakpoints: (): void => undefined,
-        removeBreakpoints: (): void => undefined,
+        // `vscode.d.ts` says `void`; upstream returns the promise of the core's answer, extensions may await it.
+        addBreakpoints: addBreakpoints as (breakpoints: readonly vscode.Breakpoint[]) => void,
+        removeBreakpoints: removeBreakpoints as (breakpoints: readonly vscode.Breakpoint[]) => void,
         asDebugSourceUri,
     };
+}
+
+interface ISessionEntry {
+    name: string;
+    readonly api: vscode.DebugSession;
+}
+
+/** The fields every breakpoint has on the wire; JSON leaves out the absent ones. */
+function breakpointBase(bp: Breakpoint): IWireDebugBreakpointBase {
+    const { id, enabled, condition, hitCondition, logMessage, mode } = bp;
+    return { id, enabled, condition, hitCondition, logMessage, mode };
+}
+
+function locationOf(dto: IWireDebugSourceBreakpoint): Location {
+    return new Location(Uri.parse(dto.uri), new Position(dto.line, dto.character));
+}
+
+/** A breakpoint of the core as the extension's value type. */
+function breakpointOf(dto: WireDebugBreakpoint): Breakpoint {
+    if (dto.type === "function") {
+        return new FunctionBreakpoint(dto.functionName, dto.enabled, dto.condition, dto.hitCondition, dto.logMessage);
+    }
+    return new SourceBreakpoint(locationOf(dto), dto.enabled, dto.condition, dto.hitCondition, dto.logMessage);
+}
+
+type Mutable<T> = { -readonly [K in keyof T]: T[K] };
+
+/**
+ * Upstream updates the breakpoint in place: the extension's object stays the same. The core's id names one kind of
+ * breakpoint, so the change is of the breakpoint's own kind.
+ */
+function updateBreakpoint(bp: vscode.Breakpoint, dto: WireDebugBreakpoint): void {
+    const target = bp as Mutable<vscode.SourceBreakpoint & vscode.FunctionBreakpoint>;
+    if (dto.type === "function") {
+        target.functionName = dto.functionName;
+    } else {
+        target.location = locationOf(dto);
+    }
+    target.enabled = dto.enabled;
+    target.condition = dto.condition;
+    target.hitCondition = dto.hitCondition;
+    target.logMessage = dto.logMessage;
 }
 
 /** Like upstream's `ExtHostDebugServiceBase.asDebugSourceUri`. */

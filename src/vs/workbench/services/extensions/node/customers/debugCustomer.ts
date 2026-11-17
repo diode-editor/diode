@@ -16,11 +16,17 @@ import {
     parseWireDebugAdapterMessage,
     parseWireDebugConfigurationProvider,
     parseWireDebugConfigurations,
+    parseWireDebugConsoleAppend,
+    parseWireDebugCustomRequest,
+    parseWireDebugProtocolBreakpointRequest,
     parseWireDebugProviderHandle,
+    parseWireDebugRegisterBreakpoints,
     parseWireDebugResolveResult,
+    parseWireDebugSetSessionName,
     parseWireDebugStartDebugging,
     parseWireDebugStopDebugging,
     parseWireDebugTypes,
+    parseWireDebugUnregisterBreakpoints,
 } from "../debugWireParsers.ts";
 
 /**
@@ -141,6 +147,72 @@ export class DebugCustomer implements IExtensionHostCustomer {
             rpc.handleRequest("debug.stopDebugging", async (params) => {
                 await sink.stopDebugging(parseWireDebugStopDebugging(params).sessionId);
                 return null;
+            }),
+        );
+        store.add(
+            sink.subscribe({
+                sessionStarted: (session) => {
+                    rpc.notify("debug.acceptSessionStarted", { session });
+                },
+                sessionTerminated: (session) => {
+                    rpc.notify("debug.acceptSessionTerminated", { session });
+                },
+                activeSessionChanged: (session) => {
+                    rpc.notify("debug.acceptActiveSessionChanged", { session });
+                },
+                sessionNameChanged: (session, name) => {
+                    rpc.notify("debug.acceptSessionNameChanged", { session, name });
+                },
+                sessionCustomEvent: (session, event, body) => {
+                    rpc.notify("debug.acceptSessionCustomEvent", { session, event, body });
+                },
+                breakpointsChanged: (delta) => {
+                    rpc.notify("debug.acceptBreakpointsDelta", delta);
+                },
+                stackFocusChanged: (focus) => {
+                    rpc.notify("debug.acceptStackFocus", { focus });
+                },
+            }),
+        );
+        store.add(
+            rpc.handleRequest("debug.customRequest", async (params) => {
+                const request = parseWireDebugCustomRequest(params);
+                if (request === null) throw new Error("custom request failed");
+                return { body: await sink.customRequest(request.sessionId, request.command, request.args) };
+            }),
+        );
+        store.add(
+            rpc.handleRequest("debug.getDebugProtocolBreakpoint", async (params) => {
+                const request = parseWireDebugProtocolBreakpointRequest(params);
+                if (request === null) throw new Error("debug session not found");
+                const breakpoint = await sink.getDebugProtocolBreakpoint(request.sessionId, request.breakpointId);
+                return { breakpoint };
+            }),
+        );
+        store.add(
+            rpc.handleRequest("debug.registerBreakpoints", (params) => {
+                sink.registerBreakpoints(parseWireDebugRegisterBreakpoints(params));
+                return null;
+            }),
+        );
+        store.add(
+            rpc.handleRequest("debug.unregisterBreakpoints", (params) => {
+                sink.unregisterBreakpoints(parseWireDebugUnregisterBreakpoints(params));
+                return null;
+            }),
+        );
+        store.add(
+            rpc.handleNotification("debug.setSessionName", (params) => {
+                const request = parseWireDebugSetSessionName(params);
+                // Stryker disable next-line ConditionalExpression: equivalent, the endpoint drops a notification whose handler throws, as it drops a malformed one here
+                if (request !== null) sink.setSessionName(request.sessionId, request.name);
+            }),
+        );
+        store.add(
+            rpc.handleNotification("debug.appendDebugConsole", (params) => {
+                const request = parseWireDebugConsoleAppend(params);
+                // Stryker disable next-line ConditionalExpression: equivalent, the endpoint drops a notification whose handler throws, as it drops a malformed one here
+                if (request !== null) sink.appendDebugConsole(request.value);
             }),
         );
         return store;
