@@ -93,6 +93,11 @@ describe("child sessions in the workbench", () => {
         expect(indent("task B")).toBe(indent("task A"));
     });
 
+    /** The rows with a closed select, but the launcher's of the configurations in the Run and Debug title. */
+    function sessionSelects(): string[] {
+        return t.lines().filter((row) => row.includes("⌄") && !row.includes("RUN AND DEBUG"));
+    }
+
     /** The closed select showing `label`: the label, padded to the widest option, then the arrow. */
     function selectOf(label: string): Point | undefined {
         const rows = t.lines();
@@ -112,7 +117,7 @@ describe("child sessions in the workbench", () => {
     it("children alone do not put a select in the toolbar; a second root session does, and picks the focus", async () => {
         await startWithWorkers();
         expect(t.h.container.get(ContextKeyServiceDIToken).getRaw("multiSessionDebug")).toBe(false);
-        expect(t.screen()).not.toContain("⌄");
+        expect(sessionSelects()).toEqual([]);
 
         await start({ name: "another" }, 4);
 
@@ -200,7 +205,7 @@ describe("child sessions in the workbench", () => {
         await t.h.commands.execute("workbench.debug.action.focusRepl");
 
         expect(t.h.container.get(ContextKeyServiceDIToken).getRaw("multiSessionRepl")).toBe(false);
-        expect(t.screen()).not.toContain("⌄");
+        expect(sessionSelects()).toEqual([]);
     });
 
     it("Stop of the app ends its workers", async () => {
