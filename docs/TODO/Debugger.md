@@ -169,6 +169,20 @@
   встроенного `diode-settings` (`lib/launchSchema.ts`, `lib/launchCompletion.ts`), устройство и отступления —
   [Extensions.md](../arch/Extensions.md) («Пример: builtin `diode-settings`»). Без диагностик, как у settings.
 
+- #1152: отладочный hover (`browser/debugHover.ts` — `DebugHoverWidget` и `DebugHoverComputer` эталона,
+  `DebugHoverWidgetDIToken`). **Debug: Show Hover** (`editor.debug.action.showDebugHover`, Ctrl+K Ctrl+I, в
+  `debugEditorActions.ts`) — только в режиме отладки; на legacy-терминале Ctrl+I приезжает Tab, поэтому рядом тот же
+  аккорд как Ctrl+K Tab. Над файлом фокусного кадра — debug hover, иначе и когда значения нет — языковой hover
+  (`HoverService.showHover`), как `DebugEditorContribution.showHover`. Выражение — `getEvaluatableExpressionAtPosition`
+  в `common/debugUtils.ts` (0-based): провайдеры `languages.registerEvaluatableExpressionProvider` (реестр
+  `evaluatableExpressionProvider` ядра, RPC `languages.provideEvaluatableExpression`), без них — регэксп эталона
+  вокруг курсора. Вычисление — `evaluate` в контексте `hover` при `supportsEvaluateForHovers`, иначе поиск по
+  неэкспенсивным скоупам кадра (`findExpressionInStackFrame`). Попап — `CaretAnchoredOverlay` с `takesFocus`
+  (фокус в попапе, Escape и клик мимо закрывают, фокус возвращается), выше курсора, иначе ниже; значение с детьми —
+  заголовок рамки над `LazyTreeControl` (высота по строкам, не больше 15 — пол дерева эталона; ширина 50–70),
+  простое — текстом. Отступления: только по команде (мышиного hover в редакторе нет), без подсветки диапазона, у
+  курсора, а не у начала выражения, без контекстного меню строк. Проверка — `debugHover.app.test.ts`, путь расширения —
+  `extensionHost.evaluatableExpression.test.ts`, сценарий `debug-hover` на Debug Demo.
 - #1156: запуск. Лаунчер в заголовке Run and Debug — `browser/debugActionViewItems.ts` (`StartDebugActionViewItem`:
   ▶ и select box конфигураций всех launch, трёх недавних динамических, строк типов с динамическими конфигурациями и
   Add Configuration; `when` эталона, `debug.hideLauncherWhileDebugging`), стоит через

@@ -146,6 +146,7 @@ import {
     DebugEditorContributionDIToken,
     DebugEditorSourceDIToken,
 } from "../../workbench/contrib/debug/browser/debugEditorContribution.ts";
+import { DebugHoverWidget, DebugHoverWidgetDIToken } from "../../workbench/contrib/debug/browser/debugHover.ts";
 import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
 import {
     DebugQuickAccessProviderDIToken,
@@ -855,6 +856,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(DebugViewletComponentDIToken, DebugViewletComponent);
     container.bind(LinkDetectorDIToken, LinkDetector);
     container.bind(ReplDIToken, Repl);
+    container.bind(DebugHoverWidgetDIToken, DebugHoverWidget);
     container.bind(TestProfileServiceDIToken, TestProfileService);
     container.bind(TestingExplorerComponentDIToken, TestingExplorerComponent);
     container.bind(TestResultsComponentDIToken, TestResultsComponent);

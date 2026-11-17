@@ -72,7 +72,7 @@ export interface ILazyTreeOptions {
 export const LOADING_LABEL = "Loading...";
 const PLACEHOLDER_SUFFIX = "#loading";
 
-function spansText(spans: readonly IRowSpan[]): string {
+export function spansText(spans: readonly IRowSpan[]): string {
     return spans.map((span) => span.text).join("");
 }
 
@@ -184,6 +184,8 @@ export class LazyTreeControl<T> {
      * as upstream's tree hands over a `null` element (the console's menu opens on its empty space too).
      */
     public onContextMenu: (element: T | undefined, screenX: number, screenY: number) => void = () => undefined;
+    /** The rows on screen were built anew: a toggle, a load landing, a refresh (upstream's `onDidChangeContentHeight`). */
+    public onDidChangeRows: () => void = () => undefined;
     /** The list has handed the current context menu event to a row. */
     private contextMenuOnRow = false;
 
@@ -463,5 +465,6 @@ export class LazyTreeControl<T> {
         const toTail = this.revealTail || (this.options.stickyTail === true && tailVisible);
         this.revealTail = false;
         list.scrollTop = toTail ? Number.MAX_SAFE_INTEGER : scrollTop;
+        this.onDidChangeRows();
     }
 }

@@ -998,6 +998,16 @@ export class DocumentHighlight implements vscode.DocumentHighlight {
     }
 }
 
+export class EvaluatableExpression implements vscode.EvaluatableExpression {
+    public readonly range: Range;
+    public readonly expression?: string;
+
+    public constructor(range: Range, expression?: string) {
+        this.range = range;
+        this.expression = expression;
+    }
+}
+
 export class LinkedEditingRanges implements vscode.LinkedEditingRanges {
     public readonly ranges: Range[];
     public readonly wordPattern: RegExp | undefined;

@@ -5,7 +5,9 @@
 //@diode:shim microsoft/vscode@1.127.0 src/vs/workbench/contrib/debug/browser/debugEditorActions.ts
 // Upstream's `ToggleBreakpointAction` (F9), the actions that open the breakpoint widget (Add Conditional
 // Breakpoint..., Add Logpoint..., Add Triggered Breakpoint..., Edit Breakpoint), Run to Cursor, Step Into Target,
-// Evaluate in Debug Console, Add to Watch, Go to Next/Previous Breakpoint and Close Exception Widget on the active text
+// Evaluate in Debug Console, Add to Watch, Go to Next/Previous Breakpoint, Close Exception Widget and
+// `ShowDebugHoverAction` (Ctrl+K Ctrl+I, with the hover half of `DebugEditorContribution.showHover`: the debug hover over
+// the focused frame's file, the language hover elsewhere and where the debugger has no value) on the active text
 // editor, with the editor's commands of `debugCommands.ts`: Jump to Cursor, Step Into Target (Ctrl+F11) and the inline
 // breakpoint (Shift+F9); their items of the editor's context menu (group `debug`). Deviations: no disassembly view;
 // no Run menu (diode has no menu bar); Edit Breakpoint looks only at the editor's file (upstream takes the breakpoints
@@ -14,26 +16,28 @@
 // message over the cursor); Add to Watch without a selection takes the expression around the cursor by upstream's
 // regular expression (no language's evaluatable expression provider yet); Ctrl+F11 previews a target's range only
 // when the active editor shows the frame's file (upstream opens it); Close Exception Widget's Escape also wants the
-// editor's focus (upstream's context key is the editor's own). Not here yet: Debug: Show Hover (the hover).
+// editor's focus (upstream's context key is the editor's own).
 
 import { comparePositions, createPosition, type IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { createSelection, selectionToRange } from "../../../../editor/common/core/iSelection.ts";
 import type { CommandAction, CommandMenuPlacement } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
-import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
+import { HoverServiceDIToken } from "../../hover/browser/hoverService.ts";
 import { REPL_VIEW_ID, WATCH_VIEW_ID } from "../common/debug.ts";
 import { getExactExpressionStartAndEnd } from "../common/debugUtils.ts";
 
 import { BreakpointInputDIToken, BreakpointWidgetContext } from "./breakpointInput.ts";
 import { BreakpointSourcesDIToken } from "./breakpointsView.ts";
 import { DebugEditorContributionDIToken } from "./debugEditorContribution.ts";
+import { DebugHoverWidgetDIToken, ShowDebugHoverResult } from "./debugHover.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
 import { ReplDIToken } from "./repl.ts";
 
@@ -507,3 +511,38 @@ export const BREAKPOINT_EDITOR_ACTIONS: readonly CommandAction[] = [
     goToPreviousBreakpointAction,
     closeExceptionWidgetAction,
 ];
+
+/**
+ * Upstream's Ctrl+K Ctrl+I, in debug mode only, so outside it Add Cursors to Line Ends keeps the chord. On a legacy
+ * terminal Ctrl+I arrives as Tab: the same keys there are Ctrl+K Tab (the language hover is Ctrl+K Ctrl+U for the
+ * same reason, see docs/arch/workbench/Commands.md#коллизии-дефолтов).
+ */
+export const showDebugHoverAction: CommandAction = {
+    id: "editor.debug.action.showDebugHover",
+    title: "Debug: Show Hover",
+    keybindings: [
+        { keys: parseChord("ctrl+k ctrl+i"), when: "editorTextFocus", weight: KeybindingWeight.EditorContrib },
+        { keys: parseChord("ctrl+k tab"), when: "editorTextFocus", weight: KeybindingWeight.EditorContrib },
+    ],
+    enablement: "inDebugMode",
+    async run(accessor) {
+        const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+        if (!editor) return;
+        const sf = accessor.get(DebugServiceDIToken).getViewModel().focusedStackFrame;
+        if (sf?.source.uri.toString() === editor.uri.toString()) {
+            const position = editor.viewState.selections[0].active;
+            const { document } = editor.model;
+            const target = {
+                uri: editor.uri,
+                languageId: editor.languageId,
+                versionId: document.versionId,
+                getLineContent: (line: number) => document.getLineContent(line),
+                getCaretAnchor: () => editor.getCaretAnchor(),
+            };
+            const result = await accessor.get(DebugHoverWidgetDIToken).showAt(target, position, sf);
+            // When no expression available fallback to editor hover
+            if (result !== ShowDebugHoverResult.NOT_AVAILABLE) return;
+        }
+        await accessor.get(HoverServiceDIToken).showHover();
+    },
+};

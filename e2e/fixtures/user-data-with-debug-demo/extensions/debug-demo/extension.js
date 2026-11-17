@@ -21,7 +21,10 @@
  * - F10 goes to the next line; `./crash` throws `SIGSEGV` on F10 at `printf` (the exception's info has a stack trace);
  *   Continue goes to the next breakpoint below the line where a condition holds, without one the program exits;
  * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint;
- * - `sum` among the locals takes a new value (`setVariable`) and evaluates to it;
+ * - `sum` among the locals takes a new value (`setVariable`) and evaluates to it; `argv` has the program and its
+ *   arguments as children;
+ * - the debug hover asks the extension's evaluatable expression provider for C: the word under the cursor (the
+ *   text around it would be `**argv` in `char **argv`), told in the `dbg:` item;
  * - the menu of a call stack frame has "Show Frame in Status": the argument it gets goes to the `dbg:` item; the
  *   debug toolbar has a bell button that counts its clicks there.
  */
@@ -79,6 +82,15 @@ exports.activate = function activate(context) {
                 return new vscode.DebugAdapterInlineImplementation(
                     new DemoAdapter(vscode, session.configuration, source),
                 );
+            },
+        }),
+        vscode.languages.registerEvaluatableExpressionProvider("c", {
+            provideEvaluatableExpression(document, position) {
+                const range = document.getWordRangeAtPosition(position);
+                if (!range) return undefined;
+                const word = document.getText(range);
+                status.text = `dbg:hover ${word}`;
+                return new vscode.EvaluatableExpression(range, word);
             },
         }),
         vscode.debug.registerDebugAdapterTrackerFactory("demo", {
@@ -277,14 +289,27 @@ class DemoAdapter {
                 };
             case "scopes":
                 return { scopes: [{ name: "Locals", variablesReference: 1, expensive: false }] };
-            case "variables":
+            case "variables": {
+                const argv = [this.configuration.program, ...this.configuration.args];
+                if (request.arguments.variablesReference === 2) {
+                    return {
+                        variables: argv.map((arg, i) => ({
+                            name: `[${i}]`,
+                            value: JSON.stringify(arg),
+                            evaluateName: `argv[${i}]`,
+                            variablesReference: 0,
+                        })),
+                    };
+                }
                 return {
                     variables: [
-                        { name: "argc", value: String(this.configuration.args.length + 1), variablesReference: 0 },
+                        { name: "argc", value: String(argv.length), variablesReference: 0 },
+                        { name: "argv", value: `size=${argv.length}`, variablesReference: 2 },
                         { name: "program", value: JSON.stringify(this.configuration.program), variablesReference: 0 },
                         { name: "sum", value: this.sum, evaluateName: "sum", variablesReference: 0 },
                     ],
                 };
+            }
             case "setVariable":
                 this.sum = request.arguments.value;
                 return { value: this.sum };
