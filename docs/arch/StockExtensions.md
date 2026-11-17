@@ -200,6 +200,35 @@
   открытия, и превью писало «no svelte file selected»; теперь, как в эталоне, группа добавляется без активации, а
   активирует её открытие. Смоук — undercurl, `Enable` и настройка в файле,
   `Show Compiled Code`, рестарт сервера и undercurl встроенного TypeScript в `.ts` после ответа.
+- **`Angular.ng-template`** (Angular Language Service) — прокси на сток Open VSX 22.2.0, universal, гейт
+  `engines.diode: ">=0.18.0"`, `support: partial`. Ядро не правилось: сервер `@angular/language-server` и TypeScript
+  лежат в vsix, клиент — `vscode-languageclient` по `TransportKind.ipc`, документы `{scheme: file, language: html}` и
+  `{scheme: file, language: typescript}`. TypeScript берётся из поставки расширения, если не задан `typescript.tsdk`, в
+  VS Code так же. Angular в vsix нет: клиент спрашивает сервер `IsInAngularProject`, и ответ «да» только с
+  `@angular/core` в `node_modules` проекта, поэтому обвязки доносят его сами (`angularFixture.ts`: кэшируемый
+  `npm install`, симлинк в воркспейс). Работают ngtsc-диагностика в `.html` и во встроенном `template:`, completion
+  членов, компонентов и привязок, hover и F12 из шаблона в компонент, ссылки из `.ts` в шаблон, линза `Go to component`,
+  `Go to template` и `View Template Typecheck Block`, подсветка шаблонов инъекциями грамматик. Сервер расширение
+  форкает по **каталогу** `server`: бинарь в режиме node (`runAsNode`) импортировал путь как ESM-модуль и на 0.18.0
+  падал с `ERR_UNSUPPORTED_DIR_IMPORT`. Запись уже была опубликована с гейтом 0.18.0, а опубликованную версию не
+  правят; решение человека — запись не снимать, исправление выходит в следующей версии. Смоук магазина ставит
+  расширение бинарём, поэтому ловит именно это. Пределы:
+    - В completion нет обычных HTML-тегов (`div`, `span`): в VS Code их даёт встроенный `html-language-features`, в том
+      числе для встроенного шаблона через виртуальный документ `angular-embedded-content` и
+      `vscode.executeCompletionItemProvider`, а HTML-сервера у diode нет (#1202).
+    - Hover во встроенном `template:` падает с `command "vscode.executeHoverProvider" not found`: middleware расширения
+      спрашивает HTML-провайдеры виртуального документа (#1201). Интеграция встроенных шаблонов целиком — #1203.
+    - Find All References из `.ts` показывает `.ts`-места дважды: отвечают встроенный TypeScript и Angular. Эталон
+      дедуплицирует в `goToSymbol.ts` (`_sortedAndDeduped`), `getReferences.ts` — нет (#1200).
+    - Rename из `.ts` не доходит до шаблона, **в VS Code так же**: `rename.ts` эталона берёт провайдер, чей
+      `prepareRename` дал место, а middleware Angular пропускает `prepareRename` только внутри строковых литералов,
+      так что готовит и переименовывает встроенный TypeScript.
+    - В логе бывает `Notification angular/projectLoadingStart defines 0 params but received 1 arguments` —
+      несоответствие внутри самого расширения, на работу не влияет.
+
+    Смоук — undercurl ngtsc(2339) под `missingProp` в `.html`; сьют — `extensionHost.angular.test.ts`, демо —
+    `angular-lsp`.
+
 - **`timonwong.shellcheck`** (#970) — прокси на сток Open VSX 0.48.4. Гейт `engines.diode: ">=0.12.8"`: нужны ссылки в редакторе (#953) и правки этой задачи из коммитов после тега 0.12.7. `shellcheck.runtime: "auto"` на десктопе — это `native`, сам на wasm не падает: без бинаря расширение пишет `The shellcheck program was not found`, кнопка `Try experimental WebAssembly` тоста переключает настройку. При первом запуске этот тост стоит в очереди за `What's New` (тосты идут по одному), редактор живёт. `Apply fix` расширение отдаёт, только если запрошенный диапазон лежит внутри диагностики, поэтому `Ctrl+.` шлёт точное выделение, как `CodeActionOracle`, а если под кареткой исправлений нет, они добираются запросом `only: quickfix` с конца ближайшего маркера строки (`includeNearbyQuickFixes` эталона, но он спрашивает у всех маркеров, и настройки у нас нет). `support: partial`: нет сниппетов и walkthrough — кнопка `See What's New` только пишет в лог `command "workbench.action.openWalkthrough" not found`. С `shellcheck.markdownDiagnostics` hover под диагностикой показывает и блок расширения: `stripMarkdown` срезает HTML-теги (`supportHtml` до UI не доходит и не нужен), иконки `codicon` и цвета не рисуются (#1021). `Show wiki` и ссылка в `# shellcheck disable=` идут через внешний открыватель: браузер, а без графической сессии тост с адресом. Клика по коду в Problems нет: `Diagnostic.code.target` до панели не доезжает. Hover открывается командой (`Ctrl+K Ctrl+U`), наведения мышью в редакторе нет. Смоук — wasm, без внешнего инструмента: undercurl, код в Problems, hover с `markdownDiagnostics` без тегов, `Apply fix`, диагностика при наборе, `Disable`, ссылка, модальный диалог.
 - **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
