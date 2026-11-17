@@ -9,11 +9,12 @@
 // `debug.breakpointsView.presentation: tree` groups the source breakpoints under a row per file with a three-state
 // checkbox, the breakpoint rows reading the source line. A click on a checkbox (or Space) enables or disables, Enter
 // or a double click opens the breakpoint's line, Ctrl+Enter beside. On a stop the breakpoint that was hit gets the
-// cursor. Deviations: a source breakpoint's condition and log message are written in the row in italics, not only
-// in the hover (decision 2026-11-14, there are no hovers on the rows); a function breakpoint's name is typed in the
-// quick input (as a watch expression), and the rows have no hover. Not here yet: editing conditions, hit counts and
-// modes with their menu items (#1151), the inline buttons, the hint about unverified breakpoints in the title. Not
-// planned: the disassembly view (instruction breakpoints are listed, not opened).
+// cursor. Deviations: a source breakpoint's condition, hit count, log message and the breakpoint it waits for are
+// written in the row in italics, not only in the hover (decision 2026-11-14, there are no hovers on the rows), and so
+// is upstream's hover message of a breakpoint the debugger does not support, in the warning color; a function
+// breakpoint's name is typed in the quick input (as a watch expression), and the rows have no hover. The editing
+// commands of the rows are in `breakpointEditActions.ts`. Not here yet: the inline buttons, the hint about unverified
+// breakpoints in the title. Not planned: the disassembly view (instruction breakpoints are listed, not opened).
 
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
@@ -85,6 +86,11 @@ export interface IBreakpointSources {
 }
 export const BreakpointSourcesDIToken = token<IBreakpointSources>("BreakpointSources");
 
+/** A source breakpoint as upstream names it in its lists: the file and the line. */
+export function breakpointLabel(sources: Pick<IBreakpointSources, "uriLabel">, breakpoint: IBreakpoint): string {
+    return `${sources.uriLabel(breakpoint.uri)}: ${String(breakpoint.lineNumber)}`;
+}
+
 /** How the view draws: the glyphs and `debug.breakpointsView.presentation`. */
 export interface IBreakpointsViewLook {
     readonly icons: Pick<IProductIconService, "glyph">;
@@ -92,6 +98,7 @@ export interface IBreakpointsViewLook {
 }
 
 const MUTED = "descriptionForeground";
+const WARNING = "editorWarning.foreground";
 
 /** Upstream `debugIcons.ts`: the icon of a kind of breakpoint in its three states. */
 const BREAKPOINT_ICONS = {
@@ -335,8 +342,9 @@ export class BreakpointsView extends Disposable {
         const glyph: IRowSpan = { text: `${this.look.icons.glyph(codicon(icon))} `, fg: breakpointIconColor(icon) };
         const muted = this.isMuted(element);
         const text = (value: string): IRowSpan => ({ text: value, ...(muted ? { fg: MUTED } : {}) });
+        const warning = this.unsupportedWarning(element);
         if (element instanceof FunctionBreakpoint) {
-            return [check, glyph, text(element.name), ...italicNote(conditionLabel(element))];
+            return [check, glyph, text(element.name), ...italicNote(conditionLabel(element)), ...warning];
         }
         if (element instanceof DataBreakpoint) {
             const access = element.accessType === "read" ? "Read" : element.accessType === "write" ? "Write" : "Access";
@@ -346,16 +354,25 @@ export class BreakpointsView extends Disposable {
                 text(element.description),
                 { text: `  ${access}`, fg: MUTED },
                 ...italicNote(conditionLabel(element)),
+                ...warning,
             ];
         }
         if (element instanceof InstructionBreakpoint) {
-            return [check, glyph, text(`0x${element.address.toString(16)}`)];
+            return [check, glyph, text(`0x${element.address.toString(16)}`), ...warning];
         }
         const breakpoint = element as IBreakpoint;
-        // Deviation: upstream shows the condition and the log message only in the hover.
+        // Deviation: upstream shows the condition, the hit count, the log message and the trigger only in the hover.
+        const trigger =
+            // Stryker disable next-line ConditionalExpression: the search for an undefined id finds none; the check saves the search on every row
+            breakpoint.triggeredBy === undefined
+                ? undefined
+                : model.getBreakpoints().find((bp) => bp.getId() === breakpoint.triggeredBy);
         const notes = [
-            ...italicNote(breakpoint.condition === undefined ? undefined : `if ${breakpoint.condition}`),
-            ...italicNote(breakpoint.logMessage === undefined ? undefined : `log "${breakpoint.logMessage}"`),
+            ...italicNote(breakpoint.condition && `if ${breakpoint.condition}`),
+            ...italicNote(breakpoint.hitCondition && `hit count ${breakpoint.hitCondition}`),
+            ...italicNote(breakpoint.logMessage && `log "${breakpoint.logMessage}"`),
+            ...italicNote(trigger && `after ${breakpointLabel(this.sources, trigger)}`),
+            ...warning,
         ];
         if (this.look.presentation() === "tree") {
             return [check, glyph, text(this.lineContent(breakpoint)), ...notes];
@@ -399,6 +416,26 @@ export class BreakpointsView extends Disposable {
             badge = badge === undefined ? position : `${badge}: ${position}`;
         }
         return badge === undefined ? [] : [{ text: badge, fg: MUTED }];
+    }
+
+    /**
+     * Upstream's hover message of a breakpoint the debugger does not support (`getBreakpointMessageAndIcon`): only of
+     * an enabled one, and not while a running session has not verified it (its message is the adapter's then).
+     */
+    private unsupportedWarning(element: BreakpointItem): IRowSpan[] {
+        if (!element.enabled || !this.debugService.getModel().areBreakpointsActivated()) return [];
+        const debugActive = this.debugService.state === State.Running || this.debugService.state === State.Stopped;
+        if ((debugActive && !element.verified) || element.supported) return [];
+        // A source breakpoint is unsupported only for its condition, hit count or log message.
+        const message =
+            element instanceof DataBreakpoint
+                ? "Data breakpoints not supported by this debug type"
+                : element instanceof FunctionBreakpoint
+                  ? "Function breakpoints not supported by this debug type"
+                  : element instanceof InstructionBreakpoint
+                    ? "Instruction breakpoints not supported by this debug type"
+                    : "Breakpoints of this type are not supported by the debugger";
+        return [{ text: `  ${message}`, fg: WARNING, style: StyleFlags.Italic }];
     }
 
     /** Upstream's `.disabled` row: the breakpoints are off, unsupported by the session, or not verified by it. */
