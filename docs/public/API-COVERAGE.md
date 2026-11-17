@@ -180,6 +180,7 @@ extension terminals and tree views work; webview is the ceiling.
 | `registerTextEditorCommand` | ✅ | a real edit builder: edits apply after the callback, as one undo step, and an async result does not delay them; without an active editor: a warning and no-op, as in VS Code |
 | `getCommands` | ✅ | Commands of the editor and of extensions; API commands (`vscode.open`…) are not listed, as in VS Code. |
 | API commands `vscode.executeCompletionItemProvider`, `vscode.executeCodeActionProvider` | ✅ | Ask the providers of extensions; the results are the provider's own objects. |
+| API commands `vscode.executeHoverProvider`, `vscode.experimental.executeHoverProvider_recursive` | ✅ | Ask the hover providers of extensions, also on a document nobody opened or one from a content provider; the result is new `Hover`s with `MarkdownString` contents and a range (the word at the position when the provider gave none), as in VS Code. |
 | API command `vscode.executeLinkProvider` | 🟡 | Always an empty list: the command is not wired to the link providers yet. |
 
 ## vscode.extensions

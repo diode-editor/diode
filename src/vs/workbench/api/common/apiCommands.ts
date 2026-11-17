@@ -20,6 +20,7 @@ export interface IApiCommandsDeps {
         kind: string | undefined,
         itemResolveCount: number | undefined,
     ): Promise<(vscode.CodeAction | vscode.Command)[]>;
+    executeHoverProvider(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover[]>;
     getActiveTextEditor(): vscode.TextEditor | undefined;
     /** The core's own command, bypassing the API commands. */
     executeHostCommand(id: string, args: readonly unknown[]): Thenable<unknown>;
@@ -33,6 +34,12 @@ export function createApiCommands(deps: IApiCommandsDeps): ReadonlyMap<string, A
         ["vscode.executeLinkProvider", (...args) => executeLinkProvider(args)],
         ["vscode.executeCompletionItemProvider", (...args) => executeCompletionItemProvider(deps, args)],
         ["vscode.executeCodeActionProvider", (...args) => executeCodeActionProvider(deps, args)],
+        ["vscode.executeHoverProvider", (...args) => executeHoverProvider(deps, "vscode.executeHoverProvider", args)],
+        // Upstream's `recursive` only stops an `exclusive` selector from hiding the others; ours never hides them.
+        [
+            "vscode.experimental.executeHoverProvider_recursive",
+            (...args) => executeHoverProvider(deps, "vscode.experimental.executeHoverProvider_recursive", args),
+        ],
         ["editor.action.insertSnippet", (...args) => insertSnippet(deps, args)],
     ]);
 }
@@ -141,6 +148,18 @@ async function executeCodeActionProvider(
         (kind ?? undefined) as string | undefined,
         (itemResolveCount ?? undefined) as number | undefined,
     );
+}
+
+async function executeHoverProvider(
+    deps: IApiCommandsDeps,
+    command: string,
+    args: readonly unknown[],
+): Promise<vscode.Hover[]> {
+    const [uri, position] = args;
+    const validate = validatorOf(command);
+    validate("uri", uri, Uri.isUri(uri));
+    validate("position", position, position instanceof Position);
+    return deps.executeHoverProvider(await deps.openTextDocument(uri as vscode.Uri), position as vscode.Position);
 }
 
 /** Upstream's `ApiCommandArgument.optional()`: `null` passes too. */

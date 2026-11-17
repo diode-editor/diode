@@ -13,6 +13,8 @@ import {
     CompletionItem,
     CompletionList,
     Diagnostic,
+    Hover,
+    MarkdownString,
     Position,
     Range,
     Uri,
@@ -246,6 +248,111 @@ describe("vscode.executeCodeActionProvider", () => {
 
         expect(await executeProviders.codeActions(doc, RANGE, undefined, 5)).toEqual([command, lazy]);
         expect(resolve).toHaveBeenCalledTimes(1);
+    });
+});
+
+function hovers(result: unknown): vscode.HoverProvider {
+    return { provideHover: () => result } as unknown as vscode.HoverProvider;
+}
+
+describe("vscode.executeHoverProvider", () => {
+    function openTs(documentSync: DocumentSyncTracker): ExtHostTextDocument {
+        return documentSync.open({ uri: "file:///ws/app.ts", text: "const title = 1;\n", languageId: "typescript" });
+    }
+
+    it("[api:languages.registerHoverProvider] asks the matching providers only, best selector first, and returns fresh Hover instances", async () => {
+        const { languages, executeProviders, documentSync } = setup();
+        const doc = openTs(documentSync);
+        const own = new Hover(new MarkdownString("by language"), new Range(0, 6, 0, 11));
+        languages.registerHoverProvider("*", hovers(new Hover("any language", new Range(0, 0, 0, 5))));
+        languages.registerHoverProvider({ language: "typescript" }, hovers(own));
+        const foreign = vi.fn(() => new Hover("python"));
+        languages.registerHoverProvider({ language: "python" }, { provideHover: foreign } as vscode.HoverProvider);
+
+        const result = await executeProviders.hovers(doc, new Position(0, 8));
+
+        expect(result).toEqual([
+            new Hover([new MarkdownString("by language")], new Range(0, 6, 0, 11)),
+            new Hover([new MarkdownString("any language")], new Range(0, 0, 0, 5)),
+        ]);
+        expect(result[0]).toBeInstanceOf(Hover);
+        expect(result[0]).not.toBe(own);
+        expect(result[0]?.range).not.toBe(own.range);
+        expect(foreign).not.toHaveBeenCalled();
+    });
+
+    it("passes the document and the position to the provider", async () => {
+        const { languages, executeProviders, documentSync } = setup();
+        const doc = openTs(documentSync);
+        const provideHover = vi.fn(() => undefined);
+        languages.registerHoverProvider("typescript", { provideHover } as vscode.HoverProvider);
+        const at = new Position(0, 8);
+
+        await executeProviders.hovers(doc, at);
+
+        expect(provideHover).toHaveBeenCalledWith(doc, at, expect.anything());
+    });
+
+    it("a hover without a range gets the word at the position, outside a word an empty range there", async () => {
+        const { languages, executeProviders, documentSync } = setup();
+        const doc = openTs(documentSync);
+        languages.registerHoverProvider("typescript", hovers(new Hover("x")));
+
+        const [inWord] = await executeProviders.hovers(doc, new Position(0, 8));
+        const [outside] = await executeProviders.hovers(doc, new Position(0, 12));
+
+        expect(inWord.range).toEqual(new Range(0, 6, 0, 11));
+        expect(outside.range).toEqual(new Range(0, 12, 0, 12));
+    });
+
+    it("contents become MarkdownStrings as upstream: a string as is, a code block fenced, flags kept, junk empty", async () => {
+        const { languages, executeProviders, documentSync } = setup();
+        const doc = openTs(documentSync);
+        const trusted = new MarkdownString("$(gear) **b**", true);
+        trusted.isTrusted = true;
+        trusted.supportHtml = true;
+        trusted.baseUri = Uri.file("/ws");
+        languages.registerHoverProvider(
+            "typescript",
+            hovers(new Hover(["plain", { language: "ts", value: "let a" }, trusted, 42 as unknown as string])),
+        );
+
+        const [hover] = await executeProviders.hovers(doc, new Position(0, 8));
+
+        const expected = new MarkdownString("$(gear) **b**", true);
+        expected.isTrusted = true;
+        expected.supportHtml = true;
+        expected.baseUri = Uri.file("/ws");
+        expect(hover.contents).toStrictEqual([
+            new MarkdownString("plain"),
+            new MarkdownString("```ts\nlet a\n```\n"),
+            expected,
+            new MarkdownString(""),
+        ]);
+    });
+
+    it("nothing, empty contents, contents that are not a list and a failing provider add nothing; no providers is []", async () => {
+        const { languages, executeProviders, documentSync } = setup();
+        const doc = openTs(documentSync);
+        const at = new Position(0, 8);
+        expect(await executeProviders.hovers(doc, at)).toEqual([]);
+
+        const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+        languages.registerHoverProvider("typescript", {
+            provideHover: () => {
+                throw new Error("boom");
+            },
+        } as vscode.HoverProvider);
+        languages.registerHoverProvider("typescript", hovers(null));
+        languages.registerHoverProvider("typescript", hovers(new Hover([])));
+        languages.registerHoverProvider("typescript", hovers({ contents: "not a list" }));
+        languages.registerHoverProvider("typescript", hovers(new Hover("kept")));
+
+        const result = await executeProviders.hovers(doc, at);
+
+        expect(result.map((hover) => hover.contents)).toEqual([[new MarkdownString("kept")]]);
+        expect(error).toHaveBeenCalledWith(expect.stringContaining("provideHover failed: Error: boom"));
+        error.mockRestore();
     });
 });
 
