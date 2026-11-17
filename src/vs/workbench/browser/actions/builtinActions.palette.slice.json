@@ -399,6 +399,7 @@
     "workbench.action.debug.callStackDown",
     "debug.startFromConfig",
     "workbench.action.debug.focusProcess",
+    "debug.installAdditionalDebuggers",
     "editor.debug.action.toggleBreakpoint",
     "editor.debug.action.conditionalBreakpoint",
     "editor.debug.action.addLogPoint",

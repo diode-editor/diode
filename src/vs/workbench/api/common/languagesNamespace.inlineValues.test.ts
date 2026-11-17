@@ -172,9 +172,11 @@ describe("LanguagesNamespace — registerInlineValuesProvider", () => {
         errors.mockRestore();
     });
 
-    it("an unknown handle or a document that is not synced is null, the provider is not asked", async () => {
+    it("an unknown or missing handle, or a document that is not synced, is null, the provider is not asked", async () => {
         const { stub, languages } = makeCtx();
         const provide = vi.fn(() => [new InlineValueText(new Range(0, 0, 0, 1), "x")]);
+        // Two registrations (handles 0 and 1): a request without a handle reaches neither.
+        register(languages, provide);
         register(languages, provide);
         expect(await stub.callRequest(METHOD, params({ handle: 9 }))).toBeNull();
         expect(await stub.callRequest(METHOD, params({ handle: undefined }))).toBeNull();

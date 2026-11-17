@@ -5,11 +5,11 @@ import type { IConfigurationNode } from "../../../platform/configuration/common/
  * and `debug.internalConsoleOptions` have no `type` there either: a string). Only the keys the ported code reads: the
  * Debug Console (`replModel.ts`, opening and closing its view), the terminal of `runInTerminal` (`debugTerminal.ts`), launch.json and the debug tasks
  * (`debugConfigurationManager.ts`, `debugTaskRunner.ts`, `debugService.ts`), the Run and Debug views (opening them,
- * types, lazy variables and the breakpoints presentation), the debug toolbar and the status bar (`debugToolbar.ts`,
- * `statusbarColorProvider.ts`, `debugStatus.ts`), the editor's breakpoints and stack frames (the gutter, its middle
- * click and ruler, focusing the editor on a break), the inline values. `debug.console.fontSize`, `fontFamily` and `lineHeight` are
- * declared and not applied (the terminal's font); `fontSize` defaults to 14, upstream's on everything but macOS (12).
- * The rest of `debug.*` comes with the task that implements it, the
+ * types, lazy variables, the breakpoints presentation and the launcher in its title), the debug toolbar and the status
+ * bar (`debugToolbar.ts`, `statusbarColorProvider.ts`, `debugStatus.ts`), the editor's breakpoints and stack frames
+ * (the gutter, its middle click and ruler, focusing the editor on a break), the inline values. `debug.console.fontSize`,
+ * `fontFamily` and `lineHeight` are declared and not applied (the terminal's font); `fontSize` defaults to 14, upstream's
+ * on everything but macOS (12). The rest of `debug.*` comes with the task that implements it, the
  * unsupported ones are declared by the settings task (#1158). `launch` has no JSON schema of its configurations yet
  * (IntelliSense in launch.json is a task of its own).
  */
@@ -62,6 +62,13 @@ export const debugConfiguration = {
             type: "boolean",
             description:
                 "Controls whether the debug sub-sessions are shown in the debug tool bar. When this setting is false the stop command on a sub-session will also stop the parent session.",
+            default: false,
+        },
+        "debug.hideLauncherWhileDebugging": {
+            scope: "window",
+            type: "boolean",
+            description:
+                "Hide 'Start Debugging' control in title bar of 'Run and Debug' view while debugging is active. Only relevant when `#debug.toolBarLocation#` is not `docked`.",
             default: false,
         },
         "debug.enableStatusBarColor": {

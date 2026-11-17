@@ -101,7 +101,7 @@ describe("Run and Debug viewlet in the workbench", () => {
         expect(text).toContain("VARIABLES");
         expect(text).toContain("WATCH");
         // Wrapped to the width of the sidebar.
-        expect(find("create a launch.json file.").y).toBe(find("To customize Run and Debug,").y + 1);
+        expect(find("launch.json file.").y).toBe(find("To customize Run and Debug").y + 1);
         const button = find("Run and Debug");
         // A blank row above and below the button, then the hint.
         const left = find("To customize").x;
@@ -111,7 +111,7 @@ describe("Run and Debug viewlet in the workbench", () => {
         };
         expect(sidebar(button.y - 1)).toBe("");
         expect(sidebar(button.y + 1)).toBe("");
-        expect(find("To customize Run and Debug,").y).toBe(button.y + 2);
+        expect(find("To customize Run and Debug").y).toBe(button.y + 2);
         // The section's focus goes to the button: Enter would start debugging.
         expect(h.container.get(DebugViewletComponentDIToken).runButton.isFocused).toBe(true);
         // Full width: from the column of the text under it, the padding column before it keeps the sidebar's color.
@@ -370,7 +370,7 @@ describe("Run and Debug viewlet in the workbench", () => {
 
         await h.container.get(DebugServiceDIToken).stopSession(undefined);
         await vi.waitFor(() => {
-            expect(screen()).toContain("To customize Run and Debug,");
+            expect(screen()).toContain("To customize Run and Debug");
         });
         expect(screen()).not.toContain("count: int = 0");
     });

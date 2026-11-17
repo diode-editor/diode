@@ -117,6 +117,40 @@ export interface IDebuggerMetadata {
     type: string;
     strings?: Record<DebuggerString, string>;
     interestedInLanguage(languageId: string): boolean;
+    /** Its `hiddenWhen` holds: not offered when a debugger is guessed. */
+    readonly isHiddenFromDropdown: boolean;
+    readonly enabled: boolean;
+    hasInitialConfiguration(): boolean;
+    hasDynamicConfigurationProviders(): boolean;
+    hasConfigurationProvider(): boolean;
+}
+
+/** Upstream's: the debugger the user picked for a configuration without a type, maybe with a dynamic configuration. */
+export interface IGuessedDebugger {
+    debugger: IDebugger & IDebuggerMetadata;
+    withConfig?: {
+        label?: string;
+        launch: ILaunch;
+        config: IConfig;
+    };
+}
+
+/** Upstream's `IDynamicPickItem`: a dynamic configuration of a launch, a row of its type's picker. */
+export interface IDynamicConfigurationPick {
+    readonly label: string;
+    readonly description: string;
+    readonly launch: ILaunch;
+    readonly config: IConfig;
+}
+
+/** Upstream's element of `getDynamicProviders`: a debug type whose extension provides configurations on demand. */
+export interface IDynamicConfigurationProvider {
+    readonly label: string;
+    readonly type: string;
+    /** Activates the extensions of the type, then gives its `Dynamic` provider. */
+    getProvider(): Promise<IDebugConfigurationProvider | undefined>;
+    /** Lists the configurations of every launch in a picker; `undefined` when the user cancelled. */
+    pick(): Promise<{ launch: ILaunch; config: IConfig; label: string } | undefined>;
 }
 
 // Const objects, not upstream's `const enum`s: erasable syntax only.
@@ -989,18 +1023,30 @@ export interface ILaunch {
     }): Promise<IOpenConfigFileResult>;
 }
 
-/** Upstream `IConfigurationManager`, without the dynamic configurations of Select and Start Debugging. */
+/** Upstream `IConfigurationManager`. */
 export interface IConfigurationManager {
     /** Returns an object containing the selected launch configuration and the selected configuration name. */
     readonly selectedConfiguration: {
         launch: ILaunch | undefined;
         getConfig: () => Promise<IConfig | undefined>;
         name: string | undefined;
-        /** Only dynamic configurations have a type set (not here yet: the dynamic configurations of Select and Start Debugging). */
+        /** Only dynamic configurations have a type set. */
         type: string | undefined;
     };
 
-    selectConfiguration(launch: ILaunch | undefined, name?: string, config?: IConfig): Promise<void>;
+    /** `dynamicConfig` selects a dynamic configuration of that type, which is remembered among the recent ones. */
+    selectConfiguration(
+        launch: ILaunch | undefined,
+        name?: string,
+        config?: IConfig,
+        dynamicConfig?: { type?: string },
+    ): Promise<void>;
+
+    /** The types with a `Dynamic` provider or an `onDebugDynamicConfigurations` activation event; activates nothing. */
+    getDynamicProviders(): Promise<IDynamicConfigurationProvider[]>;
+    getDynamicConfigurationsByType(type: string, token?: CancellationToken): Promise<IDynamicConfigurationPick[]>;
+    /** The dynamic configurations started lately, the latest first. */
+    getRecentDynamicConfigurations(): { name: string; type: string }[];
 
     getLaunches(): readonly ILaunch[];
     getLaunch(workspaceUri: uri | undefined): ILaunch | undefined;
@@ -1039,6 +1085,13 @@ export interface IAdapterManager {
     readonly onDidRegisterDebugger: Event<void>;
     hasEnabledDebuggers(): boolean;
     getDebugger(type: string): (IDebugger & IDebuggerMetadata) | undefined;
+    getDebuggerLabel(type: string): string | undefined;
+    /**
+     * Upstream's: the debugger of the active editor's language, else one the user picks among those that can make
+     * a configuration; `gettingConfigurations` — for a new launch.json. `undefined` when there is none or the user
+     * cancelled.
+     */
+    guessDebugger(gettingConfigurations: boolean): Promise<IGuessedDebugger | undefined>;
     /**
      * Ours: the `debuggers` extension point of upstream's adapter manager as a call — `contributes.debuggers` of
      * extensions (`bindExtensionDebuggers`) and the tests register a debug type through it.
