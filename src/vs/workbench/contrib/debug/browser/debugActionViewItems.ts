@@ -43,7 +43,7 @@ interface IDebugOption {
 const SEPARATOR: IDebugOption = { label: "─", handler: () => Promise.resolve(false), category: undefined };
 
 /** In a narrow title the selected configuration shrinks down to this many characters. */
-const MIN_LABEL_WIDTH = 6;
+const MIN_LABEL_WIDTH = 10;
 /** The chevron and the space before it. */
 const CHEVRON_WIDTH = 2;
 

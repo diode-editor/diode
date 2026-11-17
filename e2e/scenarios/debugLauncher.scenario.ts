@@ -15,6 +15,11 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-debug-demo
 const folder = mkdtempSync(join(tmpdir(), "diode-debug-launcher-"));
 const helloC = join(folder, "hello.c");
 
+/** The Run and Debug title: the second row; in the default sidebar the launcher's label is cut to 10 columns. */
+function title(text: string): string {
+    return text.split("\n")[1] ?? "";
+}
+
 export default defineScenario({
     name: "debug-launcher",
     title: "Run and Debug: create launch.json for a picked debugger, the launcher in the title, dynamic configurations",
@@ -44,29 +49,27 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes('"name": "Debug Demo"') && t.includes("${command:pickProgram}"));
         // The title's launcher: ▶, the configuration of the new launch.json, the gear.
-        await editor.waitForText((t) => t.includes("Debug Demo ⌄"));
+        await editor.waitForText((t) => title(t).includes("Debug Demo"));
         await editor.capture("launch-json-created");
 
         // The dropdown: the configuration, the type with dynamic configurations, Add Configuration.
-        const dropdown = findTextCell(await editor.captureFrame(), "Debug Demo ⌄");
+        const dropdown = findTextCell(await editor.captureFrame(), "Debug Demo");
         await editor.click(dropdown.x, dropdown.y);
         await editor.waitForText((t) => t.includes("Debug Demo...") && t.includes("Add Configuration..."));
         await editor.capture("dropdown");
         await editor.sendKey("ArrowDown");
-        await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
-        // The extension is activated only now; its configurations come into the picker.
+        // The extension is activated only now; its configurations of each launch come into the picker.
         await editor.waitForText((t) => t.includes("Select Launch Configuration") && t.includes("Demo: ./world"));
         await editor.capture("dynamic-configurations");
         await editor.sendText("world");
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => t.includes("Demo: ./world ⌄"));
+        await editor.waitForText((t) => title(t).includes("Demo: ./wo"));
 
         // ▶ before the configuration starts it: the adapter greets in the Debug Console and stops on entry.
-        const selected = findTextCell(await editor.captureFrame(), "Demo: ./world ⌄");
+        const selected = findTextCell(await editor.captureFrame(), "Demo: ./wo");
         await editor.click(selected.x - 2, selected.y);
-        await editor.waitForText((t) => t.includes("Hello from ./world"));
-        await editor.waitForText((t) => t.includes('program: "./world"'));
+        await editor.waitForText((t) => t.includes("Hello from ./world") && t.includes('program: "./world"'));
         await editor.capture("started");
     },
 });
