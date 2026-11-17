@@ -284,7 +284,7 @@ describe("the debug toolbar in the workbench", () => {
 
         await configuration.updateValue("debug.toolBarLocation", "hidden");
         expect(has("Continue")).toBe(false);
-        expect(t.lines().find((line) => line.includes("RUN AND DEBUG"))).not.toContain("▶");
+        expect(t.lines().find((line) => line.includes("RUN AND DEBUG"))).not.toContain("■");
 
         await configuration.updateValue("debug.toolBarLocation", "commandCenter");
         expect(has(BUTTONS)).toBe(true);

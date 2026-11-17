@@ -162,6 +162,29 @@ describe("ViewContainerHeaderElement", () => {
         expect(app.root.elementFromPoint(new Point(header.globalPosition.x, header.globalPosition.y))).toBe(header);
     });
 
+    it("a click on the widget of a sidebar header is the widget's: the switcher does not open", () => {
+        const header = new ViewContainerHeaderElement("RUN AND DEBUG");
+        header.setSwitcher(true);
+        const onSwitch = vi.fn();
+        header.onSwitch = onSwitch;
+        const widget = new TextLabelElement("launcher");
+        const clicks = vi.fn();
+        widget.addEventListener("click", clicks);
+        header.setTitleWidget(widget);
+        const app = TestApp.createWithContent(header, new Size(40, 1));
+        app.render();
+        const x = widget.globalPosition.x + 1;
+
+        app.backend.simulateMouse(token({ action: "press", x, y: 1 }));
+        app.backend.simulateMouse(token({ action: "release", x, y: 1 }));
+        expect(clicks).toHaveBeenCalledOnce();
+        expect(onSwitch).not.toHaveBeenCalled();
+
+        app.backend.simulateMouse(token({ action: "press", x: 2, y: 1 }));
+        app.backend.simulateMouse(token({ action: "release", x: 2, y: 1 }));
+        expect(onSwitch).toHaveBeenCalledOnce();
+    });
+
     it("hover highlights the button under the pointer, leaving clears it", () => {
         const { header } = makeHeader();
         const bg = (x: number): number => renderElement(header, 30, 1, { themeVars: true }).getBgAt(new Point(x, 0));

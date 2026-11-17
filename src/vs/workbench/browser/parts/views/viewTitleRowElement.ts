@@ -278,15 +278,18 @@ export class ViewTitleRowElement extends HFlexElement {
 
     /**
      * HFlex clamps greedily in child order, so a long title (a folder name) would push the buttons and "⋯"
-     * out of a narrow header. The controls keep their columns; the title, then the description, get the rest.
+     * out of a narrow header. The controls keep their columns and the widget its minimum; the title, then the
+     * description, then the widget up to its natural width get the rest (Run and Debug's launcher shrinks, as
+     * upstream's `flex-shrink`).
      */
     protected override performLayout(constraints: BoxConstraints): Size {
+        const widget = this.titleWidget;
         const shrinkable = new Set<TUIElement>([this.titleLabel, this.descriptionLabel, this.filler]);
         let reserved = 0;
         for (const child of this.getChildren()) {
             if (shrinkable.has(child)) continue;
             const width = (child.layoutStyle as HFlexLayoutStyle).width;
-            reserved += width.type === "fixed" ? width.value : child.getMaxIntrinsicWidth(1);
+            reserved += width.type === "fixed" ? width.value : child.getMinIntrinsicWidth(1);
         }
         let free = Math.max(0, constraints.maxWidth - reserved);
         for (const label of [this.titleLabel, this.descriptionLabel]) {
@@ -294,10 +297,16 @@ export class ViewTitleRowElement extends HFlexElement {
             label.layoutStyle = { width: hflexFixed(width), height: 1 };
             free -= width;
         }
+        if (widget !== null) {
+            const min = widget.getMinIntrinsicWidth(1);
+            const width = min + Math.min(widget.getMaxIntrinsicWidth(1) - min, free);
+            widget.layoutStyle = { width: hflexFixed(width), height: 1 };
+        }
         const size = super.performLayout(constraints);
         // Back to `fit`: the row's intrinsic width must stay the full title, not the clamp of the last layout.
         this.titleLabel.layoutStyle = { width: hflexFit(), height: 1 };
         this.descriptionLabel.layoutStyle = { width: hflexFit(), height: 1 };
+        if (widget !== null) widget.layoutStyle = { width: hflexFit(), height: 1 };
         return size;
     }
 }

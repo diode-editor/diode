@@ -227,6 +227,8 @@ interface ContainerEntry {
     view: TUIElement | null;
     /** Title buttons were not recomputed while the container was hidden; showing it catches up. */
     titleActionsStale: boolean;
+    /** A control of the container's own in its sidebar header, before the buttons (Run and Debug's launcher). */
+    titleWidget: TUIElement | null;
 }
 
 /**
@@ -478,6 +480,17 @@ export class ViewsService implements IContextKeyContributor {
         if (record.titleWidget === widget) return;
         record.titleWidget = widget;
         if (entry.paneView === null || entry.hidden.has(viewId)) return;
+        this.refreshContainerTitleActions(entry);
+    }
+
+    /**
+     * Upstream's action view item in a view container's title toolbar (`getActionViewItem`): a control that cannot
+     * be a menu item, in the header of a sidebar container with several sections. The panel's header is a section's.
+     */
+    public setContainerTitleWidget(containerId: string, widget: TUIElement | null): void {
+        const entry = this.containerOrThrow(containerId);
+        entry.titleWidget = widget;
+        if (entry.paneView === null) return;
         this.refreshContainerTitleActions(entry);
     }
 
@@ -1380,8 +1393,10 @@ export class ViewsService implements IContextKeyContributor {
         const header = attached(entry).header;
         const actions = inlineActions(this.titleGroups(entry));
         header.setActions(actions);
-        // Stryker disable next-line ConditionalExpression: a sidebar viewlet has no tab bar — its widget is null (headerTargetView), the header menu with 2+ sections is visible anyway, and partOf returns panelService, which skips an unknown id
-        if (!this.isTabbed(entry)) return;
+        if (!this.isTabbed(entry)) {
+            header.setTitleWidget(entry.titleWidget);
+            return;
+        }
         const headerRecord = headerViewId === null ? null : this.recordOrThrow(headerViewId).record;
         const widget = headerRecord?.titleWidget ?? null;
         header.setTitleWidget(widget);
@@ -1464,6 +1479,7 @@ export class ViewsService implements IContextKeyContributor {
                 view: null,
                 // Stryker disable next-line BooleanLiteral: equivalent — before attachContainer showing stops at `paneView === null`, and attach always rebuilds the sections and rewrites the flag
                 titleActionsStale: false,
+                titleWidget: null,
             };
             this.containers.set(containerId, entry);
         }

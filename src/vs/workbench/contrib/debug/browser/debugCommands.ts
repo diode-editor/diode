@@ -6,13 +6,12 @@
 // The session and launch configuration commands of upstream's `debugCommands.ts` and `debugViewlet.ts` with their
 // Linux keys and `when`, and their palette entries of `debug.contribution.ts` ("Debug: …", shown only with
 // `debuggersAvailable`). A command run from a call stack row gets the row as `{ sessionId, threadId, frameId }`
-// after the resource argument, as upstream; from a key or the palette it acts on the focused thread. Deviations: F5
-// without a selected configuration opens Select and Start Debugging (upstream guesses a debugger, #1156); Open
-// 'launch.json' is in the palette without upstream's `debugUx != 'simple'` precondition (there is no Run and Debug
-// welcome view to create launch.json from yet, #1144); Add Configuration inserts an empty line in `configurations`
-// without the snippet suggestions (milestone 2); Focus Session does not open the frame in the editor (#1148); the
-// instruction stepping of the disassembly view is not planned. The editor's, the views' and the console's commands
-// come with their tasks.
+// after the resource argument, as upstream; from a key or the palette it acts on the focused thread. Deviations: Open
+// 'launch.json' is in the palette without upstream's `debugUx != 'simple'` precondition; Add Configuration (and Open
+// 'launch.json' with `addNew`) inserts an empty line in `configurations` without the snippet suggestions (milestone
+// 2), and not into a launch.json it has just created, whose configurations are fresh; Focus Session does not open the
+// frame in the editor (#1148); the instruction stepping of the disassembly view is not planned. The editor's, the
+// views' and the console's commands come with their tasks.
 
 import { findNodeAtLocation, modify, parseTree } from "jsonc-parser";
 
@@ -29,10 +28,12 @@ import { LAUNCH_FILE_NAME } from "../../../../platform/configuration/common/work
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
+import { containerMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
+import { openExtensionsSearch } from "../../extensions/browser/extensionsSearch.ts";
 import { QuickOpenServiceDIToken } from "../../quickaccess/browser/quickOpenService.ts";
 import { positionAt } from "../../tasks/common/tasksJsonEdits.ts";
 import {
@@ -77,6 +78,7 @@ export const CALLSTACK_DOWN_ID = "workbench.action.debug.callStackDown";
 export const START_FROM_CONFIG_ID = "debug.startFromConfig";
 export const SELECT_AND_START_ID = "workbench.action.debug.selectandstart";
 export const DEBUG_CONFIGURE_COMMAND_ID = "workbench.action.debug.configure";
+export const INSTALL_ADDITIONAL_DEBUGGERS_ID = "debug.installAdditionalDebuggers";
 export const COPY_STACK_TRACE_ID = "debug.copyStackTrace";
 
 const IN_DEBUG_MODE = "inDebugMode";
@@ -568,10 +570,6 @@ export const startAction: CommandAction = {
         await accessor.get(DebugServicePortsDIToken).saveAllBeforeStart();
         const { launch, name, getConfig } = debugService.getConfigurationManager().selectedConfiguration;
         const config = await getConfig();
-        if (!config && !name) {
-            accessor.get(CommandRegistryDIToken).execute(SELECT_AND_START_ID);
-            return;
-        }
         const configOrName = config ? Object.assign(structuredClone(config), options?.config) : name;
         await debugService.startDebugging(
             launch,
@@ -585,10 +583,54 @@ export const startAction: CommandAction = {
 export const selectAndStartAction: CommandAction = {
     id: SELECT_AND_START_ID,
     title: "Debug: Select and Start Debugging",
-    menus: paletteItem(NOT_INITIALIZING),
-    run(accessor) {
-        // A debug type picks among its dynamic configurations first (not here yet: the dynamic configurations of Select and Start Debugging).
+    menus: [
+        ...paletteItem(NOT_INITIALIZING),
+        {
+            // Upstream's in `debugViewlet.ts`: in the "⋯" of Run and Debug when the launcher is hidden.
+            menuId: MenuId.ViewContainerTitle,
+            title: "Start Additional Session",
+            order: 10,
+            when: "debugState != 'inactive' && (config.debug.toolBarLocation == 'docked' || config.debug.hideLauncherWhileDebugging)",
+            visible: containerMenuVisible(VIEWLET_ID),
+        },
+    ],
+    async run(accessor, debugType, debugStartOptions) {
+        const debugService = accessor.get(DebugServiceDIToken);
+        if (debugType) {
+            const configManager = debugService.getConfigurationManager();
+            const dynamicProviders = await configManager.getDynamicProviders();
+            for (const provider of dynamicProviders) {
+                if (provider.type === debugType) {
+                    const pick = await provider.pick();
+                    if (pick) {
+                        await configManager.selectConfiguration(pick.launch, pick.config.name, pick.config, {
+                            type: provider.type,
+                        });
+                        void debugService.startDebugging(pick.launch, pick.config, {
+                            noDebug: (debugStartOptions as { noDebug?: boolean } | undefined)?.noDebug,
+                            startedByUser: true,
+                        });
+
+                        return;
+                    }
+                }
+            }
+        }
+
         accessor.get(QuickOpenServiceDIToken).show(StartDebugQuickAccessProvider.PREFIX);
+    },
+};
+
+export const installAdditionalDebuggersAction: CommandAction = {
+    id: INSTALL_ADDITIONAL_DEBUGGERS_ID,
+    title: "Install Additional Debuggers...",
+    menus: HIDDEN_FROM_PALETTE,
+    run(accessor, query) {
+        let searchFor = `@category:debuggers`;
+        if (typeof query === "string") {
+            searchFor += ` ${query}`;
+        }
+        openExtensionsSearch(accessor, searchFor);
         return Promise.resolve();
     },
 };
@@ -596,8 +638,27 @@ export const selectAndStartAction: CommandAction = {
 export const configureAction: CommandAction = {
     id: DEBUG_CONFIGURE_COMMAND_ID,
     title: "Debug: Open 'launch.json'",
-    menus: paletteItem(),
-    async run(accessor) {
+    menus: [
+        ...paletteItem(),
+        {
+            menuId: MenuId.ViewContainerTitle,
+            title: "Open 'launch.json'",
+            group: "navigation",
+            order: 20,
+            icon: codicon("gear"),
+            when: "debugUx != 'simple' && workbenchState != 'empty' && (debugState == 'inactive' || config.debug.toolBarLocation != 'docked')",
+            visible: containerMenuVisible(VIEWLET_ID),
+        },
+        {
+            // Show in debug viewlet secondary actions when debugging and debug toolbar is docked
+            menuId: MenuId.ViewContainerTitle,
+            title: "Open 'launch.json'",
+            order: 20,
+            when: "debugState != 'inactive' && config.debug.toolBarLocation == 'docked'",
+            visible: containerMenuVisible(VIEWLET_ID),
+        },
+    ],
+    async run(accessor, opts) {
         const debugService = accessor.get(DebugServiceDIToken);
         const configurationManager = debugService.getConfigurationManager();
         let launch: ILaunch | undefined;
@@ -618,8 +679,12 @@ export const configureAction: CommandAction = {
             }
         }
 
-        // Upstream's `addNew` comes from the debug view's start dropdown, which diode does not have yet.
-        await launch?.openConfigFile({ preserveFocus: false });
+        if (launch) {
+            const { opened, created } = await launch.openConfigFile({ preserveFocus: false });
+            if (opened && !created && (opts as { addNew?: boolean } | undefined)?.addNew) {
+                addLaunchConfigurationInto(accessor, launch);
+            }
+        }
     },
 };
 
@@ -634,13 +699,20 @@ export const addConfigurationAction: CommandAction = {
             manager.getLaunches().find((l) => l.uri.toString() === launchUri) ?? manager.selectedConfiguration.launch;
         if (launch) {
             const { opened, created } = await launch.openConfigFile({ preserveFocus: false });
-            const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
-            if (opened && !created && editor?.uri.toString() === launch.uri.toString()) {
-                addLaunchConfiguration(accessor, editor);
+            if (opened && !created) {
+                addLaunchConfigurationInto(accessor, launch);
             }
         }
     },
 };
+
+/** Into the active editor, when it is the launch's file. */
+function addLaunchConfigurationInto(accessor: ServiceAccessor, launch: ILaunch): void {
+    const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+    if (editor?.uri.toString() === launch.uri.toString()) {
+        addLaunchConfiguration(accessor, editor);
+    }
+}
 
 /**
  * Upstream `DebugEditorContribution.addLaunchConfiguration`: a new line at the start of the `configurations` array
@@ -735,6 +807,7 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     callStackDownAction,
     startFromConfigAction,
     focusSessionAction,
+    installAdditionalDebuggersAction,
     ...BREAKPOINT_EDITOR_ACTIONS,
     ...BREAKPOINT_EDIT_ACTIONS,
     showDebugHoverAction,

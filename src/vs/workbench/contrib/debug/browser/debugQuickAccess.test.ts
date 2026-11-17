@@ -6,11 +6,14 @@ import { createDebugServiceFixture, type IDebugServiceFixture } from "../../../.
 import {
     NO_DELAY_TIMING,
     registerSyntheticDebugger,
+    SYNTHETIC_DEBUG_TYPE,
     SYNTHETIC_LAUNCH_CONFIG,
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
+import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { WorkbenchState } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
+import { DebugConfigurationProviderTriggerKind } from "../common/debug.ts";
 
 import { ADD_CONFIGURATION_ID, NO_DEBUG_RESULTS, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 
@@ -58,7 +61,7 @@ describe("StartDebugQuickAccessProvider", () => {
         expect(provider.getItems("debug ").map((i) => [i.label, i.description, i.hint])).toEqual([
             ["Attach", "", "most recent"],
             ["Run hello", "", undefined],
-            ["Add Configuration...", "", undefined],
+            ["Add Configuration...", "", "configure"],
         ]);
         expect(provider.getPlaceholder()).toBe("Type the name of a launch configuration to run.");
     });
@@ -73,7 +76,7 @@ describe("StartDebugQuickAccessProvider", () => {
         const manager = fx.service.getConfigurationManager();
         await manager.selectConfiguration(manager.getLaunches()[0], "Run");
 
-        expect(provider.getItems("debug ").map((i) => i.hint)).toEqual(["most recent", undefined, undefined]);
+        expect(provider.getItems("debug ").map((i) => i.hint)).toEqual(["most recent", undefined, "configure"]);
     });
 
     it("filters the configurations by the text after the prefix, with the matched characters", () => {
@@ -117,6 +120,142 @@ describe("StartDebugQuickAccessProvider", () => {
         });
         expect(fx.service.getConfigurationManager().selectedConfiguration.name).toBe("Attach");
         expect(executed).toEqual([[ADD_CONFIGURATION_ID, "file:///w/.diode/launch.json"]]);
+    });
+
+    describe("dynamic configurations", () => {
+        function provideDynamic(): void {
+            fx.service.getConfigurationManager().registerDebugConfigurationProvider({
+                type: SYNTHETIC_DEBUG_TYPE,
+                triggerKind: DebugConfigurationProviderTriggerKind.Dynamic,
+                provideDebugConfigurations: () => Promise.resolve([{ ...SYNTHETIC_LAUNCH_CONFIG, name: "Dyn" }]),
+            });
+        }
+
+        async function shown(provider: StartDebugQuickAccessProvider): Promise<void> {
+            const refreshed = vi.fn();
+            provider.onShow(refreshed);
+            await vi.waitFor(() => {
+                expect(refreshed).toHaveBeenCalledWith(false);
+            });
+        }
+
+        it("a row per type, asked when the picker opens, after the recent ones: the group 'contributed'", async () => {
+            const provider = create({ configurations: [{ ...SYNTHETIC_LAUNCH_CONFIG, name: "Run" }] });
+            provideDynamic();
+            await fx.service
+                .getConfigurationManager()
+                .selectConfiguration(undefined, "Recent", undefined, { type: SYNTHETIC_DEBUG_TYPE });
+            expect(provider.getItems("debug ").map((i) => i.label)).toEqual(["Run", "Recent", "Add Configuration..."]);
+
+            await shown(provider);
+
+            expect(provider.getItems("debug ").map((i) => [i.label, i.hint])).toEqual([
+                ["Run", undefined],
+                ["Recent", "contributed"],
+                ["Synthetic (C++ under CodeLLDB)...", undefined],
+                ["Add Configuration...", "configure"],
+            ]);
+            expect(provider.getItems("debug rec").map((i) => [i.label, i.labelMatchRanges])).toEqual([
+                ["Recent", [[0, 3]]],
+                ["Synthetic (C++ under CodeLLDB)...", undefined],
+                ["Add Configuration...", undefined],
+            ]);
+            expect(provider.getItems("debug zz").map((i) => i.label)).toEqual([
+                "Synthetic (C++ under CodeLLDB)...",
+                "Add Configuration...",
+            ]);
+        });
+
+        it("a type's row picks one of its configurations, selects it as dynamic and starts it", async () => {
+            const provider = create({});
+            provideDynamic();
+            await shown(provider);
+            const start = vi.spyOn(fx.service, "startDebugging");
+            fx.pickLabel = "Dyn";
+
+            provider.getItems("debug ")[0].accept?.();
+
+            await vi.waitFor(() => {
+                expect(start).toHaveBeenCalledWith(
+                    expect.objectContaining({ name: "w" }),
+                    expect.objectContaining({ name: "Dyn" }),
+                    {
+                        startedByUser: true,
+                    },
+                );
+            });
+            const selected = fx.service.getConfigurationManager().selectedConfiguration;
+            expect([selected.name, selected.type]).toEqual(["Dyn", SYNTHETIC_DEBUG_TYPE]);
+        });
+
+        it("a type's row cancelled starts nothing; a recent one starts what its provider gives", async () => {
+            const provider = create({});
+            provideDynamic();
+            await shown(provider);
+            const start = vi.spyOn(fx.service, "startDebugging");
+
+            provider.getItems("debug ")[0].accept?.();
+            await vi.waitFor(() => {
+                expect(fx.picks).toHaveLength(1);
+            });
+            expect(start).not.toHaveBeenCalled();
+
+            await fx.service
+                .getConfigurationManager()
+                .selectConfiguration(undefined, "Dyn", undefined, { type: SYNTHETIC_DEBUG_TYPE });
+            await fx.service.getConfigurationManager().selectConfiguration(undefined, "Other", undefined, {
+                type: SYNTHETIC_DEBUG_TYPE,
+            });
+            provider.getItems("debug ")[1].accept?.();
+
+            await vi.waitFor(() => {
+                expect(start).toHaveBeenCalledWith(
+                    expect.objectContaining({ name: "w" }),
+                    expect.objectContaining({ name: "Dyn" }),
+                    {
+                        startedByUser: true,
+                    },
+                );
+            });
+        });
+
+        it("a failed start of a recent or a picked dynamic configuration is not thrown at the picker", async () => {
+            const provider = create({});
+            provideDynamic();
+            await shown(provider);
+            await fx.service
+                .getConfigurationManager()
+                .selectConfiguration(undefined, "Dyn", undefined, { type: SYNTHETIC_DEBUG_TYPE });
+            const start = vi.spyOn(fx.service, "startDebugging").mockRejectedValue(new Error("boom"));
+            fx.pickLabel = "Dyn";
+
+            const [recent, type] = provider.getItems("debug ");
+            recent.accept?.();
+            type.accept?.();
+
+            await vi.waitFor(() => {
+                expect(start).toHaveBeenCalledTimes(2);
+            });
+        });
+    });
+
+    it("types with dynamic configurations that can't be listed are reported, not thrown at the picker", async () => {
+        const provider = create(twoConfigs);
+        const error = new Error("no extensions");
+        vi.spyOn(fx.service.getConfigurationManager(), "getDynamicProviders").mockRejectedValueOnce(error);
+        const unexpected: unknown[] = [];
+        setUnexpectedErrorHandler((e) => unexpected.push(e));
+        const refreshed = vi.fn();
+        try {
+            provider.onShow(refreshed);
+
+            await vi.waitFor(() => {
+                expect(unexpected).toEqual([error]);
+            });
+        } finally {
+            setUnexpectedErrorHandler(() => undefined);
+        }
+        expect(refreshed).not.toHaveBeenCalled();
     });
 
     it("a failed start is not thrown at the picker", async () => {

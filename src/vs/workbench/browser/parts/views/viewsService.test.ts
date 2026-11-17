@@ -305,4 +305,23 @@ describe("ViewsService — view body and title widget", () => {
         expect(h.service.getViewTitleWidget("scm.changes")).toBe(widget);
         expect(h.paneView("scm").querySelector("#channel-picker")).toBe(widget);
     });
+
+    it("a container's widget goes into its sidebar header, set before it is built too, and comes out again", () => {
+        const h = makeViewsHarness();
+        h.service.registerContainer({ id: "debug", title: "RUN AND DEBUG", location: "sidebar" });
+        h.service.registerView(view("debug.variables", "debug", 10));
+        h.service.registerView(view("debug.watch", "debug", 20));
+        const widget = new TextLabelElement("launcher");
+        widget.id = "launcher";
+        h.service.setContainerTitleWidget("debug", widget);
+        h.service.setContainerTitleWidget("debug", widget);
+
+        h.service.attachContainer("debug");
+        h.showViewlet("debug");
+        expect(h.header("debug")?.querySelector("#launcher")).toBe(widget);
+        expect(h.paneView("debug").querySelector("#launcher")).toBeNull();
+
+        h.service.setContainerTitleWidget("debug", null);
+        expect(h.header("debug")?.querySelector("#launcher")).toBeNull();
+    });
 });

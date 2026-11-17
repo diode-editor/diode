@@ -35,7 +35,8 @@ export class ViewContainerHeaderElement extends TUIElement {
         this.appendChild(this.row);
 
         this.addEventListener("mousedown", (event) => {
-            if (event.button !== "left") return;
+            // A press on the widget is the widget's: its local X is not the header's.
+            if (event.button !== "left" || event.target !== this) return;
             this.pressed = true;
             this.pressScreenX = event.screenX;
             this.pressScreenY = event.screenY;
