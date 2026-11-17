@@ -447,6 +447,67 @@ describe("HttpExtensionRegistrySource", () => {
         expect(fs.existsSync(ws.path("artifact.vsix"))).toBe(false);
     });
 
+    describe("download progress", () => {
+        const parts = [Buffer.alloc(16, 1), Buffer.alloc(16, 2), Buffer.alloc(32, 3)];
+
+        /** One `write` per part with a pause between, so each part arrives as its own chunk. */
+        function serve(route: string, headers: Record<string, string>): void {
+            routes.set(route, (_req, res) => {
+                res.writeHead(200, headers);
+                let i = 0;
+                const next = (): void => {
+                    if (i === parts.length) {
+                        res.end();
+                        return;
+                    }
+                    res.write(parts[i++]);
+                    setTimeout(next, 20);
+                };
+                next();
+            });
+        }
+
+        async function progressOf(route: string, size?: number): Promise<[number, number][]> {
+            ws = createTempWorkspace();
+            const calls: [number, number][] = [];
+            await new HttpExtensionRegistrySource(base).fetchArtifact(
+                { ...urlVersion(`${origin}${route}`), ...(size !== undefined ? { size } : {}) },
+                ws.dir,
+                (received, total) => calls.push([received, total]),
+            );
+            return calls;
+        }
+
+        it("reports the bytes received per chunk against Content-Length", async () => {
+            serve("/progress.vsix", { "content-length": "64" });
+            expect(await progressOf("/progress.vsix")).toEqual([
+                [16, 64],
+                [32, 64],
+                [64, 64],
+            ]);
+        });
+
+        it("the registry's size beats Content-Length", async () => {
+            serve("/sized.vsix", { "content-length": "64" });
+            expect((await progressOf("/sized.vsix", 128)).map(([, total]) => total)).toEqual([128, 128, 128]);
+        });
+
+        it("without a size or Content-Length there is no progress", async () => {
+            serve("/unsized.vsix", {});
+            expect(await progressOf("/unsized.vsix")).toEqual([]);
+        });
+
+        it.each([0, -5, Number.NaN])("a registry size of %d falls back to Content-Length", async (size) => {
+            serve(`/bad-size-${String(size)}.vsix`, { "content-length": "64" });
+            expect((await progressOf(`/bad-size-${String(size)}.vsix`, size)).at(-1)).toEqual([64, 64]);
+        });
+
+        it("more bytes than declared are still reported as received", async () => {
+            serve("/understated.vsix", {});
+            expect((await progressOf("/understated.vsix", 32)).at(-1)).toEqual([64, 32]);
+        });
+    });
+
     it("the default limit admits a platform .vsix with a bundled runtime", () => {
         // redhat.java@1.57.2026092608 (linux-x64, with JRE 21) is the heaviest build.
         expect(DEFAULT_MAX_ARTIFACT_BYTES).toBeGreaterThanOrEqual(139_029_576);

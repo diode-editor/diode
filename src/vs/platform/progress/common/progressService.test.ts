@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../../TestUtils/disposableLeaks.ts";
 
-import { ProgressService } from "./progressService.ts";
+import { type IProgress, ProgressService } from "./progressService.ts";
 
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -283,6 +283,41 @@ describe("ProgressService", () => {
         await running;
         vi.advanceTimersByTime(10_000);
         expect(service.windowProgress()).toBeNull();
+    });
+
+    it("a reported percent rides on the frame until it is reported away", async () => {
+        const task = deferred();
+        const listener = vi.fn();
+        disposables.add(service.onDidChange(listener));
+        let progress!: IProgress;
+        const running = service.withProgress({ location: "window", title: "Installing x" }, (p) => {
+            progress = p;
+            return task.promise;
+        });
+        vi.advanceTimersByTime(300);
+
+        listener.mockClear();
+        progress.report({ percent: 47 });
+        expect(service.windowProgress()).toEqual({ spinner: "⠋", title: "Installing x", percent: 47 });
+        expect(listener).toHaveBeenCalledTimes(1);
+        // The same percent again is no change: a download reports per chunk.
+        progress.report({ percent: 47 });
+        expect(listener).toHaveBeenCalledTimes(1);
+
+        progress.report({ percent: undefined });
+        expect(service.windowProgress()).toEqual({ spinner: "⠋", title: "Installing x" });
+        expect(listener).toHaveBeenCalledTimes(2);
+
+        task.resolve();
+        await running;
+    });
+
+    it("the spinner follows the shared ticker", () => {
+        expect(service.spinner()).toBe("⠋");
+        void service.withProgress({ location: "window", title: "x" }, () => new Promise<void>(() => {}));
+        vi.advanceTimersByTime(300 + 100);
+        expect(service.spinner()).toBe("⠙");
+        expect(service.spinner()).toBe(service.windowProgress()!.spinner);
     });
 
     it("the ticker stops together with the last spinner", async () => {

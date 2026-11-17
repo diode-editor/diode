@@ -50,6 +50,7 @@ const ENTRY: IExtensionListEntry = {
     categories: [],
     tags: [],
     needsReload: false,
+    operation: null,
 };
 
 const META: IRegistryExtensionMeta = {
@@ -83,6 +84,8 @@ function fakeService(entries: readonly IExtensionListEntry[]): IExtensionsWorkbe
         getCompatibleVersions: () => Promise.resolve([]),
         installVsix: () => Promise.reject(new Error("not used")),
         onDidChange: () => ({ dispose: () => {} }),
+        getDownloadProgress: () => null,
+        onDidChangeDownloadProgress: () => ({ dispose: () => {} }),
     };
 }
 

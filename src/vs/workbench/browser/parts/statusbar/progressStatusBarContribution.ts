@@ -45,7 +45,9 @@ export class ProgressStatusBarContribution extends Disposable implements IWorkbe
             this.clear();
             return;
         }
-        const text = `${frame.spinner} ${frame.title}`;
+        // The format of extension progress (`progressStatusBarAdapter`): `⠴ Installing x (47%)`.
+        const percent = frame.percent === undefined ? "" : ` (${String(frame.percent)}%)`;
+        const text = `${frame.spinner} ${frame.title}${percent}`;
         if (this.handle === null) {
             this.handle = this.statusBar.addEntry({
                 id: "status.progress",

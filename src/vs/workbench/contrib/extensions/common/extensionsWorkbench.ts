@@ -17,6 +17,12 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
  */
 export type ExtensionAvailability = "available" | "installed" | "outdated" | "incompatible";
 
+/**
+ * Upstream `ExtensionState.Installing` / `Uninstalling`: an install covers an update, a given version, `Update All`
+ * (its whole batch from the start) and auto-update.
+ */
+export type ExtensionOperation = "installing" | "uninstalling";
+
 export interface IExtensionListEntry {
     /** `publisher.name`. */
     readonly id: string;
@@ -56,6 +62,8 @@ export interface IExtensionListEntry {
     readonly pinned: boolean;
     /** Installed/uninstalled in this session: contributions are scanned once at startup, takes effect after a window reload. */
     readonly needsReload: boolean;
+    /** Owned by the service, not a page: every tab and the list show the same, whoever started it. */
+    readonly operation: ExtensionOperation | null;
 }
 
 /** The error is a value, not an exception: the reason goes to the UI as text, like the catalog read error. */
@@ -147,9 +155,19 @@ export interface IExtensionsWorkbenchService {
 
     /**
      * Also "update": the profile switches to the new version; a previous one no profile uses is removed on the
-     * next start, so the running extension host keeps its files.
+     * next start, so the running extension host keeps its files. While an install of the id runs, another call
+     * gets that install's result (whatever its options) instead of writing the profile a second time.
      */
     install(id: string, options?: IExtensionInstallOptions): Promise<IExtensionInstallResult>;
+
+    /**
+     * Whole percent of the file an install of `id` is downloading right now (the extension or one of its
+     * dependencies); `null` when nothing measurable is downloading — a size unknown, or checking and unpacking.
+     */
+    getDownloadProgress(id: string): number | null;
+
+    /** The id whose {@link getDownloadProgress} changed: per whole percent, not per chunk. */
+    onDidChangeDownloadProgress(listener: (id: string) => void): IDisposable;
 
     /**
      * For the version picker (upstream `getAllCompatibleVersions`): newest first, compatible with this build.

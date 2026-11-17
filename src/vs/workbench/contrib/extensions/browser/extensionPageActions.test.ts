@@ -62,6 +62,8 @@ function fakeService(
             return Promise.resolve(results.uninstall ?? { ok: true });
         },
         onDidChange: () => ({ dispose: () => {} }),
+        getDownloadProgress: () => null,
+        onDidChangeDownloadProgress: () => ({ dispose: () => {} }),
     };
 }
 
@@ -139,6 +141,7 @@ function installedEntry(installedVersion: string | null): IExtensionListEntry {
         categories: [],
         tags: [],
         needsReload: false,
+        operation: null,
     };
 }
 
@@ -201,6 +204,71 @@ describe("ExtensionPageActions", () => {
         expect(progress.windowProgress()?.title).toBe("Uninstalling acme.tools");
         finishUninstall();
         await uninstalling;
+    });
+
+    it("the download percent of the extension rides on the title, and goes away with the download", async () => {
+        let finish = (): void => {};
+        const downloads = new Emitter<string>();
+        const percents = new Map<string, number>();
+        const service: IExtensionsWorkbenchService = {
+            ...fakeService(),
+            getDownloadProgress: (id) => percents.get(id) ?? null,
+            onDidChangeDownloadProgress: downloads.event,
+            install: () =>
+                new Promise((resolve) => {
+                    finish = () => {
+                        resolve({ ok: true, version: "1.2.0" });
+                    };
+                }),
+        };
+        const download = (id: string, percent: number | null): void => {
+            if (percent === null) percents.delete(id);
+            else percents.set(id, percent);
+            downloads.fire(id);
+        };
+        const { actions, progress } = createActions(service);
+
+        const installing = actions.install("acme.tools");
+        await vi.advanceTimersByTimeAsync(400);
+        download("acme.tools", 47);
+        expect(progress.windowProgress()).toMatchObject({ title: "Installing acme.tools", percent: 47 });
+        // Another extension's download is not this install's.
+        download("acme.other", 90);
+        expect(progress.windowProgress()?.percent).toBe(47);
+        download("acme.tools", null);
+        expect(progress.windowProgress()?.percent).toBeUndefined();
+
+        finish();
+        await installing;
+        // The listener is gone with the install: a later download reaches no finished progress.
+        download("acme.tools", 10);
+        expect(progress.windowProgress()?.percent).toBeUndefined();
+    });
+
+    it("the spinner is the progress service's shared ticker", async () => {
+        let finish = (): void => {};
+        const service: IExtensionsWorkbenchService = {
+            ...fakeService(),
+            uninstall: () =>
+                new Promise((resolve) => {
+                    finish = () => {
+                        resolve({ ok: true });
+                    };
+                }),
+        };
+        const { actions, progress } = createActions(service);
+        let ticks = 0;
+        const listener = actions.onDidChangeSpinner(() => ticks++);
+
+        const running = actions.uninstall("acme.tools");
+        await vi.advanceTimersByTimeAsync(300 + 100);
+        expect(ticks).toBeGreaterThan(0);
+        expect(actions.spinner()).toBe(progress.spinner());
+        expect(actions.spinner()).toBe("⠙");
+
+        listener.dispose();
+        finish();
+        await running;
     });
 
     it("after install the message asks to reload the window and goes away by itself", async () => {
