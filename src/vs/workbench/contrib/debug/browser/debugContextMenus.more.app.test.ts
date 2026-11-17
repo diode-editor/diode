@@ -17,8 +17,10 @@ import {
     VARIABLES_VIEW_ID,
     WATCH_VIEW_ID,
 } from "../common/debug.ts";
+import type { Thread } from "../common/debugModel.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
+import { DebugViewletComponentDIToken } from "./debugViewlet.ts";
 import { ReplDIToken } from "./repl.ts";
 
 describe("Run and Debug: more context menus and the keys of the rows", () => {
@@ -37,7 +39,9 @@ describe("Run and Debug: more context menus and the keys of the rows", () => {
         await t.startStopped();
         await vi.waitFor(() => {
             expect(t.screen()).toContain("count: 0");
-            expect(t.screen()).toContain("worker-1");
+            // The threads are read; the screen may have no room left for them under the stopped thread's frames.
+            const session = t.h.container.get(DebugServiceDIToken).getViewModel().focusedSession;
+            expect(session?.getAllThreads().map((thread) => thread.name)).toContain("worker-2");
         });
     });
 
@@ -89,6 +93,12 @@ describe("Run and Debug: more context menus and the keys of the rows", () => {
 
     it("a stopped thread: Continue and the steps, then Terminate Thread; the item acts on that thread", async () => {
         t.h.container.get(ViewsServiceDIToken).openView(CALLSTACK_VIEW_ID, true);
+        const session = t.h.container.get(DebugServiceDIToken).getViewModel().focusedSession;
+        const worker = session?.getAllThreads().find((thread) => thread.name === "worker-2");
+        t.h.container.get(DebugViewletComponentDIToken).callStack.tree.reveal(worker as Thread);
+        await vi.waitFor(() => {
+            expect(t.screen()).toContain("worker-2");
+        });
         expect(await menuAt("worker-2")).toEqual([
             "Continue",
             "Step Over",
@@ -97,7 +107,6 @@ describe("Run and Debug: more context menus and the keys of the rows", () => {
             "-",
             "Terminate Thread",
         ]);
-        const session = t.h.container.get(DebugServiceDIToken).getViewModel().focusedSession;
         choose("Terminate Thread");
         await vi.waitFor(() => {
             expect(session?.getAllThreads().map((thread) => thread.name)).not.toContain("worker-2");

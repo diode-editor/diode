@@ -23,6 +23,7 @@ import {
     WATCH_VIEW_ID,
 } from "../common/debug.ts";
 import type { DebugModel, StackFrame, Thread } from "../common/debugModel.ts";
+import type { ViewModel } from "../common/debugViewModel.ts";
 
 import { getContext, getContextForContributedActions } from "./callStackView.ts";
 import { DebugServiceDIToken } from "./debugService.ts";
@@ -96,7 +97,9 @@ describe("Run and Debug: the commands of the rows' menus", () => {
         await t.startStopped();
         await vi.waitFor(() => {
             expect(t.screen()).toContain("count: 0");
-            expect(t.screen()).toContain("worker-2");
+            // The threads are read; the screen may have no room left for this one under the stopped thread's frames.
+            const session = t.h.container.get(DebugServiceDIToken).getViewModel().focusedSession;
+            expect(session?.getAllThreads().map((thread) => thread.name)).toContain("worker-2");
         });
     }
 
@@ -117,6 +120,17 @@ describe("Run and Debug: the commands of the rows' menus", () => {
         await t.h.commands.execute("debug.replCopy");
         expect(await clipboard()).toBe("before");
         expect(model().getDataBreakpoints()).toEqual([]);
+    });
+
+    it("Copy Value of a watch expression with a session but no frame (it runs) copies nothing", async () => {
+        await startStopped();
+        const debugService = t.h.container.get(DebugServiceDIToken);
+        debugService.addWatchExpression("total");
+        const viewModel = debugService.getViewModel();
+        (viewModel as ViewModel).setFocus(undefined, undefined, viewModel.focusedSession, false);
+        await t.h.container.get(ClipboardDIToken).writeText("before");
+        await t.h.commands.execute("workbench.debug.viewlet.action.copyValue", model().getWatchExpressions()[0]);
+        expect(await clipboard()).toBe("before");
     });
 
     it("Copy Value: a watch row from its menu, an error copies the shown value; from WATCH by Ctrl+C", async () => {
@@ -306,6 +320,13 @@ describe("Run and Debug: the commands of the rows' menus", () => {
         expect(getContextForContributedActions(worker)).toBe(worker.threadId);
         expect(futex.source.inMemory).toBe(true);
         expect(getContextForContributedActions(futex)).toBe(futex.source.name);
+        expect(getContext(futex)).toEqual({
+            sessionId: session.getId(),
+            threadId: worker.getId(),
+            frameId: futex.getId(),
+            frameName: futex.name,
+            frameLocation: { range: futex.range, source: futex.source.raw },
+        });
         expect(getContext(null)).toBeUndefined();
         expect(getContextForContributedActions(null)).toBe("");
     });

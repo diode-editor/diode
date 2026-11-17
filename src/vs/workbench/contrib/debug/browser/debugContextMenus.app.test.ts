@@ -25,14 +25,18 @@ describe("Run and Debug: the context menus of the rows", () => {
     let factory: SyntheticDebugAdapterFactory;
     /** The entries of the menus shown, the last one last. */
     let shown: MenuEntry[][];
+    /** Where each of them opened. */
+    let anchors: unknown[];
 
     beforeEach(async () => {
         t = await createDebugViewletHarness(process.cwd());
         shown = [];
+        anchors = [];
         const contextMenu = t.h.container.get(ContextMenuServiceDIToken);
         const show = contextMenu.showContextMenu.bind(contextMenu);
         vi.spyOn(contextMenu, "showContextMenu").mockImplementation((delegate) => {
             shown.push(delegate.getEntries?.() ?? []);
+            anchors.push(delegate.getAnchor());
             show(delegate);
         });
         factory = await t.startStopped();
@@ -177,6 +181,8 @@ describe("Run and Debug: the context menus of the rows", () => {
             expect(t.screen()).not.toContain("sum: ");
         });
         for (const key of ["4", "2"]) t.h.testApp.sendKey(key);
+        const scopesRead = (): number => factory.adapters[0].requests.filter((r) => r.command === "scopes").length;
+        const before = scopesRead();
         t.h.testApp.sendKey("Enter");
 
         await vi.waitFor(() => {
@@ -187,10 +193,14 @@ describe("Run and Debug: the context menus of the rows", () => {
             value: "42",
         });
         // Upstream refreshes the rows without reading the scopes anew; the next refresh reads them again.
-        const scopesRead = (): number => factory.adapters[0].requests.filter((r) => r.command === "scopes").length;
-        const before = scopesRead();
         await new Promise((resolve) => setTimeout(resolve, 50));
         expect(scopesRead()).toBe(before);
+        // The input is gone, so Ctrl+C on the row is Copy Value again.
+        await t.h.container.get(ClipboardDIToken).writeText("before");
+        t.h.testApp.sendKey("Ctrl+C");
+        await vi.waitFor(async () => {
+            expect(await clipboard()).not.toBe("before");
+        });
         t.h.container.get(DebugServiceDIToken).getViewModel().updateViews();
         await vi.waitFor(() => {
             expect(scopesRead()).toBeGreaterThan(before);
@@ -251,6 +261,7 @@ describe("Run and Debug: the context menus of the rows", () => {
         await vi.waitFor(() => {
             expect(labels()).toContain("Add Expression");
         });
+        expect(anchors.at(-1)).toEqual({ screenX: x, screenY: watchRow });
         expect(labels()).toEqual([
             "Add Expression",
             "Edit Expression",

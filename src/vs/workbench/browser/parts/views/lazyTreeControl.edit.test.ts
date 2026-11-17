@@ -126,11 +126,15 @@ describe("LazyTreeControl — row edit", () => {
         app.render();
         const done: boolean[] = [];
         tree.edit(source.roots[0], { value: "1", onDone: (_value, success) => done.push(success) });
+        // The focus passes straight to the other element: the list does not take it on the way.
+        let listFocused = 0;
+        tree.list.addEventListener("focus", () => listFocused++);
 
         other.focus();
 
         expect(done).toEqual([true]);
         expect(app.focusedElement).toBe(other);
+        expect(listFocused).toBe(0);
     });
 
     it("Escape ends the edit without success and leaves the row as it was", async () => {
