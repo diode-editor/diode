@@ -19,6 +19,7 @@ import {
 import { Debugger, initialConfigurationContent } from "../common/debugger.ts";
 
 import { ConfigurationManager, type IConfigurationManagerPorts } from "./debugConfigurationManager.ts";
+import { NO_DEBUG_EXTENSIONS } from "./debugService.ts";
 
 const FOLDER: IWorkspaceFolder = { uri: Uri.file("/w"), name: "w", index: 0 };
 const { Initial, Dynamic } = DebugConfigurationProviderTriggerKind;
@@ -91,6 +92,8 @@ describe("ConfigurationManager — configuration providers", () => {
             },
             openEditor: () => Promise.resolve(),
             userSettings: { resource: Uri.file("/user/settings.json"), open: () => Promise.resolve() },
+            extensions: NO_DEBUG_EXTENSIONS,
+            pickLate: () => Promise.resolve(undefined),
         };
         manager = new ConfigurationManager(adapterManager, ports);
     });

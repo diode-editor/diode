@@ -12,6 +12,7 @@ import {
 import {
     NO_DELAY_TIMING,
     registerSyntheticDebugger,
+    SYNTHETIC_DEBUG_TYPE,
     SYNTHETIC_LAUNCH_CONFIG,
     type SyntheticDebugAdapterFactory,
 } from "../../../../../TestUtils/syntheticDebugAdapter.ts";
@@ -19,15 +20,20 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ServiceAccessor, Token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
+import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
+import { ExtensionsComponentDIToken } from "../../extensions/browser/extensionsComponent.ts";
 import { QuickOpenServiceDIToken } from "../../quickaccess/browser/quickOpenService.ts";
+import { DebugConfigurationProviderTriggerKind } from "../common/debug.ts";
 
 import {
     addConfigurationAction,
     configureAction,
     DEBUG_ACTIONS,
+    installAdditionalDebuggersAction,
     runAction,
     selectAndStartAction,
     startAction,
@@ -45,16 +51,24 @@ describe("launch configuration commands", () => {
     let picks: QuickPickItem[][];
     let pick: (items: QuickPickItem[]) => QuickPickItem | undefined;
     let accessor: ServiceAccessor;
+    let searches: string[];
+    let shownViewlets: string[];
+    let activeEditor: TextEditorPane | null;
 
     function create(launch?: unknown): void {
         fx = createDebugServiceFixture({ workspaceLaunch: launch, folders: [FOLDER] });
         factory = registerSyntheticDebugger(fx.service.getAdapterManager(), NO_DELAY_TIMING).factory;
+        // A missing launch.json is created for the debugger of the active file.
+        fx.activeEditor = { resource: "file:///w/main.cpp", languageId: "cpp" };
     }
 
     beforeEach(() => {
         executed = [];
         quickOpen = [];
         picks = [];
+        searches = [];
+        shownViewlets = [];
+        activeEditor = null;
         pick = () => undefined;
         accessor = {
             get: <T>(token: Token<T>): T => {
@@ -72,7 +86,9 @@ describe("launch configuration commands", () => {
                             },
                         },
                     ],
-                    [EditorServiceDIToken, { getActiveEditor: () => null }],
+                    [EditorServiceDIToken, { getActiveEditor: () => activeEditor }],
+                    [SidebarServiceDIToken, { showViewlet: (id: string) => shownViewlets.push(id) }],
+                    [ExtensionsComponentDIToken, { setQuery: (query: string) => searches.push(query) }],
                 ]);
                 if (!services.has(token)) throw new Error(`unexpected ${token.id}`);
                 return services.get(token) as T;
@@ -136,6 +152,54 @@ describe("launch configuration commands", () => {
         await selectAndStartAction.run(accessor);
 
         expect(quickOpen).toEqual(["debug "]);
+    });
+
+    describe("Select and Start Debugging with a debug type", () => {
+        function provideDynamic(): void {
+            fx.service.getConfigurationManager().registerDebugConfigurationProvider({
+                type: SYNTHETIC_DEBUG_TYPE,
+                triggerKind: DebugConfigurationProviderTriggerKind.Dynamic,
+                provideDebugConfigurations: () => Promise.resolve([{ ...SYNTHETIC_LAUNCH_CONFIG, name: "Dyn" }]),
+            });
+        }
+
+        it("picks one of the type's dynamic configurations, selects it and starts it, with noDebug", async () => {
+            create();
+            provideDynamic();
+            const start = vi.spyOn(fx.service, "startDebugging");
+            fx.pickLabel = "Dyn";
+
+            await selectAndStartAction.run(accessor, SYNTHETIC_DEBUG_TYPE, { noDebug: true });
+
+            expect(start).toHaveBeenCalledWith(
+                expect.objectContaining({ name: "w" }),
+                expect.objectContaining({ name: "Dyn" }),
+                { noDebug: true, startedByUser: true },
+            );
+            expect(fx.service.getConfigurationManager().selectedConfiguration.type).toBe(SYNTHETIC_DEBUG_TYPE);
+            expect(quickOpen).toEqual([]);
+        });
+
+        it("a cancelled pick, or a type without dynamic configurations, opens the picker of all", async () => {
+            create();
+            provideDynamic();
+
+            await selectAndStartAction.run(accessor, SYNTHETIC_DEBUG_TYPE);
+            await selectAndStartAction.run(accessor, "other");
+
+            expect(fx.picks).toHaveLength(1);
+            expect(quickOpen).toEqual(["debug ", "debug "]);
+        });
+    });
+
+    it("Install Additional Debuggers searches the Marketplace's debuggers, with the query given", async () => {
+        create();
+
+        await installAdditionalDebuggersAction.run(accessor, "'Plain Text'");
+        await installAdditionalDebuggersAction.run(accessor, 3);
+
+        expect(searches).toEqual(["@category:debuggers 'Plain Text'", "@category:debuggers"]);
+        expect(shownViewlets).toEqual(["extensions", "extensions"]);
     });
 
     describe("Open 'launch.json'", () => {
@@ -229,7 +293,7 @@ describe("launch configuration commands", () => {
 
         expect(
             ["workbench.action.debug.selectandstart", "workbench.action.debug.configure", "debug.addConfiguration"].map(
-                (id) => [entry(id)?.title, entry(id)?.menus],
+                (id) => [entry(id)?.title, entry(id)?.menus?.filter((menu) => menu.menuId === MenuId.CommandPalette)],
             ),
         ).toEqual([
             [

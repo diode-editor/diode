@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { adapterManagerPorts, mockSession } from "../../../../../TestUtils/mockDebug.ts";
 import { MockDebugAdapter } from "../../../../../TestUtils/mockDebugAdapter.ts";
+import { Event } from "../../../../base/common/event.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type {
     IConfig,
@@ -20,7 +21,7 @@ function sessionOf(type: string): IDebugSession {
 describe("AdapterManager", () => {
     let contextKeys: ContextKeyService;
     let manager: AdapterManager;
-    let debugService: Pick<IDebugService, "getModel" | "startDebugging">;
+    let debugService: Pick<IDebugService, "getModel" | "startDebugging" | "onDidNewSession">;
     const launched: { args: DebugProtocol.RunInTerminalRequestArguments; session: IDebugSession }[] = [];
     const terminalLauncher: IDebugTerminalLauncher = {
         runInTerminal: (args, session) => {
@@ -36,6 +37,7 @@ describe("AdapterManager", () => {
             getModel: () =>
                 ({ getSession: (id: string | undefined) => (id === "parent" ? sessionOf("p") : undefined) }) as never,
             startDebugging: vi.fn(() => Promise.resolve(true)),
+            onDidNewSession: Event.None,
         };
         manager = new AdapterManager(
             () => debugService as IDebugService,

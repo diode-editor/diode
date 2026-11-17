@@ -207,6 +207,8 @@ describe("DebugService — configuration providers", () => {
 
     it("a rejection without an error still opens launch.json and shows nothing", async () => {
         create([synthetic("Run")]);
+        // The missing launch.json is created for the debugger of the active file.
+        fx.activeEditor = { resource: "file:///work/main.cpp", languageId: "cpp" };
         // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- an extension may reject with anything
         provide({ resolveDebugConfigurationWithSubstitutedVariables: () => Promise.reject(undefined) });
 
