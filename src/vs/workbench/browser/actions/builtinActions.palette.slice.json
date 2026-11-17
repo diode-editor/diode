@@ -398,6 +398,7 @@
     "workbench.action.debug.callStackDown",
     "debug.startFromConfig",
     "workbench.action.debug.focusProcess",
+    "debug.installAdditionalDebuggers",
     "workbench.view.debug",
     "variables.collapse",
     "workbench.debug.viewlet.action.addWatchExpression",

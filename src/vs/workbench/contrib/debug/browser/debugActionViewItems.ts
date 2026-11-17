@@ -163,22 +163,17 @@ export class StartDebugActionViewItem extends Disposable {
         this.updateOptions();
     }
 
-    public focus(): void {
-        this.start.focus();
-    }
-
     private renderStart(): void {
         this.start.setText(` ${this.icons.codicon("debug-start")} `);
     }
 
     /** The option at a row of the dropdown, whose separators are rows too. */
     private select(row: number): void {
+        const option = this.rows()[row];
         // Selection state and label are reconciled by updateOptions(), triggered by manager.onDidSelectConfiguration.
-        void this.rows()
-            [row].handler()
-            .then((selected) => {
-                if (!selected) this.renderOptions();
-            }, onUnexpectedError);
+        void option.handler().then((selected) => {
+            if (!selected) this.renderOptions();
+        }, onUnexpectedError);
     }
 
     /** The dropdown's rows: the options, with a separator between two categories. */

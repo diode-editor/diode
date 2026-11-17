@@ -728,7 +728,6 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     startAction,
     runAction,
     selectAndStartAction,
-    installAdditionalDebuggersAction,
     configureAction,
     addConfigurationAction,
     restartSessionAction,
@@ -747,6 +746,7 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     callStackDownAction,
     startFromConfigAction,
     focusSessionAction,
+    installAdditionalDebuggersAction,
     ...DEBUG_VIEW_ACTIONS,
     ...REPL_ACTIONS,
 ];
