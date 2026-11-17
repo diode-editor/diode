@@ -353,6 +353,8 @@ export interface ContextKeyTypes {
 
     /** Id of the tab whose controls the header currently shows. */
     view: string;
+    /** Scoped to a container's title menu: its id (upstream's `viewContainer`). */
+    viewContainer: string;
     activeOutputChannel: string;
     /** Empty while the secondary sidebar is hidden. */
     activeAuxiliary: string;

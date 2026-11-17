@@ -53,6 +53,19 @@ export class MenuId {
      */
     public static readonly DebugToolBar = new MenuId("DebugToolBar");
     /**
+     * The context menus of the debug views' rows (`debug/callstack/context`, `debug/variables/context`,
+     * `debug/watch/context`; the scopes, breakpoints and console ones have no extension point). Resolved per row with
+     * the row's keys (`callStackItemType`, `variableEvaluateNamePresent`, …); the `inline` group stays off the menu.
+     */
+    public static readonly DebugCallStackContext = new MenuId("DebugCallStackContext");
+    public static readonly DebugVariablesContext = new MenuId("DebugVariablesContext");
+    public static readonly DebugScopesContext = new MenuId("DebugScopesContext");
+    public static readonly DebugWatchContext = new MenuId("DebugWatchContext");
+    public static readonly DebugBreakpointsContext = new MenuId("DebugBreakpointsContext");
+    public static readonly DebugConsoleContext = new MenuId("DebugConsoleContext");
+    /** `debug/createConfiguration` (proposed upstream): extra picks of the debugger choice when launch.json is made. */
+    public static readonly DebugCreateConfiguration = new MenuId("DebugCreateConfiguration");
+    /**
      * Not a menu but the palette's filter (upstream `MenuId.CommandPalette`): a command without items here is
      * always listed, one with items only while the `when` of one of them holds.
      */

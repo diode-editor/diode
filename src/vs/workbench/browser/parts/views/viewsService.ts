@@ -1216,9 +1216,10 @@ export class ViewsService implements IContextKeyContributor {
         return this.menuService.getEntryGroups(MenuId.ViewTitle, context, { view: viewId });
     }
 
+    /** As upstream's scoped `viewContainer = <id>`: the docked debug toolbar's extension buttons say so. */
     private containerTitleGroups(containerId: string): IMenuEntryGroup[] {
         const context: ViewContainerMenuContext = { container: containerId };
-        return this.menuService.getEntryGroups(MenuId.ViewContainerTitle, context);
+        return this.menuService.getEntryGroups(MenuId.ViewContainerTitle, context, { viewContainer: containerId });
     }
 
     /** The section's "⋯" popup. When merged, the container menu moves here too, as a submenu. */

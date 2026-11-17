@@ -3,6 +3,7 @@ import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { HFlexElement, hflexFill, hflexFit } from "@tuidom/elements/layout/hFlexElement";
 import { PaddingContainerElement } from "@tuidom/elements/layout/paddingContainerElement";
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
@@ -37,6 +38,15 @@ export interface ILazyTreeSource<T> {
     renderRowEnd?(element: T): readonly IRowSpan[];
     /** Typeahead text; the joined spans when omitted. */
     getLabel?(element: T): string;
+}
+
+/** Upstream's input box over a row of a debug view (`renderInputBox`): Set Value, a watch expression. */
+export interface IRowEdit {
+    readonly value: string;
+    /** The adapter's answer to the last try, shown after the input in the error color. */
+    readonly error?: string;
+    /** Enter and leaving the input finish with `success`, Escape without; once per edit. */
+    onDone(value: string, success: boolean): void;
 }
 
 export interface ILazyTreeOptions {
@@ -106,6 +116,16 @@ function buildRow(spans: readonly IRowSpan[], end: readonly IRowSpan[]): TUIElem
     return row;
 }
 
+/** The input of an edited row, the error of the last try after it. */
+function editRow(input: InputElement, error: string | undefined): TUIElement {
+    const row = new HFlexElement();
+    row.addChild(input, { width: hflexFill(), height: 1 });
+    if (error !== undefined) {
+        row.addChild(spansLabel([{ text: ` ${error}`, fg: "list.errorForeground" }]), { width: hflexFit(), height: 1 });
+    }
+    return row;
+}
+
 /**
  * A lazily loaded tree of colored rows over {@link ListViewElement} — upstream's `AsyncDataTree` for the debug
  * views. The list brings the hierarchy, chevrons, keyboard, typeahead and the `list.*` commands; this control owns
@@ -123,6 +143,8 @@ export class LazyTreeControl<T> {
     public onActivate: (element: T) => void = () => undefined;
     /** The cursor moved to a row by the user; a rebuild or {@link reveal} moving it says nothing. */
     public onSelect: (element: T) => void = () => undefined;
+    /** A right click or Shift+F10 on a row (the click has already put the cursor there). */
+    public onContextMenu: (element: T, screenX: number, screenY: number) => void = () => undefined;
 
     private roots: readonly T[] = [];
     /** The user's word on a node; a node without one follows {@link ILazyTreeSource.isInitiallyExpanded}. */
@@ -140,6 +162,9 @@ export class LazyTreeControl<T> {
     /** The tree itself moves the cursor: not the user's pick. */
     private movingCursor = false;
     private revealTail = false;
+    /** The row being edited and its input, kept across rebuilds so the typed text and the focus survive them. */
+    private editing: { readonly key: string; readonly edit: IRowEdit; readonly input: InputElement } | undefined;
+    private rebuilding = false;
 
     public constructor(
         private readonly source: ILazyTreeSource<T>,
@@ -156,6 +181,43 @@ export class LazyTreeControl<T> {
             const item = this.items.get(row);
             if (!this.movingCursor && item !== undefined) this.onSelect(item);
         };
+        this.list.onContextMenu = (row, screenX, screenY) => {
+            const item = this.items.get(row);
+            if (item !== undefined) this.onContextMenu(item, screenX, screenY);
+        };
+    }
+
+    /**
+     * Puts an input over the element's row (upstream's `renderInputBox`) and focuses it: Enter or leaving it ends the
+     * edit with its text, Escape without; the list gets the focus back. A rebuild keeps the input with what is typed.
+     */
+    public edit(element: T, edit: IRowEdit): void {
+        this.finishEdit(false);
+        const input = new InputElement();
+        input.inputState.value = edit.value;
+        input.inputState.selectAll();
+        input.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== "Escape") return;
+            event.preventDefault();
+            this.finishEdit(event.key === "Enter");
+        });
+        input.addEventListener("blur", () => {
+            // A rebuild takes the row off the list for a moment; that is not the user leaving it.
+            if (!this.rebuilding) this.finishEdit(true);
+        });
+        this.editing = { key: this.source.getKey(element), edit, input };
+        this.rebuild();
+        input.focus();
+    }
+
+    private finishEdit(success: boolean): void {
+        const editing = this.editing;
+        if (editing === undefined) return;
+        this.editing = undefined;
+        const hadFocus = editing.input.isFocused;
+        this.rebuild();
+        if (hadFocus) this.list.focus();
+        editing.edit.onDone(editing.input.inputState.value, success);
     }
 
     public get focused(): T | undefined {
@@ -276,6 +338,19 @@ export class LazyTreeControl<T> {
     }
 
     private rebuild(): void {
+        const editing = this.editing;
+        const editingFocused = editing?.input.isFocused === true;
+        this.rebuilding = true;
+        try {
+            this.rebuildRows();
+        } finally {
+            this.rebuilding = false;
+        }
+        // The edited row came back: its input gets the focus it had.
+        if (editingFocused) editing?.input.focus();
+    }
+
+    private rebuildRows(): void {
         const list = this.list;
         const cursorId = list.getCursorElement()?.id;
         const scrollTop = list.scrollTop;
@@ -289,7 +364,11 @@ export class LazyTreeControl<T> {
                 const key = this.source.getKey(item);
                 const id = `${this.options.idPrefix}:${key}`;
                 const spans = this.source.renderRow(item);
-                const row = buildRow(spans, this.source.renderRowEnd?.(item) ?? []);
+                const editing = this.editing?.key === key ? this.editing : undefined;
+                const row =
+                    editing === undefined
+                        ? buildRow(spans, this.source.renderRowEnd?.(item) ?? [])
+                        : editRow(editing.input, editing.edit.error);
                 row.id = id;
                 this.items.set(row, item);
                 this.parentOf.set(id, parentId);
