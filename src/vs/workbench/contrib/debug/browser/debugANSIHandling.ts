@@ -242,7 +242,8 @@ export function handleANSIOutput(text: string): IAnsiSpan[] {
 
         if (color !== undefined) {
             changeColor(colorType, color);
-        } else if (colorNumber <= 15) {
+        } else {
+            // One of the 16, or nothing: past 15 or without a number, the code below is no color code.
             // Need to map to one of the four basic color ranges (30-37, 90-97, 40-47, 100-107)
             colorNumber += 30;
             if (colorNumber >= 38) {

@@ -2,6 +2,7 @@
 // shows (upstream `selectSession`), the rows of groups and nameless objects, the input's hint and keys.
 
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { TestApp as TuidomTestApp } from "@tuidom/testing/TestApp";
@@ -711,8 +712,12 @@ describe("Repl", () => {
         }
 
         it("output is drawn in its ANSI colors and styles, over the severity's color", async () => {
+            const linkify = vi.spyOn(LinkDetector.prototype, "linkify");
             await start("s");
             await shows("PASS self-check 3/3");
+            // The bold of `3/3` reaches the row's pieces, over the plain severity.
+            const pieces = linkify.mock.calls.flatMap(([spans]) => spans);
+            expect(pieces.find((piece) => piece.text === "3/3")?.style).toBe(StyleFlags.Bold);
             const pass = cellOf("PASS");
             expect(app.backend.getFgAt(pass)).toBe(themeVars["terminal.ansiGreen"]);
             expect(app.backend.getFgAt(cellOf("3/3"))).toBe(themeVars["terminal.ansiYellow"]);
@@ -804,6 +809,7 @@ describe("Repl", () => {
             expect(screen()).toContain("Hello from hello");
             expect(screen()).toContain("Reading input");
             expect(repl.filterBadge.getText()).toMatch(/^Showing 2 of \d+ $/u);
+            expect(app.backend.getFgAt(cellOf("Showing"))).toBe(themeVars.descriptionForeground);
             expect(state.values.get("debug.repl.filter.value")).toBe("hello from,reading");
 
             // Evaluations stay whatever the filter says.
@@ -1090,6 +1096,10 @@ describe("Repl", () => {
             await shows("PASS");
             expect(repl.getVisibleContent()).toContain("PASS self-check 3/3 at /home/user/hello/src/main.cpp:27:9\n");
             expect(repl.getVisibleContent()).not.toContain("\u001b");
+            // A row's own trailing blanks go, its indentation stays.
+            session.appendToRepl({ output: "  indented  \n", sev: "info" });
+            await shows("indented");
+            expect(repl.getVisibleContent()).toContain("\n  indented\n");
 
             const model = session as unknown as { repl: { startGroup: (...a: unknown[]) => void } };
             model.repl.startGroup(session, "G", true);
@@ -1126,12 +1136,85 @@ describe("Repl", () => {
             await fx.configuration.updateValue("debug.console.collapseIdenticalLines", false);
             const session = await start("s");
             session.appendToRepl({ output: "alpha\nbeta\n", sev: "info" });
+            session.appendToRepl({ output: "gamma\r\ndelta\n", sev: "info" });
 
-            await shows("alpha");
+            await shows("delta");
             const rows = screen().split("\n");
             const alpha = rows.findIndex((row) => row.includes("alpha"));
             expect(rows[alpha]).not.toContain("beta");
             expect(rows[alpha + 1]).toMatch(aloneOnRow("beta"));
+            // A CRLF is one line break.
+            const gamma = rows.findIndex((row) => row.includes("gamma"));
+            expect(rows[gamma + 1]).toMatch(aloneOnRow("delta"));
+        });
+
+        it("only Ctrl+Space asks and only Shift+Enter breaks the line, which shows at once; Down within the input moves in it", async () => {
+            const session = await start("s");
+            const completions = vi.spyOn(session, "completions");
+            repl.focus();
+            type("ab");
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            completions.mockClear();
+            app.sendKey("Ctrl+e");
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            expect(completions).not.toHaveBeenCalled();
+            app.sendKey("Shift+ArrowLeft");
+            expect(repl.input.inputState.value).toBe("ab");
+
+            app.sendKey("End");
+            app.sendKey("Shift+Enter");
+            const rows = screen().split("\n");
+            expect(rows.at(-2)).toContain("> ab");
+            expect(rows.at(-1)?.trim()).toBe("");
+
+            app.sendKey("ArrowUp");
+            expect(repl.input.cursorLine).toBe(0);
+            app.sendKey("ArrowDown");
+            expect(repl.input.cursorLine).toBe(1);
+            expect(repl.input.inputState.value).toBe("ab\n");
+        });
+
+        it("Escape in the filter clears it and is taken; on an empty filter it is not the filter's", async () => {
+            await start("s");
+            const prevented: boolean[] = [];
+            titleWidget?.addEventListener("keydown", (event) => {
+                if (event.key === "Escape") prevented.push(event.defaultPrevented);
+            });
+            repl.focusFilter();
+            app.sendKey("Escape");
+            expect(prevented).toEqual([false]);
+            type("zzz");
+            expect(screen()).toContain("zzz");
+            app.sendKey("Escape");
+            expect(prevented).toEqual([false, true]);
+            expect(repl.filterInput.inputState.value).toBe("");
+            expect(screen()).not.toContain("zzz");
+            expect(screen()).toContain("Filter (e.g.");
+        });
+
+        it("showing another session's console closes the popup of the one before", async () => {
+            await start("s");
+            repl.focus();
+            type("cf");
+            await vi.waitFor(() => {
+                expect(repl.suggest.isOpen).toBe(true);
+            });
+            repl.selectSession(await start("t"));
+            expect(repl.shownSession?.name).toBe("t");
+            expect(repl.suggest.isOpen).toBe(false);
+        });
+
+        it("a change of the filter scrolls the console to its end", async () => {
+            const session = await start("s");
+            for (let i = 0; i < 40; i++) session.appendToRepl({ output: `line ${String(i)}\n`, sev: "info" });
+            await shows("line 39");
+            repl.tree.list.focus();
+            app.sendKey("Home");
+            expect(screen()).not.toContain("line 39");
+            // A filter that hides nothing: the rows and the cursor stay, the scroll goes to the end.
+            repl.focusFilter();
+            type("!zzz");
+            await shows("line 39");
         });
 
         /** The list's rows of the frame: below the title row with the filter, above the input. */

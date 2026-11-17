@@ -192,6 +192,17 @@ describe("LinkDetector", () => {
         await vi.waitFor(() => {
             expect(opened).toEqual(["/src/app.ts"]);
         });
+        // Line 0 is no line; column 0 is the line's start.
+        opened = [];
+        linkOf(detector.linkify([{ text: "/src/app.ts:0" }], undefined), "/src/app.ts:0")();
+        await vi.waitFor(() => {
+            expect(opened).toEqual(["/src/app.ts"]);
+        });
+        opened = [];
+        linkOf(detector.linkify([{ text: "/src/app.ts:3:0" }], undefined), "/src/app.ts:3:0")();
+        await vi.waitFor(() => {
+            expect(opened).toEqual(["/src/app.ts", "@2:0"]);
+        });
     });
 
     it("a relative path opens in the session's folder; without a folder it is text", async () => {

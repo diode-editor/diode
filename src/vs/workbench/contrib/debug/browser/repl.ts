@@ -189,10 +189,7 @@ export class Repl extends Component implements IContextKeyContributor {
         );
         this.tree = new LazyTreeControl<IReplElement>(
             {
-                getRoots: () =>
-                    [...(this.session?.getReplElements() ?? []), ...this.orphans].filter((element) =>
-                        this.filter.filter(element),
-                    ),
+                getRoots: () => this.elements().filter((element) => this.filter.filter(element)),
                 // The tree asks only the elements it was told have children, and only the shown ones: a group's
                 // children without a verdict of their own are visible as it is (upstream's `parentVisibility`).
                 getChildren: async (element) =>
@@ -288,6 +285,7 @@ export class Repl extends Component implements IContextKeyContributor {
             if (event.key !== "Escape" || this.filterInput.inputState.value === "") return;
             event.preventDefault();
             this.filterInput.inputState.value = "";
+            // Stryker disable next-line CallExpression: the refresh of setFilter right after repaints the title too
             this.filterInput.markDirty();
             this.setFilter("");
         });
@@ -512,13 +510,16 @@ export class Repl extends Component implements IContextKeyContributor {
         this.tree.refresh({ revealTail }).catch(onUnexpectedError);
     }
 
+    /** The top-level elements: the shown session's, then the output that came without one. */
+    private elements(): IReplElement[] {
+        return [...(this.session?.getReplElements() ?? []), ...this.orphans];
+    }
+
     /** Upstream `getFilterStats`: the top-level lines shown of all. */
     private updateFilterBadge(): void {
-        const all = [...(this.session?.getReplElements() ?? []), ...this.orphans];
+        const all = this.elements();
         const shown = all.filter((element) => this.filter.filter(element)).length;
-        this.filterBadge.setText(
-            shown === all.length || all.length === 0 ? "" : `Showing ${String(shown)} of ${String(all.length)} `,
-        );
+        this.filterBadge.setText(shown === all.length ? "" : `Showing ${String(shown)} of ${String(all.length)} `);
     }
 
     /** Upstream's output and group renderers: the ANSI styles over the severity's, then the links. */

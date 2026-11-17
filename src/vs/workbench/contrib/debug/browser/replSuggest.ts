@@ -50,7 +50,7 @@ interface IReplSuggestion {
     readonly replace: number;
     readonly insertText: string;
     /** Where the cursor goes in the inserted text; its end when absent. */
-    readonly cursor?: number;
+    readonly cursor: number | undefined;
 }
 
 /** What the input's completion asks of the console. */
@@ -183,28 +183,36 @@ export class ReplSuggest extends Disposable {
                 ...(detail === undefined ? {} : { detail }),
             });
         };
-        for (const target of response?.body.targets ?? []) {
-            if (!target.label) continue;
-            const insertText = target.text ?? target.label;
-            add(
-                target.label,
-                target.detail,
-                // No type, or one DAP does not know: a property, as upstream's default.
-                KIND_OF[String(target.type)] ?? KIND_PROPERTY,
-                {
-                    replace: target.length ?? 0,
-                    insertText,
-                    ...(typeof target.selectionStart === "number" ? { cursor: target.selectionStart } : {}),
-                },
-                target.sortText ?? target.label,
-            );
+        if (response !== undefined) {
+            for (const target of response.body.targets) {
+                if (!target.label) continue;
+                const insertText = target.text ?? target.label;
+                add(
+                    target.label,
+                    target.detail,
+                    // No type, or one DAP does not know: a property, as upstream's default.
+                    KIND_OF[String(target.type)] ?? KIND_PROPERTY,
+                    {
+                        replace: target.length ?? 0,
+                        insertText,
+                        cursor: target.selectionStart,
+                    },
+                    target.sortText ?? target.label,
+                );
+            }
         }
         if (this.host.historySuggestions()) {
             const history = this.host.history();
             const idxLength = String(history.length).length;
             history.forEach((entry, i) => {
                 const sortText = `ZZZ${String(history.length - i).padStart(idxLength, "0")}`;
-                add(entry, undefined, KIND_TEXT, { replace: entry.length, insertText: entry }, sortText);
+                add(
+                    entry,
+                    undefined,
+                    KIND_TEXT,
+                    { replace: entry.length, insertText: entry, cursor: undefined },
+                    sortText,
+                );
             });
         }
         return items;
@@ -245,6 +253,7 @@ export class ReplSuggest extends Disposable {
         const value = state.value;
         state.value = value.slice(0, start) + suggestion.insertText + value.slice(cursor);
         state.moveCursorTo(start + (suggestion.cursor ?? suggestion.insertText.length));
+        // Stryker disable next-line CallExpression: the popup is open here, and closing it repaints the field too
         this.input.markDirty();
         this.close();
     }

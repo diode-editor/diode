@@ -155,6 +155,17 @@ describe("handleANSIOutput at the edges of the color ranges", () => {
         }
     });
 
+    it("a code outside the color ranges keeps the colors set", () => {
+        // 5 below the foregrounds, 38 between them and the backgrounds, 108 past the bright backgrounds.
+        expect(handleANSIOutput(`${ESC}[31;42m${ESC}[5;1;38;108mx`)).toStrictEqual([
+            { text: "x", fg: "terminal.ansiRed", bg: "terminal.ansiGreen", style: StyleFlags.Bold },
+        ]);
+    });
+
+    it("an advanced color of another kind than 5 or 2 is nothing, whatever follows it", () => {
+        expect(handleANSIOutput(`${ESC}[38;9;1;2;3mx`)).toStrictEqual([{ text: "x" }]);
+    });
+
     it("a code after the advanced color is not a style of its own", () => {
         // `1` is the 256-color's number here, not bold.
         expect(handleANSIOutput(`${ESC}[38;5;1;1mx`)).toStrictEqual([{ text: "x", fg: "terminal.ansiRed" }]);

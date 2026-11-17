@@ -188,12 +188,22 @@ describe("ReplSuggest", () => {
             expect(asked[1].token.isCancellationRequested).toBe(true);
         });
 
-        it("no answer, or no item in it, keeps the popup closed", async () => {
+        it("no answer, or no item in it, keeps the popup closed; an empty answer closes it", async () => {
+            historySuggestions = false;
             await open("c", undefined);
             expect(suggest.isOpen).toBe(false);
-            historySuggestions = false;
             await open("c", []);
             expect(suggest.isOpen).toBe(false);
+            await open("c", [{ label: "cfg" }]);
+            expect(suggest.isOpen).toBe(true);
+            await open("cx", []);
+            expect(suggest.isOpen).toBe(false);
+        });
+
+        it("without an answer the history is still offered", async () => {
+            history = ["count"];
+            await open("c", undefined);
+            expect(labels()).toEqual(["count"]);
         });
     });
 
@@ -280,6 +290,8 @@ describe("ReplSuggest", () => {
             expect(suggest.handleKey("Tab")).toBe(true);
             expect(value()).toBe("ccb|");
             expect(suggest.isOpen).toBe(false);
+            app.render();
+            expect(app.backend.screenToString()).toContain("ccb");
 
             await open("c", [{ label: "ca", length: 1 }]);
             expect(suggest.handleKey("Escape")).toBe(true);
@@ -359,6 +371,8 @@ describe("ReplSuggest", () => {
             expect(base.bottom).toBe(inputY);
             const second = await anchorOf("ab\ncd|");
             expect(second.x - base.x).toBe(2);
+            // The cursor just before a line break: still on its line.
+            expect((await anchorOf("ab|\ncd")).x - base.x).toBe(2);
             expect(second.bottom).toBe(inputY + 1);
             // Columns of the cursor's own line, wide characters by their cells.
             expect((await anchorOf("abcdef\n界|")).x - base.x).toBe(2);
