@@ -75,7 +75,16 @@ describe("ViewContainerHeaderElement", () => {
 
         mouse(header, "mousedown", { localX: 25 });
         mouse(header, "mouseup", { localX: 25 });
-        expect(onAction).toHaveBeenCalledWith("scm.refresh");
+        expect(onAction).toHaveBeenCalledWith("scm.refresh", { screenX: 25, screenY: 0 });
+    });
+
+    it("a click on a button of a header without an action handler does not throw", () => {
+        const { header } = makeHeader();
+        header.onAction = undefined;
+        mouse(header, "mousedown", { localX: 25 });
+        expect(() => {
+            mouse(header, "mouseup", { localX: 25 });
+        }).not.toThrow();
     });
 
     it("a click on the title does nothing: the container does not collapse", () => {

@@ -1,0 +1,26 @@
+{
+    "name": "run-demo",
+    "displayName": "Run Demo",
+    "description": "E2E demo extension: Run and Debug items in editor/title/run, shaped like jbangdev.jbang-vscode (PNG icons, two groups-at-orders).",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onLanguage:plaintext"
+    ],
+    "contributes": {
+        "commands": [
+            { "command": "runDemo.run", "title": "Run Demo", "icon": "icons/run.png" },
+            { "command": "runDemo.debug", "title": "Debug Demo", "icon": "icons/debug.png" }
+        ],
+        "menus": {
+            "editor/title/run": [
+                { "command": "runDemo.run", "when": "isRunDemoFile", "group": "1_execute@1" },
+                { "command": "runDemo.debug", "when": "isRunDemoFile", "group": "1_execute@2" }
+            ]
+        }
+    }
+}

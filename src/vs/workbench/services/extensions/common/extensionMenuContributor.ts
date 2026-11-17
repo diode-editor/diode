@@ -15,6 +15,7 @@ import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 const MENU_IDS: Readonly<Partial<Record<string, MenuId>>> = {
     "editor/context": MenuId.EditorContext,
     "editor/title": MenuId.EditorTitle,
+    "editor/title/run": MenuId.EditorTitleRun,
     "editor/title/context": MenuId.EditorTitleContext,
     "explorer/context": MenuId.ExplorerContext,
     "scm/resourceState/context": MenuId.ScmContext,
