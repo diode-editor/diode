@@ -817,3 +817,138 @@ describe("LazyTreeControl — refresh", () => {
         expect(text(screen())).toBe(before);
     });
 });
+
+describe("LazyTreeControl — wrapped rows and links", () => {
+    it("a wrapped node expands with the keyboard and shows its children", async () => {
+        const source = new Source([
+            { key: "long", name: "x".repeat(40), children: [{ key: "kid", name: "kid", value: "1" }] },
+        ]);
+        const { app, screen } = await mount(source, { wrap: () => true });
+        expect(text(screen())).toContain("xxxx");
+        app.sendKey("End");
+        app.sendKey("ArrowRight");
+        await flush();
+        expect(screen()).toContain("kid: 1");
+    });
+
+    it("a long row takes the lines it wraps to, keeps its end on its first line; without wrapping it is cut", async () => {
+        const nodes = [
+            { key: "a", name: `${"a".repeat(30)} tail` },
+            { key: "b", name: "b" },
+        ];
+        const source: ILazyTreeSource<INode> = {
+            getRoots: () => nodes,
+            getChildren: () => [],
+            getKey: (node) => node.key,
+            hasChildren: () => false,
+            renderRow: (node) => [{ text: node.name }],
+            renderRowEnd: (node) => (node.key === "a" ? [{ text: "END" }] : []),
+        };
+        let wrap = true;
+        const { tree, screen } = await mount(source, { wrap: () => wrap });
+        const rows = screen().split("\n");
+        expect(rows[0]).toContain("END");
+        expect(rows.slice(0, 3).join("")).toContain("tail");
+        expect(rows.findIndex((row) => row.includes(" b"))).toBeGreaterThan(1);
+
+        wrap = false;
+        tree.rerender();
+        const cut = screen().split("\n");
+        expect(cut[0]).toContain("END");
+        expect(cut[1]).toContain("b");
+        expect(screen()).not.toContain("tail");
+    });
+
+    it("a click on a link's cells runs it, on a wrapped line too; a click beside it picks the row", async () => {
+        const clicks: string[] = [];
+        const nodes = [
+            { key: "a", name: "row" },
+            { key: "b", name: "other" },
+        ];
+        const source: ILazyTreeSource<INode> = {
+            getRoots: () => nodes,
+            getChildren: () => [],
+            getKey: (node) => node.key,
+            hasChildren: () => false,
+            renderRow: (node) =>
+                node.key === "a"
+                    ? [
+                          // The rows are 28 columns: the link is on the second line.
+                          { text: `${"x".repeat(28)} ` },
+                          { text: "LINK", link: () => clicks.push("link") },
+                          { text: " after" },
+                      ]
+                    : [{ text: node.name }],
+        };
+        const { app, tree, screen } = await mount(source, { wrap: () => true });
+        tree.onSelect = (node) => clicks.push(`select ${node.key}`);
+        screen();
+        const link = lineOf(app, "LINK");
+        expect(link.y).toBe(1);
+        clickAt(app, link);
+        expect(clicks).toEqual(["link"]);
+        clickAt(app, lineOf(app, "after"));
+        clickAt(app, lineOf(app, "other"));
+        clickAt(app, lineOf(app, "LINK"));
+        expect(clicks).toEqual(["link", "select a", "select b", "link"]);
+    });
+
+    it("a double click on a link runs it and opens no row; beside it, or past the text's end, it opens the row", async () => {
+        const clicks: string[] = [];
+        const source: ILazyTreeSource<INode> = {
+            getRoots: () => [
+                { key: "a", name: "row" },
+                { key: "b", name: "only a link" },
+            ],
+            getChildren: () => [],
+            getKey: (node) => node.key,
+            hasChildren: () => false,
+            renderRow: (node) =>
+                node.key === "a"
+                    ? [{ text: "see " }, { text: "LINK", link: () => clicks.push("link") }, { text: " x" }]
+                    : [{ text: "ONLY", link: () => clicks.push("only") }],
+        };
+        const { app, tree, screen } = await mount(source, { wrap: () => true });
+        tree.onActivate = (node) => clicks.push(`open ${node.key}`);
+        screen();
+        const link = lineOf(app, "LINK");
+        clickAt(app, link, 2);
+        expect(clicks).toEqual(["link", "link"]);
+        clicks.length = 0;
+        // Its last cell is the link's; the next one is not.
+        clickAt(app, { x: link.x + 3, y: link.y });
+        expect(clicks).toEqual(["link"]);
+        clicks.length = 0;
+        clickAt(app, { x: link.x + 4, y: link.y }, 2);
+        expect(clicks).toEqual(["open a"]);
+        clicks.length = 0;
+        clickAt(app, lineOf(app, "see"), 2);
+        expect(clicks).toEqual(["open a"]);
+        clicks.length = 0;
+        // The label fills the row: the cells after its text are its own, with no character under them.
+        clickAt(app, { x: link.x + 10, y: link.y }, 2);
+        expect(clicks).toEqual(["open a"]);
+        clicks.length = 0;
+        // A row that is all link.
+        clickAt(app, lineOf(app, "ONLY"));
+        expect(clicks).toEqual(["only"]);
+    });
+});
+
+function clickAt(app: TestApp, { x, y }: Point, times = 1): void {
+    for (let i = 0; i < times; i++) {
+        for (const action of ["press", "release"] as const) {
+            app.backend.simulateMouse({
+                kind: "mouse",
+                button: "left",
+                x: x + 1,
+                y: y + 1,
+                action,
+                shiftKey: false,
+                altKey: false,
+                ctrlKey: false,
+                raw: "",
+            });
+        }
+    }
+}

@@ -10,6 +10,8 @@
  * - the second resolution sees the substituted program and adds an argument;
  * - the adapter "runs" the program: it prints a greeting to the Debug Console and stops on entry in `main` of
  *   the folder's `hello.c` with `argc` and `program` among the locals;
+ * - `./tests` also prints what a test runner does: output in ANSI colors with a link to `hello.c`, a group and a
+ *   long line; the adapter completes the console's input (`completions`);
  * - its custom `demoReady` event makes the extension ask the custom `demoInfo` request and print the answer to the
  *   Debug Console, as does the focused frame;
  * - "Debug Demo: Break on printf" adds a breakpoint at the `printf` line of `hello.c` and a function breakpoint.
@@ -29,7 +31,9 @@ exports.activate = function activate(context) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand("debugDemo.pickProgram", () =>
-            vscode.window.showQuickPick(["./hello", "./world"], { placeHolder: "Pick the program to debug" }),
+            vscode.window.showQuickPick(["./hello", "./world", "./tests"], {
+                placeHolder: "Pick the program to debug",
+            }),
         ),
         vscode.debug.registerDebugConfigurationProvider("demo", {
             resolveDebugConfiguration(_folder, config) {
@@ -56,7 +60,8 @@ exports.activate = function activate(context) {
             createDebugAdapterTracker() {
                 return {
                     onDidSendMessage(message) {
-                        if (message.type === "event" && message.event !== "output") tracked.text = `dap:${message.event}`;
+                        if (message.type === "event" && message.event !== "output")
+                            tracked.text = `dap:${message.event}`;
                     },
                 };
             },
@@ -70,7 +75,9 @@ exports.activate = function activate(context) {
         }),
         vscode.debug.onDidChangeActiveStackItem((item) => {
             if (item instanceof vscode.DebugStackFrame) {
-                vscode.debug.activeDebugConsole.appendLine(`Debug Demo: frame ${item.frameId} of thread ${item.threadId}`);
+                vscode.debug.activeDebugConsole.appendLine(
+                    `Debug Demo: frame ${item.frameId} of thread ${item.threadId}`,
+                );
             }
         }),
         vscode.commands.registerCommand("debugDemo.breakOnPrintf", () => {
@@ -110,18 +117,44 @@ class DemoAdapter {
         if (request.command === "configurationDone") {
             const { program, args } = this.configuration;
             this.event("output", { category: "stdout", output: `Hello from ${program} ${args.join(" ")}\n` });
+            if (program === "./tests") this.testRunnerOutput();
             this.event("demoReady");
             this.event("stopped", { reason: "entry", threadId: 1, allThreadsStopped: true });
         }
         if (request.command === "disconnect") this.event("terminated");
     }
 
+    // What a test runner prints: SGR colors, a file link, a group, and a line longer than the console.
+    testRunnerOutput() {
+        this.event("output", { category: "stdout", output: "Checks", group: "start" });
+        this.event("output", {
+            category: "stdout",
+            output: `\u001b[32mPASS\u001b[0m self-check \u001b[1;33m3/3\u001b[0m at ${this.source}:3:5\n`,
+        });
+        this.event("output", { category: "stdout", output: "\u001b[31mFAIL\u001b[0m none\n" });
+        this.event("output", { category: "stdout", output: "", group: "end" });
+        this.event("output", {
+            category: "console",
+            output: `${"A long line that the Debug Console wraps to its width, ".repeat(4)}end of the long line\n`,
+        });
+    }
+
     answer(request) {
         switch (request.command) {
             case "initialize":
-                return { supportsConfigurationDoneRequest: true };
+                return { supportsConfigurationDoneRequest: true, supportsCompletionsRequest: true };
             case "demoInfo":
                 return { pid: 4242 };
+            case "completions": {
+                // The locals and `cfg` whose names start with the word before the cursor (`line` and `column` are
+                // 1-based, in the input's lines).
+                const { text, line = 1, column } = request.arguments;
+                const word = /[\w$]*$/u.exec(text.split("\n")[line - 1].slice(0, column - 1))[0];
+                const targets = ["argc", "program", "cfg", "count"]
+                    .filter((name) => name.startsWith(word))
+                    .map((label) => ({ label, type: "variable", length: word.length }));
+                return { targets };
+            }
             case "threads":
                 return { threads: [{ id: 1, name: "main thread" }] };
             case "stackTrace":

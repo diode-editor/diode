@@ -1,4 +1,6 @@
 import type { StyleFlags } from "@tuidom/core/common/styleFlags";
+import type { TUIEventBase } from "@tuidom/core/dom/events/tuiEventBase";
+import type { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { HFlexElement, hflexFill, hflexFit } from "@tuidom/elements/layout/hFlexElement";
@@ -18,6 +20,11 @@ export interface IRowSpan {
     readonly style?: StyleFlags;
     /** An inline control (upstream's checkbox of a breakpoint): a click on it does this instead of picking the row. */
     readonly onClick?: () => void;
+    /**
+     * A link in the text (upstream's `LinkDetector`): a click on its cells does this instead of picking the row. Unlike
+     * {@link onClick} it stays in the row's one text, so it wraps with it.
+     */
+    readonly link?: () => void;
 }
 
 /** Upstream's `IAsyncDataSource` with the renderer folded in: what the tree asks of its owner. */
@@ -44,6 +51,11 @@ export interface ILazyTreeOptions {
     readonly idPrefix: string;
     /** The console mode: a refresh keeps the last row in view if it was in view. */
     readonly stickyTail?: boolean;
+    /**
+     * Rows wrap to the list's width (rows of `height: "auto"`), read on every rebuild; otherwise a row is one line and
+     * its text is cut.
+     */
+    readonly wrap?: () => boolean;
 }
 
 /** The child row of an expanded node whose children are on their way. */
@@ -61,6 +73,22 @@ function spansLabel(spans: readonly IRowSpan[]): TextLabelElement {
         // UTF-16 units, as the label indexes its chars.
         for (const _unit of span.text.split("")) label.setCharStyle(offset++, span);
     }
+    // The link of the piece under the mouse; there is no piece under the cells past the text.
+    const linkAt = (event: TUIEventBase): (() => void) | undefined => {
+        const { screenX, screenY } = event as TUIMouseEvent;
+        let at = label.offsetAt(screenX - label.globalPosition.x, screenY - label.globalPosition.y) ?? Infinity;
+        return spans.find((span) => (at -= span.text.length) < 0)?.link;
+    };
+    label.addEventListener("click", (event) => {
+        const open = linkAt(event);
+        if (open === undefined) return;
+        event.preventDefault();
+        open();
+    });
+    // The pair of a double click on a link must not open the row either.
+    label.addEventListener("dblclick", (event) => {
+        if (linkAt(event) !== undefined) event.preventDefault();
+    });
     return label;
 }
 
@@ -84,10 +112,15 @@ function clickableLabel(span: IRowSpan, onClick: () => void): TextLabelElement {
  * fill child, which gets what the controls and the right part leave, is cut when that is too little, and pushes the
  * right part to the edge when there is room.
  */
-function buildRow(spans: readonly IRowSpan[], end: readonly IRowSpan[]): TUIElement {
+function buildRow(spans: readonly IRowSpan[], end: readonly IRowSpan[], wrap: boolean): TUIElement {
+    // A row with links is a flex too: the list hands a click only to the descendants of the row's element.
+    // Stryker disable next-line ConditionalExpression: a row without links as a flex paints the same, as below
+    const linked = spans.some((span) => span.link !== undefined);
     // Stryker disable next-line ConditionalExpression,LogicalOperator,ArrowFunction,EqualityOperator,BlockStatement: a row of plain spans as the flex's one fill child paints the same columns; one label is the cheaper element for the hundreds of rows a debug view rebuilds
-    if (end.length === 0 && spans.every((span) => span.onClick === undefined)) {
-        return spansLabel(spans);
+    if (end.length === 0 && spans.every((span) => span.onClick === undefined) && !linked) {
+        const label = spansLabel(spans);
+        label.wrap = wrap;
+        return label;
     }
     const row = new HFlexElement();
     let run: IRowSpan[] = [];
@@ -101,7 +134,10 @@ function buildRow(spans: readonly IRowSpan[], end: readonly IRowSpan[]): TUIElem
         run = [];
         row.addChild(clickableLabel(span, span.onClick), { width: hflexFit(), height: 1 });
     }
-    row.addChild(spansLabel(run), { width: hflexFill(), height: 1 });
+    // A wrapped text is as tall as its lines; the controls and the right part stay on its first line.
+    const text = spansLabel(run);
+    text.wrap = wrap;
+    row.addChild(text, { width: hflexFill(), height: wrap ? "fill" : 1 });
     if (end.length > 0) row.addChild(spansLabel([{ text: " " }, ...end]), { width: hflexFit(), height: 1 });
     return row;
 }
@@ -160,6 +196,11 @@ export class LazyTreeControl<T> {
 
     public get focused(): T | undefined {
         return this.items.get(this.list.getCursorElement());
+    }
+
+    /** The elements of the rows the tree shows (the children of expanded nodes), top to bottom. */
+    public get shownItems(): readonly T[] {
+        return [...this.items.values()];
     }
 
     /**
@@ -284,18 +325,19 @@ export class LazyTreeControl<T> {
         this.parentOf = new Map();
         list.clear();
         this.items.clear();
+        const wrap = this.options.wrap?.() === true;
         const append = (items: readonly T[], parentId: string | undefined): void => {
             for (const item of items) {
                 const key = this.source.getKey(item);
                 const id = `${this.options.idPrefix}:${key}`;
                 const spans = this.source.renderRow(item);
-                const row = buildRow(spans, this.source.renderRowEnd?.(item) ?? []);
+                const row = buildRow(spans, this.source.renderRowEnd?.(item) ?? [], wrap);
                 row.id = id;
                 this.items.set(row, item);
                 this.parentOf.set(id, parentId);
                 const expanded = this.isExpanded(item, key);
                 const label = this.source.getLabel?.(item) ?? spansText(spans);
-                list.appendRow(row, { label, parentId, collapsed: !expanded });
+                list.appendRow(row, { label, parentId, collapsed: !expanded, height: wrap ? "auto" : 1 });
                 if (!this.source.hasChildren(item)) continue;
                 const read = expanded ? this.children.get(key) : undefined;
                 if (read !== undefined) {
