@@ -425,19 +425,26 @@ class WordLines {
         const tokenStore = this.editor.viewState.tokenStore;
         tokenStore?.forceTokenization(line);
         const lineTokens = tokenStore?.getLineTokens(line);
-        // No grammar: every word of the line is code.
-        if (lineTokens === undefined) return content.match(new RegExp(DEFAULT_WORD_REGEXP.source, "g")) ?? [];
+        // No tokens: the whole line is code.
+        if (lineTokens === undefined) return wordsOf(content);
         const result: string[] = [];
         for (let tokenIndex = 0, tokenCount = lineTokens.getCount(); tokenIndex < tokenCount; tokenIndex++) {
             // Token is a word and not a comment
             if (lineTokens.getStandardTokenType(tokenIndex) !== StandardTokenType.Other) continue;
-            DEFAULT_WORD_REGEXP.lastIndex = 0; // We assume tokens will usually map 1:1 to words if they match
-            const tokenStr = content.substring(lineTokens.getStartOffset(tokenIndex), lineTokens.getEndOffset(tokenIndex));
-            const wordMatch = DEFAULT_WORD_REGEXP.exec(tokenStr);
-            if (wordMatch) result.push(wordMatch[0]);
+            result.push(
+                ...wordsOf(content.substring(lineTokens.getStartOffset(tokenIndex), lineTokens.getEndOffset(tokenIndex))),
+            );
         }
         return result;
     }
+}
+
+/**
+ * Every word of a code token: upstream takes only the first, assuming a token per word — a language without a
+ * grammar has the whole line in one token.
+ */
+function wordsOf(code: string): string[] {
+    return code.match(new RegExp(DEFAULT_WORD_REGEXP.source, "g")) ?? [];
 }
 
 /** One line, as a message after a line's end must be; upstream's `...` past its length. */

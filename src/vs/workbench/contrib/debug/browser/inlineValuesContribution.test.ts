@@ -68,7 +68,10 @@ interface IFakeEditor extends IInlineValuesEditor {
     readonly forced: number[];
 }
 
-function fakeEditor(options: { uri?: Uri; languageId?: string; text?: string; tokens?: boolean } = {}): IFakeEditor {
+/** `tokens`: `false` — no token store; `"line"` — a language without a grammar, a line is one token. */
+function fakeEditor(
+    options: { uri?: Uri; languageId?: string; text?: string; tokens?: false | "line" } = {},
+): IFakeEditor {
     const document = new TextDocument(options.text ?? TEXT);
     const content = new Emitter<void>();
     const visibleRange = new Emitter<void>();
@@ -80,7 +83,15 @@ function fakeEditor(options: { uri?: Uri; languageId?: string; text?: string; to
                   forceTokenization: (line: number) => {
                       forced.push(line);
                   },
-                  getLineTokens: (line: number) => tokensOf(document.getLineContent(line)),
+                  getLineTokens: (line: number) =>
+                      options.tokens === "line"
+                          ? ({
+                                getCount: () => 1,
+                                getStartOffset: () => 0,
+                                getEndOffset: () => document.getLineContent(line).length,
+                                getStandardTokenType: () => StandardTokenType.Other,
+                            } as unknown as LineTokens)
+                          : tokensOf(document.getLineContent(line)),
               };
     const editor: IFakeEditor = {
         uri: options.uri ?? FILE,
@@ -270,8 +281,11 @@ describe("InlineValuesContribution", () => {
             expect(editor.forced).toEqual([0, 1]);
         });
 
-        it("without tokens every word of the line counts", async () => {
-            editor = fakeEditor({ text: "int argc; // sum\n", tokens: false });
+        it.each([
+            ["without tokens", false],
+            ["in one token of a line (no grammar)", "line"],
+        ] as const)("%s every word of the line counts", async (_name, tokens) => {
+            editor = fakeEditor({ text: "int argc; // sum\n", tokens });
             open = [editor];
             start();
             await focus(stackFrame(1, [LOCALS]));
