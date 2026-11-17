@@ -148,6 +148,9 @@
   отступления — [Extensions.md](../arch/Extensions.md) («Сессии, брейкпоинты, консоль»). Тесты:
   `extensionDebugAdapter.sessions.test.ts` (настоящий `DebugService`), `extensionHost.debugSessions.test.ts`
   (настоящий субпроцесс, фикстура `__fixtures__/debugSessions/`). Не здесь: data-брейкпоинты (веха 2).
+- #1157: IntelliSense `launch.json` по `configurationAttributes`/`configurationSnippets` отладчиков — второй провайдер
+  встроенного `diode-settings` (`lib/launchSchema.ts`, `lib/launchCompletion.ts`), устройство и отступления —
+  [Extensions.md](../arch/Extensions.md) («Пример: builtin `diode-settings`»). Без диагностик, как у settings.
 
 - **Противоречие в доках:** [docs/arch/Extensions.md](../arch/Extensions.md) («Отладка как null-объект») пишет «DAP не
   планируется (решение человека)», а `GOAL.md` и `docs/public/STATUS.md` — «направление на потом / planned».
