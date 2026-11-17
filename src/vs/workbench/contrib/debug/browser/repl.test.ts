@@ -962,6 +962,62 @@ describe("Repl", () => {
             expect(repl.suggest.isOpen).toBe(false);
         });
 
+        it("takes the adapter's targets as DAP gives them; a click on one accepts it", async () => {
+            const session = await startRunning("s");
+            (session.capabilities as { supportsCompletionsRequest?: boolean }).supportsCompletionsRequest = true;
+            const asked: unknown[] = [];
+            vi.spyOn(session, "completions").mockImplementation((frameId, threadId, text, position) => {
+                asked.push([frameId, threadId, text, position.lineNumber, position.column]);
+                // The first answer is none, as a failed request's.
+                if (asked.length === 1) return Promise.resolve(undefined);
+                return Promise.resolve({
+                    body: {
+                        targets: [
+                            { label: "" },
+                            { label: "plain" },
+                            { label: "odd", type: "weird" as "text", length: 0 },
+                            { label: "fn", type: "function" },
+                            { label: "sel", text: "sel()", selectionStart: 4, length: 1 },
+                        ],
+                    },
+                } as Awaited<ReturnType<IDebugSession["completions"]>>);
+            });
+            repl.focus();
+            app.sendKey("a");
+            await vi.waitFor(() => {
+                expect(asked).toHaveLength(1);
+            });
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            expect(repl.suggest.isOpen).toBe(false);
+            app.sendKey("Shift+Enter");
+            type("s");
+            await vi.waitFor(() => {
+                expect(repl.suggest.isOpen).toBe(true);
+            });
+            // No focused frame while it runs: no frame id, thread 0. The position is 1-based on the cursor's line.
+            expect(asked.at(-1)).toEqual([undefined, 0, "a\ns", 2, 2]);
+            const askedBefore = asked.length;
+            // An empty label is no item; no type and an unknown one are properties.
+            expect(repl.suggest.list.items.map((item) => [item.label, item.kind])).toEqual([
+                ["fn", 2],
+                ["odd", 9],
+                ["plain", 9],
+                ["sel", 9],
+            ]);
+            // A key that is not the popup's goes to the input.
+            type("e");
+            expect(repl.input.inputState.value).toBe("a\nse");
+            await vi.waitFor(() => {
+                expect(asked.length).toBeGreaterThan(askedBefore);
+            });
+            await shows("sel");
+            clickAt(cellOf("sel"));
+            // `length` 1 replaces the `e` before the cursor; `selectionStart` puts the cursor in the inserted text.
+            expect(repl.input.inputState.value).toBe("a\nssel()");
+            expect(repl.input.inputState.cursorOffset).toBe("a\nssel(".length);
+            expect(repl.suggest.isOpen).toBe(false);
+        });
+
         it("a focus change closes the popup", async () => {
             await start("s");
             repl.focus();

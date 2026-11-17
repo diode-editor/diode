@@ -94,6 +94,16 @@ describe("handleANSIOutput", () => {
         expect(handleANSIOutput(`a${ESC}[2Jb${ESC}[1Ac`)).toEqual([{ text: "a" }, { text: "b" }, { text: "c" }]);
         expect(handleANSIOutput(`a${ESC}[31`)).toEqual([{ text: `a${ESC}[31` }]);
     });
+
+    it("starts a sequence only at Esc and [; a sequence that is not quite SGR styles nothing", () => {
+        // Esc without [, and [ without Esc, are text.
+        expect(handleANSIOutput(`${ESC}(Bok`)).toEqual([{ text: `${ESC}(Bok` }]);
+        expect(handleANSIOutput("a[31mb")).toEqual([{ text: "a[31mb" }]);
+        // A private-mode prefix: hidden, but not red.
+        expect(handleANSIOutput(`${ESC}[?1;31mx`)).toEqual([{ text: "x" }]);
+        // An advanced color of neither the 256 nor the truecolor kind.
+        expect(handleANSIOutput(`${ESC}[38;9mx`)).toEqual([{ text: "x" }]);
+    });
 });
 
 describe("calcANSI8bitColor", () => {

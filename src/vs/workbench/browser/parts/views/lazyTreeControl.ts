@@ -79,8 +79,9 @@ function spansLabel(spans: readonly IRowSpan[], wrap = false): TextLabelElement 
     if (links.length > 0) {
         const linkAt = (event: TUIEventBase): (() => void) | undefined => {
             const { screenX, screenY } = event as TUIMouseEvent;
-            const at = label.offsetAt(screenX - label.globalPosition.x, screenY - label.globalPosition.y);
-            return at === undefined ? undefined : links.find((link) => at >= link.start && at < link.end)?.open;
+            // No character under the cells past the text: no link either.
+            const at = label.offsetAt(screenX - label.globalPosition.x, screenY - label.globalPosition.y) ?? -1;
+            return links.find((link) => at >= link.start && at < link.end)?.open;
         };
         label.addEventListener("click", (event) => {
             const open = linkAt(event);
@@ -118,6 +119,7 @@ function clickableLabel(span: IRowSpan, onClick: () => void): TextLabelElement {
  */
 function buildRow(spans: readonly IRowSpan[], end: readonly IRowSpan[], wrap: boolean): TUIElement {
     // A row with links is a flex too: the list hands a click only to the descendants of the row's element.
+    // Stryker disable next-line ConditionalExpression: a row without links as a flex paints the same, as below
     const linked = spans.some((span) => span.link !== undefined);
     // Stryker disable next-line ConditionalExpression,LogicalOperator,ArrowFunction,EqualityOperator,BlockStatement: a row of plain spans as the flex's one fill child paints the same columns; one label is the cheaper element for the hundreds of rows a debug view rebuilds
     if (end.length === 0 && spans.every((span) => span.onClick === undefined) && !linked) {

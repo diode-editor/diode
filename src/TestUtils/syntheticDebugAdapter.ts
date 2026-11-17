@@ -687,7 +687,8 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
 
     /** The locals of the top frame whose names start with the word before the cursor (on the text's first line). */
     private completions(request: DebugProtocol.Request, args: DebugProtocol.CompletionsArguments): void {
-        const word = /[\w$]*$/u.exec(args.text.split("\n")[0].slice(0, args.column - 1))?.[0] ?? "";
+        const before = args.text.split("\n")[0].slice(0, args.column - 1);
+        const word = before.slice(before.search(/[\w$]*$/u));
         const targets = this.locals(this.program.frames(1)[0])
             .filter((v) => v.name.startsWith(word))
             .map((v) => ({ label: v.name, type: "variable", detail: v.type, length: word.length }));

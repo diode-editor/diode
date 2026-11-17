@@ -26,28 +26,20 @@ export interface IAnsiSpan {
 
 type ColorType = "foreground" | "background" | "underline";
 
-/** The formatting the cells can show; the rest of upstream's style names are parsed and dropped. */
-const FLAG_OF: Readonly<Record<string, StyleFlags>> = {
-    bold: StyleFlags.Bold,
-    dim: StyleFlags.Dim,
-    italic: StyleFlags.Italic,
-    underline: StyleFlags.Underline,
-    "double-underline": StyleFlags.Underline,
-    "strike-through": StyleFlags.Strikethrough,
-};
-
 /** Upstream `handleANSIOutput`: the text without its escape sequences, in runs of one style. */
 export function handleANSIOutput(text: string): IAnsiSpan[] {
     const spans: IAnsiSpan[] = [];
     const textLength = text.length;
 
-    let styleNames: string[] = [];
+    // Upstream's style names as the cell flags they map to; double underline is the underline.
+    let styleFlags: StyleFlags = StyleFlags.None;
     let customFgColor: StyleColor | undefined;
     let customBgColor: StyleColor | undefined;
     let colorsInverted = false;
     let currentPos = 0;
     let buffer = "";
 
+    // Stryker disable next-line EqualityOperator: one step past the end reads the empty string, which adds nothing
     while (currentPos < textLength) {
         let sequenceFound = false;
 
@@ -66,7 +58,7 @@ export function handleANSIOutput(text: string): IAnsiSpan[] {
                 currentPos++;
 
                 // Look for a known sequence terminating character.
-                if (/^[ABCDHIJKfhmpsu]$/u.test(char)) {
+                if ("ABCDHIJKfhmpsu".includes(char)) {
                     sequenceFound = true;
                     break;
                 }
@@ -78,10 +70,11 @@ export function handleANSIOutput(text: string): IAnsiSpan[] {
 
                 /*
                  * Certain ranges that are matched here do not contain real graphics rendition sequences. For
-                 * the sake of having a simpler expression, they have been included anyway.
+                 * the sake of having a simpler expression, they have been included anyway. The sequence ends at its
+                 * first terminator: an `m` is its end, upstream's `$` after it is dropped.
                  */
                 if (
-                    /^(?:[34][0-8]|9[0-7]|10[0-7]|[0-9]|2[1-5,7-9]|[34]9|5[8,9]|1[0-9])(?:;[349][0-7]|10[0-7]|[013]|[245]|[34]9)?(?:;[012]?[0-9]?[0-9])*;?m$/u.test(
+                    /^(?:[34][0-8]|9[0-7]|10[0-7]|[0-9]|2[1-5,7-9]|[34]9|5[8,9]|1[0-9])(?:;[349][0-7]|10[0-7]|[013]|[245]|[34]9)?(?:;[012]?[0-9]?[0-9])*;?m/u.test(
                         ansiSequence,
                     )
                 ) {
@@ -126,24 +119,13 @@ export function handleANSIOutput(text: string): IAnsiSpan[] {
 
     function flush(): void {
         if (buffer === "") return;
-        let style: StyleFlags = StyleFlags.None;
-        for (const name of styleNames) style |= FLAG_OF[name] ?? StyleFlags.None;
         spans.push({
             text: buffer,
             ...(customFgColor === undefined ? {} : { fg: customFgColor }),
             ...(customBgColor === undefined ? {} : { bg: customBgColor }),
-            ...(style === StyleFlags.None ? {} : { style }),
+            ...(styleFlags === StyleFlags.None ? {} : { style: styleFlags }),
         });
         buffer = "";
-    }
-
-    function removeStyles(...names: string[]): void {
-        styleNames = styleNames.filter((style) => !names.includes(style));
-    }
-
-    function addStyle(name: string, ...replaced: string[]): void {
-        removeStyles(name, ...replaced);
-        styleNames.push(name);
     }
 
     /**
@@ -174,22 +156,22 @@ export function handleANSIOutput(text: string): IAnsiSpan[] {
             switch (code) {
                 case 0: {
                     // reset (everything)
-                    styleNames = [];
+                    styleFlags = StyleFlags.None;
                     customFgColor = undefined;
                     customBgColor = undefined;
                     break;
                 }
                 case 1:
-                    addStyle("bold");
+                    styleFlags |= StyleFlags.Bold;
                     break;
                 case 2:
-                    addStyle("dim");
+                    styleFlags |= StyleFlags.Dim;
                     break;
                 case 3:
-                    addStyle("italic");
+                    styleFlags |= StyleFlags.Italic;
                     break;
                 case 4:
-                    addStyle("underline", "double-underline");
+                    styleFlags |= StyleFlags.Underline;
                     break;
                 case 7: {
                     // invert foreground and background
@@ -200,22 +182,22 @@ export function handleANSIOutput(text: string): IAnsiSpan[] {
                     break;
                 }
                 case 9:
-                    addStyle("strike-through");
+                    styleFlags |= StyleFlags.Strikethrough;
                     break;
                 case 21:
-                    addStyle("double-underline", "underline");
+                    styleFlags |= StyleFlags.Underline;
                     break;
                 case 22:
                     // normal intensity (bold off and dim off)
-                    removeStyles("bold", "dim");
+                    styleFlags &= ~(StyleFlags.Bold | StyleFlags.Dim);
                     break;
                 case 23:
                     // Neither italic or blackletter (font 10)
-                    removeStyles("italic");
+                    styleFlags &= ~StyleFlags.Italic;
                     break;
                 case 24:
                     // not underlined (Neither singly nor doubly underlined)
-                    removeStyles("underline", "double-underline");
+                    styleFlags &= ~StyleFlags.Underline;
                     break;
                 case 27: {
                     // not reversed/inverted
@@ -227,7 +209,7 @@ export function handleANSIOutput(text: string): IAnsiSpan[] {
                 }
                 case 29:
                     // not crossed-out
-                    removeStyles("strike-through");
+                    styleFlags &= ~StyleFlags.Strikethrough;
                     break;
                 case 39:
                     // default foreground color

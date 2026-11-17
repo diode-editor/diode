@@ -892,20 +892,56 @@ describe("LazyTreeControl — wrapped rows and links", () => {
         clickAt(app, lineOf(app, "LINK"));
         expect(clicks).toEqual(["link", "select a", "select b", "link"]);
     });
+
+    it("a double click on a link runs it and opens no row; beside it, or past the text's end, it opens the row", async () => {
+        const clicks: string[] = [];
+        const source: ILazyTreeSource<INode> = {
+            getRoots: () => [
+                { key: "a", name: "row" },
+                { key: "b", name: "only a link" },
+            ],
+            getChildren: () => [],
+            getKey: (node) => node.key,
+            hasChildren: () => false,
+            renderRow: (node) =>
+                node.key === "a"
+                    ? [{ text: "see " }, { text: "LINK", link: () => clicks.push("link") }]
+                    : [{ text: "ONLY", link: () => clicks.push("only") }],
+        };
+        const { app, tree, screen } = await mount(source, { wrap: () => true });
+        tree.onActivate = (node) => clicks.push(`open ${node.key}`);
+        screen();
+        const link = lineOf(app, "LINK");
+        clickAt(app, link, 2);
+        expect(clicks).toEqual(["link", "link"]);
+        clicks.length = 0;
+        clickAt(app, lineOf(app, "see"), 2);
+        expect(clicks).toEqual(["open a"]);
+        clicks.length = 0;
+        // The label fills the row: the cells after its text are its own, with no character under them.
+        clickAt(app, { x: link.x + 10, y: link.y }, 2);
+        expect(clicks).toEqual(["open a"]);
+        clicks.length = 0;
+        // A row that is all link.
+        clickAt(app, lineOf(app, "ONLY"));
+        expect(clicks).toEqual(["only"]);
+    });
 });
 
-function clickAt(app: TestApp, { x, y }: Point): void {
-    for (const action of ["press", "release"] as const) {
-        app.backend.simulateMouse({
-            kind: "mouse",
-            button: "left",
-            x: x + 1,
-            y: y + 1,
-            action,
-            shiftKey: false,
-            altKey: false,
-            ctrlKey: false,
-            raw: "",
-        });
+function clickAt(app: TestApp, { x, y }: Point, times = 1): void {
+    for (let i = 0; i < times; i++) {
+        for (const action of ["press", "release"] as const) {
+            app.backend.simulateMouse({
+                kind: "mouse",
+                button: "left",
+                x: x + 1,
+                y: y + 1,
+                action,
+                shiftKey: false,
+                altKey: false,
+                ctrlKey: false,
+                raw: "",
+            });
+        }
     }
 }

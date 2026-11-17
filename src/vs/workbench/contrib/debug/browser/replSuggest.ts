@@ -161,8 +161,7 @@ export class ReplSuggest extends Disposable {
         request: CancellationTokenSource,
     ): Promise<CompletionListItem[]> {
         const before = text.slice(0, cursor);
-        const lines = before.split("\n");
-        const position = new Position(lines.length, (lines.at(-1)?.length ?? 0) + 1);
+        const position = new Position(before.split("\n").length, before.length - before.lastIndexOf("\n"));
         const { frameId, threadId } = this.host.frame();
         const response = await session.completions(frameId, threadId, text, position, request.token);
         const items: CompletionListItem[] = [];
@@ -190,7 +189,8 @@ export class ReplSuggest extends Disposable {
             add(
                 target.label,
                 target.detail,
-                KIND_OF[target.type ?? "property"] ?? KIND_PROPERTY,
+                // No type, or one DAP does not know: a property, as upstream's default.
+                KIND_OF[String(target.type)] ?? KIND_PROPERTY,
                 {
                     replace: target.length ?? 0,
                     insertText,
@@ -233,12 +233,8 @@ export class ReplSuggest extends Disposable {
     }
 
     private acceptSelected(): void {
-        const item = this.list.getSelectedItem();
-        if (item === null) {
-            this.close();
-            return;
-        }
-        this.accept(item);
+        // The popup is open only with items, one of them selected.
+        this.accept(this.list.items[this.list.selectedIndex]);
     }
 
     private accept(item: CompletionListItem): void {

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRowSpan } from "../../../browser/parts/views/lazyTreeControl.ts";
 
-import { detectLinks, LinkDetector } from "./linkDetector.ts";
+import { detectLinks, LinkDetector, pathLinkRegex } from "./linkDetector.ts";
 
 describe("detectLinks", () => {
     it("finds web links first, then paths with a line and a column in the rest", () => {
@@ -31,6 +31,16 @@ describe("detectLinks", () => {
         expect(detectLinks(long)).toEqual([{ kind: "text", value: long, captures: [], index: 0 }]);
         expect(detectLinks("plain")).toEqual([{ kind: "text", value: "plain", captures: [], index: 0 }]);
         expect(detectLinks("")).toEqual([]);
+    });
+
+    it("on Windows takes a drive path and a home or relative one with either slash, not a root one", () => {
+        const matches = (text: string) => [...text.matchAll(pathLinkRegex(true))].map((match) => [...match]);
+        expect(matches(String.raw`at C:\src\app.ts:3:5 and ~/x.c, .\a\b.js:line 2`)).toEqual([
+            [String.raw`C:\src\app.ts:3:5`, String.raw`C:\src\app.ts`, "3", "5"],
+            ["~/x.c", "~/x.c", undefined, undefined],
+            [String.raw`.\a\b.js:line 2`, String.raw`.\a\b.js`, "2", undefined],
+        ]);
+        expect(matches("/src/app.ts")).toEqual([]);
     });
 });
 
@@ -140,12 +150,11 @@ describe("LinkDetector", () => {
         expect(detector.linkify([{ text: "./rel/a.ts:2" }], undefined)[0].link).toBeUndefined();
     });
 
-    it("a folder, a missing file and a `//` path open nothing", async () => {
+    it("a folder and a missing file open nothing", async () => {
         linkOf(detector.linkify([{ text: "/src" }], undefined), "/src")();
         linkOf(detector.linkify([{ text: "/nope.ts" }], undefined), "/nope.ts")();
         await new Promise((resolve) => setTimeout(resolve, 10));
         expect(opened).toEqual([]);
-        expect(detector.linkify([{ text: "//host/share" }], undefined)[0].link).toBeUndefined();
     });
 
     it("a web link goes to the system's opener; a file:// link opens the file at its position", async () => {
@@ -162,6 +171,11 @@ describe("LinkDetector", () => {
         linkOf(detector.linkify([{ text: "file:///src/app.ts" }], undefined), "file:///src/app.ts")();
         await vi.waitFor(() => {
             expect(opened).toEqual(["/src/app.ts"]);
+        });
+        opened = [];
+        linkOf(detector.linkify([{ text: "file:///src/app.ts:4" }], undefined), "file:///src/app.ts:4")();
+        await vi.waitFor(() => {
+            expect(opened).toEqual(["/src/app.ts", "@3:0"]);
         });
     });
 });

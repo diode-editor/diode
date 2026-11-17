@@ -10,7 +10,7 @@
 // it): a missing file or a folder opens nothing. No hover with the full path; no `linkifyLocation` (DAP
 // `locationReference`); `file://` links open as paths, other web links go to the system's opener.
 
-import { isAbsolute, join, normalize } from "node:path";
+import { join, normalize } from "node:path";
 
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 
@@ -62,15 +62,13 @@ export interface ILinkPart {
     readonly index: number;
 }
 
-/** Upstream's choice by the platform; read on first use, not when the module loads (the startup snapshot). */
-let pathLinkRegex: RegExp | undefined;
-function getPathLinkRegex(): RegExp {
-    pathLinkRegex ??= new RegExp(
-        `${process.platform === "win32" ? WIN_PATH.source : POSIX_PATH.source}${LINE_COLUMN.source}`,
-        "gu",
-    );
-    return pathLinkRegex;
+/** Upstream's paths of the platform with their optional position: group 1 the path, 2 the line, 3 the column. */
+export function pathLinkRegex(windows: boolean): RegExp {
+    return new RegExp(`${windows ? WIN_PATH.source : POSIX_PATH.source}${LINE_COLUMN.source}`, "gu");
 }
+
+/** Read on first use, not when the module loads (the startup snapshot). */
+let platformPathLinkRegex: RegExp | undefined;
 
 /** Upstream `detectLinks`: the text in parts, web links found first, then paths in what is left. */
 export function detectLinks(text: string): ILinkPart[] {
@@ -78,7 +76,8 @@ export function detectLinks(text: string): ILinkPart[] {
         return [{ kind: "text", value: text, captures: [], index: 0 }];
     }
 
-    const regexes: RegExp[] = [WEB_LINK_REGEX, getPathLinkRegex()];
+    platformPathLinkRegex ??= pathLinkRegex(process.platform === "win32");
+    const regexes: RegExp[] = [WEB_LINK_REGEX, platformPathLinkRegex];
     const kinds: LinkKind[] = ["web", "path"];
     const result: ILinkPart[] = [];
 
@@ -172,10 +171,9 @@ export class LinkDetector {
                 this.run(this.openWebLink(part.value));
             };
         if (part.kind !== "path") return undefined;
-        let path = part.captures[0] ?? "";
-        // Most likely a url part which did not match, for example ftp://path.
-        if (path.startsWith("//")) return undefined;
-        const position = positionOf(Number(part.captures[1] ?? 0), Number(part.captures[2] ?? 0));
+        // A path match always has its group 1; a missing line or column is NaN, which positionOf takes as none.
+        let path = String(part.captures[0]);
+        const position = positionOf(Number(part.captures[1]), Number(part.captures[2]));
         if (path.startsWith(".")) {
             if (workspaceFolder === undefined) return undefined;
             const uri = Uri.joinPath(workspaceFolder.uri, path);
@@ -183,9 +181,8 @@ export class LinkDetector {
                 this.run(this.openFile(uri, position));
             };
         }
+        // What is left starts at the root: upstream's `//` and not-absolute checks have no path to reject.
         if (path.startsWith("~")) path = join(this.environment.userHome, path.substring(1));
-        // A Windows-style relative path matched on a POSIX platform is not one.
-        if (!isAbsolute(path)) return undefined;
         const uri = Uri.file(normalize(path));
         return () => {
             this.run(this.openFile(uri, position));
@@ -201,9 +198,8 @@ export class LinkDetector {
         // if the URI ends with something like `foo.js:12:3`, parse that into the location to reveal
         const lineCol = LINE_COLUMN_REGEX.exec(uri.path);
         if (lineCol) uri = uri.with({ path: uri.path.slice(0, lineCol.index) });
-        // The column is optional: its group is undefined without it.
-        const column = lineCol?.[2];
-        await this.openFile(uri, lineCol ? positionOf(Number(lineCol[1]), Number(column ?? 0)) : undefined);
+        // The column is optional: its group is undefined without it, NaN as a number.
+        await this.openFile(uri, lineCol ? positionOf(Number(lineCol[1]), Number(lineCol[2])) : undefined);
     }
 
     /** A folder or a missing file opens nothing, as upstream leaves such a path undecorated. */
