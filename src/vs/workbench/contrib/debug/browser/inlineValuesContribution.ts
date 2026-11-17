@@ -231,6 +231,7 @@ export class InlineValuesContribution extends Disposable {
         if (cts.token.isCancellationRequested) return;
         // A new key per update: the values are for the text as it is now, a value set again with an old key and
         // line would stay where an edit since moved it.
+        // Stryker disable next-line UpdateOperator: equivalent, the keys only have to differ from the last update's
         const update = String(++this.updates);
         editor.setLineMessageDecorations(
             INLINE_VALUES_OWNER,
@@ -318,7 +319,8 @@ export class InlineValuesContribution extends Disposable {
         await Promise.all(
             providers.map(async (provider) => {
                 try {
-                    const values = (await provider.provideInlineValues(request, cancellation)) ?? [];
+                    const values = await provider.provideInlineValues(request, cancellation);
+                    if (values === null) return;
                     // The lookups and evaluations go out together; their texts merge in the provider's order.
                     const texts = await Promise.all(values.map(textOf));
                     for (const [index, iv] of values.entries()) {
@@ -377,36 +379,30 @@ async function valuesFromVariables(
     const scopesWithVariables = await Promise.all(
         scopes.map(async (scope) => ({ scope, variables: await scope.getChildren() })),
     );
-    const stopLine = stackFrame.range.startLineNumber - 1;
-    const wordsByLine = new Map<number, readonly string[]>();
-    for (let line = window.startLine; line <= Math.min(window.endLine, stopLine); line++) {
+    // The code words of the lines up to the stop, in the order the line names them (upstream sorts by `indexOf`).
+    const wordsByLine = new Map<number, ReadonlySet<string>>();
+    for (let line = window.startLine; line <= Math.min(window.endLine, stackFrame.range.startLineNumber - 1); line++) {
         wordsByLine.set(line, codeWords(editor, line));
     }
     const valuesPerLine = new Map<number, Map<string, string>>();
     for (const { scope, variables } of scopesWithVariables) {
-        const startLine = Math.max(window.startLine, scope.range ? scope.range.startLineNumber - 1 : 0);
-        const endLine = Math.min(window.endLine, stopLine);
+        const startLine = scope.range ? scope.range.startLineNumber - 1 : 0;
         const nameValueMap = new Map<string, string>();
         for (const expr of variables) {
             nameValueMap.set(expr.name, expr.value);
             // Limit the size of map. Too large can have a perf impact
             if (nameValueMap.size >= MAX_NUM_INLINE_VALUES) break;
         }
-        for (let line = startLine; line <= endLine; line++) {
-            const content = editor.viewState.document.getLineContent(line);
-            const named = [...new Set(wordsByLine.get(line))]
-                .flatMap((name) => {
-                    const value = nameValueMap.get(name);
-                    return value === undefined ? [] : [[name, value] as const];
-                })
-                .sort(([first], [second]) => content.indexOf(first) - content.indexOf(second));
-            if (named.length === 0) continue;
-            let values = valuesPerLine.get(line);
-            if (values === undefined) {
-                values = new Map();
-                valuesPerLine.set(line, values);
-            }
-            for (const [name, value] of named) {
+        for (const [line, words] of wordsByLine) {
+            if (line < startLine) continue;
+            for (const name of words) {
+                const value = nameValueMap.get(name);
+                if (value === undefined) continue;
+                let values = valuesPerLine.get(line);
+                if (values === undefined) {
+                    values = new Map();
+                    valuesPerLine.set(line, values);
+                }
                 if (!values.has(name)) values.set(name, value);
             }
         }
@@ -419,33 +415,33 @@ async function valuesFromVariables(
 }
 
 /** Upstream `getWordToLineNumbersMap` for a line: the words of its code, not of its comments and strings. */
-function codeWords(editor: IInlineValuesEditor, line: number): readonly string[] {
+function codeWords(editor: IInlineValuesEditor, line: number): ReadonlySet<string> {
+    const words = new Set<string>();
     const content = editor.viewState.document.getLineContent(line);
     // If line is too long then skip the line
-    if (content.length > MAX_TOKENIZATION_LINE_LEN) return [];
+    if (content.length > MAX_TOKENIZATION_LINE_LEN) return words;
     const tokenStore = editor.viewState.tokenStore;
     tokenStore?.forceTokenization(line);
     const lineTokens = tokenStore?.getLineTokens(line);
     // No tokens: the whole line is code.
-    if (lineTokens === undefined) return wordsOf(content);
-    const result: string[] = [];
+    if (lineTokens === undefined) {
+        addWords(words, content);
+        return words;
+    }
     for (let tokenIndex = 0, tokenCount = lineTokens.getCount(); tokenIndex < tokenCount; tokenIndex++) {
         // Token is a word and not a comment
         if (lineTokens.getStandardTokenType(tokenIndex) !== StandardTokenType.Other) continue;
-        result.push(
-            ...wordsOf(content.substring(lineTokens.getStartOffset(tokenIndex), lineTokens.getEndOffset(tokenIndex))),
-        );
+        addWords(words, content.substring(lineTokens.getStartOffset(tokenIndex), lineTokens.getEndOffset(tokenIndex)));
     }
-    return result;
+    return words;
 }
 
 /**
  * Every word of a code token: upstream takes only the first, assuming a token per word — a language without a
  * grammar has the whole line in one token.
  */
-function wordsOf(code: string): string[] {
-    // A global regexp: `match` gives every match and leaves `lastIndex` at 0.
-    return code.match(DEFAULT_WORD_REGEXP) ?? [];
+function addWords(words: Set<string>, code: string): void {
+    for (const match of code.matchAll(DEFAULT_WORD_REGEXP)) words.add(match[0]);
 }
 
 /** One line, as a message after a line's end must be; upstream's `...` past its length. */

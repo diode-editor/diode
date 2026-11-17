@@ -114,6 +114,32 @@ describe("LanguagesNamespace — registerInlineValuesProvider", () => {
         ]);
     });
 
+    it("a name or an expression that is not a string is absent", async () => {
+        const { stub, languages } = makeCtx();
+        const range = new Range(1, 4, 1, 7);
+        register(languages, () => [
+            new InlineValueVariableLookup(range, 5 as never),
+            new InlineValueEvaluatableExpression(range, 5 as never),
+        ]);
+        expect(await stub.callRequest(METHOD, params())).toEqual([
+            { type: "variable", range: WIRE_RANGE, caseSensitiveLookup: true },
+            { type: "expression", range: WIRE_RANGE },
+        ]);
+    });
+
+    it("each provider answers by its handle", async () => {
+        const { stub, languages } = makeCtx();
+        register(languages, () => [new InlineValueText(new Range(0, 0, 0, 1), "first")]);
+        register(languages, () => [new InlineValueText(new Range(0, 0, 0, 1), "second")]);
+        expect(await stub.callRequest(METHOD, params({ handle: 1 }))).toEqual([
+            {
+                type: "text",
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+                text: "second",
+            },
+        ]);
+    });
+
     it("an entry that is none of the classes, or has no range, is dropped", async () => {
         const { stub, languages } = makeCtx();
         register(languages, () => [

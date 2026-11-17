@@ -191,6 +191,14 @@ describe("EditorElement — messages after the lines' ends", () => {
             expect(row(1).slice(editor.gutterWidth)).toBe("  it a  uno  two");
         });
 
+        it("set again with the same key and line, a message keeps the line an edit moved it to", () => {
+            const { editor, row } = setup(LINES, new Size(40, 6));
+            editor.setLineMessageDecorations("values", [value("v", 1, "a = 1")]);
+            editor.viewState.document.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "top\n")]);
+            editor.setLineMessageDecorations("values", [value("v", 1, "a = 2")]);
+            expect(row(2).slice(editor.gutterWidth)).toBe("  it a  a = 2");
+        });
+
         it("an owner sets and reads only its own", () => {
             const { editor, row } = setup(LINES, new Size(40, 6));
             editor.setLineMessageDecorations("values", [value("v", 1, "a = 1")]);

@@ -67,6 +67,8 @@ interface IFakeEditor extends IInlineValuesEditor {
     visible: { startLine: number; endLine: number };
     scroll(): void;
     edit(line: number, text: string): void;
+    /** Whether anyone still listens to the editor's events. */
+    listened(): boolean;
     readonly forced: number[];
 }
 
@@ -117,6 +119,7 @@ function fakeEditor(
         scroll: () => {
             visibleRange.fire();
         },
+        listened: () => content.hasListeners() || visibleRange.hasListeners(),
         edit: (line, text) => {
             document.applyEdits([createTextEdit(createRange(line, 0, line, 0), text)]);
             content.fire();
@@ -149,10 +152,13 @@ function stackFrame(
 ): IFakeFrame {
     const evaluated: string[] = [];
     const session = {
-        evaluate: (expression: string) => {
-            evaluated.push(expression);
+        evaluate: (expression: string, _frameId: number, context: string) => {
+            evaluated.push(`${context}:${expression}`);
+            // A lazy answer: a client that does not keep it asks the adapter for the value, which this one cannot.
             return Promise.resolve(
-                expression in answers ? { body: { result: answers[expression], variablesReference: 0 } } : undefined,
+                expression in answers
+                    ? { body: { result: answers[expression], variablesReference: 1, presentationHint: { lazy: true } } }
+                    : undefined,
             );
         },
     };
@@ -347,6 +353,12 @@ describe("InlineValuesContribution", () => {
             expect(Object.keys(editor.values()).map(Number)).toEqual([6, 7, 8, 9, 10, 11]);
         });
 
+        it("a value of exactly 150 characters is not cut", async () => {
+            start();
+            await focus(stackFrame(1, [{ variables: { argc: "c".repeat(150 - "argc = ".length) } }]));
+            expect(editor.values()[0]).toBe(`argc = ${"c".repeat(150 - "argc = ".length)}`);
+        });
+
         it("a value is one line, cut after 150 characters", async () => {
             start();
             await focus(stackFrame(1, [{ variables: { argc: `a\nb\t${"c".repeat(200)}` } }]));
@@ -428,20 +440,65 @@ describe("InlineValuesContribution", () => {
             const shown = editor.decorations;
             await focus(undefined);
             await vi.advanceTimersByTimeAsync(50);
-            // A second removal while one is pending does not postpone it.
-            await focus(undefined);
             expect(editor.decorations).toBe(shown);
             await focus(stackFrame(4, [{ variables: { argc: "3" } }]));
             await vi.advanceTimersByTimeAsync(200);
             expect(editor.values()).toEqual({ 0: "argc = 3", 3: "argc = 3" });
         });
 
-        it("the session gone: the values go after 100 ms", async () => {
+        it("the session gone: the values go after 100 ms; a second removal meanwhile does not postpone it", async () => {
             start();
             await focus(stackFrame(4, [LOCALS]));
             await focus(undefined);
-            await vi.advanceTimersByTimeAsync(100);
+            await vi.advanceTimersByTimeAsync(50);
+            await focus(undefined);
+            expect(editor.decorations).not.toEqual([]);
+            await vi.advanceTimersByTimeAsync(50);
             expect(editor.decorations).toEqual([]);
+        });
+
+        it("off with a provider of the language: none", async () => {
+            setting = "off";
+            provide(() => [{ type: "text", range: at(1, 0, 1), text: "x" }]);
+            start();
+            await focus(stackFrame(4, [LOCALS]));
+            expect(editor.decorations).toEqual([]);
+        });
+
+        it("the same editors again change nothing; disposed, the editors are let go", async () => {
+            start();
+            await focus(stackFrame(4, [LOCALS]));
+            const sets = editor.sets;
+            editorsChanged.fire();
+            await vi.advanceTimersByTimeAsync(1000);
+            expect(editor.sets).toBe(sets);
+
+            // An edit's update pending, then a removal pending: neither comes after the dispose, nor does a new edit's.
+            editor.edit(0, "// top\n");
+            contribution?.dispose();
+            editor.edit(0, "// again\n");
+            await vi.advanceTimersByTimeAsync(1000);
+            expect(editor.sets).toBe(sets);
+            expect(editor.listened()).toBe(false);
+        });
+
+        it("a pending removal does not come after the dispose", async () => {
+            start();
+            await focus(stackFrame(4, [LOCALS]));
+            await focus(undefined);
+            contribution?.dispose();
+            await vi.advanceTimersByTimeAsync(1000);
+            expect(editor.decorations).not.toEqual([]);
+        });
+
+        it("an update now drops the one scheduled", async () => {
+            start();
+            await focus(stackFrame(4, [LOCALS]));
+            const sets = editor.sets;
+            editor.edit(0, "// top\n");
+            await focus(stackFrame(5, [LOCALS]));
+            await vi.advanceTimersByTimeAsync(1000);
+            expect(editor.sets).toBe(sets + 1);
         });
 
         it("an editor opened while stopped gets the values; a closed one is let go", async () => {
@@ -587,7 +644,8 @@ describe("InlineValuesContribution", () => {
             const frame = stackFrame(4, [LOCALS], { answers: { sum: "4", "sum * 2": "8" } });
             await focus(frame);
             expect(editor.values()).toEqual({ 3: "sum = 4", 4: "sum * 2 = 8" });
-            expect(frame.evaluated).toEqual(["sum", "sum * 2", "unknown"]);
+            // As watch expressions, the lazy ones kept as they are.
+            expect(frame.evaluated).toEqual(["watch:sum", "watch:sum * 2", "watch:unknown"]);
         });
 
         it("the values of a line are joined by their columns, without repeats; the providers' answers merge", async () => {
@@ -599,6 +657,14 @@ describe("InlineValuesContribution", () => {
             start();
             await focus(stackFrame(4, [LOCALS]));
             expect(editor.values()).toEqual({ 3: "sum: 4, argc: 2" });
+        });
+
+        it("values at one column: the provider registered first comes first", async () => {
+            provide(() => [{ type: "text", range: at(1, 0, 1), text: "first" }]);
+            provide(() => [{ type: "text", range: at(1, 0, 1), text: "second" }]);
+            start();
+            await focus(stackFrame(4, [LOCALS]));
+            expect(editor.values()).toEqual({ 1: "first, second" });
         });
 
         it("a failing provider costs only its own values", async () => {
