@@ -17,8 +17,7 @@
 // editor's focus (upstream's context key is the editor's own). Not here yet: Debug: Show Hover (the hover).
 
 import { comparePositions, createPosition, type IPosition } from "../../../../editor/common/core/iPosition.ts";
-import { createRange } from "../../../../editor/common/core/iRange.ts";
-import { createSelection } from "../../../../editor/common/core/iSelection.ts";
+import { createSelection, selectionToRange } from "../../../../editor/common/core/iSelection.ts";
 import type { CommandAction, CommandMenuPlacement } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -327,16 +326,14 @@ export const stepIntoTargetAction: CommandAction = {
             onDidChangeActive: (item) => {
                 const target = (item as (typeof picks)[number] | undefined)?.target;
                 if (editor && target?.line !== undefined) {
-                    const range = createRange(
+                    const selection = createSelection(
                         target.line - 1,
                         (target.column ?? 1) - 1,
                         (target.endLine ?? target.line) - 1,
                         (target.endColumn ?? target.column ?? 1) - 1,
                     );
-                    editor.viewState.selections = [
-                        createSelection(range.start.line, range.start.character, range.end.line, range.end.character),
-                    ];
-                    editor.revealRange(range);
+                    editor.viewState.selections = [selection];
+                    editor.revealRange(selectionToRange(selection));
                 }
             },
         })) as (typeof picks)[number] | undefined;
@@ -384,8 +381,7 @@ export const selectionToWatchAction: CommandAction = {
 
 /** The primary selection's text; none for an empty selection. */
 function selectedText(editor: TextEditorPane): string | undefined {
-    const text = editor.getSelectedTexts()[0];
-    return text ? text : undefined;
+    return editor.getSelectedTexts()[0] || undefined;
 }
 
 /**

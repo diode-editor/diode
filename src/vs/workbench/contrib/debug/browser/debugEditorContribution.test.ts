@@ -200,7 +200,8 @@ describe("DebugEditorContribution", () => {
         create();
         await focus(undefined);
         expect(badge()).toBeUndefined();
-        expect(keys.get("exceptionWidgetVisible")).toBe(false);
+        // Nothing was shown: the editors and the key are not touched.
+        expect(keys.has("exceptionWidgetVisible")).toBe(false);
 
         const unstopped = stoppedThread([{ line: 5 }], undefined, Promise.resolve(INFO));
         await focus(unstopped.frames[0]);
@@ -215,7 +216,7 @@ describe("DebugEditorContribution", () => {
     it("Close Exception Widget hides it until the next stop; the console is not told twice", async () => {
         const c = create();
         c.closeExceptionWidget();
-        expect(keys.get("exceptionWidgetVisible")).toBe(false);
+        expect(keys.has("exceptionWidgetVisible")).toBe(false);
 
         const first = stoppedThread([{ line: 30 }], { reason: "exception" }, Promise.resolve(INFO));
         await focus(first.frames[0]);

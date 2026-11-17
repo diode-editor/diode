@@ -151,7 +151,7 @@ interface ILineMessageCells {
 }
 
 /** The owner of the line messages set without one. */
-export const DEFAULT_LINE_MESSAGE_OWNER = "";
+const DEFAULT_LINE_MESSAGE_OWNER = "";
 
 /** Empty cells between a line's end and its message (upstream's `margin-left` of the message). */
 const LINE_MESSAGE_GAP = 2;
@@ -824,8 +824,10 @@ export class EditorElement extends TUIElement implements IScrollable {
      * several owners, the one of the owner that set messages first.
      */
     public getLineMessageDecorations(): ReadonlyMap<number, ILineMessageDecoration> {
+        const layers = [...this.lineMessageLayers.values()].filter((layer) => !layer.isEmpty);
+        if (layers.length === 1) return layers[0].byLine();
         const result = new Map<number, ILineMessageDecoration>();
-        for (const layer of this.lineMessageLayers.values()) {
+        for (const layer of layers) {
             for (const [line, message] of layer.byLine()) {
                 if (!result.has(line)) result.set(line, message);
             }

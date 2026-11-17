@@ -816,6 +816,8 @@ export class EditorComponent extends Component {
 
     /** The owner's cells absent from the document; the other owners', color decorators' and inlay hints' stay. */
     public setOwnedInlineInsertions(owner: string, insertions: readonly IInlineInsertion[]): void {
+        // Most editors have none and keep having none: nothing to regroup.
+        if (insertions.length === 0 && (this.ownedInsertions.get(owner)?.length ?? 0) === 0) return;
         this.ownedInsertions.set(owner, insertions);
         this.publishInsertions();
     }

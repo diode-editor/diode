@@ -482,13 +482,9 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 });
                 return;
             case "gotoTargets": {
-                const line = Number(args.line);
-                const inLoop =
-                    (args.source as DebugProtocol.Source).path === `${this.root}/src/${MAIN_CPP}` &&
-                    line >= LOOP_FIRST_LINE &&
-                    line <= LOOP_LAST_LINE;
+                const line = this.loopLine(args);
                 this.respond(request, {
-                    targets: inLoop ? [{ id: line, label: `main.cpp:${String(line)}`, line }] : [],
+                    targets: line === undefined ? [] : [{ id: line, label: `main.cpp:${String(line)}`, line }],
                 });
                 return;
             }
@@ -500,13 +496,9 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 });
                 return;
             case "breakpointLocations": {
-                const line = Number(args.line);
-                const inLoop =
-                    (args.source as DebugProtocol.Source).path === `${this.root}/src/${MAIN_CPP}` &&
-                    line >= LOOP_FIRST_LINE &&
-                    line <= LOOP_LAST_LINE;
+                const line = this.loopLine(args);
                 this.respond(request, {
-                    breakpoints: inLoop ? BREAKPOINT_COLUMNS.map((column) => ({ line, column })) : [],
+                    breakpoints: line === undefined ? [] : BREAKPOINT_COLUMNS.map((column) => ({ line, column })),
                 });
                 return;
             }
@@ -567,6 +559,13 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
             default:
                 this.fail(request, `Unrecognized request '${request.command}'`);
         }
+    }
+
+    /** The request's `line` when it is a line of the loop of `main.cpp`. */
+    private loopLine(args: Record<string, unknown>): number | undefined {
+        const line = Number(args.line);
+        const inMain = (args.source as DebugProtocol.Source).path === `${this.root}/src/${MAIN_CPP}`;
+        return inMain && line >= LOOP_FIRST_LINE && line <= LOOP_LAST_LINE ? line : undefined;
     }
 
     private startIfReady(): void {

@@ -264,21 +264,15 @@ export class BreakpointEditorContribution extends Disposable {
 
     /** The inline breakpoints' glyphs, then the candidates' at the columns no inline breakpoint takes. */
     private publishInlineGlyphs(state: IAttachedEditor): void {
-        const model = this.debugService.getModel();
         const inline = state.breakpointDecorations
             .filter((decoration) => this.rendersInline(state, decoration))
-            .map((decoration) =>
-                this.inlineGlyph(
-                    decoration.range.start,
-                    getBreakpointIcon(
-                        this.debugService.state,
-                        model.areBreakpointsActivated(),
-                        decoration.breakpoint,
-                        model,
-                    ),
-                ),
-            );
+            .map((decoration) => this.inlineGlyph(decoration.range.start, this.breakpointIcon(decoration.breakpoint)));
         state.editor.setOwnedInlineInsertions(DEBUG_GLYPH_OWNER, [...inline, ...state.candidates]);
+    }
+
+    private breakpointIcon(breakpoint: IBreakpoint): string {
+        const model = this.debugService.getModel();
+        return getBreakpointIcon(this.debugService.state, model.areBreakpointsActivated(), breakpoint, model);
     }
 
     private inlineGlyph(position: { line: number; character: number }, icon: string): IInlineInsertion {
@@ -341,7 +335,6 @@ export class BreakpointEditorContribution extends Disposable {
         state: IAttachedEditor,
         lineBreakpoints: readonly IBreakpointsForLine[],
     ): IInlineInsertion[] {
-        const model = this.debugService.getModel();
         const document = state.editor.viewState.document;
         const result: IInlineInsertion[] = [];
         for (const { positions, lineNumber } of lineBreakpoints) {
@@ -369,12 +362,7 @@ export class BreakpointEditorContribution extends Disposable {
                 // Space already occupied, do not render candidate.
                 if (breakpointAtPosition && this.rendersInline(state, breakpointAtPosition)) continue;
                 const icon = breakpointAtPosition
-                    ? getBreakpointIcon(
-                          this.debugService.state,
-                          model.areBreakpointsActivated(),
-                          breakpointAtPosition.breakpoint,
-                          model,
-                      )
+                    ? this.breakpointIcon(breakpointAtPosition.breakpoint)
                     : "debug-breakpoint-disabled";
                 result.push(this.inlineGlyph({ line: p.lineNumber - 1, character: p.column - 1 }, icon));
             }

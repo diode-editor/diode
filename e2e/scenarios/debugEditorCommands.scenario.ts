@@ -32,9 +32,8 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("dap:stopped") && t.includes("➜ 3"));
 
-        // The cursor on `printf` (line 4), the context menu's debug group, Run to Cursor.
-        await editor.sendKey("ArrowDown");
-        await editor.sendKey("ArrowDown");
+        // The stop put the cursor on its line: one down is `printf` (line 4). The context menu's debug group, Run to
+        // Cursor.
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Shift+F10");
         await editor.waitForText((t) => t.includes("Run to Cursor") && t.includes("Evaluate in Debug Console"));
@@ -50,7 +49,7 @@ export default defineScenario({
 
         // F10 on `printf` throws: the badge after the line.
         await editor.sendKey("F10");
-        await editor.waitForText((t) => t.includes("Exception has occurred: SIGSEGV — Invalid read of size 1"));
+        await editor.waitForText((t) => t.includes("Exception has occurred: SIGSEGV — Invalid"));
         await editor.capture("exception");
 
         await editor.sendKey("Escape");

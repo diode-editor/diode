@@ -26,6 +26,7 @@ import {
     type IExceptionInfo,
     type IRawStoppedDetails,
     type IStackFrame,
+    type IThread,
     REPL_VIEW_ID,
     State,
 } from "../common/debug.ts";
@@ -164,10 +165,9 @@ export class DebugEditorContribution extends Disposable {
     private async toggleExceptionWidget(): Promise<void> {
         const generation = ++this.generation;
         const focusedSf = this.debugService.getViewModel().focusedStackFrame;
-        const exceptionSf = focusedSf === undefined ? undefined : firstAvailableFrame(focusedSf);
         const stop = focusedSf?.thread.stoppedDetails;
         // First call stack frame that is available is the frame where exception has been thrown
-        if (focusedSf === undefined || exceptionSf !== focusedSf || stop === undefined) {
+        if (focusedSf === undefined || firstAvailableFrame(focusedSf.thread) !== focusedSf || stop === undefined) {
             this.show(undefined);
             return;
         }
@@ -199,6 +199,8 @@ export class DebugEditorContribution extends Disposable {
 
     /** Upstream's context key is the editor's own; here it holds while an editor of the tabs shows the badge. */
     private show(shown: IShownException | undefined): void {
+        // Nothing shown before and now: the editors have no badge to take away.
+        if (shown === undefined && this.shown === undefined) return;
         this.shown = shown;
         let visible = false;
         for (const editor of this.subscriptions.keys()) visible = this.decorate(editor) || visible;
@@ -226,8 +228,6 @@ export class DebugEditorContribution extends Disposable {
 }
 
 /** Upstream's exception frame: the thread's first frame with a source that is available and not deemphasized. */
-function firstAvailableFrame(frame: IStackFrame): IStackFrame | undefined {
-    return frame.thread
-        .getCallStack()
-        .find((sf) => sf.source.available && sf.source.presentationHint !== "deemphasize");
+function firstAvailableFrame(thread: IThread): IStackFrame | undefined {
+    return thread.getCallStack().find((sf) => sf.source.available && sf.source.presentationHint !== "deemphasize");
 }
