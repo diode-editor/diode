@@ -135,6 +135,7 @@
     },
     "EditorTitle": {
         "navigation": [
+            "submenu:EditorTitleRun",
             "workbench.action.unlockEditorGroup"
         ]
     },

@@ -96,3 +96,31 @@ describe("MenuRegistry — submenu selection (isSelection)", () => {
         expect(Object.keys(navigation.entries[1])).not.toContain("isSelection");
     });
 });
+
+describe("MenuRegistry — split button submenus", () => {
+    const resolve = (submenu: { title: string }): MenuSubmenuEntry => ({
+        type: "submenu",
+        label: submenu.title,
+        entries: [{ label: "nested" }],
+    });
+    const resolved = (contribution: Partial<MenuContribution>): unknown =>
+        makeRegistry([{ menuId: TEST_MENU, submenu: TEST_SUB, title: "Run", ...contribution } as MenuContribution])
+            .getMenuItemGroups(TEST_MENU, undefined, resolve)
+            .flatMap((group) => group.entries)[0];
+
+    it("carries the submenu id, the toggle and the icon glyph", () => {
+        expect(resolved({ isSplitButton: { togglePrimaryAction: true }, icon: "▷" })).toMatchObject({
+            splitButton: { submenu: TEST_SUB.id, togglePrimaryAction: true, icon: "▷" },
+        });
+    });
+
+    it("`true` is a split button without the toggle; no icon stays absent", () => {
+        const entry = resolved({ isSplitButton: true }) as { splitButton: object };
+        expect(entry.splitButton).toStrictEqual({ submenu: TEST_SUB.id, togglePrimaryAction: false });
+    });
+
+    it("`false` and absent are a plain submenu", () => {
+        expect(resolved({ isSplitButton: false })).not.toHaveProperty("splitButton");
+        expect(resolved({})).not.toHaveProperty("splitButton");
+    });
+});
