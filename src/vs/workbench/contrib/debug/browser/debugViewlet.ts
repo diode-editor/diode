@@ -61,6 +61,7 @@ import { CallStackView, getContext, getContextForContributedActions } from "./ca
 import { StartDebugActionViewItem } from "./debugActionViewItems.ts";
 import { DEBUG_CONFIGURE_COMMAND_ID, DEBUG_START_COMMAND_ID } from "./debugCommands.ts";
 import {
+    breakpointItemKeys,
     breakpointItemType,
     callStackItemKeys,
     type IDebugContextMenuHost,
@@ -334,7 +335,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
                 owner: this.breakpoints.tree.list,
                 anchor: { screenX, screenY },
                 menuId: MenuId.DebugBreakpointsContext,
-                keys: { breakpointItemType: breakpointItemType(element) },
+                keys: breakpointItemKeys(element, this.debugService),
                 args: [element],
             });
         };

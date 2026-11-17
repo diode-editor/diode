@@ -20,7 +20,14 @@ import type { MenuService } from "../../../../platform/actions/common/menuServic
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { bindMenuEntry, INLINE_MENU_GROUP, runMenuEntry } from "../../../browser/parts/views/treeItemMenu.ts";
-import { type IDataBreakpointInfoResponse, type IExpression, type IStackFrame, State } from "../common/debug.ts";
+import {
+    DataBreakpointSetType,
+    type IDataBreakpointInfoResponse,
+    type IDebugService,
+    type IExpression,
+    type IStackFrame,
+    State,
+} from "../common/debug.ts";
 import {
     Breakpoint,
     DataBreakpoint,
@@ -207,6 +214,34 @@ export function callStackItemKeys(item: unknown): MenuContextKeys {
 export function watchItemType(element: IExpression | undefined): string {
     if (element === undefined) return "";
     return element instanceof Expression ? "expression" : "variable";
+}
+
+/** Upstream `getModeKindForBreakpoint`: the kind of the modes a breakpoint picks from. */
+export function getModeKindForBreakpoint(breakpoint: unknown): "source" | "instruction" | "exception" {
+    return breakpoint instanceof Breakpoint
+        ? "source"
+        : breakpoint instanceof InstructionBreakpoint
+          ? "instruction"
+          : "exception";
+}
+
+/**
+ * Upstream's overlay keys of a breakpoints row (`onTreeContextMenu`): its type, whether it takes a condition (an
+ * exception filter by its own word, the others by the focused session's), whether it is a data breakpoint on a range
+ * of memory, and whether there is more than one mode to switch to.
+ */
+export function breakpointItemKeys(element: unknown, debugService: IDebugService): MenuContextKeys {
+    const session = debugService.getViewModel().focusedSession;
+    const conditionSupported =
+        element instanceof ExceptionBreakpoint
+            ? element.supportsCondition
+            : !session || !!session.capabilities.supportsConditionalBreakpoints;
+    return {
+        breakpointItemType: breakpointItemType(element),
+        breakpointSupportsCondition: conditionSupported,
+        breakpointItemBytes: element instanceof DataBreakpoint && element.src.type === DataBreakpointSetType.Address,
+        breakpointHasModes: debugService.getModel().getBreakpointModes(getModeKindForBreakpoint(element)).length > 1,
+    };
 }
 
 /** Upstream's `breakpointItemType` of a breakpoints row. */

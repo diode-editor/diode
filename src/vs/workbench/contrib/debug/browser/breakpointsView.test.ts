@@ -244,6 +244,72 @@ describe("BreakpointsView", () => {
         expect(row("Hardware")).toMatch(/a\.c w +Hardware: 9$/u);
     });
 
+    it("a source breakpoint's row tells its condition, hit count, log message and the breakpoint it waits for", async () => {
+        const [trigger] = model.addBreakpoints(Uri.file("/w/t.c"), [{ lineNumber: 2 }]);
+        model.addBreakpoints(Uri.file("/w/a.c"), [
+            { lineNumber: 4, condition: "i % 100 == 0", hitCondition: ">= 3" },
+            { lineNumber: 5, logMessage: "sum={sum}" },
+            { lineNumber: 6, triggeredBy: trigger.getId() },
+            { lineNumber: 7, condition: "" },
+        ]);
+        await mount();
+
+        expect(row("4")).toMatch(/a\.c w {2}if i % 100 == 0 {2}hit count >= 3 +4$/u);
+        expect(row("5")).toMatch(/a\.c w {2}log "sum=\{sum\}" +5$/u);
+        expect(row(" 6")).toMatch(/a\.c w {2}after w\/t\.c: 2 +6$/u);
+        // An empty condition is none.
+        expect(row(" 7")).toMatch(/a\.c w +7$/u);
+    });
+
+    it("upstream's message of a breakpoint the debugger does not support, in the warning color", async () => {
+        const [conditional, plain] = model.addBreakpoints(Uri.file("/w/a.c"), [
+            { lineNumber: 4, condition: "x" },
+            { lineNumber: 5 },
+        ]);
+        const disabled = model.addFunctionBreakpoint({ name: "off", enabled: false });
+        model.addFunctionBreakpoint({ name: "main" });
+        addData("sum", "write");
+        model.addInstructionBreakpoint({ instructionReference: "0x10", offset: 0, canPersist: false, address: 31n });
+        const all = [conditional, plain, disabled, ...model.getFunctionBreakpoints(), ...model.getDataBreakpoints()];
+        model.setBreakpointSessionData(
+            "s",
+            {},
+            new Map([...all, ...model.getInstructionBreakpoints()].map((bp) => [bp.getId(), { verified: true }])),
+        );
+        await mount();
+
+        expect(row("4")).toContain("if x  Breakpoints of this type are not supported");
+        expect(row(" 5")).not.toContain("supported");
+        expect(row("main")).toContain("main  Function breakpoints not supported");
+        expect(row("off")).not.toContain("supported");
+        expect(row("sum")).toContain("Write  Data breakpoints not supported");
+        expect(row("0x1f")).toContain("0x1f  Instruction breakpoints not supported");
+        // Not in the muted color of the notes.
+        expect(fgOf("Data breakpoints not")).not.toBe(fgOf("Write"));
+    });
+
+    it("no warning while a running session has not verified the breakpoint, nor with the breakpoints deactivated", async () => {
+        const [conditional] = model.addBreakpoints(Uri.file("/w/a.c"), [{ lineNumber: 4, condition: "x" }]);
+        model.setBreakpointSessionData("s", {}, new Map([[conditional.getId(), { verified: false }]]));
+        state = State.Running;
+        await mount();
+        expect(row("4")).not.toContain("supported");
+        state = State.Stopped;
+        view.refresh();
+        await settle();
+        expect(row("4")).not.toContain("supported");
+
+        state = State.Inactive;
+        model.setBreakpointsActivated(false);
+        view.refresh();
+        await settle();
+        expect(row("4")).not.toContain("supported");
+        model.setBreakpointsActivated(true);
+        view.refresh();
+        await settle();
+        expect(row("4")).toContain("not supported");
+    });
+
     it("typing goes to the row by its label, of every kind", async () => {
         addData("sum", "read");
         model.addInstructionBreakpoint({ instructionReference: "0x10", offset: 0, canPersist: false, address: 31n });
