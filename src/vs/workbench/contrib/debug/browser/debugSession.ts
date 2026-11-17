@@ -1266,9 +1266,13 @@ export class DebugSession implements IDebugSession {
             affectedThreads = this.threadIds;
         }
 
+        // Deviation: only the stops that came before this event. The filter runs a microtask later, and an adapter's
+        // `continued` and `stopped` processed in one task (two events, no task boundary between them: CodeLLDB sends
+        // `continued` right before the stop of a step) would drop the new stop, and CALL STACK its "Paused on step".
+        const earlierStops = new Set(this.stoppedDetails);
         this.statusQueue.cancel(allThreads ? undefined : [event.body.threadId]);
         await this.statusQueue.run(affectedThreads, (threadId) => {
-            this.stoppedDetails = this.stoppedDetails.filter((sd) => sd.threadId !== threadId);
+            this.stoppedDetails = this.stoppedDetails.filter((sd) => sd.threadId !== threadId || !earlierStops.has(sd));
             const tokens = this.cancellationMap.get(threadId);
             // Stryker disable next-line CallExpression: the tokens left in the map are cancelled already; cancelling them again does nothing
             this.cancellationMap.delete(threadId);

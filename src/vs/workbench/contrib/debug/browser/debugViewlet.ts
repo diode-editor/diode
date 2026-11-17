@@ -158,9 +158,14 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         this.variables = this.register(new VariablesView(debugService, renderer));
         this.watch = this.register(new WatchExpressionsView(debugService, renderer, contextKeys, quickInput));
         this.callStack = this.register(
-            new CallStackView(debugService, icons, (message) => {
-                views.setViewTitle(CALLSTACK_VIEW_ID, undefined, message ?? null);
-            }),
+            new CallStackView(
+                debugService,
+                icons,
+                (message) => {
+                    views.setViewTitle(CALLSTACK_VIEW_ID, undefined, message ?? null);
+                },
+                () => configuration.get("workbench.list.openMode") !== "doubleClick",
+            ),
         );
         this.breakpoints = this.register(
             new BreakpointsView(debugService, breakpointSources, {

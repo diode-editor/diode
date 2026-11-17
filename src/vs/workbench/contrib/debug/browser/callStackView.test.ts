@@ -290,7 +290,12 @@ describe("CallStackView", () => {
 
     function mount(service: IDebugService = debugService): void {
         view = disposables.add(
-            new CallStackView(service, new StaticProductIconService(false), (message) => stateMessages.push(message)),
+            new CallStackView(
+                service,
+                new StaticProductIconService(false),
+                (message) => stateMessages.push(message),
+                () => true,
+            ),
         );
         app = TestApp.createWithContent(view.tree.element, new Size(50, 12));
         bindWidgetGlyphs(app.root, new StaticProductIconService(false));
