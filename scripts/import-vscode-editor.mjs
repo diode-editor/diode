@@ -260,7 +260,8 @@ const PRELUDES = {
         "import { suite, test } from '../../../../../../TestUtils/mochaCompat.ts';",
     ],
     // Upstream builds the extension against `@types/node` 24, where a socket's `data` chunk is a `Buffer`; ours types
-    // it `string | Buffer`, and the file can't be edited. The bundle is esbuild's, which never type-checks anyway.
+    // it `string | Buffer`, and the file can't be edited. The bundle is esbuild's, which never type-checks anyway; the price
+    // is that its calls into `vscode` are not checked against our vscode.d.ts either.
     "extensions/debug-auto-launch/src/extension.ts": ["// @ts-nocheck"],
 };
 

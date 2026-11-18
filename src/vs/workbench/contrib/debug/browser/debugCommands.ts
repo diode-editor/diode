@@ -31,7 +31,6 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 import { containerMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
-import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 import { openExtensionsSearch } from "../../extensions/browser/extensionsSearch.ts";
@@ -55,7 +54,7 @@ import { rowMenuItem } from "./debugContextMenus.ts";
 import { BREAKPOINT_EDITOR_ACTIONS, showDebugHoverAction } from "./debugEditorActions.ts";
 import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
-import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
+import { DEBUG_VIEW_ACTIONS, showRunAndDebugAction } from "./debugViewActions.ts";
 import { REPL_ACTIONS } from "./replActions.ts";
 import { VARIABLES_ACTIONS } from "./variablesActions.ts";
 
@@ -797,9 +796,7 @@ export const openViewAction: CommandAction = {
         { keys: parseKeybinding("mod+f5"), when: "!debuggersAvailable", weight: KeybindingWeight.WorkbenchContrib },
     ],
     menus: HIDDEN_FROM_PALETTE,
-    run(accessor) {
-        accessor.get(SidebarServiceDIToken).showViewlet(VIEWLET_ID);
-    },
+    run: (accessor) => showRunAndDebugAction.run(accessor),
 };
 
 export const DEBUG_ACTIONS: readonly CommandAction[] = [

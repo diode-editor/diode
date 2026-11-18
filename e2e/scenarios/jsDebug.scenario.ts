@@ -2,6 +2,7 @@ import { cpSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Stock js-debug from the marketplace debugs Node.js: F9 on a line of app.js, F5 without launch.json picks Node.js and
@@ -11,9 +12,35 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 const projectRoot = join(tmpdir(), "diode-scenario-js-debug");
 /** `const sum = a + b;` in add(): the gutter shows the line number after the breakpoint glyph. */
-const stoppedInAdd = (t: string): boolean => /◉\s+4 /u.test(t) && t.includes("a: 2") && t.includes("global.add");
+const stoppedInAdd = (t: string): boolean => /◉\s+2 /u.test(t) && t.includes("a: 2") && t.includes("global.add");
+/** The program printed its result and nothing is stopped. */
+const ranToEnd = (t: string): boolean => t.includes("total 5") && !t.includes("◉");
 /** A fresh terminal in front: its prompt, and no output of the previous run. */
 const shellPrompt = (t: string): boolean => /\$\s/u.test(t) && !t.includes("total 5");
+
+async function runCommand(editor: ScenarioDriver, title: string): Promise<void> {
+    await editor.sendKey("F1");
+    await editor.waitForNode("#quickInput");
+    await editor.sendText(title);
+    await editor.waitForText((t) => t.includes(title));
+    await editor.sendKey("Enter");
+}
+
+/** Continue from the breakpoint to the end of the program. */
+async function continueToEnd(editor: ScenarioDriver): Promise<void> {
+    await editor.sendKey("F5");
+    await editor.waitForText(ranToEnd, { timeoutMs: 30_000 });
+}
+
+/** `node app.js` in the terminal just opened stops at the breakpoint, then runs to the end. */
+async function nodeInTerminal(editor: ScenarioDriver, shot: string): Promise<void> {
+    await editor.waitForText(shellPrompt, { timeoutMs: 30_000 });
+    await editor.sendText("node app.js");
+    await editor.sendKey("Enter");
+    await editor.waitForText(stoppedInAdd, { timeoutMs: 60_000 });
+    await editor.capture(shot);
+    await continueToEnd(editor);
+}
 
 export default defineScenario({
     name: "js-debug",
@@ -37,9 +64,9 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("const sum = a + b;"));
         await editor.waitForReady();
 
-        for (let i = 0; i < 3; i++) await editor.sendKey("ArrowDown");
+        await editor.sendKey("ArrowDown");
         await editor.sendKey("F9");
-        await editor.waitForText((t) => /●\s+4 /u.test(t));
+        await editor.waitForText((t) => /●\s+2 /u.test(t));
 
         // No launch.json: F5 asks which debugger, Node.js first.
         await editor.sendKey("F5");
@@ -47,28 +74,12 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText(stoppedInAdd, { timeoutMs: 60_000 });
         await editor.capture("launch-stopped");
+        await continueToEnd(editor);
 
-        await editor.sendKey("F5");
-        await editor.waitForText((t) => t.includes("total 5") && !t.includes("◉"), { timeoutMs: 30_000 });
+        await runCommand(editor, "Debug: JavaScript Debug Terminal");
+        await nodeInTerminal(editor, "debug-terminal");
 
-        await editor.sendKey("F1");
-        await editor.waitForNode("#quickInput");
-        await editor.sendText("Debug: JavaScript Debug Terminal");
-        await editor.waitForText((t) => t.includes("JavaScript Debug Terminal"));
-        await editor.sendKey("Enter");
-        await editor.waitForText(shellPrompt, { timeoutMs: 30_000 });
-        await editor.sendText("node app.js");
-        await editor.sendKey("Enter");
-        await editor.waitForText(stoppedInAdd, { timeoutMs: 60_000 });
-        await editor.capture("debug-terminal");
-        await editor.sendKey("F5");
-        await editor.waitForText((t) => t.includes("total 5") && !t.includes("◉"), { timeoutMs: 30_000 });
-
-        await editor.sendKey("F1");
-        await editor.waitForNode("#quickInput");
-        await editor.sendText("Debug: Toggle Auto Attach");
-        await editor.waitForText((t) => t.includes("Toggle Auto Attach"));
-        await editor.sendKey("Enter");
+        await runCommand(editor, "Debug: Toggle Auto Attach");
         await editor.waitForText((t) => t.includes("Auto attach when running scripts that aren't in a node_modules"));
         // The cursor starts on the current state, Disabled, the last of Always, Smart, Only With Flag, Disabled.
         await editor.sendKey("ArrowUp");
@@ -77,17 +88,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Auto Attach: Smart"), { timeoutMs: 30_000 });
 
         // The variables reach new terminals only.
-        await editor.sendKey("F1");
-        await editor.waitForNode("#quickInput");
-        await editor.sendText("Terminal: Create New Terminal");
-        await editor.waitForText((t) => t.includes("Create New Terminal"));
-        await editor.sendKey("Enter");
-        await editor.waitForText(shellPrompt, { timeoutMs: 30_000 });
-        await editor.sendText("node app.js");
-        await editor.sendKey("Enter");
-        await editor.waitForText(stoppedInAdd, { timeoutMs: 60_000 });
-        await editor.capture("auto-attach");
-        await editor.sendKey("F5");
-        await editor.waitForText((t) => t.includes("total 5") && !t.includes("◉"), { timeoutMs: 30_000 });
+        await runCommand(editor, "Terminal: Create New Terminal");
+        await nodeInTerminal(editor, "auto-attach");
     },
 });
