@@ -59,6 +59,15 @@ describe("DebugService.runTo", () => {
             .map((bp) => [bp.lineNumber, bp.column]);
     }
 
+    /** Counts the removals from the model from now on: a listener left behind removes again at every stop. */
+    function countRemovals(): () => number {
+        let removals = 0;
+        fx.service.getModel().onDidChangeBreakpoints((e) => {
+            if (e?.removed) removals++;
+        });
+        return () => removals;
+    }
+
     it("stops on the line and takes the breakpoint away at the stop", async () => {
         const adapter = await startStopped();
         await fx.service.runTo(MAIN, 29);
@@ -77,11 +86,32 @@ describe("DebugService.runTo", () => {
             .filter((r) => r.command === "setBreakpoints")
             .map((r) => (r.arguments as DebugProtocol.SetBreakpointsArguments).breakpoints);
         expect(sent).toEqual([[{ line: 29 }], []]);
+
+        // Its listener is gone: the next stop takes nothing away.
+        const removals = countRemovals();
+        await fx.service.addBreakpoints(MAIN, [{ lineNumber: 30 }]);
+        const session = fx.service.getViewModel().focusedSession;
+        if (!session) throw new Error("no session");
+        // Listeners run in order: the session's stop has reached runTo's listener, if one is left, by then.
+        const stopped = new Promise<void>((resolve) => {
+            const listener = session.onDidChangeState(() => {
+                if (session.state !== State.Stopped) return;
+                listener.dispose();
+                resolve();
+            });
+        });
+        await fx.service.getViewModel().focusedThread?.continue();
+        await stopped;
+        expect(focusedLine()).toBe(30);
+        expect(removals()).toBe(0);
     });
 
-    it("a column goes with the breakpoint", async () => {
+    it("a column goes with the breakpoint; one verified at once is not waited for", async () => {
         const adapter = await startStopped();
-        await fx.service.runTo(MAIN, 29, 16);
+        vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["setTimeout"] });
+        void fx.service.runTo(MAIN, 29, 16);
+        await vi.advanceTimersByTimeAsync(100);
+        expect(adapter.requests.map((r) => r.command)).toContain("continue");
         await vi.waitFor(() => {
             expect(focusedLine()).toBe(29);
         });
@@ -91,14 +121,44 @@ describe("DebugService.runTo", () => {
         ]);
     });
 
-    it("a breakpoint already there stays; the program still runs to it", async () => {
-        await startStopped();
+    it("a breakpoint already there stays and is not sent again; the program still runs to it", async () => {
+        const adapter = await startStopped();
         await fx.service.addBreakpoints(MAIN, [{ lineNumber: 30 }]);
+        adapter.requests.length = 0;
         await fx.service.runTo(MAIN, 30);
         await vi.waitFor(() => {
             expect(focusedLine()).toBe(30);
         });
         expect(lines()).toEqual([[30, undefined]]);
+        expect(adapter.requests.map((r) => r.command)).not.toContain("setBreakpoints");
+    });
+
+    it("the thread of the session that verified the breakpoint goes on, not the focused one of another", async () => {
+        const focused = await startStopped();
+        // The second session's program lives elsewhere: only it verifies a breakpoint in its file.
+        const elsewhere = "/elsewhere/program";
+        (factory as unknown as { root: string }).root = elsewhere;
+        expect(await fx.service.startDebugging(undefined, { ...SYNTHETIC_LAUNCH_CONFIG })).toBe(true);
+        await vi.waitFor(() => {
+            expect(fx.service.getModel().getSessions()[1]?.getAllThreads()[0]?.stopped).toBe(true);
+        });
+        const verifying = factory.adapters[1];
+        const [first] = fx.service.getModel().getSessions();
+        await fx.service.focusStackFrame(undefined, first.getAllThreads()[0], first);
+        focused.requests.length = 0;
+        verifying.requests.length = 0;
+        await fx.service.runTo(Uri.file(`${elsewhere}/src/main.cpp`), 29);
+        expect(verifying.requests.map((r) => r.command)).toContain("continue");
+        expect(focused.requests.map((r) => r.command)).not.toContain("continue");
+    });
+
+    it("a breakpoint on another line is not the one to run to", async () => {
+        await startStopped();
+        await fx.service.addBreakpoints(UNKNOWN, [{ lineNumber: 3 }]);
+        await fx.service.runTo(MAIN, 29);
+        await vi.waitFor(() => {
+            expect(focusedLine()).toBe(29);
+        });
     });
 
     it("a breakpoint no session verifies is waited for two seconds, then the focused thread goes on", async () => {
@@ -135,11 +195,17 @@ describe("DebugService.runTo", () => {
             session.capabilities,
             new Map(),
         );
+        const continued = () => adapter.requests.some((r) => r.command === "continue");
+        await vi.advanceTimersByTimeAsync(100);
+        expect(continued()).toBe(false);
         (fx.service.getModel() as DebugModel).setBreakpointSessionData(
             session.getId(),
             session.capabilities,
             new Map([[bp.getId(), { verified: true, line: 3 }]]),
         );
+        // Long before the two seconds are up.
+        await vi.advanceTimersByTimeAsync(100);
+        expect(continued()).toBe(true);
         await run;
         expect(adapter.requests.find((r) => r.command === "continue")?.arguments).toMatchObject({ threadId: 1 });
         // The program's timers were faked: it stops while they still are.
@@ -164,13 +230,15 @@ describe("DebugService.runTo", () => {
         await vi.waitFor(() => {
             expect(lines()).toEqual([]);
         });
-        // The listener is gone: a breakpoint set later stays at the next stop.
+        // The listener is gone: a breakpoint set later stays at the next stop, nothing is taken away.
+        const removals = countRemovals();
         await fx.service.addBreakpoints(MAIN, [{ lineNumber: 30 }]);
         await fx.service.getViewModel().focusedThread?.continue();
         await vi.waitFor(() => {
             expect(focusedLine()).toBe(30);
         });
         expect(lines()).toEqual([[30, undefined]]);
+        expect(removals()).toBe(0);
     });
 
     it("without a session or a configuration: nothing runs, the breakpoint goes when the start fails", async () => {

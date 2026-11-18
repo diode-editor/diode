@@ -256,6 +256,11 @@ describe("Step Into Target (the editor's)", () => {
         expect((await stepAt(32)).session.stepIn).not.toHaveBeenCalled();
     });
 
+    it("a target without a line between the others does not upset which call is innermost", async () => {
+        const [outer, inner, noLine] = TARGETS;
+        expect((await stepAt(23, [outer, noLine, inner])).stepped).toEqual([2]);
+    });
+
     it("past every range, the target without an end that starts last before the cursor", async () => {
         const { session, stepped } = await stepAt(39);
         expect(stepped).toEqual([4]);
@@ -476,15 +481,19 @@ describe("Inline Breakpoint (Shift+F9)", () => {
         const fx = createDebugServiceFixture();
         registerSyntheticDebugger(fx.service.getAdapterManager(), NO_DELAY_TIMING);
         fx.service.getAdapterManager().registerBreakpoints({ language: "cpp" });
+        // A breakpoint already there is not added again: no event, no round-trip to the adapters.
+        let added = 0;
+        fx.service.getModel().onDidChangeBreakpoints((e) => (added += e?.added?.length ?? 0));
         const at = async (line: number, column: number) => {
             await toggleInlineBreakpointAction.run(harness(services(fakeEditor(line, column), fx.service)).accessor);
+            return added;
         };
-        await at(0, 4);
-        await at(0, 4);
-        await at(1, 0);
-        await at(1, 0);
+        expect(await at(0, 4)).toBe(1);
+        expect(await at(0, 4)).toBe(1);
+        expect(await at(1, 0)).toBe(2);
+        expect(await at(1, 0)).toBe(2);
         await at(2, 6);
-        await at(1, 6);
+        expect(await at(1, 6)).toBe(4);
         expect(
             fx.service
                 .getModel()
@@ -498,8 +507,7 @@ describe("Inline Breakpoint (Shift+F9)", () => {
         ]);
         // A line breakpoint is where a column 1 would be.
         (fx.service.getModel() as DebugModel).addBreakpoints(FILE, [{ lineNumber: 9 }]);
-        await at(8, 0);
-        expect(fx.service.getModel().getBreakpoints({ lineNumber: 9 })).toHaveLength(1);
+        expect(await at(8, 0)).toBe(5);
         fx.service.dispose();
     });
 

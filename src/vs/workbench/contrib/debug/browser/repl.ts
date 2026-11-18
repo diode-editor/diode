@@ -470,14 +470,12 @@ export class Repl extends Component implements IContextKeyContributor {
         const value = this.input.inputState.value;
         if (value.trim() === "") return;
         this.revealLast = true;
-        if (!this.evaluateInSession(value)) {
-            void this.evaluateWithoutSession(value);
-            this.addToHistory(value);
-        }
+        if (!this.evaluateInSession(value)) void this.evaluateWithoutSession(value);
+        this.addToHistory(value);
         this.setInput("");
     }
 
-    /** The input evaluated in the shown session's console, with its history; `false` without a running session. */
+    /** The input evaluated in the shown session's console; `false` without a running session. */
     private evaluateInSession(value: string): boolean {
         const session = this.session;
         if (!session || session.state === State.Inactive) return false;
@@ -485,13 +483,12 @@ export class Repl extends Component implements IContextKeyContributor {
         void session
             .addReplExpression(this.debugService.getViewModel().focusedStackFrame, value)
             .catch(onUnexpectedError);
-        this.addToHistory(value);
         return true;
     }
 
-    /** Upstream's: the input evaluated in the shown session's console, as if typed; nothing for an ended one. */
+    /** Upstream's: the input evaluated in the shown session's console, as if typed, with its history; nothing for an ended one. */
     public sendReplInput(input: string): void {
-        this.evaluateInSession(input);
+        if (this.evaluateInSession(input)) this.addToHistory(input);
     }
 
     private async evaluateWithoutSession(value: string): Promise<void> {

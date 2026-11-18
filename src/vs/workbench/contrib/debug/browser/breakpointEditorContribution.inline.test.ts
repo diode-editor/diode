@@ -200,6 +200,16 @@ describe("BreakpointEditorContribution: inline breakpoints and candidates", () =
         expect(shown()).toEqual([[0, 11, "debug-breakpoint", "debugIcon.breakpointForeground"]]);
     });
 
+    it("an editor opened while the adapter is asked shows its inline breakpoints and no candidates yet", async () => {
+        await fx.service.addBreakpoints(FILE, [{ lineNumber: 1, column: 12 }]);
+        await settle();
+        breakpointsLocations.mockImplementation(() => new Promise(() => undefined));
+        const second = fakeEditor();
+        open.push(second);
+        editorsChanged.fire();
+        expect(shown(second)).toEqual([[0, 11, "debug-breakpoint", "debugIcon.breakpointForeground"]]);
+    });
+
     it("the document's last line has its candidates", async () => {
         await fx.service.addBreakpoints(FILE, [{ lineNumber: 4 }]);
         await settle();

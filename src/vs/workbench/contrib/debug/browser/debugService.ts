@@ -1376,10 +1376,8 @@ export class DebugService implements IDebugService {
 
             if (!bpExists) {
                 const addResult = await this.addAndValidateBreakpoints(uri, lineNumber, column);
-                if (addResult.thread) {
-                    threadToContinue = addResult.thread;
-                }
-
+                // Upstream keeps the focused thread when none is found: without one, the program is not stopped.
+                threadToContinue = addResult.thread;
                 breakpointToRemove = addResult.breakpoint;
             }
         };
@@ -1404,7 +1402,7 @@ export class DebugService implements IDebugService {
                     listener.dispose();
                 }
             });
-            await this.startDebugging(launch, configOrName, undefined, true);
+            await this.startDebugging(launch, configOrName);
         }
         if (this.state === State.Stopped) {
             // The state is the focused session's, and a stopped one has a focused thread (upstream returns without).
@@ -1444,6 +1442,7 @@ export class DebugService implements IDebugService {
                 }),
                 2000,
             );
+            // Stryker disable next-line CallExpression: equivalent, a listener left behind only resolves a race already settled
             listeners.dispose();
         }
 

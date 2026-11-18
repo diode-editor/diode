@@ -197,14 +197,16 @@ export const jumpToCursorAction: CommandAction = {
     async run(accessor) {
         const stackFrame = accessor.get(DebugServiceDIToken).getViewModel().focusedStackFrame;
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
-        const session = stackFrame?.thread.session;
-        const source = editor ? session?.getSourceForUri(editor.uri) : undefined;
-        if (stackFrame && editor && session && source) {
-            const response = await session.gotoTargets(
-                source.raw,
-                editor.primaryCursorLine + 1,
-                editor.primaryCursorColumn + 1,
-            );
+        if (stackFrame && editor) {
+            const { thread } = stackFrame;
+            const source = thread.session.getSourceForUri(editor.uri);
+            const response =
+                source &&
+                (await thread.session.gotoTargets(
+                    source.raw,
+                    editor.primaryCursorLine + 1,
+                    editor.primaryCursorColumn + 1,
+                ));
             const targets = response?.body.targets;
             if (targets?.length) {
                 let id = targets[0].id;
@@ -218,7 +220,7 @@ export const jumpToCursorAction: CommandAction = {
                     if (!pick) return;
                     id = pick.id;
                 }
-                await session.goto(stackFrame.thread.threadId, id).catch((e: unknown) => {
+                await thread.session.goto(thread.threadId, id).catch((e: unknown) => {
                     notify(accessor, "warn", (e as Error).message);
                 });
                 return;

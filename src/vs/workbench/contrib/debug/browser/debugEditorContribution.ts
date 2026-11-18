@@ -146,14 +146,9 @@ export class DebugEditorContribution extends Disposable {
     }
 
     private syncEditors(): void {
-        const open = new Set(this.editors.getEditors());
-        for (const [editor, subscription] of [...this.subscriptions]) {
-            if (open.has(editor)) continue;
-            subscription.dispose();
-            this.subscriptions.delete(editor);
-        }
-        for (const editor of open) {
-            if (this.subscriptions.has(editor)) continue;
+        for (const subscription of this.subscriptions.values()) subscription.dispose();
+        this.subscriptions.clear();
+        for (const editor of this.editors.getEditors()) {
             this.subscriptions.set(
                 editor,
                 editor.onDidClickLineMessage((click) => {
