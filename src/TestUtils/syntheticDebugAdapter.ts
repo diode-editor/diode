@@ -9,6 +9,9 @@
 // on a breakpoint there, Continue runs the loop line by line — a logpoint writes its message with `{i}` and `{sum}`
 // interpolated, a breakpoint stops where its condition (`i % 100 == 0`, `i > 5`) and hit count (`>= 5`, or `5`)
 // hold, and the program exits at `i == 1000`; without them Continue keeps the spike's jump of 100 to line 31.
+// A launch configuration with `workers: ["worker 1", ...]` is a program with child processes, as js-debug sees one:
+// after `launch` the adapter asks the client to `startDebugging` an `attach` session per worker (named so, with
+// `__workerOf` in its configuration); a worker runs the same program, and stopping the parent ends its workers.
 
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { AbstractDebugAdapter } from "../vs/workbench/contrib/debug/common/abstractDebugAdapter.ts";
@@ -195,11 +198,15 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     private launched = false;
     private configured = false;
     private running = false;
+    /** The adapter whose `workers` this one runs, by its index in the factory. */
+    private workerOf: number | undefined;
 
     /** `root`: where the program's sources are; a test that opens them in the editor puts real files there. */
     public constructor(
         private readonly timing: ISyntheticTiming = SPIKE_TIMING,
         private readonly root = SYNTHETIC_PROGRAM_ROOT,
+        /** The adapters of the other sessions: the workers of this one end with it. */
+        private readonly family: readonly SyntheticDebugAdapter[] = [],
     ) {
         super();
     }
@@ -331,7 +338,9 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 }
             // falls through
             case "attach":
+                this.workerOf = args.__workerOf as number | undefined;
                 this.launch(request);
+                this.startWorkers((args.workers ?? []) as string[]);
                 return;
             case "configurationDone":
                 this.configured = true;
@@ -374,9 +383,13 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 });
                 return;
             case "setExceptionBreakpoints":
+                this.clearTimers();
+                this.respond(request);
+                return;
             case "disconnect":
                 this.clearTimers();
                 this.respond(request);
+                this.endWorkers();
                 return;
             case "threads":
                 this.respond(request, { threads: this.program.threads() });
@@ -487,14 +500,45 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 this.respond(request, { sources: [MAIN_CPP, LIST_CPP, QUEUE_CPP].map((f) => this.source(f)) });
                 return;
             case "terminate":
-                this.clearTimers();
                 this.respond(request);
-                this.output("console", "Process exited with code 0.");
-                this.event("exited", { exitCode: 0 });
-                this.event("terminated");
+                this.exit();
+                this.endWorkers();
                 return;
             default:
                 this.fail(request, `Unrecognized request '${request.command}'`);
+        }
+    }
+
+    /** js-debug's child processes: a session per worker, through the client. */
+    private startWorkers(workers: readonly string[]): void {
+        for (const name of workers) {
+            const args: DebugProtocol.StartDebuggingRequestArguments = {
+                request: "attach",
+                configuration: { name, __workerOf: this.family.indexOf(this) },
+            };
+            this.acceptMessage({
+                type: "request",
+                seq: this.seq++,
+                command: "startDebugging",
+                arguments: args,
+            } as DebugProtocol.Request);
+        }
+    }
+
+    /** The program ends: the client hears `exited` and `terminated`. */
+    private exit(): void {
+        this.clearTimers();
+        this.output("console", "Process exited with code 0.");
+        this.event("exited", { exitCode: 0 });
+        this.event("terminated");
+    }
+
+    /** The parent process went away: so do its workers. */
+    private endWorkers(): void {
+        const index = this.family.indexOf(this);
+        if (index < 0) return;
+        for (const worker of this.family) {
+            if (worker.workerOf === index) worker.exit();
         }
     }
 
@@ -987,7 +1031,7 @@ export class SyntheticDebugAdapterFactory implements IDebugAdapterFactory {
     ) {}
 
     public createDebugAdapter(): SyntheticDebugAdapter {
-        const adapter = new SyntheticDebugAdapter(this.timing, this.root);
+        const adapter = new SyntheticDebugAdapter(this.timing, this.root, this.adapters);
         this.adapters.push(adapter);
         return adapter;
     }

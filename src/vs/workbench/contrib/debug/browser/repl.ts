@@ -17,14 +17,17 @@
 // the plain foreground, not `debugConsole.infoForeground` (the spike's look). Escape clearing the input is ours. A line
 // break inside an element is a space without wrapping (the row is one line, cut: the list does not scroll sideways);
 // with wrapping it breaks the row, as upstream's `pre-wrap`. The filter has no history of its own (upstream's Up/Down in it).
-// Not here yet (#1158): Find, the session picker of multiple consoles, clicking a
-// source to open it, the `debug.console.*` font settings (the terminal's font). The view has no `debuggersAvailable`
+// With several consoles (`multiSessionRepl`: the sessions with a console of their own, but the cleared ended ones) the
+// title has upstream's select of them (`SelectReplActionViewItem`) after the filter; picking one runs
+// `workbench.action.debug.selectRepl`.
+// Not here yet (#1158): Find, clicking a source to open it, the `debug.console.*` font settings (the terminal's font). The view has no `debuggersAvailable`
 // gate: it is always there.
 
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { OverlayLayer } from "@tuidom/core/dom/overlayLayer";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { VFlexElement, vflexFill, vflexFit } from "@tuidom/elements/layout/vFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
@@ -83,9 +86,13 @@ import { handleANSIOutput } from "./debugANSIHandling.ts";
 import { showDebugContextMenu } from "./debugContextMenus.ts";
 import { DebugExpressionRenderer } from "./debugExpressionRenderer.ts";
 import { type DebugService, DebugServiceDIToken } from "./debugService.ts";
+import { FocusSessionActionViewItem } from "./focusSessionActionViewItem.ts";
 import { type LinkDetector, LinkDetectorDIToken } from "./linkDetector.ts";
 import { ReplFilter } from "./replFilter.ts";
 import { ReplSuggest } from "./replSuggest.ts";
+
+/** Upstream's id of the console's select of sessions (`repl.ts`); `replActions.ts` registers its command. */
+export const SELECT_REPL_ID = "workbench.action.debug.selectRepl";
 
 export const ReplDIToken = token<Repl>("Repl");
 
@@ -157,6 +164,10 @@ export class Repl extends Component implements IContextKeyContributor {
     public readonly filterInput = new InputElement();
     /** Upstream's badge of the filter: "Showing n of m" while the filter hides lines. */
     public readonly filterBadge = new TextLabelElement("");
+    /** Upstream `SelectReplActionViewItem`: in the title while there are several consoles. */
+    public readonly sessionSelect: FocusSessionActionViewItem;
+    /** The select after a column of space: hidden while there is one console. */
+    private readonly sessionSelectSlot = new HFlexElement();
     public readonly suggest: ReplSuggest;
     private readonly renderer: DebugExpressionRenderer;
     private readonly filter = new ReplFilter();
@@ -304,9 +315,32 @@ export class Repl extends Component implements IContextKeyContributor {
             this.setFilter("");
         });
         this.filterBadge.style = { fg: "descriptionForeground" };
+        this.sessionSelect = this.register(
+            new FocusSessionActionViewItem(
+                debugService,
+                {
+                    getSessions: () => this.consoleSessions(),
+                    mapFocusedSessionToSelected: (focusedSession) => {
+                        let selected = focusedSession;
+                        while (selected.parentSession && !selected.hasSeparateRepl()) {
+                            selected = selected.parentSession;
+                        }
+                        return selected;
+                    },
+                },
+                (session) => {
+                    commands.execute(SELECT_REPL_ID, session);
+                },
+                debugService.getViewModel().focusedSession,
+            ),
+        );
+        this.sessionSelectSlot.addChild(new FillerElement(), { width: hflexFixed(1), height: 1 });
+        this.sessionSelectSlot.addChild(this.sessionSelect.element, { width: hflexFit(), height: 1 });
+        this.updateTitleWidget();
         const filterWidget = new HFlexElement();
         filterWidget.addChild(this.filterBadge, { width: hflexFit(), height: 1 });
         filterWidget.addChild(this.filterInput, { width: hflexFixed(FILTER_WIDTH), height: 1 });
+        filterWidget.addChild(this.sessionSelectSlot, { width: hflexFit(), height: 1 });
 
         views.registerContainer({
             id: DEBUG_PANEL_ID,
@@ -355,6 +389,16 @@ export class Repl extends Component implements IContextKeyContributor {
             debugService.onWillNewSession((newSession) => {
                 // Need to listen to output events for sessions which are not yet fully initialised
                 if (!this.session || this.session.state === State.Inactive) this.selectSession(newSession);
+                this.updateTitleWidget();
+            }),
+        );
+        this.register(
+            debugService.onDidEndSession(() => {
+                // Update view, since orphaned sessions might now be separate
+                // allow other listeners to go first, so sessions can update parents
+                void Promise.resolve().then(() => {
+                    this.updateTitleWidget();
+                });
             }),
         );
         this.register(
@@ -388,6 +432,21 @@ export class Repl extends Component implements IContextKeyContributor {
 
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
         contextKeys.set("inDebugRepl", active?.getAncestorPath().includes(this.view) === true);
+        // Upstream `isMultiSessionView`: the select shows exactly then.
+        contextKeys.set("multiSessionRepl", !this.sessionSelectSlot.hidden);
+    }
+
+    /** The sessions with a console of their own, but the cleared ended ones. */
+    private consoleSessions(): IDebugSession[] {
+        return this.debugService
+            .getModel()
+            .getSessions(true)
+            .filter((s) => s.hasSeparateRepl() && !this.sessionsToIgnore.has(s));
+    }
+
+    /** After the filter, the select of the consoles while there are several (upstream `isMultiSessionView`). */
+    private updateTitleWidget(): void {
+        this.sessionSelectSlot.hidden = this.consoleSessions().length <= 1;
     }
 
     /** Upstream: the focus goes to the input. */
@@ -459,6 +518,8 @@ export class Repl extends Component implements IContextKeyContributor {
                 // Ignore inactive sessions which got cleared - so they are not shown any more
                 this.sessionsToIgnore.add(session);
                 this.selectSession();
+                this.sessionSelect.update();
+                this.updateTitleWidget();
             }
         }
         this.refresh();

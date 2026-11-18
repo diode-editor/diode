@@ -200,6 +200,18 @@
   отступление в `debugSession.ts`). Как в эталоне и оставлено:
   «Load More Stack Frames» после шага, Debug Console поверх терминала `runInTerminal`. После влития — выпуск minor.
 
+- #1159: дочерние сессии (веха 3). Обратный `startDebugging` адаптера уже доходил до `debugService.startDebugging`
+  с `parentSession`; задача добавила UI нескольких сессий по эталону: `debug.showSubSessionsInToolBar` (ключ
+  `multiSessionDebug` считает только корни, Stop/Restart дочерней сессии с `lifecycleManagedByParent` уходят корню),
+  выбор сессии в тулбаре (`FocusSessionActionViewItem` — `browser/debugActionViewItems.ts`, пункт
+  `workbench.action.debug.focusProcess`; в docked-заголовке — кнопка, открывающая выбор), выбор консоли в заголовке
+  Debug Console (`multiSessionRepl`, `workbench.action.debug.selectRepl`), команды Select Debug Session
+  (`debugSessionPicker.ts`), Select Debug Console (`debugConsoleQuickAccess.ts`, префикс `debug consoles `),
+  Focus Next/Previous Debug Console (Ctrl+PageDown/PageUp в консоли), сжатие `compact`-сессий в CALL STACK
+  (`CallStackDataSource.compress`). Синтетический адаптер умеет `workers` (дочерние `attach`-сессии, Stop родителя
+  завершает их), Debug Demo — программу `./workers` (сценарий `debug-child-sessions`). Отступление: у quick pick нет
+  разделителей — дочерняя сессия называет родителя в описании.
+
 - ~~Противоречие в доках~~ (Extensions.md «DAP не планируется» против STATUS.md «planned») снято в #1149: оба описывают
   настоящий отладчик.
 
