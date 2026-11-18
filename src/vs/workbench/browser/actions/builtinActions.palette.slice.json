@@ -408,6 +408,7 @@
     "debug.startFromConfig",
     "workbench.action.debug.focusProcess",
     "debug.installAdditionalDebuggers",
+    "debug.openView",
     "editor.debug.action.toggleBreakpoint",
     "editor.debug.action.conditionalBreakpoint",
     "editor.debug.action.addLogPoint",

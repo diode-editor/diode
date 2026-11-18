@@ -29,9 +29,9 @@ import type { ServiceAccessor } from "../../../../platform/instantiation/common/
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import { containerMenuVisible } from "../../../browser/actions/menuContexts.ts";
-import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
+import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 import { openExtensionsSearch } from "../../extensions/browser/extensionsSearch.ts";
@@ -805,7 +805,6 @@ export const openViewAction: CommandAction = {
 export const DEBUG_ACTIONS: readonly CommandAction[] = [
     startAction,
     runAction,
-    openViewAction,
     selectAndStartAction,
     configureAction,
     addConfigurationAction,
@@ -827,6 +826,7 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     startFromConfigAction,
     focusSessionAction,
     installAdditionalDebuggersAction,
+    openViewAction,
     ...BREAKPOINT_EDITOR_ACTIONS,
     ...BREAKPOINT_EDIT_ACTIONS,
     showDebugHoverAction,

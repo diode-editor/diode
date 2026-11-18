@@ -29,6 +29,7 @@ describe("F5 without a debugger", () => {
                 name: "javascript",
                 publisher: "vscode",
                 version: "1.0.0",
+                engines: { vscode: "*" },
                 contributes: { languages: [{ id: "javascript", aliases: ["JavaScript"], extensions: [".js"] }] },
             },
         });
