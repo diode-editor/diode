@@ -144,6 +144,7 @@ import { COMMENT_ACTIONS } from "./contrib/comment/browser/commentActions.ts";
 import { BreakpointEditorContributionDIToken } from "./contrib/debug/browser/breakpointEditorContribution.ts";
 import { DEBUG_ACTIONS } from "./contrib/debug/browser/debugCommands.ts";
 import { DebugContentProviderDIToken } from "./contrib/debug/browser/debugContentProvider.ts";
+import { DebugEditorContributionDIToken } from "./contrib/debug/browser/debugEditorContribution.ts";
 import { DebugLifecycleDIToken } from "./contrib/debug/browser/debugLifecycle.ts";
 import { DEBUG_MENU_SUBMENUS } from "./contrib/debug/browser/debugMenus.ts";
 import { DebugServiceDIToken } from "./contrib/debug/browser/debugService.ts";
@@ -381,6 +382,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: DebugLifecycleDIToken, phase: "afterRestored" },
     // The breakpoints and stack frames in the restored editors' glyph lanes.
     { token: BreakpointEditorContributionDIToken, phase: "afterRestored" },
+    // The exception's badge after the line of the frame that threw it.
+    { token: DebugEditorContributionDIToken, phase: "afterRestored" },
     // The variables' values after the lines of the focused frame's file.
     { token: InlineValuesContributionDIToken, phase: "afterRestored" },
     // The `debug:` documents of the frames whose source an adapter gives by reference.

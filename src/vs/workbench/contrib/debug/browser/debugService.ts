@@ -15,8 +15,10 @@
 // workspace trust (diode has none), telemetry, extension host debugging, the memory and disassembly views.
 
 import { distinct } from "../../../../base/common/arrays.ts";
-import { RunOnceScheduler } from "../../../../base/common/async.ts";
+import { assertReturnsDefined } from "../../../../base/common/assert.ts";
+import { raceTimeout, RunOnceScheduler } from "../../../../base/common/async.ts";
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { isCancellationError } from "../../../../base/common/errorSerialization.ts";
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
@@ -1364,6 +1366,91 @@ export class DebugService implements IDebugService {
         return breakpoints;
     }
 
+    /**
+     * Upstream's: a breakpoint where the program should stop, unless one is there, then Continue on the thread that
+     * verified it (or a session started with the selected configuration); the breakpoint goes with the next stop.
+     */
+    public async runTo(uri: uri, lineNumber: number, column?: number): Promise<void> {
+        let breakpointToRemove: IBreakpoint | undefined;
+        let threadToContinue = this.getViewModel().focusedThread;
+        const addTempBreakPoint = async (): Promise<void> => {
+            const bpExists = this.getModel().getBreakpoints({ column, lineNumber, uri }).length > 0;
+
+            if (!bpExists) {
+                const addResult = await this.addAndValidateBreakpoints(uri, lineNumber, column);
+                // Upstream keeps the focused thread when none is found: without one, the program is not stopped.
+                threadToContinue = addResult.thread;
+                breakpointToRemove = addResult.breakpoint;
+            }
+        };
+        const removeTempBreakPoint = (state: State): boolean => {
+            if (state === State.Stopped || state === State.Inactive) {
+                if (breakpointToRemove) {
+                    this.removeBreakpoints(breakpointToRemove.getId()).catch(onUnexpectedError);
+                }
+                return true;
+            }
+            return false;
+        };
+
+        await addTempBreakPoint();
+        if (this.state === State.Inactive) {
+            // If no session exists start the debugger
+            const { launch, name, getConfig } = this.getConfigurationManager().selectedConfiguration;
+            const config = await getConfig();
+            const configOrName = config ? structuredClone(config) : name;
+            const listener = this.onDidChangeState((state) => {
+                if (removeTempBreakPoint(state)) {
+                    listener.dispose();
+                }
+            });
+            await this.startDebugging(launch, configOrName);
+        }
+        if (this.state === State.Stopped) {
+            // The state is the focused session's, and a stopped one has a focused thread (upstream returns without).
+            const focusedSession = assertReturnsDefined(this.getViewModel().focusedSession);
+            const thread = assertReturnsDefined(threadToContinue);
+            const listener = thread.session.onDidChangeState(() => {
+                if (removeTempBreakPoint(focusedSession.state)) {
+                    listener.dispose();
+                }
+            });
+            await thread.continue();
+        }
+    }
+
+    private async addAndValidateBreakpoints(
+        uri: uri,
+        lineNumber: number,
+        column?: number,
+    ): Promise<{ breakpoint: IBreakpoint; thread: IThread | undefined }> {
+        const debugModel = this.getModel();
+        // Upstream's "no breakpoint added" return: the model adds every breakpoint it is given.
+        const [breakpoint] = await this.addBreakpoints(uri, [{ lineNumber, column }]);
+
+        // If the breakpoint was not initially verified, wait up to 2s for it to become so.
+        // Inherently racey if multiple sessions can verify async, but not solvable...
+        if (!breakpoint.verified) {
+            const listeners = new DisposableStore();
+            await raceTimeout(
+                new Promise<void>((resolve) => {
+                    listeners.add(
+                        debugModel.onDidChangeBreakpoints(() => {
+                            if (breakpoint.verified) {
+                                resolve();
+                            }
+                        }),
+                    );
+                }),
+                2000,
+            );
+            // Stryker disable next-line CallExpression: equivalent, a listener left behind only resolves a race already settled
+            listeners.dispose();
+        }
+
+        return { thread: threadToRunTo(debugModel, this.getViewModel().focusedThread, breakpoint, uri), breakpoint };
+    }
+
     private async sendFunctionBreakpoints(session?: IDebugSession): Promise<void> {
         const breakpointsToSend = this.model
             .getFunctionBreakpoints()
@@ -1466,4 +1553,66 @@ export function getStackFrameThreadAndSessionToFocus(
     }
 
     return { session, thread, stackFrame };
+}
+
+/**
+ * Upstream `addAndValidateBreakpoints`' choice of the thread Run to Cursor continues: of the sessions that verified the
+ * breakpoint, the focused thread, else a thread paused in the breakpoint's file, else any stopped one; none — the
+ * focused thread.
+ */
+export function threadToRunTo(
+    debugModel: Pick<IDebugModel, "getSession">,
+    focusedThread: IThread | undefined,
+    breakpoint: Pick<IBreakpoint, "sessionsThatVerified">,
+    uri: uri,
+): IThread | undefined {
+    // Look at paused threads for sessions that verified this bp. Prefer, in order:
+    const enum Score {
+        /** The focused thread */
+        Focused,
+        /** Any other stopped thread of a session that verified the bp */
+        Verified,
+        /** Any thread that verified and paused in the same file */
+        VerifiedAndPausedInFile,
+        /** The focused thread if it verified the breakpoint */
+        VerifiedAndFocused,
+    }
+
+    let bestThread = focusedThread;
+    let bestScore = Score.Focused;
+    for (const sessionId of breakpoint.sessionsThatVerified) {
+        const session = debugModel.getSession(sessionId);
+        if (!session) {
+            continue;
+        }
+
+        const threads = session.getAllThreads().filter((t) => t.stopped);
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent, the focused thread checked again is picked again
+        if (bestScore < Score.VerifiedAndFocused) {
+            if (focusedThread && threads.includes(focusedThread)) {
+                bestThread = focusedThread;
+                bestScore = Score.VerifiedAndFocused;
+            }
+        }
+
+        if (bestScore < Score.VerifiedAndPausedInFile) {
+            const pausedInThisFile = threads.find((t) => {
+                const top = t.getTopStackFrame();
+                return top?.source.uri.toString() === uri.toString();
+            });
+
+            if (pausedInThisFile) {
+                bestThread = pausedInThisFile;
+                bestScore = Score.VerifiedAndPausedInFile;
+            }
+        }
+
+        // Stryker disable next-line EqualityOperator: equivalent, as upstream no branch leaves the score at `Verified`
+        if (bestScore < Score.Verified) {
+            bestThread = threads[0];
+            bestScore = Score.VerifiedAndPausedInFile;
+        }
+    }
+
+    return bestThread;
 }

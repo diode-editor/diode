@@ -1156,6 +1156,9 @@ export interface IDebugService {
     /** Adds new breakpoints to the model for the file specified with the uri. Notifies debug adapter of breakpoint changes. */
     addBreakpoints(uri: uri, rawBreakpoints: IBreakpointData[]): Promise<IBreakpoint[]>;
 
+    /** Continues the focused thread (or starts debugging) until the location, with a breakpoint taken off at the stop. */
+    runTo(uri: uri, lineNumber: number, column?: number): Promise<void>;
+
     /**
      * Enables or disables all breakpoints. If breakpoint is passed only enables or disables the passed breakpoint.
      * Notifies debug adapter of breakpoint changes.

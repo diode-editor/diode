@@ -23,6 +23,7 @@ import type {
     ILineHighlightDecoration,
 } from "../../../../editor/common/model/iGlyphMarginDecoration.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
+import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
 import type {
     ILineMessageClick,
     ILineMessageDecoration,
@@ -497,6 +498,11 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public setLineMessageDecorations(owner: string, decorations: readonly ILineMessageDecoration[]): void {
         this.component.setLineMessageDecorations(owner, decorations);
+    }
+
+    /** The owner's cells absent from the document, drawn before their offsets (the inline breakpoints). */
+    public setOwnedInlineInsertions(owner: string, insertions: readonly IInlineInsertion[]): void {
+        this.component.setOwnedInlineInsertions(owner, insertions);
     }
 
     public getLineMessageDecorations(owner: string): ReadonlyMap<number, ILineMessageDecoration> {

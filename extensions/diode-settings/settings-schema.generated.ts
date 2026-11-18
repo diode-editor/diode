@@ -174,6 +174,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Controls whether breakpoints should be shown in the overview ruler.",
     },
     {
+        key: "debug.showInlineBreakpointCandidates",
+        type: "boolean",
+        default: true,
+        description:
+            "Controls whether inline breakpoints candidate decorations should be shown in the editor while debugging.",
+    },
+    {
         key: "debug.showInStatusBar",
         type: "string",
         default: "onFirstSessionStart",

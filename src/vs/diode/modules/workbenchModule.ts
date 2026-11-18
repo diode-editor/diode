@@ -145,6 +145,11 @@ import {
     DebugContentProvider,
     DebugContentProviderDIToken,
 } from "../../workbench/contrib/debug/browser/debugContentProvider.ts";
+import {
+    DebugEditorContribution,
+    DebugEditorContributionDIToken,
+    DebugEditorSourceDIToken,
+} from "../../workbench/contrib/debug/browser/debugEditorContribution.ts";
 import { DebugHoverWidget, DebugHoverWidgetDIToken } from "../../workbench/contrib/debug/browser/debugHover.ts";
 import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
 import {
@@ -859,6 +864,9 @@ export const workbenchModule: ContainerModule = (container) => {
     // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario debug-breakpoints-gutter
     container.bind(BreakpointEditorSourceDIToken, () => container.get(EditorServiceDIToken));
     container.bind(BreakpointEditorContributionDIToken, BreakpointEditorContribution);
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario debug-editor-commands
+    container.bind(DebugEditorSourceDIToken, () => container.get(EditorServiceDIToken));
+    container.bind(DebugEditorContributionDIToken, DebugEditorContribution);
     // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario debug-inline-values
     container.bind(InlineValuesEditorSourceDIToken, () => container.get(EditorServiceDIToken));
     container.bind(InlineValuesContributionDIToken, InlineValuesContribution);

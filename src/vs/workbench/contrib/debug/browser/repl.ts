@@ -530,17 +530,26 @@ export class Repl extends Component implements IContextKeyContributor {
         this.suggest.close();
         const value = this.input.inputState.value;
         if (value.trim() === "") return;
-        const session = this.session;
         this.revealLast = true;
-        if (session && session.state !== State.Inactive) {
-            void session
-                .addReplExpression(this.debugService.getViewModel().focusedStackFrame, value)
-                .catch(onUnexpectedError);
-        } else {
-            void this.evaluateWithoutSession(value);
-        }
+        if (!this.evaluateInSession(value)) void this.evaluateWithoutSession(value);
         this.addToHistory(value);
         this.setInput("");
+    }
+
+    /** The input evaluated in the shown session's console; `false` without a running session. */
+    private evaluateInSession(value: string): boolean {
+        const session = this.session;
+        if (!session || session.state === State.Inactive) return false;
+        this.revealLast = true;
+        void session
+            .addReplExpression(this.debugService.getViewModel().focusedStackFrame, value)
+            .catch(onUnexpectedError);
+        return true;
+    }
+
+    /** Upstream's: the input evaluated in the shown session's console, as if typed, with its history; nothing for an ended one. */
+    public sendReplInput(input: string): void {
+        if (this.evaluateInSession(input)) this.addToHistory(input);
     }
 
     private async evaluateWithoutSession(value: string): Promise<void> {
