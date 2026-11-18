@@ -392,7 +392,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
 
     bindExtensionHostToEditors(host, group, group.editorGroups, languageFeatures);
     bindFileOperationParticipant(host, workspaceEditService, harnessConfiguration, {
-        withProgress: (_options, task) => task({ report: () => undefined }),
+        withProgress: (_options, task) => task(),
     });
 
     const writeFile = (name: string, content: string): string => {

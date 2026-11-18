@@ -76,6 +76,7 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
         );
         this.register(
             service.onDidChangeDownloadProgress((id) => {
+                // Stryker disable next-line ConditionalExpression: another id's percent redraws the same buttons; the check only saves the work
                 if (id === this.entry.id) this.element.setButtons(this.buttons());
             }),
         );

@@ -60,9 +60,9 @@ function describeFetchError(error: unknown): string {
     return cause instanceof Error ? `${message} (${cause.message})` : message;
 }
 
-/** No header reads as `Number(null)`, which is 0: no size either. */
+/** No header reads as `Number(null)`, which is 0, a garbled one as NaN: no size either. */
 function positiveSize(size: number | undefined): number | undefined {
-    return size !== undefined && Number.isFinite(size) && size > 0 ? size : undefined;
+    return (size ?? 0) > 0 ? size : undefined;
 }
 
 /** Counts actual bytes, not `Content-Length`: the header is optional and may lie. */

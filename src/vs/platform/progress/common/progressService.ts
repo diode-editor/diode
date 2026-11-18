@@ -48,6 +48,11 @@ export function formatProgressPercent(percent: number | undefined): string {
     return percent === undefined ? "" : ` (${String(Math.round(percent))}%)`;
 }
 
+/** What a consumer that reports no percent needs: a fake of it passes no {@link IProgress}. */
+export interface IIndeterminateProgressService {
+    withProgress<T>(options: IProgressOptions, task: () => Promise<T>): Promise<T>;
+}
+
 export interface IProgressServiceOptions {
     readonly delayMs?: number;
     readonly minVisibleMs?: number;
@@ -208,8 +213,7 @@ export class ProgressService extends Disposable {
     }
 
     private frameOf(entry: ProgressEntry): IProgressFrame {
-        const frame = { spinner: this.spinner(), title: entry.title };
-        return entry.percent === undefined ? frame : { ...frame, percent: entry.percent };
+        return { spinner: this.spinner(), title: entry.title, percent: entry.percent };
     }
 
     private startTicker(): void {

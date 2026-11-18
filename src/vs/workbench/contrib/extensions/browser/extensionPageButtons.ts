@@ -43,6 +43,7 @@ export function describeExtensionButtons(entry: IExtensionListEntry, state: IExt
     if (entry.operation === "installing") {
         // Upstream shows `Installing` whenever the state is, an update or a given version included.
         const percent = state.percent === null ? "" : ` ${String(state.percent)}%`;
+        // Stryker disable next-line BooleanLiteral: the operation disables every button below anyway; `false` says so here too
         buttons.push({ kind: "installing", label: `${state.spinner} Installing${percent}`, enabled: false });
     } else if (entry.installedVersion === null) {
         // No registry entry: the button would lead to "not found in registry". Incompatible gets a disabled
@@ -60,6 +61,7 @@ export function describeExtensionButtons(entry: IExtensionListEntry, state: IExt
         buttons.push({ kind: "installAnotherVersion", label: "Install Specific Version...", enabled: true });
     }
     if (entry.operation === "uninstalling") {
+        // Stryker disable next-line BooleanLiteral: the operation disables every button below anyway; `false` says so here too
         buttons.push({ kind: "uninstalling", label: `${state.spinner} Uninstalling`, enabled: false });
     } else if (entry.installedVersion !== null) {
         buttons.push({ kind: "uninstall", label: "Uninstall", enabled: true });

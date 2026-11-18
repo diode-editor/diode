@@ -21,7 +21,7 @@ function setup(timeout: unknown, ops: readonly IWireWorkspaceEditOp[] = []) {
             withProgress: (options, task) => {
                 titles.push(options.title);
                 locations.push(options.location);
-                return task({ report: () => undefined });
+                return task();
             },
         },
     );

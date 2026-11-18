@@ -94,8 +94,9 @@ export class ExtensionPageActions implements IExtensionPageActions {
         const result = await this.progress.withProgress(
             { location: "window", title: `Installing ${id}` },
             async (p) => {
-                const listener = this.service.onDidChangeDownloadProgress((changed) => {
-                    if (changed === id) p.report({ percent: this.service.getDownloadProgress(id) ?? undefined });
+                // Any id: the same percent again is no change to the progress.
+                const listener = this.service.onDidChangeDownloadProgress(() => {
+                    p.report({ percent: this.service.getDownloadProgress(id) ?? undefined });
                 });
                 try {
                     return await this.service.install(id, options);

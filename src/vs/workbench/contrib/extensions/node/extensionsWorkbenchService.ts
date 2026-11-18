@@ -55,7 +55,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     private readonly operations = new Map<string, ExtensionOperation>();
     /** The installs in flight: a second install of the same id joins the first. */
     private readonly running = new Map<string, Promise<IExtensionInstallResult>>();
-    private readonly downloads = new Map<string, number>();
+    private readonly downloads = new Map<string, number | null>();
     private readonly operationErrors = new Map<string, string>();
 
     /** semver is a lazy chunk: loaded together with the index, not at startup. */
@@ -129,8 +129,8 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         const failed: { id: string; error: string }[] = [];
         const wanted = new Set(ids);
         const targets = this.getOutdated().filter((entry) => wanted.has(entry.id));
+        // No redraw here: the first target's install (or its end, if handled elsewhere) redraws the whole batch.
         for (const { id } of targets) this.operations.set(id, "installing");
-        if (targets.length > 0) this.rebuildEntries();
         for (const { id, latestVersion } of targets) {
             if (this.isHandledElsewhere(id, String(latestVersion))) {
                 // Another window or the CLI got there first (US-3.12) — updated or uninstalled it; this window still
@@ -238,8 +238,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 
     /** `installFromRegistry` reports only changes, and `null` after every download it measured, a failed one too. */
     private setDownloadProgress(id: string, percent: number | null): void {
-        if (percent === null) this.downloads.delete(id);
-        else this.downloads.set(id, percent);
+        this.downloads.set(id, percent);
         this.onDidChangeDownloadProgressEmitter.fire(id);
     }
 
