@@ -525,7 +525,9 @@ EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorer
   `Expandable`-узла (и корня контроллера при показе) зовёт `TestService.expandTest(id, 0)`, по разу на
   состояние. Диффы перечитывают дерево целиком, раскрытие и курсор держатся по id.
 - **Меню строки** — `MenuId.TestItem` (`testing/item/context`) с ключами строки `view`, `testId`
-  (последний сегмент), `controllerId`, `testing.testItemHasUri`; группа `inline` — глифы справа с отступом в
+  (последний сегмент), `controllerId`, `testing.testItemHasUri` и возможностями теста
+  (`capabilityContextKeys` эталона: `testing.hasRunnableTests`/`testing.hasDebuggableTests` — есть ли у его
+  контроллера профиль группы, чей тег на тесте; `TestProfileService.capabilitiesForTest`); группа `inline` — глифы справа с отступом в
   колонку (`inlineActionsRightPadding: 1`), прочее — контекстное меню. Общие помощники с деревьями
   расширений — `browser/parts/views/treeItemMenu.ts`. Команде уходит `{ $testId }`.
 - **Go to Test** — Enter/клик по листу с `uri` открывает файл на `range.start`, фокус остаётся в дереве;
@@ -537,10 +539,19 @@ EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorer
   Tests и Clear All Results — в «⋯» (`displayAction`), там же сортировки. На строке — Run Test
   (`testing.run`, inline и `builtin@1`, тест с видимыми потомками) перед Go to Test. Команды палитры:
   Run All Tests (`Ctrl+; A`), Rerun Failed Tests (`Ctrl+; E`, упавшие по всем результатам), Rerun Last Run
-  (`Ctrl+; L`, те же цели и профили, если они ещё есть), Rerun Failed Tests from Last Run — реруны
-  доступны при `testing.hasAnyResults`.
+  (`Ctrl+; L`, те же цели и профили, если запуск той же группы и профили ещё есть, иначе дефолты группы),
+  Rerun Failed Tests from Last Run — реруны доступны при `testing.hasAnyResults`.
+- **Debug** (профиль `Debug` контроллера; отладочную сессию стартует сам `runHandler` расширения через
+  `vscode.debug.startDebugging`, как vitest/jest) — пара к каждому Run-пункту эталона: Debug Tests в
+  заголовке (`testing.debugSelected`, `navigation` 12, при `!testing.isRunning && testing.hasDebuggableTests`),
+  Debug Test на строке (`testing.debug`, inline и `builtin@1` после Run Test, по возможностям теста), Debug
+  All Tests (`Ctrl+; Ctrl+A`, в палитре при `testing.hasDebuggableTests`, без тестов — «No debuggable tests
+  found in this workspace…»), Debug Failed Tests (`Ctrl+; Ctrl+E`), Debug Last Run (`Ctrl+; Ctrl+L`),
+  Debug Failed Tests from Last Run. Alt+клик по Rerun Last Run сводки — Debug Last Run (альтернативное
+  действие `MenuItemAction` эталона). Тест без Debug-профиля не отлаживается: `runTests` его пропускает.
 - Не сделано: count badge (`testing.countBadge` — activity bar нет), View as List/Tree, Hide/Unhide Test,
-  Show in Active File Only, Debug/Coverage-пункты (решения человека), выбор профиля («Execute Using
+  Show in Active File Only, Coverage-пункты, Debug Tests by URI в контекстном меню Explorer (нет и Run-пары),
+  выпадающий список профилей у Run/Debug Tests в заголовке, выбор профиля («Execute Using
   Profile...», «Select Default Profile», «Configure Test Profiles»), Fuzzy Match, печать символа из дерева
   в фильтр. В заголовке ещё Show Output (`testing.showMostRecentOutput`, `navigation` 16) — панель
   TEST RESULTS ниже.
@@ -571,11 +582,14 @@ EXPLORER) — `contrib/testing/browser/testingExplorerView.ts` (`TestingExplorer
   ≥ Running или с сообщениями, по приоритету состояния, описание — цепочка родителей до корня контроллера
   через « ‹ » → сообщения-ошибки (первая строка, «+ N more lines»). Задачи и тесты раскрываются при первом
   появлении. Компактных строк эталона (тест с единственным сообщением одной строкой) нет.
-- **Действия строки** (`TreeActionsProvider` эталона без Debug-пунктов — дебагера нет) — свои, не меню:
+- **Действия строки** (`TreeActionsProvider` эталона без Coverage) — свои, не меню:
   у задачи Show Result Output, пока идёт — Cancel Test Run (`testing.cancelRun` с `resultId`, `taskId`), иначе
-  Rerun Last Run и при падениях Rerun Failed Tests (`testing.reRunFailedFromLastRun`); у старого запуска
-  Show Result Output (одна задача), Rerun Test, Rerun Failed Tests; у теста и сообщения Go to Test (есть
-  `uri`), Show Result Output (есть вывод), Run Test (`testing.hasRunnableTests`), в контекстном меню после
+  Rerun Last Run, при падениях Rerun Failed Tests (`testing.reRunFailedFromLastRun`), Debug Last Run
+  (`testing.debugLastRun` с `resultId`) и при падениях Debug Failed Tests (`testing.debugFailedFromLastRun`); у
+  старого запуска Show Result Output (одна задача), Rerun Test, Rerun Failed Tests (Debug-пунктов нет: эталон
+  считает их по тесту, которого у строки запуска нет); у теста Go to Test (есть
+  `uri`), Show Result Output (есть вывод), Run Test и Debug Test (`testing.run`/`testing.debug` — по
+  возможностям теста, `capabilitiesForTest`), в контекстном меню после
   разделителя — Reveal in Test Explorer (`_revealTestInExplorer` → `TestingExplorerComponent.revealTest`).
   Клик выбирает строку, Enter на тесте — Go to Test (решение спеки; у эталона Enter открывает сообщение).
   У сообщения — Go to Error (`debug-stackframe`, есть `location`: файл на начале диапазона, клавиатура — в
@@ -609,8 +623,8 @@ false`, настройки редактора — `editorConfiguration.apply`); 
   (`testing.collapsePeekStack`, `collapse-all` в заголовке TEST RESULTS и палитра при `testing.peekHasStack`;
   у эталона — заголовок peek) сворачивает его. Отступление: кадр — строка без кода вокруг (эталон встраивает
   редактор на кадр), сворачивать, кроме сообщения, нечего. Пункты `testing/message/content` — кнопки в шапке
-  (`FloatingClickMenu` эталона, видны всегда). «Debug Test» у кадра не показываем — дебагера нет (решение
-  2026-11-04). (`TestingProgressUiService` эталона, внутри компонента): на старт запуска без
+  (`FloatingClickMenu` эталона, видны всегда). Тулбара под стеком эталона (`MenuId.TestCallStack`: Rerun Test,
+  Debug Test) нет — ни Run-, ни Debug-кнопки. (`TestingProgressUiService` эталона, внутри компонента): на старт запуска без
   `preserveFocus` по `testing.automaticallyOpenTestResults` — `openOnTestStart` (по умолчанию) открывает
   вид без фокуса, `openOnTestFailure` — на первом упавшем тесте, `openExplorerOnTestStart` — Test Explorer,
   `neverOpen` — ничего. Первая задача нового запуска выбирается сама. Show Output
@@ -619,7 +633,12 @@ false`, настройки редактора — `editorConfiguration.apply`); 
 
 ### Тесты в редакторе
 
-`contrib/testing/browser/testingDecorations.ts` — глифы поля (run, состояние, меню глифа). Сообщения после
+`contrib/testing/browser/testingDecorations.ts` — глифы поля (run, состояние, меню глифа). Левый клик — по
+`testing.defaultGutterClickAction`: `run` — Run-профиль, `debug` — Debug, `runWithCoverage` — Run (coverage нет),
+`contextMenu` — меню; Alt+клик — другое из Run/Debug (`RunTestDecoration.click` эталона). Меню глифа — Run Test,
+Debug Test (по возможностям теста), Peek Error, Cancel Test Run, Reveal in Test Explorer и `testing/item/gutter`;
+строки с несколькими тестами — Run All Tests, Debug All Tests и подменю по тесту. Отступление: при зажатом Alt
+глиф не меняется на альтернативный — терминал сообщает Alt только вместе с другой клавишей. Сообщения после
 строк — `testingMessageDecorations.ts` (`TestingMessageDecorations`, `applyResults` эталона) над вкладками-
 редакторами (без сторон диффа и панелей; в режиме большого файла — ничего):
 
@@ -647,7 +666,10 @@ false`, настройки редактора — `editorConfiguration.apply`); 
   Go to Next/Previous Test Failure (`Alt+F8`/`Shift+Alt+F8`, `editorTextFocus`) — отступление: без peek
   курсор идёт по ошибкам, показанным в файле, по кругу, и выбирает сообщение в TEST RESULTS, если вид
   показан. Ключи `testing.activeEditorHasTests`, `testing.cursorInsideTestRange` —
-  `testingEditorContextKeys.ts`. Debug- и Coverage-варианты не делаем.
+  `testingEditorContextKeys.ts`. Debug-варианты — Debug Test at Cursor (`testing.debugAtCursor`, `Ctrl+; Ctrl+C`)
+  и Debug Tests in Current File (`testing.debugCurrentFile`, `Ctrl+; Ctrl+F`), в контекстном меню редактора
+  1-й и 3-й (`EditorContextOrder` эталона) при `testing.activeEditorHasTests && testing.hasDebuggableTests`.
+  Coverage-вариантов нет.
 
 ## References
 

@@ -35,6 +35,7 @@ import {
     TestItemExpandState,
     TestResultState,
     TestRunProfileBitset,
+    type TestRunProfileGroup,
 } from "../../../api/common/testingWireTypes.ts";
 import {
     type QuickInputService,
@@ -57,8 +58,15 @@ import { cancelTestRunAction } from "./testingActions.ts";
 import { REVEAL_TEST_COMMAND, TESTING_EXPLORER_VIEW_ID } from "./testingExplorerView.ts";
 import { getTestItemContextOverlay } from "./testItemContextOverlay.ts";
 
-// Upstream `contrib/testing/browser/testingDecorations.ts`: the run glyphs (`RunTestDecoration`). Deviations: no Debug
-// and no Coverage entries (no debugger, no coverage yet), Alt does not switch to debug, and the glyph has no hover.
+// Upstream `contrib/testing/browser/testingDecorations.ts`: the run glyphs (`RunTestDecoration`). Deviations: no
+// Coverage entries (no coverage yet), the glyph has no hover, and holding Alt does not swap it for the alternate
+// action's (a terminal reports Alt only with another key) — an Alt+click still takes the alternate action.
+
+/** Upstream's entries of a glyph's menu that run its test (or all of a line's tests), by the group of the profiles. */
+const RUN_ENTRIES = [
+    { group: TestRunProfileBitset.Run, label: "Run Test", allLabel: "Run All Tests" },
+    { group: TestRunProfileBitset.Debug, label: "Debug Test", allLabel: "Debug All Tests" },
+] as const;
 
 /** Upstream `MAX_TESTS_IN_SUBMENU`. */
 export const MAX_TESTS_IN_SUBMENU = 30;
@@ -317,20 +325,24 @@ export class TestingDecorations extends Disposable {
         for (const root of this.tests.rootItems) visit(root);
     }
 
-    /** Upstream `RunTestDecoration.click`; Alt changes nothing, there is no debugger. */
+    /**
+     * Upstream `RunTestDecoration.click`: the action of `testing.defaultGutterClickAction`, with Alt the alternate one
+     * (Run for `debug`, Debug otherwise). `runWithCoverage` runs: no coverage yet.
+     */
     private click(state: IAttachedEditor, click: IGlyphMarginClick): void {
         // The glyphs and their tests are set together; a click of this owner has a key.
         const tests = assertReturnsDefined(state.decorations.get(assertReturnsDefined(click.key)));
-        if (click.button === "right" || this.configuration.get("testing.defaultGutterClickAction") === "contextMenu") {
+        const action = this.configuration.get("testing.defaultGutterClickAction");
+        if (click.button === "right" || action === "contextMenu") {
             this.showContextMenu(state.editor, tests, click);
             return;
         }
-        // `debug` and `runWithCoverage` run: no debugger, no coverage yet.
-        this.run(tests);
+        const debug = (action === "debug") !== click.altKey;
+        this.run(tests, debug ? TestRunProfileBitset.Debug : TestRunProfileBitset.Run);
     }
 
     /** Upstream `runWith` over `simplifyTestsToExecute`: a test under another one of the set runs with it. */
-    private run(tests: readonly ITestNode[]): void {
+    private run(tests: readonly ITestNode[], group: TestRunProfileGroup): void {
         const ids = new Set(tests.map((test) => test.item.extId));
         const outermost = tests.filter((test) => {
             for (let id = TestId.parentId(test.item.extId); id !== undefined; id = TestId.parentId(id)) {
@@ -338,7 +350,7 @@ export class TestingDecorations extends Disposable {
             }
             return true;
         });
-        this.tests.runTests({ tests: outermost }).catch(onUnexpectedError);
+        this.tests.runTests({ tests: outermost, group }).catch(onUnexpectedError);
     }
 
     private showContextMenu(
@@ -354,19 +366,19 @@ export class TestingDecorations extends Disposable {
         });
     }
 
-    /** Upstream `getTestContextMenuActions` without Debug, Coverage and profiles. */
+    /** Upstream `getTestContextMenuActions` without Coverage and profiles. */
     private testEntries(test: ITestNode): MenuEntry[] {
         const testId = test.item.extId;
         const state = this.testState(test);
-        const entries: MenuEntry[] = [];
-        if (this.profiles.getDefaultProfileForTest(TestRunProfileBitset.Run, test) !== undefined) {
-            entries.push({
-                label: "Run Test",
+        const capabilities = this.profiles.capabilitiesForTest(test);
+        const entries: MenuEntry[] = RUN_ENTRIES.filter(({ group }) => capabilities & group).map(
+            ({ group, label }) => ({
+                label,
                 onSelect: () => {
-                    this.run([test]);
+                    this.run([test], group);
                 },
-            });
-        }
+            }),
+        );
         if (isFailedState(state) && this.commands.has(PEEK_TEST_ERROR_COMMAND)) {
             entries.push({
                 label: "Peek Error",
@@ -389,13 +401,13 @@ export class TestingDecorations extends Disposable {
                 this.execute(REVEAL_TEST_COMMAND, testId);
             },
         });
-        const contributed = this.contributedEntries(test);
+        const contributed = this.contributedEntries(test, capabilities);
         return contributed.length > 0 ? [...entries, { type: "separator" }, ...contributed] : entries;
     }
 
     /** Upstream `getContributedTestActions`: `testing/item/gutter` with the test's keys, the test as the argument. */
-    private contributedEntries(test: ITestNode): MenuEntry[] {
-        const keys = getTestItemContextOverlay(test);
+    private contributedEntries(test: ITestNode, capabilities: number): MenuEntry[] {
+        const keys = getTestItemContextOverlay(test, capabilities);
         const arg: IWireTestItemArg = { $testId: test.item.extId };
         return joinMenuGroups(this.menus.getEntryGroups(MenuId.TestItemGutter, undefined, keys)).map((entry) =>
             bindMenuEntry(entry, (item) => {
@@ -410,19 +422,18 @@ export class TestingDecorations extends Disposable {
         );
     }
 
-    /** Upstream `MultiRunTestDecoration.getContextMenuActions` without Debug and Coverage. */
+    /** Upstream `MultiRunTestDecoration.getContextMenuActions` without Coverage. */
     private multiTestEntries(tests: readonly ITestNode[]): MenuEntry[] {
-        const entries: MenuEntry[] = [];
-        if (
-            tests.some((test) => this.profiles.getDefaultProfileForTest(TestRunProfileBitset.Run, test) !== undefined)
-        ) {
-            entries.push({
-                label: "Run All Tests",
+        let capabilities = 0;
+        for (const test of tests) capabilities |= this.profiles.capabilitiesForTest(test);
+        const entries: MenuEntry[] = RUN_ENTRIES.filter(({ group }) => capabilities & group).map(
+            ({ group, allLabel }) => ({
+                label: allLabel,
                 onSelect: () => {
-                    this.run(tests);
+                    this.run(tests, group);
                 },
-            });
-        }
+            }),
+        );
         const labelled = labelTests(tests, (id) => this.tests.getNodeById(id));
         const submenus: MenuEntry[] = labelled.slice(0, MAX_TESTS_IN_SUBMENU).map(({ label, test }) => ({
             type: "submenu",

@@ -2,7 +2,7 @@ import { Size } from "@tuidom/core/common/geometryPromitives";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
-import { add, setupExplorer, THEME, wireItem } from "../../../../../TestUtils/testingExplorerHarness.ts";
+import { add, setupExplorer, testProfile, THEME, wireItem } from "../../../../../TestUtils/testingExplorerHarness.ts";
 import { testId } from "../../../../../TestUtils/testTree.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -23,6 +23,8 @@ import type { ITestNode } from "../common/testService.ts";
 import { TestServiceDIToken } from "../common/testService.ts";
 
 import {
+    debugAtCursorAction,
+    debugCurrentFileAction,
     getTestsAtCursor,
     goToNextMessageAction,
     goToPreviousMessageAction,
@@ -242,6 +244,36 @@ describe("Run Test at Cursor", () => {
     });
 });
 
+describe("the Debug variants", () => {
+    /** A Debug profile (id 2) next to the Run one. */
+    function withDebug() {
+        const s = setup();
+        s.explorer.profiles.addProfile(testProfile(TestRunProfileBitset.Debug, { profileId: 2 }));
+        const profiles = (): number[] => s.explorer.runs.map((run) => run.requests[0].profileId);
+        return { ...s, profiles };
+    }
+
+    it("Debug Test at Cursor and Debug Tests in Current File run with the Debug profile", async () => {
+        const { accessor, ran, cursor, profiles } = withDebug();
+        cursor(3, 10);
+        await start(debugAtCursorAction, accessor);
+        await start(debugCurrentFileAction, accessor);
+        await start(runAtCursorAction, accessor);
+        await start(runCurrentFileAction, accessor);
+        expect(ran()).toEqual([["adds"], ["math.test.ts"], ["adds"], ["math.test.ts"]]);
+        expect(profiles()).toEqual([2, 2, 1, 1]);
+    });
+
+    it("without a Debug profile Debug Test at Cursor finds nothing; Debug Tests in Current File runs nothing", async () => {
+        const { accessor, explorer, toasts, cursor } = setup();
+        cursor(3, 10);
+        await debugAtCursorAction.run(accessor);
+        await debugCurrentFileAction.run(accessor);
+        expect(toasts).toEqual(["No tests found here"]);
+        expect(explorer.runs).toEqual([]);
+    });
+});
+
 describe("Run Tests in Current File", () => {
     it("runs the file's test with all under it", async () => {
         const { accessor, ran, cursor } = setup();
@@ -407,6 +439,8 @@ describe("the editor commands' contract", () => {
             ]),
         );
         expect(keys).toEqual({
+            "testing.debugAtCursor": "editorTextFocus",
+            "testing.debugCurrentFile": "editorTextFocus",
             "testing.goToNextMessage": "editorTextFocus",
             "testing.goToPreviousMessage": "editorTextFocus",
             "testing.openOutputPeek": undefined,
@@ -420,6 +454,8 @@ describe("the editor commands' contract", () => {
                 .map((menu) => [action.shortTitle, menu.group, menu.order, menu.when]),
         );
         expect(editorContext).toEqual([
+            ["Debug Test at Cursor", "testing", 1, "testing.activeEditorHasTests && testing.hasDebuggableTests"],
+            ["Debug Tests in Current File", "testing", 3, "testing.activeEditorHasTests && testing.hasDebuggableTests"],
             ["Run Test at Cursor", "testing", 0, "testing.activeEditorHasTests && testing.hasRunnableTests"],
             ["Run Tests in Current File", "testing", 2, "testing.activeEditorHasTests && testing.hasRunnableTests"],
         ]);

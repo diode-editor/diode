@@ -20,8 +20,11 @@ export type ITestRunProfile = IWireTestRunProfile;
 // Stryker disable next-line StringLiteral: token() returns a unique Token matched by reference; the string is a label
 export const TestProfileServiceDIToken = token<TestProfileService>("TestProfileService");
 
+/** What the capabilities need of a test: its controller and its item. */
+export type ITestCapabilitySubject = Pick<ITestNode, "controllerId" | "item">;
+
 /** Upstream `canUseProfileWithTest` among the test's own controller's profiles: its tag is on the test (a root takes any). */
-function canRunTest(profile: ITestRunProfile, test: ITestNode): boolean {
+function canRunTest(profile: ITestRunProfile, test: ITestCapabilitySubject): boolean {
     return (
         TestId.parentId(test.item.extId) === undefined || profile.tag === null || test.item.tags.includes(profile.tag)
     );
@@ -33,10 +36,28 @@ function compareProfiles(a: ITestRunProfile, b: ITestRunProfile): number {
     return a.label.localeCompare(b.label);
 }
 
+/** Upstream `capabilityToContextKey` of the groups offered: Coverage is a later wave. */
+export const CAPABILITY_CONTEXT_KEY = {
+    [TestRunProfileBitset.Run]: "testing.hasRunnableTests",
+    [TestRunProfileBitset.Debug]: "testing.hasDebuggableTests",
+} as const;
+
+/** The groups the UI offers. */
+export type OfferedTestRunGroup = keyof typeof CAPABILITY_CONTEXT_KEY;
+
+const OFFERED_GROUPS = [TestRunProfileBitset.Run, TestRunProfileBitset.Debug] as const;
+
+/** Upstream `capabilityContextKeys`: a test's menus see what it can do. */
+export function capabilityContextKeys(capabilities: number): Record<string, boolean> {
+    return Object.fromEntries(
+        OFFERED_GROUPS.map((group) => [CAPABILITY_CONTEXT_KEY[group], (capabilities & group) !== 0]),
+    );
+}
+
 /**
- * Upstream `TestProfileService`: the run profiles of every controller and `testing.hasRunnableTests`.
- * Deviation: Debug and Coverage profiles are kept but offered nowhere, `testing.hasDebuggableTests` and
- * `testing.hasCoverableTests` stay `false` (no debugger; coverage is a later wave).
+ * Upstream `TestProfileService`: the run profiles of every controller, `testing.hasRunnableTests` and
+ * `testing.hasDebuggableTests`. Deviation: Coverage profiles are kept but offered nowhere, `testing.hasCoverableTests`
+ * stays `false` (coverage is a later wave).
  */
 export class TestProfileService extends Disposable {
     public static dependencies = [ContextKeyServiceDIToken] as const;
@@ -47,7 +68,6 @@ export class TestProfileService extends Disposable {
 
     public constructor(private readonly contextKeys: ContextKeyService) {
         super();
-        contextKeys.set("testing.hasDebuggableTests", false);
         contextKeys.set("testing.hasCoverableTests", false);
         this.refreshContextKeys();
     }
@@ -90,15 +110,28 @@ export class TestProfileService extends Disposable {
         );
     }
 
+    /**
+     * Upstream `capabilitiesForTest`: the groups of the test's controller's profiles whose tag it has. Unlike
+     * `canRunTest`, a root takes no tagged profile: its own tags are what count, as upstream.
+     */
+    public capabilitiesForTest(test: ITestCapabilitySubject): number {
+        let capabilities = 0;
+        for (const profile of this.getControllerProfiles(test.controllerId)) {
+            if (profile.tag === null || test.item.tags.includes(profile.tag)) capabilities |= profile.group;
+        }
+        return capabilities;
+    }
+
     private changed(): void {
         this.refreshContextKeys();
         this.onDidChangeEmitter.fire();
     }
 
     private refreshContextKeys(): void {
-        const hasRun = [...this.profiles.values()].some((list) =>
-            list.some((profile) => profile.group === TestRunProfileBitset.Run),
-        );
-        this.contextKeys.set("testing.hasRunnableTests", hasRun);
+        let capabilities = 0;
+        for (const list of this.profiles.values()) for (const profile of list) capabilities |= profile.group;
+        for (const group of OFFERED_GROUPS) {
+            this.contextKeys.set(CAPABILITY_CONTEXT_KEY[group], (capabilities & group) !== 0);
+        }
     }
 }
