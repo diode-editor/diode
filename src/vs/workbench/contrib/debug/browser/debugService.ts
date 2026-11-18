@@ -908,7 +908,8 @@ export class DebugService implements IDebugService {
         // Stryker disable next-line CallExpression: letting go of a token nothing listens to
         this.sessionCancellationTokens.delete(session.getId());
 
-        if (this.ports.debugConfiguration().closeReadonlyTabsOnEnd) {
+        const configuration = this.ports.debugConfiguration();
+        if (configuration.closeReadonlyTabsOnEnd) {
             this.ports.closeSessionEditors(session.getId());
         }
         this.onDidEndSessionEmitter.fire({ session, restart: this.restartingSessions.has(session) });
@@ -928,7 +929,7 @@ export class DebugService implements IDebugService {
         if (this.model.getSessions().length === 0) {
             this.viewModel.setMultiSessionView(false);
 
-            if (this.ports.debugConfiguration().openExplorerOnEnd) {
+            if (configuration.openExplorerOnEnd) {
                 this.ports.openExplorer();
             }
 
@@ -938,7 +939,7 @@ export class DebugService implements IDebugService {
                 this.model.removeDataBreakpoints(dbp.getId());
             });
 
-            if (this.ports.debugConfiguration().console.closeOnEnd) {
+            if (configuration.console.closeOnEnd) {
                 this.ports.closeRepl();
             }
         }

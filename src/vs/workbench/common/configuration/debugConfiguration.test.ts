@@ -66,8 +66,9 @@ describe("debugConfiguration against upstream's debug.contribution.ts", () => {
             .filter((file) => file !== fileURLToPath(new URL("debugConfiguration.ts", import.meta.url)))
             .map((file) => readFileSync(file, "utf8"));
         // `configuration.get("debug.x")`, or `config.debug.x` in a `when`.
-        const read = (key: string): boolean =>
-            sources.some((text) => text.includes(`"${key}"`) || text.includes(`config.${key}`));
-        expect(Object.keys(upstreamProperties).filter((key) => !read(key))).toEqual(UNSUPPORTED);
+        const read = new Set(
+            sources.flatMap((text) => [...text.matchAll(/"([\w.]+)"|config\.([\w.]+)/gu)].map((m) => m[1] ?? m[2])),
+        );
+        expect(Object.keys(upstreamProperties).filter((key) => !read.has(key))).toEqual(UNSUPPORTED);
     });
 });

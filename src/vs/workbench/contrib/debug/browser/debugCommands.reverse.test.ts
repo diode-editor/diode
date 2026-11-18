@@ -174,9 +174,8 @@ describe("debug commands: the rest of upstream's", () => {
                 ["list.cpp", "src", "Launch hello (lldb)"],
                 ["queue.cpp", "src", "Launch hello (lldb)"],
             ]);
-            const [[uri, options]] = sources.openSource.mock.calls as [[Uri, unknown]];
+            const [[uri]] = sources.openSource.mock.calls as [[Uri]];
             expect(uri.toString()).toBe(Uri.file(`${SYNTHETIC_PROGRAM_ROOT}/src/list.cpp`).toString());
-            expect(options).toEqual({ sideBySide: false, preserveFocus: false });
         });
 
         it("is in the palette while a session has loaded scripts", () => {

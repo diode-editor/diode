@@ -14,18 +14,19 @@ import { isAbsolute, normalize, posix } from "node:path";
 
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
-import { Disposable, DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable, DisposableMap, DisposableStore } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
-import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
-import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
+import type {
+    IWorkspaceContextService,
+    IWorkspaceFolder,
+} from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { type IRowSpan, LazyTreeControl } from "../../../browser/parts/views/lazyTreeControl.ts";
 import type { IDebugService, IDebugSession } from "../common/debug.ts";
 import type { Source } from "../common/debugSource.ts";
+import { isUriString } from "../common/debugUtils.ts";
 
 import type { IBreakpointSources } from "./breakpointsView.ts";
 
-// RFC 2396, Appendix A: https://www.ietf.org/rfc/rfc2396.txt
-const URI_SCHEMA_PATTERN = /^[a-zA-Z][a-zA-Z0-9+\-.]+:/u;
 const URL_REGEXP = /^(https?:\/\/[^/]+)(\/.*)$/u;
 /** Upstream's delay of the tree's update after a change. */
 export const LOADED_SCRIPTS_REFRESH_DELAY_MS = 300;
@@ -256,7 +257,7 @@ export class SessionTreeItem extends BaseTreeItem {
         let path = rawPath;
 
         // Upstream's label service: a `file:` uri is its path, others stay as they are.
-        if (URI_SCHEMA_PATTERN.test(path)) {
+        if (isUriString(path)) {
             const uri = Uri.parse(path);
             if (uri.scheme === "file") path = uri.fsPath;
         }
@@ -305,6 +306,8 @@ export class SessionTreeItem extends BaseTreeItem {
         const leaf = source.raw.path ? this.map.get(source.raw.path) : undefined;
         if (leaf) {
             leaf.removeFromParent();
+            // Diode: upstream keeps the leaf in the map after its removal.
+            this.map.delete(source.raw.path ?? "");
             return true;
         }
         return false;
@@ -347,7 +350,7 @@ export class LoadedScriptsView extends Disposable {
         this.tree.onActivate = (element) => {
             const source = element.getSource();
             if (source?.available) {
-                sources.openSource(source.uri, { sideBySide: false, preserveFocus: false }).catch(onUnexpectedError);
+                sources.openSource(source.uri).catch(onUnexpectedError);
             }
         };
 
@@ -357,12 +360,7 @@ export class LoadedScriptsView extends Disposable {
             }, LOADED_SCRIPTS_REFRESH_DELAY_MS),
         );
 
-        const sessionListeners = new Map<string, IDisposable>();
-        this.register({
-            dispose: () => {
-                for (const listener of sessionListeners.values()) listener.dispose();
-            },
-        });
+        const sessionListeners = this.register(new DisposableMap<string, DisposableStore>());
         const registerSessionListeners = (session: IDebugSession): void => {
             const store = new DisposableStore();
             sessionListeners.set(session.getId(), store);
@@ -398,8 +396,7 @@ export class LoadedScriptsView extends Disposable {
 
         this.register(
             debugService.onDidEndSession(({ session }) => {
-                sessionListeners.get(session.getId())?.dispose();
-                sessionListeners.delete(session.getId());
+                sessionListeners.deleteAndDispose(session.getId());
                 this.root.remove(session.getId());
                 this.changeScheduler.schedule();
             }),

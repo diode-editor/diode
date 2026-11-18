@@ -49,14 +49,8 @@ export class BreakpointSources implements IBreakpointSources {
         return openUriAtPosition(this.editors, this.jumps, breakpoint.uri, position, { sideBySide });
     }
 
-    public openSource(
-        uri: Uri,
-        options: { readonly sideBySide: boolean; readonly preserveFocus: boolean },
-    ): Promise<void> {
-        return openUriAtPosition(this.editors, this.jumps, uri, undefined, {
-            sideBySide: options.sideBySide,
-            focus: !options.preserveFocus,
-        });
+    public openSource(uri: Uri): Promise<void> {
+        return openUriAtPosition(this.editors, this.jumps, uri, undefined);
     }
 }
 

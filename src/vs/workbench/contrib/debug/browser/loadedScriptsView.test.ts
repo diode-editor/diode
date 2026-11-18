@@ -284,7 +284,6 @@ describe("LoadedScriptsView", () => {
 
         expect(openSource).toHaveBeenCalledOnce();
         expect(openSource.mock.calls[0][0].toString()).toBe("file:///w/a.ts");
-        expect(openSource.mock.calls[0][1]).toEqual({ sideBySide: false, preserveFocus: false });
         view.dispose();
     });
 });

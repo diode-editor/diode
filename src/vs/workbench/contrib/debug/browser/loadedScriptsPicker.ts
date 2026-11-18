@@ -63,7 +63,7 @@ function createPick(source: Source, session: IDebugSession, services: ILoadedScr
         hint: session.name,
         accept: () => {
             if (source.available) {
-                void services.sources.openSource(source.uri, { sideBySide: false, preserveFocus: false });
+                void services.sources.openSource(source.uri);
             }
         },
     };
