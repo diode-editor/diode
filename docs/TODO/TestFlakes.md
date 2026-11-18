@@ -33,6 +33,9 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `extensionHost.settingsCompletion.test.ts`, «the range covers both quotes when the key is already closed»: у
+  пункта completion не было `range` под покрытием в CI (run 44214863415, PR #1209, дифф — `vscode.executeHoverProvider`
+  и порядок равных провайдеров в `execute*Provider`, которые этот сьют не зовёт); локально 12/12 зелёные.
 - [ ] `debugContextMenus.app.test.ts`, «a frame: Restart Frame and Copy Call Stack»: Copy Call Stack скопировал одну
   строку (ждали больше двух) в initial test run Stryker'а mutation-гейта (run 44155048648, PR #1195, дифф — inline
   values редактора); в unit-job и локально зелёный. Видимо, остальные кадры потока ещё не догружены к моменту

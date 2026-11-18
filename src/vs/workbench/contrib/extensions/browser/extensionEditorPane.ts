@@ -38,7 +38,6 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
     private readonly element: ExtensionPageElement;
     private readonly onDidChangeStateEmitter = this.register(new Emitter<void>());
     private labelValue: string;
-    private busy = false;
     /**
      * Monotonic and owned by the pane: a removed extension outside the registry drops out of the entries,
      * but the reload prompt must stay.
@@ -75,6 +74,18 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
                 this.render();
             }),
         );
+        this.register(
+            service.onDidChangeDownloadProgress((id) => {
+                // Stryker disable next-line ConditionalExpression: another id's percent redraws the same buttons; the check only saves the work
+                if (id === this.entry.id) this.element.setButtons(this.buttons());
+            }),
+        );
+        // The shared ticker spins the button; nothing to redraw while no operation runs.
+        this.register(
+            actions.onDidChangeSpinner(() => {
+                if (this.entry.operation !== null) this.element.setButtons(this.buttons());
+            }),
+        );
     }
 
     public get label(): string {
@@ -96,15 +107,17 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
             entry: this.entry,
             meta: this.meta,
             metaError: this.metaError,
-            operationError: this.operationError,
+            // An install this tab did not start (it was closed and opened again meanwhile) fails here too.
+            operationError: this.operationError ?? this.service.getOperationError(this.entry.id),
         };
     }
 
     private buttons(): ReturnType<typeof describeExtensionButtons> {
         return describeExtensionButtons(this.entry, {
-            busy: this.busy,
             needsReload: this.needsReload,
             autoUpdate: this.actions.isAutoUpdateEnabled(),
+            spinner: this.actions.spinner(),
+            percent: this.service.getDownloadProgress(this.entry.id),
         });
     }
 
@@ -148,19 +161,18 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
         await this.runOperation(() => this.actions.install(id, { version }));
     }
 
-    /** Not an operation: only the pin changes, so no busy state and no reload; the card brings the new label. */
+    /** Not an operation: only the pin changes, so no operation state and no reload; the card brings the new label. */
     private async toggleAutoUpdate(): Promise<void> {
         const result = await this.actions.setAutoUpdate(this.entry.id, this.entry.pinned);
         this.operationError = result.ok ? null : result.error;
         this.render();
     }
 
+    /** The service owns the operation's state: it switches the buttons the moment the operation starts. */
     private async runOperation(run: () => Promise<IExtensionOperationResult>): Promise<void> {
-        this.busy = true;
         this.operationError = null;
         this.render();
         const result = await run();
-        this.busy = false;
         if (!result.ok) {
             this.operationError = result.error;
             this.render();

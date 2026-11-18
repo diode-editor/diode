@@ -1,6 +1,5 @@
 // The rest of upstream's `debugCommands.ts`: stepping back and reversing, Disconnect and Suspend, Open Loaded Script,
-// Toggle Exception Breakpoints, Enable or Disable Breakpoint at the cursor, F5 without debuggers and the views' focus
-// commands.
+// Toggle Exception Breakpoints, Enable or Disable Breakpoint at the cursor and the views' focus commands.
 
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
@@ -28,7 +27,6 @@ import {
     disconnectAndSuspendAction,
     enableOrDisableBreakpointAction,
     FOCUS_VIEW_ACTIONS,
-    openViewAction,
     reverseContinueAction,
     showLoadedScriptsAction,
     startFromConfigAction,
@@ -101,7 +99,6 @@ describe("debug commands: the rest of upstream's", () => {
                 "workbench.action.debug.showLoadedScripts",
                 "debug.toggleExceptionBreakpoints",
                 "debug.enableOrDisableBreakpoint",
-                "debug.openView",
                 "workbench.debug.action.focusVariablesView",
                 "workbench.debug.action.focusWatchView",
                 "workbench.debug.action.focusCallStackView",
@@ -248,14 +245,6 @@ describe("debug commands: the rest of upstream's", () => {
             expect(enableOrDisableBreakpointAction.keybinding).toBeUndefined();
             expect(enableOrDisableBreakpointAction.menus?.[0].when).toBe("false");
         });
-    });
-
-    it("F5 and Ctrl+F5 without debuggers open Run and Debug", () => {
-        expect(openViewAction.when).toBe("!debuggersAvailable");
-
-        openViewAction.run(accessor);
-
-        expect(views.openViewContainer).toHaveBeenCalledWith("workbench.view.debug", true);
     });
 
     it("the views' focus commands open and focus their view", () => {

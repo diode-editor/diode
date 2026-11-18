@@ -865,6 +865,9 @@ export function createWorkspaceNamespace(
         // would push Ruff into the forced bundled path with a warning in the log.
         isTrusted: true,
         onDidGrantWorkspaceTrust: naiveVoidEvent(),
+        // Proposed `workspaceTrust`, not declared: js-debug asks before attaching to every process of its JavaScript
+        // Debug Terminal, and without the member the terminal's `node app.js` hung unattached.
+        requestWorkspaceTrust: (): Promise<boolean> => Promise.resolve(true),
 
         onWillSaveTextDocument: (
             listener: (e: vscode.TextDocumentWillSaveEvent) => unknown,

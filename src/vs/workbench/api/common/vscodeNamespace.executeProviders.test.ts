@@ -9,7 +9,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
-import { CodeAction, CompletionItem, Position, Range, Uri } from "./vscodeTypes.ts";
+import { CodeAction, CompletionItem, Hover, MarkdownString, Position, Range, Uri } from "./vscodeTypes.ts";
 
 describe("API commands and documents in the composed vscode namespace", () => {
     let dir: string;
@@ -58,6 +58,45 @@ describe("API commands and documents in the composed vscode namespace", () => {
         await expect(
             api.commands.executeCommand("vscode.executeCodeActionProvider", file, new Range(0, 0, 0, 1)),
         ).resolves.toEqual([action]);
+    });
+
+    it("[api:languages.registerHoverProvider] vscode.executeHoverProvider reaches a provider on a file nobody opened", async () => {
+        const { vscode: api } = setup();
+        api.languages.registerHoverProvider({ language: "json" }, { provideHover: () => new Hover("doc") });
+
+        const hovers = await api.commands.executeCommand<vscode.Hover[]>(
+            "vscode.executeHoverProvider",
+            file,
+            new Position(0, 0),
+        );
+
+        expect(hovers).toEqual([new Hover([new MarkdownString("doc")], new Range(0, 0, 0, 0))]);
+    });
+
+    it("[api:workspace.registerTextDocumentContentProvider] vscode.executeHoverProvider works on a content-provider scheme", async () => {
+        const { vscode: api } = setup();
+        api.workspace.registerTextDocumentContentProvider("embedded", {
+            provideTextDocumentContent: () => "<p>{{ title }}</p>",
+        });
+        const seen: string[] = [];
+        api.languages.registerHoverProvider(
+            { scheme: "embedded" },
+            {
+                provideHover: (document, position) => {
+                    seen.push(document.getText(document.getWordRangeAtPosition(position)));
+                    return new Hover("from html", new Range(0, 6, 0, 11));
+                },
+            },
+        );
+
+        const hovers = await api.commands.executeCommand<vscode.Hover[]>(
+            "vscode.executeHoverProvider",
+            Uri.parse("embedded:/app.html"),
+            new Position(0, 7),
+        );
+
+        expect(seen).toEqual(["title"]);
+        expect(hovers.map((hover) => hover.contents)).toEqual([[new MarkdownString("from html")]]);
     });
 
     it("vscode.open goes on working next to them", async () => {

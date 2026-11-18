@@ -20,11 +20,12 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
         categories: [],
         tags: [],
         needsReload: false,
+        operation: null,
         ...overrides,
     };
 }
 
-const IDLE = { busy: false, needsReload: false, autoUpdate: true };
+const IDLE = { needsReload: false, autoUpdate: true, spinner: "⠴", percent: null };
 
 const ANOTHER_VERSION = { kind: "installAnotherVersion", label: "Install Specific Version...", enabled: true };
 const AUTO_UPDATE = { kind: "toggleAutoUpdate", label: "[x] Auto Update", enabled: true };
@@ -113,18 +114,74 @@ describe("describeExtensionButtons", () => {
         ]);
     });
 
-    it("during an operation all buttons are disabled, including reload and the version picker", () => {
-        const entryValue = entry({ installedVersion: "0.9.0", availability: "outdated" });
-        const buttons = describeExtensionButtons(entryValue, { ...IDLE, busy: true, needsReload: true });
+    describe("an operation in progress (upstream ExtensionState.Installing / Uninstalling)", () => {
+        const INSTALLING = { kind: "installing", label: "⠴ Installing", enabled: false };
 
-        expect(buttons.map((b) => b.kind)).toEqual([
-            "reload",
-            "update",
-            "installAnotherVersion",
-            "uninstall",
-            "toggleAutoUpdate",
-        ]);
-        expect(buttons.every((b) => !b.enabled)).toBe(true);
+        it("installing takes Install's place: a disabled spinner button, the rest disabled too", () => {
+            expect(describeExtensionButtons(entry({ operation: "installing" }), IDLE)).toEqual([
+                INSTALLING,
+                { ...ANOTHER_VERSION, enabled: false },
+            ]);
+        });
+
+        it("the download percent follows the label; without one the label is bare", () => {
+            const buttons = describeExtensionButtons(entry({ operation: "installing" }), { ...IDLE, percent: 47 });
+            expect(buttons[0]).toEqual({ ...INSTALLING, label: "⠴ Installing 47%" });
+            const zero = describeExtensionButtons(entry({ operation: "installing" }), { ...IDLE, percent: 0 });
+            expect(zero[0]?.label).toBe("⠴ Installing 0%");
+        });
+
+        it("the spinner is the ticker's frame", () => {
+            const buttons = describeExtensionButtons(entry({ operation: "installing" }), { ...IDLE, spinner: "⠙" });
+            expect(buttons[0]?.label).toBe("⠙ Installing");
+        });
+
+        it("an update in progress takes Update's place, Uninstall stays but is disabled", () => {
+            const entryValue = entry({ installedVersion: "0.9.0", availability: "outdated", operation: "installing" });
+            expect(describeExtensionButtons(entryValue, IDLE)).toEqual([
+                INSTALLING,
+                { ...ANOTHER_VERSION, enabled: false },
+                { kind: "uninstall", label: "Uninstall", enabled: false },
+                { ...AUTO_UPDATE, enabled: false },
+            ]);
+        });
+
+        it("a given version of an up-to-date extension shows Installing too", () => {
+            const entryValue = entry({ installedVersion: "1.0.0", availability: "installed", operation: "installing" });
+            expect(describeExtensionButtons(entryValue, IDLE).map((b) => b.kind)).toEqual([
+                "installing",
+                "installAnotherVersion",
+                "uninstall",
+                "toggleAutoUpdate",
+            ]);
+        });
+
+        it("uninstalling takes Uninstall's place, all disabled", () => {
+            const entryValue = entry({
+                installedVersion: "1.0.0",
+                availability: "installed",
+                operation: "uninstalling",
+            });
+            expect(describeExtensionButtons(entryValue, IDLE)).toEqual([
+                { ...ANOTHER_VERSION, enabled: false },
+                { kind: "uninstalling", label: "⠴ Uninstalling", enabled: false },
+                { ...AUTO_UPDATE, enabled: false },
+            ]);
+        });
+
+        it("reload is disabled during an operation too", () => {
+            const entryValue = entry({ installedVersion: "0.9.0", availability: "outdated", operation: "installing" });
+            const buttons = describeExtensionButtons(entryValue, { ...IDLE, needsReload: true });
+
+            expect(buttons.map((b) => b.kind)).toEqual([
+                "reload",
+                "installing",
+                "installAnotherVersion",
+                "uninstall",
+                "toggleAutoUpdate",
+            ]);
+            expect(buttons.every((b) => !b.enabled)).toBe(true);
+        });
     });
 
     describe("Auto Update toggle (US-3.8, decision J2: checked is not pinned)", () => {

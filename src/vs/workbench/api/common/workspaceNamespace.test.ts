@@ -50,6 +50,15 @@ describe("WorkspaceNamespace — workspace trust (naive)", () => {
             subscription.dispose();
         }).not.toThrow();
     });
+
+    it("requestWorkspaceTrust (proposed) answers trusted without a prompt", async () => {
+        const { stub, workspace } = makeCtx();
+        const request = (workspace as unknown as { requestWorkspaceTrust: () => Promise<boolean | undefined> })
+            .requestWorkspaceTrust;
+        await expect(request()).resolves.toBe(true);
+        expect(stub.requests).toEqual([]);
+        expect(stub.notifies).toEqual([]);
+    });
 });
 
 describe("WorkspaceNamespace — configuration", () => {

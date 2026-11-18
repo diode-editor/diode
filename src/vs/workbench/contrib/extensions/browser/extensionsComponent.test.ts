@@ -80,6 +80,7 @@ function entry(overrides: Partial<IExtensionListEntry> & { id: string }): IExten
         categories: [],
         tags: [],
         needsReload: false,
+        operation: null,
         ...overrides,
     };
 }
@@ -167,6 +168,18 @@ class FakeService implements IExtensionsWorkbenchService {
         return Promise.resolve([]);
     }
 
+    public getDownloadProgress(): number | null {
+        return null;
+    }
+
+    public getOperationError(): string | null {
+        return null;
+    }
+
+    public onDidChangeDownloadProgress(): { dispose: () => void } {
+        return { dispose: () => undefined };
+    }
+
     public onDidChange(listener: () => void): { dispose: () => void } {
         this.listeners.add(listener);
         return { dispose: () => this.listeners.delete(listener) };
@@ -192,6 +205,8 @@ const PAGE_ACTIONS: IExtensionPageActions = {
     setAutoUpdate: () => Promise.resolve({ ok: true }),
     isAutoUpdateEnabled: () => true,
     onDidChangeAutoUpdate: () => ({ dispose: () => {} }),
+    spinner: () => "⠋",
+    onDidChangeSpinner: () => ({ dispose: () => {} }),
 };
 
 function make(

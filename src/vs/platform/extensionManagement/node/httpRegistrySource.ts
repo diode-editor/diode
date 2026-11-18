@@ -3,7 +3,7 @@ import * as path from "node:path";
 
 import { loadSemver } from "../../../base/common/semver.ts";
 import { DIODE_VERSION } from "../../../base/common/version.ts";
-import type { IExtensionRegistrySource } from "../common/iExtensionRegistrySource.ts";
+import type { ArtifactProgressCallback, IExtensionRegistrySource } from "../common/iExtensionRegistrySource.ts";
 import {
     EXTENSION_ID_RE,
     type IRegistryExtensionMeta,
@@ -60,6 +60,11 @@ function describeFetchError(error: unknown): string {
     return cause instanceof Error ? `${message} (${cause.message})` : message;
 }
 
+/** No header reads as `Number(null)`, which is 0, a garbled one as NaN: no size either. */
+function positiveSize(size: number | undefined): number | undefined {
+    return (size ?? 0) > 0 ? size : undefined;
+}
+
 /** Counts actual bytes, not `Content-Length`: the header is optional and may lie. */
 async function consumeCapped(
     response: Response,
@@ -103,13 +108,15 @@ async function downloadCapped(
     limit: number,
     url: URL,
     target: string,
-    onProgress: () => void,
+    onChunk: (received: number) => void,
 ): Promise<void> {
     const file = await fs.open(target, "w");
     let complete = false;
+    let received = 0;
     try {
         await consumeCapped(response, limit, url, async (chunk) => {
-            onProgress();
+            received += chunk.byteLength;
+            onChunk(received);
             await file.write(chunk);
         });
         complete = true;
@@ -204,7 +211,11 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         });
     }
 
-    public async fetchArtifact(version: IRegistryVersion, tempDir: string): Promise<string> {
+    public async fetchArtifact(
+        version: IRegistryVersion,
+        tempDir: string,
+        onProgress?: ArtifactProgressCallback,
+    ): Promise<string> {
         const artifact = version.artifact;
         if (artifact.type !== "url") {
             throw new Error(`Artifact type "${artifact.type}" is not supported by the HTTP registry source`);
@@ -235,9 +246,14 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
             const response = await this.request(url, stall.signal);
             this.ensureOk(response, url);
 
+            // The registry's size first: it describes the artifact itself, a header may describe an encoding.
+            const total = positiveSize(version.size) ?? positiveSize(Number(response.headers.get("content-length")));
             // The name doesn't come from the URL: a name from foreign data is one more avenue for tricks.
             const target = path.join(tempDir, "artifact.vsix");
-            await downloadCapped(response, this.maxArtifactBytes, url, target, rearm);
+            await downloadCapped(response, this.maxArtifactBytes, url, target, (received) => {
+                rearm();
+                if (total !== undefined) onProgress?.(received, total);
+            });
             return target;
         } finally {
             clearTimeout(watchdog);

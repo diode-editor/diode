@@ -33,6 +33,7 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
         categories: [],
         tags: [],
         needsReload: false,
+        operation: null,
         ...overrides,
     };
 }
@@ -74,6 +75,31 @@ describe("describeExtensionRow", () => {
             entry({ installedVersion: "1.0.0", availability: "installed", needsReload: true }),
         );
         expect(row.text).toBe("Acme Tools  1.0.0  Reload");
+        expect(row.badge?.kind).toBe("reload");
+    });
+
+    it.each([
+        ["not installed", {}],
+        ["outdated", { installedVersion: "0.9.0", availability: "outdated" }],
+        ["incompatible", { availability: "incompatible" }],
+    ] as const)("installing beats the state badge (%s), with no percent", (_name, state) => {
+        const row = describeExtensionRow(entry({ ...state, operation: "installing" }));
+        expect(row.text).toMatch(/ {2}Installing$/u);
+        expect(row.badge?.kind).toBe("installing");
+    });
+
+    it("uninstalling beats Installed", () => {
+        const row = describeExtensionRow(
+            entry({ installedVersion: "1.0.0", availability: "installed", operation: "uninstalling" }),
+        );
+        expect(row.text).toBe("Acme Tools  1.0.0  Uninstalling");
+        expect(row.badge?.kind).toBe("uninstalling");
+    });
+
+    it("waiting for a reload stays the main fact during another operation", () => {
+        const row = describeExtensionRow(
+            entry({ installedVersion: "1.0.0", availability: "installed", needsReload: true, operation: "installing" }),
+        );
         expect(row.badge?.kind).toBe("reload");
     });
 
@@ -138,6 +164,9 @@ describe("list rows", () => {
         const incompatible = fgOfBadge(entry({ availability: "incompatible" }));
 
         expect(new Set([installed, update, incompatible]).size).toBe(3);
+        // An operation in progress reads like an update: something is happening to it.
+        expect(fgOfBadge(entry({ operation: "installing" }))).toBe(update);
+        expect(fgOfBadge(entry({ installedVersion: "1.0.0", operation: "uninstalling" }))).toBe(update);
     });
 
     it("highlighting does not spill past the version span", () => {

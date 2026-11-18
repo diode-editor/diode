@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 237 |
+| test | 238 |
 | confirmed by a real extension | 82 |
 | used by a surveyed extension | 583 |
 
@@ -1362,7 +1362,7 @@ Proposed API or a false hit: class X when real.
 | `languages.registerDocumentSymbolProvider` | ok |  | 81 | 563,742,221 | tamasfe.even-better-toml |
 | `languages.registerEvaluatableExpressionProvider` | ok | yes | 0 | 0 |  |
 | `languages.registerFoldingRangeProvider` | ok |  | 78 | 556,745,707 | Angular.ng-template, redhat.vscode-yaml, svelte.svelte-vscode, tamasfe.even-better-toml |
-| `languages.registerHoverProvider` | ok |  | 94 | 698,785,264 | bradlc.vscode-tailwindcss, timonwong.shellcheck |
+| `languages.registerHoverProvider` | ok | yes | 94 | 698,785,264 | bradlc.vscode-tailwindcss, timonwong.shellcheck |
 | `languages.registerImplementationProvider` | ok |  | 74 | 553,028,026 |  |
 | `languages.registerInlayHintsProvider` | ok | yes | 71 | 558,951,383 | Angular.ng-template, llvm-vs-code-extensions.vscode-clangd, svelte.svelte-vscode |
 | `languages.registerInlineCompletionItemProvider` | ok |  | 67 | 506,595,543 |  |

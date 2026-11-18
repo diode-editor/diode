@@ -577,17 +577,188 @@ describe("ExtensionsWorkbenchService", () => {
             expect(service.getEntries().map((e) => e.id)).toEqual(["acme.base", "acme.tools"]);
         });
 
-        it("install redraws the list for subscribers", async () => {
+        /** The entry's operation and reload mark at every change. */
+        function recordChanges(service: ExtensionsWorkbenchService, id = "acme.tools"): string[] {
+            const changes: string[] = [];
+            service.onDidChange(() => {
+                const entry = service.getEntries().find((e) => e.id === id);
+                changes.push(`${String(entry?.operation)} reload=${String(entry?.needsReload)}`);
+            });
+            return changes;
+        }
+
+        it("install redraws the list at its start and its end: installing, then the result", async () => {
             const { service } = await withInstallable();
             await service.ensureLoaded();
-            let changes = 0;
-            service.onDidChange(() => {
-                changes++;
-            });
+            const changes = recordChanges(service);
 
+            const running = service.install("acme.tools");
+            // Before any await: the page and the list switch right away.
+            expect(changes).toEqual(["installing reload=false"]);
+            await running;
+
+            expect(changes).toEqual(["installing reload=false", "null reload=true"]);
+        });
+
+        it("a failed install ends its state too, with no reload", async () => {
+            const { service } = await withInstallable("1.0.0", { sha256: "0".repeat(64) });
+            await service.ensureLoaded();
+            const changes = recordChanges(service);
+
+            expect((await service.install("acme.tools")).ok).toBe(false);
+
+            expect(changes).toEqual(["installing reload=false", "null reload=false"]);
+        });
+
+        it("a failed install leaves its reason with the service for every page, until the next install starts", async () => {
+            const { service } = await withInstallable("1.0.0", { sha256: "0".repeat(64) });
+            await service.ensureLoaded();
+            const errors: (string | null)[] = [];
+            service.onDidChange(() => errors.push(service.getOperationError("acme.tools")));
+
+            const result = await service.install("acme.tools");
             await service.install("acme.tools");
 
-            expect(changes).toBe(1);
+            expect(result).toEqual({ ok: false, error: expect.stringContaining("sha256") as string });
+            // Already there at the end's redraw; cleared at the next start.
+            expect(errors).toEqual([null, result.ok ? null : result.error, null, result.ok ? null : result.error]);
+            expect(service.getOperationError("acme.other")).toBeNull();
+        });
+
+        it("a failed uninstall leaves its reason too", async () => {
+            const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
+            await service.ensureLoaded();
+
+            await service.uninstall("acme.tools");
+
+            expect(service.getOperationError("acme.tools")).toBe("Extension acme.tools is not installed");
+        });
+
+        it("uninstall redraws the list at its start and its end: uninstalling, then the result", async () => {
+            ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+            installOnDisk(ws, "acme.tools", "1.0.0");
+            const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
+            await service.ensureLoaded();
+            const changes = recordChanges(service);
+
+            await service.uninstall("acme.tools");
+
+            expect(changes).toEqual(["uninstalling reload=false", "null reload=true"]);
+        });
+
+        it("a sideloaded entry shows its operation too", async () => {
+            ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+            installOnDisk(ws, "solo.thing", "0.1.0");
+            installOnDisk(ws, "other.thing", "0.1.0");
+            const service = createService(new FakeSource(index()));
+            const seen: string[] = [];
+            service.onDidChange(() => {
+                const operations = service.getEntries().map((e) => `${e.id}:${String(e.operation)}`);
+                seen.push(operations.sort().join(" "));
+            });
+
+            await service.uninstall("solo.thing");
+
+            expect(seen).toEqual(["other.thing:null solo.thing:uninstalling", "other.thing:null"]);
+        });
+
+        describe("an install in flight", () => {
+            /** `fetchArtifact` waits for `release` and reports the given chunks of a 1000-byte file first. */
+            class GatedSource extends FakeSource {
+                public fetches = 0;
+                public chunks: readonly number[] = [];
+                private gate = Promise.withResolvers<undefined>();
+
+                public release(): void {
+                    this.gate.resolve(undefined);
+                }
+
+                public override async fetchArtifact(
+                    version: IRegistryVersion,
+                    _tempDir?: string,
+                    onProgress?: (received: number, total: number) => void,
+                ): Promise<string> {
+                    this.fetches++;
+                    let received = 0;
+                    for (const chunk of this.chunks) {
+                        received += chunk;
+                        onProgress?.(received, 1000);
+                    }
+                    await this.gate.promise;
+                    return super.fetchArtifact(version);
+                }
+            }
+
+            async function gated(): Promise<{ service: ExtensionsWorkbenchService; source: GatedSource }> {
+                const { source: plain } = await withInstallable();
+                const source = new GatedSource(plain.result, {
+                    "acme.tools": (await plain.getMeta("acme.tools"))!,
+                });
+                const service = createService(source);
+                await service.ensureLoaded();
+                return { service, source };
+            }
+
+            /** Lets the install reach the gated download. */
+            async function settle(): Promise<void> {
+                for (let i = 0; i < 20; i++) await Promise.resolve();
+            }
+
+            it("a second install of the same id joins the first: one download, one result", async () => {
+                const { service, source } = await gated();
+
+                const first = service.install("acme.tools");
+                const second = service.install("acme.tools", { version: "1.0.0" });
+                await settle();
+                source.release();
+
+                expect(await second).toEqual(await first);
+                expect(source.fetches).toBe(1);
+                // The joined call did not pin: only the first call's options counted.
+                expect(service.getEntries()[0]).toMatchObject({ operation: null, pinned: false });
+            });
+
+            it("after it ends the next install runs anew", async () => {
+                const { service, source } = await gated();
+                source.release();
+                await service.install("acme.tools");
+                const changes = recordChanges(service);
+
+                await service.install("acme.tools");
+
+                expect(changes).toEqual(["installing reload=true", "null reload=true"]);
+            });
+
+            it("the download percent of the id, per whole percent, cleared after the download", async () => {
+                const { service, source } = await gated();
+                source.chunks = [5, 1, 494];
+                const seen: string[] = [];
+                service.onDidChangeDownloadProgress((id) => {
+                    seen.push(`${id}:${String(service.getDownloadProgress(id))}`);
+                });
+
+                const running = service.install("acme.tools");
+                await settle();
+                expect(service.getDownloadProgress("acme.tools")).toBe(50);
+                expect(service.getDownloadProgress("acme.other")).toBeNull();
+                source.release();
+                await running;
+
+                // 5 bytes → 0%, 6 → still 0%, 500 → 50%; then the download ends.
+                expect(seen).toEqual(["acme.tools:0", "acme.tools:50", "acme.tools:null"]);
+                expect(service.getDownloadProgress("acme.tools")).toBeNull();
+            });
+
+            it("an install that measured nothing fires no download change", async () => {
+                const { service, source } = await gated();
+                const seen: string[] = [];
+                service.onDidChangeDownloadProgress((id) => seen.push(id));
+
+                source.release();
+                await service.install("acme.tools");
+
+                expect(seen).toEqual([]);
+            });
         });
 
         it("update switches the profile to the new version; the old one stays for the running host, marked for removal (US-0.1)", async () => {

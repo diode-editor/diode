@@ -26,7 +26,10 @@ Open the Extensions view with `Ctrl+Shift+X` (or `Ctrl+K X` in a terminal that c
 Ctrl+Shift, see [Keyboard](KEYBOARD.md)); it is also under **View: Show Extensions** in the command
 palette. Type in the search box: results come in two groups, **Marketplace** and **Installed**.
 `Enter` on a row opens the extension's page with its description, the support note and the
-buttons: **Install**, **Update to x.y.z**, **Uninstall**.
+buttons: **Install**, **Update to x.y.z**, **Uninstall**. While an install runs, the page shows a
+disabled **Installing** button, the list row an `Installing` badge, and the status bar how much of the
+`.vsix` has been downloaded, e.g. `Installing redhat.java (47%)`; platform packages can weigh over
+100 MB.
 
 The search box understands VS Code's filters, alone or combined with text:
 

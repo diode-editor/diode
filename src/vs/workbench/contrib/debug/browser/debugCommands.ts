@@ -62,7 +62,7 @@ import { BREAKPOINT_EDITOR_ACTIONS, showDebugHoverAction } from "./debugEditorAc
 import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
 import { showDebugSessionMenu } from "./debugSessionPicker.ts";
-import { DEBUG_VIEW_ACTIONS } from "./debugViewActions.ts";
+import { DEBUG_VIEW_ACTIONS, showRunAndDebugAction } from "./debugViewActions.ts";
 import { showLoadedScriptMenu } from "./loadedScriptsPicker.ts";
 import { REPL_ACTIONS } from "./replActions.ts";
 import { VARIABLES_ACTIONS } from "./variablesActions.ts";
@@ -96,7 +96,6 @@ export const DISCONNECT_AND_SUSPEND_ID = "workbench.action.debug.disconnectAndSu
 export const SHOW_LOADED_SCRIPTS_ID = "workbench.action.debug.showLoadedScripts";
 export const TOGGLE_EXCEPTION_BREAKPOINTS_ID = "debug.toggleExceptionBreakpoints";
 export const ENABLE_OR_DISABLE_BREAKPOINT_ID = "debug.enableOrDisableBreakpoint";
-export const OPEN_VIEW_ID = "debug.openView";
 
 const IN_DEBUG_MODE = "inDebugMode";
 const STOPPED = "debugState == 'stopped'";
@@ -990,19 +989,6 @@ export const enableOrDisableBreakpointAction: CommandAction = {
     },
 };
 
-/** When there are no debug extensions, F5 opens Run and Debug so the user can read the limitations. */
-export const openViewAction: CommandAction = {
-    id: OPEN_VIEW_ID,
-    title: "Debug: Open View",
-    keybindings: [parseKeybinding("f5"), parseKeybinding("mod+f5")],
-    when: "!debuggersAvailable",
-    weight: KeybindingWeight.WorkbenchContrib,
-    menus: HIDDEN_FROM_PALETTE,
-    run(accessor) {
-        accessor.get(ViewsServiceDIToken).openViewContainer(VIEWLET_ID, true);
-    },
-};
-
 /** Upstream's `focusCommand` of a view of Run and Debug: "Run and Debug: Focus on <view> View", no keys. */
 function focusViewAction(id: string, viewId: string, name: string): CommandAction {
     return {
@@ -1020,6 +1006,21 @@ export const FOCUS_VIEW_ACTIONS: readonly CommandAction[] = [
     focusViewAction("workbench.debug.action.focusCallStackView", CALLSTACK_VIEW_ID, "Call Stack"),
     focusViewAction("workbench.debug.action.focusBreakpointsView", BREAKPOINTS_VIEW_ID, "Breakpoints"),
 ];
+
+/**
+ * Upstream's F5 without a debugger: opens Run and Debug, whose Run and Debug button offers to find a debugger for the
+ * active editor's language in the Marketplace (no debugger is bundled, so this is the way to js-debug).
+ */
+export const openViewAction: CommandAction = {
+    id: "debug.openView",
+    title: "Open Run and Debug",
+    keybindings: [
+        { keys: parseKeybinding("f5"), when: "!debuggersAvailable", weight: KeybindingWeight.WorkbenchContrib },
+        { keys: parseKeybinding("mod+f5"), when: "!debuggersAvailable", weight: KeybindingWeight.WorkbenchContrib },
+    ],
+    menus: HIDDEN_FROM_PALETTE,
+    run: (accessor) => showRunAndDebugAction.run(accessor),
+};
 
 export const DEBUG_ACTIONS: readonly CommandAction[] = [
     startAction,
@@ -1046,13 +1047,13 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     focusSessionAction,
     selectDebugSessionAction,
     installAdditionalDebuggersAction,
+    openViewAction,
     disconnectAndSuspendAction,
     stepBackAction,
     reverseContinueAction,
     showLoadedScriptsAction,
     toggleExceptionBreakpointsAction,
     enableOrDisableBreakpointAction,
-    openViewAction,
     ...FOCUS_VIEW_ACTIONS,
     ...BREAKPOINT_EDITOR_ACTIONS,
     ...BREAKPOINT_EDIT_ACTIONS,

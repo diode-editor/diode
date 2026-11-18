@@ -416,6 +416,11 @@ describe("ExtensionsWorkbenchService — updates (ExtensionUpdates stage 2)", ()
 
             const first = service.updateAll();
             expect(service.getOutdated()).toEqual([]);
+            // The whole batch is installing from the start, the queued second one too: its page can't start another.
+            expect(service.getEntries().map((e) => [e.id, e.operation])).toEqual([
+                ["acme.plain", "installing"],
+                ["acme.other", "installing"],
+            ]);
             const second = service.updateAll();
 
             expect((await first).updated.map((u) => u.id)).toEqual(["acme.plain", "acme.other"]);

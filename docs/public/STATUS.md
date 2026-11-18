@@ -6,7 +6,10 @@ differently is on [Differences from VS Code](DIFFERENCES.md).
 
 ## Known gaps
 
-- **Debugging** works through debugger extensions: CodeLLDB from the store debugs C and C++ —
+- **Debugging** works through debugger extensions; none is bundled, so F5 with none installed opens Run and Debug,
+  whose button offers to find one in the store. The JavaScript Debugger (js-debug) from the store debugs Node.js —
+  F5 on a `.js` file, `launch` and `attach` configurations, child processes, the JavaScript Debug Terminal, npm
+  scripts and auto attach. CodeLLDB from the store debugs C and C++ —
   `.diode/launch.json` with its `preLaunchTask` (with completion of the debuggers' attributes and configuration
   snippets, no validation yet), breakpoints in the gutter (F9) with conditions, hit counts, log messages and
   triggers, function, exception and data breakpoints, inline breakpoints (Shift+F9), stepping, Run to Cursor, Jump
@@ -36,7 +39,7 @@ No dates promised, in the order that seems right today.
 - `.gitignore` honoured in the file tree, as it already is in search and Quick Open.
 - Snippets and file icon themes from extensions.
 - More languages in the store: Rust and C# next, then on demand.
-- The rest of debugging: Node.js through js-debug.
+- The rest of debugging: debugging in a browser.
 
 ## Won't happen
 
