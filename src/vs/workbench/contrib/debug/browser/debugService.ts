@@ -7,7 +7,7 @@
 // configuration or compound, resolution by the providers, variable substitution, the pre-launch task, resolution with
 // substituted variables, then the session. A configuration without a type gets the debugger chosen for the active
 // editor's file before, else a guessed one, and a session started so remembers the choice for that file. Not here yet:
-// data breakpoints, `debug.openExplorerOnEnd`, removing the breakpoints of a deleted file. The focused frame opens
+// data breakpoints, removing the breakpoints of a deleted file. The focused frame opens
 // through the `openStackFrame` port (upstream `stackFrame.openInEditor`), and the positions the editor moved
 // breakpoints to are sent on the file's save (upstream: on its change on disk). The
 // activity badge of the view container (active sessions) is not here: the container switcher has no badges. Errors
@@ -20,7 +20,7 @@ import { raceTimeout, RunOnceScheduler } from "../../../../base/common/async.ts"
 import { CancellationTokenSource } from "../../../../base/common/cancellation.ts";
 import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { isCancellationError } from "../../../../base/common/errorSerialization.ts";
-import { Emitter, type Event } from "../../../../base/common/event.ts";
+import { Emitter, Event } from "../../../../base/common/event.ts";
 import { DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri as uri } from "../../../../base/common/uri.ts";
 import { generateUuid } from "../../../../base/common/uuid.ts";
@@ -76,7 +76,12 @@ import type { IReplConsoleConfiguration } from "../common/replModel.ts";
 
 import { AdapterManager, type IDebuggerGuessPorts } from "./debugAdapterManager.ts";
 import { ConfigurationManager, type IConfigurationManagerPorts } from "./debugConfigurationManager.ts";
-import { DebugSession, type IDebugServiceConfiguration, type IDebugSessionServices } from "./debugSession.ts";
+import {
+    DebugSession,
+    type IDebugServiceConfiguration,
+    type IDebugSessionServices,
+    type IDebugTestingPorts,
+} from "./debugSession.ts";
 import { DebugTaskRunner, type IDebugTaskRunnerPorts, TaskRunResult } from "./debugTaskRunner.ts";
 
 export const DebugServiceDIToken = token<DebugService>("DebugService");
@@ -106,6 +111,12 @@ export interface IDebugServicePorts {
     readonly activeEditorResource: () => string | undefined;
     /** Upstream's `openPaneComposite(VIEWLET_ID, Sidebar)`: shows Run and Debug without taking the focus. */
     readonly openViewlet: () => void;
+    /** Upstream's `openPaneComposite(EXPLORER_VIEWLET_ID, Sidebar)` while the side bar is visible. */
+    readonly openExplorer: () => void;
+    /** Closes the tabs of the session's `debug:` documents (`debug.closeReadonlyTabsOnEnd`). */
+    readonly closeSessionEditors: (sessionId: string) => void;
+    /** The test runs a session started for a test is tied to. */
+    readonly testing: IDebugTestingPorts;
     /** Upstream's `openView(REPL_VIEW_ID, false)`: shows the Debug Console without taking the focus. */
     readonly openRepl: () => void;
     /** Upstream's `closeViewContainer` of the Debug Console's container when it is visible. */
@@ -200,6 +211,7 @@ export class DebugService implements IDebugService {
             replConfiguration: ports.replConfiguration,
             debugConfiguration: ports.debugConfiguration,
             openViewlet: ports.openViewlet,
+            testing: ports.testing,
         };
 
         this.disposables.add(
@@ -896,6 +908,10 @@ export class DebugService implements IDebugService {
         // Stryker disable next-line CallExpression: letting go of a token nothing listens to
         this.sessionCancellationTokens.delete(session.getId());
 
+        const configuration = this.ports.debugConfiguration();
+        if (configuration.closeReadonlyTabsOnEnd) {
+            this.ports.closeSessionEditors(session.getId());
+        }
         this.onDidEndSessionEmitter.fire({ session, restart: this.restartingSessions.has(session) });
 
         const focusedSession = this.viewModel.focusedSession;
@@ -913,13 +929,17 @@ export class DebugService implements IDebugService {
         if (this.model.getSessions().length === 0) {
             this.viewModel.setMultiSessionView(false);
 
+            if (configuration.openExplorerOnEnd) {
+                this.ports.openExplorer();
+            }
+
             // Data breakpoints that can not be persisted should be cleared when a session ends
             const dataBreakpoints = this.model.getDataBreakpoints().filter((dbp) => !dbp.canPersist);
             dataBreakpoints.forEach((dbp) => {
                 this.model.removeDataBreakpoints(dbp.getId());
             });
 
-            if (this.ports.debugConfiguration().console.closeOnEnd) {
+            if (configuration.console.closeOnEnd) {
                 this.ports.closeRepl();
             }
         }
@@ -1015,6 +1035,18 @@ export class DebugService implements IDebugService {
         // Stryker disable next-line ObjectLiteral,BooleanLiteral: a breakpoint without a trigger never reads the flag
         for (const breakpoint of this.model.getBreakpoints({ triggeredOnly: true })) {
             breakpoint.setSessionDidTrigger(session.getId(), false);
+        }
+
+        // For debug sessions spawned by test runs, cancel the test run and stop
+        // the session, then start the test run again; tests have no notion of restarts.
+        if (session.correlatedTestRun) {
+            if (!session.correlatedTestRun.completedAt) {
+                session.cancelCorrelatedTestRun();
+                await Event.toPromise(session.correlatedTestRun.onComplete);
+            }
+
+            this.ports.testing.runResolvedTests(session.correlatedTestRun.request);
+            return;
         }
 
         if (session.capabilities.supportsRestartRequest) {

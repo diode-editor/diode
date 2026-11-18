@@ -1,17 +1,12 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
 /**
- * Verbatim from upstream's `contrib/debug/browser/debug.contribution.ts` (no `scope` there: window; `debug.openDebug`
- * and `debug.internalConsoleOptions` have no `type` there either: a string). Only the keys the ported code reads: the
- * Debug Console (`replModel.ts`, opening and closing its view), the terminal of `runInTerminal` (`debugTerminal.ts`), launch.json and the debug tasks
- * (`debugConfigurationManager.ts`, `debugTaskRunner.ts`, `debugService.ts`), the Run and Debug views (opening them,
- * types, lazy variables, the breakpoints presentation and the launcher in its title), the debug toolbar and the status
- * bar (`debugToolbar.ts`, `statusbarColorProvider.ts`, `debugStatus.ts`), the editor's breakpoints and stack frames
- * (the gutter, its middle click and ruler, focusing the editor on a break), the inline values. `debug.console.fontSize`,
- * `fontFamily` and `lineHeight` are declared and not applied (the terminal's font); `fontSize` defaults to 14, upstream's
- * on everything but macOS (12). The rest of `debug.*` comes with the task that implements it, the
- * unsupported ones are declared by the settings task (#1158). `launch` has no JSON schema of its configurations yet
- * (IntelliSense in launch.json is a task of its own).
+ * Every key of upstream's `contrib/debug/browser/debug.contribution.ts`, verbatim (no `scope` there: window;
+ * `debug.openDebug` and `debug.internalConsoleOptions` have no `type` there either: a string); `debugConfiguration.test.ts`
+ * checks the keys against upstream's list and names the ones declared and not applied: the Debug Console's font and
+ * line height (the terminal's cells), `debug.focusWindowOnBreak` (a terminal application cannot raise its window),
+ * `debug.disassemblyView.showSourceCode` (no disassembly view). `debug.console.fontSize` defaults to 14, upstream's on everything but macOS (12). `launch` has no `$ref` to the
+ * launch.json schema: launch.json gets its IntelliSense by the file name.
  */
 export const debugConfiguration = {
     id: "debug",
@@ -97,7 +92,6 @@ export const debugConfiguration = {
             description: "Controls if the Debug Console should be automatically closed when the debug session ends.",
             default: false,
         },
-        // Declared, not applied: the console is in the terminal's cells, with its font and line height.
         "debug.console.fontSize": {
             scope: "window",
             type: "number",
@@ -222,6 +216,12 @@ export const debugConfiguration = {
             ],
             default: "logpoint",
         },
+        "debug.focusWindowOnBreak": {
+            scope: "window",
+            type: "boolean",
+            description: "Controls whether the workbench window should be focused when the debugger breaks.",
+            default: true,
+        },
         "debug.focusEditorOnBreak": {
             scope: "window",
             type: "boolean",
@@ -241,6 +241,19 @@ export const debugConfiguration = {
                 "Controls whether inline breakpoints candidate decorations should be shown in the editor while debugging.",
             default: true,
         },
+        "debug.openExplorerOnEnd": {
+            scope: "window",
+            type: "boolean",
+            description: "Automatically open the explorer view at the end of a debug session.",
+            default: false,
+        },
+        "debug.closeReadonlyTabsOnEnd": {
+            scope: "window",
+            type: "boolean",
+            description:
+                "At the end of a debug session, all the read-only tabs associated with that session will be closed",
+            default: false,
+        },
         "debug.inlineValues": {
             scope: "window",
             type: "string",
@@ -252,6 +265,12 @@ export const debugConfiguration = {
                 "Show variable values inline in editor while debugging when the language supports inline value locations.",
             ],
             default: "auto",
+        },
+        "debug.disassemblyView.showSourceCode": {
+            scope: "window",
+            type: "boolean",
+            default: true,
+            description: "Show Source Code in Disassembly View.",
         },
         "debug.autoExpandLazyVariables": {
             scope: "window",

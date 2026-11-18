@@ -18,7 +18,11 @@ import type { QuickPickItem } from "../vs/workbench/common/quickPickItem.ts";
 import type { IConfigurationManagerPorts } from "../vs/workbench/contrib/debug/browser/debugConfigurationManager.ts";
 import { DebugService, type IDebugServicePorts } from "../vs/workbench/contrib/debug/browser/debugService.ts";
 import type { IDebugTaskRunnerPorts } from "../vs/workbench/contrib/debug/browser/debugTaskRunner.ts";
-import type { IDebugVariableResolver, ILaunch } from "../vs/workbench/contrib/debug/common/debug.ts";
+import type {
+    ICorrelatedTestRun,
+    IDebugVariableResolver,
+    ILaunch,
+} from "../vs/workbench/contrib/debug/common/debug.ts";
 import type { ITaskEvent, ITaskSummary } from "../vs/workbench/contrib/tasks/browser/taskService.ts";
 import { type ITask, taskMatches } from "../vs/workbench/contrib/tasks/common/tasks.ts";
 import type {
@@ -82,6 +86,14 @@ export interface IDebugServiceFixture {
     /** How many times the Debug Console was shown, and asked to close. */
     replOpenings: number;
     replClosings: number;
+    /** How many times Explorer was shown at the end of the debugging. */
+    explorerOpenings: number;
+    /** The sessions whose `debug:` tabs were closed. */
+    readonly closedSessionEditors: string[];
+    /** The test runs of the core by id, and what was asked of them. */
+    readonly testRuns: Map<string, ICorrelatedTestRun>;
+    readonly cancelledTestRuns: string[];
+    readonly rerunTests: unknown[];
     /** The stack frames opened in the editor: `name@line` with the options. */
     readonly openedFrames: { frame: string; preserveFocus: boolean; sideBySide: boolean }[];
     /** Fires the save of a text file. */
@@ -148,6 +160,11 @@ export function createDebugServiceFixture(
         viewletOpenings: 0,
         replOpenings: 0,
         replClosings: 0,
+        explorerOpenings: 0,
+        closedSessionEditors: [] as string[],
+        testRuns: new Map<string, ICorrelatedTestRun>(),
+        cancelledTestRuns: [] as string[],
+        rerunTests: [] as unknown[],
         extensions: [] as IExtension[],
         activeEditor: undefined as { resource: string; languageId: string; languageName?: string } | undefined,
         pickLabel: undefined as string | string[] | undefined,
@@ -293,6 +310,8 @@ export function createDebugServiceFixture(
             allowBreakpointsEverywhere: configuration.get("debug.allowBreakpointsEverywhere"),
             focusEditorOnBreak: configuration.get("debug.focusEditorOnBreak"),
             showSubSessionsInToolBar: configuration.get("debug.showSubSessionsInToolBar"),
+            openExplorerOnEnd: configuration.get("debug.openExplorerOnEnd"),
+            closeReadonlyTabsOnEnd: configuration.get("debug.closeReadonlyTabsOnEnd"),
         }),
         guess: {
             activeLanguage: () =>
@@ -318,6 +337,17 @@ export function createDebugServiceFixture(
         },
         closeRepl: () => {
             fixture.replClosings++;
+        },
+        openExplorer: () => {
+            fixture.explorerOpenings++;
+        },
+        closeSessionEditors: (sessionId) => {
+            fixture.closedSessionEditors.push(sessionId);
+        },
+        testing: {
+            getResult: (runId) => fixture.testRuns.get(runId),
+            cancelTestRun: (runId) => fixture.cancelledTestRuns.push(runId),
+            runResolvedTests: (request) => fixture.rerunTests.push(request),
         },
         openStackFrame: (stackFrame, options) => {
             fixture.openedFrames.push({

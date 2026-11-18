@@ -8,6 +8,7 @@ import { HelloComponent } from "./hello.component";
         <app-hello [name]="title" />
         <span>{{ title.toUpperCase() }}</span>
         <div>{{ nope }}</div>
+        <p class="note">plain</p>
     `,
 })
 export class AppComponent {

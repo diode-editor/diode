@@ -83,6 +83,8 @@ export interface IBreakpointSources {
     readLines(uri: Uri): Promise<readonly string[]>;
     /** Upstream `openBreakpointSource`: the breakpoint's line in an editor, beside the active one or in it. */
     openBreakpoint(breakpoint: IBreakpoint, sideBySide: boolean): Promise<void>;
+    /** Upstream `Source.openInEditor` of a loaded script: the file in the active group, focused. */
+    openSource(uri: Uri): Promise<void>;
 }
 export const BreakpointSourcesDIToken = token<IBreakpointSources>("BreakpointSources");
 

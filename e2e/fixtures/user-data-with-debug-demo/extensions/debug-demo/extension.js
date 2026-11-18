@@ -32,7 +32,9 @@
  *   debug toolbar has a bell button that counts its clicks there;
  * - `./workers` has child processes, as js-debug sees a Node program with workers: its adapter asks the client to
  *   `startDebugging` an `attach` session for "worker 1" and "worker 2" (the reverse request), each stops on entry
- *   with its own console; stopping the program ends its workers.
+ *   with its own console; stopping the program ends its workers;
+ * - `./scripts` has loaded sources (`loadedSources`, for LOADED SCRIPTS): `hello.c` and two system headers, and a third
+ *   header comes with a `loadedSource` event after the stop.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -51,7 +53,7 @@ exports.activate = function activate(context) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand("debugDemo.pickProgram", () =>
-            vscode.window.showQuickPick(["./hello", "./world", "./tests", "./crash", "./workers"], {
+            vscode.window.showQuickPick(["./hello", "./world", "./tests", "./crash", "./workers", "./scripts"], {
                 placeHolder: "Pick the program to debug",
             }),
         ),
@@ -205,6 +207,9 @@ class DemoAdapter {
             if (this.breakpoints.length > 0) this.line = this.breakpoints[0];
             this.event("stopped", { reason, threadId: 1, allThreadsStopped: true });
             if (program === "./workers") this.startWorkers();
+            if (program === "./scripts") {
+                this.event("loadedSource", { reason: "new", source: { name: "string.h", path: "/usr/include/string.h" } });
+            }
         }
         if (request.command === "next") {
             if (this.configuration.program === "./crash" && (this.lines[this.line - 1] ?? "").includes("printf")) {
@@ -286,6 +291,7 @@ class DemoAdapter {
         switch (request.command) {
             case "initialize":
                 return {
+                    supportsLoadedSourcesRequest: this.configuration.program === "./scripts",
                     supportsConfigurationDoneRequest: true,
                     supportsCompletionsRequest: true,
                     supportsSetVariable: true,
@@ -304,6 +310,14 @@ class DemoAdapter {
             }
             case "demoInfo":
                 return { pid: 4242 };
+            case "loadedSources":
+                return {
+                    sources: [
+                        { name: "hello.c", path: this.source },
+                        { name: "stdio.h", path: "/usr/include/stdio.h" },
+                        { name: "stdlib.h", path: "/usr/include/stdlib.h" },
+                    ],
+                };
             case "continue":
                 return { allThreadsContinued: true };
             case "exceptionInfo":

@@ -89,6 +89,7 @@ describe("debugWireParsers — debug messages from the subprocess", () => {
                     suppressDebugStatusbar: true,
                     suppressDebugToolbar: false,
                     suppressDebugView: true,
+                    testRun: { runId: "r", taskId: "t" },
                 },
             }),
         ).toEqual({
@@ -104,6 +105,7 @@ describe("debugWireParsers — debug messages from the subprocess", () => {
                 suppressDebugStatusbar: true,
                 suppressDebugToolbar: false,
                 suppressDebugView: true,
+                testRun: { runId: "r", taskId: "t" },
             },
         });
         const typeless = parseWireDebugStartDebugging({
@@ -119,6 +121,7 @@ describe("debugWireParsers — debug messages from the subprocess", () => {
                 suppressDebugStatusbar: 0,
                 suppressDebugToolbar: "",
                 suppressDebugView: [],
+                testRun: { runId: "r", taskId: 1 },
             },
         });
         expect(typeless).toEqual({ nameOrConfig: CONFIG, options: {} });

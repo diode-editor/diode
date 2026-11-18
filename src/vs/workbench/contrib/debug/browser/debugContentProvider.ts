@@ -19,6 +19,20 @@ import { DebugServiceDIToken } from "./debugService.ts";
 
 export const DebugContentProviderDIToken = token<DebugContentProvider>("DebugContentProvider");
 
+/** Upstream's end of a session with `debug.closeReadonlyTabsOnEnd`: closes the tabs of its `debug:` documents. */
+export function closeSessionEditors(
+    editors: Pick<IEditorService, "editorGroups" | "closeEditors">,
+    sessionId: string,
+): void {
+    // Copy the list: a group that becomes empty leaves it right inside the loop.
+    for (const group of [...editors.editorGroups.groups]) {
+        // Only a `debug:` document has a session.
+        const panes = group.getPanes().filter((pane) => Source.getEncodedDebugData(pane.uri).sessionId === sessionId);
+        // Read-only tabs ask for no confirmation.
+        void editors.closeEditors(group, panes);
+    }
+}
+
 export class DebugContentProvider extends Disposable {
     public static dependencies = [DebugServiceDIToken, EditorServiceDIToken] as const;
 

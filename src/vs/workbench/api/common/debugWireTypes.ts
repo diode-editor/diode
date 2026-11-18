@@ -57,6 +57,8 @@ export interface IWireDebugStartOptions {
     readonly suppressDebugStatusbar?: boolean;
     readonly suppressDebugToolbar?: boolean;
     readonly suppressDebugView?: boolean;
+    /** The task of the extension's `TestRun` the session is for. */
+    readonly testRun?: { readonly runId: string; readonly taskId: string };
 }
 
 /** Upstream `$startDebugging(folder, nameOrConfig, options)`. */

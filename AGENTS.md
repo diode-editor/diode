@@ -3,7 +3,7 @@ Diode — терминальный текстовый редактор (клон
 # Карта документации
 - GOAL.md — цели проекта и non-negotiable constraints
 - docs/VISION.md — позиционирование: активы, ограничения реальности, направления, текущая ставка
-- docs/MARKETING.md — выход на публику: площадки, подача, чеклист до поста; docs/competitors/ — разборы конкурентов (TTT)
+- docs/MARKETING.md — выход на публику: площадки, подача, чеклист до поста; docs/competitors/ — разборы конкурентов (TTT, Croft)
 - docs/ARCHITECTURE.md — концептуальная карта: слои и правила зависимостей (единственный источник правды по слоям). **Прочитай перед работой**; переносишь файлы, заводишь каталоги или меняешь зависимости слоёв — обнови его
 - docs/arch/ — детальный справочник по слою на файл (Common, Editor, Extensions, Workbench, State, …); docs/DI.md — DI-контейнер
 - TUIDom (движок TUI) — отдельный репозиторий [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom), пакеты `@tuidom/*`; его доки живут там
@@ -58,7 +58,7 @@ Diode — терминальный текстовый редактор (клон
 Сквозные конвенции; полные формулировки — по ссылкам.
 - **Ограничения tuidom не обходим — чиним движок.** Правка — в репозитории tuidom (`TUIDOM_DIR`): своя ветка и PR, вливаешь сам. **Публикацию в npm запрашивай у человека** ([разрешил — рецепт](docs/RELEASE.md#tuidom); исключение — сессия агентского лупа, там реализатор публикует сам по скиллу `implementer`), до выхода версии diode на неё не завязывай; проверить заранее — `npm run engine:link`. Запрещено: копировать куски движка, monkey-patching, приватные поля (`as any`, `@ts-expect-error`), дубликат виджета ради хука, пост-обработка grid'а; тест-обходы — тоже обходы.
 - **Цвета** — только имена токенов темы, никаких RGB-литералов и инлайн-фоллбэков; новый цвет — в `src/vs/platform/theme/common/colors/` → [Theme.md](docs/arch/Theme.md).
-- **`vscode.d.ts` запиннен к upstream**: подняв поверхность, в том же PR обнови [API-COVERAGE.md](docs/public/API-COVERAGE.md); правило правки → [Extensions.md](docs/arch/Extensions.md).
+- **`vscode.d.ts` запиннен к upstream**: подняв поверхность или оживив стаб (член заработал, появилась поверхность под него), в том же PR обнови **оба** документа готовности — [API-COVERAGE.md](docs/public/API-COVERAGE.md) и классы членов в `docs/extensions/api-matrix/*.json` с `npm run api-matrix` (класс и `note` — по правде кода, включая типы из `types.json`); гейт `--check` ловит только несуществующий член, не устаревший класс → [Extensions.md](docs/arch/Extensions.md), [матрица](docs/extensions/README.md).
 - **Перенесённый код эталона** (баннер `//@diode:vendored`) руками не правится, только `npm run import:vscode-editor`; он 1-based, ядро 0-based, ±1 — только в адаптере → [ARCHITECTURE.md](docs/ARCHITECTURE.md#дословный-перенос-upstream-editorcommondiff).
 - **DI** — токен `*DIToken` объявляется рядом со своим типом → [DI.md](docs/DI.md).
 - **Состав фичи** — всё, что регистрирует `workbench/contrib/<f>/`, объявляется в её папке → [Workbench.md](docs/arch/Workbench.md#состав-фичи). **Команды** — id в стиле VS Code, доступность через typed when-контексты → [конвенции команд](docs/arch/workbench/Commands.md#конвенции-системы-команд).

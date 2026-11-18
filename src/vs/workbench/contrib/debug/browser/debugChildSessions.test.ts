@@ -209,7 +209,7 @@ describe("child sessions", () => {
 
             await stopAction.run(accessor, undefined, { sessionId: child.getId() });
 
-            expect(stop).toHaveBeenCalledWith(parent, false);
+            expect(stop).toHaveBeenCalledWith(parent, false, false);
         });
 
         it("Restart goes to the root parent", async () => {
@@ -230,7 +230,7 @@ describe("child sessions", () => {
             await stopAction.run(accessor, undefined, { sessionId: child.getId() });
             await restartSessionAction.run(accessor, undefined, { sessionId: child.getId() });
 
-            expect(stop).toHaveBeenCalledWith(child, false);
+            expect(stop).toHaveBeenCalledWith(child, false, false);
             expect(restart).toHaveBeenCalledWith(child);
         });
     });
@@ -241,7 +241,7 @@ describe("child sessions", () => {
 
         await stopAction.run(accessor, undefined, { sessionId: w1.getId() });
 
-        expect(stop).toHaveBeenCalledWith(w1, false);
+        expect(stop).toHaveBeenCalledWith(w1, false, false);
     });
 
     describe("Select Debug Session", () => {

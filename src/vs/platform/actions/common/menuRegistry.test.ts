@@ -426,6 +426,20 @@ describe("MenuRegistry — enablement", () => {
         h.contextKeys.set("gitOperationInProgress", true);
         expect(h.registry.hasItems(MenuId.ExplorerContext)).toBe(true);
     });
+
+    it("the command palette leaves out an item whose enablement is false, as upstream's disabled one", () => {
+        const h = setup([
+            item({ menuId: MenuId.CommandPalette, when: "inDebugMode", enablement: "suspendDebuggeeSupported" }),
+        ]);
+        h.contextKeys.set("inDebugMode", true);
+        expect(h.registry.isInCommandPalette("git.commit")).toBe(false);
+
+        h.contextKeys.set("suspendDebuggeeSupported", true);
+        expect(h.registry.isInCommandPalette("git.commit")).toBe(true);
+
+        h.contextKeys.set("inDebugMode", false);
+        expect(h.registry.isInCommandPalette("git.commit")).toBe(false);
+    });
 });
 
 // Upstream's view pane binds `view = <id>` in its scoped context key service: an extension's

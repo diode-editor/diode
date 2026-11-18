@@ -33,8 +33,12 @@ jobs:
         # linux-arm64 (Raspberry Pi 3/4/5 on a 64-bit OS) builds on a native
         # arm runner: npm install compiles node-pty and fetches ripgrep for its
         # architecture, and the smoke test runs on real arm64.
+        # Linux runners are pinned, never ubuntu-latest: node-pty compiles against the runner's
+        # glibc, and pty.node needs at least that version of the symbols it links. ubuntu-latest
+        # moved to 26.04 (glibc 2.42, new cfsetispeed/cfsetospeed), and every terminal on
+        # Ubuntu 24.04/22.04 and Debian 12/13 failed to start. The "glibc floor" step below holds it.
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             asset: diode-linux-x64
             binary: dist/diode
             mode: sea
@@ -72,6 +76,28 @@ jobs:
           node-version-file: .nvmrc
 
       - run: npm install
+
+      # The binary carries node-pty's native module as is, and a pty.node that needs a newer
+      # glibc than the user's fails only when the first terminal opens, with no error on screen.
+      # Floor 2.34 = Ubuntu 22.04, Debian 12, RHEL 9 (forkpty/openpty moved into libc in 2.34).
+      - name: glibc floor of native modules
+        if: runner.os == 'Linux'
+        run: |
+          floor=2.34
+          found=0
+          for f in $(find node_modules/node-pty -name '*.node'); do
+            # node-pty also ships Windows/macOS prebuilds; only ELF files link glibc.
+            [ "$(od -An -tx1 -N4 "$f" | tr -d ' ')" = 7f454c46 ] || continue
+            found=1
+            need=$(objdump -T "$f" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -uV | tail -1)
+            echo "$f needs glibc $need (floor $floor)"
+            if [ "$(printf '%s\n%s\n' "$floor" "$need" | sort -V | tail -1)" != "$floor" ]; then
+              echo "::error file=$f::needs glibc $need, newer than the supported floor $floor"
+              objdump -T "$f" | grep -E "GLIBC_$need\b"
+              exit 1
+            fi
+          done
+          [ "$found" = 1 ] || { echo "::error::no node-pty native module found"; exit 1; }
 
       - run: npm run build:sea
         if: matrix.mode == 'sea'

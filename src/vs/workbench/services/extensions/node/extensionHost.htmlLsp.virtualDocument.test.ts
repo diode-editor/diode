@@ -1,38 +1,77 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import {
+    activatingLanguageService,
+    createExtensionTestHarness,
+    extensionFixture,
+    type IExtensionHarness,
+} from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import {
     buildHtmlLanguageFeatures,
-    type IHtmlDocument,
-    openHtmlDocument,
+    HTML_LANGUAGE_SERVICE,
+    HTML_SERVER_CONFIGURATION,
+    htmlLanguageFeaturesRegistration,
     until,
 } from "../../../../../TestUtils/HtmlLanguageFeaturesHarness.ts";
 
-// The HTML client's selector covers every scheme, as upstream: an `.html` document from a content provider gets
-// completion through `vscode.executeCompletionItemProvider` (what Angular's embedded templates rely on).
+// The hermetic counterpart of extensionHost.angular.embeddedHtml.test.ts: a synthetic extension does Angular's dance
+// with an `.html` document of its content provider. No `.html` file is open: opening the virtual document is what
+// activates the HTML extension (`onLanguage:html`, as in the app), and each command reads the provider again. The
+// HTML client serves only `html` documents, so an answer also says the document opened as html.
 
 describe("ExtensionHost — built-in HTML language features: virtual documents", () => {
-    let html: IHtmlDocument | undefined;
+    let harness: IExtensionHarness | undefined;
 
     beforeAll(buildHtmlLanguageFeatures, 120_000);
 
     afterEach(async () => {
-        await html?.harness.dispose();
-        html = undefined;
+        await harness?.dispose();
+        harness = undefined;
     });
 
-    it("an html document of a content provider gets element completion", { timeout: 60_000 }, async () => {
-        html = await openHtmlDocument("index.html", "\n", {
-            extensions: [extensionFixture("test.virtualHtml", "providesHtmlVirtualDocument.cjs")],
+    async function start(): Promise<IExtensionHarness> {
+        harness = await createExtensionTestHarness({
+            languageService: activatingLanguageService(HTML_LANGUAGE_SERVICE),
+            configuration: HTML_SERVER_CONFIGURATION,
+            extensions: [
+                htmlLanguageFeaturesRegistration(),
+                extensionFixture("test.virtualHtml", "providesHtmlVirtualDocument.cjs"),
+            ],
         });
-        const { harness } = html;
-        await harness.host.activateByEvent("*");
-        let answer = { languageId: "", labels: [] as string[] };
-        await until("completion in the virtual document", async () => {
-            answer = (await harness.commandRegistry.execute("fixture.completeVirtualHtml")) as typeof answer;
-            return answer.labels.includes("div");
+        return harness;
+    }
+
+    it(
+        "completion wakes the HTML extension, the next command answers about the provider's new text",
+        { timeout: 60_000 },
+        async () => {
+            const { commandRegistry } = await start();
+            const complete = async (text: string, character: number): Promise<string[]> =>
+                (await commandRegistry.execute("fixture.completeVirtualHtml", text, character)) as string[];
+            let elements: string[] = [];
+            await until("completion in the virtual document", async () => {
+                elements = await complete("<di\n", 3);
+                return elements.includes("div");
+            });
+            expect(elements).toContain("dialog");
+
+            const attributes = await complete("<p c\n", 4);
+            expect(attributes).toContain("class");
+            expect(attributes).not.toContain("div");
+        },
+    );
+
+    it("hover in the document is the HTML server's", { timeout: 60_000 }, async () => {
+        const { commandRegistry } = await start();
+        let contents: string[] = [];
+        await until("hover in the virtual document", async () => {
+            contents = (await commandRegistry.execute(
+                "fixture.hoverVirtualHtml",
+                '<p class="note"></p>\n',
+                5,
+            )) as string[];
+            return contents.length > 0;
         });
-        expect(answer.languageId).toBe("html");
-        expect(answer.labels).toContain("dialog");
+        expect(contents.join("\n")).toContain("A space-separated list of the classes of the element.");
     });
 });

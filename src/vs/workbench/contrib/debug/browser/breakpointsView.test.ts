@@ -153,6 +153,7 @@ describe("BreakpointsView", () => {
                 return read ? Promise.resolve(read) : Promise.reject(new Error("unreadable"));
             },
             openBreakpoint: vi.fn().mockResolvedValue(undefined),
+            openSource: vi.fn().mockResolvedValue(undefined),
         };
     });
 

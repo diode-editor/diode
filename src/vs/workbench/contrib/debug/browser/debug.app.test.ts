@@ -162,7 +162,8 @@ describe("debugging in the workbench", () => {
         await startStopped();
 
         expect(menus.isInCommandPalette("workbench.action.debug.stepOver")).toBe(true);
-        expect(menus.isInCommandPalette("workbench.action.debug.pause")).toBe(true);
+        // Pause's precondition is a running session: upstream's palette leaves it out while stopped.
+        expect(menus.isInCommandPalette("workbench.action.debug.pause")).toBe(false);
         expect(menus.isInCommandPalette("debug.startFromConfig")).toBe(false);
         expect(h.commands.getTitle("workbench.action.debug.stepOver")).toBe("Debug: Step Over");
     });

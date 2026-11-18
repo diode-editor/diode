@@ -40,8 +40,14 @@ export interface IEditorLayoutService {
 
     getLanguages(): readonly string[];
 
-    /** The language set by {@link changeDocumentLanguage} while it waits for a model, otherwise by the path. */
-    getLanguageOfDocument(uri: string): string | null;
+    /**
+     * The extension host opens a document the core has no model for (a content provider's, a file system
+     * provider's): its language — set by {@link changeDocumentLanguage} while it waits for a model, otherwise by the
+     * path. The language's features start, as upstream's `$tryOpenDocument` creates a model and
+     * `requestRichLanguageFeatures` activates `onLanguage:<id>`: Angular's virtual `.html` template wakes the HTML
+     * extension.
+     */
+    openDocumentWithoutModel(uri: string): string | null;
 
     /** Upstream `$changeLanguage`. Throws on an unknown language. A document without a model gets it when one appears. */
     changeDocumentLanguage(params: IWireChangeLanguageParams): IWireChangeLanguageResult;
@@ -64,7 +70,7 @@ export const NULL_EDITOR_LAYOUT_SERVICE: IEditorLayoutService = {
         throw new Error("editor layout unavailable");
     },
     getLanguages: () => [],
-    getLanguageOfDocument: () => null,
+    openDocumentWithoutModel: () => null,
     changeDocumentLanguage: () => {
         throw new Error("editor layout unavailable");
     },

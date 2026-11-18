@@ -6,6 +6,7 @@ import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/conte
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { StateServiceDIToken } from "../../platform/state/common/iStateService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
+import { SidebarServiceDIToken } from "../../workbench/browser/parts/sidebar/sidebarService.ts";
 import { DebugLifecycle, DebugLifecycleDIToken } from "../../workbench/contrib/debug/browser/debugLifecycle.ts";
 import { DebugQuickAccessProviderDIToken } from "../../workbench/contrib/debug/browser/debugQuickAccess.ts";
 import {
@@ -13,9 +14,14 @@ import {
     DebugServicePortsDIToken,
     NO_DEBUG_EXTENSIONS,
 } from "../../workbench/contrib/debug/browser/debugService.ts";
+import { EXPLORER_VIEWLET_ID } from "../../workbench/contrib/files/browser/explorerComponent.ts";
 import { QuickAccessRegistryDIToken } from "../../workbench/contrib/quickaccess/common/quickAccessRegistry.ts";
 import { TaskServiceDIToken } from "../../workbench/contrib/tasks/browser/taskService.ts";
+import type { IResolvedTestRunRequest } from "../../workbench/contrib/testing/common/testResult.ts";
+import { TestResultServiceDIToken } from "../../workbench/contrib/testing/common/testResultService.ts";
+import { TestServiceDIToken } from "../../workbench/contrib/testing/common/testService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
+import { LayoutServiceDIToken } from "../../workbench/services/layout/browser/layoutService.ts";
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
 import { TextFileModelServiceDIToken } from "../../workbench/services/textfile/common/textFileModelService.ts";
 
@@ -108,5 +114,62 @@ describe("workbenchModule — the ports of the debug service", () => {
         await configuration.updateValue("debug.console.maximumLines", 5);
 
         expect(ports.replConfiguration()).toEqual({ collapseIdenticalLines: false, maximumLines: 5 });
+    });
+
+    it("reads the settings of a session's end on every call", async () => {
+        const { container } = createTestContainer();
+        const ports = container.get(DebugServicePortsDIToken);
+        expect(ports.debugConfiguration()).toMatchObject({ openExplorerOnEnd: false, closeReadonlyTabsOnEnd: false });
+
+        const configuration = container.get(IConfigurationServiceDIToken);
+        await configuration.updateValue("debug.openExplorerOnEnd", true);
+        await configuration.updateValue("debug.closeReadonlyTabsOnEnd", true);
+
+        expect(ports.debugConfiguration()).toMatchObject({ openExplorerOnEnd: true, closeReadonlyTabsOnEnd: true });
+    });
+
+    it("Explorer opens without the focus only while the side bar is visible", () => {
+        const { container } = createTestContainer();
+        const ports = container.get(DebugServicePortsDIToken);
+        const visible = vi.spyOn(container.get(LayoutServiceDIToken), "isSidebarVisible").mockReturnValue(false);
+        const show = vi.spyOn(container.get(SidebarServiceDIToken), "showViewlet").mockImplementation(() => undefined);
+
+        ports.openExplorer();
+        expect(show).not.toHaveBeenCalled();
+
+        visible.mockReturnValue(true);
+        ports.openExplorer();
+        expect(show.mock.calls).toEqual([[EXPLORER_VIEWLET_ID, true, false]]);
+    });
+
+    it("a session's editors are closed in the editor groups", () => {
+        const { container } = createTestContainer();
+        const ports = container.get(DebugServicePortsDIToken);
+        const editors = container.get(EditorServiceDIToken);
+        const close = vi.spyOn(editors, "closeEditors").mockResolvedValue(true);
+
+        ports.closeSessionEditors("s1");
+
+        expect(close.mock.calls).toEqual(editors.editorGroups.groups.map((group) => [group, []]));
+        expect(close).toHaveBeenCalled();
+    });
+
+    it("the test runs are the testing services', looked up when used", () => {
+        const { container } = createTestContainer();
+        const ports = container.get(DebugServicePortsDIToken);
+        const run = { id: "run" };
+        const getResult = vi.spyOn(container.get(TestResultServiceDIToken), "getResult").mockReturnValue(run as never);
+        const tests = container.get(TestServiceDIToken);
+        const cancel = vi.spyOn(tests, "cancelTestRun").mockImplementation(() => undefined);
+        const rerun = vi.spyOn(tests, "runResolvedTests").mockResolvedValue({} as never);
+        const request = { targets: [] } as unknown as IResolvedTestRunRequest;
+
+        expect(ports.testing.getResult("run")).toBe(run);
+        ports.testing.cancelTestRun("run");
+        ports.testing.runResolvedTests(request);
+
+        expect(getResult).toHaveBeenCalledWith("run");
+        expect(cancel).toHaveBeenCalledWith("run");
+        expect(rerun).toHaveBeenCalledWith(request);
     });
 });

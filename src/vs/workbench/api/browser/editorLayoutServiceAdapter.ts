@@ -58,7 +58,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         private readonly groups: IEditorGroupsService,
         private readonly languages: Pick<
             ILanguageService,
-            "getRegisteredLanguageIds" | "getLanguageIdForResource"
+            "getRegisteredLanguageIds" | "getLanguageIdForResource" | "requestLanguageFeatures"
         > = NULL_LANGUAGE_SERVICE,
     ) {
         super();
@@ -236,8 +236,11 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         return this.languages.getRegisteredLanguageIds();
     }
 
-    public getLanguageOfDocument(uri: string): string | null {
-        return this.pendingLanguages.get(uri) ?? this.languages.getLanguageIdForResource(Uri.parse(uri).path) ?? null;
+    public openDocumentWithoutModel(uri: string): string | null {
+        const languageId =
+            this.pendingLanguages.get(uri) ?? this.languages.getLanguageIdForResource(Uri.parse(uri).path) ?? null;
+        if (languageId !== null) this.languages.requestLanguageFeatures(languageId);
+        return languageId;
     }
 
     public changeDocumentLanguage({ uri, languageId }: IWireChangeLanguageParams): IWireChangeLanguageResult {
@@ -247,6 +250,8 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         const model = this.findModel(uri);
         if (model === undefined) {
             this.pendingLanguages.set(uri, languageId);
+            // As a model's `setLanguage`: the extension host's document already has the new language.
+            this.languages.requestLanguageFeatures(languageId);
             return { applied: false };
         }
         model.setLanguage(languageId);
