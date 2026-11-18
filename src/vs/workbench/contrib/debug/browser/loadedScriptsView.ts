@@ -325,7 +325,6 @@ export class LoadedScriptsView extends Disposable {
                 // Upstream collapses all but the sessions.
                 isInitiallyExpanded: (element) => element instanceof SessionTreeItem,
                 renderRow: (element): IRowSpan[] => [{ text: element.getLabel() }],
-                getLabel: (element) => element.getLabel(),
             },
             // Stryker disable next-line StringLiteral,ObjectLiteral: the prefix keeps the row ids apart from other views'; no other view in the window has a loaded script's key
             { idPrefix: "loadedScripts" },
