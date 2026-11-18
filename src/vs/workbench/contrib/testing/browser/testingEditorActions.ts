@@ -9,23 +9,30 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 import { TestId, TestRunProfileBitset } from "../../../api/common/testingWireTypes.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
-import { TestProfileServiceDIToken } from "../common/testProfileService.ts";
+import {
+    CAPABILITY_CONTEXT_KEY,
+    type OfferedTestRunGroup,
+    TestProfileServiceDIToken,
+} from "../common/testProfileService.ts";
 import { type ITestNode, TestServiceDIToken } from "../common/testService.ts";
 
 import { TestingMessageDecorationsDIToken } from "./testingMessageDecorations.ts";
 import { messageOf } from "./testMessageView.ts";
 
 // Upstream `testExplorerActions.ts` (`RunAtCursor`, `RunCurrentFile`, `OpenOutputPeek`, `ToggleInlineTestOutput`) and
-// `testingOutputPeek.ts` (`GoToNextMessageAction`, `GoToPreviousMessageAction`). Deviations: no Debug and no Coverage
-// variants; "No tests found here" is a notification, as the editor has no inline message (upstream's
+// `testingOutputPeek.ts` (`GoToNextMessageAction`, `GoToPreviousMessageAction`), with the Debug variants. Deviations:
+// no Coverage variants; "No tests found here" is a notification, as the editor has no inline message (upstream's
 // `MessageController`); with no peek, Go to Next/Previous Test Failure move the cursor between the failures shown in
 // the file, round, and choose the message in TEST RESULTS if it is shown — upstream walks the peek's messages.
 
 const EDITOR_TEXT_FOCUS = "editorTextFocus";
 const HAS_RESULTS = "testing.hasAnyResults";
 /** Upstream `EditorContextOrder`. */
-const EditorContextOrder = { RunAtCursor: 0, RunInFile: 2 } as const;
-const EDITOR_CONTEXT_WHEN = "testing.activeEditorHasTests && testing.hasRunnableTests";
+const EditorContextOrder = { RunAtCursor: 0, DebugAtCursor: 1, RunInFile: 2, DebugInFile: 3 } as const;
+
+function editorContextWhen(group: OfferedTestRunGroup): string {
+    return `testing.activeEditorHasTests && ${CAPABILITY_CONTEXT_KEY[group]}`;
+}
 
 function notify(accessor: ServiceAccessor, message: string): void {
     accessor.get(NotificationServiceDIToken).show({ severity: "info", message, modal: false, items: [] });
@@ -67,74 +74,122 @@ export function getTestsAtCursor(tests: readonly ITestNode[], position: IPositio
     return best.length > 0 ? best : before;
 }
 
-/** Upstream `RunAtCursor`: the tests at the cursor of the active editor that can run. */
-export const runAtCursorAction: CommandAction = {
-    id: "testing.runAtCursor",
-    title: "Test: Run Test at Cursor",
-    shortTitle: "Run Test at Cursor",
-    keybinding: { keys: parseChord("mod+; c"), when: EDITOR_TEXT_FOCUS, weight: KeybindingWeight.WorkbenchContrib },
-    menus: [
-        { menuId: MenuId.CommandPalette, when: "testing.providerCount > 0" },
-        {
-            menuId: MenuId.EditorContext,
-            group: "testing",
-            order: EditorContextOrder.RunAtCursor,
-            when: EDITOR_CONTEXT_WHEN,
-        },
-    ],
-    async run(accessor) {
-        const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
-        if (editor === null) return;
-        const profiles = accessor.get(TestProfileServiceDIToken);
-        const service = accessor.get(TestServiceDIToken);
-        const runnable = service
-            .getNodesByUri(editor.uri.toString())
-            .filter((test) => profiles.getDefaultProfileForTest(TestRunProfileBitset.Run, test) !== undefined);
-        const tests = getTestsAtCursor(runnable, createPosition(editor.primaryCursorLine, editor.primaryCursorColumn));
-        if (tests.length === 0) {
-            notify(accessor, "No tests found here");
-            return;
-        }
-        await service.runTests({ tests });
-    },
-};
-
-/** Upstream `RunCurrentFile`: from the roots down, each test of the active editor's file with what is under it. */
-export const runCurrentFileAction: CommandAction = {
-    id: "testing.runCurrentFile",
-    title: "Test: Run Tests in Current File",
-    shortTitle: "Run Tests in Current File",
-    keybinding: { keys: parseChord("mod+; f"), when: EDITOR_TEXT_FOCUS, weight: KeybindingWeight.WorkbenchContrib },
-    menus: [
-        { menuId: MenuId.CommandPalette, when: "testing.hasRunnableTests" },
-        {
-            menuId: MenuId.EditorContext,
-            group: "testing",
-            order: EditorContextOrder.RunInFile,
-            when: EDITOR_CONTEXT_WHEN,
-        },
-    ],
-    async run(accessor) {
-        const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
-        if (editor === null) return;
-        const service = accessor.get(TestServiceDIToken);
-        const uri = editor.uri.toString();
-        const tests: ITestNode[] = [];
-        const queue = [...service.rootItems];
-        for (let test = queue.pop(); test !== undefined; test = queue.pop()) {
-            if (test.item.uri === uri) {
-                tests.push(test);
-                continue;
+/** Upstream `ExecuteTestAtCursor`: the tests at the cursor of the active editor that can run in the group. */
+function testAtCursorAction(
+    group: OfferedTestRunGroup,
+    id: string,
+    label: string,
+    key: string,
+    order: number,
+): CommandAction {
+    return {
+        id,
+        title: `Test: ${label}`,
+        shortTitle: label,
+        keybinding: { keys: parseChord(key), when: EDITOR_TEXT_FOCUS, weight: KeybindingWeight.WorkbenchContrib },
+        menus: [
+            { menuId: MenuId.CommandPalette, when: "testing.providerCount > 0" },
+            { menuId: MenuId.EditorContext, group: "testing", order, when: editorContextWhen(group) },
+        ],
+        async run(accessor) {
+            const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+            if (editor === null) return;
+            const profiles = accessor.get(TestProfileServiceDIToken);
+            const service = accessor.get(TestServiceDIToken);
+            const runnable = service
+                .getNodesByUri(editor.uri.toString())
+                .filter((test) => profiles.getDefaultProfileForTest(group, test) !== undefined);
+            const tests = getTestsAtCursor(
+                runnable,
+                createPosition(editor.primaryCursorLine, editor.primaryCursorColumn),
+            );
+            if (tests.length === 0) {
+                notify(accessor, "No tests found here");
+                return;
             }
-            for (const childId of test.children) queue.push(assertReturnsDefined(service.getNodeById(childId)));
-        }
-        if (tests.length === 0) {
-            notify(accessor, "No tests found in this file");
-            return;
-        }
-        await service.runTests({ tests });
-    },
-};
+            await service.runTests({ tests, group });
+        },
+    };
+}
+
+/** Upstream `RunAtCursor`. */
+export const runAtCursorAction = testAtCursorAction(
+    TestRunProfileBitset.Run,
+    "testing.runAtCursor",
+    "Run Test at Cursor",
+    "mod+; c",
+    EditorContextOrder.RunAtCursor,
+);
+
+/** Upstream `DebugAtCursor`. */
+export const debugAtCursorAction = testAtCursorAction(
+    TestRunProfileBitset.Debug,
+    "testing.debugAtCursor",
+    "Debug Test at Cursor",
+    "mod+; mod+c",
+    EditorContextOrder.DebugAtCursor,
+);
+
+/**
+ * Upstream `ExecuteTestsInCurrentFile`: from the roots down, each test of the active editor's file with what is under
+ * it, with the group's defaults.
+ */
+function testsInCurrentFileAction(
+    group: OfferedTestRunGroup,
+    id: string,
+    label: string,
+    key: string,
+    order: number,
+): CommandAction {
+    return {
+        id,
+        title: `Test: ${label}`,
+        shortTitle: label,
+        keybinding: { keys: parseChord(key), when: EDITOR_TEXT_FOCUS, weight: KeybindingWeight.WorkbenchContrib },
+        menus: [
+            { menuId: MenuId.CommandPalette, when: CAPABILITY_CONTEXT_KEY[group] },
+            { menuId: MenuId.EditorContext, group: "testing", order, when: editorContextWhen(group) },
+        ],
+        async run(accessor) {
+            const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+            if (editor === null) return;
+            const service = accessor.get(TestServiceDIToken);
+            const uri = editor.uri.toString();
+            const tests: ITestNode[] = [];
+            const queue = [...service.rootItems];
+            for (let test = queue.pop(); test !== undefined; test = queue.pop()) {
+                if (test.item.uri === uri) {
+                    tests.push(test);
+                    continue;
+                }
+                for (const childId of test.children) queue.push(assertReturnsDefined(service.getNodeById(childId)));
+            }
+            if (tests.length === 0) {
+                notify(accessor, "No tests found in this file");
+                return;
+            }
+            await service.runTests({ tests, group });
+        },
+    };
+}
+
+/** Upstream `RunCurrentFile`. */
+export const runCurrentFileAction = testsInCurrentFileAction(
+    TestRunProfileBitset.Run,
+    "testing.runCurrentFile",
+    "Run Tests in Current File",
+    "mod+; f",
+    EditorContextOrder.RunInFile,
+);
+
+/** Upstream `DebugCurrentFile`. */
+export const debugCurrentFileAction = testsInCurrentFileAction(
+    TestRunProfileBitset.Debug,
+    "testing.debugCurrentFile",
+    "Debug Tests in Current File",
+    "mod+; mod+f",
+    EditorContextOrder.DebugInFile,
+);
 
 /** The failure shown in the active editor next to the cursor in the direction, round; the cursor goes to it. */
 function goToFailure(accessor: ServiceAccessor, direction: 1 | -1): void {
@@ -209,6 +264,8 @@ export const toggleInlineTestOutputAction: CommandAction = {
 };
 
 export const TESTING_EDITOR_ACTIONS: readonly CommandAction[] = [
+    debugAtCursorAction,
+    debugCurrentFileAction,
     goToNextMessageAction,
     goToPreviousMessageAction,
     openOutputPeekAction,

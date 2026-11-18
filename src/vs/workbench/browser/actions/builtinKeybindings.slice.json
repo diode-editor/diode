@@ -617,6 +617,17 @@
         "showPrevParameterHint": "up",
         "tab": "tab",
         "testing.cancelRun": "ctrl+; ctrl+x",
+        "testing.debugAll": {
+            "*": "ctrl+; ctrl+a",
+            "mac-cmd (kitty) #0": "meta+; meta+a",
+            "mac-cmd (kitty) #1": "meta+; meta+a",
+            "mac-cmd (kitty) #2": "meta+; meta+a",
+            "mac-cmd (kitty) #3": "meta+; meta+a"
+        },
+        "testing.debugAtCursor": "ctrl+; ctrl+c",
+        "testing.debugCurrentFile": "ctrl+; ctrl+f",
+        "testing.debugFailTests": "ctrl+; ctrl+e",
+        "testing.debugLastRun": "ctrl+; ctrl+l",
         "testing.editFocusedTest": "alt+enter",
         "testing.goToNextMessage": "alt+f8",
         "testing.goToPreviousMessage": "shift+alt+f8",
