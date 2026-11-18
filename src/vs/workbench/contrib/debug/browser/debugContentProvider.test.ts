@@ -96,8 +96,10 @@ describe("closeSessionEditors", () => {
         const ofS1 = pane(REF);
         const ofS2 = pane(Uri.from({ scheme: "debug", path: "/lib/a.S", query: "session=s2&ref=8" }));
         const file = pane(Uri.file("/lib/futex.S"));
+        // Another scheme's document whose query names the session is not the session's.
+        const other = pane(Uri.from({ scheme: "git", path: "/lib/futex.S", query: "session=s1&ref=7" }));
         const alsoOfS1 = pane(Uri.from({ scheme: "debug", path: "/lib/b.S", query: "session=s1&ref=9" }));
-        const left = { getPanes: () => [ofS1, ofS2, file] } as unknown as EditorGroup;
+        const left = { getPanes: () => [ofS1, ofS2, file, other] } as unknown as EditorGroup;
         const right = { getPanes: () => [alsoOfS1] } as unknown as EditorGroup;
         const closeEditors = vi.fn(() => Promise.resolve(true));
 

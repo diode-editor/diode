@@ -258,6 +258,7 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
         });
         const updateLoadedScripts = (): void => {
             const shown = contextKeys.evaluate(LOADED_SCRIPTS_WHEN);
+            // A key may change and come back within one change event.
             if (shown === (this.loadedScriptsView.value !== undefined)) return;
             if (!shown) {
                 views.unregisterView(LOADED_SCRIPTS_VIEW_ID);
@@ -283,13 +284,9 @@ export class DebugViewletComponent extends Component implements IContextKeyContr
                 },
             });
         };
-        const loadedScriptsKeys = keysOf(LOADED_SCRIPTS_WHEN);
-        this.register(
-            contextKeys.onDidChange((changed) => {
-                if (loadedScriptsKeys.some((key) => changed.has(key))) updateLoadedScripts();
-            }),
-        );
-        updateLoadedScripts();
+        // The viewlet is created at startup, before any session: a change of the keys shows the section. The guard
+        // above makes an unrelated change cheap, one evaluation of `when`.
+        this.register(contextKeys.onDidChange(updateLoadedScripts));
         views.registerView({
             id: BREAKPOINTS_VIEW_ID,
             containerId: VIEWLET_ID,

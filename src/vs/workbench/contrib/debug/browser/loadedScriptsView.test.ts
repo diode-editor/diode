@@ -35,14 +35,14 @@ function source(path: string, raw: Partial<DebugProtocol.Source> = {}): Source {
     return new Source({ name: path.split("/").at(-1), path, ...raw }, "s", NULL_LOGGER);
 }
 
-function rootWith(folders: IWorkspaceFolder[] = [WORKSPACE]): RootTreeItem {
+function rootWith(folders: IWorkspaceFolder[] = [WORKSPACE], userHome = "/home/me"): RootTreeItem {
     return new RootTreeItem({
         workspace: {
             getWorkspaceFolder: (uri) =>
                 folders.find((f) => uri.path === f.uri.path || uri.path.startsWith(`${f.uri.path}/`)) ?? null,
             getWorkspace: () => ({ id: null, folders }),
         },
-        userHome: "/home/me",
+        userHome,
     });
 }
 
@@ -84,6 +84,69 @@ describe("LOADED SCRIPTS model", () => {
         ]);
     });
 
+    it("a URL's path is decoded; a relative path stays as it is; without a home nothing is tildified", () => {
+        const root = rootWith([WORKSPACE], "");
+        const node = root.add(session("s"));
+        node.addPath(source("https://example.com/my%20dir/f.js"));
+        node.addPath(source("w/x.ts"));
+        node.addPath(source("/usr/lib/e.ts"));
+
+        expect(rows(root)).toEqual(["/usr/lib/e.ts", "https://example.com/my dir/f.js", "w/x.ts"]);
+    });
+
+    it("only a whole `<…>` name goes last", () => {
+        const root = rootWith();
+        const node = root.add(session("s"));
+        for (const path of ["<node internals>/a.js", "x<y>/b.js", "<c>d/e.js", "z/f.js"]) {
+            node.addPath(source(path));
+        }
+
+        expect(rows(root)).toEqual(["<c>d/e.js", "x<y>/b.js", "z/f.js", "<node internals>/a.js"]);
+    });
+
+    it("a folded row is the leaf's: its source, and no children for a file", () => {
+        const root = rootWith();
+        const node = root.add(session("s"));
+        node.addPath(source("/w/src/a.ts"));
+        node.addPath(source("/w/lib/deep/b.ts"));
+        node.addPath(source("/w/lib/deep/c.ts"));
+
+        const [lib, src] = root.getChildren();
+        expect([lib.getLabel(), src.getLabel()]).toEqual(["lib/deep", "src/a.ts"]);
+        expect(src.hasChildren()).toBe(false);
+        expect(src.getSource()?.raw.path).toBe("/w/src/a.ts");
+        expect(lib.hasChildren()).toBe(true);
+        expect(lib.getSource()).toBeUndefined();
+    });
+
+    it("a changed source with sources has the new ones only", () => {
+        const root = rootWith();
+        const node = root.add(session("s"));
+        node.addPath(source("/w/bundle.js", { sources: [{ name: "a.ts", path: "/w/a.ts" }] }));
+        node.addPath(source("/w/bundle.js", { sources: [{ name: "b.ts", path: "/w/b.ts" }] }));
+
+        expect(rows(root)).toEqual(["bundle.js", "  b.ts"]);
+    });
+
+    it("an empty root asked for its rows still skips the one session that comes later", () => {
+        const root = rootWith();
+        expect(root.getChildren()).toEqual([]);
+
+        root.add(session("s1", "first")).addPath(source("/w/a.ts"));
+
+        expect(rows(root)).toEqual(["a.ts"]);
+    });
+
+    it("removing the only source of a session named as its id leaves the root empty", () => {
+        const root = rootWith();
+        const node = root.add(session("s"));
+        node.addPath(source("/w/a.ts"));
+
+        expect(node.removePath(source("/w/a.ts"))).toBe(true);
+
+        expect(root.getChildren()).toEqual([]);
+    });
+
     it("with several workspace folders, a workspace file is under its folder, the folders first in their order", () => {
         const second: IWorkspaceFolder = { uri: Uri.file("/x"), name: "x", index: 1 };
         const root = rootWith([WORKSPACE, second]);
@@ -122,6 +185,7 @@ describe("LOADED SCRIPTS model", () => {
         node.addPath(source("/w/lib/b.ts"));
 
         expect(node.removePath(source("/w/src/a.ts"))).toBe(true);
+        expect(node.removePath(source("/w/src/a.ts"))).toBe(false);
         expect(node.removePath(source("/w/never.ts"))).toBe(false);
         expect(node.removePath(new Source({ name: "eval", sourceReference: 3 }, "s", NULL_LOGGER))).toBe(false);
 
@@ -225,13 +289,15 @@ describe("LoadedScriptsView", () => {
 
         loaded.fire({ reason: "new", source: source("/w/b.ts") });
         loaded.fire({ reason: "changed", source: source("/w/a.ts") });
+        // A change of a source not seen yet adds it.
+        loaded.fire({ reason: "changed", source: source("/w/c.ts") });
         await settle();
-        expect(shown(view)).toEqual(["a.ts", "b.ts"]);
+        expect(shown(view)).toEqual(["a.ts", "b.ts", "c.ts"]);
 
         loaded.fire({ reason: "removed", source: source("/w/a.ts") });
         loaded.fire({ reason: "removed", source: source("/w/never.ts") });
         await settle();
-        expect(shown(view)).toEqual(["b.ts"]);
+        expect(shown(view)).toEqual(["b.ts", "c.ts"]);
 
         endSession.fire({ session: sessions[0], restart: false });
         loaded.fire({ reason: "new", source: source("/w/late.ts") });
@@ -268,8 +334,43 @@ describe("LoadedScriptsView", () => {
         sessions[0] = Object.assign(sessions[0], { capabilities: {} });
         const view = create();
         await settle();
+        const refresh = vi.spyOn(view.tree, "refresh");
+
+        // Not in the tree yet: a rename and a removal change nothing.
+        renamed.fire("renamed");
+        loaded.fire({ reason: "removed", source: source("/w/a.ts") });
+        await settle();
 
         expect(shown(view)).toEqual([]);
+        expect(refresh).not.toHaveBeenCalled();
+        view.dispose();
+    });
+
+    it("a rename of a session in the tree redraws it", async () => {
+        const view = create();
+        await settle();
+        const refresh = vi.spyOn(view.tree, "refresh");
+
+        renamed.fire("renamed");
+        await settle();
+
+        expect(refresh).toHaveBeenCalledOnce();
+        view.dispose();
+    });
+
+    it("each folder keeps its own expansion", async () => {
+        sessions[0] = Object.assign(sessions[0], {
+            getLoadedSources: () =>
+                Promise.resolve(["/w/lib/a.ts", "/w/lib/b.ts", "/w/src/c.ts", "/w/src/d.ts"].map((p) => source(p))),
+        });
+        const view = create();
+        await settle();
+        expect(shown(view)).toEqual(["lib", "src"]);
+
+        view.tree.expand(view.tree.shownItems[1]);
+        await settle();
+
+        expect(shown(view)).toEqual(["lib", "src", "c.ts", "d.ts"]);
         view.dispose();
     });
 
@@ -281,6 +382,11 @@ describe("LoadedScriptsView", () => {
 
         view.tree.onActivate(gone);
         view.tree.onActivate(a);
+        loaded.fire({ reason: "new", source: source("/w/dir/x.ts") });
+        loaded.fire({ reason: "new", source: source("/w/dir/y.ts") });
+        await settle();
+        // A folder has no source.
+        view.tree.onActivate(view.tree.shownItems.find((item) => item.getLabel() === "dir")!);
 
         expect(openSource).toHaveBeenCalledOnce();
         expect(openSource.mock.calls[0][0].toString()).toBe("file:///w/a.ts");

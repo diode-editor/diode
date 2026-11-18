@@ -81,7 +81,8 @@ export interface IDebugSessionServices {
     readonly debugConfiguration: () => IDebugServiceConfiguration;
     /** Shows Run and Debug without taking the focus (`openOnDebugBreak`). */
     readonly openViewlet: () => void;
-    readonly testing: IDebugTestingPorts;
+    /** A session cancels its run; the service runs it again. */
+    readonly testing: Pick<IDebugTestingPorts, "getResult" | "cancelTestRun">;
 }
 
 /** The test runs of the core (upstream `ITestResultService.getResult`, `ITestService.cancelTestRun`). */

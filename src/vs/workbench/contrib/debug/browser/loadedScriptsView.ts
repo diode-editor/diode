@@ -45,20 +45,16 @@ export class BaseTreeItem {
         this.label = label;
     }
 
-    public getSession(): IDebugSession | undefined {
-        return this.parent?.getSession();
-    }
-
     public setSource(session: IDebugSession, source: Source): void {
         this.source = source;
         this.children.clear();
-        for (const src of source.raw.sources ?? []) {
+        source.raw.sources?.forEach((src) => {
             if (src.name && src.path) {
                 const s = new BaseTreeItem(this, src.name);
                 this.children.set(src.path, s);
                 s.setSource(session, session.getSource(src));
             }
-        }
+        });
     }
 
     public createIfNeeded<T extends BaseTreeItem>(key: string, factory: (parent: BaseTreeItem, label: string) => T): T {
@@ -87,27 +83,16 @@ export class BaseTreeItem {
         }
     }
 
-    // a dynamic ID based on the parent chain; required for reparenting (see #55448)
+    /**
+     * The key of the item in the tree: the chain of its parents. Upstream leaves out the folded ones (its compressible
+     * tree reparents a row when a folder stops folding); the tree here keeps its rows by these keys and folds nothing.
+     */
     public getId(): string {
-        const parent = this.getParent();
-        return parent ? `${parent.getId()}/${this.getInternalId()}` : this.getInternalId();
+        return this.parent ? `${this.parent.getId()}/${this.getInternalId()}` : this.getInternalId();
     }
 
     public getInternalId(): string {
         return this.label;
-    }
-
-    // skips intermediate single-child nodes
-    public getParent(): BaseTreeItem | undefined {
-        if (this.parent?.isSkipped()) {
-            return this.parent.getParent();
-        }
-        return this.parent;
-    }
-
-    public isSkipped(): boolean {
-        // roots are never skipped; skipped if I'm the only child of my parents
-        return this.parent ? this.parent.oneChild() !== undefined : true;
     }
 
     // skips intermediate single-child nodes
@@ -158,13 +143,12 @@ export class BaseTreeItem {
      */
     private oneChild(): BaseTreeItem | undefined {
         if (!this.source && !this.showedMoreThanOne && !(this instanceof SessionTreeItem)) {
-            if (this.children.size === 1) {
-                return this.children.values().next().value;
+            const [only, ...others] = this.children.values();
+            if (others.length === 0) {
+                return only;
             }
             // if a node had more than one child once, it will never be skipped again
-            if (this.children.size > 1) {
-                this.showedMoreThanOne = true;
-            }
+            this.showedMoreThanOne = true;
         }
         return undefined;
     }
@@ -187,6 +171,7 @@ export interface ILoadedScriptsPaths {
 
 export class RootTreeItem extends BaseTreeItem {
     public constructor(private readonly paths: ILoadedScriptsPaths) {
+        // Stryker disable next-line StringLiteral: the root is never a row; its label only starts the keys of the rows
         super(undefined, "Root");
     }
 
@@ -200,7 +185,8 @@ export class RootTreeItem extends BaseTreeItem {
 }
 
 export class SessionTreeItem extends BaseTreeItem {
-    private readonly map = new Map<string, BaseTreeItem>();
+    /** By the raw path; a source without one is never added. */
+    private readonly map = new Map<string | undefined, BaseTreeItem>();
 
     public constructor(
         parent: BaseTreeItem,
@@ -212,10 +198,6 @@ export class SessionTreeItem extends BaseTreeItem {
 
     public override getInternalId(): string {
         return this.session.getId();
-    }
-
-    public override getSession(): IDebugSession {
-        return this.session;
     }
 
     public override hasChildren(): boolean {
@@ -273,7 +255,7 @@ export class SessionTreeItem extends BaseTreeItem {
             folder = this.paths.workspace.getWorkspaceFolder(resource);
             if (folder) {
                 // strip off the root folder path
-                path = normalize(resource.path.substring(folder.uri.path.length).replace(/^\/+/u, ""));
+                path = posix.relative(folder.uri.path, resource.path);
                 const hasMultipleRoots = this.paths.workspace.getWorkspace().folders.length > 1;
                 if (hasMultipleRoots) {
                     path = posix.sep + path;
@@ -303,20 +285,20 @@ export class SessionTreeItem extends BaseTreeItem {
     }
 
     public removePath(source: Source): boolean {
-        const leaf = source.raw.path ? this.map.get(source.raw.path) : undefined;
-        if (leaf) {
-            leaf.removeFromParent();
-            // Diode: upstream keeps the leaf in the map after its removal.
-            this.map.delete(source.raw.path ?? "");
-            return true;
+        const leaf = this.map.get(source.raw.path);
+        if (!leaf) {
+            return false;
         }
-        return false;
+        leaf.removeFromParent();
+        // Diode: upstream keeps the leaf in the map after its removal.
+        this.map.delete(source.raw.path);
+        return true;
     }
 }
 
-/** Upstream `tildify` on posix. */
+/** Upstream `tildify` on posix, of a file's path (never the home itself). */
 function tildify(path: string, userHome: string): string {
-    if (userHome && (path === userHome || path.startsWith(`${userHome}/`))) {
+    if (userHome && path.startsWith(`${userHome}/`)) {
         return `~${path.slice(userHome.length)}`;
     }
     return path;
@@ -345,6 +327,7 @@ export class LoadedScriptsView extends Disposable {
                 renderRow: (element): IRowSpan[] => [{ text: element.getLabel() }],
                 getLabel: (element) => element.getLabel(),
             },
+            // Stryker disable next-line StringLiteral,ObjectLiteral: the prefix keeps the row ids apart from other views'; no other view in the window has a loaded script's key
             { idPrefix: "loadedScripts" },
         );
         this.tree.onActivate = (element) => {

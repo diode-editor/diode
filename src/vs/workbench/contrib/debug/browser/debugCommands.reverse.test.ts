@@ -194,10 +194,41 @@ describe("debug commands: the rest of upstream's", () => {
 
             await toggleExceptionBreakpointsAction.run(accessor);
 
-            const [[opts]] = quickPickMany.mock.calls as [[{ items: QuickPickItem[]; picked: QuickPickItem[] }]];
+            const [[opts]] = quickPickMany.mock.calls as [
+                [{ placeholder: string; items: QuickPickItem[]; picked: QuickPickItem[] }],
+            ];
+            expect(opts.placeholder).toBe("Pick enabled exception breakpoints");
             expect(opts.items.map((i) => i.label)).toEqual(["C++: on throw", "C++: on catch"]);
             expect(opts.picked.map((i) => i.label)).toEqual(["C++: on throw"]);
             expect([onThrow.enabled, onCatch.enabled]).toEqual([false, true]);
+        });
+
+        it("a filter whose check stays is not toggled", async () => {
+            const session = await startStopped();
+            const [onThrow, onCatch] = fx.service.getModel().getExceptionBreakpointsForSession(session.getId());
+            await fx.service.enableOrDisableBreakpoints(true, onThrow);
+            const toggle = vi.spyOn(fx.service, "enableOrDisableBreakpoints");
+            quickPickMany.mockImplementation((opts: { items: QuickPickItem[] }) => Promise.resolve(opts.items));
+
+            await toggleExceptionBreakpointsAction.run(accessor);
+
+            expect(toggle.mock.calls).toEqual([[true, onCatch]]);
+            expect([onThrow.enabled, onCatch.enabled]).toEqual([true, true]);
+        });
+
+        it("takes the focused session's filters over the first session's", async () => {
+            await startStopped();
+            const model = fx.service.getModel() as DebugModel;
+            model.setExceptionBreakpointsForSession("focused", [{ filter: "all", label: "All" }]);
+            const [all] = model.getExceptionBreakpointsForSession("focused");
+            vi.spyOn(fx.service.getViewModel(), "focusedSession", "get").mockReturnValue({
+                getId: () => "focused",
+            } as IDebugSession);
+
+            await toggleExceptionBreakpointsAction.run(accessor);
+
+            expect(all.enabled).toBe(true);
+            expect(quickPickMany).not.toHaveBeenCalled();
         });
 
         it("a cancelled picker changes nothing", async () => {
@@ -225,10 +256,13 @@ describe("debug commands: the rest of upstream's", () => {
     });
 
     describe("Enable or Disable Breakpoint", () => {
-        it("toggles the breakpoint of the cursor's line", async () => {
+        it("toggles the breakpoint of the cursor's line; nothing without an editor", async () => {
             const uri = Uri.file("/w/a.cpp");
             await fx.service.addBreakpoints(uri, [{ lineNumber: 3 }]);
             const [bp] = fx.service.getModel().getBreakpoints();
+
+            await enableOrDisableBreakpointAction.run(accessor);
+            expect(bp.enabled).toBe(true);
 
             activeEditor = { uri, primaryCursorLine: 1 };
             await enableOrDisableBreakpointAction.run(accessor);

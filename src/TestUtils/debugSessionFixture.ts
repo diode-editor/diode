@@ -52,7 +52,6 @@ export interface ITestSessionServices extends IDebugSessionServices {
     /** The test runs of the core by id, and what was asked of them. */
     readonly testRuns: Map<string, ICorrelatedTestRun>;
     readonly cancelledTestRuns: string[];
-    readonly rerunTests: unknown[];
 }
 
 export function testSessionServices(
@@ -77,11 +76,9 @@ export function testSessionServices(
         },
         testRuns: new Map<string, ICorrelatedTestRun>(),
         cancelledTestRuns: [] as string[],
-        rerunTests: [] as unknown[],
         testing: {
             getResult: (runId: string) => services.testRuns.get(runId),
             cancelTestRun: (runId: string) => services.cancelledTestRuns.push(runId),
-            runResolvedTests: (request: unknown) => services.rerunTests.push(request),
         },
     };
     return services;

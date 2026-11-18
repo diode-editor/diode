@@ -26,12 +26,8 @@ export function closeSessionEditors(
 ): void {
     // Copy the list: a group that becomes empty leaves it right inside the loop.
     for (const group of [...editors.editorGroups.groups]) {
-        const panes = group
-            .getPanes()
-            .filter(
-                (pane) =>
-                    pane.uri.scheme === DEBUG_SCHEME && Source.getEncodedDebugData(pane.uri).sessionId === sessionId,
-            );
+        // Only a `debug:` document has a session.
+        const panes = group.getPanes().filter((pane) => Source.getEncodedDebugData(pane.uri).sessionId === sessionId);
         // Read-only tabs ask for no confirmation.
         void editors.closeEditors(group, panes);
     }
