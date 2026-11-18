@@ -48,7 +48,9 @@ function rootWith(folders: IWorkspaceFolder[] = [WORKSPACE]): RootTreeItem {
 
 /** The rows as the tree shows them, all expanded: the label, indented by depth. */
 function rows(item: BaseTreeItem, depth = 0): string[] {
-    return item.getChildren().flatMap((child) => [`${"  ".repeat(depth)}${child.getLabel()}`, ...rows(child, depth + 1)]);
+    return item
+        .getChildren()
+        .flatMap((child) => [`${"  ".repeat(depth)}${child.getLabel()}`, ...rows(child, depth + 1)]);
 }
 
 describe("LOADED SCRIPTS model", () => {
@@ -198,7 +200,10 @@ describe("LoadedScriptsView", () => {
         return new LoadedScriptsView(
             debugService,
             {
-                workspace: { getWorkspaceFolder: () => WORKSPACE, getWorkspace: () => ({ id: null, folders: [WORKSPACE] }) },
+                workspace: {
+                    getWorkspaceFolder: () => WORKSPACE,
+                    getWorkspace: () => ({ id: null, folders: [WORKSPACE] }),
+                },
                 userHome: "/home/me",
             },
             { openSource },

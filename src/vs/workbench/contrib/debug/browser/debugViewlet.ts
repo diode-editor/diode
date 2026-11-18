@@ -23,10 +23,6 @@ import { IConfigurationServiceDIToken } from "../../../../platform/configuration
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import { deserializeWhen, whenKeys } from "../../../../platform/contextkey/common/contextKeyExpr.ts";
 import {
-    type IEnvironmentService,
-    IEnvironmentServiceDIToken,
-} from "../../../../platform/environment/common/environment.ts";
-import {
     type ContextKeyService,
     ContextKeyServiceDIToken,
 } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -34,6 +30,10 @@ import {
     type ContextMenuService,
     ContextMenuServiceDIToken,
 } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import {
+    type IEnvironmentService,
+    IEnvironmentServiceDIToken,
+} from "../../../../platform/environment/common/environment.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import {
     type IProductIconService,

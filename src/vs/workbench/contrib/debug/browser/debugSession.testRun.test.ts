@@ -51,10 +51,14 @@ describe("DebugSession of a test run", () => {
         debugService.viewModel.dispose();
     });
 
-    async function launch(options: IDebugSessionOptions): Promise<{ session: DebugSession; adapter: MockDebugAdapter }> {
+    async function launch(
+        options: IDebugSessionOptions,
+    ): Promise<{ session: DebugSession; adapter: MockDebugAdapter }> {
         const adapter = disposables.add(new MockDebugAdapter());
         adapter.handlers.set("initialize", () => ({ supportsTerminateRequest: true }));
-        const session = disposables.add(createTestDebugSession(model, "s", options, debugService, services, { type: "mock" }));
+        const session = disposables.add(
+            createTestDebugSession(model, "s", options, debugService, services, { type: "mock" }),
+        );
         await session.initialize(debuggerOf(adapter));
         await session.launchOrAttach(session.configuration);
         return { session, adapter };

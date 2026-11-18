@@ -24,8 +24,8 @@ import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWo
 import {
     type AdapterEndEvent,
     type IBreakpoint,
-    type ICorrelatedTestRun,
     type IConfig,
+    type ICorrelatedTestRun,
     type IDataBreakpoint,
     type IDataBreakpointInfoResponse,
     type IDebugConfiguration,

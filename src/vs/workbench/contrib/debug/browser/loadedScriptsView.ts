@@ -286,18 +286,16 @@ export class SessionTreeItem extends BaseTreeItem {
             }
         }
 
-        let leaf: BaseTreeItem = this;
-        path.split(/[/\\]/u).forEach((segment, i) => {
+        const leaf = path.split(/[/\\]/u).reduce<BaseTreeItem>((node, segment, i) => {
             if (i === 0 && folder) {
                 const f = folder;
-                leaf = leaf.createIfNeeded(f.name, (parent) => new RootFolderTreeItem(parent, f));
+                return node.createIfNeeded(f.name, (parent) => new RootFolderTreeItem(parent, f));
             } else if (i === 0 && url) {
                 const u = url;
-                leaf = leaf.createIfNeeded(u, (parent) => new BaseTreeItem(parent, u));
-            } else {
-                leaf = leaf.createIfNeeded(segment, (parent) => new BaseTreeItem(parent, segment));
+                return node.createIfNeeded(u, (parent) => new BaseTreeItem(parent, u));
             }
-        });
+            return node.createIfNeeded(segment, (parent) => new BaseTreeItem(parent, segment));
+        }, this);
 
         leaf.setSource(this.session, source);
         this.map.set(rawPath, leaf);

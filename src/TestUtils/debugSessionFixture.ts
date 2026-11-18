@@ -12,8 +12,8 @@ import {
     type IDebugSessionServices,
 } from "../vs/workbench/contrib/debug/browser/debugSession.ts";
 import type {
-    ICorrelatedTestRun,
     IConfig,
+    ICorrelatedTestRun,
     IDebugService,
     IDebugSessionOptions,
     IStackFrame,

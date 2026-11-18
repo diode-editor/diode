@@ -471,7 +471,10 @@ export const disconnectAndSuspendAction: CommandAction = {
     id: DISCONNECT_AND_SUSPEND_ID,
     title: "Debug: Disconnect and Suspend",
     menus: [
-        ...paletteItem(IN_DEBUG_MODE, "focusedSessionIsAttach || (suspendDebuggeeSupported && terminateDebuggeeSupported)"),
+        ...paletteItem(
+            IN_DEBUG_MODE,
+            "focusedSessionIsAttach || (suspendDebuggeeSupported && terminateDebuggeeSupported)",
+        ),
         callStackItem(
             "Disconnect and Suspend",
             21,
@@ -491,7 +494,14 @@ export const stepBackAction: CommandAction = {
     title: "Debug: Step Back",
     menus: [
         ...HIDDEN_FROM_PALETTE,
-        ...toolBarItem("Step Back", 50, "debug-step-back", "debugIcon.stepBackForeground", "stepBackSupported", STOPPED),
+        ...toolBarItem(
+            "Step Back",
+            50,
+            "debug-step-back",
+            "debugIcon.stepBackForeground",
+            "stepBackSupported",
+            STOPPED,
+        ),
     ],
     async run(accessor, _, context) {
         // Upstream steps an instruction back in the disassembly view, which diode has not.
@@ -927,7 +937,7 @@ export const toggleExceptionBreakpointsAction: CommandAction = {
     async run(accessor) {
         const debugService = accessor.get(DebugServiceDIToken);
         const debugModel = debugService.getModel();
-        const session = debugService.getViewModel().focusedSession ?? debugModel.getSessions()[0];
+        const session = debugService.getViewModel().focusedSession ?? debugModel.getSessions().at(0);
         const exceptionBreakpoints = session
             ? debugModel.getExceptionBreakpointsForSession(session.getId())
             : debugModel.getExceptionBreakpoints();

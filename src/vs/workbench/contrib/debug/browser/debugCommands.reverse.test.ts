@@ -2,7 +2,7 @@
 // Toggle Exception Breakpoints, Enable or Disable Breakpoint at the cursor, F5 without debuggers and the views' focus
 // commands.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { createDebugServiceFixture, type IDebugServiceFixture } from "../../../../../TestUtils/debugServiceFixture.ts";
 import {
@@ -41,8 +41,8 @@ describe("debug commands: the rest of upstream's", () => {
     let fx: IDebugServiceFixture;
     let factory: SyntheticDebugAdapterFactory;
     let accessor: ServiceAccessor;
-    let quickPick: ReturnType<typeof vi.fn>;
-    let quickPickMany: ReturnType<typeof vi.fn>;
+    let quickPick: Mock<(opts: { items: QuickPickItem[] }) => Promise<QuickPickItem | undefined>>;
+    let quickPickMany: Mock<(opts: { items: QuickPickItem[] }) => Promise<QuickPickItem[] | undefined>>;
     let views: { openView: ReturnType<typeof vi.fn>; openViewContainer: ReturnType<typeof vi.fn> };
     let sources: { uriLabel: (uri: Uri) => string; openSource: ReturnType<typeof vi.fn> };
     let activeEditor: { uri: Uri; primaryCursorLine: number } | null;
@@ -50,8 +50,10 @@ describe("debug commands: the rest of upstream's", () => {
     beforeEach(() => {
         fx = createDebugServiceFixture();
         factory = registerSyntheticDebugger(fx.service.getAdapterManager(), NO_DELAY_TIMING).factory;
-        quickPick = vi.fn().mockResolvedValue(undefined);
-        quickPickMany = vi.fn().mockResolvedValue(undefined);
+        quickPick = vi.fn<(opts: { items: QuickPickItem[] }) => Promise<QuickPickItem | undefined>>();
+        quickPick.mockResolvedValue(undefined);
+        quickPickMany = vi.fn<(opts: { items: QuickPickItem[] }) => Promise<QuickPickItem[] | undefined>>();
+        quickPickMany.mockResolvedValue(undefined);
         views = { openView: vi.fn(), openViewContainer: vi.fn() };
         sources = {
             uriLabel: (uri) => uri.path.slice(SYNTHETIC_PROGRAM_ROOT.length + 1),
