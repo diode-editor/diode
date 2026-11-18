@@ -55,7 +55,20 @@ export interface ITerminalInstance {
      * deduplicated — as in upstream.
      */
     readonly title: string;
-    readonly session: ITerminalSurface & Pick<ITerminalSession, "setAnsiColors" | "onLineData" | "buffer" | "getCwd">;
+    readonly session: ITerminalSurface &
+        Pick<
+            ITerminalSession,
+            | "setAnsiColors"
+            | "onLineData"
+            | "buffer"
+            | "getCwd"
+            | "printMessage"
+            | "onWillData"
+            | "onDidWriteData"
+            | "onDidSendText"
+            | "dimensions"
+            | "onDidChangeDimensions"
+        >;
     /** `undefined` if there is no process on our side. */
     readonly processId: number | undefined;
     readonly launch: ITerminalLaunchInfo;
@@ -269,9 +282,10 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.ensureAndFocus();
     }
 
-    public newTerminal(): void {
-        this.createInstance();
+    public newTerminal(): ITerminalInstance {
+        const instance = this.createInstance();
         this.fireFocus();
+        return instance;
     }
 
     /**
@@ -397,7 +411,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         const instance = this.find(id);
         if (instance === undefined) return;
         const normalized = text.replace(/\r?\n/gu, "\r");
-        instance.session.write(shouldExecute && !normalized.endsWith("\r") ? `${normalized}\r` : normalized);
+        instance.session.sendText(shouldExecute && !normalized.endsWith("\r") ? `${normalized}\r` : normalized);
     }
 
     /** Upstream `TerminalInstance.rename`: the new title wins over the one given at creation. */
