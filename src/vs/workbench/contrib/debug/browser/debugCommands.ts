@@ -39,6 +39,8 @@ import { openExtensionsSearch } from "../../extensions/browser/extensionsSearch.
 import { QuickOpenServiceDIToken } from "../../quickaccess/browser/quickOpenService.ts";
 import { positionAt } from "../../tasks/common/tasksJsonEdits.ts";
 import {
+    BREAKPOINTS_VIEW_ID,
+    CALLSTACK_VIEW_ID,
     type IConfig,
     type IDebugService,
     type IDebugSession,
@@ -46,18 +48,22 @@ import {
     isFrameDeemphasized,
     type IStackFrame,
     type IThread,
+    VARIABLES_VIEW_ID,
     VIEWLET_ID,
+    WATCH_VIEW_ID,
 } from "../common/debug.ts";
 import type { Thread } from "../common/debugModel.ts";
 import { resolveChildSession } from "../common/debugUtils.ts";
 
 import { BREAKPOINT_EDIT_ACTIONS } from "./breakpointEditActions.ts";
+import { BreakpointSourcesDIToken } from "./breakpointsView.ts";
 import { rowMenuItem } from "./debugContextMenus.ts";
 import { BREAKPOINT_EDITOR_ACTIONS, showDebugHoverAction } from "./debugEditorActions.ts";
 import { ADD_CONFIGURATION_ID, StartDebugQuickAccessProvider } from "./debugQuickAccess.ts";
 import { DebugServiceDIToken, DebugServicePortsDIToken } from "./debugService.ts";
 import { showDebugSessionMenu } from "./debugSessionPicker.ts";
 import { DEBUG_VIEW_ACTIONS, showRunAndDebugAction } from "./debugViewActions.ts";
+import { showLoadedScriptMenu } from "./loadedScriptsPicker.ts";
 import { REPL_ACTIONS } from "./replActions.ts";
 import { VARIABLES_ACTIONS } from "./variablesActions.ts";
 
@@ -84,6 +90,12 @@ export const SELECT_AND_START_ID = "workbench.action.debug.selectandstart";
 export const DEBUG_CONFIGURE_COMMAND_ID = "workbench.action.debug.configure";
 export const INSTALL_ADDITIONAL_DEBUGGERS_ID = "debug.installAdditionalDebuggers";
 export const COPY_STACK_TRACE_ID = "debug.copyStackTrace";
+export const REVERSE_CONTINUE_ID = "workbench.action.debug.reverseContinue";
+export const STEP_BACK_ID = "workbench.action.debug.stepBack";
+export const DISCONNECT_AND_SUSPEND_ID = "workbench.action.debug.disconnectAndSuspend";
+export const SHOW_LOADED_SCRIPTS_ID = "workbench.action.debug.showLoadedScripts";
+export const TOGGLE_EXCEPTION_BREAKPOINTS_ID = "debug.toggleExceptionBreakpoints";
+export const ENABLE_OR_DISABLE_BREAKPOINT_ID = "debug.enableOrDisableBreakpoint";
 
 const IN_DEBUG_MODE = "inDebugMode";
 const STOPPED = "debugState == 'stopped'";
@@ -300,10 +312,15 @@ function lifecycleRoot(accessor: ServiceAccessor, session: IDebugSession): IDebu
     return root;
 }
 
-async function stopHandler(accessor: ServiceAccessor, context: unknown, disconnect: boolean): Promise<void> {
+async function stopHandler(
+    accessor: ServiceAccessor,
+    context: unknown,
+    disconnect: boolean,
+    suspend = false,
+): Promise<void> {
     const debugService = accessor.get(DebugServiceDIToken);
     const session = sessionOf(debugService, context);
-    await debugService.stopSession(session && lifecycleRoot(accessor, session), disconnect);
+    await debugService.stopSession(session && lifecycleRoot(accessor, session), disconnect, suspend);
 }
 
 export const restartSessionAction: CommandAction = {
@@ -446,6 +463,68 @@ export const stopAction: CommandAction = {
     ],
     run(accessor, _, context) {
         return stopHandler(accessor, context, false);
+    },
+};
+
+export const disconnectAndSuspendAction: CommandAction = {
+    id: DISCONNECT_AND_SUSPEND_ID,
+    title: "Debug: Disconnect and Suspend",
+    menus: [
+        ...paletteItem(
+            IN_DEBUG_MODE,
+            "focusedSessionIsAttach || (suspendDebuggeeSupported && terminateDebuggeeSupported)",
+        ),
+        callStackItem(
+            "Disconnect and Suspend",
+            21,
+            `${SESSION_ROW} && suspendDebuggeeSupported && terminateDebuggeeSupported`,
+            undefined,
+            "3_modification",
+        ),
+    ],
+    run(accessor, _, context) {
+        return stopHandler(accessor, context, true, true);
+    },
+};
+
+/** Upstream's button of the toolbar only (no palette entry), for adapters that step back. */
+export const stepBackAction: CommandAction = {
+    id: STEP_BACK_ID,
+    title: "Debug: Step Back",
+    menus: [
+        ...HIDDEN_FROM_PALETTE,
+        ...toolBarItem(
+            "Step Back",
+            50,
+            "debug-step-back",
+            "debugIcon.stepBackForeground",
+            "stepBackSupported",
+            STOPPED,
+        ),
+    ],
+    async run(accessor, _, context) {
+        // Upstream steps an instruction back in the disassembly view, which diode has not.
+        await getThreadAndRun(accessor, context, (thread) => thread.stepBack());
+    },
+};
+
+/** Upstream's button of the toolbar only (no palette entry), in Continue's color. */
+export const reverseContinueAction: CommandAction = {
+    id: REVERSE_CONTINUE_ID,
+    title: "Debug: Reverse",
+    menus: [
+        ...HIDDEN_FROM_PALETTE,
+        ...toolBarItem(
+            "Reverse",
+            55,
+            "debug-reverse-continue",
+            "debugIcon.continueForeground",
+            "stepBackSupported",
+            STOPPED,
+        ),
+    ],
+    async run(accessor, _, context) {
+        await getThreadAndRun(accessor, context, (thread) => thread.reverseContinue());
     },
 };
 
@@ -833,6 +912,101 @@ export const runAction: CommandAction = {
     },
 };
 
+export const showLoadedScriptsAction: CommandAction = {
+    id: SHOW_LOADED_SCRIPTS_ID,
+    title: "Debug: Open Loaded Script...",
+    menus: paletteItem(IN_DEBUG_MODE, "loadedScriptsSupported"),
+    run(accessor) {
+        return showLoadedScriptMenu({
+            debugService: accessor.get(DebugServiceDIToken),
+            quickInput: accessor.get(QuickInputServiceDIToken),
+            sources: accessor.get(BreakpointSourcesDIToken),
+        });
+    },
+};
+
+/**
+ * Upstream `ToggleExceptionBreakpointsAction`: the exception filters of the focused session (else the first one, else
+ * the ones remembered); one is toggled at once, several are checked in a picker.
+ */
+export const toggleExceptionBreakpointsAction: CommandAction = {
+    id: TOGGLE_EXCEPTION_BREAKPOINTS_ID,
+    title: "Debug: Toggle Exception Breakpoints",
+    enablement: "debuggersAvailable",
+    async run(accessor) {
+        const debugService = accessor.get(DebugServiceDIToken);
+        const debugModel = debugService.getModel();
+        const session = debugService.getViewModel().focusedSession ?? debugModel.getSessions().at(0);
+        const exceptionBreakpoints = session
+            ? debugModel.getExceptionBreakpointsForSession(session.getId())
+            : debugModel.getExceptionBreakpoints();
+        if (exceptionBreakpoints.length === 0) {
+            return;
+        }
+
+        if (exceptionBreakpoints.length === 1) {
+            const breakpoint = exceptionBreakpoints[0];
+            await debugService.enableOrDisableBreakpoints(!breakpoint.enabled, breakpoint);
+            return;
+        }
+
+        const items = exceptionBreakpoints.map((breakpoint) => ({
+            label: breakpoint.label,
+            description: breakpoint.description,
+            breakpoint,
+        }));
+        const selectedItems = await accessor.get(QuickInputServiceDIToken).quickPickMany({
+            placeholder: "Pick enabled exception breakpoints",
+            items,
+            picked: items.filter((item) => item.breakpoint.enabled),
+        });
+        if (!selectedItems) return;
+        await Promise.all(
+            items
+                .filter((item) => selectedItems.includes(item) !== item.breakpoint.enabled)
+                .map((item) => debugService.enableOrDisableBreakpoints(!item.breakpoint.enabled, item.breakpoint)),
+        );
+    },
+};
+
+/** Upstream's command without keys: enables or disables the first breakpoint of the cursor's line. */
+export const enableOrDisableBreakpointAction: CommandAction = {
+    id: ENABLE_OR_DISABLE_BREAKPOINT_ID,
+    title: "Debug: Enable or Disable Breakpoint",
+    when: "editorTextFocus",
+    menus: HIDDEN_FROM_PALETTE,
+    async run(accessor) {
+        const debugService = accessor.get(DebugServiceDIToken);
+        const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
+        if (editor) {
+            const bps = debugService
+                .getModel()
+                .getBreakpoints({ uri: editor.uri, lineNumber: editor.primaryCursorLine + 1 });
+            if (bps.length) {
+                await debugService.enableOrDisableBreakpoints(!bps[0].enabled, bps[0]);
+            }
+        }
+    },
+};
+
+/** Upstream's `focusCommand` of a view of Run and Debug: "Run and Debug: Focus on <view> View", no keys. */
+function focusViewAction(id: string, viewId: string, name: string): CommandAction {
+    return {
+        id,
+        title: `Run and Debug: Focus on ${name} View`,
+        run(accessor) {
+            accessor.get(ViewsServiceDIToken).openView(viewId, true);
+        },
+    };
+}
+
+export const FOCUS_VIEW_ACTIONS: readonly CommandAction[] = [
+    focusViewAction("workbench.debug.action.focusVariablesView", VARIABLES_VIEW_ID, "Variables"),
+    focusViewAction("workbench.debug.action.focusWatchView", WATCH_VIEW_ID, "Watch"),
+    focusViewAction("workbench.debug.action.focusCallStackView", CALLSTACK_VIEW_ID, "Call Stack"),
+    focusViewAction("workbench.debug.action.focusBreakpointsView", BREAKPOINTS_VIEW_ID, "Breakpoints"),
+];
+
 /**
  * Upstream's F5 without a debugger: opens Run and Debug, whose Run and Debug button offers to find a debugger for the
  * active editor's language in the Marketplace (no debugger is bundled, so this is the way to js-debug).
@@ -874,6 +1048,13 @@ export const DEBUG_ACTIONS: readonly CommandAction[] = [
     selectDebugSessionAction,
     installAdditionalDebuggersAction,
     openViewAction,
+    disconnectAndSuspendAction,
+    stepBackAction,
+    reverseContinueAction,
+    showLoadedScriptsAction,
+    toggleExceptionBreakpointsAction,
+    enableOrDisableBreakpointAction,
+    ...FOCUS_VIEW_ACTIONS,
     ...BREAKPOINT_EDITOR_ACTIONS,
     ...BREAKPOINT_EDIT_ACTIONS,
     showDebugHoverAction,

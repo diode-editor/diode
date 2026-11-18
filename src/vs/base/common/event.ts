@@ -28,6 +28,11 @@ export const Event = {
             return subscription;
         };
     },
+
+    /** Upstream `Event.toPromise`: resolves with the next event. */
+    toPromise<T>(event: Event<T>): Promise<T> {
+        return new Promise((resolve) => Event.once(event)(resolve));
+    },
 };
 
 export interface IEmitterOptions {

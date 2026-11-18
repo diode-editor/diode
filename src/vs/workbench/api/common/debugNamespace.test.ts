@@ -272,6 +272,25 @@ describe("vscode.debug — what the core has: configuration providers, startDebu
             ]);
         });
 
+        it("a TestRun of the extension's goes as the run and the task the core knows it by", async () => {
+            const { stub, vscode } = makeVscode();
+            stub.responder = () => true;
+            const controller = vscode.tests.createTestController("go", "Go");
+            const run = controller.createTestRun(new vscode.TestRunRequest(), "go test");
+            const started = stub.notifies.find((n) => n.method === "testing.startedTestRunTask")?.params as {
+                runId: string;
+                taskId: string;
+            };
+
+            await vscode.debug.startDebugging(undefined, CONFIG, { testRun: run });
+
+            const [{ params }] = stub.requests.filter((r) => r.method === "debug.startDebugging");
+            expect((params as { options: unknown }).options).toEqual({
+                consoleMode: 0,
+                testRun: { runId: started.runId, taskId: started.taskId },
+            });
+        });
+
         it("a parent session in place of the options, and the old `debugUI.simple` suppresses the UI", async () => {
             const { stub, vscode } = makeVscode();
             stub.responder = () => false;
@@ -356,5 +375,24 @@ describe("vscode.debug — what the core has: configuration providers, startDebu
                 "cannot create uri from DAP 'source' object; properties 'path' and 'sourceReference' are both missing.",
             );
         });
+    });
+
+    it("the proposed registerDebugVisualizationProvider and TreeProvider are inert no-ops: a disposable, nothing sent", () => {
+        const { stub, vscode } = makeVscode();
+        const debug = vscode.debug as unknown as Record<
+            "registerDebugVisualizationProvider" | "registerDebugVisualizationTreeProvider",
+            (id: string, provider: unknown) => { dispose(): void }
+        >;
+        const registrations = [
+            debug.registerDebugVisualizationProvider("hexView", { provideDebugVisualization: () => [] }),
+            debug.registerDebugVisualizationTreeProvider("tree", { getTreeItem: () => ({ label: "x" }) }),
+        ];
+        for (const registration of registrations) {
+            expect(() => {
+                registration.dispose();
+            }).not.toThrow();
+        }
+        expect(stub.notifies).toStrictEqual([]);
+        expect(stub.requests).toStrictEqual([]);
     });
 });

@@ -10,8 +10,9 @@ import { SYNTHETIC_LAUNCH_CONFIG } from "../../../../../TestUtils/syntheticDebug
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
-import { type IDebugSession, State } from "../common/debug.ts";
+import { type IDebugSession, State, WATCH_VIEW_ID } from "../common/debug.ts";
 
 import { DebugServiceDIToken } from "./debugService.ts";
 import { ReplDIToken } from "./repl.ts";
@@ -78,6 +79,8 @@ describe("child sessions in the workbench", () => {
     }
 
     it("CALL STACK shows the app, its threads and frames, and its workers under it", async () => {
+        // The empty WATCH gives CALL STACK the rows LOADED SCRIPTS takes.
+        t.h.container.get(ViewsServiceDIToken).setViewVisible(WATCH_VIEW_ID, false);
         await startWithWorkers();
 
         await vi.waitFor(() => {
