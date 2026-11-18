@@ -87,6 +87,17 @@ describe("workspace — document references of the API commands", () => {
         expect(workspace.textDocuments).toContain(opened);
     });
 
+    it("a document the extension opens while a command holds it stays open after the command", async () => {
+        const { workspace, referenceDocument, events } = setup();
+        const reference = await referenceDocument(FOO);
+
+        const opened = await workspace.openTextDocument(FOO);
+        reference.dispose();
+
+        expect(events).toEqual(["open one"]);
+        expect(workspace.textDocuments).toContain(opened);
+    });
+
     it("a document a tab showed meanwhile belongs to the core and stays open", async () => {
         const { stub, workspace, referenceDocument, events } = setup();
         const reference = await referenceDocument(FOO);

@@ -319,7 +319,8 @@ export function createWorkspace(
         references.count++;
         const release = toDisposable(() => {
             references.count--;
-            if (references.count > 0) return;
+            // The extension opened it meanwhile (`openTextDocumentOfExtension`): the document is its own now.
+            if (references.count > 0 || commandReferences.get(key) !== references) return;
             commandReferences.delete(key);
             // A tab that showed it meanwhile owns the document now.
             if (documentsWithoutModel.delete(key)) documentSync.close(uri);
@@ -574,6 +575,16 @@ export function createWorkspace(
         return p;
     }
 
+    /** As upstream, the extension's own `$tryOpenDocument` holds the document: a command's reference no longer closes it. */
+    async function openTextDocumentOfExtension(
+        uriOrPathOrOptions?: vscode.Uri | string | IUntitledDocumentOptions,
+        options?: { encoding?: string },
+    ): Promise<vscode.TextDocument> {
+        const document = await openTextDocument(uriOrPathOrOptions, options);
+        commandReferences.delete(document.uri.toString());
+        return document;
+    }
+
     async function openTextDocument(
         uriOrPathOrOptions?: vscode.Uri | string | IUntitledDocumentOptions,
         options?: { encoding?: string },
@@ -775,7 +786,7 @@ export function createWorkspace(
         getConfiguration,
         asRelativePath,
         // Cast to the three d.ts overloads: the implementation tells the shape apart at runtime.
-        openTextDocument: openTextDocument as unknown as typeof vscode.workspace.openTextDocument,
+        openTextDocument: openTextDocumentOfExtension as unknown as typeof vscode.workspace.openTextDocument,
         decode,
         encode,
 
