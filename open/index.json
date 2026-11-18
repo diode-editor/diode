@@ -6280,5 +6280,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-11-18-1ae2852cadac.json",
+    "generatedAt": "2026-11-18T23:45:02.120Z",
+    "commit": "1ae2852cadac",
+    "binaryVersion": "nightly-1ae2852",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
