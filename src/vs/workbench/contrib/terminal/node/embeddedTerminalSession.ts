@@ -4,7 +4,9 @@ import { readlink } from "node:fs/promises";
 
 import type { IPty } from "node-pty";
 
+import { sanitizeProcessEnvironment } from "../../../../base/common/processes.ts";
 import { getSystemShell } from "../../../../base/node/shell.ts";
+import { VSCODE_SHIM_VERSION } from "../../../api/common/vscodeShimVersion.ts";
 import type { ITerminalEnvironmentContributor } from "../common/extensionEnvironment.ts";
 import type { ITerminalRelaunchOptions } from "../common/terminalSessionFactory.ts";
 
@@ -33,19 +35,28 @@ export interface EmbeddedTerminalOptions {
 }
 
 /**
- * Layers: base (empty with `strictEnv`) → terminal `env` (`null` unsets) → extension `contribute` →
- * ours: the emulator's `TERM`, no `TMUX` (inside our own tmux host it breaks detection).
+ * Layers (upstream `createTerminalEnvironment`): the inherited environment without VS Code/Electron variables
+ * (`undefined` with `strictEnv`) → terminal `env` (`null` unsets) → extension `contribute` → the keys of a VS Code
+ * terminal process (`TERM_PROGRAM=vscode`…, not with `strictEnv`) → ours: the emulator's `TERM`, no `TMUX`
+ * (inside our own tmux host it breaks detection).
  */
 export function buildEnv(
-    base: Record<string, string>,
+    inherited: Record<string, string> | undefined,
     overrides: Readonly<Record<string, string | null>> | undefined,
     contribute?: (env: Record<string, string | undefined>) => void,
 ): Record<string, string> {
-    const env: Record<string, string | undefined> = {};
-    for (const [key, value] of Object.entries({ ...base, ...overrides })) {
-        if (value !== null) env[key] = value;
+    const env: Record<string, string | undefined> = { ...inherited };
+    sanitizeProcessEnvironment(env, "VSCODE_IPC_HOOK_CLI");
+    for (const [key, value] of Object.entries(overrides ?? {})) {
+        env[key] = value ?? undefined;
     }
     contribute?.(env);
+    if (inherited !== undefined) {
+        // Upstream `addTerminalEnvironmentKeys`; the version is the one extensions see as `vscode.version`.
+        env.TERM_PROGRAM = "vscode";
+        env.TERM_PROGRAM_VERSION = VSCODE_SHIM_VERSION;
+        env.COLORTERM = "truecolor";
+    }
     env.TERM = "xterm-256color";
     delete env.TMUX;
     return Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined));
@@ -139,7 +150,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
         const strict = options.strictEnv === true;
         const environment = strict ? undefined : this.environment;
         const env = buildEnv(
-            strict ? {} : currentEnv(),
+            strict ? undefined : currentEnv(),
             options.env,
             environment === undefined
                 ? undefined
