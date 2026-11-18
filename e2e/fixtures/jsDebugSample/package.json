@@ -1,0 +1,9 @@
+{
+    "name": "js-debug-sample",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "start": "node app.js",
+        "fork": "node app.js fork"
+    }
+}

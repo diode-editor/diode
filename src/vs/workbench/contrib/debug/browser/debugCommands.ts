@@ -29,6 +29,7 @@ import type { ServiceAccessor } from "../../../../platform/instantiation/common/
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import { containerMenuVisible } from "../../../browser/actions/menuContexts.ts";
+import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
@@ -784,9 +785,27 @@ export const runAction: CommandAction = {
     },
 };
 
+/**
+ * Upstream's F5 without a debugger: opens Run and Debug, whose Run and Debug button offers to find a debugger for the
+ * active editor's language in the Marketplace (no debugger is bundled, so this is the way to js-debug).
+ */
+export const openViewAction: CommandAction = {
+    id: "debug.openView",
+    title: "Open Run and Debug",
+    keybindings: [
+        { keys: parseKeybinding("f5"), when: "!debuggersAvailable", weight: KeybindingWeight.WorkbenchContrib },
+        { keys: parseKeybinding("mod+f5"), when: "!debuggersAvailable", weight: KeybindingWeight.WorkbenchContrib },
+    ],
+    menus: HIDDEN_FROM_PALETTE,
+    run(accessor) {
+        accessor.get(SidebarServiceDIToken).showViewlet(VIEWLET_ID);
+    },
+};
+
 export const DEBUG_ACTIONS: readonly CommandAction[] = [
     startAction,
     runAction,
+    openViewAction,
     selectAndStartAction,
     configureAction,
     addConfigurationAction,
