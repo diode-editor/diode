@@ -36,6 +36,7 @@ function outdated(id: string, extra: Partial<IExtensionListEntry> = {}): IExtens
         categories: [],
         tags: [],
         needsReload: false,
+        operation: null,
         latestPublishedAt: null,
         ...extra,
     };

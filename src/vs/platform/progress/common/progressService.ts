@@ -31,6 +31,26 @@ export type IProgressOptions =
 export interface IProgressFrame {
     readonly spinner: string;
     readonly title: string;
+    /** The last {@link IProgress.report}ed percent; unset: indeterminate. */
+    readonly percent?: number;
+}
+
+/**
+ * Upstream `IProgress<IProgressStep>`, but with an absolute percent instead of summed increments: the reporter knows
+ * the whole, and a percent that disappears (`undefined`) is how an indeterminate stage follows a measured one.
+ */
+export interface IProgress {
+    report(step: { readonly percent: number | undefined }): void;
+}
+
+/** The status bar's percent suffix, ` (47%)`, shared by window progress and extension progress; empty without one. */
+export function formatProgressPercent(percent: number | undefined): string {
+    return percent === undefined ? "" : ` (${String(Math.round(percent))}%)`;
+}
+
+/** What a consumer that reports no percent needs: a fake of it passes no {@link IProgress}. */
+export interface IIndeterminateProgressService {
+    withProgress<T>(options: IProgressOptions, task: () => Promise<T>): Promise<T>;
 }
 
 export interface IProgressServiceOptions {
@@ -45,6 +65,7 @@ class ProgressEntry {
     public minVisibleTimer: ReturnType<typeof setTimeout> | undefined;
     /** The operation finished, but the entry stays until `minVisibleMs` elapses. */
     public endRequested = false;
+    public percent: number | undefined;
 
     /** `scope === null` means the `window` location, otherwise the section id. */
     public constructor(
@@ -82,10 +103,17 @@ export class ProgressService extends Disposable {
     }
 
     /** A task error also ends the progress and is rethrown untouched. */
-    public async withProgress<T>(options: IProgressOptions, task: () => Promise<T>): Promise<T> {
+    public async withProgress<T>(options: IProgressOptions, task: (progress: IProgress) => Promise<T>): Promise<T> {
         const entry = this.start(options);
+        const progress: IProgress = {
+            report: ({ percent }) => {
+                if (entry.percent === percent) return;
+                entry.percent = percent;
+                this.fire();
+            },
+        };
         try {
-            return await task();
+            return await task(progress);
         } finally {
             this.end(entry);
         }
@@ -119,6 +147,11 @@ export class ProgressService extends Disposable {
             if (entry.visible && !entry.passive && entry.scope === viewId) return this.frameOf(entry);
         }
         return null;
+    }
+
+    /** The ticker's current frame, for a spinner outside the progress entries (a page's busy button). */
+    public spinner(): string {
+        return SPINNER_FRAMES[this.frame];
     }
 
     /** The earliest visible entry. */
@@ -180,7 +213,7 @@ export class ProgressService extends Disposable {
     }
 
     private frameOf(entry: ProgressEntry): IProgressFrame {
-        return { spinner: SPINNER_FRAMES[this.frame], title: entry.title };
+        return { spinner: this.spinner(), title: entry.title, percent: entry.percent };
     }
 
     private startTicker(): void {

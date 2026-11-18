@@ -25,6 +25,11 @@ export interface IInstallFromRegistryOptions {
     readonly host: IHostVersions;
     /** Unset means the highest compatible one. Doesn't apply to dependencies. */
     readonly version?: string;
+    /**
+     * Whole percent of the file being downloaded (the root or a dependency, each from 0), only on a change and only
+     * when its size is known; `null` once that download ends — checking and unpacking have no percentage.
+     */
+    readonly onDownloadProgress?: (percent: number | null) => void;
 }
 
 export interface IInstalledFromRegistry {
@@ -119,6 +124,27 @@ function readReusableDir(
     return matches ? { dir, manifest } : undefined;
 }
 
+/** A 132 MB artifact is thousands of chunks: only a new whole percent is reported. Capped at 100: the size is a claim. */
+async function fetchWithProgress(
+    source: IExtensionRegistrySource,
+    version: IRegistryVersion,
+    artifactDir: string,
+    report: ((percent: number | null) => void) | undefined,
+): Promise<string> {
+    // -1: nothing reported yet. A closure assignment doesn't widen a `null` start for the `finally` check.
+    let last = -1;
+    try {
+        return await source.fetchArtifact(version, artifactDir, (received, total) => {
+            const percent = Math.min(100, Math.floor((received * 100) / total));
+            if (percent === last) return;
+            last = percent;
+            report?.(percent);
+        });
+    } finally {
+        if (last !== -1) report?.(null);
+    }
+}
+
 /** Doesn't write to `extensionsDir`. The manifest id is checked here: the registry may point to someone else's artifact. */
 async function prepare(
     source: IExtensionRegistrySource,
@@ -162,7 +188,7 @@ async function prepare(
 
     // The source may give every downloaded file the same name.
     const artifactDir = fs.mkdtempSync(path.join(tempDir, "artifact-"));
-    const vsixPath = await source.fetchArtifact(picked, artifactDir);
+    const vsixPath = await fetchWithProgress(source, picked, artifactDir, options.onDownloadProgress);
 
     const actualSha = await sha256File(vsixPath);
     if (actualSha !== picked.sha256) {

@@ -52,6 +52,25 @@ describe("ProgressStatusBarContribution", () => {
         expect(texts()).toEqual([]);
     });
 
+    it("a reported percent follows the title like extension progress, and goes away with it", () => {
+        void progress.withProgress({ location: "window", title: "Installing redhat.java" }, (reporter) => {
+            reporter.report({ percent: 47 });
+            return new Promise<void>(() => {});
+        });
+        vi.advanceTimersByTime(300);
+        expect(texts()).toEqual(["⠋ Installing redhat.java (47%)"]);
+    });
+
+    it("a percent reported away leaves the bare title", () => {
+        void progress.withProgress({ location: "window", title: "Installing x" }, (reporter) => {
+            reporter.report({ percent: 100 });
+            reporter.report({ percent: undefined });
+            return new Promise<void>(() => {});
+        });
+        vi.advanceTimersByTime(300);
+        expect(texts()).toEqual(["⠋ Installing x"]);
+    });
+
     it("section progress leaves the status bar alone", () => {
         void progress.withProgress(
             { location: "view", viewId: "workbench.scm.changes", title: "Committing…" },

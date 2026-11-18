@@ -1,4 +1,4 @@
-import { SPINNER_FRAMES } from "../../../platform/progress/common/progressService.ts";
+import { formatProgressPercent, SPINNER_FRAMES } from "../../../platform/progress/common/progressService.ts";
 import { type IProductIconService, NERD_FONT_ICONS } from "../../../platform/theme/common/productIconService.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
 import type { IProgressSink, IProgressStartOptions } from "../common/iExtensionWindowSinks.ts";
@@ -27,8 +27,7 @@ class ProgressEntry {
         const parts = [this.title, this.message]
             .filter((p): p is string => p !== undefined && p !== "")
             .map((p) => this.icons.renderCodicons(p));
-        const percent = this.percent !== undefined ? ` (${String(Math.round(this.percent))}%)` : "";
-        return `${spinner} ${parts.join(" · ")}${percent}`;
+        return `${spinner} ${parts.join(" · ")}${formatProgressPercent(this.percent)}`;
     }
 }
 

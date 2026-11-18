@@ -24,7 +24,10 @@ import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken
 import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { type IMarkerData, MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { MarkerServiceDIToken } from "../../platform/markers/common/markerService.ts";
-import { type ProgressService, ProgressServiceDIToken } from "../../platform/progress/common/progressService.ts";
+import {
+    type IIndeterminateProgressService,
+    ProgressServiceDIToken,
+} from "../../platform/progress/common/progressService.ts";
 import { StateServiceDIToken } from "../../platform/state/common/iStateService.ts";
 import { ProductIconServiceDIToken } from "../../platform/theme/common/productIconService.ts";
 import { URLServiceDIToken } from "../../platform/url/common/url.ts";
@@ -225,7 +228,7 @@ export function bindFileOperationParticipant(
     host: ExtensionHost,
     workspaceEdits: WorkspaceEditService,
     config: IConfigurationService,
-    progress: Pick<ProgressService, "withProgress">,
+    progress: IIndeterminateProgressService,
 ): void {
     workspaceEdits.fileOperationParticipant = new FileOperationParticipantAdapter(
         host.fileOperations,
