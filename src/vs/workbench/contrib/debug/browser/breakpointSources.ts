@@ -1,7 +1,8 @@
-// The files behind the rows of BREAKPOINTS: the label of a folder relative to the workspace (upstream `getUriLabel`
-// with `relative: true`), the lines of a file for the tree presentation (upstream reads the text model; here the
-// file on disk, an unsaved change shows after the save), and the editor at a breakpoint's line (upstream
-// `openBreakpointSource`: the line in the active group, or beside it, as a jump for Go Back).
+// The files behind the rows of BREAKPOINTS and LOADED SCRIPTS: the label of a folder relative to the workspace
+// (upstream `getUriLabel` with `relative: true`), the lines of a file for the tree presentation (upstream reads the
+// text model; here the file on disk, an unsaved change shows after the save), the editor at a breakpoint's line
+// (upstream `openBreakpointSource`: the line in the active group, or beside it, as a jump for Go Back) and a loaded
+// script's file (upstream `Source.openInEditor`).
 
 import * as nodePath from "node:path";
 
@@ -46,6 +47,13 @@ export class BreakpointSources implements IBreakpointSources {
     public openBreakpoint(breakpoint: IBreakpoint, sideBySide: boolean): Promise<void> {
         const position = { line: breakpoint.lineNumber - 1, column: (breakpoint.column ?? 1) - 1 };
         return openUriAtPosition(this.editors, this.jumps, breakpoint.uri, position, { sideBySide });
+    }
+
+    public openSource(uri: Uri, options: { readonly sideBySide: boolean; readonly preserveFocus: boolean }): Promise<void> {
+        return openUriAtPosition(this.editors, this.jumps, uri, undefined, {
+            sideBySide: options.sideBySide,
+            focus: !options.preserveFocus,
+        });
     }
 }
 

@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { debugConfiguration } from "./debugConfiguration.ts";
-import upstream from "./debugConfiguration.upstream.json" with { type: "json" };
 
 /** `src/vs`. */
 const SRC = fileURLToPath(new URL("../../../", import.meta.url));
@@ -25,7 +24,9 @@ interface IUpstreamSchema {
     readonly scope?: string;
 }
 
-const upstreamProperties: Readonly<Record<string, IUpstreamSchema>> = upstream;
+const upstreamProperties = JSON.parse(
+    readFileSync(new URL("debugConfiguration.upstream.json", import.meta.url), "utf8"),
+) as Readonly<Record<string, IUpstreamSchema>>;
 const declared: Readonly<Record<string, IUpstreamSchema>> = debugConfiguration.properties;
 
 /** Declared for settings.json and its completion, not applied; in upstream's order. */

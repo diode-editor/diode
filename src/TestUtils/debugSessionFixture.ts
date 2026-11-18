@@ -37,6 +37,8 @@ export const DEFAULT_DEBUG_CONFIGURATION: IDebugServiceConfiguration = {
     allowBreakpointsEverywhere: false,
     focusEditorOnBreak: true,
     showSubSessionsInToolBar: false,
+    openExplorerOnEnd: false,
+    closeReadonlyTabsOnEnd: false,
 };
 
 export interface ITestSessionServices extends IDebugSessionServices {
