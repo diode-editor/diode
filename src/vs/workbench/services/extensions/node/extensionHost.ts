@@ -196,6 +196,7 @@ import { WindowCustomer } from "./customers/windowCustomer.ts";
 import { WorkspaceFoldersCustomer } from "./customers/workspaceFoldersCustomer.ts";
 import { defaultSpawnArgs, ExtensionHostProcess } from "./extensionHostProcess.ts";
 import { ExtensionPhases } from "./extensionPhases.ts";
+import type { IDeclarativeExtension } from "./extensionRegistration.ts";
 import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
 import { createTransientExtensionStateStore, type IExtensionStateStore } from "./extensionStateStore.ts";
 import {
@@ -325,7 +326,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     /** Revival is lazy, on the next event rather than right at death, to avoid a crash loop. */
     private replayPending = false;
     /** Keys of extensions without `main`: a dependency on them is satisfied (like upstream `_isResolvedExtension`). */
-    private readonly declarativeExtensions = new Set<string>();
+    /** By `extensionKey`. */
+    private readonly declarativeExtensions = new Map<string, IDeclarativeExtension>();
     private readonly notificationSink: INotificationSink | undefined;
     /** Negative so they never collide with the subprocess's `window.show*Message` handles (those count up from 1). */
     private nextHostMessageHandle = -1;
@@ -505,11 +507,12 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         };
     }
 
-    public registerDeclarativeExtension(id: string): void {
-        this.declarativeExtensions.add(extensionKey(id));
+    public registerDeclarativeExtension(extension: IDeclarativeExtension): void {
+        this.declarativeExtensions.set(extensionKey(extension.id), extension);
+        this.pushExtensionCatalog();
     }
 
-    /** Extensions without `main` aren't listed — a deviation from upstream `extensions.all` (docs/public/API-COVERAGE.md). */
+    /** Every installed extension, those without `main` too (upstream `extensions.all`). */
     private extensionCatalog(): IWireExtensionCatalog {
         const extensions: IWireExtensionDescription[] = [];
         for (const reg of this.phases.all()) {
@@ -518,6 +521,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 extensionPath: extensionRootPath(reg),
                 packageJSON: reg.manifest,
                 isActive: this.phases.isActive(reg.id),
+            });
+        }
+        for (const declarative of this.declarativeExtensions.values()) {
+            extensions.push({
+                id: declarative.id,
+                extensionPath: declarative.extensionPath,
+                packageJSON: declarative.manifest,
+                isActive: false,
             });
         }
         return { extensions };

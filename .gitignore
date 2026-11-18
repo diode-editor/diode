@@ -15,6 +15,7 @@ coverage/coverage-final.json
 
 # Compiled builtin code-extensions (built by scripts/build-extensions.mjs)
 extensions/*/out/
+extensions/*/server/out/
 
 # Session registry of the `npm run drive` live run (tools/drive/)
 .drive/

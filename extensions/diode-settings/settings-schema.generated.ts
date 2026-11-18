@@ -951,6 +951,170 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Debounce, in milliseconds, before recomputing git status and diff after a change.",
     },
     {
+        key: "html.autoClosingTags",
+        type: "boolean",
+        default: true,
+        description: "Enable/disable autoclosing of HTML tags.",
+    },
+    {
+        key: "html.autoCreateQuotes",
+        type: "boolean",
+        default: true,
+        description:
+            "Enable/disable auto creation of quotes for HTML attribute assignment. The type of quotes can be configured by `#html.completion.attributeDefaultValue#`.",
+    },
+    {
+        key: "html.completion.attributeDefaultValue",
+        type: "string",
+        default: "doublequotes",
+        description: "Controls the default value for attributes when completion is accepted.",
+        enum: ["doublequotes", "singlequotes", "empty"],
+    },
+    {
+        key: "html.customData",
+        type: "array",
+        default: [],
+        description:
+            "A list of relative file paths pointing to JSON files following the [custom data format](https://github.com/microsoft/vscode-html-languageservice/blob/master/docs/customData.md).\n\nVS Code loads custom data on startup to enhance its HTML support for the custom HTML tags, attributes and attribute values you specify in the JSON files.\n\nThe file paths are relative to workspace and only workspace folder settings are considered.",
+    },
+    {
+        key: "html.format.contentUnformatted",
+        type: "string | null",
+        default: "pre,code,textarea",
+        description:
+            "List of tags, comma separated, where the content shouldn't be reformatted. `null` defaults to the `pre` tag.",
+    },
+    {
+        key: "html.format.enable",
+        type: "boolean",
+        default: true,
+        description: "Enable/disable default HTML formatter.",
+    },
+    {
+        key: "html.format.extraLiners",
+        type: "string | null",
+        default: "head, body, /html",
+        description:
+            'List of tags, comma separated, that should have an extra newline before them. `null` defaults to `"head, body, /html"`.',
+    },
+    {
+        key: "html.format.indentHandlebars",
+        type: "boolean",
+        default: false,
+        description: "Format and indent `{{#foo}}` and `{{/foo}}`.",
+    },
+    {
+        key: "html.format.indentInnerHtml",
+        type: "boolean",
+        default: false,
+        description: "Indent `<head>` and `<body>` sections.",
+    },
+    {
+        key: "html.format.maxPreserveNewLines",
+        type: "number | null",
+        default: null,
+        description: "Maximum number of line breaks to be preserved in one chunk. Use `null` for unlimited.",
+    },
+    {
+        key: "html.format.preserveNewLines",
+        type: "boolean",
+        default: true,
+        description:
+            "Controls whether existing line breaks before elements should be preserved. Only works before elements, not inside tags or for text.",
+    },
+    {
+        key: "html.format.templating",
+        type: "boolean",
+        default: false,
+        description: "Honor django, erb, handlebars and php templating language tags.",
+    },
+    {
+        key: "html.format.unformatted",
+        type: "string | null",
+        default: "wbr",
+        description:
+            "List of tags, comma separated, that shouldn't be reformatted. `null` defaults to all tags listed at https://www.w3.org/TR/html5/dom.html#phrasing-content.",
+    },
+    {
+        key: "html.format.unformattedContentDelimiter",
+        type: "string",
+        default: "",
+        description: "Keep text content together between this string.",
+    },
+    {
+        key: "html.format.wrapAttributes",
+        type: "string",
+        default: "auto",
+        description: "Wrap attributes.",
+        enum: [
+            "auto",
+            "force",
+            "force-aligned",
+            "force-expand-multiline",
+            "aligned-multiple",
+            "preserve",
+            "preserve-aligned",
+        ],
+    },
+    {
+        key: "html.format.wrapAttributesIndentSize",
+        type: "number | null",
+        default: null,
+        description:
+            "Indent wrapped attributes to after N characters. Use `null` to use the default indent size. Ignored if `#html.format.wrapAttributes#` is set to `aligned`.",
+    },
+    {
+        key: "html.format.wrapLineLength",
+        type: "integer",
+        default: 120,
+        description: "Maximum amount of characters per line (0 = disable).",
+    },
+    {
+        key: "html.hover.documentation",
+        type: "boolean",
+        default: true,
+        description: "Show tag and attribute documentation in hover.",
+    },
+    { key: "html.hover.references", type: "boolean", default: true, description: "Show references to MDN in hover." },
+    {
+        key: "html.mirrorCursorOnMatchingTag",
+        type: "boolean",
+        default: false,
+        description: "Enable/disable mirroring cursor on matching HTML tag.",
+    },
+    {
+        key: "html.suggest.hideEndTagSuggestions",
+        type: "boolean",
+        default: false,
+        description:
+            "Controls whether the built-in HTML language support suggests closing tags. When disabled, end tag completions like `</div>` will not be shown.",
+    },
+    {
+        key: "html.suggest.html5",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the built-in HTML language support suggests HTML5 tags, properties and values.",
+    },
+    {
+        key: "html.trace.server",
+        type: "string",
+        default: "off",
+        description: "Traces the communication between VS Code and the HTML language server.",
+        enum: ["off", "messages", "verbose"],
+    },
+    {
+        key: "html.validate.scripts",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the built-in HTML language support validates embedded scripts.",
+    },
+    {
+        key: "html.validate.styles",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the built-in HTML language support validates embedded styles.",
+    },
+    {
         key: "javascript.inlayHints.functionLikeReturnTypes.enabled",
         type: "boolean",
         default: false,

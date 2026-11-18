@@ -58,7 +58,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const runtime = { command: process.execPath, runAsNodeFlag: serverRuntime === "diode-as-node" };
 
     for (const spec of LANGUAGE_SERVERS) {
-        const outputChannel = vscode.window.createOutputChannel(spec.displayName);
+        const outputChannel = vscode.window.createOutputChannel(spec.displayName, { log: true });
 
         // The cache is published by an atomic rename: existsSync of the entry means ready.
         const hasEarlierCandidate =

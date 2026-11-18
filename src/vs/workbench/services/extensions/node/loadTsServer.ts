@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { extractBundleToCache } from "../../../../base/node/assets/extractBundleToCache.ts";
 import { packagedAssetCacheDirByName, readPackagedAssetView } from "../../../../base/node/assets/packagedAsset.ts";
@@ -10,11 +11,15 @@ const ASSET_NAME = "ts-server.bundle";
 /** In lockstep with scripts/pack-ts-server.mjs. */
 const SERVER_ENTRY = "typescript-language-server/lib/run-cli.cjs";
 const TSSERVER_ENTRY = "node_modules/typescript/lib/tsserver.js";
+/** The HTML server shares the bundle for its TypeScript (the `<script>` mode); in lockstep with scripts/pack-ts-server.mjs. */
+const HTML_SERVER_ENTRY = "html-language-features/server/out/node/htmlServerMain.mjs";
 
 export interface ITsServerPaths {
     /** A CJS shim: works both under node and under diode-as-node. */
     readonly serverPath: string;
     readonly tsserverPath: string;
+    /** The vendored HTML language server (`extensions/html-language-features`), an ESM file. */
+    readonly htmlServerPath: string;
 }
 
 interface IBundleSource {
@@ -57,6 +62,7 @@ function computeTarget(): ITsServerPaths | null {
         return {
             serverPath: path.join(source.cacheDir, ...SERVER_ENTRY.split("/")),
             tsserverPath: path.join(source.cacheDir, ...TSSERVER_ENTRY.split("/")),
+            htmlServerPath: path.join(source.cacheDir, ...HTML_SERVER_ENTRY.split("/")),
         };
     }
     // Dev: real node needs no shim, hand out cli.mjs as is.
@@ -65,6 +71,8 @@ function computeTarget(): ITsServerPaths | null {
         return {
             serverPath: require_.resolve("typescript-language-server/lib/cli.mjs"),
             tsserverPath: require_.resolve("typescript/lib/tsserver.js"),
+            // `npm run build:extensions` (and `prestart`) builds it in the repo.
+            htmlServerPath: fileURLToPath(new URL(`../../../../../../extensions/${HTML_SERVER_ENTRY}`, import.meta.url)),
         };
     } catch {
         return null;

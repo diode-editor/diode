@@ -831,6 +831,10 @@ async function preloadGrammarsForFiles(
  * out before extraction (which happens in `startExtensions`, after the first frames).
  */
 function builtinConfigInjection(manifestName: string): Record<string, unknown> {
+    if (manifestName === "html-language-features") {
+        const htmlServerPath = bundledTsServerTarget()?.htmlServerPath;
+        return htmlServerPath === undefined ? {} : { "diode.html.bundledServerPath": htmlServerPath };
+    }
     if (manifestName !== "diode-lsp-typescript") return {};
     const target = bundledTsServerTarget();
     if (target === null) return {};

@@ -3,8 +3,8 @@ import type { IExtension } from "../../../../platform/extensions/common/iExtensi
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { IExtensionService } from "../common/extensions.ts";
 
-import type { IExtensionRegistrationEnv } from "./extensionRegistration.ts";
-import { toExtensionRegistration } from "./extensionRegistration.ts";
+import type { IDeclarativeExtension, IExtensionRegistrationEnv } from "./extensionRegistration.ts";
+import { toDeclarativeExtension, toExtensionRegistration } from "./extensionRegistration.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /** Upstream's `timeout(10000)`: how long `onStartupFinished` waits for eager activation. */
@@ -13,7 +13,7 @@ export const STARTUP_FINISHED_TIMEOUT_MS = 10_000;
 export interface IExtensionActivationHost {
     registerExtension(reg: IExtensionRegistration): unknown;
     /** An installed extension without code: no registration, but dependencies on it are satisfied. */
-    registerDeclarativeExtension(id: string): void;
+    registerDeclarativeExtension(extension: IDeclarativeExtension): void;
     activateByEvent(event: string): Promise<void>;
     activateByWorkspaceContains(): Promise<void>;
     restartForWorkspaceChange(): Promise<void>;
@@ -69,7 +69,7 @@ export class ExtensionService implements IExtensionService {
         for (const ext of this.extensions) {
             try {
                 const reg = await toExtensionRegistration(ext, this.registrationEnv);
-                if (reg === null) this.host.registerDeclarativeExtension(ext.id);
+                if (reg === null) this.host.registerDeclarativeExtension(toDeclarativeExtension(ext, this.registrationEnv));
                 else this.host.registerExtension(reg);
             } catch (err) {
                 this.logger.error(`${ext.id}: failed to register${ext.isBuiltin ? " (builtin)" : ""}`, err);

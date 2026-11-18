@@ -2,6 +2,7 @@
 /**
  * typescript-language-server + a minimal TypeScript -> the `ts-server.bundle` asset:
  * LSP out of the box without node_modules in the project or node in PATH (docs/arch/Extensions.md).
+ * The built-in HTML language server rides along: it runs on the same TypeScript.
  *
  * The lists are fixed: dropped are locales (~4.4 MB), tsc (~6 MB), tsserverlibrary,
  * *.map and typingsInstaller (ATA is off for the bundled path, resolveServer.ts).
@@ -35,6 +36,12 @@ import(pathToFileURL(join(__dirname, "cli.mjs")).href).catch((err) => {
 });
 `;
 
+/** Under `extensions/` in the repo, at the same path in the bundle; in lockstep with `loadTsServer.ts`. */
+const HTML_SERVER_FILES = [
+    "html-language-features/server/out/node/htmlServerMain.mjs",
+    "html-language-features/server/lib/jquery.d.ts",
+];
+
 const TYPESCRIPT_STDLIB_RE = /^lib(\..+)?\.d\.ts$/;
 
 /**
@@ -65,6 +72,16 @@ export function buildTsServerBundle({ repoRoot }) {
         { virtualPath: "typescript-language-server/package.json", data: readFileSync(tlsPackageJson) },
         { virtualPath: "node_modules/typescript/package.json", data: readFileSync(typescriptPackageJson) },
     ];
+    // The HTML language server (built by build-extensions.mjs) beside TypeScript: its `<script>` mode resolves
+    // `typescript` and the `lib.*.d.ts` from `node_modules/typescript`, and `jquery.d.ts` from `../../lib`.
+    for (const file of HTML_SERVER_FILES) {
+        const from = join(repoRoot, "extensions", file);
+        try {
+            inputs.push({ virtualPath: file, data: readFileSync(from) });
+        } catch {
+            throw new Error(`[pack-ts-server] "${from}" not found; run scripts/build-extensions.mjs first`);
+        }
+    }
     for (const file of TYPESCRIPT_LIB_FILES) {
         inputs.push({
             virtualPath: `node_modules/typescript/lib/${file}`,

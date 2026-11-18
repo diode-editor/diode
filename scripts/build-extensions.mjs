@@ -24,6 +24,42 @@ export const COMPILED_BUILTIN_ENTRY = "out/extension.cjs";
 const SOURCE_ENTRY = "main.ts";
 
 /**
+ * Language servers a builtin starts as a separate node process (vendored upstream sources). Each one is a single ESM
+ * file; `typescript` stays external: the server resolves it from where it lies, the repo's `node_modules` in dev and
+ * the unpacked `ts-server.bundle` in the binary (`pack-ts-server.mjs` packs the server next to TypeScript).
+ * `@vscode/l10n` is bundled as CommonJS and still calls `require("fs")`: the banner gives the ESM output a `require`,
+ * as upstream's `esbuild.mts` does.
+ */
+export const LANGUAGE_SERVER_BUNDLES = [
+    {
+        id: "html-language-features",
+        entry: "server/src/node/htmlServerNodeMain.ts",
+        outfile: "server/out/node/htmlServerMain.mjs",
+    },
+];
+
+async function buildLanguageServer(dir, server) {
+    const outfile = join(dir, server.outfile);
+    await build({
+        entryPoints: [join(dir, server.entry)],
+        outfile,
+        platform: "node",
+        format: "esm",
+        bundle: true,
+        target: "es2024",
+        external: ["typescript"],
+        mainFields: ["module", "main"],
+        // Aliased: a bundled module may import `createRequire` itself (the vendored `javascriptLibs.ts` does).
+        banner: {
+            js: 'import { createRequire as bannerCreateRequire } from "module"; const require = bannerCreateRequire(import.meta.url);',
+        },
+        sourcemap: false,
+        logLevel: "warning",
+    });
+    return outfile;
+}
+
+/**
  * A leftover relative `require` breaks the extension silently: `LanguagesNamespace`
  * swallows provider errors, and completion quietly goes empty.
  */
@@ -82,6 +118,9 @@ export async function buildExtensions({ repoRoot }) {
         });
         assertSelfContained(outfile, entry.name);
         built.push({ id: entry.name, entryPoint, outfile });
+        for (const server of LANGUAGE_SERVER_BUNDLES.filter((s) => s.id === entry.name)) {
+            await buildLanguageServer(dir, server);
+        }
     }
     return built;
 }
