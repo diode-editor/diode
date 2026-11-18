@@ -26,26 +26,30 @@ describe.skipIf(process.platform !== "linux" || MARKETPLACE_OFFLINE)("SEA binary
         await getBinaryPath();
     }, 300_000);
 
-    it("messages stand at the visible lines, and at new ones after a scroll to the end", { timeout: 240_000 }, async () => {
-        const { session } = await useHeadlessApp({
-            files: { "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }), "errors.ts": ERRORS },
-            settings: {
-                "errorLens.maxInlineMessages": 5,
-                "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
-                "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
-            },
-            installVsix: ["usernamehw.errorlens"],
-            open: ["errors.ts"],
-        });
+    it(
+        "messages stand at the visible lines, and at new ones after a scroll to the end",
+        { timeout: 240_000 },
+        async () => {
+            const { session } = await useHeadlessApp({
+                files: { "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }), "errors.ts": ERRORS },
+                settings: {
+                    "errorLens.maxInlineMessages": 5,
+                    "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
+                    "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
+                },
+                installVsix: ["usernamehw.errorlens"],
+                open: ["errors.ts"],
+            });
 
-        await session.waitForText((t) => t.includes(`"x0";Type 'string' ${MESSAGE}`), {
-            timeoutMs: 120_000,
-            intervalMs: 500,
-        });
+            await session.waitForText((t) => t.includes(`"x0";Type 'string' ${MESSAGE}`), {
+                timeoutMs: 120_000,
+                intervalMs: 500,
+            });
 
-        await session.key("Ctrl+End");
-        await session.waitForText((t) => t.includes(`"x${String(LINE_COUNT - 1)}";Type 'string' ${MESSAGE}`), {
-            timeoutMs: 30_000,
-        });
-    });
+            await session.key("Ctrl+End");
+            await session.waitForText((t) => t.includes(`"x${String(LINE_COUNT - 1)}";Type 'string' ${MESSAGE}`), {
+                timeoutMs: 30_000,
+            });
+        },
+    );
 });

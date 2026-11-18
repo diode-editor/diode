@@ -7,8 +7,8 @@ import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { Range, Uri } from "./vscodeTypes.ts";
-import type { IWireEditorLayout, IWireTabSnapshot } from "./wireTypes.ts";
 import { createWindowNamespace } from "./windowNamespace.ts";
+import type { IWireEditorLayout, IWireTabSnapshot } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 const FILE = Uri.file("/ws/main.ts").toString();

@@ -132,7 +132,8 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
     private visibleEditors(): { pane: TextEditorPane; groupId: number }[] {
         return this.groups.groups.flatMap((group) => {
             const active = group.activePane;
-            const panes = active instanceof DiffEditorPane2 ? diffSidePanes(active) : isTextEditorPane(active) ? [active] : [];
+            const panes =
+                active instanceof DiffEditorPane2 ? diffSidePanes(active) : isTextEditorPane(active) ? [active] : [];
             return panes.map((pane) => ({ pane, groupId: group.id }));
         });
     }
@@ -389,7 +390,10 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
 function diffSidePanes(pane: DiffEditorPane2): TextEditorPane[] {
     const snapshots = pane.snapshotSides();
     const [original, modified] = pane.sidePanes();
-    return [...(snapshots.includes("original") ? [] : [original]), ...(snapshots.includes("modified") ? [] : [modified])];
+    return [
+        ...(snapshots.includes("original") ? [] : [original]),
+        ...(snapshots.includes("modified") ? [] : [modified]),
+    ];
 }
 
 function sameRanges(a: readonly IRange[], b: readonly IRange[]): boolean {

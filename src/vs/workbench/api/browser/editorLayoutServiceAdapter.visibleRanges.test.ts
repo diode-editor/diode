@@ -1,10 +1,10 @@
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { flushMicrotasks } from "../../../../TestUtils/timing.ts";
 import { diskFileService } from "../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
+import { flushMicrotasks } from "../../../../TestUtils/timing.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
@@ -97,7 +97,11 @@ describe("EditorLayoutServiceAdapter — visible ranges", () => {
         await flushMicrotasks();
 
         expect(reports).toEqual([
-            { uri: uriOf("a.txt"), groupId: service.editorGroups.groupOf(pane)?.id, visibleRanges: [createRange(20, 0, 29, 7)] },
+            {
+                uri: uriOf("a.txt"),
+                groupId: service.editorGroups.groupOf(pane)?.id,
+                visibleRanges: [createRange(20, 0, 29, 7)],
+            },
         ]);
     });
 
@@ -151,7 +155,11 @@ describe("EditorLayoutServiceAdapter — visible ranges", () => {
 
         expect(service.editorGroups.activeGroup).not.toBe(service.editorGroups.groupOf(left));
         expect(reports).toEqual([
-            { uri: uriOf("a.txt"), groupId: service.editorGroups.groupOf(left)?.id, visibleRanges: [createRange(30, 0, 39, 7)] },
+            {
+                uri: uriOf("a.txt"),
+                groupId: service.editorGroups.groupOf(left)?.id,
+                visibleRanges: [createRange(30, 0, 39, 7)],
+            },
         ]);
     });
 
