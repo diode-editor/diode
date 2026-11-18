@@ -29,6 +29,7 @@ import {
     ColorThemeKind,
     DisposableImpl,
     EventEmitter,
+    LogLevel,
     NEVER_CANCELLED_TOKEN,
     Position,
     Selection,
@@ -912,7 +913,9 @@ export function createWindowNamespace(
 
         // vscode-languageclient reports errors ONLY here, so the channel must be real.
         // id `extensions.<owner>.<slug>`: same-named channels of different extensions and host loggers do not collide.
-        createOutputChannel: (name: string): vscode.OutputChannel => {
+        // Every channel is a log channel: `{ log: true }` changes nothing, and extensions call `channel.info(...)` on a
+        // plain channel too.
+        createOutputChannel: (name: string, _languageIdOrOptions?: string | { log: true }): vscode.LogOutputChannel => {
             const prefix = owner.current === undefined ? "extensions." : `extensions.${owner.current}.`;
             const channel = prefix + slugifyChannelName(name);
             const send = (level: WireOutputLevel, value: string): void => {
@@ -931,9 +934,8 @@ export function createWindowNamespace(
                 pending = "";
                 send("info", value);
             };
-            // The `{ log: true }` d.ts overload is not implemented, but extensions call `channel.info(...)` on a plain channel too.
             const logChannelExtras = {
-                logLevel: 3, // vscode.LogLevel.Info
+                logLevel: LogLevel.Info,
                 onDidChangeLogLevel: new EventEmitter<never>().event,
                 trace: logEntry("trace"),
                 debug: logEntry("debug"),

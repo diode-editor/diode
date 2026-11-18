@@ -46,6 +46,8 @@ export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamesp
         extensionPath: description.extensionPath,
         packageJSON: description.packageJSON,
         extensionKind: ExtensionKind.UI,
+        // Proposed `extensionsAny`: diode has one extension host, nothing comes from another.
+        isFromDifferentExtensionHost: false,
         get isActive(): boolean {
             return activeIds.has(description.id);
         },
@@ -88,6 +90,11 @@ export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamesp
     const extensions = {
         get all(): readonly vscode.Extension<unknown>[] {
             return known;
+        },
+        // Proposed `extensionsAny` (the HTML client finds its language participants here): with one extension host,
+        // all extensions across hosts are `all`, and `getExtension`'s `includeDifferentExtensionHosts` changes nothing.
+        get allAcrossExtensionHosts(): readonly vscode.Extension<void>[] {
+            return known as readonly vscode.Extension<void>[];
         },
         // Id case doesn't matter, as in upstream's `ExtensionIdentifier.equals`.
         getExtension: <T = unknown>(extensionId: string): vscode.Extension<T> | undefined =>

@@ -4,7 +4,7 @@ import { enablePerformanceMarks, getMarks, resetPerformanceMarks } from "../../.
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 
-import type { IExtensionRegistrationEnv } from "./extensionRegistration.ts";
+import type { IDeclarativeExtension, IExtensionRegistrationEnv } from "./extensionRegistration.ts";
 import type { IExtensionActivationHost } from "./extensionService.ts";
 import { ExtensionService } from "./extensionService.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
@@ -43,8 +43,8 @@ class FakeHost implements IExtensionActivationHost {
         return undefined;
     }
 
-    public registerDeclarativeExtension(id: string): void {
-        this.log.push(`declarative:${id}`);
+    public registerDeclarativeExtension(extension: IDeclarativeExtension): void {
+        this.log.push(`declarative:${extension.id}:${extension.extensionPath}:${extension.manifest.name}`);
     }
 
     public activateByEvent(event: string): Promise<void> {
@@ -91,7 +91,12 @@ describe("ExtensionService", () => {
         const logger = recordingLogger();
         const service = new ExtensionService(
             host,
-            [ext("a", "a.js"), ext("decl", undefined), ext("git", "out/e.cjs", true)],
+            [
+                ext("a", "a.js"),
+                ext("decl", undefined),
+                ext("git", "out/e.cjs", true),
+                ext("handlebars", undefined, true),
+            ],
             ENV,
             logger,
         );
@@ -100,8 +105,10 @@ describe("ExtensionService", () => {
 
         expect(host.log).toEqual([
             "register:a",
-            "declarative:decl",
+            // The manifest and the root go to the catalog: `extensions.all` lists them, as upstream.
+            "declarative:decl:/ext/decl-1.0.0:decl",
             "register:git",
+            "declarative:handlebars:/extensions/handlebars:handlebars",
             "*",
             "workspaceContains",
             "onStartupFinished",

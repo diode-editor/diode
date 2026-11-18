@@ -74,3 +74,14 @@ test("extensions/merge-conflict/package.json is the builtin manifest (the import
     assert.equal(manifest.aiKey, undefined);
     assert.equal(manifest.browser, undefined);
 });
+
+test("extensions/html-language-features/package.json is the builtin manifest: upstream's settings and activation stay", () => {
+    const manifest = JSON.parse(
+        readFileSync(resolve(repoRoot, "extensions/html-language-features/package.json"), "utf8"),
+    );
+    assert.equal(manifest.main, "./out/extension.cjs");
+    assert.equal(manifest.browser, undefined);
+    assert.equal(manifest.dependencies, undefined);
+    assert.deepEqual(manifest.activationEvents, ["onLanguage:html", "onLanguage:handlebars"]);
+    assert.equal(manifest.contributes.configuration.properties["html.autoClosingTags"].default, true);
+});

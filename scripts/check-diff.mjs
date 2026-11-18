@@ -125,7 +125,16 @@ function main() {
             "--tsBuildInfoFile",
             `${CACHE_DIR}/tsc.tsbuildinfo`,
         ]);
-        if (!ok) failed.push("tsc");
+        // The vendored HTML language features compile with their own tsconfig (upstream's compiler options).
+        const htmlOk = run("tsc -p extensions/html-language-features", bin("tsc"), [
+            "--noEmit",
+            "--incremental",
+            "--tsBuildInfoFile",
+            `${CACHE_DIR}/tsc-html.tsbuildinfo`,
+            "-p",
+            "extensions/html-language-features",
+        ]);
+        if (!ok || !htmlOk) failed.push("tsc");
     }
 
     if (!opts.skip.has("lint")) {

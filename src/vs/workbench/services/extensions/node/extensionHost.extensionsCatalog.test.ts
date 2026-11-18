@@ -173,6 +173,31 @@ describe("ExtensionHost — vscode.extensions catalog", () => {
         });
     });
 
+    it("a declarative extension (no `main`) is in the catalog with its manifest, as upstream `extensions.all`", async () => {
+        await withHarness([inspector()], async (harness) => {
+            harness.host.registerDeclarativeExtension({
+                id: "vscode.handlebars",
+                manifest: {
+                    name: "handlebars",
+                    publisher: "vscode",
+                    version: "1.0.0",
+                    displayName: "Handlebars Language Basics",
+                },
+                extensionPath: "/extensions/handlebars",
+            });
+            await harness.flushRpc(4);
+
+            const all = (await harness.commandRegistry.execute("test.extensions.all")) as IExtensionReport[];
+            expect(all.map((e) => e.id)).toEqual(["test.inspector", "vscode.handlebars"]);
+            expect(all[1]).toMatchObject({
+                extensionPath: "/extensions/handlebars",
+                packageJSONDisplayName: "Handlebars Language Basics",
+                isActive: false,
+            });
+            expect(await harness.commandRegistry.execute("test.extensions.changeCount")).toBe(1);
+        });
+    });
+
     it("a builtin from an in-memory source gets the extensionPath of its filename's directory", async () => {
         const builtin: IExtensionRegistration = {
             id: "test.builtin",
