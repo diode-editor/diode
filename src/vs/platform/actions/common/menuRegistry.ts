@@ -216,10 +216,10 @@ export class MenuRegistry {
             (item): item is IMenuContribution =>
                 item.menuId === MenuId.CommandPalette && !isSubmenuContribution(item) && item.command === command,
         );
-        return (
-            items.length === 0 ||
-            items.some((item) => item.when === undefined || this.contextKeys.evaluate(item.when, keys))
-        );
+        // Upstream's commands quick access leaves out a disabled item: its `precondition` is our `enablement`.
+        const holds = (expression: string | undefined): boolean =>
+            expression === undefined || this.contextKeys.evaluate(expression, keys);
+        return items.length === 0 || items.some((item) => holds(item.when) && holds(item.enablement));
     }
 
     public getMenuItems(
