@@ -94,6 +94,23 @@
   восстанавливаются). Синтетический адаптер принимает корень программы (`registerSyntheticDebugger(…, root)`), чтобы
   исходники были настоящими файлами. Проверка — `breakpointEditorContribution.app.test.ts`, сценарий
   `debug-breakpoints-gutter` на Debug Demo (теперь с `contributes.breakpoints` для C и остановкой на брейкпоинте).
+- #1154: редактор при отладке. Команды `debugEditorActions.ts` с id, заголовками и клавишами эталона: Run to Cursor
+  (`DebugService.runTo` эталона: временный брейкпоинт, Continue на потоке, который его верифицировал, снятие на
+  остановке; без сессии — старт выбранной конфигурации), Jump to Cursor/Set Next Statement (`gotoTargets`/`goto`),
+  Step Into Target редактора (цель вокруг курсора, иначе quick pick — отступление: у эталона меню у курсора) и
+  `Ctrl+F11` (quick pick, активная цель выделяется в редакторе кадра), Evaluate in Debug Console (`Repl.sendReplInput`),
+  Add to Watch (без выделения — регулярка эталона: провайдеров evaluatable expression ещё нет), Go to Next/Previous
+  Breakpoint, Inline Breakpoint (`Shift+F9`), Close Exception Widget (`Escape`); группа `debug` контекстного меню
+  редактора. Исключение (решение 2026-11-14) — `debugEditorContribution.ts`: бейдж после строки кадра исключения
+  (`setLineMessageDecorations`, владелец `debug.exception`, фон `debugExceptionWidget.background`; рамки у бейджа нет),
+  полный текст и стек — в Debug Console один раз за остановку, клик по бейджу открывает консоль, Escape прячет до
+  следующей остановки; `exceptionWidgetVisible` — пока бейдж показан в какой-то вкладке. Inline-брейкпоинты и кандидаты
+  (`breakpointLocations`, `debug.showInlineBreakpointCandidates`) — глиф-вставка перед колонкой
+  (`setOwnedInlineInsertions`, владелец `debug`), клик по ней не доходит (отступление: у эталона виджет с кликом и
+  меню). Синтетика: Continue с брейкпоинтом в цикле идёт по строкам (прыжок на 100 — только без брейкпоинтов),
+  `stepInTargets` строки 29, `gotoTargets`/`goto` по строкам цикла, `breakpointLocations`, стек в `exceptionInfo`.
+  Debug Demo: F10, Continue до следующего брейкпоинта, программа `./crash` с `SIGSEGV`. Проверка —
+  `debugEditorActions.app.test.ts`, сценарий `debug-editor-commands`.
 
 - #1138: `launch.json`. `browser/debugConfigurationManager.ts` (порт `ConfigurationManager` эталона: launch папки —
   `.diode/launch.json`, блок `launch` файла `.code-workspace`, `launch` пользовательских настроек; выбранная конфигурация
@@ -199,6 +216,18 @@
   фильтр `continued` микрозадачей позже стирал новую остановку — теперь он снимает только остановки, пришедшие до него,
   отступление в `debugSession.ts`). Как в эталоне и оставлено:
   «Load More Stack Frames» после шага, Debug Console поверх терминала `runInTerminal`. После влития — выпуск minor.
+
+- #1159: дочерние сессии (веха 3). Обратный `startDebugging` адаптера уже доходил до `debugService.startDebugging`
+  с `parentSession`; задача добавила UI нескольких сессий по эталону: `debug.showSubSessionsInToolBar` (ключ
+  `multiSessionDebug` считает только корни, Stop/Restart дочерней сессии с `lifecycleManagedByParent` уходят корню),
+  выбор сессии в тулбаре (`FocusSessionActionViewItem` — `browser/debugActionViewItems.ts`, пункт
+  `workbench.action.debug.focusProcess`; в docked-заголовке — кнопка, открывающая выбор), выбор консоли в заголовке
+  Debug Console (`multiSessionRepl`, `workbench.action.debug.selectRepl`), команды Select Debug Session
+  (`debugSessionPicker.ts`), Select Debug Console (`debugConsoleQuickAccess.ts`, префикс `debug consoles `),
+  Focus Next/Previous Debug Console (Ctrl+PageDown/PageUp в консоли), сжатие `compact`-сессий в CALL STACK
+  (`CallStackDataSource.compress`). Синтетический адаптер умеет `workers` (дочерние `attach`-сессии, Stop родителя
+  завершает их), Debug Demo — программу `./workers` (сценарий `debug-child-sessions`). Отступление: у quick pick нет
+  разделителей — дочерняя сессия называет родителя в описании.
 
 - #1161: приёмка вехи 3 — стоковый js-debug (заметки — [StockExtensions.md](../arch/StockExtensions.md#отладка-nodejs-ms-vscodejs-debug-javascript-debugger)).
   Запись магазина `ms-vscode.js-debug` (сайт#59, гейт `>=0.18.2`), сценарий `js-debug`. Что всплыло и починено:

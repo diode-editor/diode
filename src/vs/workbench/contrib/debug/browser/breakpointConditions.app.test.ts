@@ -147,12 +147,12 @@ describe("Conditions, hit counts and logpoints with the synthetic debugger", () 
         await stoppedAt(6);
     });
 
-    it("without a condition anywhere in the loop, Continue keeps its jump to the next stop", async () => {
+    it("a plain breakpoint in the loop: Continue stops on its next pass, not the spike's jump", async () => {
         await open(27);
         t.h.testApp.sendKey("F9");
         await start();
         continueToStop();
-        await stoppedAt(100);
+        await stoppedAt(1);
         expect(t.h.container.get(DebugServiceDIToken).state).toBe(State.Stopped);
     });
 

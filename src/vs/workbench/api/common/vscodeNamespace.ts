@@ -260,6 +260,7 @@ export function buildVscodeNamespace(
         // Deferred call: providers live in `languages`, whose code actions run `commands`.
         executeCompletionItemProvider: (...args) => executeProviders.completionItems(...args),
         executeCodeActionProvider: (...args) => executeProviders.codeActions(...args),
+        executeHoverProvider: (...args) => executeProviders.hovers(...args),
         getActiveTextEditor: () => window.activeTextEditor,
         executeHostCommand: (id, args) => rpc.request("commands.executeCommand", { id, args }),
     });

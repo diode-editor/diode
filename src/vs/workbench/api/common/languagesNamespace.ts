@@ -59,6 +59,7 @@ import {
     serializeTextEdit,
     serializeWorkspaceSymbol,
     serializeWorkspaceSymbolLocation,
+    toApiHover,
     toVscodeDiagnostic,
     toVscodeRange,
     toVscodeSignatureHelp,
@@ -449,6 +450,7 @@ export interface ILanguageProviderExecutors {
         kind: string | undefined,
         itemResolveCount: number | undefined,
     ): Promise<(vscode.CodeAction | vscode.Command)[]>;
+    hovers(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover[]>;
 }
 
 /** What is not an edit is dropped; anything but an array is no edits. */
@@ -2112,12 +2114,16 @@ export function createLanguagesNamespace(
         setLanguageConfiguration: createSetLanguageConfiguration(ctx),
     };
 
-    /** Best match first, as upstream's `LanguageFeatureRegistry.ordered`. */
+    /**
+     * Best match first, on a tie the later registration first, as upstream's `LanguageFeatureRegistry.ordered`
+     * (`_compareByScoreAndTime`). The map keeps registration order; the sort is stable.
+     */
     function matching<T extends { readonly selector: vscode.DocumentSelector }>(
         providers: ReadonlyMap<number, T>,
         document: vscode.TextDocument,
     ): T[] {
         return [...providers.values()]
+            .reverse()
             .map((registration) => ({ registration, rank: scoreDocumentSelector(registration.selector, document) }))
             .filter(({ rank }) => rank > 0)
             .sort((a, b) => b.rank - a.rank)
@@ -2197,6 +2203,23 @@ export function createLanguagesNamespace(
                     return resolved ?? item;
                 }),
             );
+        },
+        // Upstream asks all providers at once; the answers keep the provider order.
+        hovers: async (document, position) => {
+            const hovers = await Promise.all(
+                matching(hoverProviders, document).map(async (registration) => {
+                    try {
+                        const result = await callWithVscodeToken(CancellationTokenNone, (token) =>
+                            registration.provider.provideHover(document, position, token),
+                        );
+                        return toApiHover(result, document, position);
+                    } catch (err) {
+                        reportProviderFailure("provideHover", err, registration.owner);
+                        return null;
+                    }
+                }),
+            );
+            return hovers.filter((hover) => hover !== null);
         },
     };
 

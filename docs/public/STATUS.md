@@ -12,7 +12,8 @@ differently is on [Differences from VS Code](DIFFERENCES.md).
   scripts and auto attach. CodeLLDB from the store debugs C and C++ —
   `.diode/launch.json` with its `preLaunchTask` (with completion of the debuggers' attributes and configuration
   snippets, no validation yet), breakpoints in the gutter (F9) with conditions, hit counts, log messages and
-  triggers, function, exception and data breakpoints, stepping, Variables, Watch, Call Stack, Breakpoints, the
+  triggers, function, exception and data breakpoints, inline breakpoints (Shift+F9), stepping, Run to Cursor, Jump
+  to Cursor, Step Into Target, the exception shown after its line, Variables, Watch, Call Stack, Breakpoints, the
   Debug Console and the debug toolbar. Not there yet: hovering a variable for its value, inline values,
   conditions edited in place (they go through a quick input), the disassembly and memory views.
 - **Snippets** from extensions are not read; **file icon themes** are not applied.

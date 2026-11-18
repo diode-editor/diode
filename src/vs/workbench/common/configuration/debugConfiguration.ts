@@ -234,6 +234,13 @@ export const debugConfiguration = {
             description: "Controls whether breakpoints should be shown in the overview ruler.",
             default: false,
         },
+        "debug.showInlineBreakpointCandidates": {
+            scope: "window",
+            type: "boolean",
+            description:
+                "Controls whether inline breakpoints candidate decorations should be shown in the editor while debugging.",
+            default: true,
+        },
         "debug.inlineValues": {
             scope: "window",
             type: "string",

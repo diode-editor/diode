@@ -5,10 +5,15 @@
 // step over, stdout/stderr/console output and a latency on `variables`/`evaluate`. Tests, e2e and the views of the
 // debugger series run on it. A launch configuration with CodeLLDB's `terminal: "integrated" | "external"` runs its
 // `program` with `args`, `cwd` and `env` through the `runInTerminal` reverse request before it answers `launch`.
-// The loop of `accumulate` is lines 27-31 of `main.cpp`, once per `i`: with a condition, a hit count or a log message
-// on a breakpoint there, Continue runs the loop line by line — a logpoint writes its message with `{i}` and `{sum}`
-// interpolated, a breakpoint stops where its condition (`i % 100 == 0`, `i > 5`) and hit count (`>= 5`, or `5`)
-// hold, and the program exits at `i == 1000`; without them Continue keeps the spike's jump of 100 to line 31.
+// The loop of `accumulate` is lines 27-31 of `main.cpp`, once per `i`: with a breakpoint there, Continue runs the loop
+// line by line — a logpoint writes its message with `{i}` and `{sum}` interpolated, a breakpoint stops where its
+// condition (`i % 100 == 0`, `i > 5`) and hit count (`>= 5`, or `5`) hold, and the program exits at `i == 1000`;
+// without one Continue keeps the spike's jump of 100 to line 31. The editor's commands have their requests: the step
+// in targets of line 29 (`numAt(i)`, `std::vector::at`), Jump to Cursor (`gotoTargets`/`goto`) on a line of the loop
+// and the breakpoint locations of its lines; the exception's info has a stack trace.
+// A launch configuration with `workers: ["worker 1", ...]` is a program with child processes, as js-debug sees one:
+// after `launch` the adapter asks the client to `startDebugging` an `attach` session per worker (named so, with
+// `__workerOf` in its configuration); a worker runs the same program, and stopping the parent ends its workers.
 
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { AbstractDebugAdapter } from "../vs/workbench/contrib/debug/common/abstractDebugAdapter.ts";
@@ -67,6 +72,9 @@ export const SYNTHETIC_CAPABILITIES: DebugProtocol.Capabilities = {
         { mode: "hardware", label: "Hardware", description: "A debug register of the CPU", appliesTo: ["source"] },
     ],
     supportsCompletionsRequest: true,
+    supportsStepInTargetsRequest: true,
+    supportsGotoTargetsRequest: true,
+    supportsBreakpointLocationsRequest: true,
     exceptionBreakpointFilters: [
         {
             filter: "cpp_throw",
@@ -100,6 +108,10 @@ type Children = () => DebugProtocol.Variable[];
 /** The lines of the loop of `accumulate` in `main.cpp`: one pass per `i`. */
 const LOOP_FIRST_LINE = 27;
 const LOOP_LAST_LINE = 31;
+/** The loop's line with calls to step into: `        sum += numAt(nums.at(i));` (`numAt` at 16, `nums.at` at 22). */
+export const STEP_IN_TARGETS_LINE = 29;
+/** The columns of a loop's line a breakpoint can be set at (`breakpointLocations`). */
+export const BREAKPOINT_COLUMNS: readonly number[] = [9, 16, 22];
 
 /** A breakpoint the adapter was given, with how many times its condition held. */
 interface ISetBreakpoint {
@@ -195,11 +207,15 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
     private launched = false;
     private configured = false;
     private running = false;
+    /** The adapter whose `workers` this one runs, by its index in the factory. */
+    private workerOf: number | undefined;
 
     /** `root`: where the program's sources are; a test that opens them in the editor puts real files there. */
     public constructor(
         private readonly timing: ISyntheticTiming = SPIKE_TIMING,
         private readonly root = SYNTHETIC_PROGRAM_ROOT,
+        /** The adapters of the other sessions: the workers of this one end with it. */
+        private readonly family: readonly SyntheticDebugAdapter[] = [],
     ) {
         super();
     }
@@ -331,7 +347,9 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 }
             // falls through
             case "attach":
+                this.workerOf = args.__workerOf as number | undefined;
                 this.launch(request);
+                this.startWorkers((args.workers ?? []) as string[]);
                 return;
             case "configurationDone":
                 this.configured = true;
@@ -374,9 +392,13 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 });
                 return;
             case "setExceptionBreakpoints":
+                this.clearTimers();
+                this.respond(request);
+                return;
             case "disconnect":
                 this.clearTimers();
                 this.respond(request);
+                this.endWorkers();
                 return;
             case "threads":
                 this.respond(request, { threads: this.program.threads() });
@@ -410,7 +432,7 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 return;
             case "continue":
                 this.respond(request, { allThreadsContinued: true });
-                if (this.loopHasConditions()) {
+                if (this.loopHasBreakpoints()) {
                     this.resume(this.timing.continueMs, () => {
                         this.runLoop();
                     });
@@ -447,6 +469,52 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                     this.stop("step");
                 });
                 return;
+            case "stepInTargets":
+                this.respond(request, {
+                    targets:
+                        this.program.line === STEP_IN_TARGETS_LINE
+                            ? [
+                                  {
+                                      id: 1,
+                                      label: "numAt(int)",
+                                      line: STEP_IN_TARGETS_LINE,
+                                      column: 16,
+                                      endLine: STEP_IN_TARGETS_LINE,
+                                      endColumn: 33,
+                                  },
+                                  {
+                                      id: 2,
+                                      label: "std::vector<int>::at(size_t)",
+                                      line: STEP_IN_TARGETS_LINE,
+                                      column: 22,
+                                      endLine: STEP_IN_TARGETS_LINE,
+                                      endColumn: 32,
+                                  },
+                              ]
+                            : [],
+                });
+                return;
+            case "gotoTargets": {
+                const line = this.loopLine(args);
+                this.respond(request, {
+                    targets: line === undefined ? [] : [{ id: line, label: `main.cpp:${String(line)}`, line }],
+                });
+                return;
+            }
+            case "goto":
+                this.respond(request);
+                this.resume(this.timing.stepMs, () => {
+                    this.program.line = Number(args.targetId);
+                    this.stop("goto");
+                });
+                return;
+            case "breakpointLocations": {
+                const line = this.loopLine(args);
+                this.respond(request, {
+                    breakpoints: line === undefined ? [] : BREAKPOINT_COLUMNS.map((column) => ({ line, column })),
+                });
+                return;
+            }
             case "stepOut":
                 this.respond(request);
                 this.resume(this.timing.stepMs, () => {
@@ -474,6 +542,14 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                     exceptionId: "std::out_of_range",
                     description: "vector::_M_range_check: __n (which is 1000) >= this->size() (which is 1000)",
                     breakMode: "always",
+                    details: {
+                        typeName: "std::out_of_range",
+                        stackTrace: [
+                            `    at accumulate(std::vector<int> const&) (${this.root}/src/${MAIN_CPP}:${String(this.program.line)})`,
+                            `    at process(Config const&) (${this.root}/src/${MAIN_CPP}:47)`,
+                            `    at main(int, char**) (${this.root}/src/${MAIN_CPP}:58)`,
+                        ].join("\n"),
+                    },
                 });
                 return;
             case "terminateThreads":
@@ -487,14 +563,52 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
                 this.respond(request, { sources: [MAIN_CPP, LIST_CPP, QUEUE_CPP].map((f) => this.source(f)) });
                 return;
             case "terminate":
-                this.clearTimers();
                 this.respond(request);
-                this.output("console", "Process exited with code 0.");
-                this.event("exited", { exitCode: 0 });
-                this.event("terminated");
+                this.exit();
+                this.endWorkers();
                 return;
             default:
                 this.fail(request, `Unrecognized request '${request.command}'`);
+        }
+    }
+
+    /** The request's `line` when it is a line of the loop of `main.cpp`. */
+    private loopLine(args: Record<string, unknown>): number | undefined {
+        const line = Number(args.line);
+        const inMain = (args.source as DebugProtocol.Source).path === `${this.root}/src/${MAIN_CPP}`;
+        return inMain && line >= LOOP_FIRST_LINE && line <= LOOP_LAST_LINE ? line : undefined;
+    }
+
+    /** js-debug's child processes: a session per worker, through the client. */
+    private startWorkers(workers: readonly string[]): void {
+        for (const name of workers) {
+            const args: DebugProtocol.StartDebuggingRequestArguments = {
+                request: "attach",
+                configuration: { name, __workerOf: this.family.indexOf(this) },
+            };
+            this.acceptMessage({
+                type: "request",
+                seq: this.seq++,
+                command: "startDebugging",
+                arguments: args,
+            } as DebugProtocol.Request);
+        }
+    }
+
+    /** The program ends: the client hears `exited` and `terminated`. */
+    private exit(): void {
+        this.clearTimers();
+        this.output("console", "Process exited with code 0.");
+        this.event("exited", { exitCode: 0 });
+        this.event("terminated");
+    }
+
+    /** The parent process went away: so do its workers. */
+    private endWorkers(): void {
+        const index = this.family.indexOf(this);
+        if (index < 0) return;
+        for (const worker of this.family) {
+            if (worker.workerOf === index) worker.exit();
         }
     }
 
@@ -519,11 +633,10 @@ export class SyntheticDebugAdapter extends AbstractDebugAdapter {
         this.later(ms, stopAgain);
     }
 
-    /** A breakpoint with a condition, a hit count or a log message on a line of the loop. */
-    private loopHasConditions(): boolean {
+    /** A breakpoint on a line of the loop. */
+    private loopHasBreakpoints(): boolean {
         for (let line = LOOP_FIRST_LINE; line <= LOOP_LAST_LINE; line++) {
-            const set = this.breakpointsAt.get(`${this.root}/src/${MAIN_CPP}:${String(line)}`) ?? [];
-            if (set.some((bp) => !!bp.condition || !!bp.hitCondition || !!bp.logMessage)) return true;
+            if (this.breakpointsAt.has(`${this.root}/src/${MAIN_CPP}:${String(line)}`)) return true;
         }
         return false;
     }
@@ -987,7 +1100,7 @@ export class SyntheticDebugAdapterFactory implements IDebugAdapterFactory {
     ) {}
 
     public createDebugAdapter(): SyntheticDebugAdapter {
-        const adapter = new SyntheticDebugAdapter(this.timing, this.root);
+        const adapter = new SyntheticDebugAdapter(this.timing, this.root, this.adapters);
         this.adapters.push(adapter);
         return adapter;
     }

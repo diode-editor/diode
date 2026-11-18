@@ -55,8 +55,13 @@
             "workbench.action.debug.callStackDown",
             "debug.startFromConfig",
             "workbench.action.debug.focusProcess",
+            "workbench.action.debug.selectDebugSession",
             "debug.installAdditionalDebuggers",
             "debug.openView",
+            "debug.jumpToCursor",
+            "debug.jumpToCursor",
+            "workbench.action.debug.stepIntoTarget",
+            "editor.debug.action.toggleInlineBreakpoint",
             "debug.editBreakpoint",
             "debug.editFunctionBreakpoint",
             "debug.editFunctionBreakpointHitCount",
@@ -86,6 +91,10 @@
             "debug.replCopy",
             "workbench.debug.action.copyAll",
             "debug.replPaste",
+            "workbench.action.debug.selectRepl",
+            "workbench.action.debug.selectDebugConsole",
+            "workbench.action.debug.nextConsole",
+            "workbench.action.debug.prevConsole",
             "extensions.actions.searchByCategory.AI",
             "extensions.actions.searchByCategory.Azure",
             "extensions.actions.searchByCategory.Chat",
@@ -169,7 +178,8 @@
             "workbench.action.debug.stepOut",
             "workbench.action.debug.restart",
             "workbench.action.debug.disconnect",
-            "workbench.action.debug.stop"
+            "workbench.action.debug.stop",
+            "workbench.action.debug.focusProcess"
         ]
     },
     "DebugVariablesContext": {
@@ -220,6 +230,14 @@
             "editor.action.clipboardCutAction",
             "editor.action.clipboardCopyAction",
             "editor.action.clipboardPasteAction"
+        ],
+        "debug": [
+            "editor.debug.action.selectionToRepl",
+            "editor.debug.action.toggleInlineBreakpoint",
+            "editor.debug.action.selectionToWatch",
+            "editor.debug.action.stepIntoTargets",
+            "editor.debug.action.runToCursor",
+            "debug.jumpToCursor"
         ],
         "navigation": [
             "editor.action.revealDefinition",

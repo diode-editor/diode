@@ -207,7 +207,7 @@
   VS Code так же. Angular в vsix нет: клиент спрашивает сервер `IsInAngularProject`, и ответ «да» только с
   `@angular/core` в `node_modules` проекта, поэтому обвязки доносят его сами (`angularFixture.ts`: кэшируемый
   `npm install`, симлинк в воркспейс). Работают ngtsc-диагностика в `.html` и во встроенном `template:`, completion
-  членов, компонентов и привязок, hover и F12 из шаблона в компонент, ссылки из `.ts` в шаблон, линза `Go to component`,
+  членов, компонентов и привязок, hover (и во встроенном `template:`) и F12 из шаблона в компонент, ссылки из `.ts` в шаблон, линза `Go to component`,
   `Go to template` и `View Template Typecheck Block`, подсветка шаблонов инъекциями грамматик. Сервер расширение
   форкает по **каталогу** `server`: бинарь в режиме node (`runAsNode`) импортировал путь как ESM-модуль и на 0.18.0
   падал с `ERR_UNSUPPORTED_DIR_IMPORT`. Запись уже была опубликована с гейтом 0.18.0, а опубликованную версию не
@@ -216,8 +216,9 @@
     - В completion нет обычных HTML-тегов (`div`, `span`): в VS Code их даёт встроенный `html-language-features`, в том
       числе для встроенного шаблона через виртуальный документ `angular-embedded-content` и
       `vscode.executeCompletionItemProvider`, а HTML-сервера у diode нет (#1202).
-    - Hover во встроенном `template:` падает с `command "vscode.executeHoverProvider" not found`: middleware расширения
-      спрашивает HTML-провайдеры виртуального документа (#1201). Интеграция встроенных шаблонов целиком — #1203.
+    - Интеграция встроенных шаблонов с HTML целиком — #1203. Hover во встроенном `template:` работает: middleware
+      расширения сначала спрашивает `vscode.executeHoverProvider` у виртуального документа
+      `angular-embedded-content`, HTML-провайдеров нет, пустой ответ пропускает hover самого Angular.
     - Find All References из `.ts` показывает `.ts`-места дважды: отвечают встроенный TypeScript и Angular. Эталон
       дедуплицирует в `goToSymbol.ts` (`_sortedAndDeduped`), `getReferences.ts` — нет (#1200).
     - Rename из `.ts` не доходит до шаблона, **в VS Code так же**: `rename.ts` эталона берёт провайдер, чей
